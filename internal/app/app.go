@@ -473,7 +473,8 @@ type takeReq struct {
 	Src    int   `json:"src"`
 	Dst    int   `json:"dst"`
 	Levels []int `json:"levels"`
-	Undo   *int  `json:"undo"` // history ID being undone
+	Undo   *int  `json:"undo"`  // history ID being undone
+	Retry  *int  `json:"retry"` // history ID of the failed take being retried
 }
 
 type waiter struct {
@@ -536,7 +537,7 @@ func (a *App) take(c *client, req takeReq) {
 		sends = append(sends, send{ui, l.Wire, swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
 	}
 
-	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Prev: [][2]int{}}
+	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Prev: [][2]int{}}
 	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, done: make(chan struct{})}
 	var protected []int
 	a.mu.Lock()
@@ -632,12 +633,16 @@ func (a *App) record(e *Entry) {
 	if e.Undo != nil {
 		undo = fmt.Sprint(*e.Undo)
 	}
+	retry := "-"
+	if e.Retry != nil {
+		retry = fmt.Sprint(*e.Retry)
+	}
 	result := "ok"
 	if !e.OK {
 		result = e.Err
 	}
-	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s result=%q",
-		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, result)
+	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s result=%q",
+		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, result)
 	a.mu.Lock()
 	a.broadcast(map[string]any{"t": "recent", "e": e})
 	a.mu.Unlock()

@@ -393,8 +393,20 @@ export function beforeGroups(e) {
 
 // A failed take, tried again as a fresh patch of the same route.
 export function retryPlan(e) {
-  return patchPlan(srcItem(e.src, e.srcName), dstItem(e.dst, e.dstName),
+  const plan = patchPlan(srcItem(e.src, e.srcName), dstItem(e.dst, e.dstName),
     e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b));
+  plan.retry = e;
+  return plan;
+}
+
+// 'undo', 'retry' or 'patch', for wording confirms.
+export const planVerb = (plan) => (plan.undo ? 'undo' : plan.retry ? 'retry' : 'patch');
+
+// " (undo of #3)" / " (retry of #3)" for a history entry, or null.
+export function entryNote(e) {
+  if (e.undo != null) return el('span', 'sode__hist-note', ` (undo of #${e.undo})`);
+  if (e.retry != null) return el('span', 'sode__hist-note', ` (retry of #${e.retry})`);
+  return null;
 }
 
 // Asks for the next page of history. True if a request went out.
@@ -435,7 +447,7 @@ function takeResult(m) {
 
 // ---- plans: { dst, groups: [{src, levels}], skipped, undo }
 
-export const patchPlan = (src, dst, levels) => ({ dst, groups: [{ src, levels }], skipped: [], undo: null });
+export const patchPlan = (src, dst, levels) => ({ dst, groups: [{ src, levels }], skipped: [], undo: null, retry: null });
 
 // Why a plan can't be confirmed right now, as a result banner, or null.
 export function planBlocked(plan) {
@@ -460,7 +472,7 @@ export function planSummary(plan) {
   const question = plan.undo
     ? el('div', null, 'Are you sure you want to undo the patch of ', el('strong', null, srcItem(plan.undo.src, plan.undo.srcName).label),
       ' to Destination ', el('strong', null, plan.dst.label), '?')
-    : el('div', null, 'Are you sure you want to patch Source ', el('strong', null, plan.groups[0].src.label),
+    : el('div', null, `Are you sure you want to ${plan.retry ? 'retry patching' : 'patch'} Source `, el('strong', null, plan.groups[0].src.label),
       ' to Destination ', el('strong', null, plan.dst.label), '?');
   return [
     question,
@@ -480,6 +492,7 @@ export function sendTakes(p) {
     const id = ++takeSeq;
     const msg = { t: 'take', id, src: g.src.n, dst: p.dst.n, levels: g.levels };
     if (p.undo) msg.undo = p.undo.id;
+    if (p.retry) msg.retry = p.retry.id;
     if (!wsSend(msg)) {
       showResult('error', 'Not connected', 'Lost connection to Sode before the patch was sent.');
       return false;

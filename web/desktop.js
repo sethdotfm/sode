@@ -3,7 +3,7 @@
 import {
   $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, requestHistory,
-  beforeGroups, srcRow, tallyText, retryPlan,
+  beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
 import { layout } from './layout.js';
@@ -193,7 +193,7 @@ function histRow(e) {
     el('span', 'sode__hist-time', fmtTime(e.time)),
     levelBar(known),
     el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
-      e.undo != null ? el('span', 'sode__hist-note', ` (undo of #${e.undo})`) : null),
+      entryNote(e)),
     status,
     toggle,
     el('span', 'sode__hist-actions', retryButton(e, src, dst), btn));
@@ -291,12 +291,14 @@ function openConfirm(plan) {
   pending = { ...plan, key };
 
   const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
-  $('confirm-title').textContent = plan.undo ? 'Confirm undo' : 'Confirm patch';
+  const verb = planVerb(plan);
+  const Verb = verb[0].toUpperCase() + verb.slice(1);
+  $('confirm-title').textContent = `Confirm ${verb}`;
   $('confirm-body').replaceChildren(
     ...planSummary(plan),
     el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
   );
-  $('confirm-ok').textContent = `${plan.undo ? 'Undo' : 'Patch'} (${key.toUpperCase()})`;
+  $('confirm-ok').textContent = `${Verb} (${key.toUpperCase()})`;
   $('confirm-ok').disabled = true;
   $('confirm').hidden = false;
   $('confirm-dialog').focus();
