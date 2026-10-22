@@ -391,6 +391,12 @@ export function beforeGroups(e) {
   return [...groups].map(([src, levels]) => ({ src, levels }));
 }
 
+// A failed take, tried again as a fresh patch of the same route.
+export function retryPlan(e) {
+  return patchPlan(srcItem(e.src, e.srcName), dstItem(e.dst, e.dstName),
+    e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b));
+}
+
 // Asks for the next page of history. True if a request went out.
 export function requestHistory() {
   if (!S.histMore || S.histLoading || !S.hist.length) return false;

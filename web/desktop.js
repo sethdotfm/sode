@@ -3,7 +3,7 @@
 import {
   $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, requestHistory,
-  beforeGroups, srcRow, tallyText,
+  beforeGroups, srcRow, tallyText, retryPlan,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
 import { layout } from './layout.js';
@@ -196,7 +196,7 @@ function histRow(e) {
       e.undo != null ? el('span', 'sode__hist-note', ` (undo of #${e.undo})`) : null),
     status,
     toggle,
-    btn);
+    el('span', 'sode__hist-actions', retryButton(e, src, dst), btn));
   if (open) {
     const detail = el('div', 'sode__hist-before',
       el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
@@ -205,6 +205,20 @@ function histRow(e) {
     row.append(detail);
   }
   return row;
+}
+
+// Successful rows keep an invisible Retry so every row's columns line up.
+function retryButton(e, src, dst) {
+  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (e.ok ? ' sode__placeholder' : ''), 'Retry');
+  b.type = 'button';
+  if (e.ok) {
+    b.tabIndex = -1;
+    b.setAttribute('aria-hidden', 'true');
+    return b;
+  }
+  b.setAttribute('aria-label', `Retry ${src.label} to ${dst.label}`);
+  b.addEventListener('click', () => openConfirm(retryPlan(e)));
+  return b;
 }
 
 function renderHistory() {

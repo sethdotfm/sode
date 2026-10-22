@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -20,6 +21,7 @@ type sim struct {
 	dsts    []string
 	tally   map[int][]int // wire level → dst → src
 	clients map[net.Conn]*sync.Mutex
+	deaf    map[int]bool // dsts whose connects are ACKed but never carried out
 }
 
 func envInt(k string, def int) int {
@@ -33,7 +35,14 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}}
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}}
+	// SIM_IGNORE_DSTS=5,7 makes connects to those (0-based) destinations
+	// silently fail, so Sode's timeout and retry paths can be exercised.
+	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
+		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
+			s.deaf[n] = true
+		}
+	}
 	named := []string{"Black", "Bars", "CG1 Fill", "CG1 Key", "CG2 Fill", "CG2 Key", "CG3 Fill", "CG3 Key", "Replay A", "Replay B", "Zoom 1", "Zoom 2"}
 	for i := 0; i < ns; i++ {
 		switch {
@@ -128,6 +137,10 @@ func (s *sim) handle(c net.Conn, m []byte) {
 		}
 		mx, l := int(m[1]), int(m[2])
 		dst, src := int(m[3])<<8|int(m[4]), int(m[5])<<8|int(m[6])
+		if s.deaf[dst] {
+			log.Printf("connect level %d: dst %d ← src %d ignored (SIM_IGNORE_DSTS)", l, dst, src)
+			return
+		}
 		s.mu.Lock()
 		t, ok := s.tally[l]
 		valid := ok && dst < len(t) && src < len(s.srcs)

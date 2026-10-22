@@ -4,7 +4,7 @@
 
 import {
   $, el, S, on, connState, setDot, search, parseLevels, levelInput, levelBar, pickButtons, allLevels,
-  fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, resultNode, showResult,
+  fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, resultNode, showResult,
   patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
 import { layout, onLayout } from './layout.js';
@@ -221,8 +221,16 @@ function recentRow(e) {
 
   const status = el('span', 'pb-status', el('span', `pb-dot pb-dot--${e.ok ? 'ok' : 'error'}`), e.ok ? 'ok' : 'failed');
   status.firstChild.setAttribute('aria-hidden', 'true');
+  let retry = null;
+  if (!e.ok) {
+    retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Retry');
+    retry.type = 'button';
+    retry.setAttribute('aria-label', `Retry ${src.label} to ${dst.label}`);
+    retry.addEventListener('click', () => { closeSwipes(); openSheet(retryPlan(e)); });
+  }
   const face = el('div', 'sode-m__recent-face',
-    el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)), status),
+    el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
+      el('span', 'sode-m__recent-status', status, retry)),
     el('div', 'sode-m__recent-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label)),
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
   const row = el('li', 'sode-m__recent-row', undo, face);

@@ -18,6 +18,8 @@ docker compose --profile sim up --build
 # open http://localhost:8080
 ```
 
+The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container.
+
 Against a real router (first start):
 
 ```sh
