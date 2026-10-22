@@ -21,6 +21,10 @@
     levelBy: new Map(),
     router: null,
     ws: null,
+    hist: [],         // newest first
+    histMore: false,
+    histLoading: false,
+    feedOpen: false,  // "and N others" expanded
   };
   const sel = { src: null, dst: null };
   const boxes = {
@@ -35,8 +39,10 @@
     const num = String(n + off());
     return { n, name, num, lname: name.toLowerCase(), label: name ? `${num} ${name}` : num };
   }
-  const srcLabel = (n) => (S.srcBy.get(n) || item(n, '')).label;
-  const dstLabel = (n) => (S.dstBy.get(n) || item(n, '')).label;
+  const srcItem = (n, name = '') => S.srcBy.get(n) || item(n, name);
+  const dstItem = (n, name = '') => S.dstBy.get(n) || item(n, name);
+  const srcLabel = (n) => srcItem(n).label;
+  const dstLabel = (n) => dstItem(n).label;
   // Tally source text: null = never reported, -1 = router says nothing routed.
   const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
 
@@ -54,12 +60,19 @@
     ws.onopen = () => { retry = 1000; setDot('ws', 'ok', 'WebSocket connected'); };
     ws.onclose = () => {
       S.ws = null;
+      S.histLoading = false;
       setDot('ws', 'error', 'WebSocket disconnected');
       setDot('rt', 'idle', 'SW-P-08 unknown');
       setTimeout(connect, retry);
       retry = Math.min(retry * 2, 10000);
     };
     ws.onmessage = (e) => handle(JSON.parse(e.data));
+  }
+
+  function wsSend(m) {
+    if (!S.ws || S.ws.readyState !== WebSocket.OPEN) return false;
+    S.ws.send(JSON.stringify(m));
+    return true;
   }
 
   function handle(m) {
@@ -72,8 +85,11 @@
         S.tally = new Map();
         applyTally(m.tally || []);
         setStatus(m.status);
+        S.hist = m.recent || [];
+        S.histMore = m.more;
         renderLevels();
         renderTally();
+        renderHistory();
         break;
       case 'names':
         setNames(m.srcs, m.dsts);
@@ -90,6 +106,18 @@
       case 'takeResult':
         takeResult(m);
         break;
+      case 'recent':
+        if (!S.hist.some((e) => e.id === m.e.id)) S.hist.unshift(m.e);
+        renderHistory();
+        break;
+      case 'history': {
+        const last = S.hist.length ? S.hist[S.hist.length - 1].id : Infinity;
+        S.hist.push(...m.entries.filter((e) => e.id < last));
+        S.histMore = m.more;
+        S.histLoading = false;
+        renderHistory();
+        break;
+      }
     }
   }
 
@@ -179,16 +207,21 @@
     b.input.setAttribute('aria-activedescendant', `${k}-opt-${b.hi}`);
   }
 
-  function accept(k) {
-    const b = boxes[k];
-    const it = b.matches[b.hi];
-    if (!it) return false;
+  function select(k, it) {
     sel[k] = it;
-    b.input.value = it.label;
+    if (k === 'src') S.feedOpen = false;
+    const b = boxes[k];
+    b.input.value = it ? it.label : '';
     b.input.classList.remove('pb-input--invalid');
     b.matches = [];
     renderMenu(k);
     renderTally();
+  }
+
+  function accept(k) {
+    const it = boxes[k].matches[boxes[k].hi];
+    if (!it) return false;
+    select(k, it);
     return true;
   }
 
@@ -223,8 +256,10 @@
     return parts.join(', ');
   }
 
+  // Numbered colour swatch per level. The number repeats the level so the
+  // swatch never relies on colour alone.
   const swatches = (list) => list.map((u) => {
-    const s = el('span', `pb-level pb-level--${S.levelBy.get(u).swatch}`);
+    const s = el('span', `pb-level pb-level--${S.levelBy.get(u).swatch} sode__swatch`, String(u));
     s.setAttribute('aria-hidden', 'true');
     return s;
   });
@@ -266,8 +301,7 @@
     if (!S.cfg) return box.replaceChildren();
     const levels = parseLevels(lvlInput.value) || S.cfg.levels.map((l) => l.ui);
     if (sel.dst) {
-      const rows = runs(sel.dst.n, levels).map((r) =>
-        routeRow(r.levels, tallyText(r.src), sel.dst.label));
+      const rows = runs(sel.dst.n, levels).map((r) => routeRow(r.levels, tallyText(r.src), sel.dst.label));
       return box.replaceChildren(el('div', 'sode__label', 'Currently'), ...rows);
     }
     if (sel.src) {
@@ -276,15 +310,104 @@
         if (levels.some((u) => t.get(u) === sel.src.n)) fed.push(d);
       }
       fed.sort((a, b) => a - b);
-      let text = 'Not feeding any destination on these levels';
-      if (fed.length) {
-        const shown = fed.slice(0, 2).map(dstLabel);
-        text = 'Feeding ' + shown.join(', ') + (fed.length > 2 ? `, and ${fed.length - 2} others` : '');
-      }
-      return box.replaceChildren(el('div', 'sode__label', 'Currently'), el('div', 'sode__route', text));
+      return box.replaceChildren(el('div', 'sode__label', 'Currently'), feedingRow(fed));
     }
     box.replaceChildren();
   }
+
+  function feedingRow(fed) {
+    if (!fed.length) return el('div', 'sode__route', 'Not feeding any destination on these levels');
+    if (S.feedOpen || fed.length <= 2) {
+      const list = el('div', 'sode__chips', ...fed.map((d) => el('span', 'pb-chip pb-chip--static', dstLabel(d))));
+      const row = el('div', 'sode__feed', el('span', null, `Feeding ${fed.length} destination${fed.length === 1 ? '' : 's'}`), list);
+      if (fed.length > 2) {
+        const less = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Show less');
+        less.type = 'button';
+        less.setAttribute('aria-expanded', 'true');
+        less.addEventListener('click', () => { S.feedOpen = false; renderTally(); });
+        row.append(el('div', null, less));
+      }
+      return row;
+    }
+    const more = el('button', 'pb-btn pb-btn--ghost sode__more', `and ${fed.length - 2} others`);
+    more.type = 'button';
+    more.setAttribute('aria-expanded', 'false');
+    more.addEventListener('click', () => { S.feedOpen = true; renderTally(); });
+    return el('div', 'sode__route', `Feeding ${fed.slice(0, 2).map(dstLabel).join(', ')},`, more);
+  }
+
+  // ---- history
+
+  const fmtTime = (iso) => {
+    const d = new Date(iso);
+    const t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString()} ${t}`;
+  };
+
+  // Groups an entry's previous routing into restorable takes.
+  function undoPlan(e) {
+    const groups = new Map();
+    const skipped = [];
+    for (const [u, s] of e.prev) {
+      if (!S.levelBy.has(u)) continue;
+      if (s < 0) { skipped.push(u); continue; }
+      if (!groups.has(s)) groups.set(s, []);
+      groups.get(s).push(u);
+    }
+    const known = new Set(e.prev.map(([u]) => u));
+    for (const u of e.levels) if (!known.has(u)) skipped.push(u);
+    return {
+      dst: dstItem(e.dst, e.dstName),
+      groups: [...groups].map(([s, levels]) => ({ src: srcItem(s), levels: levels.sort((a, b) => a - b) })),
+      skipped: skipped.sort((a, b) => a - b),
+      undo: e,
+    };
+  }
+
+  function histRow(e) {
+    const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);
+    const known = e.levels.filter((u) => S.levelBy.has(u));
+    const status = el('span', 'pb-status',
+      el('span', `pb-dot pb-dot--${e.ok ? 'ok' : 'error'}`),
+      e.ok ? 'ok' : 'failed');
+    status.firstChild.setAttribute('aria-hidden', 'true');
+    if (!e.ok) status.title = e.err || '';
+
+    const plan = undoPlan(e);
+    const btn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Undo');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', `Undo ${src.label} to ${dst.label}`);
+    if (!plan.groups.length) {
+      btn.disabled = true;
+      btn.title = 'Nothing to restore';
+    }
+    btn.addEventListener('click', () => openConfirm(plan));
+
+    return el('li', 'pb-input sode__hist-row',
+      el('span', 'sode__hist-time', fmtTime(e.time)),
+      el('span', 'sode__route-levels', ...swatches(known), el('span', null, levelText(known))),
+      el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
+        e.undo != null ? el('span', 'sode__hist-note', ` (undo of #${e.undo})`) : null),
+      status,
+      btn);
+  }
+
+  function renderHistory() {
+    $('history-head').hidden = !S.hist.length;
+    $('history').replaceChildren(...S.hist.map(histRow));
+    $('history-more').textContent = S.histLoading ? 'Loading…' : '';
+    maybeLoadMore();
+  }
+
+  function maybeLoadMore() {
+    if (!S.histMore || S.histLoading || !S.hist.length) return;
+    const r = $('history-more').getBoundingClientRect();
+    if (r.top > window.innerHeight + 200) return;
+    S.histLoading = wsSend({ t: 'history', before: S.hist[S.hist.length - 1].id });
+    if (S.histLoading) $('history-more').textContent = 'Loading…';
+  }
+
+  new IntersectionObserver(maybeLoadMore, { rootMargin: '200px' }).observe($('history-more'));
 
   // ---- results
 
@@ -297,7 +420,7 @@
     const t = takes.get(m.id);
     takes.delete(m.id);
     const what = t ? `${t.src.label} → ${t.dst.label} (${levelText(t.levels)})` : '';
-    if (m.ok) showResult('ok', 'Patched', what);
+    if (m.ok) showResult('ok', t && t.undo ? 'Undone' : 'Patched', what);
     else showResult('error', 'Patch failed', `${what}: ${m.err}`);
   }
 
@@ -305,7 +428,7 @@
 
   const KEYS = 'abcdefghjkmnpqrstuvwxyz';
   let lastKey = '';
-  let pending = null;
+  let pending = null; // { dst, groups: [{src, levels}], skipped, undo, key }
   let readyAt = 0;
 
   function tryConfirm() {
@@ -319,31 +442,42 @@
     }
     const levels = parseLevels(lvlInput.value);
     if (!levels) { lvlInput.focus(); return; }
+    openConfirm({ dst: sel.dst, groups: [{ src: sel.src, levels }], skipped: [], undo: null });
+  }
+
+  function openConfirm(plan) {
     if (!S.ws || S.router !== 'up') {
       showResult('error', 'Not connected', 'Sode is not connected to the router.');
       return;
     }
-    openConfirm(levels);
-  }
-
-  function openConfirm(levels) {
     let key;
     do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
     lastKey = key;
-    pending = { src: sel.src, dst: sel.dst, levels, key };
+    pending = { ...plan, key };
 
     const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
-    const before = runs(sel.dst.n, levels).map((r) =>
-      routeRow(r.levels, tallyText(r.src), sel.dst.label));
+    const all = plan.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
+    const before = runs(plan.dst.n, all).map((r) => routeRow(r.levels, tallyText(r.src), plan.dst.label));
+    const after = plan.groups.map((g) => routeRow(g.levels, g.src.label, plan.dst.label));
+
+    const question = plan.undo
+      ? el('div', null, 'Are you sure you want to undo the patch of ', el('strong', null, srcItem(plan.undo.src, plan.undo.srcName).label),
+        ' to Destination ', el('strong', null, plan.dst.label), '?')
+      : el('div', null, 'Are you sure you want to patch Source ', el('strong', null, plan.groups[0].src.label),
+        ' to Destination ', el('strong', null, plan.dst.label), '?');
+
+    $('confirm-title').textContent = plan.undo ? 'Confirm undo' : 'Confirm patch';
     $('confirm-body').replaceChildren(
-      el('div', null, 'Are you sure you want to patch Source ', el('strong', null, sel.src.label),
-        ' to Destination ', el('strong', null, sel.dst.label), '?'),
-      routeRow(levels, sel.src.label, sel.dst.label),
+      question,
+      ...after,
+      plan.skipped.length
+        ? el('div', 'sode__hist-note', `${levelText(plan.skipped)}: nothing was routed before, left as is.`)
+        : null,
       el('div', 'sode__label', 'Replacing'),
       ...before,
-      el('div', null, 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
+      el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
     );
-    $('confirm-ok').textContent = `Patch (${key.toUpperCase()})`;
+    $('confirm-ok').textContent = `${plan.undo ? 'Undo' : 'Patch'} (${key.toUpperCase()})`;
     $('confirm-ok').disabled = true;
     $('confirm').hidden = false;
     $('confirm-dialog').focus();
@@ -358,24 +492,29 @@
   }
 
   function closeConfirm() {
+    const wasUndo = pending && pending.undo;
     pending = null;
     $('confirm').hidden = true;
-    lvlInput.focus();
+    if (!wasUndo) lvlInput.focus();
   }
 
   function doTake() {
     const p = pending;
     pending = null;
     $('confirm').hidden = true;
-    if (!S.ws || S.ws.readyState !== WebSocket.OPEN) {
-      showResult('error', 'Not connected', 'Lost connection to Sode before the patch was sent.');
-      return;
+    for (const g of p.groups) {
+      const id = ++takeSeq;
+      const msg = { t: 'take', id, src: g.src.n, dst: p.dst.n, levels: g.levels };
+      if (p.undo) msg.undo = p.undo.id;
+      if (!wsSend(msg)) {
+        showResult('error', 'Not connected', 'Lost connection to Sode before the patch was sent.');
+        return;
+      }
+      takes.set(id, { src: g.src, dst: p.dst, levels: g.levels, undo: p.undo });
     }
-    const id = ++takeSeq;
-    takes.set(id, p);
-    S.ws.send(JSON.stringify({ t: 'take', id, src: p.src.n, dst: p.dst.n, levels: p.levels }));
-    showResult('info', 'Patching…', `${p.src.label} → ${p.dst.label} (${levelText(p.levels)})`);
-    clearAll();
+    const g = p.groups[0];
+    showResult('info', p.undo ? 'Undoing…' : 'Patching…', `${g.src.label} → ${p.dst.label} (${levelText(g.levels)})`);
+    if (!p.undo) clearAll();
   }
 
   function onConfirmKey(e) {
@@ -390,13 +529,7 @@
   // ---- keyboard & input wiring
 
   function clearAll() {
-    for (const k of ['src', 'dst']) {
-      sel[k] = null;
-      boxes[k].input.value = '';
-      boxes[k].matches = [];
-      boxes[k].input.classList.remove('pb-input--invalid');
-      renderMenu(k);
-    }
+    for (const k of ['src', 'dst']) select(k, null);
     lvlInput.value = '';
     renderLevels();
     renderTally();
@@ -407,6 +540,7 @@
     const b = boxes[k];
     b.input.addEventListener('input', () => {
       sel[k] = null;
+      if (k === 'src') S.feedOpen = false;
       b.input.classList.remove('pb-input--invalid');
       refresh(k);
       renderTally();
@@ -423,6 +557,7 @@
     const id = e.target.id;
     const k = id === 'src' || id === 'dst' ? id : null;
     const b = k && boxes[k];
+    const inBox = k || id === 'lvl';
 
     if (b && !b.menu.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault();
@@ -440,6 +575,7 @@
       if (id === 'lvl') { e.preventDefault(); boxes.src.input.focus(); }
       return;
     }
+    if (!inBox) return; // leave buttons and the history list to the browser
     if (e.key === 'Enter') {
       e.preventDefault();
       if (b && !sel[k] && b.input.value.trim()) accept(k);
@@ -449,8 +585,8 @@
     if (e.key === 'Escape') {
       if (b && !b.menu.hidden) { b.matches = []; renderMenu(k); return; }
       if (e.target.value) {
-        e.target.value = '';
-        if (k) sel[k] = null;
+        if (k) select(k, null);
+        else e.target.value = '';
         renderLevels();
         renderTally();
       } else {

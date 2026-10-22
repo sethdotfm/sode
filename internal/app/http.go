@@ -112,14 +112,18 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var m struct {
-			T string `json:"t"`
+			T      string `json:"t"`
+			Before int    `json:"before"`
 			takeReq
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
 		}
-		if m.T == "take" {
+		switch m.T {
+		case "take":
 			go a.take(c, m.takeReq)
+		case "history":
+			go a.history(c, m.Before)
 		}
 	}
 }

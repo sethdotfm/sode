@@ -36,6 +36,7 @@ type Config struct {
 type App struct {
 	cfg     Config
 	sw      *swp08.Client
+	hist    *History
 	byWire  map[int]Level
 	byUI    map[int]Level
 	lenCode byte
@@ -58,7 +59,7 @@ type statusMsg struct {
 	Err    string `json:"err,omitempty"`
 }
 
-func New(cfg Config, sw *swp08.Client) (*App, error) {
+func New(cfg Config, sw *swp08.Client, hist *History) (*App, error) {
 	code, err := swp08.NameLenCode(cfg.NameLen)
 	if err != nil {
 		return nil, err
@@ -66,6 +67,7 @@ func New(cfg Config, sw *swp08.Client) (*App, error) {
 	a := &App{
 		cfg:      cfg,
 		sw:       sw,
+		hist:     hist,
 		lenCode:  code,
 		byWire:   map[int]Level{},
 		byUI:     map[int]Level{},
@@ -212,6 +214,12 @@ func (a *App) hello() map[string]any {
 	m["t"] = "hello"
 	m["tally"] = tally
 	m["status"] = a.status
+	recent, err := a.hist.Page(-1, historyPage)
+	if err != nil {
+		log.Printf("history: %v", err)
+	}
+	m["recent"] = recent
+	m["more"] = len(recent) == historyPage && recent[len(recent)-1].ID > 0
 	m["cfg"] = map[string]any{
 		"levels":        a.cfg.Levels,
 		"defaultLevels": a.cfg.DefaultLevels,
@@ -256,6 +264,7 @@ type takeReq struct {
 	Src    int   `json:"src"`
 	Dst    int   `json:"dst"`
 	Levels []int `json:"levels"`
+	Undo   *int  `json:"undo"` // history ID being undone
 }
 
 type waiter struct {
@@ -287,7 +296,7 @@ func (a *App) take(c *client, r takeReq) {
 		a.mu.Unlock()
 	}
 
-	if r.Src < 0 || r.Src > 0xFFFF || r.Dst < 0 || r.Dst > 0xFFFF || len(r.Levels) == 0 {
+	if r.Src < 0 || r.Src > 0xFFFE || r.Dst < 0 || r.Dst > 0xFFFE || len(r.Levels) == 0 {
 		res["err"] = "bad request"
 		reply()
 		return
@@ -305,7 +314,14 @@ func (a *App) take(c *client, r takeReq) {
 		msgs = append(msgs, swp08.ExtConnect(a.cfg.Matrix, l.Wire, r.Dst, r.Src))
 	}
 
+	e := &Entry{Time: time.Now(), Client: c.ip, Src: r.Src, Dst: r.Dst, Levels: r.Levels, Undo: r.Undo, Prev: [][2]int{}}
 	a.mu.Lock()
+	e.SrcName, e.DstName = a.srcNames[r.Src], a.dstNames[r.Dst]
+	for _, ui := range r.Levels {
+		if s, ok := a.tally[r.Dst][ui]; ok {
+			e.Prev = append(e.Prev, [2]int{ui, s})
+		}
+	}
 	a.waiters[w] = struct{}{}
 	a.mu.Unlock()
 	defer func() {
@@ -314,42 +330,71 @@ func (a *App) take(c *client, r takeReq) {
 		a.mu.Unlock()
 	}()
 
-	for _, m := range msgs {
-		if err := a.sw.Send(m); err != nil {
-			res["err"] = err.Error()
-			a.audit(c, r, res["err"].(string))
-			reply()
-			return
+	err := a.sendAll(msgs)
+	if err == nil {
+		select {
+		case <-w.done:
+		case <-time.After(takeTimeout):
+			a.mu.Lock()
+			var missing []string
+			for wire := range w.wire {
+				missing = append(missing, a.byWire[wire].Label)
+				// Ask what actually happened so the tally is truthful.
+				a.sw.Send(swp08.ExtInterrogate(a.cfg.Matrix, wire, r.Dst))
+			}
+			a.mu.Unlock()
+			sort.Strings(missing)
+			err = fmt.Errorf("no confirmation from router for %s", strings.Join(missing, ", "))
 		}
 	}
-
-	select {
-	case <-w.done:
-		res["ok"] = true
-	case <-time.After(takeTimeout):
-		a.mu.Lock()
-		var missing []string
-		for wire := range w.wire {
-			missing = append(missing, a.byWire[wire].Label)
-			// Ask what actually happened so the tally is truthful.
-			a.sw.Send(swp08.ExtInterrogate(a.cfg.Matrix, wire, r.Dst))
-		}
-		a.mu.Unlock()
-		sort.Strings(missing)
-		res["err"] = "no confirmation from router for " + strings.Join(missing, ", ")
+	e.OK = err == nil
+	res["ok"] = e.OK
+	if err != nil {
+		e.Err = err.Error()
+		res["err"] = e.Err
 	}
-	if res["ok"] == true {
-		a.audit(c, r, "ok")
-	} else {
-		a.audit(c, r, res["err"].(string))
-	}
+	a.record(e)
 	reply()
 }
 
-func (a *App) audit(c *client, r takeReq, result string) {
+func (a *App) sendAll(msgs [][]byte) error {
+	for _, m := range msgs {
+		if err := a.sw.Send(m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *App) record(e *Entry) {
+	if err := a.hist.Append(e); err != nil {
+		log.Printf("history: %v", err)
+	}
+	undo := "-"
+	if e.Undo != nil {
+		undo = fmt.Sprint(*e.Undo)
+	}
+	result := "ok"
+	if !e.OK {
+		result = e.Err
+	}
+	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s result=%q",
+		e.Client, e.Src+a.cfg.NumOffset, e.SrcName, e.Dst+a.cfg.NumOffset, e.DstName, e.Levels, undo, result)
 	a.mu.Lock()
-	src, dst := a.srcNames[r.Src], a.dstNames[r.Dst]
+	a.broadcast(map[string]any{"t": "recent", "e": e})
 	a.mu.Unlock()
-	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v result=%q",
-		c.ip, r.Src+a.cfg.NumOffset, src, r.Dst+a.cfg.NumOffset, dst, r.Levels, result)
+}
+
+const historyPage = 10
+
+func (a *App) history(c *client, before int) {
+	entries, err := a.hist.Page(before, historyPage)
+	if err != nil {
+		log.Printf("history: %v", err)
+	}
+	more := len(entries) == historyPage && entries[len(entries)-1].ID > 0
+	b, _ := json.Marshal(map[string]any{"t": "history", "entries": entries, "more": more})
+	a.mu.Lock()
+	a.deliver(c, b)
+	a.mu.Unlock()
 }

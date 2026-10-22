@@ -109,7 +109,11 @@ func main() {
 	}
 
 	sw := &swp08.Client{Addr: router, Debug: envBool("SODE_DEBUG")}
-	a, err := app.New(cfg, sw)
+	hist, err := app.OpenHistory(os.Getenv("SODE_HISTORY"))
+	if err != nil {
+		log.Fatalf("history: %v", err)
+	}
+	a, err := app.New(cfg, sw, hist)
 	if err != nil {
 		log.Fatal(err)
 	}
