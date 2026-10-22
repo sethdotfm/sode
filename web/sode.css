@@ -256,11 +256,14 @@ body { zoom: var(--sode-scale); }
   margin: 0;
   padding: 0;
 }
+/* A grid, so the Before lines underneath can line their level bars up
+   with this row's bar (column 3) via subgrid.
+   Columns: id, time, levels, route, status, Before, Undo. */
 .pb-input.sode__hist-row {
   align-items: center;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--pb-space-3) var(--pb-space-6);
+  grid-template-columns: auto auto auto 1fr auto auto auto;
   height: auto;
   min-height: var(--pb-control-h-lg);
   overflow: visible;
@@ -273,12 +276,18 @@ body { zoom: var(--sode-scale); }
 /* Expanded before state: its own full-width line under the row. */
 .sode__hist-before {
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
-  display: flex;
-  flex-basis: 100%;
-  flex-direction: column;
-  gap: var(--pb-space-3);
+  display: grid;
+  gap: var(--pb-space-3) var(--pb-space-6);
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   padding: var(--pb-space-4) 0 var(--pb-space-3);
 }
+/* Heading starts in the levels column; each source line puts its bar in
+   the levels column and its source under the route. */
+.sode__hist-before > .sode__label { grid-column: 3 / -1; }
+.sode__hist-before > .sode__route { display: contents; }
+.sode__hist-before .sode__bar { grid-column: 3; }
+.sode__hist-before .sode__end { grid-column: 4 / -1; justify-self: start; }
 .sode__hist-id {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-mono);
@@ -291,7 +300,7 @@ body { zoom: var(--sode-scale); }
   padding: 0 var(--pb-space-8);
 }
 .sode__hist-route {
-  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
