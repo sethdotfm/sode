@@ -91,3 +91,15 @@ func TestParseNames(t *testing.T) {
 		}
 	}
 }
+
+func TestParseProtectDump(t *testing.T) {
+	// Captured from a Ross Ultrix: level 0, dsts 64-65, 64 protected by device 9.
+	ev, err := Parse([]byte{CmdExtProtectDump, 0x00, 0x00, 0x02, 0x00, 0x40, 0x20, 0x09, 0x00, 0x00})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Protect{{Dst: 64, Protected: true, Device: 9}, {Dst: 65}}
+	if !reflect.DeepEqual(ev.Protects, want) {
+		t.Fatalf("got %+v", ev.Protects)
+	}
+}

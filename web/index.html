@@ -63,7 +63,63 @@
     <ul class="sode__hist" id="history"></ul>
     <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
   </section>
+
+  <footer class="sode__footer">
+    <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="settings-open">Settings</button>
+  </footer>
 </main>
+
+<div class="pb-modal-backdrop sode__scrim" id="settings" hidden>
+  <form class="pb-modal pb-modal--md sode__settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" id="settings-form" novalidate>
+    <div class="pb-modal__header"><span class="pb-modal__title" id="settings-title">Settings</span></div>
+    <div class="pb-modal__body">
+      <div class="pb-form pb-form--label-lg">
+        <div class="pb-form__full sode__label">Router</div>
+        <label class="pb-form__label" for="cfg-router">Address</label>
+        <div class="pb-form__field"><input id="cfg-router" class="pb-input pb-w-lg" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false"></div>
+        <label class="pb-form__label" for="cfg-matrix">Matrix</label>
+        <div class="pb-form__field"><span class="pb-number-wrap"><input type="number" id="cfg-matrix" class="pb-input pb-w-xs" data-key="matrix" data-type="int" min="0" max="255"></span></div>
+        <label class="pb-form__label" for="cfg-levels">Levels</label>
+        <div class="pb-form__field"><span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input pb-w-xs" data-key="levels" data-type="int" min="1" max="256"></span></div>
+        <label class="pb-form__label" for="cfg-offset">Wire level offset</label>
+        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input pb-w-xs" data-key="levelWireOffset" data-type="int"></span><span class="pb-text-muted" id="cfg-offset-note"></span></div>
+        <label class="pb-form__label" for="cfg-numoff">Numbering</label>
+        <div class="pb-form__field"><span class="pb-select-wrap"><select id="cfg-numoff" class="pb-select pb-w-md" data-key="numberOffset" data-type="int"><option value="1">Show router 0 as 1</option><option value="0">Show router numbers as-is</option></select></span></div>
+
+        <div class="pb-form__full sode__label">Names</div>
+        <label class="pb-form__label" for="cfg-namelen">Name length</label>
+        <div class="pb-form__field"><span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select pb-w-xs" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span></div>
+        <label class="pb-form__label" for="cfg-namereq">Name requests</label>
+        <div class="pb-form__field"><span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select pb-w-md" data-key="nameRequests"><option value="std">Standard (100/102)</option><option value="ext">Extended (228/230)</option></select></span></div>
+        <label class="pb-form__label" for="cfg-namerefresh">Refresh every</label>
+        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input pb-w-xs" data-key="nameRefreshSeconds" data-type="int" min="0"></span><span class="pb-text-muted">seconds, 0 = off</span></div>
+        <span class="pb-form__label">Loaded</span>
+        <div class="pb-form__field sode__field-note"><span id="names-status" class="pb-text-muted"></span><button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh names now</button></div>
+
+        <div class="pb-form__full sode__label">Patching</div>
+        <label class="pb-form__label" for="cfg-default">Default levels</label>
+        <div class="pb-form__field"><input id="cfg-default" class="pb-input pb-w-md" data-key="defaultLevels" spellcheck="false"></div>
+        <label class="pb-form__label" for="cfg-lockout">Confirm lockout</label>
+        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input pb-w-xs" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span><span class="pb-text-muted">ms</span></div>
+        <span class="pb-form__label"></span>
+        <div class="pb-form__field"><label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter also confirms</span></label></div>
+        <label class="pb-form__label" for="cfg-resync">Re-read all routes every</label>
+        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input pb-w-xs" data-key="tallyResyncSeconds" data-type="int" min="0"></span><span class="pb-text-muted">seconds, 0 = off</span></div>
+
+        <div class="pb-form__full sode__label">Audit</div>
+        <label class="pb-form__label" for="cfg-proxies">Trusted proxies</label>
+        <div class="pb-form__field"><input id="cfg-proxies" class="pb-input pb-w-lg" data-key="trustedProxies" data-type="list" placeholder="e.g. 10.0.0.2, 172.18.0.0/16" spellcheck="false"></div>
+        <div class="pb-form__full pb-text-muted sode__hint">Client IPs in history come from X-Forwarded-For only when the request arrives through one of these (your Caddy).</div>
+      </div>
+      <div class="pb-note pb-note--error sode__settings-err" id="settings-err" role="alert" hidden></div>
+    </div>
+    <div class="pb-modal__footer">
+      <button type="button" class="pb-btn pb-btn--outline" id="settings-cancel">Cancel</button>
+      <span class="pb-text-muted sode__hint" id="settings-path"></span>
+      <button type="submit" class="pb-btn pb-btn--commit" id="settings-save">Save</button>
+    </div>
+  </form>
+</div>
 
 <div class="pb-modal-backdrop sode__scrim" id="confirm" hidden>
   <div class="pb-modal pb-modal--md" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1" id="confirm-dialog">

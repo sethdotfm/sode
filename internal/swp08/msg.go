@@ -21,16 +21,21 @@ const (
 	CmdSrcNames      = 0x6A
 	CmdDstNames      = 0x6B
 
-	CmdExtInterrogate  = 0x81
-	CmdExtConnect      = 0x82
-	CmdExtTally        = 0x83
-	CmdExtConnected    = 0x84
-	CmdExtTallyDumpReq = 0x95
-	CmdExtTallyDump    = 0x97
-	CmdExtSrcNamesReq  = 0xE4
-	CmdExtDstNamesReq  = 0xE6
-	CmdExtSrcNames     = 0xEA
-	CmdExtDstNames     = 0xEB
+	CmdExtInterrogate         = 0x81
+	CmdExtConnect             = 0x82
+	CmdExtTally               = 0x83
+	CmdExtConnected           = 0x84
+	CmdExtProtectTally        = 0x8B
+	CmdExtProtectConnected    = 0x8D
+	CmdExtProtectDisconnected = 0x8F
+	CmdExtProtectDumpReq      = 0x93
+	CmdExtProtectDump         = 0x94
+	CmdExtTallyDumpReq        = 0x95
+	CmdExtTallyDump           = 0x97
+	CmdExtSrcNamesReq         = 0xE4
+	CmdExtDstNamesReq         = 0xE6
+	CmdExtSrcNames            = 0xEA
+	CmdExtDstNames            = 0xEB
 )
 
 // Name length codes used by name requests and responses.
@@ -72,10 +77,19 @@ type NameBlock struct {
 	Names         []string
 }
 
-// Event is a parsed inbound message. Unknown commands leave both empty.
+// Protect is one destination's protect state on one level.
+type Protect struct {
+	Matrix, Level int
+	Dst           int
+	Protected     bool
+	Device        int // controller holding the protect
+}
+
+// Event is a parsed inbound message. Unknown commands leave it empty.
 type Event struct {
 	Cmd         byte
 	Crosspoints []Crosspoint
+	Protects    []Protect
 	Names       *NameBlock
 }
 
@@ -97,6 +111,11 @@ func ExtConnected(matrix, level, dst, src int) []byte {
 
 func xp(cmd byte, matrix, level, dst, src int) []byte {
 	return []byte{cmd, byte(matrix), byte(level), byte(dst >> 8), byte(dst), byte(src >> 8), byte(src)}
+}
+
+// ExtProtectDumpReq asks for protect states from firstDst onwards.
+func ExtProtectDumpReq(matrix, level, firstDst int) []byte {
+	return []byte{CmdExtProtectDumpReq, byte(matrix), byte(level), byte(firstDst >> 8), byte(firstDst)}
 }
 
 func ExtTallyDumpReq(matrix, level int) []byte {
@@ -227,6 +246,39 @@ func Parse(msg []byte) (Event, error) {
 			return ev, errTruncDump
 		}
 
+	case CmdExtProtectTally, CmdExtProtectConnected, CmdExtProtectDisconnected:
+		var p Protect
+		switch len(d) {
+		case 6: // matrix, level, dst(2), state+device(2) — same packing as the dump
+			p = Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: int(d[2])<<8 | int(d[3])}
+			p.Protected, p.Device = protectWord(d[4], d[5])
+		case 7: // details, matrix, level, dst(2), device(2)
+			p = Protect{Matrix: int(d[1]), Level: int(d[2]), Dst: int(d[3])<<8 | int(d[4]),
+				Protected: d[0]&0x03 != 0, Device: int(d[5])<<8 | int(d[6])}
+		default:
+			return ev, fmt.Errorf("swp08: cmd 0x%02X: unexpected length %d", msg[0], len(d))
+		}
+		if msg[0] == CmdExtProtectDisconnected {
+			p.Protected = false
+		}
+		ev.Protects = []Protect{p}
+
+	case CmdExtProtectDump:
+		// matrix, level, count, firstDst(2), count × state+device(2).
+		// Verified against a Ross Ultrix.
+		if err := short(5); err != nil {
+			return ev, err
+		}
+		count, first := int(d[2]), int(d[3])<<8|int(d[4])
+		if err := short(5 + count*2); err != nil {
+			return ev, err
+		}
+		for i := 0; i < count; i++ {
+			p := Protect{Matrix: int(d[0]), Level: int(d[1]), Dst: first + i}
+			p.Protected, p.Device = protectWord(d[5+i*2], d[6+i*2])
+			ev.Protects = append(ev.Protects, p)
+		}
+
 	case CmdSrcNames, CmdDstNames:
 		if err := short(5); err != nil {
 			return ev, err
@@ -247,6 +299,12 @@ func Parse(msg []byte) (Event, error) {
 }
 
 var errTruncDump = errors.New("swp08: tally dump truncated")
+
+// protectWord unpacks a protect entry: state in bits 4-5 of the high byte
+// (0 = not protected), device number in the rest.
+func protectWord(hi, lo byte) (protected bool, device int) {
+	return hi>>4&0x03 != 0, int(hi&0x0F)<<8 | int(lo)
+}
 
 // dumpWords parses: count, firstDst(2), count × src(2). Nil if truncated.
 func dumpWords(matrix, level int, d []byte) []Crosspoint {

@@ -16,7 +16,7 @@ ENTRYPOINT ["/swp08sim"]
 FROM gcr.io/distroless/static-debian12:nonroot AS sode
 COPY --from=build /out/sode /sode
 COPY --from=build --chown=65532:65532 /out/data /data
-ENV SODE_HISTORY=/data/history.jsonl
+ENV SODE_HISTORY=/data/history.jsonl SODE_CONFIG=/data/config.yaml
 VOLUME /data
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s CMD ["/sode", "-healthcheck"]

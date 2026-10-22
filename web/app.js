@@ -18,7 +18,10 @@
     srcs: [], dsts: [],
     srcBy: new Map(), dstBy: new Map(),
     tally: new Map(), // dst → Map(ui level → src)
+    prot: new Map(),  // dst → Map(ui level → protecting device)
+    levels: [],
     levelBy: new Map(),
+    namesAt: null,
     router: null,
     ws: null,
     hist: [],         // newest first
@@ -34,7 +37,7 @@
   };
   const lvlInput = $('lvl');
 
-  const off = () => (S.cfg ? S.cfg.numOffset : 0);
+  const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
   function item(n, name) {
     const num = String(n + off());
@@ -62,6 +65,11 @@
     ws.onclose = () => {
       S.ws = null;
       S.histLoading = false;
+      if (takes.size) {
+        // Replies to a dead socket are lost; the outcome is in history.
+        takes.clear();
+        showResult('warn', 'Connection lost', 'The patch was sent but its result is unknown. Check Recent once reconnected.');
+      }
       setDot('ws', 'error', 'WebSocket disconnected');
       setDot('rt', 'idle', 'SW-P-08 unknown');
       setTimeout(connect, retry);
@@ -80,11 +88,16 @@
     switch (m.t) {
       case 'hello':
         S.cfg = m.cfg;
-        S.levelBy = new Map(m.cfg.levels.map((l) => [l.ui, l]));
+        S.configPath = m.configPath;
+        S.levels = m.levels;
+        S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
         lvlInput.placeholder = m.cfg.defaultLevels;
         setNames(m.srcs, m.dsts);
+        S.namesAt = m.at;
         S.tally = new Map();
         applyTally(m.tally || []);
+        S.prot = new Map();
+        applyProtect(m.protect || []);
         setStatus(m.status);
         S.hist = m.recent || [];
         S.histMore = m.more;
@@ -95,12 +108,25 @@
         break;
       case 'names':
         setNames(m.srcs, m.dsts);
+        S.namesAt = m.at;
+        renderNamesStatus();
         for (const k of ['src', 'dst']) if (document.activeElement === boxes[k].input && !sel[k]) refresh(k);
         renderTally();
+        break;
+      case 'namesChecked':
+        S.namesAt = m.at;
+        renderNamesStatus();
         break;
       case 'tally':
         applyTally(m.u);
         renderTally();
+        break;
+      case 'protect':
+        applyProtect(m.u);
+        renderTally();
+        break;
+      case 'configResult':
+        configResult(m);
         break;
       case 'status':
         setStatus(m);
@@ -138,6 +164,25 @@
     }
   }
 
+  function applyProtect(list) {
+    for (const [d, l, dev] of list) {
+      let t = S.prot.get(d);
+      if (dev < 0) {
+        if (t) t.delete(l);
+        continue;
+      }
+      if (!t) S.prot.set(d, (t = new Map()));
+      t.set(l, dev);
+    }
+  }
+
+  // Protected levels of dst among levels, with the devices holding them.
+  function protectedOn(dst, levels) {
+    const t = S.prot.get(dst);
+    const hit = t ? levels.filter((u) => t.has(u)) : [];
+    return { levels: hit, devices: [...new Set(hit.map((u) => t.get(u)))].sort((a, b) => a - b) };
+  }
+
   function setDot(which, state, text) {
     $(`${which}-dot`).className = `pb-dot pb-dot--${state}`;
     $(`${which}-text`).textContent = text;
@@ -150,6 +195,7 @@
     const [dot, word] = map[st.router] || ['idle', st.router];
     setDot('rt', dot, `SW-P-08 ${word}`);
     $('rt-text').parentElement.title = st.err || '';
+    if (settingsOpen) renderNamesStatus();
   }
 
   // ---- fuzzy finder
@@ -273,10 +319,10 @@
 
   // ---- level picker
 
-  const allLevels = () => S.cfg.levels.map((l) => l.ui);
+  const allLevels = () => S.levels.map((l) => l.ui);
 
   function buildPicker() {
-    $('lvl-pick').replaceChildren(...S.cfg.levels.map((l) => {
+    $('lvl-pick').replaceChildren(...S.levels.map((l) => {
       const b = el('button', 'sode__pick', String(l.ui));
       b.type = 'button';
       b.tabIndex = -1;
@@ -307,7 +353,7 @@
     lvlInput.classList.toggle('pb-input--invalid', !list);
     lvlInput.placeholder = S.lvlNone ? 'none' : S.cfg.defaultLevels;
     for (const b of $('lvl-pick').children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
-    const full = on.size === S.cfg.levels.length;
+    const full = on.size === S.levels.length;
     const all = $('lvl-all');
     all.textContent = full ? 'None' : 'All';
     all.dataset.tip = full ? 'Select no levels' : 'Select all levels';
@@ -340,10 +386,15 @@
   function renderTally() {
     const box = $('tally');
     if (!S.cfg) return box.replaceChildren();
-    const levels = parseLevels(lvlInput.value) || S.cfg.levels.map((l) => l.ui);
+    const levels = parseLevels(lvlInput.value) || allLevels();
     if (sel.dst) {
       const rows = runs(sel.dst.n, levels).map((r) => routeRow(r.levels, tallyText(r.src), sel.dst.label));
-      return box.replaceChildren(el('div', 'sode__label', 'Currently'), ...rows);
+      const p = protectedOn(sel.dst.n, levels);
+      const prot = p.levels.length
+        ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--warn', 'Protected'), swatches(p.levels),
+          `by device ${p.devices.join(', ')}`)
+        : null;
+      return box.replaceChildren(...[el('div', 'sode__label', 'Currently'), ...rows, prot].filter(Boolean));
     }
     if (sel.src) {
       const fed = [];
@@ -463,12 +514,22 @@
       el('div', null, el('div', 'pb-alert__title', title), text)));
   }
 
+  // A batch is the takes from one confirm (an undo can restore several
+  // sources). It reports once, after every take has answered.
   function takeResult(m) {
-    const t = takes.get(m.id);
+    const b = takes.get(m.id);
+    if (!b) return;
     takes.delete(m.id);
-    const what = t ? `${t.src.label} → ${t.dst.label} (levels ${levelText(t.levels)})` : '';
-    if (m.ok) showResult('ok', t && t.undo ? 'Undone' : 'Patched', what);
-    else showResult('error', 'Patch failed', `${what}: ${m.err}`);
+    b.results.push({ g: b.byId.get(m.id), ok: m.ok, err: m.err });
+    if (b.results.length < b.byId.size) return;
+    const what = (g) => `${g.src.label} → ${b.dst.label} (levels ${levelText(g.levels)})`;
+    const failed = b.results.filter((r) => !r.ok);
+    if (!failed.length) {
+      showResult('ok', b.undo ? 'Undone' : 'Patched', b.results.map((r) => what(r.g)).join('; '));
+      return;
+    }
+    const title = b.undo ? (failed.length < b.results.length ? 'Undo partly failed' : 'Undo failed') : 'Patch failed';
+    showResult('error', title, failed.map((r) => `${what(r.g)}: ${r.err}`).join('; '));
   }
 
   // ---- confirm
@@ -495,6 +556,12 @@
   function openConfirm(plan) {
     if (!S.ws || S.router !== 'up') {
       showResult('error', 'Not connected', 'Sode is not connected to the router.');
+      return;
+    }
+    const p = protectedOn(plan.dst.n, plan.groups.flatMap((g) => g.levels));
+    if (p.levels.length) {
+      showResult('error', 'Destination protected',
+        `${plan.dst.label} is protected on levels ${levelText(p.levels)} by device ${p.devices.join(', ')}.`);
       return;
     }
     let key;
@@ -529,13 +596,13 @@
     $('confirm').hidden = false;
     $('confirm-dialog').focus();
 
-    readyAt = performance.now() + S.cfg.lockoutMs;
+    readyAt = performance.now() + S.cfg.confirmLockoutMs;
     setTimeout(() => {
       if (pending && pending.key === key) {
         keyEl.classList.remove('sode__key--locked');
         $('confirm-ok').disabled = false;
       }
-    }, S.cfg.lockoutMs);
+    }, S.cfg.confirmLockoutMs);
   }
 
   function closeConfirm() {
@@ -549,6 +616,7 @@
     const p = pending;
     pending = null;
     $('confirm').hidden = true;
+    const batch = { dst: p.dst, undo: p.undo, byId: new Map(), results: [] };
     for (const g of p.groups) {
       const id = ++takeSeq;
       const msg = { t: 'take', id, src: g.src.n, dst: p.dst.n, levels: g.levels };
@@ -557,7 +625,8 @@
         showResult('error', 'Not connected', 'Lost connection to Sode before the patch was sent.');
         return;
       }
-      takes.set(id, { src: g.src, dst: p.dst, levels: g.levels, undo: p.undo });
+      batch.byId.set(id, g);
+      takes.set(id, batch);
     }
     const g = p.groups[0];
     showResult('info', p.undo ? 'Undoing…' : 'Patching…', `${g.src.label} → ${p.dst.label} (levels ${levelText(g.levels)})`);
@@ -572,6 +641,100 @@
     if (performance.now() < readyAt) return;
     if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake();
   }
+
+  // ---- settings
+
+  const form = $('settings-form');
+  const fields = () => form.querySelectorAll('[data-key]');
+  let settingsOpen = false;
+
+  function openSettings() {
+    if (!S.cfg) return;
+    for (const f of fields()) {
+      const v = S.cfg[f.dataset.key];
+      if (f.dataset.type === 'bool') f.checked = !!v;
+      else if (f.dataset.type === 'list') f.value = (v || []).join(', ');
+      else f.value = v ?? '';
+    }
+    $('settings-err').hidden = true;
+    $('settings-save').disabled = false;
+    $('settings-path').textContent = S.configPath ? `Saved to ${S.configPath}` : 'Not saved to disk (SODE_CONFIG unset)';
+    renderOffsetNote();
+    renderNamesStatus();
+    settingsOpen = true;
+    $('settings').hidden = false;
+    $('cfg-router').focus();
+  }
+
+  function closeSettings() {
+    settingsOpen = false;
+    $('settings').hidden = true;
+    boxes.src.input.focus();
+  }
+
+  function readSettings() {
+    const c = { ...S.cfg };
+    for (const f of fields()) {
+      const k = f.dataset.key;
+      if (f.dataset.type === 'bool') c[k] = f.checked;
+      else if (f.dataset.type === 'list') c[k] = f.value.split(',').map((x) => x.trim()).filter(Boolean);
+      else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
+      else c[k] = f.value.trim();
+    }
+    return c;
+  }
+
+  function renderOffsetNote() {
+    const off = Number($('cfg-offset').value);
+    $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level 1 is sent as wire level ${1 + off}` : '';
+  }
+
+  function renderNamesStatus() {
+    const at = S.namesAt && new Date(S.namesAt);
+    const when = at && at.getFullYear() > 2000 ? `refreshed ${fmtTime(S.namesAt)}` : 'not loaded yet';
+    $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations, ${when}`;
+    const btn = $('names-refresh');
+    btn.disabled = S.router !== 'up';
+    btn.textContent = 'Refresh names now';
+  }
+
+  function configResult(m) {
+    $('settings-save').disabled = false;
+    if (m.ok) {
+      if (settingsOpen) closeSettings();
+      showResult('ok', 'Settings saved', S.configPath ? `Written to ${S.configPath}.` : 'Applied (not saved to disk).');
+      return;
+    }
+    $('settings-err').textContent = m.err;
+    $('settings-err').hidden = false;
+  }
+
+  $('settings-open').addEventListener('click', openSettings);
+  $('settings-cancel').addEventListener('click', closeSettings);
+  $('cfg-offset').addEventListener('input', renderOffsetNote);
+  $('names-refresh').addEventListener('click', () => {
+    if (wsSend({ t: 'refreshNames' })) {
+      $('names-refresh').disabled = true;
+      $('names-refresh').textContent = 'Refreshing…';
+    }
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const c = readSettings();
+    const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
+    if (bad) {
+      $('settings-err').textContent = `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`;
+      $('settings-err').hidden = false;
+      bad.focus();
+      return;
+    }
+    if (!wsSend({ t: 'config', config: c })) {
+      $('settings-err').textContent = 'Not connected to Sode.';
+      $('settings-err').hidden = false;
+      return;
+    }
+    $('settings-save').disabled = true;
+  });
 
   // ---- keyboard & input wiring
 
@@ -605,12 +768,16 @@
   // Picker buttons act without taking focus, so typing carries on in place.
   for (const id of ['lvl-pick', 'lvl-all']) $(id).addEventListener('mousedown', (e) => e.preventDefault());
   $('lvl-all').addEventListener('click', () => {
-    const full = (parseLevels(lvlInput.value) || []).length === S.cfg.levels.length;
+    const full = (parseLevels(lvlInput.value) || []).length === S.levels.length;
     setLevels(full ? [] : allLevels());
   });
 
   document.addEventListener('keydown', (e) => {
     if (pending) return onConfirmKey(e);
+    if (settingsOpen) {
+      if (e.key === 'Escape') { e.preventDefault(); closeSettings(); }
+      return; // the form handles everything else
+    }
     const id = e.target.id;
     const k = id === 'src' || id === 'dst' ? id : null;
     const b = k && boxes[k];

@@ -36,10 +36,7 @@ const (
 // Client keeps one TCP connection to a router alive and serialises sends,
 // waiting for each ACK before the next message as SW-P-08 requires.
 type Client struct {
-	Addr  string
 	Debug bool
-	// Probe is sent when the link has been quiet; it must provoke a reply.
-	Probe []byte
 	// OnUp runs once per connection, after Send is usable.
 	OnUp func()
 	// OnMsg runs on the reader goroutine for each valid message; keep it quick.
@@ -47,10 +44,41 @@ type Client struct {
 	// OnState reports connection changes; err explains a drop.
 	OnState func(s State, err error)
 
-	mu sync.Mutex
-	q  chan []byte // nil while disconnected
+	mu     sync.Mutex
+	addr   string
+	probe  []byte             // sent when the link is quiet; must provoke a reply
+	q      chan []byte        // nil while disconnected
+	cancel context.CancelFunc // ends the current session
+	kick   chan struct{}
 
 	wmu sync.Mutex
+}
+
+var errNoRouter = errors.New("no router configured")
+
+func NewClient(addr string, probe []byte) *Client {
+	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1)}
+}
+
+// SetTarget switches router and reconnects at once. An empty addr idles.
+func (c *Client) SetTarget(addr string, probe []byte) {
+	c.mu.Lock()
+	c.addr, c.probe = addr, probe
+	cancel := c.cancel
+	c.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	select {
+	case c.kick <- struct{}{}:
+	default:
+	}
+}
+
+func (c *Client) target() (string, []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.addr, c.probe
 }
 
 // Send queues a message. Messages queued on a connection that drops are
@@ -73,20 +101,37 @@ func (c *Client) Send(msg []byte) error {
 func (c *Client) Run(ctx context.Context) {
 	backoff := time.Second
 	for ctx.Err() == nil {
+		select { // a kick from before this attempt is already honoured
+		case <-c.kick:
+		default:
+		}
+		addr, _ := c.target()
+		if addr == "" {
+			c.state(StateDown, errNoRouter)
+			select {
+			case <-ctx.Done():
+				return
+			case <-c.kick:
+			}
+			continue
+		}
 		c.state(StateConnecting, nil)
 		start := time.Now()
-		err := c.session(ctx)
+		err := c.session(ctx, addr)
 		if ctx.Err() != nil {
 			return
 		}
 		c.state(StateDown, err)
-		log.Printf("swp08: %s: %v (retry in %s)", c.Addr, err, backoff)
 		if time.Since(start) > stableAfter {
 			backoff = time.Second
 		}
+		log.Printf("swp08: %s: %v (retry in %s)", addr, err, backoff)
 		select {
 		case <-ctx.Done():
 			return
+		case <-c.kick: // new target: retry now
+			backoff = time.Second
+			continue
 		case <-time.After(backoff):
 		}
 		backoff = min(backoff*2, maxBackoff)
@@ -99,16 +144,19 @@ func (c *Client) state(s State, err error) {
 	}
 }
 
-func (c *Client) session(ctx context.Context) error {
+func (c *Client) session(ctx context.Context, addr string) error {
+	sctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	c.mu.Lock()
+	c.cancel = cancel
+	c.mu.Unlock()
+
 	d := net.Dialer{Timeout: 5 * time.Second, KeepAlive: 10 * time.Second}
-	conn, err := d.DialContext(ctx, "tcp", c.Addr)
+	conn, err := d.DialContext(sctx, "tcp", addr)
 	if err != nil {
 		return err
 	}
-	log.Printf("swp08: connected to %s", c.Addr)
-
-	sctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	log.Printf("swp08: connected to %s", addr)
 	go func() {
 		<-sctx.Done()
 		conn.Close()
@@ -125,6 +173,7 @@ func (c *Client) session(ctx context.Context) error {
 	defer func() {
 		c.mu.Lock()
 		c.q = nil
+		c.cancel = nil
 		c.mu.Unlock()
 	}()
 
@@ -136,7 +185,15 @@ func (c *Client) session(ctx context.Context) error {
 	if c.OnUp != nil {
 		c.OnUp()
 	}
-	return <-errc
+	select {
+	case err := <-errc:
+		return err
+	case <-sctx.Done():
+		if ctx.Err() == nil {
+			return errors.New("reconnecting with new settings")
+		}
+		return ctx.Err()
+	}
 }
 
 func (c *Client) write(conn net.Conn, b []byte) error {
@@ -205,8 +262,8 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 			if idle > deadIdle {
 				return fmt.Errorf("no data from router for %s", idle.Round(time.Second))
 			}
-			if idle > probeIdle && c.Probe != nil {
-				if err := c.transmit(ctx, conn, c.Probe, acks); err != nil {
+			if _, probe := c.target(); idle > probeIdle && probe != nil {
+				if err := c.transmit(ctx, conn, probe, acks); err != nil {
 					return err
 				}
 			}

@@ -7,10 +7,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
 	"github.com/coder/websocket"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 type client struct {
@@ -37,11 +40,31 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	return mux
 }
 
-func clientIP(r *http.Request) string {
-	if f := r.Header.Get("X-Forwarded-For"); f != "" {
-		return strings.TrimSpace(strings.Split(f, ",")[0])
-	}
+// clientIP is the peer address, or, when the peer is a trusted proxy, the
+// nearest untrusted hop in X-Forwarded-For. Untrusted peers can't spoof it.
+func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	isTrusted := func(s string) bool {
+		a, err := netip.ParseAddr(strings.TrimSpace(s))
+		if err != nil {
+			return false
+		}
+		for _, p := range trusted {
+			if p.Contains(a.Unmap()) {
+				return true
+			}
+		}
+		return false
+	}
+	if !isTrusted(host) {
+		return host
+	}
+	hops := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	for i := len(hops) - 1; i >= 0; i-- {
+		if h := strings.TrimSpace(hops[i]); h != "" && !isTrusted(h) {
+			return h
+		}
+	}
 	return host
 }
 
@@ -53,16 +76,16 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	defer conn.CloseNow()
 	conn.SetReadLimit(64 << 10)
 
-	c := &client{ip: clientIP(r), send: make(chan []byte, 256)}
+	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
 	// Register and queue the snapshot under one lock so no delta can
 	// arrive ahead of it.
+	page := a.readHello()
 	a.mu.Lock()
-	hello, _ := json.Marshal(a.hello())
 	a.clients[c] = struct{}{}
-	c.send <- hello
+	c.send <- a.hello(page)
 	a.mu.Unlock()
 	log.Printf("ws %s: connected", c.ip)
 
@@ -112,8 +135,9 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var m struct {
-			T      string `json:"t"`
-			Before int    `json:"before"`
+			T      string         `json:"t"`
+			Before int            `json:"before"`
+			Config *config.Config `json:"config"`
 			takeReq
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
@@ -124,6 +148,21 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go a.take(c, m.takeReq)
 		case "history":
 			go a.history(c, m.Before)
+		case "refreshNames":
+			go a.RefreshNames()
+		case "config":
+			if m.Config == nil {
+				continue
+			}
+			go func(cfg config.Config) {
+				res := map[string]any{"t": "configResult", "ok": true}
+				if err := a.ApplyConfig(cfg); err != nil {
+					res["ok"], res["err"] = false, err.Error()
+				} else {
+					log.Printf("config: saved by %s", c.ip)
+				}
+				a.reply(c, res)
+			}(*m.Config)
 		}
 	}
 }

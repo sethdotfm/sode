@@ -1,0 +1,286 @@
+// Package config loads, validates and saves Sode's YAML settings.
+package config
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/netip"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Config is everything editable from the settings dialog. Process-level
+// settings (listen address, file paths, debug) stay in env vars.
+type Config struct {
+	Router             string   `yaml:"router" json:"router"`
+	Matrix             int      `yaml:"matrix" json:"matrix"`
+	Levels             int      `yaml:"levels" json:"levels"`
+	LevelWireOffset    int      `yaml:"levelWireOffset" json:"levelWireOffset"`
+	DefaultLevels      string   `yaml:"defaultLevels" json:"defaultLevels"`
+	NameLength         int      `yaml:"nameLength" json:"nameLength"`
+	NameRequests       string   `yaml:"nameRequests" json:"nameRequests"` // std | ext
+	NumberOffset       int      `yaml:"numberOffset" json:"numberOffset"`
+	ConfirmLockoutMs   int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs"`
+	ConfirmEnter       bool     `yaml:"confirmEnter" json:"confirmEnter"`
+	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
+	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
+	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
+}
+
+func Defaults() Config {
+	return Config{
+		Matrix:             0,
+		Levels:             17,
+		LevelWireOffset:    -1,
+		NameLength:         12,
+		NameRequests:       "std",
+		NumberOffset:       1,
+		ConfirmLockoutMs:   500,
+		NameRefreshSeconds: 60,
+		TallyResyncSeconds: 300,
+		TrustedProxies:     []string{},
+	}
+}
+
+// FromEnv overlays the SODE_* seed variables onto c. They are only used to
+// create the config file on first start.
+func FromEnv(c Config) (Config, error) {
+	var errs []error
+	str := func(k string, dst *string) {
+		if v, ok := os.LookupEnv(k); ok && v != "" {
+			*dst = v
+		}
+	}
+	num := func(k string, dst *int) {
+		if v, ok := os.LookupEnv(k); ok && v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s: %w", k, err))
+				return
+			}
+			*dst = n
+		}
+	}
+	str("SODE_ROUTER", &c.Router)
+	num("SODE_MATRIX", &c.Matrix)
+	num("SODE_LEVEL_COUNT", &c.Levels)
+	num("SODE_LEVEL_WIRE_OFFSET", &c.LevelWireOffset)
+	str("SODE_DEFAULT_LEVELS", &c.DefaultLevels)
+	num("SODE_NAME_LEN", &c.NameLength)
+	str("SODE_NAMES", &c.NameRequests)
+	num("SODE_NUM_OFFSET", &c.NumberOffset)
+	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
+	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
+	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
+	if v := os.Getenv("SODE_CONFIRM_ENTER"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("SODE_CONFIRM_ENTER: %w", err))
+		}
+		c.ConfirmEnter = b
+	}
+	if v := os.Getenv("SODE_TRUSTED_PROXIES"); v != "" {
+		c.TrustedProxies = nil
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				c.TrustedProxies = append(c.TrustedProxies, p)
+			}
+		}
+	}
+	return c, errors.Join(errs...)
+}
+
+// Normalize fills derived defaults; call before Validate.
+func (c *Config) Normalize() {
+	c.Router = strings.TrimSpace(c.Router)
+	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
+	if c.DefaultLevels == "" && c.Levels > 0 {
+		c.DefaultLevels = fmt.Sprintf("1-%d", c.Levels)
+	}
+	if c.TrustedProxies == nil {
+		c.TrustedProxies = []string{}
+	}
+}
+
+func (c Config) Validate() error {
+	var errs []error
+	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
+
+	if c.Router != "" {
+		host, port, err := net.SplitHostPort(c.Router)
+		if p, perr := strconv.Atoi(port); err != nil || host == "" || perr != nil || p < 1 || p > 65535 {
+			bad("router must be host:port, e.g. 10.0.0.50:8910")
+		}
+	}
+	switch c.NameRequests {
+	case "std":
+		// Standard messages carry the matrix in a 4-bit field.
+		if c.Matrix < 0 || c.Matrix > 15 {
+			bad("matrix must be 0-15 with standard name requests")
+		}
+	case "ext":
+		if c.Matrix < 0 || c.Matrix > 255 {
+			bad("matrix must be 0-255")
+		}
+	default:
+		bad("name requests must be std or ext")
+	}
+	if c.Levels < 1 || c.Levels > 256 {
+		bad("levels must be 1-256")
+	} else if lo, hi := 1+c.LevelWireOffset, c.Levels+c.LevelWireOffset; lo < 0 || hi > 255 {
+		bad("level wire offset puts levels at wire %d-%d; they must fall within 0-255", lo, hi)
+	} else if _, err := ParseLevels(c.DefaultLevels, c.Levels); err != nil {
+		bad("default levels: %v", err)
+	}
+	switch c.NameLength {
+	case 4, 8, 12, 16:
+	default:
+		bad("name length must be 4, 8, 12 or 16")
+	}
+	if c.NumberOffset < 0 || c.NumberOffset > 1 {
+		bad("number offset must be 0 or 1")
+	}
+	if c.ConfirmLockoutMs < 0 || c.ConfirmLockoutMs > 10000 {
+		bad("confirm lockout must be 0-10000 ms")
+	}
+	if s := c.NameRefreshSeconds; s != 0 && (s < 10 || s > 86400) {
+		bad("name refresh must be 0 (off) or 10-86400 seconds")
+	}
+	if s := c.TallyResyncSeconds; s != 0 && (s < 30 || s > 86400) {
+		bad("tally resync must be 0 (off) or 30-86400 seconds")
+	}
+	if _, err := c.Proxies(); err != nil {
+		bad("trusted proxies: %v", err)
+	}
+	return errors.Join(errs...)
+}
+
+// Proxies parses TrustedProxies as IPs or CIDR prefixes.
+func (c Config) Proxies() ([]netip.Prefix, error) {
+	var out []netip.Prefix
+	for _, s := range c.TrustedProxies {
+		if p, err := netip.ParsePrefix(s); err == nil {
+			out = append(out, p.Masked())
+			continue
+		}
+		a, err := netip.ParseAddr(s)
+		if err != nil {
+			return nil, fmt.Errorf("%q is not an IP or CIDR", s)
+		}
+		out = append(out, netip.PrefixFrom(a.Unmap(), a.Unmap().BitLen()))
+	}
+	return out, nil
+}
+
+// Level maps a UI level number to its SW-P-08 wire level.
+type Level struct {
+	UI     int    `json:"ui"`
+	Wire   int    `json:"wire"`
+	Swatch string `json:"swatch"` // patchbay pb-level-- suffix
+}
+
+// LevelMap: wire = UI + offset; UI 1 gets the video swatch, the rest the
+// 16 audio swatches.
+func (c Config) LevelMap() []Level {
+	out := make([]Level, c.Levels)
+	for i := range out {
+		ui := i + 1
+		l := Level{UI: ui, Wire: ui + c.LevelWireOffset, Swatch: "video"}
+		if ui > 1 {
+			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
+		}
+		out[i] = l
+	}
+	return out
+}
+
+// ParseLevels parses "1", "1-3", "1,3,5-8" within 1..max.
+func ParseLevels(s string, max int) ([]int, error) {
+	seen := map[int]bool{}
+	var out []int
+	for _, part := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' }) {
+		a, b, isRange := strings.Cut(part, "-")
+		lo, err1 := strconv.Atoi(a)
+		hi := lo
+		var err2 error
+		if isRange {
+			hi, err2 = strconv.Atoi(b)
+		}
+		if err1 != nil || err2 != nil {
+			return nil, fmt.Errorf("%q is not a level or range", part)
+		}
+		if lo > hi {
+			lo, hi = hi, lo
+		}
+		if lo < 1 || hi > max {
+			return nil, fmt.Errorf("%q is outside 1-%d", part, max)
+		}
+		for i := lo; i <= hi; i++ {
+			if !seen[i] {
+				seen[i] = true
+				out = append(out, i)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil, errors.New("no levels")
+	}
+	return out, nil
+}
+
+// Load reads path over the defaults. exists is false if there is no file.
+func Load(path string) (c Config, exists bool, err error) {
+	c = Defaults()
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return c, false, nil
+	}
+	if err != nil {
+		return c, false, err
+	}
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	dec.KnownFields(true)
+	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
+		return c, true, fmt.Errorf("%s: %w", path, err)
+	}
+	c.Normalize()
+	if err := c.Validate(); err != nil {
+		return c, true, fmt.Errorf("%s: %w", path, err)
+	}
+	return c, true, nil
+}
+
+const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
+
+// Save writes c atomically: temp file, fsync, rename.
+func Save(path string, c Config) error {
+	b, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".config-*.yaml")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.WriteString(header); err == nil {
+		_, err = tmp.Write(b)
+	}
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
+}

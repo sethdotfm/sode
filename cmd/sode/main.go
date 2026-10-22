@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -16,7 +15,7 @@ import (
 	"time"
 
 	"github.com/sethdotfm/sode/internal/app"
-	"github.com/sethdotfm/sode/internal/swp08"
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
 )
 
@@ -27,41 +26,36 @@ func env(k, def string) string {
 	return def
 }
 
-func envInt(k string, def int) int {
-	v := os.Getenv(k)
-	if v == "" {
-		return def
+// loadConfig reads the YAML file. On first start (no file) it is created
+// from the SODE_* seed variables; after that the file wins.
+func loadConfig(path string) config.Config {
+	if path != "" {
+		c, exists, err := config.Load(path)
+		if err != nil {
+			log.Fatalf("config: %v", err)
+		}
+		if exists {
+			log.Printf("config: loaded %s (SODE_* seed variables are ignored once it exists)", path)
+			return c
+		}
 	}
-	n, err := strconv.Atoi(v)
+	c, err := config.FromEnv(config.Defaults())
 	if err != nil {
-		log.Fatalf("%s: %v", k, err)
+		log.Fatalf("config: %v", err)
 	}
-	return n
-}
-
-func envBool(k string) bool {
-	b, _ := strconv.ParseBool(os.Getenv(k))
-	return b
-}
-
-// levels builds the UI → wire level map: wire = UI + SODE_LEVEL_WIRE_OFFSET.
-// UI level 1 gets the video swatch, the rest the 16 audio swatches.
-func levels() []app.Level {
-	count := envInt("SODE_LEVEL_COUNT", 17)
-	off := envInt("SODE_LEVEL_WIRE_OFFSET", -1)
-	out := make([]app.Level, count)
-	for i := range out {
-		ui := i + 1
-		l := app.Level{UI: ui, Wire: ui + off, Swatch: "video"}
-		if ui > 1 {
-			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
-		}
-		if l.Wire < 0 || l.Wire > 255 {
-			log.Fatalf("level %d maps to wire level %d; check SODE_LEVEL_WIRE_OFFSET", ui, l.Wire)
-		}
-		out[i] = l
+	c.Normalize()
+	if err := c.Validate(); err != nil {
+		log.Fatalf("config from environment: %v", err)
 	}
-	return out
+	if path == "" {
+		log.Printf("config: SODE_CONFIG not set; settings changes will not survive a restart")
+		return c
+	}
+	if err := config.Save(path, c); err != nil {
+		log.Fatalf("config: writing %s: %v", path, err)
+	}
+	log.Printf("config: created %s from environment", path)
+	return c
 }
 
 func main() {
@@ -79,38 +73,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	router := os.Getenv("SODE_ROUTER")
-	if router == "" {
-		log.Fatal("SODE_ROUTER is required (host:port of the SW-P-08 router)")
-	}
-	cfg := app.Config{
-		Router:        router,
-		Matrix:        envInt("SODE_MATRIX", 0),
-		Levels:        levels(),
-		DefaultLevels: env("SODE_DEFAULT_LEVELS", ""),
-		NameLen:       envInt("SODE_NAME_LEN", 12),
-		ExtNames:      env("SODE_NAMES", "std") == "ext",
-		NumOffset:     envInt("SODE_NUM_OFFSET", 1),
-		LockoutMs:     envInt("SODE_CONFIRM_LOCKOUT_MS", 500),
-		ConfirmEnter:  envBool("SODE_CONFIRM_ENTER"),
-	}
-	if cfg.DefaultLevels == "" {
-		cfg.DefaultLevels = fmt.Sprintf("1-%d", len(cfg.Levels))
-	}
+	cfgPath := os.Getenv("SODE_CONFIG")
+	cfg := loadConfig(cfgPath)
 
-	sw := &swp08.Client{Addr: router, Debug: envBool("SODE_DEBUG")}
 	hist, err := app.OpenHistory(os.Getenv("SODE_HISTORY"))
 	if err != nil {
 		log.Fatalf("history: %v", err)
 	}
-	a, err := app.New(cfg, sw, hist)
+	debug, _ := strconv.ParseBool(os.Getenv("SODE_DEBUG"))
+	a, err := app.New(cfg, cfgPath, hist, debug)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	go sw.Run(ctx)
 	go a.Run(ctx)
 
 	srv := &http.Server{Addr: listen, Handler: a.Handler(web.FS), ReadHeaderTimeout: 10 * time.Second}
@@ -120,8 +97,8 @@ func main() {
 		defer cancel()
 		srv.Shutdown(sctx)
 	}()
-	log.Printf("sode: http on %s, router %s matrix %d, %d levels (UI 1 → wire %d)",
-		listen, router, cfg.Matrix, len(cfg.Levels), cfg.Levels[0].Wire)
+	log.Printf("sode: http on %s, router %q matrix %d, %d levels (UI 1 → wire %d)",
+		listen, cfg.Router, cfg.Matrix, cfg.Levels, 1+cfg.LevelWireOffset)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}

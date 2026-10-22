@@ -176,6 +176,26 @@ func (s *sim) handle(c net.Conn, m []byte) {
 			reply(swp08.ExtTallyDump(mx, l, i, t[i:min(i+64, len(t))]))
 		}
 
+	case swp08.CmdExtProtectDumpReq:
+		// Destination 12 ("Rec B") is protected by device 9 on every level,
+		// packed as the Ultrix does: state in bits 4-5, then the device.
+		if len(m) < 3 {
+			return
+		}
+		mx, l := int(m[1]), int(m[2])
+		for i := 0; i < len(s.dsts); i += 64 {
+			n := min(64, len(s.dsts)-i)
+			msg := []byte{swp08.CmdExtProtectDump, byte(mx), byte(l), byte(n), byte(i >> 8), byte(i)}
+			for d := i; d < i+n; d++ {
+				if d == 12 {
+					msg = append(msg, 0x20, 0x09)
+				} else {
+					msg = append(msg, 0, 0)
+				}
+			}
+			reply(msg)
+		}
+
 	case swp08.CmdSrcNamesReq, swp08.CmdDstNamesReq, swp08.CmdExtSrcNamesReq, swp08.CmdExtDstNamesReq:
 		dest := m[0] == swp08.CmdDstNamesReq || m[0] == swp08.CmdExtDstNamesReq
 		ext := m[0] >= 0x80

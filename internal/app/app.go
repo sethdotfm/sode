@@ -6,50 +6,76 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maps"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-type Level struct {
-	UI     int    `json:"ui"`
-	Wire   int    `json:"wire"`
-	Swatch string `json:"swatch"` // patchbay pb-level-- suffix
+// runtime is an immutable view of the current config plus lookups derived
+// from it. Saving settings swaps in a new one.
+type runtime struct {
+	cfg     config.Config
+	levels  []config.Level
+	byWire  map[int]config.Level
+	byUI    map[int]config.Level
+	lenCode byte
+	proxies []netip.Prefix
 }
 
-type Config struct {
-	Router        string
-	Matrix        int
-	Levels        []Level
-	DefaultLevels string
-	NameLen       int
-	ExtNames      bool
-	NumOffset     int // added to wire numbers for display (Ultrix shows 1-based)
-	LockoutMs     int
-	ConfirmEnter  bool
+func newRuntime(c config.Config) (*runtime, error) {
+	code, err := swp08.NameLenCode(c.NameLength)
+	if err != nil {
+		return nil, err
+	}
+	proxies, err := c.Proxies()
+	if err != nil {
+		return nil, err
+	}
+	r := &runtime{cfg: c, levels: c.LevelMap(), byWire: map[int]config.Level{}, byUI: map[int]config.Level{}, lenCode: code, proxies: proxies}
+	for _, l := range r.levels {
+		r.byWire[l.Wire] = l
+		r.byUI[l.UI] = l
+	}
+	return r, nil
+}
+
+// probe is the keepalive message: an interrogate, which always gets a reply.
+func (r *runtime) probe() []byte {
+	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
 }
 
 type App struct {
-	cfg     Config
 	sw      *swp08.Client
 	hist    *History
-	byWire  map[int]Level
-	byUI    map[int]Level
-	lenCode byte
+	cfgPath string
+	rt      atomic.Pointer[runtime]
 
-	mu        sync.Mutex
-	srcNames  map[int]string
-	dstNames  map[int]string
-	tally     map[int]map[int]int // dst → UI level → src
-	status    statusMsg
-	clients   map[*client]struct{}
-	pend      [][3]int // tally changes awaiting broadcast
-	namesDirt bool
-	namesAt   time.Time // last names message from the router
-	waiters   map[*waiter]struct{}
+	mu       sync.Mutex
+	srcNames map[int]string
+	dstNames map[int]string
+	tally    map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
+	protect  map[int]map[int]int // dst → UI level → protecting device
+	status   statusMsg
+	clients  map[*client]struct{}
+	waiters  map[*waiter]struct{}
+	pend     [][3]int // tally changes awaiting broadcast
+	pendProt [][3]int // protect changes awaiting broadcast (device -1 = cleared)
+
+	// Name refresh: replies are collected into fresh maps and swapped in once
+	// they stop arriving, so names deleted on the router disappear here.
+	newSrc, newDst map[int]string // nil when no refresh is in flight
+	nameReqAt      time.Time
+	nameRxAt       time.Time
+	namesAt        time.Time // last completed refresh
+	namesDirt      bool      // unsolicited names changed outside a refresh
+	dumpAt         time.Time
 }
 
 type statusMsg struct {
@@ -59,38 +85,37 @@ type statusMsg struct {
 	Err    string `json:"err,omitempty"`
 }
 
-func New(cfg Config, sw *swp08.Client, hist *History) (*App, error) {
-	code, err := swp08.NameLenCode(cfg.NameLen)
+func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, error) {
+	r, err := newRuntime(cfg)
 	if err != nil {
 		return nil, err
 	}
 	a := &App{
-		cfg:      cfg,
-		sw:       sw,
 		hist:     hist,
-		lenCode:  code,
-		byWire:   map[int]Level{},
-		byUI:     map[int]Level{},
+		cfgPath:  cfgPath,
 		srcNames: map[int]string{},
 		dstNames: map[int]string{},
 		tally:    map[int]map[int]int{},
+		protect:  map[int]map[int]int{},
 		clients:  map[*client]struct{}{},
 		waiters:  map[*waiter]struct{}{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
-	for _, l := range cfg.Levels {
-		a.byWire[l.Wire] = l
-		a.byUI[l.UI] = l
-	}
-	sw.OnUp = a.onRouterUp
-	sw.OnMsg = a.onRouterMsg
-	sw.OnState = a.onRouterState
-	sw.Probe = swp08.ExtInterrogate(cfg.Matrix, cfg.Levels[0].Wire, 0)
+	a.rt.Store(r)
+	a.sw = swp08.NewClient(cfg.Router, r.probe())
+	a.sw.Debug = debug
+	a.sw.OnUp = a.onRouterUp
+	a.sw.OnMsg = a.onRouterMsg
+	a.sw.OnState = a.onRouterState
 	return a, nil
 }
 
-// Run flushes batched updates to browsers until ctx ends.
+func (a *App) r() *runtime { return a.rt.Load() }
+
+// Run drives the router client, batched broadcasts and periodic refreshes
+// until ctx ends.
 func (a *App) Run(ctx context.Context) {
+	go a.sw.Run(ctx)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
 	for {
@@ -99,16 +124,56 @@ func (a *App) Run(ctx context.Context) {
 			return
 		case <-t.C:
 			a.flush()
+			a.periodic()
 		}
 	}
 }
 
-func (a *App) onRouterUp() {
-	for _, dest := range []bool{false, true} {
-		a.send(swp08.NamesReq(dest, a.cfg.ExtNames, a.cfg.Matrix, 0, a.lenCode))
+func (a *App) periodic() {
+	r := a.r()
+	a.mu.Lock()
+	up := a.status.Router == string(swp08.StateUp)
+	names := r.cfg.NameRefreshSeconds > 0 && time.Since(a.nameReqAt) > time.Duration(r.cfg.NameRefreshSeconds)*time.Second
+	dump := r.cfg.TallyResyncSeconds > 0 && time.Since(a.dumpAt) > time.Duration(r.cfg.TallyResyncSeconds)*time.Second
+	a.mu.Unlock()
+	if !up {
+		return
 	}
-	for _, l := range a.cfg.Levels {
-		a.send(swp08.ExtTallyDumpReq(a.cfg.Matrix, l.Wire))
+	if names {
+		a.RefreshNames()
+	}
+	if dump {
+		a.requestDumps()
+	}
+}
+
+func (a *App) onRouterUp() {
+	a.RefreshNames()
+	a.requestDumps()
+}
+
+// RefreshNames re-reads all source and destination names.
+func (a *App) RefreshNames() {
+	r := a.r()
+	a.mu.Lock()
+	a.newSrc, a.newDst = map[int]string{}, map[int]string{}
+	a.nameReqAt = time.Now()
+	a.mu.Unlock()
+	ext := r.cfg.NameRequests == "ext"
+	for _, dest := range []bool{false, true} {
+		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode))
+	}
+}
+
+// requestDumps re-reads every crosspoint and protect on every level.
+func (a *App) requestDumps() {
+	r := a.r()
+	a.mu.Lock()
+	a.dumpAt = time.Now()
+	a.mu.Unlock()
+	for _, l := range r.levels {
+		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire))
+		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0))
 	}
 }
 
@@ -122,6 +187,7 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.status.Router = string(s)
+	a.status.Addr = a.r().cfg.Router
 	a.status.Err = ""
 	if err != nil {
 		a.status.Err = err.Error()
@@ -134,13 +200,14 @@ func (a *App) onRouterMsg(msg []byte) {
 	if err != nil {
 		log.Printf("parse: %v (% X)", err, msg)
 	}
+	r := a.r()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, xp := range ev.Crosspoints {
-		if xp.Matrix != a.cfg.Matrix {
+		if xp.Matrix != r.cfg.Matrix {
 			continue
 		}
-		l, ok := a.byWire[xp.Level]
+		l, ok := r.byWire[xp.Level]
 		if !ok {
 			continue
 		}
@@ -160,18 +227,62 @@ func (a *App) onRouterMsg(msg []byte) {
 			w.see(xp)
 		}
 	}
+	for _, p := range ev.Protects {
+		if p.Matrix != r.cfg.Matrix {
+			continue
+		}
+		l, ok := r.byWire[p.Level]
+		if !ok {
+			continue
+		}
+		dev := -1
+		if p.Protected {
+			dev = p.Device
+		}
+		t := a.protect[p.Dst]
+		old, had := t[l.UI]
+		if dev < 0 {
+			if !had {
+				continue
+			}
+			delete(t, l.UI)
+		} else {
+			if had && old == dev {
+				continue
+			}
+			if t == nil {
+				t = map[int]int{}
+				a.protect[p.Dst] = t
+			}
+			t[l.UI] = dev
+		}
+		a.pendProt = append(a.pendProt, [3]int{p.Dst, l.UI, dev})
+	}
 	if nb := ev.Names; nb != nil {
 		m := a.srcNames
+		if a.newSrc != nil {
+			m = a.newSrc
+		}
 		if nb.Dest {
 			m = a.dstNames
+			if a.newDst != nil {
+				m = a.newDst
+			}
 		}
 		for i, n := range nb.Names {
 			m[nb.First+i] = n
 		}
-		a.namesDirt = true
-		a.namesAt = time.Now()
+		a.nameRxAt = time.Now()
+		if a.newSrc == nil {
+			a.namesDirt = true
+		}
 	}
 }
+
+const (
+	namesQuiet   = 300 * time.Millisecond // refresh is done once names stop for this long
+	namesTimeout = 10 * time.Second
+)
 
 func (a *App) flush() {
 	a.mu.Lock()
@@ -180,16 +291,42 @@ func (a *App) flush() {
 		a.broadcast(map[string]any{"t": "tally", "u": a.pend})
 		a.pend = nil
 	}
-	// Names arrive as hundreds of small messages; send the full list once
-	// they stop rather than on every tick while loading.
-	if a.namesDirt && time.Since(a.namesAt) > 300*time.Millisecond {
+	if len(a.pendProt) > 0 {
+		a.broadcast(map[string]any{"t": "protect", "u": a.pendProt})
+		a.pendProt = nil
+	}
+
+	if a.newSrc != nil {
+		got := a.nameRxAt.After(a.nameReqAt)
+		if (got && time.Since(a.nameRxAt) > namesQuiet) || time.Since(a.nameReqAt) > namesTimeout {
+			changed := false
+			// A side that got no replies keeps its old names rather than emptying.
+			if len(a.newSrc) > 0 && !maps.Equal(a.newSrc, a.srcNames) {
+				a.srcNames, changed = a.newSrc, true
+			}
+			if len(a.newDst) > 0 && !maps.Equal(a.newDst, a.dstNames) {
+				a.dstNames, changed = a.newDst, true
+			}
+			a.newSrc, a.newDst = nil, nil
+			if got {
+				a.namesAt = time.Now()
+			}
+			if changed {
+				log.Printf("names: %d sources, %d destinations", len(a.srcNames), len(a.dstNames))
+				a.namesDirt = true
+			} else {
+				a.broadcast(map[string]any{"t": "namesChecked", "at": a.namesAt})
+			}
+		}
+	}
+	if a.namesDirt && time.Since(a.nameRxAt) > namesQuiet {
 		a.namesDirt = false
 		a.broadcast(a.namesMsg())
 	}
 }
 
 func (a *App) namesMsg() map[string]any {
-	return map[string]any{"t": "names", "srcs": sorted(a.srcNames), "dsts": sorted(a.dstNames)}
+	return map[string]any{"t": "names", "srcs": sorted(a.srcNames), "dsts": sorted(a.dstNames), "at": a.namesAt}
 }
 
 func sorted(m map[int]string) [][2]any {
@@ -205,32 +342,49 @@ func sorted(m map[int]string) [][2]any {
 	return out
 }
 
-// hello is the full snapshot a browser gets on connect. Caller holds mu.
-func (a *App) hello() map[string]any {
-	var tally [][3]int
-	for d, t := range a.tally {
-		for l, s := range t {
-			tally = append(tally, [3]int{d, l, s})
+func triples(m map[int]map[int]int) [][3]int {
+	out := [][3]int{}
+	for d, t := range m {
+		for l, v := range t {
+			out = append(out, [3]int{d, l, v})
 		}
 	}
-	m := a.namesMsg()
-	m["t"] = "hello"
-	m["tally"] = tally
-	m["status"] = a.status
+	return out
+}
+
+// helloPage is read before taking mu: history pages hit the disk.
+type helloPage struct {
+	recent []Entry
+	more   bool
+}
+
+func (a *App) readHello() helloPage {
 	recent, err := a.hist.Page(-1, historyPage)
 	if err != nil {
 		log.Printf("history: %v", err)
 	}
-	m["recent"] = recent
-	m["more"] = len(recent) == historyPage && recent[len(recent)-1].ID > 0
-	m["cfg"] = map[string]any{
-		"levels":        a.cfg.Levels,
-		"defaultLevels": a.cfg.DefaultLevels,
-		"numOffset":     a.cfg.NumOffset,
-		"lockoutMs":     a.cfg.LockoutMs,
-		"confirmEnter":  a.cfg.ConfirmEnter,
+	return helloPage{recent, len(recent) == historyPage && recent[len(recent)-1].ID > 0}
+}
+
+// hello is the full snapshot a browser gets on connect or config change.
+// Caller holds mu.
+func (a *App) hello(p helloPage) []byte {
+	r := a.r()
+	m := a.namesMsg()
+	m["t"] = "hello"
+	m["tally"] = triples(a.tally)
+	m["protect"] = triples(a.protect)
+	m["status"] = a.status
+	m["recent"] = p.recent
+	m["more"] = p.more
+	m["levels"] = r.levels
+	m["cfg"] = r.cfg
+	m["configPath"] = a.cfgPath
+	b, err := json.Marshal(m)
+	if err != nil {
+		log.Printf("marshal hello: %v", err)
 	}
-	return m
+	return b
 }
 
 // broadcast sends v to every browser. Caller holds mu.
@@ -260,6 +414,58 @@ func (a *App) deliver(c *client, b []byte) {
 	}
 }
 
+func (a *App) reply(c *client, v any) {
+	b, _ := json.Marshal(v)
+	a.mu.Lock()
+	a.deliver(c, b)
+	a.mu.Unlock()
+}
+
+// --- settings
+
+// ApplyConfig validates, saves and applies new settings. Router-side changes
+// clear state and reconnect; every browser gets a fresh snapshot.
+func (a *App) ApplyConfig(c config.Config) error {
+	c.Normalize()
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	nr, err := newRuntime(c)
+	if err != nil {
+		return err
+	}
+	if a.cfgPath != "" {
+		if err := config.Save(a.cfgPath, c); err != nil {
+			return fmt.Errorf("saving %s: %w", a.cfgPath, err)
+		}
+	}
+	old := a.r().cfg
+	reconnect := old.Router != c.Router || old.Matrix != c.Matrix || old.Levels != c.Levels ||
+		old.LevelWireOffset != c.LevelWireOffset || old.NameLength != c.NameLength || old.NameRequests != c.NameRequests
+
+	page := a.readHello()
+	a.mu.Lock()
+	a.rt.Store(nr)
+	if reconnect {
+		a.srcNames, a.dstNames = map[int]string{}, map[int]string{}
+		a.tally, a.protect = map[int]map[int]int{}, map[int]map[int]int{}
+		a.pend, a.pendProt = nil, nil
+		a.newSrc, a.newDst = nil, nil
+		a.namesAt = time.Time{}
+		a.status.Addr = c.Router
+	}
+	hello := a.hello(page)
+	for cl := range a.clients {
+		a.deliver(cl, hello)
+	}
+	a.mu.Unlock()
+	if reconnect {
+		a.sw.SetTarget(c.Router, nr.probe())
+	}
+	log.Printf("config: applied (reconnect=%v)", reconnect)
+	return nil
+}
+
 // --- takes
 
 type takeReq struct {
@@ -274,6 +480,7 @@ type waiter struct {
 	dst, src int
 	wire     map[int]bool // wire levels still outstanding
 	done     chan struct{}
+	closed   bool
 }
 
 // see marks a level confirmed when the router reports the requested route.
@@ -283,73 +490,129 @@ func (w *waiter) see(xp swp08.Crosspoint) {
 		return
 	}
 	delete(w.wire, xp.Level)
-	if len(w.wire) == 0 {
+	w.finishIfDone()
+}
+
+// Caller holds mu.
+func (w *waiter) finishIfDone() {
+	if len(w.wire) == 0 && !w.closed {
+		w.closed = true
 		close(w.done)
 	}
 }
 
 const takeTimeout = 3 * time.Second
 
-func (a *App) take(c *client, r takeReq) {
-	res := map[string]any{"t": "takeResult", "id": r.ID, "ok": false}
-	reply := func() {
-		b, _ := json.Marshal(res)
-		a.mu.Lock()
-		a.deliver(c, b)
-		a.mu.Unlock()
+func levelList(ls []int) string {
+	sort.Ints(ls)
+	parts := make([]string, len(ls))
+	for i, l := range ls {
+		parts[i] = fmt.Sprint(l)
 	}
+	return strings.Join(parts, ", ")
+}
 
-	if r.Src < 0 || r.Src > 0xFFFE || r.Dst < 0 || r.Dst > 0xFFFE || len(r.Levels) == 0 {
+func (a *App) take(c *client, req takeReq) {
+	r := a.r()
+	res := map[string]any{"t": "takeResult", "id": req.ID, "ok": false}
+
+	if req.Src < 0 || req.Src > 0xFFFE || req.Dst < 0 || req.Dst > 0xFFFE || len(req.Levels) == 0 {
 		res["err"] = "bad request"
-		reply()
+		a.reply(c, res)
 		return
 	}
-	w := &waiter{dst: r.Dst, src: r.Src, wire: map[int]bool{}, done: make(chan struct{})}
-	var msgs [][]byte
-	for _, ui := range r.Levels {
-		l, ok := a.byUI[ui]
+	type send struct {
+		ui, wire int
+		msg      []byte
+	}
+	var sends []send
+	for _, ui := range req.Levels {
+		l, ok := r.byUI[ui]
 		if !ok {
 			res["err"] = fmt.Sprintf("unknown level %d", ui)
-			reply()
+			a.reply(c, res)
 			return
 		}
-		w.wire[l.Wire] = true
-		msgs = append(msgs, swp08.ExtConnect(a.cfg.Matrix, l.Wire, r.Dst, r.Src))
+		sends = append(sends, send{ui, l.Wire, swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
 	}
 
-	e := &Entry{Time: time.Now(), Client: c.ip, Src: r.Src, Dst: r.Dst, Levels: r.Levels, Undo: r.Undo, Prev: [][2]int{}}
+	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Prev: [][2]int{}}
+	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, done: make(chan struct{})}
+	var protected []int
 	a.mu.Lock()
-	e.SrcName, e.DstName = a.srcNames[r.Src], a.dstNames[r.Dst]
-	for _, ui := range r.Levels {
-		if s, ok := a.tally[r.Dst][ui]; ok {
-			e.Prev = append(e.Prev, [2]int{ui, s})
+	e.SrcName, e.DstName = a.srcNames[req.Src], a.dstNames[req.Dst]
+	for _, s := range sends {
+		if prev, ok := a.tally[req.Dst][s.ui]; ok {
+			e.Prev = append(e.Prev, [2]int{s.ui, prev})
 		}
+		if _, ok := a.protect[req.Dst][s.ui]; ok {
+			protected = append(protected, s.ui)
+		}
+		w.wire[s.wire] = true
 	}
-	a.waiters[w] = struct{}{}
+	if len(protected) == 0 {
+		a.waiters[w] = struct{}{}
+	}
 	a.mu.Unlock()
+
+	if len(protected) > 0 {
+		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(protected)))
+		return
+	}
 	defer func() {
 		a.mu.Lock()
 		delete(a.waiters, w)
 		a.mu.Unlock()
 	}()
 
-	err := a.sendAll(msgs)
-	if err == nil {
+	// Queue every level. If the queue refuses partway, the levels already
+	// queued will still switch, so wait for those and report both halves.
+	var sendErr error
+	var unsent []int
+	for i, s := range sends {
+		if err := a.sw.Send(s.msg); err != nil {
+			sendErr = err
+			a.mu.Lock()
+			for _, u := range sends[i:] {
+				unsent = append(unsent, u.ui)
+				delete(w.wire, u.wire)
+			}
+			w.finishIfDone()
+			a.mu.Unlock()
+			break
+		}
+	}
+
+	var errs []string
+	if len(unsent) < len(sends) {
 		select {
 		case <-w.done:
 		case <-time.After(takeTimeout):
 			a.mu.Lock()
 			var missing []int
 			for wire := range w.wire {
-				missing = append(missing, a.byWire[wire].UI)
+				missing = append(missing, r.byWire[wire].UI)
 				// Ask what actually happened so the tally is truthful.
-				a.sw.Send(swp08.ExtInterrogate(a.cfg.Matrix, wire, r.Dst))
+				a.sw.Send(swp08.ExtInterrogate(r.cfg.Matrix, wire, req.Dst))
 			}
 			a.mu.Unlock()
-			sort.Ints(missing)
-			err = fmt.Errorf("no confirmation from router for levels %s", strings.Trim(fmt.Sprint(missing), "[]"))
+			if len(missing) > 0 {
+				errs = append(errs, "no confirmation from router for levels "+levelList(missing))
+			}
 		}
 	}
+	if sendErr != nil {
+		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(unsent), sendErr))
+	}
+	var err error
+	if len(errs) > 0 {
+		err = fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	a.finish(c, res, e, err)
+}
+
+// finish records a take in history and answers the browser.
+func (a *App) finish(c *client, res map[string]any, e *Entry, err error) {
 	e.OK = err == nil
 	res["ok"] = e.OK
 	if err != nil {
@@ -357,22 +620,14 @@ func (a *App) take(c *client, r takeReq) {
 		res["err"] = e.Err
 	}
 	a.record(e)
-	reply()
-}
-
-func (a *App) sendAll(msgs [][]byte) error {
-	for _, m := range msgs {
-		if err := a.sw.Send(m); err != nil {
-			return err
-		}
-	}
-	return nil
+	a.reply(c, res)
 }
 
 func (a *App) record(e *Entry) {
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
+	off := a.r().cfg.NumberOffset
 	undo := "-"
 	if e.Undo != nil {
 		undo = fmt.Sprint(*e.Undo)
@@ -382,7 +637,7 @@ func (a *App) record(e *Entry) {
 		result = e.Err
 	}
 	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s result=%q",
-		e.Client, e.Src+a.cfg.NumOffset, e.SrcName, e.Dst+a.cfg.NumOffset, e.DstName, e.Levels, undo, result)
+		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, result)
 	a.mu.Lock()
 	a.broadcast(map[string]any{"t": "recent", "e": e})
 	a.mu.Unlock()
@@ -396,8 +651,5 @@ func (a *App) history(c *client, before int) {
 		log.Printf("history: %v", err)
 	}
 	more := len(entries) == historyPage && entries[len(entries)-1].ID > 0
-	b, _ := json.Marshal(map[string]any{"t": "history", "entries": entries, "more": more})
-	a.mu.Lock()
-	a.deliver(c, b)
-	a.mu.Unlock()
+	a.reply(c, map[string]any{"t": "history", "entries": entries, "more": more})
 }

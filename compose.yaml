@@ -1,5 +1,7 @@
 # Real router:   SODE_ROUTER=10.0.0.50:8910 docker compose up -d
 # Simulator:     docker compose --profile sim up
+# The SODE_* settings below only seed /data/config.yaml on first start;
+# after that, change them from the Settings dialog.
 services:
   sode:
     build: { context: ., target: sode }
