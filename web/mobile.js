@@ -26,7 +26,7 @@ const active = () => layout() === 'phone' && document.documentElement.dataset.vi
 
 function renderConn() {
   const c = connState();
-  setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Link']);
+  setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Socket']);
   $('m-ws-text').parentElement.title = c.ws[1];
   setDot($('m-rt-dot'), $('m-rt-text'), [c.rt[0], 'Router']);
   $('m-rt-text').parentElement.title = c.rt[1];
