@@ -17,7 +17,6 @@ import (
 type Level struct {
 	UI     int    `json:"ui"`
 	Wire   int    `json:"wire"`
-	Label  string `json:"label"`
 	Swatch string `json:"swatch"` // patchbay pb-level-- suffix
 }
 
@@ -49,6 +48,7 @@ type App struct {
 	clients   map[*client]struct{}
 	pend      [][3]int // tally changes awaiting broadcast
 	namesDirt bool
+	namesAt   time.Time // last names message from the router
 	waiters   map[*waiter]struct{}
 }
 
@@ -169,6 +169,7 @@ func (a *App) onRouterMsg(msg []byte) {
 			m[nb.First+i] = n
 		}
 		a.namesDirt = true
+		a.namesAt = time.Now()
 	}
 }
 
@@ -179,7 +180,9 @@ func (a *App) flush() {
 		a.broadcast(map[string]any{"t": "tally", "u": a.pend})
 		a.pend = nil
 	}
-	if a.namesDirt {
+	// Names arrive as hundreds of small messages; send the full list once
+	// they stop rather than on every tick while loading.
+	if a.namesDirt && time.Since(a.namesAt) > 300*time.Millisecond {
 		a.namesDirt = false
 		a.broadcast(a.namesMsg())
 	}
@@ -336,15 +339,15 @@ func (a *App) take(c *client, r takeReq) {
 		case <-w.done:
 		case <-time.After(takeTimeout):
 			a.mu.Lock()
-			var missing []string
+			var missing []int
 			for wire := range w.wire {
-				missing = append(missing, a.byWire[wire].Label)
+				missing = append(missing, a.byWire[wire].UI)
 				// Ask what actually happened so the tally is truthful.
 				a.sw.Send(swp08.ExtInterrogate(a.cfg.Matrix, wire, r.Dst))
 			}
 			a.mu.Unlock()
-			sort.Strings(missing)
-			err = fmt.Errorf("no confirmation from router for %s", strings.Join(missing, ", "))
+			sort.Ints(missing)
+			err = fmt.Errorf("no confirmation from router for levels %s", strings.Trim(fmt.Sprint(missing), "[]"))
 		}
 	}
 	e.OK = err == nil

@@ -31,9 +31,8 @@ SODE_ROUTER=10.0.0.50:8910 SODE_DEBUG=true docker compose up --build
 |---|---|---|
 | `SODE_ROUTER` | (required) | Router `host:port` |
 | `SODE_MATRIX` | `0` | SW-P-08 matrix number |
-| `SODE_LEVEL_COUNT` | `17` | Number of UI levels (1 = Video, 2.. = A1..) |
+| `SODE_LEVEL_COUNT` | `17` | Number of levels (1 = video swatch, 2.. = audio swatches) |
 | `SODE_LEVEL_WIRE_OFFSET` | `-1` | Wire level = UI level + offset. `-1`: UI 1 → wire 0. Use `0` if the router wants video on wire level 1 |
-| `SODE_LEVEL_LABELS` | | Comma list overriding labels, e.g. `Video,L,R,…` |
 | `SODE_DEFAULT_LEVELS` | `1-<count>` | Used when the LEVELS box is blank |
 | `SODE_NAME_LEN` | `12` | Name length to request: 4, 8, 12 or 16 |
 | `SODE_NAMES` | `std` | `std` (cmd 100/102) or `ext` (cmd 0xE4/0xE6) name requests |

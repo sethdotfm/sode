@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -45,26 +44,17 @@ func envBool(k string) bool {
 	return b
 }
 
-// levels builds the UI → wire level map. UI level 1 is video, 2.. are
-// audio; wire = UI + SODE_LEVEL_WIRE_OFFSET. SODE_LEVEL_LABELS overrides
-// the labels as a comma list.
+// levels builds the UI → wire level map: wire = UI + SODE_LEVEL_WIRE_OFFSET.
+// UI level 1 gets the video swatch, the rest the 16 audio swatches.
 func levels() []app.Level {
 	count := envInt("SODE_LEVEL_COUNT", 17)
 	off := envInt("SODE_LEVEL_WIRE_OFFSET", -1)
-	var labels []string
-	if s := os.Getenv("SODE_LEVEL_LABELS"); s != "" {
-		labels = strings.Split(s, ",")
-	}
 	out := make([]app.Level, count)
 	for i := range out {
 		ui := i + 1
-		l := app.Level{UI: ui, Wire: ui + off, Label: "Video", Swatch: "video"}
+		l := app.Level{UI: ui, Wire: ui + off, Swatch: "video"}
 		if ui > 1 {
-			l.Label = fmt.Sprintf("A%d", ui-1)
 			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
-		}
-		if i < len(labels) && strings.TrimSpace(labels[i]) != "" {
-			l.Label = strings.TrimSpace(labels[i])
 		}
 		if l.Wire < 0 || l.Wire > 255 {
 			log.Fatalf("level %d maps to wire level %d; check SODE_LEVEL_WIRE_OFFSET", ui, l.Wire)
