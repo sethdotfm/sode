@@ -61,7 +61,8 @@ function refresh() {
 function renderMatches() {
   const ul = $('m-matches');
   ul.hidden = !M.matches.length;
-  // Best match sits nearest the input, like the latest message.
+  // The list is column-reverse: the best match sits nearest the input, and
+  // if space runs short the worst ones scroll away first.
   ul.replaceChildren(...M.matches.map((it, i) => {
     const li = el('li', 'sode-m__match' + (i === M.hi ? ' sode-m__match--hi' : ''), el('span', 'sode__num', it.num), it.name);
     li.setAttribute('role', 'option');
@@ -69,7 +70,7 @@ function renderMatches() {
     li.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
     li.addEventListener('click', () => { M.hi = i; advance(); });
     return li;
-  }).reverse());
+  }));
 }
 
 function shake(node) {
@@ -270,8 +271,7 @@ function closeSwipes(except) {
 function renderRecent() {
   const list = S.hist.slice(0, 5);
   $('m-recent').hidden = !list.length;
-  // Oldest first, so the newest sits nearest the composer like a chat.
-  $('m-recent-list').replaceChildren(...list.map(recentRow).reverse());
+  $('m-recent-list').replaceChildren(...list.map(recentRow));
   scrollThread();
 }
 

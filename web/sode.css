@@ -419,9 +419,12 @@ body { zoom: var(--sode-scale); }
 }
 .sode-m__spacer { flex: 1 1 auto; }
 
+/* Basis 0: the thread only gets what the composer leaves, so it gives up
+   space first when the keyboard is up. */
 .sode-m__thread {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 0;
   flex-direction: column;
   gap: var(--pb-space-6);
   overflow-y: auto;
@@ -516,18 +519,27 @@ body { zoom: var(--sode-scale); }
   justify-content: space-between;
 }
 
+/* The composer may shrink (with the keyboard up there's little room); the
+   input bar never does, so it always stays above the keyboard. */
 .sode-m__composer {
   background: var(--pb-surface-raised);
   border-top: var(--pb-border-w) solid var(--pb-edge);
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-direction: column;
+  min-height: 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 .sode-m__matches {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column-reverse;
   list-style: none;
   margin: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0;
 }
 .sode-m__matches[hidden] { display: none; }
@@ -540,11 +552,16 @@ body { zoom: var(--sode-scale); }
   min-height: calc(var(--pb-control-h-lg) * 1.4);
   padding: 0 var(--pb-space-5);
 }
-.sode-m__match + .sode-m__match { border-top: var(--pb-border-w) solid var(--pb-edge-soft); }
+.sode-m__match { flex: 0 0 auto; }
+/* column-reverse: a later item sits above, so its bottom edge divides them. */
+.sode-m__match + .sode-m__match { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); }
 .sode-m__match--hi { background: var(--pb-accent-wash); }
 .sode-m__picker {
   align-items: center;
   display: flex;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   gap: var(--pb-space-3);
   padding: var(--pb-space-3) var(--pb-space-5);
 }
@@ -562,6 +579,7 @@ body { zoom: var(--sode-scale); }
 }
 .sode-m__bar {
   align-items: center;
+  flex: 0 0 auto;
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-3);
   grid-template-columns: 1fr auto;
