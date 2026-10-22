@@ -552,6 +552,8 @@
       renderTally();
     });
     b.input.addEventListener('blur', () => { b.matches = []; renderMenu(k); });
+    // Coming back to unconfirmed text reopens its matches.
+    b.input.addEventListener('focus', () => { if (!sel[k]) refresh(k); });
   }
   for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
     input.addEventListener('focus', () => input.select());
