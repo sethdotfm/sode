@@ -4,7 +4,7 @@
 
 import {
   $, el, S, on, connState, setDot, search, parseLevels, levelInput, levelBar, pickButtons, allLevels,
-  fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote,
+  fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   resultNode, showResult,
   patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
@@ -285,11 +285,13 @@ function closeSwipes(except) {
   }
 }
 
+const pager = historyPager(5);
+
 function renderRecent() {
-  const list = S.hist.slice(0, 5);
+  const list = pager.list();
   $('m-recent').hidden = !list.length;
   $('m-recent-list').replaceChildren(...list.map(recentRow));
-  scrollThread();
+  $('m-recent-more').replaceChildren(...[pager.button()].filter(Boolean));
 }
 
 // ---- confirm sheet with slider
@@ -463,6 +465,7 @@ if (vv) {
 // ---- subscriptions
 
 on('hello', () => {
+  pager.reset();
   buildPicker();
   setStep(M.step, false);
   renderRecent();

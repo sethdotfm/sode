@@ -426,6 +426,32 @@ export function requestHistory() {
   return S.histLoading;
 }
 
+// Shows history `step` entries at a time. more() reveals the next step,
+// fetching another page from Sode once the loaded entries run out.
+export function historyPager(step) {
+  const pg = {
+    shown: step,
+    reset() { pg.shown = step; },
+    list: () => S.hist.slice(0, pg.shown),
+    hasMore: () => S.hist.length > pg.shown || S.histMore,
+    more() {
+      pg.shown += step;
+      if (S.hist.length < pg.shown) requestHistory();
+      emit('history');
+    },
+    // The "Load more" button, or null when there's nothing more.
+    button() {
+      if (!S.hist.length || !pg.hasMore()) return null;
+      const b = el('button', 'pb-btn pb-btn--outline', S.histLoading ? 'Loading…' : 'Load more');
+      b.type = 'button';
+      b.disabled = S.histLoading;
+      b.addEventListener('click', pg.more);
+      return b;
+    },
+  };
+  return pg;
+}
+
 // ---- results
 
 export function showResult(kind, title, text) {

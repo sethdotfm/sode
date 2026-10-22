@@ -2,7 +2,7 @@
 
 import {
   $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, levelBar, pickButtons,
-  allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, requestHistory,
+  allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
@@ -229,22 +229,14 @@ function retryButton(e, src, dst) {
   return b;
 }
 
+const pager = historyPager(10);
+
 function renderHistory() {
   $('history-head').hidden = !S.hist.length;
   $('history-hint').textContent = `(${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last)`;
-  $('history').replaceChildren(...S.hist.map(histRow));
-  $('history-more').textContent = S.histLoading ? 'Loading…' : '';
-  maybeLoadMore();
+  $('history').replaceChildren(...pager.list().map(histRow));
+  $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
 }
-
-function maybeLoadMore() {
-  if (!active()) return;
-  const r = $('history-more').getBoundingClientRect();
-  if (r.top > window.innerHeight + 200) return;
-  if (requestHistory()) $('history-more').textContent = 'Loading…';
-}
-
-new IntersectionObserver(maybeLoadMore, { rootMargin: '200px' }).observe($('history-more'));
 
 // ---- confirm
 
@@ -441,6 +433,7 @@ $('confirm-ok').addEventListener('click', () => {
 // ---- subscriptions
 
 on('hello', () => {
+  pager.reset();
   lvlInput.placeholder = S.cfg.defaultLevels;
   buildPicker();
   renderLevels();

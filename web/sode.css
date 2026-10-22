@@ -327,10 +327,16 @@ body { zoom: var(--sode-scale); }
 }
 .sode__hist-note { color: var(--pb-text-muted); }
 .sode__hist-more {
-  color: var(--pb-text-muted);
-  min-height: var(--pb-space-8);
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  padding-top: var(--pb-space-3);
 }
+.sode-m__recent-more {
+  display: flex;
+  justify-content: center;
+}
+.sode-m__recent-more:empty,
+.sode__hist-more:empty { display: none; }
 
 .sode__footer {
   display: flex;
