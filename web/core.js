@@ -31,6 +31,7 @@ export const S = {
   histMore: false,
   histLoading: false,
   result: null,     // last {kind, title, text} banner
+  newId: null,      // history entry that just arrived live
 };
 
 const listeners = {};
@@ -133,6 +134,7 @@ function handle(m) {
       break;
     case 'recent':
       if (!S.hist.some((e) => e.id === m.e.id)) S.hist.unshift(m.e);
+      S.newId = m.e.id; // views animate this one in, once
       emit('history');
       break;
     case 'historyCleared':

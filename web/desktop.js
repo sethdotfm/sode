@@ -20,6 +20,7 @@ let feedOpen = false; // "and N others" expanded
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 const expanded = new Set(); // history IDs showing their before state
+const entered = new Set();  // live entries already animated in
 
 // ---- connection
 
@@ -188,7 +189,7 @@ function histRow(e) {
     renderHistory();
   });
 
-  const row = el('li', 'pb-input sode__hist-row',
+  const row = el('li', 'pb-input sode__hist-row' + enterClass(e),
     el('span', 'sode__hist-id', `#${e.id}`),
     el('span', 'sode__hist-time', fmtTime(e.time)),
     levelBar(known),
@@ -208,6 +209,13 @@ function histRow(e) {
 }
 
 // Successful rows keep an invisible Retry so every row's columns line up.
+// A live entry animates in the first time it's drawn; nothing else does.
+function enterClass(e) {
+  if (e.id !== S.newId || entered.has(e.id)) return '';
+  entered.add(e.id);
+  return ' sode--enter';
+}
+
 function retryButton(e, src, dst) {
   const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (e.ok ? ' sode__placeholder' : ''), 'Retry');
   b.type = 'button';

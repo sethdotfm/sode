@@ -210,6 +210,7 @@ function scrollThread() {
 // ---- recent: swipe left to reveal Undo
 
 const REVEAL = 96;
+const entered = new Set(); // live entries already animated in
 
 function recentRow(e) {
   const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);
@@ -234,7 +235,9 @@ function recentRow(e) {
       el('span', 'sode-m__recent-status', status, retry)),
     el('div', 'sode-m__recent-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label), entryNote(e)),
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
-  const row = el('li', 'sode-m__recent-row', undo, face);
+  const fresh = e.id === S.newId && !entered.has(e.id);
+  if (fresh) entered.add(e.id);
+  const row = el('li', 'sode-m__recent-row' + (fresh ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   return row;
 }
