@@ -24,8 +24,9 @@ type Entry struct {
 	Prev    [][2]int  `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
 	OK      bool      `json:"ok"`
 	Err     string    `json:"err,omitempty"`
-	Undo    *int      `json:"undo,omitempty"`  // ID of the entry this take undid
-	Retry   *int      `json:"retry,omitempty"` // ID of the failed entry this take retried
+	Undo    *int      `json:"undo,omitempty"`    // ID of the entry this take undid
+	Retry   *int      `json:"retry,omitempty"`   // ID of the failed entry this take retried
+	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept

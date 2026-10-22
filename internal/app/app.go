@@ -480,17 +480,23 @@ type takeReq struct {
 type waiter struct {
 	dst, src int
 	wire     map[int]bool // wire levels still outstanding
+	already  map[int]bool // wire levels confirmed by tally, not by a change
 	done     chan struct{}
 	closed   bool
 }
 
 // see marks a level confirmed when the router reports the requested route.
+// Routers only announce changes (Connected), so a level that was already
+// on src is confirmed by the answer to an interrogate instead.
 // Caller holds mu.
 func (w *waiter) see(xp swp08.Crosspoint) {
 	if xp.Dst != w.dst || xp.Src != w.src || !w.wire[xp.Level] {
 		return
 	}
 	delete(w.wire, xp.Level)
+	if !xp.Changed() {
+		w.already[xp.Level] = true
+	}
 	w.finishIfDone()
 }
 
@@ -502,7 +508,12 @@ func (w *waiter) finishIfDone() {
 	}
 }
 
-const takeTimeout = 3 * time.Second
+const (
+	takeTimeout = 3 * time.Second
+	// After the timeout, unconfirmed levels are interrogated and given this
+	// long to answer before they count as failed.
+	takeGrace = time.Second
+)
 
 func levelList(ls []int) string {
 	sort.Ints(ls)
@@ -538,13 +549,17 @@ func (a *App) take(c *client, req takeReq) {
 	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Prev: [][2]int{}}
-	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, done: make(chan struct{})}
+	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{})}
 	var protected []int
+	same := map[int]bool{} // wire levels the cache says are already on src
 	a.mu.Lock()
 	e.SrcName, e.DstName = a.srcNames[req.Src], a.dstNames[req.Dst]
 	for _, s := range sends {
 		if prev, ok := a.tally[req.Dst][s.ui]; ok {
 			e.Prev = append(e.Prev, [2]int{s.ui, prev})
+			if prev == req.Src {
+				same[s.wire] = true
+			}
 		}
 		if _, ok := a.protect[req.Dst][s.ui]; ok {
 			protected = append(protected, s.ui)
@@ -584,23 +599,59 @@ func (a *App) take(c *client, req takeReq) {
 		}
 	}
 
+	// Levels already on src won't be announced, so ask. Queued after the
+	// connects, the answer reflects them.
+	interrogate := func(wires []int) {
+		for _, wire := range wires {
+			a.sw.Send(swp08.ExtInterrogate(r.cfg.Matrix, wire, req.Dst))
+		}
+	}
+	outstanding := func() []int {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		var ws []int
+		for wire := range w.wire {
+			ws = append(ws, wire)
+		}
+		return ws
+	}
+	var sameSent []int
+	for _, s := range sends[:len(sends)-len(unsent)] {
+		if same[s.wire] {
+			sameSent = append(sameSent, s.wire)
+		}
+	}
+	interrogate(sameSent)
+
 	var errs []string
 	if len(unsent) < len(sends) {
 		select {
 		case <-w.done:
 		case <-time.After(takeTimeout):
-			a.mu.Lock()
-			var missing []int
-			for wire := range w.wire {
-				missing = append(missing, r.byWire[wire].UI)
-				// Ask what actually happened so the tally is truthful.
-				a.sw.Send(swp08.ExtInterrogate(r.cfg.Matrix, wire, req.Dst))
+			// Last chance: ask about whatever is still unconfirmed (a stale
+			// cache, or a Connected lost on the wire) and give it a moment.
+			interrogate(outstanding())
+			select {
+			case <-w.done:
+			case <-time.After(takeGrace):
 			}
-			a.mu.Unlock()
+			var missing []int
+			for _, wire := range outstanding() {
+				missing = append(missing, r.byWire[wire].UI)
+			}
 			if len(missing) > 0 {
 				errs = append(errs, "no confirmation from router for levels "+levelList(missing))
 			}
 		}
+	}
+	a.mu.Lock()
+	for wire := range w.already {
+		e.Already = append(e.Already, r.byWire[wire].UI)
+	}
+	a.mu.Unlock()
+	sort.Ints(e.Already)
+	if len(e.Already) > 0 {
+		res["already"] = e.Already
 	}
 	if sendErr != nil {
 		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(unsent), sendErr))

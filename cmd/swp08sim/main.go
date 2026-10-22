@@ -144,6 +144,7 @@ func (s *sim) handle(c net.Conn, m []byte) {
 		s.mu.Lock()
 		t, ok := s.tally[l]
 		valid := ok && dst < len(t) && src < len(s.srcs)
+		changed := valid && t[dst] != src
 		if valid {
 			t[dst] = src
 		}
@@ -154,6 +155,11 @@ func (s *sim) handle(c net.Conn, m []byte) {
 		s.mu.Unlock()
 		if !valid {
 			log.Printf("connect out of range: level %d dst %d src %d", l, dst, src)
+			return
+		}
+		// Like a real router, only a change is announced.
+		if !changed {
+			log.Printf("connect level %d: dst %d already on src %d (no Connected)", l, dst, src)
 			return
 		}
 		log.Printf("connect level %d: dst %d ← src %d", l, dst, src)

@@ -62,7 +62,7 @@ func TestParseStdConnected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Crosspoint{{Matrix: 1, Level: 2, Dst: 389, Src: 263}}
+	want := []Crosspoint{{Matrix: 1, Level: 2, Dst: 389, Src: 263, Cmd: CmdConnected}}
 	if !reflect.DeepEqual(ev.Crosspoints, want) {
 		t.Fatalf("got %+v", ev.Crosspoints)
 	}
@@ -73,7 +73,7 @@ func TestParseExtDump(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Crosspoint{{0, 3, 1000, 5}, {0, 3, 1001, 1500}}
+	want := []Crosspoint{{0, 3, 1000, 5, CmdExtTallyDump}, {0, 3, 1001, 1500, CmdExtTallyDump}}
 	if !reflect.DeepEqual(ev.Crosspoints, want) {
 		t.Fatalf("got %+v", ev.Crosspoints)
 	}

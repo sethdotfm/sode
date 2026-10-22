@@ -402,11 +402,13 @@ export function retryPlan(e) {
 // 'undo', 'retry' or 'patch', for wording confirms.
 export const planVerb = (plan) => (plan.undo ? 'undo' : plan.retry ? 'retry' : 'patch');
 
-// " (undo of #3)" / " (retry of #3)" for a history entry, or null.
+// " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
-  if (e.undo != null) return el('span', 'sode__hist-note', ` (undo of #${e.undo})`);
-  if (e.retry != null) return el('span', 'sode__hist-note', ` (retry of #${e.retry})`);
-  return null;
+  const parts = [];
+  if (e.undo != null) parts.push(`undo of #${e.undo}`);
+  if (e.retry != null) parts.push(`retry of #${e.retry}`);
+  if (e.already?.length) parts.push(`${levelText(e.already)} already`);
+  return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }
 
 // Asks for the next page of history. True if a request went out.
@@ -433,12 +435,14 @@ function takeResult(m) {
   const b = takes.get(m.id);
   if (!b) return;
   takes.delete(m.id);
-  b.results.push({ g: b.byId.get(m.id), ok: m.ok, err: m.err });
+  b.results.push({ g: b.byId.get(m.id), ok: m.ok, err: m.err, already: m.already || [] });
   if (b.results.length < b.byId.size) return;
-  const what = (g) => `${g.src.label} → ${b.dst.label} (levels ${levelText(g.levels)})`;
+  // Levels the router confirmed were already on the source (no change).
+  const what = (g, already = []) => `${g.src.label} → ${b.dst.label} (levels ${levelText(g.levels)}` +
+    (already.length ? `; ${levelText(already)} ${already.length === 1 ? 'was' : 'were'} already on ${g.src.label}` : '') + ')';
   const failed = b.results.filter((r) => !r.ok);
   if (!failed.length) {
-    showResult('ok', b.undo ? 'Undone' : 'Patched', b.results.map((r) => what(r.g)).join('; '));
+    showResult('ok', b.undo ? 'Undone' : 'Patched', b.results.map((r) => what(r.g, r.already)).join('; '));
     return;
   }
   const title = b.undo ? (failed.length < b.results.length ? 'Undo partly failed' : 'Undo failed') : 'Patch failed';

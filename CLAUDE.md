@@ -16,4 +16,5 @@ Full plan and rationale: PLAN.md. Key decisions:
 - Standard name requests (cmd 100/102) with 12-char names work. ~2690 sources, 720 destinations.
 - Extended tally dump (0x95 → 0x97, 64 per message) works on all 17 levels; source 0xFFFF = nothing routed.
 - Extended connect (0x82) is confirmed by 0x84 Connected; takes report ok.
+- Routers only send Connected when a crosspoint *changes*. A connect that matches the current state gets no reply, so `take()` interrogates (0x81 → 0x83 Tally) levels already on the source, and any level still unconfirmed at the 3s timeout gets a 1s interrogate grace. Levels confirmed that way are reported as "already" (history `already`). The simulator mimics this.
 - Extended protect dump (0x93 matrix, level, startDst(2) → 0x94 matrix, level, count, firstDst(2), count × 2 bytes): state in bits 4-5 of byte 1, device in the rest. Dest 65 was protected by device 9 on all levels. Single protect change messages (0x8B/0x8D/0x8F) not yet seen live.

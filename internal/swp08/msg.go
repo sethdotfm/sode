@@ -68,7 +68,12 @@ func NamesPerMsg(code byte) int {
 type Crosspoint struct {
 	Matrix, Level int
 	Dst, Src      int
+	Cmd           byte // message it came from: Connected means it just changed
 }
+
+// Changed reports whether the router sent this because the route changed,
+// rather than in answer to an interrogate or dump.
+func (x Crosspoint) Changed() bool { return x.Cmd == CmdConnected || x.Cmd == CmdExtConnected }
 
 type NameBlock struct {
 	Dest          bool
@@ -294,6 +299,9 @@ func Parse(msg []byte) (Event, error) {
 		nb, err := names(msg[0] == CmdExtDstNames, int(d[0]), int(d[1]), d[2:])
 		ev.Names = nb
 		return ev, err
+	}
+	for i := range ev.Crosspoints {
+		ev.Crosspoints[i].Cmd = msg[0]
 	}
 	return ev, nil
 }
