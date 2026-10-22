@@ -75,7 +75,7 @@ body { zoom: var(--sode-scale); }
 .sode__boxes {
   display: grid;
   gap: var(--pb-space-6);
-  grid-template-columns: 2fr 2fr 1fr;
+  grid-template-columns: 2fr 2fr 1.5fr;
   width: 100%;
 }
 .sode__box {
@@ -118,7 +118,33 @@ body { zoom: var(--sode-scale); }
   gap: var(--pb-space-1);
   min-height: var(--pb-space-8);
 }
-.sode__levels-text { margin-left: var(--pb-space-3); }
+
+.sode__picker {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__picker .sode__levels { flex: 1 1 auto; }
+/* A level toggle: filled when on, outlined in its signal colour when off. */
+.sode__pick {
+  align-items: center;
+  background: transparent;
+  border: 2px solid var(--sode-c);
+  color: var(--pb-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  height: calc(var(--pb-space-8) + var(--pb-space-1));
+  justify-content: center;
+  min-width: calc(var(--pb-space-8) + var(--pb-space-1));
+  padding: 0;
+}
+.sode__pick[aria-pressed="true"] {
+  background: var(--sode-c);
+  color: var(--pb-text-on-accent);
+}
 
 .sode__tally,
 .sode__result {
@@ -138,10 +164,10 @@ body { zoom: var(--sode-scale); }
   align-items: center;
   color: var(--pb-text-muted);
   display: flex;
+  flex-wrap: wrap;
   gap: var(--pb-space-1);
   min-width: 12ch;
 }
-.sode__route-levels span:last-child { margin-left: var(--pb-space-3); }
 .sode__end {
   border: var(--pb-border-w) solid var(--pb-edge);
   color: var(--pb-text-strong);

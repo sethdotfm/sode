@@ -24,6 +24,7 @@
     hist: [],         // newest first
     histMore: false,
     histLoading: false,
+    lvlNone: false,   // picker cleared to no levels (blank box would mean default)
     feedOpen: false,  // "and N others" expanded
   };
   const sel = { src: null, dst: null };
@@ -87,6 +88,7 @@
         setStatus(m.status);
         S.hist = m.recent || [];
         S.histMore = m.more;
+        buildPicker();
         renderLevels();
         renderTally();
         renderHistory();
@@ -228,6 +230,7 @@
   // ---- levels
 
   function parseLevels(text) {
+    if (S.lvlNone && !text.trim()) return null;
     const t = text.trim() || S.cfg.defaultLevels;
     const out = new Set();
     for (const part of t.split(/[\s,]+/).filter(Boolean)) {
@@ -243,34 +246,72 @@
     return out.size ? [...out].sort((x, y) => x - y) : null;
   }
 
-  // "Video, A1–A16" for a sorted list of UI levels.
-  function levelText(list) {
-    const parts = [];
+  // Collapses a sorted level list into runs: [[1,3],[5,5]].
+  function levelRuns(list) {
+    const out = [];
     for (let i = 0; i < list.length;) {
       let j = i;
       while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
-      const a = S.levelBy.get(list[i]).label, b = S.levelBy.get(list[j]).label;
-      parts.push(i === j ? a : `${a}–${b}`);
+      out.push([list[i], list[j]]);
       i = j + 1;
     }
-    return parts.join(', ');
+    return out;
+  }
+  // "1–3, 5" for display; "1-3,5" for the levels box.
+  const levelText = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}–${b}`)).join(', ');
+  const levelInput = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}-${b}`)).join(',');
+
+  // Levels are always shown as numbered colour swatches; the number means
+  // the swatch never relies on colour alone.
+  function swatches(list) {
+    const row = el('span', 'sode__route-levels', ...list.map((u) =>
+      el('span', `pb-level pb-level--${S.levelBy.get(u).swatch} sode__swatch`, String(u))));
+    row.setAttribute('role', 'img');
+    row.setAttribute('aria-label', `Levels ${levelText(list)}`);
+    return row;
   }
 
-  // Numbered colour swatch per level. The number repeats the level so the
-  // swatch never relies on colour alone.
-  const swatches = (list) => list.map((u) => {
-    const s = el('span', `pb-level pb-level--${S.levelBy.get(u).swatch} sode__swatch`, String(u));
-    s.setAttribute('aria-hidden', 'true');
-    return s;
-  });
+  // ---- level picker
+
+  const allLevels = () => S.cfg.levels.map((l) => l.ui);
+
+  function buildPicker() {
+    $('lvl-pick').replaceChildren(...S.cfg.levels.map((l) => {
+      const b = el('button', 'sode__pick', String(l.ui));
+      b.type = 'button';
+      b.tabIndex = -1;
+      b.dataset.ui = l.ui;
+      b.style.setProperty('--sode-c', `var(--pb-signal-${l.swatch})`);
+      b.setAttribute('aria-label', `Level ${l.ui}`);
+      b.addEventListener('click', () => {
+        const on = new Set(parseLevels(lvlInput.value) || []);
+        if (on.has(l.ui)) on.delete(l.ui);
+        else on.add(l.ui);
+        setLevels([...on].sort((x, y) => x - y));
+      });
+      return b;
+    }));
+  }
+
+  function setLevels(list) {
+    S.lvlNone = list.length === 0;
+    lvlInput.value = levelInput(list);
+    renderLevels();
+    renderTally();
+  }
 
   function renderLevels() {
     if (!S.cfg) return;
     const list = parseLevels(lvlInput.value);
+    const on = new Set(list || []);
     lvlInput.classList.toggle('pb-input--invalid', !list);
-    const sum = $('lvl-sum');
-    if (!list) { sum.replaceChildren('Unknown level'); return; }
-    sum.replaceChildren(...swatches(list), el('span', 'sode__levels-text', levelText(list)));
+    lvlInput.placeholder = S.lvlNone ? 'none' : S.cfg.defaultLevels;
+    for (const b of $('lvl-pick').children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
+    const full = on.size === S.cfg.levels.length;
+    const all = $('lvl-all');
+    all.textContent = full ? 'None' : 'All';
+    all.dataset.tip = full ? 'Select no levels' : 'Select all levels';
+    all.setAttribute('aria-label', all.dataset.tip);
   }
 
   // ---- tally display
@@ -290,7 +331,7 @@
 
   function routeRow(levels, srcText, dstText) {
     return el('div', 'sode__route',
-      el('span', 'sode__route-levels', ...swatches(levels), el('span', null, levelText(levels))),
+      swatches(levels),
       el('span', 'sode__end sode__end--src', srcText),
       el('span', 'sode__arrow', '→'),
       el('span', 'sode__end sode__end--dst', dstText));
@@ -391,7 +432,7 @@
 
     return el('li', 'pb-input sode__hist-row',
       el('span', 'sode__hist-time', fmtTime(e.time)),
-      el('span', 'sode__route-levels', ...swatches(known), el('span', null, levelText(known))),
+      swatches(known),
       el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
         e.undo != null ? el('span', 'sode__hist-note', ` (undo of #${e.undo})`) : null),
       status,
@@ -425,7 +466,7 @@
   function takeResult(m) {
     const t = takes.get(m.id);
     takes.delete(m.id);
-    const what = t ? `${t.src.label} → ${t.dst.label} (${levelText(t.levels)})` : '';
+    const what = t ? `${t.src.label} → ${t.dst.label} (levels ${levelText(t.levels)})` : '';
     if (m.ok) showResult('ok', t && t.undo ? 'Undone' : 'Patched', what);
     else showResult('error', 'Patch failed', `${what}: ${m.err}`);
   }
@@ -447,7 +488,7 @@
       }
     }
     const levels = parseLevels(lvlInput.value);
-    if (!levels) { lvlInput.focus(); return; }
+    if (!levels) { lvlInput.classList.add('pb-input--invalid'); lvlInput.focus(); return; }
     openConfirm({ dst: sel.dst, groups: [{ src: sel.src, levels }], skipped: [], undo: null });
   }
 
@@ -477,7 +518,7 @@
       question,
       ...after,
       plan.skipped.length
-        ? el('div', 'sode__hist-note', `${levelText(plan.skipped)}: nothing was routed before, left as is.`)
+        ? el('div', 'sode__hist-note', `Level${plan.skipped.length === 1 ? '' : 's'} ${levelText(plan.skipped)}: nothing was routed before, left as is.`)
         : null,
       el('div', 'sode__label', 'Replacing'),
       ...before,
@@ -519,7 +560,7 @@
       takes.set(id, { src: g.src, dst: p.dst, levels: g.levels, undo: p.undo });
     }
     const g = p.groups[0];
-    showResult('info', p.undo ? 'Undoing…' : 'Patching…', `${g.src.label} → ${p.dst.label} (${levelText(g.levels)})`);
+    showResult('info', p.undo ? 'Undoing…' : 'Patching…', `${g.src.label} → ${p.dst.label} (levels ${levelText(g.levels)})`);
     if (!p.undo) clearAll();
   }
 
@@ -537,6 +578,7 @@
   function clearAll() {
     for (const k of ['src', 'dst']) select(k, null);
     lvlInput.value = '';
+    S.lvlNone = false;
     renderLevels();
     renderTally();
     boxes.src.input.focus();
@@ -558,7 +600,14 @@
   for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
     input.addEventListener('focus', () => input.select());
   }
-  lvlInput.addEventListener('input', () => { renderLevels(); renderTally(); });
+  lvlInput.addEventListener('input', () => { S.lvlNone = false; renderLevels(); renderTally(); });
+
+  // Picker buttons act without taking focus, so typing carries on in place.
+  for (const id of ['lvl-pick', 'lvl-all']) $(id).addEventListener('mousedown', (e) => e.preventDefault());
+  $('lvl-all').addEventListener('click', () => {
+    const full = (parseLevels(lvlInput.value) || []).length === S.cfg.levels.length;
+    setLevels(full ? [] : allLevels());
+  });
 
   document.addEventListener('keydown', (e) => {
     if (pending) return onConfirmKey(e);

@@ -47,8 +47,11 @@
     </div>
     <div class="sode__box">
       <label class="sode__label" for="lvl">Levels</label>
-      <input id="lvl" class="pb-input sode__input" spellcheck="false" aria-describedby="lvl-sum">
-      <div class="sode__levels" id="lvl-sum"></div>
+      <input id="lvl" class="pb-input sode__input" spellcheck="false">
+      <div class="sode__picker">
+        <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="lvl-all" tabindex="-1">All</button>
+      </div>
     </div>
   </form>
 
