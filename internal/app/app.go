@@ -142,6 +142,9 @@ func (a *App) onRouterMsg(msg []byte) {
 		if !ok {
 			continue
 		}
+		if xp.Src == 0xFFFF { // router's "nothing routed"
+			xp.Src = -1
+		}
 		t := a.tally[xp.Dst]
 		if t == nil {
 			t = map[int]int{}

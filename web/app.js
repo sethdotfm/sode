@@ -37,6 +37,8 @@
   }
   const srcLabel = (n) => (S.srcBy.get(n) || item(n, '')).label;
   const dstLabel = (n) => (S.dstBy.get(n) || item(n, '')).label;
+  // Tally source text: null = never reported, -1 = router says nothing routed.
+  const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
 
   // ---- websocket
 
@@ -265,7 +267,7 @@
     const levels = parseLevels(lvlInput.value) || S.cfg.levels.map((l) => l.ui);
     if (sel.dst) {
       const rows = runs(sel.dst.n, levels).map((r) =>
-        routeRow(r.levels, r.src == null ? 'unknown' : srcLabel(r.src), sel.dst.label));
+        routeRow(r.levels, tallyText(r.src), sel.dst.label));
       return box.replaceChildren(el('div', 'sode__label', 'Currently'), ...rows);
     }
     if (sel.src) {
@@ -332,7 +334,7 @@
 
     const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
     const before = runs(sel.dst.n, levels).map((r) =>
-      routeRow(r.levels, r.src == null ? 'unknown' : srcLabel(r.src), sel.dst.label));
+      routeRow(r.levels, tallyText(r.src), sel.dst.label));
     $('confirm-body').replaceChildren(
       el('div', null, 'Are you sure you want to patch Source ', el('strong', null, sel.src.label),
         ' to Destination ', el('strong', null, sel.dst.label), '?'),
