@@ -318,7 +318,13 @@
   function feedingRow(fed) {
     if (!fed.length) return el('div', 'sode__route', 'Not feeding any destination on these levels');
     if (S.feedOpen || fed.length <= 2) {
-      const list = el('div', 'sode__chips', ...fed.map((d) => el('span', 'pb-chip pb-chip--static', dstLabel(d))));
+      const list = el('div', 'sode__chips', ...fed.map((d) => {
+        const chip = el('button', 'pb-chip', dstLabel(d));
+        chip.type = 'button';
+        chip.title = 'Use as destination';
+        chip.addEventListener('click', () => { select('dst', dstItem(d)); lvlInput.focus(); });
+        return chip;
+      }));
       const row = el('div', 'sode__feed', el('span', null, `Feeding ${fed.length} destination${fed.length === 1 ? '' : 's'}`), list);
       if (fed.length > 2) {
         const less = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Show less');
@@ -467,7 +473,7 @@
         ' to Destination ', el('strong', null, plan.dst.label), '?');
 
     $('confirm-title').textContent = plan.undo ? 'Confirm undo' : 'Confirm patch';
-    $('confirm-body').replaceChildren(
+    $('confirm-body').replaceChildren(...[
       question,
       ...after,
       plan.skipped.length
@@ -476,7 +482,7 @@
       el('div', 'sode__label', 'Replacing'),
       ...before,
       el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
-    );
+    ].filter(Boolean));
     $('confirm-ok').textContent = `${plan.undo ? 'Undo' : 'Patch'} (${key.toUpperCase()})`;
     $('confirm-ok').disabled = true;
     $('confirm').hidden = false;
