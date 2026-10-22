@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sode</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
+<link rel="stylesheet" href="sode.css">
+</head>
+<body>
+<main class="sode">
+  <div class="sode__links" aria-label="Connection status">
+    <span class="sode__node">Browser</span>
+    <span class="sode__link"><span class="pb-status"><span class="pb-dot pb-dot--warn" id="ws-dot" aria-hidden="true"></span><span id="ws-text">WebSocket connecting</span></span></span>
+    <span class="sode__node">Sode</span>
+    <span class="sode__link"><span class="pb-status"><span class="pb-dot pb-dot--idle" id="rt-dot" aria-hidden="true"></span><span id="rt-text">SW-P-08 unknown</span></span></span>
+    <span class="sode__node" id="rt-name">Router</span>
+  </div>
+
+  <h1 class="sode__mark">Sode</h1>
+
+  <form class="sode__boxes" autocomplete="off" onsubmit="return false">
+    <div class="sode__box">
+      <label class="sode__label" for="src">Source</label>
+      <input id="src" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
+      <ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
+    </div>
+    <div class="sode__box">
+      <label class="sode__label" for="dst">Destination</label>
+      <input id="dst" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
+      <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+    </div>
+    <div class="sode__box">
+      <label class="sode__label" for="lvl">Levels</label>
+      <input id="lvl" class="pb-input sode__input" spellcheck="false" aria-describedby="lvl-sum">
+      <div class="sode__levels" id="lvl-sum"></div>
+    </div>
+  </form>
+
+  <div class="sode__tally" id="tally" aria-live="polite"></div>
+  <div class="sode__result" id="result" aria-live="polite"></div>
+</main>
+
+<div class="pb-modal-backdrop sode__scrim" id="confirm" hidden>
+  <div class="pb-modal pb-modal--md" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1" id="confirm-dialog">
+    <div class="pb-modal__header pb-modal__header--warn"><span class="pb-modal__title" id="confirm-title">Confirm patch</span></div>
+    <div class="pb-modal__body sode__confirm" id="confirm-body"></div>
+    <div class="pb-modal__footer">
+      <button type="button" class="pb-btn pb-btn--outline" id="confirm-cancel">Cancel</button>
+      <button type="button" class="pb-btn pb-btn--commit" id="confirm-ok">Patch</button>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Real router:   SODE_ROUTER=10.0.0.50:8910 docker compose up -d
+# Simulator:     docker compose --profile sim up
+services:
+  sode:
+    build: { context: ., target: sode }
+    image: sode
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    environment:
+      SODE_ROUTER: ${SODE_ROUTER:-swp08sim:8910}
+      SODE_MATRIX: ${SODE_MATRIX:-0}
+      SODE_LEVEL_COUNT: ${SODE_LEVEL_COUNT:-17}
+      SODE_LEVEL_WIRE_OFFSET: ${SODE_LEVEL_WIRE_OFFSET:--1}
+      SODE_LEVEL_LABELS: ${SODE_LEVEL_LABELS:-}
+      SODE_DEFAULT_LEVELS: ${SODE_DEFAULT_LEVELS:-}
+      SODE_NAME_LEN: ${SODE_NAME_LEN:-12}
+      SODE_NAMES: ${SODE_NAMES:-std}
+      SODE_NUM_OFFSET: ${SODE_NUM_OFFSET:-1}
+      SODE_CONFIRM_LOCKOUT_MS: ${SODE_CONFIRM_LOCKOUT_MS:-500}
+      SODE_CONFIRM_ENTER: ${SODE_CONFIRM_ENTER:-false}
+      SODE_DEBUG: ${SODE_DEBUG:-false}
+
+  swp08sim:
+    build: { context: ., target: sim }
+    image: swp08sim
+    profiles: ["sim"]
+    ports: ["8910:8910"]
