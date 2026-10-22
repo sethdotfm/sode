@@ -1,0 +1,14 @@
+# build
+/bin/
+/sode
+/swp08sim
+*.test
+*.out
+
+# runtime data (config, audit log)
+/data/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
