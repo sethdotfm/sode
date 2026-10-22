@@ -226,6 +226,16 @@ body { zoom: var(--sode-scale); }
   flex: 0 0 auto;
   gap: var(--pb-space-1);
 }
+/* Mini strip: same filled/outlined idea, no numbers. */
+.sode__bar--mini { gap: var(--pb-border-w); }
+.sode__bar--mini .sode__slot,
+[data-layout="phone"] .sode__bar--mini .sode__slot {
+  font-size: 0;
+  height: var(--pb-space-6);
+  min-width: var(--pb-space-3);
+  width: var(--pb-space-3);
+}
+.sode__bar--mini .sode__slot:not(.sode__slot--on) { border-width: var(--pb-border-w); }
 
 .sode__feed {
   display: flex;
@@ -508,23 +518,27 @@ body { zoom: var(--sode-scale); }
   color: var(--pb-text-disabled);
 }
 .sode-m__recent-face {
+  align-items: center;
   background: var(--pb-surface-sunken);
   border: var(--pb-border-w) solid var(--pb-edge);
   display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
-  padding: var(--pb-space-3) var(--pb-space-4);
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-4);
+  min-height: calc(var(--pb-control-h-lg) * 1.3);
+  padding: 0 var(--pb-space-4);
   position: relative;
   touch-action: pan-y;
   transition: transform var(--pb-motion-normal) var(--pb-ease);
 }
 .sode-m__recent-face--drag { transition: none; }
-.sode-m__recent-top {
-  align-items: center;
-  display: flex;
-  font-size: var(--pb-text-xs);
-  justify-content: space-between;
+.sode-m__recent-route {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.sode-m__recent-face .pb-status { font-size: var(--pb-text-xs); }
 
 /* The composer may shrink (with the keyboard up there's little room); the
    input bar never does, so it always stays above the keyboard. */
@@ -589,8 +603,12 @@ body { zoom: var(--sode-scale); }
   flex: 0 0 auto;
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-3);
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   padding: var(--pb-space-3) var(--pb-space-5) var(--pb-space-4);
+}
+.pb-btn.sode-m__cancel {
+  font-size: var(--pb-text-md);
+  height: calc(var(--pb-control-h-lg) * 1.4);
 }
 .sode-m__step {
   color: var(--pb-text-muted);

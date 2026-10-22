@@ -210,6 +210,14 @@ function scrollThread() {
 
 const REVEAL = 96;
 
+// HH:MM for today, otherwise the date.
+const shortTime = (iso) => {
+  const d = new Date(iso);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+};
+
 function recentRow(e) {
   const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);
   const plan = undoPlan(e);
@@ -219,12 +227,17 @@ function recentRow(e) {
   undo.setAttribute('aria-label', `Undo ${src.label} to ${dst.label}`);
   undo.addEventListener('click', () => { closeSwipes(); openSheet(plan); });
 
+  // One line: status, time, route, and a mini level strip.
   const status = el('span', 'pb-status', el('span', `pb-dot pb-dot--${e.ok ? 'ok' : 'error'}`), e.ok ? 'ok' : 'failed');
   status.firstChild.setAttribute('aria-hidden', 'true');
+  if (!e.ok) status.title = e.err || '';
+  const time = el('span', 'sode__hist-time', shortTime(e.time));
+  time.title = fmtTime(e.time);
   const face = el('div', 'sode-m__recent-face',
-    el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)), status),
-    el('div', 'sode-m__recent-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label)),
-    levelBar(e.levels.filter((u) => S.levelBy.has(u))));
+    status,
+    time,
+    el('span', 'sode-m__recent-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label)),
+    levelBar(e.levels.filter((u) => S.levelBy.has(u)), true));
   const row = el('li', 'sode-m__recent-row', undo, face);
   swipeable(row, face);
   return row;
@@ -402,6 +415,11 @@ for (const k of STEPS) {
 }
 $('m-go').addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
 $('m-go').addEventListener('click', advance);
+// Cancel: clear the whole entry and let the keyboard go.
+$('m-cancel').addEventListener('click', () => {
+  reset();
+  document.activeElement?.blur();
+});
 for (const id of ['m-picks', 'm-all']) $(id).addEventListener('pointerdown', (e) => e.preventDefault());
 $('m-all').addEventListener('click', () => {
   const full = (parseLevels(inputs.lvl.value, M.lvlNone) || []).length === S.levels.length;
