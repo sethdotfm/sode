@@ -376,6 +376,21 @@ export function undoPlan(e) {
   };
 }
 
+// What dst had on a take's levels just before it, one entry per source in
+// order of first level: [{src, levels}]. src -1 = nothing routed, null =
+// not known at the time.
+export function beforeGroups(e) {
+  const prev = new Map(e.prev);
+  const groups = new Map();
+  for (const u of [...e.levels].sort((a, b) => a - b)) {
+    if (!S.levelBy.has(u)) continue;
+    const s = prev.has(u) ? prev.get(u) : null;
+    if (!groups.has(s)) groups.set(s, []);
+    groups.get(s).push(u);
+  }
+  return [...groups].map(([src, levels]) => ({ src, levels }));
+}
+
 // Asks for the next page of history. True if a request went out.
 export function requestHistory() {
   if (!S.histMore || S.histLoading || !S.hist.length) return false;

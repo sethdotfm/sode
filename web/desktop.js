@@ -3,6 +3,7 @@
 import {
   $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, requestHistory,
+  beforeGroups, srcRow, tallyText,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
 import { layout } from './layout.js';
@@ -18,6 +19,7 @@ let feedOpen = false; // "and N others" expanded
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+const expanded = new Set(); // history IDs showing their before state
 
 // ---- connection
 
@@ -166,14 +168,43 @@ function histRow(e) {
   }
   btn.addEventListener('click', () => openConfirm(plan));
 
-  return el('li', 'pb-input sode__hist-row',
+  // Before: what the destination had on these levels just before the take.
+  const open = expanded.has(e.id);
+  const detailId = `hist-before-${e.id}`;
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('class', 'pb-icon pb-icon--sm');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `vendor/patchbay/icons/lucide.svg#${open ? 'chevron-down' : 'chevron-right'}`);
+  icon.append(use);
+  const toggle = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__hist-toggle', icon, 'Before');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.setAttribute('aria-controls', detailId);
+  toggle.addEventListener('click', () => {
+    if (expanded.has(e.id)) expanded.delete(e.id);
+    else expanded.add(e.id);
+    renderHistory();
+  });
+
+  const row = el('li', 'pb-input sode__hist-row',
     el('span', 'sode__hist-id', `#${e.id}`),
     el('span', 'sode__hist-time', fmtTime(e.time)),
     levelBar(known),
     el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
       e.undo != null ? el('span', 'sode__hist-note', ` (undo of #${e.undo})`) : null),
     status,
+    toggle,
     btn);
+  if (open) {
+    const detail = el('div', 'sode__hist-before',
+      el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
+      ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))));
+    detail.id = detailId;
+    row.append(detail);
+  }
+  return row;
 }
 
 function renderHistory() {

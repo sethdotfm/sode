@@ -259,7 +259,8 @@ body { zoom: var(--sode-scale); }
 .pb-input.sode__hist-row {
   align-items: center;
   display: flex;
-  gap: var(--pb-space-6);
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-6);
   height: auto;
   min-height: var(--pb-control-h-lg);
   overflow: visible;
@@ -267,6 +268,16 @@ body { zoom: var(--sode-scale); }
 .sode__hist-time {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-mono);
+}
+.sode__hist-toggle { gap: var(--pb-space-2); }
+/* Expanded before state: its own full-width line under the row. */
+.sode__hist-before {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4) 0 var(--pb-space-3);
 }
 .sode__hist-id {
   color: var(--pb-text-muted);
