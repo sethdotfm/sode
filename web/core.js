@@ -273,11 +273,10 @@ export const levelInput = (list) => levelRuns(list).map(([a, b]) => (a === b ? a
 
 // Every level in one fixed row: filled when in `on`, outlined otherwise,
 // so rows line up like monospace columns. The numbers mean it never
-// relies on colour alone. mini draws a numberless strip for tight spots;
-// its aria-label still carries the levels.
-export function levelBar(on, mini = false) {
+// relies on colour alone.
+export function levelBar(on) {
   const set = new Set(on);
-  const row = el('span', 'sode__bar' + (mini ? ' sode__bar--mini' : ''), ...S.levels.map((l) => {
+  const row = el('span', 'sode__bar', ...S.levels.map((l) => {
     const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), String(l.ui));
     slot.style.setProperty('--sode-c', `var(--pb-signal-${l.swatch})`);
     return slot;
