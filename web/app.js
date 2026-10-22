@@ -613,18 +613,33 @@
     for (const b of themeBtns) b.setAttribute('aria-pressed', String((b.dataset.themeSet === 'dark') === dark));
   };
 
-  for (const b of themeBtns) {
-    b.addEventListener('click', () => {
-      const next = b.dataset.themeSet;
-      if (next === (isDark() ? 'dark' : 'light')) return;
-      const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
-      root.classList.add('pb-theme-transition');
-      root.dataset.theme = next;
-      setTimeout(() => root.classList.remove('pb-theme-transition'), ms);
-      try { localStorage.setItem('sode-theme', next); } catch (e) {}
-      syncTheme();
-    });
+  function setTheme(next) {
+    if (next === (isDark() ? 'dark' : 'light')) return;
+    const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
+    root.classList.add('pb-theme-transition');
+    root.dataset.theme = next;
+    setTimeout(() => root.classList.remove('pb-theme-transition'), ms);
+    try { localStorage.setItem('sode-theme', next); } catch (e) {}
+    syncTheme();
   }
+
+  // Browsers keep Mod+Shift+T (reopen closed tab) for themselves, so
+  // Alt/Option+Shift+T is the shortcut that reliably arrives. Matched by
+  // e.code because Option changes e.key on macOS.
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+  const shortcut = mac ? '⌥⇧T' : 'Alt+Shift+T';
+  for (const b of themeBtns) {
+    const name = b.dataset.themeSet === 'dark' ? 'Dark theme' : 'Light theme';
+    b.dataset.tip = `${name} (${shortcut})`;
+    b.addEventListener('click', () => setTheme(b.dataset.themeSet));
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyT' || !e.shiftKey || e.repeat) return;
+    if (!(e.altKey || (mac ? e.metaKey : e.ctrlKey))) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    setTheme(isDark() ? 'light' : 'dark');
+  }, true);
   osDark.addEventListener('change', syncTheme);
   syncTheme();
 
