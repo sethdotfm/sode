@@ -9,3 +9,9 @@ Full plan and rationale: PLAN.md. Key decisions:
 - Confirm dialog: random churning letter + 500ms lockout (configurable; Enter-to-confirm allowed via config).
 - Audit log (JSONL) + shared server-side recent/undo list. Config in /data/config.yaml, editable at /settings (no auth in v1).
 - Keep it light: no frameworks, no extra deps without asking.
+
+## Verified against the real Ultrix (2026-10-22, 172.17.60.101:8910)
+- Defaults are correct: UI level 1 → wire level 0 (`SODE_LEVEL_WIRE_OFFSET=-1`), display number = wire + 1 (`SODE_NUM_OFFSET=1`).
+- Standard name requests (cmd 100/102) with 12-char names work. ~2690 sources, 720 destinations.
+- Extended tally dump (0x95 → 0x97, 64 per message) works on all 17 levels; source 0xFFFF = nothing routed.
+- Extended connect (0x82) is confirmed by 0x84 Connected; takes report ok.
