@@ -34,11 +34,16 @@ function renderConn() {
 
 // ---- fuzzy finder
 
+// The dropdown scrolls: up to MAX_MATCHES results, about PAGE rows tall.
+const MAX_MATCHES = 100;
+const PAGE = 8;
+
 function refresh(k) {
   const b = boxes[k];
-  b.matches = search(b.list(), b.input.value);
+  b.matches = search(b.list(), b.input.value, MAX_MATCHES);
   b.hi = 0;
   renderMenu(k);
+  b.menu.scrollTop = 0;
 }
 
 function renderMenu(k) {
@@ -55,6 +60,26 @@ function renderMenu(k) {
     li.addEventListener('mousedown', (e) => { e.preventDefault(); b.hi = i; accept(k); });
     return li;
   }));
+  // A pinned count makes it clear the list scrolls.
+  if (b.matches.length > PAGE) {
+    const total = b.matches.total > b.matches.length ? `${b.matches.length}+` : b.matches.length;
+    const foot = el('li', 'sode__menu-count', `${total} matches · ↑↓ PgUp PgDn`);
+    foot.setAttribute('role', 'presentation');
+    b.menu.append(foot);
+  }
+  b.input.setAttribute('aria-activedescendant', `${k}-opt-${b.hi}`);
+}
+
+// Moves the highlight without redrawing, so the list keeps its scroll.
+function moveHi(k, to) {
+  const b = boxes[k];
+  const items = b.menu.querySelectorAll('[role="option"]');
+  items[b.hi]?.classList.remove('active');
+  items[b.hi]?.setAttribute('aria-selected', 'false');
+  b.hi = to;
+  items[b.hi].classList.add('active');
+  items[b.hi].setAttribute('aria-selected', 'true');
+  items[b.hi].scrollIntoView({ block: 'nearest' });
   b.input.setAttribute('aria-activedescendant', `${k}-opt-${b.hi}`);
 }
 
@@ -387,11 +412,13 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (b && !b.menu.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+  if (b && !b.menu.hidden && ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp'].includes(e.key)) {
     e.preventDefault();
     const n = b.matches.length;
-    b.hi = (b.hi + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
-    renderMenu(k);
+    if (e.key === 'ArrowDown') moveHi(k, (b.hi + 1) % n);
+    else if (e.key === 'ArrowUp') moveHi(k, (b.hi + n - 1) % n);
+    else if (e.key === 'PageDown') moveHi(k, Math.min(n - 1, b.hi + PAGE));
+    else moveHi(k, Math.max(0, b.hi - PAGE));
     return;
   }
   if (e.key === 'Tab') {

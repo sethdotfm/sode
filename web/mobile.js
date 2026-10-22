@@ -54,7 +54,7 @@ function refresh() {
   if (M.step === 'lvl' || M.sel[M.step]) {
     M.matches = [];
   } else {
-    M.matches = search(M.step === 'src' ? S.srcs : S.dsts, inputs[M.step].value, 5);
+    M.matches = search(M.step === 'src' ? S.srcs : S.dsts, inputs[M.step].value, 50);
   }
   M.hi = 0;
   renderMatches();
@@ -400,8 +400,13 @@ for (const k of STEPS) {
       e.preventDefault();
       const n = M.matches.length;
       // The list is drawn bottom-up, so Up moves to the next-best match.
+      const items = $('m-matches').children;
+      items[M.hi].classList.remove('sode-m__match--hi');
+      items[M.hi].setAttribute('aria-selected', 'false');
       M.hi = (M.hi + (e.key === 'ArrowUp' ? 1 : n - 1)) % n;
-      renderMatches();
+      items[M.hi].classList.add('sode-m__match--hi');
+      items[M.hi].setAttribute('aria-selected', 'true');
+      items[M.hi].scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Backspace' && !inputs[k].value && k !== 'src') {
       // Backspace on an empty step goes back to edit the previous one.
       e.preventDefault();

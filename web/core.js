@@ -238,7 +238,9 @@ export function search(list, q, n = 8) {
     if (s >= 0) out.push([s, it]);
   }
   out.sort((a, b) => b[0] - a[0] || a[1].n - b[1].n);
-  return out.slice(0, n).map((x) => x[1]);
+  const best = out.slice(0, n).map((x) => x[1]);
+  best.total = out.length; // how many matched before the cut
+  return best;
 }
 
 // ---- levels

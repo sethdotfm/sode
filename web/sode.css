@@ -81,6 +81,9 @@ body { zoom: var(--sode-scale); }
 }
 
 .sode__boxes {
+  /* Boxes keep their own height, so a dropdown hangs right off its input
+     rather than below the tallest box in the row. */
+  align-items: start;
   display: grid;
   gap: var(--pb-space-6);
   grid-template-columns: 2fr 2fr 1.5fr auto;
@@ -102,14 +105,26 @@ body { zoom: var(--sode-scale); }
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.6);
 }
+/* About eight rows plus the count; the rest scrolls. */
 .sode__menu {
   left: 0;
-  max-height: 60vh;
+  max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
   overflow-y: auto;
+  overscroll-behavior: contain;
   position: absolute;
   right: 0;
   top: 100%;
   width: auto;
+}
+.sode__menu-count {
+  background: var(--pb-surface-overlay);
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  bottom: calc(var(--pb-space-2) * -1);
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  list-style: none;
+  padding: var(--pb-space-2) var(--pb-space-4);
+  position: sticky;
 }
 .sode__num {
   color: var(--pb-text-muted);
@@ -607,6 +622,8 @@ body { zoom: var(--sode-scale); }
   flex-direction: column-reverse;
   list-style: none;
   margin: 0;
+  /* Five rows show; the rest scroll. */
+  max-height: calc(var(--pb-control-h-lg) * 1.4 * 5);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
