@@ -17,6 +17,7 @@ let lvlNone = false;  // picker cleared to no levels (blank box would mean defau
 let feedOpen = false; // "and N others" expanded
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
+const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 // ---- connection
 
@@ -166,6 +167,7 @@ function histRow(e) {
   btn.addEventListener('click', () => openConfirm(plan));
 
   return el('li', 'pb-input sode__hist-row',
+    el('span', 'sode__hist-id', `#${e.id}`),
     el('span', 'sode__hist-time', fmtTime(e.time)),
     levelBar(known),
     el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
@@ -176,6 +178,7 @@ function histRow(e) {
 
 function renderHistory() {
   $('history-head').hidden = !S.hist.length;
+  $('history-hint').textContent = `(${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last)`;
   $('history').replaceChildren(...S.hist.map(histRow));
   $('history-more').textContent = S.histLoading ? 'Loading…' : '';
   maybeLoadMore();
@@ -196,6 +199,29 @@ const KEYS = 'abcdefghjkmnpqrstuvwxyz';
 let lastKey = '';
 let pending = null; // plan + key
 let readyAt = 0;
+
+// Patch button and Enter: take any half-typed box's best match, then confirm.
+function patchNow() {
+  for (const k of ['src', 'dst']) {
+    const b = boxes[k];
+    if (!sel[k] && b.input.value.trim()) {
+      if (!b.matches.length) refresh(k);
+      accept(k);
+    }
+  }
+  tryConfirm();
+}
+
+// Undo the newest take, through the usual confirm.
+function undoLast() {
+  const e = S.hist[0];
+  if (!e) return showResult('info', 'Nothing to undo', 'No patches yet.');
+  const plan = undoPlan(e);
+  if (!plan.groups.length) {
+    return showResult('warn', 'Nothing to undo', `#${e.id} had nothing routed before it, so there is nothing to restore.`);
+  }
+  openConfirm(plan);
+}
 
 function tryConfirm() {
   if (!S.cfg) return;
@@ -306,6 +332,14 @@ document.addEventListener('keydown', (e) => {
   const b = k && boxes[k];
   const inBox = k || id === 'lvl';
 
+  // Mod+Z undoes the last patch, unless a box has text to undo instead.
+  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
+    if (e.target instanceof HTMLInputElement && e.target.value) return;
+    e.preventDefault();
+    undoLast();
+    return;
+  }
+
   if (b && !b.menu.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
     e.preventDefault();
     const n = b.matches.length;
@@ -313,20 +347,20 @@ document.addEventListener('keydown', (e) => {
     renderMenu(k);
     return;
   }
-  if (e.key === 'Tab' && !e.shiftKey) {
+  if (e.key === 'Tab') {
+    // Leaving a box either way takes its best match, like Enter does.
     if (b && !sel[k] && b.input.value.trim() && !accept(k)) {
       e.preventDefault();
       b.input.classList.add('pb-input--invalid');
       return;
     }
-    if (id === 'lvl') { e.preventDefault(); boxes.src.input.focus(); }
+    if (id === 'lvl' && !e.shiftKey) { e.preventDefault(); boxes.src.input.focus(); }
     return;
   }
   if (!inBox) return; // leave buttons and the history list to the browser
   if (e.key === 'Enter') {
     e.preventDefault();
-    if (b && !sel[k] && b.input.value.trim()) accept(k);
-    tryConfirm();
+    patchNow();
     return;
   }
   if (e.key === 'Escape') {
@@ -342,6 +376,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+$('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
+$('patch').addEventListener('click', patchNow);
 $('confirm-cancel').addEventListener('click', closeConfirm);
 $('confirm-ok').addEventListener('click', () => {
   if (pending && performance.now() >= readyAt) doTake();

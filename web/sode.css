@@ -75,7 +75,7 @@ body { zoom: var(--sode-scale); }
 .sode__boxes {
   display: grid;
   gap: var(--pb-space-6);
-  grid-template-columns: 2fr 2fr 1.5fr;
+  grid-template-columns: 2fr 2fr 1.5fr auto;
   width: 100%;
 }
 .sode__box {
@@ -267,6 +267,17 @@ body { zoom: var(--sode-scale); }
 .sode__hist-time {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-mono);
+}
+.sode__hist-id {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  min-width: 5ch;
+  text-align: right;
+}
+.pb-btn.sode__patch {
+  font-size: var(--pb-text-lg);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+  padding: 0 var(--pb-space-8);
 }
 .sode__hist-route {
   flex: 1 1 auto;

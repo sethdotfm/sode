@@ -62,13 +62,17 @@
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="lvl-all" tabindex="-1">All</button>
         </div>
       </div>
+      <div class="sode__box">
+        <span class="sode__label" aria-hidden="true">&nbsp;</span>
+        <button type="button" class="pb-btn pb-btn--commit sode__patch" id="patch" tabindex="-1" data-tip="Same as Enter">Patch</button>
+      </div>
     </form>
 
     <div class="sode__tally" id="tally" aria-live="polite"></div>
     <div class="sode__result" id="result" aria-live="polite"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
-      <div class="sode__label" id="history-head" hidden>Recent</div>
+      <div class="sode__label" id="history-head" hidden>Recent <span class="sode__hint" id="history-hint"></span></div>
       <ul class="sode__hist" id="history"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
