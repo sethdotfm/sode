@@ -307,13 +307,19 @@
   const levelText = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}–${b}`)).join(', ');
   const levelInput = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}-${b}`)).join(',');
 
-  // Levels are always shown as numbered colour swatches; the number means
-  // the swatch never relies on colour alone.
-  function swatches(list) {
-    const row = el('span', 'sode__route-levels', ...list.map((u) =>
-      el('span', `pb-level pb-level--${S.levelBy.get(u).swatch} sode__swatch`, String(u))));
+  // Every level in one fixed row: filled when in `on`, outlined otherwise,
+  // so rows line up like monospace columns. The numbers mean it never
+  // relies on colour alone.
+  function levelBar(on) {
+    const set = new Set(on);
+    const row = el('span', 'sode__bar', ...S.levels.map((l) => {
+      const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), String(l.ui));
+      slot.style.setProperty('--sode-c', `var(--pb-signal-${l.swatch})`);
+      return slot;
+    }));
+    const sorted = [...set].sort((a, b) => a - b);
     row.setAttribute('role', 'img');
-    row.setAttribute('aria-label', `Levels ${levelText(list)}`);
+    row.setAttribute('aria-label', sorted.length ? `Levels ${levelText(sorted)}` : 'No levels');
     return row;
   }
 
@@ -362,22 +368,25 @@
 
   // ---- tally display
 
-  // Group levels that share a source: [{levels:[…], src}]
-  function runs(dst, levels) {
+  // One entry per source feeding dst on any of levels, in order of each
+  // source's first level: [{src, levels}]. src null = unknown, -1 = nothing.
+  function bySource(dst, levels) {
     const t = S.tally.get(dst) || new Map();
-    const out = [];
+    const groups = new Map();
     for (const u of levels) {
       const s = t.has(u) ? t.get(u) : null;
-      const last = out[out.length - 1];
-      if (last && last.src === s) last.levels.push(u);
-      else out.push({ levels: [u], src: s });
+      if (!groups.has(s)) groups.set(s, []);
+      groups.get(s).push(u);
     }
-    return out;
+    return [...groups].map(([src, lv]) => ({ src, levels: lv }));
   }
+
+  const srcRow = (levels, srcText) =>
+    el('div', 'sode__route', levelBar(levels), el('span', 'sode__end sode__end--src', srcText));
 
   function routeRow(levels, srcText, dstText) {
     return el('div', 'sode__route',
-      swatches(levels),
+      levelBar(levels),
       el('span', 'sode__end sode__end--src', srcText),
       el('span', 'sode__arrow', '→'),
       el('span', 'sode__end sode__end--dst', dstText));
@@ -388,13 +397,15 @@
     if (!S.cfg) return box.replaceChildren();
     const levels = parseLevels(lvlInput.value) || allLevels();
     if (sel.dst) {
-      const rows = runs(sel.dst.n, levels).map((r) => routeRow(r.levels, tallyText(r.src), sel.dst.label));
-      const p = protectedOn(sel.dst.n, levels);
+      // The whole destination, every level, one row per source.
+      const all = allLevels();
+      const rows = bySource(sel.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
+      const p = protectedOn(sel.dst.n, all);
       const prot = p.levels.length
-        ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--warn', 'Protected'), swatches(p.levels),
+        ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
           `by device ${p.devices.join(', ')}`)
         : null;
-      return box.replaceChildren(...[el('div', 'sode__label', 'Currently'), ...rows, prot].filter(Boolean));
+      return box.replaceChildren(...[el('div', 'sode__label', `Currently on ${sel.dst.label}`), ...rows, prot].filter(Boolean));
     }
     if (sel.src) {
       const fed = [];
@@ -483,7 +494,7 @@
 
     return el('li', 'pb-input sode__hist-row',
       el('span', 'sode__hist-time', fmtTime(e.time)),
-      swatches(known),
+      levelBar(known),
       el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
         e.undo != null ? el('span', 'sode__hist-note', ` (undo of #${e.undo})`) : null),
       status,
@@ -571,7 +582,7 @@
 
     const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
     const all = plan.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
-    const before = runs(plan.dst.n, all).map((r) => routeRow(r.levels, tallyText(r.src), plan.dst.label));
+    const before = bySource(plan.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
     const after = plan.groups.map((g) => routeRow(g.levels, g.src.label, plan.dst.label));
 
     const question = plan.undo
