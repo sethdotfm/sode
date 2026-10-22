@@ -105,6 +105,7 @@
         renderLevels();
         renderTally();
         renderHistory();
+        if (!settingsOpen) showView();
         break;
       case 'names':
         setNames(m.srcs, m.dsts);
@@ -655,12 +656,20 @@
 
   // ---- settings
 
-  const form = $('settings-form');
+  const form = $('settings-view');
   const fields = () => form.querySelectorAll('[data-key]');
   let settingsOpen = false;
 
+  // Settings is its own view at #settings, so Back and reload work.
+  function showView() {
+    const want = location.hash === '#settings' && S.cfg;
+    if (want && !settingsOpen) openSettings();
+    else if (!want && settingsOpen) closeSettings();
+  }
+
   function openSettings() {
     if (!S.cfg) return;
+    if (location.hash !== '#settings') history.pushState(null, '', '#settings');
     for (const f of fields()) {
       const v = S.cfg[f.dataset.key];
       if (f.dataset.type === 'bool') f.checked = !!v;
@@ -673,15 +682,21 @@
     renderOffsetNote();
     renderNamesStatus();
     settingsOpen = true;
-    $('settings').hidden = false;
+    $('patch-view').hidden = true;
+    form.hidden = false;
+    window.scrollTo(0, 0);
     $('cfg-router').focus();
   }
 
   function closeSettings() {
     settingsOpen = false;
-    $('settings').hidden = true;
+    if (location.hash === '#settings') history.replaceState(null, '', location.pathname + location.search);
+    form.hidden = true;
+    $('patch-view').hidden = false;
     boxes.src.input.focus();
   }
+
+  window.addEventListener('popstate', showView);
 
   function readSettings() {
     const c = { ...S.cfg };
@@ -722,6 +737,7 @@
 
   $('settings-open').addEventListener('click', openSettings);
   $('settings-cancel').addEventListener('click', closeSettings);
+  $('settings-back').addEventListener('click', closeSettings);
   $('cfg-offset').addEventListener('input', renderOffsetNote);
   $('names-refresh').addEventListener('click', () => {
     if (wsSend({ t: 'refreshNames' })) {

@@ -32,97 +32,143 @@
     <span class="sode__node" id="rt-name">Router</span>
   </div>
 
-  <h1 class="sode__mark">Sode</h1>
+  <div class="sode__view" id="patch-view">
+    <h1 class="sode__mark">Sode</h1>
 
-  <form class="sode__boxes" autocomplete="off" onsubmit="return false">
-    <div class="sode__box">
-      <label class="sode__label" for="src">Source</label>
-      <input id="src" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
-      <ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
+    <form class="sode__boxes" autocomplete="off" onsubmit="return false">
+      <div class="sode__box">
+        <label class="sode__label" for="src">Source</label>
+        <input id="src" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
+        <ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
+      </div>
+      <div class="sode__box">
+        <label class="sode__label" for="dst">Destination</label>
+        <input id="dst" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
+        <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+      </div>
+      <div class="sode__box">
+        <label class="sode__label" for="lvl">Levels</label>
+        <input id="lvl" class="pb-input sode__input" spellcheck="false">
+        <div class="sode__picker">
+          <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="lvl-all" tabindex="-1">All</button>
+        </div>
+      </div>
+    </form>
+
+    <div class="sode__tally" id="tally" aria-live="polite"></div>
+    <div class="sode__result" id="result" aria-live="polite"></div>
+
+    <section class="sode__history" aria-labelledby="history-head">
+      <div class="sode__label" id="history-head" hidden>Recent</div>
+      <ul class="sode__hist" id="history"></ul>
+      <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
+    </section>
+
+    <footer class="sode__footer">
+      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="settings-open">Settings</button>
+    </footer>
+  </div>
+
+  <form class="sode__view sode__settings" id="settings-view" novalidate hidden aria-labelledby="settings-title">
+    <div class="sode__settings-head">
+      <h2 class="sode__settings-title" id="settings-title">Settings</h2>
+      <button type="button" class="pb-btn pb-btn--ghost" id="settings-back">Back to patching</button>
     </div>
-    <div class="sode__box">
-      <label class="sode__label" for="dst">Destination</label>
-      <input id="dst" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
-      <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
-    </div>
-    <div class="sode__box">
-      <label class="sode__label" for="lvl">Levels</label>
-      <input id="lvl" class="pb-input sode__input" spellcheck="false">
-      <div class="sode__picker">
-        <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
-        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="lvl-all" tabindex="-1">All</button>
+
+    <fieldset class="sode__group">
+      <legend class="sode__label">Router</legend>
+      <div class="sode__field">
+        <label for="cfg-router">Address</label>
+        <input id="cfg-router" class="pb-input" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false">
+      </div>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-matrix">Matrix</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-matrix" class="pb-input" data-key="matrix" data-type="int" min="0" max="255"></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-levels">Levels</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input" data-key="levels" data-type="int" min="1" max="256"></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-offset">Wire level offset</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input" data-key="levelWireOffset" data-type="int"></span>
+          <span class="sode__hint" id="cfg-offset-note"></span>
+        </div>
+      </div>
+      <div class="sode__field">
+        <label for="cfg-numoff">Numbering</label>
+        <span class="pb-select-wrap"><select id="cfg-numoff" class="pb-select" data-key="numberOffset" data-type="int"><option value="1">Show router 0 as 1</option><option value="0">Show router numbers as they are</option></select></span>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group">
+      <legend class="sode__label">Names</legend>
+      <div class="sode__names">
+        <span id="names-status"></span>
+        <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh names now</button>
+      </div>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-namerefresh">Refresh every (seconds)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRefreshSeconds" data-type="int" min="0"></span>
+          <span class="sode__hint">0 turns it off</span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-namelen">Name length</label>
+          <span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-namereq">Name requests</label>
+          <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group">
+      <legend class="sode__label">Patching</legend>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-default">Default levels</label>
+          <input id="cfg-default" class="pb-input" data-key="defaultLevels" spellcheck="false">
+          <span class="sode__hint">Used when the levels box is blank</span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-lockout">Confirm lockout (ms)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-resync">Re-read all routes every (seconds)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
+          <span class="sode__hint">0 turns it off</span>
+        </div>
+      </div>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter also confirms a patch</span></label>
+    </fieldset>
+
+    <fieldset class="sode__group">
+      <legend class="sode__label">Audit</legend>
+      <div class="sode__field">
+        <label for="cfg-proxies">Trusted proxies</label>
+        <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="e.g. 10.0.0.2, 172.18.0.0/16" spellcheck="false">
+        <span class="sode__hint">History records the client IP from X-Forwarded-For only for requests that come through one of these (your Caddy).</span>
+      </div>
+    </fieldset>
+
+    <div class="sode__savebar">
+      <div class="pb-note pb-note--error" id="settings-err" role="alert" hidden></div>
+      <div class="sode__savebar-row">
+        <button type="button" class="pb-btn pb-btn--outline" id="settings-cancel">Cancel</button>
+        <span class="sode__hint" id="settings-path"></span>
+        <button type="submit" class="pb-btn pb-btn--commit" id="settings-save">Save</button>
       </div>
     </div>
   </form>
-
-  <div class="sode__tally" id="tally" aria-live="polite"></div>
-  <div class="sode__result" id="result" aria-live="polite"></div>
-
-  <section class="sode__history" aria-labelledby="history-head">
-    <div class="sode__label" id="history-head" hidden>Recent</div>
-    <ul class="sode__hist" id="history"></ul>
-    <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
-  </section>
-
-  <footer class="sode__footer">
-    <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="settings-open">Settings</button>
-  </footer>
 </main>
 
-<div class="pb-modal-backdrop sode__scrim" id="settings" hidden>
-  <form class="pb-modal pb-modal--md sode__settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" id="settings-form" novalidate>
-    <div class="pb-modal__header"><span class="pb-modal__title" id="settings-title">Settings</span></div>
-    <div class="pb-modal__body">
-      <div class="pb-form pb-form--label-lg">
-        <div class="pb-form__full sode__label">Router</div>
-        <label class="pb-form__label" for="cfg-router">Address</label>
-        <div class="pb-form__field"><input id="cfg-router" class="pb-input pb-w-lg" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false"></div>
-        <label class="pb-form__label" for="cfg-matrix">Matrix</label>
-        <div class="pb-form__field"><span class="pb-number-wrap"><input type="number" id="cfg-matrix" class="pb-input pb-w-xs" data-key="matrix" data-type="int" min="0" max="255"></span></div>
-        <label class="pb-form__label" for="cfg-levels">Levels</label>
-        <div class="pb-form__field"><span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input pb-w-xs" data-key="levels" data-type="int" min="1" max="256"></span></div>
-        <label class="pb-form__label" for="cfg-offset">Wire level offset</label>
-        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input pb-w-xs" data-key="levelWireOffset" data-type="int"></span><span class="pb-text-muted" id="cfg-offset-note"></span></div>
-        <label class="pb-form__label" for="cfg-numoff">Numbering</label>
-        <div class="pb-form__field"><span class="pb-select-wrap"><select id="cfg-numoff" class="pb-select pb-w-md" data-key="numberOffset" data-type="int"><option value="1">Show router 0 as 1</option><option value="0">Show router numbers as-is</option></select></span></div>
-
-        <div class="pb-form__full sode__label">Names</div>
-        <label class="pb-form__label" for="cfg-namelen">Name length</label>
-        <div class="pb-form__field"><span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select pb-w-xs" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span></div>
-        <label class="pb-form__label" for="cfg-namereq">Name requests</label>
-        <div class="pb-form__field"><span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select pb-w-md" data-key="nameRequests"><option value="std">Standard (100/102)</option><option value="ext">Extended (228/230)</option></select></span></div>
-        <label class="pb-form__label" for="cfg-namerefresh">Refresh every</label>
-        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input pb-w-xs" data-key="nameRefreshSeconds" data-type="int" min="0"></span><span class="pb-text-muted">seconds, 0 = off</span></div>
-        <span class="pb-form__label">Loaded</span>
-        <div class="pb-form__field sode__field-note"><span id="names-status" class="pb-text-muted"></span><button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh names now</button></div>
-
-        <div class="pb-form__full sode__label">Patching</div>
-        <label class="pb-form__label" for="cfg-default">Default levels</label>
-        <div class="pb-form__field"><input id="cfg-default" class="pb-input pb-w-md" data-key="defaultLevels" spellcheck="false"></div>
-        <label class="pb-form__label" for="cfg-lockout">Confirm lockout</label>
-        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input pb-w-xs" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span><span class="pb-text-muted">ms</span></div>
-        <span class="pb-form__label"></span>
-        <div class="pb-form__field"><label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter also confirms</span></label></div>
-        <label class="pb-form__label" for="cfg-resync">Re-read all routes every</label>
-        <div class="pb-form__field sode__field-note"><span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input pb-w-xs" data-key="tallyResyncSeconds" data-type="int" min="0"></span><span class="pb-text-muted">seconds, 0 = off</span></div>
-
-        <div class="pb-form__full sode__label">Audit</div>
-        <label class="pb-form__label" for="cfg-proxies">Trusted proxies</label>
-        <div class="pb-form__field"><input id="cfg-proxies" class="pb-input pb-w-lg" data-key="trustedProxies" data-type="list" placeholder="e.g. 10.0.0.2, 172.18.0.0/16" spellcheck="false"></div>
-        <div class="pb-form__full pb-text-muted sode__hint">Client IPs in history come from X-Forwarded-For only when the request arrives through one of these (your Caddy).</div>
-      </div>
-      <div class="pb-note pb-note--error sode__settings-err" id="settings-err" role="alert" hidden></div>
-    </div>
-    <div class="pb-modal__footer">
-      <button type="button" class="pb-btn pb-btn--outline" id="settings-cancel">Cancel</button>
-      <span class="pb-text-muted sode__hint" id="settings-path"></span>
-      <button type="submit" class="pb-btn pb-btn--commit" id="settings-save">Save</button>
-    </div>
-  </form>
-</div>
-
 <div class="pb-modal-backdrop sode__scrim" id="confirm" hidden>
-  <div class="pb-modal pb-modal--md" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1" id="confirm-dialog">
+  <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1" id="confirm-dialog">
     <div class="pb-modal__header pb-modal__header--warn"><span class="pb-modal__title" id="confirm-title">Confirm patch</span></div>
     <div class="pb-modal__body sode__confirm" id="confirm-body"></div>
     <div class="pb-modal__footer">
