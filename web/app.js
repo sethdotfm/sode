@@ -623,9 +623,8 @@
     syncTheme();
   }
 
-  // Browsers keep Mod+Shift+T (reopen closed tab) for themselves, so
-  // Alt/Option+Shift+T is the shortcut that reliably arrives. Matched by
-  // e.code because Option changes e.key on macOS.
+  // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
+  // Matched by e.code because Option changes e.key on macOS.
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   const shortcut = mac ? '⌥⇧T' : 'Alt+Shift+T';
   for (const b of themeBtns) {
@@ -634,8 +633,7 @@
     b.addEventListener('click', () => setTheme(b.dataset.themeSet));
   }
   document.addEventListener('keydown', (e) => {
-    if (e.code !== 'KeyT' || !e.shiftKey || e.repeat) return;
-    if (!(e.altKey || (mac ? e.metaKey : e.ctrlKey))) return;
+    if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     setTheme(isDark() ? 'light' : 'dark');
