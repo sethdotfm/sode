@@ -4,13 +4,6 @@
 :root { --sode-scale: 1.25; }
 body { zoom: var(--sode-scale); }
 
-.sode__theme {
-  position: fixed;
-  right: var(--pb-space-5);
-  top: var(--pb-space-5);
-  z-index: var(--pb-z-sticky);
-}
-
 /* Hover tooltip from data-tip. */
 [data-tip] { position: relative; }
 .pb-btn[data-tip] { overflow: visible; } /* pb-btn clips; the tip sits outside */
@@ -345,8 +338,7 @@ body { zoom: var(--sode-scale); }
 [data-view="settings"] #patch-view,
 [data-view="settings"] .sode-m { display: none; }
 [data-layout="phone"] #patch-view,
-[data-layout="phone"] .sode__links,
-[data-layout="phone"] .sode__theme { display: none; }
+[data-layout="phone"] .sode__links { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
 /* Settings: one plain column, labels above fields, the page scrolls. */
@@ -462,6 +454,12 @@ body { zoom: var(--sode-scale); }
   padding-top: max(var(--pb-space-3), env(safe-area-inset-top));
 }
 .sode-m__spacer { flex: 1 1 auto; }
+/* Last result, pinned under the header so it's always in view. */
+.sode-m__result {
+  flex: 0 0 auto;
+  padding: var(--pb-space-3) var(--pb-space-5) 0;
+}
+.sode-m__result:empty { display: none; }
 .sode-m__mark {
   color: var(--pb-text-strong);
   font-size: var(--pb-text-lg);

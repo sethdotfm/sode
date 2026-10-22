@@ -96,6 +96,17 @@ func (h *History) Append(e *Entry) error {
 	return nil
 }
 
+// Clear drops every entry; IDs start again from 0.
+func (h *History) Clear() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.mem, h.offs, h.size = nil, nil, 0
+	if h.f == nil {
+		return nil
+	}
+	return h.f.Truncate(0)
+}
+
 func (h *History) Len() int {
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -701,6 +701,18 @@ func (a *App) record(e *Entry) {
 
 const historyPage = 10
 
+// ClearHistory empties the take history for everyone.
+func (a *App) ClearHistory(who string) {
+	if err := a.hist.Clear(); err != nil {
+		log.Printf("history: clear: %v", err)
+		return
+	}
+	log.Printf("history: cleared by %s", who)
+	a.mu.Lock()
+	a.broadcast(map[string]any{"t": "historyCleared"})
+	a.mu.Unlock()
+}
+
 func (a *App) history(c *client, before int) {
 	entries, err := a.hist.Page(before, historyPage)
 	if err != nil {

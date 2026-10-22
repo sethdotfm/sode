@@ -150,6 +150,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go a.history(c, m.Before)
 		case "refreshNames":
 			go a.RefreshNames()
+		case "clearHistory":
+			go a.ClearHistory(c.ip)
 		case "config":
 			if m.Config == nil {
 				continue

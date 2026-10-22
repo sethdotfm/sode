@@ -26,10 +26,6 @@
 <link rel="stylesheet" href="sode.css">
 </head>
 <body>
-<div class="pb-btn-group sode__theme" role="group" aria-label="Theme">
-  <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="light" tabindex="-1" aria-keyshortcuts="Alt+Shift+T" aria-label="Light theme" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#sun"/></svg></button>
-  <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="dark" tabindex="-1" aria-keyshortcuts="Alt+Shift+T" aria-label="Dark theme" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#moon"/></svg></button>
-</div>
 
 <main class="sode">
   <div class="sode__links" aria-label="Connection status">
@@ -171,9 +167,31 @@
     <fieldset class="sode__group">
       <legend class="sode__label">This device</legend>
       <div class="sode__field">
+        <label for="cfg-theme">Theme</label>
+        <span class="pb-select-wrap"><select id="cfg-theme" class="pb-select"><option value="system">System (follow this device)</option><option value="light">Light</option><option value="dark">Dark</option></select></span>
+        <span class="sode__hint" id="cfg-theme-hint">Alt+Shift+T switches between light and dark from anywhere.</span>
+      </div>
+      <div class="sode__field">
         <label for="cfg-layout">Layout</label>
         <span class="pb-select-wrap"><select id="cfg-layout" class="pb-select"><option value="auto">Automatic (phone layout on small touch screens)</option><option value="phone">Phone</option><option value="desktop">Desktop</option></select></span>
         <span class="sode__hint">Applies now and is remembered by this browser only; it isn't part of Save.</span>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group">
+      <legend class="sode__label">History</legend>
+      <div class="sode__field">
+        <span>Clear the Recent list for everyone. Patches already made stay as they are; only the record and its undo/retry go.</span>
+        <div class="sode__names" id="clear-step1">
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear history…</button>
+        </div>
+        <div class="sode__names" id="clear-step2" hidden>
+          <span class="pb-note pb-note--warn">This can't be undone.</span>
+          <span>
+            <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Keep it</button>
+            <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm">Clear all history</button>
+          </span>
+        </div>
       </div>
     </fieldset>
 
@@ -193,12 +211,10 @@
       <span class="pb-status"><span class="pb-dot pb-dot--warn" id="m-ws-dot" aria-hidden="true"></span><span id="m-ws-text">Socket</span></span>
       <span class="pb-status"><span class="pb-dot pb-dot--idle" id="m-rt-dot" aria-hidden="true"></span><span id="m-rt-text">Router</span></span>
       <span class="sode-m__spacer"></span>
-      <div class="pb-btn-group" role="group" aria-label="Theme">
-        <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="light" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#sun"/></svg></button>
-        <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="dark" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#moon"/></svg></button>
-      </div>
       <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-settings" aria-label="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#settings"/></svg></button>
     </header>
+
+    <div class="sode-m__result" id="m-result" aria-live="polite"></div>
 
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
@@ -206,7 +222,6 @@
         <div class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></div>
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
       </section>
-      <div id="m-result" aria-live="polite"></div>
       <div class="sode-m__compose" id="m-compose" aria-live="polite"></div>
     </div>
 

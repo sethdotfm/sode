@@ -43,3 +43,24 @@ func TestHistoryPagingAndReopen(t *testing.T) {
 		t.Fatalf("after reopen %+v", page)
 	}
 }
+
+func TestHistoryClear(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "h.jsonl")
+	h, _ := OpenHistory(path)
+	for i := 0; i < 3; i++ {
+		h.Append(&Entry{Src: i})
+	}
+	if err := h.Clear(); err != nil {
+		t.Fatal(err)
+	}
+	if h.Len() != 0 {
+		t.Fatalf("len after clear %d", h.Len())
+	}
+	e := &Entry{Src: 7}
+	h.Append(e)
+	h2, _ := OpenHistory(path)
+	page, _ := h2.Page(-1, 10)
+	if e.ID != 0 || len(page) != 1 || page[0].Src != 7 {
+		t.Fatalf("after clear+append: id %d, page %+v", e.ID, page)
+	}
+}

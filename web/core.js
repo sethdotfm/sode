@@ -135,6 +135,12 @@ function handle(m) {
       if (!S.hist.some((e) => e.id === m.e.id)) S.hist.unshift(m.e);
       emit('history');
       break;
+    case 'historyCleared':
+      S.hist = [];
+      S.histMore = false;
+      S.histLoading = false;
+      emit('history');
+      break;
     case 'history': {
       const last = S.hist.length ? S.hist[S.hist.length - 1].id : Infinity;
       S.hist.push(...m.entries.filter((e) => e.id < last));
@@ -511,43 +517,40 @@ export function sendTakes(p) {
 
 // ---- theme
 
-// Follows the OS until toggled; the choice is remembered per browser.
+// Follows the OS until set in Settings (or with Alt/Option+Shift+T); the
+// choice is remembered per browser.
 export function initTheme() {
   const root = document.documentElement;
   const osDark = matchMedia('(prefers-color-scheme: dark)');
   const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : osDark.matches);
-  const themeBtns = document.querySelectorAll('[data-theme-set]');
-  const syncTheme = () => {
-    const dark = isDark();
-    for (const b of themeBtns) b.setAttribute('aria-pressed', String((b.dataset.themeSet === 'dark') === dark));
-  };
+  const select = $('cfg-theme');
+  const sync = () => { select.value = root.dataset.theme || 'system'; };
 
-  function setTheme(next) {
-    if (next === (isDark() ? 'dark' : 'light')) return;
+  // pref: 'system', 'light' or 'dark'.
+  function setTheme(pref) {
     const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
     root.classList.add('pb-theme-transition');
-    root.dataset.theme = next;
+    if (pref === 'system') delete root.dataset.theme;
+    else root.dataset.theme = pref;
     setTimeout(() => root.classList.remove('pb-theme-transition'), ms);
-    try { localStorage.setItem('sode-theme', next); } catch (e) {}
-    syncTheme();
+    try {
+      if (pref === 'system') localStorage.removeItem('sode-theme');
+      else localStorage.setItem('sode-theme', pref);
+    } catch (e) {}
+    sync();
   }
 
   // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
   // Matched by e.code because Option changes e.key on macOS.
-  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
-  const shortcut = mac ? '⌥⇧T' : 'Alt+Shift+T';
-  for (const b of themeBtns) {
-    const name = b.dataset.themeSet === 'dark' ? 'Dark theme' : 'Light theme';
-    if (b.closest('.sode__theme')) b.dataset.tip = `${name} (${shortcut})`;
-    b.setAttribute('aria-label', name);
-    b.addEventListener('click', () => setTheme(b.dataset.themeSet));
+  if (/Mac|iPhone|iPad/.test(navigator.platform)) {
+    $('cfg-theme-hint').textContent = '⌥⇧T switches between light and dark from anywhere.';
   }
+  select.addEventListener('change', () => setTheme(select.value));
   document.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     setTheme(isDark() ? 'light' : 'dark');
   }, true);
-  osDark.addEventListener('change', syncTheme);
-  syncTheme();
+  sync();
 }

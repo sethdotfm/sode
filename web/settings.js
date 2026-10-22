@@ -26,12 +26,13 @@ export function openSettings() {
     else f.value = v ?? '';
   }
   $('cfg-layout').value = layoutPref();
+  resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
   $('settings-path').textContent = S.configPath ? `Saved to ${S.configPath}` : 'Not saved to disk (SODE_CONFIG unset)';
+  root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderNamesStatus();
-  root.dataset.view = 'settings';
   window.scrollTo(0, 0);
   if (layout() === 'desktop') $('cfg-router').focus();
 }
@@ -79,6 +80,27 @@ function configResult(m) {
   $('settings-err').textContent = m.err;
   $('settings-err').hidden = false;
 }
+
+// Clearing history is two steps: ask, then a red button that does it.
+function resetClear() {
+  $('clear-step1').hidden = false;
+  $('clear-step2').hidden = true;
+}
+$('clear-history').addEventListener('click', () => {
+  $('clear-step1').hidden = true;
+  $('clear-step2').hidden = false;
+  $('clear-cancel').focus();
+});
+$('clear-cancel').addEventListener('click', resetClear);
+$('clear-confirm').addEventListener('click', () => {
+  if (!wsSend({ t: 'clearHistory' })) {
+    $('settings-err').textContent = 'Not connected to Sode.';
+    $('settings-err').hidden = false;
+    return;
+  }
+  resetClear();
+  showResult('ok', 'History cleared', 'The Recent list is empty for everyone.');
+});
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-cancel').addEventListener('click', closeSettings);
