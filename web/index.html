@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sode</title>
+<script>
+  // Apply a saved theme before first paint so there's no flash.
+  try {
+    const t = localStorage.getItem('sode-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
@@ -11,6 +18,8 @@
 <link rel="stylesheet" href="sode.css">
 </head>
 <body>
+<button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__theme" id="theme" aria-pressed="false">Dark mode</button>
+
 <main class="sode">
   <div class="sode__links" aria-label="Connection status">
     <span class="sode__node">Browser</span>

@@ -4,6 +4,13 @@
 :root { --sode-scale: 1.25; }
 body { zoom: var(--sode-scale); }
 
+.sode__theme {
+  position: fixed;
+  right: var(--pb-space-5);
+  top: var(--pb-space-5);
+  z-index: var(--pb-z-sticky);
+}
+
 .sode {
   align-items: center;
   display: flex;
