@@ -197,9 +197,13 @@ function renderThread() {
   scrollThread();
 }
 
+// After layout settles (the composer may just have grown or shrunk), keep
+// the newest content in view at the bottom of the thread.
 function scrollThread() {
-  const t = $('m-thread');
-  t.scrollTop = t.scrollHeight;
+  requestAnimationFrame(() => {
+    const t = $('m-thread');
+    t.scrollTop = t.scrollHeight;
+  });
 }
 
 // ---- recent: swipe left to reveal Undo
@@ -403,6 +407,24 @@ $('m-all').addEventListener('click', () => {
   const full = (parseLevels(inputs.lvl.value, M.lvlNone) || []).length === S.levels.length;
   setLevels(full ? [] : allLevels());
 });
+
+// ---- typing: keyboard up means Recent steps aside
+
+// While a composer input has focus the keyboard is up and room is short,
+// so Recent hides and the bubbles, levels and Currently get the space.
+// It returns when the keyboard goes away. Focus moving between steps
+// happens synchronously, so check after the blur settles.
+const view = $('mobile-view');
+function syncTyping() {
+  const typing = STEPS.some((k) => document.activeElement === inputs[k]);
+  if (view.classList.contains('sode-m--typing') === typing) return;
+  view.classList.toggle('sode-m--typing', typing);
+  scrollThread();
+}
+for (const k of STEPS) {
+  inputs[k].addEventListener('focus', syncTyping);
+  inputs[k].addEventListener('blur', () => setTimeout(syncTyping, 0));
+}
 
 // ---- keyboard overlap (iOS)
 

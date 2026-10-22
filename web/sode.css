@@ -477,7 +477,8 @@ body { zoom: var(--sode-scale); }
   flex-direction: column;
   gap: var(--pb-space-3);
 }
-.sode-m__recent[hidden] { display: none; }
+.sode-m__recent[hidden],
+.sode-m--typing .sode-m__recent { display: none; }
 .sode-m__recent-list {
   display: flex;
   flex-direction: column;
