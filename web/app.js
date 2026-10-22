@@ -601,17 +601,24 @@
   const root = document.documentElement;
   const osDark = matchMedia('(prefers-color-scheme: dark)');
   const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : osDark.matches);
-  const syncTheme = () => $('theme').setAttribute('aria-pressed', String(isDark()));
+  const themeBtns = document.querySelectorAll('[data-theme-set]');
+  const syncTheme = () => {
+    const dark = isDark();
+    for (const b of themeBtns) b.setAttribute('aria-pressed', String((b.dataset.themeSet === 'dark') === dark));
+  };
 
-  $('theme').addEventListener('click', () => {
-    const next = isDark() ? 'light' : 'dark';
-    const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
-    root.classList.add('pb-theme-transition');
-    root.dataset.theme = next;
-    setTimeout(() => root.classList.remove('pb-theme-transition'), ms);
-    try { localStorage.setItem('sode-theme', next); } catch (e) {}
-    syncTheme();
-  });
+  for (const b of themeBtns) {
+    b.addEventListener('click', () => {
+      const next = b.dataset.themeSet;
+      if (next === (isDark() ? 'dark' : 'light')) return;
+      const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
+      root.classList.add('pb-theme-transition');
+      root.dataset.theme = next;
+      setTimeout(() => root.classList.remove('pb-theme-transition'), ms);
+      try { localStorage.setItem('sode-theme', next); } catch (e) {}
+      syncTheme();
+    });
+  }
   osDark.addEventListener('change', syncTheme);
   syncTheme();
 

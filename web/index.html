@@ -18,7 +18,10 @@
 <link rel="stylesheet" href="sode.css">
 </head>
 <body>
-<button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__theme" id="theme" aria-pressed="false">Dark mode</button>
+<div class="pb-btn-group sode__theme" role="group" aria-label="Theme">
+  <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="light" aria-label="Light theme" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#sun"/></svg></button>
+  <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="dark" aria-label="Dark theme" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#moon"/></svg></button>
+</div>
 
 <main class="sode">
   <div class="sode__links" aria-label="Connection status">
