@@ -413,11 +413,17 @@ body { zoom: var(--sode-scale); }
   display: flex;
   flex: 0 0 auto;
   font-size: var(--pb-text-xs);
-  gap: var(--pb-space-5);
+  gap: var(--pb-space-4);
   padding: var(--pb-space-3) var(--pb-space-5);
   padding-top: max(var(--pb-space-3), env(safe-area-inset-top));
 }
 .sode-m__spacer { flex: 1 1 auto; }
+.sode-m__mark {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  letter-spacing: var(--pb-tracking-label);
+}
 
 /* Basis 0: the thread only gets what the composer leaves, so it gives up
    space first when the keyboard is up. */
