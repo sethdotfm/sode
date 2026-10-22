@@ -6,7 +6,7 @@ Full plan and rationale: PLAN.md. Key decisions:
 - SW-P-08 over TCP to one router, **single matrix**. Always use **extended** commands (16-bit src/dst). Protects are read and honoured. Auto-reconnect + keepalive. Names come from the router and are re-polled (default 60s).
 - Levels: wire = level + configurable offset. Levels are shown **only as numbered colour swatches / numbers**; there are no level labels (removed at the user's request).
 - Config: `/data/config.yaml`, edited from the Settings dialog (no auth in v1). SODE_* env vars only seed the file on first start.
-- Frontend: vanilla JS, no build step, embedded via go:embed. Follow patchbay rules exactly (https://github.com/sethdotfm/patchbay llms.txt): pb- classes only, tokens only, no Bootstrap utilities, no border-radius, status always with text.
+- Frontend: vanilla JS ES modules, no build step, embedded via go:embed. `core.js` holds state, the WebSocket and shared helpers and emits events; `desktop.js` and `mobile.js` are the two layouts (`layout.js` picks one: auto on narrow touch screens, per-browser override); `settings.js` is shared. Follow patchbay rules exactly (https://github.com/sethdotfm/patchbay llms.txt): pb- classes only, tokens only, no Bootstrap utilities, no border-radius, status always with text.
 - Confirm dialog: random churning letter + lockout (default 500ms; Enter-to-confirm optional).
 - History (JSONL) + shared server-side recent/undo list.
 - Keep it light: no frameworks, no extra deps without asking.

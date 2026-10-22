@@ -2,14 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Sode</title>
 <script>
-  // Apply a saved theme before first paint so there's no flash.
-  try {
-    const t = localStorage.getItem('sode-theme');
-    if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
-  } catch (e) {}
+  // Apply the saved theme and the layout before first paint so there's no
+  // flash. layout.js keeps the layout up to date afterwards.
+  (() => {
+    const root = document.documentElement;
+    let theme = null, layout = 'auto';
+    try {
+      theme = localStorage.getItem('sode-theme');
+      layout = localStorage.getItem('sode-layout') || 'auto';
+    } catch (e) {}
+    if (theme === 'dark' || theme === 'light') root.dataset.theme = theme;
+    if (layout === 'auto') layout = matchMedia('(max-width: 700px) and (pointer: coarse)').matches ? 'phone' : 'desktop';
+    root.dataset.layout = layout;
+  })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
@@ -70,7 +78,7 @@
     </footer>
   </div>
 
-  <form class="sode__view sode__settings" id="settings-view" novalidate hidden aria-labelledby="settings-title">
+  <form class="sode__view sode__settings" id="settings-view" novalidate aria-labelledby="settings-title">
     <div class="sode__settings-head">
       <h2 class="sode__settings-title" id="settings-title">Settings</h2>
       <button type="button" class="pb-btn pb-btn--ghost" id="settings-back">Back to patching</button>
@@ -156,6 +164,15 @@
       </div>
     </fieldset>
 
+    <fieldset class="sode__group">
+      <legend class="sode__label">This device</legend>
+      <div class="sode__field">
+        <label for="cfg-layout">Layout</label>
+        <span class="pb-select-wrap"><select id="cfg-layout" class="pb-select"><option value="auto">Automatic (phone layout on small touch screens)</option><option value="phone">Phone</option><option value="desktop">Desktop</option></select></span>
+        <span class="sode__hint">Applies now and is remembered by this browser only; it isn't part of Save.</span>
+      </div>
+    </fieldset>
+
     <div class="sode__savebar">
       <div class="pb-note pb-note--error" id="settings-err" role="alert" hidden></div>
       <div class="sode__savebar-row">
@@ -165,6 +182,44 @@
       </div>
     </div>
   </form>
+
+  <div class="sode-m" id="mobile-view">
+    <header class="sode-m__head">
+      <span class="pb-status"><span class="pb-dot pb-dot--warn" id="m-ws-dot" aria-hidden="true"></span><span id="m-ws-text">Sode</span></span>
+      <span class="pb-status"><span class="pb-dot pb-dot--idle" id="m-rt-dot" aria-hidden="true"></span><span id="m-rt-text">Router</span></span>
+      <span class="sode-m__spacer"></span>
+      <div class="pb-btn-group" role="group" aria-label="Theme">
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="light" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#sun"/></svg></button>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" data-theme-set="dark" aria-pressed="false"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#moon"/></svg></button>
+      </div>
+      <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="m-settings">Settings</button>
+    </header>
+
+    <div class="sode-m__thread" id="m-thread">
+      <div class="sode-m__fill"></div>
+      <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head" hidden>
+        <div class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></div>
+        <ul class="sode-m__recent-list" id="m-recent-list"></ul>
+      </section>
+      <div id="m-result" aria-live="polite"></div>
+      <div class="sode-m__compose" id="m-compose" aria-live="polite"></div>
+    </div>
+
+    <div class="sode-m__composer">
+      <ul class="sode-m__matches" id="m-matches" role="listbox" aria-label="Matches" hidden></ul>
+      <div class="sode-m__picker" id="m-picker" hidden>
+        <div class="sode-m__picks" id="m-picks" role="group" aria-label="Pick levels"></div>
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1">All</button>
+      </div>
+      <div class="sode-m__bar">
+        <label class="sode-m__step" id="m-step" for="m-src">Source</label>
+        <input id="m-src" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input id="m-dst" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
+        <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
+        <button type="button" class="pb-btn pb-btn--commit sode-m__go" id="m-go">Next</button>
+      </div>
+    </div>
+  </div>
 </main>
 
 <div class="pb-modal-backdrop sode__scrim" id="confirm" hidden>
@@ -177,6 +232,17 @@
     </div>
   </div>
 </div>
-<script src="app.js"></script>
+<div class="sode-m__scrim" id="m-sheet" hidden>
+  <div class="sode-m__sheet" role="dialog" aria-modal="true" aria-labelledby="m-sheet-title">
+    <div class="sode-m__sheet-title" id="m-sheet-title">Confirm patch</div>
+    <div class="sode-m__sheet-body sode__confirm" id="m-sheet-body"></div>
+    <div class="sode__slide sode__slide--locked" id="m-slide">
+      <span class="sode__slide-label" id="m-slide-label">Slide to patch</span>
+      <div class="sode__slide-handle" id="m-slide-handle" role="slider" tabindex="0" aria-label="Slide to confirm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">→</div>
+    </div>
+    <button type="button" class="pb-btn pb-btn--outline pb-btn--block" id="m-sheet-cancel">Cancel</button>
+  </div>
+</div>
+<script type="module" src="main.js"></script>
 </body>
 </html>

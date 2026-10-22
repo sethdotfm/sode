@@ -7,6 +7,7 @@ Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, 
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
 - Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
+- Phones get a text-message style layout: type a source, Next, a destination, Next, levels, Go, then slide to confirm. Swipe a recent take left to undo. Settings → This device can force the phone or desktop layout.
 
 ## Run
 
