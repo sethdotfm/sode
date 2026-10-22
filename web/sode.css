@@ -125,13 +125,14 @@ body { zoom: var(--sode-scale); }
   gap: var(--pb-space-3);
 }
 .sode__picker .sode__levels { flex: 1 1 auto; }
-/* A level toggle: filled when on, outlined in its signal colour when off. */
-.sode__pick {
+/* A level toggle (picker) or slot (level bar): filled when on, outlined in
+   its signal colour when off. Shared so both read the same. */
+.sode__pick,
+.sode__slot {
   align-items: center;
   background: transparent;
   border: var(--pb-accent-bar-w) solid var(--sode-c);
   color: var(--pb-text);
-  cursor: pointer;
   display: inline-flex;
   font-family: var(--pb-font-mono);
   font-size: var(--pb-text-xs);
@@ -141,7 +142,9 @@ body { zoom: var(--sode-scale); }
   min-width: calc(var(--pb-space-8) + var(--pb-space-1));
   padding: 0;
 }
-.sode__pick[aria-pressed="true"] {
+.sode__pick { cursor: pointer; }
+.sode__pick[aria-pressed="true"],
+.sode__slot--on {
   background: var(--sode-c);
   color: var(--pb-text-on-accent);
 }
@@ -214,23 +217,6 @@ body { zoom: var(--sode-scale); }
   display: flex;
   flex: 0 0 auto;
   gap: var(--pb-space-1);
-}
-.sode__slot {
-  align-items: center;
-  border: var(--pb-border-w) solid var(--sode-c);
-  color: var(--pb-text-disabled);
-  display: inline-flex;
-  font-family: var(--pb-font-mono);
-  font-size: var(--pb-text-2xs);
-  font-weight: var(--pb-weight-bold);
-  height: calc(var(--pb-space-8) - var(--pb-space-2));
-  justify-content: center;
-  line-height: 1;
-  width: calc(var(--pb-space-8) - var(--pb-space-2));
-}
-.sode__slot--on {
-  background: var(--sode-c);
-  color: var(--pb-text-on-accent);
 }
 
 .sode__feed {
