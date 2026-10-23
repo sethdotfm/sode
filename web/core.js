@@ -1,6 +1,8 @@
 // Shared state, the connection to Sode, and helpers used by both layouts.
 // Views subscribe with on(event, fn) and render from S.
 
+import { filterFn } from './filter.js';
+
 export const $ = (id) => document.getElementById(id);
 
 // el('div', 'cls', child, 'text', …) — builds DOM without innerHTML so
@@ -617,15 +619,6 @@ export function setScrollTopPref(on) {
   } catch (e) {}
 }
 
-// Changes made elsewhere (panels, Companion), per browser: 'filtered'
-// (default: all but Settings' hidden destinations), 'all' or 'none'.
-const EXT_KEY = 'sode-ext';
-export function extPref() {
-  let v = null;
-  try { v = localStorage.getItem(EXT_KEY); } catch (e) {}
-  return v === 'all' || v === 'none' ? v : 'filtered';
-}
-
 // The time formatter, built once and again only when the Clock changes.
 let timeFmt = null;
 function timeFormat() {
@@ -726,12 +719,74 @@ export function entryNote(e) {
   return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }
 
-// Whether this browser shows a history entry: changes made elsewhere
-// follow extPref.
-function shown(e) {
-  if (!e.ext) return true;
-  const pref = extPref();
-  return pref === 'all' || (pref === 'filtered' && !(S.cfg?.hideDsts || []).includes(e.dst));
+// ---- Recent filters, per browser (edited in filters.js): which kinds of
+// entry show, and filter expressions (filter.js) for sources and
+// destinations. hidden shows changes made elsewhere to Settings' globally
+// hidden destinations.
+
+const FILTER_KEY = 'sode-filter';
+export const FILTER_DEFAULT = Object.freeze({ src: '', dst: '', sode: true, ext: true, hidden: false });
+export const normFilter = (f) => ({
+  src: String(f?.src ?? ''), dst: String(f?.dst ?? ''),
+  sode: f?.sode !== false, ext: f?.ext !== false, hidden: f?.hidden === true,
+});
+
+function loadFilter() {
+  let f = {};
+  try {
+    f = JSON.parse(localStorage.getItem(FILTER_KEY) || '{}') || {};
+    // The first beta's one setting: 'none' or 'all' other panels.
+    const old = localStorage.getItem('sode-ext');
+    if (old) {
+      if (old === 'none') f.ext = false;
+      if (old === 'all') f.hidden = true;
+      localStorage.removeItem('sode-ext');
+      localStorage.setItem(FILTER_KEY, JSON.stringify(f));
+    }
+  } catch (e) {}
+  return normFilter(f);
+}
+
+const anything = () => true;
+let filter = loadFilter();
+// Matchers for the expressions; one that doesn't parse keeps the last good one.
+let srcOk = filterFn(filter.src) || anything;
+let dstOk = filterFn(filter.dst) || anything;
+
+export const filterState = () => ({ ...filter });
+
+// How many parts of the filter differ from the default, for the button.
+export const filterCount = () => ['src', 'dst'].filter((k) => filter[k].trim()).length +
+  ['sode', 'ext', 'hidden'].filter((k) => filter[k] !== FILTER_DEFAULT[k]).length;
+
+export function setFilter(next) {
+  filter = normFilter(next);
+  srcOk = filterFn(filter.src) || srcOk;
+  dstOk = filterFn(filter.dst) || dstOk;
+  try {
+    if (!filterCount()) localStorage.removeItem(FILTER_KEY);
+    else localStorage.setItem(FILTER_KEY, JSON.stringify(filter));
+  } catch (e) {}
+  emit('filters');
+  emit('history');
+}
+
+// The globally hidden destinations, compiled once per expression. Blank
+// (or one that doesn't parse) hides nothing.
+let hiddenText = null, hiddenFn = null;
+export function globallyHidden(num, name) {
+  const t = (S.cfg?.hiddenDsts || '').trim();
+  if (t !== hiddenText) { hiddenText = t; hiddenFn = t ? filterFn(t) : null; }
+  return !!hiddenFn && hiddenFn(num, name);
+}
+
+// Whether this browser's filters let a history entry show.
+function passes(e) {
+  if (e.ext ? !filter.ext : !filter.sode) return false;
+  const s = srcItem(e.src, e.srcName), d = dstItem(e.dst, e.dstName);
+  const sn = e.src + off(), dn = e.dst + off();
+  if (e.ext && !filter.hidden && globallyHidden(dn, d.name)) return false;
+  return srcOk(sn, s.name) && dstOk(dn, d.name);
 }
 
 // Changes made elsewhere to one destination on the same levels, each
@@ -740,14 +795,14 @@ const MERGE_MS = 30000;
 
 // History as rows, newest first: { e } for a take on its own, or { f } for
 // a folder holding the takes of one multi-take confirm. A folder sits
-// where its newest take is. Entries this browser hides are left out (a
-// folder only when all of it is), and repeated changes made elsewhere are
-// merged into one { e }: the newest, with the oldest's prev (so Before and
-// Undo go back to before the first) and merged = how many.
+// where its newest take is. Repeated changes made elsewhere are merged
+// into one { e }: the newest, with the oldest's prev (so Before and Undo
+// go back to before the first) and merged = how many. Entries this
+// browser's filters hide are left out; a folder shows if any of its takes
+// pass, with those in f.shown (f.entries keeps them all, for Undo all).
 export function histRows(list) {
   const rows = [];
   const folders = new Map();
-  const keep = new Set(list.filter((e) => e.group && shown(e)).map((e) => e.group));
   const chains = new Map(); // dst → { k: levels, row, t: oldest time }
   for (const e of list) {
     // Merge into the row above if it's a change made elsewhere to the same
@@ -762,8 +817,8 @@ export function histRows(list) {
       continue;
     }
     chains.delete(e.dst);
-    if (solo ? !shown(e) : !keep.has(e.group)) continue;
     if (solo) {
+      if (!passes(e)) continue;
       const row = { e };
       if (e.ext) chains.set(e.dst, { k, row, t });
       rows.push(row);
@@ -771,13 +826,14 @@ export function histRows(list) {
     }
     let f = folders.get(e.group);
     if (!f) {
-      f = { group: e.group, n: e.groupN, entries: [] };
+      f = { group: e.group, n: e.groupN, entries: [], shown: [] };
       folders.set(e.group, f);
       rows.push({ f });
     }
     f.entries.push(e);
+    if (passes(e)) f.shown.push(e);
   }
-  return rows;
+  return rows.filter((r) => !r.f || r.f.shown.length);
 }
 
 // A folder's takes arrive one by one as each finishes; one still filling
@@ -820,8 +876,12 @@ export function folderTitle(f) {
   const src = srcs.length === 1 ? srcItem(srcs[0], f.entries[0].srcName).label : `${srcs.length} sources`;
   const dst = dsts.length === 1 ? dstItem(dsts[0], f.entries[0].dstName).label : `${dsts.length} destinations`;
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
-  return [strong(src), ' → ', strong(dst), kind ? el('span', 'sode__hist-note', ` (${kind})`) : null].filter(Boolean);
+  const notes = [kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`].filter(Boolean);
+  return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
+
+// Filters hide some of a folder's takes (Undo all still covers them all).
+export const folderPartial = (f) => !!f.shown && f.shown.length < f.entries.length;
 
 // Every level a folder's takes touched.
 export const folderLevels = (f) => [...new Set(f.entries.flatMap((e) => e.levels))].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b);
@@ -877,13 +937,14 @@ export function historyPager(step) {
 
 // ---- results
 
+// text: a string, or a function building nodes (each layout renders its own).
 export function showResult(kind, title, text) {
   S.result = { kind, title, text };
   emit('result', S.result);
 }
 
 export function resultNode(r) {
-  return el('div', `pb-alert pb-alert--${r.kind}`, el('div', null, el('div', 'pb-alert__title', r.title), r.text));
+  return el('div', `pb-alert pb-alert--${r.kind}`, el('div', null, el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text));
 }
 
 // "A → B (levels 1–3; 2 was already on A)" for one take.
@@ -1058,17 +1119,9 @@ export function initTheme() {
   sync();
 }
 
-// The Clock and Other panels selects in Settings (synced when Settings
-// opens) apply at once and redraw.
+// The Clock select in Settings (synced when Settings opens) applies at
+// once and redraws every time.
 export function initClock() {
-  const ext = $('cfg-ext');
-  ext.addEventListener('change', () => {
-    try {
-      if (ext.value === 'filtered') localStorage.removeItem(EXT_KEY);
-      else localStorage.setItem(EXT_KEY, ext.value);
-    } catch (e) {}
-    emit('history');
-  });
   const select = $('cfg-clock');
   select.addEventListener('change', () => {
     try {

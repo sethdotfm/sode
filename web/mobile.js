@@ -6,11 +6,12 @@
 import {
   $, el, S, on, connState, routerLabel, linked, needsLink, setLinkDisabled, renderDown, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
   fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
-  chevron, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
+  chevron, statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
   patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
 import { layout, onLayout } from './layout.js';
+import { emptyNote } from './filters.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -316,7 +317,7 @@ function recentRow(e) {
 function folderRows(f) {
   const open = openFolders.has(f.group);
   const kidsId = `m-folder-${f.group}`;
-  const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, 'Undo all');
+  const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   const failed = f.entries.filter((e) => !e.ok).length;
   let retry = null;
   if (failed) {
@@ -326,11 +327,11 @@ function folderRows(f) {
     retry.setAttribute('aria-label', `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`);
     retry.addEventListener('click', () => { closeSwipes(); openSheet(folderRetryPlan(f)); });
   }
-  const toggle = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__hist-toggle', chevron(open), `${f.entries.length}`);
+  const toggle = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__hist-toggle', chevron(open), `${f.shown.length}`);
   toggle.type = 'button';
   toggle.setAttribute('aria-expanded', String(open));
   toggle.setAttribute('aria-controls', kidsId);
-  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.entries.length} takes`);
+  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
   toggle.addEventListener('click', () => {
     if (openFolders.has(f.group)) openFolders.delete(f.group);
     else openFolders.add(f.group);
@@ -349,7 +350,7 @@ function folderRows(f) {
   const row = el('li', 'sode-m__recent-row' + (fresh && !open ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   if (!open) return [row];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.entries.map(recentRow)));
+  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(recentRow)));
   kids.id = kidsId;
   return [row, kids];
 }
@@ -401,9 +402,9 @@ const pager = historyPager(5);
 
 function renderRecent() {
   const list = pager.list();
-  $('m-recent').hidden = !list.length;
+  $('m-recent').hidden = !S.hist.length;
   $('m-recent-list').replaceChildren(...list.flatMap((r) => (r.f ? folderRows(r.f) : [recentRow(r.e)])));
-  $('m-recent-more').replaceChildren(...[pager.button()].filter(Boolean));
+  $('m-recent-more').replaceChildren(...[emptyNote(list), pager.button()].filter(Boolean));
 }
 
 // ---- confirm sheet with slider

@@ -75,7 +75,10 @@
     <div class="sode__result" id="result" aria-live="polite"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
-      <div class="sode__label" id="history-head" hidden>Recent</div>
+      <div class="sode__recent-head" id="history-bar" hidden>
+        <span class="sode__label" id="history-head">Recent</span>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
+      </div>
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent takes"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
@@ -143,11 +146,6 @@
         <div class="sode__field">
           <label for="cfg-clock">Clock</label>
           <span class="pb-select-wrap"><select id="cfg-clock" class="pb-select"><option value="24">24-hour</option><option value="12">12-hour</option><option value="locale">Browser language</option></select></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-ext">Other panels in Recent</label>
-          <span class="pb-select-wrap"><select id="cfg-ext" class="pb-select"><option value="filtered">Show, except hidden destinations</option><option value="all">Show all</option><option value="none">Hide</option></select></span>
-          <span class="sode__hint">Routes made elsewhere (panels, Companion). Beta.</span>
         </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-scrolltop"><span class="pb-check__label">Scroll to the top when a box is focused</span></label>
@@ -267,9 +265,10 @@
     <fieldset class="sode__group">
       <legend>History</legend>
       <div class="sode__field">
-        <label for="cfg-hidedsts">Hidden destinations</label>
-        <input id="cfg-hidedsts" class="pb-input" placeholder="65, 200" spellcheck="false" inputmode="numeric">
-        <span class="sode__hint">Destination numbers whose changes from other panels Recent hides unless a browser shows all. Still recorded.</span>
+        <label for="cfg-hidden">Globally hidden destinations</label>
+        <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
+        <span class="sode__hint" id="cfg-hidden-note"></span>
+        <span class="sode__hint">Changes from other panels to these are hidden in every browser's Recent unless its Filters show them. Still recorded. Same syntax as Recent's Filters.</span>
       </div>
       <div class="sode__field">
         <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone.</span>
@@ -311,7 +310,10 @@
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head" hidden>
-        <div class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></div>
+        <div class="sode__recent-head">
+          <span class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></span>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
+        </div>
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
         <div class="sode-m__recent-more" id="m-recent-more"></div>
       </section>
@@ -349,6 +351,38 @@
     </div>
   </div>
 </div>
+<div class="pb-modal-backdrop sode__scrim" id="filters" hidden>
+  <div class="pb-modal sode__filters" role="dialog" aria-modal="true" aria-labelledby="filters-title" tabindex="-1" id="filters-dialog">
+    <div class="pb-modal__header"><span class="pb-modal__title" id="filters-title">Recent filters</span><span class="sode__hint">This browser only. Applies as you type.</span></div>
+    <div class="pb-modal__body sode__filters-body">
+      <fieldset class="sode__filters-show">
+        <legend class="sode__label">Show</legend>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-sode"><span class="pb-check__label">Takes made in Sode</span></label>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-ext"><span class="pb-check__label">Changes from other panels</span></label>
+        <label class="pb-check sode__filters-indent"><input type="checkbox" class="pb-check__input" id="flt-hidden"><span class="pb-check__label">Including globally hidden destinations</span></label>
+        <span class="sode__hint sode__filters-indent" id="flt-hidden-note"></span>
+      </fieldset>
+      <div class="sode__filters-mode">
+        <span class="pb-btn-group" role="group" aria-label="Editor">
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-visual" aria-pressed="true">Visual</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-code" aria-pressed="false">Code</button>
+        </span>
+        <span class="sode__hint" id="flt-syntax" hidden><code>65</code> · <code>1-50</code> · <code>PIP</code> (name contains) · <code>"5D"</code> · <code>/^DSM\d/</code> · <code>!</code> or <code>not</code> excludes · commas between</span>
+      </div>
+      <div class="sode__filters-ed" id="flt-src"></div>
+      <div class="sode__filters-ed" id="flt-dst"></div>
+      <div class="sode__filters-share" id="flt-share" hidden>
+        <input class="pb-input sode__code" id="flt-share-url" readonly aria-label="Share link">
+        <span class="pb-status" id="flt-share-status"></span>
+      </div>
+    </div>
+    <div class="pb-modal__footer">
+      <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
+      <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share link</button>
+      <button type="button" class="pb-btn pb-btn--commit" id="flt-done">Done</button>
+    </div>
+  </div>
+</div>
 <div class="pb-modal-backdrop sode__scrim" id="keys" hidden>
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" id="keys-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="keys-title">Keyboard shortcuts</span></div>
@@ -374,6 +408,7 @@
         <dt><kbd>h</kbd> <kbd>←</kbd> <kbd>⇧Enter</kbd></dt><dd>Close</dd>
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
         <dt><kbd>r</kbd></dt><dd>Retry</dd>
+        <dt><kbd>/</kbd></dt><dd>Filters</dd>
         <dt><kbd>,</kbd></dt><dd>Settings</dd>
         <dt><kbd>?</kbd></dt><dd>This list</dd>
         <dt><kbd>Esc</kbd></dt><dd>Back to Source</dd>

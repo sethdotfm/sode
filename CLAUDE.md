@@ -14,6 +14,7 @@ Go is not installed on the dev Mac; builds and tests normally go through Docker 
 go test ./...                                  # all tests (also run by the Dockerfile build)
 go test ./internal/app -run TestWaiterAlreadyRouted -v   # one test
 go vet ./...
+docker run --rm -v "$PWD/web":/w node:22-alpine node --test '/w/test/*.test.mjs'   # browser-side tests (filter language, histRows)
 
 # Local dev without Docker: simulator + server
 go run ./cmd/swp08sim                          # :8910; SIM_SOURCES/SIM_DESTS/SIM_LEVELS, SIM_IGNORE_DSTS=9,12 (0-based, never confirm), SIM_PANEL_SECONDS=5 (routes by itself like a panel)
@@ -34,7 +35,12 @@ The web UI is embedded with `go:embed` (`web/web.go`), so frontend edits need th
 - Config: `/data/config.yaml`, edited from the Settings dialog. SODE_* env vars only seed the file on first start. Optional settings PIN: PBKDF2 hash in `settingsPin` (`json:"-"`, never sent to browsers; `SaveSettings` carries it over on saves), unlocked per WebSocket connection *for that hash* (changing or removing the PIN relocks everyone; an unlock with no PIN set counts for nothing) and relocked when Settings closes. `unlock` is handled in line in the read loop so a following `lock` wins; wrong PINs are counted globally (not per IP), one check at a time, waits doubling from 30s after the 5th, and `pinMaxTries` (default 10, 0 = never) in a row locks settings until `-reset-pin` or restart. A non-hash `settingsPin` stops startup. `SaveSettings` runs one at a time (`cfgMu`) and re-checks the lock. `sode -reset-pin` clears it (restart needed).
 - Frontend: vanilla JS ES modules, no build step, embedded via go:embed. Follow patchbay rules exactly (https://github.com/sethdotfm/patchbay llms.txt): pb- classes only, tokens only, no Bootstrap utilities, no border-radius, status always with text. Patchbay is vendored under `web/vendor/patchbay`.
 - Confirm dialog: random churning letter + lockout (default 500ms; Enter-to-confirm optional).
-- History (JSONL) + shared server-side recent/undo list. Routes made elsewhere (beta, issue 14) are logged as `ext` entries (`ext.go`). These are Connected messages that none of our takes sent: `own` holds each take's (dst, wire level, src) for `ownFor`. Changes are collected into bursts, ending after 500ms quiet or 3s total, and logged as one entry per dst+src. A burst across several dsts shares a `group`. The browser does the rest in `histRows`: it hides entries per the `sode-ext` localStorage pref and `hideDsts`, and merges repeated same-dst/same-levels `ext` entries within 30s into one row (newest, with the oldest's `prev`, `merged` = count).
+- History (JSONL) + shared server-side recent/undo list. Routes made elsewhere (beta, issue 14) are logged as `ext` entries (`ext.go`). These are Connected messages that none of our takes sent: `own` holds each take's (dst, wire level, src) for `ownFor`. Changes are collected into bursts, ending after 500ms quiet or 3s total, and logged as one entry per dst+src. A burst across several dsts shares a `group`. The browser handles display in `histRows`:
+  - It merges repeated same-dst/same-levels `ext` entries within 30s into one row (newest, with the oldest's `prev`, `merged` = count). Any other entry on that dst breaks the chain, even a hidden one.
+  - It then applies this browser's Recent filter (`core.js`: `localStorage['sode-filter']`, `setFilter`). The filter covers kinds (Sode, panel, globally hidden) plus `src`/`dst` expressions.
+  - Folders keep every entry in `f.entries`, so Undo all covers the whole confirm, and the visible ones in `f.shown`.
+  - The expression language is `web/filter.js`: pure, with no imports. The server's `hiddenDsts` uses the same language and is evaluated only in browsers.
+  - `web/filters.js` holds the dialog (Visual/Code editors, live preview), share links (`?f=` base64url JSON, applied and stripped in `main.js`) and the empty-state note.
 - Keep it light: no frameworks, no extra deps without asking.
 
 ## Architecture

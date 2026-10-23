@@ -36,9 +36,12 @@ type Config struct {
 	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
 	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
 	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
-	// HideDsts are 0-based destinations whose changes from other panels
-	// browsers hide by default (still recorded), e.g. a shader's monitor.
-	HideDsts []int `yaml:"hideDsts" json:"hideDsts"`
+	// HiddenDsts is a Recent filter expression (web/filter.js) for
+	// destinations whose changes from other panels every browser hides
+	// unless its Filters show them; still recorded. E.g. a shader's monitor.
+	HiddenDsts string `yaml:"hiddenDsts" json:"hiddenDsts"`
+	// HideDsts is no longer used; kept so files that have it load.
+	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
 	// the default (DefaultLevelColors, then the patchbay swatch). Entries
 	// past Levels are kept but unused.
@@ -69,7 +72,6 @@ func Defaults() Config {
 		NameRefreshSeconds: 60,
 		TallyResyncSeconds: 300,
 		TrustedProxies:     []string{},
-		HideDsts:           []int{},
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
@@ -148,9 +150,8 @@ func (c *Config) Normalize() {
 	if c.LevelColors == nil {
 		c.LevelColors = []string{}
 	}
-	if c.HideDsts == nil {
-		c.HideDsts = []int{}
-	}
+	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
+	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}
@@ -242,10 +243,8 @@ func (c Config) Validate() error {
 			bad("level %d color %q must be a hex color like #3a7bd5", i+1, v)
 		}
 	}
-	for _, d := range c.HideDsts {
-		if d < 0 || d > 0xFFFE {
-			bad("hidden destination %d is out of range", d+c.NumberOffset)
-		}
+	if n := len([]rune(c.HiddenDsts)); n > 500 {
+		bad("globally hidden destinations must be at most 500 characters")
 	}
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)

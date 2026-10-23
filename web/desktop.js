@@ -5,10 +5,11 @@ import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
-  histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
+  histRows, statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
 } from './core.js';
 import { layout } from './layout.js';
+import { openFilters, emptyNote } from './filters.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -288,7 +289,7 @@ function folderRow(f) {
   const title = folderTitle(f);
   const failed = f.entries.filter((e) => !e.ok).length;
 
-  const undo = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Undo all');
+  const undo = el('button', 'pb-btn pb-btn--outline pb-btn--sm', folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   undo.type = 'button';
   const plan = folderUndoPlan(f);
   if (planEmpty(plan)) {
@@ -309,13 +310,13 @@ function folderRow(f) {
     retry.setAttribute('aria-hidden', 'true');
   }
 
-  const toggle = disclosure(open, `${f.entries.length}`, kidsId, () => {
+  const toggle = disclosure(open, `${f.shown.length}`, kidsId, () => {
     if (openFolders.has(f.group)) openFolders.delete(f.group);
     else openFolders.add(f.group);
     autoOpen.delete(f.group); // opened by hand: stays open
     renderHistory();
   });
-  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.entries.length} takes`);
+  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
 
   const fresh = f.entries.some((e) => e.id === S.newId) && !entered.has(f.group);
   if (fresh) entered.add(f.group);
@@ -331,7 +332,7 @@ function folderRow(f) {
     el('span', 'sode__hist-actions', retry, undo));
   row.dataset.key = `f${f.group}`;
   if (open) {
-    const kids = el('ul', 'sode__hist-folder', ...f.entries.map(histRow));
+    const kids = el('ul', 'sode__hist-folder', ...f.shown.map(histRow));
     kids.id = kidsId;
     row.append(kids);
   }
@@ -375,7 +376,7 @@ const pager = historyPager(10);
 // scroll: bring the cursor row into view (the cursor just moved). Other
 // redraws (someone else's take, a result) leave the page where it is.
 function renderHistory(scroll = false) {
-  $('history-head').hidden = !S.hist.length;
+  $('history-bar').hidden = !S.hist.length;
   const list = pager.list();
   if (cursor && !stops(list).some((x) => x.key === cursor)) {
     // Its row left the page (newer patches pushed it off): drop the
@@ -385,7 +386,7 @@ function renderHistory(scroll = false) {
     autoOpen.clear();
   }
   histList.replaceChildren(...list.map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
-  $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
+  $('history-more').replaceChildren(...[emptyNote(list), pager.button()].filter(Boolean));
   if (scroll === true && keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
 }
 
@@ -416,7 +417,7 @@ function stops(list = pager.list()) {
   list.forEach((r, top) => {
     if (r.e) return out.push({ key: `e${r.e.id}`, e: r.e, top });
     out.push({ key: `f${r.f.group}`, f: r.f, top });
-    if (openFolders.has(r.f.group)) for (const e of r.f.entries) out.push({ key: `e${e.id}`, e, top, in: r.f });
+    if (openFolders.has(r.f.group)) for (const e of r.f.shown) out.push({ key: `e${e.id}`, e, top, in: r.f });
   });
   return out;
 }
@@ -456,7 +457,7 @@ function step(d) {
   // Coming up into a closed folder lands on its last take, mirroring
   // the way down.
   if (d < 0 && next.f && list[i].in?.group !== next.f.group && autoOpen.has(next.f.group)) {
-    const last = next.f.entries[next.f.entries.length - 1];
+    const last = next.f.shown[next.f.shown.length - 1];
     moveTo(stops().find((x) => x.key === `e${last.id}`));
   }
 }
@@ -524,6 +525,7 @@ function onListKey(e) {
   const k = e.key;
   if (BOXES[k]) { focusBox($(BOXES[k])); return true; }
   if (k === ',') { $('settings-open').click(); return true; }
+  if (k === '/') { openFilters(); return true; }
   if (k === '?') { openKeys(); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {

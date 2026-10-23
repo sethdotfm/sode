@@ -3,8 +3,9 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, fmtTime, clockPref, extPref, scrollTopPref, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
+import { parseFilter, compileFilter } from './filter.js';
 
 const root = document.documentElement;
 const form = $('settings-view');
@@ -57,8 +58,6 @@ export function openSettings() {
   $('lock-err').hidden = true;
   $('cfg-layout').value = layoutPref();
   $('cfg-clock').value = clockPref();
-  $('cfg-ext').value = extPref();
-  $('cfg-hidedsts').value = (S.cfg.hideDsts || []).map((d) => d + S.cfg.numberOffset).join(', ');
   $('cfg-scrolltop').checked = scrollTopPref();
   resetClear();
   $('settings-err').hidden = true;
@@ -66,6 +65,7 @@ export function openSettings() {
   $('settings-path').replaceChildren(...(S.configPath ? ['Saved to ', el('code', null, S.configPath)] : ['Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']));
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
+  renderHiddenNote();
   renderNamesStatus();
   window.scrollTo(0, 0);
   renderLock(true);
@@ -104,10 +104,7 @@ function readSettings() {
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
-  // Hidden destinations are typed as shown (numberOffset) but saved 0-based;
-  // null if one isn't a number.
-  const hide = $('cfg-hidedsts').value.split(',').map((x) => x.trim()).filter(Boolean);
-  c.hideDsts = hide.every((x) => /^\d+$/.test(x)) ? hide.map((x) => Number(x) - c.numberOffset) : null;
+
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
   const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
@@ -196,6 +193,21 @@ function rerenderColors() {
 function renderOffsetNote() {
   const off = Number($('cfg-offset').value);
   $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
+}
+
+// What the globally hidden expression matches, against the router's names.
+function renderHiddenNote() {
+  const f = $('cfg-hidden');
+  const p = parseFilter(f.value);
+  f.classList.toggle('pb-input--invalid', !!p.error);
+  let text = 'Nothing hidden.';
+  if (p.error) text = `${p.error}.`;
+  else if (p.rules.length) {
+    const fn = compileFilter(p.rules);
+    const n = S.dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
+    text = `Matches ${n} of ${S.dsts.length} destinations.`;
+  }
+  $('cfg-hidden-note').textContent = text;
 }
 
 function renderNamesStatus() {
@@ -294,6 +306,7 @@ for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click'
 $('settings-cancel').addEventListener('click', closeSettings);
 $('lock-cancel').addEventListener('click', closeSettings);
 $('cfg-offset').addEventListener('input', renderOffsetNote);
+$('cfg-hidden').addEventListener('input', renderHiddenNote);
 $('cfg-colors-reset').addEventListener('click', () => {
   for (const f of $('cfg-colors').querySelectorAll('input')) {
     f.value = '';
@@ -335,10 +348,11 @@ form.addEventListener('submit', (e) => {
     $('cfg-default').focus();
     return;
   }
-  if (c.hideDsts === null) {
-    $('settings-err').textContent = 'Hidden destinations must be numbers separated by commas.';
+  const hidden = parseFilter(c.hiddenDsts);
+  if (hidden.error) {
+    $('settings-err').textContent = `Globally hidden destinations: ${hidden.error}.`;
     $('settings-err').hidden = false;
-    $('cfg-hidedsts').focus();
+    $('cfg-hidden').focus();
     return;
   }
   if (bad) {

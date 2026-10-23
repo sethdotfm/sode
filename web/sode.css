@@ -1114,3 +1114,85 @@ code,
 .sode__keys dl { display: contents; }
 .sode__keys dt { font-weight: var(--pb-weight-normal); }
 .sode__keys dd { margin: 0; }
+
+/* ---- Recent filters */
+.sode__recent-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+.sode__recent-head[hidden] { display: none; }
+/* Active filters: the button's text turns the info color (its text says how many). */
+.sode__filters-btn--on { color: var(--pb-status-info); font-weight: var(--pb-weight-medium); }
+.sode__code { font-family: var(--pb-font-mono); }
+.sode__scrim > .sode__filters { width: 640px; }
+.sode__filters .pb-modal__header { gap: var(--pb-space-3); flex-wrap: wrap; }
+.sode__filters-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+}
+.sode__filters-show {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  margin: 0;
+  padding: 0;
+}
+.sode__filters-show > legend { margin-bottom: var(--pb-space-2); padding: 0; }
+.sode__filters-indent { margin-left: var(--pb-space-6); }
+.sode__filters-mode {
+  align-items: center;
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  padding-top: var(--pb-space-4);
+}
+.sode__filters-ed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode__filters-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode__filters-rule {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-2);
+  grid-template-columns: 7.5em 12em 1fr auto;
+}
+.sode__filters-vals {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode__filters-vals > .pb-input { flex: 1 1 0; min-width: 0; }
+.sode__filters-preview { overflow-wrap: anywhere; }
+.sode__filters-share {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__filters-share > .pb-input { flex: 1; min-width: 0; }
+.sode__filters-empty {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+/* Phones: the dialog fills the width and rule rows stack in two lines. */
+@media (max-width: 599.98px) {
+  .sode__scrim:has(> .sode__filters) { padding: var(--pb-space-3); }
+  .sode__scrim > .sode__filters { min-width: 0; width: 100%; }
+  .sode__filters-rule { grid-template-columns: 1fr 1fr auto; }
+  .sode__filters-vals { grid-column: 1 / -1; grid-row: 2; }
+}
+.sode__filters .pb-modal__footer { gap: var(--pb-space-3); justify-content: flex-end; }
+.sode__filters .pb-modal__footer > :first-child { margin-right: auto; }
