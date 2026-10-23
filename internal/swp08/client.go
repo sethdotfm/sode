@@ -19,8 +19,8 @@ var (
 const (
 	ackTimeout  = time.Second
 	sendTries   = 3
-	probeIdle   = 15 * time.Second // send Probe after this long without rx
-	deadIdle    = 30 * time.Second // drop the connection after this long without rx
+	probeIdle   = 10 * time.Second // send Probe after this long without rx
+	deadIdle    = 20 * time.Second // drop the connection after this long without rx
 	maxBackoff  = 10 * time.Second
 	stableAfter = 30 * time.Second // a session this long resets the backoff
 )
@@ -247,14 +247,14 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *atomic.Int64) error {
 }
 
 func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks chan bool, rx *atomic.Int64) error {
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case m := <-q:
-			if err := c.transmit(ctx, conn, m, acks); err != nil {
+			if err := c.transmit(ctx, conn, m, acks, rx); err != nil {
 				return err
 			}
 		case <-tick.C:
@@ -263,7 +263,7 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 				return fmt.Errorf("no data from router for %s", idle.Round(time.Second))
 			}
 			if _, probe := c.target(); idle > probeIdle && probe != nil {
-				if err := c.transmit(ctx, conn, probe, acks); err != nil {
+				if err := c.transmit(ctx, conn, probe, acks, rx); err != nil {
 					return err
 				}
 			}
@@ -271,8 +271,13 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 	}
 }
 
-func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks chan bool) error {
+// transmit sends m and waits for its ACK, retrying on NAK or silence. If
+// nothing at all comes back through every try, the router has gone quiet
+// with the TCP session still open (powered off, cable pulled, hung), and
+// the connection is dropped so it shows as down and reconnects.
+func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks chan bool, rx *atomic.Int64) error {
 	frame := Encode(m)
+	sent := time.Now()
 	for try := 1; try <= sendTries; try++ {
 		select { // discard any stray ACK left from before
 		case <-acks:
@@ -292,6 +297,9 @@ func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks cha
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+	if time.Unix(0, rx.Load()).Before(sent) {
+		return fmt.Errorf("no reply from router to cmd 0x%02X", m[0])
 	}
 	log.Printf("swp08: gave up on cmd 0x%02X after %d tries", m[0], sendTries)
 	return nil
