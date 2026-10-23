@@ -66,8 +66,27 @@ func (l *stateLog) has(s State) bool {
 	return false
 }
 
+// fastTimers shortens the client's timings for the test.
+func fastTimers(t *testing.T) {
+	t.Helper()
+	ack, probe, dead := ackTimeout, probeIdle, deadIdle
+	ackTimeout, probeIdle, deadIdle = 50*time.Millisecond, 300*time.Millisecond, time.Second
+	t.Cleanup(func() { ackTimeout, probeIdle, deadIdle = ack, probe, dead })
+}
+
+// eventually polls cond for up to two seconds.
+func eventually(cond func() bool) bool {
+	for end := time.Now().Add(2 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+		if cond() {
+			return true
+		}
+	}
+	return cond()
+}
+
 func runClient(t *testing.T, addr string, onUp func(*Client)) *stateLog {
 	t.Helper()
+	fastTimers(t)
 	c := NewClient(addr, ExtInterrogate(0, 0, 0))
 	var log stateLog
 	c.OnState = log.add
@@ -85,11 +104,7 @@ func runClient(t *testing.T, addr string, onUp func(*Client)) *stateLog {
 func TestSilentRouterNeverUp(t *testing.T) {
 	addr := fakeRouter(t, func([]byte) bool { return false })
 	log := runClient(t, addr, nil)
-	deadline := time.Now().Add(10 * time.Second)
-	for !log.has(StateDown) && time.Now().Before(deadline) {
-		time.Sleep(100 * time.Millisecond)
-	}
-	if !log.has(StateDown) {
+	if !eventually(func() bool { return log.has(StateDown) }) {
 		t.Fatal("silent router never dropped")
 	}
 	if log.has(StateUp) {
@@ -101,11 +116,53 @@ func TestSilentRouterNeverUp(t *testing.T) {
 func TestIgnoredCommandKeepsLink(t *testing.T) {
 	addr := fakeRouter(t, func(m []byte) bool { return m[0] == CmdExtInterrogate })
 	log := runClient(t, addr, func(c *Client) { c.Send([]byte{0x7F, 0x00}) })
-	time.Sleep(8 * time.Second) // the ignored send (3s) plus its probe, with room
-	if !log.has(StateUp) {
+	if !eventually(func() bool { return log.has(StateUp) }) {
 		t.Fatal("router never came up")
 	}
+	// The ignored send's tries, its probe, and a couple of idle probes.
+	time.Sleep(3*ackTimeout + 3*probeIdle)
 	if log.has(StateDown) {
 		t.Fatal("link dropped over one ignored command")
+	}
+}
+
+// Until the router first answers, Send refuses rather than queueing behind
+// a probe that may never be answered.
+func TestSendRefusedUntilHeard(t *testing.T) {
+	addr := fakeRouter(t, func([]byte) bool { return false })
+	fastTimers(t)
+	c := NewClient(addr, ExtInterrogate(0, 0, 0))
+	var log stateLog
+	c.OnState = log.add
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go c.Run(ctx)
+	if !eventually(func() bool { return log.has(StateConnecting) }) {
+		t.Fatal("never started connecting")
+	}
+	time.Sleep(20 * time.Millisecond) // connected, waiting on the probe
+	if err := c.Send([]byte{0x7F}); err != ErrDown {
+		t.Fatalf("Send before the first reply = %v, want ErrDown", err)
+	}
+}
+
+// New settings reconnect without a down state, so the browser shows no
+// router-lost alarm for a deliberate change.
+func TestRetargetIsNotDown(t *testing.T) {
+	addr := fakeRouter(t, func([]byte) bool { return true })
+	fastTimers(t)
+	c := NewClient(addr, ExtInterrogate(0, 0, 0))
+	var log stateLog
+	c.OnState = log.add
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go c.Run(ctx)
+	if !eventually(func() bool { return log.has(StateUp) }) {
+		t.Fatal("router never came up")
+	}
+	c.SetTarget(addr, ExtInterrogate(0, 0, 0))
+	time.Sleep(200 * time.Millisecond)
+	if log.has(StateDown) {
+		t.Fatal("retarget reported the router down")
 	}
 }

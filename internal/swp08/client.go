@@ -17,11 +17,17 @@ var (
 	ErrBusy = errors.New("router send queue full")
 )
 
+// Timings; vars so tests can shorten them.
+var (
+	ackTimeout = time.Second
+	probeIdle  = 10 * time.Second // send the probe after this long without rx
+	// deadIdle drops a quiet connection, for a client with no probe; with
+	// one, an unanswered probe drops it first.
+	deadIdle = 20 * time.Second
+)
+
 const (
-	ackTimeout  = time.Second
 	sendTries   = 3
-	probeIdle   = 10 * time.Second // send Probe after this long without rx
-	deadIdle    = 20 * time.Second // drop the connection after this long without rx
 	maxBackoff  = 10 * time.Second
 	stableAfter = 30 * time.Second // a session this long resets the backoff
 )
@@ -55,7 +61,10 @@ type Client struct {
 	wmu sync.Mutex
 }
 
-var errNoRouter = errors.New("no router configured")
+var (
+	errNoRouter = errors.New("no router configured")
+	errRetarget = errors.New("reconnecting with new settings")
+)
 
 func NewClient(addr string, probe []byte) *Client {
 	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1)}
@@ -122,6 +131,12 @@ func (c *Client) Run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		if errors.Is(err, errRetarget) {
+			// New settings, not a failure: straight back to connecting.
+			log.Printf("swp08: %s: %v", addr, err)
+			backoff = time.Second
+			continue
+		}
 		c.state(StateDown, err)
 		if time.Since(start) > stableAfter {
 			backoff = time.Second
@@ -167,9 +182,6 @@ func (c *Client) session(ctx context.Context, addr string) error {
 	acks := make(chan bool, 1)
 	rx := newLastRx()
 
-	c.mu.Lock()
-	c.q = q
-	c.mu.Unlock()
 	defer func() {
 		c.mu.Lock()
 		c.q = nil
@@ -181,34 +193,39 @@ func (c *Client) session(ctx context.Context, addr string) error {
 	go func() { errc <- c.reader(conn, acks, rx) }()
 	go func() { errc <- c.writer(sctx, conn, q, acks, rx) }()
 
-	// Up only once the router answers: a hung one still accepts TCP. The
-	// probe provokes that first reply.
-	if _, probe := c.target(); probe != nil {
-		q <- probe
+	// wait blocks until ch is closed (nil: forever) or the session ends;
+	// nil means ch closed.
+	wait := func(ch <-chan struct{}) error {
 		select {
-		case <-rx.heard:
+		case <-ch:
+			return nil
 		case err := <-errc:
 			return err
 		case <-sctx.Done():
 			if ctx.Err() == nil {
-				return errors.New("reconnecting with new settings")
+				return errRetarget
 			}
 			return ctx.Err()
 		}
 	}
+
+	// Up only once the router answers: a hung one still accepts TCP. The
+	// probe provokes that first reply. Until then Send says ErrDown, so
+	// nothing else queues behind a probe that may never be answered.
+	if _, probe := c.target(); probe != nil {
+		q <- probe
+		if err := wait(rx.heard); err != nil {
+			return err
+		}
+	}
+	c.mu.Lock()
+	c.q = q
+	c.mu.Unlock()
 	c.state(StateUp, nil)
 	if c.OnUp != nil {
 		c.OnUp()
 	}
-	select {
-	case err := <-errc:
-		return err
-	case <-sctx.Done():
-		if ctx.Err() == nil {
-			return errors.New("reconnecting with new settings")
-		}
-		return ctx.Err()
-	}
+	return wait(nil)
 }
 
 func (c *Client) write(conn net.Conn, b []byte) error {
