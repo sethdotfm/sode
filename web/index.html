@@ -98,6 +98,7 @@
       <div class="sode__names">
         <button type="submit" class="pb-btn pb-btn--commit" id="lock-unlock">Unlock</button>
       </div>
+      <span class="sode__hint">Forgot it? On the Docker host run <code>docker compose exec sode /sode -reset-pin</code>, then <code>docker compose restart sode</code>. Or delete the <code>settingsPin:</code> line from <code>/data/config.yaml</code> and restart.</span>
     </div>
 
     <fieldset class="sode__group">
@@ -212,6 +213,10 @@
         <label for="cfg-pin">Settings PIN</label>
         <input type="password" id="cfg-pin" class="pb-input" autocomplete="new-password" spellcheck="false">
         <span class="sode__hint" id="cfg-pin-status"></span>
+      </div>
+      <div class="sode__field">
+        <label for="cfg-pin2">Confirm PIN</label>
+        <input type="password" id="cfg-pin2" class="pb-input" autocomplete="new-password" spellcheck="false">
       </div>
       <label class="pb-check" id="cfg-pin-clear-row"><input type="checkbox" class="pb-check__input" id="cfg-pin-clear"><span class="pb-check__label">Remove the PIN</span></label>
       <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then restart Sode.</span>

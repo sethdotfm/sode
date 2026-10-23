@@ -40,6 +40,7 @@ export function openSettings() {
   renderNumbering();
   renderColors(S.cfg.levelColors || []);
   $('cfg-pin').value = '';
+  $('cfg-pin2').value = '';
   $('cfg-pin-clear').checked = false;
   $('cfg-pin-clear-row').hidden = !S.pinSet;
   $('cfg-pin-status').textContent = S.pinSet
@@ -310,6 +311,12 @@ form.addEventListener('submit', (e) => {
     $('settings-err').textContent = 'The settings PIN must be at least 4 characters.';
     $('settings-err').hidden = false;
     $('cfg-pin').focus();
+    return;
+  }
+  if (pin !== $('cfg-pin2').value) {
+    $('settings-err').textContent = 'The two PINs don\'t match.';
+    $('settings-err').hidden = false;
+    $('cfg-pin2').select();
     return;
   }
   if (!wsSend({ t: 'config', config: c, pin, clearPin: $('cfg-pin-clear').checked })) {
