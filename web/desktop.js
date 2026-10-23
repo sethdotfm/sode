@@ -78,7 +78,7 @@ function renderMenu(k) {
   // A pinned count makes it clear the list scrolls.
   if (b.matches.length > PAGE) {
     const total = b.matches.total > b.matches.length ? `${b.matches.length}+` : b.matches.length;
-    const foot = el('li', 'sode__menu-count', `${total} matches · ↑↓ PgUp PgDn`);
+    const foot = el('li', 'sode__menu-count', `${total} matches · ↑↓ ${mac ? '⌥J ⌥K' : 'Alt+J Alt+K'} PgUp PgDn`);
     foot.setAttribute('role', 'presentation');
     b.menu.append(foot);
   }
@@ -520,11 +520,15 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (b && !b.menu.hidden && ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp'].includes(e.key)) {
+  // Option/Alt+J/K move like ↓/↑. Matched by e.code because Option
+  // changes e.key on macOS.
+  const altJK = e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code];
+  const nav = altJK || e.key;
+  if (b && !b.menu.hidden && ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp'].includes(nav)) {
     e.preventDefault();
     const n = b.matches.length;
-    if (e.key === 'ArrowDown') moveHi(k, (b.hi + 1) % n);
-    else if (e.key === 'ArrowUp') moveHi(k, (b.hi + n - 1) % n);
+    if (nav === 'ArrowDown') moveHi(k, (b.hi + 1) % n);
+    else if (nav === 'ArrowUp') moveHi(k, (b.hi + n - 1) % n);
     else if (e.key === 'PageDown') moveHi(k, Math.min(n - 1, b.hi + PAGE));
     else moveHi(k, Math.max(0, b.hi - PAGE));
     return;
