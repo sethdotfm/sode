@@ -281,6 +281,30 @@ function levelRuns(list) {
 export const levelText = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}–${b}`)).join(', ');
 export const levelInput = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}-${b}`)).join(',');
 
+// A configured #rrggbb is one colour for both themes, so its number gets
+// black or white, whichever contrasts more (WCAG relative luminance).
+function inkFor(hex) {
+  const lin = (i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const y = 0.2126 * lin(1) + 0.7152 * lin(3) + 0.0722 * lin(5);
+  return (y + 0.05) / 0.05 > 1.05 / (y + 0.05) ? '#000' : '#fff';
+}
+
+// Sets --sode-c (and --sode-ink for a configured colour) on a level's
+// pick or slot.
+export function levelColor(node, l) {
+  if (l.color) {
+    node.style.setProperty('--sode-c', l.color);
+    node.style.setProperty('--sode-ink', inkFor(l.color));
+  } else {
+    node.style.setProperty('--sode-c', `var(--pb-signal-${l.swatch})`);
+    node.style.removeProperty('--sode-ink');
+  }
+  return node;
+}
+
 // Every level in one fixed row: filled when in `on`, outlined otherwise,
 // so rows line up like monospace columns. The numbers mean it never
 // relies on colour alone.
@@ -288,8 +312,7 @@ export function levelBar(on) {
   const set = new Set(on);
   const row = el('span', 'sode__bar', ...S.levels.map((l) => {
     const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), String(l.ui));
-    slot.style.setProperty('--sode-c', `var(--pb-signal-${l.swatch})`);
-    return slot;
+    return levelColor(slot, l);
   }));
   const sorted = [...set].sort((a, b) => a - b);
   row.setAttribute('role', 'img');
@@ -304,7 +327,7 @@ export function pickButtons(onToggle) {
     b.type = 'button';
     b.tabIndex = -1;
     b.dataset.ui = l.ui;
-    b.style.setProperty('--sode-c', `var(--pb-signal-${l.swatch})`);
+    levelColor(b, l);
     b.setAttribute('aria-label', `Level ${l.ui}`);
     b.addEventListener('click', () => onToggle(l.ui));
     return b;

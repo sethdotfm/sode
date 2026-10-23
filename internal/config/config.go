@@ -32,6 +32,9 @@ type Config struct {
 	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
 	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
 	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
+	// LevelColors[i] colours UI level i+1 as #rrggbb; "" or missing keeps
+	// the patchbay swatch. Entries past Levels are kept but unused.
+	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 }
 
 func Defaults() Config {
@@ -46,6 +49,7 @@ func Defaults() Config {
 		NameRefreshSeconds: 60,
 		TallyResyncSeconds: 300,
 		TrustedProxies:     []string{},
+		LevelColors:        []string{},
 	}
 }
 
@@ -107,6 +111,30 @@ func (c *Config) Normalize() {
 	if c.TrustedProxies == nil {
 		c.TrustedProxies = []string{}
 	}
+	if c.LevelColors == nil {
+		c.LevelColors = []string{}
+	}
+	for i, v := range c.LevelColors {
+		c.LevelColors[i] = normColor(v)
+	}
+	// Drop trailing blanks so an all-default list saves as [].
+	for len(c.LevelColors) > 0 && c.LevelColors[len(c.LevelColors)-1] == "" {
+		c.LevelColors = c.LevelColors[:len(c.LevelColors)-1]
+	}
+}
+
+// normColor turns "#ABC", "abc", "AABBCC" into "#aabbcc". Anything else is
+// returned trimmed for Validate to reject.
+func normColor(v string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	h := strings.TrimPrefix(v, "#")
+	if len(h) == 3 {
+		h = string([]byte{h[0], h[0], h[1], h[1], h[2], h[2]})
+	}
+	if len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "" {
+		return v
+	}
+	return "#" + h
 }
 
 func (c Config) Validate() error {
@@ -156,6 +184,11 @@ func (c Config) Validate() error {
 	if s := c.TallyResyncSeconds; s != 0 && (s < 30 || s > 86400) {
 		bad("tally resync must be 0 (off) or 30-86400 seconds")
 	}
+	for i, v := range c.LevelColors {
+		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
+			bad("level %d colour %q must be a hex colour like #3a7bd5", i+1, v)
+		}
+	}
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}
@@ -183,11 +216,12 @@ func (c Config) Proxies() ([]netip.Prefix, error) {
 type Level struct {
 	UI     int    `json:"ui"`
 	Wire   int    `json:"wire"`
-	Swatch string `json:"swatch"` // patchbay pb-level-- suffix
+	Swatch string `json:"swatch"`          // patchbay pb-level-- suffix
+	Color  string `json:"color,omitempty"` // #rrggbb from LevelColors; overrides Swatch
 }
 
 // LevelMap: wire = UI + offset; UI 1 gets the video swatch, the rest the
-// 16 audio swatches.
+// 16 audio swatches, unless LevelColors sets a colour.
 func (c Config) LevelMap() []Level {
 	out := make([]Level, c.Levels)
 	for i := range out {
@@ -195,6 +229,9 @@ func (c Config) LevelMap() []Level {
 		l := Level{UI: ui, Wire: ui + c.LevelWireOffset, Swatch: "video"}
 		if ui > 1 {
 			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
+		}
+		if i < len(c.LevelColors) {
+			l.Color = c.LevelColors[i]
 		}
 		out[i] = l
 	}

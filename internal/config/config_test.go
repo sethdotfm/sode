@@ -24,6 +24,7 @@ func TestValidate(t *testing.T) {
 		"bad name len":      func(c *Config) { c.NameLength = 10 },
 		"bad proxy":         func(c *Config) { c.TrustedProxies = []string{"caddy"} },
 		"refresh too fast":  func(c *Config) { c.NameRefreshSeconds = 1 },
+		"bad colour":        func(c *Config) { c.LevelColors = []string{"#12345g"} },
 	} {
 		c := ok
 		mut(&c)
@@ -57,6 +58,26 @@ func TestSaveLoad(t *testing.T) {
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
 	if _, _, err := Load(path); err == nil {
 		t.Fatal("unknown key should fail")
+	}
+}
+
+func TestLevelColors(t *testing.T) {
+	c := Defaults()
+	c.Levels = 3
+	c.LevelColors = []string{" #ABC", "", "3A7BD5", "", ""}
+	c.Normalize()
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"#aabbcc", "", "#3a7bd5"}; !reflect.DeepEqual(c.LevelColors, want) {
+		t.Fatalf("normalized %q, want %q", c.LevelColors, want)
+	}
+	got := []string{}
+	for _, l := range c.LevelMap() {
+		got = append(got, l.Color)
+	}
+	if want := []string{"#aabbcc", "", "#3a7bd5"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("level colours %q, want %q", got, want)
 	}
 }
 

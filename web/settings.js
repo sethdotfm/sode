@@ -2,7 +2,7 @@
 // reload work. Server settings save together; the layout choice is per
 // browser and applies at once.
 
-import { $, S, on, wsSend, fmtTime, showResult } from './core.js';
+import { $, el, S, on, wsSend, fmtTime, showResult, levelColor } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
 
 const root = document.documentElement;
@@ -25,6 +25,7 @@ export function openSettings() {
     else if (f.dataset.type === 'list') f.value = (v || []).join(', ');
     else f.value = v ?? '';
   }
+  renderColors(S.cfg.levelColors || []);
   $('cfg-layout').value = layoutPref();
   resetClear();
   $('settings-err').hidden = true;
@@ -52,7 +53,55 @@ function readSettings() {
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
+  c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   return c;
+}
+
+// ---- level colours: one hex box per level, previewed on its slot
+
+const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const toHex = (v) => {
+  const h = v.trim().replace(/^#/, '').toLowerCase();
+  return '#' + (h.length === 3 ? [...h].map((c) => c + c).join('') : h);
+};
+
+const swatchOf = (ui) => (ui === 1 ? 'video' : String((ui - 2) % 16 + 1).padStart(2, '0'));
+
+// The default swatch's hex in the current theme, for a placeholder.
+function defaultHex(ui) {
+  const probe = el('span');
+  probe.style.color = `var(--pb-signal-${swatchOf(ui)})`;
+  document.body.append(probe);
+  const rgb = getComputedStyle(probe).color.match(/\d+/g) || [];
+  probe.remove();
+  return '#' + rgb.slice(0, 3).map((c) => Number(c).toString(16).padStart(2, '0')).join('');
+}
+
+function preview(slot, ui, v) {
+  levelColor(slot, { swatch: swatchOf(ui), color: HEX.test(v.trim()) ? toHex(v) : '' });
+}
+
+// vals: colours to show, by level; keeps what's typed when the count changes.
+function renderColors(vals) {
+  const n = Number($('cfg-levels').value);
+  const rows = [];
+  for (let ui = 1; Number.isInteger(n) && ui <= Math.min(n, 256); ui++) {
+    const slot = el('span', 'sode__slot sode__slot--on', String(ui));
+    slot.setAttribute('aria-hidden', 'true');
+    const f = el('input', 'pb-input');
+    f.id = `cfg-color-${ui}`;
+    f.value = vals[ui - 1] || '';
+    f.placeholder = defaultHex(ui);
+    f.spellcheck = false;
+    f.setAttribute('aria-label', `Level ${ui} colour`);
+    f.addEventListener('input', () => {
+      preview(slot, ui, f.value);
+      f.classList.toggle('pb-input--invalid', f.value.trim() !== '' && !HEX.test(f.value.trim()));
+    });
+    preview(slot, ui, f.value);
+    rows.push(el('div', 'sode__color', slot, f));
+  }
+  $('cfg-colors').replaceChildren(...rows);
 }
 
 function renderOffsetNote() {
@@ -106,6 +155,16 @@ for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click'
 $('settings-cancel').addEventListener('click', closeSettings);
 $('settings-back').addEventListener('click', closeSettings);
 $('cfg-offset').addEventListener('input', renderOffsetNote);
+$('cfg-colors-reset').addEventListener('click', () => {
+  for (const f of $('cfg-colors').querySelectorAll('input')) {
+    f.value = '';
+    f.dispatchEvent(new Event('input'));
+  }
+});
+$('cfg-levels').addEventListener('input', () => {
+  const vals = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value);
+  renderColors([...vals, ...(S.cfg.levelColors || []).slice(vals.length)]);
+});
 $('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'refreshNames' })) {
@@ -117,6 +176,13 @@ form.addEventListener('submit', (e) => {
   e.preventDefault();
   const c = readSettings();
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
+  const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
+  if (badColor) {
+    $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be a hex colour like #3a7bd5.`;
+    $('settings-err').hidden = false;
+    badColor.focus();
+    return;
+  }
   if (bad) {
     $('settings-err').textContent = `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`;
     $('settings-err').hidden = false;
