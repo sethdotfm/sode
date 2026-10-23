@@ -19,7 +19,11 @@ import (
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
-	Router             string   `yaml:"router" json:"router"`
+	Router string `yaml:"router" json:"router"`
+	// RouterName is a friendly name for the status card; RouterShow picks
+	// what the card shows: "address" (default), "name" or "none".
+	RouterName         string   `yaml:"routerName" json:"routerName"`
+	RouterShow         string   `yaml:"routerShow" json:"routerShow"`
 	Matrix             int      `yaml:"matrix" json:"matrix"`
 	Levels             int      `yaml:"levels" json:"levels"`
 	LevelWireOffset    int      `yaml:"levelWireOffset" json:"levelWireOffset"`
@@ -51,6 +55,7 @@ type Config struct {
 
 func Defaults() Config {
 	return Config{
+		RouterShow:         "address",
 		Matrix:             0,
 		Levels:             17,
 		LevelWireOffset:    -1,
@@ -120,6 +125,11 @@ func FromEnv(c Config) (Config, error) {
 // Normalize fills derived defaults; call before Validate.
 func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
+	c.RouterName = strings.TrimSpace(c.RouterName)
+	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
+	if c.RouterShow == "" {
+		c.RouterShow = "address"
+	}
 	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
 	c.LevelNumbering = strings.ToLower(strings.TrimSpace(c.LevelNumbering))
 	if c.LevelNumbering == "" {
@@ -208,6 +218,14 @@ func (c Config) Validate() error {
 	case "0", "1", "va":
 	default:
 		bad("level numbering must be 0, 1 or va")
+	}
+	switch c.RouterShow {
+	case "address", "name", "none":
+	default:
+		bad("router status must show address, name or none")
+	}
+	if n := len([]rune(c.RouterName)); n > 32 {
+		bad("router name must be at most 32 characters")
 	}
 	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
 		bad("PIN tries before lockout must be 0 (never) or 1-1000")

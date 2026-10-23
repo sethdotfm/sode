@@ -36,12 +36,23 @@ function renderConn() {
   const c = connState();
   setDot($('conn-srv-dot'), $('conn-srv-text'), [c.ws[0], 'Server']);
   setDot($('conn-rt-dot'), $('conn-rt-text'), [c.rt[0], 'Router']);
-  $('conn-addr').textContent = S.routerAddr || '';
-  $('conn').title = [c.ws[1], c.rt[1], S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n');
+  const [label, isName] = routerLabel();
+  $('conn-addr').textContent = label;
+  $('conn-addr').classList.toggle('sode__conn-addr--name', isName);
+  $('conn').title = [c.ws[1], `${c.rt[1]} ${S.routerAddr}`, S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n');
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
   renderDown($('conn-down'), c);
 }
 needsLink($('patch'));
+
+// What the status shows for the router (Settings → Router → Status
+// shows): [text, is a name]. Name falls back to the address when unset.
+function routerLabel() {
+  const show = S.cfg?.routerShow || 'address';
+  if (show === 'none') return ['', false];
+  if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
+  return [S.routerAddr || '', false];
+}
 
 // ---- fuzzy finder
 

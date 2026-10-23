@@ -239,7 +239,7 @@ export function connState() {
 // and each redraw would re-announce the alert.
 export function renderDown(box, c) {
   box.hidden = !c.down;
-  const key = c.down ? JSON.stringify([c.down, S.routerAddr]) : '';
+  const key = c.down ? JSON.stringify([c.down, S.routerAddr, S.cfg?.routerName]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
@@ -251,7 +251,7 @@ export function renderDown(box, c) {
     links && el('div', 'sode__down-map',
       el('span', 'sode__down-node', 'This browser'), link(links[0]),
       el('span', 'sode__down-node', 'Sode server'), link(links[1]),
-      el('span', 'sode__down-node', 'Router ', el('code', null, S.routerAddr || '?'))),
+      el('span', 'sode__down-node', 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?'))),
     el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
   ].filter(Boolean));
 }

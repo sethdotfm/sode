@@ -28,6 +28,8 @@ func TestValidate(t *testing.T) {
 		"refresh too fast":  func(c *Config) { c.NameRefreshSeconds = 1 },
 		"bad color":         func(c *Config) { c.LevelColors = []string{"#12345g"} },
 		"bad numbering":     func(c *Config) { c.LevelNumbering = "2" },
+		"bad router show":   func(c *Config) { c.RouterShow = "ip" },
+		"long router name":  func(c *Config) { c.RouterName = strings.Repeat("x", 33) },
 		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
 		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 	} {

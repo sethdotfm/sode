@@ -76,6 +76,7 @@ code,
   z-index: var(--pb-z-sticky);
 }
 .sode__conn-addr { font-family: var(--pb-font-mono); }
+.sode__conn-addr--name { color: var(--pb-text); font-family: inherit; }
 /* Shortcut tip, out of the way in the bottom corner until dismissed. */
 .sode__tip {
   align-items: center;
