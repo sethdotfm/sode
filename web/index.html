@@ -88,6 +88,18 @@
       <button type="button" class="pb-btn pb-btn--ghost" id="settings-back">Back to patching</button>
     </div>
 
+    <div class="sode__group sode__lock" id="settings-lock">
+      <div class="sode__field">
+        <label for="lock-pin">Settings PIN</label>
+        <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false">
+        <span class="sode__hint">Settings are locked. Enter the PIN to change them.</span>
+      </div>
+      <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
+      <div class="sode__names">
+        <button type="submit" class="pb-btn pb-btn--commit" id="lock-unlock">Unlock</button>
+      </div>
+    </div>
+
     <fieldset class="sode__group">
       <legend class="sode__label">Router</legend>
       <div class="sode__field">
@@ -110,8 +122,25 @@
         </div>
       </div>
       <div class="sode__field">
-        <label for="cfg-numoff">Numbering</label>
+        <label for="cfg-numoff">Source and destination numbers</label>
         <span class="pb-select-wrap"><select id="cfg-numoff" class="pb-select" data-key="numberOffset" data-type="int"><option value="1">Show router 0 as 1</option><option value="0">Show router numbers as they are</option></select></span>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group">
+      <legend class="sode__label">Level numbering</legend>
+      <div class="sode__field">
+        <span class="pb-btn-group" id="cfg-lvlnum" role="radiogroup" aria-label="Level numbering">
+          <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-0" value="0"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-0"></label>
+          <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-1" value="1"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-1"></label>
+          <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-va" value="va"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-va"></label>
+        </span>
+        <span class="sode__hint">How levels are shown and typed, for everyone.</span>
+      </div>
+      <div class="sode__field" id="cfg-lvlbase-field">
+        <label for="cfg-lvlbase">Typed numbers</label>
+        <span class="pb-select-wrap"><select id="cfg-lvlbase" class="pb-select" data-key="levelTypedBase" data-type="int"><option value="0">Count from 0: 0 = V, 1 = A1</option><option value="1">Count from 1: 1 = V, 2 = A1</option></select></span>
+        <span class="sode__hint">V and A1, A2… always work too, e.g. v,a1-a8.</span>
       </div>
     </fieldset>
 
@@ -152,7 +181,7 @@
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-default">Default levels</label>
-          <input id="cfg-default" class="pb-input" data-key="defaultLevels" spellcheck="false">
+          <input id="cfg-default" class="pb-input" spellcheck="false">
           <span class="sode__hint">Used when the levels box is blank</span>
         </div>
         <div class="sode__field">
@@ -175,6 +204,17 @@
         <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="e.g. 10.0.0.2, 172.18.0.0/16" spellcheck="false">
         <span class="sode__hint">History records the client IP from X-Forwarded-For only for requests that come through one of these (your Caddy).</span>
       </div>
+    </fieldset>
+
+    <fieldset class="sode__group">
+      <legend class="sode__label">Access</legend>
+      <div class="sode__field">
+        <label for="cfg-pin">Settings PIN</label>
+        <input type="password" id="cfg-pin" class="pb-input" autocomplete="new-password" spellcheck="false">
+        <span class="sode__hint" id="cfg-pin-status"></span>
+      </div>
+      <label class="pb-check" id="cfg-pin-clear-row"><input type="checkbox" class="pb-check__input" id="cfg-pin-clear"><span class="pb-check__label">Remove the PIN</span></label>
+      <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then restart Sode.</span>
     </fieldset>
 
     <fieldset class="sode__group">

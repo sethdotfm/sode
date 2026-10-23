@@ -90,6 +90,7 @@ function handle(m) {
   switch (m.t) {
     case 'hello':
       S.cfg = m.cfg;
+      S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
@@ -125,6 +126,12 @@ function handle(m) {
       break;
     case 'configResult':
       emit('configResult', m);
+      break;
+    case 'unlockResult':
+      emit('unlockResult', m);
+      break;
+    case 'locked':
+      emit('locked');
       break;
     case 'status':
       setStatus(m);
@@ -248,24 +255,54 @@ export function search(list, q, n = 8) {
 
 export const allLevels = () => S.levels.map((l) => l.ui);
 
-// none: the picker was cleared to no levels, so blank means none rather
-// than the default.
-export function parseLevels(text, none = false) {
-  if (none && !text.trim()) return null;
-  const t = text.trim() || S.cfg.defaultLevels;
+// Levels are shown and typed per cfg.levelNumbering: "1" (1-17), "0"
+// (0-16) or "va" (V, A1-A16, where a bare number counts from
+// cfg.levelTypedBase: 0 → 0 = V, 1 → 1 = V). Internally they stay 1..N.
+export function levelLabel(ui, mode = S.cfg.levelNumbering) {
+  if (mode === '0') return String(ui - 1);
+  if (mode === 'va') return ui === 1 ? 'V' : `A${ui - 1}`;
+  return String(ui);
+}
+
+// One typed level ("3", "v", "a2") → UI level, or NaN.
+function levelTok(tok, mode, base) {
+  const t = tok.toLowerCase();
+  if (mode === 'va') {
+    if (t === 'v') return 1;
+    const a = t.match(/^a(\d+)$/);
+    if (a) return +a[1] + 1;
+    return /^\d+$/.test(t) ? +t + (base === 0 ? 1 : 0) : NaN;
+  }
+  return /^\d+$/.test(t) ? +t + (mode === '0' ? 1 : 0) : NaN;
+}
+
+// "1-3,5" (or "v,a1-a4") in mode → sorted UI levels within 1..max, or null.
+export function parseLevelsAs(text, mode, base, max) {
   const out = new Set();
-  for (const part of t.split(/[\s,]+/).filter(Boolean)) {
-    const m = part.match(/^(\d+)(?:-(\d+))?$/);
+  for (const part of text.split(/[\s,]+/).filter(Boolean)) {
+    const m = part.match(/^([^-]+)(?:-([^-]+))?$/);
     if (!m) return null;
-    let a = +m[1], b = m[2] ? +m[2] : a;
+    let a = levelTok(m[1], mode, base), b = m[2] ? levelTok(m[2], mode, base) : a;
+    if (!Number.isInteger(a) || !Number.isInteger(b)) return null;
     if (a > b) [a, b] = [b, a];
     for (let i = a; i <= b; i++) {
-      if (!S.levelBy.has(i)) return null;
+      if (i < 1 || i > max) return null;
       out.add(i);
     }
   }
   return out.size ? [...out].sort((x, y) => x - y) : null;
 }
+
+// What a levels box means. Blank is the default (stored as plain 1-based
+// levels); none: the picker was cleared to no levels, so blank means none.
+export function parseLevels(text, none = false) {
+  if (none && !text.trim()) return null;
+  if (!text.trim()) return parseLevelsAs(S.cfg.defaultLevels, '1', 1, S.levels.length);
+  return parseLevelsAs(text, S.cfg.levelNumbering, S.cfg.levelTypedBase, S.levels.length);
+}
+
+// The default levels as they'd be typed, for a box's placeholder.
+export const defaultLevelsText = () => levelInput(parseLevels('') || []);
 
 // Collapses a sorted level list into runs: [[1,3],[5,5]].
 function levelRuns(list) {
@@ -278,9 +315,11 @@ function levelRuns(list) {
   }
   return out;
 }
-// "1–3, 5" for display; "1-3,5" for a levels box.
-export const levelText = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}–${b}`)).join(', ');
-export const levelInput = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}-${b}`)).join(',');
+// "1–3, 5" for display; "1-3,5" for a levels box. Labels follow mode.
+const runsText = (list, dash, sep, mode) => levelRuns(list)
+  .map(([a, b]) => (a === b ? levelLabel(a, mode) : `${levelLabel(a, mode)}${dash}${levelLabel(b, mode)}`)).join(sep);
+export const levelText = (list) => runsText(list, '–', ', ');
+export const levelInput = (list, mode) => runsText(list, '-', ',', mode);
 
 // A configured #rrggbb is one colour for both themes, so its number gets
 // black or white, whichever contrasts more (WCAG relative luminance).
@@ -312,7 +351,7 @@ export function levelColor(node, l) {
 export function levelBar(on) {
   const set = new Set(on);
   const row = el('span', 'sode__bar', ...S.levels.map((l) => {
-    const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), String(l.ui));
+    const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
     return levelColor(slot, l);
   }));
   const sorted = [...set].sort((a, b) => a - b);
@@ -324,12 +363,12 @@ export function levelBar(on) {
 // One numbered toggle per level, for a picker. onToggle(ui) on tap.
 export function pickButtons(onToggle) {
   return S.levels.map((l) => {
-    const b = el('button', 'sode__pick', String(l.ui));
+    const b = el('button', 'sode__pick', l.label);
     b.type = 'button';
     b.tabIndex = -1;
     b.dataset.ui = l.ui;
     levelColor(b, l);
-    b.setAttribute('aria-label', `Level ${l.ui}`);
+    b.setAttribute('aria-label', `Level ${l.label}`);
     b.addEventListener('click', () => onToggle(l.ui));
     return b;
   });

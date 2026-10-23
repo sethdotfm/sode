@@ -4,7 +4,7 @@
 // or the button) adds another destination and stays on the step.
 
 import {
-  $, el, S, on, connState, setDot, search, parseLevels, levelInput, levelBar, pickButtons, allLevels,
+  $, el, S, on, connState, setDot, search, parseLevels, levelInput, defaultLevelsText, levelBar, pickButtons, allLevels,
   fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   chevron, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
@@ -165,7 +165,7 @@ function renderLevels() {
   if (!S.cfg) return;
   const list = parseLevels(inputs.lvl.value, M.lvlNone);
   const on = new Set(list || []);
-  inputs.lvl.placeholder = M.lvlNone ? 'none' : `${S.cfg.defaultLevels} (default)`;
+  inputs.lvl.placeholder = M.lvlNone ? 'none' : `${defaultLevelsText()} (default)`;
   inputs.lvl.classList.toggle('pb-input--invalid', !list);
   for (const b of $('m-picks').children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
   $('m-all').textContent = on.size === S.levels.length ? 'None' : 'All';

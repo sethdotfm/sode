@@ -36,6 +36,14 @@ type Config struct {
 	// the default (DefaultLevelColors, then the patchbay swatch). Entries
 	// past Levels are kept but unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
+	// LevelNumbering is how levels are shown and typed: "1" (1-17), "0"
+	// (0-16) or "va" (V, A1-A16). In "va", LevelTypedBase says what a bare
+	// typed number means: 0 → 0 = V, 1 = A1; 1 → 1 = V, 2 = A1.
+	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering"`
+	LevelTypedBase int    `yaml:"levelTypedBase" json:"levelTypedBase"`
+	// SettingsPin is a HashPin hash guarding the settings view; "" = none.
+	// Never sent to browsers.
+	SettingsPin string `yaml:"settingsPin,omitempty" json:"-"`
 }
 
 func Defaults() Config {
@@ -51,6 +59,7 @@ func Defaults() Config {
 		TallyResyncSeconds: 300,
 		TrustedProxies:     []string{},
 		LevelColors:        []string{},
+		LevelNumbering:     "1",
 	}
 }
 
@@ -84,6 +93,8 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
+	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
+	num("SODE_LEVEL_TYPED_BASE", &c.LevelTypedBase)
 	if v := os.Getenv("SODE_CONFIRM_ENTER"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
@@ -106,6 +117,10 @@ func FromEnv(c Config) (Config, error) {
 func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
 	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
+	c.LevelNumbering = strings.ToLower(strings.TrimSpace(c.LevelNumbering))
+	if c.LevelNumbering == "" {
+		c.LevelNumbering = "1"
+	}
 	if c.DefaultLevels == "" && c.Levels > 0 {
 		c.DefaultLevels = fmt.Sprintf("1-%d", c.Levels)
 	}
@@ -185,6 +200,14 @@ func (c Config) Validate() error {
 	if s := c.TallyResyncSeconds; s != 0 && (s < 30 || s > 86400) {
 		bad("tally resync must be 0 (off) or 30-86400 seconds")
 	}
+	switch c.LevelNumbering {
+	case "0", "1", "va":
+	default:
+		bad("level numbering must be 0, 1 or va")
+	}
+	if c.LevelTypedBase < 0 || c.LevelTypedBase > 1 {
+		bad("level typed base must be 0 or 1")
+	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
 			bad("level %d colour %q must be a hex colour like #3a7bd5", i+1, v)
@@ -225,6 +248,7 @@ var DefaultLevelColors = []string{
 type Level struct {
 	UI     int    `json:"ui"`
 	Wire   int    `json:"wire"`
+	Label  string `json:"label"`           // as shown, per LevelNumbering
 	Swatch string `json:"swatch"`          // patchbay pb-level-- suffix
 	Color  string `json:"color,omitempty"` // #rrggbb, configured or default; overrides Swatch
 }
@@ -235,7 +259,7 @@ func (c Config) LevelMap() []Level {
 	out := make([]Level, c.Levels)
 	for i := range out {
 		ui := i + 1
-		l := Level{UI: ui, Wire: ui + c.LevelWireOffset, Swatch: "video"}
+		l := Level{UI: ui, Wire: ui + c.LevelWireOffset, Label: c.LevelLabel(ui), Swatch: "video"}
 		if ui > 1 {
 			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
 		}
@@ -247,6 +271,21 @@ func (c Config) LevelMap() []Level {
 		out[i] = l
 	}
 	return out
+}
+
+// LevelLabel is how UI level ui is shown: "0" → ui-1, "va" → V, A1, A2…,
+// otherwise ui.
+func (c Config) LevelLabel(ui int) string {
+	switch c.LevelNumbering {
+	case "0":
+		return strconv.Itoa(ui - 1)
+	case "va":
+		if ui == 1 {
+			return "V"
+		}
+		return "A" + strconv.Itoa(ui-1)
+	}
+	return strconv.Itoa(ui)
 }
 
 // ParseLevels parses "1", "1-3", "1,3,5-8" within 1..max.

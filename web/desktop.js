@@ -2,7 +2,7 @@
 // + in the destination box adds another destination as a chip.
 
 import {
-  $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, levelBar, pickButtons,
+  $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
@@ -158,7 +158,7 @@ function renderLevels() {
   const list = parseLevels(lvlInput.value, lvlNone);
   const on = new Set(list || []);
   lvlInput.classList.toggle('pb-input--invalid', !list);
-  lvlInput.placeholder = lvlNone ? 'none' : S.cfg.defaultLevels;
+  lvlInput.placeholder = lvlNone ? 'none' : defaultLevelsText();
   for (const b of $('lvl-pick').children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
   const full = on.size === S.levels.length;
   const all = $('lvl-all');
@@ -572,7 +572,7 @@ $('confirm-ok').addEventListener('click', () => {
 
 on('hello', () => {
   pager.reset();
-  lvlInput.placeholder = S.cfg.defaultLevels;
+  lvlInput.placeholder = defaultLevelsText();
   buildPicker();
   renderLevels();
   renderTally();

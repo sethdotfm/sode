@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"maps"
@@ -77,6 +78,8 @@ type App struct {
 	namesAt        time.Time // last completed refresh
 	namesDirt      bool      // unsolicited names changed outside a refresh
 	dumpAt         time.Time
+
+	pinFails map[string]pinFail // client IP → wrong settings PINs
 }
 
 type statusMsg struct {
@@ -100,6 +103,7 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 		protect:  map[int]map[int]int{},
 		clients:  map[*client]struct{}{},
 		waiters:  map[*waiter]struct{}{},
+		pinFails: map[string]pinFail{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.rt.Store(r)
@@ -381,6 +385,7 @@ func (a *App) hello(p helloPage) []byte {
 	m["levels"] = r.levels
 	m["levelDefaults"] = config.DefaultLevelColors
 	m["cfg"] = r.cfg
+	m["pinSet"] = r.cfg.SettingsPin != ""
 	m["configPath"] = a.cfgPath
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -424,6 +429,72 @@ func (a *App) reply(c *client, v any) {
 }
 
 // --- settings
+
+// --- settings PIN
+
+type pinFail struct {
+	n     int
+	until time.Time
+}
+
+const (
+	pinMaxFails = 5
+	pinLockout  = 30 * time.Second
+)
+
+// Unlock checks a settings PIN from ip. After pinMaxFails wrong tries in a
+// row, ip is refused for pinLockout.
+func (a *App) Unlock(ip, pin string) error {
+	hash := a.r().cfg.SettingsPin
+	if hash == "" {
+		return nil
+	}
+	a.mu.Lock()
+	f := a.pinFails[ip]
+	a.mu.Unlock()
+	if left := time.Until(f.until); left > 0 {
+		return fmt.Errorf("too many wrong PINs; try again in %d s", int(left.Seconds())+1)
+	}
+	ok := config.CheckPin(hash, pin)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if ok {
+		delete(a.pinFails, ip)
+		return nil
+	}
+	f.n++
+	if f.n >= pinMaxFails {
+		f = pinFail{until: time.Now().Add(pinLockout)}
+		log.Printf("settings: %d wrong PINs from %s, locked out for %v", pinMaxFails, ip, pinLockout)
+	}
+	a.pinFails[ip] = f
+	return errors.New("wrong PIN")
+}
+
+// locked reports whether c may not change settings.
+func (a *App) locked(c *client) bool {
+	return a.r().cfg.SettingsPin != "" && !c.unlocked.Load()
+}
+
+// SaveSettings applies c from a browser. Browsers never see the PIN hash,
+// so the current one is kept unless pin sets a new one or clearPin drops it.
+func (a *App) SaveSettings(c config.Config, pin string, clearPin bool) error {
+	c.SettingsPin = a.r().cfg.SettingsPin
+	switch {
+	case clearPin:
+		c.SettingsPin = ""
+	case pin != "":
+		if err := config.CheckPinRules(pin); err != nil {
+			return err
+		}
+		h, err := config.HashPin(pin)
+		if err != nil {
+			return err
+		}
+		c.SettingsPin = h
+	}
+	return a.ApplyConfig(c)
+}
 
 // ApplyConfig validates, saves and applies new settings. Router-side changes
 // clear state and reconnect; every browser gets a fresh snapshot.

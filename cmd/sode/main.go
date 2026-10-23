@@ -58,8 +58,30 @@ func loadConfig(path string) config.Config {
 	return c
 }
 
+// resetSettingsPin clears the PIN in the config file. A running server
+// keeps its copy until it restarts.
+func resetSettingsPin(path string) {
+	if path == "" {
+		log.Fatal("reset-pin: SODE_CONFIG is not set")
+	}
+	c, exists, err := config.Load(path)
+	if err != nil {
+		log.Fatalf("reset-pin: %v", err)
+	}
+	if !exists || c.SettingsPin == "" {
+		log.Printf("reset-pin: no settings PIN in %s", path)
+		return
+	}
+	c.SettingsPin = ""
+	if err := config.Save(path, c); err != nil {
+		log.Fatalf("reset-pin: %v", err)
+	}
+	log.Printf("reset-pin: removed the settings PIN from %s; restart sode to apply", path)
+}
+
 func main() {
 	health := flag.Bool("healthcheck", false, "probe the local /healthz and exit")
+	resetPin := flag.Bool("reset-pin", false, "remove the settings PIN from SODE_CONFIG and exit (restart sode afterwards)")
 	flag.Parse()
 	listen := env("SODE_LISTEN", ":8080")
 
@@ -74,7 +96,14 @@ func main() {
 	}
 
 	cfgPath := os.Getenv("SODE_CONFIG")
+	if *resetPin {
+		resetSettingsPin(cfgPath)
+		return
+	}
 	cfg := loadConfig(cfgPath)
+	if cfg.SettingsPin != "" {
+		log.Printf("config: settings PIN is set (remove it with sode -reset-pin)")
+	}
 
 	hist, err := app.OpenHistory(os.Getenv("SODE_HISTORY"))
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -17,8 +18,9 @@ import (
 )
 
 type client struct {
-	ip   string
-	send chan []byte
+	ip       string
+	send     chan []byte
+	unlocked atomic.Bool // settings PIN entered; cleared when settings close
 }
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -137,8 +139,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		var m struct {
 			T      string         `json:"t"`
 			Before int            `json:"before"`
-			Config *config.Config `json:"config"`
-			Items  []takeReq      `json:"items"`
+			Config   *config.Config `json:"config"`
+			Pin      string         `json:"pin"`
+			ClearPin bool           `json:"clearPin"`
+			Items    []takeReq      `json:"items"`
 			takeReq
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
@@ -153,21 +157,41 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go a.history(c, m.Before)
 		case "refreshNames":
 			go a.RefreshNames()
+		case "unlock":
+			go func(pin string) {
+				res := map[string]any{"t": "unlockResult", "ok": true}
+				if err := a.Unlock(c.ip, pin); err != nil {
+					res["ok"], res["err"] = false, err.Error()
+				} else {
+					c.unlocked.Store(true)
+				}
+				a.reply(c, res)
+			}(m.Pin)
+		case "lock":
+			c.unlocked.Store(false)
 		case "clearHistory":
+			if a.locked(c) {
+				a.reply(c, map[string]any{"t": "locked"})
+				continue
+			}
 			go a.ClearHistory(c.ip)
 		case "config":
 			if m.Config == nil {
 				continue
 			}
-			go func(cfg config.Config) {
+			if a.locked(c) {
+				a.reply(c, map[string]any{"t": "configResult", "ok": false, "locked": true, "err": "Settings are locked; enter the PIN again."})
+				continue
+			}
+			go func(cfg config.Config, pin string, clearPin bool) {
 				res := map[string]any{"t": "configResult", "ok": true}
-				if err := a.ApplyConfig(cfg); err != nil {
+				if err := a.SaveSettings(cfg, pin, clearPin); err != nil {
 					res["ok"], res["err"] = false, err.Error()
 				} else {
 					log.Printf("config: saved by %s", c.ip)
 				}
 				a.reply(c, res)
-			}(*m.Config)
+			}(*m.Config, m.Pin, m.ClearPin)
 		}
 	}
 }
