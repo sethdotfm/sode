@@ -2,7 +2,7 @@
 // + in the destination box adds another destination as a chip.
 
 import {
-  $, el, S, on, connState, linked, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
+  $, el, S, on, connState, linked, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
@@ -39,9 +39,7 @@ function renderConn() {
   $('conn-addr').textContent = S.routerAddr || '';
   $('conn').title = [c.ws[1], c.rt[1], S.routerErr].filter(Boolean).join('\n');
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
-  const banner = $('conn-down');
-  banner.hidden = !c.down;
-  if (c.down) banner.replaceChildren(el('div', null, el('div', 'pb-alert__title', c.down.title), c.down.text));
+  renderDown($('conn-down'), c);
   $('patch').disabled = !linked();
 }
 

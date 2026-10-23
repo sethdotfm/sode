@@ -75,15 +75,69 @@ code,
   z-index: var(--pb-z-sticky);
 }
 .sode__conn-addr { font-family: var(--pb-font-mono); }
-.sode__down { width: 100%; }
-/* A lost link outlines the whole window in red. */
+/* A lost link: a solid red banner pinned to the top that says which link
+   is down, the corner status gives way to it, and a thick pulsing red
+   outline round the whole window. */
+.sode__down {
+  background: var(--pb-status-error);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-7) var(--pb-space-8);
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: var(--pb-z-sticky);
+}
+.sode__down-title {
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__down code {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+}
+.sode__down-map {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-weight: var(--pb-weight-medium);
+  gap: var(--pb-space-3);
+}
+.sode__down-node {
+  border: var(--pb-border-w) solid currentColor;
+  padding: var(--pb-space-1) var(--pb-space-4);
+}
+.sode__down-link {
+  align-items: center;
+  display: flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-3);
+}
+.sode__down-link::before,
+.sode__down-link::after {
+  border-top: var(--pb-border-w) solid currentColor;
+  content: "";
+  width: var(--pb-space-8);
+}
+.sode__down-link--lost { font-weight: var(--pb-weight-bold); }
+.sode__down-link--lost::before,
+.sode__down-link--lost::after { border-top: calc(var(--pb-border-w) * 2) dashed currentColor; }
+[data-conn="down"] .sode__conn { display: none; }
 [data-conn="down"] body::after {
-  border: var(--pb-accent-bar-w) solid var(--pb-status-error);
+  animation: pb-pulse 1.6s var(--pb-ease) infinite;
+  border: var(--pb-space-3) solid var(--pb-status-error);
   content: "";
   inset: 0;
   pointer-events: none;
   position: fixed;
   z-index: var(--pb-z-tooltip);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-conn="down"] body::after { animation: none; }
 }
 
 .sode__mark {
@@ -467,7 +521,7 @@ code,
 [data-view="settings"] .sode-m { display: none; }
 [data-layout="phone"] #patch-view,
 [data-layout="phone"] .sode__conn,
-[data-layout="phone"] .sode__down { display: none; }
+[data-layout="phone"] #conn-down { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
 /* Settings: one plain column, labels above fields, the page scrolls.
@@ -620,6 +674,14 @@ code,
 }
 .sode-m__spacer { flex: 1 1 auto; }
 /* Last result, pinned under the header so it's always in view. */
+.sode-m__down {
+  flex: 0 0 auto;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-5);
+  position: static;
+}
+.sode-m__down .sode__down-title { font-size: var(--pb-text-md); }
 .sode-m__result {
   flex: 0 0 auto;
   padding: var(--pb-space-3) var(--pb-space-5) 0;

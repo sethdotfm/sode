@@ -33,7 +33,7 @@
     <span class="pb-status"><span class="pb-dot pb-dot--idle" id="conn-rt-dot" aria-hidden="true"></span><span id="conn-rt-text">Router</span></span>
     <span class="sode__conn-addr" id="conn-addr"></span>
   </div>
-  <div class="pb-alert pb-alert--error sode__down" id="conn-down" role="alert" hidden></div>
+  <div class="sode__down" id="conn-down" role="alert" hidden></div>
 
   <div class="sode__view" id="patch-view">
     <h1 class="sode__mark">Sode</h1>
@@ -278,6 +278,7 @@
       <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon" id="m-settings" aria-label="Settings"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#settings"/></svg></button>
     </header>
 
+    <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
 
     <div class="sode-m__thread" id="m-thread">

@@ -206,13 +206,41 @@ export function connState() {
   const ws = { up: ['ok', 'Server connected'], connecting: ['warn', 'Server connecting'], down: ['error', 'Server disconnected'] }[S.wsState];
   const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
+  // down.links: browser↔server and server↔router, true / false / null (unknown).
   let down = null;
   if (S.wsLost) {
-    down = { title: 'No connection to Sode', text: 'Reconnecting…' };
+    down = {
+      title: 'Connection to Sode server interrupted',
+      text: 'Reconnecting… Patching is off until it\'s back.',
+      links: [false, null],
+    };
   } else if (S.wsState === 'up' && S.router && S.router !== 'up') {
-    down = { title: `Router ${S.routerAddr} not connected`, text: `Reconnecting…${S.routerErr ? ` ${S.routerErr}` : ''}` };
+    down = {
+      title: 'Connected to Sode server, router offline',
+      text: `Reconnecting to ${S.routerAddr}… Patching is off until it's back.`,
+      err: S.routerErr,
+      links: [true, false],
+    };
   }
   return { ws, rt: [dot, `Router ${word}`], down };
+}
+
+// Fills (or hides) a disconnected banner: what's lost, a browser → server
+// → router map with each link marked, and the router's error if any.
+export function renderDown(box, c) {
+  box.hidden = !c.down;
+  if (!c.down) return box.replaceChildren();
+  const { title, text, err, links } = c.down;
+  const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''),
+    ok === true ? 'ok' : ok === false ? '✕ lost' : '?');
+  box.replaceChildren(
+    el('div', 'sode__down-title', title),
+    el('div', 'sode__down-map',
+      el('span', 'sode__down-node', 'This browser'), link(links[0]),
+      el('span', 'sode__down-node', 'Sode server'), link(links[1]),
+      el('span', 'sode__down-node', 'Router ', el('code', null, S.routerAddr || '?'))),
+    el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
+  );
 }
 
 // Patches can go out: Sode is reachable and connected to the router.
