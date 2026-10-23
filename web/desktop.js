@@ -372,7 +372,9 @@ function retryButton(e, src, dst) {
 
 const pager = historyPager(10);
 
-function renderHistory() {
+// scroll: bring the cursor row into view (the cursor just moved). Other
+// redraws (someone else's take, a result) leave the page where it is.
+function renderHistory(scroll = false) {
   $('history-head').hidden = !S.hist.length;
   const list = pager.list();
   if (cursor && !stops(list).some((x) => x.key === cursor)) {
@@ -384,7 +386,7 @@ function renderHistory() {
   }
   histList.replaceChildren(...list.map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
   $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
-  if (keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
+  if (scroll === true && keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
 }
 
 // ---- keyboard mode: focus on the history list, where single keys act.
@@ -418,7 +420,7 @@ function stops(list = pager.list()) {
   });
   return out;
 }
-const curStop = () => stops().find((x) => x.key === cursor);
+const curStop = (list = stops()) => list.find((x) => x.key === cursor);
 
 // Moves the cursor. Opening or closing a folder redraws the list; a plain
 // move just shifts the highlight between two rows.
@@ -432,7 +434,7 @@ function moveTo(s) {
   const row = (key) => key && histList.querySelector(`[data-key="${CSS.escape(key)}"]`);
   const from = row(cursor), to = row(s.key);
   cursor = s.key;
-  if (redraw || !to) return renderHistory();
+  if (redraw || !to) return renderHistory(true);
   from?.classList.remove('sode__hist-row--cur');
   to.classList.add('sode__hist-row--cur');
   if (keyMode()) to.scrollIntoView({ block: 'nearest' });
@@ -461,8 +463,9 @@ function step(d) {
 
 // J/K: the next or previous top-level row (a take or a whole folder).
 function jump(d) {
-  const tops = stops().filter((x) => !x.in);
-  const s = curStop();
+  const list = stops();
+  const tops = list.filter((x) => !x.in);
+  const s = curStop(list);
   const next = s ? tops.find((x) => x.top === s.top + d) : tops[0];
   if (next) moveTo(next);
   else if (d > 0) loadMore();
@@ -496,6 +499,7 @@ function retryCur() {
 
 // key: put the cursor on that row (Esc from one of its buttons).
 function enterKeys(key) {
+  if (!S.hist.length) return focusBox(boxes.src.input); // nothing to drive
   keysOn = true;
   histList.classList.add('sode__hist--keys');
   histList.focus();
@@ -550,16 +554,19 @@ $('keys-tip-close').addEventListener('click', () => {
 // list opened; closing with the mouse never does (a click leaves it).
 let keysBack = null;
 let keysWere = false;
+let keysFromHist = false; // opened from Recent, whose rows may be redrawn meanwhile
 function openKeys() {
   keysBack = document.activeElement;
   keysWere = keyMode();
+  keysFromHist = histArea(keysBack);
   $('keys').hidden = false;
   $('keys-dialog').focus();
 }
 function closeKeys(viaKeys = false) {
   $('keys').hidden = true;
   if (keysWere && viaKeys) enterKeys();
-  else keysBack?.focus();
+  else if (keysBack?.isConnected && !keysFromHist) keysBack.focus();
+  else focusBox(boxes.src.input);
 }
 if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) k.textContent = k.dataset.mac;
 $('keys-close').addEventListener('click', () => closeKeys());
@@ -572,6 +579,7 @@ let pending = null; // plan + key
 let readyAt = 0;
 let confirmBack = null; // focus to return to when the confirm closes
 let confirmKeys = false; // keyboard mode was on when it opened
+let confirmFromHist = false; // opened from Recent (decided then: rows get redrawn)
 
 // Patch button and Enter: take any half-typed box's best match, then confirm.
 function patchNow() {
@@ -628,6 +636,7 @@ function openConfirm(plan) {
   pending = { ...plan, key };
   confirmBack = document.activeElement;
   confirmKeys = keyMode();
+  confirmFromHist = confirmBack === histList || histArea(confirmBack);
 
   const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
   const verb = planVerb(plan);
@@ -658,10 +667,12 @@ function openConfirm(plan) {
 // as they are: the row is redrawn with the result.
 function focusBack(viaKeys) {
   if (confirmKeys && viaKeys) enterKeys();
-  else if (confirmBack === histList || histArea(confirmBack)) focusBox(boxes.src.input);
-  else if (confirmBack?.isConnected) confirmBack.focus();
+  else if (!confirmFromHist && confirmBack?.isConnected) confirmBack.focus();
+  else focusBox(boxes.src.input);
 }
-const histArea = (n) => !!n && (histList.contains(n) || $('history-more').contains(n));
+function histArea(n) {
+  return !!n && (histList.contains(n) || $('history-more').contains(n));
+}
 
 function closeConfirm(viaKeys = false) {
   const patch = pending?.verb === 'patch';
@@ -741,23 +752,27 @@ $('lvl-all').addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
   if (pending) return onConfirmKey(e);
-  if (!active()) return;
-  // Ctrl+? (Ctrl+Shift+/) opens or closes the shortcut list from anywhere,
-  // even mid-typing. ⌘? works too where the OS lets it through (macOS keeps
-  // it for the Help menu, hence ⌃? on the tip). Matched by e.code: Shift
-  // changes e.key.
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === 'Slash') {
+  if (layout() !== 'desktop') return;
+  // Ctrl+? opens or closes the shortcut list from anywhere on desktop,
+  // Settings included, even mid-typing. ⌘? works too where the OS lets it
+  // through (macOS keeps it for the Help menu, hence ⌃? on the tip). By
+  // character, so any keyboard layout's ?; by the / key too, for browsers
+  // that report e.key without Shift under Ctrl.
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
     e.preventDefault();
+    e.stopImmediatePropagation(); // not Settings' own keys
     if ($('keys').hidden) openKeys();
     else closeKeys(true);
     return;
   }
   if (!$('keys').hidden) {
+    e.stopImmediatePropagation(); // Esc here closes the list, not Settings
     if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(true); }
     // Keep focus in the dialog: Close is its only control.
     if (e.key === 'Tab') { e.preventDefault(); $('keys-close').focus(); }
     return;
   }
+  if (!active()) return;
   const id = e.target.id;
   const k = id === 'src' || id === 'dst' ? id : null;
   const b = k && boxes[k];
