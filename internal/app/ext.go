@@ -16,9 +16,10 @@ import (
 //
 // The router also moves destinations by itself: a multiviewer PiP set to
 // follow a DSM is re-routed whenever the DSM is. Such a change, of the
-// same source to another destination right after a take (ours or one made
-// elsewhere), is written as a follow of that take (Entry.Follow) rather
-// than a take of its own.
+// same source to another destination right after one of our takes, is
+// written as a follow of that take (Entry.Follow) rather than a take of
+// its own. Changes made elsewhere aren't followed: a panel's salvo of one
+// source to several destinations stays one burst, grouped.
 
 const (
 	extQuiet = 500 * time.Millisecond // a burst ends after this long with no changes
@@ -44,13 +45,12 @@ type extLevel struct {
 
 type ownKey struct{ dst, wire, src int }
 
-// cause is a take that changes elsewhere may follow: one of ours (id -1
-// until recorded) or an entry written from a burst.
+// cause is one of our takes, which changes elsewhere may follow (id -1
+// until it's recorded).
 type cause struct {
 	src, dst    int
 	first, last time.Time // its changes as the router reported them; zero = none yet
 	id          int
-	sode        bool
 	done        bool // recorded
 }
 
@@ -71,8 +71,14 @@ func (c *cause) leads(src, dst int, t time.Time) bool {
 // noteExt records a changed crosspoint unless one of our takes sent it.
 // old/known is the cached src before the change. Caller holds mu.
 func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
-	if until, ok := a.own[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
-		return
+	// One of our connects: the router's answer to it, used up so the same
+	// route made again elsewhere later still counts.
+	k := ownKey{xp.Dst, xp.Level, xp.Src}
+	if until, ok := a.own[k]; ok {
+		delete(a.own, k)
+		if time.Now().Before(until) {
+			return
+		}
 	}
 	now := time.Now()
 	if len(a.ext) == 0 {
@@ -113,35 +119,11 @@ func (a *App) flushExt() {
 		a.mu.Unlock()
 		return
 	}
-	outs := a.extEntries()
+	es := a.extEntries()
 	a.ext = map[int]map[int]*extLevel{}
 	a.mu.Unlock()
-
-	// Takes first, so follows can name them.
-	for _, o := range outs {
-		if o.cause == nil && o.after == nil {
-			a.record(o.e)
-		}
-	}
-	a.mu.Lock()
-	for _, o := range outs {
-		if o.cause == nil && o.after == nil {
-			a.causes = append(a.causes, &cause{src: o.e.Src, dst: o.e.Dst, first: o.first, last: o.last, id: o.e.ID, done: true})
-		}
-	}
-	a.mu.Unlock()
-	for _, o := range outs {
-		if o.cause == nil && o.after == nil {
-			continue
-		}
-		var id int
-		if o.cause != nil {
-			id = o.cause.id
-		} else {
-			id = o.after.e.ID
-		}
-		o.e.Follow = &id
-		a.record(o.e)
+	for _, e := range es {
+		a.record(e)
 	}
 }
 
@@ -149,7 +131,7 @@ func (a *App) flushExt() {
 // takes still waiting for the router. Caller holds mu.
 func (a *App) extAwaitsTake() bool {
 	for _, c := range a.causes {
-		if !c.sode || c.done {
+		if c.done {
 			continue
 		}
 		for dst, ls := range a.ext {
@@ -163,22 +145,18 @@ func (a *App) extAwaitsTake() bool {
 	return false
 }
 
-// extOut is one entry from a burst: a take, or a follow of a recorded
-// cause or of an earlier take in the same burst.
-type extOut struct {
-	e           *Entry
-	first, last time.Time
-	cause       *cause
-	after       *extOut
-}
-
 // extEntries turns the pending burst into history entries, one per
 // destination and source, dropping levels that ended where they began,
-// earliest first. Caller holds mu.
-func (a *App) extEntries() []*extOut {
+// earliest first. Changes that follow one of our takes name it; the rest
+// share a group when there's more than one. Caller holds mu.
+func (a *App) extEntries() []*Entry {
 	type key struct{ dst, src int }
-	byKey := map[key]*extOut{}
-	var outs []*extOut
+	type out struct {
+		e     *Entry
+		first time.Time
+	}
+	byKey := map[key]*out{}
+	var outs []*out
 	for dst, ls := range a.ext {
 		for ui, l := range ls {
 			// Back where it began, or cleared (nothing to show as a take).
@@ -188,12 +166,12 @@ func (a *App) extEntries() []*extOut {
 			k := key{dst, l.src}
 			o := byKey[k]
 			if o == nil {
-				o = &extOut{e: &Entry{Src: l.src, Dst: dst, Prev: [][2]int{}, OK: true, Ext: true,
-					SrcName: a.srcNames[l.src], DstName: a.dstNames[dst]}, first: l.first, last: l.at}
+				o = &out{e: &Entry{Src: l.src, Dst: dst, Prev: [][2]int{}, OK: true, Ext: true,
+					SrcName: a.srcNames[l.src], DstName: a.dstNames[dst]}, first: l.first}
 				byKey[k] = o
 				outs = append(outs, o)
 			}
-			o.first, o.last = minTime(o.first, l.first), maxTime(o.last, l.at)
+			o.first = minTime(o.first, l.first)
 			o.e.Levels = append(o.e.Levels, ui)
 			if l.prevKnown {
 				o.e.Prev = append(o.e.Prev, [2]int{ui, l.prev})
@@ -210,50 +188,60 @@ func (a *App) extEntries() []*extOut {
 		}
 		return a.e.Src < b.e.Src
 	})
-	var takes []*extOut
-	for _, o := range outs {
+	es := make([]*Entry, len(outs))
+	var takes []*Entry
+	for i, o := range outs {
 		e := o.e
 		e.Time = o.first
 		sort.Ints(e.Levels)
 		sort.Slice(e.Prev, func(i, j int) bool { return e.Prev[i][0] < e.Prev[j][0] })
-		o.cause = a.followed(e.Src, e.Dst, o.first)
-		if o.cause == nil {
-			for _, t := range takes {
-				if t.e.Src == e.Src && t.e.Dst != e.Dst && !o.first.After(t.last.Add(followAfter)) {
-					o.after = t
-					break
-				}
-			}
+		if c := a.followed(e.Src, e.Dst, o.first); c != nil {
+			id := c.id
+			e.Follow = &id
+		} else {
+			takes = append(takes, e)
 		}
-		if o.cause == nil && o.after == nil {
-			takes = append(takes, o)
-		}
+		es[i] = e
 	}
 	if len(takes) > 1 {
 		g := "x" + strconv.FormatInt(a.extFirst.UnixNano(), 36)
-		for _, o := range takes {
-			o.e.Group, o.e.GroupN = g, len(takes)
+		for _, e := range takes {
+			e.Group, e.GroupN = g, len(takes)
 		}
 	}
-	return outs
+	return es
 }
 
-// followed is the recorded take a change of src to dst at t seems to
-// follow, ours first; or nil. Caller holds mu.
+// followed is the take of ours a change of src to dst at t seems to
+// follow, or nil. A salvo of one source leaves several that fit, and
+// timing can't tell them apart; a destination follows the same one each
+// time (a PiP its DSM), so when only one fits it's remembered, and a
+// salvo goes by that. Failing that, the take whose last change came
+// latest. Caller holds mu.
 func (a *App) followed(src, dst int, t time.Time) *cause {
-	var ext *cause
+	var fits []*cause
 	for _, c := range a.causes {
-		if !c.leads(src, dst, t) {
-			continue
-		}
-		if c.sode {
-			return c
-		}
-		if ext == nil {
-			ext = c
+		if c.leads(src, dst, t) {
+			fits = append(fits, c)
 		}
 	}
-	return ext
+	switch len(fits) {
+	case 0:
+		return nil
+	case 1:
+		a.leaders[dst] = fits[0].dst
+		return fits[0]
+	}
+	best := fits[0]
+	for _, c := range fits {
+		if lead, ok := a.leaders[dst]; ok && c.dst == lead {
+			return c
+		}
+		if c.last.After(best.last) {
+			best = c
+		}
+	}
+	return best
 }
 
 func minTime(a, b time.Time) time.Time {

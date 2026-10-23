@@ -4,7 +4,7 @@
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
-  beforeGroups, srcRow, tallyText, attachFollows, fmtTime, retryPlan, planVerb, entryNote, chevron,
+  beforeGroups, srcRow, tallyText, attachFollows, fmtTime, labelNode, retryPlan, planVerb, entryNote, chevron,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
 } from './core.js';
@@ -178,17 +178,17 @@ function renderLast() {
   const t = lastTake();
   const lv = parseLevels(lvlInput.value, lvlNone) || [];
   const now = {
-    src: t && !(sel.src && sel.src.n === t.src.n) && { text: t.src.label },
+    src: t && !(sel.src && sel.src.n === t.src.n) && [labelNode(t.src)],
     dst: t && !sameList(allDsts().map((d) => d.n), t.dsts.map((d) => d.n)) &&
-      { text: t.dsts[t.dsts.length - 1].label + (t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : '') },
-    lvl: t && t.levels.length && !sameList(lv, t.levels) && !sameList(t.levels, parseLevels('') || []) && { text: levelText(t.levels) },
+      [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
+    lvl: t && t.levels.length && !sameList(lv, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
   };
   for (const k of ['src', 'dst', 'lvl']) {
     const slot = document.querySelector(`[data-last="${k}"]`);
     const v = now[k];
     if (!v) { slot.replaceChildren(); continue; }
     const key = { src: 'S', dst: 'D', lvl: 'F' }[k];
-    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', `Last: ${v.text}`), el('kbd', 'sode__key-note', `⌃${key}`));
+    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...v), el('kbd', 'sode__key-note', `⌃${key}`));
     b.type = 'button';
     b.tabIndex = -1;
     b.title = `Last take's ${{ src: 'source', dst: 'destination', lvl: 'levels' }[k]} (Ctrl+${key})`;
@@ -319,7 +319,7 @@ function histRow(e) {
     el('span', 'sode__hist-id', `#${e.id}`),
     histTime(e.time),
     levelBar(known),
-    el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
+    el('span', 'sode__hist-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)),
       entryNote(e)),
     statusNode({ e }),
     toggle,

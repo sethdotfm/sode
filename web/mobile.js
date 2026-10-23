@@ -5,7 +5,7 @@
 
 import {
   $, el, S, on, connState, routerLabel, linked, needsLink, setLinkDisabled, renderDown, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
-  fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
+  fedBy, dstItem, dstLabel, srcItem, labelNode, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   chevron, statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
   patchPlan, planBlocked, planSummary, sendTakes,
@@ -303,7 +303,7 @@ function recentRow(e) {
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
       el('span', 'sode-m__recent-status', status, retry)),
-    el('div', 'sode-m__recent-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label), entryNote(e)),
+    el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e)),
     e.chain ? el('div', 'sode__hint', `Before that: ${e.chain.slice(1).map((c) => `${srcItem(c.src, c.srcName).label} ${fmtTime(c.time)}`).join(', ')}`) : null,
     e.follows ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));

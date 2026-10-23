@@ -1,17 +1,26 @@
 // The Recent filter language, for sources and destinations. No imports,
 // so it runs in Node for tests.
 //
-// Terms are separated by commas and OR'd; ! (or "not") terms then remove.
-// Only ! terms means everything but those.
+// Terms are separated by commas and OR'd; ! terms then remove. Only !
+// terms means everything but those.
 //   65            number is 65 (as shown, so numberOffset applies)
 //   1-50          number between, also "1 thru 50", "1 through 50", "1 to 50"
 //   PIP           name contains, ignoring case
-//   "5D"          quoted: always name contains ("" for a quote inside)
+//   'NOT USED'    name contains, taken literally ('' for a quote inside)
+//   "CAM 1"       name is exactly that, ignoring case ("" for a quote inside)
 //   /^DSM\d/      name matches the regex (ignoring case unless flags given)
+//   !65, !PIP     excludes; "not" works too before a number, quote or regex
+//                 (so a bare NOT USED stays a name)
 //
-// A rule is { not, kind: 'num' | 'range' | 'name' | 're', a, b, text, flags }.
+// A rule is { not, kind: 'num' | 'range' | 'name' | 'exact' | 're', a, b,
+// text, flags, quoted }.
 
 const NUM = /^\d+$/;
+// "not" as a word, only where what follows can't be part of a name.
+const NOT_WORD = /^not\s+(?=['"/\d])/i;
+// Flags that make a regex remember where it stopped, so the same name
+// would match one time and not the next.
+const stateless = (flags) => (flags || '').replace(/[gy]/g, '');
 const RANGE = /^(\d+)\s*(?:-|\s(?:thru|through|to)\s)\s*(\d+)$/i;
 
 // Parses filter text: { rules } or { error, at } (at = index in text).
@@ -27,22 +36,23 @@ export function parseFilter(text) {
     const start = i;
     let not = false;
     if (text[i] === '!') { not = true; i++; ws(); }
-    else if (/^not\s/i.test(text.slice(i, i + 4))) { not = true; i += 3; ws(); }
+    else if (NOT_WORD.test(text.slice(i))) { not = true; i += 3; ws(); }
     let rule;
-    if (text[i] === '"') {
+    if (text[i] === '"' || text[i] === "'") {
+      const q = text[i];
       let s = '';
       i++;
       for (;;) {
         if (i >= n) return { error: 'Unclosed quote', at: start };
-        if (text[i] === '"') {
-          if (text[i + 1] === '"') { s += '"'; i += 2; continue; }
+        if (text[i] === q) {
+          if (text[i + 1] === q) { s += q; i += 2; continue; }
           i++;
           break;
         }
         s += text[i++];
       }
       if (!s) return { error: 'Empty quotes', at: start };
-      rule = { not, kind: 'name', text: s };
+      rule = q === '"' ? { not, kind: 'exact', text: s } : { not, kind: 'name', text: s, quoted: true };
     } else if (text[i] === '/') {
       let s = '';
       i++;
@@ -55,7 +65,7 @@ export function parseFilter(text) {
       let flags = '';
       while (i < n && /[a-z]/i.test(text[i])) flags += text[i++];
       try {
-        new RegExp(s, flags || 'i');
+        new RegExp(s, stateless(flags) || 'i');
       } catch (e) {
         return { error: `Bad regex /${s}/${flags}`, at: start };
       }
@@ -81,8 +91,9 @@ export function parseFilter(text) {
 }
 
 // Whether name text must be quoted to read back as a name.
-const needsQuote = (t) => NUM.test(t.trim()) || RANGE.test(t.trim()) || /[,"]/.test(t) ||
-  /^\s|\s$/.test(t) || /^[!/]/.test(t) || /^not\s/i.test(t);
+const needsQuote = (t) => NUM.test(t.trim()) || RANGE.test(t.trim()) || /[,"']/.test(t) ||
+  /^\s|\s$/.test(t) || /^[!/]/.test(t) || NOT_WORD.test(t);
+const quote = (t, q) => q + t.replaceAll(q, q + q) + q;
 
 // Rules as code, the way a person would type them.
 export function filterText(rules) {
@@ -90,7 +101,8 @@ export function filterText(rules) {
     const body = r.kind === 'num' ? String(r.a)
       : r.kind === 'range' ? `${r.a}-${r.b}`
       : r.kind === 're' ? `/${r.text}/${r.flags || ''}`
-      : needsQuote(r.text) ? `"${r.text.replace(/"/g, '""')}"` : r.text;
+      : r.kind === 'exact' ? quote(r.text, '"')
+      : r.quoted || needsQuote(r.text) ? quote(r.text, "'") : r.text;
     return (r.not ? '!' : '') + body;
   }).join(', ');
 }
@@ -116,11 +128,16 @@ function test(r, fuzzyNames) {
     case 'num': return (num) => num === r.a;
     case 'range': return (num) => num >= r.a && num <= r.b;
     case 're': {
-      const re = new RegExp(r.text, r.flags || 'i');
+      const re = new RegExp(r.text, stateless(r.flags) || 'i');
       return (num, name) => re.test(name);
     }
+    case 'exact': {
+      const t = r.text.toLowerCase();
+      return (num, name) => name.toLowerCase() === t;
+    }
     default: {
-      if (fuzzyNames) return fuzzy(r.text);
+      // Quoted text is literal, even when searching.
+      if (fuzzyNames && !r.quoted) return fuzzy(r.text);
       const t = r.text.toLowerCase();
       return (num, name) => name.toLowerCase().includes(t);
     }
@@ -128,7 +145,7 @@ function test(r, fuzzyNames) {
 }
 
 // rules → (num, name) => bool. No rules matches everything. With fuzzy,
-// name terms match fuzzily (see fuzzy), for searching.
+// bare name terms match fuzzily (see fuzzy), for searching.
 export function compileFilter(rules, { fuzzy = false } = {}) {
   const inc = rules.filter((r) => !r.not).map((r) => test(r, fuzzy));
   const exc = rules.filter((r) => r.not).map((r) => test(r, fuzzy));

@@ -87,6 +87,16 @@ func TestExtSkipsOwnTakes(t *testing.T) {
 	if n := a.hist.Len(); n != 0 {
 		t.Fatalf("own take recorded as external: %d", n)
 	}
+	// Our route was confirmed, so the same route made again elsewhere,
+	// soon after, is external.
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 1))
+	endBurst(a)
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
+	endBurst(a)
+	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || es[0].Src != 7 || !es[0].Ext {
+		t.Fatalf("repeat of our route elsewhere: %+v", es)
+	}
+	a.hist.Clear()
 	// The same route made elsewhere once ours has expired is external.
 	a.mu.Lock()
 	a.own[ownKey{5, 0, 1}] = time.Now().Add(-time.Second)
@@ -114,7 +124,7 @@ func TestExtFollows(t *testing.T) {
 	// dst 9 (a PiP following dst 5) to src 7 too.
 	a.mu.Lock()
 	now := time.Now()
-	a.causes = append(a.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, sode: true, done: true})
+	a.causes = append(a.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, done: true})
 	a.mu.Unlock()
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 7))
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 11, 8)) // another source: not a follow
@@ -136,8 +146,8 @@ func TestExtFollows(t *testing.T) {
 		}
 	}
 
-	// A panel take to dst 5 and its follow on dst 11 in one burst: the
-	// follow names the take, and isn't grouped with it.
+	// A panel's salvo of one source to two destinations: a group, not a
+	// take and a follow (only our takes are followed).
 	a.mu.Lock()
 	a.causes = nil
 	a.mu.Unlock()
@@ -147,17 +157,49 @@ func TestExtFollows(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 11, 3))
 	endBurst(a)
-	f := last()
 	es, _ = a.hist.Page(-1, 2)
-	take := es[1]
-	if take.Dst != 5 || take.Follow != nil || take.Group != "" || f.Dst != 11 || f.Follow == nil || *f.Follow != take.ID {
-		t.Fatalf("take %+v follow %+v", take, f)
+	if es[0].Follow != nil || es[1].Follow != nil || es[0].Group == "" || es[0].Group != es[1].Group {
+		t.Fatalf("panel salvo %+v", es)
+	}
+
+	// Our salvo of src 2 to dst 5 then 9: a follow on dst 11 goes with the
+	// later of the two.
+	a.mu.Lock()
+	t0 := time.Now()
+	a.causes = []*cause{
+		{src: 2, dst: 5, first: t0.Add(-200 * time.Millisecond), last: t0.Add(-200 * time.Millisecond), id: 60, done: true},
+		{src: 2, dst: 9, first: t0.Add(-20 * time.Millisecond), last: t0.Add(-20 * time.Millisecond), id: 61, done: true},
+	}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 1, 11, 2))
+	endBurst(a)
+	if e := last(); e.Follow == nil || *e.Follow != 61 {
+		t.Fatalf("follow of a salvo %+v", e)
+	}
+	// Once dst 11 has been seen following dst 5 alone, a salvo goes by that.
+	a.mu.Lock()
+	t1 := time.Now()
+	a.causes = []*cause{{src: 4, dst: 5, first: t1, last: t1, id: 70, done: true}}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 2, 11, 4))
+	endBurst(a)
+	a.mu.Lock()
+	t2 := time.Now()
+	a.causes = []*cause{
+		{src: 5, dst: 5, first: t2, last: t2, id: 80, done: true},
+		{src: 5, dst: 9, first: t2, last: t2.Add(time.Millisecond), id: 81, done: true},
+	}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 11, 5))
+	endBurst(a)
+	if e := last(); e.Follow == nil || *e.Follow != 80 {
+		t.Fatalf("salvo follow by what it followed before: %+v", e)
 	}
 
 	// Too long after a take: a take of its own.
 	a.mu.Lock()
 	old := time.Now().Add(-2 * time.Second)
-	a.causes = append(a.causes, &cause{src: 4, dst: 5, first: old, last: old, id: 50, sode: true, done: true})
+	a.causes = append(a.causes, &cause{src: 4, dst: 5, first: old, last: old, id: 50, done: true})
 	a.mu.Unlock()
 	a.onRouterMsg(swp08.ExtConnected(0, 1, 9, 4))
 	endBurst(a)
@@ -166,7 +208,7 @@ func TestExtFollows(t *testing.T) {
 	}
 
 	// A change that may follow our take still in flight waits for it.
-	c := &cause{src: 6, dst: 5, id: -1, sode: true}
+	c := &cause{src: 6, dst: 5, id: -1}
 	a.mu.Lock()
 	a.causes = append(a.causes, c)
 	c.saw(time.Now())

@@ -9,6 +9,7 @@ import (
 	"log"
 	"maps"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -76,6 +77,7 @@ type App struct {
 	extLast  time.Time
 	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
 	causes   []*cause             // recent takes that changes elsewhere may follow
+	leaders  map[int]int          // dst → the dst it was last seen following
 
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
@@ -115,6 +117,7 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 		waiters:  map[*waiter]struct{}{},
 		ext:      map[int]map[int]*extLevel{},
 		own:      map[ownKey]time.Time{},
+		leaders:  map[int]int{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.rt.Store(r)
@@ -586,8 +589,31 @@ func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 		return errLocked
 	}
 	cfg := a.r().cfg
+	// Its own copies: Normalize rewrites slices in place, and the live
+	// config's are read by others meanwhile.
+	cfg.LevelColors = slices.Clone(cfg.LevelColors)
+	cfg.TrustedProxies = slices.Clone(cfg.TrustedProxies)
 	cfg.FilterSets = sets
-	return a.ApplyConfig(cfg)
+	cfg.Normalize()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	nr, err := newRuntime(cfg)
+	if err != nil {
+		return err
+	}
+	if a.cfgPath != "" {
+		if err := config.Save(a.cfgPath, cfg); err != nil {
+			return fmt.Errorf("saving %s: %w", a.cfgPath, err)
+		}
+	}
+	// Only the sets changed: browsers get them alone, not a full snapshot
+	// that would reset their Recent.
+	a.mu.Lock()
+	a.rt.Store(nr)
+	a.broadcast(map[string]any{"t": "filterSets", "sets": cfg.FilterSets})
+	a.mu.Unlock()
+	return nil
 }
 
 // ApplyConfig validates, saves and applies new settings. Router-side changes
@@ -619,6 +645,7 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.pend, a.pendProt = nil, nil
 		a.ext = map[int]map[int]*extLevel{}
 		a.causes = nil
+		a.leaders = map[int]int{}
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
 		// A new router starts from scratch: not the old one's state or error.
@@ -768,7 +795,7 @@ func (a *App) take(c *client, req takeReq) {
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
 	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{}),
-		cause: &cause{src: req.Src, dst: req.Dst, id: -1, sode: true}}
+		cause: &cause{src: req.Src, dst: req.Dst, id: -1}}
 	var protected []int
 	same := map[int]bool{} // wire levels the cache says are already on src
 	a.mu.Lock()

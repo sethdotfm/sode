@@ -1340,3 +1340,10 @@ code,
 }
 .sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sode__last > .sode__key-note { position: static; transform: none; }
+
+/* A source or destination's number, muted and fixed-width before its name. */
+.sode__lbl-n {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  font-weight: var(--pb-weight-normal);
+}

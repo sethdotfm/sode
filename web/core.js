@@ -101,6 +101,9 @@ export function item(n, name) {
 export const srcItem = (n, name = '') => S.srcBy.get(n) || item(n, name);
 export const dstItem = (n, name = '') => S.dstBy.get(n) || item(n, name);
 export const srcLabel = (n) => srcItem(n).label;
+// A source or destination as rows and confirms show it: the number muted
+// and fixed-width, so it can't run into a name that starts with a digit.
+export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', it.num), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n) => dstItem(n).label;
 // Tally source text: null = never reported, -1 = router says nothing routed.
 export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
@@ -191,6 +194,12 @@ function handle(m) {
       break;
     case 'filterSetsResult':
       emit('filterSetsResult', m);
+      break;
+    case 'filterSets': // the sets for everyone changed: just those, not a fresh snapshot
+      S.cfg = { ...S.cfg, filterSets: m.sets };
+      followGlobal();
+      emit('filters');
+      emit('history');
       break;
     case 'locked':
       emit('locked');
@@ -919,21 +928,37 @@ export const searchState = () => ({ ...query });
 export const searchActive = () => !!(query.src.trim() || query.dst.trim());
 // Errors per box for text that doesn't parse (the last good one applies).
 export function setSearch(next) {
+  const was = searchActive();
   query = { src: String(next.src ?? ''), dst: String(next.dst ?? '') };
+  if (was && !searchActive()) trimHist();
   searchSrc = filterFn(query.src, { fuzzy: true }) || searchSrc;
   searchDst = filterFn(query.dst, { fuzzy: true }) || searchDst;
   emit('search');
   emit('history');
 }
-export function searchRespectsFilters() {
-  try { return localStorage.getItem(SEARCH_KEY) === 'on'; } catch (e) { return false; }
-}
+// Read once: it's asked for every entry while filtering.
+let respects = (() => { try { return localStorage.getItem(SEARCH_KEY) === 'on'; } catch (e) { return false; } })();
+export const searchRespectsFilters = () => respects;
 export function setSearchRespectsFilters(on) {
+  respects = !!on;
   try {
     if (on) localStorage.setItem(SEARCH_KEY, 'on');
     else localStorage.removeItem(SEARCH_KEY);
   } catch (e) {}
   emit('history');
+}
+
+// A search reads far back through the log; once it's cleared, drop all
+// but the newest entries again (whole groups), so Recent doesn't keep
+// reworking thousands of them.
+const KEEP_AFTER_SEARCH = 200;
+function trimHist() {
+  let n = KEEP_AFTER_SEARCH;
+  if (S.hist.length <= n) return;
+  const g = S.hist[n - 1].group;
+  while (g && n < S.hist.length && S.hist[n].group === g) n++;
+  S.hist = S.hist.slice(0, n);
+  S.histMore = true;
 }
 
 // Whether a search finds e: its route, or one of its follows'. Names are
@@ -973,16 +998,22 @@ export function histRows(list) {
   const rows = [];
   const folders = new Map();
   const chains = new Map(); // dst → { k: levels, row, t: oldest time, list: entries merged }
-  // Follows go with the take they followed, as e.follows, when it's loaded.
-  const ids = new Set(list.map((e) => e.id));
+  // Follows go with the take they followed, as e.follows, when it's loaded
+  // and shown. One whose take the filters hide stands on its own, if it
+  // passes them itself.
+  const byId = new Map(list.map((e) => [e.id, e]));
   const followsOf = new Map();
   for (const e of list) {
-    if (e.follow == null || !ids.has(e.follow)) continue;
+    if (e.follow == null || !byId.has(e.follow)) continue;
     if (!followsOf.has(e.follow)) followsOf.set(e.follow, []);
     followsOf.get(e.follow).push(e);
   }
+  for (const [id, fs] of followsOf) {
+    if (!passes({ ...byId.get(id), follows: fs })) followsOf.delete(id);
+  }
+  const attached = new Set([...followsOf.values()].flat());
   for (const orig of list) {
-    if (orig.follow != null && ids.has(orig.follow)) {
+    if (attached.has(orig)) {
       chains.delete(orig.dst);
       continue;
     }
@@ -1058,8 +1089,8 @@ export function folderTitle(f) {
   const srcs = [...new Set(f.entries.map((e) => e.src))];
   const dsts = [...new Set(f.entries.map((e) => e.dst))];
   const strong = (t) => el('strong', null, t);
-  const src = srcs.length === 1 ? srcItem(srcs[0], f.entries[0].srcName).label : `${srcs.length} sources`;
-  const dst = dsts.length === 1 ? dstItem(dsts[0], f.entries[0].dstName).label : `${dsts.length} destinations`;
+  const src = srcs.length === 1 ? labelNode(srcItem(srcs[0], f.entries[0].srcName)) : `${srcs.length} sources`;
+  const dst = dsts.length === 1 ? labelNode(dstItem(dsts[0], f.entries[0].dstName)) : `${dsts.length} destinations`;
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
   const follows = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
   const notes = [kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
@@ -1202,15 +1233,16 @@ export function planBlocked(plan) {
 function planQuestion(plan) {
   const strong = (t) => el('strong', null, t);
   const n = plan.items.length;
-  const to = n === 1 ? ['Destination ', strong(plan.items[0].dst.label)] : [strong(`${n} destinations`)];
+  const to = n === 1 ? ['Destination ', strong(labelNode(plan.items[0].dst))] : [strong(`${n} destinations`)];
+  const uniq = (its) => [...new Map(its.map((it) => [it.n, it])).values()];
   if (plan.verb === 'undo') {
-    const srcs = [...new Set(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName).label))];
-    return el('div', null, 'Are you sure you want to undo the take of ', srcs.length === 1 ? strong(srcs[0]) : `${srcs.length} sources`,
+    const srcs = uniq(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName)));
+    return el('div', null, 'Are you sure you want to undo the take of ', srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`,
       ' to ', ...to, '?');
   }
-  const srcs = [...new Set(plan.items.flatMap((i) => i.groups.map((g) => g.src.label)))];
+  const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
   return el('div', null, `Are you sure you want to ${plan.verb === 'retry' ? 'retry taking' : 'take'} `,
-    ...(srcs.length === 1 ? ['Source ', strong(srcs[0])] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
+    ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
 // One destination's part of a confirm: new routes, then what they replace.
@@ -1218,7 +1250,7 @@ function itemSummary(item, boxed) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
   return [
-    ...item.groups.map((g) => routeRow(g.levels, g.src.label, item.dst.label)),
+    ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
     item.prot
       ? el('div', 'sode__route', levelBar(item.prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
         `by device ${item.prot.devices.join(', ')}; will be refused`)
@@ -1240,7 +1272,7 @@ export function planSummary(plan) {
   return [
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
-      el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, i.dst.label)),
+      el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
       ...itemSummary(i, true))),
     extraBox(plan),
   ].filter(Boolean);

@@ -26,9 +26,19 @@ func pinApp(t *testing.T) *App {
 func TestFilterSetsPin(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}
+	cfg := a.r().cfg
+	cfg.LevelColors = []string{"#aabbcc"}
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before := a.r().cfg.LevelColors
 	sets := []config.FilterSet{{Name: "No shader", Dst: "!MON", Sode: true, Ext: true}}
 	if err := a.SaveFilterSets(c, sets); err != nil || len(a.r().cfg.FilterSets) != 1 {
 		t.Fatalf("open save: %v", err)
+	}
+	// The new config has its own slices, not the live one's.
+	if after := a.r().cfg.LevelColors; &after[0] == &before[0] {
+		t.Fatal("level colors shared with the config being replaced")
 	}
 	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: ""}}); err == nil {
 		t.Fatal("unnamed set accepted")

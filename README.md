@@ -10,7 +10,7 @@ To patch one source to several destinations, press `+` (or the + button) instead
 
 **Other panels (beta).** Routes made elsewhere (Ultrix panels, Companion) show up in Recent too, with a **panel** status, and can be undone like any take. A panel take arrives as one change per level, so Sode collects them until they stop for half a second, then logs one entry per destination and source. A burst that changes several destinations becomes one folder. If the same destination is punched on the same levels again within 30 seconds, with nothing else routed there in between, the punches show as one row ("3 changes"); its Before lists each change, and Undo goes back to the state before the first punch.
 
-The router also moves destinations by itself, such as a multiviewer PiP that follows a DSM. When the same source lands on another destination within half a second of a take, Sode logs it as a **follow** of that take ("+1 follow") rather than a row of its own. Before lists the follows. Undo leaves them out unless you tick "Also undo … suspected automation" in the confirm (Space on desktop). Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
+The router also moves destinations by itself, such as a multiviewer PiP that follows a DSM. When the same source lands on another destination within half a second of a Sode take, Sode logs it as a **follow** of that take ("+1 follow") rather than a row of its own. Before lists the follows. Undo leaves them out unless you tick "Also undo … suspected automation" in the confirm (Space on desktop), because undoing the take lets the router redo its own automation. Each take of a Sode salvo has its own follows and its own Undo. A panel salvo of one source to several destinations stays one folder. Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
 
 **Search.** Filter by Source and Filter by Destination above Recent work like the patch boxes. Typing lists matching sources or destinations, including names logged in history, so a source the router has since renamed is still found. Pick one with ↑↓ (or Alt+J/K) and Enter or Tab, and Recent shows every entry for it, from the whole log. A take also shows if one of its follows matches. You can type an expression instead (`1-50`, `MV, !PGM`, `/^DSM/`), which applies as typed. Search ignores Filters unless Settings → This device → **Search respects filters** is on. Esc closes the list, then clears the box. On desktop, Shift+S and Shift+D jump to them from keyboard mode.
 
@@ -36,9 +36,10 @@ The router also moves destinations by itself, such as a multiviewer PiP that fol
 | `65` | number 65 |
 | `1-50`, `1 thru 50`, `1 to 50` | numbers 1 to 50 |
 | `PIP` | names containing PIP (any case) |
-| `"5D"` | names containing 5D (quotes for text that looks like a number, or has a comma) |
+| `'NOT USED'` | names containing that text, taken literally (for text that looks like a number, has a comma, or starts with "not"; `''` for a quote inside) |
+| `"CAM 1"` | the name exactly (any case), so not CAM 10 |
 | `/^DSM\d/` | names matching the regex (any case unless flags are given) |
-| `!65`, `not PIP` | excludes |
+| `!65`, `!PIP`, `not 'PIP'` | excludes (`not` only before a number, quote or regex, so a bare `NOT USED` is a name) |
 
 Terms are separated by commas. A name matches if it fits any plain term and no `!` term, and only `!` terms means everything but those. So `MV, !MV 1` means every multiviewer except the ones whose names contain "MV 1".
 

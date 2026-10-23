@@ -7,11 +7,14 @@ import { parseFilter, filterText, compileFilter, filterFn } from '../filter.js';
 const kinds = (t) => parseFilter(t).rules.map((r) => `${r.not ? '!' : ''}${r.kind}:${r.text ?? `${r.a}${r.b != null ? '-' + r.b : ''}`}`);
 
 test('terms', () => {
-  assert.deepEqual(kinds('65, 1-50, 50 thru 1, 3 to 4, PIP, "5D", /^DSM\\d/, !65, not CAM 1, ! MV'),
-    ['num:65', 'range:1-50', 'range:1-50', 'range:3-4', 'name:PIP', 'name:5D', 're:^DSM\\d', '!num:65', '!name:CAM 1', '!name:MV']);
+  assert.deepEqual(kinds('65, 1-50, 50 thru 1, 3 to 4, PIP, "5D", /^DSM\\d/, !65, !CAM 1, ! MV'),
+    ['num:65', 'range:1-50', 'range:1-50', 'range:3-4', 'name:PIP', 'exact:5D', 're:^DSM\\d', '!num:65', '!name:CAM 1', '!name:MV']);
+  // "not" only before a number, quote or regex; otherwise it's part of a name.
+  assert.deepEqual(kinds("not 65, not 'MV', not /x/, NOT USED, 'NOT USED', 'it''s'"),
+    ['!num:65', '!name:MV', '!re:x', 'name:NOT USED', 'name:NOT USED', "name:it's"]);
   assert.deepEqual(kinds(''), []);
   assert.deepEqual(kinds(' , ,'), []);
-  assert.deepEqual(kinds('"a ""b"", c"'), ['name:a "b", c']);
+  assert.deepEqual(kinds('"a ""b"", c"'), ['exact:a "b", c']);
   assert.deepEqual(kinds('/a,b/'), ['re:a,b']);
   // Single letters aren't words here: names keep them.
   assert.deepEqual(kinds('TX 1, 1 t 5'), ['name:TX 1', 'name:1 t 5']);
@@ -35,7 +38,15 @@ test('matching', () => {
   assert.equal(filterFn('!x')(5, 'abc'), true);
   assert.equal(filterFn('!x')(5, 'xyz'), false);
   assert.equal(filterFn('/^dsm\\d$/')(1, 'DSM3'), true); // ignores case by default
-  assert.equal(filterFn('/^dsm/g')(1, 'DSM3'), false); // flags given: as written
+  assert.equal(filterFn('/^dsm/s')(1, 'DSM3'), false); // flags given: as written
+  // g and y would make the regex remember where it stopped: dropped.
+  const g = filterFn('/MV/g');
+  assert.deepEqual([g(1, 'MV 1'), g(2, 'MV 2'), g(3, 'MV 3')], [true, true, true]);
+  // Exact names, and literal quoted text even when searching.
+  const ex = filterFn('"CAM 1"');
+  assert.deepEqual([ex(1, 'cam 1'), ex(2, 'CAM 10')], [true, false]);
+  assert.equal(filterFn("'NOT USED'")(3, 'MV NOT USED'), true);
+  assert.equal(filterFn("'mv28'", { fuzzy: true })(4, 'MV 28'), false);
   const fz = filterFn('mv28, prodmon, dsm3, cam 1, !pgm', { fuzzy: true });
   assert.equal(fz(600, 'MV 28'), true); // spaces, case and zeros don't count
   assert.equal(fz(601, 'PROD MON03'), true);
@@ -48,12 +59,14 @@ test('matching', () => {
 });
 
 test('round trip', () => {
-  for (const t of ['65, 1-50, PIP, "5D", "1-2", "!x", "not y", "a, b", /x\\/y/i, !CAM 1']) {
+  for (const t of ['65, 1-50, PIP, "5D", "1-2", "!x", "a, b", /x\\/y/i, !CAM 1', "'1-2', 'a, b', 'it''s', NOT USED, not 'x', '!y'"]) {
     const r = parseFilter(t).rules;
     assert.deepEqual(parseFilter(filterText(r)).rules, r, t);
   }
-  assert.equal(filterText(parseFilter('50 thru 1, not  CAM').rules), '1-50, !CAM');
-  assert.equal(filterText([{ not: false, kind: 'name', text: 'say "hi"' }]), '"say ""hi"""');
+  assert.equal(filterText(parseFilter("50 thru 1, not  'CAM'").rules), "1-50, !'CAM'");
+  assert.equal(filterText([{ not: false, kind: 'name', text: 'say "hi"' }]), `'say "hi"'`);
+  assert.equal(filterText([{ not: false, kind: 'exact', text: 'say "hi"' }]), '"say ""hi"""');
+  assert.equal(filterText([{ not: false, kind: 'name', text: '12' }]), "'12'");
   assert.equal(compileFilter([])(1, ''), true);
 });
 
@@ -206,4 +219,33 @@ test('quick search', async () => {
   setSearch({ src: '', dst: '' });
   setFilter(FILTER_DEFAULT);
   assert.equal(ids(), '4 3x2');
+});
+
+test('follows whose take is hidden, and trimming after a search', async () => {
+  const core = await import('../core.js');
+  const { S, histRows, setFilter, setSearch, FILTER_DEFAULT } = core;
+  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.srcBy = new Map(); S.dstBy = new Map();
+  const T = (s) => new Date(Date.UTC(2026, 9, 23, 15, 0, s)).toISOString();
+  const e = (o) => ({ levels: [1], prev: [], ok: true, time: T(0), ...o });
+  const hist = [
+    e({ id: 2, ext: true, dst: 40, dstName: 'MV 3', src: 3, srcName: 'CAM 3', follow: 1, time: T(1) }),
+    e({ id: 1, dst: 2, dstName: 'DSM 1', src: 3, srcName: 'CAM 3', time: T(0) }),
+  ];
+  const rows = () => histRows(hist).map((r) => `${r.e.id}${r.e.follows ? '+' + r.e.follows.length : ''}`).join(' ');
+  setFilter(FILTER_DEFAULT);
+  assert.equal(rows(), '1+1');
+  // Watching multiviewers only: the DSM take is hidden, its MV follow isn't.
+  setFilter({ ...FILTER_DEFAULT, dst: 'MV' });
+  assert.equal(rows(), '2');
+  setFilter(FILTER_DEFAULT);
+
+  // A search reads far back; clearing it keeps the newest entries only,
+  // whole groups, and Load more takes it from there.
+  S.hist = Array.from({ length: 450 }, (_, i) => e({ id: 450 - i, dst: 1, src: 1, ...(i >= 198 && i < 203 ? { group: 'g', groupN: 5 } : {}) }));
+  S.histMore = false;
+  setSearch({ src: 'x', dst: '' });
+  setSearch({ src: '', dst: '' });
+  assert.equal(S.hist.length, 203);
+  assert.equal(S.histMore, true);
 });

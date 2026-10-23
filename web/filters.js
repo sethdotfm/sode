@@ -21,6 +21,7 @@ try { if (localStorage.getItem(MODE_KEY) === 'code') mode = 'code'; } catch (e) 
 
 const KINDS = [
   ['name', 'Name contains'],
+  ['exact', 'Name is'],
   ['num', 'Number is'],
   ['range', 'Number between'],
   ['re', 'Name matches regex'],
@@ -120,7 +121,7 @@ function editor(key) {
       ? [input(r.a, `Rule ${n} from`, (v) => { r.a = num(v); }, true), el('span', 'sode__hint', 'to'),
         input(r.b, `Rule ${n} to`, (v) => { r.b = num(v); }, true)]
       : r.kind === 'num' ? [input(r.a, `Rule ${n} number`, (v) => { r.a = num(v); }, true)]
-      : [input(r.text, `Rule ${n} ${r.kind === 're' ? 'regex' : 'text'}`, (v) => { r.text = v; })];
+      : [input(r.text, `Rule ${n} ${r.kind === 're' ? 'regex' : 'name'}`, (v) => { r.text = v; delete r.quoted; })];
     const remove = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
     remove.type = 'button';
     remove.setAttribute('aria-label', `Remove rule ${n}`);
@@ -623,11 +624,15 @@ export function applySharedLink() {
 // ---- when filters hide everything
 
 // A note for an empty Recent whose entries the filters hide, or null.
+// While searching it's about the search: still reading back through the
+// log, or nothing found (and the filters may not even apply).
 export function emptyNote(rows) {
   if (rows.length || !S.hist.length) return null;
-  const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Clear filters');
+  const searching = searchActive();
+  if (searching && (S.histMore || S.histLoading)) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Searching…'));
+  const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');
   clear.type = 'button';
-  clear.addEventListener('click', () => pickSet('all', 'All'));
+  clear.addEventListener('click', () => (searching ? clearSearch() : pickSet('all', 'All')));
   return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No matches.'), clear);
 }
 
@@ -638,13 +643,23 @@ export function emptyNote(rows) {
 // now calls something else is still found. Text that's an expression
 // (ranges, lists, !, /regex/) applies as typed instead.
 
-const looksLikeExpr = (t) => /[,!/"]/.test(t) || /^\s*\d+\s*(-|\s(thru|through|to)\s)\s*\d+\s*$/i.test(t) || /^\s*not\s/i.test(t);
+const looksLikeExpr = (t) => /[,!/"']/.test(t) || /^\s*\d+\s*(-|\s(thru|through|to)\s)\s*\d+\s*$/i.test(t) || /^\s*not\s+['"/\d]/i.test(t);
 const MENU = 50;
 
 // What a box can find: the router's items, plus names history logged for
 // them that differ (another router, or renamed since).
+// Built once per change to the names or history, not on every keystroke.
+const candCache = { src: null, dst: null };
 function candidates(k) {
   const live = k === 'src' ? S.srcs : S.dsts;
+  const stamp = [live, S.hist, S.hist.length];
+  const c = candCache[k];
+  if (c && c.stamp.every((x, i) => x === stamp[i])) return c.list;
+  const list = buildCandidates(k, live);
+  candCache[k] = { stamp, list };
+  return list;
+}
+function buildCandidates(k, live) {
   const by = k === 'src' ? S.srcBy : S.dstBy;
   const seen = new Set(live.map((i) => `${i.n}\u0000${i.name}`));
   const extra = [];
@@ -680,6 +695,12 @@ function renderMenu(k, f) {
     return li;
   }));
   menu.children[st.hi]?.scrollIntoView({ block: 'nearest' });
+}
+function clearSearch() {
+  for (const k of ['src', 'dst']) sb[k].picked = null;
+  for (const f of document.querySelectorAll('[data-search] input')) f.value = '';
+  closeMenus();
+  setSearch({ src: '', dst: '' });
 }
 const closeMenus = () => { for (const k of ['src', 'dst']) sb[k].matches = []; for (const m of document.querySelectorAll('[data-search] .sode__menu')) m.hidden = true; };
 
@@ -743,10 +764,7 @@ for (const b of searchBoxes) {
     });
   }
   b.querySelector('[data-search-clear]').addEventListener('click', () => {
-    for (const k of ['src', 'dst']) sb[k].picked = null;
-    for (const f of document.querySelectorAll('[data-search] input')) f.value = '';
-    closeMenus();
-    setSearch({ src: '', dst: '' });
+    clearSearch();
     b.querySelector('[data-search-src]').focus();
   });
 }

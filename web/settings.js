@@ -403,6 +403,7 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('popstate', showView);
 
 on('hello', () => { showView(); relock(); renderGlobalSets(); });
+on('filters', renderGlobalSets);
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => { renderNamesStatus(); relock(); });
