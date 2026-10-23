@@ -11,17 +11,29 @@ import (
 // fakeRouter accepts connections and ACKs only the messages answer picks.
 // The connection stays open either way, like a hung router's would.
 func fakeRouter(t *testing.T, answer func(msg []byte) bool) string {
+	addr, _ := fakeRouterAccepted(t, answer)
+	return addr
+}
+
+// fakeRouterAccepted is fakeRouter, plus a channel that gets a value each
+// time it accepts a connection.
+func fakeRouterAccepted(t *testing.T, answer func(msg []byte) bool) (string, chan struct{}) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { ln.Close() })
+	accepted := make(chan struct{}, 16)
 	go func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
 				return
+			}
+			select {
+			case accepted <- struct{}{}:
+			default:
 			}
 			go func() {
 				defer conn.Close()
@@ -41,7 +53,7 @@ func fakeRouter(t *testing.T, answer func(msg []byte) bool) string {
 			}()
 		}
 	}()
-	return ln.Addr().String()
+	return ln.Addr().String(), accepted
 }
 
 type stateLog struct {
@@ -133,13 +145,14 @@ func TestIgnoredCommandKeepsLink(t *testing.T) {
 // Until the router first answers, Send refuses rather than queueing behind
 // a probe that may never be answered.
 func TestSendRefusedUntilHeard(t *testing.T) {
-	addr := fakeRouter(t, func([]byte) bool { return false })
-	c, log, start := fastClient(t, addr)
+	addr, accepted := fakeRouterAccepted(t, func([]byte) bool { return false })
+	c, _, start := fastClient(t, addr)
 	start()
-	if !eventually(func() bool { return log.has(StateConnecting) }) {
-		t.Fatal("never started connecting")
+	select { // connected, so now waiting on the probe's reply
+	case <-accepted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("never connected")
 	}
-	time.Sleep(20 * time.Millisecond) // connected, waiting on the probe
 	if err := c.Send([]byte{0x7F}); err != ErrDown {
 		t.Fatalf("Send before the first reply = %v, want ErrDown", err)
 	}
@@ -164,17 +177,55 @@ func TestRetargetIsNotDown(t *testing.T) {
 // New settings saved while a dial is still running (a wrong address that
 // hasn't timed out yet) are a reconnect too, not a failure.
 func TestRetargetMidDialIsNotDown(t *testing.T) {
-	c, log, start := fastClient(t, "10.255.255.1:8910") // unroutable: the dial hangs
-	start()
-	if !eventually(func() bool { return log.has(StateConnecting) }) {
-		t.Fatal("never started connecting")
+	good := fakeRouter(t, func([]byte) bool { return true })
+	c, log, start := fastClient(t, "hangs:8910")
+	dialing := make(chan struct{}, 1)
+	real := c.dial
+	c.dial = func(ctx context.Context, addr string) (net.Conn, error) {
+		if addr != good {
+			dialing <- struct{}{}
+			<-ctx.Done() // a dial that never completes on its own
+			return nil, ctx.Err()
+		}
+		return real(ctx, addr)
 	}
-	time.Sleep(50 * time.Millisecond)
-	c.SetTarget(fakeRouter(t, func([]byte) bool { return true }), ExtInterrogate(0, 0, 0))
+	start()
+	select {
+	case <-dialing:
+	case <-time.After(2 * time.Second):
+		t.Fatal("never started dialing")
+	}
+	c.SetTarget(good, ExtInterrogate(0, 0, 0))
 	if !eventually(func() bool { return log.has(StateUp) }) {
 		t.Fatal("never came up on the new address")
 	}
 	if log.has(StateDown) {
 		t.Fatal("retarget mid-dial reported the router down")
+	}
+}
+
+// A settings save while Run waits out a failed dial must not mark the
+// next session: a later real drop still reports down.
+func TestDropAfterRetargetInBackoffIsDown(t *testing.T) {
+	var mu sync.Mutex
+	answer := true
+	good := fakeRouter(t, func([]byte) bool { mu.Lock(); defer mu.Unlock(); return answer })
+	c, log, start := fastClient(t, "127.0.0.1:1") // refused at once: Run backs off
+	start()
+	if !eventually(func() bool { return log.has(StateDown) }) {
+		t.Fatal("bad address never failed")
+	}
+	log.mu.Lock()
+	log.got = nil
+	log.mu.Unlock()
+	c.SetTarget(good, ExtInterrogate(0, 0, 0))
+	if !eventually(func() bool { return log.has(StateUp) }) {
+		t.Fatal("never came up on the new address")
+	}
+	mu.Lock()
+	answer = false // the router goes silent
+	mu.Unlock()
+	if !eventually(func() bool { return log.has(StateDown) }) {
+		t.Fatal("a real drop after a retarget wasn't reported down")
 	}
 }

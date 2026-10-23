@@ -44,14 +44,15 @@ type Client struct {
 
 	// Timings, from the constants; tests shorten them.
 	ackTimeout, probeIdle time.Duration
+	// dial opens the TCP connection; tests replace it.
+	dial func(ctx context.Context, addr string) (net.Conn, error)
 
-	mu         sync.Mutex
-	addr       string
-	probe      []byte             // sent on connect and when the link is quiet; must provoke a reply
-	q          chan []byte        // nil until the router has answered
-	cancel     context.CancelFunc // ends the current session
-	retargeted bool               // the session was ended by SetTarget
-	kick       chan struct{}
+	mu     sync.Mutex
+	addr   string
+	probe  []byte             // sent on connect and when the link is quiet; must provoke a reply
+	q      chan []byte        // nil until the router has answered
+	cancel context.CancelFunc // ends the current session
+	kick   chan struct{}
 
 	wmu sync.Mutex
 }
@@ -62,7 +63,10 @@ var (
 )
 
 func NewClient(addr string, probe []byte) *Client {
-	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1), ackTimeout: ackTimeout, probeIdle: probeIdle}
+	d := net.Dialer{Timeout: 5 * time.Second, KeepAlive: 10 * time.Second}
+	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1),
+		ackTimeout: ackTimeout, probeIdle: probeIdle,
+		dial: func(ctx context.Context, addr string) (net.Conn, error) { return d.DialContext(ctx, "tcp", addr) }}
 }
 
 // SetTarget switches router and reconnects at once. An empty addr idles.
@@ -70,9 +74,6 @@ func (c *Client) SetTarget(addr string, probe []byte) {
 	c.mu.Lock()
 	c.addr, c.probe = addr, probe
 	cancel := c.cancel
-	if cancel != nil {
-		c.retargeted = true
-	}
 	c.mu.Unlock()
 	if cancel != nil {
 		cancel()
@@ -129,15 +130,6 @@ func (c *Client) Run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		c.mu.Lock()
-		retargeted := c.retargeted
-		c.retargeted = false
-		c.mu.Unlock()
-		// Ended by new settings (mid-dial, mid-wait, whenever), whatever error
-		// that surfaced as: not a failure.
-		if retargeted {
-			err = errRetarget
-		}
 		if errors.Is(err, errRetarget) {
 			// New settings, not a failure: straight back to connecting.
 			log.Printf("swp08: %s: %v", addr, err)
@@ -167,15 +159,32 @@ func (c *Client) state(s State, err error) {
 	}
 }
 
-func (c *Client) session(ctx context.Context, addr string) error {
+// session runs one connection. Ended by SetTarget (new settings) at any
+// point, mid-dial included, it returns errRetarget whatever error that
+// surfaced as: a reconnect, not a failure.
+func (c *Client) session(ctx context.Context, addr string) (err error) {
 	sctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	defer func() {
+		if ctx.Err() == nil && sctx.Err() != nil {
+			err = errRetarget
+		}
+		cancel()
+	}()
 	c.mu.Lock()
 	c.cancel = cancel
+	stale := c.addr != addr // SetTarget ran before this session could be cancelled
 	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		c.q = nil
+		c.cancel = nil
+		c.mu.Unlock()
+	}()
+	if stale {
+		return errRetarget
+	}
 
-	d := net.Dialer{Timeout: 5 * time.Second, KeepAlive: 10 * time.Second}
-	conn, err := d.DialContext(sctx, "tcp", addr)
+	conn, err := c.dial(sctx, addr)
 	if err != nil {
 		return err
 	}
@@ -188,13 +197,6 @@ func (c *Client) session(ctx context.Context, addr string) error {
 	q := make(chan []byte, 4096)
 	acks := make(chan bool, 1)
 	rx := newLastRx()
-
-	defer func() {
-		c.mu.Lock()
-		c.q = nil
-		c.cancel = nil
-		c.mu.Unlock()
-	}()
 
 	errc := make(chan error, 2)
 	go func() { errc <- c.reader(conn, acks, rx) }()

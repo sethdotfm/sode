@@ -195,7 +195,12 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	defer a.mu.Unlock()
 	a.status.Router = string(s)
 	a.status.Addr = a.r().cfg.Router
-	a.status.Err = ""
+	// Retrying keeps the last error, so a browser that loads mid-retry still
+	// sees the router as lost. Up clears it; a new router starts clean
+	// (ApplyConfig).
+	if s != swp08.StateConnecting {
+		a.status.Err = ""
+	}
 	if err != nil {
 		a.status.Err = err.Error()
 	}
