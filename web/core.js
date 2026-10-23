@@ -839,21 +839,26 @@ export function requestHistory() {
   return S.histLoading;
 }
 
+const AUTO_PAGES = 5;
+
 // Shows history `step` rows at a time. more() reveals the next step,
 // fetching another page from Sode once the loaded entries run out.
 export function historyPager(step) {
   const pg = {
     shown: step,
-    reset() { pg.shown = step; },
+    auto: 0, // pages fetched by list() since the last reset or more()
+    reset() { pg.shown = step; pg.auto = 0; },
     list() {
       const rows = histRows(S.hist);
-      // Hidden entries can leave a page short: fetch on until it fills.
-      if (rows.length < pg.shown) requestHistory();
+      // Hidden entries can leave a page short: fetch a few more pages to
+      // fill it, then leave the rest to Load more.
+      if (rows.length < pg.shown && pg.auto < AUTO_PAGES && requestHistory()) pg.auto++;
       return rows.slice(0, pg.shown);
     },
     hasMore: () => histRows(S.hist).length > pg.shown || S.histMore,
     more() {
       pg.shown += step;
+      pg.auto = 0;
       if (histRows(S.hist).length < pg.shown) requestHistory();
       emit('history');
     },
