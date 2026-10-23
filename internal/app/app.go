@@ -379,6 +379,7 @@ func (a *App) hello(p helloPage) []byte {
 	m["recent"] = p.recent
 	m["more"] = p.more
 	m["levels"] = r.levels
+	m["levelDefaults"] = config.DefaultLevelColors
 	m["cfg"] = r.cfg
 	m["configPath"] = a.cfgPath
 	b, err := json.Marshal(m)

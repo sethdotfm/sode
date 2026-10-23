@@ -76,7 +76,7 @@ func TestLevelColors(t *testing.T) {
 	for _, l := range c.LevelMap() {
 		got = append(got, l.Color)
 	}
-	if want := []string{"#aabbcc", "", "#3a7bd5"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"#aabbcc", DefaultLevelColors[1], "#3a7bd5"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("level colours %q, want %q", got, want)
 	}
 }

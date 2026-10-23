@@ -21,7 +21,7 @@ export const S = {
   srcBy: new Map(), dstBy: new Map(),
   tally: new Map(), // dst → Map(ui level → src)
   prot: new Map(),  // dst → Map(ui level → protecting device)
-  levels: [],
+  levels: [], levelDefaults: [],
   levelBy: new Map(),
   namesAt: null,
   wsState: 'connecting',
@@ -93,6 +93,7 @@ function handle(m) {
       S.configPath = m.configPath;
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
+      S.levelDefaults = m.levelDefaults || [];
       setNames(m.srcs, m.dsts);
       S.namesAt = m.at;
       S.tally = new Map();

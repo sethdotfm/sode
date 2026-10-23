@@ -67,8 +67,10 @@ const toHex = (v) => {
 
 const swatchOf = (ui) => (ui === 1 ? 'video' : String((ui - 2) % 16 + 1).padStart(2, '0'));
 
-// The default swatch's hex in the current theme, for a placeholder.
+// A level's default hex: the server's default colour, else its patchbay
+// swatch in the current theme.
 function defaultHex(ui) {
+  if (S.levelDefaults[ui - 1]) return S.levelDefaults[ui - 1];
   const probe = el('span');
   probe.style.color = `var(--pb-signal-${swatchOf(ui)})`;
   document.body.append(probe);
@@ -78,7 +80,7 @@ function defaultHex(ui) {
 }
 
 function preview(slot, ui, v) {
-  levelColor(slot, { swatch: swatchOf(ui), color: HEX.test(v.trim()) ? toHex(v) : '' });
+  levelColor(slot, { swatch: swatchOf(ui), color: HEX.test(v.trim()) ? toHex(v) : S.levelDefaults[ui - 1] || '' });
 }
 
 // vals: colours to show, by level; keeps what's typed when the count changes.

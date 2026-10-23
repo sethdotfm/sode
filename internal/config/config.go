@@ -33,7 +33,8 @@ type Config struct {
 	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
 	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
 	// LevelColors[i] colours UI level i+1 as #rrggbb; "" or missing keeps
-	// the patchbay swatch. Entries past Levels are kept but unused.
+	// the default (DefaultLevelColors, then the patchbay swatch). Entries
+	// past Levels are kept but unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 }
 
@@ -212,16 +213,24 @@ func (c Config) Proxies() ([]netip.Prefix, error) {
 	return out, nil
 }
 
+// DefaultLevelColors are the user's Ultrix level colours, level 1 first.
+// Levels past these fall back to the patchbay swatches.
+var DefaultLevelColors = []string{
+	"#7ae85a", "#3b5bfd", "#e5483b", "#f5e663", "#3f8a8c", "#d946ef",
+	"#3f7f2e", "#67e8f9", "#7e2a86", "#f0963e", "#b5efcb", "#e287e8",
+	"#5b86f0", "#8a8a35", "#a5e3f7", "#4fa03a", "#f29bb0",
+}
+
 // Level maps a UI level number to its SW-P-08 wire level.
 type Level struct {
 	UI     int    `json:"ui"`
 	Wire   int    `json:"wire"`
 	Swatch string `json:"swatch"`          // patchbay pb-level-- suffix
-	Color  string `json:"color,omitempty"` // #rrggbb from LevelColors; overrides Swatch
+	Color  string `json:"color,omitempty"` // #rrggbb, configured or default; overrides Swatch
 }
 
 // LevelMap: wire = UI + offset; UI 1 gets the video swatch, the rest the
-// 16 audio swatches, unless LevelColors sets a colour.
+// 16 audio swatches, unless LevelColors or DefaultLevelColors has a colour.
 func (c Config) LevelMap() []Level {
 	out := make([]Level, c.Levels)
 	for i := range out {
@@ -230,8 +239,10 @@ func (c Config) LevelMap() []Level {
 		if ui > 1 {
 			l.Swatch = fmt.Sprintf("%02d", (ui-2)%16+1)
 		}
-		if i < len(c.LevelColors) {
+		if i < len(c.LevelColors) && c.LevelColors[i] != "" {
 			l.Color = c.LevelColors[i]
+		} else if i < len(DefaultLevelColors) {
+			l.Color = DefaultLevelColors[i]
 		}
 		out[i] = l
 	}
