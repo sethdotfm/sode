@@ -526,18 +526,26 @@ const CLOCK_KEY = 'sode-clock';
 export function clockPref() {
   let v = null;
   try { v = localStorage.getItem(CLOCK_KEY); } catch (e) {}
-  return v === 'auto' ? 'locale' : v === '12' || v === 'locale' ? v : '24';
+  return v === '12' || v === 'locale' ? v : '24';
 }
 
-export const fmtTime = (iso) => {
-  const d = new Date(iso);
+// The time formatter, built once and again only when the Clock changes.
+let timeFmt = null;
+function timeFormat() {
+  if (timeFmt) return timeFmt;
   const pref = clockPref();
   const opts = { minute: '2-digit', second: '2-digit' };
   // hourCycle, not hour12: Chrome shows 24:05 for hour12: false.
   if (pref !== 'locale') opts.hourCycle = pref === '12' ? 'h12' : 'h23';
   // 3:04:05 PM but 03:04:05 / 15:04:05.
   const h12 = /h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric', ...opts }).resolvedOptions().hourCycle);
-  const t = d.toLocaleTimeString([], { hour: h12 ? 'numeric' : '2-digit', ...opts });
+  timeFmt = new Intl.DateTimeFormat([], { hour: h12 ? 'numeric' : '2-digit', ...opts });
+  return timeFmt;
+}
+
+export const fmtTime = (iso) => {
+  const d = new Date(iso);
+  const t = timeFormat().format(d);
   return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString()} ${t}`;
 };
 
@@ -894,15 +902,16 @@ export function initTheme() {
   sync();
 }
 
-// The Clock select in Settings applies at once and redraws every time.
+// The Clock select in Settings (synced when Settings opens) applies at
+// once and redraws every time.
 export function initClock() {
   const select = $('cfg-clock');
-  select.value = clockPref();
   select.addEventListener('change', () => {
     try {
       if (select.value === '24') localStorage.removeItem(CLOCK_KEY);
       else localStorage.setItem(CLOCK_KEY, select.value);
     } catch (e) {}
+    timeFmt = null;
     emit('history');
     emit('namesChecked');
   });

@@ -129,7 +129,7 @@ code,
 .sode__down-link--lost::after { border-top: calc(var(--pb-border-w) * 2) dashed currentColor; }
 [data-conn="down"] .sode__conn { display: none; }
 [data-conn="down"] body::after {
-  animation: pb-pulse 1.6s var(--pb-ease) infinite;
+  animation: pb-pulse 1.6s var(--pb-ease) infinite; /* patchbay's .pb-dot--pulse; no duration token */
   border: var(--pb-space-3) solid var(--pb-status-error);
   content: "";
   inset: 0;
@@ -418,10 +418,10 @@ code,
 .sode__hist:focus-visible { outline: none; }
 .sode__hist:focus .sode__hist-row--cur {
   border-color: var(--pb-accent);
-  box-shadow: 0 0 0 1px var(--pb-accent);
+  box-shadow: 0 0 0 var(--pb-border-w) var(--pb-accent);
 }
 .sode__hist:focus .sode__hist-folder > .sode__hist-row--cur {
-  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge), 0 0 0 1px var(--pb-accent);
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge), 0 0 0 var(--pb-border-w) var(--pb-accent);
 }
 .sode__hist-folder > .sode__hist-row {
   box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge);
@@ -1009,13 +1009,18 @@ code,
   cursor: not-allowed;
 }
 
-/* Shortcut list: key on the left, what it does on the right. */
-.sode__keys { display: flex; flex-direction: column; gap: var(--pb-space-3); }
-.sode__keys dl {
+/* Shortcut list: key on the left, what it does on the right. One grid
+   for both sections (the lists dissolve into it), so the key column is as
+   wide as the widest key in either. */
+.sode__keys {
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-6);
-  grid-template-columns: 12em 1fr; /* same in both sections */
-  margin: 0 0 var(--pb-space-3);
+  grid-template-columns: auto 1fr;
 }
+.sode__keys > .sode__label { grid-column: 1 / -1; }
+.sode__keys > .sode__label + dl > dt:first-child,
+.sode__keys > .sode__label + dl > dt:first-child + dd { margin-top: var(--pb-space-2); }
+.sode__keys > dl + .sode__label { margin-top: var(--pb-space-6); }
+.sode__keys dl { display: contents; }
 .sode__keys dt { font-weight: var(--pb-weight-normal); }
 .sode__keys dd { margin: 0; }
