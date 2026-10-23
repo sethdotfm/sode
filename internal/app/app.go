@@ -447,7 +447,7 @@ const (
 	pinMaxWait   = time.Hour
 )
 
-var errLocked = errors.New("Settings are locked; enter the PIN again.")
+var errLocked = errors.New("settings are locked; enter the PIN again")
 
 // pinWait is the wait after the nth wrong PIN in a row: none for the first
 // pinFreeTries, then pinFirstWait doubling, up to pinMaxWait.

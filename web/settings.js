@@ -214,13 +214,19 @@ function configResult(m) {
     showLockErr(m.err);
     return;
   }
-  $('settings-err').textContent = m.err;
+  $('settings-err').textContent = sentence(m.err);
   $('settings-err').hidden = false;
 }
 
+// Server errors are Go-style (lowercase, no full stop); shown as sentences.
+const sentence = (t) => {
+  const s = String(t || '').trim();
+  return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
+};
+
 function showLockErr(text) {
   renderLock();
-  $('lock-err').textContent = text;
+  $('lock-err').textContent = sentence(text);
   $('lock-err').hidden = false;
   $('lock-pin').select();
 }
