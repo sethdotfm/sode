@@ -420,14 +420,22 @@ function stops(list = pager.list()) {
 }
 const curStop = () => stops().find((x) => x.key === cursor);
 
+// Moves the cursor. Opening or closing a folder redraws the list; a plain
+// move just shifts the highlight between two rows.
 function moveTo(s) {
   const group = s.f?.group ?? s.in?.group;
+  let redraw = false;
   for (const g of autoOpen) {
-    if (g !== group) { openFolders.delete(g); autoOpen.delete(g); }
+    if (g !== group) { openFolders.delete(g); autoOpen.delete(g); redraw = true; }
   }
-  if (s.f && !openFolders.has(s.f.group)) { openFolders.add(s.f.group); autoOpen.add(s.f.group); }
+  if (s.f && !openFolders.has(s.f.group)) { openFolders.add(s.f.group); autoOpen.add(s.f.group); redraw = true; }
+  const row = (key) => key && histList.querySelector(`[data-key="${CSS.escape(key)}"]`);
+  const from = row(cursor), to = row(s.key);
   cursor = s.key;
-  renderHistory();
+  if (redraw || !to) return renderHistory();
+  from?.classList.remove('sode__hist-row--cur');
+  to.classList.add('sode__hist-row--cur');
+  if (keyMode()) to.scrollIntoView({ block: 'nearest' });
 }
 
 // Past the last loaded row, load more; the next press moves on to it.
@@ -538,19 +546,23 @@ $('keys-tip-close').addEventListener('click', () => {
 
 // ---- shortcut list (?)
 
+// Closing from the keyboard returns to keyboard mode if it was on when the
+// list opened; closing with the mouse never does (a click leaves it).
 let keysBack = null;
+let keysWere = false;
 function openKeys() {
   keysBack = document.activeElement;
+  keysWere = keyMode();
   $('keys').hidden = false;
   $('keys-dialog').focus();
 }
-function closeKeys() {
+function closeKeys(viaKeys = false) {
   $('keys').hidden = true;
-  if (keysBack === histList) enterKeys();
+  if (keysWere && viaKeys) enterKeys();
   else keysBack?.focus();
 }
 if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) k.textContent = k.dataset.mac;
-$('keys-close').addEventListener('click', closeKeys);
+$('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
 
@@ -559,6 +571,7 @@ let lastKey = '';
 let pending = null; // plan + key
 let readyAt = 0;
 let confirmBack = null; // focus to return to when the confirm closes
+let confirmKeys = false; // keyboard mode was on when it opened
 
 // Patch button and Enter: take any half-typed box's best match, then confirm.
 function patchNow() {
@@ -614,6 +627,7 @@ function openConfirm(plan) {
   lastKey = key;
   pending = { ...plan, key };
   confirmBack = document.activeElement;
+  confirmKeys = keyMode();
 
   const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
   const verb = planVerb(plan);
@@ -637,40 +651,42 @@ function openConfirm(plan) {
   }, S.cfg.confirmLockoutMs);
 }
 
-// Focus goes back where the confirm was opened from: keyboard mode, or a
-// box. From a row's button it goes to Source (the row is redrawn with the
-// result, so the button won't last), leaving the boxes as they are.
-function focusBack() {
-  if (confirmBack === histList) enterKeys();
-  else if (histArea(confirmBack)) boxes.src.input.focus();
+// Focus goes back where the confirm was opened from. Keyboard mode only if
+// it was on and the confirm was answered from the keyboard (a click leaves
+// it). From Recent otherwise (a row's button, or the list on browsers
+// that don't focus clicked buttons) it goes to Source, leaving the boxes
+// as they are: the row is redrawn with the result.
+function focusBack(viaKeys) {
+  if (confirmKeys && viaKeys) enterKeys();
+  else if (confirmBack === histList || histArea(confirmBack)) boxes.src.input.focus();
   else if (confirmBack?.isConnected) confirmBack.focus();
 }
 const histArea = (n) => !!n && (histList.contains(n) || $('history-more').contains(n));
 
-function closeConfirm() {
+function closeConfirm(viaKeys = false) {
   const patch = pending?.verb === 'patch';
   pending = null;
   $('confirm').hidden = true;
   if (patch) lvlInput.focus();
-  else focusBack();
+  else focusBack(viaKeys);
 }
 
-function doTake() {
+function doTake(viaKeys = false) {
   const p = pending;
   pending = null;
   $('confirm').hidden = true;
   // Only a patch came from the boxes; an undo or retry leaves them be.
   if (sendTakes(p) && p.verb === 'patch') clearAll();
-  else focusBack();
+  else focusBack(viaKeys);
 }
 
 function onConfirmKey(e) {
   e.preventDefault();
   e.stopPropagation();
-  if (e.key === 'Escape') return closeConfirm();
+  if (e.key === 'Escape') return closeConfirm(true);
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (performance.now() < readyAt) return;
-  if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake();
+  if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake(true);
 }
 
 // ---- keyboard & input wiring
@@ -720,11 +736,13 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === 'Slash') {
     e.preventDefault();
     if ($('keys').hidden) openKeys();
-    else closeKeys();
+    else closeKeys(true);
     return;
   }
   if (!$('keys').hidden) {
-    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(); }
+    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(true); }
+    // Keep focus in the dialog: Close is its only control.
+    if (e.key === 'Tab') { e.preventDefault(); $('keys-close').focus(); }
     return;
   }
   const id = e.target.id;
@@ -811,7 +829,7 @@ $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', addDst);
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
-$('confirm-cancel').addEventListener('click', closeConfirm);
+$('confirm-cancel').addEventListener('click', () => closeConfirm());
 $('confirm-ok').addEventListener('click', () => {
   if (pending && performance.now() >= readyAt) doTake();
 });
