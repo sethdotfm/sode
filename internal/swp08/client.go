@@ -1,6 +1,7 @@
 package swp08
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -164,8 +165,7 @@ func (c *Client) session(ctx context.Context, addr string) error {
 
 	q := make(chan []byte, 4096)
 	acks := make(chan bool, 1)
-	var rx atomic.Int64
-	rx.Store(time.Now().UnixNano())
+	rx := newLastRx()
 
 	c.mu.Lock()
 	c.q = q
@@ -178,9 +178,24 @@ func (c *Client) session(ctx context.Context, addr string) error {
 	}()
 
 	errc := make(chan error, 2)
-	go func() { errc <- c.reader(conn, acks, &rx) }()
-	go func() { errc <- c.writer(sctx, conn, q, acks, &rx) }()
+	go func() { errc <- c.reader(conn, acks, rx) }()
+	go func() { errc <- c.writer(sctx, conn, q, acks, rx) }()
 
+	// Up only once the router answers: a hung one still accepts TCP. The
+	// probe provokes that first reply.
+	if _, probe := c.target(); probe != nil {
+		q <- probe
+		select {
+		case <-rx.heard:
+		case err := <-errc:
+			return err
+		case <-sctx.Done():
+			if ctx.Err() == nil {
+				return errors.New("reconnecting with new settings")
+			}
+			return ctx.Err()
+		}
+	}
 	c.state(StateUp, nil)
 	if c.OnUp != nil {
 		c.OnUp()
@@ -207,7 +222,32 @@ func (c *Client) write(conn net.Conn, b []byte) error {
 	return err
 }
 
-func (c *Client) reader(conn net.Conn, acks chan bool, rx *atomic.Int64) error {
+// lastRx tracks when the router last sent anything, as a monotonic offset
+// from the session's start, so a wall-clock step can't fake or hide a reply.
+type lastRx struct {
+	start time.Time
+	at    atomic.Int64  // time.Duration since start of the latest rx
+	heard chan struct{} // closed on the first rx
+	once  sync.Once
+}
+
+func newLastRx() *lastRx {
+	return &lastRx{start: time.Now(), heard: make(chan struct{})}
+}
+
+func (l *lastRx) now() time.Duration { return time.Since(l.start) }
+
+func (l *lastRx) mark() {
+	l.at.Store(int64(l.now()))
+	l.once.Do(func() { close(l.heard) })
+}
+
+// since reports whether anything arrived after t (from now()).
+func (l *lastRx) since(t time.Duration) bool { return time.Duration(l.at.Load()) > t }
+
+func (l *lastRx) idle() time.Duration { return l.now() - time.Duration(l.at.Load()) }
+
+func (c *Client) reader(conn net.Conn, acks chan bool, rx *lastRx) error {
 	var dec Decoder
 	buf := make([]byte, 4096)
 	for {
@@ -215,7 +255,7 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *atomic.Int64) error {
 		if err != nil {
 			return err
 		}
-		rx.Store(time.Now().UnixNano())
+		rx.mark()
 		if c.Debug {
 			log.Printf("swp08: rx % X", buf[:n])
 		}
@@ -246,24 +286,51 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *atomic.Int64) error {
 	}
 }
 
-func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks chan bool, rx *atomic.Int64) error {
+// writer sends queued messages one at a time and keeps the link checked.
+// The router going quiet with the TCP session still open (powered off,
+// cable pulled, hung) shows up as a probe that gets nothing back at all,
+// and drops the connection so it shows as down and reconnects. A message
+// that alone goes unanswered (a command this router ignores) only costs a
+// probe: if that's answered, the router is fine.
+func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks chan bool, rx *lastRx) error {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
+	errSilent := errors.New("no reply from router")
+	check := func() error {
+		_, probe := c.target()
+		if probe == nil {
+			return nil
+		}
+		heard, err := c.transmit(ctx, conn, probe, acks, rx)
+		if err == nil && !heard {
+			err = errSilent
+		}
+		return err
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case m := <-q:
-			if err := c.transmit(ctx, conn, m, acks, rx); err != nil {
+			heard, err := c.transmit(ctx, conn, m, acks, rx)
+			if err != nil {
 				return err
 			}
+			if !heard {
+				if _, probe := c.target(); bytes.Equal(m, probe) {
+					return errSilent // that was the probe
+				}
+				if err := check(); err != nil {
+					return err
+				}
+			}
 		case <-tick.C:
-			idle := time.Since(time.Unix(0, rx.Load()))
+			idle := rx.idle()
 			if idle > deadIdle {
 				return fmt.Errorf("no data from router for %s", idle.Round(time.Second))
 			}
-			if _, probe := c.target(); idle > probeIdle && probe != nil {
-				if err := c.transmit(ctx, conn, probe, acks, rx); err != nil {
+			if idle > probeIdle {
+				if err := check(); err != nil {
 					return err
 				}
 			}
@@ -271,36 +338,32 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 	}
 }
 
-// transmit sends m and waits for its ACK, retrying on NAK or silence. If
-// nothing at all comes back through every try, the router has gone quiet
-// with the TCP session still open (powered off, cable pulled, hung), and
-// the connection is dropped so it shows as down and reconnects.
-func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks chan bool, rx *atomic.Int64) error {
+// transmit sends m and waits for its ACK, retrying on NAK or silence.
+// heard reports whether anything at all came back from the router while
+// it tried.
+func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks chan bool, rx *lastRx) (heard bool, err error) {
 	frame := Encode(m)
-	sent := time.Now()
+	sent := rx.now()
 	for try := 1; try <= sendTries; try++ {
 		select { // discard any stray ACK left from before
 		case <-acks:
 		default:
 		}
 		if err := c.write(conn, frame); err != nil {
-			return err
+			return false, err
 		}
 		select {
 		case ok := <-acks:
 			if ok {
-				return nil
+				return true, nil
 			}
 			log.Printf("swp08: NAK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-time.After(ackTimeout):
 			log.Printf("swp08: no ACK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-ctx.Done():
-			return ctx.Err()
+			return false, ctx.Err()
 		}
 	}
-	if time.Unix(0, rx.Load()).Before(sent) {
-		return fmt.Errorf("no reply from router to cmd 0x%02X", m[0])
-	}
 	log.Printf("swp08: gave up on cmd 0x%02X after %d tries", m[0], sendTries)
-	return nil
+	return rx.since(sent), nil
 }
