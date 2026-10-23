@@ -231,8 +231,13 @@ export function connState() {
 
 // Fills (or hides) a disconnected banner: what's lost, a browser → server
 // → router map with each link marked, and the router's error if any.
+// Redrawn only when its content changes: status flaps while reconnecting,
+// and each redraw would re-announce the alert.
 export function renderDown(box, c) {
   box.hidden = !c.down;
+  const key = c.down ? JSON.stringify([c.down, S.routerAddr]) : '';
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
   const { title, text, err, links } = c.down;
   const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''),

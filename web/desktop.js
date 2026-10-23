@@ -482,6 +482,9 @@ function onListKey(e) {
     r: retryCur,
   }[k];
   if (!act) return false;
+  // From the page itself, arrows keep scrolling it; only letters start
+  // keyboard mode there.
+  if (!keyMode() && k.startsWith('Arrow')) return false;
   if (!keyMode()) enterKeys();
   else act();
   return true;
