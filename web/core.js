@@ -30,7 +30,9 @@ function cutOff(n) {
     const cs = getComputedStyle(n);
     if (n.dataset.hint && cs.getPropertyValue('--sode-hint').trim() === 'on') return { n, text: n.dataset.hint };
     if (cs.textOverflow !== 'ellipsis' || cs.overflowX === 'visible') continue;
-    if (n.title || n.scrollWidth <= n.clientWidth) return null;
+    // A pixel's slack: Chrome rounds an input's scrollWidth up past text
+    // that fits.
+    if (n.title || n.scrollWidth <= n.clientWidth + 1) return null;
     const text = (n instanceof HTMLInputElement ? n.value : n.textContent).replace(/\s+/g, ' ').trim();
     return text ? { n, text } : null;
   }
