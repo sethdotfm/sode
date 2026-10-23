@@ -160,6 +160,7 @@ function handle(m) {
       setStatus(m.status);
       S.hist = m.recent || [];
       S.histMore = m.more;
+      followGlobal();
       emit('hello');
       emit('conn');
       break;
@@ -769,6 +770,99 @@ export function setFilter(next) {
   } catch (e) {}
   emit('filters');
   emit('history');
+}
+
+// ---- named filter sets: the built-in All, global ones from Settings
+// (cfg.filterSets) and this browser's own. The active set is remembered
+// with the filter it had when picked (base), so a global set changed in
+// Settings carries browsers along, unless they've edited it since.
+
+const SETS_KEY = 'sode-filter-sets';
+const ACTIVE_KEY = 'sode-filter-active';
+const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
+const writeJSON = (k, v) => {
+  try {
+    if (v == null) localStorage.removeItem(k);
+    else localStorage.setItem(k, JSON.stringify(v));
+  } catch (e) {}
+};
+
+export const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT)
+  .every((k) => (typeof a[k] === 'string' ? a[k].trim() === b[k].trim() : a[k] === b[k]));
+export const globalSets = () => (S.cfg?.filterSets || []).map((s) => ({ scope: 'global', name: s.name, f: normFilter(s) }));
+export const localSets = () => [].concat(readJSON(SETS_KEY, [])).filter((s) => s?.name)
+  .map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
+export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...localSets()];
+// Names are unique per scope whatever the case, so a set renamed only in
+// case is still the same set.
+const findSet = (scope, name) => allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase());
+const saveLocals = (list) => writeJSON(SETS_KEY, list.length ? list.map(({ name, f }) => ({ name, f })) : null);
+
+let active = readJSON(ACTIVE_KEY, null); // { scope, name, base }
+
+// The active set, with edited = the filter differs from it now; or null.
+export function activeSet() {
+  const s = active && findSet(active.scope, active.name);
+  return s ? { ...s, edited: !sameFilter(filter, s.f) } : null;
+}
+
+// The active set as stored, and a filter to use with it (null: no set),
+// for putting things back as they were.
+export const activeRef = () => active && { ...active };
+export function adoptFilter(f, ref = null) {
+  active = ref;
+  writeJSON(ACTIVE_KEY, active);
+  setFilter(f);
+}
+
+export function pickSet(scope, name) {
+  const s = findSet(scope, name);
+  if (!s) return;
+  active = { scope, name, base: s.f };
+  writeJSON(ACTIVE_KEY, active);
+  setFilter(s.f);
+}
+
+// The filter now, as this browser's set `name` (replacing one of that name,
+// any case), which becomes the active one.
+export function saveLocalSet(name) {
+  const list = localSets().filter((s) => s.name.toLowerCase() !== name.toLowerCase());
+  list.push({ scope: 'local', name, f: filterState() });
+  saveLocals(list);
+  active = { scope: 'local', name, base: filterState() };
+  writeJSON(ACTIVE_KEY, active);
+  emit('filters');
+}
+
+export function deleteLocalSet(name) {
+  saveLocals(localSets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()));
+  if (active?.scope === 'local' && active.name.toLowerCase() === name.toLowerCase()) {
+    active = null;
+    writeJSON(ACTIVE_KEY, null);
+  }
+  emit('filters');
+}
+
+// After a hello: follow a global set that changed in Settings, unless this
+// browser changed the filter since picking it.
+function followGlobal() {
+  const s = active?.scope === 'global' && findSet('global', active.name);
+  if (!s || sameFilter(s.f, active.base) || !sameFilter(filter, active.base)) return;
+  active.base = s.f;
+  active.name = s.name;
+  writeJSON(ACTIVE_KEY, active);
+  setFilter(s.f);
+}
+
+// "dst MV, !20-60; no Sode takes", for titles and lists.
+export function filterSummary(f) {
+  const parts = [];
+  if (f.src.trim()) parts.push(`sources ${f.src.trim()}`);
+  if (f.dst.trim()) parts.push(`destinations ${f.dst.trim()}`);
+  if (!f.sode) parts.push('no Sode takes');
+  if (!f.ext) parts.push('no other panels');
+  else if (f.hidden) parts.push('with globally hidden');
+  return parts.join('; ') || 'everything';
 }
 
 // The globally hidden destinations, compiled once per expression. Blank

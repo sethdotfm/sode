@@ -33,6 +33,8 @@ func TestValidate(t *testing.T) {
 		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
 		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 		"long hidden dsts":  func(c *Config) { c.HiddenDsts = strings.Repeat("x", 501) },
+		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
+		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
 	} {
 		c := ok
 		mut(&c)
@@ -57,6 +59,7 @@ func TestSaveLoad(t *testing.T) {
 	c.TrustedProxies = []string{"10.0.0.2", "172.18.0.0/16"}
 	c.LevelNumbering, c.PinMaxTries = "va", 3
 	c.HiddenDsts = "MV, !1-5"
+	c.FilterSets = []FilterSet{{Name: "All except shader", Dst: "!MON", Sode: true, Ext: true}, {Name: "Panels", Ext: true, Hidden: true}}
 	c.SettingsPin, _ = HashPin("1234")
 	c.Normalize()
 	if err := Save(path, c); err != nil {

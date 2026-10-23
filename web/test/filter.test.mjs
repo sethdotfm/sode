@@ -88,3 +88,27 @@ test('histRows', async () => {
   setFilter({ ...FILTER_DEFAULT, dst: '"open' }); // bad text keeps the last good matcher
   assert.equal(show(), '9x3 5 4 f3,2/2');
 });
+
+test('filter sets', async () => {
+  const core = await import('../core.js'); // same instance as the histRows test
+  const { S, setFilter, filterState, activeSet, pickSet, saveLocalSet, deleteLocalSet, allSets, FILTER_DEFAULT } = core;
+  S.cfg = { numberOffset: 1, filterSets: [{ name: 'No shader', src: '', dst: '!MON', sode: true, ext: true, hidden: false }] };
+  assert.deepEqual(allSets().map((s) => `${s.scope}:${s.name}`), ['all:All', 'global:No shader']);
+
+  pickSet('global', 'No shader');
+  assert.equal(filterState().dst, '!MON');
+  assert.equal(activeSet().edited, false);
+  setFilter({ ...filterState(), dst: '!MON, !PVW' });
+  assert.equal(activeSet().edited, true);
+  saveLocalSet('Mine');
+  assert.deepEqual(activeSet() && [activeSet().scope, activeSet().name, activeSet().edited], ['local', 'Mine', false]);
+  assert.equal(JSON.parse(localStorage.getItem('sode-filter-sets'))[0].f.dst, '!MON, !PVW');
+  saveLocalSet('mine'); // same name, any case: replaced
+  assert.equal(allSets().filter((s) => s.scope === 'local').length, 1);
+  deleteLocalSet('mine');
+  assert.equal(activeSet(), null);
+  assert.equal(localStorage.getItem('sode-filter-sets'), null);
+
+  pickSet('all', 'All');
+  assert.deepEqual(filterState(), { ...FILTER_DEFAULT });
+});

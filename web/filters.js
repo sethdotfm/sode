@@ -1,10 +1,15 @@
 // Recent's Filters dialog, shared by both layouts: which kinds of entry
 // show, and filter expressions for sources and destinations, edited as
 // rule rows (Visual) or typed (Code). Everything applies as you type and
-// is kept per browser (core.js). Share link puts the filter in a URL that
-// applies it in another browser; the URL is cleaned once read.
+// is kept per browser (core.js). Named sets (global from Settings, or this
+// browser's own) are quick buttons in Recent's header. Share link puts the
+// filter in a URL that applies it in another browser; the URL is cleaned
+// once read.
 
-import { $, el, S, on, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter } from './core.js';
+import {
+  $, el, S, on, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
+  allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, filterSummary,
+} from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 
 const root = $('filters');
@@ -229,6 +234,26 @@ function renderButtons() {
     b.classList.toggle('sode__filters-btn--on', n > 0);
     b.setAttribute('aria-label', n ? `Filters, ${n} active` : 'Filters, none active');
   }
+  // Quick buttons for the sets, once there's any besides All. The active
+  // one is selected; * when its filter has been edited since.
+  const sets = allSets();
+  const a = activeSet();
+  for (const box of document.querySelectorAll('[data-sets]')) {
+    box.replaceChildren(...(sets.length < 2 ? [] : sets.map((s) => {
+      const on = !!a && setKey(a) === setKey(s);
+      const b = el('button', 'pb-chip sode__set', s.name + (on && a.edited ? '*' : ''));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(on));
+      if (on && a.edited) b.setAttribute('aria-label', `${s.name} (edited)`);
+      b.title = `${s.scope === 'global' ? 'For everyone' : s.scope === 'local' ? 'This browser' : 'Built in'}: ${filterSummary(s.f)}${on && a.edited ? '. Edited; click to go back to it.' : ''}`;
+      b.addEventListener('click', () => {
+        pickSet(s.scope, s.name);
+        if (filtersOpen()) reload();
+      });
+      return b;
+    })));
+  }
+  if (filtersOpen()) renderSetBar();
 }
 
 // ---- open / close
@@ -244,6 +269,9 @@ export function openFilters() {
   eds.src.load(f.src);
   eds.dst.load(f.dst);
   $('flt-share').hidden = true;
+  $('flt-set-name-row').hidden = true;
+  deleting = false;
+  renderSetBar();
   root.hidden = false;
   dialog.focus();
 }
@@ -266,12 +294,113 @@ for (const k of ['sode', 'ext', 'hidden']) {
     renderShow();
   });
 }
-$('flt-clear').addEventListener('click', () => {
-  setFilter(FILTER_DEFAULT);
+// Loads the editors from the filter now (after a set is picked).
+function reload() {
+  const f = filterState();
   renderShow();
-  eds.src.load('');
-  eds.dst.load('');
+  eds.src.load(f.src);
+  eds.dst.load(f.dst);
   $('flt-share').hidden = true;
+}
+
+$('flt-clear').addEventListener('click', () => {
+  pickSet('all', 'All');
+  reload();
+});
+
+// ---- the set bar: pick, save, save as, delete
+
+const setKey = (s) => `${s.scope}:${s.name}`;
+let deleting = false; // Delete was pressed once; the next press deletes
+
+function renderSetBar() {
+  const a = activeSet();
+  const select = $('flt-set');
+  const groups = [['all', 'Built in'], ['global', 'For everyone (Settings)'], ['local', 'This browser']];
+  const sets = allSets();
+  const opts = [];
+  if (!a) {
+    const o = el('option', null, 'Unsaved filters');
+    o.value = '';
+    opts.push(o);
+  }
+  for (const [scope, label] of groups) {
+    const these = sets.filter((s) => s.scope === scope);
+    if (!these.length) continue;
+    const g = el('optgroup');
+    g.label = label;
+    for (const s of these) {
+      const o = el('option', null, s.name + (a && setKey(a) === setKey(s) && a.edited ? ' (edited)' : ''));
+      o.value = setKey(s);
+      g.append(o);
+    }
+    opts.push(g);
+  }
+  select.replaceChildren(...opts);
+  select.value = a ? setKey(a) : '';
+  const local = a?.scope === 'local';
+  $('flt-set-save').disabled = !(local && a.edited);
+  $('flt-set-del').disabled = !local;
+  $('flt-set-del').textContent = deleting && local ? `Delete “${a.name}”?` : 'Delete';
+  $('flt-set-del').classList.toggle('pb-btn--danger', deleting && local);
+  $('flt-set-note').textContent = !a ? 'Save as… names these filters for a quick button.'
+    : a.scope === 'global' ? (a.edited ? 'Edited from a set for everyone. Save as… keeps your version in this browser.' : 'Set up for everyone in Settings. Save as… makes your own copy to tweak.')
+    : a.scope === 'local' ? (a.edited ? 'Edited. Save updates the set.' : 'Saved in this browser.')
+    : '';
+}
+
+$('flt-set').addEventListener('change', (e) => {
+  const [scope, ...rest] = e.target.value.split(':');
+  if (!scope) return;
+  deleting = false;
+  pickSet(scope, rest.join(':'));
+  reload();
+});
+$('flt-set-save').addEventListener('click', () => {
+  const a = activeSet();
+  if (a?.scope === 'local') saveLocalSet(a.name);
+});
+$('flt-set-del').addEventListener('click', () => {
+  const a = activeSet();
+  if (a?.scope !== 'local') return;
+  if (!deleting) { deleting = true; renderSetBar(); return; }
+  deleting = false;
+  deleteLocalSet(a.name);
+  $('flt-set').focus();
+});
+
+function askName() {
+  const a = activeSet();
+  const f = $('flt-set-name');
+  f.value = !a || a.scope === 'all' ? '' : a.scope === 'global' ? `${a.name} (mine)` : a.name;
+  f.classList.remove('pb-input--invalid');
+  $('flt-set-name-row').hidden = false;
+  f.select();
+}
+function closeName() {
+  $('flt-set-name-row').hidden = true;
+  $('flt-set-saveas').focus();
+}
+function saveName() {
+  const f = $('flt-set-name');
+  const name = f.value.trim();
+  if (!name || name.toLowerCase() === 'all') {
+    f.classList.add('pb-input--invalid');
+    $('flt-set-note').textContent = name ? '“All” is built in; pick another name.' : 'Give the set a name.';
+    f.focus();
+    return;
+  }
+  eds.src.flush();
+  eds.dst.flush();
+  saveLocalSet(name.slice(0, 32));
+  closeName();
+}
+$('flt-set-saveas').addEventListener('click', askName);
+$('flt-set-name-ok').addEventListener('click', saveName);
+$('flt-set-name-cancel').addEventListener('click', closeName);
+$('flt-set-name').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); saveName(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeName(); }
 });
 
 // Keys stay in the dialog: Esc closes, Tab wraps. Stopped here so the
@@ -297,6 +426,8 @@ $('flt-share-btn').addEventListener('click', async () => {
   const f = filterState();
   const out = {};
   for (const k of Object.keys(FILTER_DEFAULT)) if (f[k] !== FILTER_DEFAULT[k]) out[k] = f[k];
+  const a = activeSet();
+  if (a && a.scope !== 'all') out.name = a.name;
   const url = `${location.origin}${location.pathname}?f=${b64(JSON.stringify(out))}`;
   $('flt-share').hidden = false;
   $('flt-share-url').value = url;
@@ -316,24 +447,33 @@ export function applySharedLink() {
   params.delete('f');
   const q = params.toString();
   history.replaceState(null, '', location.pathname + (q ? `?${q}` : '') + location.hash);
-  let next;
-  try { next = normFilter(JSON.parse(unb64(raw))); } catch (e) {
+  let next, name;
+  try {
+    const raw2 = JSON.parse(unb64(raw));
+    next = normFilter(raw2);
+    name = typeof raw2.name === 'string' ? raw2.name.trim().slice(0, 32) : '';
+  } catch (e) {
     showResult('warn', 'Filter link not understood', 'This browser\'s filters are unchanged.');
     return;
   }
-  const prev = filterState();
-  setFilter(next);
-  const undo = () => {
-    const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Undo');
+  const prev = filterState(), prevRef = activeRef();
+  adoptFilter(next);
+  const btn = (text, fn) => {
+    const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', text);
     b.type = 'button';
-    b.addEventListener('click', () => {
-      setFilter(prev);
-      showResult('ok', 'Filters restored', 'Back to this browser\'s filters from before the link.');
-    });
+    b.addEventListener('click', fn);
     return b;
   };
-  showResult('info', 'Filters from a shared link', () => el('span', null,
-    'Recent in this browser now shows only what they let through; Filters changes them. ', undo()));
+  const undo = () => btn('Undo', () => {
+    adoptFilter(prev, prevRef);
+    showResult('ok', 'Filters restored', 'Back to this browser\'s filters from before the link.');
+  });
+  const keep = () => btn(`Save as “${name}”`, () => {
+    saveLocalSet(name);
+    showResult('ok', 'Set saved', `“${name}” is a quick button in this browser's Recent.`);
+  });
+  showResult('info', name ? `Filters “${name}” from a shared link` : 'Filters from a shared link', () => el('span', 'sode__filters-empty',
+    'Recent in this browser now shows only what they let through.', name && name.toLowerCase() !== 'all' ? keep() : null, undo()));
 }
 
 // ---- when filters hide everything
@@ -343,7 +483,7 @@ export function emptyNote(rows) {
   if (rows.length || !S.hist.length) return null;
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Clear filters');
   clear.type = 'button';
-  clear.addEventListener('click', () => setFilter(FILTER_DEFAULT));
+  clear.addEventListener('click', () => pickSet('all', 'All'));
   const open = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Filters…');
   open.type = 'button';
   open.addEventListener('click', openFilters);

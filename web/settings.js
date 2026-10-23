@@ -3,7 +3,7 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, filterState, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 
@@ -66,6 +66,8 @@ export function openSettings() {
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderHiddenNote();
+  gsets = (S.cfg.filterSets || []).map((s) => ({ ...s }));
+  renderGlobalSets();
   renderNamesStatus();
   window.scrollTo(0, 0);
   renderLock(true);
@@ -104,6 +106,7 @@ function readSettings() {
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
+  c.filterSets = gsets;
 
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
@@ -194,6 +197,41 @@ function renderOffsetNote() {
   const off = Number($('cfg-offset').value);
   $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
 }
+
+// ---- filter sets for everyone: a draft list, saved with the form
+
+let gsets = [];
+
+function renderGlobalSets() {
+  const rows = gsets.map((s, i) => {
+    const rm = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
+    rm.type = 'button';
+    rm.setAttribute('aria-label', `Remove filter set ${s.name}`);
+    rm.addEventListener('click', () => { gsets.splice(i, 1); renderGlobalSets(); $('cfg-set-name').focus(); });
+    return el('li', 'sode__gset', el('strong', null, s.name), el('span', 'sode__hint', filterSummary(normFilter(s))), rm);
+  });
+  $('cfg-sets').replaceChildren(...(rows.length ? rows : [el('li', 'sode__hint', 'None yet.')]));
+}
+
+$('cfg-set-add').addEventListener('click', () => {
+  const f = $('cfg-set-name');
+  const name = f.value.trim().slice(0, 32);
+  if (!name || name.toLowerCase() === 'all') {
+    f.classList.add('pb-input--invalid');
+    f.focus();
+    return;
+  }
+  f.classList.remove('pb-input--invalid');
+  const i = gsets.findIndex((s) => s.name.toLowerCase() === name.toLowerCase());
+  const set = { name, ...filterState() };
+  if (i >= 0) gsets[i] = set;
+  else gsets.push(set);
+  f.value = '';
+  renderGlobalSets();
+});
+$('cfg-set-name').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); $('cfg-set-add').click(); }
+});
 
 // What the globally hidden expression matches, against the router's names.
 function renderHiddenNote() {

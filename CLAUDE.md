@@ -40,6 +40,7 @@ The web UI is embedded with `go:embed` (`web/web.go`), so frontend edits need th
   - It then applies this browser's Recent filter (`core.js`: `localStorage['sode-filter']`, `setFilter`). The filter covers kinds (Sode, panel, globally hidden) plus `src`/`dst` expressions.
   - Folders keep every entry in `f.entries`, so Undo all covers the whole confirm, and the visible ones in `f.shown`.
   - The expression language is `web/filter.js`: pure, with no imports. The server's `hiddenDsts` uses the same language and is evaluated only in browsers.
+  - Named filter sets come from three places: the built-in All, `cfg.filterSets` (Settings, global) and `localStorage['sode-filter-sets']`. The active one is `sode-filter-active` `{scope, name, base}`. `followGlobal()` on hello applies a changed global set, unless the browser edited the filter since picking it (filter ≠ base). Set names are unique per scope, ignoring case.
   - `web/filters.js` holds the dialog (Visual/Code editors, live preview), share links (`?f=` base64url JSON, applied and stripped in `main.js`) and the empty-state note.
 - Keep it light: no frameworks, no extra deps without asking.
 

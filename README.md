@@ -14,6 +14,10 @@ To patch one source to several destinations, press `+` (or the + button) instead
 - Everything applies as you type, with a live count of what matches.
 - **Share link** copies a URL that applies the same filters in another browser. The URL is cleaned once read, and a banner offers Undo.
 - Desktop keyboard mode opens Filters with `/`.
+- **Filter sets** are named filters, shown as quick buttons beside Filters (e.g. **All**, **All except shader**, **My destinations**). Click one to switch. A `*` means you've edited it since; click it again to go back.
+  - Global sets are set up once in Settings → History → Filter sets for everyone, from the current browser's filters. Every browser gets them. A browser using a global set follows changes to it, unless it has edited it.
+  - Each browser can also keep its own: Filters → Save as… names the current filters, Save updates the set, Delete removes it. Picking a global set and using Save as… makes a copy to tweak.
+  - A shared link carries the set's name, and the banner offers to save it as a set in that browser.
 
 | Typed | Matches |
 |---|---|
@@ -75,6 +79,7 @@ On first start, when there is no config file yet, it is created from these seed 
 | | `routerShow` | `address` | What the status card shows for the router: `address`, `name` (falls back to the address when no name is set) or `none`. The disconnected banner always shows the address. Settings only |
 | | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colors for 1-17, built-in swatches after). Settings only, no seed var |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
+| | `filterSets` | `[]` | Named Recent filters offered to every browser as quick buttons: `name`, `src`, `dst` (filter expressions), `sode`, `ext`, `hidden`. Settings only |
 | | `hiddenDsts` | | Filter expression (see Filters) for destinations whose changes from other panels every browser's Recent hides unless its Filters show them. Still recorded. Settings only |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
 | | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |

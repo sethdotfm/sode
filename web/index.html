@@ -77,6 +77,7 @@
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__recent-head" id="history-bar" hidden>
         <span class="sode__label" id="history-head">Recent</span>
+        <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
         <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
       </div>
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent takes"></ul>
@@ -265,6 +266,15 @@
     <fieldset class="sode__group">
       <legend>History</legend>
       <div class="sode__field">
+        <span class="sode__field-label">Filter sets for everyone</span>
+        <ul class="sode__gsets" id="cfg-sets"></ul>
+        <div class="sode__names">
+          <input class="pb-input" id="cfg-set-name" maxlength="32" placeholder="Name, e.g. All except shader" aria-label="New filter set name" autocomplete="off">
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-set-add">Add this browser's current filters</button>
+        </div>
+        <span class="sode__hint">Quick buttons in every browser's Recent. Set up the filter with Recent's Filters first; adding a name that exists replaces it. Saved with Save.</span>
+      </div>
+      <div class="sode__field">
         <label for="cfg-hidden">Globally hidden destinations</label>
         <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
         <span class="sode__hint" id="cfg-hidden-note"></span>
@@ -312,6 +322,7 @@
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head" hidden>
         <div class="sode__recent-head">
           <span class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></span>
+          <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
@@ -355,6 +366,21 @@
   <div class="pb-modal sode__filters" role="dialog" aria-modal="true" aria-labelledby="filters-title" tabindex="-1" id="filters-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="filters-title">Recent filters</span><span class="sode__hint">This browser only. Applies as you type.</span></div>
     <div class="pb-modal__body sode__filters-body">
+      <div class="sode__filters-sets">
+        <div class="sode__filters-set">
+          <label class="sode__label" for="flt-set">Set</label>
+          <span class="pb-select-wrap"><select id="flt-set" class="pb-select"></select></span>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-save">Save</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-saveas">Save as…</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-del">Delete</button>
+        </div>
+        <div class="sode__filters-set" id="flt-set-name-row" hidden>
+          <input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name, e.g. My destinations" aria-label="Set name" autocomplete="off">
+          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-set-name-ok">Save set</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-set-name-cancel">Cancel</button>
+        </div>
+        <span class="sode__hint" id="flt-set-note"></span>
+      </div>
       <fieldset class="sode__filters-show">
         <legend class="sode__label">Show</legend>
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-sode"><span class="pb-check__label">Takes made in Sode</span></label>
