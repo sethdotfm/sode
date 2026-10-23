@@ -12,6 +12,26 @@ export function el(tag, cls, ...kids) {
   return e;
 }
 
+// Text cut off with an ellipsis shows in full on hover. Set as the pointer
+// arrives, so it follows the current width, and never replaces a title of
+// the element's own.
+document.addEventListener('mouseover', (e) => {
+  for (let n = e.target; n instanceof HTMLElement; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (cs.textOverflow !== 'ellipsis' || cs.overflowX === 'visible') continue;
+    if (n.title && !('cutTip' in n.dataset)) return;
+    const text = (n instanceof HTMLInputElement ? n.value : n.textContent).replace(/\s+/g, ' ').trim();
+    if (n.scrollWidth > n.clientWidth && text) {
+      n.title = text;
+      n.dataset.cutTip = '';
+    } else if ('cutTip' in n.dataset) {
+      n.removeAttribute('title');
+      delete n.dataset.cutTip;
+    }
+    return;
+  }
+});
+
 // ---- state & events
 
 export const S = {
@@ -461,6 +481,11 @@ export function levelBar(on) {
     const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
     return levelColor(slot, l);
   }));
+  // For the two-row compact bar: an odd first level (0 or V) stands on its
+  // own to the left of two equal rows.
+  const odd = S.levels.length % 2;
+  if (odd) row.classList.add('sode__bar--odd');
+  row.style.setProperty('--sode-bar-cols', Math.floor(S.levels.length / 2) + odd);
   const sorted = [...set].sort((a, b) => a - b);
   row.setAttribute('role', 'img');
   row.setAttribute('aria-label', sorted.length ? `Levels ${levelText(sorted)}` : 'No levels');

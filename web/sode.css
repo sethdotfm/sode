@@ -349,6 +349,17 @@ code,
   flex: 0 0 auto;
   gap: var(--pb-space-1);
 }
+/* Compact (history too narrow for full bars): two rows of thinner slots,
+   an odd first level (0 or V) on its own to their left. */
+.sode__hist--compact .sode__bar {
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(var(--sode-bar-cols), auto);
+}
+.sode__hist--compact .sode__bar--odd > .sode__slot:first-child {
+  grid-row: span 2;
+  height: auto;
+}
 
 .sode__feed {
   display: flex;
@@ -413,17 +424,16 @@ code,
   display: flex;
   gap: var(--pb-space-4);
 }
-/* A folder: one confirm's takes, listed under a summary row. The list
-   cancels the row's padding and border, so a take's columns sit exactly
-   under the folder's; an accent bar on the left marks them as members. */
+/* A folder: one confirm's takes, listed under a summary row and inside
+   its border. Being a subgrid, a take's columns still line up with the
+   folder's; an accent bar on the left marks them as members. */
 .sode__hist-folder {
-  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
   list-style: none;
-  margin: 0 calc(-1 * (var(--pb-space-3) + var(--pb-border-w)));
-  padding: var(--pb-space-3) 0 var(--pb-space-2);
+  margin: 0;
+  padding: 0 0 var(--pb-space-2);
   row-gap: var(--pb-space-2);
 }
 /* Keyboard mode (--keys, set only from the keyboard): the list has focus
@@ -490,6 +500,7 @@ code,
   font-family: var(--pb-font-mono);
   min-width: 5ch;
   text-align: right;
+  white-space: nowrap;
 }
 .pb-btn.sode__patch {
   font-size: var(--pb-text-lg);
@@ -500,6 +511,7 @@ code,
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
 .sode__hist-more {
@@ -659,10 +671,12 @@ code,
   gap: var(--pb-space-6);
   padding: var(--pb-space-5);
 }
-/* Fixed-size slots shrink so a full level bar fits a phone. A thick
-   outline reads as filled at this size, so every slot gets the thin one;
-   a fixed width keeps two-digit slots from growing when filled. */
-[data-layout="phone"] .sode__slot {
+/* Fixed-size slots shrink so a full level bar fits a phone (or folds into
+   a compact history). A thick outline reads as filled at this size, so
+   every slot gets the thin one; a fixed width keeps two-digit slots from
+   growing when filled. */
+[data-layout="phone"] .sode__slot,
+.sode__hist--compact .sode__slot {
   border-width: var(--pb-border-w);
   font-size: var(--pb-text-2xs);
   height: var(--pb-space-7);
@@ -670,7 +684,8 @@ code,
   width: var(--pb-space-7);
 }
 [data-layout="phone"] .sode__bar { gap: var(--pb-space-1); }
-[data-layout="phone"] .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
+[data-layout="phone"] .sode__slot:not(.sode__slot--on),
+.sode__hist--compact .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
 
 /* The phone view fills the visual viewport, so on iOS the composer sits on
    top of the keyboard. --vvh/--vvt come from mobile.js. */

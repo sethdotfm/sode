@@ -377,8 +377,25 @@ function renderHistory(scroll = false) {
   }
   histList.replaceChildren(...list.map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
   $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
+  fitBars();
   if (scroll === true && keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
 }
+
+// When the full level bars leave a route too little room, every bar in
+// the list folds into two thinner rows. Checked with the full bars each
+// time, before the page paints, so it never flickers or sticks.
+function fitBars() {
+  histList.classList.remove('sode__hist--compact');
+  const cut = [...histList.querySelectorAll('.sode__hist-route')].some((r) => r.scrollWidth > r.clientWidth);
+  histList.classList.toggle('sode__hist--compact', cut);
+}
+let fitWidth = 0;
+new ResizeObserver(([r]) => {
+  if (r.contentRect.width === fitWidth) return;
+  fitWidth = r.contentRect.width;
+  fitBars();
+}).observe($('history'));
+document.fonts.ready.then(fitBars); // names first measured in a fallback font
 
 // ---- keyboard mode: focus on the history list, where single keys act.
 // The cursor is 'e<id>' on a take or 'f<group>' on a folder. Folders open
