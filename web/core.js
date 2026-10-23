@@ -467,18 +467,21 @@ export function chevron(open) {
   return icon;
 }
 
-// Clock: 'auto' follows the browser's locale; '12' or '24' is a per-browser
-// override, since browsers don't pick up the OS 12/24-hour switch.
+// Clock, per browser: '24' (default), '12', or 'locale' to follow the
+// browser's language. Pages can't read the OS 12/24-hour switch.
 const CLOCK_KEY = 'sode-clock';
 export function clockPref() {
-  try { return localStorage.getItem(CLOCK_KEY) || 'auto'; } catch (e) { return 'auto'; }
+  let v = null;
+  try { v = localStorage.getItem(CLOCK_KEY); } catch (e) {}
+  return v === 'auto' ? 'locale' : v === '12' || v === 'locale' ? v : '24';
 }
 
 export const fmtTime = (iso) => {
   const d = new Date(iso);
   const pref = clockPref();
   const opts = { minute: '2-digit', second: '2-digit' };
-  if (pref !== 'auto') opts.hour12 = pref === '12';
+  // hourCycle, not hour12: Chrome shows 24:05 for hour12: false.
+  if (pref !== 'locale') opts.hourCycle = pref === '12' ? 'h12' : 'h23';
   // 3:04:05 PM but 03:04:05 / 15:04:05.
   const h12 = /h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric', ...opts }).resolvedOptions().hourCycle);
   const t = d.toLocaleTimeString([], { hour: h12 ? 'numeric' : '2-digit', ...opts });
@@ -844,7 +847,7 @@ export function initClock() {
   select.value = clockPref();
   select.addEventListener('change', () => {
     try {
-      if (select.value === 'auto') localStorage.removeItem(CLOCK_KEY);
+      if (select.value === '24') localStorage.removeItem(CLOCK_KEY);
       else localStorage.setItem(CLOCK_KEY, select.value);
     } catch (e) {}
     emit('history');
