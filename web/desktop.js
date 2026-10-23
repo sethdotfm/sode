@@ -2,7 +2,7 @@
 // + in the destination box adds another destination as a chip.
 
 import {
-  $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, levelBar, pickButtons,
+  $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
@@ -572,6 +572,7 @@ $('confirm-ok').addEventListener('click', () => {
 
 on('hello', () => {
   pager.reset();
+  lvlInput.value = relabelLevels(lvlInput.value);
   lvlInput.placeholder = defaultLevelsText();
   buildPicker();
   renderLevels();

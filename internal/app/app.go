@@ -80,6 +80,7 @@ type App struct {
 	dumpAt         time.Time
 
 	pinFails map[string]pinFail // client IP → wrong settings PINs
+	cfgMu    sync.Mutex         // serialises settings saves
 }
 
 type statusMsg struct {
@@ -435,6 +436,7 @@ func (a *App) reply(c *client, v any) {
 type pinFail struct {
 	n     int
 	until time.Time
+	busy  bool // a PIN from this IP is being checked
 }
 
 const (
@@ -442,47 +444,86 @@ const (
 	pinLockout  = 30 * time.Second
 )
 
-// Unlock checks a settings PIN from ip. After pinMaxFails wrong tries in a
-// row, ip is refused for pinLockout.
-func (a *App) Unlock(ip, pin string) error {
+var errLocked = errors.New("Settings are locked; enter the PIN again.")
+
+// Unlock checks a settings PIN from c and, if it's right, unlocks c for the
+// current PIN only: changing or removing the PIN locks it again. One PIN
+// per IP is checked at a time, and after pinMaxFails wrong tries in a row
+// the IP is refused for pinLockout. gen is c's lock generation when the
+// PIN was sent, so a lock that arrives meanwhile wins.
+func (a *App) Unlock(c *client, pin string) error {
+	a.mu.Lock()
 	hash := a.r().cfg.SettingsPin
 	if hash == "" {
+		a.mu.Unlock()
 		return nil
 	}
-	a.mu.Lock()
-	f := a.pinFails[ip]
-	a.mu.Unlock()
+	gen := c.lockGen
+	f := a.pinFails[c.ip]
 	if left := time.Until(f.until); left > 0 {
+		a.mu.Unlock()
 		return fmt.Errorf("too many wrong PINs; try again in %d s", int(left.Seconds())+1)
 	}
+	if f.busy {
+		a.mu.Unlock()
+		return errors.New("another PIN from this address is being checked; try again")
+	}
+	f.busy = true
+	a.pinFails[c.ip] = f
+	a.mu.Unlock()
+
 	ok := config.CheckPin(hash, pin)
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	f = a.pinFails[c.ip]
+	f.busy = false
 	if ok {
-		delete(a.pinFails, ip)
+		delete(a.pinFails, c.ip)
+		if c.lockGen != gen || a.r().cfg.SettingsPin != hash {
+			return errLocked
+		}
+		c.pin = hash
 		return nil
 	}
 	f.n++
 	if f.n >= pinMaxFails {
 		f = pinFail{until: time.Now().Add(pinLockout)}
-		log.Printf("settings: %d wrong PINs from %s, locked out for %v", pinMaxFails, ip, pinLockout)
+		log.Printf("settings: %d wrong PINs from %s, locked out for %v", pinMaxFails, c.ip, pinLockout)
 	}
-	a.pinFails[ip] = f
+	a.pinFails[c.ip] = f
 	return errors.New("wrong PIN")
+}
+
+// Lock forgets c's unlock, including one still being checked.
+func (a *App) Lock(c *client) {
+	a.mu.Lock()
+	c.pin = ""
+	c.lockGen++
+	a.mu.Unlock()
 }
 
 // locked reports whether c may not change settings.
 func (a *App) locked(c *client) bool {
-	return a.r().cfg.SettingsPin != "" && !c.unlocked.Load()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	hash := a.r().cfg.SettingsPin
+	return hash != "" && c.pin != hash
 }
 
-// SaveSettings applies c from a browser. Browsers never see the PIN hash,
-// so the current one is kept unless pin sets a new one or clearPin drops it.
-func (a *App) SaveSettings(c config.Config, pin string, clearPin bool) error {
-	c.SettingsPin = a.r().cfg.SettingsPin
+// SaveSettings applies cfg from c. Browsers never see the PIN hash, so the
+// current one is kept unless pin sets a new one or clearPin drops it.
+// Saves run one at a time, so one can't drop a PIN another just set.
+func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bool) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if a.locked(c) {
+		return errLocked
+	}
+	cfg.SettingsPin = a.r().cfg.SettingsPin
 	switch {
 	case clearPin:
-		c.SettingsPin = ""
+		cfg.SettingsPin = ""
 	case pin != "":
 		if err := config.CheckPinRules(pin); err != nil {
 			return err
@@ -491,9 +532,9 @@ func (a *App) SaveSettings(c config.Config, pin string, clearPin bool) error {
 		if err != nil {
 			return err
 		}
-		c.SettingsPin = h
+		cfg.SettingsPin = h
 	}
-	return a.ApplyConfig(c)
+	return a.ApplyConfig(cfg)
 }
 
 // ApplyConfig validates, saves and applies new settings. Router-side changes
@@ -528,8 +569,16 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.status.Addr = c.Router
 	}
 	hello := a.hello(page)
+	locked, _ := json.Marshal(map[string]any{"t": "locked"})
 	for cl := range a.clients {
 		a.deliver(cl, hello)
+		// An unlock is for the PIN it was entered against.
+		if cl.pin != "" && cl.pin != c.SettingsPin {
+			cl.pin = ""
+			if c.SettingsPin != "" {
+				a.deliver(cl, locked)
+			}
+		}
 	}
 	a.mu.Unlock()
 	if reconnect {
@@ -623,11 +672,12 @@ const (
 	takeGrace = time.Second
 )
 
-func levelList(ls []int) string {
+// levelList is UI levels as shown, per LevelNumbering.
+func levelList(r *runtime, ls []int) string {
 	sort.Ints(ls)
 	parts := make([]string, len(ls))
 	for i, l := range ls {
-		parts[i] = fmt.Sprint(l)
+		parts[i] = r.cfg.LevelLabel(l)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -649,7 +699,7 @@ func (a *App) take(c *client, req takeReq) {
 	for _, ui := range req.Levels {
 		l, ok := r.byUI[ui]
 		if !ok {
-			res["err"] = fmt.Sprintf("unknown level %d", ui)
+			res["err"] = "unknown level " + r.cfg.LevelLabel(ui)
 			a.reply(c, res)
 			return
 		}
@@ -680,7 +730,7 @@ func (a *App) take(c *client, req takeReq) {
 	a.mu.Unlock()
 
 	if len(protected) > 0 {
-		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(protected)))
+		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return
 	}
 	defer func() {
@@ -748,7 +798,7 @@ func (a *App) take(c *client, req takeReq) {
 				missing = append(missing, r.byWire[wire].UI)
 			}
 			if len(missing) > 0 {
-				errs = append(errs, "no confirmation from router for levels "+levelList(missing))
+				errs = append(errs, "no confirmation from router for levels "+levelList(r, missing))
 			}
 		}
 	}
@@ -762,7 +812,7 @@ func (a *App) take(c *client, req takeReq) {
 		res["already"] = e.Already
 	}
 	if sendErr != nil {
-		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(unsent), sendErr))
+		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(r, unsent), sendErr))
 	}
 	var err error
 	if len(errs) > 0 {

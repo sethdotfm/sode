@@ -463,10 +463,11 @@ body { zoom: var(--sode-scale); }
   padding: 0;
 }
 .sode__group > legend { margin-bottom: var(--pb-space-5); padding: 0; }
-/* Locked by a settings PIN: only the prompt shows until it's entered. */
+/* Locked by a settings PIN: only the prompt and this browser's own
+   options show until it's entered. */
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
-.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock) { display: none; }
+.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device) { display: none; }
 .sode__field > .pb-btn-group { align-self: flex-start; flex-wrap: wrap; }
 .sode__fields {
   display: grid;

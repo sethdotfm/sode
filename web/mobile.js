@@ -4,7 +4,7 @@
 // or the button) adds another destination and stays on the step.
 
 import {
-  $, el, S, on, connState, setDot, search, parseLevels, levelInput, defaultLevelsText, levelBar, pickButtons, allLevels,
+  $, el, S, on, connState, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
   fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   chevron, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
@@ -586,6 +586,7 @@ if (vv) {
 
 on('hello', () => {
   pager.reset();
+  inputs.lvl.value = relabelLevels(inputs.lvl.value);
   buildPicker();
   setStep(M.step, false);
   renderRecent();

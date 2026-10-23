@@ -3,13 +3,13 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"log"
 	"net"
 	"net/http"
 	"net/netip"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -18,9 +18,14 @@ import (
 )
 
 type client struct {
-	ip       string
-	send     chan []byte
-	unlocked atomic.Bool // settings PIN entered; cleared when settings close
+	ip   string
+	send chan []byte
+
+	// Guarded by App.mu. pin is the settings PIN hash this connection
+	// unlocked; a changed or removed PIN no longer matches it. lockGen
+	// counts locks, so an unlock can't land after a later lock.
+	pin     string
+	lockGen int
 }
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -137,8 +142,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var m struct {
-			T      string         `json:"t"`
-			Before int            `json:"before"`
+			T        string         `json:"t"`
+			Before   int            `json:"before"`
 			Config   *config.Config `json:"config"`
 			Pin      string         `json:"pin"`
 			ClearPin bool           `json:"clearPin"`
@@ -158,17 +163,15 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "refreshNames":
 			go a.RefreshNames()
 		case "unlock":
-			go func(pin string) {
-				res := map[string]any{"t": "unlockResult", "ok": true}
-				if err := a.Unlock(c.ip, pin); err != nil {
-					res["ok"], res["err"] = false, err.Error()
-				} else {
-					c.unlocked.Store(true)
-				}
-				a.reply(c, res)
-			}(m.Pin)
+			// Checked in line, so a lock sent after it is handled after it
+			// and one connection checks one PIN at a time.
+			res := map[string]any{"t": "unlockResult", "ok": true}
+			if err := a.Unlock(c, m.Pin); err != nil {
+				res["ok"], res["err"] = false, err.Error()
+			}
+			a.reply(c, res)
 		case "lock":
-			c.unlocked.Store(false)
+			a.Lock(c)
 		case "clearHistory":
 			if a.locked(c) {
 				a.reply(c, map[string]any{"t": "locked"})
@@ -179,14 +182,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			if m.Config == nil {
 				continue
 			}
-			if a.locked(c) {
-				a.reply(c, map[string]any{"t": "configResult", "ok": false, "locked": true, "err": "Settings are locked; enter the PIN again."})
-				continue
-			}
 			go func(cfg config.Config, pin string, clearPin bool) {
 				res := map[string]any{"t": "configResult", "ok": true}
-				if err := a.SaveSettings(cfg, pin, clearPin); err != nil {
+				if err := a.SaveSettings(c, cfg, pin, clearPin); err != nil {
 					res["ok"], res["err"] = false, err.Error()
+					res["locked"] = errors.Is(err, errLocked)
 				} else {
 					log.Printf("config: saved by %s", c.ip)
 				}

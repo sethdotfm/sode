@@ -10,7 +10,12 @@ const root = document.documentElement;
 const form = $('settings-view');
 const fields = () => form.querySelectorAll('[data-key]');
 const isOpen = () => root.dataset.view === 'settings';
-let unlocked = false; // may edit: no PIN set when opened, or PIN accepted
+// The PIN was accepted on this connection. Only means anything while a PIN
+// is set: with none, the form is open anyway.
+let unlocked = false;
+// A save is in flight: its own hello / locked arrive before configResult
+// closes the view, so don't flip to the PIN prompt for them.
+const saving = () => $('settings-save').disabled;
 
 // The level numbering picked in the form, and how the default levels box
 // is currently written (so switching modes can rewrite it).
@@ -46,8 +51,9 @@ export function openSettings() {
   $('cfg-pin-status').textContent = S.pinSet
     ? 'A PIN is set. Type a new one to change it; leave blank to keep it.'
     : 'No PIN: anyone who can open this page can change settings. 4-64 characters.';
-  unlocked = !S.pinSet;
+  unlocked = false;
   $('lock-pin').value = '';
+  $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
   $('cfg-layout').value = layoutPref();
   resetClear();
@@ -77,7 +83,7 @@ function renderLock(opening = false) {
 function closeSettings() {
   if (location.hash === '#settings') history.replaceState(null, '', location.pathname + location.search);
   delete root.dataset.view;
-  if (S.pinSet) wsSend({ t: 'lock' });
+  wsSend({ t: 'lock' });
   unlocked = false;
   if (layout() === 'desktop') $('src').focus();
 }
@@ -219,6 +225,7 @@ function showLockErr(text) {
 
 function unlockResult(m) {
   $('lock-unlock').disabled = false;
+  if (!isOpen()) return; // closed (and locked) while it was checked
   if (!m.ok) return showLockErr(m.err);
   unlocked = true;
   $('lock-pin').value = '';
@@ -226,12 +233,18 @@ function unlockResult(m) {
   renderLock();
 }
 
-// The server forgets an unlock when the socket drops, and a PIN may have
-// been set by someone else meanwhile: lock again if so.
+// The server forgets an unlock when the socket drops, and only honours it
+// for the PIN it was entered against: with no PIN now, a PIN set later
+// (here or by someone else, even while disconnected) needs entering.
 function relock() {
-  if (S.wsState !== 'up' && S.pinSet) unlocked = false;
+  if (S.wsState !== 'up') {
+    unlocked = false;
+    $('lock-unlock').disabled = false; // their results are lost
+    $('settings-save').disabled = false;
+  }
+  if (!S.pinSet) unlocked = false;
   if (isOpen()) $('cfg-pin-clear-row').hidden = !S.pinSet;
-  renderLock();
+  if (!saving()) renderLock();
 }
 
 // Clearing history is two steps: ask, then a red button that does it.
@@ -339,5 +352,8 @@ on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => { renderNamesStatus(); relock(); });
 on('unlockResult', unlockResult);
-on('locked', () => { unlocked = false; showLockErr('Settings are locked; enter the PIN again.'); });
+on('locked', () => {
+  unlocked = false;
+  if (isOpen() && !saving()) showLockErr('Settings are locked; enter the PIN again.');
+});
 on('configResult', configResult);

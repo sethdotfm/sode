@@ -54,6 +54,7 @@ export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : src
 // ---- websocket
 
 let retry = 1000;
+let prevNumbering = null; // { mode, base, max } before the last hello
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
 
@@ -89,6 +90,8 @@ export function wsSend(m) {
 function handle(m) {
   switch (m.t) {
     case 'hello':
+      // How levels were typed until now, so views can rewrite their boxes.
+      prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, base: S.cfg.levelTypedBase, max: S.levels.length };
       S.cfg = m.cfg;
       S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
@@ -258,7 +261,14 @@ export const allLevels = () => S.levels.map((l) => l.ui);
 // Levels are shown and typed per cfg.levelNumbering: "1" (1-17), "0"
 // (0-16) or "va" (V, A1-A16, where a bare number counts from
 // cfg.levelTypedBase: 0 → 0 = V, 1 → 1 = V). Internally they stay 1..N.
-export function levelLabel(ui, mode = S.cfg.levelNumbering) {
+// With no mode it's the server's label (Level.Label); a mode is for
+// previewing one that isn't saved yet.
+export function levelLabel(ui, mode) {
+  if (mode === undefined) {
+    const l = S.levelBy.get(ui);
+    if (l) return l.label;
+    mode = S.cfg.levelNumbering;
+  }
   if (mode === '0') return String(ui - 1);
   if (mode === 'va') return ui === 1 ? 'V' : `A${ui - 1}`;
   return String(ui);
@@ -270,7 +280,7 @@ function levelTok(tok, mode, base) {
   if (mode === 'va') {
     if (t === 'v') return 1;
     const a = t.match(/^a(\d+)$/);
-    if (a) return +a[1] + 1;
+    if (a) return +a[1] >= 1 ? +a[1] + 1 : NaN;
     return /^\d+$/.test(t) ? +t + (base === 0 ? 1 : 0) : NaN;
   }
   return /^\d+$/.test(t) ? +t + (mode === '0' ? 1 : 0) : NaN;
@@ -299,6 +309,16 @@ export function parseLevels(text, none = false) {
   if (none && !text.trim()) return null;
   if (!text.trim()) return parseLevelsAs(S.cfg.defaultLevels, '1', 1, S.levels.length);
   return parseLevelsAs(text, S.cfg.levelNumbering, S.cfg.levelTypedBase, S.levels.length);
+}
+
+// A levels box's text rewritten for a numbering that changed with the
+// last hello, so it keeps meaning the same levels. Text that didn't parse
+// before is left as it is.
+export function relabelLevels(text) {
+  const p = prevNumbering;
+  if (!p || !text.trim() || (p.mode === S.cfg.levelNumbering && p.base === S.cfg.levelTypedBase)) return text;
+  const list = parseLevelsAs(text, p.mode, p.base, p.max);
+  return list ? levelInput(list) : text;
 }
 
 // The default levels as they'd be typed, for a box's placeholder.
