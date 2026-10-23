@@ -465,9 +465,11 @@ export function clockPref() {
 export const fmtTime = (iso) => {
   const d = new Date(iso);
   const pref = clockPref();
-  const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  const opts = { minute: '2-digit', second: '2-digit' };
   if (pref !== 'auto') opts.hour12 = pref === '12';
-  const t = d.toLocaleTimeString([], opts);
+  // 3:04:05 PM but 03:04:05 / 15:04:05.
+  const h12 = /h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric', ...opts }).resolvedOptions().hourCycle);
+  const t = d.toLocaleTimeString([], { hour: h12 ? 'numeric' : '2-digit', ...opts });
   return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString()} ${t}`;
 };
 
