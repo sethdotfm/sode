@@ -507,6 +507,7 @@ export function levelBar(on) {
   const set = new Set(on);
   const row = el('span', 'sode__bar', ...S.levels.map((l) => {
     const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
+    slot.dataset.hint = `Level ${l.label}`; // where the slot is too small for its label
     return levelColor(slot, l);
   }));
   // Two equal rows; an odd first level (0 or V) stands on its own to the left.

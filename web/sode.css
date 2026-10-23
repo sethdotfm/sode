@@ -560,6 +560,19 @@ code,
     gap: var(--pb-space-3);
   }
 }
+/* Trying out: tiny unnumbered slots stay in the row instead (the level on
+   hover), and the Before panel goes back to not repeating them. */
+@media (max-width: 999.98px) {
+  .sode__hist-row > .sode__bar { display: grid; }
+  .sode__hist-row > .sode__bar > .sode__slot {
+    --sode-hint: on;
+    font-size: 0;
+    height: var(--pb-space-4);
+    width: var(--pb-space-4);
+  }
+  .sode__hist-row > .sode__bar--odd > .sode__slot:first-child { height: auto; }
+  .sode__hist-levels { display: none; }
+}
 .sode__hist-more {
   display: flex;
   justify-content: center;
