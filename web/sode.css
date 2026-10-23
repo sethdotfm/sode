@@ -514,18 +514,18 @@ body { zoom: var(--sode-scale); }
   gap: var(--pb-space-6);
   padding: var(--pb-space-5);
 }
-/* Fixed-size slots shrink so a full level bar fits a phone. */
+/* Fixed-size slots shrink so a full level bar fits a phone. A thick
+   outline reads as filled at this size, so every slot gets the thin one;
+   a fixed width keeps two-digit slots from growing when filled. */
 [data-layout="phone"] .sode__slot {
-  font-size: var(--pb-text-2xs);
-  height: calc(var(--pb-space-8) - var(--pb-space-3));
-  min-width: calc(var(--pb-space-8) - var(--pb-space-3));
-}
-[data-layout="phone"] .sode__bar { gap: var(--pb-border-w); }
-/* At this size a thick outline reads as filled; keep unused slots light. */
-[data-layout="phone"] .sode__slot:not(.sode__slot--on) {
   border-width: var(--pb-border-w);
-  color: var(--pb-text-muted);
+  font-size: var(--pb-text-2xs);
+  height: var(--pb-space-7);
+  min-width: 0;
+  width: var(--pb-space-7);
 }
+[data-layout="phone"] .sode__bar { gap: var(--pb-space-1); }
+[data-layout="phone"] .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
 
 /* The phone view fills the visual viewport, so on iOS the composer sits on
    top of the keyboard. --vvh/--vvt come from mobile.js. */
@@ -619,7 +619,7 @@ body { zoom: var(--sode-scale); }
 .sode-m__recent-list {
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-2);
+  gap: var(--pb-space-3);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -654,8 +654,8 @@ body { zoom: var(--sode-scale); }
   border: var(--pb-border-w) solid var(--pb-edge);
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-2);
-  padding: var(--pb-space-3) var(--pb-space-4);
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4) var(--pb-space-5);
   position: relative;
   touch-action: pan-y;
   transition: transform var(--pb-motion-normal) var(--pb-ease);
