@@ -535,6 +535,19 @@ export function clockPref() {
   return v === '12' || v === 'locale' ? v : '24';
 }
 
+// Scroll to the top when a box is focused (desktop): per browser, on unless
+// turned off.
+const SCROLL_KEY = 'sode-scroll-top';
+export function scrollTopPref() {
+  try { return localStorage.getItem(SCROLL_KEY) !== 'off'; } catch (e) { return true; }
+}
+export function setScrollTopPref(on) {
+  try {
+    if (on) localStorage.removeItem(SCROLL_KEY);
+    else localStorage.setItem(SCROLL_KEY, 'off');
+  } catch (e) {}
+}
+
 // The time formatter, built once and again only when the Clock changes.
 let timeFmt = null;
 function timeFormat() {

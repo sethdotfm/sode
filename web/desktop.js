@@ -6,7 +6,7 @@ import {
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
-  resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes,
+  resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
 } from './core.js';
 import { layout } from './layout.js';
 
@@ -512,10 +512,10 @@ const BOXES = { s: 'src', d: 'dst', f: 'lvl' };
 function onListKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
   const k = e.key;
-  if (BOXES[k]) { $(BOXES[k]).focus(); return true; }
+  if (BOXES[k]) { focusBox($(BOXES[k])); return true; }
   if (k === ',') { $('settings-open').click(); return true; }
   if (k === '?') { openKeys(); return true; }
-  if (k === 'Escape') { boxes.src.input.focus(); return true; }
+  if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {
     j: () => step(1), ArrowDown: () => (e.shiftKey ? jump(1) : step(1)),
     k: () => step(-1), ArrowUp: () => (e.shiftKey ? jump(-1) : step(-1)),
@@ -658,7 +658,7 @@ function openConfirm(plan) {
 // as they are: the row is redrawn with the result.
 function focusBack(viaKeys) {
   if (confirmKeys && viaKeys) enterKeys();
-  else if (confirmBack === histList || histArea(confirmBack)) boxes.src.input.focus();
+  else if (confirmBack === histList || histArea(confirmBack)) focusBox(boxes.src.input);
   else if (confirmBack?.isConnected) confirmBack.focus();
 }
 const histArea = (n) => !!n && (histList.contains(n) || $('history-more').contains(n));
@@ -714,8 +714,21 @@ for (const k of ['src', 'dst']) {
   // Coming back to unconfirmed text reopens its matches.
   b.input.addEventListener('focus', () => { if (!sel[k]) refresh(k); });
 }
+// Focusing a box brings the page back to the top (Settings → This device),
+// so it isn't left off-screen after scrolling down Recent.
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+// From down the page: skip the browser's own jump to the box so the scroll
+// to the top animates the whole way.
+function focusBox(input) {
+  input.focus({ preventScroll: scrollTopPref() });
+}
 for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
-  input.addEventListener('focus', () => input.select());
+  input.addEventListener('focus', () => {
+    input.select();
+    if (active() && scrollTopPref() && window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: calm.matches ? 'auto' : 'smooth' });
+    }
+  });
 }
 lvlInput.addEventListener('input', () => { lvlNone = false; renderLevels(); renderTally(); });
 
