@@ -163,7 +163,7 @@ function renderLevels() {
   const full = on.size === S.levels.length;
   const all = $('lvl-all');
   all.textContent = full ? 'None' : 'All';
-  all.dataset.tip = full ? 'Select no levels' : 'Select all levels';
+  all.dataset.tip = full ? 'No levels' : 'All levels';
   all.setAttribute('aria-label', all.dataset.tip);
 }
 
@@ -229,7 +229,7 @@ function histRow(e) {
   btn.setAttribute('aria-label', `Undo ${src.label} to ${dst.label}`);
   if (planEmpty(plan)) {
     btn.disabled = true;
-    btn.title = 'Nothing to restore';
+    btn.title = 'Nothing to undo';
   }
   btn.addEventListener('click', () => openConfirm(plan));
 
@@ -283,7 +283,7 @@ function folderRow(f) {
   const plan = folderUndoPlan(f);
   if (planEmpty(plan)) {
     undo.disabled = true;
-    undo.title = 'Nothing to restore';
+    undo.title = 'Nothing to undo';
   }
   undo.setAttribute('aria-label', `Undo all ${f.entries.length} takes of ${folderIds(f)}`);
   undo.addEventListener('click', () => openConfirm(plan));

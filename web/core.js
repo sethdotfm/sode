@@ -562,7 +562,7 @@ export function folderStatus(f) {
   if (got < f.n && Date.now() - Date.parse(f.entries[0].time) < IN_FLIGHT_MS) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
-  const title = got < f.n ? `Only ${got} of ${f.n} takes are loaded` : '';
+  const title = got < f.n ? `${got} of ${f.n} loaded` : '';
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
