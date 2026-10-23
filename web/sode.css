@@ -49,6 +49,21 @@ code,
   z-index: var(--pb-z-tooltip);
 }
 
+/* Full text of something cut off with an ellipsis, placed by core.js. */
+.sode__cut-tip {
+  background: var(--pb-surface-overlay);
+  box-shadow: var(--pb-shadow-overlay);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xs);
+  max-width: calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2);
+  overflow-wrap: anywhere;
+  padding: var(--pb-space-2) var(--pb-space-4);
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+.sode__cut-tip[hidden] { display: none; }
+
 .sode {
   align-items: center;
   display: flex;
