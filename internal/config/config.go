@@ -36,6 +36,9 @@ type Config struct {
 	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
 	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
 	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
+	// HideDsts are 0-based destinations whose changes from other panels
+	// browsers hide by default (still recorded), e.g. a shader's monitor.
+	HideDsts []int `yaml:"hideDsts" json:"hideDsts"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
 	// the default (DefaultLevelColors, then the patchbay swatch). Entries
 	// past Levels are kept but unused.
@@ -66,6 +69,7 @@ func Defaults() Config {
 		NameRefreshSeconds: 60,
 		TallyResyncSeconds: 300,
 		TrustedProxies:     []string{},
+		HideDsts:           []int{},
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
@@ -143,6 +147,9 @@ func (c *Config) Normalize() {
 	}
 	if c.LevelColors == nil {
 		c.LevelColors = []string{}
+	}
+	if c.HideDsts == nil {
+		c.HideDsts = []int{}
 	}
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
@@ -233,6 +240,11 @@ func (c Config) Validate() error {
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
 			bad("level %d color %q must be a hex color like #3a7bd5", i+1, v)
+		}
+	}
+	for _, d := range c.HideDsts {
+		if d < 0 || d > 0xFFFE {
+			bad("hidden destination %d is out of range", d+c.NumberOffset)
 		}
 	}
 	if _, err := c.Proxies(); err != nil {

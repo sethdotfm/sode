@@ -12,6 +12,8 @@ import (
 )
 
 // Entry is one take, as logged and as shown in the browser's history list.
+// Ext entries are routes changed elsewhere: Client is empty and a burst of
+// them across several destinations shares a Group like a confirm's takes.
 type Entry struct {
 	ID      int       `json:"id"`
 	Time    time.Time `json:"time"`
@@ -29,6 +31,7 @@ type Entry struct {
 	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
+	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept

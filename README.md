@@ -6,6 +6,8 @@ Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, 
 
 To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip and the box starts over. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
 
+**Other panels (beta).** Routes made elsewhere (Ultrix panels, Companion) show up in Recent too, with a **panel** status, and can be undone like any take. A panel take arrives as one change per level, so Sode collects them until they stop for half a second, then logs one entry per destination and source. A burst that changes several destinations becomes one folder. If the same destination is punched on the same levels again within 30 seconds, with nothing else routed there in between, the punches show as one row ("3 changes"); its Before and Undo go back to the state before the first punch. Noisy destinations, like a shader's monitor, can be listed under Settings → History → Hidden destinations. Those changes are still recorded but hidden from Recent. Settings → This device → Other panels in Recent picks whether this browser shows them all, everything except hidden destinations (the default), or none. Routes changed while Sode was disconnected are not logged.
+
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
 - Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
@@ -20,7 +22,7 @@ docker compose --profile sim up --build
 # open http://localhost:8080
 ```
 
-The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container.
+The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container. `SIM_PANEL_SECONDS=5` makes it route something by itself every 5 seconds, like a panel. Every other punch goes to `SIM_PANEL_DST` (default 3), so repeated punches can be seen merging.
 
 Against a real router (first start):
 
@@ -53,6 +55,7 @@ On first start, when there is no config file yet, it is created from these seed 
 | | `routerShow` | `address` | What the status card shows for the router: `address`, `name` (falls back to the address when no name is set) or `none`. The disconnected banner always shows the address. Settings only |
 | | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colors for 1-17, built-in swatches after). Settings only, no seed var |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
+| | `hideDsts` | `[]` | Destinations (0-based in the file, typed as shown in Settings) whose changes from other panels Recent hides by default. They are still recorded. Settings only |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
 | | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |
 

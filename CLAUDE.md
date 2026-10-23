@@ -16,7 +16,7 @@ go test ./internal/app -run TestWaiterAlreadyRouted -v   # one test
 go vet ./...
 
 # Local dev without Docker: simulator + server
-go run ./cmd/swp08sim                          # :8910; SIM_SOURCES/SIM_DESTS/SIM_LEVELS, SIM_IGNORE_DSTS=9,12 (0-based, never confirm)
+go run ./cmd/swp08sim                          # :8910; SIM_SOURCES/SIM_DESTS/SIM_LEVELS, SIM_IGNORE_DSTS=9,12 (0-based, never confirm), SIM_PANEL_SECONDS=5 (routes by itself like a panel)
 SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   # :8080; SODE_DEBUG hex-dumps SW-P-08
 # Without SODE_CONFIG, config comes from SODE_* env and is not persisted.
 
@@ -34,7 +34,7 @@ The web UI is embedded with `go:embed` (`web/web.go`), so frontend edits need th
 - Config: `/data/config.yaml`, edited from the Settings dialog. SODE_* env vars only seed the file on first start. Optional settings PIN: PBKDF2 hash in `settingsPin` (`json:"-"`, never sent to browsers; `SaveSettings` carries it over on saves), unlocked per WebSocket connection *for that hash* (changing or removing the PIN relocks everyone; an unlock with no PIN set counts for nothing) and relocked when Settings closes. `unlock` is handled in line in the read loop so a following `lock` wins; wrong PINs are counted globally (not per IP), one check at a time, waits doubling from 30s after the 5th, and `pinMaxTries` (default 10, 0 = never) in a row locks settings until `-reset-pin` or restart. A non-hash `settingsPin` stops startup. `SaveSettings` runs one at a time (`cfgMu`) and re-checks the lock. `sode -reset-pin` clears it (restart needed).
 - Frontend: vanilla JS ES modules, no build step, embedded via go:embed. Follow patchbay rules exactly (https://github.com/sethdotfm/patchbay llms.txt): pb- classes only, tokens only, no Bootstrap utilities, no border-radius, status always with text. Patchbay is vendored under `web/vendor/patchbay`.
 - Confirm dialog: random churning letter + lockout (default 500ms; Enter-to-confirm optional).
-- History (JSONL) + shared server-side recent/undo list.
+- History (JSONL) + shared server-side recent/undo list. Routes made elsewhere (beta, issue 14) are logged as `ext` entries (`ext.go`). These are Connected messages that none of our takes sent: `own` holds each take's (dst, wire level, src) for `ownFor`. Changes are collected into bursts, ending after 500ms quiet or 3s total, and logged as one entry per dst+src. A burst across several dsts shares a `group`. The browser does the rest in `histRows`: it hides entries per the `sode-ext` localStorage pref and `hideDsts`, and merges repeated same-dst/same-levels `ext` entries within 30s into one row (newest, with the oldest's `prev`, `merged` = count).
 - Keep it light: no frameworks, no extra deps without asking.
 
 ## Architecture
@@ -52,4 +52,5 @@ The web UI is embedded with `go:embed` (`web/web.go`), so frontend edits need th
 - Extended tally dump (0x95 → 0x97, 64 per message) works on all 17 levels; source 0xFFFF = nothing routed.
 - Extended connect (0x82) is confirmed by 0x84 Connected; takes report ok.
 - Routers only send Connected when a crosspoint *changes*. A connect that matches the current state gets no reply, so `take()` interrogates (0x81 → 0x83 Tally) levels already on the source, and any level still unconfirmed at the 3s timeout gets a 1s interrogate grace. Levels confirmed that way are reported as "already" (history `already`). The simulator mimics this.
+- Connected (0x84) is sent to Sode for routes made on other panels / Companion too (seen 2026-10-23), so `ext` history entries work live.
 - Extended protect dump (0x93 matrix, level, startDst(2) → 0x94 matrix, level, count, firstDst(2), count × 2 bytes): state in bits 4-5 of byte 1, device in the rest. Dest 65 was protected by device 9 on all levels. Single protect change messages (0x8B/0x8D/0x8F) not yet seen live.

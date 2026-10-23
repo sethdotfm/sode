@@ -70,6 +70,12 @@ type App struct {
 	pend     [][3]int // tally changes awaiting broadcast
 	pendProt [][3]int // protect changes awaiting broadcast (device -1 = cleared)
 
+	// Routes changed elsewhere, collected into bursts for history (ext.go).
+	ext      map[int]map[int]*extLevel // dst → UI level
+	extFirst time.Time
+	extLast  time.Time
+	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
+
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
 	newSrc, newDst map[int]string // nil when no refresh is in flight
@@ -106,6 +112,8 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 		protect:  map[int]map[int]int{},
 		clients:  map[*client]struct{}{},
 		waiters:  map[*waiter]struct{}{},
+		ext:      map[int]map[int]*extLevel{},
+		own:      map[ownKey]time.Time{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.rt.Store(r)
@@ -131,6 +139,7 @@ func (a *App) Run(ctx context.Context) {
 			return
 		case <-t.C:
 			a.flush()
+			a.flushExt()
 			a.periodic()
 		}
 	}
@@ -234,6 +243,9 @@ func (a *App) onRouterMsg(msg []byte) {
 		if old, ok := t[l.UI]; !ok || old != xp.Src {
 			t[l.UI] = xp.Src
 			a.pend = append(a.pend, [3]int{xp.Dst, l.UI, xp.Src})
+			if xp.Changed() {
+				a.noteExt(xp, l.UI, old, ok)
+			}
 		}
 		for w := range a.waiters {
 			w.see(xp)
@@ -589,6 +601,7 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.srcNames, a.dstNames = map[int]string{}, map[int]string{}
 		a.tally, a.protect = map[int]map[int]int{}, map[int]map[int]int{}
 		a.pend, a.pendProt = nil, nil
+		a.ext = map[int]map[int]*extLevel{}
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
 		// A new router starts from scratch: not the old one's state or error.
@@ -754,6 +767,10 @@ func (a *App) take(c *client, req takeReq) {
 	}
 	if len(protected) == 0 {
 		a.waiters[w] = struct{}{}
+		until := time.Now().Add(ownFor)
+		for _, s := range sends {
+			a.own[ownKey{req.Dst, s.wire, req.Src}] = until
+		}
 	}
 	a.mu.Unlock()
 
@@ -882,8 +899,13 @@ func (a *App) record(e *Entry) {
 	if e.Group != "" {
 		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
 	}
-	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
-		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
+	if e.Ext {
+		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s",
+			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group)
+	} else {
+		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
+			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
+	}
 	a.mu.Lock()
 	a.broadcast(map[string]any{"t": "recent", "e": e})
 	a.mu.Unlock()

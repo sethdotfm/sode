@@ -617,6 +617,15 @@ export function setScrollTopPref(on) {
   } catch (e) {}
 }
 
+// Changes made elsewhere (panels, Companion), per browser: 'filtered'
+// (default: all but Settings' hidden destinations), 'all' or 'none'.
+const EXT_KEY = 'sode-ext';
+export function extPref() {
+  let v = null;
+  try { v = localStorage.getItem(EXT_KEY); } catch (e) {}
+  return v === 'all' || v === 'none' ? v : 'filtered';
+}
+
 // The time formatter, built once and again only when the Clock changes.
 let timeFmt = null;
 function timeFormat() {
@@ -710,20 +719,56 @@ export function beforeGroups(e) {
 // " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
   const parts = [];
+  if (e.merged > 1) parts.push(`${e.merged} changes`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
   return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }
 
+// Whether this browser shows a history entry: changes made elsewhere
+// follow extPref.
+function shown(e) {
+  if (!e.ext) return true;
+  const pref = extPref();
+  return pref === 'all' || (pref === 'filtered' && !(S.cfg?.hideDsts || []).includes(e.dst));
+}
+
+// Changes made elsewhere to one destination on the same levels, each
+// within this long of the next, show as one row (a monitor punched about).
+const MERGE_MS = 30000;
+
 // History as rows, newest first: { e } for a take on its own, or { f } for
 // a folder holding the takes of one multi-take confirm. A folder sits
-// where its newest take is.
+// where its newest take is. Entries this browser hides are left out (a
+// folder only when all of it is), and repeated changes made elsewhere are
+// merged into one { e }: the newest, with the oldest's prev (so Before and
+// Undo go back to before the first) and merged = how many.
 export function histRows(list) {
   const rows = [];
   const folders = new Map();
+  const keep = new Set(list.filter((e) => e.group && shown(e)).map((e) => e.group));
+  const chains = new Map(); // dst → { k: levels, row, t: oldest time }
   for (const e of list) {
-    if (!e.group || e.groupN < 2) { rows.push({ e }); continue; }
+    // Merge into the row above if it's a change made elsewhere to the same
+    // destination and levels, with nothing else on that destination between.
+    const solo = !e.group || e.groupN < 2;
+    const k = e.levels.join(',');
+    const t = Date.parse(e.time);
+    const c = chains.get(e.dst);
+    if (solo && e.ext && c && c.k === k && c.t - t <= MERGE_MS) {
+      c.row.e = { ...c.row.e, prev: e.prev, merged: (c.row.e.merged || 1) + 1 };
+      c.t = t;
+      continue;
+    }
+    chains.delete(e.dst);
+    if (solo ? !shown(e) : !keep.has(e.group)) continue;
+    if (solo) {
+      const row = { e };
+      if (e.ext) chains.set(e.dst, { k, row, t });
+      rows.push(row);
+      continue;
+    }
     let f = folders.get(e.group);
     if (!f) {
       f = { group: e.group, n: e.groupN, entries: [] };
@@ -747,6 +792,7 @@ export function folderStatus(f) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
   const title = got < f.n ? `${got} of ${f.n} loaded` : '';
+  if (f.entries.every((e) => e.ext)) return { dot: 'info', text: 'panel', title: title || 'Made elsewhere, seen on the router' };
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
@@ -754,7 +800,9 @@ export function folderStatus(f) {
 
 // A pb-status node for a single take or a folder.
 export function statusNode(row) {
-  const st = row.f ? folderStatus(row.f) : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
+  const st = row.f ? folderStatus(row.f)
+    : row.e.ext ? { dot: 'info', text: 'panel', title: 'Made elsewhere, seen on the router' }
+    : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');
   const node = el('span', 'pb-status', dot, el('span', 'sode__status-text', st.text));
@@ -797,7 +845,12 @@ export function historyPager(step) {
   const pg = {
     shown: step,
     reset() { pg.shown = step; },
-    list: () => histRows(S.hist).slice(0, pg.shown),
+    list() {
+      const rows = histRows(S.hist);
+      // Hidden entries can leave a page short: fetch on until it fills.
+      if (rows.length < pg.shown) requestHistory();
+      return rows.slice(0, pg.shown);
+    },
     hasMore: () => histRows(S.hist).length > pg.shown || S.histMore,
     more() {
       pg.shown += step;
@@ -1000,9 +1053,17 @@ export function initTheme() {
   sync();
 }
 
-// The Clock select in Settings (synced when Settings opens) applies at
-// once and redraws every time.
+// The Clock and Other panels selects in Settings (synced when Settings
+// opens) apply at once and redraw.
 export function initClock() {
+  const ext = $('cfg-ext');
+  ext.addEventListener('change', () => {
+    try {
+      if (ext.value === 'filtered') localStorage.removeItem(EXT_KEY);
+      else localStorage.setItem(EXT_KEY, ext.value);
+    } catch (e) {}
+    emit('history');
+  });
   const select = $('cfg-clock');
   select.addEventListener('change', () => {
     try {

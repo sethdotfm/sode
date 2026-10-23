@@ -3,7 +3,7 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, fmtTime, clockPref, extPref, scrollTopPref, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
 
 const root = document.documentElement;
@@ -57,6 +57,8 @@ export function openSettings() {
   $('lock-err').hidden = true;
   $('cfg-layout').value = layoutPref();
   $('cfg-clock').value = clockPref();
+  $('cfg-ext').value = extPref();
+  $('cfg-hidedsts').value = (S.cfg.hideDsts || []).map((d) => d + S.cfg.numberOffset).join(', ');
   $('cfg-scrolltop').checked = scrollTopPref();
   resetClear();
   $('settings-err').hidden = true;
@@ -102,6 +104,10 @@ function readSettings() {
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
+  // Hidden destinations are typed as shown (numberOffset) but saved 0-based;
+  // null if one isn't a number.
+  const hide = $('cfg-hidedsts').value.split(',').map((x) => x.trim()).filter(Boolean);
+  c.hideDsts = hide.every((x) => /^\d+$/.test(x)) ? hide.map((x) => Number(x) - c.numberOffset) : null;
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
   const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
@@ -327,6 +333,12 @@ form.addEventListener('submit', (e) => {
     $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" isn't a level or range here.`;
     $('settings-err').hidden = false;
     $('cfg-default').focus();
+    return;
+  }
+  if (c.hideDsts === null) {
+    $('settings-err').textContent = 'Hidden destinations must be numbers separated by commas.';
+    $('settings-err').hidden = false;
+    $('cfg-hidedsts').focus();
     return;
   }
   if (bad) {

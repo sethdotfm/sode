@@ -144,6 +144,11 @@
           <label for="cfg-clock">Clock</label>
           <span class="pb-select-wrap"><select id="cfg-clock" class="pb-select"><option value="24">24-hour</option><option value="12">12-hour</option><option value="locale">Browser language</option></select></span>
         </div>
+        <div class="sode__field">
+          <label for="cfg-ext">Other panels in Recent</label>
+          <span class="pb-select-wrap"><select id="cfg-ext" class="pb-select"><option value="filtered">Show, except hidden destinations</option><option value="all">Show all</option><option value="none">Hide</option></select></span>
+          <span class="sode__hint">Routes made elsewhere (panels, Companion). Beta.</span>
+        </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-scrolltop"><span class="pb-check__label">Scroll to the top when a box is focused</span></label>
     </fieldset>
@@ -261,6 +266,11 @@
 
     <fieldset class="sode__group">
       <legend>History</legend>
+      <div class="sode__field">
+        <label for="cfg-hidedsts">Hidden destinations</label>
+        <input id="cfg-hidedsts" class="pb-input" placeholder="65, 200" spellcheck="false" inputmode="numeric">
+        <span class="sode__hint">Destination numbers whose changes from other panels Recent hides unless a browser shows all. Still recorded.</span>
+      </div>
       <div class="sode__field">
         <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone.</span>
         <div class="sode__names" id="clear-step1">
