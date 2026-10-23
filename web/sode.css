@@ -1310,7 +1310,6 @@ code,
   top: 50%;
   transform: translateY(-50%);
 }
-.sode__search-box:has(> .sode__search-key) { flex-basis: 19em; }
-.sode__search-box:has(> .sode__search-key) > .pb-input { padding-right: 6.5em; }
+.sode__search-box:has(> .sode__search-key) > .pb-input { padding-right: 3em; }
 .sode__search-box > .pb-input:focus ~ .sode__search-key,
 .sode__search-box > .pb-input:not(:placeholder-shown) ~ .sode__search-key { display: none; }
