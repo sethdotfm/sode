@@ -814,7 +814,7 @@ export function initTheme() {
   // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
   // Matched by e.code because Option changes e.key on macOS.
   if (/Mac|iPhone|iPad/.test(navigator.platform)) {
-    $('cfg-theme-hint').textContent = '⌥⇧T switches between light and dark from anywhere.';
+    $('cfg-theme-hint').replaceChildren(el('code', null, '⌥⇧T'), ' toggles');
   }
   select.addEventListener('change', () => setTheme(select.value));
   document.addEventListener('keydown', (e) => {

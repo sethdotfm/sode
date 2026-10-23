@@ -19,6 +19,17 @@
 .sode--enter { animation: sode-enter var(--sode-motion-enter) var(--pb-ease); }
 body { zoom: var(--sode-scale); }
 
+/* Inline code: technical terms, paths and commands in running text. */
+code,
+.pb-code {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  color: var(--pb-text);
+  padding: 0 var(--pb-space-1);
+}
+
 /* Hover tooltip from data-tip. */
 [data-tip] { position: relative; }
 .pb-btn[data-tip] { overflow: visible; } /* pb-btn clips; the tip sits outside */
@@ -444,10 +455,11 @@ body { zoom: var(--sode-scale); }
 [data-layout="phone"] .sode__links { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
-/* Settings: one plain column, labels above fields, the page scrolls. */
+/* Settings: one plain column, labels above fields, the page scrolls.
+   Sections sit further apart than the fields inside them. */
 .sode__settings {
   align-items: stretch;
-  gap: var(--pb-space-7);
+  gap: var(--pb-space-9);
   max-width: 640px;
 }
 .sode__settings-head {
@@ -470,7 +482,16 @@ body { zoom: var(--sode-scale); }
   min-width: 0;
   padding: 0;
 }
-.sode__group > legend { margin-bottom: var(--pb-space-5); padding: 0; }
+/* Section header: a rule across the column with the name under it. */
+.sode__group > legend {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  margin-bottom: var(--pb-space-3);
+  padding: var(--pb-space-5) 0 0;
+  width: 100%;
+}
 /* Locked by a settings PIN: only the prompt and this browser's own
    options show until it's entered. */
 .sode__lock { display: none; }
@@ -487,7 +508,8 @@ body { zoom: var(--sode-scale); }
   flex-direction: column;
   gap: var(--pb-space-2);
 }
-.sode__field > label { color: var(--pb-text); font-weight: var(--pb-weight-medium); }
+.sode__field > label,
+.sode__field-label { color: var(--pb-text); font-weight: var(--pb-weight-medium); }
 .sode__field .pb-input,
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,

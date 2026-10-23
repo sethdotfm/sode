@@ -60,7 +60,7 @@ export function openSettings() {
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
-  $('settings-path').textContent = S.configPath ? `Saved to ${S.configPath}` : 'Not saved to disk (SODE_CONFIG unset)';
+  $('settings-path').replaceChildren(...(S.configPath ? ['Saved to ', el('code', null, S.configPath)] : ['Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']));
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderNamesStatus();
@@ -78,7 +78,7 @@ function renderLock(opening = false) {
   else delete form.dataset.locked;
   if (!opening && !flipped) return;
   if (locked) $('lock-pin').focus();
-  else if (layout() === 'desktop') $('cfg-router').focus();
+  else if (layout() === 'desktop') $('cfg-namerefresh').focus();
 }
 
 function closeSettings() {
@@ -188,7 +188,7 @@ function rerenderColors() {
 
 function renderOffsetNote() {
   const off = Number($('cfg-offset').value);
-  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} is sent as wire level ${1 + off}` : '';
+  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
 }
 
 function renderNamesStatus() {
@@ -198,7 +198,7 @@ function renderNamesStatus() {
   $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations, ${when}`;
   const btn = $('names-refresh');
   btn.disabled = S.router !== 'up';
-  btn.textContent = 'Refresh names now';
+  btn.textContent = 'Refresh now';
 }
 
 function configResult(m) {
@@ -227,8 +227,8 @@ function showLockErr(text) {
 function renderPinStatus() {
   $('cfg-pin-clear-row').hidden = !S.pinSet;
   $('cfg-pin-status').textContent = S.pinSet
-    ? 'A PIN is set. Type a new one to change it; leave blank to keep it.'
-    : 'No PIN: anyone who can open this page can change settings. 4-64 characters.';
+    ? 'PIN set. Leave blank to keep it.'
+    : 'No PIN. 4–64 characters.';
 }
 
 function unlockResult(m) {
@@ -274,12 +274,12 @@ $('clear-confirm').addEventListener('click', () => {
     return;
   }
   resetClear();
-  showResult('ok', 'History cleared', 'The Recent list is empty for everyone.');
+  showResult('ok', 'History cleared', 'Recent is empty for everyone.');
 });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-cancel').addEventListener('click', closeSettings);
-$('settings-back').addEventListener('click', closeSettings);
+$('lock-cancel').addEventListener('click', closeSettings);
 $('cfg-offset').addEventListener('input', renderOffsetNote);
 $('cfg-colors-reset').addEventListener('click', () => {
   for (const f of $('cfg-colors').querySelectorAll('input')) {
@@ -310,7 +310,7 @@ form.addEventListener('submit', (e) => {
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) {
-    $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be a hex color like #3a7bd5.`;
+    $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`;
     $('settings-err').hidden = false;
     badColor.focus();
     return;
