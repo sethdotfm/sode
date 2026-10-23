@@ -461,14 +461,20 @@ function step(d) {
   }
 }
 
-// J/K: the next or previous top-level row (a take or a whole folder).
-function jump(d) {
+// K: back to the latest take (or the folder holding it), at the top.
+function latest() {
+  const first = stops()[0];
+  if (first) moveTo(first);
+}
+
+// J: the next folder down, skipping single takes. Past the last loaded
+// one, load more; the next press moves on to it.
+function nextGroup() {
   const list = stops();
-  const tops = list.filter((x) => !x.in);
   const s = curStop(list);
-  const next = s ? tops.find((x) => x.top === s.top + d) : tops[0];
+  const next = list.find((x) => x.f && (!s || x.top > s.top));
   if (next) moveTo(next);
-  else if (d > 0) loadMore();
+  else loadMore();
 }
 
 // l: open a take's Before or a folder. h: close it, or go up to the folder.
@@ -521,9 +527,9 @@ function onListKey(e) {
   if (k === '?') { openKeys(); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {
-    j: () => step(1), ArrowDown: () => (e.shiftKey ? jump(1) : step(1)),
-    k: () => step(-1), ArrowUp: () => (e.shiftKey ? jump(-1) : step(-1)),
-    J: () => jump(1), K: () => jump(-1),
+    j: () => step(1), ArrowDown: () => (e.shiftKey ? nextGroup() : step(1)),
+    k: () => step(-1), ArrowUp: () => (e.shiftKey ? latest() : step(-1)),
+    J: nextGroup, K: latest,
     l: () => open(true), ArrowRight: () => open(true), Enter: () => open(!e.shiftKey),
     h: () => open(false), ArrowLeft: () => open(false),
     u: () => { const s = curStop(); if (s) undoRow(s.f ? { f: s.f } : { e: s.e }); },
