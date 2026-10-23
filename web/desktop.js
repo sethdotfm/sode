@@ -529,7 +529,7 @@ function onListKey(e) {
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
 
 const TIP_KEY = 'sode-hint-keys';
-$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · Esc then ? for keys`;
+$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
 try { $('keys-tip').hidden = localStorage.getItem(TIP_KEY) === 'hidden'; } catch (e) { $('keys-tip').hidden = false; }
 $('keys-tip-close').addEventListener('click', () => {
   $('keys-tip').hidden = true;
@@ -713,6 +713,16 @@ $('lvl-all').addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
   if (pending) return onConfirmKey(e);
   if (!active()) return;
+  // Ctrl+? (Ctrl+Shift+/) opens or closes the shortcut list from anywhere,
+  // even mid-typing. ⌘? works too where the OS lets it through (macOS keeps
+  // it for the Help menu, hence ⌃? on the tip). Matched by e.code: Shift
+  // changes e.key.
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === 'Slash') {
+    e.preventDefault();
+    if ($('keys').hidden) openKeys();
+    else closeKeys();
+    return;
+  }
   if (!$('keys').hidden) {
     if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(); }
     return;

@@ -1033,9 +1033,13 @@ code,
   gap: var(--pb-space-2) var(--pb-space-6);
   grid-template-columns: auto 1fr;
 }
-.sode__keys > .sode__label { grid-column: 1 / -1; }
+.sode__keys > .sode__label,
+.sode__keys > .sode__keys-note { grid-column: 1 / -1; }
 .sode__keys > .sode__label + dl > dt:first-child,
-.sode__keys > .sode__label + dl > dt:first-child + dd { margin-top: var(--pb-space-2); }
+.sode__keys > .sode__label + dl > dt:first-child + dd,
+.sode__keys > .sode__keys-note + dl > dt:first-child,
+.sode__keys > .sode__keys-note + dl > dt:first-child + dd { margin-top: var(--pb-space-2); }
+.sode__keys-note { color: var(--pb-text-muted); margin: 0; max-width: 60ch; }
 .sode__keys > dl + .sode__label { margin-top: var(--pb-space-6); }
 .sode__keys dl { display: contents; }
 .sode__keys dt { font-weight: var(--pb-weight-normal); }
