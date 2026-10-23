@@ -76,6 +76,20 @@ code,
   z-index: var(--pb-z-sticky);
 }
 .sode__conn-addr { font-family: var(--pb-font-mono); }
+/* Shortcut tip, out of the way in the bottom corner until dismissed. */
+.sode__tip {
+  align-items: center;
+  background: var(--pb-surface-base);
+  bottom: var(--pb-space-4);
+  color: var(--pb-text-muted);
+  display: flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-3);
+  left: var(--pb-space-5);
+  padding: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) var(--pb-space-3);
+  position: fixed;
+  z-index: var(--pb-z-sticky);
+}
 /* A lost link: a solid red banner pinned to the top that says which link
    is down, the corner status gives way to it, and a thick pulsing red
    outline round the whole window. */
@@ -521,6 +535,8 @@ code,
 [data-view="settings"] .sode-m { display: none; }
 [data-layout="phone"] #patch-view,
 [data-layout="phone"] .sode__conn,
+[data-layout="phone"] .sode__tip,
+[data-view="settings"] .sode__tip,
 [data-layout="phone"] #conn-down { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 

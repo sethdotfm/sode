@@ -34,6 +34,10 @@
     <span class="sode__conn-addr" id="conn-addr"></span>
   </div>
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
+  <div class="sode__tip" id="keys-tip" hidden>
+    <span id="keys-tip-text"></span>
+    <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="keys-tip-close" aria-label="Dismiss this tip">×</button>
+  </div>
 
   <div class="sode__view" id="patch-view">
     <h1 class="sode__mark">Sode</h1>
@@ -71,7 +75,7 @@
     <div class="sode__result" id="result" aria-live="polite"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
-      <div class="sode__label" id="history-head" hidden>Recent <span class="sode__hint" id="history-hint"></span></div>
+      <div class="sode__label" id="history-head" hidden>Recent</div>
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent patches"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>

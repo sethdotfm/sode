@@ -363,7 +363,6 @@ const pager = historyPager(10);
 
 function renderHistory() {
   $('history-head').hidden = !S.hist.length;
-  $('history-hint').textContent = `(${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · Esc then ? for keys)`;
   const list = pager.list();
   if (cursor && !stops(list).some((x) => x.key === cursor)) {
     // Its row left the page (newer patches pushed it off): drop the
@@ -515,6 +514,16 @@ function onListKey(e) {
   else act();
   return true;
 }
+
+// ---- shortcut tip: a note in the corner until dismissed (per browser)
+
+const TIP_KEY = 'sode-hint-keys';
+$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · Esc then ? for keys`;
+try { $('keys-tip').hidden = localStorage.getItem(TIP_KEY) === 'hidden'; } catch (e) { $('keys-tip').hidden = false; }
+$('keys-tip-close').addEventListener('click', () => {
+  $('keys-tip').hidden = true;
+  try { localStorage.setItem(TIP_KEY, 'hidden'); } catch (e) {}
+});
 
 // ---- shortcut list (?)
 
