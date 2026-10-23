@@ -476,7 +476,7 @@ function onListKey(e) {
     j: () => step(1), ArrowDown: () => (e.shiftKey ? jump(1) : step(1)),
     k: () => step(-1), ArrowUp: () => (e.shiftKey ? jump(-1) : step(-1)),
     J: () => jump(1), K: () => jump(-1),
-    l: () => open(true), ArrowRight: () => open(true), Enter: () => open(true),
+    l: () => open(true), ArrowRight: () => open(true), Enter: () => open(!e.shiftKey),
     h: () => open(false), ArrowLeft: () => open(false),
     u: () => { const s = curStop(); if (s) undoRow(s.f ? { f: s.f } : { e: s.e }); },
     r: retryCur,
