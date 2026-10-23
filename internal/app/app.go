@@ -79,8 +79,10 @@ type App struct {
 	namesDirt      bool      // unsolicited names changed outside a refresh
 	dumpAt         time.Time
 
-	pinFails map[string]pinFail // client IP → wrong settings PINs
-	cfgMu    sync.Mutex         // serialises settings saves
+	pin   pinState   // wrong settings PINs
+	cfgMu sync.Mutex // serialises settings saves
+
+	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }
 
 type statusMsg struct {
@@ -104,7 +106,6 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 		protect:  map[int]map[int]int{},
 		clients:  map[*client]struct{}{},
 		waiters:  map[*waiter]struct{}{},
-		pinFails: map[string]pinFail{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.rt.Store(r)
@@ -433,73 +434,92 @@ func (a *App) reply(c *client, v any) {
 
 // --- settings PIN
 
-type pinFail struct {
+// pinState counts wrong settings PINs from anyone, in a row.
+type pinState struct {
 	n     int
-	until time.Time
-	busy  bool // a PIN from this IP is being checked
+	until time.Time // no tries before this
+	busy  bool      // a PIN is being checked
 }
 
 const (
-	pinMaxFails = 5
-	pinLockout  = 30 * time.Second
+	pinFreeTries = 4 // wrong PINs before waits start
+	pinFirstWait = 30 * time.Second
+	pinMaxWait   = time.Hour
 )
 
 var errLocked = errors.New("Settings are locked; enter the PIN again.")
 
+// pinWait is the wait after the nth wrong PIN in a row: none for the first
+// pinFreeTries, then pinFirstWait doubling, up to pinMaxWait.
+func pinWait(n int) time.Duration {
+	if n <= pinFreeTries {
+		return 0
+	}
+	w := pinFirstWait
+	for i := pinFreeTries + 1; i < n && w < pinMaxWait; i++ {
+		w *= 2
+	}
+	return min(w, pinMaxWait)
+}
+
 // Unlock checks a settings PIN from c and, if it's right, unlocks c for the
-// current PIN only: changing or removing the PIN locks it again. One PIN
-// per IP is checked at a time, and after pinMaxFails wrong tries in a row
-// the IP is refused for pinLockout. gen is c's lock generation when the
-// PIN was sent, so a lock that arrives meanwhile wins.
+// current PIN only: changing or removing the PIN locks it again. Wrong PINs
+// count for everyone, since IPs behind a proxy or rotated are no guard: one
+// PIN is checked at a time, waits double after pinFreeTries, and
+// PinMaxTries in a row lock settings until reset or restart.
 func (a *App) Unlock(c *client, pin string) error {
 	a.mu.Lock()
-	hash := a.r().cfg.SettingsPin
+	cfg := a.r().cfg
+	hash := cfg.SettingsPin
 	if hash == "" {
 		a.mu.Unlock()
 		return nil
 	}
-	gen := c.lockGen
-	f := a.pinFails[c.ip]
-	if left := time.Until(f.until); left > 0 {
+	if max := cfg.PinMaxTries; max > 0 && a.pin.n >= max {
 		a.mu.Unlock()
-		return fmt.Errorf("too many wrong PINs; try again in %d s", int(left.Seconds())+1)
+		return fmt.Errorf("settings are locked after %d wrong PINs. On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode", max)
 	}
-	if f.busy {
+	if left := time.Until(a.pin.until); left > 0 {
 		a.mu.Unlock()
-		return errors.New("another PIN from this address is being checked; try again")
+		return fmt.Errorf("too many wrong PINs; try again in %s", left.Round(time.Second))
 	}
-	f.busy = true
-	a.pinFails[c.ip] = f
+	if a.pin.busy {
+		a.mu.Unlock()
+		return errors.New("another PIN is being checked; try again")
+	}
+	a.pin.busy = true
 	a.mu.Unlock()
 
 	ok := config.CheckPin(hash, pin)
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	f = a.pinFails[c.ip]
-	f.busy = false
+	a.pin.busy = false
 	if ok {
-		delete(a.pinFails, c.ip)
-		if c.lockGen != gen || a.r().cfg.SettingsPin != hash {
+		a.pin = pinState{}
+		if a.r().cfg.SettingsPin != hash {
 			return errLocked
 		}
 		c.pin = hash
 		return nil
 	}
-	f.n++
-	if f.n >= pinMaxFails {
-		f = pinFail{until: time.Now().Add(pinLockout)}
-		log.Printf("settings: %d wrong PINs from %s, locked out for %v", pinMaxFails, c.ip, pinLockout)
+	a.pin.n++
+	log.Printf("settings: wrong PIN from %s (%d in a row)", c.ip, a.pin.n)
+	if max := a.r().cfg.PinMaxTries; max > 0 && a.pin.n >= max {
+		log.Printf("settings: locked after %d wrong PINs; run sode -reset-pin or restart to unlock", a.pin.n)
+		return fmt.Errorf("wrong PIN; settings are now locked after %d wrong PINs. On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode", a.pin.n)
 	}
-	a.pinFails[c.ip] = f
+	if w := pinWait(a.pin.n); w > 0 {
+		a.pin.until = time.Now().Add(w)
+		return fmt.Errorf("wrong PIN; try again in %s", w)
+	}
 	return errors.New("wrong PIN")
 }
 
-// Lock forgets c's unlock, including one still being checked.
+// Lock forgets c's unlock.
 func (a *App) Lock(c *client) {
 	a.mu.Lock()
 	c.pin = ""
-	c.lockGen++
 	a.mu.Unlock()
 }
 

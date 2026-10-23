@@ -16,13 +16,15 @@ let unlocked = false;
 // A save is in flight: its own hello / locked arrive before configResult
 // closes the view, so don't flip to the PIN prompt for them.
 const saving = () => $('settings-save').disabled;
+// Numbers each unlock sent; opening or closing the view skips ahead, so a
+// reply to one sent before then is ignored.
+let unlockSeq = 0;
 
 // The level numbering picked in the form, and how the default levels box
 // is currently written (so switching modes can rewrite it).
 const formMode = () => form.querySelector('input[name="lvlnum"]:checked')?.value || '1';
-const formBase = () => Number($('cfg-lvlbase').value);
 const formLevels = () => Number($('cfg-levels').value);
-let shown = { mode: '1', base: 0 };
+let shownMode = '1';
 
 function showView() {
   const want = location.hash === '#settings' && S.cfg;
@@ -40,18 +42,16 @@ export function openSettings() {
     else f.value = v ?? '';
   }
   $(`cfg-lvlnum-${S.cfg.levelNumbering || '1'}`).checked = true;
-  shown = { mode: formMode(), base: formBase() };
-  $('cfg-default').value = levelInput(parseLevelsAs(S.cfg.defaultLevels, '1', 1, S.cfg.levels) || [], shown.mode);
+  shownMode = formMode();
+  $('cfg-default').value = levelInput(parseLevelsAs(S.cfg.defaultLevels, '1', S.cfg.levels) || [], shownMode);
   renderNumbering();
   renderColors(S.cfg.levelColors || []);
   $('cfg-pin').value = '';
   $('cfg-pin2').value = '';
   $('cfg-pin-clear').checked = false;
-  $('cfg-pin-clear-row').hidden = !S.pinSet;
-  $('cfg-pin-status').textContent = S.pinSet
-    ? 'A PIN is set. Type a new one to change it; leave blank to keep it.'
-    : 'No PIN: anyone who can open this page can change settings. 4-64 characters.';
+  renderPinStatus();
   unlocked = false;
+  unlockSeq++;
   $('lock-pin').value = '';
   $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
@@ -85,6 +85,7 @@ function closeSettings() {
   delete root.dataset.view;
   wsSend({ t: 'lock' });
   unlocked = false;
+  unlockSeq++;
   if (layout() === 'desktop') $('src').focus();
 }
 
@@ -101,7 +102,7 @@ function readSettings() {
   c.levelNumbering = formMode();
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
-  const list = def ? parseLevelsAs(def, c.levelNumbering, c.levelTypedBase, formLevels()) : [];
+  const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
   c.defaultLevels = list ? levelInput(list, '1') : null;
   return c;
 }
@@ -114,17 +115,16 @@ function renderNumbering() {
   form.querySelector('label[for="cfg-lvlnum-0"]').textContent = span('0');
   form.querySelector('label[for="cfg-lvlnum-1"]').textContent = span('1');
   form.querySelector('label[for="cfg-lvlnum-va"]').textContent = Number.isInteger(n) && n > 1 ? `V + ${levelLabel(2, 'va')}–${levelLabel(n, 'va')}` : 'V';
-  $('cfg-lvlbase-field').hidden = formMode() !== 'va';
 }
 
 // After the numbering changes: rewrite the default levels box in the new
-// numbering (if it parsed in the old one) and relabel the previews.
+// numbering (if it parsed in the old one) and relabel the previews. Not
+// limited to the level count, which may be mid-edit: Save checks that.
 function numberingChanged() {
-  const now = { mode: formMode(), base: formBase() };
   const f = $('cfg-default');
-  const list = f.value.trim() && parseLevelsAs(f.value, shown.mode, shown.base, formLevels());
-  if (list) f.value = levelInput(list, now.mode);
-  shown = now;
+  const list = f.value.trim() && parseLevelsAs(f.value, shownMode, Infinity);
+  if (list) f.value = levelInput(list, formMode());
+  shownMode = formMode();
   renderNumbering();
   renderOffsetNote();
   rerenderColors();
@@ -223,9 +223,17 @@ function showLockErr(text) {
   $('lock-pin').select();
 }
 
+function renderPinStatus() {
+  $('cfg-pin-clear-row').hidden = !S.pinSet;
+  $('cfg-pin-status').textContent = S.pinSet
+    ? 'A PIN is set. Type a new one to change it; leave blank to keep it.'
+    : 'No PIN: anyone who can open this page can change settings. 4-64 characters.';
+}
+
 function unlockResult(m) {
+  if (m.id !== unlockSeq) return; // sent before the view closed or reopened
   $('lock-unlock').disabled = false;
-  if (!isOpen()) return; // closed (and locked) while it was checked
+  if (!isOpen()) return;
   if (!m.ok) return showLockErr(m.err);
   unlocked = true;
   $('lock-pin').value = '';
@@ -243,7 +251,7 @@ function relock() {
     $('settings-save').disabled = false;
   }
   if (!S.pinSet) unlocked = false;
-  if (isOpen()) $('cfg-pin-clear-row').hidden = !S.pinSet;
+  if (isOpen()) renderPinStatus();
   if (!saving()) renderLock();
 }
 
@@ -283,7 +291,6 @@ $('cfg-levels').addEventListener('input', () => {
   renderNumbering();
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
-$('cfg-lvlbase').addEventListener('change', numberingChanged);
 $('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'refreshNames' })) {
@@ -294,7 +301,7 @@ $('names-refresh').addEventListener('click', () => {
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   if ('locked' in form.dataset) { // Enter or Unlock in the PIN prompt
-    if (!wsSend({ t: 'unlock', pin: $('lock-pin').value })) return showLockErr('Not connected to Sode.');
+    if (!wsSend({ t: 'unlock', pin: $('lock-pin').value, id: ++unlockSeq })) return showLockErr('Not connected to Sode.');
     $('lock-unlock').disabled = true;
     return;
   }

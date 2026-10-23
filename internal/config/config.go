@@ -37,13 +37,16 @@ type Config struct {
 	// past Levels are kept but unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
 	// LevelNumbering is how levels are shown and typed: "1" (1-17), "0"
-	// (0-16) or "va" (V, A1-A16). In "va", LevelTypedBase says what a bare
-	// typed number means: 0 → 0 = V, 1 = A1; 1 → 1 = V, 2 = A1.
+	// (0-16) or "va" (V, 1-16: "0" with level 0 shown as V).
 	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering"`
-	LevelTypedBase int    `yaml:"levelTypedBase" json:"levelTypedBase"`
+	// LevelTypedBase is no longer used; kept so files that have it load.
+	LevelTypedBase int `yaml:"levelTypedBase,omitempty" json:"-"`
 	// SettingsPin is a HashPin hash guarding the settings view; "" = none.
 	// Never sent to browsers.
 	SettingsPin string `yaml:"settingsPin,omitempty" json:"-"`
+	// PinMaxTries wrong PINs in a row lock settings until the PIN is reset
+	// (sode -reset-pin) or Sode restarts; 0 = never.
+	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries"`
 }
 
 func Defaults() Config {
@@ -60,6 +63,7 @@ func Defaults() Config {
 		TrustedProxies:     []string{},
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
+		PinMaxTries:        10,
 	}
 }
 
@@ -94,7 +98,7 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
-	num("SODE_LEVEL_TYPED_BASE", &c.LevelTypedBase)
+	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)
 	if v := os.Getenv("SODE_CONFIRM_ENTER"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
@@ -205,8 +209,8 @@ func (c Config) Validate() error {
 	default:
 		bad("level numbering must be 0, 1 or va")
 	}
-	if c.LevelTypedBase < 0 || c.LevelTypedBase > 1 {
-		bad("level typed base must be 0 or 1")
+	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
+		bad("PIN tries before lockout must be 0 (never) or 1-1000")
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
@@ -273,7 +277,7 @@ func (c Config) LevelMap() []Level {
 	return out
 }
 
-// LevelLabel is how UI level ui is shown: "0" → ui-1, "va" → V, A1, A2…,
+// LevelLabel is how UI level ui is shown: "0" → ui-1, "va" → V, 1, 2…,
 // otherwise ui.
 func (c Config) LevelLabel(ui int) string {
 	switch c.LevelNumbering {
@@ -283,7 +287,7 @@ func (c Config) LevelLabel(ui int) string {
 		if ui == 1 {
 			return "V"
 		}
-		return "A" + strconv.Itoa(ui-1)
+		return strconv.Itoa(ui - 1)
 	}
 	return strconv.Itoa(ui)
 }

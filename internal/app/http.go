@@ -21,11 +21,9 @@ type client struct {
 	ip   string
 	send chan []byte
 
-	// Guarded by App.mu. pin is the settings PIN hash this connection
-	// unlocked; a changed or removed PIN no longer matches it. lockGen
-	// counts locks, so an unlock can't land after a later lock.
-	pin     string
-	lockGen int
+	// pin is the settings PIN hash this connection unlocked, guarded by
+	// App.mu; a changed or removed PIN no longer matches it.
+	pin string
 }
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -84,6 +82,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(64 << 10)
 
 	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
+	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
+		a.xffWarn.Do(func() {
+			log.Printf("ws: behind a proxy but trustedProxies is empty; set it to the proxy's address so history shows real client IPs")
+		})
+	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
@@ -165,7 +168,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "unlock":
 			// Checked in line, so a lock sent after it is handled after it
 			// and one connection checks one PIN at a time.
-			res := map[string]any{"t": "unlockResult", "ok": true}
+			res := map[string]any{"t": "unlockResult", "ok": true, "id": m.ID}
 			if err := a.Unlock(c, m.Pin); err != nil {
 				res["ok"], res["err"] = false, err.Error()
 			}

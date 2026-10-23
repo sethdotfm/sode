@@ -54,7 +54,7 @@ export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : src
 // ---- websocket
 
 let retry = 1000;
-let prevNumbering = null; // { mode, base, max } before the last hello
+let prevNumbering = null; // { mode, max } before the last hello
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
 
@@ -91,7 +91,7 @@ function handle(m) {
   switch (m.t) {
     case 'hello':
       // How levels were typed until now, so views can rewrite their boxes.
-      prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, base: S.cfg.levelTypedBase, max: S.levels.length };
+      prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
       S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
@@ -259,8 +259,8 @@ export function search(list, q, n = 8) {
 export const allLevels = () => S.levels.map((l) => l.ui);
 
 // Levels are shown and typed per cfg.levelNumbering: "1" (1-17), "0"
-// (0-16) or "va" (V, A1-A16, where a bare number counts from
-// cfg.levelTypedBase: 0 → 0 = V, 1 → 1 = V). Internally they stay 1..N.
+// (0-16) or "va" (V, 1-16: "0" with level 0 shown as V). Internally they
+// stay 1..N.
 // With no mode it's the server's label (Level.Label); a mode is for
 // previewing one that isn't saved yet.
 export function levelLabel(ui, mode) {
@@ -270,29 +270,29 @@ export function levelLabel(ui, mode) {
     mode = S.cfg.levelNumbering;
   }
   if (mode === '0') return String(ui - 1);
-  if (mode === 'va') return ui === 1 ? 'V' : `A${ui - 1}`;
+  if (mode === 'va') return ui === 1 ? 'V' : String(ui - 1);
   return String(ui);
 }
 
-// One typed level ("3", "v", "a2") → UI level, or NaN.
-function levelTok(tok, mode, base) {
+// One typed level ("3", or in "va" also "v" and "a2" = 2) → UI level, or
+// NaN.
+function levelTok(tok, mode) {
   const t = tok.toLowerCase();
   if (mode === 'va') {
     if (t === 'v') return 1;
     const a = t.match(/^a(\d+)$/);
     if (a) return +a[1] >= 1 ? +a[1] + 1 : NaN;
-    return /^\d+$/.test(t) ? +t + (base === 0 ? 1 : 0) : NaN;
   }
-  return /^\d+$/.test(t) ? +t + (mode === '0' ? 1 : 0) : NaN;
+  return /^\d+$/.test(t) ? +t + (mode === '1' ? 0 : 1) : NaN;
 }
 
-// "1-3,5" (or "v,a1-a4") in mode → sorted UI levels within 1..max, or null.
-export function parseLevelsAs(text, mode, base, max) {
+// "1-3,5" (or "v,1-4") in mode → sorted UI levels within 1..max, or null.
+export function parseLevelsAs(text, mode, max) {
   const out = new Set();
   for (const part of text.split(/[\s,]+/).filter(Boolean)) {
     const m = part.match(/^([^-]+)(?:-([^-]+))?$/);
     if (!m) return null;
-    let a = levelTok(m[1], mode, base), b = m[2] ? levelTok(m[2], mode, base) : a;
+    let a = levelTok(m[1], mode), b = m[2] ? levelTok(m[2], mode) : a;
     if (!Number.isInteger(a) || !Number.isInteger(b)) return null;
     if (a > b) [a, b] = [b, a];
     for (let i = a; i <= b; i++) {
@@ -307,8 +307,8 @@ export function parseLevelsAs(text, mode, base, max) {
 // levels); none: the picker was cleared to no levels, so blank means none.
 export function parseLevels(text, none = false) {
   if (none && !text.trim()) return null;
-  if (!text.trim()) return parseLevelsAs(S.cfg.defaultLevels, '1', 1, S.levels.length);
-  return parseLevelsAs(text, S.cfg.levelNumbering, S.cfg.levelTypedBase, S.levels.length);
+  if (!text.trim()) return parseLevelsAs(S.cfg.defaultLevels, '1', S.levels.length);
+  return parseLevelsAs(text, S.cfg.levelNumbering, S.levels.length);
 }
 
 // A levels box's text rewritten for a numbering that changed with the
@@ -316,8 +316,8 @@ export function parseLevels(text, none = false) {
 // before is left as it is.
 export function relabelLevels(text) {
   const p = prevNumbering;
-  if (!p || !text.trim() || (p.mode === S.cfg.levelNumbering && p.base === S.cfg.levelTypedBase)) return text;
-  const list = parseLevelsAs(text, p.mode, p.base, p.max);
+  if (!p || !text.trim() || p.mode === S.cfg.levelNumbering) return text;
+  const list = parseLevelsAs(text, p.mode, p.max);
   return list ? levelInput(list) : text;
 }
 

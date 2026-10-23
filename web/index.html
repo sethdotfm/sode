@@ -136,12 +136,7 @@
           <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-1" value="1"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-1"></label>
           <input type="radio" class="pb-btn-check" name="lvlnum" id="cfg-lvlnum-va" value="va"><label class="pb-btn pb-btn--outline" for="cfg-lvlnum-va"></label>
         </span>
-        <span class="sode__hint">How levels are shown and typed, for everyone.</span>
-      </div>
-      <div class="sode__field" id="cfg-lvlbase-field">
-        <label for="cfg-lvlbase">Typed numbers</label>
-        <span class="pb-select-wrap"><select id="cfg-lvlbase" class="pb-select" data-key="levelTypedBase" data-type="int"><option value="0">Count from 0: 0 = V, 1 = A1</option><option value="1">Count from 1: 1 = V, 2 = A1</option></select></span>
-        <span class="sode__hint">V and A1, A2… always work too, e.g. v,a1-a8.</span>
+        <span class="sode__hint">How levels are shown and typed, for everyone. With V, V and 0 are the same level, e.g. v,1-8.</span>
       </div>
     </fieldset>
 
@@ -217,6 +212,11 @@
       <div class="sode__field">
         <label for="cfg-pin2">Confirm PIN</label>
         <input type="password" id="cfg-pin2" class="pb-input" autocomplete="new-password" spellcheck="false">
+      </div>
+      <div class="sode__field">
+        <label for="cfg-pin-tries">Lock after wrong PINs</label>
+        <span class="pb-number-wrap"><input type="number" id="cfg-pin-tries" class="pb-input" data-key="pinMaxTries" data-type="int" min="0" max="1000"></span>
+        <span class="sode__hint">Wrong PINs in a row, from anyone, before settings lock until the PIN is reset (or Sode restarts). 0 = never. From the 5th wrong PIN there's a wait, doubling from 30 s.</span>
       </div>
       <label class="pb-check" id="cfg-pin-clear-row"><input type="checkbox" class="pb-check__input" id="cfg-pin-clear"><span class="pb-check__label">Remove the PIN</span></label>
       <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then restart Sode.</span>

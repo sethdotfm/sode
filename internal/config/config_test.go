@@ -28,7 +28,8 @@ func TestValidate(t *testing.T) {
 		"refresh too fast":  func(c *Config) { c.NameRefreshSeconds = 1 },
 		"bad colour":        func(c *Config) { c.LevelColors = []string{"#12345g"} },
 		"bad numbering":     func(c *Config) { c.LevelNumbering = "2" },
-		"bad typed base":    func(c *Config) { c.LevelTypedBase = 2 },
+		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
+		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 	} {
 		c := ok
 		mut(&c)
@@ -51,7 +52,7 @@ func TestSaveLoad(t *testing.T) {
 	c := Defaults()
 	c.Router = "10.0.0.5:8910"
 	c.TrustedProxies = []string{"10.0.0.2", "172.18.0.0/16"}
-	c.LevelNumbering, c.LevelTypedBase = "va", 1
+	c.LevelNumbering, c.PinMaxTries = "va", 3
 	c.SettingsPin, _ = HashPin("1234")
 	c.Normalize()
 	if err := Save(path, c); err != nil {
@@ -60,6 +61,11 @@ func TestSaveLoad(t *testing.T) {
 	got, exists, err := Load(path)
 	if err != nil || !exists || !reflect.DeepEqual(got, c) {
 		t.Fatalf("round trip: %+v exists=%v err=%v", got, exists, err)
+	}
+	// Files from before levelTypedBase was dropped still load.
+	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelTypedBase: 1\n"), 0o644)
+	if _, _, err := Load(path); err != nil {
+		t.Fatalf("legacy levelTypedBase: %v", err)
 	}
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
 	if _, _, err := Load(path); err == nil {
@@ -102,7 +108,7 @@ func TestParseLevels(t *testing.T) {
 func TestLevelLabels(t *testing.T) {
 	c := Defaults()
 	c.Levels = 3
-	for mode, want := range map[string][]string{"1": {"1", "2", "3"}, "0": {"0", "1", "2"}, "va": {"V", "A1", "A2"}} {
+	for mode, want := range map[string][]string{"1": {"1", "2", "3"}, "0": {"0", "1", "2"}, "va": {"V", "1", "2"}} {
 		c.LevelNumbering = mode
 		got := []string{}
 		for _, l := range c.LevelMap() {
@@ -121,6 +127,9 @@ func TestPin(t *testing.T) {
 	}
 	if !CheckPin(h, "4321") || CheckPin(h, "4322") || CheckPin("", "4321") || CheckPin("x$1$a$b", "4321") {
 		t.Fatal("CheckPin")
+	}
+	if !ValidPinHash(h) || ValidPinHash("1234") || ValidPinHash("") {
+		t.Fatal("ValidPinHash")
 	}
 	if CheckPinRules("123") == nil || CheckPinRules("1234") != nil {
 		t.Fatal("CheckPinRules")
