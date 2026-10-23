@@ -3,7 +3,7 @@
 
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
-  allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, timeNodes, undoPlan, historyPager,
+  allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
@@ -338,10 +338,10 @@ function folderRow(f) {
   return row;
 }
 
-// A row's time; below 1000px the date hides and shows on hover instead.
+// A row's date and time; below 1000px the date hides and shows on hover.
 function histTime(iso) {
   const t = el('span', 'sode__hist-time', ...timeNodes(iso));
-  t.dataset.hint = fmtTime(iso);
+  t.dataset.hint = t.textContent;
   return t;
 }
 

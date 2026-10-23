@@ -638,10 +638,11 @@ export const fmtTime = (iso) => {
   const d = new Date(iso);
   return [dateOf(d), timeFormat().format(d)].filter(Boolean).join(' ');
 };
-// The same as nodes, the date in its own span so a narrow layout can drop it.
+// Always dated, as nodes: the date in its own span so a narrow layout can
+// drop it.
 export const timeNodes = (iso) => {
-  const d = new Date(iso), date = dateOf(d);
-  return [date && el('span', 'sode__date', `${date} `), timeFormat().format(d)];
+  const d = new Date(iso);
+  return [el('span', 'sode__date', `${isoDate(d)} `), timeFormat().format(d)];
 };
 
 // ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry, prot }] }
