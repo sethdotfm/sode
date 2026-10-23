@@ -1296,3 +1296,21 @@ code,
 @media (max-width: 599.98px) {
   .sode__search-box { flex: 1 1 8em; }
 }
+/* The shortcut, small at the right of an empty, unfocused box. */
+.sode__search-key {
+  background: none;
+  border: 0;
+  color: var(--pb-text-muted);
+  padding: 0;
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-2xs);
+  pointer-events: none;
+  position: absolute;
+  right: var(--pb-space-2);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.sode__search-box:has(> .sode__search-key) { flex-basis: 19em; }
+.sode__search-box:has(> .sode__search-key) > .pb-input { padding-right: 6.5em; }
+.sode__search-box > .pb-input:focus ~ .sode__search-key,
+.sode__search-box > .pb-input:not(:placeholder-shown) ~ .sode__search-key { display: none; }

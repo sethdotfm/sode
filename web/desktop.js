@@ -532,7 +532,7 @@ function onListKey(e) {
   if (BOXES[k]) { focusBox($(BOXES[k])); return true; }
   if (k === ',') { $('settings-open').click(); return true; }
   if (k === '/') { openFilters(); return true; }
-  if (k === 'a') { $('history-search').querySelector('[data-search-src]').focus(); return true; }
+  if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
   if (k === '?') { openKeys(); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {
@@ -583,7 +583,15 @@ function closeKeys(viaKeys = false) {
   else if (keysBack?.isConnected && !keysFromHist) keysBack.focus();
   else focusBox(boxes.src.input);
 }
-if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) k.textContent = k.dataset.mac;
+if (mac) for (const k of document.querySelectorAll('#keys [data-mac], #history-search [data-mac]')) k.textContent = k.dataset.mac;
+
+// The Filter by Source / Destination boxes above Recent.
+function focusSearch(k) {
+  const f = $('history-search').querySelector(`[data-search-${k}]`);
+  if ($('history-search').hidden) return;
+  f.focus();
+  f.select();
+}
 $('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
@@ -800,6 +808,13 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!active()) return;
+  // Alt+Shift+S / D: the filter boxes, from anywhere (by code: Option
+  // changes the key on macOS).
+  if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && (e.code === 'KeyS' || e.code === 'KeyD')) {
+    e.preventDefault();
+    focusSearch(e.code === 'KeyS' ? 'src' : 'dst');
+    return;
+  }
   const id = e.target.id;
   const k = id === 'src' || id === 'dst' ? id : null;
   const b = k && boxes[k];
