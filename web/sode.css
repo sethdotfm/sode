@@ -58,29 +58,27 @@ code,
   padding: 10vh var(--pb-space-8) var(--pb-space-8);
 }
 
-.sode__links {
+/* Connection status, out of the way in the top corner. */
+.sode__conn {
   align-items: center;
   color: var(--pb-text-muted);
   display: flex;
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-4);
+  position: fixed;
+  right: var(--pb-space-6);
+  top: var(--pb-space-5);
 }
-.sode__node {
-  border: var(--pb-border-w) solid var(--pb-edge);
-  color: var(--pb-text);
-  font-weight: var(--pb-weight-medium);
-  padding: var(--pb-space-2) var(--pb-space-4);
-}
-.sode__link {
-  align-items: center;
-  display: flex;
-  gap: var(--pb-space-3);
-}
-.sode__link::before,
-.sode__link::after {
-  border-top: var(--pb-border-w) solid var(--pb-edge);
+.sode__conn-addr { font-family: var(--pb-font-mono); }
+.sode__down { width: 100%; }
+/* A lost link outlines the whole window in red. */
+[data-conn="down"] body::after {
+  border: var(--pb-accent-bar-w) solid var(--pb-status-error);
   content: "";
-  width: var(--pb-space-8);
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
 }
 
 .sode__mark {
@@ -452,7 +450,8 @@ code,
 [data-view="settings"] #patch-view,
 [data-view="settings"] .sode-m { display: none; }
 [data-layout="phone"] #patch-view,
-[data-layout="phone"] .sode__links { display: none; }
+[data-layout="phone"] .sode__conn,
+[data-layout="phone"] .sode__down { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
 /* Settings: one plain column, labels above fields, the page scrolls.

@@ -2,7 +2,7 @@
 // + in the destination box adds another destination as a chip.
 
 import {
-  $, el, S, on, connState, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
+  $, el, S, on, connState, linked, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
@@ -30,12 +30,21 @@ const entered = new Set();  // live entries already animated in
 
 // ---- connection
 
+// A small status in the corner while all is well; once a link is lost, a
+// banner saying which, a red outline round the page, and no patching.
 function renderConn() {
   const c = connState();
-  setDot($('ws-dot'), $('ws-text'), c.ws);
-  setDot($('rt-dot'), $('rt-text'), c.rt);
-  $('rt-name').textContent = `Router ${S.routerAddr}`;
-  $('rt-text').parentElement.title = S.routerErr;
+  const [dot, text] = c.down ? ['error', 'Disconnected']
+    : c.ws[0] !== 'ok' ? ['warn', 'Connecting']
+    : c.rt[0] !== 'ok' ? [c.rt[0], 'Router connecting'] : ['ok', 'Connected'];
+  setDot($('conn-dot'), $('conn-text'), [dot, text]);
+  $('conn-addr').textContent = S.routerAddr || '';
+  $('conn').title = [c.ws[1], c.rt[1], S.routerErr].filter(Boolean).join('\n');
+  document.documentElement.dataset.conn = c.down ? 'down' : 'up';
+  const banner = $('conn-down');
+  banner.hidden = !c.down;
+  if (c.down) banner.replaceChildren(el('div', null, el('div', 'pb-alert__title', c.down.title), c.down.text));
+  $('patch').disabled = !linked();
 }
 
 // ---- fuzzy finder
@@ -230,7 +239,7 @@ function histRow(e) {
   if (planEmpty(plan)) {
     btn.disabled = true;
     btn.title = 'Nothing to undo';
-  }
+  } else if (!linked()) btn.disabled = true;
   btn.addEventListener('click', () => openConfirm(plan));
 
   // Before: what the destination had on these levels just before the take.
@@ -284,13 +293,14 @@ function folderRow(f) {
   if (planEmpty(plan)) {
     undo.disabled = true;
     undo.title = 'Nothing to undo';
-  }
+  } else if (!linked()) undo.disabled = true;
   undo.setAttribute('aria-label', `Undo all ${f.entries.length} takes of ${folderIds(f)}`);
   undo.addEventListener('click', () => openConfirm(plan));
 
   const retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (failed ? '' : ' sode__placeholder'), 'Retry');
   retry.type = 'button';
   if (failed) {
+    retry.disabled = !linked();
     retry.setAttribute('aria-label', `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`);
     retry.addEventListener('click', () => openConfirm(folderRetryPlan(f)));
   } else {
@@ -341,6 +351,7 @@ function retryButton(e, src, dst) {
     b.setAttribute('aria-hidden', 'true');
     return b;
   }
+  b.disabled = !linked();
   b.setAttribute('aria-label', `Retry ${src.label} to ${dst.label}`);
   b.addEventListener('click', () => openConfirm(retryPlan(e)));
   return b;
@@ -584,6 +595,6 @@ on('names', () => {
   renderTally();
 });
 on('tally', renderTally);
-on('conn', renderConn);
+on('conn', () => { renderConn(); renderHistory(); });
 on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));

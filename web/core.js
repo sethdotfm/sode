@@ -25,6 +25,7 @@ export const S = {
   levelBy: new Map(),
   namesAt: null,
   wsState: 'connecting',
+  wsLost: false,    // the socket dropped and hasn't come back yet
   router: null, routerAddr: '', routerErr: '',
   ws: null,
   hist: [],         // newest first
@@ -64,10 +65,11 @@ export function connect() {
   S.ws = ws;
   S.wsState = 'connecting';
   emit('conn');
-  ws.onopen = () => { retry = 1000; S.wsState = 'up'; emit('conn'); };
+  ws.onopen = () => { retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
   ws.onclose = () => {
     S.ws = null;
     S.wsState = 'down';
+    S.wsLost = true;
     S.histLoading = false;
     if (takes.size) {
       // Replies to a dead socket are lost; the outcome is in history.
@@ -198,13 +200,23 @@ function setStatus(st) {
   S.routerErr = st.err || '';
 }
 
-// Dot state and text for the WebSocket and router links.
+// Dot state and text for the WebSocket and router links, plus down:
+// { title, text } once either link is lost (not while first connecting).
 export function connState() {
   const ws = { up: ['ok', 'WebSocket connected'], connecting: ['warn', 'WebSocket connecting'], down: ['error', 'WebSocket disconnected'] }[S.wsState];
   const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
-  return { ws, rt: [dot, `SW-P-08 ${word}`] };
+  let down = null;
+  if (S.wsLost) {
+    down = { title: 'No connection to Sode', text: 'Reconnecting…' };
+  } else if (S.wsState === 'up' && S.router && S.router !== 'up') {
+    down = { title: `Router ${S.routerAddr} not connected`, text: `Reconnecting…${S.routerErr ? ` ${S.routerErr}` : ''}` };
+  }
+  return { ws, rt: [dot, `SW-P-08 ${word}`], down };
 }
+
+// Patches can go out: Sode is reachable and connected to the router.
+export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 
 export function setDot(dotEl, textEl, [state, text]) {
   dotEl.className = `pb-dot pb-dot--${state}`;
@@ -692,7 +704,7 @@ function takeResult(m) {
 // Marks each protected item's prot. A plan only blocks when every
 // destination is protected; otherwise those are refused and the rest go.
 export function planBlocked(plan) {
-  if (!S.ws || S.router !== 'up') {
+  if (!linked()) {
     return { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' };
   }
   const live = plan.items.filter((i) => i.groups.length);

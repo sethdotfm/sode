@@ -28,13 +28,11 @@
 <body>
 
 <main class="sode">
-  <div class="sode__links" aria-label="Connection status">
-    <span class="sode__node">Browser</span>
-    <span class="sode__link"><span class="pb-status"><span class="pb-dot pb-dot--warn" id="ws-dot" aria-hidden="true"></span><span id="ws-text">WebSocket connecting</span></span></span>
-    <span class="sode__node">Sode</span>
-    <span class="sode__link"><span class="pb-status"><span class="pb-dot pb-dot--idle" id="rt-dot" aria-hidden="true"></span><span id="rt-text">SW-P-08 unknown</span></span></span>
-    <span class="sode__node" id="rt-name">Router</span>
+  <div class="sode__conn" id="conn">
+    <span class="pb-status"><span class="pb-dot pb-dot--warn" id="conn-dot" aria-hidden="true"></span><span id="conn-text">Connecting</span></span>
+    <span class="sode__conn-addr" id="conn-addr"></span>
   </div>
+  <div class="pb-alert pb-alert--error sode__down" id="conn-down" role="alert" hidden></div>
 
   <div class="sode__view" id="patch-view">
     <h1 class="sode__mark">Sode</h1>
