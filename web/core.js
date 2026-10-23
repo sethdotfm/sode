@@ -934,9 +934,13 @@ export function setSearchRespectsFilters(on) {
   emit('history');
 }
 
-// Whether a search finds e: its route, or one of its follows'.
+// Whether a search finds e: its route, or one of its follows'. Names are
+// the router's now and the ones logged with the entry, which differ when
+// names changed (or another router is connected).
 function found(e) {
-  const hit = (x) => searchSrc(x.src + off(), srcItem(x.src, x.srcName).name) && searchDst(x.dst + off(), dstItem(x.dst, x.dstName).name);
+  const either = (fn, n, now, then) => fn(n + off(), now) || (!!then && then !== now && fn(n + off(), then));
+  const hit = (x) => either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName) &&
+    either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
   return hit(e) || !!e.follows?.some(hit);
 }
 

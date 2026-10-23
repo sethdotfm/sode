@@ -95,19 +95,18 @@ export function filterText(rules) {
   }).join(', ');
 }
 
-// Fuzzy name text, as the source and destination boxes find things: the
-// name contains it, or its letters come in order in "number name"
-// (spaces in the text don't count). So "mv28" finds "MV 28".
+// A name folded for fuzzy matching: lower case, without spaces or
+// punctuation, and numbers without leading zeros ("PROD MON03" →
+// "prodmon3").
+const fold = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '').replace(/(^|[a-z])0+(?=\d)/g, '$1');
+
+// Fuzzy name text, for searching: every word of it is in the folded name.
+// So "prodmon" finds "PROD MON03", "dsm3" "DSM 03" and "mv 28" "MV 28".
 function fuzzy(text) {
-  const q = text.toLowerCase();
-  const qq = q.replace(/\s+/g, '');
+  const words = text.split(/\s+/).map(fold).filter(Boolean);
   return (num, name) => {
-    const n = name.toLowerCase();
-    if (n.includes(q)) return true;
-    const t = `${num} ${n}`;
-    let i = 0;
-    for (let j = 0; j < t.length && i < qq.length; j++) if (t[j] === qq[i]) i++;
-    return i === qq.length;
+    const n = fold(name);
+    return words.every((w) => n.includes(w));
   };
 }
 

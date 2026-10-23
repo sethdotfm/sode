@@ -36,10 +36,14 @@ test('matching', () => {
   assert.equal(filterFn('!x')(5, 'xyz'), false);
   assert.equal(filterFn('/^dsm\\d$/')(1, 'DSM3'), true); // ignores case by default
   assert.equal(filterFn('/^dsm/g')(1, 'DSM3'), false); // flags given: as written
-  const fz = filterFn('mv28, !pgm', { fuzzy: true });
-  assert.equal(fz(600, 'MV 28'), true); // letters in order
-  assert.equal(fz(601, 'MV08 PIP028'), true);
-  assert.equal(fz(602, 'DSM 3'), false);
+  const fz = filterFn('mv28, prodmon, dsm3, cam 1, !pgm', { fuzzy: true });
+  assert.equal(fz(600, 'MV 28'), true); // spaces, case and zeros don't count
+  assert.equal(fz(601, 'PROD MON03'), true);
+  assert.equal(fz(602, 'DSM 03'), true);
+  assert.equal(fz(603, 'CAM 12'), true); // every word in the name
+  assert.equal(fz(604, 'MV 76'), false);
+  assert.equal(fz(605, 'MV08 PIP028'), false); // not just letters in order
+  assert.equal(fz(606, 'PGM DSM3'), false);
   assert.equal(filterFn('mv28')(600, 'MV 28'), false); // Filters stay exact
 });
 
@@ -190,6 +194,12 @@ test('quick search', async () => {
   assert.equal(ids(), '4');
   setSearch({ src: 'CAM 2', dst: '' });
   assert.equal(ids(), '2');
+  // Names logged with the entry count as well as the router's now.
+  S.dstBy = new Map([[2, { n: 2, name: 'MV 76', num: '3', lname: 'mv 76', label: '3 MV 76' }]]);
+  setSearch({ src: '', dst: 'dsm1' });
+  assert.equal(ids(), '4');
+  S.dstBy = new Map();
+  setSearch({ src: 'CAM 2', dst: '' });
   setSearchRespectsFilters(true);
   assert.equal(ids(), '');
   setSearchRespectsFilters(false);
