@@ -233,6 +233,15 @@ export function connState() {
   return { ws, rt: [dot, `Router ${word}`], down };
 }
 
+// What the status shows for the router (Settings → Router → Status
+// shows): [text, is a name]. Name falls back to the address when unset.
+export function routerLabel() {
+  const show = S.cfg?.routerShow || 'address';
+  if (show === 'none') return ['', false];
+  if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
+  return [S.routerAddr || '', false];
+}
+
 // Fills (or hides) a disconnected banner: what's lost, a browser → server
 // → router map with each link marked, and the router's error if any.
 // Redrawn only when its content changes: status flaps while reconnecting,
@@ -773,8 +782,9 @@ function takeResult(m) {
   const dsts = new Set(b.results.map((r) => r.dst.n)).size;
   const failed = b.results.filter((r) => !r.ok);
   if (!failed.length) {
-    const title = undo ? 'Undone' : 'Taken';
-    showResult('ok', dsts > 1 ? `${title} on ${dsts} destinations` : title, capped(b.results.map((r) => takeText(r, r.already))));
+    const many = dsts > 1 ? ` ${dsts} destinations` : '';
+    const title = undo ? `Undone${many && ' on' + many}` : `Success${many && ':' + many}`;
+    showResult('ok', title, capped(b.results.map((r) => takeText(r, r.already))));
     return;
   }
   const partly = failed.length < b.results.length;

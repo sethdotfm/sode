@@ -2,7 +2,7 @@
 // + in the destination box adds another destination as a chip.
 
 import {
-  $, el, S, on, connState, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
+  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
@@ -44,15 +44,6 @@ function renderConn() {
   renderDown($('conn-down'), c);
 }
 needsLink($('patch'));
-
-// What the status shows for the router (Settings → Router → Status
-// shows): [text, is a name]. Name falls back to the address when unset.
-function routerLabel() {
-  const show = S.cfg?.routerShow || 'address';
-  if (show === 'none') return ['', false];
-  if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
-  return [S.routerAddr || '', false];
-}
 
 // ---- fuzzy finder
 
