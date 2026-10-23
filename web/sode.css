@@ -535,6 +535,31 @@ code,
   white-space: nowrap;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
+/* Below 1000px from → to always gets the room: a row's status is its
+   color alone (the text on hover, and still read out), and its level bar
+   moves into the Before panel. A group's takes each have their own. */
+.sode__hist-levels { display: none; }
+@media (max-width: 999.98px) {
+  .sode__hist-row > .sode__bar { display: none; }
+  .sode__hist-row > .pb-status { --sode-hint: on; }
+  .sode__hist-row > .pb-status > .sode__status-text {
+    clip: rect(0, 0, 0, 0);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+  /* Stacked rather than in the list's columns, so an open panel's bars
+     don't widen the levels column for every row. */
+  .sode__hist-before { display: flex; flex-direction: column; }
+  .sode__hist-before > .sode__route { display: flex; }
+  .sode__hist-levels {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pb-space-3);
+  }
+}
 .sode__hist-more {
   display: flex;
   justify-content: center;

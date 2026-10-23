@@ -13,7 +13,9 @@ export function el(tag, cls, ...kids) {
 }
 
 // Text cut off with an ellipsis shows in full in a tooltip on hover, as
-// soon as the pointer arrives. Elements with a title of their own keep it.
+// soon as the pointer arrives; so does an element's data-hint wherever the
+// CSS sets --sode-hint: on (its text is hidden there to save room).
+// Cut-off elements with a title of their own keep it.
 const cutTip = el('div', 'sode__cut-tip');
 cutTip.hidden = true;
 cutTip.setAttribute('aria-hidden', 'true'); // the full text is already in the DOM
@@ -24,6 +26,7 @@ const hideCutTip = () => { cutTip.hidden = true; cutFor = null; };
 function cutOff(n) {
   for (; n instanceof HTMLElement; n = n.parentElement) {
     const cs = getComputedStyle(n);
+    if (n.dataset.hint && cs.getPropertyValue('--sode-hint').trim() === 'on') return { n, text: n.dataset.hint };
     if (cs.textOverflow !== 'ellipsis' || cs.overflowX === 'visible') continue;
     if (n.title || n.scrollWidth <= n.clientWidth) return null;
     const text = (n instanceof HTMLInputElement ? n.value : n.textContent).replace(/\s+/g, ' ').trim();
@@ -745,9 +748,10 @@ export function statusNode(row) {
   const st = row.f ? folderStatus(row.f) : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');
-  const node = el('span', 'pb-status', dot, st.text);
+  const node = el('span', 'pb-status', dot, el('span', 'sode__status-text', st.text));
   if (row.e && !row.e.ok) node.title = row.e.err || '';
   if (st.title) node.title = st.title;
+  node.dataset.hint = node.title ? `${st.text}: ${node.title}` : st.text;
   return node;
 }
 

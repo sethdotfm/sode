@@ -263,6 +263,8 @@ function histRow(e) {
     const detail = el('div', 'sode__hist-before',
       el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
       ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))));
+    // Below 1000px the row's level bar moves in here (see sode.css).
+    detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
     row.append(detail);
   }
