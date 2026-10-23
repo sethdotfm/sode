@@ -152,6 +152,40 @@ function renderChips() {
   $('dst-label').textContent = n > 1 ? `Destinations (${n})` : 'Destination';
 }
 
+// ---- the last take's source, destinations or levels (Ctrl+S/D/F)
+
+// This browser's last take as numbers, so names stay current; until it
+// makes one, the newest take in history made in Sode.
+let lastPatch = null;
+
+function lastTake() {
+  let t = lastPatch;
+  if (!t) {
+    const e = S.hist.find((x) => !x.ext && x.undo == null && x.retry == null);
+    if (!e) return null;
+    const es = e.group && e.groupN > 1 ? S.hist.filter((x) => x.group === e.group).reverse() : [e];
+    t = { src: [e.src, e.srcName], dsts: es.map((x) => [x.dst, x.dstName]), levels: e.levels };
+  }
+  return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
+}
+
+// Fills one box from the last take and moves on to the next.
+function useLast(k) {
+  const t = lastTake();
+  if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
+  if (k === 'src') {
+    select('src', t.src);
+    focusBox(boxes.dst.input);
+  } else if (k === 'dst') {
+    dsts = t.dsts.slice(0, -1);
+    select('dst', t.dsts[t.dsts.length - 1]);
+    focusBox(lvlInput);
+  } else {
+    setLevels(t.levels);
+    focusBox(lvlInput);
+  }
+}
+
 // ---- level picker
 
 function setLevels(list) {
@@ -716,7 +750,11 @@ function doTake(viaKeys = false) {
   pending = null;
   $('confirm').hidden = true;
   // Only a patch came from the boxes; an undo or retry leaves them be.
-  if (sendTakes(p) && p.verb === 'patch') clearAll();
+  if (sendTakes(p) && p.verb === 'patch') {
+    const g = p.items[0].groups[0];
+    lastPatch = { src: [g.src.n, g.src.name], dsts: p.items.map((i) => [i.dst.n, i.dst.name]), levels: g.levels };
+    clearAll();
+  }
   else focusBack(viaKeys);
 }
 
@@ -808,6 +846,14 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!active()) return;
+  // Ctrl+S/D/F (Control on a Mac too): the last take's source,
+  // destinations or levels, from anywhere.
+  const last = e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
+  if (last) {
+    e.preventDefault();
+    useLast(last);
+    return;
+  }
   const id = e.target.id;
   const k = id === 'src' || id === 'dst' ? id : null;
   const b = k && boxes[k];

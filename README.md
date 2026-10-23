@@ -4,6 +4,8 @@ Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultri
 
 Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8` or `1+3+5-8`; `!` leaves levels out: `!1` is every level but 1, `1-8!3` is 1-8 without 3; words work too: `t`, `thru` or `through` for `-`, `n` or `not` for `!`, as in `1 thru 8 not 3`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
 
+Ctrl+S, Ctrl+D and Ctrl+F (Control on a Mac too) fill Source, Destination(s) or Levels from your last take and move to the next box. After a reload, they use the newest Sode take in history.
+
 To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip and the box starts over. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
 
 **Other panels (beta).** Routes made elsewhere (Ultrix panels, Companion) show up in Recent too, with a **panel** status, and can be undone like any take. A panel take arrives as one change per level, so Sode collects them until they stop for half a second, then logs one entry per destination and source. A burst that changes several destinations becomes one folder. If the same destination is punched on the same levels again within 30 seconds, with nothing else routed there in between, the punches show as one row ("3 changes"); its Before lists each change, and Undo goes back to the state before the first punch.
