@@ -787,7 +787,7 @@ code,
   position: relative;
 }
 .sode-m__undo {
-  background: var(--pb-commit);
+  background: var(--pb-status-error);
   border: 0;
   bottom: 0;
   color: var(--pb-text-on-accent);
@@ -946,7 +946,7 @@ code,
 .sode-m__scrim[hidden] { display: none; }
 .sode-m__sheet {
   background: var(--pb-surface-overlay);
-  border-top: 3px solid var(--pb-status-warn);
+  border-top: 3px solid var(--pb-status-error);
   box-shadow: var(--pb-shadow-overlay);
   display: flex;
   flex-direction: column;
@@ -957,7 +957,7 @@ code,
   width: 100%;
 }
 .sode-m__sheet-title {
-  color: var(--pb-status-warn);
+  color: var(--pb-status-error);
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
 }
@@ -985,7 +985,7 @@ code,
 }
 /* The trail behind the handle. */
 .sode__slide::before {
-  background: color-mix(in srgb, var(--pb-commit) 30%, transparent);
+  background: color-mix(in srgb, var(--pb-status-error) 30%, transparent);
   bottom: 0;
   content: "";
   left: 0;
@@ -1003,7 +1003,7 @@ code,
 }
 .sode__slide-handle {
   align-items: center;
-  background: var(--pb-commit);
+  background: var(--pb-status-error);
   bottom: 0;
   color: var(--pb-text-on-accent);
   cursor: grab;

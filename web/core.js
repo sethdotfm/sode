@@ -75,7 +75,7 @@ export function connect() {
     if (takes.size) {
       // Replies to a dead socket are lost; the outcome is in history.
       takes.clear();
-      showResult('warn', 'Connection lost', 'The patch was sent but its result is unknown. Check Recent once reconnected.');
+      showResult('warn', 'Connection lost', 'The take was sent but its result is unknown. Check Recent once reconnected.');
     }
     emit('conn');
     setTimeout(connect, retry);
@@ -610,8 +610,8 @@ export const folderRetryPlan = (f) => ({ verb: 'retry', items: f.entries.filter(
 // Undo for a history row: a single entry or a whole folder.
 export const rowUndoPlan = (row) => (row.f ? folderUndoPlan(row.f) : undoPlan(row.e));
 
-// 'undo', 'retry' or 'patch', for wording confirms.
-export const planVerb = (plan) => plan.verb;
+// 'undo', 'retry' or 'take' (a 'patch' plan), for wording confirms.
+export const planVerb = (plan) => (plan.verb === 'patch' ? 'take' : plan.verb);
 // True when a plan has nothing to send (an undo with nothing routed before).
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
 
@@ -773,13 +773,13 @@ function takeResult(m) {
   const dsts = new Set(b.results.map((r) => r.dst.n)).size;
   const failed = b.results.filter((r) => !r.ok);
   if (!failed.length) {
-    const title = undo ? 'Undone' : 'Patched';
+    const title = undo ? 'Undone' : 'Taken';
     showResult('ok', dsts > 1 ? `${title} on ${dsts} destinations` : title, capped(b.results.map((r) => takeText(r, r.already))));
     return;
   }
   const partly = failed.length < b.results.length;
   const count = b.results.length > 1 ? ` (${failed.length} of ${b.results.length})` : '';
-  const title = `${undo ? 'Undo' : 'Patch'} ${partly ? 'partly failed' : 'failed'}${count}`;
+  const title = `${undo ? 'Undo' : 'Take'} ${partly ? 'partly failed' : 'failed'}${count}`;
   showResult('error', title, capped(failed.map((r) => `${takeText(r)}: ${r.err}`), 5));
 }
 
@@ -813,11 +813,11 @@ function planQuestion(plan) {
   const to = n === 1 ? ['Destination ', strong(plan.items[0].dst.label)] : [strong(`${n} destinations`)];
   if (plan.verb === 'undo') {
     const srcs = [...new Set(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName).label))];
-    return el('div', null, 'Are you sure you want to undo the patch of ', srcs.length === 1 ? strong(srcs[0]) : `${srcs.length} sources`,
+    return el('div', null, 'Are you sure you want to undo the take of ', srcs.length === 1 ? strong(srcs[0]) : `${srcs.length} sources`,
       ' to ', ...to, '?');
   }
   const srcs = [...new Set(plan.items.flatMap((i) => i.groups.map((g) => g.src.label)))];
-  return el('div', null, `Are you sure you want to ${plan.verb === 'retry' ? 'retry patching' : 'patch'} `,
+  return el('div', null, `Are you sure you want to ${plan.verb === 'retry' ? 'retry taking' : 'take'} `,
     ...(srcs.length === 1 ? ['Source ', strong(srcs[0])] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
@@ -868,7 +868,7 @@ export function sendTakes(p) {
     }
   }
   if (!wsSend({ t: 'batch', items })) {
-    showResult('error', 'Not connected', 'Lost connection to Sode before the patch was sent.');
+    showResult('error', 'Not connected', 'Lost connection to Sode before the take was sent.');
     return false;
   }
   for (const id of batch.byId.keys()) takes.set(id, batch);
@@ -877,7 +877,7 @@ export function sendTakes(p) {
   const text = dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
     ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
     : capped(list.map((t) => takeText(t)));
-  showResult('info', p.verb === 'undo' ? 'Undoing…' : 'Patching…', text);
+  showResult('info', p.verb === 'undo' ? 'Undoing…' : 'Taking…', text);
   return true;
 }
 
