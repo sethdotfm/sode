@@ -866,15 +866,15 @@ function followGlobal() {
   setFilter(s.f);
 }
 
-// "dst MV, !20-60; no Sode takes", for titles and lists.
+// "Dst: MV, !20-60 · No Sode takes", for titles and lists.
 export function filterSummary(f) {
   const parts = [];
-  if (f.src.trim()) parts.push(`sources ${f.src.trim()}`);
-  if (f.dst.trim()) parts.push(`destinations ${f.dst.trim()}`);
-  if (!f.sode) parts.push('no Sode takes');
-  if (!f.ext) parts.push('no other panels');
-  else if (f.hidden) parts.push('with globally hidden');
-  return parts.join('; ') || 'everything';
+  if (f.src.trim()) parts.push(`Src: ${f.src.trim()}`);
+  if (f.dst.trim()) parts.push(`Dst: ${f.dst.trim()}`);
+  if (!f.sode) parts.push('No Sode takes');
+  if (!f.ext) parts.push('No other panels');
+  else if (f.hidden) parts.push('With hidden');
+  return parts.join(' · ') || 'Everything';
 }
 
 // The globally hidden destinations, compiled once per expression. Blank
@@ -954,7 +954,7 @@ export function folderStatus(f) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
   const title = got < f.n ? `${got} of ${f.n} loaded` : '';
-  if (f.entries.every((e) => e.ext)) return { dot: 'info', text: 'panel', title: title || 'Made elsewhere, seen on the router' };
+  if (f.entries.every((e) => e.ext)) return { dot: 'info', text: 'panel', title: title || 'From another panel' };
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
@@ -963,7 +963,7 @@ export function folderStatus(f) {
 // A pb-status node for a single take or a folder.
 export function statusNode(row) {
   const st = row.f ? folderStatus(row.f)
-    : row.e.ext ? { dot: 'info', text: 'panel', title: 'Made elsewhere, seen on the router' }
+    : row.e.ext ? { dot: 'info', text: 'panel', title: 'From another panel' }
     : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');

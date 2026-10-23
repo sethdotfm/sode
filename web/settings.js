@@ -203,7 +203,7 @@ function renderGlobalSets() {
   const sets = S.cfg?.filterSets || [];
   $('cfg-sets').replaceChildren(...(sets.length
     ? sets.map((s) => el('li', 'sode__gset', el('strong', null, s.name), el('span', 'sode__hint', filterSummary(normFilter(s)))))
-    : [el('li', 'sode__hint', 'None yet.')]));
+    : [el('li', 'sode__hint', 'None')]));
 }
 
 // What the globally hidden expression matches, against the router's names.
@@ -211,12 +211,12 @@ function renderHiddenNote() {
   const f = $('cfg-hidden');
   const p = parseFilter(f.value);
   f.classList.toggle('pb-input--invalid', !!p.error);
-  let text = 'Nothing hidden.';
+  let text = '';
   if (p.error) text = `${p.error}.`;
   else if (p.rules.length) {
     const fn = compileFilter(p.rules);
     const n = S.dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
-    text = `Matches ${n} of ${S.dsts.length} destinations.`;
+    text = `${n} of ${S.dsts.length} destinations`;
   }
   $('cfg-hidden-note').textContent = text;
 }

@@ -64,18 +64,18 @@ function editor(key) {
     const input = box.querySelector('.sode__filters-code');
     input?.classList.toggle('pb-input--invalid', !!ed.error);
     err.hidden = !ed.error;
-    err.textContent = ed.error ? `${ed.error}. The last working filter still applies.` : '';
+    err.textContent = ed.error ? `${ed.error}` : '';
     const list = key === 'src' ? S.srcs : S.dsts;
     const p = parseFilter(ed.text);
     if (p.error) return;
-    if (!p.rules.length) { note.textContent = list.length ? `All ${list.length} ${noun}.` : `All ${noun}.`; return; }
-    if (!list.length) { note.textContent = 'Names not loaded yet.'; return; }
+    if (!p.rules.length) { note.textContent = `All ${noun}`; return; }
+    if (!list.length) { note.textContent = ''; return; }
     const fn = compileFilter(p.rules);
     const hits = list.filter((i) => fn(i.n + off(), i.name));
     const shown = hits.slice(0, 4).map((i) => i.label).join(', ');
     note.textContent = hits.length
-      ? `Matches ${hits.length} of ${list.length} ${noun}: ${shown}${hits.length > 4 ? ` (+${hits.length - 4})` : ''}`
-      : `Matches none of ${list.length} ${noun}.`;
+      ? `${hits.length} of ${list.length}: ${shown}${hits.length > 4 ? ', …' : ''}`
+      : `No ${noun} match`;
   }
 
   // Rows → text, keeping rows still being filled in out of it.
@@ -165,7 +165,7 @@ function editor(key) {
         rules[rules.length - 1]?.querySelector('input')?.focus();
       });
       body = el('div', 'sode__filters-rules',
-        ...(ed.rows.length ? ed.rows.map(rowNode) : [el('span', 'sode__hint', `No rules: every one of the ${noun}.`)]),
+        ...ed.rows.map(rowNode),
         el('div', null, add));
     }
     const err = el('div', 'pb-note pb-note--error');
@@ -194,7 +194,11 @@ function editor(key) {
     },
     render,
     preview,
-    flush() { clearTimeout(timer); if (!parseFilter(ed.text).error) setFilter({ ...filterState(), [key]: ed.text }); },
+    flush() {
+      clearTimeout(timer);
+      if (!ed.error) setFilter({ ...filterState(), [key]: ed.text });
+      preview();
+    },
   };
 }
 
@@ -222,7 +226,7 @@ function renderShow() {
   $('flt-hidden').checked = f.hidden;
   $('flt-hidden').disabled = !f.ext;
   const g = (S.cfg?.hiddenDsts || '').trim();
-  $('flt-hidden-note').replaceChildren(...(g ? ['Hidden for everyone in Settings: ', el('code', null, g)] : ['None are set in Settings → History.']));
+  $('flt-hidden-note').replaceChildren(...(g ? [el('code', null, g)] : ['None set in Settings']));
 }
 
 // ---- the Filters buttons in Recent's headers
@@ -244,7 +248,7 @@ function renderButtons() {
     b.type = 'button';
     b.setAttribute('aria-pressed', String(on));
     if (on && a.edited) b.setAttribute('aria-label', `${s.name} (edited)`);
-    b.title = `${s.scope === 'global' ? 'For everyone' : s.scope === 'local' ? 'This browser' : 'Built in'}: ${filterSummary(s.f)}${on && a.edited ? '. Edited; click to go back to it.' : ''}`;
+    b.title = filterSummary(s.f) + (on && a.edited ? ' (edited)' : '');
     b.addEventListener('click', () => {
       pickSet(s.scope, s.name);
       if (filtersOpen()) reload();
@@ -253,7 +257,7 @@ function renderButtons() {
   };
   // All | for everyone | this browser's own, each group labelled for
   // screen readers.
-  const groups = [['all', 'Built in'], ['global', 'For everyone'], ['local', 'This browser']]
+  const groups = [['all', 'Default'], ['global', 'Everyone'], ['local', 'This browser']]
     .map(([scope, label]) => [label, sets.filter((s) => s.scope === scope)]).filter(([, g]) => g.length);
   for (const box of document.querySelectorAll('[data-sets]')) {
     const kids = [];
@@ -345,16 +349,15 @@ let pending = null;   // a change to sets for everyone: { id, run, done }
 let unlocked = false; // the PIN was accepted on this connection
 let pinSeq = 1e6;     // unlock ids, apart from Settings' own
 let opSeq = 0;
-const scopeWord = (scope) => (scope === 'global' ? 'everyone' : 'this browser');
 
 function renderSetBar() {
   const a = activeSet();
   const select = $('flt-set');
-  const groups = [['all', 'Built in'], ['global', 'For everyone'], ['local', 'This browser']];
+  const groups = [['all', 'Default'], ['global', 'Everyone'], ['local', 'This browser']];
   const sets = allSets();
   const opts = [];
   if (!a) {
-    const o = el('option', null, 'Unsaved filters');
+    const o = el('option', null, 'Unsaved');
     o.value = '';
     opts.push(o);
   }
@@ -381,9 +384,7 @@ function renderSetBar() {
   $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
   $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
   if (busy) return;
-  setNote(!a ? 'Save as… names these filters for a quick button.'
-    : a.scope === 'all' ? 'Everything. Save as… names a new set.'
-    : `For ${scopeWord(a.scope)}.${a.edited ? ' Edited: Save updates the set, Save as… makes another.' : ''}`);
+  setNote(a && a.scope !== 'all' ? `${a.scope === 'global' ? 'Everyone' : 'This browser'}${a.edited ? ' · edited' : ''}` : '');
 }
 const setNote = (text, error = false) => {
   $('flt-set-note').textContent = text;
@@ -406,14 +407,14 @@ function send(list) {
     return;
   }
   renderSetBar();
-  setNote('Saving for everyone…');
+  setNote('Saving…');
 }
 const globalsWith = (fn) => fn(globalSets().map((s) => ({ name: s.name, f: s.f })));
 
 on('filterSetsResult', (m) => {
   if (!pending || m.id !== pending.id) return;
   const p = pending;
-  if (m.locked) { unlocked = false; return askPin('Settings are locked; enter the PIN again.'); }
+  if (m.locked) { unlocked = false; return askPin('Enter the PIN again.'); }
   pending = null;
   if (!m.ok) { renderSetBar(); setNote(sentence(m.err), true); return; }
   p.done();
@@ -423,7 +424,7 @@ on('filterSetsResult', (m) => {
 function askPin(err = '') {
   $('flt-pin-row').hidden = false;
   $('flt-pin').value = '';
-  setNote(err || 'Sets for everyone are settings: enter the settings PIN.', !!err);
+  setNote(err || 'Enter the settings PIN.', !!err);
   $('flt-pin').focus();
 }
 function cancelPin() {
@@ -516,11 +517,11 @@ function saveName() {
   const a = activeSet();
   const scope = naming === 'rename' ? a.scope : $('flt-set-scope').value;
   const bad = (msg) => { f.classList.add('pb-input--invalid'); setNote(msg, true); f.focus(); };
-  if (!name) return bad('Give the set a name.');
-  if (name.toLowerCase() === 'all') return bad('“All” is built in; pick another name.');
+  if (!name) return bad('Name required.');
+  if (name.toLowerCase() === 'all') return bad('“All” is taken.');
   const clash = allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase());
   const self = naming === 'rename' && clash && setKey(clash) === setKey(a);
-  if (clash && !self && naming === 'rename') return bad(`There's already a set called “${clash.name}” for ${scopeWord(scope)}.`);
+  if (clash && !self && naming === 'rename') return bad(`“${clash.name}” already exists.`);
   flushEds();
   const mode = naming;
   closeName();
@@ -578,7 +579,7 @@ $('flt-share-btn').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {}
   const dot = el('span', `pb-dot pb-dot--${ok ? 'ok' : 'info'}`);
   dot.setAttribute('aria-hidden', 'true');
-  $('flt-share-status').replaceChildren(dot, ok ? 'Copied' : 'Copy the link above');
+  $('flt-share-status').replaceChildren(dot, ok ? 'Copied' : 'Copy it above');
 });
 
 // A shared link: apply its filter in this browser, then clean the URL.
@@ -595,7 +596,7 @@ export function applySharedLink() {
     next = normFilter(raw2);
     name = typeof raw2.name === 'string' ? raw2.name.trim().slice(0, 32) : '';
   } catch (e) {
-    showResult('warn', 'Filter link not understood', 'This browser\'s filters are unchanged.');
+    showResult('warn', 'Invalid filter link', '');
     return;
   }
   const prev = filterState(), prevRef = activeRef();
@@ -608,14 +609,14 @@ export function applySharedLink() {
   };
   const undo = () => btn('Undo', () => {
     adoptFilter(prev, prevRef);
-    showResult('ok', 'Filters restored', 'Back to this browser\'s filters from before the link.');
+    showResult('ok', 'Filters restored', '');
   });
-  const keep = () => btn(`Save as “${name}”`, () => {
+  const keep = () => btn('Save as set', () => {
     saveLocalSet(name);
-    showResult('ok', 'Set saved', `“${name}” is a quick button in this browser's Recent.`);
+    showResult('ok', `Saved “${name}”`, '');
   });
-  showResult('info', name ? `Filters “${name}” from a shared link` : 'Filters from a shared link', () => el('span', 'sode__filters-empty',
-    'Recent in this browser now shows only what they let through.', name && name.toLowerCase() !== 'all' ? keep() : null, undo()));
+  showResult('info', name ? `Shared filters “${name}” applied` : 'Shared filters applied', () => el('span', 'sode__filters-empty',
+    name && name.toLowerCase() !== 'all' ? keep() : null, undo()));
 }
 
 // ---- when filters hide everything
@@ -626,10 +627,7 @@ export function emptyNote(rows) {
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Clear filters');
   clear.type = 'button';
   clear.addEventListener('click', () => pickSet('all', 'All'));
-  const open = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Filters…');
-  open.type = 'button';
-  open.addEventListener('click', openFilters);
-  return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Nothing loaded matches this browser\'s filters.'), open, clear);
+  return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Nothing matches.'), clear);
 }
 
 on('filters', renderButtons);
