@@ -773,8 +773,9 @@ function takeResult(m) {
   const dsts = new Set(b.results.map((r) => r.dst.n)).size;
   const failed = b.results.filter((r) => !r.ok);
   if (!failed.length) {
-    const title = undo ? 'Undone' : 'Taken';
-    showResult('ok', dsts > 1 ? `${title} on ${dsts} destinations` : title, capped(b.results.map((r) => takeText(r, r.already))));
+    const many = dsts > 1 ? ` ${dsts} destinations` : '';
+    const title = undo ? `Undone${many && ' on' + many}` : `Success${many && ':' + many}`;
+    showResult('ok', title, capped(b.results.map((r) => takeText(r, r.already))));
     return;
   }
   const partly = failed.length < b.results.length;
