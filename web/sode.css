@@ -508,6 +508,13 @@ code,
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
 .sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device) { display: none; }
+/* This device first, then the prompt: it's the part anyone can change. */
+.sode__settings[data-locked] > .sode__settings-head { order: -2; }
+.sode__settings[data-locked] > .sode__device { order: -1; }
+.sode__settings[data-locked] > .sode__lock {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  padding-top: var(--pb-space-5);
+}
 .sode__field > .pb-btn-group { align-self: flex-start; flex-wrap: wrap; }
 .sode__fields {
   display: grid;
