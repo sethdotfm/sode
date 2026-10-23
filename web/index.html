@@ -55,7 +55,7 @@
           <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+)">+</button>
           <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
         </div>
-        <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to patch" hidden></div>
+        <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
       </div>
       <div class="sode__box">
         <label class="sode__label" for="lvl">Levels</label>
@@ -67,7 +67,7 @@
       </div>
       <div class="sode__box">
         <span class="sode__label" aria-hidden="true">&nbsp;</span>
-        <button type="button" class="pb-btn pb-btn--commit sode__patch" id="patch" tabindex="-1" data-tip="Enter">Patch</button>
+        <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1" data-tip="Enter">Take</button>
       </div>
     </form>
 
@@ -76,7 +76,7 @@
 
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__label" id="history-head" hidden>Recent</div>
-      <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent patches"></ul>
+      <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent takes"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
 
@@ -158,7 +158,7 @@
     </fieldset>
 
     <fieldset class="sode__group">
-      <legend>Patching</legend>
+      <legend>Takes</legend>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-default">Default levels</label>
@@ -321,7 +321,7 @@
         <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <span class="sode-m__actions">
           <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>
-          <button type="button" class="pb-btn pb-btn--commit sode-m__go" id="m-go">Next</button>
+          <button type="button" class="pb-btn pb-btn--danger sode-m__go" id="m-go">Next</button>
         </span>
       </div>
     </div>
@@ -330,11 +330,11 @@
 
 <div class="pb-modal-backdrop sode__scrim" id="confirm" hidden>
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1" id="confirm-dialog">
-    <div class="pb-modal__header pb-modal__header--warn"><span class="pb-modal__title" id="confirm-title">Confirm patch</span></div>
+    <div class="pb-modal__header pb-modal__header--error"><span class="pb-modal__title" id="confirm-title">Confirm take</span></div>
     <div class="pb-modal__body sode__confirm" id="confirm-body"></div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="confirm-cancel">Cancel</button>
-      <button type="button" class="pb-btn pb-btn--commit" id="confirm-ok">Patch</button>
+      <button type="button" class="pb-btn pb-btn--danger" id="confirm-ok">Take</button>
     </div>
   </div>
 </div>
@@ -342,12 +342,12 @@
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" id="keys-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="keys-title">Keyboard shortcuts</span></div>
     <div class="pb-modal__body sode__keys">
-      <div class="sode__label">Patching</div>
+      <div class="sode__label">Takes</div>
       <dl>
         <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌥J">Alt+J</kbd> <kbd data-mac="⌥K">Alt+K</kbd></dt><dd>Pick a match</dd>
         <dt><kbd>+</kbd></dt><dd>Add destination</dd>
-        <dt><kbd>Enter</kbd></dt><dd>Patch</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘Z">Ctrl+Z</kbd></dt><dd>Undo the last</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear a box; with all empty, keyboard mode</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list, from anywhere</dd>
@@ -374,10 +374,10 @@
 </div>
 <div class="sode-m__scrim" id="m-sheet" hidden>
   <div class="sode-m__sheet" role="dialog" aria-modal="true" aria-labelledby="m-sheet-title">
-    <div class="sode-m__sheet-title" id="m-sheet-title">Confirm patch</div>
+    <div class="sode-m__sheet-title" id="m-sheet-title">Confirm take</div>
     <div class="sode-m__sheet-body sode__confirm" id="m-sheet-body"></div>
     <div class="sode__slide sode__slide--locked" id="m-slide">
-      <span class="sode__slide-label" id="m-slide-label">Slide to patch</span>
+      <span class="sode__slide-label" id="m-slide-label">Slide to take</span>
       <div class="sode__slide-handle" id="m-slide-handle" role="slider" tabindex="0" aria-label="Slide to confirm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">→</div>
     </div>
     <button type="button" class="pb-btn pb-btn--outline pb-btn--block" id="m-sheet-cancel">Cancel</button>

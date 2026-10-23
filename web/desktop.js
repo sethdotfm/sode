@@ -596,7 +596,7 @@ function patchNow() {
 // Undo the newest history row (a whole folder), through the usual confirm.
 function undoLast() {
   const [row] = histRows(S.hist);
-  if (!row) return showResult('info', 'Nothing to undo', 'No patches yet.');
+  if (!row) return showResult('info', 'Nothing to undo', 'No takes yet.');
   undoRow(row);
 }
 
