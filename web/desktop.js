@@ -188,7 +188,7 @@ function renderLast() {
     const v = now[k];
     if (!v) { slot.replaceChildren(); continue; }
     const key = { src: 'S', dst: 'D', lvl: 'F' }[k];
-    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', v.text), el('kbd', 'sode__key-note', `⌃${key}`));
+    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', `Last: ${v.text}`), el('kbd', 'sode__key-note', `⌃${key}`));
     b.type = 'button';
     b.tabIndex = -1;
     b.title = `Last take's ${{ src: 'source', dst: 'destination', lvl: 'levels' }[k]} (Ctrl+${key})`;
