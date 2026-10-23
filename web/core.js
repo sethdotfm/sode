@@ -12,6 +12,54 @@ export function el(tag, cls, ...kids) {
   return e;
 }
 
+// Text cut off with an ellipsis shows in full in a tooltip on hover, as
+// soon as the pointer arrives; so does an element's data-hint wherever the
+// CSS sets --sode-hint: on (its text is hidden there to save room).
+// Cut-off elements with a title of their own keep it.
+const cutTip = el('div', 'sode__cut-tip');
+cutTip.hidden = true;
+cutTip.setAttribute('aria-hidden', 'true'); // the full text is already in the DOM
+document.body.append(cutTip);
+let cutFor = null;
+const hideCutTip = () => { cutTip.hidden = true; cutFor = null; };
+
+function cutOff(n) {
+  for (; n instanceof HTMLElement; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (n.dataset.hint && cs.getPropertyValue('--sode-hint').trim() === 'on') return { n, text: n.dataset.hint };
+    if (cs.textOverflow !== 'ellipsis' || cs.overflowX === 'visible') continue;
+    if (n.title || n.scrollWidth <= n.clientWidth) return null;
+    const text = (n instanceof HTMLInputElement ? n.value : n.textContent).replace(/\s+/g, ' ').trim();
+    return text ? { n, text } : null;
+  }
+  return null;
+}
+
+// Under the element (above it if there's no room), kept on screen. The tip
+// sits in the zoomed page, so viewport positions are scaled back by the
+// zoom it actually renders at.
+function placeCutTip(n) {
+  cutTip.style.left = cutTip.style.top = '0px';
+  const o = cutTip.getBoundingClientRect(), r = n.getBoundingClientRect();
+  const k = o.width / cutTip.offsetWidth || 1, gap = 4 * k;
+  const x = Math.max(gap, Math.min(r.left, innerWidth - o.width - gap));
+  const y = r.bottom + gap + o.height <= innerHeight ? r.bottom + gap : r.top - gap - o.height;
+  cutTip.style.left = `${(x - o.left) / k}px`;
+  cutTip.style.top = `${(y - o.top) / k}px`;
+}
+
+document.addEventListener('mouseover', (e) => {
+  const c = cutOff(e.target);
+  if (!c) return hideCutTip();
+  if (c.n === cutFor) return;
+  cutFor = c.n;
+  cutTip.textContent = c.text;
+  cutTip.hidden = false;
+  placeCutTip(c.n);
+});
+document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) hideCutTip(); });
+for (const t of ['scroll', 'pointerdown', 'keydown']) document.addEventListener(t, hideCutTip, true);
+
 // ---- state & events
 
 export const S = {
@@ -459,8 +507,13 @@ export function levelBar(on) {
   const set = new Set(on);
   const row = el('span', 'sode__bar', ...S.levels.map((l) => {
     const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
+    slot.dataset.hint = `Level ${l.label}`; // where the slot is too small for its label
     return levelColor(slot, l);
   }));
+  // Two equal rows; an odd first level (0 or V) stands on its own to the left.
+  const odd = S.levels.length % 2;
+  if (odd) row.classList.add('sode__bar--odd');
+  row.style.setProperty('--sode-bar-cols', Math.floor(S.levels.length / 2) + odd);
   const sorted = [...set].sort((a, b) => a - b);
   row.setAttribute('role', 'img');
   row.setAttribute('aria-label', sorted.length ? `Levels ${levelText(sorted)}` : 'No levels');
@@ -578,10 +631,18 @@ function timeFormat() {
   return timeFmt;
 }
 
+// The time, after an ISO 8601 date (2026-10-22) unless it's today.
+const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dateOf = (d) => (d.toDateString() === new Date().toDateString() ? '' : isoDate(d));
 export const fmtTime = (iso) => {
   const d = new Date(iso);
-  const t = timeFormat().format(d);
-  return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString()} ${t}`;
+  return [dateOf(d), timeFormat().format(d)].filter(Boolean).join(' ');
+};
+// Always dated, as nodes: the date in its own span so a narrow layout can
+// drop it.
+export const timeNodes = (iso) => {
+  const d = new Date(iso);
+  return [el('span', 'sode__date', `${isoDate(d)} `), timeFormat().format(d)];
 };
 
 // ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry, prot }] }
@@ -696,9 +757,10 @@ export function statusNode(row) {
   const st = row.f ? folderStatus(row.f) : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');
-  const node = el('span', 'pb-status', dot, st.text);
+  const node = el('span', 'pb-status', dot, el('span', 'sode__status-text', st.text));
   if (row.e && !row.e.ok) node.title = row.e.err || '';
   if (st.title) node.title = st.title;
+  node.dataset.hint = node.title ? `${st.text}: ${node.title}` : st.text;
   return node;
 }
 

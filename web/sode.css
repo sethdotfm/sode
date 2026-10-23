@@ -49,6 +49,21 @@ code,
   z-index: var(--pb-z-tooltip);
 }
 
+/* Full text of something cut off with an ellipsis, placed by core.js. */
+.sode__cut-tip {
+  background: var(--pb-surface-overlay);
+  box-shadow: var(--pb-shadow-overlay);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xs);
+  max-width: calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2);
+  overflow-wrap: anywhere;
+  padding: var(--pb-space-2) var(--pb-space-4);
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+.sode__cut-tip[hidden] { display: none; }
+
 .sode {
   align-items: center;
   display: flex;
@@ -343,12 +358,29 @@ code,
   color: var(--pb-text-disabled);
 }
 
-/* Level bar: every level in a fixed row, filled = in use. */
+/* Level bar: every level, filled = in use, in two rows of small slots
+   with an odd first level (0 or V) on its own to their left. A thick
+   outline reads as filled at this size, so every slot gets the thin one;
+   a fixed width keeps two-digit slots from growing when filled. */
 .sode__bar {
-  display: flex;
+  display: grid;
   flex: 0 0 auto;
   gap: var(--pb-space-1);
+  grid-template-columns: repeat(var(--sode-bar-cols), auto);
+  justify-content: start;
 }
+.sode__bar--odd > .sode__slot:first-child {
+  grid-row: span 2;
+  height: auto;
+}
+.sode__bar > .sode__slot {
+  border-width: var(--pb-border-w);
+  font-size: var(--pb-text-2xs);
+  height: var(--pb-space-7);
+  min-width: 0;
+  width: var(--pb-space-7);
+}
+.sode__bar > .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
 
 .sode__feed {
   display: flex;
@@ -399,6 +431,8 @@ code,
 .sode__hist-time {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-mono);
+  justify-self: end;
+  white-space: nowrap;
 }
 .sode__hist-toggle { gap: var(--pb-space-2); justify-self: start; }
 .sode__placeholder { visibility: hidden; }
@@ -413,17 +447,16 @@ code,
   display: flex;
   gap: var(--pb-space-4);
 }
-/* A folder: one confirm's takes, listed under a summary row. The list
-   cancels the row's padding and border, so a take's columns sit exactly
-   under the folder's; an accent bar on the left marks them as members. */
+/* A folder: one confirm's takes, listed under a summary row and inside
+   its border. Being a subgrid, a take's columns still line up with the
+   folder's; an accent bar on the left marks them as members. */
 .sode__hist-folder {
-  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
   list-style: none;
-  margin: 0 calc(-1 * (var(--pb-space-3) + var(--pb-border-w)));
-  padding: var(--pb-space-3) 0 var(--pb-space-2);
+  margin: 0;
+  padding: 0 0 var(--pb-space-2);
   row-gap: var(--pb-space-2);
 }
 /* Keyboard mode (--keys, set only from the keyboard): the list has focus
@@ -490,6 +523,7 @@ code,
   font-family: var(--pb-font-mono);
   min-width: 5ch;
   text-align: right;
+  white-space: nowrap;
 }
 .pb-btn.sode__patch {
   font-size: var(--pb-text-lg);
@@ -500,8 +534,49 @@ code,
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
+/* Below 1000px from → to always gets the room: a row's status is its
+   color alone (the text on hover, and still read out), and its level bar
+   moves into the Before panel. A group's takes each have their own. */
+.sode__hist-levels { display: none; }
+@media (max-width: 999.98px) {
+  .sode__hist-row > .sode__bar { display: none; }
+  .sode__hist-time > .sode__date { display: none; }
+  .sode__hist-time { --sode-hint: on; }
+  .sode__hist-row > .pb-status { --sode-hint: on; }
+  .sode__hist-row > .pb-status > .sode__status-text {
+    clip: rect(0, 0, 0, 0);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+  /* Stacked rather than in the list's columns, so an open panel's bars
+     don't widen the levels column for every row. */
+  .sode__hist-before { display: flex; flex-direction: column; }
+  .sode__hist-before > .sode__route { display: flex; }
+  .sode__hist-levels {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pb-space-3);
+  }
+}
+/* Trying out: tiny unnumbered slots stay in the row instead (the level on
+   hover), and the Before panel goes back to not repeating them. */
+@media (max-width: 999.98px) {
+  .sode__hist-row > .sode__bar { display: grid; }
+  .sode__hist-row > .sode__bar > .sode__slot {
+    --sode-hint: on;
+    font-size: 0;
+    height: var(--pb-space-4);
+    width: var(--pb-space-4);
+  }
+  .sode__hist-row > .sode__bar--odd > .sode__slot:first-child { height: auto; }
+  .sode__hist-levels { display: none; }
+}
 .sode__hist-more {
   display: flex;
   justify-content: center;
@@ -659,19 +734,6 @@ code,
   gap: var(--pb-space-6);
   padding: var(--pb-space-5);
 }
-/* Fixed-size slots shrink so a full level bar fits a phone. A thick
-   outline reads as filled at this size, so every slot gets the thin one;
-   a fixed width keeps two-digit slots from growing when filled. */
-[data-layout="phone"] .sode__slot {
-  border-width: var(--pb-border-w);
-  font-size: var(--pb-text-2xs);
-  height: var(--pb-space-7);
-  min-width: 0;
-  width: var(--pb-space-7);
-}
-[data-layout="phone"] .sode__bar { gap: var(--pb-space-1); }
-[data-layout="phone"] .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
-
 /* The phone view fills the visual viewport, so on iOS the composer sits on
    top of the keyboard. --vvh/--vvt come from mobile.js. */
 .sode-m {

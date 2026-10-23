@@ -3,7 +3,7 @@
 
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
-  allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
+  allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
@@ -251,7 +251,7 @@ function histRow(e) {
 
   const row = el('li', 'pb-input sode__hist-row' + enterClass(e) + curClass(`e${e.id}`),
     el('span', 'sode__hist-id', `#${e.id}`),
-    el('span', 'sode__hist-time', fmtTime(e.time)),
+    histTime(e.time),
     levelBar(known),
     el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
       entryNote(e)),
@@ -263,6 +263,8 @@ function histRow(e) {
     const detail = el('div', 'sode__hist-before',
       el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
       ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))));
+    // Below 1000px the row's level bar moves in here (see sode.css).
+    detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
     row.append(detail);
   }
@@ -321,7 +323,7 @@ function folderRow(f) {
   if (!open && f.entries.some((e) => e.id === S.newId)) entered.add(S.newId);
   const row = el('li', 'pb-input sode__hist-row' + (fresh && !open ? ' sode--enter' : '') + curClass(`f${f.group}`),
     el('span', 'sode__hist-id', folderIds(f)),
-    el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
+    histTime(f.entries[0].time),
     levelBar(folderLevels(f)),
     el('span', 'sode__hist-route', ...title),
     statusNode({ f }),
@@ -334,6 +336,13 @@ function folderRow(f) {
     row.append(kids);
   }
   return row;
+}
+
+// A row's date and time; below 1000px the date hides and shows on hover.
+function histTime(iso) {
+  const t = el('span', 'sode__hist-time', ...timeNodes(iso));
+  t.dataset.hint = t.textContent;
+  return t;
 }
 
 // Marks the keyboard cursor's row.
