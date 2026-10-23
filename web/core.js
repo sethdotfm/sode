@@ -481,8 +481,7 @@ export function levelBar(on) {
     const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
     return levelColor(slot, l);
   }));
-  // For the two-row compact bar: an odd first level (0 or V) stands on its
-  // own to the left of two equal rows.
+  // Two equal rows; an odd first level (0 or V) stands on its own to the left.
   const odd = S.levels.length % 2;
   if (odd) row.classList.add('sode__bar--odd');
   row.style.setProperty('--sode-bar-cols', Math.floor(S.levels.length / 2) + odd);

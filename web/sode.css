@@ -343,23 +343,29 @@ code,
   color: var(--pb-text-disabled);
 }
 
-/* Level bar: every level in a fixed row, filled = in use. */
+/* Level bar: every level, filled = in use, in two rows of small slots
+   with an odd first level (0 or V) on its own to their left. A thick
+   outline reads as filled at this size, so every slot gets the thin one;
+   a fixed width keeps two-digit slots from growing when filled. */
 .sode__bar {
-  display: flex;
+  display: grid;
   flex: 0 0 auto;
   gap: var(--pb-space-1);
-}
-/* Compact (history too narrow for full bars): two rows of thinner slots,
-   an odd first level (0 or V) on its own to their left. */
-.sode__hist--compact .sode__bar {
-  align-self: center;
-  display: grid;
   grid-template-columns: repeat(var(--sode-bar-cols), auto);
+  justify-content: start;
 }
-.sode__hist--compact .sode__bar--odd > .sode__slot:first-child {
+.sode__bar--odd > .sode__slot:first-child {
   grid-row: span 2;
   height: auto;
 }
+.sode__bar > .sode__slot {
+  border-width: var(--pb-border-w);
+  font-size: var(--pb-text-2xs);
+  height: var(--pb-space-7);
+  min-width: 0;
+  width: var(--pb-space-7);
+}
+.sode__bar > .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
 
 .sode__feed {
   display: flex;
@@ -671,22 +677,6 @@ code,
   gap: var(--pb-space-6);
   padding: var(--pb-space-5);
 }
-/* Fixed-size slots shrink so a full level bar fits a phone (or folds into
-   a compact history). A thick outline reads as filled at this size, so
-   every slot gets the thin one; a fixed width keeps two-digit slots from
-   growing when filled. */
-[data-layout="phone"] .sode__slot,
-.sode__hist--compact .sode__slot {
-  border-width: var(--pb-border-w);
-  font-size: var(--pb-text-2xs);
-  height: var(--pb-space-7);
-  min-width: 0;
-  width: var(--pb-space-7);
-}
-[data-layout="phone"] .sode__bar { gap: var(--pb-space-1); }
-[data-layout="phone"] .sode__slot:not(.sode__slot--on),
-.sode__hist--compact .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
-
 /* The phone view fills the visual viewport, so on iOS the composer sits on
    top of the keyboard. --vvh/--vvt come from mobile.js. */
 .sode-m {
