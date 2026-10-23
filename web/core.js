@@ -233,6 +233,15 @@ export function connState() {
   return { ws, rt: [dot, `Router ${word}`], down };
 }
 
+// What the status shows for the router (Settings → Router → Status
+// shows): [text, is a name]. Name falls back to the address when unset.
+export function routerLabel() {
+  const show = S.cfg?.routerShow || 'address';
+  if (show === 'none') return ['', false];
+  if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];
+  return [S.routerAddr || '', false];
+}
+
 // Fills (or hides) a disconnected banner: what's lost, a browser → server
 // → router map with each link marked, and the router's error if any.
 // Redrawn only when its content changes: status flaps while reconnecting,

@@ -4,7 +4,7 @@
 // or the button) adds another destination and stays on the step.
 
 import {
-  $, el, S, on, connState, linked, needsLink, setLinkDisabled, renderDown, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
+  $, el, S, on, connState, routerLabel, linked, needsLink, setLinkDisabled, renderDown, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
   fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   chevron, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
@@ -34,6 +34,10 @@ function renderConn() {
   $('m-ws-text').parentElement.title = c.ws[1];
   setDot($('m-rt-dot'), $('m-rt-text'), [c.rt[0], 'Router']);
   $('m-rt-text').parentElement.title = c.rt[1];
+  const [label, isName] = routerLabel();
+  $('m-rt-addr').textContent = label;
+  $('m-rt-addr').title = label;
+  $('m-rt-addr').classList.toggle('sode__conn-addr--name', isName);
   renderDown($('m-down'), c);
   syncGo();
 }
