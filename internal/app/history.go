@@ -32,6 +32,7 @@ type Entry struct {
 	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
 	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
+	Follow  *int      `json:"follow,omitempty"`  // ext only: ID of the take this seems to follow (destination follow, automation)
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept

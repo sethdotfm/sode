@@ -75,6 +75,7 @@ type App struct {
 	extFirst time.Time
 	extLast  time.Time
 	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
+	causes   []*cause             // recent takes that changes elsewhere may follow
 
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
@@ -248,7 +249,9 @@ func (a *App) onRouterMsg(msg []byte) {
 			}
 		}
 		for w := range a.waiters {
-			w.see(xp)
+			if w.see(xp) && xp.Changed() {
+				w.cause.saw(time.Now())
+			}
 		}
 	}
 	for _, p := range ev.Protects {
@@ -615,6 +618,7 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.tally, a.protect = map[int]map[int]int{}, map[int]map[int]int{}
 		a.pend, a.pendProt = nil, nil
 		a.ext = map[int]map[int]*extLevel{}
+		a.causes = nil
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
 		// A new router starts from scratch: not the old one's state or error.
@@ -694,21 +698,23 @@ type waiter struct {
 	already  map[int]bool // wire levels confirmed by tally, not by a change
 	done     chan struct{}
 	closed   bool
+	cause    *cause // for changes that follow this take
 }
 
 // see marks a level confirmed when the router reports the requested route.
 // Routers only announce changes (Connected), so a level that was already
 // on src is confirmed by the answer to an interrogate instead.
-// Caller holds mu.
-func (w *waiter) see(xp swp08.Crosspoint) {
+// It reports whether xp was one of this take's. Caller holds mu.
+func (w *waiter) see(xp swp08.Crosspoint) bool {
 	if xp.Dst != w.dst || xp.Src != w.src || !w.wire[xp.Level] {
-		return
+		return false
 	}
 	delete(w.wire, xp.Level)
 	if !xp.Changed() {
 		w.already[xp.Level] = true
 	}
 	w.finishIfDone()
+	return true
 }
 
 // Caller holds mu.
@@ -761,7 +767,8 @@ func (a *App) take(c *client, req takeReq) {
 	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
-	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{})}
+	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{}),
+		cause: &cause{src: req.Src, dst: req.Dst, id: -1, sode: true}}
 	var protected []int
 	same := map[int]bool{} // wire levels the cache says are already on src
 	a.mu.Lock()
@@ -780,6 +787,7 @@ func (a *App) take(c *client, req takeReq) {
 	}
 	if len(protected) == 0 {
 		a.waiters[w] = struct{}{}
+		a.causes = append(a.causes, w.cause)
 		until := time.Now().Add(ownFor)
 		for _, s := range sends {
 			a.own[ownKey{req.Dst, s.wire, req.Src}] = until
@@ -877,6 +885,9 @@ func (a *App) take(c *client, req takeReq) {
 		err = fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	a.finish(c, res, e, err)
+	a.mu.Lock()
+	w.cause.id, w.cause.done = e.ID, true
+	a.mu.Unlock()
 }
 
 // finish records a take in history and answers the browser.
@@ -913,8 +924,12 @@ func (a *App) record(e *Entry) {
 		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
 	}
 	if e.Ext {
-		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s",
-			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group)
+		follow := "-"
+		if e.Follow != nil {
+			follow = fmt.Sprint(*e.Follow)
+		}
+		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s",
+			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow)
 	} else {
 		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
 			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)

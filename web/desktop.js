@@ -4,7 +4,7 @@
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
-  beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
+  beforeGroups, srcRow, tallyText, attachFollows, fmtTime, retryPlan, planVerb, entryNote, chevron,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
 } from './core.js';
@@ -261,9 +261,14 @@ function histRow(e) {
     el('span', 'sode__hist-actions', retryButton(e, src, dst), btn));
   row.dataset.key = `e${e.id}`;
   if (open) {
+    const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
     const detail = el('div', 'sode__hist-before',
-      el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
-      ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))));
+      ...(e.chain ? [el('div', 'sode__label', 'Changes'),
+        ...e.chain.map((c) => srcRow(lv(c.levels), `${fmtTime(c.time)}  ${srcItem(c.src, c.srcName).label}`))] : []),
+      el('div', 'sode__label', `Before #${e.chain ? e.chain[e.chain.length - 1].id : e.id}, on ${dst.label}`),
+      ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))),
+      ...(e.follows ? [el('div', 'sode__label', 'Followed by'),
+        ...e.follows.map((f) => srcRow(lv(f.levels), `${dstItem(f.dst, f.dstName).label} ← ${srcItem(f.src, f.srcName).label}`))] : []));
     // Below 1000px the row's level bar moves in here (see sode.css).
     detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
@@ -605,9 +610,10 @@ function patchNow() {
 // confirm. Changes from other panels are skipped, whatever the filters
 // show: they're someone else's.
 function undoLast() {
-  const e = S.hist.find((x) => !x.ext);
-  if (!e) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
-  const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group);
+  const last = S.hist.find((x) => !x.ext);
+  if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
+  const e = attachFollows(last);
+  const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group).map(attachFollows);
   undoRow(takes ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e });
 }
 
@@ -653,8 +659,10 @@ function openConfirm(plan) {
   const verb = planVerb(plan);
   const Verb = verb[0].toUpperCase() + verb.slice(1);
   $('confirm-title').textContent = `Confirm ${verb}`;
+  const summary = planSummary(plan);
+  summary.find((n) => n.classList?.contains('sode__plan-extra'))?.querySelector('.pb-check__label').append(' (Space)');
   $('confirm-body').replaceChildren(
-    ...planSummary(plan),
+    ...summary,
     el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
   );
   $('confirm-ok').textContent = `${Verb} (${key.toUpperCase()})`;
@@ -707,6 +715,12 @@ function onConfirmKey(e) {
   e.stopPropagation();
   if (e.key === 'Escape') return closeConfirm(true);
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  // Space ticks the box that adds an undo's follows.
+  if (e.key === ' ' && pending.extra) {
+    const box = $('confirm-body').querySelector('.sode__plan-extra input');
+    if (box) { box.checked = !box.checked; pending.extra.on = box.checked; }
+    return;
+  }
   if (performance.now() < readyAt) return;
   if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake(true);
 }

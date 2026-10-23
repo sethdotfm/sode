@@ -24,7 +24,8 @@ type sim struct {
 	dsts    []string
 	tally   map[int][]int // wire level → dst → src
 	clients map[net.Conn]*sync.Mutex
-	deaf    map[int]bool // dsts whose connects are ACKed but never carried out
+	deaf    map[int]bool  // dsts whose connects are ACKed but never carried out
+	follows map[int][]int // dst → dsts that follow it, like a multiviewer PiP
 }
 
 func envInt(k string, def int) int {
@@ -38,12 +39,23 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}}
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, follows: map[int][]int{}}
 	// SIM_IGNORE_DSTS=5,7 makes connects to those (0-based) destinations
 	// silently fail, so Sode's timeout and retry paths can be exercised.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.deaf[n] = true
+		}
+	}
+	// SIM_FOLLOWS=2>40,3>41 (0-based): when dst 2 changes, dst 40 follows
+	// it to the same source a moment later, as a router's destination
+	// follow does.
+	for _, f := range strings.Split(os.Getenv("SIM_FOLLOWS"), ",") {
+		from, to, ok := strings.Cut(strings.TrimSpace(f), ">")
+		a, err1 := strconv.Atoi(from)
+		b, err2 := strconv.Atoi(to)
+		if ok && err1 == nil && err2 == nil {
+			s.follows[a] = append(s.follows[a], b)
 		}
 	}
 	named := []string{"Black", "Bars", "CG1 Fill", "CG1 Key", "CG2 Fill", "CG2 Key", "CG3 Fill", "CG3 Key", "Replay A", "Replay B", "Zoom 1", "Zoom 2"}
@@ -150,6 +162,9 @@ func (s *sim) route(mx, l, dst, src int) {
 	log.Printf("connect level %d: dst %d ← src %d", l, dst, src)
 	for _, cc := range all {
 		s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
+	}
+	for _, f := range s.follows[dst] {
+		time.AfterFunc(30*time.Millisecond, func() { s.route(mx, l, f, src) })
 	}
 }
 

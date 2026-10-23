@@ -686,9 +686,25 @@ export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
   items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], undo: null, retry: null })),
 });
-export const undoPlan = (e) => ({ verb: 'undo', items: [undoItem(e)] });
+// e with the loaded changes that followed it, as histRows attaches them.
+export function attachFollows(e) {
+  const follows = S.hist.filter((x) => x.follow === e.id);
+  return follows.length ? { ...e, follows } : e;
+}
+
+// Follows (changes the router made after a take, see histRows) are left
+// out of an undo unless the confirm's box is ticked: extra.on. extra is
+// shared by copies of the plan, so the box works on whichever is sent.
+// A destination followed more than once (a merged row) goes back to before
+// the oldest follow: one undo each, not several racing.
+function withFollows(plan, follows) {
+  const oldest = new Map();
+  for (const f of follows) if (!oldest.has(f.dst) || f.id < oldest.get(f.dst).id) oldest.set(f.dst, f);
+  return oldest.size ? { ...plan, extra: { items: [...oldest.values()].map(undoItem), on: false } } : plan;
+}
+export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
 export const retryPlan = (e) => ({ verb: 'retry', items: [retryItem(e)] });
-export const folderUndoPlan = (f) => ({ verb: 'undo', items: f.entries.map(undoItem) });
+export const folderUndoPlan = (f) => withFollows({ verb: 'undo', items: f.entries.map(undoItem) }, f.entries.flatMap((e) => e.follows || []));
 export const folderRetryPlan = (f) => ({ verb: 'retry', items: f.entries.filter((e) => !e.ok).map(retryItem) });
 // Undo for a history row: a single entry or a whole folder.
 export const rowUndoPlan = (row) => (row.f ? folderUndoPlan(row.f) : undoPlan(row.e));
@@ -717,6 +733,8 @@ export function beforeGroups(e) {
 export function entryNote(e) {
   const parts = [];
   if (e.merged > 1) parts.push(`${e.merged} changes`);
+  if (e.follows?.length) parts.push(`+${e.follows.length} follow${e.follows.length === 1 ? '' : 's'}`);
+  if (e.follow != null) parts.push(`follow of #${e.follow}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
@@ -909,16 +927,32 @@ const MERGE_MS = 30000;
 export function histRows(list) {
   const rows = [];
   const folders = new Map();
-  const chains = new Map(); // dst → { k: levels, row, t: oldest time }
+  const chains = new Map(); // dst → { k: levels, row, t: oldest time, list: entries merged }
+  // Follows go with the take they followed, as e.follows, when it's loaded.
+  const ids = new Set(list.map((e) => e.id));
+  const followsOf = new Map();
   for (const e of list) {
+    if (e.follow == null || !ids.has(e.follow)) continue;
+    if (!followsOf.has(e.follow)) followsOf.set(e.follow, []);
+    followsOf.get(e.follow).push(e);
+  }
+  for (const orig of list) {
+    if (orig.follow != null && ids.has(orig.follow)) {
+      chains.delete(orig.dst);
+      continue;
+    }
+    const e = followsOf.has(orig.id) ? { ...orig, follows: followsOf.get(orig.id) } : orig;
     // Merge into the row above if it's a change made elsewhere to the same
     // destination and levels, with nothing else on that destination between.
+    // chain keeps what was merged, newest first.
     const solo = !e.group || e.groupN < 2;
     const k = e.levels.join(',');
     const t = Date.parse(e.time);
     const c = chains.get(e.dst);
-    if (solo && e.ext && c && c.k === k && c.t - t <= MERGE_MS) {
-      c.row.e = { ...c.row.e, prev: e.prev, merged: (c.row.e.merged || 1) + 1 };
+    if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS) {
+      c.list.push(orig);
+      const follows = [...(c.row.e.follows || []), ...(e.follows || [])];
+      c.row.e = { ...c.row.e, prev: e.prev, merged: c.list.length, chain: c.list, ...(follows.length ? { follows } : {}) };
       c.t = t;
       continue;
     }
@@ -926,7 +960,7 @@ export function histRows(list) {
     if (solo) {
       if (!passes(e)) continue;
       const row = { e };
-      if (e.ext) chains.set(e.dst, { k, row, t });
+      if (e.ext && e.follow == null) chains.set(e.dst, { k, row, t, list: [orig] });
       rows.push(row);
       continue;
     }
@@ -982,7 +1016,9 @@ export function folderTitle(f) {
   const src = srcs.length === 1 ? srcItem(srcs[0], f.entries[0].srcName).label : `${srcs.length} sources`;
   const dst = dsts.length === 1 ? dstItem(dsts[0], f.entries[0].dstName).label : `${dsts.length} destinations`;
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
-  const notes = [kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`].filter(Boolean);
+  const follows = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
+  const notes = [kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+    follows && `+${follows} follow${follows === 1 ? '' : 's'}`].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
 
@@ -1149,20 +1185,35 @@ function itemSummary(item, boxed) {
 // and what they replace. With several destinations each gets its own
 // block, headed by its name, so the groups are easy to tell apart.
 export function planSummary(plan) {
-  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false)];
+  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false), extraBox(plan)].filter(Boolean);
   return [
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
       el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, i.dst.label)),
       ...itemSummary(i, true))),
-  ];
+    extraBox(plan),
+  ].filter(Boolean);
+}
+
+// The box that adds an undo's follows, or null.
+function extraBox(plan) {
+  const x = plan.extra;
+  if (!x) return null;
+  const n = x.items.length;
+  const names = x.items.map((i) => i.dst.label);
+  const c = el('input', 'pb-check__input');
+  c.type = 'checkbox';
+  c.checked = x.on;
+  c.addEventListener('change', () => { x.on = c.checked; });
+  return el('label', 'pb-check sode__plan-extra', c, el('span', 'pb-check__label',
+    `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}`));
 }
 
 // Sends every take in a plan as one batch. False if the connection is gone.
 export function sendTakes(p) {
   const batch = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
-  for (const it of p.items) {
+  for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {
     for (const g of it.groups) {
       const id = ++takeSeq;
       const msg = { id, src: g.src.n, dst: it.dst.n, levels: g.levels };

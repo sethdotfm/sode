@@ -114,3 +114,49 @@ test('filter sets', async () => {
   pickSet('all', 'All');
   assert.deepEqual(filterState(), { ...FILTER_DEFAULT });
 });
+
+test('follows and merged chains', async () => {
+  const core = await import('../core.js');
+  const { S, histRows, undoPlan, folderUndoPlan, sendTakes, pickSet } = core;
+  pickSet('all', 'All');
+  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.levelBy = new Map([[1, {}], [2, {}]]);
+  const T = (s) => new Date(Date.UTC(2026, 9, 23, 13, 0, s)).toISOString();
+  const e = (o) => ({ levels: [1, 2], prev: [[1, 0], [2, 0]], ok: true, srcName: 'CAM', dstName: 'X', time: T(0), ...o });
+  const hist = [
+    e({ id: 9, ext: true, dst: 40, src: 3, follow: 8, time: T(31) }), // PiP following #8
+    e({ id: 8, dst: 2, src: 3, time: T(30) }), // a Sode take
+    e({ id: 7, ext: true, dst: 41, src: 5, follow: 4, time: T(21) }), // follow of an unloaded take
+    e({ id: 6, ext: true, dst: 5, src: 2, time: T(20), prev: [[1, 1], [2, 1]] }),
+    e({ id: 5, ext: true, dst: 5, src: 1, time: T(10), prev: [[1, 9], [2, 9]] }),
+    e({ id: 3, dst: 1, src: 4, time: T(5), group: 'g', groupN: 2 }),
+    e({ id: 2, dst: 0, src: 4, time: T(5), group: 'g', groupN: 2 }),
+    e({ id: 1, ext: true, dst: 42, src: 4, follow: 3, time: T(5) }),
+  ];
+  S.hist = hist;
+  const rows = histRows(hist);
+  assert.deepEqual(rows.map((r) => (r.f ? 'f' : r.e.id)), [8, 7, 6, 'f']);
+  const take = rows[0].e;
+  assert.deepEqual(take.follows.map((f) => f.id), [9]);
+  assert.equal(rows[1].e.follow, 4); // shown on its own, noted as a follow
+  const merged = rows[2].e;
+  assert.deepEqual([merged.merged, merged.chain.map((c) => c.id), merged.prev[0]], [2, [6, 5], [1, 9]]);
+  assert.deepEqual(rows[3].f.entries.find((x) => x.id === 3).follows.map((f) => f.id), [1]);
+
+  // Undo leaves follows out unless the box is ticked.
+  const sent = [];
+  globalThis.WebSocket = { OPEN: 1 };
+  S.ws = { readyState: 1, send: (m) => sent.push(JSON.parse(m)) };
+  const plan = undoPlan(take);
+  assert.equal(plan.extra.items.length, 1);
+  sendTakes({ ...plan });
+  assert.deepEqual(sent.pop().items.map((i) => i.dst), [2]);
+  plan.extra.on = true;
+  sendTakes({ ...plan }); // a copy, as desktop's confirm makes
+  assert.deepEqual(sent.pop().items.map((i) => i.dst), [2, 40]);
+  assert.equal(folderUndoPlan(rows[3].f).extra.items.length, 1);
+  assert.equal(undoPlan(rows[2].e).extra, undefined);
+  // Two follows of one destination: one undo, back to before the older.
+  const twice = undoPlan({ ...take, follows: [e({ id: 12, ext: true, dst: 40, src: 6, prev: [[1, 3], [2, 3]] }), e({ id: 9, ext: true, dst: 40, src: 3 })] });
+  assert.deepEqual(twice.extra.items.map((i) => [i.dst.n, i.groups[0].src.n]), [[40, 0]]);
+});

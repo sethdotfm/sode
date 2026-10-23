@@ -97,3 +97,91 @@ func TestExtSkipsOwnTakes(t *testing.T) {
 		t.Fatalf("external change after expiry: %d entries", n)
 	}
 }
+
+func TestExtFollows(t *testing.T) {
+	a := newTestApp(t)
+	for _, d := range []int{5, 9, 11} {
+		for l := 0; l < 3; l++ {
+			a.onRouterMsg(swp08.ExtTally(0, l, d, 1))
+		}
+	}
+	last := func() Entry {
+		es, _ := a.hist.Page(-1, 1)
+		return es[0]
+	}
+
+	// Our take of src 7 to dst 5 was recorded as #42; the router then moves
+	// dst 9 (a PiP following dst 5) to src 7 too.
+	a.mu.Lock()
+	now := time.Now()
+	a.causes = append(a.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, sode: true, done: true})
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 7))
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 11, 8)) // another source: not a follow
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 10)
+	if len(es) != 2 {
+		t.Fatalf("entries %+v", es)
+	}
+	for _, e := range es {
+		switch e.Dst {
+		case 9:
+			if e.Follow == nil || *e.Follow != 42 || e.Group != "" {
+				t.Fatalf("follow %+v", e)
+			}
+		case 11:
+			if e.Follow != nil || e.Group != "" {
+				t.Fatalf("other source %+v", e)
+			}
+		}
+	}
+
+	// A panel take to dst 5 and its follow on dst 11 in one burst: the
+	// follow names the take, and isn't grouped with it.
+	a.mu.Lock()
+	a.causes = nil
+	a.mu.Unlock()
+	for l := 0; l < 3; l++ {
+		a.onRouterMsg(swp08.ExtConnected(0, l, 5, 3))
+	}
+	time.Sleep(5 * time.Millisecond)
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 11, 3))
+	endBurst(a)
+	f := last()
+	es, _ = a.hist.Page(-1, 2)
+	take := es[1]
+	if take.Dst != 5 || take.Follow != nil || take.Group != "" || f.Dst != 11 || f.Follow == nil || *f.Follow != take.ID {
+		t.Fatalf("take %+v follow %+v", take, f)
+	}
+
+	// Too long after a take: a take of its own.
+	a.mu.Lock()
+	old := time.Now().Add(-2 * time.Second)
+	a.causes = append(a.causes, &cause{src: 4, dst: 5, first: old, last: old, id: 50, sode: true, done: true})
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 1, 9, 4))
+	endBurst(a)
+	if e := last(); e.Follow != nil {
+		t.Fatalf("late change counted as follow: %+v", e)
+	}
+
+	// A change that may follow our take still in flight waits for it.
+	c := &cause{src: 6, dst: 5, id: -1, sode: true}
+	a.mu.Lock()
+	a.causes = append(a.causes, c)
+	c.saw(time.Now())
+	a.mu.Unlock()
+	n := a.hist.Len()
+	a.onRouterMsg(swp08.ExtConnected(0, 2, 9, 6))
+	endBurst(a)
+	if a.hist.Len() != n {
+		t.Fatal("burst written while the take it follows was in flight")
+	}
+	a.mu.Lock()
+	c.id, c.done = 77, true
+	a.mu.Unlock()
+	a.flushExt()
+	if e := last(); e.Follow == nil || *e.Follow != 77 {
+		t.Fatalf("held follow %+v", e)
+	}
+}

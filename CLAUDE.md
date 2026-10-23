@@ -17,7 +17,7 @@ go vet ./...
 docker run --rm -v "$PWD/web":/w node:22-alpine node --test '/w/test/*.test.mjs'   # browser-side tests (filter language, histRows)
 
 # Local dev without Docker: simulator + server
-go run ./cmd/swp08sim                          # :8910; SIM_SOURCES/SIM_DESTS/SIM_LEVELS, SIM_IGNORE_DSTS=9,12 (0-based, never confirm), SIM_PANEL_SECONDS=5 (routes by itself like a panel)
+go run ./cmd/swp08sim                          # :8910; SIM_SOURCES/SIM_DESTS/SIM_LEVELS, SIM_IGNORE_DSTS=9,12 (0-based, never confirm), SIM_PANEL_SECONDS=5 (routes by itself like a panel), SIM_FOLLOWS=2>40 (dst 40 follows dst 2)
 SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   # :8080; SODE_DEBUG hex-dumps SW-P-08
 # Without SODE_CONFIG, config comes from SODE_* env and is not persisted.
 
@@ -36,7 +36,8 @@ The web UI is embedded with `go:embed` (`web/web.go`), so frontend edits need th
 - Frontend: vanilla JS ES modules, no build step, embedded via go:embed. Follow patchbay rules exactly (https://github.com/sethdotfm/patchbay llms.txt): pb- classes only, tokens only, no Bootstrap utilities, no border-radius, status always with text. Patchbay is vendored under `web/vendor/patchbay`.
 - Confirm dialog: random churning letter + lockout (default 500ms; Enter-to-confirm optional).
 - History (JSONL) + shared server-side recent/undo list. Routes made elsewhere (beta, issue 14) are logged as `ext` entries (`ext.go`). These are Connected messages that none of our takes sent: `own` holds each take's (dst, wire level, src) for `ownFor`. Changes are collected into bursts, ending after 500ms quiet or 3s total, and logged as one entry per dst+src. A burst across several dsts shares a `group`. The browser handles display in `histRows`:
-  - It merges repeated same-dst/same-levels `ext` entries within 30s into one row (newest, with the oldest's `prev`, `merged` = count). Any other entry on that dst breaks the chain, even a hidden one.
+  - Follows (#53): an `ext` change of the same src to another dst within 500ms of a take is a follow. The take can be ours (`waiter.cause`, set from its confirms) or an `ext` take, earlier or in the same burst (`a.causes`, `extEntries`). The follow is written with `follow` = that take's ID and isn't grouped. A burst that might follow one of our takes still in flight waits for it to be recorded (`extAwaitsTake`). `histRows` attaches follows to their take as `e.follows`. Undo plans carry them as `plan.extra` (one per dst, the oldest), sent only if the confirm's box is ticked.
+  - It merges repeated same-dst/same-levels `ext` entries within 30s into one row (newest, with the oldest's `prev`, `merged` = count, `chain` = the entries). Any other entry on that dst breaks the chain, even a hidden one.
   - It then applies this browser's Recent filter (`core.js`: `localStorage['sode-filter']`, `setFilter`). The filter covers kinds (Sode, panel, globally hidden) plus `src`/`dst` expressions.
   - Folders keep every entry in `f.entries`, so Undo all covers the whole confirm, and the visible ones in `f.shown`.
   - The expression language is `web/filter.js`: pure, with no imports. The server's `hiddenDsts` uses the same language and is evaluated only in browsers.

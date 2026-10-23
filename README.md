@@ -6,7 +6,9 @@ Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, 
 
 To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip and the box starts over. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
 
-**Other panels (beta).** Routes made elsewhere (Ultrix panels, Companion) show up in Recent too, with a **panel** status, and can be undone like any take. A panel take arrives as one change per level, so Sode collects them until they stop for half a second, then logs one entry per destination and source. A burst that changes several destinations becomes one folder. If the same destination is punched on the same levels again within 30 seconds, with nothing else routed there in between, the punches show as one row ("3 changes"); its Before and Undo go back to the state before the first punch. Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
+**Other panels (beta).** Routes made elsewhere (Ultrix panels, Companion) show up in Recent too, with a **panel** status, and can be undone like any take. A panel take arrives as one change per level, so Sode collects them until they stop for half a second, then logs one entry per destination and source. A burst that changes several destinations becomes one folder. If the same destination is punched on the same levels again within 30 seconds, with nothing else routed there in between, the punches show as one row ("3 changes"); its Before lists each change, and Undo goes back to the state before the first punch.
+
+The router also moves destinations by itself, such as a multiviewer PiP that follows a DSM. When the same source lands on another destination within half a second of a take, Sode logs it as a **follow** of that take ("+1 follow") rather than a row of its own. Before lists the follows. Undo leaves them out unless you tick "Also undo … suspected automation" in the confirm (Space on desktop). Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
 
 **Filters.** The **Filters** button in Recent's header scopes what Recent shows *in this browser*. It reads "Filters · 2" in blue while any are on.
 - Pick which entries to show: Sode takes, panel changes, and panel changes to globally hidden destinations.
@@ -52,7 +54,7 @@ docker compose --profile sim up --build
 # open http://localhost:8080
 ```
 
-The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container. `SIM_PANEL_SECONDS=5` makes it route something by itself every 5 seconds, like a panel. Every other punch goes to `SIM_PANEL_DST` (default 3), so repeated punches can be seen merging.
+The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container. `SIM_FOLLOWS=2>40,3>41` makes destination 40 follow 2 and 41 follow 3, like a multiviewer PiP following a DSM. `SIM_PANEL_SECONDS=5` makes it route something by itself every 5 seconds, like a panel. Every other punch goes to `SIM_PANEL_DST` (default 3), so repeated punches can be seen merging.
 
 Against a real router (first start):
 
