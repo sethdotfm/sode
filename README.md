@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultrix).
 
-Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8`; blank = default), Enter, then press the churning confirm key.
+Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
 
 To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip and the box starts over. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
 
@@ -40,7 +40,8 @@ On first start, when there is no config file yet, it is created from these seed 
 | `SODE_MATRIX` | `matrix` | `0` | SW-P-08 matrix (0-15 with standard name requests) |
 | `SODE_LEVEL_COUNT` | `levels` | `17` | Number of levels; 1 gets the video swatch, the rest audio |
 | `SODE_LEVEL_WIRE_OFFSET` | `levelWireOffset` | `-1` | Wire level = level + offset. `-1`: level 1 → wire 0 |
-| `SODE_DEFAULT_LEVELS` | `defaultLevels` | `1-<levels>` | Used when the levels box is blank |
+| `SODE_DEFAULT_LEVELS` | `defaultLevels` | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file; Settings shows it in the chosen numbering |
+| `SODE_LEVEL_NUMBERING` | `levelNumbering` | `1` | How levels are shown and typed, for everyone: `1` (1-17), `0` (0-16) or `va` (V, 1-16: like `0` but level 0 shows as V, and `v` can be typed) |
 | `SODE_NAME_LEN` | `nameLength` | `12` | Name length to request: 4, 8, 12 or 16 |
 | `SODE_NAMES` | `nameRequests` | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
 | `SODE_NUM_OFFSET` | `numberOffset` | `1` | Added to router numbers for display (Ultrix shows 1-based) |
@@ -50,6 +51,20 @@ On first start, when there is no config file yet, it is created from these seed 
 | `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and protects this often (0 = off) |
 | | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colours for 1-17, built-in swatches after). Settings only, no seed var |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
+| `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
+| | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |
+
+### Settings PIN
+
+Settings → Access can set a PIN or password (4-64 characters) that is asked for every time the Settings view opens; closing it locks again. Patching itself stays open. Wrong tries count for everyone, whatever address they come from: from the 5th in a row there's a wait (30 seconds, doubling each time, up to an hour), and after `pinMaxTries` (default 10) settings stay locked until the PIN is reset or Sode restarts. Only a salted PBKDF2 hash is stored, as `settingsPin` in the config file.
+
+Forgot it? Either:
+
+```sh
+docker compose exec sode /sode -reset-pin && docker compose restart sode
+```
+
+or delete the `settingsPin:` line from `/data/config.yaml` and restart. The running server keeps the PIN in memory, so the restart is needed either way.
 
 Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 

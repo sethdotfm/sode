@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"log"
 	"net"
@@ -19,6 +20,10 @@ import (
 type client struct {
 	ip   string
 	send chan []byte
+
+	// pin is the settings PIN hash this connection unlocked, guarded by
+	// App.mu; a changed or removed PIN no longer matches it.
+	pin string
 }
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -77,6 +82,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(64 << 10)
 
 	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
+	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
+		a.xffWarn.Do(func() {
+			log.Printf("ws: behind a proxy but trustedProxies is empty; set it to the proxy's address so history shows real client IPs")
+		})
+	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
@@ -135,10 +145,12 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var m struct {
-			T      string         `json:"t"`
-			Before int            `json:"before"`
-			Config *config.Config `json:"config"`
-			Items  []takeReq      `json:"items"`
+			T        string         `json:"t"`
+			Before   int            `json:"before"`
+			Config   *config.Config `json:"config"`
+			Pin      string         `json:"pin"`
+			ClearPin bool           `json:"clearPin"`
+			Items    []takeReq      `json:"items"`
 			takeReq
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
@@ -153,21 +165,36 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go a.history(c, m.Before)
 		case "refreshNames":
 			go a.RefreshNames()
+		case "unlock":
+			// Checked in line, so a lock sent after it is handled after it
+			// and one connection checks one PIN at a time.
+			res := map[string]any{"t": "unlockResult", "ok": true, "id": m.ID}
+			if err := a.Unlock(c, m.Pin); err != nil {
+				res["ok"], res["err"] = false, err.Error()
+			}
+			a.reply(c, res)
+		case "lock":
+			a.Lock(c)
 		case "clearHistory":
+			if a.locked(c) {
+				a.reply(c, map[string]any{"t": "locked"})
+				continue
+			}
 			go a.ClearHistory(c.ip)
 		case "config":
 			if m.Config == nil {
 				continue
 			}
-			go func(cfg config.Config) {
+			go func(cfg config.Config, pin string, clearPin bool) {
 				res := map[string]any{"t": "configResult", "ok": true}
-				if err := a.ApplyConfig(cfg); err != nil {
+				if err := a.SaveSettings(c, cfg, pin, clearPin); err != nil {
 					res["ok"], res["err"] = false, err.Error()
+					res["locked"] = errors.Is(err, errLocked)
 				} else {
 					log.Printf("config: saved by %s", c.ip)
 				}
 				a.reply(c, res)
-			}(*m.Config)
+			}(*m.Config, m.Pin, m.ClearPin)
 		}
 	}
 }

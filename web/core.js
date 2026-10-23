@@ -54,6 +54,7 @@ export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : src
 // ---- websocket
 
 let retry = 1000;
+let prevNumbering = null; // { mode, max } before the last hello
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
 
@@ -89,7 +90,10 @@ export function wsSend(m) {
 function handle(m) {
   switch (m.t) {
     case 'hello':
+      // How levels were typed until now, so views can rewrite their boxes.
+      prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
+      S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
@@ -125,6 +129,12 @@ function handle(m) {
       break;
     case 'configResult':
       emit('configResult', m);
+      break;
+    case 'unlockResult':
+      emit('unlockResult', m);
+      break;
+    case 'locked':
+      emit('locked');
       break;
     case 'status':
       setStatus(m);
@@ -248,24 +258,71 @@ export function search(list, q, n = 8) {
 
 export const allLevels = () => S.levels.map((l) => l.ui);
 
-// none: the picker was cleared to no levels, so blank means none rather
-// than the default.
-export function parseLevels(text, none = false) {
-  if (none && !text.trim()) return null;
-  const t = text.trim() || S.cfg.defaultLevels;
+// Levels are shown and typed per cfg.levelNumbering: "1" (1-17), "0"
+// (0-16) or "va" (V, 1-16: "0" with level 0 shown as V). Internally they
+// stay 1..N.
+// With no mode it's the server's label (Level.Label); a mode is for
+// previewing one that isn't saved yet.
+export function levelLabel(ui, mode) {
+  if (mode === undefined) {
+    const l = S.levelBy.get(ui);
+    if (l) return l.label;
+    mode = S.cfg.levelNumbering;
+  }
+  if (mode === '0') return String(ui - 1);
+  if (mode === 'va') return ui === 1 ? 'V' : String(ui - 1);
+  return String(ui);
+}
+
+// One typed level ("3", or in "va" also "v" and "a2" = 2) → UI level, or
+// NaN.
+function levelTok(tok, mode) {
+  const t = tok.toLowerCase();
+  if (mode === 'va') {
+    if (t === 'v') return 1;
+    const a = t.match(/^a(\d+)$/);
+    if (a) return +a[1] >= 1 ? +a[1] + 1 : NaN;
+  }
+  return /^\d+$/.test(t) ? +t + (mode === '1' ? 0 : 1) : NaN;
+}
+
+// "1-3,5" (or "v,1-4") in mode → sorted UI levels within 1..max, or null.
+export function parseLevelsAs(text, mode, max) {
   const out = new Set();
-  for (const part of t.split(/[\s,]+/).filter(Boolean)) {
-    const m = part.match(/^(\d+)(?:-(\d+))?$/);
+  for (const part of text.split(/[\s,]+/).filter(Boolean)) {
+    const m = part.match(/^([^-]+)(?:-([^-]+))?$/);
     if (!m) return null;
-    let a = +m[1], b = m[2] ? +m[2] : a;
+    let a = levelTok(m[1], mode), b = m[2] ? levelTok(m[2], mode) : a;
+    if (!Number.isInteger(a) || !Number.isInteger(b)) return null;
     if (a > b) [a, b] = [b, a];
     for (let i = a; i <= b; i++) {
-      if (!S.levelBy.has(i)) return null;
+      if (i < 1 || i > max) return null;
       out.add(i);
     }
   }
   return out.size ? [...out].sort((x, y) => x - y) : null;
 }
+
+// What a levels box means. Blank is the default (stored as plain 1-based
+// levels); none: the picker was cleared to no levels, so blank means none.
+export function parseLevels(text, none = false) {
+  if (none && !text.trim()) return null;
+  if (!text.trim()) return parseLevelsAs(S.cfg.defaultLevels, '1', S.levels.length);
+  return parseLevelsAs(text, S.cfg.levelNumbering, S.levels.length);
+}
+
+// A levels box's text rewritten for a numbering that changed with the
+// last hello, so it keeps meaning the same levels. Text that didn't parse
+// before is left as it is.
+export function relabelLevels(text) {
+  const p = prevNumbering;
+  if (!p || !text.trim() || p.mode === S.cfg.levelNumbering) return text;
+  const list = parseLevelsAs(text, p.mode, p.max);
+  return list ? levelInput(list) : text;
+}
+
+// The default levels as they'd be typed, for a box's placeholder.
+export const defaultLevelsText = () => levelInput(parseLevels('') || []);
 
 // Collapses a sorted level list into runs: [[1,3],[5,5]].
 function levelRuns(list) {
@@ -278,9 +335,11 @@ function levelRuns(list) {
   }
   return out;
 }
-// "1–3, 5" for display; "1-3,5" for a levels box.
-export const levelText = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}–${b}`)).join(', ');
-export const levelInput = (list) => levelRuns(list).map(([a, b]) => (a === b ? a : `${a}-${b}`)).join(',');
+// "1–3, 5" for display; "1-3,5" for a levels box. Labels follow mode.
+const runsText = (list, dash, sep, mode) => levelRuns(list)
+  .map(([a, b]) => (a === b ? levelLabel(a, mode) : `${levelLabel(a, mode)}${dash}${levelLabel(b, mode)}`)).join(sep);
+export const levelText = (list) => runsText(list, '–', ', ');
+export const levelInput = (list, mode) => runsText(list, '-', ',', mode);
 
 // A configured #rrggbb is one colour for both themes, so its number gets
 // black or white, whichever contrasts more (WCAG relative luminance).
@@ -312,7 +371,7 @@ export function levelColor(node, l) {
 export function levelBar(on) {
   const set = new Set(on);
   const row = el('span', 'sode__bar', ...S.levels.map((l) => {
-    const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), String(l.ui));
+    const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
     return levelColor(slot, l);
   }));
   const sorted = [...set].sort((a, b) => a - b);
@@ -324,12 +383,12 @@ export function levelBar(on) {
 // One numbered toggle per level, for a picker. onToggle(ui) on tap.
 export function pickButtons(onToggle) {
   return S.levels.map((l) => {
-    const b = el('button', 'sode__pick', String(l.ui));
+    const b = el('button', 'sode__pick', l.label);
     b.type = 'button';
     b.tabIndex = -1;
     b.dataset.ui = l.ui;
     levelColor(b, l);
-    b.setAttribute('aria-label', `Level ${l.ui}`);
+    b.setAttribute('aria-label', `Level ${l.label}`);
     b.addEventListener('click', () => onToggle(l.ui));
     return b;
   });

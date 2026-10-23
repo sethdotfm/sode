@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"maps"
@@ -77,6 +78,11 @@ type App struct {
 	namesAt        time.Time // last completed refresh
 	namesDirt      bool      // unsolicited names changed outside a refresh
 	dumpAt         time.Time
+
+	pin   pinState   // wrong settings PINs
+	cfgMu sync.Mutex // serialises settings saves
+
+	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }
 
 type statusMsg struct {
@@ -381,6 +387,7 @@ func (a *App) hello(p helloPage) []byte {
 	m["levels"] = r.levels
 	m["levelDefaults"] = config.DefaultLevelColors
 	m["cfg"] = r.cfg
+	m["pinSet"] = r.cfg.SettingsPin != ""
 	m["configPath"] = a.cfgPath
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -425,6 +432,131 @@ func (a *App) reply(c *client, v any) {
 
 // --- settings
 
+// --- settings PIN
+
+// pinState counts wrong settings PINs from anyone, in a row.
+type pinState struct {
+	n     int
+	until time.Time // no tries before this
+	busy  bool      // a PIN is being checked
+}
+
+const (
+	pinFreeTries = 4 // wrong PINs before waits start
+	pinFirstWait = 30 * time.Second
+	pinMaxWait   = time.Hour
+)
+
+var errLocked = errors.New("Settings are locked; enter the PIN again.")
+
+// pinWait is the wait after the nth wrong PIN in a row: none for the first
+// pinFreeTries, then pinFirstWait doubling, up to pinMaxWait.
+func pinWait(n int) time.Duration {
+	if n <= pinFreeTries {
+		return 0
+	}
+	w := pinFirstWait
+	for i := pinFreeTries + 1; i < n && w < pinMaxWait; i++ {
+		w *= 2
+	}
+	return min(w, pinMaxWait)
+}
+
+// Unlock checks a settings PIN from c and, if it's right, unlocks c for the
+// current PIN only: changing or removing the PIN locks it again. Wrong PINs
+// count for everyone, since IPs behind a proxy or rotated are no guard: one
+// PIN is checked at a time, waits double after pinFreeTries, and
+// PinMaxTries in a row lock settings until reset or restart.
+func (a *App) Unlock(c *client, pin string) error {
+	a.mu.Lock()
+	cfg := a.r().cfg
+	hash := cfg.SettingsPin
+	if hash == "" {
+		a.mu.Unlock()
+		return nil
+	}
+	if max := cfg.PinMaxTries; max > 0 && a.pin.n >= max {
+		a.mu.Unlock()
+		return fmt.Errorf("settings are locked after %d wrong PINs. On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode", max)
+	}
+	if left := time.Until(a.pin.until); left > 0 {
+		a.mu.Unlock()
+		return fmt.Errorf("too many wrong PINs; try again in %s", left.Round(time.Second))
+	}
+	if a.pin.busy {
+		a.mu.Unlock()
+		return errors.New("another PIN is being checked; try again")
+	}
+	a.pin.busy = true
+	a.mu.Unlock()
+
+	ok := config.CheckPin(hash, pin)
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pin.busy = false
+	if ok {
+		a.pin = pinState{}
+		if a.r().cfg.SettingsPin != hash {
+			return errLocked
+		}
+		c.pin = hash
+		return nil
+	}
+	a.pin.n++
+	log.Printf("settings: wrong PIN from %s (%d in a row)", c.ip, a.pin.n)
+	if max := a.r().cfg.PinMaxTries; max > 0 && a.pin.n >= max {
+		log.Printf("settings: locked after %d wrong PINs; run sode -reset-pin or restart to unlock", a.pin.n)
+		return fmt.Errorf("wrong PIN; settings are now locked after %d wrong PINs. On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode", a.pin.n)
+	}
+	if w := pinWait(a.pin.n); w > 0 {
+		a.pin.until = time.Now().Add(w)
+		return fmt.Errorf("wrong PIN; try again in %s", w)
+	}
+	return errors.New("wrong PIN")
+}
+
+// Lock forgets c's unlock.
+func (a *App) Lock(c *client) {
+	a.mu.Lock()
+	c.pin = ""
+	a.mu.Unlock()
+}
+
+// locked reports whether c may not change settings.
+func (a *App) locked(c *client) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	hash := a.r().cfg.SettingsPin
+	return hash != "" && c.pin != hash
+}
+
+// SaveSettings applies cfg from c. Browsers never see the PIN hash, so the
+// current one is kept unless pin sets a new one or clearPin drops it.
+// Saves run one at a time, so one can't drop a PIN another just set.
+func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bool) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if a.locked(c) {
+		return errLocked
+	}
+	cfg.SettingsPin = a.r().cfg.SettingsPin
+	switch {
+	case clearPin:
+		cfg.SettingsPin = ""
+	case pin != "":
+		if err := config.CheckPinRules(pin); err != nil {
+			return err
+		}
+		h, err := config.HashPin(pin)
+		if err != nil {
+			return err
+		}
+		cfg.SettingsPin = h
+	}
+	return a.ApplyConfig(cfg)
+}
+
 // ApplyConfig validates, saves and applies new settings. Router-side changes
 // clear state and reconnect; every browser gets a fresh snapshot.
 func (a *App) ApplyConfig(c config.Config) error {
@@ -457,8 +589,16 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.status.Addr = c.Router
 	}
 	hello := a.hello(page)
+	locked, _ := json.Marshal(map[string]any{"t": "locked"})
 	for cl := range a.clients {
 		a.deliver(cl, hello)
+		// An unlock is for the PIN it was entered against.
+		if cl.pin != "" && cl.pin != c.SettingsPin {
+			cl.pin = ""
+			if c.SettingsPin != "" {
+				a.deliver(cl, locked)
+			}
+		}
 	}
 	a.mu.Unlock()
 	if reconnect {
@@ -552,11 +692,12 @@ const (
 	takeGrace = time.Second
 )
 
-func levelList(ls []int) string {
+// levelList is UI levels as shown, per LevelNumbering.
+func levelList(r *runtime, ls []int) string {
 	sort.Ints(ls)
 	parts := make([]string, len(ls))
 	for i, l := range ls {
-		parts[i] = fmt.Sprint(l)
+		parts[i] = r.cfg.LevelLabel(l)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -578,7 +719,7 @@ func (a *App) take(c *client, req takeReq) {
 	for _, ui := range req.Levels {
 		l, ok := r.byUI[ui]
 		if !ok {
-			res["err"] = fmt.Sprintf("unknown level %d", ui)
+			res["err"] = "unknown level " + r.cfg.LevelLabel(ui)
 			a.reply(c, res)
 			return
 		}
@@ -609,7 +750,7 @@ func (a *App) take(c *client, req takeReq) {
 	a.mu.Unlock()
 
 	if len(protected) > 0 {
-		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(protected)))
+		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return
 	}
 	defer func() {
@@ -677,7 +818,7 @@ func (a *App) take(c *client, req takeReq) {
 				missing = append(missing, r.byWire[wire].UI)
 			}
 			if len(missing) > 0 {
-				errs = append(errs, "no confirmation from router for levels "+levelList(missing))
+				errs = append(errs, "no confirmation from router for levels "+levelList(r, missing))
 			}
 		}
 	}
@@ -691,7 +832,7 @@ func (a *App) take(c *client, req takeReq) {
 		res["already"] = e.Already
 	}
 	if sendErr != nil {
-		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(unsent), sendErr))
+		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(r, unsent), sendErr))
 	}
 	var err error
 	if len(errs) > 0 {

@@ -1,14 +1,30 @@
 // Settings view, shared by both layouts. Lives at #settings so Back and
 // reload work. Server settings save together; the layout choice is per
-// browser and applies at once.
+// browser and applies at once. With a settings PIN, the view opens locked
+// and locks again when it closes.
 
-import { $, el, S, on, wsSend, fmtTime, showResult, levelColor } from './core.js';
+import { $, el, S, on, wsSend, fmtTime, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
 
 const root = document.documentElement;
 const form = $('settings-view');
 const fields = () => form.querySelectorAll('[data-key]');
 const isOpen = () => root.dataset.view === 'settings';
+// The PIN was accepted on this connection. Only means anything while a PIN
+// is set: with none, the form is open anyway.
+let unlocked = false;
+// A save is in flight: its own hello / locked arrive before configResult
+// closes the view, so don't flip to the PIN prompt for them.
+const saving = () => $('settings-save').disabled;
+// Numbers each unlock sent; opening or closing the view skips ahead, so a
+// reply to one sent before then is ignored.
+let unlockSeq = 0;
+
+// The level numbering picked in the form, and how the default levels box
+// is currently written (so switching modes can rewrite it).
+const formMode = () => form.querySelector('input[name="lvlnum"]:checked')?.value || '1';
+const formLevels = () => Number($('cfg-levels').value);
+let shownMode = '1';
 
 function showView() {
   const want = location.hash === '#settings' && S.cfg;
@@ -25,7 +41,20 @@ export function openSettings() {
     else if (f.dataset.type === 'list') f.value = (v || []).join(', ');
     else f.value = v ?? '';
   }
+  $(`cfg-lvlnum-${S.cfg.levelNumbering || '1'}`).checked = true;
+  shownMode = formMode();
+  $('cfg-default').value = levelInput(parseLevelsAs(S.cfg.defaultLevels, '1', S.cfg.levels) || [], shownMode);
+  renderNumbering();
   renderColors(S.cfg.levelColors || []);
+  $('cfg-pin').value = '';
+  $('cfg-pin2').value = '';
+  $('cfg-pin-clear').checked = false;
+  renderPinStatus();
+  unlocked = false;
+  unlockSeq++;
+  $('lock-pin').value = '';
+  $('lock-unlock').disabled = false;
+  $('lock-err').hidden = true;
   $('cfg-layout').value = layoutPref();
   resetClear();
   $('settings-err').hidden = true;
@@ -35,12 +64,28 @@ export function openSettings() {
   renderOffsetNote();
   renderNamesStatus();
   window.scrollTo(0, 0);
-  if (layout() === 'desktop') $('cfg-router').focus();
+  renderLock(true);
+}
+
+// Shows the PIN prompt or the form. Focus moves only when that flips (or
+// on open), not on every status update.
+function renderLock(opening = false) {
+  if (!isOpen()) return;
+  const locked = S.pinSet && !unlocked;
+  const flipped = locked !== ('locked' in form.dataset);
+  if (locked) form.dataset.locked = '';
+  else delete form.dataset.locked;
+  if (!opening && !flipped) return;
+  if (locked) $('lock-pin').focus();
+  else if (layout() === 'desktop') $('cfg-router').focus();
 }
 
 function closeSettings() {
   if (location.hash === '#settings') history.replaceState(null, '', location.pathname + location.search);
   delete root.dataset.view;
+  wsSend({ t: 'lock' });
+  unlocked = false;
+  unlockSeq++;
   if (layout() === 'desktop') $('src').focus();
 }
 
@@ -54,7 +99,35 @@ function readSettings() {
     else c[k] = f.value.trim();
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
+  c.levelNumbering = formMode();
+  // Default levels are typed in the form's numbering but saved 1-based.
+  const def = $('cfg-default').value.trim();
+  const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
+  c.defaultLevels = list ? levelInput(list, '1') : null;
   return c;
+}
+
+// ---- level numbering: a three-way switch, labelled for the level count
+
+function renderNumbering() {
+  const n = formLevels();
+  const span = (mode) => (Number.isInteger(n) && n > 1 ? `${levelLabel(1, mode)}–${levelLabel(n, mode)}` : levelLabel(1, mode));
+  form.querySelector('label[for="cfg-lvlnum-0"]').textContent = span('0');
+  form.querySelector('label[for="cfg-lvlnum-1"]').textContent = span('1');
+  form.querySelector('label[for="cfg-lvlnum-va"]').textContent = Number.isInteger(n) && n > 1 ? `V + ${levelLabel(2, 'va')}–${levelLabel(n, 'va')}` : 'V';
+}
+
+// After the numbering changes: rewrite the default levels box in the new
+// numbering (if it parsed in the old one) and relabel the previews. Not
+// limited to the level count, which may be mid-edit: Save checks that.
+function numberingChanged() {
+  const f = $('cfg-default');
+  const list = f.value.trim() && parseLevelsAs(f.value, shownMode, Infinity);
+  if (list) f.value = levelInput(list, formMode());
+  shownMode = formMode();
+  renderNumbering();
+  renderOffsetNote();
+  rerenderColors();
 }
 
 // ---- level colours: one hex box per level, previewed on its slot
@@ -88,14 +161,14 @@ function renderColors(vals) {
   const n = Number($('cfg-levels').value);
   const rows = [];
   for (let ui = 1; Number.isInteger(n) && ui <= Math.min(n, 256); ui++) {
-    const slot = el('span', 'sode__slot sode__slot--on', String(ui));
+    const slot = el('span', 'sode__slot sode__slot--on', levelLabel(ui, formMode()));
     slot.setAttribute('aria-hidden', 'true');
     const f = el('input', 'pb-input');
     f.id = `cfg-color-${ui}`;
     f.value = vals[ui - 1] || '';
     f.placeholder = defaultHex(ui);
     f.spellcheck = false;
-    f.setAttribute('aria-label', `Level ${ui} colour`);
+    f.setAttribute('aria-label', `Level ${levelLabel(ui, formMode())} colour`);
     f.addEventListener('input', () => {
       preview(slot, ui, f.value);
       f.classList.toggle('pb-input--invalid', f.value.trim() !== '' && !HEX.test(f.value.trim()));
@@ -106,9 +179,15 @@ function renderColors(vals) {
   $('cfg-colors').replaceChildren(...rows);
 }
 
+// Redraws the colour rows, keeping what's typed.
+function rerenderColors() {
+  const vals = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value);
+  renderColors([...vals, ...(S.cfg.levelColors || []).slice(vals.length)]);
+}
+
 function renderOffsetNote() {
   const off = Number($('cfg-offset').value);
-  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level 1 is sent as wire level ${1 + off}` : '';
+  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} is sent as wire level ${1 + off}` : '';
 }
 
 function renderNamesStatus() {
@@ -128,8 +207,52 @@ function configResult(m) {
     showResult('ok', 'Settings saved', S.configPath ? `Written to ${S.configPath}.` : 'Applied (not saved to disk).');
     return;
   }
+  if (m.locked) {
+    unlocked = false;
+    showLockErr(m.err);
+    return;
+  }
   $('settings-err').textContent = m.err;
   $('settings-err').hidden = false;
+}
+
+function showLockErr(text) {
+  renderLock();
+  $('lock-err').textContent = text;
+  $('lock-err').hidden = false;
+  $('lock-pin').select();
+}
+
+function renderPinStatus() {
+  $('cfg-pin-clear-row').hidden = !S.pinSet;
+  $('cfg-pin-status').textContent = S.pinSet
+    ? 'A PIN is set. Type a new one to change it; leave blank to keep it.'
+    : 'No PIN: anyone who can open this page can change settings. 4-64 characters.';
+}
+
+function unlockResult(m) {
+  if (m.id !== unlockSeq) return; // sent before the view closed or reopened
+  $('lock-unlock').disabled = false;
+  if (!isOpen()) return;
+  if (!m.ok) return showLockErr(m.err);
+  unlocked = true;
+  $('lock-pin').value = '';
+  $('lock-err').hidden = true;
+  renderLock();
+}
+
+// The server forgets an unlock when the socket drops, and only honours it
+// for the PIN it was entered against: with no PIN now, a PIN set later
+// (here or by someone else, even while disconnected) needs entering.
+function relock() {
+  if (S.wsState !== 'up') {
+    unlocked = false;
+    $('lock-unlock').disabled = false; // their results are lost
+    $('settings-save').disabled = false;
+  }
+  if (!S.pinSet) unlocked = false;
+  if (isOpen()) renderPinStatus();
+  if (!saving()) renderLock();
 }
 
 // Clearing history is two steps: ask, then a red button that does it.
@@ -164,9 +287,10 @@ $('cfg-colors-reset').addEventListener('click', () => {
   }
 });
 $('cfg-levels').addEventListener('input', () => {
-  const vals = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value);
-  renderColors([...vals, ...(S.cfg.levelColors || []).slice(vals.length)]);
+  rerenderColors();
+  renderNumbering();
 });
+for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
 $('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'refreshNames' })) {
@@ -176,6 +300,11 @@ $('names-refresh').addEventListener('click', () => {
 });
 form.addEventListener('submit', (e) => {
   e.preventDefault();
+  if ('locked' in form.dataset) { // Enter or Unlock in the PIN prompt
+    if (!wsSend({ t: 'unlock', pin: $('lock-pin').value, id: ++unlockSeq })) return showLockErr('Not connected to Sode.');
+    $('lock-unlock').disabled = true;
+    return;
+  }
   const c = readSettings();
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
@@ -185,13 +314,32 @@ form.addEventListener('submit', (e) => {
     badColor.focus();
     return;
   }
+  if (c.defaultLevels === null) {
+    $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" isn't a level or range here.`;
+    $('settings-err').hidden = false;
+    $('cfg-default').focus();
+    return;
+  }
   if (bad) {
     $('settings-err').textContent = `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`;
     $('settings-err').hidden = false;
     bad.focus();
     return;
   }
-  if (!wsSend({ t: 'config', config: c })) {
+  const pin = $('cfg-pin').value;
+  if (pin && [...pin].length < 4) {
+    $('settings-err').textContent = 'The settings PIN must be at least 4 characters.';
+    $('settings-err').hidden = false;
+    $('cfg-pin').focus();
+    return;
+  }
+  if (pin !== $('cfg-pin2').value) {
+    $('settings-err').textContent = 'The two PINs don\'t match.';
+    $('settings-err').hidden = false;
+    $('cfg-pin2').select();
+    return;
+  }
+  if (!wsSend({ t: 'config', config: c, pin, clearPin: $('cfg-pin-clear').checked })) {
     $('settings-err').textContent = 'Not connected to Sode.';
     $('settings-err').hidden = false;
     return;
@@ -206,8 +354,13 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('popstate', showView);
 
-on('hello', showView);
+on('hello', () => { showView(); relock(); });
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
-on('conn', renderNamesStatus);
+on('conn', () => { renderNamesStatus(); relock(); });
+on('unlockResult', unlockResult);
+on('locked', () => {
+  unlocked = false;
+  if (isOpen() && !saving()) showLockErr('Settings are locked; enter the PIN again.');
+});
 on('configResult', configResult);
