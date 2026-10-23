@@ -46,9 +46,13 @@
         <ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
       </div>
       <div class="sode__box">
-        <label class="sode__label" for="dst">Destination</label>
-        <input id="dst" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
-        <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+        <label class="sode__label" for="dst" id="dst-label">Destination</label>
+        <div class="sode__entry">
+          <input id="dst" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
+          <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add another destination (+)">+</button>
+          <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+        </div>
+        <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to patch" hidden></div>
       </div>
       <div class="sode__box">
         <label class="sode__label" for="lvl">Levels</label>
@@ -238,7 +242,10 @@
         <input id="m-src" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <input id="m-dst" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
-        <button type="button" class="pb-btn pb-btn--commit sode-m__go" id="m-go">Next</button>
+        <span class="sode-m__actions">
+          <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>
+          <button type="button" class="pb-btn pb-btn--commit sode-m__go" id="m-go">Next</button>
+        </span>
       </div>
     </div>
   </div>

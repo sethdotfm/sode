@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -363,7 +364,7 @@ func (a *App) readHello() helloPage {
 	if err != nil {
 		log.Printf("history: %v", err)
 	}
-	return helloPage{recent, len(recent) == historyPage && recent[len(recent)-1].ID > 0}
+	return helloPage{recent, morePages(recent)}
 }
 
 // hello is the full snapshot a browser gets on connect or config change.
@@ -475,6 +476,41 @@ type takeReq struct {
 	Levels []int `json:"levels"`
 	Undo   *int  `json:"undo"`  // history ID being undone
 	Retry  *int  `json:"retry"` // history ID of the failed take being retried
+
+	Group  string `json:"-"` // set by batch for confirms of more than one take
+	GroupN int    `json:"-"`
+}
+
+// takeLimit caps how many takes of one batch run at once. The router link
+// sends one message per ACK, so queueing a big batch in one go would let
+// the later takes time out while their connects are still waiting to go.
+const takeLimit = 8
+
+// batch runs the takes from one confirm, grouping them in history when
+// there is more than one.
+func (a *App) batch(c *client, items []takeReq) {
+	if len(items) > 1 {
+		g := strconv.FormatInt(time.Now().UnixNano(), 36)
+		for i := range items {
+			items[i].Group, items[i].GroupN = g, len(items)
+		}
+	}
+	runLimited(takeLimit, len(items), func(i int) { a.take(c, items[i]) })
+}
+
+// runLimited calls fn(0..n-1), at most limit at a time, and waits for all.
+func runLimited(limit, n int, fn func(i int)) {
+	sem := make(chan struct{}, limit)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer func() { <-sem; wg.Done() }()
+			fn(i)
+		}()
+	}
+	wg.Wait()
 }
 
 type waiter struct {
@@ -548,7 +584,7 @@ func (a *App) take(c *client, req takeReq) {
 		sends = append(sends, send{ui, l.Wire, swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
 	}
 
-	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Prev: [][2]int{}}
+	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
 	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{})}
 	var protected []int
 	same := map[int]bool{} // wire levels the cache says are already on src
@@ -692,8 +728,12 @@ func (a *App) record(e *Entry) {
 	if !e.OK {
 		result = e.Err
 	}
-	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s result=%q",
-		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, result)
+	group := "-"
+	if e.Group != "" {
+		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
+	}
+	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
+		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
 	a.mu.Lock()
 	a.broadcast(map[string]any{"t": "recent", "e": e})
 	a.mu.Unlock()
@@ -718,6 +758,8 @@ func (a *App) history(c *client, before int) {
 	if err != nil {
 		log.Printf("history: %v", err)
 	}
-	more := len(entries) == historyPage && entries[len(entries)-1].ID > 0
-	a.reply(c, map[string]any{"t": "history", "entries": entries, "more": more})
+	a.reply(c, map[string]any{"t": "history", "entries": entries, "more": morePages(entries)})
 }
+
+// morePages reports whether entries older than a page remain.
+func morePages(page []Entry) bool { return len(page) > 0 && page[len(page)-1].ID > 0 }

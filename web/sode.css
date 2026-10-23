@@ -105,6 +105,23 @@ body { zoom: var(--sode-scale); }
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.6);
 }
+/* Destination input with its + button; the dropdown hangs off this row,
+   above any chips. */
+.sode__entry {
+  display: flex;
+  gap: var(--pb-space-2);
+  position: relative;
+}
+.sode__entry > .sode__input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pb-btn.sode__add {
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+  padding: 0 var(--pb-space-5);
+}
+.sode__chips[hidden] { display: none; }
 /* About eight rows plus the count; the rest scrolls. */
 .sode__menu {
   left: 0;
@@ -310,6 +327,48 @@ body { zoom: var(--sode-scale); }
   gap: var(--pb-space-4);
 }
 /* Expanded before state: its own full-width line under the row. */
+/* A folder: one confirm's takes, listed under a summary row. */
+.sode__hist-folder {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: var(--pb-space-3) 0 var(--pb-space-2) var(--pb-space-6);
+}
+.sode__hist-folder > .sode__hist-row { min-height: var(--pb-control-h-lg); }
+/* Each destination's part of a multi-destination confirm: a boxed block
+   headed by the destination, new routes first, what they replace below a
+   rule and muted. */
+.sode__plan-item {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-left: var(--pb-accent-bar-w) solid var(--pb-dest);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4) var(--pb-space-5);
+}
+.sode__plan-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-4);
+}
+.sode__plan-n {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-xs);
+}
+.sode__plan-before {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding-top: var(--pb-space-3);
+}
+.sode__plan-item .sode__plan-before .sode__end { color: var(--pb-text-muted); }
 .sode__hist-before {
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
   display: grid;
@@ -536,7 +595,7 @@ body { zoom: var(--sode-scale); }
   padding: var(--pb-space-4) var(--pb-space-5);
   text-align: left;
 }
-.sode-m__bubble:nth-child(2) { border-left-color: var(--pb-dest); }
+.sode-m__bubble--dst { border-left-color: var(--pb-dest); }
 .sode-m__bubble--editing { border-style: dashed; }
 .sode-m__bubble-label {
   color: var(--pb-text-muted);
@@ -564,6 +623,11 @@ body { zoom: var(--sode-scale); }
   list-style: none;
   margin: 0;
   padding: 0;
+}
+/* An open folder's takes, indented under it. */
+.sode-m__recent-kids {
+  border-left: var(--pb-accent-bar-w) solid var(--pb-edge-soft);
+  padding-left: var(--pb-space-4);
 }
 .sode-m__recent-row {
   overflow: hidden;
@@ -689,6 +753,16 @@ body { zoom: var(--sode-scale); }
   height: calc(var(--pb-control-h-lg) * 1.4);
 }
 .pb-input.sode-m__input[hidden] { display: none; }
+.sode-m__actions {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.pb-btn.sode-m__add {
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.4);
+  min-width: calc(var(--pb-control-h-lg) * 1.4);
+}
+.pb-btn.sode-m__add[hidden] { display: none; }
 .pb-btn.sode-m__go {
   font-size: var(--pb-text-md);
   height: calc(var(--pb-control-h-lg) * 1.4);
@@ -733,7 +807,14 @@ body { zoom: var(--sode-scale); }
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
 }
-.sode-m__sheet-body { overflow-y: auto; }
+/* Only the body gives way when the sheet runs out of room (a long
+   multi-destination confirm); it scrolls, the slider keeps its size. */
+.sode-m__sheet > * { flex-shrink: 0; }
+.sode-m__sheet-body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 /* Slide to confirm */
 .sode__slide {

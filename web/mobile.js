@@ -1,10 +1,12 @@
 // Phone layout: a text-message style composer. One input at a time steps
 // Source → Destination → Levels; the keyboard's Next/Go advances, and a
-// bottom sheet with a slider confirms.
+// bottom sheet with a slider confirms. On the Destination step, + (typed
+// or the button) adds another destination and stays on the step.
 
 import {
   $, el, S, on, connState, setDot, search, parseLevels, levelInput, levelBar, pickButtons, allLevels,
   fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
+  chevron, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
   patchPlan, planBlocked, planSummary, sendTakes,
 } from './core.js';
@@ -15,7 +17,8 @@ const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
 const inputs = { src: $('m-src'), dst: $('m-dst'), lvl: $('m-lvl') };
 const M = {
   step: 'src',
-  sel: { src: null, dst: null },
+  sel: { src: null },
+  dsts: [], // destinations so far, one bubble each
   matches: [],
   hi: 0,
   lvlNone: false,
@@ -41,6 +44,7 @@ function setStep(step, focus = true) {
   $('m-step').textContent = PROMPT[step];
   $('m-step').htmlFor = inputs[step].id;
   $('m-go').textContent = step === 'lvl' ? 'Go' : 'Next';
+  $('m-add').hidden = step !== 'dst';
   $('m-picker').hidden = step !== 'lvl';
   M.matches = [];
   if (step !== 'lvl') refresh();
@@ -54,7 +58,9 @@ function refresh() {
   if (M.step === 'lvl' || M.sel[M.step]) {
     M.matches = [];
   } else {
-    M.matches = search(M.step === 'src' ? S.srcs : S.dsts, inputs[M.step].value, 50);
+    // One entry per destination: those already added don't come up again.
+    const list = M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n));
+    M.matches = search(list, inputs[M.step].value, 50);
   }
   M.hi = 0;
   renderMatches();
@@ -85,34 +91,69 @@ function shake(node) {
 // handler so the phone keeps its keyboard open.
 function advance() {
   const step = M.step;
-  if (step !== 'lvl') {
-    if (!M.sel[step]) {
+  if (step === 'src') {
+    if (!M.sel.src) {
       const it = M.matches[M.hi];
-      if (!it) return shake(inputs[step]);
-      choose(step, it);
+      if (!it) return shake(inputs.src);
+      choose(it);
     }
-    const next = step === 'src' && !M.sel.dst ? 'dst' : 'lvl';
-    return setStep(next);
+    return setStep(M.dsts.length ? 'lvl' : 'dst');
+  }
+  if (step === 'dst') {
+    // Next with an empty box goes on with the destinations already added.
+    if (inputs.dst.value.trim() || !M.dsts.length) {
+      const it = M.matches[M.hi];
+      if (!it) return shake(inputs.dst);
+      addDst(it);
+    }
+    return setStep('lvl');
   }
   if (!M.sel.src) return setStep('src');
-  if (!M.sel.dst) return setStep('dst');
+  if (!M.dsts.length) return setStep('dst');
   const levels = parseLevels(inputs.lvl.value, M.lvlNone);
   if (!levels) return shake(inputs.lvl);
   inputs.lvl.blur();
-  openSheet(patchPlan(M.sel.src, M.sel.dst, levels));
+  openSheet(patchPlan(M.sel.src, M.dsts, levels));
 }
 
-function choose(k, it) {
-  M.sel[k] = it;
-  if (k === 'src') M.feedOpen = false;
-  inputs[k].value = '';
+// +: the best match becomes a bubble and the step starts over for another.
+function plus() {
+  if (M.step !== 'dst') return;
+  const it = M.matches[M.hi];
+  if (!it) return shake(inputs.dst);
+  addDst(it);
+  inputs.dst.focus();
+}
+
+function choose(it) {
+  M.sel.src = it;
+  M.feedOpen = false;
+  inputs.src.value = '';
   M.matches = [];
   renderMatches();
   renderThread();
 }
 
+function addDst(it) {
+  if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
+  inputs.dst.value = '';
+  M.matches = [];
+  renderMatches();
+  renderThread();
+}
+
+// Puts a destination bubble back in the box to edit.
+function editDst(i) {
+  const [it] = M.dsts.splice(i, 1);
+  inputs.dst.value = it.label.startsWith(it.num + ' ') ? it.name : it.label;
+  setStep('dst');
+  inputs.dst.select();
+  refresh();
+}
+
 function reset() {
-  M.sel = { src: null, dst: null };
+  M.sel = { src: null };
+  M.dsts = [];
   M.lvlNone = false;
   for (const k of STEPS) inputs[k].value = '';
   setStep('src', false);
@@ -147,21 +188,25 @@ function buildPicker() {
 
 // ---- thread: recent, result, bubbles, currently
 
-function bubble(k) {
-  const it = M.sel[k];
-  const b = el('button', 'sode-m__bubble' + (M.step === k ? ' sode-m__bubble--editing' : ''),
+function bubble(k, it, onTap) {
+  const b = el('button', `sode-m__bubble sode-m__bubble--${k}` + (k === 'src' && M.step === k ? ' sode-m__bubble--editing' : ''),
     el('span', 'sode-m__bubble-label', PROMPT[k]), it.label);
   b.type = 'button';
   b.setAttribute('aria-label', `${PROMPT[k]} ${it.label}, tap to change`);
   b.addEventListener('pointerdown', (e) => e.preventDefault());
-  b.addEventListener('click', () => {
-    M.sel[k] = null;
-    inputs[k].value = it.label.startsWith(it.num + ' ') ? it.name : it.label;
-    setStep(k);
-    inputs[k].select();
+  b.addEventListener('click', onTap);
+  return b;
+}
+
+function srcBubble() {
+  const it = M.sel.src;
+  return bubble('src', it, () => {
+    M.sel.src = null;
+    inputs.src.value = it.label.startsWith(it.num + ' ') ? it.name : it.label;
+    setStep('src');
+    inputs.src.select();
     refresh();
   });
-  return b;
 }
 
 function feeding() {
@@ -171,7 +216,7 @@ function feeding() {
     const c = el('button', 'pb-chip', dstLabel(d));
     c.type = 'button';
     c.addEventListener('pointerdown', (e) => e.preventDefault());
-    c.addEventListener('click', () => { choose('dst', dstItem(d)); setStep('lvl'); });
+    c.addEventListener('click', () => { addDst(dstItem(d)); setStep('lvl'); });
     return c;
   };
   const shown = M.feedOpen ? fed : fed.slice(0, 2);
@@ -190,10 +235,15 @@ function feeding() {
 function renderThread() {
   if (!S.cfg) return;
   const nodes = [];
-  if (M.sel.src) nodes.push(bubble('src'));
-  if (M.sel.dst) nodes.push(bubble('dst'));
-  if (M.sel.dst) nodes.push(el('div', 'sode-m__card', ...currentlyNodes(M.sel.dst)));
-  else if (M.sel.src) nodes.push(el('div', 'sode-m__card', feeding()));
+  if (M.sel.src) nodes.push(srcBubble());
+  nodes.push(...M.dsts.map((it, i) => bubble('dst', it, () => editDst(i))));
+  // Room is short: Currently for the newest destination only.
+  const last = M.dsts[M.dsts.length - 1];
+  const others = M.dsts.length - 1;
+  if (last) {
+    nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last),
+      others ? el('div', 'sode__hint', `and ${others} more destination${others === 1 ? '' : 's'}`) : null));
+  } else if (M.sel.src) nodes.push(el('div', 'sode-m__card', feeding()));
   $('m-compose').replaceChildren(...nodes);
   scrollThread();
 }
@@ -212,17 +262,21 @@ function scrollThread() {
 const REVEAL = 96;
 const entered = new Set(); // live entries already animated in
 
+const openFolders = new Set(); // history groups showing their takes
+
+function undoButton(plan, label, text = 'Undo') {
+  const undo = el('button', 'sode-m__undo', text);
+  undo.type = 'button';
+  undo.disabled = planEmpty(plan);
+  undo.setAttribute('aria-label', label);
+  undo.addEventListener('click', () => { closeSwipes(); openSheet(plan); });
+  return undo;
+}
+
 function recentRow(e) {
   const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);
-  const plan = undoPlan(e);
-  const undo = el('button', 'sode-m__undo', 'Undo');
-  undo.type = 'button';
-  undo.disabled = !plan.groups.length;
-  undo.setAttribute('aria-label', `Undo ${src.label} to ${dst.label}`);
-  undo.addEventListener('click', () => { closeSwipes(); openSheet(plan); });
-
-  const status = el('span', 'pb-status', el('span', `pb-dot pb-dot--${e.ok ? 'ok' : 'error'}`), e.ok ? 'ok' : 'failed');
-  status.firstChild.setAttribute('aria-hidden', 'true');
+  const undo = undoButton(undoPlan(e), `Undo ${src.label} to ${dst.label}`);
+  const status = statusNode({ e });
   let retry = null;
   if (!e.ok) {
     retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Retry');
@@ -240,6 +294,48 @@ function recentRow(e) {
   const row = el('li', 'sode-m__recent-row' + (fresh ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   return row;
+}
+
+// A folder: one confirm's takes behind a summary row. Swipe it to undo
+// them all; open it to swipe or retry them one by one.
+function folderRows(f) {
+  const open = openFolders.has(f.group);
+  const kidsId = `m-folder-${f.group}`;
+  const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, 'Undo all');
+  const failed = f.entries.filter((e) => !e.ok).length;
+  let retry = null;
+  if (failed) {
+    retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Retry');
+    retry.type = 'button';
+    retry.setAttribute('aria-label', `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`);
+    retry.addEventListener('click', () => { closeSwipes(); openSheet(folderRetryPlan(f)); });
+  }
+  const toggle = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__hist-toggle', chevron(open), `${f.entries.length}`);
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.setAttribute('aria-controls', kidsId);
+  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.entries.length} takes`);
+  toggle.addEventListener('click', () => {
+    if (openFolders.has(f.group)) openFolders.delete(f.group);
+    else openFolders.add(f.group);
+    renderRecent();
+  });
+
+  const face = el('div', 'sode-m__recent-face',
+    el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
+      el('span', 'sode-m__recent-status', statusNode({ f }), retry, toggle)),
+    el('div', 'sode-m__recent-route', ...folderTitle(f)),
+    levelBar(folderLevels(f)));
+  const arrived = f.entries.some((e) => e.id === S.newId);
+  const fresh = arrived && !entered.has(f.group);
+  if (fresh) entered.add(f.group);
+  if (!open && arrived) entered.add(S.newId); // don't replay it on opening
+  const row = el('li', 'sode-m__recent-row' + (fresh && !open ? ' sode--enter' : ''), undo, face);
+  swipeable(row, face);
+  if (!open) return [row];
+  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.entries.map(recentRow)));
+  kids.id = kidsId;
+  return [row, kids];
 }
 
 function swipeable(row, face) {
@@ -290,7 +386,7 @@ const pager = historyPager(5);
 function renderRecent() {
   const list = pager.list();
   $('m-recent').hidden = !list.length;
-  $('m-recent-list').replaceChildren(...list.map(recentRow));
+  $('m-recent-list').replaceChildren(...list.flatMap((r) => (r.f ? folderRows(r.f) : [recentRow(r.e)])));
   $('m-recent-more').replaceChildren(...[pager.button()].filter(Boolean));
 }
 
@@ -322,7 +418,7 @@ function closeSheet() {
 function confirmSheet() {
   const p = pending;
   closeSheet();
-  if (sendTakes(p) && !p.undo) reset();
+  if (sendTakes(p) && p.verb !== 'undo') reset();
 }
 
 const handle = $('m-slide-handle');
@@ -382,12 +478,22 @@ $('m-sheet').addEventListener('click', (e) => { if (e.target === $('m-sheet')) c
 
 // ---- inputs
 
-for (const k of ['src', 'dst']) {
-  inputs[k].addEventListener('input', () => {
-    M.sel[k] = null;
+inputs.src.addEventListener('input', () => {
+  M.sel.src = null;
+  refresh();
+});
+// A typed + adds the destination. Read from the value, since phone
+// keyboards often send no usable key code.
+inputs.dst.addEventListener('input', () => {
+  const v = inputs.dst.value;
+  if (v.includes('+')) {
+    inputs.dst.value = v.replace(/\+/g, '');
     refresh();
-  });
-}
+    plus();
+    return;
+  }
+  refresh();
+});
 inputs.lvl.addEventListener('input', () => { M.lvlNone = false; renderLevels(); });
 for (const k of STEPS) {
   inputs[k].addEventListener('keydown', (e) => {
@@ -408,19 +514,28 @@ for (const k of STEPS) {
       items[M.hi].setAttribute('aria-selected', 'true');
       items[M.hi].scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Backspace' && !inputs[k].value && k !== 'src') {
-      // Backspace on an empty step goes back to edit the previous one.
+      // Backspace on an empty step goes back to edit the previous one:
+      // the newest destination, then the source.
       e.preventDefault();
-      const prev = k === 'lvl' ? 'dst' : 'src';
-      const it = M.sel[prev];
-      M.sel[prev] = null;
-      inputs[prev].value = it ? it.name || it.num : '';
-      setStep(prev);
+      if (M.dsts.length) {
+        const it = M.dsts.pop();
+        inputs.dst.value = it.name || it.num;
+        setStep('dst');
+        refresh();
+        return;
+      }
+      if (k === 'lvl') return setStep('dst');
+      const it = M.sel.src;
+      M.sel.src = null;
+      inputs.src.value = it ? it.name || it.num : '';
+      setStep('src');
       refresh();
     }
   });
 }
-$('m-go').addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
+for (const id of ['m-go', 'm-add']) $(id).addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
 $('m-go').addEventListener('click', advance);
+$('m-add').addEventListener('click', plus);
 // Cancel: clear the whole entry and let the keyboard go.
 $('m-cancel').addEventListener('click', () => {
   reset();

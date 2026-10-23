@@ -27,6 +27,8 @@ type Entry struct {
 	Undo    *int      `json:"undo,omitempty"`    // ID of the entry this take undid
 	Retry   *int      `json:"retry,omitempty"`   // ID of the failed entry this take retried
 	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
+	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
+	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept
@@ -117,7 +119,8 @@ func (h *History) Len() int {
 }
 
 // Page returns up to n entries older than ID before, newest first.
-// before < 0 means from the newest.
+// before < 0 means from the newest. A page that ends inside a group runs
+// on to the end of it, so a confirm's takes come back together.
 func (h *History) Page(before, n int) ([]Entry, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -129,24 +132,35 @@ func (h *History) Page(before, n int) ([]Entry, error) {
 		before = total
 	}
 	out := []Entry{}
-	for id := before - 1; id >= 0 && len(out) < n; id-- {
-		if h.f == nil {
-			out = append(out, h.mem[id])
-			continue
-		}
-		end := h.size
-		if id+1 < len(h.offs) {
-			end = h.offs[id+1]
-		}
-		buf := make([]byte, end-h.offs[id])
-		if _, err := h.f.ReadAt(buf, h.offs[id]); err != nil {
+	for id := before - 1; id >= 0; id-- {
+		e, err := h.at(id)
+		if err != nil {
 			return out, err
 		}
-		var e Entry
-		if err := json.Unmarshal(buf, &e); err != nil {
-			return out, fmt.Errorf("history entry %d: %w", id, err)
+		if len(out) >= n && (e.Group == "" || e.Group != out[len(out)-1].Group) {
+			break
 		}
 		out = append(out, e)
 	}
 	return out, nil
+}
+
+// at reads one entry. Caller holds mu.
+func (h *History) at(id int) (Entry, error) {
+	if h.f == nil {
+		return h.mem[id], nil
+	}
+	end := h.size
+	if id+1 < len(h.offs) {
+		end = h.offs[id+1]
+	}
+	buf := make([]byte, end-h.offs[id])
+	if _, err := h.f.ReadAt(buf, h.offs[id]); err != nil {
+		return Entry{}, err
+	}
+	var e Entry
+	if err := json.Unmarshal(buf, &e); err != nil {
+		return Entry{}, fmt.Errorf("history entry %d: %w", id, err)
+	}
+	return e, nil
 }

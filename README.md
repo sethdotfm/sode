@@ -4,10 +4,12 @@ Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultri
 
 Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8`; blank = default), Enter, then press the churning confirm key.
 
+To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip and the box starts over. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
+
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
 - Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
-- Phones get a text-message style layout: type a source, Next, a destination, Next, levels, Go, then slide to confirm. Swipe a recent take left to undo. Settings → This device can force the phone or desktop layout.
+- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. Swipe a recent take or folder left to undo. Settings → This device can force the phone or desktop layout.
 
 ## Run
 
