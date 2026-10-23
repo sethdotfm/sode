@@ -56,7 +56,8 @@ code,
   gap: var(--pb-space-8);
   margin: 0 auto;
   max-width: 1200px;
-  padding: 10vh var(--pb-space-8) var(--pb-space-8);
+  padding: 10vh var(--pb-space-8) var(--sode-pad-bottom);
+  --sode-pad-bottom: var(--pb-space-8);
 }
 
 /* Connection status, out of the way in the top corner and above the
@@ -620,7 +621,10 @@ code,
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
-  padding: var(--pb-space-5) 0;
+  /* Down over the page's bottom padding, so no gap shows under the bar at
+     the end of the page; the safe area keeps it clear of the iOS home bar. */
+  margin-bottom: calc(-1 * var(--sode-pad-bottom));
+  padding: var(--pb-space-5) 0 calc(var(--pb-space-5) + env(safe-area-inset-bottom));
   position: sticky;
 }
 .sode__savebar-row {
@@ -635,6 +639,7 @@ code,
 [data-layout="phone"] { --sode-scale: 1; }
 [data-layout="phone"] body { min-width: 0; }
 [data-layout="phone"] .sode {
+  --sode-pad-bottom: var(--pb-space-5);
   gap: var(--pb-space-6);
   padding: var(--pb-space-5);
 }
