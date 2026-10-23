@@ -211,13 +211,13 @@ export function connState() {
   if (S.wsLost) {
     down = {
       title: 'Connection to Sode server interrupted',
-      text: 'Reconnecting… Patching is off until it\'s back.',
+      text: 'Reconnecting…',
       links: [false, null],
     };
   } else if (S.wsState === 'up' && S.router && S.router !== 'up') {
     down = {
       title: 'Connected to Sode server, router offline',
-      text: `Reconnecting to ${S.routerAddr}… Patching is off until it's back.`,
+      text: `Reconnecting to ${S.routerAddr}…`,
       err: S.routerErr,
       links: [true, false],
     };
