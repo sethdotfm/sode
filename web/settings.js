@@ -66,7 +66,7 @@ export function openSettings() {
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderHiddenNote();
-  gsets = (S.cfg.filterSets || []).map((s) => ({ ...s }));
+  gsets = (S.cfg.filterSets || []).map((s) => ({ name: s.name, ...normFilter(s) }));
   renderGlobalSets();
   renderNamesStatus();
   window.scrollTo(0, 0);
@@ -106,7 +106,7 @@ function readSettings() {
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
-  c.filterSets = gsets;
+  c.filterSets = gsets.map((s) => ({ ...s, name: s.name.trim(), src: (s.src || '').trim(), dst: (s.dst || '').trim() }));
 
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
@@ -202,15 +202,87 @@ function renderOffsetNote() {
 
 let gsets = [];
 
+// Each set is edited in place: name, the two expressions (as typed in
+// Recent's Filters, Code view), and which kinds of entry show.
+function setRow(s, i) {
+  const field = (cls, key, label, placeholder) => {
+    const f = el('input', cls);
+    f.value = s[key] || '';
+    f.placeholder = placeholder;
+    f.spellcheck = false;
+    f.autocomplete = 'off';
+    f.dataset.set = `${i}:${key}`;
+    f.setAttribute('aria-label', `Set ${i + 1} ${label}`);
+    f.addEventListener('input', () => { s[key] = f.value; check(); });
+    return f;
+  };
+  const box = (key, text) => {
+    const c = el('input', 'pb-check__input');
+    c.type = 'checkbox';
+    c.checked = !!s[key];
+    c.addEventListener('change', () => {
+      s[key] = c.checked;
+      hidden.querySelector('input').disabled = !s.ext;
+      check();
+    });
+    return el('label', 'pb-check', c, el('span', 'pb-check__label', text));
+  };
+  const name = field('pb-input', 'name', 'name', 'Name');
+  name.maxLength = 32;
+  const src = field('pb-input sode__code', 'src', 'sources', 'All sources');
+  const dst = field('pb-input sode__code', 'dst', 'destinations', 'All destinations');
+  const hidden = box('hidden', 'Globally hidden');
+  hidden.querySelector('input').disabled = !s.ext;
+  const note = el('span', 'sode__hint');
+  function check() {
+    const errs = [];
+    for (const [f, k, what] of [[src, 'src', 'Sources'], [dst, 'dst', 'Destinations']]) {
+      const e = parseFilter(s[k] || '').error;
+      f.classList.toggle('pb-input--invalid', !!e);
+      if (e) errs.push(`${what}: ${e}.`);
+    }
+    name.classList.toggle('pb-input--invalid', !s.name.trim());
+    note.textContent = errs.join(' ') || `Shows ${filterSummary(normFilter(s))}.`;
+    note.classList.toggle('sode__error-text', errs.length > 0);
+  }
+  const use = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Use this browser\'s filters');
+  use.type = 'button';
+  use.title = 'Replace this set\'s filters with the ones Recent uses in this browser now';
+  use.addEventListener('click', () => { Object.assign(s, filterState()); renderGlobalSets(); });
+  const rm = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
+  rm.type = 'button';
+  rm.setAttribute('aria-label', `Remove filter set ${s.name || i + 1}`);
+  rm.addEventListener('click', () => { gsets.splice(i, 1); renderGlobalSets(); $('cfg-set-name').focus(); });
+  check();
+  return el('li', 'sode__gset',
+    el('div', 'sode__gset-top', name, use, rm),
+    el('div', 'sode__gset-exprs',
+      el('label', 'sode__gset-expr', el('span', 'sode__hint', 'Sources'), src),
+      el('label', 'sode__gset-expr', el('span', 'sode__hint', 'Destinations'), dst)),
+    el('div', 'sode__gset-show', box('sode', 'Sode takes'), box('ext', 'Other panels'), hidden),
+    note);
+}
+
 function renderGlobalSets() {
-  const rows = gsets.map((s, i) => {
-    const rm = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
-    rm.type = 'button';
-    rm.setAttribute('aria-label', `Remove filter set ${s.name}`);
-    rm.addEventListener('click', () => { gsets.splice(i, 1); renderGlobalSets(); $('cfg-set-name').focus(); });
-    return el('li', 'sode__gset', el('strong', null, s.name), el('span', 'sode__hint', filterSummary(normFilter(s))), rm);
-  });
-  $('cfg-sets').replaceChildren(...(rows.length ? rows : [el('li', 'sode__hint', 'None yet.')]));
+  $('cfg-sets').replaceChildren(...(gsets.length ? gsets.map(setRow) : [el('li', 'sode__hint', 'None yet.')]));
+}
+
+// The first problem with the sets, as [message, field to focus], or null.
+function setsProblem() {
+  const seen = new Set();
+  for (const [i, s] of gsets.entries()) {
+    const n = s.name.trim();
+    const at = (k) => $('cfg-sets').querySelector(`[data-set="${i}:${k}"]`);
+    if (!n) return [`Filter set ${i + 1} needs a name.`, at('name')];
+    if (n.toLowerCase() === 'all') return ['“All” is built in; name the set something else.', at('name')];
+    if (seen.has(n.toLowerCase())) return [`Two filter sets are named “${n}”.`, at('name')];
+    seen.add(n.toLowerCase());
+    for (const k of ['src', 'dst']) {
+      const e = parseFilter(s[k] || '').error;
+      if (e) return [`Filter set “${n}”, ${k === 'src' ? 'sources' : 'destinations'}: ${e}.`, at(k)];
+    }
+  }
+  return null;
 }
 
 $('cfg-set-add').addEventListener('click', () => {
@@ -384,6 +456,13 @@ form.addEventListener('submit', (e) => {
     $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" isn't a level or range here.`;
     $('settings-err').hidden = false;
     $('cfg-default').focus();
+    return;
+  }
+  const setErr = setsProblem();
+  if (setErr) {
+    $('settings-err').textContent = setErr[0];
+    $('settings-err').hidden = false;
+    setErr[1]?.focus();
     return;
   }
   const hidden = parseFilter(c.hiddenDsts);

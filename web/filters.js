@@ -238,20 +238,39 @@ function renderButtons() {
   // one is selected; * when its filter has been edited since.
   const sets = allSets();
   const a = activeSet();
+  const chip = (s) => {
+    const on = !!a && setKey(a) === setKey(s);
+    const b = el('button', 'pb-chip sode__set', s.name + (on && a.edited ? '*' : ''));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(on));
+    if (on && a.edited) b.setAttribute('aria-label', `${s.name} (edited)`);
+    b.title = `${s.scope === 'global' ? 'For everyone' : s.scope === 'local' ? 'This browser' : 'Built in'}: ${filterSummary(s.f)}${on && a.edited ? '. Edited; click to go back to it.' : ''}`;
+    b.addEventListener('click', () => {
+      pickSet(s.scope, s.name);
+      if (filtersOpen()) reload();
+    });
+    return b;
+  };
+  // All | for everyone | this browser's own, each group labelled for
+  // screen readers.
+  const groups = [['all', 'Built in'], ['global', 'For everyone'], ['local', 'This browser']]
+    .map(([scope, label]) => [label, sets.filter((s) => s.scope === scope)]).filter(([, g]) => g.length);
   for (const box of document.querySelectorAll('[data-sets]')) {
-    box.replaceChildren(...(sets.length < 2 ? [] : sets.map((s) => {
-      const on = !!a && setKey(a) === setKey(s);
-      const b = el('button', 'pb-chip sode__set', s.name + (on && a.edited ? '*' : ''));
-      b.type = 'button';
-      b.setAttribute('aria-pressed', String(on));
-      if (on && a.edited) b.setAttribute('aria-label', `${s.name} (edited)`);
-      b.title = `${s.scope === 'global' ? 'For everyone' : s.scope === 'local' ? 'This browser' : 'Built in'}: ${filterSummary(s.f)}${on && a.edited ? '. Edited; click to go back to it.' : ''}`;
-      b.addEventListener('click', () => {
-        pickSet(s.scope, s.name);
-        if (filtersOpen()) reload();
-      });
-      return b;
-    })));
+    const kids = [];
+    if (sets.length > 1) {
+      for (const [label, g] of groups) {
+        if (kids.length) {
+          const bar = el('span', 'sode__sets-sep', '|');
+          bar.setAttribute('aria-hidden', 'true');
+          kids.push(bar);
+        }
+        const grp = el('span', 'sode__sets-group', ...g.map(chip));
+        grp.setAttribute('role', 'group');
+        grp.setAttribute('aria-label', label);
+        kids.push(grp);
+      }
+    }
+    box.replaceChildren(...kids);
   }
   if (filtersOpen()) renderSetBar();
 }
