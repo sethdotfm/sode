@@ -256,6 +256,7 @@ function histRow(e) {
     statusNode({ e }),
     toggle,
     el('span', 'sode__hist-actions', retryButton(e, src, dst), btn));
+  row.dataset.key = `e${e.id}`;
   if (open) {
     const detail = el('div', 'sode__hist-before',
       el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
@@ -324,6 +325,7 @@ function folderRow(f) {
     statusNode({ f }),
     toggle,
     el('span', 'sode__hist-actions', retry, undo));
+  row.dataset.key = `f${f.group}`;
   if (open) {
     const kids = el('ul', 'sode__hist-folder', ...f.entries.map(histRow));
     kids.id = kidsId;
@@ -362,14 +364,15 @@ const pager = historyPager(10);
 function renderHistory() {
   $('history-head').hidden = !S.hist.length;
   $('history-hint').textContent = `(${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · Esc then ? for keys)`;
-  if (cursor && !stops().some((x) => x.key === cursor)) {
+  const list = pager.list();
+  if (cursor && !stops(list).some((x) => x.key === cursor)) {
     // Its row left the page (newer patches pushed it off): drop the
     // cursor and close the folders it had opened.
     cursor = null;
     for (const g of autoOpen) openFolders.delete(g);
     autoOpen.clear();
   }
-  histList.replaceChildren(...pager.list().map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
+  histList.replaceChildren(...list.map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
   $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
   if (keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
 }
@@ -377,17 +380,28 @@ function renderHistory() {
 // ---- keyboard mode: focus on the history list, where single keys act.
 // The cursor is 'e<id>' on a take or 'f<group>' on a folder. Folders open
 // as the cursor enters them and close as it leaves, unless opened by hand.
+// Entered from the keyboard only (Esc, or a letter from the page); any
+// click leaves it, so clicking in Recent doesn't arm single-key actions.
 
 let cursor = null;
 const autoOpen = new Set();
 const histList = $('history');
-const keyMode = () => document.activeElement === histList;
+let keysOn = false;
+const keyMode = () => keysOn && document.activeElement === histList;
+document.addEventListener('pointerdown', (e) => {
+  keysOn = false;
+  histList.classList.remove('sode__hist--keys');
+  // Clicking a row moves the (hidden) cursor there, so a key from here
+  // starts on the row clicked, not one left from earlier.
+  const row = histList.contains(e.target) && e.target.closest('[data-key]');
+  if (row) cursor = row.dataset.key;
+}, true);
 
 // Every row the cursor can stop on, top to bottom. top is the index of
 // the row (or the folder holding it) in the pager's list.
-function stops() {
+function stops(list = pager.list()) {
   const out = [];
-  pager.list().forEach((r, top) => {
+  list.forEach((r, top) => {
     if (r.e) return out.push({ key: `e${r.e.id}`, e: r.e, top });
     out.push({ key: `f${r.f.group}`, f: r.f, top });
     if (openFolders.has(r.f.group)) for (const e of r.f.entries) out.push({ key: `e${e.id}`, e, top, in: r.f });
@@ -462,9 +476,15 @@ function retryCur() {
   else showResult('info', 'Nothing to retry', 'Only failed takes can be retried.');
 }
 
-function enterKeys() {
+// key: put the cursor on that row (Esc from one of its buttons).
+function enterKeys(key) {
+  keysOn = true;
+  histList.classList.add('sode__hist--keys');
   histList.focus();
-  if (!curStop() && stops().length) moveTo(stops()[0]);
+  const list = stops();
+  // moveTo also closes folders opened for a cursor that's since moved.
+  const to = (key && list.find((x) => x.key === key)) || list.find((x) => x.key === cursor) || list[0];
+  if (to) moveTo(to);
   else renderHistory();
 }
 
@@ -506,7 +526,8 @@ function openKeys() {
 }
 function closeKeys() {
   $('keys').hidden = true;
-  keysBack?.focus();
+  if (keysBack === histList) enterKeys();
+  else keysBack?.focus();
 }
 if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) k.textContent = k.dataset.mac;
 $('keys-close').addEventListener('click', closeKeys);
@@ -596,11 +617,15 @@ function openConfirm(plan) {
   }, S.cfg.confirmLockoutMs);
 }
 
-// Focus goes back where the confirm was opened from (the boxes, the
-// history list, a row's button), if that's still on the page.
+// Focus goes back where the confirm was opened from: keyboard mode, or a
+// box. From a row's button it goes to Source (the row is redrawn with the
+// result, so the button won't last), leaving the boxes as they are.
 function focusBack() {
-  if (confirmBack?.isConnected) confirmBack.focus();
+  if (confirmBack === histList) enterKeys();
+  else if (histArea(confirmBack)) boxes.src.input.focus();
+  else if (confirmBack?.isConnected) confirmBack.focus();
 }
+const histArea = (n) => !!n && (histList.contains(n) || $('history-more').contains(n));
 
 function closeConfirm() {
   const patch = pending?.verb === 'patch';
@@ -723,6 +748,12 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.target === histList || e.target === document.body) {
     if (onListKey(e)) e.preventDefault();
+    return;
+  }
+  // Esc from a button in Recent: keyboard mode, on that button's row.
+  if (e.key === 'Escape' && e.target !== histList && histArea(e.target)) {
+    e.preventDefault();
+    enterKeys(e.target.closest('[data-key]')?.dataset.key);
     return;
   }
   if (!inBox) return; // leave buttons to the browser
