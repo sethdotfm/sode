@@ -71,7 +71,7 @@
 
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__label" id="history-head" hidden>Recent <span class="sode__hint" id="history-hint"></span></div>
-      <ul class="sode__hist" id="history"></ul>
+      <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent patches"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
 
@@ -319,6 +319,38 @@
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="confirm-cancel">Cancel</button>
       <button type="button" class="pb-btn pb-btn--commit" id="confirm-ok">Patch</button>
+    </div>
+  </div>
+</div>
+<div class="pb-modal-backdrop sode__scrim" id="keys" hidden>
+  <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" id="keys-dialog">
+    <div class="pb-modal__header"><span class="pb-modal__title" id="keys-title">Keyboard</span></div>
+    <div class="pb-modal__body sode__keys">
+      <div class="sode__label">Patching</div>
+      <dl>
+        <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌥J">Alt+J</kbd> <kbd data-mac="⌥K">Alt+K</kbd></dt><dd>Pick a match</dd>
+        <dt><kbd>+</kbd></dt><dd>Add destination</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Patch</dd>
+        <dt><kbd data-mac="⌘Z">Ctrl+Z</kbd></dt><dd>Undo the last</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Clear; when empty, keyboard mode</dd>
+      </dl>
+      <div class="sode__label">Keyboard mode</div>
+      <dl>
+        <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source, Destination, Levels</dd>
+        <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous</dd>
+        <dt><kbd>J</kbd> <kbd>K</kbd> <kbd>⇧↓</kbd> <kbd>⇧↑</kbd></dt><dd>Next, previous group</dd>
+        <dt><kbd>l</kbd> <kbd>→</kbd> <kbd>Enter</kbd></dt><dd>Open</dd>
+        <dt><kbd>h</kbd> <kbd>←</kbd></dt><dd>Close</dd>
+        <dt><kbd>u</kbd></dt><dd>Undo</dd>
+        <dt><kbd>r</kbd></dt><dd>Retry</dd>
+        <dt><kbd>,</kbd></dt><dd>Settings</dd>
+        <dt><kbd>?</kbd></dt><dd>This list</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Back to Source</dd>
+      </dl>
+    </div>
+    <div class="pb-modal__footer">
+      <button type="button" class="pb-btn pb-btn--outline" id="keys-close">Close</button>
     </div>
   </div>
 </div>

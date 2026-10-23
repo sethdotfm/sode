@@ -251,7 +251,7 @@ function histRow(e) {
     renderHistory();
   });
 
-  const row = el('li', 'pb-input sode__hist-row' + enterClass(e),
+  const row = el('li', 'pb-input sode__hist-row' + enterClass(e) + curClass(`e${e.id}`),
     el('span', 'sode__hist-id', `#${e.id}`),
     el('span', 'sode__hist-time', fmtTime(e.time)),
     levelBar(known),
@@ -311,6 +311,7 @@ function folderRow(f) {
   const toggle = disclosure(open, `${f.entries.length}`, kidsId, () => {
     if (openFolders.has(f.group)) openFolders.delete(f.group);
     else openFolders.add(f.group);
+    autoOpen.delete(f.group); // opened by hand: stays open
     renderHistory();
   });
   toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.entries.length} takes`);
@@ -319,7 +320,7 @@ function folderRow(f) {
   if (fresh) entered.add(f.group);
   // A closed folder has used up the arrival; don't replay it on opening.
   if (!open && f.entries.some((e) => e.id === S.newId)) entered.add(S.newId);
-  const row = el('li', 'pb-input sode__hist-row' + (fresh && !open ? ' sode--enter' : ''),
+  const row = el('li', 'pb-input sode__hist-row' + (fresh && !open ? ' sode--enter' : '') + curClass(`f${f.group}`),
     el('span', 'sode__hist-id', folderIds(f)),
     el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
     levelBar(folderLevels(f)),
@@ -334,6 +335,9 @@ function folderRow(f) {
   }
   return row;
 }
+
+// Marks the keyboard cursor's row.
+const curClass = (key) => (key === cursor ? ' sode__hist-row--cur' : '');
 
 // Successful rows keep an invisible Retry so every row's columns line up.
 // A live entry animates in the first time it's drawn; nothing else does.
@@ -361,10 +365,146 @@ const pager = historyPager(10);
 
 function renderHistory() {
   $('history-head').hidden = !S.hist.length;
-  $('history-hint').textContent = `(${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last)`;
-  $('history').replaceChildren(...pager.list().map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
+  $('history-hint').textContent = `(${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · Esc then ? for keys)`;
+  if (cursor && !stops().some((x) => x.key === cursor)) cursor = null;
+  histList.replaceChildren(...pager.list().map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
   $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
+  if (keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
 }
+
+// ---- keyboard mode: focus on the history list, where single keys act.
+// The cursor is 'e<id>' on a take or 'f<group>' on a folder. Folders open
+// as the cursor enters them and close as it leaves, unless opened by hand.
+
+let cursor = null;
+const autoOpen = new Set();
+const histList = $('history');
+const keyMode = () => document.activeElement === histList;
+
+// Every row the cursor can stop on, top to bottom. top is the index of
+// the row (or the folder holding it) in the pager's list.
+function stops() {
+  const out = [];
+  pager.list().forEach((r, top) => {
+    if (r.e) return out.push({ key: `e${r.e.id}`, e: r.e, top });
+    out.push({ key: `f${r.f.group}`, f: r.f, top });
+    if (openFolders.has(r.f.group)) for (const e of r.f.entries) out.push({ key: `e${e.id}`, e, top, in: r.f });
+  });
+  return out;
+}
+const curStop = () => stops().find((x) => x.key === cursor);
+
+function moveTo(s) {
+  const group = s.f?.group ?? s.in?.group;
+  for (const g of autoOpen) {
+    if (g !== group) { openFolders.delete(g); autoOpen.delete(g); }
+  }
+  if (s.f && !openFolders.has(s.f.group)) { openFolders.add(s.f.group); autoOpen.add(s.f.group); }
+  cursor = s.key;
+  renderHistory();
+}
+
+// Past the last loaded row, load more; the next press moves on to it.
+function loadMore() {
+  if (pager.hasMore() && !S.histLoading) pager.more();
+}
+
+// j/k: the next or previous row, walking into open folders.
+function step(d) {
+  const list = stops();
+  const i = list.findIndex((x) => x.key === cursor);
+  if (i < 0) return list.length && moveTo(list[d > 0 ? 0 : list.length - 1]);
+  const next = list[i + d];
+  if (!next) return d > 0 && loadMore();
+  moveTo(next);
+  // Coming up into a closed folder lands on its last take, mirroring
+  // the way down.
+  if (d < 0 && next.f && list[i].in?.group !== next.f.group && autoOpen.has(next.f.group)) {
+    const last = next.f.entries[next.f.entries.length - 1];
+    moveTo(stops().find((x) => x.key === `e${last.id}`));
+  }
+}
+
+// J/K: the next or previous top-level row (a take or a whole folder).
+function jump(d) {
+  const tops = stops().filter((x) => !x.in);
+  const s = curStop();
+  const next = s ? tops.find((x) => x.top === s.top + d) : tops[0];
+  if (next) moveTo(next);
+  else if (d > 0) loadMore();
+}
+
+// l: open a take's Before or a folder. h: close it, or go up to the folder.
+function open(on) {
+  const s = curStop();
+  if (!s) return;
+  if (s.e) {
+    if (on) expanded.add(s.e.id);
+    else if (expanded.has(s.e.id)) expanded.delete(s.e.id);
+    else if (s.in) return moveTo(stops().find((x) => x.key === `f${s.in.group}`));
+  } else if (on) {
+    openFolders.add(s.f.group);
+    autoOpen.delete(s.f.group);
+  } else {
+    openFolders.delete(s.f.group);
+    autoOpen.delete(s.f.group);
+  }
+  renderHistory();
+}
+
+function retryCur() {
+  const s = curStop();
+  if (!s) return;
+  if (s.f && s.f.entries.some((e) => !e.ok)) openConfirm(folderRetryPlan(s.f));
+  else if (s.e && !s.e.ok) openConfirm(retryPlan(s.e));
+  else showResult('info', 'Nothing to retry', 'Only failed takes can be retried.');
+}
+
+function enterKeys() {
+  histList.focus();
+  if (!curStop() && stops().length) moveTo(stops()[0]);
+  else renderHistory();
+}
+
+const BOXES = { s: 'src', d: 'dst', f: 'lvl' };
+
+// Keys while the history list (or nothing) has focus. True when handled.
+function onListKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  const k = e.key;
+  if (BOXES[k]) { $(BOXES[k]).focus(); return true; }
+  if (k === ',') { $('settings-open').click(); return true; }
+  if (k === '?') { openKeys(); return true; }
+  if (k === 'Escape') { boxes.src.input.focus(); return true; }
+  const act = {
+    j: () => step(1), ArrowDown: () => (e.shiftKey ? jump(1) : step(1)),
+    k: () => step(-1), ArrowUp: () => (e.shiftKey ? jump(-1) : step(-1)),
+    J: () => jump(1), K: () => jump(-1),
+    l: () => open(true), ArrowRight: () => open(true), Enter: () => open(true),
+    h: () => open(false), ArrowLeft: () => open(false),
+    u: () => { const s = curStop(); if (s) undoRow(s.f ? { f: s.f } : { e: s.e }); },
+    r: retryCur,
+  }[k];
+  if (!act) return false;
+  if (!keyMode()) enterKeys();
+  else act();
+  return true;
+}
+
+// ---- shortcut list (?)
+
+let keysBack = null;
+function openKeys() {
+  keysBack = document.activeElement;
+  $('keys').hidden = false;
+  $('keys-dialog').focus();
+}
+function closeKeys() {
+  $('keys').hidden = true;
+  keysBack?.focus();
+}
+if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) k.textContent = k.dataset.mac;
+$('keys-close').addEventListener('click', closeKeys);
 
 // ---- confirm
 
@@ -372,6 +512,7 @@ const KEYS = 'abcdefghjkmnpqrstuvwxyz';
 let lastKey = '';
 let pending = null; // plan + key
 let readyAt = 0;
+let confirmBack = null; // focus to return to when the confirm closes
 
 // Patch button and Enter: take any half-typed box's best match, then confirm.
 function patchNow() {
@@ -389,6 +530,11 @@ function patchNow() {
 function undoLast() {
   const [row] = histRows(S.hist);
   if (!row) return showResult('info', 'Nothing to undo', 'No patches yet.');
+  undoRow(row);
+}
+
+// Undo a history row: { e } for a take, { f } for a whole folder.
+function undoRow(row) {
   const plan = rowUndoPlan(row);
   if (planEmpty(plan)) {
     const what = row.f ? folderIds(row.f) : `#${row.e.id}`;
@@ -421,6 +567,7 @@ function openConfirm(plan) {
   do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
   lastKey = key;
   pending = { ...plan, key };
+  confirmBack = document.activeElement;
 
   const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
   const verb = planVerb(plan);
@@ -448,7 +595,8 @@ function closeConfirm() {
   const wasUndo = pending && pending.verb === 'undo';
   pending = null;
   $('confirm').hidden = true;
-  if (!wasUndo) lvlInput.focus();
+  if (confirmBack === histList) histList.focus();
+  else if (!wasUndo) lvlInput.focus();
 }
 
 function doTake() {
@@ -456,6 +604,7 @@ function doTake() {
   pending = null;
   $('confirm').hidden = true;
   if (sendTakes(p) && p.verb !== 'undo') clearAll();
+  if (confirmBack === histList) histList.focus();
 }
 
 function onConfirmKey(e) {
@@ -507,6 +656,10 @@ $('lvl-all').addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
   if (pending) return onConfirmKey(e);
   if (!active()) return;
+  if (!$('keys').hidden) {
+    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(); }
+    return;
+  }
   const id = e.target.id;
   const k = id === 'src' || id === 'dst' ? id : null;
   const b = k && boxes[k];
@@ -555,7 +708,11 @@ document.addEventListener('keydown', (e) => {
     if (id === 'lvl' && !e.shiftKey) { e.preventDefault(); boxes.src.input.focus(); }
     return;
   }
-  if (!inBox) return; // leave buttons and the history list to the browser
+  if (e.target === histList || e.target === document.body) {
+    if (onListKey(e)) e.preventDefault();
+    return;
+  }
+  if (!inBox) return; // leave buttons to the browser
   if (e.key === 'Enter') {
     e.preventDefault();
     patchNow();
@@ -568,6 +725,8 @@ document.addEventListener('keydown', (e) => {
       else e.target.value = '';
       renderLevels();
       renderTally();
+    } else if (!dsts.length && !boxes.src.input.value && !boxes.dst.input.value && !lvlInput.value && !lvlNone) {
+      enterKeys(); // Esc with everything empty: keyboard mode
     } else {
       clearAll();
     }
