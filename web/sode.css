@@ -19,6 +19,18 @@
 .sode--enter { animation: sode-enter var(--sode-motion-enter) var(--pb-ease); }
 body { zoom: var(--sode-scale); }
 
+/* Inline code: technical terms, paths and commands in running text. */
+code,
+.pb-code,
+.sode__keys kbd {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  color: var(--pb-text);
+  padding: 0 var(--pb-space-1);
+}
+
 /* Hover tooltip from data-tip. */
 [data-tip] { position: relative; }
 .pb-btn[data-tip] { overflow: visible; } /* pb-btn clips; the tip sits outside */
@@ -44,33 +56,104 @@ body { zoom: var(--sode-scale); }
   gap: var(--pb-space-8);
   margin: 0 auto;
   max-width: 1200px;
-  padding: 10vh var(--pb-space-8) var(--pb-space-8);
+  padding: 10vh var(--pb-space-8) var(--sode-pad-bottom);
+  --sode-pad-bottom: var(--pb-space-8);
 }
 
-.sode__links {
+/* Connection status, out of the way in the top corner and above the
+   page as it scrolls. */
+.sode__conn {
   align-items: center;
+  background: var(--pb-surface-base);
   color: var(--pb-text-muted);
   display: flex;
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-4);
+  padding: var(--pb-space-2) var(--pb-space-3);
+  position: fixed;
+  right: var(--pb-space-5);
+  top: var(--pb-space-4);
+  z-index: var(--pb-z-sticky);
 }
-.sode__node {
-  border: var(--pb-border-w) solid var(--pb-edge);
-  color: var(--pb-text);
-  font-weight: var(--pb-weight-medium);
-  padding: var(--pb-space-2) var(--pb-space-4);
+.sode__conn-addr { font-family: var(--pb-font-mono); }
+.sode__conn-addr--name { color: var(--pb-text); font-family: inherit; }
+/* Shortcut tip, out of the way in the bottom corner until dismissed. */
+.sode__tip {
+  align-items: center;
+  background: var(--pb-surface-base);
+  bottom: var(--pb-space-4);
+  color: var(--pb-text-muted);
+  display: flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-3);
+  left: var(--pb-space-5);
+  padding: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) var(--pb-space-3);
+  position: fixed;
+  z-index: var(--pb-z-sticky);
 }
-.sode__link {
+/* A lost link: a solid red banner pinned to the top that says which link
+   is down, the corner status gives way to it, and a thick pulsing red
+   outline round the whole window. */
+.sode__down {
+  background: var(--pb-status-error);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-7) var(--pb-space-8);
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: var(--pb-z-sticky);
+}
+.sode__down-title {
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__down code {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+}
+.sode__down-map {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
+  font-weight: var(--pb-weight-medium);
   gap: var(--pb-space-3);
 }
-.sode__link::before,
-.sode__link::after {
-  border-top: var(--pb-border-w) solid var(--pb-edge);
+.sode__down-node {
+  border: var(--pb-border-w) solid currentColor;
+  padding: var(--pb-space-1) var(--pb-space-4);
+}
+.sode__down-link {
+  align-items: center;
+  display: flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-3);
+}
+.sode__down-link::before,
+.sode__down-link::after {
+  border-top: var(--pb-border-w) solid currentColor;
   content: "";
   width: var(--pb-space-8);
 }
+.sode__down-link--lost { font-weight: var(--pb-weight-bold); }
+.sode__down-link--lost::before,
+.sode__down-link--lost::after { border-top: calc(var(--pb-border-w) * 2) dashed currentColor; }
+[data-conn="down"] .sode__conn { display: none; }
+/* The outline is its own element so it can pulse with patchbay's
+   .pb-dot--pulse (which also stops under reduced motion). */
+.sode__frame {
+  border: var(--pb-space-3) solid var(--pb-status-error);
+  display: none;
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+[data-conn="down"] .sode__frame { display: block; }
 
 .sode__mark {
   color: var(--pb-text-strong);
@@ -166,7 +249,7 @@ body { zoom: var(--sode-scale); }
 }
 .sode__picker .sode__levels { flex: 1 1 auto; }
 /* A level toggle (picker) or slot (level bar): filled when on, outlined in
-   its signal colour when off. Shared so both read the same. */
+   its signal color when off. Shared so both read the same. */
 .sode__pick,
 .sode__slot {
   align-items: center;
@@ -288,34 +371,38 @@ body { zoom: var(--sode-scale); }
   gap: var(--pb-space-3);
   width: 100%;
 }
+/* One grid for the whole list: every row (and every take inside a folder)
+   is a subgrid of it, so id, time, levels, status, Before and the buttons
+   line up down the page, and a column grows when one row needs it to
+   (e.g. ids passing #999). Columns: id, time, levels, route, status,
+   Before, actions. */
 .sode__hist {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-6);
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto auto;
   list-style: none;
   margin: 0;
   padding: 0;
 }
-/* A grid, so the Before lines underneath can line their level bars up
-   with this row's bar (column 3) via subgrid.
-   Columns: id, time, levels, route, status, Before, Undo. */
+/* The Before lines underneath line their level bars up with this row's
+   bar (column 3) the same way. */
 .pb-input.sode__hist-row {
   align-items: center;
   display: grid;
-  gap: var(--pb-space-3) var(--pb-space-6);
-  grid-template-columns: auto auto auto 1fr auto auto auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   height: auto;
   min-height: var(--pb-control-h-lg);
   overflow: visible;
+  row-gap: var(--pb-space-3);
 }
 .sode__hist-time {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-mono);
 }
-.sode__hist-toggle { gap: var(--pb-space-2); }
+.sode__hist-toggle { gap: var(--pb-space-2); justify-self: start; }
 .sode__placeholder { visibility: hidden; }
-/* Room for "failed" on every row, so status and Before line up. */
-.sode__hist-row > .pb-status { min-width: 8ch; }
+.sode__hist-row > .pb-status { justify-self: start; }
 .sode__hist-actions {
   display: flex;
   gap: var(--pb-space-3);
@@ -326,19 +413,34 @@ body { zoom: var(--sode-scale); }
   display: flex;
   gap: var(--pb-space-4);
 }
-/* Expanded before state: its own full-width line under the row. */
-/* A folder: one confirm's takes, listed under a summary row. */
+/* A folder: one confirm's takes, listed under a summary row. The list
+   cancels the row's padding and border, so a take's columns sit exactly
+   under the folder's; an accent bar on the left marks them as members. */
 .sode__hist-folder {
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
+  display: grid;
   grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   list-style: none;
-  margin: 0;
-  padding: var(--pb-space-3) 0 var(--pb-space-2) var(--pb-space-6);
+  margin: 0 calc(-1 * (var(--pb-space-3) + var(--pb-border-w)));
+  padding: var(--pb-space-3) 0 var(--pb-space-2);
+  row-gap: var(--pb-space-2);
 }
-.sode__hist-folder > .sode__hist-row { min-height: var(--pb-control-h-lg); }
+/* Keyboard mode (--keys, set only from the keyboard): the list has focus
+   and its cursor row gets the input focus treatment (accent border,
+   doubled) in place of a ring round the whole list. */
+.sode__hist:focus-visible { outline: none; }
+.sode__hist--keys:focus .sode__hist-row--cur {
+  border-color: var(--pb-accent);
+  box-shadow: 0 0 0 var(--pb-border-w) var(--pb-accent);
+}
+.sode__hist--keys:focus .sode__hist-folder > .sode__hist-row--cur {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge), 0 0 0 var(--pb-border-w) var(--pb-accent);
+}
+.sode__hist-folder > .sode__hist-row {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge);
+  min-height: var(--pb-control-h-lg);
+}
 /* Each destination's part of a multi-destination confirm: a boxed block
    headed by the destination, new routes first, what they replace below a
    rule and muted. */
@@ -433,13 +535,17 @@ body { zoom: var(--sode-scale); }
 [data-view="settings"] #patch-view,
 [data-view="settings"] .sode-m { display: none; }
 [data-layout="phone"] #patch-view,
-[data-layout="phone"] .sode__links { display: none; }
+[data-layout="phone"] .sode__conn,
+[data-layout="phone"] .sode__tip,
+[data-view="settings"] .sode__tip,
+[data-layout="phone"] #conn-down { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
-/* Settings: one plain column, labels above fields, the page scrolls. */
+/* Settings: one plain column, labels above fields, the page scrolls.
+   Sections sit further apart than the fields inside them. */
 .sode__settings {
   align-items: stretch;
-  gap: var(--pb-space-7);
+  gap: var(--pb-space-9);
   max-width: 640px;
 }
 .sode__settings-head {
@@ -462,12 +568,28 @@ body { zoom: var(--sode-scale); }
   min-width: 0;
   padding: 0;
 }
-.sode__group > legend { margin-bottom: var(--pb-space-5); padding: 0; }
+/* Section header: a rule across the column with the name under it. */
+.sode__group > legend {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  margin-bottom: var(--pb-space-3);
+  padding: var(--pb-space-5) 0 0;
+  width: 100%;
+}
 /* Locked by a settings PIN: only the prompt and this browser's own
    options show until it's entered. */
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
 .sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device) { display: none; }
+/* This device first, then the prompt: it's the part anyone can change. */
+.sode__settings[data-locked] > .sode__settings-head { order: -2; }
+.sode__settings[data-locked] > .sode__device { order: -1; }
+.sode__settings[data-locked] > .sode__lock {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  padding-top: var(--pb-space-5);
+}
 .sode__field > .pb-btn-group { align-self: flex-start; flex-wrap: wrap; }
 .sode__fields {
   display: grid;
@@ -479,12 +601,13 @@ body { zoom: var(--sode-scale); }
   flex-direction: column;
   gap: var(--pb-space-2);
 }
-.sode__field > label { color: var(--pb-text); font-weight: var(--pb-weight-medium); }
+.sode__field > label,
+.sode__field-label { color: var(--pb-text); font-weight: var(--pb-weight-medium); }
 .sode__field .pb-input,
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,
 .sode__field .pb-select-wrap { width: 100%; }
-/* Level colours: one row per level, its slot as a live preview. */
+/* Level colors: one row per level, its slot as a live preview. */
 .sode__colors {
   display: grid;
   gap: var(--pb-space-3) var(--pb-space-5);
@@ -514,7 +637,10 @@ body { zoom: var(--sode-scale); }
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
-  padding: var(--pb-space-5) 0;
+  /* Down over the page's bottom padding, so no gap shows under the bar at
+     the end of the page; the safe area keeps it clear of the iOS home bar. */
+  margin-bottom: calc(-1 * var(--sode-pad-bottom));
+  padding: var(--pb-space-5) 0 calc(var(--pb-space-5) + env(safe-area-inset-bottom));
   position: sticky;
 }
 .sode__savebar-row {
@@ -529,6 +655,7 @@ body { zoom: var(--sode-scale); }
 [data-layout="phone"] { --sode-scale: 1; }
 [data-layout="phone"] body { min-width: 0; }
 [data-layout="phone"] .sode {
+  --sode-pad-bottom: var(--pb-space-5);
   gap: var(--pb-space-6);
   padding: var(--pb-space-5);
 }
@@ -568,6 +695,14 @@ body { zoom: var(--sode-scale); }
 }
 .sode-m__spacer { flex: 1 1 auto; }
 /* Last result, pinned under the header so it's always in view. */
+.sode-m__down {
+  flex: 0 0 auto;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-5);
+  position: static;
+}
+.sode-m__down .sode__down-title { font-size: var(--pb-text-md); }
 .sode-m__result {
   flex: 0 0 auto;
   padding: var(--pb-space-3) var(--pb-space-5) 0;
@@ -663,7 +798,8 @@ body { zoom: var(--sode-scale); }
   top: 0;
   width: 96px;
 }
-.sode-m__undo:disabled {
+.sode-m__undo:disabled,
+.sode-m__undo.disabled {
   background: var(--pb-surface-high);
   color: var(--pb-text-disabled);
 }
@@ -888,3 +1024,23 @@ body { zoom: var(--sode-scale); }
   color: var(--pb-text-disabled);
   cursor: not-allowed;
 }
+
+/* Shortcut list: key on the left, what it does on the right. One grid
+   for both sections (the lists dissolve into it), so the key column is as
+   wide as the widest key in either. */
+.sode__keys {
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-6);
+  grid-template-columns: auto 1fr;
+}
+.sode__keys > .sode__label,
+.sode__keys > .sode__keys-note { grid-column: 1 / -1; }
+.sode__keys > .sode__label + dl > dt:first-child,
+.sode__keys > .sode__label + dl > dt:first-child + dd,
+.sode__keys > .sode__keys-note + dl > dt:first-child,
+.sode__keys > .sode__keys-note + dl > dt:first-child + dd { margin-top: var(--pb-space-2); }
+.sode__keys-note { color: var(--pb-text-muted); margin: 0; max-width: 60ch; }
+.sode__keys > dl + .sode__label { margin-top: var(--pb-space-6); }
+.sode__keys dl { display: contents; }
+.sode__keys dt { font-weight: var(--pb-weight-normal); }
+.sode__keys dd { margin: 0; }

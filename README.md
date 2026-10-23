@@ -9,7 +9,7 @@ To patch one source to several destinations, press `+` (or the + button) instead
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
 - Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
-- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. Swipe a recent take or folder left to undo. Settings → This device can force the phone or desktop layout.
+- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. Swipe a recent take or folder left to undo. Settings → This device can force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
 
 ## Run
 
@@ -49,7 +49,9 @@ On first start, when there is no config file yet, it is created from these seed 
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
 | `SODE_NAME_REFRESH_S` | `nameRefreshSeconds` | `60` | Re-read names this often (0 = off); also a button in Settings |
 | `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and protects this often (0 = off) |
-| | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colours for 1-17, built-in swatches after). Settings only, no seed var |
+| | `routerName` | | Friendly name for the router in the status card, e.g. `Ultrix` (up to 32 characters). Settings only |
+| | `routerShow` | `address` | What the status card shows for the router: `address`, `name` (falls back to the address when no name is set) or `none`. The disconnected banner always shows the address. Settings only |
+| | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colors for 1-17, built-in swatches after). Settings only, no seed var |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
 | | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |

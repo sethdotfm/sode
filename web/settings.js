@@ -3,7 +3,7 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, fmtTime, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
 
 const root = document.documentElement;
@@ -56,10 +56,12 @@ export function openSettings() {
   $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
   $('cfg-layout').value = layoutPref();
+  $('cfg-clock').value = clockPref();
+  $('cfg-scrolltop').checked = scrollTopPref();
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
-  $('settings-path').textContent = S.configPath ? `Saved to ${S.configPath}` : 'Not saved to disk (SODE_CONFIG unset)';
+  $('settings-path').replaceChildren(...(S.configPath ? ['Saved to ', el('code', null, S.configPath)] : ['Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']));
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderNamesStatus();
@@ -77,7 +79,7 @@ function renderLock(opening = false) {
   else delete form.dataset.locked;
   if (!opening && !flipped) return;
   if (locked) $('lock-pin').focus();
-  else if (layout() === 'desktop') $('cfg-router').focus();
+  else if (layout() === 'desktop') $('cfg-namerefresh').focus();
 }
 
 function closeSettings() {
@@ -130,7 +132,7 @@ function numberingChanged() {
   rerenderColors();
 }
 
-// ---- level colours: one hex box per level, previewed on its slot
+// ---- level colors: one hex box per level, previewed on its slot
 
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const toHex = (v) => {
@@ -140,7 +142,7 @@ const toHex = (v) => {
 
 const swatchOf = (ui) => (ui === 1 ? 'video' : String((ui - 2) % 16 + 1).padStart(2, '0'));
 
-// A level's default hex: the server's default colour, else its patchbay
+// A level's default hex: the server's default color, else its patchbay
 // swatch in the current theme.
 function defaultHex(ui) {
   if (S.levelDefaults[ui - 1]) return S.levelDefaults[ui - 1];
@@ -156,7 +158,7 @@ function preview(slot, ui, v) {
   levelColor(slot, { swatch: swatchOf(ui), color: HEX.test(v.trim()) ? toHex(v) : S.levelDefaults[ui - 1] || '' });
 }
 
-// vals: colours to show, by level; keeps what's typed when the count changes.
+// vals: colors to show, by level; keeps what's typed when the count changes.
 function renderColors(vals) {
   const n = Number($('cfg-levels').value);
   const rows = [];
@@ -168,7 +170,7 @@ function renderColors(vals) {
     f.value = vals[ui - 1] || '';
     f.placeholder = defaultHex(ui);
     f.spellcheck = false;
-    f.setAttribute('aria-label', `Level ${levelLabel(ui, formMode())} colour`);
+    f.setAttribute('aria-label', `Level ${levelLabel(ui, formMode())} color`);
     f.addEventListener('input', () => {
       preview(slot, ui, f.value);
       f.classList.toggle('pb-input--invalid', f.value.trim() !== '' && !HEX.test(f.value.trim()));
@@ -179,7 +181,7 @@ function renderColors(vals) {
   $('cfg-colors').replaceChildren(...rows);
 }
 
-// Redraws the colour rows, keeping what's typed.
+// Redraws the color rows, keeping what's typed.
 function rerenderColors() {
   const vals = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value);
   renderColors([...vals, ...(S.cfg.levelColors || []).slice(vals.length)]);
@@ -187,7 +189,7 @@ function rerenderColors() {
 
 function renderOffsetNote() {
   const off = Number($('cfg-offset').value);
-  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} is sent as wire level ${1 + off}` : '';
+  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
 }
 
 function renderNamesStatus() {
@@ -197,7 +199,7 @@ function renderNamesStatus() {
   $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations, ${when}`;
   const btn = $('names-refresh');
   btn.disabled = S.router !== 'up';
-  btn.textContent = 'Refresh names now';
+  btn.textContent = 'Refresh now';
 }
 
 function configResult(m) {
@@ -212,13 +214,19 @@ function configResult(m) {
     showLockErr(m.err);
     return;
   }
-  $('settings-err').textContent = m.err;
+  $('settings-err').textContent = sentence(m.err);
   $('settings-err').hidden = false;
 }
 
+// Server errors are Go-style (lowercase, no full stop); shown as sentences.
+const sentence = (t) => {
+  const s = String(t || '').trim();
+  return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
+};
+
 function showLockErr(text) {
   renderLock();
-  $('lock-err').textContent = text;
+  $('lock-err').textContent = sentence(text);
   $('lock-err').hidden = false;
   $('lock-pin').select();
 }
@@ -226,8 +234,8 @@ function showLockErr(text) {
 function renderPinStatus() {
   $('cfg-pin-clear-row').hidden = !S.pinSet;
   $('cfg-pin-status').textContent = S.pinSet
-    ? 'A PIN is set. Type a new one to change it; leave blank to keep it.'
-    : 'No PIN: anyone who can open this page can change settings. 4-64 characters.';
+    ? 'PIN set. Leave blank to keep it.'
+    : 'No PIN. 4–64 characters.';
 }
 
 function unlockResult(m) {
@@ -241,7 +249,7 @@ function unlockResult(m) {
   renderLock();
 }
 
-// The server forgets an unlock when the socket drops, and only honours it
+// The server forgets an unlock when the socket drops, and only honors it
 // for the PIN it was entered against: with no PIN now, a PIN set later
 // (here or by someone else, even while disconnected) needs entering.
 function relock() {
@@ -273,12 +281,12 @@ $('clear-confirm').addEventListener('click', () => {
     return;
   }
   resetClear();
-  showResult('ok', 'History cleared', 'The Recent list is empty for everyone.');
+  showResult('ok', 'History cleared', 'Recent is empty for everyone.');
 });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-cancel').addEventListener('click', closeSettings);
-$('settings-back').addEventListener('click', closeSettings);
+$('lock-cancel').addEventListener('click', closeSettings);
 $('cfg-offset').addEventListener('input', renderOffsetNote);
 $('cfg-colors-reset').addEventListener('click', () => {
   for (const f of $('cfg-colors').querySelectorAll('input')) {
@@ -292,6 +300,7 @@ $('cfg-levels').addEventListener('input', () => {
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
 $('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
+$('cfg-scrolltop').addEventListener('change', (e) => setScrollTopPref(e.target.checked));
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'refreshNames' })) {
     $('names-refresh').disabled = true;
@@ -309,7 +318,7 @@ form.addEventListener('submit', (e) => {
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) {
-    $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be a hex colour like #3a7bd5.`;
+    $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`;
     $('settings-err').hidden = false;
     badColor.focus();
     return;

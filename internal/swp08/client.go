@@ -3,7 +3,6 @@ package swp08
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -18,9 +17,8 @@ var (
 
 const (
 	ackTimeout  = time.Second
+	probeIdle   = 10 * time.Second // send the probe after this long without rx
 	sendTries   = 3
-	probeIdle   = 15 * time.Second // send Probe after this long without rx
-	deadIdle    = 30 * time.Second // drop the connection after this long without rx
 	maxBackoff  = 10 * time.Second
 	stableAfter = 30 * time.Second // a session this long resets the backoff
 )
@@ -33,7 +31,7 @@ const (
 	StateDown       State = "down"
 )
 
-// Client keeps one TCP connection to a router alive and serialises sends,
+// Client keeps one TCP connection to a router alive and serializes sends,
 // waiting for each ACK before the next message as SW-P-08 requires.
 type Client struct {
 	Debug bool
@@ -44,20 +42,31 @@ type Client struct {
 	// OnState reports connection changes; err explains a drop.
 	OnState func(s State, err error)
 
+	// Timings, from the constants; tests shorten them.
+	ackTimeout, probeIdle time.Duration
+	// dial opens the TCP connection; tests replace it.
+	dial func(ctx context.Context, addr string) (net.Conn, error)
+
 	mu     sync.Mutex
 	addr   string
-	probe  []byte             // sent when the link is quiet; must provoke a reply
-	q      chan []byte        // nil while disconnected
+	probe  []byte             // sent on connect and when the link is quiet; must provoke a reply
+	q      chan []byte        // nil until the router has answered
 	cancel context.CancelFunc // ends the current session
 	kick   chan struct{}
 
 	wmu sync.Mutex
 }
 
-var errNoRouter = errors.New("no router configured")
+var (
+	errNoRouter = errors.New("no router configured")
+	errRetarget = errors.New("reconnecting with new settings")
+)
 
 func NewClient(addr string, probe []byte) *Client {
-	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1)}
+	d := net.Dialer{Timeout: 5 * time.Second, KeepAlive: 10 * time.Second}
+	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1),
+		ackTimeout: ackTimeout, probeIdle: probeIdle,
+		dial: func(ctx context.Context, addr string) (net.Conn, error) { return d.DialContext(ctx, "tcp", addr) }}
 }
 
 // SetTarget switches router and reconnects at once. An empty addr idles.
@@ -101,7 +110,7 @@ func (c *Client) Send(msg []byte) error {
 func (c *Client) Run(ctx context.Context) {
 	backoff := time.Second
 	for ctx.Err() == nil {
-		select { // a kick from before this attempt is already honoured
+		select { // a kick from before this attempt is already honored
 		case <-c.kick:
 		default:
 		}
@@ -120,6 +129,12 @@ func (c *Client) Run(ctx context.Context) {
 		err := c.session(ctx, addr)
 		if ctx.Err() != nil {
 			return
+		}
+		if errors.Is(err, errRetarget) {
+			// New settings, not a failure: straight back to connecting.
+			log.Printf("swp08: %s: %v", addr, err)
+			backoff = time.Second
+			continue
 		}
 		c.state(StateDown, err)
 		if time.Since(start) > stableAfter {
@@ -144,15 +159,32 @@ func (c *Client) state(s State, err error) {
 	}
 }
 
-func (c *Client) session(ctx context.Context, addr string) error {
+// session runs one connection. Ended by SetTarget (new settings) at any
+// point, mid-dial included, it returns errRetarget whatever error that
+// surfaced as: a reconnect, not a failure.
+func (c *Client) session(ctx context.Context, addr string) (err error) {
 	sctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	defer func() {
+		if ctx.Err() == nil && sctx.Err() != nil {
+			err = errRetarget
+		}
+		cancel()
+	}()
 	c.mu.Lock()
 	c.cancel = cancel
+	stale := c.addr != addr // SetTarget ran before this session could be cancelled
 	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		c.q = nil
+		c.cancel = nil
+		c.mu.Unlock()
+	}()
+	if stale {
+		return errRetarget
+	}
 
-	d := net.Dialer{Timeout: 5 * time.Second, KeepAlive: 10 * time.Second}
-	conn, err := d.DialContext(sctx, "tcp", addr)
+	conn, err := c.dial(sctx, addr)
 	if err != nil {
 		return err
 	}
@@ -164,36 +196,44 @@ func (c *Client) session(ctx context.Context, addr string) error {
 
 	q := make(chan []byte, 4096)
 	acks := make(chan bool, 1)
-	var rx atomic.Int64
-	rx.Store(time.Now().UnixNano())
+	rx := newLastRx()
 
+	errc := make(chan error, 2)
+	go func() { errc <- c.reader(conn, acks, rx) }()
+	go func() { errc <- c.writer(sctx, conn, q, acks, rx) }()
+
+	// wait blocks until ch is closed (nil: forever) or the session ends;
+	// nil means ch closed.
+	wait := func(ch <-chan struct{}) error {
+		select {
+		case <-ch:
+			return nil
+		case err := <-errc:
+			return err
+		case <-sctx.Done():
+			if ctx.Err() == nil {
+				return errRetarget
+			}
+			return ctx.Err()
+		}
+	}
+
+	// Up only once the router answers: a hung one still accepts TCP. The
+	// writer's first probe provokes that reply. Until then Send says
+	// ErrDown, so nothing queues behind a probe that may never be answered.
+	if _, probe := c.target(); probe != nil {
+		if err := wait(rx.heard); err != nil {
+			return err
+		}
+	}
 	c.mu.Lock()
 	c.q = q
 	c.mu.Unlock()
-	defer func() {
-		c.mu.Lock()
-		c.q = nil
-		c.cancel = nil
-		c.mu.Unlock()
-	}()
-
-	errc := make(chan error, 2)
-	go func() { errc <- c.reader(conn, acks, &rx) }()
-	go func() { errc <- c.writer(sctx, conn, q, acks, &rx) }()
-
 	c.state(StateUp, nil)
 	if c.OnUp != nil {
 		c.OnUp()
 	}
-	select {
-	case err := <-errc:
-		return err
-	case <-sctx.Done():
-		if ctx.Err() == nil {
-			return errors.New("reconnecting with new settings")
-		}
-		return ctx.Err()
-	}
+	return wait(nil)
 }
 
 func (c *Client) write(conn net.Conn, b []byte) error {
@@ -207,7 +247,32 @@ func (c *Client) write(conn net.Conn, b []byte) error {
 	return err
 }
 
-func (c *Client) reader(conn net.Conn, acks chan bool, rx *atomic.Int64) error {
+// lastRx tracks when the router last sent anything, as a monotonic offset
+// from the session's start, so a wall-clock step can't fake or hide a reply.
+type lastRx struct {
+	start time.Time
+	at    atomic.Int64  // time.Duration since start of the latest rx
+	heard chan struct{} // closed on the first rx
+	once  sync.Once
+}
+
+func newLastRx() *lastRx {
+	return &lastRx{start: time.Now(), heard: make(chan struct{})}
+}
+
+func (l *lastRx) now() time.Duration { return time.Since(l.start) }
+
+func (l *lastRx) mark() {
+	l.at.Store(int64(l.now()))
+	l.once.Do(func() { close(l.heard) })
+}
+
+// since reports whether anything arrived after t (from now()).
+func (l *lastRx) since(t time.Duration) bool { return time.Duration(l.at.Load()) > t }
+
+func (l *lastRx) idle() time.Duration { return l.now() - time.Duration(l.at.Load()) }
+
+func (c *Client) reader(conn net.Conn, acks chan bool, rx *lastRx) error {
 	var dec Decoder
 	buf := make([]byte, 4096)
 	for {
@@ -215,7 +280,7 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *atomic.Int64) error {
 		if err != nil {
 			return err
 		}
-		rx.Store(time.Now().UnixNano())
+		rx.mark()
 		if c.Debug {
 			log.Printf("swp08: rx % X", buf[:n])
 		}
@@ -246,24 +311,47 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *atomic.Int64) error {
 	}
 }
 
-func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks chan bool, rx *atomic.Int64) error {
-	tick := time.NewTicker(5 * time.Second)
+// writer sends queued messages one at a time and keeps the link checked.
+// The router going quiet with the TCP session still open (powered off,
+// cable pulled, hung) shows up as a probe that gets nothing back at all,
+// and drops the connection so it shows as down and reconnects. A message
+// that alone goes unanswered (a command this router ignores) only costs a
+// probe: if that's answered, the router is fine.
+func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks chan bool, rx *lastRx) error {
+	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
+	check := func() error {
+		_, probe := c.target()
+		if probe == nil {
+			return nil
+		}
+		heard, err := c.transmit(ctx, conn, probe, acks, rx)
+		if err == nil && !heard {
+			err = errors.New("no reply from router")
+		}
+		return err
+	}
+	// The first probe, sent at once: the session waits for its reply.
+	if err := check(); err != nil {
+		return err
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case m := <-q:
-			if err := c.transmit(ctx, conn, m, acks); err != nil {
+			heard, err := c.transmit(ctx, conn, m, acks, rx)
+			if err != nil {
 				return err
 			}
-		case <-tick.C:
-			idle := time.Since(time.Unix(0, rx.Load()))
-			if idle > deadIdle {
-				return fmt.Errorf("no data from router for %s", idle.Round(time.Second))
+			if !heard {
+				if err := check(); err != nil {
+					return err
+				}
 			}
-			if _, probe := c.target(); idle > probeIdle && probe != nil {
-				if err := c.transmit(ctx, conn, probe, acks); err != nil {
+		case <-tick.C:
+			if rx.idle() > c.probeIdle {
+				if err := check(); err != nil {
 					return err
 				}
 			}
@@ -271,28 +359,32 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 	}
 }
 
-func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks chan bool) error {
+// transmit sends m and waits for its ACK, retrying on NAK or silence.
+// heard reports whether anything at all came back from the router while
+// it tried.
+func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks chan bool, rx *lastRx) (heard bool, err error) {
 	frame := Encode(m)
+	sent := rx.now()
 	for try := 1; try <= sendTries; try++ {
 		select { // discard any stray ACK left from before
 		case <-acks:
 		default:
 		}
 		if err := c.write(conn, frame); err != nil {
-			return err
+			return false, err
 		}
 		select {
 		case ok := <-acks:
 			if ok {
-				return nil
+				return true, nil
 			}
 			log.Printf("swp08: NAK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
-		case <-time.After(ackTimeout):
+		case <-time.After(c.ackTimeout):
 			log.Printf("swp08: no ACK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-ctx.Done():
-			return ctx.Err()
+			return false, ctx.Err()
 		}
 	}
 	log.Printf("swp08: gave up on cmd 0x%02X after %d tries", m[0], sendTries)
-	return nil
+	return rx.since(sent), nil
 }

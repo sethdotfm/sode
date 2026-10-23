@@ -19,7 +19,11 @@ import (
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
-	Router             string   `yaml:"router" json:"router"`
+	Router string `yaml:"router" json:"router"`
+	// RouterName is a friendly name for the status card; RouterShow picks
+	// what the card shows: "address" (default), "name" or "none".
+	RouterName         string   `yaml:"routerName" json:"routerName"`
+	RouterShow         string   `yaml:"routerShow" json:"routerShow"`
 	Matrix             int      `yaml:"matrix" json:"matrix"`
 	Levels             int      `yaml:"levels" json:"levels"`
 	LevelWireOffset    int      `yaml:"levelWireOffset" json:"levelWireOffset"`
@@ -32,7 +36,7 @@ type Config struct {
 	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
 	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
 	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
-	// LevelColors[i] colours UI level i+1 as #rrggbb; "" or missing keeps
+	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
 	// the default (DefaultLevelColors, then the patchbay swatch). Entries
 	// past Levels are kept but unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
@@ -51,6 +55,7 @@ type Config struct {
 
 func Defaults() Config {
 	return Config{
+		RouterShow:         "address",
 		Matrix:             0,
 		Levels:             17,
 		LevelWireOffset:    -1,
@@ -120,6 +125,11 @@ func FromEnv(c Config) (Config, error) {
 // Normalize fills derived defaults; call before Validate.
 func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
+	c.RouterName = strings.TrimSpace(c.RouterName)
+	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
+	if c.RouterShow == "" {
+		c.RouterShow = "address"
+	}
 	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
 	c.LevelNumbering = strings.ToLower(strings.TrimSpace(c.LevelNumbering))
 	if c.LevelNumbering == "" {
@@ -209,12 +219,20 @@ func (c Config) Validate() error {
 	default:
 		bad("level numbering must be 0, 1 or va")
 	}
+	switch c.RouterShow {
+	case "address", "name", "none":
+	default:
+		bad("router status must show address, name or none")
+	}
+	if n := len([]rune(c.RouterName)); n > 32 {
+		bad("router name must be at most 32 characters")
+	}
 	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
 		bad("PIN tries before lockout must be 0 (never) or 1-1000")
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
-			bad("level %d colour %q must be a hex colour like #3a7bd5", i+1, v)
+			bad("level %d color %q must be a hex color like #3a7bd5", i+1, v)
 		}
 	}
 	if _, err := c.Proxies(); err != nil {
@@ -240,7 +258,7 @@ func (c Config) Proxies() ([]netip.Prefix, error) {
 	return out, nil
 }
 
-// DefaultLevelColors are the user's Ultrix level colours, level 1 first.
+// DefaultLevelColors are the user's Ultrix level colors, level 1 first.
 // Levels past these fall back to the patchbay swatches.
 var DefaultLevelColors = []string{
 	"#7ae85a", "#3b5bfd", "#e5483b", "#f5e663", "#3f8a8c", "#d946ef",
@@ -258,7 +276,7 @@ type Level struct {
 }
 
 // LevelMap: wire = UI + offset; UI 1 gets the video swatch, the rest the
-// 16 audio swatches, unless LevelColors or DefaultLevelColors has a colour.
+// 16 audio swatches, unless LevelColors or DefaultLevelColors has a color.
 func (c Config) LevelMap() []Level {
 	out := make([]Level, c.Levels)
 	for i := range out {

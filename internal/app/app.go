@@ -80,7 +80,7 @@ type App struct {
 	dumpAt         time.Time
 
 	pin   pinState   // wrong settings PINs
-	cfgMu sync.Mutex // serialises settings saves
+	cfgMu sync.Mutex // serializes settings saves
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }
@@ -195,7 +195,12 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	defer a.mu.Unlock()
 	a.status.Router = string(s)
 	a.status.Addr = a.r().cfg.Router
-	a.status.Err = ""
+	// Retrying keeps the last error, so a browser that loads mid-retry still
+	// sees the router as lost. Up clears it; a new router starts clean
+	// (ApplyConfig).
+	if s != swp08.StateConnecting {
+		a.status.Err = ""
+	}
 	if err != nil {
 		a.status.Err = err.Error()
 	}
@@ -447,7 +452,7 @@ const (
 	pinMaxWait   = time.Hour
 )
 
-var errLocked = errors.New("Settings are locked; enter the PIN again.")
+var errLocked = errors.New("settings are locked; enter the PIN again")
 
 // pinWait is the wait after the nth wrong PIN in a row: none for the first
 // pinFreeTries, then pinFirstWait doubling, up to pinMaxWait.
@@ -586,7 +591,10 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.pend, a.pendProt = nil, nil
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
+		// A new router starts from scratch: not the old one's state or error.
+		a.status.Router = string(swp08.StateConnecting)
 		a.status.Addr = c.Router
+		a.status.Err = ""
 	}
 	hello := a.hello(page)
 	locked, _ := json.Marshal(map[string]any{"t": "locked"})

@@ -52,7 +52,7 @@ Operators need a fast, keyboard-first way to patch a SW-P-08 router (target: Ros
 - Server rejects takes to protected dests and to levels outside the map.
 
 ## Page (patchbay)
-- Centered, Google-classic whitespace. Small status diagram on top: `Browser ─ws─ Sode ─SW-P-08─ Router`, each link a `pb-status` + `pb-dot--ok|warn|error` with text (never colour alone).
+- Centered, Google-classic whitespace. Small `pb-status` in the top-right corner (dot + text, never color alone; hover for each link). A lost link (browser↔Sode or Sode↔router) shows a solid red banner pinned to the top ("Connection to Sode server interrupted" / "Connected to Sode server, router offline") with a browser → server → router map marking the lost link, a thick pulsing red outline round the window, and disables Patch/Undo/Retry.
 - Three large `pb-input` boxes across. Dropdown is a `pb-menu`. Tally box underneath uses `pb-xpt--source/dest` styling. Recent list at bottom as input-styled rows.
 - Keys: Tab/Shift+Tab move between boxes, ↑↓ pick, Enter → confirm modal (`pb-modal` + `pb-modal__header--warn`), churn key confirms, Esc cancels; Esc in an empty box clears all.
 - Modal text: *Are you sure you want to patch Source 141 CG3 Fill to Destination 24 DSM5? Press **j** to confirm, or escape to cancel.* Plus a levels line and a before→after line.

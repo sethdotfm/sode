@@ -4,7 +4,7 @@
 // or the button) adds another destination and stays on the step.
 
 import {
-  $, el, S, on, connState, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
+  $, el, S, on, connState, linked, needsLink, setLinkDisabled, renderDown, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
   fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   chevron, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
@@ -30,10 +30,18 @@ const active = () => layout() === 'phone' && document.documentElement.dataset.vi
 
 function renderConn() {
   const c = connState();
-  setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Socket']);
+  setDot($('m-ws-dot'), $('m-ws-text'), [c.ws[0], 'Server']);
   $('m-ws-text').parentElement.title = c.ws[1];
   setDot($('m-rt-dot'), $('m-rt-text'), [c.rt[0], 'Router']);
   $('m-rt-text').parentElement.title = c.rt[1];
+  renderDown($('m-down'), c);
+  syncGo();
+}
+
+// Next works offline (it only moves through the steps); Go, which patches,
+// shows as disabled without the link (a press gets "Not connected").
+function syncGo() {
+  setLinkDisabled($('m-go'), M.step === 'lvl' && !linked());
 }
 
 // ---- composer
@@ -44,6 +52,7 @@ function setStep(step, focus = true) {
   $('m-step').textContent = PROMPT[step];
   $('m-step').htmlFor = inputs[step].id;
   $('m-go').textContent = step === 'lvl' ? 'Go' : 'Next';
+  syncGo();
   $('m-add').hidden = step !== 'dst';
   $('m-picker').hidden = step !== 'lvl';
   M.matches = [];
@@ -267,7 +276,8 @@ const openFolders = new Set(); // history groups showing their takes
 function undoButton(plan, label, text = 'Undo') {
   const undo = el('button', 'sode-m__undo', text);
   undo.type = 'button';
-  undo.disabled = planEmpty(plan);
+  if (planEmpty(plan)) undo.disabled = true;
+  else needsLink(undo);
   undo.setAttribute('aria-label', label);
   undo.addEventListener('click', () => { closeSwipes(); openSheet(plan); });
   return undo;
@@ -281,6 +291,7 @@ function recentRow(e) {
   if (!e.ok) {
     retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Retry');
     retry.type = 'button';
+    needsLink(retry);
     retry.setAttribute('aria-label', `Retry ${src.label} to ${dst.label}`);
     retry.addEventListener('click', () => { closeSwipes(); openSheet(retryPlan(e)); });
   }
@@ -307,6 +318,7 @@ function folderRows(f) {
   if (failed) {
     retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Retry');
     retry.type = 'button';
+    needsLink(retry);
     retry.setAttribute('aria-label', `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`);
     retry.addEventListener('click', () => { closeSwipes(); openSheet(folderRetryPlan(f)); });
   }

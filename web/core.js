@@ -25,7 +25,9 @@ export const S = {
   levelBy: new Map(),
   namesAt: null,
   wsState: 'connecting',
+  wsLost: false,    // the socket dropped and hasn't come back yet
   router: null, routerAddr: '', routerErr: '',
+  routerLastErr: '', // newest error, kept through reconnect attempts until the router is up
   ws: null,
   hist: [],         // newest first
   histMore: false,
@@ -64,10 +66,11 @@ export function connect() {
   S.ws = ws;
   S.wsState = 'connecting';
   emit('conn');
-  ws.onopen = () => { retry = 1000; S.wsState = 'up'; emit('conn'); };
+  ws.onopen = () => { retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
   ws.onclose = () => {
     S.ws = null;
     S.wsState = 'down';
+    S.wsLost = true;
     S.histLoading = false;
     if (takes.size) {
       // Replies to a dead socket are lost; the outcome is in history.
@@ -193,18 +196,86 @@ function applyProtect(list) {
 }
 
 function setStatus(st) {
+  if (st.addr !== S.routerAddr) S.routerLastErr = '';
   S.router = st.router;
   S.routerAddr = st.addr;
   S.routerErr = st.err || '';
+  if (S.routerErr) S.routerLastErr = S.routerErr;
+  else if (S.router === 'up') S.routerLastErr = '';
 }
 
-// Dot state and text for the WebSocket and router links.
+// Dot state and text for the WebSocket and router links, plus down:
+// { title, text, err, links } once either link is lost. Not while first
+// connecting, or reconnecting after a restart or new settings: the router
+// only counts as lost when it's down, or still connecting after a failure.
 export function connState() {
-  const ws = { up: ['ok', 'WebSocket connected'], connecting: ['warn', 'WebSocket connecting'], down: ['error', 'WebSocket disconnected'] }[S.wsState];
+  const ws = { up: ['ok', 'Server connected'], connecting: ['warn', 'Server connecting'], down: ['error', 'Server disconnected'] }[S.wsState];
   const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
-  return { ws, rt: [dot, `SW-P-08 ${word}`] };
+  // down.links: browser↔server and server↔router, true / false / null (unknown).
+  let down = null;
+  if (S.wsLost) {
+    down = {
+      title: 'Connection to Sode server interrupted',
+      text: 'Reconnecting…',
+      links: [false, null],
+    };
+  } else if (S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
+    down = { title: 'No router set', text: 'Set the router address in Settings.' };
+  } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
+    down = {
+      title: 'Connected to Sode server, router offline',
+      text: `Reconnecting to ${S.routerAddr}…`,
+      err: S.routerLastErr,
+      links: [true, false],
+    };
+  }
+  return { ws, rt: [dot, `Router ${word}`], down };
 }
+
+// Fills (or hides) a disconnected banner: what's lost, a browser → server
+// → router map with each link marked, and the router's error if any.
+// Redrawn only when its content changes: status flaps while reconnecting,
+// and each redraw would re-announce the alert.
+export function renderDown(box, c) {
+  box.hidden = !c.down;
+  const key = c.down ? JSON.stringify([c.down, S.routerAddr, S.cfg?.routerName]) : '';
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  if (!c.down) return box.replaceChildren();
+  const { title, text, err, links } = c.down;
+  const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''),
+    ok === true ? 'ok' : ok === false ? '✕ lost' : '?');
+  box.replaceChildren(...[
+    el('div', 'sode__down-title', title),
+    links && el('div', 'sode__down-map',
+      el('span', 'sode__down-node', 'This browser'), link(links[0]),
+      el('span', 'sode__down-node', 'Sode server'), link(links[1]),
+      el('span', 'sode__down-node', 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?'))),
+    el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
+  ].filter(Boolean));
+}
+
+// Patches can go out: Sode is reachable and connected to the router.
+export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
+
+// Buttons that send to the router are marked with needsLink: shown as
+// disabled while patches can't go out, and kept in step on each 'conn'
+// without redrawing anything. The class and aria-disabled, not the disabled
+// attribute, so a focused button keeps focus; a press still goes through
+// planBlocked, which says it's not connected.
+export function setLinkDisabled(b, off) {
+  b.classList.toggle('disabled', off);
+  b.setAttribute('aria-disabled', String(off));
+}
+export function needsLink(b) {
+  b.dataset.needsLink = '';
+  setLinkDisabled(b, !linked());
+  return b;
+}
+on('conn', () => {
+  for (const b of document.querySelectorAll('[data-needs-link]')) setLinkDisabled(b, !linked());
+});
 
 export function setDot(dotEl, textEl, [state, text]) {
   dotEl.className = `pb-dot pb-dot--${state}`;
@@ -341,7 +412,7 @@ const runsText = (list, dash, sep, mode) => levelRuns(list)
 export const levelText = (list) => runsText(list, '–', ', ');
 export const levelInput = (list, mode) => runsText(list, '-', ',', mode);
 
-// A configured #rrggbb is one colour for both themes, so its number gets
+// A configured #rrggbb is one color for both themes, so its number gets
 // black or white, whichever contrasts more (WCAG relative luminance).
 function inkFor(hex) {
   const lin = (i) => {
@@ -352,7 +423,7 @@ function inkFor(hex) {
   return (y + 0.05) / 0.05 > 1.05 / (y + 0.05) ? '#000' : '#fff';
 }
 
-// Sets --sode-c (and --sode-ink for a configured colour) on a level's
+// Sets --sode-c (and --sode-ink for a configured color) on a level's
 // pick or slot.
 export function levelColor(node, l) {
   if (l.color) {
@@ -367,7 +438,7 @@ export function levelColor(node, l) {
 
 // Every level in one fixed row: filled when in `on`, outlined otherwise,
 // so rows line up like monospace columns. The numbers mean it never
-// relies on colour alone.
+// relies on color alone.
 export function levelBar(on) {
   const set = new Set(on);
   const row = el('span', 'sode__bar', ...S.levels.map((l) => {
@@ -455,9 +526,45 @@ export function chevron(open) {
   return icon;
 }
 
+// Clock, per browser: '24' (default), '12', or 'locale' to follow the
+// browser's language. Pages can't read the OS 12/24-hour switch.
+const CLOCK_KEY = 'sode-clock';
+export function clockPref() {
+  let v = null;
+  try { v = localStorage.getItem(CLOCK_KEY); } catch (e) {}
+  return v === '12' || v === 'locale' ? v : '24';
+}
+
+// Scroll to the top when a box is focused (desktop): per browser, on unless
+// turned off.
+const SCROLL_KEY = 'sode-scroll-top';
+export function scrollTopPref() {
+  try { return localStorage.getItem(SCROLL_KEY) !== 'off'; } catch (e) { return true; }
+}
+export function setScrollTopPref(on) {
+  try {
+    if (on) localStorage.removeItem(SCROLL_KEY);
+    else localStorage.setItem(SCROLL_KEY, 'off');
+  } catch (e) {}
+}
+
+// The time formatter, built once and again only when the Clock changes.
+let timeFmt = null;
+function timeFormat() {
+  if (timeFmt) return timeFmt;
+  const pref = clockPref();
+  const opts = { minute: '2-digit', second: '2-digit' };
+  // hourCycle, not hour12: Chrome shows 24:05 for hour12: false.
+  if (pref !== 'locale') opts.hourCycle = pref === '12' ? 'h12' : 'h23';
+  // 3:04:05 PM but 03:04:05 / 15:04:05.
+  const h12 = /h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric', ...opts }).resolvedOptions().hourCycle);
+  timeFmt = new Intl.DateTimeFormat([], { hour: h12 ? 'numeric' : '2-digit', ...opts });
+  return timeFmt;
+}
+
 export const fmtTime = (iso) => {
   const d = new Date(iso);
-  const t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const t = timeFormat().format(d);
   return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString()} ${t}`;
 };
 
@@ -562,7 +669,7 @@ export function folderStatus(f) {
   if (got < f.n && Date.now() - Date.parse(f.entries[0].time) < IN_FLIGHT_MS) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
-  const title = got < f.n ? `Only ${got} of ${f.n} takes are loaded` : '';
+  const title = got < f.n ? `${got} of ${f.n} loaded` : '';
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
@@ -680,7 +787,7 @@ function takeResult(m) {
 // Marks each protected item's prot. A plan only blocks when every
 // destination is protected; otherwise those are refused and the rest go.
 export function planBlocked(plan) {
-  if (!S.ws || S.router !== 'up') {
+  if (!linked()) {
     return { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' };
   }
   const live = plan.items.filter((i) => i.groups.length);
@@ -802,7 +909,7 @@ export function initTheme() {
   // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
   // Matched by e.code because Option changes e.key on macOS.
   if (/Mac|iPhone|iPad/.test(navigator.platform)) {
-    $('cfg-theme-hint').textContent = '⌥⇧T switches between light and dark from anywhere.';
+    $('cfg-theme-hint').replaceChildren(el('code', null, '⌥⇧T'), ' toggles');
   }
   select.addEventListener('change', () => setTheme(select.value));
   document.addEventListener('keydown', (e) => {
@@ -812,4 +919,19 @@ export function initTheme() {
     setTheme(isDark() ? 'light' : 'dark');
   }, true);
   sync();
+}
+
+// The Clock select in Settings (synced when Settings opens) applies at
+// once and redraws every time.
+export function initClock() {
+  const select = $('cfg-clock');
+  select.addEventListener('change', () => {
+    try {
+      if (select.value === '24') localStorage.removeItem(CLOCK_KEY);
+      else localStorage.setItem(CLOCK_KEY, select.value);
+    } catch (e) {}
+    timeFmt = null;
+    emit('history');
+    emit('namesChecked');
+  });
 }

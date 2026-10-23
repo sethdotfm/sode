@@ -26,8 +26,10 @@ func TestValidate(t *testing.T) {
 		"bad name len":      func(c *Config) { c.NameLength = 10 },
 		"bad proxy":         func(c *Config) { c.TrustedProxies = []string{"caddy"} },
 		"refresh too fast":  func(c *Config) { c.NameRefreshSeconds = 1 },
-		"bad colour":        func(c *Config) { c.LevelColors = []string{"#12345g"} },
+		"bad color":         func(c *Config) { c.LevelColors = []string{"#12345g"} },
 		"bad numbering":     func(c *Config) { c.LevelNumbering = "2" },
+		"bad router show":   func(c *Config) { c.RouterShow = "ip" },
+		"long router name":  func(c *Config) { c.RouterName = strings.Repeat("x", 33) },
 		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
 		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 	} {
@@ -89,7 +91,7 @@ func TestLevelColors(t *testing.T) {
 		got = append(got, l.Color)
 	}
 	if want := []string{"#aabbcc", DefaultLevelColors[1], "#3a7bd5"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("level colours %q, want %q", got, want)
+		t.Fatalf("level colors %q, want %q", got, want)
 	}
 }
 
