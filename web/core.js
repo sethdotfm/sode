@@ -367,19 +367,23 @@ function levelTok(tok, mode) {
 }
 
 // "1-3,5" (or "v,1-4") in mode → sorted UI levels within 1..max, or null.
+// A part starting with ! is left out: "!0" is every level but 0, and
+// "1-8 !3" is 1-8 without 3.
 export function parseLevelsAs(text, mode, max) {
-  const out = new Set();
-  for (const part of text.split(/[\s,]+/).filter(Boolean)) {
-    const m = part.match(/^([^-]+)(?:-([^-]+))?$/);
+  const out = new Set(), not = new Set();
+  for (const part of text.replace(/!\s+/g, '!').split(/[\s,]+/).filter(Boolean)) {
+    const m = part.match(/^(!?)([^-!]+)(?:-([^-!]+))?$/);
     if (!m) return null;
-    let a = levelTok(m[1], mode), b = m[2] ? levelTok(m[2], mode) : a;
+    let a = levelTok(m[2], mode), b = m[3] ? levelTok(m[3], mode) : a;
     if (!Number.isInteger(a) || !Number.isInteger(b)) return null;
     if (a > b) [a, b] = [b, a];
     for (let i = a; i <= b; i++) {
       if (i < 1 || i > max) return null;
-      out.add(i);
+      (m[1] ? not : out).add(i);
     }
   }
+  if (!out.size && not.size) for (let i = 1; i <= max; i++) out.add(i);
+  for (const i of not) out.delete(i);
   return out.size ? [...out].sort((x, y) => x - y) : null;
 }
 
