@@ -932,6 +932,7 @@ export function historyPager(step) {
       return b;
     },
   };
+  on('filters', () => { pg.auto = 0; }); // a new filter may need older pages
   return pg;
 }
 

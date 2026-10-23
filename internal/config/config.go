@@ -39,7 +39,7 @@ type Config struct {
 	// HiddenDsts is a Recent filter expression (web/filter.js) for
 	// destinations whose changes from other panels every browser hides
 	// unless its Filters show them; still recorded. E.g. a shader's monitor.
-	HiddenDsts string `yaml:"hiddenDsts" json:"hiddenDsts"`
+	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
 	// HideDsts is no longer used; kept so files that have it load.
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
