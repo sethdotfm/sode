@@ -66,12 +66,21 @@ func (l *stateLog) has(s State) bool {
 	return false
 }
 
-// fastTimers shortens the client's timings for the test.
-func fastTimers(t *testing.T) {
+// fastClient is a client with short timings, run until the test ends.
+func fastClient(t *testing.T, addr string) (*Client, *stateLog, func()) {
 	t.Helper()
-	ack, probe, dead := ackTimeout, probeIdle, deadIdle
-	ackTimeout, probeIdle, deadIdle = 50*time.Millisecond, 300*time.Millisecond, time.Second
-	t.Cleanup(func() { ackTimeout, probeIdle, deadIdle = ack, probe, dead })
+	c := NewClient(addr, ExtInterrogate(0, 0, 0))
+	c.ackTimeout, c.probeIdle = 50*time.Millisecond, 300*time.Millisecond
+	var log stateLog
+	c.OnState = log.add
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	start := func() {
+		go func() { c.Run(ctx); close(done) }()
+	}
+	// Stop and wait for Run, so nothing outlives the test.
+	t.Cleanup(func() { cancel(); <-done })
+	return c, &log, start
 }
 
 // eventually polls cond for up to two seconds.
@@ -86,17 +95,12 @@ func eventually(cond func() bool) bool {
 
 func runClient(t *testing.T, addr string, onUp func(*Client)) *stateLog {
 	t.Helper()
-	fastTimers(t)
-	c := NewClient(addr, ExtInterrogate(0, 0, 0))
-	var log stateLog
-	c.OnState = log.add
+	c, log, start := fastClient(t, addr)
 	if onUp != nil {
 		c.OnUp = func() { onUp(c) }
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go c.Run(ctx)
-	return &log
+	start()
+	return log
 }
 
 // A router that takes the TCP connection but never answers is never shown
@@ -120,7 +124,7 @@ func TestIgnoredCommandKeepsLink(t *testing.T) {
 		t.Fatal("router never came up")
 	}
 	// The ignored send's tries, its probe, and a couple of idle probes.
-	time.Sleep(3*ackTimeout + 3*probeIdle)
+	time.Sleep(3*50*time.Millisecond + 3*300*time.Millisecond)
 	if log.has(StateDown) {
 		t.Fatal("link dropped over one ignored command")
 	}
@@ -130,13 +134,8 @@ func TestIgnoredCommandKeepsLink(t *testing.T) {
 // a probe that may never be answered.
 func TestSendRefusedUntilHeard(t *testing.T) {
 	addr := fakeRouter(t, func([]byte) bool { return false })
-	fastTimers(t)
-	c := NewClient(addr, ExtInterrogate(0, 0, 0))
-	var log stateLog
-	c.OnState = log.add
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go c.Run(ctx)
+	c, log, start := fastClient(t, addr)
+	start()
 	if !eventually(func() bool { return log.has(StateConnecting) }) {
 		t.Fatal("never started connecting")
 	}
@@ -150,13 +149,8 @@ func TestSendRefusedUntilHeard(t *testing.T) {
 // router-lost alarm for a deliberate change.
 func TestRetargetIsNotDown(t *testing.T) {
 	addr := fakeRouter(t, func([]byte) bool { return true })
-	fastTimers(t)
-	c := NewClient(addr, ExtInterrogate(0, 0, 0))
-	var log stateLog
-	c.OnState = log.add
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go c.Run(ctx)
+	c, log, start := fastClient(t, addr)
+	start()
 	if !eventually(func() bool { return log.has(StateUp) }) {
 		t.Fatal("router never came up")
 	}
@@ -164,5 +158,23 @@ func TestRetargetIsNotDown(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	if log.has(StateDown) {
 		t.Fatal("retarget reported the router down")
+	}
+}
+
+// New settings saved while a dial is still running (a wrong address that
+// hasn't timed out yet) are a reconnect too, not a failure.
+func TestRetargetMidDialIsNotDown(t *testing.T) {
+	c, log, start := fastClient(t, "10.255.255.1:8910") // unroutable: the dial hangs
+	start()
+	if !eventually(func() bool { return log.has(StateConnecting) }) {
+		t.Fatal("never started connecting")
+	}
+	time.Sleep(50 * time.Millisecond)
+	c.SetTarget(fakeRouter(t, func([]byte) bool { return true }), ExtInterrogate(0, 0, 0))
+	if !eventually(func() bool { return log.has(StateUp) }) {
+		t.Fatal("never came up on the new address")
+	}
+	if log.has(StateDown) {
+		t.Fatal("retarget mid-dial reported the router down")
 	}
 }

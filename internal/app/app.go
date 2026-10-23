@@ -586,7 +586,10 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.pend, a.pendProt = nil, nil
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
+		// A new router starts from scratch: not the old one's state or error.
+		a.status.Router = string(swp08.StateConnecting)
 		a.status.Addr = c.Router
+		a.status.Err = ""
 	}
 	hello := a.hello(page)
 	locked, _ := json.Marshal(map[string]any{"t": "locked"})

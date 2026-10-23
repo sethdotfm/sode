@@ -1,10 +1,8 @@
 package swp08
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -17,16 +15,9 @@ var (
 	ErrBusy = errors.New("router send queue full")
 )
 
-// Timings; vars so tests can shorten them.
-var (
-	ackTimeout = time.Second
-	probeIdle  = 10 * time.Second // send the probe after this long without rx
-	// deadIdle drops a quiet connection, for a client with no probe; with
-	// one, an unanswered probe drops it first.
-	deadIdle = 20 * time.Second
-)
-
 const (
+	ackTimeout  = time.Second
+	probeIdle   = 10 * time.Second // send the probe after this long without rx
 	sendTries   = 3
 	maxBackoff  = 10 * time.Second
 	stableAfter = 30 * time.Second // a session this long resets the backoff
@@ -51,12 +42,16 @@ type Client struct {
 	// OnState reports connection changes; err explains a drop.
 	OnState func(s State, err error)
 
-	mu     sync.Mutex
-	addr   string
-	probe  []byte             // sent when the link is quiet; must provoke a reply
-	q      chan []byte        // nil while disconnected
-	cancel context.CancelFunc // ends the current session
-	kick   chan struct{}
+	// Timings, from the constants; tests shorten them.
+	ackTimeout, probeIdle time.Duration
+
+	mu         sync.Mutex
+	addr       string
+	probe      []byte             // sent on connect and when the link is quiet; must provoke a reply
+	q          chan []byte        // nil until the router has answered
+	cancel     context.CancelFunc // ends the current session
+	retargeted bool               // the session was ended by SetTarget
+	kick       chan struct{}
 
 	wmu sync.Mutex
 }
@@ -67,7 +62,7 @@ var (
 )
 
 func NewClient(addr string, probe []byte) *Client {
-	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1)}
+	return &Client{addr: addr, probe: probe, kick: make(chan struct{}, 1), ackTimeout: ackTimeout, probeIdle: probeIdle}
 }
 
 // SetTarget switches router and reconnects at once. An empty addr idles.
@@ -75,6 +70,9 @@ func (c *Client) SetTarget(addr string, probe []byte) {
 	c.mu.Lock()
 	c.addr, c.probe = addr, probe
 	cancel := c.cancel
+	if cancel != nil {
+		c.retargeted = true
+	}
 	c.mu.Unlock()
 	if cancel != nil {
 		cancel()
@@ -130,6 +128,15 @@ func (c *Client) Run(ctx context.Context) {
 		err := c.session(ctx, addr)
 		if ctx.Err() != nil {
 			return
+		}
+		c.mu.Lock()
+		retargeted := c.retargeted
+		c.retargeted = false
+		c.mu.Unlock()
+		// Ended by new settings (mid-dial, mid-wait, whenever), whatever error
+		// that surfaced as: not a failure.
+		if retargeted {
+			err = errRetarget
 		}
 		if errors.Is(err, errRetarget) {
 			// New settings, not a failure: straight back to connecting.
@@ -210,10 +217,9 @@ func (c *Client) session(ctx context.Context, addr string) error {
 	}
 
 	// Up only once the router answers: a hung one still accepts TCP. The
-	// probe provokes that first reply. Until then Send says ErrDown, so
-	// nothing else queues behind a probe that may never be answered.
+	// writer's first probe provokes that reply. Until then Send says
+	// ErrDown, so nothing queues behind a probe that may never be answered.
 	if _, probe := c.target(); probe != nil {
-		q <- probe
 		if err := wait(rx.heard); err != nil {
 			return err
 		}
@@ -312,7 +318,6 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *lastRx) error {
 func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks chan bool, rx *lastRx) error {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
-	errSilent := errors.New("no reply from router")
 	check := func() error {
 		_, probe := c.target()
 		if probe == nil {
@@ -320,8 +325,12 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 		}
 		heard, err := c.transmit(ctx, conn, probe, acks, rx)
 		if err == nil && !heard {
-			err = errSilent
+			err = errors.New("no reply from router")
 		}
+		return err
+	}
+	// The first probe, sent at once: the session waits for its reply.
+	if err := check(); err != nil {
 		return err
 	}
 	for {
@@ -334,19 +343,12 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 				return err
 			}
 			if !heard {
-				if _, probe := c.target(); bytes.Equal(m, probe) {
-					return errSilent // that was the probe
-				}
 				if err := check(); err != nil {
 					return err
 				}
 			}
 		case <-tick.C:
-			idle := rx.idle()
-			if idle > deadIdle {
-				return fmt.Errorf("no data from router for %s", idle.Round(time.Second))
-			}
-			if idle > probeIdle {
+			if rx.idle() > c.probeIdle {
 				if err := check(); err != nil {
 					return err
 				}
@@ -375,7 +377,7 @@ func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks cha
 				return true, nil
 			}
 			log.Printf("swp08: NAK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
-		case <-time.After(ackTimeout):
+		case <-time.After(c.ackTimeout):
 			log.Printf("swp08: no ACK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-ctx.Done():
 			return false, ctx.Err()
