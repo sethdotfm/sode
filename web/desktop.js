@@ -5,7 +5,7 @@ import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
-  histRows, statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
+  statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
 } from './core.js';
 import { layout } from './layout.js';
@@ -549,7 +549,7 @@ function onListKey(e) {
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
 
 const TIP_KEY = 'sode-hint-keys';
-$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
+$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
 try { $('keys-tip').hidden = localStorage.getItem(TIP_KEY) === 'hidden'; } catch (e) { $('keys-tip').hidden = false; }
 $('keys-tip-close').addEventListener('click', () => {
   $('keys-tip').hidden = true;
@@ -601,11 +601,14 @@ function patchNow() {
   tryConfirm();
 }
 
-// Undo the newest history row (a whole folder), through the usual confirm.
+// Undo the newest take made in Sode (a whole folder), through the usual
+// confirm. Changes from other panels are skipped, whatever the filters
+// show: they're someone else's.
 function undoLast() {
-  const [row] = histRows(S.hist);
-  if (!row) return showResult('info', 'Nothing to undo', 'No takes yet.');
-  undoRow(row);
+  const e = S.hist.find((x) => !x.ext);
+  if (!e) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
+  const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group);
+  undoRow(takes ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e });
 }
 
 // Undo a history row: { e } for a take, { f } for a whole folder.
@@ -786,7 +789,7 @@ document.addEventListener('keydown', (e) => {
   const b = k && boxes[k];
   const inBox = k || id === 'lvl';
 
-  // Mod+Z undoes the last patch, unless a box has text to undo instead.
+  // Mod+Z undoes the last Sode take, unless a box has text to undo instead.
   if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
     if (e.target instanceof HTMLInputElement && e.target.value) return;
     e.preventDefault();
