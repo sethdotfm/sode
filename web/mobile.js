@@ -4,7 +4,7 @@
 // or the button) adds another destination and stays on the step.
 
 import {
-  $, el, S, on, connState, linked, needsLink, renderDown, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
+  $, el, S, on, connState, linked, needsLink, setLinkDisabled, renderDown, setDot, search, parseLevels, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons, allLevels,
   fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   chevron, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, planEmpty,
   resultNode, showResult,
@@ -41,9 +41,7 @@ function renderConn() {
 // Next works offline (it only moves through the steps); Go, which patches,
 // shows as disabled without the link (a press gets "Not connected").
 function syncGo() {
-  const off = M.step === 'lvl' && !linked();
-  $('m-go').classList.toggle('disabled', off);
-  $('m-go').setAttribute('aria-disabled', String(off));
+  setLinkDisabled($('m-go'), M.step === 'lvl' && !linked());
 }
 
 // ---- composer

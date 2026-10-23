@@ -128,18 +128,17 @@ code,
 .sode__down-link--lost::before,
 .sode__down-link--lost::after { border-top: calc(var(--pb-border-w) * 2) dashed currentColor; }
 [data-conn="down"] .sode__conn { display: none; }
-[data-conn="down"] body::after {
-  animation: pb-pulse 1.6s var(--pb-ease) infinite; /* patchbay's .pb-dot--pulse; no duration token */
+/* The outline is its own element so it can pulse with patchbay's
+   .pb-dot--pulse (which also stops under reduced motion). */
+.sode__frame {
   border: var(--pb-space-3) solid var(--pb-status-error);
-  content: "";
+  display: none;
   inset: 0;
   pointer-events: none;
   position: fixed;
   z-index: var(--pb-z-tooltip);
 }
-@media (prefers-reduced-motion: reduce) {
-  [data-conn="down"] body::after { animation: none; }
-}
+[data-conn="down"] .sode__frame { display: block; }
 
 .sode__mark {
   color: var(--pb-text-strong);

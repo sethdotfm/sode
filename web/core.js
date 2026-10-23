@@ -205,7 +205,9 @@ function setStatus(st) {
 }
 
 // Dot state and text for the WebSocket and router links, plus down:
-// { title, text } once either link is lost (not while first connecting).
+// { title, text, err, links } once either link is lost. Not while first
+// connecting, or reconnecting after a restart or new settings: the router
+// only counts as lost when it's down, or still connecting after a failure.
 export function connState() {
   const ws = { up: ['ok', 'Server connected'], connecting: ['warn', 'Server connecting'], down: ['error', 'Server disconnected'] }[S.wsState];
   const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
@@ -218,7 +220,9 @@ export function connState() {
       text: 'Reconnecting…',
       links: [false, null],
     };
-  } else if (S.wsState === 'up' && S.router && S.router !== 'up') {
+  } else if (S.wsState === 'up' && S.router === 'down' && !S.routerAddr) {
+    down = { title: 'No router set', text: 'Set the router address in Settings.' };
+  } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
     down = {
       title: 'Connected to Sode server, router offline',
       text: `Reconnecting to ${S.routerAddr}…`,
@@ -242,14 +246,14 @@ export function renderDown(box, c) {
   const { title, text, err, links } = c.down;
   const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''),
     ok === true ? 'ok' : ok === false ? '✕ lost' : '?');
-  box.replaceChildren(
+  box.replaceChildren(...[
     el('div', 'sode__down-title', title),
-    el('div', 'sode__down-map',
+    links && el('div', 'sode__down-map',
       el('span', 'sode__down-node', 'This browser'), link(links[0]),
       el('span', 'sode__down-node', 'Sode server'), link(links[1]),
       el('span', 'sode__down-node', 'Router ', el('code', null, S.routerAddr || '?'))),
     el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
-  );
+  ].filter(Boolean));
 }
 
 // Patches can go out: Sode is reachable and connected to the router.
@@ -260,16 +264,18 @@ export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 // without redrawing anything. The class and aria-disabled, not the disabled
 // attribute, so a focused button keeps focus; a press still goes through
 // planBlocked, which says it's not connected.
-const showLinked = (b) => {
-  b.classList.toggle('disabled', !linked());
-  b.setAttribute('aria-disabled', String(!linked()));
-};
+export function setLinkDisabled(b, off) {
+  b.classList.toggle('disabled', off);
+  b.setAttribute('aria-disabled', String(off));
+}
 export function needsLink(b) {
   b.dataset.needsLink = '';
-  showLinked(b);
+  setLinkDisabled(b, !linked());
   return b;
 }
-on('conn', () => document.querySelectorAll('[data-needs-link]').forEach(showLinked));
+on('conn', () => {
+  for (const b of document.querySelectorAll('[data-needs-link]')) setLinkDisabled(b, !linked());
+});
 
 export function setDot(dotEl, textEl, [state, text]) {
   dotEl.className = `pb-dot pb-dot--${state}`;
