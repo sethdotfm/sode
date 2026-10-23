@@ -631,10 +631,17 @@ function timeFormat() {
   return timeFmt;
 }
 
+// The time, after an ISO 8601 date (2026-10-22) unless it's today.
+const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dateOf = (d) => (d.toDateString() === new Date().toDateString() ? '' : isoDate(d));
 export const fmtTime = (iso) => {
   const d = new Date(iso);
-  const t = timeFormat().format(d);
-  return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString()} ${t}`;
+  return [dateOf(d), timeFormat().format(d)].filter(Boolean).join(' ');
+};
+// The same as nodes, the date in its own span so a narrow layout can drop it.
+export const timeNodes = (iso) => {
+  const d = new Date(iso), date = dateOf(d);
+  return [date && el('span', 'sode__date', `${date} `), timeFormat().format(d)];
 };
 
 // ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry, prot }] }

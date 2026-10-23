@@ -428,9 +428,12 @@ code,
   overflow: visible;
   row-gap: var(--pb-space-3);
 }
+/* Right-aligned, so times line up whether or not a date leads them. */
 .sode__hist-time {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-mono);
+  justify-self: end;
+  white-space: nowrap;
 }
 .sode__hist-toggle { gap: var(--pb-space-2); justify-self: start; }
 .sode__placeholder { visibility: hidden; }
@@ -541,6 +544,8 @@ code,
 .sode__hist-levels { display: none; }
 @media (max-width: 999.98px) {
   .sode__hist-row > .sode__bar { display: none; }
+  .sode__hist-time > .sode__date { display: none; }
+  .sode__hist-time:has(> .sode__date) { --sode-hint: on; }
   .sode__hist-row > .pb-status { --sode-hint: on; }
   .sode__hist-row > .pb-status > .sode__status-text {
     clip: rect(0, 0, 0, 0);
