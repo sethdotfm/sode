@@ -81,8 +81,14 @@
         <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
       </div>
       <div class="sode__search" data-search id="history-search" hidden>
-        <input class="pb-input sode__code" data-search-src placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
-        <input class="pb-input sode__code" data-search-dst placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+        <span class="sode__search-box">
+          <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+          <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
+        </span>
+        <span class="sode__search-box">
+          <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+          <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+        </span>
         <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" hidden>Clear</button>
         <span class="sode__hint" data-search-note aria-live="polite"></span>
       </div>
@@ -329,8 +335,14 @@
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
         <div class="sode__search" data-search>
-          <input class="pb-input sode__code" data-search-src placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
-          <input class="pb-input sode__code" data-search-dst placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+          <span class="sode__search-box">
+            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+            <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
+          </span>
+          <span class="sode__search-box">
+            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+            <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+          </span>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" hidden>Clear</button>
           <span class="sode__hint" data-search-note aria-live="polite"></span>
         </div>

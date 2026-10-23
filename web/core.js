@@ -92,7 +92,7 @@ const emit = (ev, ...args) => { for (const fn of listeners[ev] || []) fn(...args
 
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
-function item(n, name) {
+export function item(n, name) {
   const num = String(n + off());
   return { n, name, num, lname: name.toLowerCase(), label: name ? `${num} ${name}` : num };
 }

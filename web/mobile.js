@@ -305,7 +305,7 @@ function recentRow(e) {
       el('span', 'sode-m__recent-status', status, retry)),
     el('div', 'sode-m__recent-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label), entryNote(e)),
     e.chain ? el('div', 'sode__hint', `Before that: ${e.chain.slice(1).map((c) => `${srcItem(c.src, c.srcName).label} ${fmtTime(c.time)}`).join(', ')}`) : null,
-    e.follows ? el('div', 'sode__hint', `Followed by: ${e.follows.map((f) => dstItem(f.dst, f.dstName).label).join(', ')}`) : null,
+    e.follows ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
   const fresh = e.id === S.newId && !entered.has(e.id);
   if (fresh) entered.add(e.id);

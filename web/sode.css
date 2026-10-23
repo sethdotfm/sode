@@ -1275,3 +1275,14 @@ code,
 @media (max-width: 599.98px) {
   .sode__search > .pb-input { flex-basis: 8em; }
 }
+.sode__search-box {
+  display: flex;
+  flex: 1 1 12em;
+  min-width: 0;
+  position: relative;
+}
+.sode__search-box > .pb-input { flex: 1; min-width: 0; }
+.sode__search-box > .sode__menu { z-index: var(--pb-z-dropdown); }
+@media (max-width: 599.98px) {
+  .sode__search-box { flex-basis: 8em; }
+}

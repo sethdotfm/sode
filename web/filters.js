@@ -9,7 +9,7 @@
 import {
   $, el, S, on, wsSend, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
   allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
-  histRows, searchState, setSearch, searchActive, searchRespectsFilters,
+  histRows, searchState, setSearch, searchActive, searchRespectsFilters, search, item,
 } from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 
@@ -631,24 +631,121 @@ export function emptyNote(rows) {
   return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No matches.'), clear);
 }
 
-// ---- quick search: the Source and Destination boxes above Recent, in both
-// layouts, kept in step.
+// ---- quick search: the Filter by Source / Destination boxes above Recent,
+// in both layouts, kept in step. Typing opens a list of matches like the
+// patch boxes'; picking one filters history to exactly that source or
+// destination. Names logged in history count too, so a source the router
+// now calls something else is still found. Text that's an expression
+// (ranges, lists, !, /regex/) applies as typed instead.
+
+const looksLikeExpr = (t) => /[,!/"]/.test(t) || /^\s*\d+\s*(-|\s(thru|through|to)\s)\s*\d+\s*$/i.test(t) || /^\s*not\s/i.test(t);
+const MENU = 50;
+
+// What a box can find: the router's items, plus names history logged for
+// them that differ (another router, or renamed since).
+function candidates(k) {
+  const live = k === 'src' ? S.srcs : S.dsts;
+  const by = k === 'src' ? S.srcBy : S.dstBy;
+  const seen = new Set(live.map((i) => `${i.n}\u0000${i.name}`));
+  const extra = [];
+  for (const e of S.hist) {
+    for (const x of [e, ...(e.follows || [])]) {
+      const n = x[k], name = k === 'src' ? x.srcName : x.dstName;
+      const key = `${n}\u0000${name || ''}`;
+      if (seen.has(key) || (by.has(n) && !name)) continue;
+      seen.add(key);
+      extra.push(item(n, name || ''));
+    }
+  }
+  return extra.length ? [...live, ...extra] : live;
+}
 
 const searchBoxes = [...document.querySelectorAll('[data-search]')];
+const sb = { src: { matches: [], hi: 0 }, dst: { matches: [], hi: 0 } };
+
+function menuOf(f) { return f.parentElement.querySelector('.sode__menu'); }
+
+function renderMenu(k, f) {
+  const st = sb[k];
+  const menu = menuOf(f);
+  const open = st.matches.length > 0 && document.activeElement === f;
+  menu.hidden = !open;
+  f.setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  menu.replaceChildren(...st.matches.map((it, i) => {
+    const li = el('li', 'pb-menu__item' + (i === st.hi ? ' active' : ''), el('span', 'sode__num', it.num), it.name);
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', String(i === st.hi));
+    li.addEventListener('mousedown', (e) => { e.preventDefault(); st.hi = i; pick(k, f); });
+    return li;
+  }));
+  menu.children[st.hi]?.scrollIntoView({ block: 'nearest' });
+}
+const closeMenus = () => { for (const k of ['src', 'dst']) sb[k].matches = []; for (const m of document.querySelectorAll('[data-search] .sode__menu')) m.hidden = true; };
+
+// Picks the highlighted match: history shows exactly that number.
+function pick(k, f) {
+  const it = sb[k].matches[sb[k].hi];
+  if (!it) return false;
+  sb[k].matches = [];
+  sb[k].picked = it;
+  f.value = it.label;
+  renderMenu(k, f);
+  setSearch({ ...searchState(), [k]: it.num });
+  return true;
+}
+
+function typed(k, f) {
+  sb[k].picked = null;
+  const t = f.value;
+  if (!t.trim() || looksLikeExpr(t)) {
+    sb[k].matches = [];
+    renderMenu(k, f);
+    setSearch({ ...searchState(), [k]: t });
+    return;
+  }
+  // Plain text: offer matches, and leave history alone until one's picked.
+  sb[k].matches = search(candidates(k), t, MENU);
+  sb[k].hi = 0;
+  renderMenu(k, f);
+  if (searchState()[k]) setSearch({ ...searchState(), [k]: '' });
+}
+
 for (const b of searchBoxes) {
   for (const k of ['src', 'dst']) {
     const f = b.querySelector(`[data-search-${k}]`);
-    f.addEventListener('input', () => setSearch({ ...searchState(), [k]: f.value }));
-    // Esc clears the box, then leaves it.
+    f.addEventListener('input', () => typed(k, f));
+    f.addEventListener('focus', () => { if (f.value && !sb[k].picked && !looksLikeExpr(f.value)) typed(k, f); });
+    f.addEventListener('blur', () => { sb[k].matches = []; renderMenu(k, f); });
     f.addEventListener('keydown', (e) => {
+      const st = sb[k];
+      const open = st.matches.length > 0;
+      // Alt+J/K move like ↓/↑, as in the patch boxes (by code: Option
+      // changes the key on macOS).
+      const nav = (e.altKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code]) || e.key;
+      if (open && (nav === 'ArrowDown' || nav === 'ArrowUp')) {
+        e.preventDefault();
+        st.hi = (st.hi + (nav === 'ArrowDown' ? 1 : -1) + st.matches.length) % st.matches.length;
+        renderMenu(k, f);
+        return;
+      }
+      if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && open) {
+        if (pick(k, f) && e.key === 'Enter') e.preventDefault();
+        return;
+      }
       if (e.key !== 'Escape') return;
+      // Esc closes the list, then clears the box, then leaves it.
       e.preventDefault();
       e.stopPropagation();
-      if (f.value) setSearch({ ...searchState(), [k]: '' });
+      if (open) { st.matches = []; renderMenu(k, f); }
+      else if (f.value) { f.value = ''; typed(k, f); }
       else f.blur();
     });
   }
   b.querySelector('[data-search-clear]').addEventListener('click', () => {
+    for (const k of ['src', 'dst']) sb[k].picked = null;
+    for (const f of document.querySelectorAll('[data-search] input')) f.value = '';
+    closeMenus();
     setSearch({ src: '', dst: '' });
     b.querySelector('[data-search-src]').focus();
   });
@@ -662,12 +759,14 @@ function renderSearch() {
   for (const b of searchBoxes) {
     for (const k of ['src', 'dst']) {
       const f = b.querySelector(`[data-search-${k}]`);
-      if (f.value !== s[k]) f.value = s[k];
+      // Keep the other layout's box in step (not the one being typed in).
+      const shown = sb[k].picked ? sb[k].picked.label : s[k];
+      if (document.activeElement !== f && f.value !== shown && (s[k] || sb[k].picked || !f.value)) f.value = shown;
       const err = parseFilter(s[k]).error;
       f.classList.toggle('pb-input--invalid', !!err);
       f.title = err || '';
     }
-    b.querySelector('[data-search-clear]').hidden = !on;
+    b.querySelector('[data-search-clear]').hidden = !on && ![...b.querySelectorAll('input')].some((x) => x.value);
     b.querySelector('[data-search-note]').textContent = note;
   }
 }
