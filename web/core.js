@@ -27,6 +27,7 @@ export const S = {
   wsState: 'connecting',
   wsLost: false,    // the socket dropped and hasn't come back yet
   router: null, routerAddr: '', routerErr: '',
+  routerLastErr: '', // newest error, kept through reconnect attempts until the router is up
   ws: null,
   hist: [],         // newest first
   histMore: false,
@@ -195,9 +196,12 @@ function applyProtect(list) {
 }
 
 function setStatus(st) {
+  if (st.addr !== S.routerAddr) S.routerLastErr = '';
   S.router = st.router;
   S.routerAddr = st.addr;
   S.routerErr = st.err || '';
+  if (S.routerErr) S.routerLastErr = S.routerErr;
+  else if (S.router === 'up') S.routerLastErr = '';
 }
 
 // Dot state and text for the WebSocket and router links, plus down:
@@ -218,7 +222,7 @@ export function connState() {
     down = {
       title: 'Connected to Sode server, router offline',
       text: `Reconnecting to ${S.routerAddr}…`,
-      err: S.routerErr,
+      err: S.routerLastErr,
       links: [true, false],
     };
   }

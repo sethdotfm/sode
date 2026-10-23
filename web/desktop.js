@@ -37,7 +37,7 @@ function renderConn() {
   setDot($('conn-srv-dot'), $('conn-srv-text'), [c.ws[0], 'Server']);
   setDot($('conn-rt-dot'), $('conn-rt-text'), [c.rt[0], 'Router']);
   $('conn-addr').textContent = S.routerAddr || '';
-  $('conn').title = [c.ws[1], c.rt[1], S.routerErr].filter(Boolean).join('\n');
+  $('conn').title = [c.ws[1], c.rt[1], S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n');
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
   renderDown($('conn-down'), c);
   $('patch').disabled = !linked();
