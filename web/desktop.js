@@ -467,12 +467,12 @@ function latest() {
   if (first) moveTo(first);
 }
 
-// J: the next top-level row (a take or a whole folder).
+// J: the next folder down, skipping single takes. Past the last loaded
+// one, load more; the next press moves on to it.
 function nextGroup() {
   const list = stops();
-  const tops = list.filter((x) => !x.in);
   const s = curStop(list);
-  const next = s ? tops.find((x) => x.top === s.top + 1) : tops[0];
+  const next = list.find((x) => x.f && (!s || x.top > s.top));
   if (next) moveTo(next);
   else loadMore();
 }
