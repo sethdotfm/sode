@@ -138,14 +138,17 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			T      string         `json:"t"`
 			Before int            `json:"before"`
 			Config *config.Config `json:"config"`
+			Items  []takeReq      `json:"items"`
 			takeReq
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
 		}
 		switch m.T {
-		case "take":
-			go a.take(c, m.takeReq)
+		case "batch":
+			go a.batch(c, m.Items)
+		case "take": // pages loaded before batches existed
+			go a.batch(c, []takeReq{m.takeReq})
 		case "history":
 			go a.history(c, m.Before)
 		case "refreshNames":

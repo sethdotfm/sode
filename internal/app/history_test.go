@@ -64,3 +64,36 @@ func TestHistoryClear(t *testing.T) {
 		t.Fatalf("after clear+append: id %d, page %+v", e.ID, page)
 	}
 }
+
+func TestHistoryPageKeepsGroups(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "h.jsonl")
+	h, err := OpenHistory(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// IDs 0-1 ungrouped, 2-5 one group, 6 ungrouped.
+	for i := 0; i < 7; i++ {
+		e := &Entry{Dst: i}
+		if i >= 2 && i <= 5 {
+			e.Group, e.GroupN = "g", 4
+		}
+		h.Append(e)
+	}
+	// A page of 2 from the top ends inside the group, so it runs on to ID 2.
+	page, _ := h.Page(-1, 2)
+	if len(page) != 5 || page[4].ID != 2 {
+		t.Fatalf("page %+v", page)
+	}
+	page, _ = h.Page(2, 2)
+	if len(page) != 2 || page[1].ID != 0 {
+		t.Fatalf("next page %+v", page)
+	}
+	h2, err := OpenHistory(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ = h2.Page(4, 1)
+	if page[0].Group != "g" || page[0].GroupN != 4 {
+		t.Fatalf("after reopen %+v", page[0])
+	}
+}
