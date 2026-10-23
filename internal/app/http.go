@@ -147,6 +147,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		var m struct {
 			T        string             `json:"t"`
 			Before   int                `json:"before"`
+			N        int                `json:"n"` // history page size; 0 = the default
 			Config   *config.Config     `json:"config"`
 			Pin      string             `json:"pin"`
 			ClearPin bool               `json:"clearPin"`
@@ -163,7 +164,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "take": // pages loaded before batches existed
 			go a.batch(c, []takeReq{m.takeReq})
 		case "history":
-			go a.history(c, m.Before)
+			go a.history(c, m.Before, m.N)
 		case "refreshNames":
 			go a.RefreshNames()
 		case "unlock":

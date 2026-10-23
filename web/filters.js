@@ -9,6 +9,7 @@
 import {
   $, el, S, on, wsSend, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
   allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
+  histRows, searchState, setSearch, searchActive, searchRespectsFilters,
 } from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 
@@ -629,6 +630,49 @@ export function emptyNote(rows) {
   clear.addEventListener('click', () => pickSet('all', 'All'));
   return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Nothing matches.'), clear);
 }
+
+// ---- quick search: the Source and Destination boxes above Recent, in both
+// layouts, kept in step.
+
+const searchBoxes = [...document.querySelectorAll('[data-search]')];
+for (const b of searchBoxes) {
+  for (const k of ['src', 'dst']) {
+    const f = b.querySelector(`[data-search-${k}]`);
+    f.addEventListener('input', () => setSearch({ ...searchState(), [k]: f.value }));
+    // Esc clears the box, then leaves it.
+    f.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (f.value) setSearch({ ...searchState(), [k]: '' });
+      else f.blur();
+    });
+  }
+  b.querySelector('[data-search-clear]').addEventListener('click', () => {
+    setSearch({ src: '', dst: '' });
+    b.querySelector('[data-search-src]').focus();
+  });
+}
+
+function renderSearch() {
+  const s = searchState();
+  const on = searchActive();
+  const n = on ? histRows(S.hist).length : 0;
+  const note = !on ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ' · ignoring filters'}`;
+  for (const b of searchBoxes) {
+    for (const k of ['src', 'dst']) {
+      const f = b.querySelector(`[data-search-${k}]`);
+      if (f.value !== s[k]) f.value = s[k];
+      const err = parseFilter(s[k]).error;
+      f.classList.toggle('pb-input--invalid', !!err);
+      f.title = err || '';
+    }
+    b.querySelector('[data-search-clear]').hidden = !on;
+    b.querySelector('[data-search-note]').textContent = note;
+  }
+}
+on('search', renderSearch);
+on('history', () => { if (searchActive()) renderSearch(); });
 
 on('filters', renderButtons);
 on('hello', () => {

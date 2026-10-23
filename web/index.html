@@ -80,6 +80,12 @@
         <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
         <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
       </div>
+      <div class="sode__search" data-search id="history-search" hidden>
+        <input class="pb-input sode__code" data-search-src placeholder="Source" aria-label="Search history by source" spellcheck="false" autocomplete="off">
+        <input class="pb-input sode__code" data-search-dst placeholder="Destination" aria-label="Search history by destination" spellcheck="false" autocomplete="off">
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" hidden>Clear</button>
+        <span class="sode__hint" data-search-note aria-live="polite"></span>
+      </div>
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent takes"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
@@ -150,6 +156,7 @@
         </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-scrolltop"><span class="pb-check__label">Scroll to the top when a box is focused</span></label>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-search-filters"><span class="pb-check__label">Search respects filters</span></label>
     </fieldset>
 
     <fieldset class="sode__group">
@@ -321,6 +328,12 @@
           <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
+        <div class="sode__search" data-search>
+          <input class="pb-input sode__code" data-search-src placeholder="Source" aria-label="Search history by source" spellcheck="false" autocomplete="off">
+          <input class="pb-input sode__code" data-search-dst placeholder="Destination" aria-label="Search history by destination" spellcheck="false" autocomplete="off">
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" hidden>Clear</button>
+          <span class="sode__hint" data-search-note aria-live="polite"></span>
+        </div>
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
         <div class="sode-m__recent-more" id="m-recent-more"></div>
       </section>
@@ -438,6 +451,7 @@
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
         <dt><kbd>r</kbd></dt><dd>Retry</dd>
         <dt><kbd>/</kbd></dt><dd>Filters</dd>
+        <dt><kbd>a</kbd></dt><dd>Search history</dd>
         <dt><kbd>,</kbd></dt><dd>Settings</dd>
         <dt><kbd>?</kbd></dt><dd>This list</dd>
         <dt><kbd>Esc</kbd></dt><dd>Back to Source</dd>

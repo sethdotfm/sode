@@ -953,8 +953,15 @@ func (a *App) ClearHistory(who string) {
 	a.mu.Unlock()
 }
 
-func (a *App) history(c *client, before int) {
-	entries, err := a.hist.Page(before, historyPage)
+// historyMax caps a page asked for by size (a search reading back through
+// the log).
+const historyMax = 500
+
+func (a *App) history(c *client, before, n int) {
+	if n <= 0 {
+		n = historyPage
+	}
+	entries, err := a.hist.Page(before, min(n, historyMax))
 	if err != nil {
 		log.Printf("history: %v", err)
 	}

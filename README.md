@@ -10,6 +10,8 @@ To patch one source to several destinations, press `+` (or the + button) instead
 
 The router also moves destinations by itself, such as a multiviewer PiP that follows a DSM. When the same source lands on another destination within half a second of a take, Sode logs it as a **follow** of that take ("+1 follow") rather than a row of its own. Before lists the follows. Undo leaves them out unless you tick "Also undo … suspected automation" in the confirm (Space on desktop). Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
 
+**Search.** The Source and Destination boxes above Recent search the whole log, using the same syntax as Filters (`CAM 3`, `65`, `1-50`, `/^MV/`, `!PGM`). A take also matches if one of its follows does. Search ignores Filters unless Settings → This device → **Search respects filters** is on. Esc or Clear empties the boxes. On desktop, `a` jumps to them from keyboard mode.
+
 **Filters.** The **Filters** button in Recent's header scopes what Recent shows *in this browser*. It reads "Filters · 2" in blue while any are on.
 - Pick which entries to show: Sode takes, panel changes, and panel changes to globally hidden destinations.
 - Narrow sources and destinations, either as rule rows (Visual) or typed (Code). Both write the same language.

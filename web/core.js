@@ -905,7 +905,46 @@ export function globallyHidden(num, name) {
 }
 
 // Whether this browser's filters let a history entry show.
+// ---- quick search: source and destination boxes above Recent, for
+// auditing. Not kept. It reads back through the whole log and, unless this
+// browser's setting says otherwise, ignores the filters.
+
+const SEARCH_KEY = 'sode-search-filters';
+let query = { src: '', dst: '' };
+let searchSrc = anything, searchDst = anything;
+
+export const searchState = () => ({ ...query });
+export const searchActive = () => !!(query.src.trim() || query.dst.trim());
+// Errors per box for text that doesn't parse (the last good one applies).
+export function setSearch(next) {
+  query = { src: String(next.src ?? ''), dst: String(next.dst ?? '') };
+  searchSrc = filterFn(query.src) || searchSrc;
+  searchDst = filterFn(query.dst) || searchDst;
+  emit('search');
+  emit('history');
+}
+export function searchRespectsFilters() {
+  try { return localStorage.getItem(SEARCH_KEY) === 'on'; } catch (e) { return false; }
+}
+export function setSearchRespectsFilters(on) {
+  try {
+    if (on) localStorage.setItem(SEARCH_KEY, 'on');
+    else localStorage.removeItem(SEARCH_KEY);
+  } catch (e) {}
+  emit('history');
+}
+
+// Whether a search finds e: its route, or one of its follows'.
+function found(e) {
+  const hit = (x) => searchSrc(x.src + off(), srcItem(x.src, x.srcName).name) && searchDst(x.dst + off(), dstItem(x.dst, x.dstName).name);
+  return hit(e) || !!e.follows?.some(hit);
+}
+
 function passes(e) {
+  if (searchActive()) {
+    if (!found(e)) return false;
+    if (!searchRespectsFilters()) return true;
+  }
   if (e.ext ? !filter.ext : !filter.sode) return false;
   const s = srcItem(e.src, e.srcName), d = dstItem(e.dst, e.dstName);
   const sn = e.src + off(), dn = e.dst + off();
@@ -949,7 +988,7 @@ export function histRows(list) {
     const k = e.levels.join(',');
     const t = Date.parse(e.time);
     const c = chains.get(e.dst);
-    if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS) {
+    if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
       c.list.push(orig);
       const follows = [...(c.row.e.follows || []), ...(e.follows || [])];
       c.row.e = { ...c.row.e, prev: e.prev, merged: c.list.length, chain: c.list, ...(follows.length ? { follows } : {}) };
@@ -1035,13 +1074,17 @@ export function folderIds(f) {
 }
 
 // Asks for the next page of history. True if a request went out.
-export function requestHistory() {
+export function requestHistory(n = 0) {
   if (!S.histMore || S.histLoading || !S.hist.length) return false;
-  S.histLoading = wsSend({ t: 'history', before: S.hist[S.hist.length - 1].id });
+  S.histLoading = wsSend({ t: 'history', before: S.hist[S.hist.length - 1].id, ...(n ? { n } : {}) });
   return S.histLoading;
 }
 
+// Pages list() fetches by itself to fill a short page: a few normally, and
+// big ones far back while searching.
 const AUTO_PAGES = 5;
+const SEARCH_PAGES = 40;
+const SEARCH_PAGE = 500;
 
 // Shows history `step` rows at a time. more() reveals the next step,
 // fetching another page from Sode once the loaded entries run out.
@@ -1054,7 +1097,8 @@ export function historyPager(step) {
       const rows = histRows(S.hist);
       // Hidden entries can leave a page short: fetch a few more pages to
       // fill it, then leave the rest to Load more.
-      if (rows.length < pg.shown && pg.auto < AUTO_PAGES && requestHistory()) pg.auto++;
+      const s = searchActive();
+      if (rows.length < pg.shown && pg.auto < (s ? SEARCH_PAGES : AUTO_PAGES) && requestHistory(s ? SEARCH_PAGE : 0)) pg.auto++;
       return rows.slice(0, pg.shown);
     },
     hasMore: () => histRows(S.hist).length > pg.shown || S.histMore,
@@ -1075,6 +1119,7 @@ export function historyPager(step) {
     },
   };
   on('filters', () => { pg.auto = 0; }); // a new filter may need older pages
+  on('search', () => { pg.auto = 0; });
   return pg;
 }
 

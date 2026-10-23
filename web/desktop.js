@@ -382,6 +382,7 @@ const pager = historyPager(10);
 // redraws (someone else's take, a result) leave the page where it is.
 function renderHistory(scroll = false) {
   $('history-bar').hidden = !S.hist.length;
+  $('history-search').hidden = !S.hist.length;
   const list = pager.list();
   if (cursor && !stops(list).some((x) => x.key === cursor)) {
     // Its row left the page (newer patches pushed it off): drop the
@@ -531,6 +532,7 @@ function onListKey(e) {
   if (BOXES[k]) { focusBox($(BOXES[k])); return true; }
   if (k === ',') { $('settings-open').click(); return true; }
   if (k === '/') { openFilters(); return true; }
+  if (k === 'a') { $('history-search').querySelector('[data-search-src]').focus(); return true; }
   if (k === '?') { openKeys(); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {

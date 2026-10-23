@@ -160,3 +160,35 @@ test('follows and merged chains', async () => {
   const twice = undoPlan({ ...take, follows: [e({ id: 12, ext: true, dst: 40, src: 6, prev: [[1, 3], [2, 3]] }), e({ id: 9, ext: true, dst: 40, src: 3 })] });
   assert.deepEqual(twice.extra.items.map((i) => [i.dst.n, i.groups[0].src.n]), [[40, 0]]);
 });
+
+test('quick search', async () => {
+  const core = await import('../core.js');
+  const { S, histRows, setSearch, setFilter, setSearchRespectsFilters, FILTER_DEFAULT } = core;
+  S.cfg = { numberOffset: 1, filterSets: [] };
+  const T = (s) => new Date(Date.UTC(2026, 9, 23, 14, 0, s)).toISOString();
+  const e = (o) => ({ levels: [1], prev: [], ok: true, time: T(0), ...o });
+  const hist = [
+    e({ id: 5, ext: true, dst: 40, dstName: 'MV 28', src: 3, srcName: 'CAM 3', follow: 4, time: T(31) }),
+    e({ id: 4, dst: 2, dstName: 'DSM1', src: 3, srcName: 'CAM 3', time: T(30) }),
+    e({ id: 3, ext: true, dst: 7, dstName: 'MON', src: 1, srcName: 'CAM 1', time: T(20) }),
+    e({ id: 2, ext: true, dst: 7, dstName: 'MON', src: 2, srcName: 'CAM 2', time: T(10) }),
+  ];
+  S.hist = hist;
+  const ids = () => histRows(hist).map((r) => `${r.e.id}${r.e.merged ? 'x' + r.e.merged : ''}`).join(' ');
+  setFilter({ ...FILTER_DEFAULT, ext: false });
+  assert.equal(ids(), '4');
+  // Searching ignores the filters, finds takes by their follows, and
+  // doesn't merge.
+  setSearch({ src: '', dst: 'MON' });
+  assert.equal(ids(), '3 2');
+  setSearch({ src: '', dst: 'MV 28' });
+  assert.equal(ids(), '4');
+  setSearch({ src: 'CAM 2', dst: '' });
+  assert.equal(ids(), '2');
+  setSearchRespectsFilters(true);
+  assert.equal(ids(), '');
+  setSearchRespectsFilters(false);
+  setSearch({ src: '', dst: '' });
+  setFilter(FILTER_DEFAULT);
+  assert.equal(ids(), '4 3x2');
+});

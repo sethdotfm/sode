@@ -1260,3 +1260,18 @@ code,
 .sode__filters-set > .sode__filters-scope { flex: 0 0 12em; }
 .sode__filters-set > .sode__filters-scope[hidden] { display: none; }
 .sode__filters-sets .sode__error-text { color: var(--pb-status-error); }
+
+/* Quick search above Recent. */
+.sode__search {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-3);
+}
+.sode__search[hidden] { display: none; }
+.sode__search > .pb-input { flex: 1 1 12em; min-width: 0; }
+.sode__search > .sode__hint { flex: 1 0 100%; }
+.sode__search > .sode__hint:empty { display: none; }
+@media (max-width: 599.98px) {
+  .sode__search > .pb-input { flex-basis: 8em; }
+}
