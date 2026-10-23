@@ -10,7 +10,7 @@ Operators need a fast, keyboard-first way to patch a SW-P-08 router (target: Ros
 - **Names from router** (SW-P-08 name requests), cached in memory, refreshed on connect.
 - **Level map user-definable**: UI level → (matrix, wire level, label). Default 17 levels, UI 1 = Video, 2–17 = Audio 1–16 (patchbay `pb-level--video|01…16`). Wire offset configurable (Ultrix 1-indexed vs 0-based) — verify against real Ultrix.
 - **Global default levels** (blank LEVELS box ⇒ default, normally `1-17`). No per-user config.
-- **Level syntax**: `1`, `1-3`, `4-17`, `1,3,5-8` + config aliases (`v`, `st`, `a`, `all`…). Invalid ⇒ `pb-input--invalid`, Enter blocked.
+- **Level syntax**: `1`, `1-3`, `4-17`, `1,3,5-8`, `!1` (all but 1), `1-8 !3` + config aliases (`v`, `st`, `a`, `all`…). Invalid ⇒ `pb-input--invalid`, Enter blocked.
 - **Fuzzy**: number + name. Exact number ranks first, then prefix, then fuzzy subsequence on name. Small dropdown, arrows to pick, Tab accepts top/highlighted.
 - **Confirm**: random letter (exclude l/i/o and previous letter), 500ms input lockout. Both configurable; option to allow Enter.
 - **Tally, not a mess**: dest typed + source empty ⇒ box below with arrow diagram of sources currently feeding it, grouped by level runs (`Video ← 141 CG3 Fill · 2–17 ← 12 CAM 2`). Source typed + dest empty ⇒ `Feeding 42 "Zoom Return 1", 43 "Zoom Return 2", and 67 others`. Confirm dialog shows before → after.
