@@ -268,11 +268,7 @@
       <div class="sode__field">
         <span class="sode__field-label">Filter sets for everyone</span>
         <ul class="sode__gsets" id="cfg-sets"></ul>
-        <div class="sode__names">
-          <input class="pb-input" id="cfg-set-name" maxlength="32" placeholder="Name, e.g. All except shader" aria-label="New filter set name" autocomplete="off">
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="cfg-set-add">Add this browser's current filters</button>
-        </div>
-        <span class="sode__hint">Quick buttons in every browser's Recent, before each browser's own sets. Expressions are typed as in Recent's Filters (Code). Adding a name that exists replaces it. Saved with Save.</span>
+        <span class="sode__hint">Quick buttons in every browser's Recent, before each browser's own sets. Make and edit them in Recent → Filters: Save as… → For everyone, then Save, Rename or Delete. They take effect at once; with a settings PIN, Filters asks for it.</span>
       </div>
       <div class="sode__field">
         <label for="cfg-hidden">Globally hidden destinations</label>
@@ -364,7 +360,7 @@
 </div>
 <div class="pb-modal-backdrop sode__scrim" id="filters" hidden>
   <div class="pb-modal sode__filters" role="dialog" aria-modal="true" aria-labelledby="filters-title" tabindex="-1" id="filters-dialog">
-    <div class="pb-modal__header"><span class="pb-modal__title" id="filters-title">Recent filters</span><span class="sode__hint">This browser only. Applies as you type.</span></div>
+    <div class="pb-modal__header"><span class="pb-modal__title" id="filters-title">Recent filters</span><span class="sode__hint">Filters apply to this browser, as you type.</span></div>
     <div class="pb-modal__body sode__filters-body">
       <div class="sode__filters-sets">
         <div class="sode__filters-set">
@@ -372,14 +368,21 @@
           <span class="pb-select-wrap"><select id="flt-set" class="pb-select"></select></span>
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-save">Save</button>
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-saveas">Save as…</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-rename">Rename</button>
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-del">Delete</button>
         </div>
         <div class="sode__filters-set" id="flt-set-name-row" hidden>
           <input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name, e.g. My destinations" aria-label="Set name" autocomplete="off">
+          <span class="pb-select-wrap sode__filters-scope" id="flt-set-scope-wrap"><select class="pb-select" id="flt-set-scope" aria-label="Save for"><option value="local">For this browser</option><option value="global">For everyone</option></select></span>
           <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-set-name-ok">Save set</button>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-set-name-cancel">Cancel</button>
         </div>
-        <span class="sode__hint" id="flt-set-note"></span>
+        <div class="sode__filters-set" id="flt-pin-row" hidden>
+          <input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="Settings PIN" aria-label="Settings PIN">
+          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-pin-ok">Unlock</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-pin-cancel">Cancel</button>
+        </div>
+        <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
       </div>
       <fieldset class="sode__filters-show">
         <legend class="sode__label">Show</legend>

@@ -187,6 +187,9 @@ function handle(m) {
     case 'unlockResult':
       emit('unlockResult', m);
       break;
+    case 'filterSetsResult':
+      emit('filterSetsResult', m);
+      break;
     case 'locked':
       emit('locked');
       break;
@@ -831,6 +834,15 @@ export function saveLocalSet(name) {
   saveLocals(list);
   active = { scope: 'local', name, base: filterState() };
   writeJSON(ACTIVE_KEY, active);
+  emit('filters');
+}
+
+export function renameLocalSet(old, name) {
+  saveLocals(localSets().map((s) => (s.name === old ? { ...s, name } : s)));
+  if (active?.scope === 'local' && active.name === old) {
+    active = { ...active, name };
+    writeJSON(ACTIVE_KEY, active);
+  }
   emit('filters');
 }
 

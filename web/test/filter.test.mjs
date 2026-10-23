@@ -105,7 +105,9 @@ test('filter sets', async () => {
   assert.equal(JSON.parse(localStorage.getItem('sode-filter-sets'))[0].f.dst, '!MON, !PVW');
   saveLocalSet('mine'); // same name, any case: replaced
   assert.equal(allSets().filter((s) => s.scope === 'local').length, 1);
-  deleteLocalSet('mine');
+  core.renameLocalSet('mine', 'Desk');
+  assert.deepEqual([activeSet().name, activeSet().edited], ['Desk', false]);
+  deleteLocalSet('desk');
   assert.equal(activeSet(), null);
   assert.equal(localStorage.getItem('sode-filter-sets'), null);
 

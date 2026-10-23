@@ -7,8 +7,8 @@
 // once read.
 
 import {
-  $, el, S, on, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
-  allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, filterSummary,
+  $, el, S, on, wsSend, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
+  allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
 } from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 
@@ -289,6 +289,8 @@ export function openFilters() {
   eds.dst.load(f.dst);
   $('flt-share').hidden = true;
   $('flt-set-name-row').hidden = true;
+  $('flt-pin-row').hidden = true;
+  naming = null;
   deleting = false;
   renderSetBar();
   root.hidden = false;
@@ -299,6 +301,11 @@ function closeFilters() {
   eds.src.flush();
   eds.dst.flush();
   root.hidden = true;
+  // An unlock for sets for everyone lasts while the dialog is open.
+  if (unlocked) wsSend({ t: 'lock' });
+  unlocked = false;
+  pending = null;
+  $('flt-pin-row').hidden = true;
   if (back?.isConnected) back.focus();
 }
 
@@ -327,15 +334,23 @@ $('flt-clear').addEventListener('click', () => {
   reload();
 });
 
-// ---- the set bar: pick, save, save as, delete
+// ---- the set bar: pick, save, save as, rename, delete. Works the same on
+// this browser's sets and on sets for everyone; those are settings, saved
+// on the server, so with a settings PIN they ask for it first.
 
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false; // Delete was pressed once; the next press deletes
+let naming = null;    // 'saveas' | 'rename' while the name row is open
+let pending = null;   // a change to sets for everyone: { id, run, done }
+let unlocked = false; // the PIN was accepted on this connection
+let pinSeq = 1e6;     // unlock ids, apart from Settings' own
+let opSeq = 0;
+const scopeWord = (scope) => (scope === 'global' ? 'everyone' : 'this browser');
 
 function renderSetBar() {
   const a = activeSet();
   const select = $('flt-set');
-  const groups = [['all', 'Built in'], ['global', 'For everyone (Settings)'], ['local', 'This browser']];
+  const groups = [['all', 'Built in'], ['global', 'For everyone'], ['local', 'This browser']];
   const sets = allSets();
   const opts = [];
   if (!a) {
@@ -357,16 +372,91 @@ function renderSetBar() {
   }
   select.replaceChildren(...opts);
   select.value = a ? setKey(a) : '';
-  const local = a?.scope === 'local';
-  $('flt-set-save').disabled = !(local && a.edited);
-  $('flt-set-del').disabled = !local;
-  $('flt-set-del').textContent = deleting && local ? `Delete “${a.name}”?` : 'Delete';
-  $('flt-set-del').classList.toggle('pb-btn--danger', deleting && local);
-  $('flt-set-note').textContent = !a ? 'Save as… names these filters for a quick button.'
-    : a.scope === 'global' ? (a.edited ? 'Edited from a set for everyone. Save as… keeps your version in this browser.' : 'Set up for everyone in Settings. Save as… makes your own copy to tweak.')
-    : a.scope === 'local' ? (a.edited ? 'Edited. Save updates the set.' : 'Saved in this browser.')
-    : '';
+  const named = a && a.scope !== 'all';
+  const busy = !!pending;
+  $('flt-set-save').disabled = busy || !(named && a.edited);
+  $('flt-set-saveas').disabled = busy;
+  $('flt-set-rename').disabled = busy || !named;
+  $('flt-set-del').disabled = busy || !named;
+  $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
+  $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
+  if (busy) return;
+  setNote(!a ? 'Save as… names these filters for a quick button.'
+    : a.scope === 'all' ? 'Everything. Save as… names a new set.'
+    : `For ${scopeWord(a.scope)}.${a.edited ? ' Edited: Save updates the set, Save as… makes another.' : ''}`);
 }
+const setNote = (text, error = false) => {
+  $('flt-set-note').textContent = text;
+  $('flt-set-note').classList.toggle('sode__error-text', error);
+};
+
+// ---- sets for everyone: send the whole list, after the PIN if needed
+
+function changeGlobal(list, done) {
+  pending = { run: () => send(list), done };
+  if (S.pinSet && !unlocked) return askPin();
+  pending.run();
+}
+function send(list) {
+  pending.id = ++opSeq;
+  if (!wsSend({ t: 'filterSets', id: pending.id, sets: list.map((s) => ({ name: s.name, ...s.f })) })) {
+    pending = null;
+    renderSetBar();
+    setNote('Not connected to Sode.', true);
+    return;
+  }
+  renderSetBar();
+  setNote('Saving for everyone…');
+}
+const globalsWith = (fn) => fn(globalSets().map((s) => ({ name: s.name, f: s.f })));
+
+on('filterSetsResult', (m) => {
+  if (!pending || m.id !== pending.id) return;
+  const p = pending;
+  if (m.locked) { unlocked = false; return askPin('Settings are locked; enter the PIN again.'); }
+  pending = null;
+  if (!m.ok) { renderSetBar(); setNote(sentence(m.err), true); return; }
+  p.done();
+  renderSetBar();
+});
+
+function askPin(err = '') {
+  $('flt-pin-row').hidden = false;
+  $('flt-pin').value = '';
+  setNote(err || 'Sets for everyone are settings: enter the settings PIN.', !!err);
+  $('flt-pin').focus();
+}
+function cancelPin() {
+  $('flt-pin-row').hidden = true;
+  pending = null;
+  renderSetBar();
+}
+function sendPin() {
+  if (!wsSend({ t: 'unlock', pin: $('flt-pin').value, id: ++pinSeq })) return setNote('Not connected to Sode.', true);
+  $('flt-pin-ok').disabled = true;
+}
+on('unlockResult', (m) => {
+  if (m.id !== pinSeq) return;
+  $('flt-pin-ok').disabled = false;
+  if (!m.ok) { setNote(sentence(m.err), true); $('flt-pin').select(); return; }
+  unlocked = true;
+  $('flt-pin-row').hidden = true;
+  pending?.run();
+});
+on('locked', () => { unlocked = false; });
+on('conn', () => { if (S.wsState !== 'up') unlocked = false; });
+const sentence = (t) => {
+  const s = String(t || '').trim();
+  return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
+};
+$('flt-pin-ok').addEventListener('click', sendPin);
+$('flt-pin-cancel').addEventListener('click', cancelPin);
+$('flt-pin').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); sendPin(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelPin(); }
+});
+
+// ---- the buttons
 
 $('flt-set').addEventListener('change', (e) => {
   const [scope, ...rest] = e.target.value.split(':');
@@ -375,46 +465,79 @@ $('flt-set').addEventListener('change', (e) => {
   pickSet(scope, rest.join(':'));
   reload();
 });
+
 $('flt-set-save').addEventListener('click', () => {
   const a = activeSet();
-  if (a?.scope === 'local') saveLocalSet(a.name);
-});
-$('flt-set-del').addEventListener('click', () => {
-  const a = activeSet();
-  if (a?.scope !== 'local') return;
-  if (!deleting) { deleting = true; renderSetBar(); return; }
-  deleting = false;
-  deleteLocalSet(a.name);
-  $('flt-set').focus();
+  if (!a || a.scope === 'all') return;
+  flushEds();
+  if (a.scope === 'local') return saveLocalSet(a.name);
+  const f = filterState();
+  changeGlobal(globalsWith((l) => l.map((s) => (s.name === a.name ? { ...s, f } : s))),
+    () => adoptFilter(f, { scope: 'global', name: a.name, base: f }));
 });
 
-function askName() {
+$('flt-set-del').addEventListener('click', () => {
   const a = activeSet();
+  if (!a || a.scope === 'all') return;
+  if (!deleting) { deleting = true; renderSetBar(); return; }
+  deleting = false;
+  if (a.scope === 'local') {
+    deleteLocalSet(a.name);
+    $('flt-set').focus();
+    return;
+  }
+  changeGlobal(globalsWith((l) => l.filter((s) => s.name !== a.name)), () => {
+    adoptFilter(filterState());
+    $('flt-set').focus();
+  });
+});
+
+function askName(mode) {
+  const a = activeSet();
+  naming = mode;
   const f = $('flt-set-name');
-  f.value = !a || a.scope === 'all' ? '' : a.scope === 'global' ? `${a.name} (mine)` : a.name;
+  const named = a && a.scope !== 'all';
+  f.value = mode === 'rename' ? a.name : !named ? '' : a.scope === 'global' ? `${a.name} (mine)` : `${a.name} 2`;
   f.classList.remove('pb-input--invalid');
+  $('flt-set-scope-wrap').hidden = mode === 'rename';
+  $('flt-set-scope').value = 'local';
+  $('flt-set-name-ok').textContent = mode === 'rename' ? 'Rename' : 'Save set';
   $('flt-set-name-row').hidden = false;
   f.select();
 }
 function closeName() {
   $('flt-set-name-row').hidden = true;
-  $('flt-set-saveas').focus();
+  $(naming === 'rename' ? 'flt-set-rename' : 'flt-set-saveas').focus();
+  naming = null;
 }
 function saveName() {
   const f = $('flt-set-name');
-  const name = f.value.trim();
-  if (!name || name.toLowerCase() === 'all') {
-    f.classList.add('pb-input--invalid');
-    $('flt-set-note').textContent = name ? '“All” is built in; pick another name.' : 'Give the set a name.';
-    f.focus();
-    return;
-  }
-  eds.src.flush();
-  eds.dst.flush();
-  saveLocalSet(name.slice(0, 32));
+  const name = f.value.trim().slice(0, 32);
+  const a = activeSet();
+  const scope = naming === 'rename' ? a.scope : $('flt-set-scope').value;
+  const bad = (msg) => { f.classList.add('pb-input--invalid'); setNote(msg, true); f.focus(); };
+  if (!name) return bad('Give the set a name.');
+  if (name.toLowerCase() === 'all') return bad('“All” is built in; pick another name.');
+  const clash = allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase());
+  const self = naming === 'rename' && clash && setKey(clash) === setKey(a);
+  if (clash && !self && naming === 'rename') return bad(`There's already a set called “${clash.name}” for ${scopeWord(scope)}.`);
+  flushEds();
+  const mode = naming;
   closeName();
+  if (mode === 'rename') {
+    if (scope === 'local') return renameLocalSet(a.name, name);
+    return changeGlobal(globalsWith((l) => l.map((s) => (s.name === a.name ? { ...s, name } : s))),
+      () => adoptFilter(filterState(), { ...activeRef(), name }));
+  }
+  // Save as: a name that's taken (in that scope) is replaced.
+  if (scope === 'local') return saveLocalSet(name);
+  const fNow = filterState();
+  changeGlobal(globalsWith((l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
+    () => adoptFilter(fNow, { scope: 'global', name, base: fNow }));
 }
-$('flt-set-saveas').addEventListener('click', askName);
+const flushEds = () => { eds.src.flush(); eds.dst.flush(); };
+$('flt-set-saveas').addEventListener('click', () => askName('saveas'));
+$('flt-set-rename').addEventListener('click', () => askName('rename'));
 $('flt-set-name-ok').addEventListener('click', saveName);
 $('flt-set-name-cancel').addEventListener('click', closeName);
 $('flt-set-name').addEventListener('keydown', (e) => {

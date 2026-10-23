@@ -574,6 +574,19 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 	return a.ApplyConfig(cfg)
 }
 
+// SaveFilterSets replaces the filter sets for everyone, from c (Recent's
+// Filters dialog). They're settings, so a settings PIN guards them too.
+func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if a.locked(c) {
+		return errLocked
+	}
+	cfg := a.r().cfg
+	cfg.FilterSets = sets
+	return a.ApplyConfig(cfg)
+}
+
 // ApplyConfig validates, saves and applies new settings. Router-side changes
 // clear state and reconnect; every browser gets a fresh snapshot.
 func (a *App) ApplyConfig(c config.Config) error {

@@ -23,6 +23,30 @@ func pinApp(t *testing.T) *App {
 	return a
 }
 
+func TestFilterSetsPin(t *testing.T) {
+	a := pinApp(t)
+	c := &client{ip: "10.0.0.9"}
+	sets := []config.FilterSet{{Name: "No shader", Dst: "!MON", Sode: true, Ext: true}}
+	if err := a.SaveFilterSets(c, sets); err != nil || len(a.r().cfg.FilterSets) != 1 {
+		t.Fatalf("open save: %v", err)
+	}
+	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: ""}}); err == nil {
+		t.Fatal("unnamed set accepted")
+	}
+	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SaveFilterSets(c, nil); !errors.Is(err, errLocked) {
+		t.Fatalf("locked save: %v", err)
+	}
+	if a.Unlock(c, "2468") != nil {
+		t.Fatal("unlock")
+	}
+	if err := a.SaveFilterSets(c, nil); err != nil || len(a.r().cfg.FilterSets) != 0 || a.r().cfg.SettingsPin == "" {
+		t.Fatalf("unlocked save: %v, sets %v", err, a.r().cfg.FilterSets)
+	}
+}
+
 func TestSettingsPin(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}

@@ -16,8 +16,13 @@ To patch one source to several destinations, press `+` (or the + button) instead
 - Desktop keyboard mode opens Filters with `/`.
 - **Filter sets** are named filters, shown as quick buttons beside Filters (e.g. **All**, **All except shader**, **My destinations**). Click one to switch. A `*` means you've edited it since; click it again to go back.
   - The buttons come in groups separated by `|`: **All**, then the sets for everyone, then this browser's own.
-  - Sets for everyone live in Settings → History → Filter sets for everyone. Add one from the current browser's filters, then edit it there: name, source and destination expressions (as typed in Filters → Code), and what it shows. **Use this browser's filters** overwrites a set with your current filters. Every browser gets these sets. A browser using a global set follows changes to it, unless it has edited it.
-  - Each browser can also keep its own: Filters → Save as… names the current filters, Save updates the set, Delete removes it. Picking a global set and using Save as… makes a copy to tweak.
+  - Every set is managed in the Filters dialog's Set row, whichever group it's in:
+    - **Save as…** names the current filters "For this browser" or "For everyone".
+    - **Save** updates the set you've edited.
+    - **Rename** and **Delete** (which asks twice) work on any set.
+    - Sets for everyone are settings: with a settings PIN, the dialog asks for it the first time, and locks again when it closes.
+    - Every browser gets sets for everyone at once. A browser using one follows changes to it, unless it has edited it.
+    - Settings → History lists the sets for everyone.
   - A shared link carries the set's name, and the banner offers to save it as a set in that browser.
 
 | Typed | Matches |
