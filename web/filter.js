@@ -95,8 +95,24 @@ export function filterText(rules) {
   }).join(', ');
 }
 
+// Fuzzy name text, as the source and destination boxes find things: the
+// name contains it, or its letters come in order in "number name"
+// (spaces in the text don't count). So "mv28" finds "MV 28".
+function fuzzy(text) {
+  const q = text.toLowerCase();
+  const qq = q.replace(/\s+/g, '');
+  return (num, name) => {
+    const n = name.toLowerCase();
+    if (n.includes(q)) return true;
+    const t = `${num} ${n}`;
+    let i = 0;
+    for (let j = 0; j < t.length && i < qq.length; j++) if (t[j] === qq[i]) i++;
+    return i === qq.length;
+  };
+}
+
 // One rule as a test on (number as shown, name).
-function test(r) {
+function test(r, fuzzyNames) {
   switch (r.kind) {
     case 'num': return (num) => num === r.a;
     case 'range': return (num) => num >= r.a && num <= r.b;
@@ -105,21 +121,23 @@ function test(r) {
       return (num, name) => re.test(name);
     }
     default: {
+      if (fuzzyNames) return fuzzy(r.text);
       const t = r.text.toLowerCase();
       return (num, name) => name.toLowerCase().includes(t);
     }
   }
 }
 
-// rules → (num, name) => bool. No rules matches everything.
-export function compileFilter(rules) {
-  const inc = rules.filter((r) => !r.not).map(test);
-  const exc = rules.filter((r) => r.not).map(test);
+// rules → (num, name) => bool. No rules matches everything. With fuzzy,
+// name terms match fuzzily (see fuzzy), for searching.
+export function compileFilter(rules, { fuzzy = false } = {}) {
+  const inc = rules.filter((r) => !r.not).map((r) => test(r, fuzzy));
+  const exc = rules.filter((r) => r.not).map((r) => test(r, fuzzy));
   return (num, name = '') => (!inc.length || inc.some((f) => f(num, name))) && !exc.some((f) => f(num, name));
 }
 
 // Text → matcher, or null if it doesn't parse. Blank matches everything.
-export function filterFn(text) {
+export function filterFn(text, opts) {
   const p = parseFilter(text || '');
-  return p.rules ? compileFilter(p.rules) : null;
+  return p.rules ? compileFilter(p.rules, opts) : null;
 }

@@ -628,7 +628,7 @@ export function emptyNote(rows) {
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Clear filters');
   clear.type = 'button';
   clear.addEventListener('click', () => pickSet('all', 'All'));
-  return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Nothing matches.'), clear);
+  return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No matches.'), clear);
 }
 
 // ---- quick search: the Source and Destination boxes above Recent, in both

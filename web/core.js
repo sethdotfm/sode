@@ -918,8 +918,8 @@ export const searchActive = () => !!(query.src.trim() || query.dst.trim());
 // Errors per box for text that doesn't parse (the last good one applies).
 export function setSearch(next) {
   query = { src: String(next.src ?? ''), dst: String(next.dst ?? '') };
-  searchSrc = filterFn(query.src) || searchSrc;
-  searchDst = filterFn(query.dst) || searchDst;
+  searchSrc = filterFn(query.src, { fuzzy: true }) || searchSrc;
+  searchDst = filterFn(query.dst, { fuzzy: true }) || searchDst;
   emit('search');
   emit('history');
 }

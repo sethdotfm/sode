@@ -36,6 +36,11 @@ test('matching', () => {
   assert.equal(filterFn('!x')(5, 'xyz'), false);
   assert.equal(filterFn('/^dsm\\d$/')(1, 'DSM3'), true); // ignores case by default
   assert.equal(filterFn('/^dsm/g')(1, 'DSM3'), false); // flags given: as written
+  const fz = filterFn('mv28, !pgm', { fuzzy: true });
+  assert.equal(fz(600, 'MV 28'), true); // letters in order
+  assert.equal(fz(601, 'MV08 PIP028'), true);
+  assert.equal(fz(602, 'DSM 3'), false);
+  assert.equal(filterFn('mv28')(600, 'MV 28'), false); // Filters stay exact
 });
 
 test('round trip', () => {
