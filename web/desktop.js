@@ -2,7 +2,7 @@
 // + in the destination box adds another destination as a chip.
 
 import {
-  $, el, S, on, connState, linked, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
+  $, el, S, on, connState, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, fmtTime, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
   histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
@@ -40,8 +40,8 @@ function renderConn() {
   $('conn').title = [c.ws[1], c.rt[1], S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n');
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
   renderDown($('conn-down'), c);
-  $('patch').disabled = !linked();
 }
+needsLink($('patch'));
 
 // ---- fuzzy finder
 
@@ -235,7 +235,7 @@ function histRow(e) {
   if (planEmpty(plan)) {
     btn.disabled = true;
     btn.title = 'Nothing to undo';
-  } else if (!linked()) btn.disabled = true;
+  } else needsLink(btn);
   btn.addEventListener('click', () => openConfirm(plan));
 
   // Before: what the destination had on these levels just before the take.
@@ -289,14 +289,14 @@ function folderRow(f) {
   if (planEmpty(plan)) {
     undo.disabled = true;
     undo.title = 'Nothing to undo';
-  } else if (!linked()) undo.disabled = true;
+  } else needsLink(undo);
   undo.setAttribute('aria-label', `Undo all ${f.entries.length} takes of ${folderIds(f)}`);
   undo.addEventListener('click', () => openConfirm(plan));
 
   const retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (failed ? '' : ' sode__placeholder'), 'Retry');
   retry.type = 'button';
   if (failed) {
-    retry.disabled = !linked();
+    needsLink(retry);
     retry.setAttribute('aria-label', `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`);
     retry.addEventListener('click', () => openConfirm(folderRetryPlan(f)));
   } else {
@@ -351,7 +351,7 @@ function retryButton(e, src, dst) {
     b.setAttribute('aria-hidden', 'true');
     return b;
   }
-  b.disabled = !linked();
+  needsLink(b);
   b.setAttribute('aria-label', `Retry ${src.label} to ${dst.label}`);
   b.addEventListener('click', () => openConfirm(retryPlan(e)));
   return b;
@@ -362,7 +362,13 @@ const pager = historyPager(10);
 function renderHistory() {
   $('history-head').hidden = !S.hist.length;
   $('history-hint').textContent = `(${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · Esc then ? for keys)`;
-  if (cursor && !stops().some((x) => x.key === cursor)) cursor = null;
+  if (cursor && !stops().some((x) => x.key === cursor)) {
+    // Its row left the page (newer patches pushed it off): drop the
+    // cursor and close the folders it had opened.
+    cursor = null;
+    for (const g of autoOpen) openFolders.delete(g);
+    autoOpen.clear();
+  }
   histList.replaceChildren(...pager.list().map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
   $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
   if (keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
@@ -590,20 +596,27 @@ function openConfirm(plan) {
   }, S.cfg.confirmLockoutMs);
 }
 
+// Focus goes back where the confirm was opened from (the boxes, the
+// history list, a row's button), if that's still on the page.
+function focusBack() {
+  if (confirmBack?.isConnected) confirmBack.focus();
+}
+
 function closeConfirm() {
-  const wasUndo = pending && pending.verb === 'undo';
+  const patch = pending?.verb === 'patch';
   pending = null;
   $('confirm').hidden = true;
-  if (confirmBack === histList) histList.focus();
-  else if (!wasUndo) lvlInput.focus();
+  if (patch) lvlInput.focus();
+  else focusBack();
 }
 
 function doTake() {
   const p = pending;
   pending = null;
   $('confirm').hidden = true;
-  if (sendTakes(p) && p.verb !== 'undo') clearAll();
-  if (confirmBack === histList) histList.focus();
+  // Only a patch came from the boxes; an undo or retry leaves them be.
+  if (sendTakes(p) && p.verb === 'patch') clearAll();
+  else focusBack();
 }
 
 function onConfirmKey(e) {
@@ -676,6 +689,7 @@ document.addEventListener('keydown', (e) => {
   // changes e.key on macOS.
   const altJK = e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code];
   const nav = altJK || e.key;
+  if (b && altJK && b.menu.hidden) { e.preventDefault(); return; } // not ∆ or ˚ in the box
   if (b && !b.menu.hidden && ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp'].includes(nav)) {
     e.preventDefault();
     const n = b.matches.length;
@@ -757,6 +771,6 @@ on('names', () => {
   renderTally();
 });
 on('tally', renderTally);
-on('conn', () => { renderConn(); renderHistory(); });
+on('conn', renderConn);
 on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));

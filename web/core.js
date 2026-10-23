@@ -255,6 +255,22 @@ export function renderDown(box, c) {
 // Patches can go out: Sode is reachable and connected to the router.
 export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 
+// Buttons that send to the router are marked with needsLink: shown as
+// disabled while patches can't go out, and kept in step on each 'conn'
+// without redrawing anything. The class and aria-disabled, not the disabled
+// attribute, so a focused button keeps focus; a press still goes through
+// planBlocked, which says it's not connected.
+const showLinked = (b) => {
+  b.classList.toggle('disabled', !linked());
+  b.setAttribute('aria-disabled', String(!linked()));
+};
+export function needsLink(b) {
+  b.dataset.needsLink = '';
+  showLinked(b);
+  return b;
+}
+on('conn', () => document.querySelectorAll('[data-needs-link]').forEach(showLinked));
+
 export function setDot(dotEl, textEl, [state, text]) {
   dotEl.className = `pb-dot pb-dot--${state}`;
   textEl.textContent = text;

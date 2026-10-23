@@ -782,7 +782,8 @@ code,
   top: 0;
   width: 96px;
 }
-.sode-m__undo:disabled {
+.sode-m__undo:disabled,
+.sode-m__undo.disabled {
   background: var(--pb-surface-high);
   color: var(--pb-text-disabled);
 }
