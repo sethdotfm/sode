@@ -44,7 +44,7 @@
 
     <form class="sode__boxes" autocomplete="off" onsubmit="return false">
       <div class="sode__box">
-        <label class="sode__label" for="src">Source</label>
+        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
         <span class="sode__keyed">
           <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
           <kbd class="sode__key-note" aria-hidden="true">S</kbd>
@@ -52,7 +52,7 @@
         <ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
       </div>
       <div class="sode__box">
-        <label class="sode__label" for="dst" id="dst-label">Destination</label>
+        <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
         <div class="sode__entry">
           <span class="sode__keyed">
             <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
@@ -64,7 +64,7 @@
         <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
       </div>
       <div class="sode__box">
-        <label class="sode__label" for="lvl">Levels</label>
+        <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
         <span class="sode__keyed">
           <input id="lvl" class="pb-input sode__input" spellcheck="false">
           <kbd class="sode__key-note" aria-hidden="true">F</kbd>

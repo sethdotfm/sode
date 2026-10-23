@@ -169,6 +169,36 @@ function lastTake() {
   return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
 }
 
+// The last take's value for each box, as a chip by its label that does
+// what Ctrl+S/D/F does. Hidden when the box already has it, and for
+// levels when they're the default.
+const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+function renderLast() {
+  if (!S.cfg) return;
+  const t = lastTake();
+  const lv = parseLevels(lvlInput.value, lvlNone) || [];
+  const now = {
+    src: t && !(sel.src && sel.src.n === t.src.n) && { text: t.src.label },
+    dst: t && !sameList(allDsts().map((d) => d.n), t.dsts.map((d) => d.n)) &&
+      { text: t.dsts[t.dsts.length - 1].label + (t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : '') },
+    lvl: t && t.levels.length && !sameList(lv, t.levels) && !sameList(t.levels, parseLevels('') || []) && { text: levelText(t.levels) },
+  };
+  for (const k of ['src', 'dst', 'lvl']) {
+    const slot = document.querySelector(`[data-last="${k}"]`);
+    const v = now[k];
+    if (!v) { slot.replaceChildren(); continue; }
+    const key = { src: 'S', dst: 'D', lvl: 'F' }[k];
+    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', v.text), el('kbd', 'sode__key-note', `⌃${key}`));
+    b.type = 'button';
+    b.tabIndex = -1;
+    b.title = `Last take's ${{ src: 'source', dst: 'destination', lvl: 'levels' }[k]} (Ctrl+${key})`;
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => useLast(k));
+    slot.replaceChildren(b);
+  }
+}
+on('history', renderLast);
+
 // Fills one box from the last take and moves on to the next.
 function useLast(k) {
   const t = lastTake();
@@ -221,6 +251,7 @@ function buildPicker() {
 // ---- tally display
 
 function renderTally() {
+  renderLast();
   const box = $('tally');
   if (!S.cfg) return box.replaceChildren();
   const ds = allDsts();

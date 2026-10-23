@@ -1320,3 +1320,23 @@ code,
 :is(.sode__keyed, .sode__search-box):has(> .sode__key-note) > .pb-input { padding-right: 3em; }
 :is(.sode__keyed, .sode__search-box) > .pb-input:focus ~ .sode__key-note,
 :is(.sode__keyed, .sode__search-box) > .pb-input:not(:placeholder-shown) ~ .sode__key-note { display: none; }
+
+/* A patch box's label, with the last take's value as a chip at its right. */
+.sode__box-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  justify-content: space-between;
+  min-height: var(--pb-control-h-sm);
+  min-width: 0;
+}
+.sode__box-head > [data-last] { display: flex; min-width: 0; }
+.pb-chip.sode__last {
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-2);
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 var(--pb-space-2);
+}
+.sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sode__last > .sode__key-note { position: static; transform: none; }
