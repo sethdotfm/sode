@@ -231,7 +231,6 @@
         <span class="pb-number-wrap"><input type="number" id="cfg-pin-tries" class="pb-input" data-key="pinMaxTries" data-type="int" min="0" max="1000"></span>
         <span class="sode__hint">In a row, from anyone. 0 = never. From the 5th, waits double from 30 s.</span>
       </div>
-      <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then restart.</span>
     </fieldset>
 
     <fieldset class="sode__group">
@@ -246,12 +245,11 @@
     <fieldset class="sode__group">
       <legend>History</legend>
       <div class="sode__field">
-        <span>Clears Recent for everyone. Routes stay as they are.</span>
+        <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone.</span>
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear history…</button>
         </div>
         <div class="sode__names" id="clear-step2" hidden>
-          <span class="pb-note pb-note--warn">Can't be undone.</span>
           <span>
             <button type="button" class="pb-btn pb-btn--outline" id="clear-cancel">Keep it</button>
             <button type="button" class="pb-btn pb-btn--danger" id="clear-confirm">Clear all history</button>
