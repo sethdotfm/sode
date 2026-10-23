@@ -80,7 +80,7 @@ type App struct {
 	dumpAt         time.Time
 
 	pin   pinState   // wrong settings PINs
-	cfgMu sync.Mutex // serialises settings saves
+	cfgMu sync.Mutex // serializes settings saves
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }

@@ -33,7 +33,7 @@ const (
 	StateDown       State = "down"
 )
 
-// Client keeps one TCP connection to a router alive and serialises sends,
+// Client keeps one TCP connection to a router alive and serializes sends,
 // waiting for each ACK before the next message as SW-P-08 requires.
 type Client struct {
 	Debug bool
@@ -101,7 +101,7 @@ func (c *Client) Send(msg []byte) error {
 func (c *Client) Run(ctx context.Context) {
 	backoff := time.Second
 	for ctx.Err() == nil {
-		select { // a kick from before this attempt is already honoured
+		select { // a kick from before this attempt is already honored
 		case <-c.kick:
 		default:
 		}

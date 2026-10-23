@@ -341,7 +341,7 @@ const runsText = (list, dash, sep, mode) => levelRuns(list)
 export const levelText = (list) => runsText(list, '–', ', ');
 export const levelInput = (list, mode) => runsText(list, '-', ',', mode);
 
-// A configured #rrggbb is one colour for both themes, so its number gets
+// A configured #rrggbb is one color for both themes, so its number gets
 // black or white, whichever contrasts more (WCAG relative luminance).
 function inkFor(hex) {
   const lin = (i) => {
@@ -352,7 +352,7 @@ function inkFor(hex) {
   return (y + 0.05) / 0.05 > 1.05 / (y + 0.05) ? '#000' : '#fff';
 }
 
-// Sets --sode-c (and --sode-ink for a configured colour) on a level's
+// Sets --sode-c (and --sode-ink for a configured color) on a level's
 // pick or slot.
 export function levelColor(node, l) {
   if (l.color) {
@@ -367,7 +367,7 @@ export function levelColor(node, l) {
 
 // Every level in one fixed row: filled when in `on`, outlined otherwise,
 // so rows line up like monospace columns. The numbers mean it never
-// relies on colour alone.
+// relies on color alone.
 export function levelBar(on) {
   const set = new Set(on);
   const row = el('span', 'sode__bar', ...S.levels.map((l) => {

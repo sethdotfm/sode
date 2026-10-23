@@ -32,7 +32,7 @@ type Config struct {
 	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
 	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
 	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
-	// LevelColors[i] colours UI level i+1 as #rrggbb; "" or missing keeps
+	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
 	// the default (DefaultLevelColors, then the patchbay swatch). Entries
 	// past Levels are kept but unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors"`
@@ -214,7 +214,7 @@ func (c Config) Validate() error {
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
-			bad("level %d colour %q must be a hex colour like #3a7bd5", i+1, v)
+			bad("level %d color %q must be a hex color like #3a7bd5", i+1, v)
 		}
 	}
 	if _, err := c.Proxies(); err != nil {
@@ -240,7 +240,7 @@ func (c Config) Proxies() ([]netip.Prefix, error) {
 	return out, nil
 }
 
-// DefaultLevelColors are the user's Ultrix level colours, level 1 first.
+// DefaultLevelColors are the user's Ultrix level colors, level 1 first.
 // Levels past these fall back to the patchbay swatches.
 var DefaultLevelColors = []string{
 	"#7ae85a", "#3b5bfd", "#e5483b", "#f5e663", "#3f8a8c", "#d946ef",
@@ -258,7 +258,7 @@ type Level struct {
 }
 
 // LevelMap: wire = UI + offset; UI 1 gets the video swatch, the rest the
-// 16 audio swatches, unless LevelColors or DefaultLevelColors has a colour.
+// 16 audio swatches, unless LevelColors or DefaultLevelColors has a color.
 func (c Config) LevelMap() []Level {
 	out := make([]Level, c.Levels)
 	for i := range out {

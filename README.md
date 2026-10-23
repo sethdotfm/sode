@@ -49,7 +49,7 @@ On first start, when there is no config file yet, it is created from these seed 
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
 | `SODE_NAME_REFRESH_S` | `nameRefreshSeconds` | `60` | Re-read names this often (0 = off); also a button in Settings |
 | `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and protects this often (0 = off) |
-| | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colours for 1-17, built-in swatches after). Settings only, no seed var |
+| | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colors for 1-17, built-in swatches after). Settings only, no seed var |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
 | | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |

@@ -130,7 +130,7 @@ function numberingChanged() {
   rerenderColors();
 }
 
-// ---- level colours: one hex box per level, previewed on its slot
+// ---- level colors: one hex box per level, previewed on its slot
 
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const toHex = (v) => {
@@ -140,7 +140,7 @@ const toHex = (v) => {
 
 const swatchOf = (ui) => (ui === 1 ? 'video' : String((ui - 2) % 16 + 1).padStart(2, '0'));
 
-// A level's default hex: the server's default colour, else its patchbay
+// A level's default hex: the server's default color, else its patchbay
 // swatch in the current theme.
 function defaultHex(ui) {
   if (S.levelDefaults[ui - 1]) return S.levelDefaults[ui - 1];
@@ -156,7 +156,7 @@ function preview(slot, ui, v) {
   levelColor(slot, { swatch: swatchOf(ui), color: HEX.test(v.trim()) ? toHex(v) : S.levelDefaults[ui - 1] || '' });
 }
 
-// vals: colours to show, by level; keeps what's typed when the count changes.
+// vals: colors to show, by level; keeps what's typed when the count changes.
 function renderColors(vals) {
   const n = Number($('cfg-levels').value);
   const rows = [];
@@ -168,7 +168,7 @@ function renderColors(vals) {
     f.value = vals[ui - 1] || '';
     f.placeholder = defaultHex(ui);
     f.spellcheck = false;
-    f.setAttribute('aria-label', `Level ${levelLabel(ui, formMode())} colour`);
+    f.setAttribute('aria-label', `Level ${levelLabel(ui, formMode())} color`);
     f.addEventListener('input', () => {
       preview(slot, ui, f.value);
       f.classList.toggle('pb-input--invalid', f.value.trim() !== '' && !HEX.test(f.value.trim()));
@@ -179,7 +179,7 @@ function renderColors(vals) {
   $('cfg-colors').replaceChildren(...rows);
 }
 
-// Redraws the colour rows, keeping what's typed.
+// Redraws the color rows, keeping what's typed.
 function rerenderColors() {
   const vals = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value);
   renderColors([...vals, ...(S.cfg.levelColors || []).slice(vals.length)]);
@@ -241,7 +241,7 @@ function unlockResult(m) {
   renderLock();
 }
 
-// The server forgets an unlock when the socket drops, and only honours it
+// The server forgets an unlock when the socket drops, and only honors it
 // for the PIN it was entered against: with no PIN now, a PIN set later
 // (here or by someone else, even while disconnected) needs entering.
 function relock() {
@@ -309,7 +309,7 @@ form.addEventListener('submit', (e) => {
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) {
-    $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be a hex colour like #3a7bd5.`;
+    $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be a hex color like #3a7bd5.`;
     $('settings-err').hidden = false;
     badColor.focus();
     return;

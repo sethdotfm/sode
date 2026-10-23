@@ -52,7 +52,7 @@ Operators need a fast, keyboard-first way to patch a SW-P-08 router (target: Ros
 - Server rejects takes to protected dests and to levels outside the map.
 
 ## Page (patchbay)
-- Centered, Google-classic whitespace. Small status diagram on top: `Browser ─ws─ Sode ─SW-P-08─ Router`, each link a `pb-status` + `pb-dot--ok|warn|error` with text (never colour alone).
+- Centered, Google-classic whitespace. Small status diagram on top: `Browser ─ws─ Sode ─SW-P-08─ Router`, each link a `pb-status` + `pb-dot--ok|warn|error` with text (never color alone).
 - Three large `pb-input` boxes across. Dropdown is a `pb-menu`. Tally box underneath uses `pb-xpt--source/dest` styling. Recent list at bottom as input-styled rows.
 - Keys: Tab/Shift+Tab move between boxes, ↑↓ pick, Enter → confirm modal (`pb-modal` + `pb-modal__header--warn`), churn key confirms, Esc cancels; Esc in an empty box clears all.
 - Modal text: *Are you sure you want to patch Source 141 CG3 Fill to Destination 24 DSM5? Press **j** to confirm, or escape to cancel.* Plus a levels line and a before→after line.

@@ -166,7 +166,7 @@ body { zoom: var(--sode-scale); }
 }
 .sode__picker .sode__levels { flex: 1 1 auto; }
 /* A level toggle (picker) or slot (level bar): filled when on, outlined in
-   its signal colour when off. Shared so both read the same. */
+   its signal color when off. Shared so both read the same. */
 .sode__pick,
 .sode__slot {
   align-items: center;
@@ -484,7 +484,7 @@ body { zoom: var(--sode-scale); }
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,
 .sode__field .pb-select-wrap { width: 100%; }
-/* Level colours: one row per level, its slot as a live preview. */
+/* Level colors: one row per level, its slot as a live preview. */
 .sode__colors {
   display: grid;
   gap: var(--pb-space-3) var(--pb-space-5);
