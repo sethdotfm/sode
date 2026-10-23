@@ -203,7 +203,7 @@ function setStatus(st) {
 // Dot state and text for the WebSocket and router links, plus down:
 // { title, text } once either link is lost (not while first connecting).
 export function connState() {
-  const ws = { up: ['ok', 'WebSocket connected'], connecting: ['warn', 'WebSocket connecting'], down: ['error', 'WebSocket disconnected'] }[S.wsState];
+  const ws = { up: ['ok', 'Server connected'], connecting: ['warn', 'Server connecting'], down: ['error', 'Server disconnected'] }[S.wsState];
   const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
   let down = null;
@@ -212,7 +212,7 @@ export function connState() {
   } else if (S.wsState === 'up' && S.router && S.router !== 'up') {
     down = { title: `Router ${S.routerAddr} not connected`, text: `Reconnecting…${S.routerErr ? ` ${S.routerErr}` : ''}` };
   }
-  return { ws, rt: [dot, `SW-P-08 ${word}`], down };
+  return { ws, rt: [dot, `Router ${word}`], down };
 }
 
 // Patches can go out: Sode is reachable and connected to the router.

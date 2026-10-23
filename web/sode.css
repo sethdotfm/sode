@@ -59,16 +59,20 @@ code,
   padding: 10vh var(--pb-space-8) var(--pb-space-8);
 }
 
-/* Connection status, out of the way in the top corner. */
+/* Connection status, out of the way in the top corner and above the
+   page as it scrolls. */
 .sode__conn {
   align-items: center;
+  background: var(--pb-surface-base);
   color: var(--pb-text-muted);
   display: flex;
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-4);
+  padding: var(--pb-space-2) var(--pb-space-3);
   position: fixed;
-  right: var(--pb-space-6);
-  top: var(--pb-space-5);
+  right: var(--pb-space-5);
+  top: var(--pb-space-4);
+  z-index: var(--pb-z-sticky);
 }
 .sode__conn-addr { font-family: var(--pb-font-mono); }
 .sode__down { width: 100%; }

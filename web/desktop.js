@@ -34,10 +34,8 @@ const entered = new Set();  // live entries already animated in
 // banner saying which, a red outline round the page, and no patching.
 function renderConn() {
   const c = connState();
-  const [dot, text] = c.down ? ['error', 'Disconnected']
-    : c.ws[0] !== 'ok' ? ['warn', 'Connecting']
-    : c.rt[0] !== 'ok' ? [c.rt[0], 'Router connecting'] : ['ok', 'Connected'];
-  setDot($('conn-dot'), $('conn-text'), [dot, text]);
+  setDot($('conn-srv-dot'), $('conn-srv-text'), [c.ws[0], 'Server']);
+  setDot($('conn-rt-dot'), $('conn-rt-text'), [c.rt[0], 'Router']);
   $('conn-addr').textContent = S.routerAddr || '';
   $('conn').title = [c.ws[1], c.rt[1], S.routerErr].filter(Boolean).join('\n');
   document.documentElement.dataset.conn = c.down ? 'down' : 'up';
