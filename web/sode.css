@@ -210,9 +210,8 @@ code,
   gap: var(--pb-space-2);
   position: relative;
 }
-.sode__entry > .sode__input {
+.sode__entry > .sode__keyed {
   flex: 1 1 auto;
-  min-width: 0;
 }
 .pb-btn.sode__add {
   font-size: var(--pb-text-xl);
@@ -1296,20 +1295,28 @@ code,
 @media (max-width: 599.98px) {
   .sode__search-box { flex: 1 1 8em; }
 }
-/* The shortcut, small at the right of an empty, unfocused box. */
-.sode__search-key {
+/* A box's keyboard-mode key, small at its right while it's empty and not
+   focused: the patch boxes (.sode__keyed) and the filter boxes. */
+.sode__keyed {
+  display: flex;
+  min-width: 0;
+  position: relative;
+}
+.sode__keyed > .pb-input { flex: 1; min-width: 0; }
+.sode__key-note {
   background: none;
   border: 0;
   color: var(--pb-text-muted);
-  padding: 0;
   font-family: var(--pb-font-mono);
   font-size: var(--pb-text-2xs);
+  padding: 0;
   pointer-events: none;
   position: absolute;
   right: var(--pb-space-2);
   top: 50%;
   transform: translateY(-50%);
 }
-.sode__search-box:has(> .sode__search-key) > .pb-input { padding-right: 3em; }
-.sode__search-box > .pb-input:focus ~ .sode__search-key,
-.sode__search-box > .pb-input:not(:placeholder-shown) ~ .sode__search-key { display: none; }
+.sode__keyed > .sode__key-note { font-size: var(--pb-text-xs); right: var(--pb-space-3); }
+:is(.sode__keyed, .sode__search-box):has(> .sode__key-note) > .pb-input { padding-right: 3em; }
+:is(.sode__keyed, .sode__search-box) > .pb-input:focus ~ .sode__key-note,
+:is(.sode__keyed, .sode__search-box) > .pb-input:not(:placeholder-shown) ~ .sode__key-note { display: none; }
