@@ -400,13 +400,13 @@ function closeSwipes(except) {
   }
 }
 
-const pager = historyPager(5);
+const pager = historyPager(5, () => layout() === 'phone');
 
 function renderRecent() {
   const list = pager.list();
   $('m-recent').hidden = !S.hist.length;
   $('m-recent-list').replaceChildren(...list.flatMap((r) => (r.f ? folderRows(r.f) : [recentRow(r.e)])));
-  $('m-recent-more').replaceChildren(...[emptyNote(list), pager.button()].filter(Boolean));
+  $('m-recent-more').replaceChildren(...[emptyNote(list, pager.fetching()), pager.button()].filter(Boolean));
 }
 
 // ---- confirm sheet with slider

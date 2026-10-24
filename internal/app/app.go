@@ -564,6 +564,9 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 		return errLocked
 	}
 	cfg.SettingsPin = a.r().cfg.SettingsPin
+	// Filter sets are saved from Recent's Filters, not the settings form,
+	// so a browser's copy may be stale: keep the current ones.
+	cfg.FilterSets = slices.Clone(a.r().cfg.FilterSets)
 	switch {
 	case clearPin:
 		cfg.SettingsPin = ""
@@ -646,6 +649,8 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.ext = map[int]map[int]*extLevel{}
 		a.causes = nil
 		a.leaders = map[int]int{}
+		a.own = map[ownKey]time.Time{}
+		a.extFirst, a.extLast = time.Time{}, time.Time{}
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
 		// A new router starts from scratch: not the old one's state or error.
@@ -815,9 +820,14 @@ func (a *App) take(c *client, req takeReq) {
 	if len(protected) == 0 {
 		a.waiters[w] = struct{}{}
 		a.causes = append(a.causes, w.cause)
+		// Only levels the router will answer with a Connected: one already
+		// on src gets none, and its key would linger and swallow a real
+		// change back to it.
 		until := time.Now().Add(ownFor)
 		for _, s := range sends {
-			a.own[ownKey{req.Dst, s.wire, req.Src}] = until
+			if !same[s.wire] {
+				a.own[ownKey{req.Dst, s.wire, req.Src}] = until
+			}
 		}
 	}
 	a.mu.Unlock()
@@ -914,6 +924,12 @@ func (a *App) take(c *client, req takeReq) {
 	a.finish(c, res, e, err)
 	a.mu.Lock()
 	w.cause.id, w.cause.done = e.ID, true
+	// Levels never confirmed (or never sent) won't be answered now.
+	for _, s := range sends {
+		if w.wire[s.wire] || slices.Contains(unsent, s.ui) {
+			delete(a.own, ownKey{req.Dst, s.wire, req.Src})
+		}
+	}
 	a.mu.Unlock()
 }
 

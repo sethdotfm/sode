@@ -40,6 +40,12 @@ func TestFilterSetsPin(t *testing.T) {
 	if after := a.r().cfg.LevelColors; &after[0] == &before[0] {
 		t.Fatal("level colors shared with the config being replaced")
 	}
+	// A settings save from a browser with an old copy keeps the sets.
+	stale := a.r().cfg
+	stale.FilterSets = nil
+	if err := a.SaveSettings(c, stale, "", false); err != nil || len(a.r().cfg.FilterSets) != 1 {
+		t.Fatalf("settings save dropped the filter sets: %v %v", err, a.r().cfg.FilterSets)
+	}
 	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: ""}}); err == nil {
 		t.Fatal("unnamed set accepted")
 	}

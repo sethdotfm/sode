@@ -9,7 +9,7 @@
 import {
   $, el, S, on, wsSend, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
   allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
-  histRows, searchState, setSearch, searchActive, searchRespectsFilters, search, item,
+  histRows, setSearch, searchActive, searchRespectsFilters, search, item, labelNode,
 } from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 
@@ -307,11 +307,12 @@ function closeFilters() {
   eds.src.flush();
   eds.dst.flush();
   root.hidden = true;
-  // An unlock for sets for everyone lasts while the dialog is open.
-  if (unlocked) wsSend({ t: 'lock' });
-  unlocked = false;
-  pending = null;
   $('flt-pin-row').hidden = true;
+  // A save already sent finishes first (its answer locks up after it);
+  // one still waiting for the PIN is dropped.
+  if (pending?.id) return void (back?.isConnected && back.focus());
+  pending = null;
+  relockFilters();
   if (back?.isConnected) back.focus();
 }
 
@@ -413,14 +414,30 @@ function send(list) {
 }
 const globalsWith = (fn) => fn(globalSets().map((s) => ({ name: s.name, f: s.f })));
 
+// An unlock for sets for everyone lasts while the dialog is open.
+function relockFilters() {
+  if (unlocked) wsSend({ t: 'lock' });
+  unlocked = false;
+}
+
 on('filterSetsResult', (m) => {
   if (!pending || m.id !== pending.id) return;
   const p = pending;
-  if (m.locked) { unlocked = false; return askPin('Enter the PIN again.'); }
+  const open = filtersOpen();
+  if (m.locked) {
+    unlocked = false;
+    if (open) return askPin('Enter the PIN again.');
+  }
   pending = null;
-  if (!m.ok) { renderSetBar(); setNote(sentence(m.err), true); return; }
-  p.done();
-  renderSetBar();
+  if (m.ok) p.done();
+  if (open) {
+    renderSetBar();
+    if (!m.ok) setNote(sentence(m.err), true);
+    return;
+  }
+  // Closed while it was saving: say if it didn't, then lock up.
+  if (!m.ok) showResult('error', 'Filter set not saved', sentence(m.err) || 'Settings are locked.');
+  relockFilters();
 });
 
 function askPin(err = '') {
@@ -626,10 +643,10 @@ export function applySharedLink() {
 // A note for an empty Recent whose entries the filters hide, or null.
 // While searching it's about the search: still reading back through the
 // log, or nothing found (and the filters may not even apply).
-export function emptyNote(rows) {
+export function emptyNote(rows, fetching) {
   if (rows.length || !S.hist.length) return null;
   const searching = searchActive();
-  if (searching && (S.histMore || S.histLoading)) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Searching…'));
+  if (searching && fetching) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Searching…'));
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');
   clear.type = 'button';
   clear.addEventListener('click', () => (searching ? clearSearch() : pickSet('all', 'All')));
@@ -676,7 +693,9 @@ function buildCandidates(k, live) {
 }
 
 const searchBoxes = [...document.querySelectorAll('[data-search]')];
-const sb = { src: { matches: [], hi: 0 }, dst: { matches: [], hi: 0 } };
+// Per box: the dropdown, the picks (shown as chips; history shows any of
+// them) and what's typed.
+const sb = { src: { matches: [], hi: 0, picks: [], text: '' }, dst: { matches: [], hi: 0, picks: [], text: '' } };
 
 function menuOf(f) { return f.parentElement.querySelector('.sode__menu'); }
 
@@ -696,47 +715,58 @@ function renderMenu(k, f) {
   }));
   menu.children[st.hi]?.scrollIntoView({ block: 'nearest' });
 }
+
+// What a box searches for: its picks, by number, and a typed expression.
+function boxQuery(k) {
+  const st = sb[k];
+  const expr = looksLikeExpr(st.text) ? st.text.trim() : '';
+  return [...st.picks.map((it) => it.num), expr].filter(Boolean).join(', ');
+}
+const applySearch = () => setSearch({ src: boxQuery('src'), dst: boxQuery('dst') });
+
 function clearSearch() {
-  for (const k of ['src', 'dst']) sb[k].picked = null;
+  for (const k of ['src', 'dst']) Object.assign(sb[k], { picks: [], text: '' });
   for (const f of document.querySelectorAll('[data-search] input')) f.value = '';
   closeMenus();
-  setSearch({ src: '', dst: '' });
+  applySearch();
 }
 const closeMenus = () => { for (const k of ['src', 'dst']) sb[k].matches = []; for (const m of document.querySelectorAll('[data-search] .sode__menu')) m.hidden = true; };
 
-// Picks the highlighted match: history shows exactly that number.
+// Adds the highlighted match as a pick, and clears the box for another.
 function pick(k, f) {
-  const it = sb[k].matches[sb[k].hi];
+  const st = sb[k];
+  const it = st.matches[st.hi];
   if (!it) return false;
-  sb[k].matches = [];
-  sb[k].picked = it;
-  f.value = it.label;
+  if (!st.picks.some((p) => p.n === it.n)) st.picks.push(it);
+  st.matches = [];
+  st.text = '';
+  f.value = '';
   renderMenu(k, f);
-  setSearch({ ...searchState(), [k]: it.num });
+  applySearch();
   return true;
 }
 
+function unpick(k, i) {
+  sb[k].picks.splice(i, 1);
+  applySearch();
+}
+
 function typed(k, f) {
-  sb[k].picked = null;
-  const t = f.value;
-  if (!t.trim() || looksLikeExpr(t)) {
-    sb[k].matches = [];
-    renderMenu(k, f);
-    setSearch({ ...searchState(), [k]: t });
-    return;
-  }
-  // Plain text: offer matches, and leave history alone until one's picked.
-  sb[k].matches = search(candidates(k), t, MENU);
-  sb[k].hi = 0;
+  const st = sb[k];
+  st.text = f.value;
+  // Plain text offers matches; history changes once one's picked.
+  st.matches = !st.text.trim() || looksLikeExpr(st.text) ? [] : search(candidates(k), st.text, MENU);
+  st.hi = 0;
   renderMenu(k, f);
-  if (searchState()[k]) setSearch({ ...searchState(), [k]: '' });
+  applySearch();
 }
 
 for (const b of searchBoxes) {
   for (const k of ['src', 'dst']) {
     const f = b.querySelector(`[data-search-${k}]`);
+    f.before(el('span', 'sode__search-chips'));
     f.addEventListener('input', () => typed(k, f));
-    f.addEventListener('focus', () => { if (f.value && !sb[k].picked && !looksLikeExpr(f.value)) typed(k, f); });
+    f.addEventListener('focus', () => { if (f.value && !looksLikeExpr(f.value)) typed(k, f); });
     f.addEventListener('blur', () => { sb[k].matches = []; renderMenu(k, f); });
     f.addEventListener('keydown', (e) => {
       const st = sb[k];
@@ -750,12 +780,20 @@ for (const b of searchBoxes) {
         renderMenu(k, f);
         return;
       }
-      if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && open) {
-        if (pick(k, f) && e.key === 'Enter') e.preventDefault();
+      // Enter, Tab or + adds the match; Backspace in an empty box takes the
+      // last pick back off.
+      if (open && (e.key === 'Enter' || e.key === '+' || (e.key === 'Tab' && !e.shiftKey))) {
+        if (pick(k, f) && e.key !== 'Tab') e.preventDefault();
+        return;
+      }
+      if (e.key === 'Backspace' && !f.value && st.picks.length) {
+        e.preventDefault();
+        unpick(k, st.picks.length - 1);
         return;
       }
       if (e.key !== 'Escape') return;
-      // Esc closes the list, then clears the box, then leaves it.
+      // Esc closes the list, then clears the typing, then leaves the box
+      // (picks stay; Clear removes them).
       e.preventDefault();
       e.stopPropagation();
       if (open) { st.matches = []; renderMenu(k, f); }
@@ -770,21 +808,29 @@ for (const b of searchBoxes) {
 }
 
 function renderSearch() {
-  const s = searchState();
   const on = searchActive();
   const n = on ? histRows(S.hist).length : 0;
   const note = !on ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ' · ignoring filters'}`;
   for (const b of searchBoxes) {
     for (const k of ['src', 'dst']) {
+      const st = sb[k];
       const f = b.querySelector(`[data-search-${k}]`);
       // Keep the other layout's box in step (not the one being typed in).
-      const shown = sb[k].picked ? sb[k].picked.label : s[k];
-      if (document.activeElement !== f && f.value !== shown && (s[k] || sb[k].picked || !f.value)) f.value = shown;
-      const err = parseFilter(s[k]).error;
+      if (document.activeElement !== f && f.value !== st.text) f.value = st.text;
+      const err = looksLikeExpr(st.text) ? parseFilter(st.text).error : null;
       f.classList.toggle('pb-input--invalid', !!err);
       f.title = err || '';
+      f.previousElementSibling.replaceChildren(...st.picks.map((it, i) => {
+        const x = el('button', 'pb-chip__remove', '×');
+        x.type = 'button';
+        x.tabIndex = -1;
+        x.setAttribute('aria-label', `Remove ${it.label}`);
+        x.addEventListener('mousedown', (e) => e.preventDefault());
+        x.addEventListener('click', () => unpick(k, i));
+        return el('span', 'pb-chip pb-chip--static sode__search-chip', labelNode(it), x);
+      }));
     }
-    b.querySelector('[data-search-clear]').hidden = !on && ![...b.querySelectorAll('input')].some((x) => x.value);
+    b.querySelector('[data-search-clear]').hidden = !on && !['src', 'dst'].some((k) => sb[k].text || sb[k].picks.length);
     b.querySelector('[data-search-note]').textContent = note;
   }
 }

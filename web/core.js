@@ -90,7 +90,12 @@ export const S = {
 
 const listeners = {};
 export const on = (ev, fn) => { (listeners[ev] ||= []).push(fn); };
-const emit = (ev, ...args) => { for (const fn of listeners[ev] || []) fn(...args); };
+const ROWS_CHANGE = new Set(['history', 'filters', 'search', 'names', 'hello']);
+let rowsCache = null; // see histRows
+const emit = (ev, ...args) => {
+  if (ROWS_CHANGE.has(ev)) rowsCache = null;
+  for (const fn of listeners[ev] || []) fn(...args);
+};
 
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
@@ -223,6 +228,14 @@ function handle(m) {
       emit('history');
       break;
     case 'history': {
+      // Asked for before a cleared search trimmed history: it would land
+      // after a gap, so it's dropped.
+      if (dropPage) {
+        dropPage = false;
+        S.histLoading = false;
+        emit('history');
+        break;
+      }
       const last = S.hist.length ? S.hist[S.hist.length - 1].id : Infinity;
       S.hist.push(...m.entries.filter((e) => e.id < last));
       S.histMore = m.more;
@@ -952,9 +965,11 @@ export function setSearchRespectsFilters(on) {
 // but the newest entries again (whole groups), so Recent doesn't keep
 // reworking thousands of them.
 const KEEP_AFTER_SEARCH = 200;
+let dropPage = false; // the page in flight is for before the trim
 function trimHist() {
   let n = KEEP_AFTER_SEARCH;
   if (S.hist.length <= n) return;
+  dropPage = S.histLoading;
   const g = S.hist[n - 1].group;
   while (g && n < S.hist.length && S.hist[n].group === g) n++;
   S.hist = S.hist.slice(0, n);
@@ -994,7 +1009,18 @@ const MERGE_MS = 30000;
 // go back to before the first) and merged = how many. Entries this
 // browser's filters hide are left out; a folder shows if any of its takes
 // pass, with those in f.shown (f.entries keeps them all, for Undo all).
+// histRows is asked for several times per redraw (both pagers, the
+// search count, keyboard moves), so its answer is kept (rowsCache) until
+// history, filters, search or names change.
 export function histRows(list) {
+  const c = rowsCache;
+  if (c && c.list === list && c.len === list.length && c.first === list[0]) return c.rows;
+  const rows = buildRows(list);
+  rowsCache = { list, len: list.length, first: list[0], rows };
+  return rows;
+}
+
+function buildRows(list) {
   const rows = [];
   const folders = new Map();
   const chains = new Map(); // dst → { k: levels, row, t: oldest time, list: entries merged }
@@ -1125,7 +1151,10 @@ const SEARCH_PAGE = 500;
 
 // Shows history `step` rows at a time. more() reveals the next step,
 // fetching another page from Sode once the loaded entries run out.
-export function historyPager(step) {
+// visible: whether this pager's layout is the one showing; the hidden
+// one doesn't fetch.
+export function historyPager(step, visible = () => true) {
+  const cap = () => (searchActive() ? SEARCH_PAGES : AUTO_PAGES);
   const pg = {
     shown: step,
     auto: 0, // pages fetched by list() since the last reset or more()
@@ -1135,9 +1164,11 @@ export function historyPager(step) {
       // Hidden entries can leave a page short: fetch a few more pages to
       // fill it, then leave the rest to Load more.
       const s = searchActive();
-      if (rows.length < pg.shown && pg.auto < (s ? SEARCH_PAGES : AUTO_PAGES) && requestHistory(s ? SEARCH_PAGE : 0)) pg.auto++;
+      if (visible() && rows.length < pg.shown && pg.auto < cap() && requestHistory(s ? SEARCH_PAGE : 0)) pg.auto++;
       return rows.slice(0, pg.shown);
     },
+    // Whether more is on its way without Load more being pressed.
+    fetching: () => S.histLoading || (visible() && S.histMore && histRows(S.hist).length < pg.shown && pg.auto < cap()),
     hasMore: () => histRows(S.hist).length > pg.shown || S.histMore,
     more() {
       pg.shown += step;

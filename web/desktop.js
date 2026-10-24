@@ -441,7 +441,7 @@ function retryButton(e, src, dst) {
   return b;
 }
 
-const pager = historyPager(10);
+const pager = historyPager(10, () => layout() === 'desktop');
 
 // scroll: bring the cursor row into view (the cursor just moved). Other
 // redraws (someone else's take, a result) leave the page where it is.
@@ -457,7 +457,7 @@ function renderHistory(scroll = false) {
     autoOpen.clear();
   }
   histList.replaceChildren(...list.map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
-  $('history-more').replaceChildren(...[emptyNote(list), pager.button()].filter(Boolean));
+  $('history-more').replaceChildren(...[emptyNote(list, pager.fetching()), pager.button()].filter(Boolean));
   if (scroll === true && keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
 }
 

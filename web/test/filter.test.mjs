@@ -68,6 +68,10 @@ test('round trip', () => {
   assert.equal(filterText([{ not: false, kind: 'exact', text: 'say "hi"' }]), '"say ""hi"""');
   assert.equal(filterText([{ not: false, kind: 'name', text: '12' }]), "'12'");
   assert.equal(compileFilter([])(1, ''), true);
+  // A regex from Visual mode with a slash in it still reads back.
+  const re = [{ not: false, kind: 're', text: '^MV/PIP', flags: '' }];
+  assert.equal(filterText(re), '/^MV\\/PIP/');
+  assert.equal(compileFilter(parseFilter(filterText(re)).rules)(1, 'MV/PIP 3'), true);
 });
 
 test('histRows', async () => {

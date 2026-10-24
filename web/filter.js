@@ -94,13 +94,22 @@ export function parseFilter(text) {
 const needsQuote = (t) => NUM.test(t.trim()) || RANGE.test(t.trim()) || /[,"']/.test(t) ||
   /^\s|\s$/.test(t) || /^[!/]/.test(t) || NOT_WORD.test(t);
 const quote = (t, q) => q + t.replaceAll(q, q + q) + q;
+// A regex's text with each unescaped / escaped, to sit between slashes.
+function slashes(t) {
+  let out = '';
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === '\\') { out += t[i] + (t[i + 1] ?? ''); i++; continue; }
+    out += t[i] === '/' ? '\\/' : t[i];
+  }
+  return out;
+}
 
 // Rules as code, the way a person would type them.
 export function filterText(rules) {
   return rules.map((r) => {
     const body = r.kind === 'num' ? String(r.a)
       : r.kind === 'range' ? `${r.a}-${r.b}`
-      : r.kind === 're' ? `/${r.text}/${r.flags || ''}`
+      : r.kind === 're' ? `/${slashes(r.text)}/${r.flags || ''}`
       : r.kind === 'exact' ? quote(r.text, '"')
       : r.quoted || needsQuote(r.text) ? quote(r.text, "'") : r.text;
     return (r.not ? '!' : '') + body;

@@ -250,10 +250,3 @@ func minTime(a, b time.Time) time.Time {
 	}
 	return a
 }
-
-func maxTime(a, b time.Time) time.Time {
-	if b.After(a) {
-		return b
-	}
-	return a
-}

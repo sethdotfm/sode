@@ -1347,3 +1347,14 @@ code,
   font-family: var(--pb-font-mono);
   font-weight: var(--pb-weight-normal);
 }
+/* Picks in a filter box, before what's typed. */
+.sode__search-box { flex-wrap: wrap; }
+.sode__search-chips { display: contents; }
+.pb-chip.sode__search-chip {
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+  margin: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) 0;
+  padding: 0 var(--pb-space-1) 0 var(--pb-space-2);
+}
+/* With picks, the box wraps rather than squeezing what you type. */
+.sode__search-box > .pb-input { min-width: 8em; }
