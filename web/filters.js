@@ -7,11 +7,13 @@
 // once read.
 
 import {
-  $, el, S, on, wsSend, showResult, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
+  $, el, S, on, wsSend, showResult, sentence, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
   allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
   histRows, setSearch, searchActive, searchRespectsFilters, search, item, labelNode,
 } from './core.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
+import { unlock, relock, unlocked } from './pin.js';
+import { combobox } from './widgets.js';
 
 const root = $('filters');
 const dialog = $('filters-dialog');
@@ -312,7 +314,7 @@ function closeFilters() {
   // one still waiting for the PIN is dropped.
   if (pending?.id) return void (back?.isConnected && back.focus());
   pending = null;
-  relockFilters();
+  relock();
   if (back?.isConnected) back.focus();
 }
 
@@ -349,8 +351,6 @@ const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false; // Delete was pressed once; the next press deletes
 let naming = null;    // 'saveas' | 'rename' while the name row is open
 let pending = null;   // a change to sets for everyone: { id, run, done }
-let unlocked = false; // the PIN was accepted on this connection
-let pinSeq = 1e6;     // unlock ids, apart from Settings' own
 let opSeq = 0;
 
 function renderSetBar() {
@@ -398,7 +398,7 @@ const setNote = (text, error = false) => {
 
 function changeGlobal(list, done) {
   pending = { run: () => send(list), done };
-  if (S.pinSet && !unlocked) return askPin();
+  if (S.pinSet && !unlocked()) return askPin();
   pending.run();
 }
 function send(list) {
@@ -414,18 +414,14 @@ function send(list) {
 }
 const globalsWith = (fn) => fn(globalSets().map((s) => ({ name: s.name, f: s.f })));
 
-// An unlock for sets for everyone lasts while the dialog is open.
-function relockFilters() {
-  if (unlocked) wsSend({ t: 'lock' });
-  unlocked = false;
-}
-
+// An unlock for sets for everyone lasts while the dialog is open (or
+// until a save sent before it closed is answered).
 on('filterSetsResult', (m) => {
   if (!pending || m.id !== pending.id) return;
   const p = pending;
   const open = filtersOpen();
   if (m.locked) {
-    unlocked = false;
+    relock();
     if (open) return askPin('Enter the PIN again.');
   }
   pending = null;
@@ -437,7 +433,7 @@ on('filterSetsResult', (m) => {
   }
   // Closed while it was saving: say if it didn't, then lock up.
   if (!m.ok) showResult('error', 'Filter set not saved', sentence(m.err) || 'Settings are locked.');
-  relockFilters();
+  relock();
 });
 
 function askPin(err = '') {
@@ -451,24 +447,15 @@ function cancelPin() {
   pending = null;
   renderSetBar();
 }
-function sendPin() {
-  if (!wsSend({ t: 'unlock', pin: $('flt-pin').value, id: ++pinSeq })) return setNote('Not connected to Sode.', true);
+async function sendPin() {
   $('flt-pin-ok').disabled = true;
-}
-on('unlockResult', (m) => {
-  if (m.id !== pinSeq) return;
+  const r = await unlock($('flt-pin').value);
   $('flt-pin-ok').disabled = false;
-  if (!m.ok) { setNote(sentence(m.err), true); $('flt-pin').select(); return; }
-  unlocked = true;
+  if (r.stale) return;
+  if (!r.ok) { setNote(r.err, true); $('flt-pin').select(); return; }
   $('flt-pin-row').hidden = true;
   pending?.run();
-});
-on('locked', () => { unlocked = false; });
-on('conn', () => { if (S.wsState !== 'up') unlocked = false; });
-const sentence = (t) => {
-  const s = String(t || '').trim();
-  return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
-};
+}
 $('flt-pin-ok').addEventListener('click', sendPin);
 $('flt-pin-cancel').addEventListener('click', cancelPin);
 $('flt-pin').addEventListener('keydown', (e) => {
@@ -693,28 +680,12 @@ function buildCandidates(k, live) {
 }
 
 const searchBoxes = [...document.querySelectorAll('[data-search]')];
-// Per box: the dropdown, the picks (shown as chips; history shows any of
-// them) and what's typed.
-const sb = { src: { matches: [], hi: 0, picks: [], text: '' }, dst: { matches: [], hi: 0, picks: [], text: '' } };
+// Per box: the picks (shown as chips; history shows any of them) and
+// what's typed. Each input has its own list of matches.
+const sb = { src: { picks: [], text: '' }, dst: { picks: [], text: '' } };
+const lists = []; // every input's combobox
 
 function menuOf(f) { return f.parentElement.querySelector('.sode__menu'); }
-
-function renderMenu(k, f) {
-  const st = sb[k];
-  const menu = menuOf(f);
-  const open = st.matches.length > 0 && document.activeElement === f;
-  menu.hidden = !open;
-  f.setAttribute('aria-expanded', String(open));
-  if (!open) return;
-  menu.replaceChildren(...st.matches.map((it, i) => {
-    const li = el('li', 'pb-menu__item' + (i === st.hi ? ' active' : ''), el('span', 'sode__num', it.num), it.name);
-    li.setAttribute('role', 'option');
-    li.setAttribute('aria-selected', String(i === st.hi));
-    li.addEventListener('mousedown', (e) => { e.preventDefault(); st.hi = i; pick(k, f); });
-    return li;
-  }));
-  menu.children[st.hi]?.scrollIntoView({ block: 'nearest' });
-}
 
 // What a box searches for: its picks, by number, and a typed expression.
 function boxQuery(k) {
@@ -727,23 +698,18 @@ const applySearch = () => setSearch({ src: boxQuery('src'), dst: boxQuery('dst')
 function clearSearch() {
   for (const k of ['src', 'dst']) Object.assign(sb[k], { picks: [], text: '' });
   for (const f of document.querySelectorAll('[data-search] input')) f.value = '';
-  closeMenus();
+  for (const cb of lists) cb.close();
   applySearch();
 }
-const closeMenus = () => { for (const k of ['src', 'dst']) sb[k].matches = []; for (const m of document.querySelectorAll('[data-search] .sode__menu')) m.hidden = true; };
 
-// Adds the highlighted match as a pick, and clears the box for another.
-function pick(k, f) {
+// Adds a match as a pick, and clears the box for another.
+function pick(k, f, cb, it) {
   const st = sb[k];
-  const it = st.matches[st.hi];
-  if (!it) return false;
   if (!st.picks.some((p) => p.n === it.n)) st.picks.push(it);
-  st.matches = [];
   st.text = '';
   f.value = '';
-  renderMenu(k, f);
+  cb.close();
   applySearch();
-  return true;
 }
 
 function unpick(k, i) {
@@ -751,13 +717,9 @@ function unpick(k, i) {
   applySearch();
 }
 
-function typed(k, f) {
-  const st = sb[k];
-  st.text = f.value;
-  // Plain text offers matches; history changes once one's picked.
-  st.matches = !st.text.trim() || looksLikeExpr(st.text) ? [] : search(candidates(k), st.text, MENU);
-  st.hi = 0;
-  renderMenu(k, f);
+function typed(k, f, cb) {
+  sb[k].text = f.value;
+  cb.refresh();
   applySearch();
 }
 
@@ -765,25 +727,22 @@ for (const b of searchBoxes) {
   for (const k of ['src', 'dst']) {
     const f = b.querySelector(`[data-search-${k}]`);
     f.before(el('span', 'sode__search-chips'));
-    f.addEventListener('input', () => typed(k, f));
-    f.addEventListener('focus', () => { if (f.value && !looksLikeExpr(f.value)) typed(k, f); });
-    f.addEventListener('blur', () => { sb[k].matches = []; renderMenu(k, f); });
+    const cb = combobox(f, menuOf(f), {
+      // Plain text offers matches; history changes once one's picked.
+      source: (t) => (!t.trim() || looksLikeExpr(t) ? [] : search(candidates(k), t, MENU)),
+      onPick: (it) => pick(k, f, cb, it),
+    });
+    lists.push(cb);
+    f.addEventListener('input', () => typed(k, f, cb));
+    f.addEventListener('focus', () => { if (f.value && !looksLikeExpr(f.value)) typed(k, f, cb); });
+    f.addEventListener('blur', () => cb.close());
     f.addEventListener('keydown', (e) => {
       const st = sb[k];
-      const open = st.matches.length > 0;
-      // Alt+J/K move like ↓/↑, as in the patch boxes (by code: Option
-      // changes the key on macOS).
-      const nav = (e.altKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code]) || e.key;
-      if (open && (nav === 'ArrowDown' || nav === 'ArrowUp')) {
-        e.preventDefault();
-        st.hi = (st.hi + (nav === 'ArrowDown' ? 1 : -1) + st.matches.length) % st.matches.length;
-        renderMenu(k, f);
-        return;
-      }
+      if (cb.nav(e)) return; // as in the patch boxes
       // Enter, Tab or + adds the match; Backspace in an empty box takes the
       // last pick back off.
-      if (open && (e.key === 'Enter' || e.key === '+' || (e.key === 'Tab' && !e.shiftKey))) {
-        if (pick(k, f) && e.key !== 'Tab') e.preventDefault();
+      if (cb.open && (e.key === 'Enter' || e.key === '+' || (e.key === 'Tab' && !e.shiftKey))) {
+        if (cb.accept() && e.key !== 'Tab') e.preventDefault();
         return;
       }
       if (e.key === 'Backspace' && !f.value && st.picks.length) {
@@ -796,8 +755,8 @@ for (const b of searchBoxes) {
       // (picks stay; Clear removes them).
       e.preventDefault();
       e.stopPropagation();
-      if (open) { st.matches = []; renderMenu(k, f); }
-      else if (f.value) { f.value = ''; typed(k, f); }
+      if (cb.open) cb.close();
+      else if (f.value) { f.value = ''; typed(k, f, cb); }
       else f.blur();
     });
   }

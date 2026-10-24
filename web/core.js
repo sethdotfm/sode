@@ -343,6 +343,12 @@ export function renderDown(box, c) {
   ].filter(Boolean));
 }
 
+// Server errors are Go-style (lowercase, no full stop); shown as sentences.
+export const sentence = (t) => {
+  const s = String(t || '').trim();
+  return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
+};
+
 // Patches can go out: Sode is reachable and connected to the router.
 export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 
@@ -668,6 +674,8 @@ export const fmtTime = (iso) => {
   const d = new Date(iso);
   return [dateOf(d), timeFormat().format(d)].filter(Boolean).join(' ');
 };
+// The time alone, for detail under a row that shows the date.
+export const fmtClock = (iso) => timeFormat().format(new Date(iso));
 // Always dated, as nodes: the date in its own span so a narrow layout can
 // drop it.
 export const timeNodes = (iso) => {
@@ -726,6 +734,9 @@ function withFollows(plan, follows) {
   for (const f of follows) if (!oldest.has(f.dst) || f.id < oldest.get(f.dst).id) oldest.set(f.dst, f);
   return oldest.size ? { ...plan, extra: { items: [...oldest.values()].map(undoItem), on: false } } : plan;
 }
+// Back to how a stacked row's destination was at one of its changes,
+// at: by undoing the change that came after it, then.
+export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
 export const retryPlan = (e) => ({ verb: 'retry', items: [retryItem(e)] });
 export const folderUndoPlan = (f) => withFollows({ verb: 'undo', items: f.entries.map(undoItem) }, f.entries.flatMap((e) => e.follows || []));
@@ -1237,28 +1248,35 @@ function takeResult(m) {
   showResult('error', title, capped(failed.map((r) => `${takeText(r)}: ${r.err}`), 5));
 }
 
-// Why a plan can't be confirmed right now, as a result banner, or null.
-// Marks each protected item's prot. A plan only blocks when every
-// destination is protected; otherwise those are refused and the rest go.
+// Whether a plan can be confirmed right now. block: why not, as a result
+// banner, or null. prot: each protected item's protection ({levels,
+// devices}), keyed by the item itself, so copies of the plan must stay
+// shallow. A plan only blocks when every destination is protected;
+// otherwise those are refused and the rest go.
 export function planBlocked(plan) {
+  const prot = new Map();
   if (!linked()) {
-    return { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' };
+    return { block: { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' }, prot };
   }
   const live = plan.items.filter((i) => i.groups.length);
   for (const i of live) {
     const p = protectedOn(i.dst.n, i.groups.flatMap((g) => g.levels));
-    i.prot = p.levels.length ? p : null;
+    if (p.levels.length) prot.set(i, p);
   }
-  const prot = live.filter((i) => i.prot);
-  if (!prot.length || prot.length < live.length) return null;
-  if (prot.length === 1) {
-    const [i] = prot;
+  const hit = live.filter((i) => prot.has(i));
+  if (!hit.length || hit.length < live.length) return { block: null, prot };
+  if (hit.length === 1) {
+    const [i] = hit;
+    const p = prot.get(i);
     return {
-      kind: 'error', title: 'Destination protected',
-      text: `${i.dst.label} is protected on levels ${levelText(i.prot.levels)} by device ${i.prot.devices.join(', ')}.`,
+      block: {
+        kind: 'error', title: 'Destination protected',
+        text: `${i.dst.label} is protected on levels ${levelText(p.levels)} by device ${p.devices.join(', ')}.`,
+      },
+      prot,
     };
   }
-  return { kind: 'error', title: 'Destinations protected', text: `All ${prot.length} destinations are protected: ${prot.map((i) => i.dst.label).join(', ')}.` };
+  return { block: { kind: 'error', title: 'Destinations protected', text: `All ${hit.length} destinations are protected: ${hit.map((i) => i.dst.label).join(', ')}.` }, prot };
 }
 
 function planQuestion(plan) {
@@ -1266,6 +1284,15 @@ function planQuestion(plan) {
   const n = plan.items.length;
   const to = n === 1 ? ['Destination ', strong(labelNode(plan.items[0].dst))] : [strong(`${n} destinations`)];
   const uniq = (its) => [...new Map(its.map((it) => [it.n, it])).values()];
+  if (plan.at) {
+    return el('div', null, 'Are you sure you want to go back to ', strong(labelNode(srcItem(plan.at.src, plan.at.srcName))),
+      ' on ', ...to, `, as at ${fmtClock(plan.at.time)}?`);
+  }
+  const stack = n === 1 && plan.items[0].undo?.chain;
+  if (stack) {
+    return el('div', null, `Are you sure you want to undo ${stack.length} changes on `, ...to,
+      `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
+  }
   if (plan.verb === 'undo') {
     const srcs = uniq(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName)));
     return el('div', null, 'Are you sure you want to undo the take of ', srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`,
@@ -1277,14 +1304,14 @@ function planQuestion(plan) {
 }
 
 // One destination's part of a confirm: new routes, then what they replace.
-function itemSummary(item, boxed) {
+function itemSummary(item, boxed, prot) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
   return [
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
-    item.prot
-      ? el('div', 'sode__route', levelBar(item.prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
-        `by device ${item.prot.devices.join(', ')}; will be refused`)
+    prot
+      ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
+        `by device ${prot.devices.join(', ')}; will be refused`)
       : null,
     item.skipped.length
       ? el('div', 'sode__hist-note', `Level${item.skipped.length === 1 ? '' : 's'} ${levelText(item.skipped)}: nothing was routed before, left as is.`)
@@ -1298,19 +1325,20 @@ function itemSummary(item, boxed) {
 // What a confirm shows: the question, then each destination's new routes
 // and what they replace. With several destinations each gets its own
 // block, headed by its name, so the groups are easy to tell apart.
-export function planSummary(plan) {
-  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false), extraBox(plan)].filter(Boolean);
+// prot: from planBlocked. spaceHint: the follows box says Space ticks it.
+export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
+  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0])), extraBox(plan, spaceHint)].filter(Boolean);
   return [
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
       el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
-      ...itemSummary(i, true))),
-    extraBox(plan),
+      ...itemSummary(i, true, prot.get(i)))),
+    extraBox(plan, spaceHint),
   ].filter(Boolean);
 }
 
 // The box that adds an undo's follows, or null.
-function extraBox(plan) {
+function extraBox(plan, spaceHint) {
   const x = plan.extra;
   if (!x) return null;
   const n = x.items.length;
@@ -1320,7 +1348,7 @@ function extraBox(plan) {
   c.checked = x.on;
   c.addEventListener('change', () => { x.on = c.checked; });
   return el('label', 'pb-check sode__plan-extra', c, el('span', 'pb-check__label',
-    `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}`));
+    `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`));
 }
 
 // Sends every take in a plan as one batch. False if the connection is gone.

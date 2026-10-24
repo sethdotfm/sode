@@ -3,23 +3,18 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, searchRespectsFilters, setSearchRespectsFilters, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, sentence, fmtTime, clockPref, scrollTopPref, searchRespectsFilters, setSearchRespectsFilters, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
+import { unlock, relock, unlocked } from './pin.js';
 
 const root = document.documentElement;
 const form = $('settings-view');
 const fields = () => form.querySelectorAll('[data-key]');
 const isOpen = () => root.dataset.view === 'settings';
-// The PIN was accepted on this connection. Only means anything while a PIN
-// is set: with none, the form is open anyway.
-let unlocked = false;
 // A save is in flight: its own hello / locked arrive before configResult
 // closes the view, so don't flip to the PIN prompt for them.
 const saving = () => $('settings-save').disabled;
-// Numbers each unlock sent; opening or closing the view skips ahead, so a
-// reply to one sent before then is ignored.
-let unlockSeq = 0;
 
 // The level numbering picked in the form, and how the default levels box
 // is currently written (so switching modes can rewrite it).
@@ -51,8 +46,7 @@ export function openSettings() {
   $('cfg-pin2').value = '';
   $('cfg-pin-clear').checked = false;
   renderPinStatus();
-  unlocked = false;
-  unlockSeq++;
+  relock(); // opens locked; a reply to an unlock sent before is dropped
   $('lock-pin').value = '';
   $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
@@ -77,7 +71,7 @@ export function openSettings() {
 // on open), not on every status update.
 function renderLock(opening = false) {
   if (!isOpen()) return;
-  const locked = S.pinSet && !unlocked;
+  const locked = S.pinSet && !unlocked();
   const flipped = locked !== ('locked' in form.dataset);
   if (locked) form.dataset.locked = '';
   else delete form.dataset.locked;
@@ -89,9 +83,7 @@ function renderLock(opening = false) {
 function closeSettings() {
   if (location.hash === '#settings') history.replaceState(null, '', location.pathname + location.search);
   delete root.dataset.view;
-  wsSend({ t: 'lock' });
-  unlocked = false;
-  unlockSeq++;
+  relock(true);
   if (layout() === 'desktop') $('src').focus();
 }
 
@@ -240,19 +232,13 @@ function configResult(m) {
     return;
   }
   if (m.locked) {
-    unlocked = false;
+    relock();
     showLockErr(m.err);
     return;
   }
   $('settings-err').textContent = sentence(m.err);
   $('settings-err').hidden = false;
 }
-
-// Server errors are Go-style (lowercase, no full stop); shown as sentences.
-const sentence = (t) => {
-  const s = String(t || '').trim();
-  return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
-};
 
 function showLockErr(text) {
   renderLock();
@@ -268,27 +254,21 @@ function renderPinStatus() {
     : 'No PIN. 4–64 characters.';
 }
 
-function unlockResult(m) {
-  if (m.id !== unlockSeq) return; // sent before the view closed or reopened
+async function sendUnlock() {
+  $('lock-unlock').disabled = true;
+  const r = await unlock($('lock-pin').value);
   $('lock-unlock').disabled = false;
-  if (!isOpen()) return;
-  if (!m.ok) return showLockErr(m.err);
-  unlocked = true;
+  if (r.stale || !isOpen()) return; // sent before the view closed or reopened
+  if (!r.ok) return showLockErr(r.err);
   $('lock-pin').value = '';
   $('lock-err').hidden = true;
   renderLock();
 }
 
-// The server forgets an unlock when the socket drops, and only honors it
-// for the PIN it was entered against: with no PIN now, a PIN set later
-// (here or by someone else, even while disconnected) needs entering.
-function relock() {
-  if (S.wsState !== 'up') {
-    unlocked = false;
-    $('lock-unlock').disabled = false; // their results are lost
-    $('settings-save').disabled = false;
-  }
-  if (!S.pinSet) unlocked = false;
+// After a hello or a connection change (pin.js has dropped any unlock the
+// server no longer honors): show the prompt or the form to match.
+function syncLock() {
+  if (S.wsState !== 'up') $('settings-save').disabled = false; // its result is lost
   if (isOpen()) renderPinStatus();
   if (!saving()) renderLock();
 }
@@ -341,11 +321,7 @@ $('names-refresh').addEventListener('click', () => {
 });
 form.addEventListener('submit', (e) => {
   e.preventDefault();
-  if ('locked' in form.dataset) { // Enter or Unlock in the PIN prompt
-    if (!wsSend({ t: 'unlock', pin: $('lock-pin').value, id: ++unlockSeq })) return showLockErr('Not connected to Sode.');
-    $('lock-unlock').disabled = true;
-    return;
-  }
+  if ('locked' in form.dataset) return void sendUnlock(); // Enter or Unlock in the PIN prompt
   const c = readSettings();
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
@@ -402,14 +378,12 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('popstate', showView);
 
-on('hello', () => { showView(); relock(); renderGlobalSets(); });
+on('hello', () => { showView(); syncLock(); renderGlobalSets(); });
 on('filters', renderGlobalSets);
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
-on('conn', () => { renderNamesStatus(); relock(); });
-on('unlockResult', unlockResult);
+on('conn', () => { renderNamesStatus(); syncLock(); });
 on('locked', () => {
-  unlocked = false;
   if (isOpen() && !saving()) showLockErr('Settings are locked; enter the PIN again.');
 });
 on('configResult', configResult);

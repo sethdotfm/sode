@@ -2,32 +2,43 @@
 // + in the destination box adds another destination as a chip.
 
 import {
-  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
-  allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
-  beforeGroups, srcRow, tallyText, attachFollows, fmtTime, labelNode, retryPlan, planVerb, entryNote, chevron,
+  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelBar,
+  allLevels, fedBy, dstItem, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
+  beforeGroups, srcRow, tallyText, attachFollows, labelNode, retryPlan, planVerb, entryNote,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
 } from './core.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
 const chosen = (d) => dsts.some((x) => x.n === d.n);
+// The dropdown scrolls: up to MAX_MATCHES results.
+const MAX_MATCHES = 100;
 const boxes = {
-  src: { input: $('src'), menu: $('src-menu'), list: () => S.srcs, matches: [], hi: 0 },
+  src: { input: $('src'), list: () => S.srcs },
   // One entry per destination: chips already added don't come up again.
-  dst: { input: $('dst'), menu: $('dst-menu'), list: () => (dsts.length ? S.dsts.filter((d) => !chosen(d)) : S.dsts), matches: [], hi: 0 },
+  dst: { input: $('dst'), list: () => (dsts.length ? S.dsts.filter((d) => !chosen(d)) : S.dsts) },
 };
+for (const k of ['src', 'dst']) {
+  const b = boxes[k];
+  b.cb = combobox(b.input, $(`${k}-menu`), {
+    source: (text) => search(b.list(), text, MAX_MATCHES),
+    onPick: (it) => select(k, it),
+    foot: true,
+  });
+}
 const lvlInput = $('lvl');
-let lvlNone = false;  // picker cleared to no levels (blank box would mean default)
+const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { tips: true, onChange: () => renderTally() });
 let feedOpen = false; // "and N others" expanded
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 const expanded = new Set(); // history IDs showing their before state
 const openFolders = new Set(); // history groups showing their takes
-const entered = new Set();  // live entries already animated in
+const arrived = arrivals();
 
 // ---- connection
 
@@ -46,56 +57,7 @@ function renderConn() {
 }
 needsLink($('patch'));
 
-// ---- fuzzy finder
-
-// The dropdown scrolls: up to MAX_MATCHES results, about PAGE rows tall.
-const MAX_MATCHES = 100;
-const PAGE = 8;
-
-function refresh(k) {
-  const b = boxes[k];
-  b.matches = search(b.list(), b.input.value, MAX_MATCHES);
-  b.hi = 0;
-  renderMenu(k);
-  b.menu.scrollTop = 0;
-}
-
-function renderMenu(k) {
-  const b = boxes[k];
-  const open = b.matches.length > 0 && !sel[k];
-  b.menu.hidden = !open;
-  b.input.setAttribute('aria-expanded', String(open));
-  if (!open) { b.input.removeAttribute('aria-activedescendant'); return; }
-  b.menu.replaceChildren(...b.matches.map((it, i) => {
-    const li = el('li', 'pb-menu__item' + (i === b.hi ? ' active' : ''), el('span', 'sode__num', it.num), it.name);
-    li.id = `${k}-opt-${i}`;
-    li.setAttribute('role', 'option');
-    li.setAttribute('aria-selected', String(i === b.hi));
-    li.addEventListener('mousedown', (e) => { e.preventDefault(); b.hi = i; accept(k); });
-    return li;
-  }));
-  // A pinned count makes it clear the list scrolls.
-  if (b.matches.length > PAGE) {
-    const total = b.matches.total > b.matches.length ? `${b.matches.length}+` : b.matches.length;
-    const foot = el('li', 'sode__menu-count', `${total} matches · ↑↓ ${mac ? '⌥J ⌥K' : 'Alt+J Alt+K'} PgUp PgDn`);
-    foot.setAttribute('role', 'presentation');
-    b.menu.append(foot);
-  }
-  b.input.setAttribute('aria-activedescendant', `${k}-opt-${b.hi}`);
-}
-
-// Moves the highlight without redrawing, so the list keeps its scroll.
-function moveHi(k, to) {
-  const b = boxes[k];
-  const items = b.menu.querySelectorAll('[role="option"]');
-  items[b.hi]?.classList.remove('active');
-  items[b.hi]?.setAttribute('aria-selected', 'false');
-  b.hi = to;
-  items[b.hi].classList.add('active');
-  items[b.hi].setAttribute('aria-selected', 'true');
-  items[b.hi].scrollIntoView({ block: 'nearest' });
-  b.input.setAttribute('aria-activedescendant', `${k}-opt-${b.hi}`);
-}
+// ---- the boxes
 
 function select(k, it) {
   sel[k] = it;
@@ -103,17 +65,9 @@ function select(k, it) {
   const b = boxes[k];
   b.input.value = it ? it.label : '';
   b.input.classList.remove('pb-input--invalid');
-  b.matches = [];
-  renderMenu(k);
+  b.cb.close();
   if (k === 'dst') renderChips();
   renderTally();
-}
-
-function accept(k) {
-  const it = boxes[k].matches[boxes[k].hi];
-  if (!it) return false;
-  select(k, it);
-  return true;
 }
 
 // ---- destination chips
@@ -127,8 +81,8 @@ function addDst() {
   b.input.focus();
   if (!sel.dst) {
     if (!b.input.value.trim()) return;
-    if (!b.matches.length) refresh('dst');
-    if (!accept('dst')) { b.input.classList.add('pb-input--invalid'); return; }
+    if (!b.cb.open) b.cb.refresh();
+    if (!b.cb.accept()) { b.input.classList.add('pb-input--invalid'); return; }
   }
   if (!chosen(sel.dst)) dsts.push(sel.dst);
   select('dst', null);
@@ -176,7 +130,7 @@ const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]
 function renderLast() {
   if (!S.cfg) return;
   const t = lastTake();
-  const lv = parseLevels(lvlInput.value, lvlNone) || [];
+  const lv = lvl.levels() || [];
   const now = {
     src: t && !(sel.src && sel.src.n === t.src.n) && [labelNode(t.src)],
     dst: t && !sameList(allDsts().map((d) => d.n), t.dsts.map((d) => d.n)) &&
@@ -211,41 +165,9 @@ function useLast(k) {
     select('dst', t.dsts[t.dsts.length - 1]);
     focusBox(lvlInput);
   } else {
-    setLevels(t.levels);
+    lvl.set(t.levels);
     focusBox(lvlInput);
   }
-}
-
-// ---- level picker
-
-function setLevels(list) {
-  lvlNone = list.length === 0;
-  lvlInput.value = levelInput(list);
-  renderLevels();
-  renderTally();
-}
-
-function renderLevels() {
-  if (!S.cfg) return;
-  const list = parseLevels(lvlInput.value, lvlNone);
-  const on = new Set(list || []);
-  lvlInput.classList.toggle('pb-input--invalid', !list);
-  lvlInput.placeholder = lvlNone ? 'none' : defaultLevelsText();
-  for (const b of $('lvl-pick').children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
-  const full = on.size === S.levels.length;
-  const all = $('lvl-all');
-  all.textContent = full ? 'None' : 'All';
-  all.dataset.tip = full ? 'No levels' : 'All levels';
-  all.setAttribute('aria-label', all.dataset.tip);
-}
-
-function buildPicker() {
-  $('lvl-pick').replaceChildren(...pickButtons((ui) => {
-    const on = new Set(parseLevels(lvlInput.value, lvlNone) || []);
-    if (on.has(ui)) on.delete(ui);
-    else on.add(ui);
-    setLevels([...on].sort((x, y) => x - y));
-  }));
 }
 
 // ---- tally display
@@ -257,37 +179,15 @@ function renderTally() {
   const ds = allDsts();
   if (ds.length) return box.replaceChildren(...ds.flatMap(currentlyNodes));
   if (sel.src) {
-    const fed = fedBy(sel.src.n, parseLevels(lvlInput.value, lvlNone) || allLevels());
-    return box.replaceChildren(el('div', 'sode__label', 'Currently'), feedingRow(fed));
+    const fed = fedBy(sel.src.n, lvl.levels() || allLevels());
+    return box.replaceChildren(el('div', 'sode__label', 'Currently'), feeding(fed, {
+      open: feedOpen,
+      onToggle: () => { feedOpen = !feedOpen; renderTally(); },
+      onPick: (d) => { select('dst', dstItem(d)); lvlInput.focus(); },
+      empty: 'Not feeding any destination on these levels',
+    }));
   }
   box.replaceChildren();
-}
-
-function feedingRow(fed) {
-  if (!fed.length) return el('div', 'sode__route', 'Not feeding any destination on these levels');
-  if (feedOpen || fed.length <= 2) {
-    const list = el('div', 'sode__chips', ...fed.map((d) => {
-      const chip = el('button', 'pb-chip', dstLabel(d));
-      chip.type = 'button';
-      chip.title = 'Use as destination';
-      chip.addEventListener('click', () => { select('dst', dstItem(d)); lvlInput.focus(); });
-      return chip;
-    }));
-    const row = el('div', 'sode__feed', el('span', null, `Feeding ${fed.length} destination${fed.length === 1 ? '' : 's'}`), list);
-    if (fed.length > 2) {
-      const less = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Show less');
-      less.type = 'button';
-      less.setAttribute('aria-expanded', 'true');
-      less.addEventListener('click', () => { feedOpen = false; renderTally(); });
-      row.append(el('div', null, less));
-    }
-    return row;
-  }
-  const more = el('button', 'pb-btn pb-btn--ghost sode__more', `and ${fed.length - 2} others`);
-  more.type = 'button';
-  more.setAttribute('aria-expanded', 'false');
-  more.addEventListener('click', () => { feedOpen = true; renderTally(); });
-  return el('div', 'sode__route', `Feeding ${fed.slice(0, 2).map(dstLabel).join(', ')},`, more);
 }
 
 // ---- history
@@ -296,15 +196,10 @@ function histRow(e) {
   const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);
   const known = e.levels.filter((u) => S.levelBy.has(u));
 
-  const plan = undoPlan(e);
-  const btn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Undo');
-  btn.type = 'button';
-  btn.setAttribute('aria-label', `Undo ${src.label} to ${dst.label}`);
-  if (planEmpty(plan)) {
-    btn.disabled = true;
-    btn.title = 'Nothing to undo';
-  } else needsLink(btn);
-  btn.addEventListener('click', () => openConfirm(plan));
+  const btn = e.chain
+    ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, { text: `Undo ${e.chain.length}` })
+    : undoButton(undoPlan(e), `Undo ${src.label} to ${dst.label}`, openConfirm);
+  const retry = retryButton(!e.ok, `Retry ${src.label} to ${dst.label}`, () => openConfirm(retryPlan(e)), { placeholder: true });
 
   // Before: what the destination had on these levels just before the take.
   const open = expanded.has(e.id);
@@ -315,7 +210,7 @@ function histRow(e) {
     renderHistory();
   });
 
-  const row = el('li', 'pb-input sode__hist-row' + enterClass(e) + curClass(`e${e.id}`),
+  const row = el('li', 'pb-input sode__hist-row' + (arrived.entry(e) ? ' sode--enter' : '') + curClass(`e${e.id}`),
     el('span', 'sode__hist-id', `#${e.id}`),
     histTime(e.time),
     levelBar(known),
@@ -323,15 +218,14 @@ function histRow(e) {
       entryNote(e)),
     statusNode({ e }),
     toggle,
-    el('span', 'sode__hist-actions', retryButton(e, src, dst), btn));
+    el('span', 'sode__hist-actions', retry, btn));
   row.dataset.key = `e${e.id}`;
   if (open) {
     const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
     const detail = el('div', 'sode__hist-before',
-      ...(e.chain ? [el('div', 'sode__label', 'Changes'),
-        ...e.chain.map((c) => srcRow(lv(c.levels), `${fmtTime(c.time)}  ${srcItem(c.src, c.srcName).label}`))] : []),
-      el('div', 'sode__label', `Before #${e.chain ? e.chain[e.chain.length - 1].id : e.id}, on ${dst.label}`),
-      ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))),
+      ...(e.chain
+        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm)]
+        : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src)))]),
       ...(e.follows ? [el('div', 'sode__label', 'Followed by'),
         ...e.follows.map((f) => srcRow(lv(f.levels), `${dstItem(f.dst, f.dstName).label} ← ${srcItem(f.src, f.srcName).label}`))] : []));
     // Below 1000px the row's level bar moves in here (see sode.css).
@@ -342,15 +236,6 @@ function histRow(e) {
   return row;
 }
 
-function disclosure(open, label, controls, onToggle) {
-  const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__hist-toggle', chevron(open), label);
-  b.type = 'button';
-  b.setAttribute('aria-expanded', String(open));
-  b.setAttribute('aria-controls', controls);
-  b.addEventListener('click', onToggle);
-  return b;
-}
-
 // A folder: one confirm's takes under a summary row with the master status,
 // Undo all and (if any failed) Retry for the failed ones.
 function folderRow(f) {
@@ -359,26 +244,10 @@ function folderRow(f) {
   const title = folderTitle(f);
   const failed = f.entries.filter((e) => !e.ok).length;
 
-  const undo = el('button', 'pb-btn pb-btn--outline pb-btn--sm', folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
-  undo.type = 'button';
-  const plan = folderUndoPlan(f);
-  if (planEmpty(plan)) {
-    undo.disabled = true;
-    undo.title = 'Nothing to undo';
-  } else needsLink(undo);
-  undo.setAttribute('aria-label', `Undo all ${f.entries.length} takes of ${folderIds(f)}`);
-  undo.addEventListener('click', () => openConfirm(plan));
-
-  const retry = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (failed ? '' : ' sode__placeholder'), 'Retry');
-  retry.type = 'button';
-  if (failed) {
-    needsLink(retry);
-    retry.setAttribute('aria-label', `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`);
-    retry.addEventListener('click', () => openConfirm(folderRetryPlan(f)));
-  } else {
-    retry.tabIndex = -1;
-    retry.setAttribute('aria-hidden', 'true');
-  }
+  const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, openConfirm,
+    { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all' });
+  const retry = retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`,
+    () => openConfirm(folderRetryPlan(f)), { placeholder: true });
 
   const toggle = disclosure(open, `${f.shown.length}`, kidsId, () => {
     if (openFolders.has(f.group)) openFolders.delete(f.group);
@@ -388,11 +257,7 @@ function folderRow(f) {
   });
   toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
 
-  const fresh = f.entries.some((e) => e.id === S.newId) && !entered.has(f.group);
-  if (fresh) entered.add(f.group);
-  // A closed folder has used up the arrival; don't replay it on opening.
-  if (!open && f.entries.some((e) => e.id === S.newId)) entered.add(S.newId);
-  const row = el('li', 'pb-input sode__hist-row' + (fresh && !open ? ' sode--enter' : '') + curClass(`f${f.group}`),
+  const row = el('li', 'pb-input sode__hist-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + curClass(`f${f.group}`),
     el('span', 'sode__hist-id', folderIds(f)),
     histTime(f.entries[0].time),
     levelBar(folderLevels(f)),
@@ -418,28 +283,6 @@ function histTime(iso) {
 
 // Marks the keyboard cursor's row.
 const curClass = (key) => (key === cursor ? ' sode__hist-row--cur' : '');
-
-// Successful rows keep an invisible Retry so every row's columns line up.
-// A live entry animates in the first time it's drawn; nothing else does.
-function enterClass(e) {
-  if (e.id !== S.newId || entered.has(e.id)) return '';
-  entered.add(e.id);
-  return ' sode--enter';
-}
-
-function retryButton(e, src, dst) {
-  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (e.ok ? ' sode__placeholder' : ''), 'Retry');
-  b.type = 'button';
-  if (e.ok) {
-    b.tabIndex = -1;
-    b.setAttribute('aria-hidden', 'true');
-    return b;
-  }
-  needsLink(b);
-  b.setAttribute('aria-label', `Retry ${src.label} to ${dst.label}`);
-  b.addEventListener('click', () => openConfirm(retryPlan(e)));
-  return b;
-}
 
 const pager = historyPager(10, () => layout() === 'desktop');
 
@@ -663,8 +506,7 @@ $('keys-close').addEventListener('click', () => closeKeys());
 
 const KEYS = 'abcdefghjkmnpqrstuvwxyz';
 let lastKey = '';
-let pending = null; // plan + key
-let readyAt = 0;
+let pending = null; // plan + key + lock (a shallow copy: planBlocked's prot is keyed by its items)
 let confirmBack = null; // focus to return to when the confirm closes
 let confirmKeys = false; // keyboard mode was on when it opened
 let confirmFromHist = false; // opened from Recent (decided then: rows get redrawn)
@@ -674,8 +516,8 @@ function patchNow() {
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
     if (!sel[k] && b.input.value.trim()) {
-      if (!b.matches.length) refresh(k);
-      accept(k);
+      if (!b.cb.open) b.cb.refresh();
+      b.cb.accept();
     }
   }
   tryConfirm();
@@ -714,14 +556,14 @@ function tryConfirm() {
       return;
     }
   }
-  const levels = parseLevels(lvlInput.value, lvlNone);
+  const levels = lvl.levels();
   if (!levels) { lvlInput.classList.add('pb-input--invalid'); lvlInput.focus(); return; }
   openConfirm(patchPlan(sel.src, allDsts(), levels));
 }
 
 function openConfirm(plan) {
-  const blocked = planBlocked(plan);
-  if (blocked) return showResult(blocked.kind, blocked.title, blocked.text);
+  const { block, prot } = planBlocked(plan);
+  if (block) return showResult(block.kind, block.title, block.text);
   let key;
   do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
   lastKey = key;
@@ -734,10 +576,8 @@ function openConfirm(plan) {
   const verb = planVerb(plan);
   const Verb = verb[0].toUpperCase() + verb.slice(1);
   $('confirm-title').textContent = `Confirm ${verb}`;
-  const summary = planSummary(plan);
-  summary.find((n) => n.classList?.contains('sode__plan-extra'))?.querySelector('.pb-check__label').append(' (Space)');
   $('confirm-body').replaceChildren(
-    ...summary,
+    ...planSummary(plan, { prot, spaceHint: true }),
     el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
   );
   $('confirm-ok').textContent = `${Verb} (${key.toUpperCase()})`;
@@ -745,13 +585,10 @@ function openConfirm(plan) {
   $('confirm').hidden = false;
   $('confirm-dialog').focus();
 
-  readyAt = performance.now() + S.cfg.confirmLockoutMs;
-  setTimeout(() => {
-    if (pending && pending.key === key) {
-      keyEl.classList.remove('sode__key--locked');
-      $('confirm-ok').disabled = false;
-    }
-  }, S.cfg.confirmLockoutMs);
+  pending.lock = lockout(() => {
+    keyEl.classList.remove('sode__key--locked');
+    $('confirm-ok').disabled = false;
+  });
 }
 
 // Focus goes back where the confirm was opened from. Keyboard mode only if
@@ -770,6 +607,7 @@ function histArea(n) {
 
 function closeConfirm(viaKeys = false) {
   const patch = pending?.verb === 'patch';
+  pending?.lock.cancel();
   pending = null;
   $('confirm').hidden = true;
   if (patch) lvlInput.focus();
@@ -778,6 +616,7 @@ function closeConfirm(viaKeys = false) {
 
 function doTake(viaKeys = false) {
   const p = pending;
+  p.lock.cancel();
   pending = null;
   $('confirm').hidden = true;
   // Only a patch came from the boxes; an undo or retry leaves them be.
@@ -796,11 +635,10 @@ function onConfirmKey(e) {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   // Space ticks the box that adds an undo's follows.
   if (e.key === ' ' && pending.extra) {
-    const box = $('confirm-body').querySelector('.sode__plan-extra input');
-    if (box) { box.checked = !box.checked; pending.extra.on = box.checked; }
+    $('confirm-body').querySelector('.sode__plan-extra input')?.click();
     return;
   }
-  if (performance.now() < readyAt) return;
+  if (!pending.lock.ready()) return;
   if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake(true);
 }
 
@@ -809,9 +647,7 @@ function onConfirmKey(e) {
 function clearAll() {
   dsts = [];
   for (const k of ['src', 'dst']) select(k, null);
-  lvlInput.value = '';
-  lvlNone = false;
-  renderLevels();
+  lvl.clear();
   renderTally();
   boxes.src.input.focus();
 }
@@ -822,12 +658,12 @@ for (const k of ['src', 'dst']) {
     sel[k] = null;
     if (k === 'src') feedOpen = false;
     b.input.classList.remove('pb-input--invalid');
-    refresh(k);
+    b.cb.refresh();
     renderTally();
   });
-  b.input.addEventListener('blur', () => { b.matches = []; renderMenu(k); });
+  b.input.addEventListener('blur', () => b.cb.close());
   // Coming back to unconfirmed text reopens its matches.
-  b.input.addEventListener('focus', () => { if (!sel[k]) refresh(k); });
+  b.input.addEventListener('focus', () => { if (!sel[k]) b.cb.refresh(); });
 }
 // Focusing a box brings the page back to the top (Settings → This device),
 // so it isn't left off-screen after scrolling down Recent.
@@ -845,14 +681,6 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
     }
   });
 }
-lvlInput.addEventListener('input', () => { lvlNone = false; renderLevels(); renderTally(); });
-
-// Picker buttons act without taking focus, so typing carries on in place.
-for (const id of ['lvl-pick', 'lvl-all']) $(id).addEventListener('mousedown', (e) => e.preventDefault());
-$('lvl-all').addEventListener('click', () => {
-  const full = (parseLevels(lvlInput.value, lvlNone) || []).length === S.levels.length;
-  setLevels(full ? [] : allLevels());
-});
 
 document.addEventListener('keydown', (e) => {
   if (pending) return onConfirmKey(e);
@@ -898,20 +726,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Option/Alt+J/K move like ↓/↑. Matched by e.code because Option
-  // changes e.key on macOS.
-  const altJK = e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code];
-  const nav = altJK || e.key;
-  if (b && altJK && b.menu.hidden) { e.preventDefault(); return; } // not ∆ or ˚ in the box
-  if (b && !b.menu.hidden && ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp'].includes(nav)) {
-    e.preventDefault();
-    const n = b.matches.length;
-    if (nav === 'ArrowDown') moveHi(k, (b.hi + 1) % n);
-    else if (nav === 'ArrowUp') moveHi(k, (b.hi + n - 1) % n);
-    else if (e.key === 'PageDown') moveHi(k, Math.min(n - 1, b.hi + PAGE));
-    else moveHi(k, Math.max(0, b.hi - PAGE));
-    return;
-  }
+  // The match list's keys: ↑/↓, PgUp/PgDn, Alt+J/K.
+  if (b && b.cb.nav(e)) return;
   // + adds another destination; Ctrl/Cmd + is left for zoom.
   if (k === 'dst' && e.key === '+' && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
@@ -926,7 +742,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Tab') {
     // Leaving a box either way takes its best match, like Enter does.
-    if (b && !sel[k] && b.input.value.trim() && !accept(k)) {
+    if (b && !sel[k] && b.input.value.trim() && !b.cb.accept()) {
       e.preventDefault();
       b.input.classList.add('pb-input--invalid');
       return;
@@ -951,13 +767,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') {
-    if (b && !b.menu.hidden) { b.matches = []; renderMenu(k); return; }
+    if (b && b.cb.open) { b.cb.close(); return; }
     if (e.target.value) {
       if (k) select(k, null);
-      else e.target.value = '';
-      renderLevels();
+      else lvl.clear();
       renderTally();
-    } else if (!dsts.length && !boxes.src.input.value && !boxes.dst.input.value && !lvlInput.value && !lvlNone) {
+    } else if (!dsts.length && !boxes.src.input.value && !boxes.dst.input.value && lvl.empty()) {
       enterKeys(); // Esc with everything empty: keyboard mode
     } else {
       clearAll();
@@ -971,22 +786,19 @@ $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep foc
 $('patch').addEventListener('click', patchNow);
 $('confirm-cancel').addEventListener('click', () => closeConfirm());
 $('confirm-ok').addEventListener('click', () => {
-  if (pending && performance.now() >= readyAt) doTake();
+  if (pending && pending.lock.ready()) doTake();
 });
 
 // ---- subscriptions
 
 on('hello', () => {
   pager.reset();
-  lvlInput.value = relabelLevels(lvlInput.value);
-  lvlInput.placeholder = defaultLevelsText();
-  buildPicker();
-  renderLevels();
+  lvl.reset();
   renderTally();
   renderHistory();
 });
 on('names', () => {
-  for (const k of ['src', 'dst']) if (document.activeElement === boxes[k].input && !sel[k]) refresh(k);
+  for (const k of ['src', 'dst']) if (document.activeElement === boxes[k].input && !sel[k]) boxes[k].cb.refresh();
   renderTally();
 });
 on('tally', renderTally);
