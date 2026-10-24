@@ -29,6 +29,11 @@ services:
     image: swp08sim
     profiles: ["sim"]
     ports: ["8910:8910"]
+    environment:
+      # Seconds between routes made by the simulator itself, like a panel; 0 = off.
+      SIM_PANEL_SECONDS: ${SIM_PANEL_SECONDS:-0}
+      # Destination follows, 0-based dst>dst, e.g. 2>40,3>41.
+      SIM_FOLLOWS: ${SIM_FOLLOWS:-}
 
 volumes:
   sode-data:

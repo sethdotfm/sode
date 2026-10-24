@@ -1,6 +1,8 @@
 // Shared state, the connection to Sode, and helpers used by both layouts.
 // Views subscribe with on(event, fn) and render from S.
 
+import { filterFn } from './filter.js';
+
 export const $ = (id) => document.getElementById(id);
 
 // el('div', 'cls', child, 'text', …) — builds DOM without innerHTML so
@@ -28,7 +30,9 @@ function cutOff(n) {
     const cs = getComputedStyle(n);
     if (n.dataset.hint && cs.getPropertyValue('--sode-hint').trim() === 'on') return { n, text: n.dataset.hint };
     if (cs.textOverflow !== 'ellipsis' || cs.overflowX === 'visible') continue;
-    if (n.title || n.scrollWidth <= n.clientWidth) return null;
+    // A pixel's slack: Chrome rounds an input's scrollWidth up past text
+    // that fits.
+    if (n.title || n.scrollWidth <= n.clientWidth + 1) return null;
     const text = (n instanceof HTMLInputElement ? n.value : n.textContent).replace(/\s+/g, ' ').trim();
     return text ? { n, text } : null;
   }
@@ -86,17 +90,25 @@ export const S = {
 
 const listeners = {};
 export const on = (ev, fn) => { (listeners[ev] ||= []).push(fn); };
-const emit = (ev, ...args) => { for (const fn of listeners[ev] || []) fn(...args); };
+const ROWS_CHANGE = new Set(['history', 'filters', 'search', 'names', 'hello']);
+let rowsCache = null; // see histRows
+const emit = (ev, ...args) => {
+  if (ROWS_CHANGE.has(ev)) rowsCache = null;
+  for (const fn of listeners[ev] || []) fn(...args);
+};
 
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
-function item(n, name) {
+export function item(n, name) {
   const num = String(n + off());
   return { n, name, num, lname: name.toLowerCase(), label: name ? `${num} ${name}` : num };
 }
 export const srcItem = (n, name = '') => S.srcBy.get(n) || item(n, name);
 export const dstItem = (n, name = '') => S.dstBy.get(n) || item(n, name);
 export const srcLabel = (n) => srcItem(n).label;
+// A source or destination as rows and confirms show it: the number muted
+// and fixed-width, so it can't run into a name that starts with a digit.
+export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', it.num), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n) => dstItem(n).label;
 // Tally source text: null = never reported, -1 = router says nothing routed.
 export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
@@ -158,6 +170,7 @@ function handle(m) {
       setStatus(m.status);
       S.hist = m.recent || [];
       S.histMore = m.more;
+      followGlobal();
       emit('hello');
       emit('conn');
       break;
@@ -184,6 +197,15 @@ function handle(m) {
     case 'unlockResult':
       emit('unlockResult', m);
       break;
+    case 'filterSetsResult':
+      emit('filterSetsResult', m);
+      break;
+    case 'filterSets': // the sets for everyone changed: just those, not a fresh snapshot
+      S.cfg = { ...S.cfg, filterSets: m.sets };
+      followGlobal();
+      emit('filters');
+      emit('history');
+      break;
     case 'locked':
       emit('locked');
       break;
@@ -206,6 +228,14 @@ function handle(m) {
       emit('history');
       break;
     case 'history': {
+      // Asked for before a cleared search trimmed history: it would land
+      // after a gap, so it's dropped.
+      if (dropPage) {
+        dropPage = false;
+        S.histLoading = false;
+        emit('history');
+        break;
+      }
       const last = S.hist.length ? S.hist[S.hist.length - 1].id : Infinity;
       S.hist.push(...m.entries.filter((e) => e.id < last));
       S.histMore = m.more;
@@ -680,9 +710,25 @@ export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
   items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], undo: null, retry: null })),
 });
-export const undoPlan = (e) => ({ verb: 'undo', items: [undoItem(e)] });
+// e with the loaded changes that followed it, as histRows attaches them.
+export function attachFollows(e) {
+  const follows = S.hist.filter((x) => x.follow === e.id);
+  return follows.length ? { ...e, follows } : e;
+}
+
+// Follows (changes the router made after a take, see histRows) are left
+// out of an undo unless the confirm's box is ticked: extra.on. extra is
+// shared by copies of the plan, so the box works on whichever is sent.
+// A destination followed more than once (a merged row) goes back to before
+// the oldest follow: one undo each, not several racing.
+function withFollows(plan, follows) {
+  const oldest = new Map();
+  for (const f of follows) if (!oldest.has(f.dst) || f.id < oldest.get(f.dst).id) oldest.set(f.dst, f);
+  return oldest.size ? { ...plan, extra: { items: [...oldest.values()].map(undoItem), on: false } } : plan;
+}
+export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
 export const retryPlan = (e) => ({ verb: 'retry', items: [retryItem(e)] });
-export const folderUndoPlan = (f) => ({ verb: 'undo', items: f.entries.map(undoItem) });
+export const folderUndoPlan = (f) => withFollows({ verb: 'undo', items: f.entries.map(undoItem) }, f.entries.flatMap((e) => e.follows || []));
 export const folderRetryPlan = (f) => ({ verb: 'retry', items: f.entries.filter((e) => !e.ok).map(retryItem) });
 // Undo for a history row: a single entry or a whole folder.
 export const rowUndoPlan = (row) => (row.f ? folderUndoPlan(row.f) : undoPlan(row.e));
@@ -710,29 +756,326 @@ export function beforeGroups(e) {
 // " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
   const parts = [];
+  if (e.merged > 1) parts.push(`${e.merged} changes`);
+  if (e.follows?.length) parts.push(`+${e.follows.length} follow${e.follows.length === 1 ? '' : 's'}`);
+  if (e.follow != null) parts.push(`follow of #${e.follow}`);
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
   return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }
 
+// ---- Recent filters, per browser (edited in filters.js): which kinds of
+// entry show, and filter expressions (filter.js) for sources and
+// destinations. hidden shows changes made elsewhere to Settings' globally
+// hidden destinations.
+
+const FILTER_KEY = 'sode-filter';
+export const FILTER_DEFAULT = Object.freeze({ src: '', dst: '', sode: true, ext: true, hidden: false });
+export const normFilter = (f) => ({
+  src: String(f?.src ?? ''), dst: String(f?.dst ?? ''),
+  sode: f?.sode !== false, ext: f?.ext !== false, hidden: f?.hidden === true,
+});
+
+function loadFilter() {
+  let f = {};
+  try {
+    f = JSON.parse(localStorage.getItem(FILTER_KEY) || '{}') || {};
+    // The first beta's one setting: 'none' or 'all' other panels.
+    const old = localStorage.getItem('sode-ext');
+    if (old) {
+      if (old === 'none') f.ext = false;
+      if (old === 'all') f.hidden = true;
+      localStorage.removeItem('sode-ext');
+      localStorage.setItem(FILTER_KEY, JSON.stringify(f));
+    }
+  } catch (e) {}
+  return normFilter(f);
+}
+
+const anything = () => true;
+let filter = loadFilter();
+// Matchers for the expressions; one that doesn't parse keeps the last good one.
+let srcOk = filterFn(filter.src) || anything;
+let dstOk = filterFn(filter.dst) || anything;
+
+export const filterState = () => ({ ...filter });
+
+// How many parts of the filter differ from the default, for the button.
+export const filterCount = () => ['src', 'dst'].filter((k) => filter[k].trim()).length +
+  ['sode', 'ext', 'hidden'].filter((k) => filter[k] !== FILTER_DEFAULT[k]).length;
+
+export function setFilter(next) {
+  filter = normFilter(next);
+  srcOk = filterFn(filter.src) || srcOk;
+  dstOk = filterFn(filter.dst) || dstOk;
+  try {
+    if (!filterCount()) localStorage.removeItem(FILTER_KEY);
+    else localStorage.setItem(FILTER_KEY, JSON.stringify(filter));
+  } catch (e) {}
+  emit('filters');
+  emit('history');
+}
+
+// ---- named filter sets: the built-in All, global ones from Settings
+// (cfg.filterSets) and this browser's own. The active set is remembered
+// with the filter it had when picked (base), so a global set changed in
+// Settings carries browsers along, unless they've edited it since.
+
+const SETS_KEY = 'sode-filter-sets';
+const ACTIVE_KEY = 'sode-filter-active';
+const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
+const writeJSON = (k, v) => {
+  try {
+    if (v == null) localStorage.removeItem(k);
+    else localStorage.setItem(k, JSON.stringify(v));
+  } catch (e) {}
+};
+
+export const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT)
+  .every((k) => (typeof a[k] === 'string' ? a[k].trim() === b[k].trim() : a[k] === b[k]));
+export const globalSets = () => (S.cfg?.filterSets || []).map((s) => ({ scope: 'global', name: s.name, f: normFilter(s) }));
+export const localSets = () => [].concat(readJSON(SETS_KEY, [])).filter((s) => s?.name)
+  .map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
+export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...localSets()];
+// Names are unique per scope whatever the case, so a set renamed only in
+// case is still the same set.
+const findSet = (scope, name) => allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase());
+const saveLocals = (list) => writeJSON(SETS_KEY, list.length ? list.map(({ name, f }) => ({ name, f })) : null);
+
+let active = readJSON(ACTIVE_KEY, null); // { scope, name, base }
+
+// The active set, with edited = the filter differs from it now; or null.
+export function activeSet() {
+  const s = active && findSet(active.scope, active.name);
+  return s ? { ...s, edited: !sameFilter(filter, s.f) } : null;
+}
+
+// The active set as stored, and a filter to use with it (null: no set),
+// for putting things back as they were.
+export const activeRef = () => active && { ...active };
+export function adoptFilter(f, ref = null) {
+  active = ref;
+  writeJSON(ACTIVE_KEY, active);
+  setFilter(f);
+}
+
+export function pickSet(scope, name) {
+  const s = findSet(scope, name);
+  if (!s) return;
+  active = { scope, name, base: s.f };
+  writeJSON(ACTIVE_KEY, active);
+  setFilter(s.f);
+}
+
+// The filter now, as this browser's set `name` (replacing one of that name,
+// any case), which becomes the active one.
+export function saveLocalSet(name) {
+  const list = localSets().filter((s) => s.name.toLowerCase() !== name.toLowerCase());
+  list.push({ scope: 'local', name, f: filterState() });
+  saveLocals(list);
+  active = { scope: 'local', name, base: filterState() };
+  writeJSON(ACTIVE_KEY, active);
+  emit('filters');
+}
+
+export function renameLocalSet(old, name) {
+  saveLocals(localSets().map((s) => (s.name === old ? { ...s, name } : s)));
+  if (active?.scope === 'local' && active.name === old) {
+    active = { ...active, name };
+    writeJSON(ACTIVE_KEY, active);
+  }
+  emit('filters');
+}
+
+export function deleteLocalSet(name) {
+  saveLocals(localSets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()));
+  if (active?.scope === 'local' && active.name.toLowerCase() === name.toLowerCase()) {
+    active = null;
+    writeJSON(ACTIVE_KEY, null);
+  }
+  emit('filters');
+}
+
+// After a hello: follow a global set that changed in Settings, unless this
+// browser changed the filter since picking it.
+function followGlobal() {
+  const s = active?.scope === 'global' && findSet('global', active.name);
+  if (!s || sameFilter(s.f, active.base) || !sameFilter(filter, active.base)) return;
+  active.base = s.f;
+  active.name = s.name;
+  writeJSON(ACTIVE_KEY, active);
+  setFilter(s.f);
+}
+
+// "Dst: MV, !20-60 · No Sode takes", for titles and lists.
+export function filterSummary(f) {
+  const parts = [];
+  if (f.src.trim()) parts.push(`Src: ${f.src.trim()}`);
+  if (f.dst.trim()) parts.push(`Dst: ${f.dst.trim()}`);
+  if (!f.sode) parts.push('No Sode takes');
+  if (!f.ext) parts.push('No other panels');
+  else if (f.hidden) parts.push('With hidden');
+  return parts.join(' · ') || 'Everything';
+}
+
+// The globally hidden destinations, compiled once per expression. Blank
+// (or one that doesn't parse) hides nothing.
+let hiddenText = null, hiddenFn = null;
+export function globallyHidden(num, name) {
+  const t = (S.cfg?.hiddenDsts || '').trim();
+  if (t !== hiddenText) { hiddenText = t; hiddenFn = t ? filterFn(t) : null; }
+  return !!hiddenFn && hiddenFn(num, name);
+}
+
+// Whether this browser's filters let a history entry show.
+// ---- quick search: source and destination boxes above Recent, for
+// auditing. Not kept. It reads back through the whole log and, unless this
+// browser's setting says otherwise, ignores the filters.
+
+const SEARCH_KEY = 'sode-search-filters';
+let query = { src: '', dst: '' };
+let searchSrc = anything, searchDst = anything;
+
+export const searchState = () => ({ ...query });
+export const searchActive = () => !!(query.src.trim() || query.dst.trim());
+// Errors per box for text that doesn't parse (the last good one applies).
+export function setSearch(next) {
+  const was = searchActive();
+  query = { src: String(next.src ?? ''), dst: String(next.dst ?? '') };
+  if (was && !searchActive()) trimHist();
+  searchSrc = filterFn(query.src, { fuzzy: true }) || searchSrc;
+  searchDst = filterFn(query.dst, { fuzzy: true }) || searchDst;
+  emit('search');
+  emit('history');
+}
+// Read once: it's asked for every entry while filtering.
+let respects = (() => { try { return localStorage.getItem(SEARCH_KEY) === 'on'; } catch (e) { return false; } })();
+export const searchRespectsFilters = () => respects;
+export function setSearchRespectsFilters(on) {
+  respects = !!on;
+  try {
+    if (on) localStorage.setItem(SEARCH_KEY, 'on');
+    else localStorage.removeItem(SEARCH_KEY);
+  } catch (e) {}
+  emit('history');
+}
+
+// A search reads far back through the log; once it's cleared, drop all
+// but the newest entries again (whole groups), so Recent doesn't keep
+// reworking thousands of them.
+const KEEP_AFTER_SEARCH = 200;
+let dropPage = false; // the page in flight is for before the trim
+function trimHist() {
+  let n = KEEP_AFTER_SEARCH;
+  if (S.hist.length <= n) return;
+  dropPage = S.histLoading;
+  const g = S.hist[n - 1].group;
+  while (g && n < S.hist.length && S.hist[n].group === g) n++;
+  S.hist = S.hist.slice(0, n);
+  S.histMore = true;
+}
+
+// Whether a search finds e: its route, or one of its follows'. Names are
+// the router's now and the ones logged with the entry, which differ when
+// names changed (or another router is connected).
+function found(e) {
+  const either = (fn, n, now, then) => fn(n + off(), now) || (!!then && then !== now && fn(n + off(), then));
+  const hit = (x) => either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName) &&
+    either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
+  return hit(e) || !!e.follows?.some(hit);
+}
+
+function passes(e) {
+  if (searchActive()) {
+    if (!found(e)) return false;
+    if (!searchRespectsFilters()) return true;
+  }
+  if (e.ext ? !filter.ext : !filter.sode) return false;
+  const s = srcItem(e.src, e.srcName), d = dstItem(e.dst, e.dstName);
+  const sn = e.src + off(), dn = e.dst + off();
+  if (e.ext && !filter.hidden && globallyHidden(dn, d.name)) return false;
+  return srcOk(sn, s.name) && dstOk(dn, d.name);
+}
+
+// Changes made elsewhere to one destination on the same levels, each
+// within this long of the next, show as one row (a monitor punched about).
+const MERGE_MS = 30000;
+
 // History as rows, newest first: { e } for a take on its own, or { f } for
 // a folder holding the takes of one multi-take confirm. A folder sits
-// where its newest take is.
+// where its newest take is. Repeated changes made elsewhere are merged
+// into one { e }: the newest, with the oldest's prev (so Before and Undo
+// go back to before the first) and merged = how many. Entries this
+// browser's filters hide are left out; a folder shows if any of its takes
+// pass, with those in f.shown (f.entries keeps them all, for Undo all).
+// histRows is asked for several times per redraw (both pagers, the
+// search count, keyboard moves), so its answer is kept (rowsCache) until
+// history, filters, search or names change.
 export function histRows(list) {
+  const c = rowsCache;
+  if (c && c.list === list && c.len === list.length && c.first === list[0]) return c.rows;
+  const rows = buildRows(list);
+  rowsCache = { list, len: list.length, first: list[0], rows };
+  return rows;
+}
+
+function buildRows(list) {
   const rows = [];
   const folders = new Map();
+  const chains = new Map(); // dst → { k: levels, row, t: oldest time, list: entries merged }
+  // Follows go with the take they followed, as e.follows, when it's loaded
+  // and shown. One whose take the filters hide stands on its own, if it
+  // passes them itself.
+  const byId = new Map(list.map((e) => [e.id, e]));
+  const followsOf = new Map();
   for (const e of list) {
-    if (!e.group || e.groupN < 2) { rows.push({ e }); continue; }
+    if (e.follow == null || !byId.has(e.follow)) continue;
+    if (!followsOf.has(e.follow)) followsOf.set(e.follow, []);
+    followsOf.get(e.follow).push(e);
+  }
+  for (const [id, fs] of followsOf) {
+    if (!passes({ ...byId.get(id), follows: fs })) followsOf.delete(id);
+  }
+  const attached = new Set([...followsOf.values()].flat());
+  for (const orig of list) {
+    if (attached.has(orig)) {
+      chains.delete(orig.dst);
+      continue;
+    }
+    const e = followsOf.has(orig.id) ? { ...orig, follows: followsOf.get(orig.id) } : orig;
+    // Merge into the row above if it's a change made elsewhere to the same
+    // destination and levels, with nothing else on that destination between.
+    // chain keeps what was merged, newest first.
+    const solo = !e.group || e.groupN < 2;
+    const k = e.levels.join(',');
+    const t = Date.parse(e.time);
+    const c = chains.get(e.dst);
+    if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
+      c.list.push(orig);
+      const follows = [...(c.row.e.follows || []), ...(e.follows || [])];
+      c.row.e = { ...c.row.e, prev: e.prev, merged: c.list.length, chain: c.list, ...(follows.length ? { follows } : {}) };
+      c.t = t;
+      continue;
+    }
+    chains.delete(e.dst);
+    if (solo) {
+      if (!passes(e)) continue;
+      const row = { e };
+      if (e.ext && e.follow == null) chains.set(e.dst, { k, row, t, list: [orig] });
+      rows.push(row);
+      continue;
+    }
     let f = folders.get(e.group);
     if (!f) {
-      f = { group: e.group, n: e.groupN, entries: [] };
+      f = { group: e.group, n: e.groupN, entries: [], shown: [] };
       folders.set(e.group, f);
       rows.push({ f });
     }
     f.entries.push(e);
+    if (passes(e)) f.shown.push(e);
   }
-  return rows;
+  return rows.filter((r) => !r.f || r.f.shown.length);
 }
 
 // A folder's takes arrive one by one as each finishes; one still filling
@@ -747,6 +1090,7 @@ export function folderStatus(f) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
   const title = got < f.n ? `${got} of ${f.n} loaded` : '';
+  if (f.entries.every((e) => e.ext)) return { dot: 'info', text: 'panel', title: title || 'From another panel' };
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
@@ -754,7 +1098,9 @@ export function folderStatus(f) {
 
 // A pb-status node for a single take or a folder.
 export function statusNode(row) {
-  const st = row.f ? folderStatus(row.f) : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
+  const st = row.f ? folderStatus(row.f)
+    : row.e.ext ? { dot: 'info', text: 'panel', title: 'From another panel' }
+    : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');
   const node = el('span', 'pb-status', dot, el('span', 'sode__status-text', st.text));
@@ -769,11 +1115,17 @@ export function folderTitle(f) {
   const srcs = [...new Set(f.entries.map((e) => e.src))];
   const dsts = [...new Set(f.entries.map((e) => e.dst))];
   const strong = (t) => el('strong', null, t);
-  const src = srcs.length === 1 ? srcItem(srcs[0], f.entries[0].srcName).label : `${srcs.length} sources`;
-  const dst = dsts.length === 1 ? dstItem(dsts[0], f.entries[0].dstName).label : `${dsts.length} destinations`;
+  const src = srcs.length === 1 ? labelNode(srcItem(srcs[0], f.entries[0].srcName)) : `${srcs.length} sources`;
+  const dst = dsts.length === 1 ? labelNode(dstItem(dsts[0], f.entries[0].dstName)) : `${dsts.length} destinations`;
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
-  return [strong(src), ' → ', strong(dst), kind ? el('span', 'sode__hist-note', ` (${kind})`) : null].filter(Boolean);
+  const follows = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
+  const notes = [kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+    follows && `+${follows} follow${follows === 1 ? '' : 's'}`].filter(Boolean);
+  return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
+
+// Filters hide some of a folder's takes (Undo all still covers them all).
+export const folderPartial = (f) => !!f.shown && f.shown.length < f.entries.length;
 
 // Every level a folder's takes touched.
 export const folderLevels = (f) => [...new Set(f.entries.flatMap((e) => e.levels))].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b);
@@ -785,22 +1137,42 @@ export function folderIds(f) {
 }
 
 // Asks for the next page of history. True if a request went out.
-export function requestHistory() {
+export function requestHistory(n = 0) {
   if (!S.histMore || S.histLoading || !S.hist.length) return false;
-  S.histLoading = wsSend({ t: 'history', before: S.hist[S.hist.length - 1].id });
+  S.histLoading = wsSend({ t: 'history', before: S.hist[S.hist.length - 1].id, ...(n ? { n } : {}) });
   return S.histLoading;
 }
 
+// Pages list() fetches by itself to fill a short page: a few normally, and
+// big ones far back while searching.
+const AUTO_PAGES = 5;
+const SEARCH_PAGES = 40;
+const SEARCH_PAGE = 500;
+
 // Shows history `step` rows at a time. more() reveals the next step,
 // fetching another page from Sode once the loaded entries run out.
-export function historyPager(step) {
+// visible: whether this pager's layout is the one showing; the hidden
+// one doesn't fetch.
+export function historyPager(step, visible = () => true) {
+  const cap = () => (searchActive() ? SEARCH_PAGES : AUTO_PAGES);
   const pg = {
     shown: step,
-    reset() { pg.shown = step; },
-    list: () => histRows(S.hist).slice(0, pg.shown),
+    auto: 0, // pages fetched by list() since the last reset or more()
+    reset() { pg.shown = step; pg.auto = 0; },
+    list() {
+      const rows = histRows(S.hist);
+      // Hidden entries can leave a page short: fetch a few more pages to
+      // fill it, then leave the rest to Load more.
+      const s = searchActive();
+      if (visible() && rows.length < pg.shown && pg.auto < cap() && requestHistory(s ? SEARCH_PAGE : 0)) pg.auto++;
+      return rows.slice(0, pg.shown);
+    },
+    // Whether more is on its way without Load more being pressed.
+    fetching: () => S.histLoading || (visible() && S.histMore && histRows(S.hist).length < pg.shown && pg.auto < cap()),
     hasMore: () => histRows(S.hist).length > pg.shown || S.histMore,
     more() {
       pg.shown += step;
+      pg.auto = 0;
       if (histRows(S.hist).length < pg.shown) requestHistory();
       emit('history');
     },
@@ -814,18 +1186,21 @@ export function historyPager(step) {
       return b;
     },
   };
+  on('filters', () => { pg.auto = 0; }); // a new filter may need older pages
+  on('search', () => { pg.auto = 0; });
   return pg;
 }
 
 // ---- results
 
+// text: a string, or a function building nodes (each layout renders its own).
 export function showResult(kind, title, text) {
   S.result = { kind, title, text };
   emit('result', S.result);
 }
 
 export function resultNode(r) {
-  return el('div', `pb-alert pb-alert--${r.kind}`, el('div', null, el('div', 'pb-alert__title', r.title), r.text));
+  return el('div', `pb-alert pb-alert--${r.kind}`, el('div', null, el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text));
 }
 
 // "A → B (levels 1–3; 2 was already on A)" for one take.
@@ -889,15 +1264,16 @@ export function planBlocked(plan) {
 function planQuestion(plan) {
   const strong = (t) => el('strong', null, t);
   const n = plan.items.length;
-  const to = n === 1 ? ['Destination ', strong(plan.items[0].dst.label)] : [strong(`${n} destinations`)];
+  const to = n === 1 ? ['Destination ', strong(labelNode(plan.items[0].dst))] : [strong(`${n} destinations`)];
+  const uniq = (its) => [...new Map(its.map((it) => [it.n, it])).values()];
   if (plan.verb === 'undo') {
-    const srcs = [...new Set(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName).label))];
-    return el('div', null, 'Are you sure you want to undo the take of ', srcs.length === 1 ? strong(srcs[0]) : `${srcs.length} sources`,
+    const srcs = uniq(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName)));
+    return el('div', null, 'Are you sure you want to undo the take of ', srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`,
       ' to ', ...to, '?');
   }
-  const srcs = [...new Set(plan.items.flatMap((i) => i.groups.map((g) => g.src.label)))];
+  const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
   return el('div', null, `Are you sure you want to ${plan.verb === 'retry' ? 'retry taking' : 'take'} `,
-    ...(srcs.length === 1 ? ['Source ', strong(srcs[0])] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
+    ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
 // One destination's part of a confirm: new routes, then what they replace.
@@ -905,7 +1281,7 @@ function itemSummary(item, boxed) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
   return [
-    ...item.groups.map((g) => routeRow(g.levels, g.src.label, item.dst.label)),
+    ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
     item.prot
       ? el('div', 'sode__route', levelBar(item.prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
         `by device ${item.prot.devices.join(', ')}; will be refused`)
@@ -923,20 +1299,35 @@ function itemSummary(item, boxed) {
 // and what they replace. With several destinations each gets its own
 // block, headed by its name, so the groups are easy to tell apart.
 export function planSummary(plan) {
-  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false)];
+  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false), extraBox(plan)].filter(Boolean);
   return [
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
-      el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, i.dst.label)),
+      el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
       ...itemSummary(i, true))),
-  ];
+    extraBox(plan),
+  ].filter(Boolean);
+}
+
+// The box that adds an undo's follows, or null.
+function extraBox(plan) {
+  const x = plan.extra;
+  if (!x) return null;
+  const n = x.items.length;
+  const names = x.items.map((i) => i.dst.label);
+  const c = el('input', 'pb-check__input');
+  c.type = 'checkbox';
+  c.checked = x.on;
+  c.addEventListener('change', () => { x.on = c.checked; });
+  return el('label', 'pb-check sode__plan-extra', c, el('span', 'pb-check__label',
+    `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}`));
 }
 
 // Sends every take in a plan as one batch. False if the connection is gone.
 export function sendTakes(p) {
   const batch = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
-  for (const it of p.items) {
+  for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {
     for (const g of it.groups) {
       const id = ++takeSeq;
       const msg = { id, src: g.src.n, dst: it.dst.n, levels: g.levels };

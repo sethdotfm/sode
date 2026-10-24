@@ -4,11 +4,12 @@
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelInput, defaultLevelsText, relabelLevels, levelBar, pickButtons,
   allLevels, fedBy, dstItem, dstLabel, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
-  beforeGroups, srcRow, tallyText, retryPlan, planVerb, entryNote, chevron,
-  histRows, statusNode, folderTitle, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
+  beforeGroups, srcRow, tallyText, attachFollows, fmtTime, labelNode, retryPlan, planVerb, entryNote, chevron,
+  statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
 } from './core.js';
 import { layout } from './layout.js';
+import { openFilters, emptyNote } from './filters.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -151,6 +152,70 @@ function renderChips() {
   $('dst-label').textContent = n > 1 ? `Destinations (${n})` : 'Destination';
 }
 
+// ---- the last take's source, destinations or levels (Ctrl+S/D/F)
+
+// This browser's last take as numbers, so names stay current; until it
+// makes one, the newest take in history made in Sode.
+let lastPatch = null;
+
+function lastTake() {
+  let t = lastPatch;
+  if (!t) {
+    const e = S.hist.find((x) => !x.ext && x.undo == null && x.retry == null);
+    if (!e) return null;
+    const es = e.group && e.groupN > 1 ? S.hist.filter((x) => x.group === e.group).reverse() : [e];
+    t = { src: [e.src, e.srcName], dsts: es.map((x) => [x.dst, x.dstName]), levels: e.levels };
+  }
+  return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
+}
+
+// The last take's value for each box, as a chip by its label that does
+// what Ctrl+S/D/F does. Hidden when the box already has it, and for
+// levels when they're the default.
+const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+function renderLast() {
+  if (!S.cfg) return;
+  const t = lastTake();
+  const lv = parseLevels(lvlInput.value, lvlNone) || [];
+  const now = {
+    src: t && !(sel.src && sel.src.n === t.src.n) && [labelNode(t.src)],
+    dst: t && !sameList(allDsts().map((d) => d.n), t.dsts.map((d) => d.n)) &&
+      [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
+    lvl: t && t.levels.length && !sameList(lv, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
+  };
+  for (const k of ['src', 'dst', 'lvl']) {
+    const slot = document.querySelector(`[data-last="${k}"]`);
+    const v = now[k];
+    if (!v) { slot.replaceChildren(); continue; }
+    const key = { src: 'S', dst: 'D', lvl: 'F' }[k];
+    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...v), el('kbd', 'sode__key-note', `⌃${key}`));
+    b.type = 'button';
+    b.tabIndex = -1;
+    b.title = `Last take's ${{ src: 'source', dst: 'destination', lvl: 'levels' }[k]} (Ctrl+${key})`;
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => useLast(k));
+    slot.replaceChildren(b);
+  }
+}
+on('history', renderLast);
+
+// Fills one box from the last take and moves on to the next.
+function useLast(k) {
+  const t = lastTake();
+  if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
+  if (k === 'src') {
+    select('src', t.src);
+    focusBox(boxes.dst.input);
+  } else if (k === 'dst') {
+    dsts = t.dsts.slice(0, -1);
+    select('dst', t.dsts[t.dsts.length - 1]);
+    focusBox(lvlInput);
+  } else {
+    setLevels(t.levels);
+    focusBox(lvlInput);
+  }
+}
+
 // ---- level picker
 
 function setLevels(list) {
@@ -186,6 +251,7 @@ function buildPicker() {
 // ---- tally display
 
 function renderTally() {
+  renderLast();
   const box = $('tally');
   if (!S.cfg) return box.replaceChildren();
   const ds = allDsts();
@@ -253,16 +319,21 @@ function histRow(e) {
     el('span', 'sode__hist-id', `#${e.id}`),
     histTime(e.time),
     levelBar(known),
-    el('span', 'sode__hist-route', el('strong', null, src.label), ' → ', el('strong', null, dst.label),
+    el('span', 'sode__hist-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)),
       entryNote(e)),
     statusNode({ e }),
     toggle,
     el('span', 'sode__hist-actions', retryButton(e, src, dst), btn));
   row.dataset.key = `e${e.id}`;
   if (open) {
+    const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
     const detail = el('div', 'sode__hist-before',
-      el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`),
-      ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))));
+      ...(e.chain ? [el('div', 'sode__label', 'Changes'),
+        ...e.chain.map((c) => srcRow(lv(c.levels), `${fmtTime(c.time)}  ${srcItem(c.src, c.srcName).label}`))] : []),
+      el('div', 'sode__label', `Before #${e.chain ? e.chain[e.chain.length - 1].id : e.id}, on ${dst.label}`),
+      ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src))),
+      ...(e.follows ? [el('div', 'sode__label', 'Followed by'),
+        ...e.follows.map((f) => srcRow(lv(f.levels), `${dstItem(f.dst, f.dstName).label} ← ${srcItem(f.src, f.srcName).label}`))] : []));
     // Below 1000px the row's level bar moves in here (see sode.css).
     detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
@@ -288,7 +359,7 @@ function folderRow(f) {
   const title = folderTitle(f);
   const failed = f.entries.filter((e) => !e.ok).length;
 
-  const undo = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Undo all');
+  const undo = el('button', 'pb-btn pb-btn--outline pb-btn--sm', folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   undo.type = 'button';
   const plan = folderUndoPlan(f);
   if (planEmpty(plan)) {
@@ -309,13 +380,13 @@ function folderRow(f) {
     retry.setAttribute('aria-hidden', 'true');
   }
 
-  const toggle = disclosure(open, `${f.entries.length}`, kidsId, () => {
+  const toggle = disclosure(open, `${f.shown.length}`, kidsId, () => {
     if (openFolders.has(f.group)) openFolders.delete(f.group);
     else openFolders.add(f.group);
     autoOpen.delete(f.group); // opened by hand: stays open
     renderHistory();
   });
-  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.entries.length} takes`);
+  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
 
   const fresh = f.entries.some((e) => e.id === S.newId) && !entered.has(f.group);
   if (fresh) entered.add(f.group);
@@ -331,7 +402,7 @@ function folderRow(f) {
     el('span', 'sode__hist-actions', retry, undo));
   row.dataset.key = `f${f.group}`;
   if (open) {
-    const kids = el('ul', 'sode__hist-folder', ...f.entries.map(histRow));
+    const kids = el('ul', 'sode__hist-folder', ...f.shown.map(histRow));
     kids.id = kidsId;
     row.append(kids);
   }
@@ -370,12 +441,13 @@ function retryButton(e, src, dst) {
   return b;
 }
 
-const pager = historyPager(10);
+const pager = historyPager(10, () => layout() === 'desktop');
 
 // scroll: bring the cursor row into view (the cursor just moved). Other
 // redraws (someone else's take, a result) leave the page where it is.
 function renderHistory(scroll = false) {
-  $('history-head').hidden = !S.hist.length;
+  $('history-bar').hidden = !S.hist.length;
+  $('history-search').hidden = !S.hist.length;
   const list = pager.list();
   if (cursor && !stops(list).some((x) => x.key === cursor)) {
     // Its row left the page (newer patches pushed it off): drop the
@@ -385,7 +457,7 @@ function renderHistory(scroll = false) {
     autoOpen.clear();
   }
   histList.replaceChildren(...list.map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
-  $('history-more').replaceChildren(...[pager.button()].filter(Boolean));
+  $('history-more').replaceChildren(...[emptyNote(list, pager.fetching()), pager.button()].filter(Boolean));
   if (scroll === true && keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
 }
 
@@ -416,7 +488,7 @@ function stops(list = pager.list()) {
   list.forEach((r, top) => {
     if (r.e) return out.push({ key: `e${r.e.id}`, e: r.e, top });
     out.push({ key: `f${r.f.group}`, f: r.f, top });
-    if (openFolders.has(r.f.group)) for (const e of r.f.entries) out.push({ key: `e${e.id}`, e, top, in: r.f });
+    if (openFolders.has(r.f.group)) for (const e of r.f.shown) out.push({ key: `e${e.id}`, e, top, in: r.f });
   });
   return out;
 }
@@ -456,7 +528,7 @@ function step(d) {
   // Coming up into a closed folder lands on its last take, mirroring
   // the way down.
   if (d < 0 && next.f && list[i].in?.group !== next.f.group && autoOpen.has(next.f.group)) {
-    const last = next.f.entries[next.f.entries.length - 1];
+    const last = next.f.shown[next.f.shown.length - 1];
     moveTo(stops().find((x) => x.key === `e${last.id}`));
   }
 }
@@ -524,6 +596,8 @@ function onListKey(e) {
   const k = e.key;
   if (BOXES[k]) { focusBox($(BOXES[k])); return true; }
   if (k === ',') { $('settings-open').click(); return true; }
+  if (k === '/') { openFilters(); return true; }
+  if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
   if (k === '?') { openKeys(); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {
@@ -547,7 +621,7 @@ function onListKey(e) {
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
 
 const TIP_KEY = 'sode-hint-keys';
-$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
+$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
 try { $('keys-tip').hidden = localStorage.getItem(TIP_KEY) === 'hidden'; } catch (e) { $('keys-tip').hidden = false; }
 $('keys-tip-close').addEventListener('click', () => {
   $('keys-tip').hidden = true;
@@ -575,6 +649,14 @@ function closeKeys(viaKeys = false) {
   else focusBox(boxes.src.input);
 }
 if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) k.textContent = k.dataset.mac;
+
+// The Filter by Source / Destination boxes above Recent.
+function focusSearch(k) {
+  const f = $('history-search').querySelector(`[data-search-${k}]`);
+  if ($('history-search').hidden) return;
+  f.focus();
+  f.select();
+}
 $('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
@@ -599,11 +681,15 @@ function patchNow() {
   tryConfirm();
 }
 
-// Undo the newest history row (a whole folder), through the usual confirm.
+// Undo the newest take made in Sode (a whole folder), through the usual
+// confirm. Changes from other panels are skipped, whatever the filters
+// show: they're someone else's.
 function undoLast() {
-  const [row] = histRows(S.hist);
-  if (!row) return showResult('info', 'Nothing to undo', 'No takes yet.');
-  undoRow(row);
+  const last = S.hist.find((x) => !x.ext);
+  if (!last) return showResult('info', 'Nothing to undo', 'No takes made in Sode yet.');
+  const e = attachFollows(last);
+  const takes = e.group && e.groupN > 1 && S.hist.filter((x) => x.group === e.group).map(attachFollows);
+  undoRow(takes ? { f: { group: e.group, n: e.groupN, entries: takes, shown: takes } } : { e });
 }
 
 // Undo a history row: { e } for a take, { f } for a whole folder.
@@ -648,8 +734,10 @@ function openConfirm(plan) {
   const verb = planVerb(plan);
   const Verb = verb[0].toUpperCase() + verb.slice(1);
   $('confirm-title').textContent = `Confirm ${verb}`;
+  const summary = planSummary(plan);
+  summary.find((n) => n.classList?.contains('sode__plan-extra'))?.querySelector('.pb-check__label').append(' (Space)');
   $('confirm-body').replaceChildren(
-    ...planSummary(plan),
+    ...summary,
     el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
   );
   $('confirm-ok').textContent = `${Verb} (${key.toUpperCase()})`;
@@ -693,7 +781,11 @@ function doTake(viaKeys = false) {
   pending = null;
   $('confirm').hidden = true;
   // Only a patch came from the boxes; an undo or retry leaves them be.
-  if (sendTakes(p) && p.verb === 'patch') clearAll();
+  if (sendTakes(p) && p.verb === 'patch') {
+    const g = p.items[0].groups[0];
+    lastPatch = { src: [g.src.n, g.src.name], dsts: p.items.map((i) => [i.dst.n, i.dst.name]), levels: g.levels };
+    clearAll();
+  }
   else focusBack(viaKeys);
 }
 
@@ -702,6 +794,12 @@ function onConfirmKey(e) {
   e.stopPropagation();
   if (e.key === 'Escape') return closeConfirm(true);
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  // Space ticks the box that adds an undo's follows.
+  if (e.key === ' ' && pending.extra) {
+    const box = $('confirm-body').querySelector('.sode__plan-extra input');
+    if (box) { box.checked = !box.checked; pending.extra.on = box.checked; }
+    return;
+  }
   if (performance.now() < readyAt) return;
   if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake(true);
 }
@@ -779,12 +877,20 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!active()) return;
+  // Ctrl+S/D/F (Control on a Mac too): the last take's source,
+  // destinations or levels, from anywhere.
+  const last = e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
+  if (last) {
+    e.preventDefault();
+    useLast(last);
+    return;
+  }
   const id = e.target.id;
   const k = id === 'src' || id === 'dst' ? id : null;
   const b = k && boxes[k];
   const inBox = k || id === 'lvl';
 
-  // Mod+Z undoes the last patch, unless a box has text to undo instead.
+  // Mod+Z undoes the last Sode take, unless a box has text to undo instead.
   if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
     if (e.target instanceof HTMLInputElement && e.target.value) return;
     e.preventDefault();

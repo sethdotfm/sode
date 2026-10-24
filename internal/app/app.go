@@ -9,6 +9,7 @@ import (
 	"log"
 	"maps"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -70,6 +71,14 @@ type App struct {
 	pend     [][3]int // tally changes awaiting broadcast
 	pendProt [][3]int // protect changes awaiting broadcast (device -1 = cleared)
 
+	// Routes changed elsewhere, collected into bursts for history (ext.go).
+	ext      map[int]map[int]*extLevel // dst → UI level
+	extFirst time.Time
+	extLast  time.Time
+	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
+	causes   []*cause             // recent takes that changes elsewhere may follow
+	leaders  map[int]int          // dst → the dst it was last seen following
+
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
 	newSrc, newDst map[int]string // nil when no refresh is in flight
@@ -106,6 +115,9 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 		protect:  map[int]map[int]int{},
 		clients:  map[*client]struct{}{},
 		waiters:  map[*waiter]struct{}{},
+		ext:      map[int]map[int]*extLevel{},
+		own:      map[ownKey]time.Time{},
+		leaders:  map[int]int{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.rt.Store(r)
@@ -131,6 +143,7 @@ func (a *App) Run(ctx context.Context) {
 			return
 		case <-t.C:
 			a.flush()
+			a.flushExt()
 			a.periodic()
 		}
 	}
@@ -234,9 +247,14 @@ func (a *App) onRouterMsg(msg []byte) {
 		if old, ok := t[l.UI]; !ok || old != xp.Src {
 			t[l.UI] = xp.Src
 			a.pend = append(a.pend, [3]int{xp.Dst, l.UI, xp.Src})
+			if xp.Changed() {
+				a.noteExt(xp, l.UI, old, ok)
+			}
 		}
 		for w := range a.waiters {
-			w.see(xp)
+			if w.see(xp) && xp.Changed() {
+				w.cause.saw(time.Now())
+			}
 		}
 	}
 	for _, p := range ev.Protects {
@@ -546,6 +564,9 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 		return errLocked
 	}
 	cfg.SettingsPin = a.r().cfg.SettingsPin
+	// Filter sets are saved from Recent's Filters, not the settings form,
+	// so a browser's copy may be stale: keep the current ones.
+	cfg.FilterSets = slices.Clone(a.r().cfg.FilterSets)
 	switch {
 	case clearPin:
 		cfg.SettingsPin = ""
@@ -560,6 +581,42 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 		cfg.SettingsPin = h
 	}
 	return a.ApplyConfig(cfg)
+}
+
+// SaveFilterSets replaces the filter sets for everyone, from c (Recent's
+// Filters dialog). They're settings, so a settings PIN guards them too.
+func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if a.locked(c) {
+		return errLocked
+	}
+	cfg := a.r().cfg
+	// Its own copies: Normalize rewrites slices in place, and the live
+	// config's are read by others meanwhile.
+	cfg.LevelColors = slices.Clone(cfg.LevelColors)
+	cfg.TrustedProxies = slices.Clone(cfg.TrustedProxies)
+	cfg.FilterSets = sets
+	cfg.Normalize()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	nr, err := newRuntime(cfg)
+	if err != nil {
+		return err
+	}
+	if a.cfgPath != "" {
+		if err := config.Save(a.cfgPath, cfg); err != nil {
+			return fmt.Errorf("saving %s: %w", a.cfgPath, err)
+		}
+	}
+	// Only the sets changed: browsers get them alone, not a full snapshot
+	// that would reset their Recent.
+	a.mu.Lock()
+	a.rt.Store(nr)
+	a.broadcast(map[string]any{"t": "filterSets", "sets": cfg.FilterSets})
+	a.mu.Unlock()
+	return nil
 }
 
 // ApplyConfig validates, saves and applies new settings. Router-side changes
@@ -589,6 +646,11 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.srcNames, a.dstNames = map[int]string{}, map[int]string{}
 		a.tally, a.protect = map[int]map[int]int{}, map[int]map[int]int{}
 		a.pend, a.pendProt = nil, nil
+		a.ext = map[int]map[int]*extLevel{}
+		a.causes = nil
+		a.leaders = map[int]int{}
+		a.own = map[ownKey]time.Time{}
+		a.extFirst, a.extLast = time.Time{}, time.Time{}
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
 		// A new router starts from scratch: not the old one's state or error.
@@ -668,21 +730,23 @@ type waiter struct {
 	already  map[int]bool // wire levels confirmed by tally, not by a change
 	done     chan struct{}
 	closed   bool
+	cause    *cause // for changes that follow this take
 }
 
 // see marks a level confirmed when the router reports the requested route.
 // Routers only announce changes (Connected), so a level that was already
 // on src is confirmed by the answer to an interrogate instead.
-// Caller holds mu.
-func (w *waiter) see(xp swp08.Crosspoint) {
+// It reports whether xp was one of this take's. Caller holds mu.
+func (w *waiter) see(xp swp08.Crosspoint) bool {
 	if xp.Dst != w.dst || xp.Src != w.src || !w.wire[xp.Level] {
-		return
+		return false
 	}
 	delete(w.wire, xp.Level)
 	if !xp.Changed() {
 		w.already[xp.Level] = true
 	}
 	w.finishIfDone()
+	return true
 }
 
 // Caller holds mu.
@@ -735,7 +799,8 @@ func (a *App) take(c *client, req takeReq) {
 	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
-	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{})}
+	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{}),
+		cause: &cause{src: req.Src, dst: req.Dst, id: -1}}
 	var protected []int
 	same := map[int]bool{} // wire levels the cache says are already on src
 	a.mu.Lock()
@@ -754,6 +819,16 @@ func (a *App) take(c *client, req takeReq) {
 	}
 	if len(protected) == 0 {
 		a.waiters[w] = struct{}{}
+		a.causes = append(a.causes, w.cause)
+		// Only levels the router will answer with a Connected: one already
+		// on src gets none, and its key would linger and swallow a real
+		// change back to it.
+		until := time.Now().Add(ownFor)
+		for _, s := range sends {
+			if !same[s.wire] {
+				a.own[ownKey{req.Dst, s.wire, req.Src}] = until
+			}
+		}
 	}
 	a.mu.Unlock()
 
@@ -847,6 +922,15 @@ func (a *App) take(c *client, req takeReq) {
 		err = fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	a.finish(c, res, e, err)
+	a.mu.Lock()
+	w.cause.id, w.cause.done = e.ID, true
+	// Levels never confirmed (or never sent) won't be answered now.
+	for _, s := range sends {
+		if w.wire[s.wire] || slices.Contains(unsent, s.ui) {
+			delete(a.own, ownKey{req.Dst, s.wire, req.Src})
+		}
+	}
+	a.mu.Unlock()
 }
 
 // finish records a take in history and answers the browser.
@@ -882,8 +966,17 @@ func (a *App) record(e *Entry) {
 	if e.Group != "" {
 		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
 	}
-	log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
-		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
+	if e.Ext {
+		follow := "-"
+		if e.Follow != nil {
+			follow = fmt.Sprint(*e.Follow)
+		}
+		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s",
+			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow)
+	} else {
+		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
+			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
+	}
 	a.mu.Lock()
 	a.broadcast(map[string]any{"t": "recent", "e": e})
 	a.mu.Unlock()
@@ -903,8 +996,15 @@ func (a *App) ClearHistory(who string) {
 	a.mu.Unlock()
 }
 
-func (a *App) history(c *client, before int) {
-	entries, err := a.hist.Page(before, historyPage)
+// historyMax caps a page asked for by size (a search reading back through
+// the log).
+const historyMax = 500
+
+func (a *App) history(c *client, before, n int) {
+	if n <= 0 {
+		n = historyPage
+	}
+	entries, err := a.hist.Page(before, min(n, historyMax))
 	if err != nil {
 		log.Printf("history: %v", err)
 	}

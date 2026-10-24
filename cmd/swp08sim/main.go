@@ -1,16 +1,19 @@
 // Command swp08sim is a minimal fake SW-P-08 router for development.
 // It answers name requests, tally dumps, interrogates and extended connects
-// on any matrix, and broadcasts Connected to every client.
+// on any matrix, and broadcasts Connected to every client. With
+// SIM_PANEL_SECONDS it also makes routes of its own, like a control panel.
 package main
 
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
 )
@@ -21,7 +24,8 @@ type sim struct {
 	dsts    []string
 	tally   map[int][]int // wire level → dst → src
 	clients map[net.Conn]*sync.Mutex
-	deaf    map[int]bool // dsts whose connects are ACKed but never carried out
+	deaf    map[int]bool  // dsts whose connects are ACKed but never carried out
+	follows map[int][]int // dst → dsts that follow it, like a multiviewer PiP
 }
 
 func envInt(k string, def int) int {
@@ -35,12 +39,23 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}}
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, follows: map[int][]int{}}
 	// SIM_IGNORE_DSTS=5,7 makes connects to those (0-based) destinations
 	// silently fail, so Sode's timeout and retry paths can be exercised.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.deaf[n] = true
+		}
+	}
+	// SIM_FOLLOWS=2>40,3>41 (0-based): when dst 2 changes, dst 40 follows
+	// it to the same source a moment later, as a router's destination
+	// follow does.
+	for _, f := range strings.Split(os.Getenv("SIM_FOLLOWS"), ",") {
+		from, to, ok := strings.Cut(strings.TrimSpace(f), ">")
+		a, err1 := strconv.Atoi(from)
+		b, err2 := strconv.Atoi(to)
+		if ok && err1 == nil && err2 == nil {
+			s.follows[a] = append(s.follows[a], b)
 		}
 	}
 	named := []string{"Black", "Bars", "CG1 Fill", "CG1 Key", "CG2 Fill", "CG2 Key", "CG3 Fill", "CG3 Key", "Replay A", "Replay B", "Zoom 1", "Zoom 2"}
@@ -70,6 +85,13 @@ func main() {
 		s.tally[l] = t
 	}
 
+	// SIM_PANEL_SECONDS=5 routes something every 5s as if from a panel:
+	// one or a few destinations, all levels or a few. SIM_PANEL_DST (0-based,
+	// default 3) gets every other punch, so repeats on a monitor show up.
+	if n := envInt("SIM_PANEL_SECONDS", 0); n > 0 {
+		go s.panel(time.Duration(n)*time.Second, envInt("SIM_PANEL_DST", 3), nl+1)
+	}
+
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal(err)
@@ -81,6 +103,68 @@ func main() {
 			log.Fatal(err)
 		}
 		go s.serve(c)
+	}
+}
+
+func (s *sim) panel(every time.Duration, monitor, levels int) {
+	for i := 0; ; i++ {
+		time.Sleep(every)
+		dsts := []int{monitor}
+		if i%2 == 1 {
+			dsts = []int{rand.IntN(len(s.dsts))}
+			for range rand.IntN(3) {
+				dsts = append(dsts, rand.IntN(len(s.dsts)))
+			}
+		}
+		ls := []int{}
+		if rand.IntN(3) == 0 {
+			for range 1 + rand.IntN(3) {
+				ls = append(ls, rand.IntN(levels))
+			}
+		} else {
+			for l := 0; l < levels; l++ {
+				ls = append(ls, l)
+			}
+		}
+		for _, dst := range dsts {
+			src := rand.IntN(min(len(s.srcs), 24))
+			log.Printf("panel: dst %d ← src %d on levels %v", dst, src, ls)
+			for _, l := range ls {
+				s.route(0, l, dst, src)
+			}
+		}
+	}
+}
+
+// route makes a crosspoint and, if it changed, tells every client.
+func (s *sim) route(mx, l, dst, src int) {
+	s.mu.Lock()
+	t, ok := s.tally[l]
+	valid := ok && dst < len(t) && src < len(s.srcs)
+	changed := valid && t[dst] != src
+	if valid {
+		t[dst] = src
+	}
+	var all []net.Conn
+	for cc := range s.clients {
+		all = append(all, cc)
+	}
+	s.mu.Unlock()
+	if !valid {
+		log.Printf("connect out of range: level %d dst %d src %d", l, dst, src)
+		return
+	}
+	// Like a real router, only a change is announced.
+	if !changed {
+		log.Printf("connect level %d: dst %d already on src %d (no Connected)", l, dst, src)
+		return
+	}
+	log.Printf("connect level %d: dst %d ← src %d", l, dst, src)
+	for _, cc := range all {
+		s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
+	}
+	for _, f := range s.follows[dst] {
+		time.AfterFunc(30*time.Millisecond, func() { s.route(mx, l, f, src) })
 	}
 }
 
@@ -141,31 +225,7 @@ func (s *sim) handle(c net.Conn, m []byte) {
 			log.Printf("connect level %d: dst %d ← src %d ignored (SIM_IGNORE_DSTS)", l, dst, src)
 			return
 		}
-		s.mu.Lock()
-		t, ok := s.tally[l]
-		valid := ok && dst < len(t) && src < len(s.srcs)
-		changed := valid && t[dst] != src
-		if valid {
-			t[dst] = src
-		}
-		var all []net.Conn
-		for cc := range s.clients {
-			all = append(all, cc)
-		}
-		s.mu.Unlock()
-		if !valid {
-			log.Printf("connect out of range: level %d dst %d src %d", l, dst, src)
-			return
-		}
-		// Like a real router, only a change is announced.
-		if !changed {
-			log.Printf("connect level %d: dst %d already on src %d (no Connected)", l, dst, src)
-			return
-		}
-		log.Printf("connect level %d: dst %d ← src %d", l, dst, src)
-		for _, cc := range all {
-			s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
-		}
+		s.route(mx, l, dst, src)
 
 	case swp08.CmdExtInterrogate:
 		if len(m) < 5 {

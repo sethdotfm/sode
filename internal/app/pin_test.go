@@ -23,6 +23,46 @@ func pinApp(t *testing.T) *App {
 	return a
 }
 
+func TestFilterSetsPin(t *testing.T) {
+	a := pinApp(t)
+	c := &client{ip: "10.0.0.9"}
+	cfg := a.r().cfg
+	cfg.LevelColors = []string{"#aabbcc"}
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before := a.r().cfg.LevelColors
+	sets := []config.FilterSet{{Name: "No shader", Dst: "!MON", Sode: true, Ext: true}}
+	if err := a.SaveFilterSets(c, sets); err != nil || len(a.r().cfg.FilterSets) != 1 {
+		t.Fatalf("open save: %v", err)
+	}
+	// The new config has its own slices, not the live one's.
+	if after := a.r().cfg.LevelColors; &after[0] == &before[0] {
+		t.Fatal("level colors shared with the config being replaced")
+	}
+	// A settings save from a browser with an old copy keeps the sets.
+	stale := a.r().cfg
+	stale.FilterSets = nil
+	if err := a.SaveSettings(c, stale, "", false); err != nil || len(a.r().cfg.FilterSets) != 1 {
+		t.Fatalf("settings save dropped the filter sets: %v %v", err, a.r().cfg.FilterSets)
+	}
+	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: ""}}); err == nil {
+		t.Fatal("unnamed set accepted")
+	}
+	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SaveFilterSets(c, nil); !errors.Is(err, errLocked) {
+		t.Fatalf("locked save: %v", err)
+	}
+	if a.Unlock(c, "2468") != nil {
+		t.Fatal("unlock")
+	}
+	if err := a.SaveFilterSets(c, nil); err != nil || len(a.r().cfg.FilterSets) != 0 || a.r().cfg.SettingsPin == "" {
+		t.Fatalf("unlocked save: %v, sets %v", err, a.r().cfg.FilterSets)
+	}
+}
+
 func TestSettingsPin(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}

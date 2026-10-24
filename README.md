@@ -4,7 +4,46 @@ Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultri
 
 Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8` or `1+3+5-8`; `!` leaves levels out: `!1` is every level but 1, `1-8!3` is 1-8 without 3; words work too: `t`, `thru` or `through` for `-`, `n` or `not` for `!`, as in `1 thru 8 not 3`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
 
+Ctrl+S, Ctrl+D and Ctrl+F (Control on a Mac too) fill Source, Destination(s) or Levels from your last take and move to the next box. After a reload, they use the newest Sode take in history. Each box shows that value as a small chip by its label (Levels only when they aren't the default); clicking it does the same.
+
 To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip and the box starts over. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
+
+**Other panels (beta).** Routes made elsewhere (Ultrix panels, Companion) show up in Recent too, with a **panel** status, and can be undone like any take. A panel take arrives as one change per level, so Sode collects them until they stop for half a second, then logs one entry per destination and source. A burst that changes several destinations becomes one folder. If the same destination is punched on the same levels again within 30 seconds, with nothing else routed there in between, the punches show as one row ("3 changes"); its Before lists each change, and Undo goes back to the state before the first punch.
+
+The router also moves destinations by itself, such as a multiviewer PiP that follows a DSM. When the same source lands on another destination within half a second of a Sode take, Sode logs it as a **follow** of that take ("+1 follow") rather than a row of its own. Before lists the follows. Undo leaves them out unless you tick "Also undo … suspected automation" in the confirm (Space on desktop), because undoing the take lets the router redo its own automation. Each take of a Sode salvo has its own follows and its own Undo. A panel salvo of one source to several destinations stays one folder. Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
+
+**Search.** Filter by Source and Filter by Destination above Recent work like the patch boxes. Typing lists matching sources or destinations, including names logged in history, so a source the router has since renamed is still found. Pick one with ↑↓ (or Alt+J/K) and Enter, Tab or `+`, and Recent shows every entry for it, from the whole log. Each pick becomes a chip, so you can add more, and Recent shows entries for any of them. Backspace in an empty box removes the last pick. A take also shows if one of its follows matches. You can type an expression instead (`1-50`, `MV, !PGM`, `/^DSM/`), which applies as typed. Search ignores Filters unless Settings → This device → **Search respects filters** is on. Esc closes the list, then clears the box. On desktop, Shift+S and Shift+D jump to them from keyboard mode.
+
+**Filters.** The **Filters** button in Recent's header scopes what Recent shows *in this browser*. It reads "Filters · 2" in blue while any are on.
+- Pick which entries to show: Sode takes, panel changes, and panel changes to globally hidden destinations.
+- Narrow sources and destinations, either as rule rows (Visual) or typed (Code). Both write the same language.
+- Everything applies as you type, with a live count of what matches.
+- **Share link** copies a URL that applies the same filters in another browser. The URL is cleaned once read, and a banner offers Undo.
+- Desktop keyboard mode opens Filters with `/`.
+- **Filter sets** are named filters, shown as quick buttons beside Filters (e.g. **All**, **All except shader**, **My destinations**). Click one to switch. A `*` means you've edited it since; click it again to go back.
+  - The buttons come in groups separated by `|`: **All**, then the sets for everyone, then this browser's own.
+  - Every set is managed in the Filters dialog's Set row, whichever group it's in:
+    - **Save as…** names the current filters "For this browser" or "For everyone".
+    - **Save** updates the set you've edited.
+    - **Rename** and **Delete** (which asks twice) work on any set.
+    - Sets for everyone are settings: with a settings PIN, the dialog asks for it the first time, and locks again when it closes.
+    - Every browser gets sets for everyone at once. A browser using one follows changes to it, unless it has edited it.
+    - Settings → History lists the sets for everyone.
+  - A shared link carries the set's name, and the banner offers to save it as a set in that browser.
+
+| Typed | Matches |
+|---|---|
+| `65` | number 65 |
+| `1-50`, `1 thru 50`, `1 to 50` | numbers 1 to 50 |
+| `PIP` | names containing PIP (any case) |
+| `'NOT USED'` | names containing that text, taken literally (for text that looks like a number, has a comma, or starts with "not"; `''` for a quote inside) |
+| `"CAM 1"` | the name exactly (any case), so not CAM 10 |
+| `/^DSM\d/` | names matching the regex (any case unless flags are given) |
+| `!65`, `!PIP`, `not 'PIP'` | excludes (`not` only before a number, quote or regex, so a bare `NOT USED` is a name) |
+
+Terms are separated by commas. A name matches if it fits any plain term and no `!` term, and only `!` terms means everything but those. So `MV, !MV 1` means every multiviewer except the ones whose names contain "MV 1".
+
+**Globally hidden destinations** (Settings → History) uses the same language to hide very noisy destinations, such as a shader's monitor, from everyone's Recent. Changes to them are still recorded, and a station whose Filters include globally hidden destinations (say the EIC's) sees and can revert everything.
 
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
@@ -20,7 +59,7 @@ docker compose --profile sim up --build
 # open http://localhost:8080
 ```
 
-The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container.
+The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container. `SIM_FOLLOWS=2>40,3>41` makes destination 40 follow 2 and 41 follow 3, like a multiviewer PiP following a DSM. `SIM_PANEL_SECONDS=5` makes it route something by itself every 5 seconds, like a panel. Every other punch goes to `SIM_PANEL_DST` (default 3), so repeated punches can be seen merging.
 
 Against a real router (first start):
 
@@ -53,6 +92,8 @@ On first start, when there is no config file yet, it is created from these seed 
 | | `routerShow` | `address` | What the status card shows for the router: `address`, `name` (falls back to the address when no name is set) or `none`. The disconnected banner always shows the address. Settings only |
 | | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colors for 1-17, built-in swatches after). Settings only, no seed var |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
+| | `filterSets` | `[]` | Named Recent filters offered to every browser as quick buttons: `name`, `src`, `dst` (filter expressions), `sode`, `ext`, `hidden`. Settings only |
+| | `hiddenDsts` | | Filter expression (see Filters) for destinations whose changes from other panels every browser's Recent hides unless its Filters show them. Still recorded. Settings only |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
 | | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |
 

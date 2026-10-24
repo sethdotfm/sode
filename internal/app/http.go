@@ -145,12 +145,14 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var m struct {
-			T        string         `json:"t"`
-			Before   int            `json:"before"`
-			Config   *config.Config `json:"config"`
-			Pin      string         `json:"pin"`
-			ClearPin bool           `json:"clearPin"`
-			Items    []takeReq      `json:"items"`
+			T        string             `json:"t"`
+			Before   int                `json:"before"`
+			N        int                `json:"n"` // history page size; 0 = the default
+			Config   *config.Config     `json:"config"`
+			Pin      string             `json:"pin"`
+			ClearPin bool               `json:"clearPin"`
+			Items    []takeReq          `json:"items"`
+			Sets     []config.FilterSet `json:"sets"`
 			takeReq
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
@@ -162,7 +164,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "take": // pages loaded before batches existed
 			go a.batch(c, []takeReq{m.takeReq})
 		case "history":
-			go a.history(c, m.Before)
+			go a.history(c, m.Before, m.N)
 		case "refreshNames":
 			go a.RefreshNames()
 		case "unlock":
@@ -181,6 +183,17 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			go a.ClearHistory(c.ip)
+		case "filterSets":
+			go func(sets []config.FilterSet, id int) {
+				res := map[string]any{"t": "filterSetsResult", "ok": true, "id": id}
+				if err := a.SaveFilterSets(c, sets); err != nil {
+					res["ok"], res["err"] = false, err.Error()
+					res["locked"] = errors.Is(err, errLocked)
+				} else {
+					log.Printf("config: filter sets saved by %s", c.ip)
+				}
+				a.reply(c, res)
+			}(m.Sets, m.ID)
 		case "config":
 			if m.Config == nil {
 				continue

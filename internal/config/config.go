@@ -36,6 +36,15 @@ type Config struct {
 	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
 	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
 	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
+	// HiddenDsts is a Recent filter expression (web/filter.js) for
+	// destinations whose changes from other panels every browser hides
+	// unless its Filters show them; still recorded. E.g. a shader's monitor.
+	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
+	// FilterSets are named Recent filters offered to every browser as
+	// quick buttons; browsers can add their own.
+	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
+	// HideDsts is no longer used; kept so files that have it load.
+	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
 	// the default (DefaultLevelColors, then the patchbay swatch). Entries
 	// past Levels are kept but unused.
@@ -51,6 +60,17 @@ type Config struct {
 	// PinMaxTries wrong PINs in a row lock settings until the PIN is reset
 	// (sode -reset-pin) or Sode restarts; 0 = never.
 	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries"`
+}
+
+// FilterSet is one named Recent filter (see web/filter.js): which kinds of
+// entry show, and expressions for sources and destinations.
+type FilterSet struct {
+	Name   string `yaml:"name" json:"name"`
+	Src    string `yaml:"src,omitempty" json:"src"`
+	Dst    string `yaml:"dst,omitempty" json:"dst"`
+	Sode   bool   `yaml:"sode" json:"sode"`
+	Ext    bool   `yaml:"ext" json:"ext"`
+	Hidden bool   `yaml:"hidden,omitempty" json:"hidden"`
 }
 
 func Defaults() Config {
@@ -144,6 +164,15 @@ func (c *Config) Normalize() {
 	if c.LevelColors == nil {
 		c.LevelColors = []string{}
 	}
+	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
+	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
+	if c.FilterSets == nil {
+		c.FilterSets = []FilterSet{}
+	}
+	for i := range c.FilterSets {
+		f := &c.FilterSets[i]
+		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
+	}
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}
@@ -233,6 +262,28 @@ func (c Config) Validate() error {
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
 			bad("level %d color %q must be a hex color like #3a7bd5", i+1, v)
+		}
+	}
+	if n := len([]rune(c.HiddenDsts)); n > 500 {
+		bad("globally hidden destinations must be at most 500 characters")
+	}
+	if len(c.FilterSets) > 30 {
+		bad("at most 30 filter sets")
+	}
+	names := map[string]bool{}
+	for _, f := range c.FilterSets {
+		key := strings.ToLower(f.Name)
+		switch n := len([]rune(f.Name)); {
+		case n == 0:
+			bad("every filter set needs a name")
+		case n > 32:
+			bad("filter set name %q must be at most 32 characters", f.Name)
+		case names[key]:
+			bad("two filter sets are named %q", f.Name)
+		}
+		names[key] = true
+		if len([]rune(f.Src)) > 500 || len([]rune(f.Dst)) > 500 {
+			bad("filter set %q: expressions must be at most 500 characters", f.Name)
 		}
 	}
 	if _, err := c.Proxies(); err != nil {

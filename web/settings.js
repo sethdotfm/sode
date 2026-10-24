@@ -3,8 +3,9 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, fmtTime, clockPref, scrollTopPref, searchRespectsFilters, setSearchRespectsFilters, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
+import { parseFilter, compileFilter } from './filter.js';
 
 const root = document.documentElement;
 const form = $('settings-view');
@@ -58,12 +59,15 @@ export function openSettings() {
   $('cfg-layout').value = layoutPref();
   $('cfg-clock').value = clockPref();
   $('cfg-scrolltop').checked = scrollTopPref();
+  $('cfg-search-filters').checked = searchRespectsFilters();
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
   $('settings-path').replaceChildren(...(S.configPath ? ['Saved to ', el('code', null, S.configPath)] : ['Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']));
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
+  renderHiddenNote();
+  renderGlobalSets();
   renderNamesStatus();
   window.scrollTo(0, 0);
   renderLock(true);
@@ -102,6 +106,7 @@ function readSettings() {
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
+
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
   const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
@@ -190,6 +195,31 @@ function rerenderColors() {
 function renderOffsetNote() {
   const off = Number($('cfg-offset').value);
   $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
+}
+
+// ---- filter sets for everyone: listed here, edited in Recent's Filters
+
+function renderGlobalSets() {
+  if (!isOpen()) return;
+  const sets = S.cfg?.filterSets || [];
+  $('cfg-sets').replaceChildren(...(sets.length
+    ? sets.map((s) => el('li', 'sode__gset', el('strong', null, s.name), el('span', 'sode__hint', filterSummary(normFilter(s)))))
+    : [el('li', 'sode__hint', 'None')]));
+}
+
+// What the globally hidden expression matches, against the router's names.
+function renderHiddenNote() {
+  const f = $('cfg-hidden');
+  const p = parseFilter(f.value);
+  f.classList.toggle('pb-input--invalid', !!p.error);
+  let text = '';
+  if (p.error) text = `${p.error}.`;
+  else if (p.rules.length) {
+    const fn = compileFilter(p.rules);
+    const n = S.dsts.filter((d) => fn(d.n + (S.cfg?.numberOffset ?? 0), d.name)).length;
+    text = `${n} of ${S.dsts.length} destinations`;
+  }
+  $('cfg-hidden-note').textContent = text;
 }
 
 function renderNamesStatus() {
@@ -288,6 +318,7 @@ for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click'
 $('settings-cancel').addEventListener('click', closeSettings);
 $('lock-cancel').addEventListener('click', closeSettings);
 $('cfg-offset').addEventListener('input', renderOffsetNote);
+$('cfg-hidden').addEventListener('input', renderHiddenNote);
 $('cfg-colors-reset').addEventListener('click', () => {
   for (const f of $('cfg-colors').querySelectorAll('input')) {
     f.value = '';
@@ -301,6 +332,7 @@ $('cfg-levels').addEventListener('input', () => {
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
 $('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
 $('cfg-scrolltop').addEventListener('change', (e) => setScrollTopPref(e.target.checked));
+$('cfg-search-filters').addEventListener('change', (e) => setSearchRespectsFilters(e.target.checked));
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'refreshNames' })) {
     $('names-refresh').disabled = true;
@@ -327,6 +359,13 @@ form.addEventListener('submit', (e) => {
     $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" isn't a level or range here.`;
     $('settings-err').hidden = false;
     $('cfg-default').focus();
+    return;
+  }
+  const hidden = parseFilter(c.hiddenDsts);
+  if (hidden.error) {
+    $('settings-err').textContent = `Globally hidden destinations: ${hidden.error}.`;
+    $('settings-err').hidden = false;
+    $('cfg-hidden').focus();
     return;
   }
   if (bad) {
@@ -363,7 +402,8 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('popstate', showView);
 
-on('hello', () => { showView(); relock(); });
+on('hello', () => { showView(); relock(); renderGlobalSets(); });
+on('filters', renderGlobalSets);
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => { renderNamesStatus(); relock(); });

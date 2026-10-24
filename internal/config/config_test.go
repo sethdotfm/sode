@@ -32,6 +32,9 @@ func TestValidate(t *testing.T) {
 		"long router name":  func(c *Config) { c.RouterName = strings.Repeat("x", 33) },
 		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
 		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
+		"long hidden dsts":  func(c *Config) { c.HiddenDsts = strings.Repeat("x", 501) },
+		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
+		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
 	} {
 		c := ok
 		mut(&c)
@@ -55,6 +58,8 @@ func TestSaveLoad(t *testing.T) {
 	c.Router = "10.0.0.5:8910"
 	c.TrustedProxies = []string{"10.0.0.2", "172.18.0.0/16"}
 	c.LevelNumbering, c.PinMaxTries = "va", 3
+	c.HiddenDsts = "MV, !1-5"
+	c.FilterSets = []FilterSet{{Name: "All except shader", Dst: "!MON", Sode: true, Ext: true}, {Name: "Panels", Ext: true, Hidden: true}}
 	c.SettingsPin, _ = HashPin("1234")
 	c.Normalize()
 	if err := Save(path, c); err != nil {
@@ -68,6 +73,11 @@ func TestSaveLoad(t *testing.T) {
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelTypedBase: 1\n"), 0o644)
 	if _, _, err := Load(path); err != nil {
 		t.Fatalf("legacy levelTypedBase: %v", err)
+	}
+	// So do files from the first hidden-destinations beta.
+	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nhideDsts: [3, 64]\n"), 0o644)
+	if _, _, err := Load(path); err != nil {
+		t.Fatalf("legacy hideDsts: %v", err)
 	}
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
 	if _, _, err := Load(path); err == nil {

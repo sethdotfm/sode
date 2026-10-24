@@ -44,29 +44,38 @@
 
     <form class="sode__boxes" autocomplete="off" onsubmit="return false">
       <div class="sode__box">
-        <label class="sode__label" for="src">Source</label>
-        <input id="src" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
+        <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
+        <span class="sode__keyed">
+          <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
+          <kbd class="sode__key-note" aria-hidden="true">S</kbd>
+        </span>
         <ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
       </div>
       <div class="sode__box">
-        <label class="sode__label" for="dst" id="dst-label">Destination</label>
+        <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
         <div class="sode__entry">
-          <input id="dst" class="pb-input sode__input" role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
+          <span class="sode__keyed">
+            <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
+            <kbd class="sode__key-note" aria-hidden="true">D</kbd>
+          </span>
           <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+)">+</button>
           <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
         </div>
         <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
       </div>
       <div class="sode__box">
-        <label class="sode__label" for="lvl">Levels</label>
-        <input id="lvl" class="pb-input sode__input" spellcheck="false">
+        <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
+        <span class="sode__keyed">
+          <input id="lvl" class="pb-input sode__input" spellcheck="false">
+          <kbd class="sode__key-note" aria-hidden="true">F</kbd>
+        </span>
         <div class="sode__picker">
           <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="lvl-all" tabindex="-1">All</button>
         </div>
       </div>
       <div class="sode__box">
-        <span class="sode__label" aria-hidden="true">&nbsp;</span>
+        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
         <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1" data-tip="Enter">Take</button>
       </div>
     </form>
@@ -75,7 +84,25 @@
     <div class="sode__result" id="result" aria-live="polite"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
-      <div class="sode__label" id="history-head" hidden>Recent</div>
+      <div class="sode__recent-head" id="history-bar" hidden>
+        <span class="sode__label" id="history-head">Recent</span>
+        <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
+      </div>
+      <div class="sode__search" data-search id="history-search" hidden>
+        <span class="sode__search-box">
+          <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+          <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
+          <kbd class="sode__key-note" aria-hidden="true">⇧S</kbd>
+        </span>
+        <span class="sode__search-box">
+          <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+          <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+          <kbd class="sode__key-note" aria-hidden="true">⇧D</kbd>
+        </span>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" hidden>Clear</button>
+        <span class="sode__hint" data-search-note aria-live="polite"></span>
+      </div>
       <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent takes"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
@@ -146,6 +173,7 @@
         </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-scrolltop"><span class="pb-check__label">Scroll to the top when a box is focused</span></label>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-search-filters"><span class="pb-check__label">Search respects filters</span></label>
     </fieldset>
 
     <fieldset class="sode__group">
@@ -262,6 +290,17 @@
     <fieldset class="sode__group">
       <legend>History</legend>
       <div class="sode__field">
+        <span class="sode__field-label">Filter sets for everyone</span>
+        <ul class="sode__gsets" id="cfg-sets"></ul>
+        <span class="sode__hint">Edit these in Recent → Filters.</span>
+      </div>
+      <div class="sode__field">
+        <label for="cfg-hidden">Globally hidden destinations</label>
+        <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
+        <span class="sode__hint" id="cfg-hidden-note"></span>
+        <span class="sode__hint">Other panels' changes here are hidden from Recent for everyone, but still logged.</span>
+      </div>
+      <div class="sode__field">
         <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone.</span>
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear history…</button>
@@ -301,7 +340,23 @@
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head" hidden>
-        <div class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></div>
+        <div class="sode__recent-head">
+          <span class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></span>
+          <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn" data-filters aria-haspopup="dialog">Filters</button>
+        </div>
+        <div class="sode__search" data-search>
+          <span class="sode__search-box">
+            <input class="pb-input" data-search-src role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Source" aria-label="Filter history by source" spellcheck="false" autocomplete="off">
+            <ul class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
+          </span>
+          <span class="sode__search-box">
+            <input class="pb-input" data-search-dst role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Filter by Destination" aria-label="Filter history by destination" spellcheck="false" autocomplete="off">
+            <ul class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
+          </span>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" data-search-clear aria-label="Clear search" hidden>Clear</button>
+          <span class="sode__hint" data-search-note aria-live="polite"></span>
+        </div>
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
         <div class="sode-m__recent-more" id="m-recent-more"></div>
       </section>
@@ -339,6 +394,60 @@
     </div>
   </div>
 </div>
+<div class="pb-modal-backdrop sode__scrim" id="filters" hidden>
+  <div class="pb-modal sode__filters" role="dialog" aria-modal="true" aria-labelledby="filters-title" tabindex="-1" id="filters-dialog">
+    <div class="pb-modal__header"><span class="pb-modal__title" id="filters-title">Filters</span></div>
+    <div class="pb-modal__body sode__filters-body">
+      <div class="sode__filters-sets">
+        <div class="sode__filters-set">
+          <label class="sode__label" for="flt-set">Set</label>
+          <span class="pb-select-wrap"><select id="flt-set" class="pb-select"></select></span>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-save">Save</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-saveas">Save as…</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-rename">Rename</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-del">Delete</button>
+        </div>
+        <div class="sode__filters-set" id="flt-set-name-row" hidden>
+          <input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name" aria-label="Set name" autocomplete="off">
+          <span class="pb-select-wrap sode__filters-scope" id="flt-set-scope-wrap"><select class="pb-select" id="flt-set-scope" aria-label="Save for"><option value="local">This browser</option><option value="global">Everyone</option></select></span>
+          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-set-name-ok">Save</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-set-name-cancel">Cancel</button>
+        </div>
+        <div class="sode__filters-set" id="flt-pin-row" hidden>
+          <input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Settings PIN">
+          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-pin-ok">Unlock</button>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-pin-cancel">Cancel</button>
+        </div>
+        <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
+      </div>
+      <fieldset class="sode__filters-show">
+        <legend class="sode__label">Show</legend>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-sode"><span class="pb-check__label">Sode takes</span></label>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-ext"><span class="pb-check__label">Other panels</span></label>
+        <label class="pb-check sode__filters-indent"><input type="checkbox" class="pb-check__input" id="flt-hidden"><span class="pb-check__label">Hidden destinations</span></label>
+        <span class="sode__hint sode__filters-indent" id="flt-hidden-note"></span>
+      </fieldset>
+      <div class="sode__filters-mode">
+        <span class="pb-btn-group" role="group" aria-label="Editor">
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-visual" aria-pressed="true">Visual</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-code" aria-pressed="false">Code</button>
+        </span>
+        <span class="sode__hint" id="flt-syntax" hidden><code>65</code> <code>1-50</code> <code>name</code> <code>'literal'</code> <code>"exact"</code> <code>/regex/</code> <code>!exclude</code></span>
+      </div>
+      <div class="sode__filters-ed" id="flt-src"></div>
+      <div class="sode__filters-ed" id="flt-dst"></div>
+      <div class="sode__filters-share" id="flt-share" hidden>
+        <input class="pb-input sode__code" id="flt-share-url" readonly aria-label="Share link">
+        <span class="pb-status" id="flt-share-status"></span>
+      </div>
+    </div>
+    <div class="pb-modal__footer">
+      <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
+      <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share link</button>
+      <button type="button" class="pb-btn pb-btn--commit" id="flt-done">Done</button>
+    </div>
+  </div>
+</div>
 <div class="pb-modal-backdrop sode__scrim" id="keys" hidden>
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" id="keys-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="keys-title">Keyboard shortcuts</span></div>
@@ -348,8 +457,9 @@
         <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌥J">Alt+J</kbd> <kbd data-mac="⌥K">Alt+K</kbd></dt><dd>Pick a match</dd>
         <dt><kbd>+</kbd></dt><dd>Add destination</dd>
+        <dt><kbd>⌃S</kbd> <kbd>⌃D</kbd> <kbd>⌃F</kbd></dt><dd>Last take's source, destination, levels</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
-        <dt><kbd data-mac="⌘Z">Ctrl+Z</kbd></dt><dd>Undo the last</dd>
+        <dt><kbd data-mac="⌘Z">Ctrl+Z</kbd></dt><dd>Undo the last Sode take</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear a box; with all empty, keyboard mode</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list, from anywhere</dd>
       </dl>
@@ -364,6 +474,8 @@
         <dt><kbd>h</kbd> <kbd>←</kbd> <kbd>⇧Enter</kbd></dt><dd>Close</dd>
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
         <dt><kbd>r</kbd></dt><dd>Retry</dd>
+        <dt><kbd>/</kbd></dt><dd>Filters</dd>
+        <dt><kbd>⇧S</kbd> <kbd>⇧D</kbd></dt><dd>Filter by Source, Destination</dd>
         <dt><kbd>,</kbd></dt><dd>Settings</dd>
         <dt><kbd>?</kbd></dt><dd>This list</dd>
         <dt><kbd>Esc</kbd></dt><dd>Back to Source</dd>
