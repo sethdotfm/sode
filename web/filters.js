@@ -450,6 +450,7 @@ function cancelPin() {
 async function sendPin() {
   $('flt-pin-ok').disabled = true;
   const r = await unlock($('flt-pin').value);
+  if (r.superseded) return;
   $('flt-pin-ok').disabled = false;
   if (r.stale) return;
   if (!r.ok) { setNote(r.err, true); $('flt-pin').select(); return; }

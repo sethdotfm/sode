@@ -442,24 +442,26 @@ code,
   gap: var(--pb-space-4);
 }
 /* Each change on two lines, so the name gets the width: time, name and
-   Restore, then the bar under the name. A name too long still is cut
+   Restore, then the bar under the name. The steps share the list's columns
+   (subgrid), so every time takes the same width. A name too long is cut
    short rather than wrapped. */
 .sode-m__changes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-3);
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 .sode-m__changes > .sode__step {
   align-items: center;
   display: grid;
-  gap: var(--pb-space-1) var(--pb-space-3);
+  grid-column: 1 / -1;
   grid-template-areas: "time name btn" ". bar bar";
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: subgrid;
 }
+.sode-m__changes > .sode__step + .sode__step { margin-top: var(--pb-space-2); }
 .sode-m__changes .sode__step-time {
   font-size: var(--pb-text-xs); /* as the row's time */
   grid-area: time;
-  min-width: 8ch; /* every line's time column the same width */
 }
 .sode-m__changes .sode__bar { grid-area: bar; }
 .sode-m__changes .sode__end {

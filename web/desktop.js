@@ -564,6 +564,7 @@ function tryConfirm() {
 function openConfirm(plan) {
   const { block, prot } = planBlocked(plan);
   if (block) return showResult(block.kind, block.title, block.text);
+  pending?.lock.cancel(); // one replaced: its lockout mustn't unlock this one
   let key;
   do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
   lastKey = key;

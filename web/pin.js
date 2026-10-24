@@ -16,11 +16,12 @@ function settle(r) {
   w?.resolve(r);
 }
 
-// Sends the PIN. Resolves {ok, err}; stale when overtaken (a newer unlock,
-// relock, or the socket dropping, which also says why in err), so the
-// caller only needs to re-enable what it disabled.
+// Sends the PIN. Resolves {ok, err}; stale when overtaken (relock, or the
+// socket dropping, which also says why in err), so the caller only needs
+// to re-enable what it disabled. superseded too when a newer unlock took
+// over: that one's caller has the button now, so leave it be.
 export function unlock(pin) {
-  settle({ ok: false, stale: true });
+  settle({ ok: false, stale: true, superseded: true });
   const id = ++seq;
   if (!wsSend({ t: 'unlock', pin, id })) return Promise.resolve({ ok: false, err: 'Not connected to Sode.' });
   return new Promise((resolve) => { waiting = { id, resolve }; });

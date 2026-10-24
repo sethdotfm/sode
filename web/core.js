@@ -683,9 +683,9 @@ export const timeNodes = (iso) => {
   return [el('span', 'sode__date', `${isoDate(d)} `), timeFormat().format(d)];
 };
 
-// ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry, prot }] }
+// ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 // One item per destination. undo/retry are the history entries an item
-// undoes or retries; prot is set by planBlocked when dst is protected.
+// undoes or retries. Protection isn't kept here: planBlocked returns it.
 
 // Groups an entry's previous routing into restorable takes.
 function undoItem(e) {

@@ -90,10 +90,17 @@ export function combobox(input, menu, { source, onPick, press = 'mousedown', cls
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;
   let matches = [];
   let hi = 0;
+  let last = null; // the box last drawn for, while it can change
 
   function render() {
     const open = matches.length > 0;
     const input = box();
+    // A list shared by several boxes: the one it's left says it's closed.
+    if (last && last !== input) {
+      last.setAttribute('aria-expanded', 'false');
+      last.removeAttribute('aria-activedescendant');
+    }
+    last = input;
     menu.hidden = !open;
     input.setAttribute('aria-expanded', String(open));
     if (!open) { input.removeAttribute('aria-activedescendant'); return; }

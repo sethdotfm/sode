@@ -339,6 +339,7 @@ let pending = null; // plan + lock (a shallow copy: planBlocked's prot is keyed 
 function openSheet(plan) {
   const { block, prot } = planBlocked(plan);
   if (block) return showResult(block.kind, block.title, block.text);
+  pending?.lock.cancel(); // one replaced: its lockout mustn't unlock this one
   $('m-sheet-title').textContent = `Confirm ${planVerb(plan)}`;
   $('m-sheet-body').replaceChildren(...planSummary(plan, { prot }));
   $('m-slide-label').textContent = `Slide to ${planVerb(plan)}`;

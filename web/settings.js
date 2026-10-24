@@ -257,6 +257,7 @@ function renderPinStatus() {
 async function sendUnlock() {
   $('lock-unlock').disabled = true;
   const r = await unlock($('lock-pin').value);
+  if (r.superseded) return;
   $('lock-unlock').disabled = false;
   if (r.stale || !isOpen()) return; // sent before the view closed or reopened
   if (!r.ok) return showLockErr(r.err);
