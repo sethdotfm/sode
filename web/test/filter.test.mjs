@@ -283,3 +283,19 @@ test('history pages', async () => {
   assert.equal(takePage({ before: 790, entries: ents(789, 10), more: true }), false);
   assert.equal(S.hist.length, 0);
 });
+
+test('undo warns about changes since', async () => {
+  const { S, undoPlan, restorePlan, changedSince } = await import('../core.js');
+  S.cfg = { ...S.cfg, numberOffset: 1 };
+  S.levelBy = new Map([1, 2, 3].map((ui) => [ui, { ui, label: String(ui) }]));
+  // #20 put src 7 on dst 5, levels 1-3, replacing src 1.
+  const e = { id: 20, src: 7, dst: 5, levels: [1, 2, 3], prev: [[1, 1], [2, 1], [3, 1]], ok: true, srcName: '', dstName: '', time: new Date(0).toISOString() };
+  S.tally = new Map([[5, new Map([[1, 7], [2, 7], [3, 7]])]]);
+  assert.deepEqual(changedSince(undoPlan(e).items[0]), []);
+  // Since then, levels 2 and 3 went to src 9 (a panel, or found at resync).
+  S.tally.get(5).set(2, 9).set(3, 9);
+  assert.deepEqual(changedSince(undoPlan(e).items[0]), [{ src: 9, levels: [2, 3] }]);
+  // A patch item undoes nothing.
+  assert.deepEqual(changedSince({ ...undoPlan(e).items[0], undo: null }), []);
+  assert.ok(restorePlan(e, e).at); // Restore plans skip the warning (planSummary)
+});

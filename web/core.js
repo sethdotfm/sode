@@ -1309,12 +1309,26 @@ function planQuestion(plan) {
     ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
+// What an undo item would overwrite besides the take it undoes: the levels
+// it restores where dst no longer has that take's source, because
+// something changed them since. [{src, levels}] by what's there now.
+export function changedSince(item) {
+  const e = item.undo;
+  if (!e) return [];
+  const t = S.tally.get(e.dst);
+  const levels = item.groups.flatMap((g) => g.levels).filter((u) => t?.has(u) && t.get(u) !== e.src);
+  return bySource(e.dst, levels.sort((a, b) => a - b));
+}
+
 // One destination's part of a confirm: new routes, then what they replace.
-function itemSummary(item, boxed, prot) {
+// since: warn about changes made after the take being undone.
+function itemSummary(item, boxed, prot, since) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
   return [
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
+    ...(since ? changedSince(item) : []).map((r) => el('div', 'sode__route', levelBar(r.levels),
+      el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`)),
     prot
       ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
         `by device ${prot.devices.join(', ')}; will be refused`)
@@ -1333,12 +1347,14 @@ function itemSummary(item, boxed, prot) {
 // block, headed by its name, so the groups are easy to tell apart.
 // prot: from planBlocked. spaceHint: the follows box says Space ticks it.
 export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
-  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0])), extraBox(plan, spaceHint)].filter(Boolean);
+  // Restore goes back past newer changes on purpose; other undos warn.
+  const since = plan.verb === 'undo' && !plan.at;
+  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
   return [
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
       el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
-      ...itemSummary(i, true, prot.get(i)))),
+      ...itemSummary(i, true, prot.get(i), since))),
     extraBox(plan, spaceHint),
   ].filter(Boolean);
 }
