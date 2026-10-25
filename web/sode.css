@@ -184,7 +184,7 @@ code,
   align-items: start;
   display: grid;
   gap: var(--pb-space-6);
-  grid-template-columns: 2fr 2fr 1.5fr auto;
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto;
   width: 100%;
 }
 .sode__box {
@@ -216,6 +216,18 @@ code,
 .pb-btn.sode__add {
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.6);
+  padding: 0 var(--pb-space-5);
+}
+/* Source → Destination: sized like the + button, but not a control. */
+.sode__to {
+  align-items: center;
+  border: var(--pb-border-w) solid var(--pb-surface-control);
+  color: var(--pb-text);
+  display: inline-flex;
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-medium);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+  justify-content: center;
   padding: 0 var(--pb-space-5);
 }
 .sode__chips[hidden] { display: none; }
@@ -261,7 +273,17 @@ code,
   display: flex;
   gap: var(--pb-space-3);
 }
-.sode__picker .sode__levels { flex: 1 1 auto; }
+/* As the level bar: two rows, an odd first level (0 or V) tall on its
+   own to their left. */
+.sode__picker .sode__levels {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(var(--sode-bar-cols), auto);
+}
+.sode__picker .sode__levels--odd > .sode__pick:first-child {
+  grid-row: span 2;
+  height: auto;
+}
 /* A level toggle (picker) or slot (level bar): filled when on, outlined in
    its signal color when off. Shared so both read the same. */
 .sode__pick,

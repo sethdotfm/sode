@@ -68,6 +68,10 @@ export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholde
     reset() {
       input.value = relabelLevels(input.value);
       picker.replaceChildren(...pickButtons(toggle));
+      // Laid out like the level bar where the CSS asks (desktop).
+      const odd = S.levels.length % 2;
+      picker.classList.toggle('sode__levels--odd', !!odd);
+      picker.style.setProperty('--sode-bar-cols', Math.floor(S.levels.length / 2) + odd);
       render();
     },
   };
