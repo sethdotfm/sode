@@ -31,7 +31,7 @@ for (const k of ['src', 'dst']) {
   });
 }
 const lvlInput = $('lvl');
-const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { tips: true, onChange: () => renderTally() });
+const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { onChange: () => renderTally() });
 let feedOpen = false; // "and N others" expanded
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';

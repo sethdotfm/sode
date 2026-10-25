@@ -15,7 +15,7 @@ const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 // take focus ('mousedown' on desktop, 'pointerdown' on a phone, to keep the
 // keyboard up). placeholder() is the blank box's text; tips also labels
 // All/None with a tooltip. onChange after the levels change.
-export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsText, tips = false, onChange = () => {} } = {}) {
+export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsText, onChange = () => {} } = {}) {
   let none = false; // picker cleared to no levels (a blank box would mean default)
   const levels = () => parseLevels(input.value, none);
 
@@ -32,10 +32,6 @@ export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholde
     const def = parseLevels('') || [];
     const isDefault = !none && !!list && list.length === def.length && list.every((u, i) => u === def[i]);
     input.closest('.sode__keyed')?.classList.toggle('sode__keyed--default', isDefault);
-    if (tips) {
-      allBtn.dataset.tip = full ? 'No levels' : 'All levels';
-      allBtn.setAttribute('aria-label', allBtn.dataset.tip);
-    }
   }
 
   function set(list) {
