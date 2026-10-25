@@ -483,6 +483,23 @@ function onListKey(e) {
   return true;
 }
 
+// ---- Source/Destination order: the arrow flips how they're shown (per
+// browser; index.html applies it before first paint)
+
+const FLIP_KEY = 'sode-flip';
+function showFlip() {
+  const on = 'flip' in document.documentElement.dataset;
+  $('flip').setAttribute('aria-pressed', String(on));
+  $('flip').dataset.tip = on ? 'Show Source first' : 'Show Destination first';
+}
+$('flip').addEventListener('mousedown', (e) => e.preventDefault());
+$('flip').addEventListener('click', () => {
+  const on = document.documentElement.toggleAttribute('data-flip');
+  try { localStorage.setItem(FLIP_KEY, on ? 'on' : 'off'); } catch (e) {}
+  showFlip();
+});
+showFlip();
+
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
 
 const TIP_KEY = 'sode-hint-keys';
