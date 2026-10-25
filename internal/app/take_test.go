@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
 )
@@ -35,13 +36,14 @@ type fakeRouter struct {
 	tally  map[[2]int]int // dst, wire level → src
 	ignore map[int]bool   // dsts the router never answers for
 	lose   map[int]bool   // dsts whose Connected goes missing (interrogates still answer)
+	mute   map[int]bool   // dsts whose interrogates go unanswered (connects still do)
 	failAt int            // this send and every later one fail (1-based; 0 = never)
 	n      int
 	out    chan []byte
 }
 
 func newFakeRouter(t *testing.T, a *App) *fakeRouter {
-	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, lose: map[int]bool{}, out: make(chan []byte, 256)}
+	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, lose: map[int]bool{}, mute: map[int]bool{}, out: make(chan []byte, 256)}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -87,7 +89,7 @@ func (f *fakeRouter) send(m []byte) error {
 		}
 	case swp08.CmdExtInterrogate:
 		l, dst := int(m[2]), int(m[3])<<8|int(m[4])
-		if f.ignore[dst] {
+		if f.ignore[dst] || f.mute[dst] {
 			return nil
 		}
 		src, ok := f.tally[[2]int{dst, l}]
@@ -199,6 +201,13 @@ func TestTakeLostConnected(t *testing.T) {
 	if !e.OK || len(e.Already) != 3 {
 		t.Fatalf("take %+v", e)
 	}
+	// No Connected is coming for those levels, so their own keys went.
+	leftovers(t, a)
+	// The interrogate's answer is ours, not a change found.
+	endBurst(a)
+	if n := a.hist.Len(); n != 1 {
+		t.Fatalf("entries %d", n)
+	}
 }
 
 func TestTakeNoConfirmation(t *testing.T) {
@@ -212,6 +221,12 @@ func TestTakeNoConfirmation(t *testing.T) {
 		t.Fatalf("take %+v", e)
 	}
 	leftovers(t, a)
+	// A late answer to the last interrogate is still ours, not a change found.
+	a.onRouterMsg(swp08.ExtTally(0, 1, 5, 7))
+	endBurst(a)
+	if n := a.hist.Len(); n != 1 {
+		t.Fatalf("late tally of our route recorded: %d entries", n)
+	}
 	// The route made later elsewhere is someone else's.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
@@ -224,7 +239,7 @@ func TestTakeSendFails(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
-	f.failAt = f.sends() + 3 // the third connect
+	f.failAt = f.sends() + 3 + 3 // the third connect, after an interrogate per level
 	e := takeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.HasPrefix(e.Err, "levels 3 not sent:") {
 		t.Fatalf("take %+v", e)
@@ -236,6 +251,84 @@ func TestTakeSendFails(t *testing.T) {
 		t.Fatalf("router %v", got)
 	}
 	leftovers(t, a)
+}
+
+// The router has src 4 on dst 5, which it never announced: Prev comes
+// from the router, and the change is logged as found.
+func TestTakeFreshPrev(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.mu.Lock()
+	for l := 0; l < 3; l++ {
+		f.tally[[2]int{5, l}] = 4
+	}
+	f.tally[[2]int{5, 2}] = 7
+	f.mu.Unlock()
+	// A resync is meanwhile finding changes on dst 6, not yet written.
+	f.seed(6, 1, 0, 1)
+	f.seed(6, 8, 0)
+	f.seed(6, 9, 1)
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if want := [][2]int{{1, 4}, {2, 4}, {3, 7}}; !e.OK || !equalPrev(e.Prev, want) {
+		t.Fatalf("take %+v, want prev %v", e, want)
+	}
+	if len(e.Already) != 1 || e.Already[0] != 3 {
+		t.Fatalf("already %v", e.Already)
+	}
+	leftovers(t, a)
+	// What the check found is written before the take, not after it.
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 10)
+	if len(es) != 5 || es[2].ID != e.ID || !es[3].Found || !es[4].Found || es[3].Dst != 5 || es[4].Dst != 5 {
+		t.Fatalf("entries %+v", es)
+	}
+	// Each set of found changes is a group of its own.
+	if g5, g6 := es[3].Group, es[0].Group; g5 == "" || g6 == "" || g5 != es[4].Group || g6 != es[1].Group || g5 == g6 {
+		t.Fatalf("groups %+v", es)
+	}
+}
+
+// No answer to the interrogates: the take goes ahead from the cache.
+func TestTakeCheckUnanswered(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.mute[5] = true
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if want := [][2]int{{1, 1}, {2, 1}, {3, 1}}; !e.OK || !equalPrev(e.Prev, want) {
+		t.Fatalf("take %+v", e)
+	}
+	leftovers(t, a)
+}
+
+// With the link down, nothing waits for answers that can't come.
+func TestTakeLinkDown(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.failAt = f.sends() + 1
+	start := time.Now()
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if e.OK || !strings.HasPrefix(e.Err, "levels 1, 2, 3 not sent:") {
+		t.Fatalf("take %+v", e)
+	}
+	if d := time.Since(start); d > checkTimeout/2 {
+		t.Fatalf("took %v", d)
+	}
+	leftovers(t, a)
+}
+
+// Duplicate levels in a request are taken and recorded once.
+func TestTakeDuplicateLevels(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	e := takeOne(t, a, 7, 5, 1, 1, 2)
+	if !e.OK || len(e.Levels) != 2 || len(e.Prev) != 2 {
+		t.Fatalf("take %+v", e)
+	}
 }
 
 func equalPrev(a, b [][2]int) bool {

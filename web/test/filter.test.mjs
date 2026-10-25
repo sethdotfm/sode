@@ -283,3 +283,30 @@ test('history pages', async () => {
   assert.equal(takePage({ before: 790, entries: ents(789, 10), more: true }), false);
   assert.equal(S.hist.length, 0);
 });
+
+test('undo warns about changes since', async () => {
+  const { S, undoPlan, restorePlan, changedSince } = await import('../core.js');
+  S.cfg = { ...S.cfg, numberOffset: 1 };
+  S.levelBy = new Map([1, 2, 3].map((ui) => [ui, { ui, label: String(ui) }]));
+  // #20 put src 7 on dst 5, levels 1-3, replacing src 1.
+  const e = { id: 20, src: 7, dst: 5, levels: [1, 2, 3], prev: [[1, 1], [2, 1], [3, 1]], ok: true, srcName: '', dstName: '', time: new Date(0).toISOString() };
+  S.tally = new Map([[5, new Map([[1, 7], [2, 7], [3, 7]])]]);
+  assert.deepEqual(changedSince(undoPlan(e).items[0]), []);
+  // Since then, levels 2 and 3 went to src 9 (a panel, or found at resync).
+  S.tally.get(5).set(2, 9).set(3, 9);
+  assert.deepEqual(changedSince(undoPlan(e).items[0]), [{ src: 9, levels: [2, 3] }]);
+  // A failed take may not have switched them: no warning.
+  assert.deepEqual(changedSince(undoPlan({ ...e, ok: false }).items[0]), []);
+  // A patch item undoes nothing.
+  assert.deepEqual(changedSince({ ...undoPlan(e).items[0], undo: null }), []);
+  assert.ok(restorePlan(e, e).at); // Restore plans skip the warning (planSummary)
+});
+
+test('found and announced changes stack apart', async () => {
+  const { histRows, setFilter, FILTER_DEFAULT } = await import('../core.js');
+  setFilter(FILTER_DEFAULT);
+  const T = (s) => new Date(Date.UTC(2026, 9, 23, 12, 0, s)).toISOString();
+  const x = (o) => ({ ext: true, dst: 2, levels: [1], prev: [[1, 0]], ok: true, srcName: 'CAM', dstName: 'MV', ...o });
+  const rows = histRows([x({ id: 3, src: 3, time: T(20) }), x({ id: 2, src: 2, time: T(10), found: true }), x({ id: 1, src: 1, time: T(5), found: true })]);
+  assert.deepEqual(rows.map((r) => `${r.e.id}${r.e.merged ? 'x' + r.e.merged : ''}`), ['3', '2x2']);
+});

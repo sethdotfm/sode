@@ -1,7 +1,9 @@
 // Command swp08sim is a minimal fake SW-P-08 router for development.
 // It answers name requests, tally dumps, interrogates and extended connects
 // on any matrix, and broadcasts Connected to every client. With
-// SIM_PANEL_SECONDS it also makes routes of its own, like a control panel.
+// SIM_PANEL_SECONDS it also makes routes of its own, like a control panel;
+// with SIM_PANEL_SILENT=1 those aren't announced, as the Ultrix sometimes
+// doesn't, so they only show in a tally dump or an interrogate.
 package main
 
 import (
@@ -89,7 +91,7 @@ func main() {
 	// one or a few destinations, all levels or a few. SIM_PANEL_DST (0-based,
 	// default 3) gets every other punch, so repeats on a monitor show up.
 	if n := envInt("SIM_PANEL_SECONDS", 0); n > 0 {
-		go s.panel(time.Duration(n)*time.Second, envInt("SIM_PANEL_DST", 3), nl+1)
+		go s.panel(time.Duration(n)*time.Second, envInt("SIM_PANEL_DST", 3), nl+1, envInt("SIM_PANEL_SILENT", 0) == 1)
 	}
 
 	ln, err := net.Listen("tcp", addr)
@@ -106,7 +108,7 @@ func main() {
 	}
 }
 
-func (s *sim) panel(every time.Duration, monitor, levels int) {
+func (s *sim) panel(every time.Duration, monitor, levels int, silent bool) {
 	for i := 0; ; i++ {
 		time.Sleep(every)
 		dsts := []int{monitor}
@@ -128,16 +130,17 @@ func (s *sim) panel(every time.Duration, monitor, levels int) {
 		}
 		for _, dst := range dsts {
 			src := rand.IntN(min(len(s.srcs), 24))
-			log.Printf("panel: dst %d ← src %d on levels %v", dst, src, ls)
+			log.Printf("panel: dst %d ← src %d on levels %v (silent %t)", dst, src, ls, silent)
 			for _, l := range ls {
-				s.route(0, l, dst, src)
+				s.route(0, l, dst, src, !silent)
 			}
 		}
 	}
 }
 
-// route makes a crosspoint and, if it changed, tells every client.
-func (s *sim) route(mx, l, dst, src int) {
+// route makes a crosspoint and, if it changed and announce is set, tells
+// every client.
+func (s *sim) route(mx, l, dst, src int, announce bool) {
 	s.mu.Lock()
 	t, ok := s.tally[l]
 	valid := ok && dst < len(t) && src < len(s.srcs)
@@ -160,11 +163,13 @@ func (s *sim) route(mx, l, dst, src int) {
 		return
 	}
 	log.Printf("connect level %d: dst %d ← src %d", l, dst, src)
-	for _, cc := range all {
-		s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
+	if announce {
+		for _, cc := range all {
+			s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
+		}
 	}
 	for _, f := range s.follows[dst] {
-		time.AfterFunc(30*time.Millisecond, func() { s.route(mx, l, f, src) })
+		time.AfterFunc(30*time.Millisecond, func() { s.route(mx, l, f, src, announce) })
 	}
 }
 
@@ -225,7 +230,7 @@ func (s *sim) handle(c net.Conn, m []byte) {
 			log.Printf("connect level %d: dst %d ← src %d ignored (SIM_IGNORE_DSTS)", l, dst, src)
 			return
 		}
-		s.route(mx, l, dst, src)
+		s.route(mx, l, dst, src, true)
 
 	case swp08.CmdExtInterrogate:
 		if len(m) < 5 {

@@ -20,6 +20,11 @@ import (
 // written as a follow of that take (Entry.Follow) rather than a take of
 // its own. Changes made elsewhere aren't followed: a panel's salvo of one
 // source to several destinations stays one burst, grouped.
+//
+// The router doesn't announce every change (2026-10-23: KiPro 4 moved
+// with no Connected sent). Those turn up later as a tally that differs from
+// the cache, in the periodic dump or an interrogate, and are written as
+// found entries: when they happened isn't known, so they're never follows.
 
 const (
 	extQuiet = 500 * time.Millisecond // a burst ends after this long with no changes
@@ -32,7 +37,7 @@ const (
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
 	// A burst that may follow a take still in flight waits for it to be
 	// recorded, up to this long after the burst began.
-	extHold   = takeTimeout + takeGrace + 2*time.Second
+	extHold   = checkTimeout + takeTimeout + takeGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 
@@ -41,6 +46,7 @@ type extLevel struct {
 	prevKnown bool
 	src       int
 	first, at time.Time // first and last change
+	found     bool      // the last change came as a tally, not a Connected
 }
 
 type ownKey struct{ dst, wire, src int }
@@ -73,8 +79,9 @@ func (c *cause) leads(src, dst int, t time.Time) bool {
 func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 	// One of our connects: the router's answer to it, used up so the same
 	// route made again elsewhere later still counts.
+	found := !xp.Changed()
 	k := ownKey{xp.Dst, xp.Level, xp.Src}
-	if until, ok := a.own[k]; ok {
+	if until, ok := a.own[k]; ok && !found {
 		delete(a.own, k)
 		if time.Now().Before(until) {
 			return
@@ -91,9 +98,9 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 		a.ext[xp.Dst] = d
 	}
 	if l := d[ui]; l != nil {
-		l.src, l.at = xp.Src, now
+		l.src, l.at, l.found = xp.Src, now, found
 	} else {
-		d[ui] = &extLevel{prev: old, prevKnown: known, src: xp.Src, first: now, at: now}
+		d[ui] = &extLevel{prev: old, prevKnown: known, src: xp.Src, first: now, at: now, found: found}
 	}
 }
 
@@ -101,9 +108,11 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 func (a *App) flushExt() {
 	a.mu.Lock()
 	now := time.Now()
-	for k, until := range a.own {
-		if now.After(until) {
-			delete(a.own, k)
+	for _, m := range []map[ownKey]time.Time{a.own, a.late} {
+		for k, until := range m {
+			if now.After(until) {
+				delete(m, k)
+			}
 		}
 	}
 	keep := a.causes[:0]
@@ -119,8 +128,32 @@ func (a *App) flushExt() {
 		a.mu.Unlock()
 		return
 	}
-	es := a.extEntries()
+	es := a.extEntries(a.ext, a.extFirst)
 	a.ext = map[int]map[int]*extLevel{}
+	a.mu.Unlock()
+	for _, e := range es {
+		a.record(e)
+	}
+}
+
+// flushFound writes the changes found on dst now, ahead of the rest of
+// the burst, so they come before the take whose check found them rather
+// than after it, where they'd look like what dst has now.
+func (a *App) flushFound(dst int) {
+	a.mu.Lock()
+	found := map[int]*extLevel{}
+	for ui, l := range a.ext[dst] {
+		if l.found {
+			found[ui] = l
+			delete(a.ext[dst], ui)
+		}
+	}
+	if len(a.ext[dst]) == 0 {
+		delete(a.ext, dst)
+	}
+	// Grouped by now, not the burst's start: the rest of the burst, written
+	// later, gets that one.
+	es := a.extEntries(map[int]map[int]*extLevel{dst: found}, time.Now())
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
@@ -136,7 +169,7 @@ func (a *App) extAwaitsTake() bool {
 		}
 		for dst, ls := range a.ext {
 			for _, l := range ls {
-				if l.src == c.src && dst != c.dst {
+				if !l.found && l.src == c.src && dst != c.dst {
 					return true
 				}
 			}
@@ -146,27 +179,31 @@ func (a *App) extAwaitsTake() bool {
 }
 
 // extEntries turns the pending burst into history entries, one per
-// destination and source, dropping levels that ended where they began,
-// earliest first. Changes that follow one of our takes name it; the rest
-// share a group when there's more than one. Caller holds mu.
-func (a *App) extEntries() []*Entry {
-	type key struct{ dst, src int }
+// destination, source and found, dropping levels that ended where they
+// began, earliest first. Changes that follow one of our takes name it;
+// the rest share a group when there's more than one, found ones apart.
+// Group ids are made from at. Caller holds mu.
+func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry {
+	type key struct {
+		dst, src int
+		found    bool
+	}
 	type out struct {
 		e     *Entry
 		first time.Time
 	}
 	byKey := map[key]*out{}
 	var outs []*out
-	for dst, ls := range a.ext {
+	for dst, ls := range burst {
 		for ui, l := range ls {
 			// Back where it began, or cleared (nothing to show as a take).
 			if (l.prevKnown && l.prev == l.src) || l.src < 0 {
 				continue
 			}
-			k := key{dst, l.src}
+			k := key{dst, l.src, l.found}
 			o := byKey[k]
 			if o == nil {
-				o = &out{e: &Entry{Src: l.src, Dst: dst, Prev: [][2]int{}, OK: true, Ext: true,
+				o = &out{e: &Entry{Src: l.src, Dst: dst, Prev: [][2]int{}, OK: true, Ext: true, Found: l.found,
 					SrcName: a.srcNames[l.src], DstName: a.dstNames[dst]}, first: l.first}
 				byKey[k] = o
 				outs = append(outs, o)
@@ -186,16 +223,21 @@ func (a *App) extEntries() []*Entry {
 		if a.e.Dst != b.e.Dst {
 			return a.e.Dst < b.e.Dst
 		}
-		return a.e.Src < b.e.Src
+		if a.e.Src != b.e.Src {
+			return a.e.Src < b.e.Src
+		}
+		return !a.e.Found && b.e.Found
 	})
 	es := make([]*Entry, len(outs))
-	var takes []*Entry
+	var takes, found []*Entry
 	for i, o := range outs {
 		e := o.e
 		e.Time = o.first
 		sort.Ints(e.Levels)
 		sort.Slice(e.Prev, func(i, j int) bool { return e.Prev[i][0] < e.Prev[j][0] })
-		if c := a.followed(e.Src, e.Dst, o.first); c != nil {
+		if e.Found {
+			found = append(found, e)
+		} else if c := a.followed(e.Src, e.Dst, o.first); c != nil {
 			id := c.id
 			e.Follow = &id
 		} else {
@@ -203,10 +245,13 @@ func (a *App) extEntries() []*Entry {
 		}
 		es[i] = e
 	}
-	if len(takes) > 1 {
-		g := "x" + strconv.FormatInt(a.extFirst.UnixNano(), 36)
-		for _, e := range takes {
-			e.Group, e.GroupN = g, len(takes)
+	for p, g := range map[string][]*Entry{"x": takes, "f": found} {
+		if len(g) < 2 {
+			continue
+		}
+		id := p + strconv.FormatInt(at.UnixNano(), 36)
+		for _, e := range g {
+			e.Group, e.GroupN = id, len(g)
 		}
 	}
 	return es

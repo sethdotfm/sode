@@ -227,3 +227,56 @@ func TestExtFollows(t *testing.T) {
 		t.Fatalf("held follow %+v", e)
 	}
 }
+
+func TestExtFound(t *testing.T) {
+	a := newTestApp(t)
+	// The first dump only fills the cache.
+	for l := 0; l < 3; l++ {
+		for _, d := range []int{5, 6, 7} {
+			a.onRouterMsg(swp08.ExtTally(0, l, d, 1))
+		}
+	}
+	endBurst(a)
+	if n := a.hist.Len(); n != 0 {
+		t.Fatalf("first dump recorded %d entries", n)
+	}
+	// The router moved dst 5 and 6 without a Connected; the next dump shows
+	// it. A take of the same source just before doesn't make them follows.
+	// Meanwhile a panel changes dst 7, announced.
+	a.mu.Lock()
+	now := time.Now()
+	a.causes = append(a.causes, &cause{src: 9, dst: 8, first: now, last: now, id: 42, done: true})
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 7, 9))
+	a.onRouterMsg(swp08.ExtTally(0, 0, 5, 9))
+	a.onRouterMsg(swp08.ExtTally(0, 1, 5, 9))
+	a.onRouterMsg(swp08.ExtTally(0, 2, 5, 1)) // unchanged
+	a.onRouterMsg(swp08.ExtTally(0, 0, 6, 4))
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 10)
+	if len(es) != 3 {
+		t.Fatalf("entries %+v", es)
+	}
+	var found []Entry
+	for _, e := range es {
+		if e.Dst == 7 {
+			if e.Found || e.Group != "" || e.Follow == nil {
+				t.Fatalf("announced change %+v", e)
+			}
+			continue
+		}
+		found = append(found, e)
+		if !e.Found || !e.Ext || e.Follow != nil || e.Prev[0][1] != 1 {
+			t.Fatalf("found %+v", e)
+		}
+	}
+	if len(found[0].Levels)+len(found[1].Levels) != 3 || found[0].Group == "" || found[0].Group != found[1].Group || found[0].GroupN != 2 {
+		t.Fatalf("found entries %+v", found)
+	}
+	// The same again is no change.
+	a.onRouterMsg(swp08.ExtTally(0, 0, 5, 9))
+	endBurst(a)
+	if n := a.hist.Len(); n != 3 {
+		t.Fatalf("repeat tally recorded: %d entries", n)
+	}
+}

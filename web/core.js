@@ -1047,7 +1047,7 @@ function buildRows(list) {
     // destination and levels, with nothing else on that destination between.
     // chain keeps what was merged, newest first.
     const solo = !e.group || e.groupN < 2;
-    const k = e.levels.join(',');
+    const k = `${e.levels.join(',')}${e.found ? ' found' : ''}`; // found and announced don't mix
     const t = Date.parse(e.time);
     const c = chains.get(e.dst);
     if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
@@ -1089,16 +1089,22 @@ export function folderStatus(f) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
   const title = got < f.n ? `${got} of ${f.n} loaded` : '';
-  if (f.entries.every((e) => e.ext)) return { dot: 'info', text: 'panel', title: title || 'From another panel' };
+  if (f.entries.every((e) => e.ext)) return extStatus(f.entries.every((e) => e.found), title);
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
 }
 
+// Status of a change made elsewhere: announced by the router, or found
+// changed when Sode re-read it.
+const extStatus = (found, title = '') => (found
+  ? { dot: 'warn', text: 'found', title: title || 'Changed without notice; found when Sode re-read the router' }
+  : { dot: 'info', text: 'panel', title: title || 'From another panel' });
+
 // A pb-status node for a single take or a folder.
 export function statusNode(row) {
   const st = row.f ? folderStatus(row.f)
-    : row.e.ext ? { dot: 'info', text: 'panel', title: 'From another panel' }
+    : row.e.ext ? extStatus(row.e.found)
     : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');
@@ -1303,12 +1309,27 @@ function planQuestion(plan) {
     ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
+// What an undo item would overwrite besides the take it undoes: the levels
+// it restores where dst no longer has that take's source, because
+// something changed them since. [{src, levels}] by what's there now. A
+// failed take may have left some levels as they were, so it can't tell.
+export function changedSince(item) {
+  const e = item.undo;
+  if (!e?.ok) return [];
+  const t = S.tally.get(e.dst);
+  const levels = item.groups.flatMap((g) => g.levels).filter((u) => t?.has(u) && t.get(u) !== e.src);
+  return bySource(e.dst, levels.sort((a, b) => a - b));
+}
+
 // One destination's part of a confirm: new routes, then what they replace.
-function itemSummary(item, boxed, prot) {
+// since: warn about changes made after the take being undone.
+function itemSummary(item, boxed, prot, since) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
   return [
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
+    ...(since ? changedSince(item) : []).map((r) => el('div', 'sode__route', levelBar(r.levels),
+      el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`)),
     prot
       ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
         `by device ${prot.devices.join(', ')}; will be refused`)
@@ -1327,12 +1348,14 @@ function itemSummary(item, boxed, prot) {
 // block, headed by its name, so the groups are easy to tell apart.
 // prot: from planBlocked. spaceHint: the follows box says Space ticks it.
 export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
-  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0])), extraBox(plan, spaceHint)].filter(Boolean);
+  // Restore goes back past newer changes on purpose; other undos warn.
+  const since = plan.verb === 'undo' && !plan.at;
+  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
   return [
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
       el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
-      ...itemSummary(i, true, prot.get(i)))),
+      ...itemSummary(i, true, prot.get(i), since))),
     extraBox(plan, spaceHint),
   ].filter(Boolean);
 }
