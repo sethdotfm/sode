@@ -291,8 +291,8 @@ code,
   padding: 0 var(--pb-space-3);
 }
 /* Set apart from Destination; the text box only as wide as levels need. */
-/* Set apart from Destination. The text box is as wide as the level
-   buttons, with Select All/None beside them; the head and text box add
+/* Set apart from Destination. The text box spans the level buttons and
+   Select All/None beside them; the head and text box add
    nothing to the box's width (width 0, then fill). */
 .sode__box--levels {
   column-gap: var(--pb-space-3);
@@ -302,7 +302,7 @@ code,
   margin-left: var(--pb-space-8);
 }
 .sode__box--levels > .sode__box-head { grid-column: 1 / -1; min-width: 100%; width: 0; }
-.sode__box--levels > .sode__keyed { grid-column: 1; min-width: 100%; width: 0; }
+.sode__box--levels > .sode__keyed { grid-column: 1 / -1; min-width: 100%; width: 0; }
 .sode__box--levels > .sode__picker { display: contents; }
 .sode__box--levels .sode__levels { grid-column: 1; grid-row: 3; }
 .sode__box--levels .sode__all { grid-column: 2; grid-row: 3; }
