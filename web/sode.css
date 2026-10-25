@@ -281,12 +281,6 @@ code,
   flex: 0 0 auto;
   grid-template-columns: repeat(var(--sode-bar-cols), auto);
 }
-/* Smaller than the shared size, to keep the column narrow. */
-.sode__picker .sode__pick {
-  font-size: var(--pb-text-2xs);
-  height: var(--pb-space-7);
-  min-width: var(--pb-space-7);
-}
 /* Select / All on two lines, as tall as the picker's two rows. */
 .pb-btn.sode__all {
   align-self: stretch;
@@ -296,8 +290,9 @@ code,
   line-height: 1.1;
   padding: 0 var(--pb-space-3);
 }
-/* Set apart from Destination. */
+/* Set apart from Destination; the text box only as wide as levels need. */
 .sode__box--levels { margin-left: var(--pb-space-8); }
+.sode__box--levels > .sode__keyed { align-self: flex-start; width: 11em; }
 .sode__picker .sode__levels--odd > .sode__pick:first-child {
   align-self: stretch;
   grid-row: span 2;
