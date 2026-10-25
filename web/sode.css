@@ -214,6 +214,7 @@ code,
   flex: 1 1 auto;
 }
 .pb-btn.sode__add {
+  border-color: var(--pb-edge); /* as the inputs beside it */
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.6);
   padding: 0 var(--pb-space-5);
