@@ -56,6 +56,7 @@ func (r *runtime) probe() []byte {
 
 type App struct {
 	sw      *swp08.Client
+	sendMsg func([]byte) error // sw.Send; tests answer as the router would
 	hist    *History
 	cfgPath string
 	rt      atomic.Pointer[runtime]
@@ -126,6 +127,7 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 	a.sw.OnUp = a.onRouterUp
 	a.sw.OnMsg = a.onRouterMsg
 	a.sw.OnState = a.onRouterState
+	a.sendMsg = a.sw.Send
 	return a, nil
 }
 
@@ -198,7 +200,7 @@ func (a *App) requestDumps() {
 }
 
 func (a *App) send(m []byte) {
-	if err := a.sw.Send(m); err != nil {
+	if err := a.sendMsg(m); err != nil {
 		log.Printf("send cmd 0x%02X: %v", m[0], err)
 	}
 }
@@ -847,7 +849,7 @@ func (a *App) take(c *client, req takeReq) {
 	var sendErr error
 	var unsent []int
 	for i, s := range sends {
-		if err := a.sw.Send(s.msg); err != nil {
+		if err := a.sendMsg(s.msg); err != nil {
 			sendErr = err
 			a.mu.Lock()
 			for _, u := range sends[i:] {
@@ -864,7 +866,7 @@ func (a *App) take(c *client, req takeReq) {
 	// connects, the answer reflects them.
 	interrogate := func(wires []int) {
 		for _, wire := range wires {
-			a.sw.Send(swp08.ExtInterrogate(r.cfg.Matrix, wire, req.Dst))
+			a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, wire, req.Dst))
 		}
 	}
 	outstanding := func() []int {
