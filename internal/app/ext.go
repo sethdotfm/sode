@@ -108,9 +108,11 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 func (a *App) flushExt() {
 	a.mu.Lock()
 	now := time.Now()
-	for k, until := range a.own {
-		if now.After(until) {
-			delete(a.own, k)
+	for _, m := range []map[ownKey]time.Time{a.own, a.late} {
+		for k, until := range m {
+			if now.After(until) {
+				delete(m, k)
+			}
 		}
 	}
 	keep := a.causes[:0]
@@ -126,7 +128,7 @@ func (a *App) flushExt() {
 		a.mu.Unlock()
 		return
 	}
-	es := a.extEntries(a.ext)
+	es := a.extEntries(a.ext, a.extFirst)
 	a.ext = map[int]map[int]*extLevel{}
 	a.mu.Unlock()
 	for _, e := range es {
@@ -149,15 +151,9 @@ func (a *App) flushFound(dst int) {
 	if len(a.ext[dst]) == 0 {
 		delete(a.ext, dst)
 	}
-	es := a.extEntries(map[int]map[int]*extLevel{dst: found})
-	// A group of their own: the rest of the burst, written later, would get
-	// the same id from extFirst.
-	g := "f" + strconv.FormatInt(time.Now().UnixNano(), 36)
-	for _, e := range es {
-		if e.Group != "" {
-			e.Group = g
-		}
-	}
+	// Grouped by now, not the burst's start: the rest of the burst, written
+	// later, gets that one.
+	es := a.extEntries(map[int]map[int]*extLevel{dst: found}, time.Now())
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
@@ -186,8 +182,8 @@ func (a *App) extAwaitsTake() bool {
 // destination, source and found, dropping levels that ended where they
 // began, earliest first. Changes that follow one of our takes name it;
 // the rest share a group when there's more than one, found ones apart.
-// Caller holds mu.
-func (a *App) extEntries(burst map[int]map[int]*extLevel) []*Entry {
+// Group ids are made from at. Caller holds mu.
+func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry {
 	type key struct {
 		dst, src int
 		found    bool
@@ -253,7 +249,7 @@ func (a *App) extEntries(burst map[int]map[int]*extLevel) []*Entry {
 		if len(g) < 2 {
 			continue
 		}
-		id := p + strconv.FormatInt(a.extFirst.UnixNano(), 36)
+		id := p + strconv.FormatInt(at.UnixNano(), 36)
 		for _, e := range g {
 			e.Group, e.GroupN = id, len(g)
 		}

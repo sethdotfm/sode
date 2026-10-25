@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
 )
@@ -220,6 +221,12 @@ func TestTakeNoConfirmation(t *testing.T) {
 		t.Fatalf("take %+v", e)
 	}
 	leftovers(t, a)
+	// A late answer to the last interrogate is still ours, not a change found.
+	a.onRouterMsg(swp08.ExtTally(0, 1, 5, 7))
+	endBurst(a)
+	if n := a.hist.Len(); n != 1 {
+		t.Fatalf("late tally of our route recorded: %d entries", n)
+	}
 	// The route made later elsewhere is someone else's.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
@@ -294,6 +301,34 @@ func TestTakeCheckUnanswered(t *testing.T) {
 		t.Fatalf("take %+v", e)
 	}
 	leftovers(t, a)
+}
+
+// With the link down, nothing waits for answers that can't come.
+func TestTakeLinkDown(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.failAt = f.sends() + 1
+	start := time.Now()
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if e.OK || !strings.HasPrefix(e.Err, "levels 1, 2, 3 not sent:") {
+		t.Fatalf("take %+v", e)
+	}
+	if d := time.Since(start); d > checkTimeout/2 {
+		t.Fatalf("took %v", d)
+	}
+	leftovers(t, a)
+}
+
+// Duplicate levels in a request are taken and recorded once.
+func TestTakeDuplicateLevels(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	e := takeOne(t, a, 7, 5, 1, 1, 2)
+	if !e.OK || len(e.Levels) != 2 || len(e.Prev) != 2 {
+		t.Fatalf("take %+v", e)
+	}
 }
 
 func equalPrev(a, b [][2]int) bool {

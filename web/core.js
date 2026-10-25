@@ -1047,7 +1047,7 @@ function buildRows(list) {
     // destination and levels, with nothing else on that destination between.
     // chain keeps what was merged, newest first.
     const solo = !e.group || e.groupN < 2;
-    const k = e.levels.join(',');
+    const k = `${e.levels.join(',')}${e.found ? ' found' : ''}`; // found and announced don't mix
     const t = Date.parse(e.time);
     const c = chains.get(e.dst);
     if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
@@ -1311,10 +1311,11 @@ function planQuestion(plan) {
 
 // What an undo item would overwrite besides the take it undoes: the levels
 // it restores where dst no longer has that take's source, because
-// something changed them since. [{src, levels}] by what's there now.
+// something changed them since. [{src, levels}] by what's there now. A
+// failed take may have left some levels as they were, so it can't tell.
 export function changedSince(item) {
   const e = item.undo;
-  if (!e) return [];
+  if (!e?.ok) return [];
   const t = S.tally.get(e.dst);
   const levels = item.groups.flatMap((g) => g.levels).filter((u) => t?.has(u) && t.get(u) !== e.src);
   return bySource(e.dst, levels.sort((a, b) => a - b));

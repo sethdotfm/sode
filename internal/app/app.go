@@ -78,6 +78,7 @@ type App struct {
 	extFirst time.Time
 	extLast  time.Time
 	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
+	late     map[ownKey]time.Time // finished takes' unconfirmed routes → until when a tally of one is ours
 	causes   []*cause             // recent takes that changes elsewhere may follow
 	leaders  map[int]int          // dst → the dst it was last seen following
 
@@ -120,6 +121,7 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 		checks:   map[*tallyCheck]struct{}{},
 		ext:      map[int]map[int]*extLevel{},
 		own:      map[ownKey]time.Time{},
+		late:     map[ownKey]time.Time{},
 		leaders:  map[int]int{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
@@ -783,9 +785,13 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 	return false
 }
 
-// awaited reports whether a take in flight asked for xp's route, so a
-// tally of it is ours even without a Connected. Caller holds mu.
+// awaited reports whether a take in flight, or one that just gave up on
+// it, asked for xp's route, so a tally of it is ours even without a
+// Connected. Caller holds mu.
 func (a *App) awaited(xp swp08.Crosspoint) bool {
+	if until, ok := a.late[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
+		return true
+	}
 	for w := range a.waiters {
 		if w.dst == xp.Dst && w.src == xp.Src && slices.ContainsFunc(w.levels, func(l *takeLevel) bool { return l.wire == xp.Level }) {
 			return true
@@ -828,8 +834,13 @@ func (w *waiter) unregister(a *App, id int) {
 	defer a.mu.Unlock()
 	w.cause.id, w.cause.done = id, true
 	for _, l := range w.levels {
+		k := ownKey{w.dst, l.wire, w.src}
 		if !l.confirmed || l.unsent || l.already {
-			delete(a.own, ownKey{w.dst, l.wire, w.src})
+			delete(a.own, k)
+		}
+		// The answer to the last interrogate may still be on its way.
+		if !l.confirmed && !l.unsent {
+			a.late[k] = time.Now().Add(lateFor)
 		}
 	}
 	delete(a.waiters, w)
@@ -870,7 +881,9 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 		delete(a.checks, c)
 		a.mu.Unlock()
 	}()
-	a.interrogate(r, w, w.levels)
+	if a.interrogate(r, w, w.levels) != nil {
+		return false // the link is down or full: no answers are coming
+	}
 	select {
 	case <-c.done:
 		return true
@@ -882,7 +895,9 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 const (
 	// A take first reads dst's levels from the router, for this long at most.
 	checkTimeout = time.Second
-	takeTimeout  = 3 * time.Second
+	// A tally of a route a take gave up on is still its own for this long.
+	lateFor     = 5 * time.Second
+	takeTimeout = 3 * time.Second
 	// After the timeout, unconfirmed levels are interrogated and given this
 	// long to answer before they count as failed.
 	takeGrace = time.Second
@@ -920,7 +935,7 @@ func (a *App) take(c *client, req takeReq) {
 		return
 	}
 
-	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
+	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
 	// prev fills in e.Prev, and which levels are already on src, from the
 	// cache. Caller holds mu.
 	prev := func() {
@@ -951,7 +966,7 @@ func (a *App) take(c *client, req takeReq) {
 	// Prev is what undo restores, so it comes from the router, not a cache
 	// that may have missed a change. Answers that differ are logged as found.
 	if !a.checkTally(r, w) {
-		log.Printf("take: dst %d: no answer to interrogates in %v; using cached routes", req.Dst, checkTimeout)
+		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", req.Dst, checkTimeout)
 	}
 	a.flushFound(req.Dst)
 	a.mu.Lock()
@@ -1027,10 +1042,15 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 	return sendErr
 }
 
-func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel) {
+// interrogate asks about levels of the take's dst, stopping at the first
+// that can't be sent.
+func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel) error {
 	for _, l := range ls {
-		a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst))
+		if err := a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst)); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // awaitTake waits for the router to confirm every sent level and returns
