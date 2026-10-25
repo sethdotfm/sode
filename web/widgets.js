@@ -13,8 +13,8 @@ const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 // hold: the event whose default is stopped so the picker and All don't
 // take focus ('mousedown' on desktop, 'pointerdown' on a phone, to keep the
-// keyboard up). placeholder() is the blank box's text; tips also labels
-// All/None with a tooltip. onChange after the levels change.
+// keyboard up). placeholder() is the blank box's text. onChange after the
+// levels change.
 export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsText, onChange = () => {} } = {}) {
   let none = false; // picker cleared to no levels (a blank box would mean default)
   const levels = () => parseLevels(input.value, none);
