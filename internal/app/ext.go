@@ -37,7 +37,7 @@ const (
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
 	// A burst that may follow a take still in flight waits for it to be
 	// recorded, up to this long after the burst began.
-	extHold   = takeTimeout + takeGrace + 2*time.Second
+	extHold   = checkTimeout + takeTimeout + takeGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 

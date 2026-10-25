@@ -69,6 +69,7 @@ type App struct {
 	status   statusMsg
 	clients  map[*client]struct{}
 	waiters  map[*waiter]struct{}
+	checks   map[*tallyCheck]struct{}
 	pend     [][3]int // tally changes awaiting broadcast
 	pendProt [][3]int // protect changes awaiting broadcast (device -1 = cleared)
 
@@ -116,6 +117,7 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 		protect:  map[int]map[int]int{},
 		clients:  map[*client]struct{}{},
 		waiters:  map[*waiter]struct{}{},
+		checks:   map[*tallyCheck]struct{}{},
 		ext:      map[int]map[int]*extLevel{},
 		own:      map[ownKey]time.Time{},
 		leaders:  map[int]int{},
@@ -259,6 +261,9 @@ func (a *App) onRouterMsg(msg []byte) {
 			if w.see(xp) && xp.Changed() {
 				w.cause.saw(time.Now())
 			}
+		}
+		for c := range a.checks {
+			c.see(xp)
 		}
 	}
 	for _, p := range ev.Protects {
@@ -815,22 +820,69 @@ func (w *waiter) register(a *App) {
 }
 
 // unregister ends a take recorded as history entry id. Changes elsewhere
-// may now follow it, and levels never confirmed (or never sent) won't be
-// answered now, so their own keys go.
+// may now follow it. Levels never confirmed (or never sent) won't be
+// answered now, and nor will one confirmed by a tally, so their own keys
+// go: left, they'd swallow a real change to src made elsewhere.
 func (w *waiter) unregister(a *App, id int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	w.cause.id, w.cause.done = id, true
 	for _, l := range w.levels {
-		if !l.confirmed || l.unsent {
+		if !l.confirmed || l.unsent || l.already {
 			delete(a.own, ownKey{w.dst, l.wire, w.src})
 		}
 	}
 	delete(a.waiters, w)
 }
 
+// tallyCheck waits for the router's answers to interrogates of dst's
+// levels, so a take reads what dst has now rather than the cache, which
+// misses changes the router doesn't announce.
+type tallyCheck struct {
+	dst   int
+	wires map[int]bool // still unanswered
+	done  chan struct{}
+}
+
+// Caller holds mu.
+func (c *tallyCheck) see(xp swp08.Crosspoint) {
+	if xp.Dst != c.dst || !c.wires[xp.Level] {
+		return
+	}
+	delete(c.wires, xp.Level)
+	if len(c.wires) == 0 {
+		close(c.done)
+	}
+}
+
+// checkTally interrogates every level of a take and waits for the answers
+// (they update the cache) or checkTimeout. It reports whether all came.
+func (a *App) checkTally(r *runtime, w *waiter) bool {
+	c := &tallyCheck{dst: w.dst, wires: map[int]bool{}, done: make(chan struct{})}
+	for _, l := range w.levels {
+		c.wires[l.wire] = true
+	}
+	a.mu.Lock()
+	a.checks[c] = struct{}{}
+	a.mu.Unlock()
+	defer func() {
+		a.mu.Lock()
+		delete(a.checks, c)
+		a.mu.Unlock()
+	}()
+	a.interrogate(r, w, w.levels)
+	select {
+	case <-c.done:
+		return true
+	case <-time.After(checkTimeout):
+		return false
+	}
+}
+
 const (
-	takeTimeout = 3 * time.Second
+	// A take first reads dst's levels from the router, for this long at most.
+	checkTimeout = time.Second
+	takeTimeout  = 3 * time.Second
 	// After the timeout, unconfirmed levels are interrogated and given this
 	// long to answer before they count as failed.
 	takeGrace = time.Second
@@ -855,8 +907,9 @@ func uis(ls []*takeLevel) []int {
 	return out
 }
 
-// take routes one source to one destination on some levels: plan,
-// register, send, wait, then record what the router confirmed.
+// take routes one source to one destination on some levels: plan, read
+// what dst has now, register, send, wait, then record what the router
+// confirmed.
 func (a *App) take(c *client, req takeReq) {
 	r := a.r()
 	res := map[string]any{"t": "takeResult", "id": req.ID, "ok": false}
@@ -868,26 +921,42 @@ func (a *App) take(c *client, req takeReq) {
 	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
+	// prev fills in e.Prev, and which levels are already on src, from the
+	// cache. Caller holds mu.
+	prev := func() {
+		e.Prev = e.Prev[:0]
+		for _, l := range w.levels {
+			if p, ok := a.tally[req.Dst][l.ui]; ok {
+				e.Prev = append(e.Prev, [2]int{l.ui, p})
+				l.same = p == req.Src
+			}
+		}
+	}
 	var protected []int
 	a.mu.Lock()
 	e.SrcName, e.DstName = a.srcNames[req.Src], a.dstNames[req.Dst]
 	for _, l := range w.levels {
-		if prev, ok := a.tally[req.Dst][l.ui]; ok {
-			e.Prev = append(e.Prev, [2]int{l.ui, prev})
-			l.same = prev == req.Src
-		}
 		if _, ok := a.protect[req.Dst][l.ui]; ok {
 			protected = append(protected, l.ui)
 		}
 	}
-	if len(protected) == 0 {
-		w.register(a)
-	}
-	a.mu.Unlock()
 	if len(protected) > 0 {
+		prev()
+		a.mu.Unlock()
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return
 	}
+	a.mu.Unlock()
+
+	// Prev is what undo restores, so it comes from the router, not a cache
+	// that may have missed a change. Answers that differ are logged as found.
+	if !a.checkTally(r, w) {
+		log.Printf("take: dst %d: no answer to interrogates in %v; using cached routes", req.Dst, checkTimeout)
+	}
+	a.mu.Lock()
+	prev()
+	w.register(a)
+	a.mu.Unlock()
 
 	sendErr := a.sendTake(r, w)
 	missing := a.awaitTake(r, w)

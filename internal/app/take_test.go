@@ -35,13 +35,14 @@ type fakeRouter struct {
 	tally  map[[2]int]int // dst, wire level → src
 	ignore map[int]bool   // dsts the router never answers for
 	lose   map[int]bool   // dsts whose Connected goes missing (interrogates still answer)
+	mute   map[int]bool   // dsts whose interrogates go unanswered (connects still do)
 	failAt int            // this send and every later one fail (1-based; 0 = never)
 	n      int
 	out    chan []byte
 }
 
 func newFakeRouter(t *testing.T, a *App) *fakeRouter {
-	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, lose: map[int]bool{}, out: make(chan []byte, 256)}
+	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, lose: map[int]bool{}, mute: map[int]bool{}, out: make(chan []byte, 256)}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -87,7 +88,7 @@ func (f *fakeRouter) send(m []byte) error {
 		}
 	case swp08.CmdExtInterrogate:
 		l, dst := int(m[2]), int(m[3])<<8|int(m[4])
-		if f.ignore[dst] {
+		if f.ignore[dst] || f.mute[dst] {
 			return nil
 		}
 		src, ok := f.tally[[2]int{dst, l}]
@@ -199,6 +200,8 @@ func TestTakeLostConnected(t *testing.T) {
 	if !e.OK || len(e.Already) != 3 {
 		t.Fatalf("take %+v", e)
 	}
+	// No Connected is coming for those levels, so their own keys went.
+	leftovers(t, a)
 	// The interrogate's answer is ours, not a change found.
 	endBurst(a)
 	if n := a.hist.Len(); n != 1 {
@@ -229,7 +232,7 @@ func TestTakeSendFails(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
-	f.failAt = f.sends() + 3 // the third connect
+	f.failAt = f.sends() + 3 + 3 // the third connect, after an interrogate per level
 	e := takeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.HasPrefix(e.Err, "levels 3 not sent:") {
 		t.Fatalf("take %+v", e)
@@ -239,6 +242,53 @@ func TestTakeSendFails(t *testing.T) {
 	f.mu.Unlock()
 	if got != [3]int{7, 7, 1} {
 		t.Fatalf("router %v", got)
+	}
+	leftovers(t, a)
+}
+
+// The router has src 4 on dst 5, which it never announced: Prev comes
+// from the router, and the change is logged as found.
+func TestTakeFreshPrev(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.mu.Lock()
+	for l := 0; l < 3; l++ {
+		f.tally[[2]int{5, l}] = 4
+	}
+	f.tally[[2]int{5, 2}] = 7
+	f.mu.Unlock()
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if want := [][2]int{{1, 4}, {2, 4}, {3, 7}}; !e.OK || !equalPrev(e.Prev, want) {
+		t.Fatalf("take %+v, want prev %v", e, want)
+	}
+	if len(e.Already) != 1 || e.Already[0] != 3 {
+		t.Fatalf("already %v", e.Already)
+	}
+	leftovers(t, a)
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 10)
+	var found []Entry
+	for _, x := range es {
+		if x.Found {
+			found = append(found, x)
+		}
+	}
+	if len(es) != 3 || len(found) != 2 {
+		t.Fatalf("entries %+v", es)
+	}
+}
+
+// No answer to the interrogates: the take goes ahead from the cache.
+func TestTakeCheckUnanswered(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.mute[5] = true
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if want := [][2]int{{1, 1}, {2, 1}, {3, 1}}; !e.OK || !equalPrev(e.Prev, want) {
+		t.Fatalf("take %+v", e)
 	}
 	leftovers(t, a)
 }
