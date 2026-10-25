@@ -13,9 +13,9 @@ const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 // hold: the event whose default is stopped so the picker and All don't
 // take focus ('mousedown' on desktop, 'pointerdown' on a phone, to keep the
-// keyboard up). placeholder() is the blank box's text; tips also labels
-// All/None with a tooltip. onChange after the levels change.
-export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsText, tips = false, onChange = () => {} } = {}) {
+// keyboard up). placeholder() is the blank box's text. onChange after the
+// levels change.
+export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsText, onChange = () => {} } = {}) {
   let none = false; // picker cleared to no levels (a blank box would mean default)
   const levels = () => parseLevels(input.value, none);
 
@@ -27,11 +27,11 @@ export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholde
     input.placeholder = none ? 'none' : placeholder();
     for (const b of picker.children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
     const full = on.size === S.levels.length;
-    allBtn.textContent = full ? 'None' : 'All';
-    if (tips) {
-      allBtn.dataset.tip = full ? 'No levels' : 'All levels';
-      allBtn.setAttribute('aria-label', allBtn.dataset.tip);
-    }
+    allBtn.replaceChildren(el('span', null, 'Select'), el('span', null, full ? 'None' : 'All'));
+    // The box's key note stays up while it holds the default levels.
+    const def = parseLevels('') || [];
+    const isDefault = !none && !!list && list.length === def.length && list.every((u, i) => u === def[i]);
+    input.closest('.sode__keyed')?.classList.toggle('sode__keyed--default', isDefault);
   }
 
   function set(list) {
@@ -68,6 +68,10 @@ export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholde
     reset() {
       input.value = relabelLevels(input.value);
       picker.replaceChildren(...pickButtons(toggle));
+      // Laid out like the level bar where the CSS asks (desktop).
+      const odd = S.levels.length % 2;
+      picker.classList.toggle('sode__levels--odd', !!odd);
+      picker.style.setProperty('--sode-bar-cols', Math.floor(S.levels.length / 2) + odd);
       render();
     },
   };

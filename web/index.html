@@ -9,14 +9,16 @@
   // flash. layout.js keeps the layout up to date afterwards.
   (() => {
     const root = document.documentElement;
-    let theme = null, layout = 'auto';
+    let theme = null, layout = 'auto', flip = false;
     try {
       theme = localStorage.getItem('sode-theme');
+      flip = localStorage.getItem('sode-flip') === 'on';
       layout = localStorage.getItem('sode-layout') || 'auto';
     } catch (e) {}
     if (theme === 'dark' || theme === 'light') root.dataset.theme = theme;
     if (layout === 'auto') layout = matchMedia('(max-width: 700px) and (pointer: coarse)').matches ? 'phone' : 'desktop';
     root.dataset.layout = layout;
+    if (flip) root.dataset.flip = '';
   })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -43,7 +45,7 @@
     <h1 class="sode__mark">Sode</h1>
 
     <form class="sode__boxes" autocomplete="off" onsubmit="return false">
-      <div class="sode__box">
+      <div class="sode__box sode__box--src">
         <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
         <span class="sode__keyed">
           <input id="src" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="src-menu" aria-autocomplete="list" spellcheck="false" autofocus>
@@ -51,19 +53,26 @@
         </span>
         <ul id="src-menu" class="pb-menu sode__menu" role="listbox" aria-label="Sources" hidden></ul>
       </div>
-      <div class="sode__box">
+      <div class="sode__box sode__box--to">
+        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
+        <button type="button" class="pb-btn pb-btn--ghost sode__to" id="flip" tabindex="-1" aria-label="Show Destination before Source" aria-pressed="false"></button>
+      </div>
+      <div class="sode__box sode__box--dst">
         <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
         <div class="sode__entry">
           <span class="sode__keyed">
             <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
             <kbd class="sode__key-note" aria-hidden="true">D</kbd>
           </span>
-          <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+)">+</button>
           <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
         </div>
         <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
       </div>
-      <div class="sode__box">
+      <div class="sode__box sode__box--add">
+        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
+        <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+)">+</button>
+      </div>
+      <div class="sode__box sode__box--levels">
         <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
         <span class="sode__keyed">
           <input id="lvl" class="pb-input sode__input" spellcheck="false">
@@ -71,7 +80,7 @@
         </span>
         <div class="sode__picker">
           <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="lvl-all" tabindex="-1">All</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
         </div>
       </div>
       <div class="sode__box">
@@ -367,7 +376,7 @@
       <ul class="sode-m__matches" id="m-matches" role="listbox" aria-label="Matches" hidden></ul>
       <div class="sode-m__picker" id="m-picker" hidden>
         <div class="sode-m__picks" id="m-picks" role="group" aria-label="Pick levels"></div>
-        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1">All</button>
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1"><span>Select</span><span>All</span></button>
       </div>
       <div class="sode-m__bar">
         <label class="sode-m__step" id="m-step" for="m-src">Source</label>

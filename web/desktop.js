@@ -31,7 +31,7 @@ for (const k of ['src', 'dst']) {
   });
 }
 const lvlInput = $('lvl');
-const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { tips: true, onChange: () => renderTally() });
+const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { onChange: () => renderTally() });
 let feedOpen = false; // "and N others" expanded
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
@@ -482,6 +482,23 @@ function onListKey(e) {
   else act();
   return true;
 }
+
+// ---- Source/Destination order: the arrow flips how they're shown (per
+// browser; index.html applies it before first paint)
+
+const FLIP_KEY = 'sode-flip';
+function showFlip() {
+  const on = 'flip' in document.documentElement.dataset;
+  $('flip').setAttribute('aria-pressed', String(on));
+  $('flip').dataset.tip = on ? 'Show Source first' : 'Show Destination first';
+}
+$('flip').addEventListener('mousedown', (e) => e.preventDefault());
+$('flip').addEventListener('click', () => {
+  const on = document.documentElement.toggleAttribute('data-flip');
+  try { localStorage.setItem(FLIP_KEY, on ? 'on' : 'off'); } catch (e) {}
+  showFlip();
+});
+showFlip();
 
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
 
