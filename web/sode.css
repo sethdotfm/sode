@@ -221,7 +221,6 @@ code,
 /* Source → Destination: sized like the + button, but not a control. */
 .sode__to {
   align-items: center;
-  border: var(--pb-border-w) solid var(--pb-surface-control);
   color: var(--pb-text);
   display: inline-flex;
   font-size: var(--pb-text-xl);
@@ -281,6 +280,7 @@ code,
   grid-template-columns: repeat(var(--sode-bar-cols), auto);
 }
 .sode__picker .sode__levels--odd > .sode__pick:first-child {
+  align-self: stretch;
   grid-row: span 2;
   height: auto;
 }
