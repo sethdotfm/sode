@@ -184,7 +184,7 @@ code,
   align-items: start;
   display: grid;
   gap: var(--pb-space-6);
-  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto;
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto auto;
   width: 100%;
 }
 .sode__box {
@@ -203,8 +203,8 @@ code,
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.6);
 }
-/* Destination input with its + button; the dropdown hangs off this row,
-   above any chips. */
+/* Destination input; the dropdown hangs off it, above any chips. The +
+   is its own box, close beside it, so Source and Destination match. */
 .sode__entry {
   display: flex;
   gap: var(--pb-space-2);
@@ -213,6 +213,7 @@ code,
 .sode__entry > .sode__keyed {
   flex: 1 1 auto;
 }
+.sode__box--add { margin-left: calc(var(--pb-space-2) - var(--pb-space-6)); }
 .pb-btn.sode__add {
   border-color: var(--pb-edge); /* as the inputs beside it */
   font-size: var(--pb-text-xl);
@@ -271,7 +272,7 @@ code,
 .sode__picker {
   align-items: flex-start;
   display: flex;
-  gap: var(--pb-space-3);
+  gap: var(--pb-space-2);
 }
 /* As the level bar: two rows, an odd first level (0 or V) tall on its
    own to their left. */
@@ -282,8 +283,18 @@ code,
 }
 /* Smaller than the shared size, to keep the column narrow. */
 .sode__picker .sode__pick {
-  height: var(--pb-space-8);
-  min-width: var(--pb-space-8);
+  font-size: var(--pb-text-2xs);
+  height: var(--pb-space-7);
+  min-width: var(--pb-space-7);
+}
+/* Select / All on two lines, as tall as the picker's two rows. */
+.pb-btn.sode__all {
+  align-self: stretch;
+  flex-direction: column;
+  gap: 0;
+  height: auto;
+  line-height: 1.1;
+  padding: 0 var(--pb-space-3);
 }
 /* Set apart from Destination. */
 .sode__box--levels { margin-left: var(--pb-space-8); }

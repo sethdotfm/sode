@@ -27,7 +27,7 @@ export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholde
     input.placeholder = none ? 'none' : placeholder();
     for (const b of picker.children) b.setAttribute('aria-pressed', String(on.has(+b.dataset.ui)));
     const full = on.size === S.levels.length;
-    allBtn.textContent = full ? 'Select None' : 'Select All';
+    allBtn.replaceChildren(el('span', null, 'Select'), el('span', null, full ? 'None' : 'All'));
     // The box's key note stays up while it holds the default levels.
     const def = parseLevels('') || [];
     const isDefault = !none && !!list && list.length === def.length && list.every((u, i) => u === def[i]);

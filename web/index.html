@@ -62,10 +62,13 @@
             <input id="dst" class="pb-input sode__input" placeholder=" " role="combobox" aria-expanded="false" aria-controls="dst-menu" aria-autocomplete="list" spellcheck="false">
             <kbd class="sode__key-note" aria-hidden="true">D</kbd>
           </span>
-          <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+)">+</button>
           <ul id="dst-menu" class="pb-menu sode__menu" role="listbox" aria-label="Destinations" hidden></ul>
         </div>
         <div class="sode__chips" id="dst-chips" role="list" aria-label="Destinations to take to" hidden></div>
+      </div>
+      <div class="sode__box sode__box--add">
+        <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
+        <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+)">+</button>
       </div>
       <div class="sode__box sode__box--levels">
         <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
@@ -75,7 +78,7 @@
         </span>
         <div class="sode__picker">
           <div class="sode__levels" id="lvl-pick" role="group" aria-label="Pick levels"></div>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="lvl-all" tabindex="-1">Select All</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode__all" id="lvl-all" tabindex="-1"><span>Select</span><span>All</span></button>
         </div>
       </div>
       <div class="sode__box">
@@ -371,7 +374,7 @@
       <ul class="sode-m__matches" id="m-matches" role="listbox" aria-label="Matches" hidden></ul>
       <div class="sode-m__picker" id="m-picker" hidden>
         <div class="sode-m__picks" id="m-picks" role="group" aria-label="Pick levels"></div>
-        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1">Select All</button>
+        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1"><span>Select</span><span>All</span></button>
       </div>
       <div class="sode-m__bar">
         <label class="sode-m__step" id="m-step" for="m-src">Source</label>
