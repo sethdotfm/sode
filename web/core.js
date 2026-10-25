@@ -1089,16 +1089,22 @@ export function folderStatus(f) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
   const title = got < f.n ? `${got} of ${f.n} loaded` : '';
-  if (f.entries.every((e) => e.ext)) return { dot: 'info', text: 'panel', title: title || 'From another panel' };
+  if (f.entries.every((e) => e.ext)) return extStatus(f.entries.every((e) => e.found), title);
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
 }
 
+// Status of a change made elsewhere: announced by the router, or found
+// changed when Sode re-read it.
+const extStatus = (found, title = '') => (found
+  ? { dot: 'warn', text: 'found', title: title || 'Changed without notice; found when Sode re-read the router' }
+  : { dot: 'info', text: 'panel', title: title || 'From another panel' });
+
 // A pb-status node for a single take or a folder.
 export function statusNode(row) {
   const st = row.f ? folderStatus(row.f)
-    : row.e.ext ? { dot: 'info', text: 'panel', title: 'From another panel' }
+    : row.e.ext ? extStatus(row.e.found)
     : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');

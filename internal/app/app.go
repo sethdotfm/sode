@@ -249,7 +249,9 @@ func (a *App) onRouterMsg(msg []byte) {
 		if old, ok := t[l.UI]; !ok || old != xp.Src {
 			t[l.UI] = xp.Src
 			a.pend = append(a.pend, [3]int{xp.Dst, l.UI, xp.Src})
-			if xp.Changed() {
+			// A changed route the router didn't announce shows up in a
+			// dump or an interrogate: noted too, unless it's ours.
+			if xp.Changed() || (ok && !a.awaited(xp)) {
 				a.noteExt(xp, l.UI, old, ok)
 			}
 		}
@@ -776,6 +778,17 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 	return false
 }
 
+// awaited reports whether a take in flight asked for xp's route, so a
+// tally of it is ours even without a Connected. Caller holds mu.
+func (a *App) awaited(xp swp08.Crosspoint) bool {
+	for w := range a.waiters {
+		if w.dst == xp.Dst && w.src == xp.Src && slices.ContainsFunc(w.levels, func(l *takeLevel) bool { return l.wire == xp.Level }) {
+			return true
+		}
+	}
+	return false
+}
+
 // Caller holds mu.
 func (w *waiter) finishIfDone() {
 	if !w.closed && len(w.filter(wanted)) == 0 {
@@ -1013,8 +1026,8 @@ func (a *App) record(e *Entry) {
 		if e.Follow != nil {
 			follow = fmt.Sprint(*e.Follow)
 		}
-		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s",
-			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow)
+		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s found=%t",
+			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, e.Found)
 	} else {
 		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
 			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)

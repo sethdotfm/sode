@@ -33,6 +33,7 @@ type Entry struct {
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
 	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
 	Follow  *int      `json:"follow,omitempty"`  // ext only: ID of the take this seems to follow (destination follow, automation)
+	Found   bool      `json:"found,omitempty"`   // ext only: changed without a Connected; seen when Sode re-read the router
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept

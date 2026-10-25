@@ -59,7 +59,7 @@ docker compose --profile sim up --build
 # open http://localhost:8080
 ```
 
-The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container. `SIM_FOLLOWS=2>40,3>41` makes destination 40 follow 2 and 41 follow 3, like a multiviewer PiP following a DSM. `SIM_PANEL_SECONDS=5` makes it route something by itself every 5 seconds, like a panel. Every other punch goes to `SIM_PANEL_DST` (default 3), so repeated punches can be seen merging.
+The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container. `SIM_FOLLOWS=2>40,3>41` makes destination 40 follow 2 and 41 follow 3, like a multiviewer PiP following a DSM. `SIM_PANEL_SECONDS=5` makes it route something by itself every 5 seconds, like a panel. Every other punch goes to `SIM_PANEL_DST` (default 3), so repeated punches can be seen merging. With `SIM_PANEL_SILENT=1` those routes aren't announced, as the Ultrix sometimes doesn't announce routes, so Sode only finds them at the next tally resync and logs them as `found`.
 
 Against a real router (first start):
 

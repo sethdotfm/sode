@@ -199,6 +199,11 @@ func TestTakeLostConnected(t *testing.T) {
 	if !e.OK || len(e.Already) != 3 {
 		t.Fatalf("take %+v", e)
 	}
+	// The interrogate's answer is ours, not a change found.
+	endBurst(a)
+	if n := a.hist.Len(); n != 1 {
+		t.Fatalf("entries %d", n)
+	}
 }
 
 func TestTakeNoConfirmation(t *testing.T) {
