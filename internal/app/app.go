@@ -1050,7 +1050,8 @@ func (a *App) history(c *client, before, n int) {
 	if err != nil {
 		log.Printf("history: %v", err)
 	}
-	a.reply(c, map[string]any{"t": "history", "entries": entries, "more": morePages(entries)})
+	// before as asked, so the browser can tell a page it no longer wants.
+	a.reply(c, map[string]any{"t": "history", "before": before, "entries": entries, "more": morePages(entries)})
 }
 
 // morePages reports whether entries older than a page remain.

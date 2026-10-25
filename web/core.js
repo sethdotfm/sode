@@ -227,22 +227,9 @@ function handle(m) {
       S.histLoading = false;
       emit('history');
       break;
-    case 'history': {
-      // Asked for before a cleared search trimmed history: it would land
-      // after a gap, so it's dropped.
-      if (dropPage) {
-        dropPage = false;
-        S.histLoading = false;
-        emit('history');
-        break;
-      }
-      const last = S.hist.length ? S.hist[S.hist.length - 1].id : Infinity;
-      S.hist.push(...m.entries.filter((e) => e.id < last));
-      S.histMore = m.more;
-      S.histLoading = false;
-      emit('history');
+    case 'history':
+      if (takePage(m)) emit('history');
       break;
-    }
   }
 }
 
@@ -975,12 +962,13 @@ export function setSearchRespectsFilters(on) {
 // A search reads far back through the log; once it's cleared, drop all
 // but the newest entries again (whole groups), so Recent doesn't keep
 // reworking thousands of them.
+// A page still on its way is for before the trim, so it will be ignored
+// (takePage) and another can be asked for.
 const KEEP_AFTER_SEARCH = 200;
-let dropPage = false; // the page in flight is for before the trim
 function trimHist() {
   let n = KEEP_AFTER_SEARCH;
   if (S.hist.length <= n) return;
-  dropPage = S.histLoading;
+  S.histLoading = false;
   const g = S.hist[n - 1].group;
   while (g && n < S.hist.length && S.hist[n].group === g) n++;
   S.hist = S.hist.slice(0, n);
@@ -1145,6 +1133,18 @@ export const folderLevels = (f) => [...new Set(f.entries.flatMap((e) => e.levels
 export function folderIds(f) {
   const ids = f.entries.map((e) => e.id);
   return `#${Math.min(...ids)}–#${Math.max(...ids)}`;
+}
+
+// Adds a page of history the server sent, if it's the one asked for: the
+// page before the oldest entry loaded. One asked for before history was
+// trimmed, cleared or reloaded would land after a gap, so it's ignored.
+// True if it was added.
+export function takePage(m) {
+  if (!S.histLoading || !S.hist.length || m.before !== S.hist[S.hist.length - 1].id) return false;
+  S.hist.push(...m.entries);
+  S.histMore = m.more;
+  S.histLoading = false;
+  return true;
 }
 
 // Asks for the next page of history. True if a request went out.
