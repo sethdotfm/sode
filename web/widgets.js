@@ -4,7 +4,7 @@
 // the few things it does differently.
 
 import {
-  el, S, needsLink, levelBar, srcItem, beforeGroups, tallyText, fmtClock, restorePlan, parseLevels, levelInput, defaultLevelsText, relabelLevels, pickButtons, allLevels, dstLabel, planEmpty, chevron,
+  el, S, needsLink, levelBar, srcItem, dstItem, levelText, beforeGroups, tallyText, fmtClock, restorePlan, parseLevels, levelInput, defaultLevelsText, relabelLevels, pickButtons, allLevels, dstLabel, planEmpty, chevron,
 } from './core.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -192,6 +192,21 @@ export function disclosure(open, label, controls, onToggle) {
   return b;
 }
 
+// A click anywhere on row (not a control, nor inside skip, nor a
+// different row within it) works toggle, as does one that selected text
+// not. A row that sets data-no-tap (a swipe just ended) skips one click.
+export function clickToToggle(row, toggle, skip) {
+  row.addEventListener('click', (e) => {
+    if (row.dataset.noTap) { delete row.dataset.noTap; return; }
+    const t = e.target;
+    if (t.closest('button, a, input, select, textarea') || (skip && t.closest(skip))) return;
+    if (t.closest('.sode__hist-row, .sode-m__recent-face') !== row) return;
+    if (String(getSelection()).trim()) return;
+    toggle.click();
+  });
+  row.classList.add('sode--tap');
+}
+
 // Undo for a take or a folder; disabled when there's nothing to restore.
 export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {
   const b = el('button', cls, text);
@@ -251,8 +266,9 @@ export function arrivals() {
 // has Restore: back to how it was then. onRestore(plan) confirms.
 export function stackSteps(e, onRestore) {
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
-  const step = (time, levels, text, btn) => el('div', 'sode__route sode__step',
-    el('span', 'sode__step-time', time), levelBar(levels), el('span', 'sode__end sode__end--src', text), btn);
+  const step = (time, levels, text, btn, follows = null) => el('div', 'sode__route sode__step',
+    el('span', 'sode__step-time', time), levelBar(levels),
+    el('span', 'sode__step-what', el('span', 'sode__end sode__end--src', text), follows), btn);
   const restore = (then, at) => {
     const label = srcItem(at.src, at.srcName).label;
     const plan = restorePlan(then, at);
@@ -266,9 +282,68 @@ export function stackSteps(e, onRestore) {
   };
   return [
     ...e.chain.map((c, i) => step(fmtClock(c.time), lv(c.levels), srcItem(c.src, c.srcName).label,
-      i === 0 ? null : restore(e.chain[i - 1], c))),
+      i === 0 ? null : restore(e.chain[i - 1], c), followBoxes((e.follows || []).filter((f) => f.follow === c.id), c.levels))),
     ...beforeGroups(e).map((g, i) => step(i === 0 ? 'before' : '', g.levels, tallyText(g.src), null)),
   ];
+}
+
+// A change's follows on one line: "Followed by:" and each follow's destination (its
+// source is the change's own), with its levels where they differ from
+// levels. Null if there are none.
+export function followBoxes(follows, levels) {
+  if (!follows?.length) return null;
+  const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
+  const same = (ls) => lv(ls).join() === lv(levels).join();
+  return el('span', 'sode__follows', el('span', 'sode__hist-note', 'Followed by:'),
+    ...follows.map((f) => el('span', 'sode__end sode__end--dst', dstItem(f.dst, f.dstName).label,
+      same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`))));
+}
+
+// ---- pull to load more
+
+// Pulling on past the end of scroller (window or an element), like pull to
+// refresh, presses Load more: a touch dragged PULL px up from the bottom
+// and let go, or WHEEL of wheel scrolling at the bottom in one go (a pause
+// starts over). box holds the button, which fills as the pull grows
+// (--sode-pull, 0..1). when(): this layout is the one showing.
+const PULL = 140, WHEEL = 700, GAP_MS = 250;
+export function pullToLoad(scroller, box, pager, when) {
+  const el0 = () => (scroller === window ? document.scrollingElement : scroller);
+  const atEnd = () => { const s = el0(); return s.scrollTop + s.clientHeight >= s.scrollHeight - 2; };
+  const ready = () => when() && pager.hasMore() && !S.histLoading && !!box.querySelector('button');
+  const show = (p) => box.style.setProperty('--sode-pull', String(Math.max(0, Math.min(1, p))));
+  const fire = () => { show(0); pager.more(); };
+
+  let sum = 0, last = 0, idle = 0;
+  scroller.addEventListener('wheel', (e) => {
+    const now = performance.now();
+    if (now - last > GAP_MS) sum = 0;
+    last = now;
+    clearTimeout(idle);
+    if (e.deltaY <= 0 || !atEnd() || !ready()) { sum = Math.min(sum, 0); show(0); return; }
+    sum += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el0().clientHeight : 1);
+    if (sum >= WHEEL) { sum = -Infinity; fire(); return; } // once per gesture
+    show(sum / WHEEL);
+    idle = setTimeout(() => { sum = 0; show(0); }, GAP_MS);
+  }, { passive: true });
+
+  let y0 = null, pulled = 0;
+  scroller.addEventListener('touchstart', (e) => {
+    y0 = e.touches.length === 1 && atEnd() && ready() ? e.touches[0].clientY : null;
+    pulled = 0;
+  }, { passive: true });
+  scroller.addEventListener('touchmove', (e) => {
+    if (y0 == null) return;
+    pulled = (y0 - e.touches[0].clientY) / PULL;
+    show(pulled);
+  }, { passive: true });
+  const end = () => {
+    if (y0 != null && pulled >= 1 && ready()) fire();
+    else show(0);
+    y0 = null;
+  };
+  scroller.addEventListener('touchend', end);
+  scroller.addEventListener('touchcancel', () => { y0 = null; show(0); });
 }
 
 // ---- Feeding: the destinations a source feeds
