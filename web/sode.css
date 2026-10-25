@@ -1422,6 +1422,8 @@ code,
 :is(.sode__keyed, .sode__search-box):has(> .sode__key-note) > .pb-input { padding-right: 3em; }
 :is(.sode__keyed, .sode__search-box) > .pb-input:focus ~ .sode__key-note,
 :is(.sode__keyed, .sode__search-box) > .pb-input:not(:placeholder-shown) ~ .sode__key-note { display: none; }
+/* Holding the default levels counts as empty (focus still hides it). */
+.sode__keyed.sode__keyed--default > .pb-input:not(:focus) ~ .sode__key-note { display: inline; }
 
 /* A patch box's label, with the last take's value as a chip at its right. */
 .sode__box-head {
