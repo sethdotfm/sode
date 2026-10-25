@@ -253,3 +253,33 @@ test('follows whose take is hidden, and trimming after a search', async () => {
   assert.equal(S.hist.length, 203);
   assert.equal(S.histMore, true);
 });
+
+test('history pages', async () => {
+  const { S, takePage, setSearch } = await import('../core.js');
+  const ents = (from, n) => Array.from({ length: n }, (_, i) => ({ id: from - i, levels: [1], prev: [], ok: true, src: 0, dst: 0, time: new Date(0).toISOString() }));
+  // A search read far back; the next page (before #100) is on its way.
+  S.hist = ents(999, 900);
+  S.histMore = true;
+  S.histLoading = true;
+  setSearch({ src: 'x', dst: '' });
+  setSearch({ src: '', dst: '' }); // cleared: trimmed to the newest 200
+  assert.equal(S.hist.length, 200);
+  assert.equal(S.histLoading, false);
+  // The page asked for before the trim lands late: ignored.
+  assert.equal(takePage({ before: 100, entries: ents(99, 10), more: true }), false);
+  assert.equal(S.hist.length, 200);
+  // The page now asked for (before the oldest kept, #800) is taken.
+  S.histLoading = true;
+  assert.equal(takePage({ before: 800, entries: ents(799, 10), more: true }), true);
+  assert.equal(S.hist.length, 210);
+  assert.equal(S.hist.at(-1).id, 790);
+  assert.equal(S.histLoading, false);
+  // Not asked for at all: ignored.
+  assert.equal(takePage({ before: 790, entries: ents(789, 10), more: true }), false);
+  // History cleared while a page was on its way: ignored, even once
+  // another request is out.
+  S.hist = [];
+  S.histLoading = true;
+  assert.equal(takePage({ before: 790, entries: ents(789, 10), more: true }), false);
+  assert.equal(S.hist.length, 0);
+});
