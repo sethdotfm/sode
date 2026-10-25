@@ -280,6 +280,13 @@ code,
   flex: 0 0 auto;
   grid-template-columns: repeat(var(--sode-bar-cols), auto);
 }
+/* Smaller than the shared size, to keep the column narrow. */
+.sode__picker .sode__pick {
+  height: var(--pb-space-8);
+  min-width: var(--pb-space-8);
+}
+/* Set apart from Destination. */
+.sode__box--levels { margin-left: var(--pb-space-8); }
 .sode__picker .sode__levels--odd > .sode__pick:first-child {
   align-self: stretch;
   grid-row: span 2;
