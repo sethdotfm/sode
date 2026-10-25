@@ -10,7 +10,7 @@ import {
 } from './core.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, followBoxes, clickToToggle } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -153,7 +153,8 @@ function renderLast() {
 }
 on('history', renderLast);
 
-// Fills one box from the last take and moves on to the next.
+// Fills one box from the last take and moves on: source to destination,
+// destination back to source, levels stays.
 function useLast(k) {
   const t = lastTake();
   if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
@@ -163,7 +164,7 @@ function useLast(k) {
   } else if (k === 'dst') {
     dsts = t.dsts.slice(0, -1);
     select('dst', t.dsts[t.dsts.length - 1]);
-    focusBox(lvlInput);
+    focusBox(boxes.src.input);
   } else {
     lvl.set(t.levels);
     focusBox(lvlInput);
@@ -214,26 +215,43 @@ function histRow(e) {
     el('span', 'sode__hist-id', `#${e.id}`),
     histTime(e.time),
     levelBar(known),
-    el('span', 'sode__hist-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)),
-      entryNote(e)),
+    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(src, dst), entryNote(e)),
     statusNode({ e }),
     toggle,
     el('span', 'sode__hist-actions', retry, btn));
   row.dataset.key = `e${e.id}`;
+  clickToToggle(row, toggle, '.sode__hist-before');
   if (open) {
-    const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
         ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm)]
         : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src)))]),
-      ...(e.follows ? [el('div', 'sode__label', 'Followed by'),
-        ...e.follows.map((f) => srcRow(lv(f.levels), `${dstItem(f.dst, f.dstName).label} ← ${srcItem(f.src, f.srcName).label}`))] : []));
+      ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
     // Below 1000px the row's level bar moves in here (see sode.css).
     detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
     row.append(detail);
   }
   return row;
+}
+
+// A row's source → destination as boxes, as in the Before panel. src and
+// dst are items, or nodes for a folder of several. Clicking an item's box
+// fills that patch box and moves on, as Ctrl+S/D do.
+const routeBoxes = (src, dst) => [routeBox('src', src), el('span', 'sode__arrow', '→'), routeBox('dst', dst)];
+function routeBox(k, it) {
+  const cls = `sode__end sode__end--${k}`;
+  if (it instanceof Node) return el('span', cls, it);
+  const b = el('button', `${cls} sode__end--pick`, labelNode(it));
+  b.type = 'button';
+  b.tabIndex = -1;
+  b.title = `Use as ${k === 'src' ? 'source' : 'destination'}`;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    select(k, it);
+    focusBox(k === 'src' ? boxes.dst.input : boxes.src.input);
+  });
+  return b;
 }
 
 // A folder: one confirm's takes under a summary row with the master status,
@@ -243,6 +261,8 @@ function folderRow(f) {
   const kidsId = `hist-folder-${f.group}`;
   const title = folderTitle(f);
   const failed = f.entries.filter((e) => !e.ok).length;
+  // The folder's one source (or destination) as an item, if it has one.
+  const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
 
   const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, openConfirm,
     { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all' });
@@ -261,11 +281,12 @@ function folderRow(f) {
     el('span', 'sode__hist-id', folderIds(f)),
     histTime(f.entries[0].time),
     levelBar(folderLevels(f)),
-    el('span', 'sode__hist-route', ...title),
+    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild), ...title.slice(3)),
     statusNode({ f }),
     toggle,
     el('span', 'sode__hist-actions', retry, undo));
   row.dataset.key = `f${f.group}`;
+  clickToToggle(row, toggle, '.sode__hist-folder');
   if (open) {
     const kids = el('ul', 'sode__hist-folder', ...f.shown.map(histRow));
     kids.id = kidsId;

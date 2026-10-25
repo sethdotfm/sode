@@ -12,7 +12,7 @@ import {
 } from './core.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, clickToToggle } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -245,8 +245,9 @@ function recentRow(e) {
       el('span', 'sode-m__recent-status', status, retry, toggle)),
     el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e)),
     changes,
-    e.follows ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
+    e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
+  if (toggle) clickToToggle(face, toggle, '.sode-m__changes');
   const row = el('li', 'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   return row;
@@ -272,6 +273,7 @@ function folderRows(f) {
       el('span', 'sode-m__recent-status', statusNode({ f }), retry, toggle)),
     el('div', 'sode-m__recent-route', ...folderTitle(f)),
     levelBar(folderLevels(f)));
+  clickToToggle(face, toggle);
   const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   if (!open) return [row];
@@ -285,6 +287,7 @@ function swipeable(row, face) {
   const set = (x) => { face.style.transform = `translateX(${x}px)`; };
   face.addEventListener('pointerdown', (e) => {
     x0 = e.clientX; y0 = e.clientY; dx = 0; horiz = null;
+    delete face.dataset.noTap; // a drag doesn't always end in a click
     base = row.classList.contains('sode-m__recent-row--open') ? -REVEAL : 0;
   });
   face.addEventListener('pointermove', (e) => {
@@ -303,6 +306,7 @@ function swipeable(row, face) {
     if (x0 == null) return;
     face.classList.remove('sode-m__recent-face--drag');
     const open = horiz ? base + dx < -REVEAL / 2 : false;
+    if (horiz || base) face.dataset.noTap = '1'; // a swipe, or closing one, isn't a tap
     if (!horiz && base) { closeSwipes(); x0 = null; return; } // tap on an open row closes it
     if (horiz) {
       closeSwipes(row);

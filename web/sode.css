@@ -464,8 +464,8 @@ code,
   grid-area: time;
 }
 .sode-m__changes .sode__bar { grid-area: bar; }
+.sode-m__changes .sode__step-what { grid-area: name; }
 .sode-m__changes .sode__end {
-  grid-area: name;
   justify-self: start;
   max-width: 100%;
   overflow: hidden;
@@ -553,7 +553,18 @@ code,
   white-space: nowrap;
 }
 .sode__hist-before .sode__step-time { align-self: center; grid-column: 2; justify-self: end; }
-.sode__hist-before .sode__step .sode__end { grid-column: 4 / -2; }
+/* A change's source, then its follows; a non-take's follows line up with
+   the sources. */
+.sode__step-what,
+.sode__follows {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-3);
+  min-width: 0;
+}
+.sode__hist-before .sode__step-what { grid-column: 4 / -2; }
+.sode__hist-before > .sode__route > .sode__follows { grid-column: 4 / -1; }
 .sode__hist-before .sode__step > .pb-btn { grid-column: -2; justify-self: end; }
 .sode__hist-id {
   color: var(--pb-text-muted);
@@ -572,6 +583,32 @@ code,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.sode__hist-route--boxes {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__hist-route--boxes > .sode__end {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  padding-bottom: var(--pb-space-1);
+  padding-top: var(--pb-space-1);
+  text-overflow: ellipsis;
+}
+/* A box that fills a patch box when clicked. */
+.sode__end--pick {
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+.sode__end--pick:hover { background: var(--pb-surface-hover); }
+.sode__hist-route--boxes > .sode__hist-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
 /* Below 1000px from → to always gets the room: a row's status is its
@@ -1396,3 +1433,10 @@ code,
 }
 /* With picks, the box wraps rather than squeezing what you type. */
 .sode__search-box > .pb-input { min-width: 8em; }
+
+/* Rows that open and close when clicked anywhere (clickToToggle); their
+   open panels don't. */
+.sode--tap { cursor: pointer; }
+.sode--tap .sode__hist-before,
+.sode--tap .sode__hist-folder,
+.sode--tap .sode-m__changes { cursor: auto; }
