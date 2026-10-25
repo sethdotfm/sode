@@ -258,6 +258,10 @@ func TestTakeFreshPrev(t *testing.T) {
 	}
 	f.tally[[2]int{5, 2}] = 7
 	f.mu.Unlock()
+	// A resync is meanwhile finding changes on dst 6, not yet written.
+	f.seed(6, 1, 0, 1)
+	f.seed(6, 8, 0)
+	f.seed(6, 9, 1)
 	e := takeOne(t, a, 7, 5, 1, 2, 3)
 	if want := [][2]int{{1, 4}, {2, 4}, {3, 7}}; !e.OK || !equalPrev(e.Prev, want) {
 		t.Fatalf("take %+v, want prev %v", e, want)
@@ -266,16 +270,15 @@ func TestTakeFreshPrev(t *testing.T) {
 		t.Fatalf("already %v", e.Already)
 	}
 	leftovers(t, a)
+	// What the check found is written before the take, not after it.
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 10)
-	var found []Entry
-	for _, x := range es {
-		if x.Found {
-			found = append(found, x)
-		}
-	}
-	if len(es) != 3 || len(found) != 2 {
+	if len(es) != 5 || es[2].ID != e.ID || !es[3].Found || !es[4].Found || es[3].Dst != 5 || es[4].Dst != 5 {
 		t.Fatalf("entries %+v", es)
+	}
+	// Each set of found changes is a group of its own.
+	if g5, g6 := es[3].Group, es[0].Group; g5 == "" || g6 == "" || g5 != es[4].Group || g6 != es[1].Group || g5 == g6 {
+		t.Fatalf("groups %+v", es)
 	}
 }
 

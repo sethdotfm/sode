@@ -126,8 +126,38 @@ func (a *App) flushExt() {
 		a.mu.Unlock()
 		return
 	}
-	es := a.extEntries()
+	es := a.extEntries(a.ext)
 	a.ext = map[int]map[int]*extLevel{}
+	a.mu.Unlock()
+	for _, e := range es {
+		a.record(e)
+	}
+}
+
+// flushFound writes the changes found on dst now, ahead of the rest of
+// the burst, so they come before the take whose check found them rather
+// than after it, where they'd look like what dst has now.
+func (a *App) flushFound(dst int) {
+	a.mu.Lock()
+	found := map[int]*extLevel{}
+	for ui, l := range a.ext[dst] {
+		if l.found {
+			found[ui] = l
+			delete(a.ext[dst], ui)
+		}
+	}
+	if len(a.ext[dst]) == 0 {
+		delete(a.ext, dst)
+	}
+	es := a.extEntries(map[int]map[int]*extLevel{dst: found})
+	// A group of their own: the rest of the burst, written later, would get
+	// the same id from extFirst.
+	g := "f" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	for _, e := range es {
+		if e.Group != "" {
+			e.Group = g
+		}
+	}
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
@@ -157,7 +187,7 @@ func (a *App) extAwaitsTake() bool {
 // began, earliest first. Changes that follow one of our takes name it;
 // the rest share a group when there's more than one, found ones apart.
 // Caller holds mu.
-func (a *App) extEntries() []*Entry {
+func (a *App) extEntries(burst map[int]map[int]*extLevel) []*Entry {
 	type key struct {
 		dst, src int
 		found    bool
@@ -168,7 +198,7 @@ func (a *App) extEntries() []*Entry {
 	}
 	byKey := map[key]*out{}
 	var outs []*out
-	for dst, ls := range a.ext {
+	for dst, ls := range burst {
 		for ui, l := range ls {
 			// Back where it began, or cleared (nothing to show as a take).
 			if (l.prevKnown && l.prev == l.src) || l.src < 0 {

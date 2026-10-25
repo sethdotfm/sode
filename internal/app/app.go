@@ -953,7 +953,9 @@ func (a *App) take(c *client, req takeReq) {
 	if !a.checkTally(r, w) {
 		log.Printf("take: dst %d: no answer to interrogates in %v; using cached routes", req.Dst, checkTimeout)
 	}
+	a.flushFound(req.Dst)
 	a.mu.Lock()
+	e.Time = time.Now()
 	prev()
 	w.register(a)
 	a.mu.Unlock()
