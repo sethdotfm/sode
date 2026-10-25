@@ -9,7 +9,7 @@ import (
 )
 
 func TestWaiterAlreadyRouted(t *testing.T) {
-	w := &waiter{dst: 9, src: 2, wire: map[int]bool{0: true, 1: true}, already: map[int]bool{}, done: make(chan struct{})}
+	w := &waiter{dst: 9, src: 2, levels: []*takeLevel{{ui: 1, wire: 0}, {ui: 2, wire: 1}}, done: make(chan struct{})}
 	// Level 0 changes: announced with Connected.
 	w.see(swp08.Crosspoint{Level: 0, Dst: 9, Src: 2, Cmd: swp08.CmdExtConnected})
 	// Wrong source on level 1 doesn't count.
@@ -22,8 +22,8 @@ func TestWaiterAlreadyRouted(t *testing.T) {
 	if !w.closed {
 		t.Fatal("not finished")
 	}
-	if w.already[0] || !w.already[1] {
-		t.Fatalf("already = %v, want only level 1", w.already)
+	if w.levels[0].already || !w.levels[1].already {
+		t.Fatalf("already = %v, %v, want only level 1", w.levels[0].already, w.levels[1].already)
 	}
 }
 

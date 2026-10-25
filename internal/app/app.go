@@ -726,13 +726,36 @@ func runLimited(limit, n int, fn func(i int)) {
 	wg.Wait()
 }
 
+// takeLevel is one level of a take, from plan to result.
+type takeLevel struct {
+	ui, wire  int
+	connect   []byte
+	same      bool // the cache said it was already on src
+	unsent    bool // the router link refused it
+	confirmed bool
+	already   bool // confirmed by a tally, not by a change
+}
+
 type waiter struct {
 	dst, src int
-	wire     map[int]bool // wire levels still outstanding
-	already  map[int]bool // wire levels confirmed by tally, not by a change
+	levels   []*takeLevel
 	done     chan struct{}
 	closed   bool
 	cause    *cause // for changes that follow this take
+}
+
+// wanted: still waiting for the router to confirm l.
+func wanted(l *takeLevel) bool { return !l.confirmed && !l.unsent }
+
+// filter is the take's levels for which keep is true. Caller holds mu.
+func (w *waiter) filter(keep func(*takeLevel) bool) []*takeLevel {
+	var ls []*takeLevel
+	for _, l := range w.levels {
+		if keep(l) {
+			ls = append(ls, l)
+		}
+	}
+	return ls
 }
 
 // see marks a level confirmed when the router reports the requested route.
@@ -740,23 +763,57 @@ type waiter struct {
 // on src is confirmed by the answer to an interrogate instead.
 // It reports whether xp was one of this take's. Caller holds mu.
 func (w *waiter) see(xp swp08.Crosspoint) bool {
-	if xp.Dst != w.dst || xp.Src != w.src || !w.wire[xp.Level] {
+	if xp.Dst != w.dst || xp.Src != w.src {
 		return false
 	}
-	delete(w.wire, xp.Level)
-	if !xp.Changed() {
-		w.already[xp.Level] = true
+	for _, l := range w.levels {
+		if l.wire == xp.Level && wanted(l) {
+			l.confirmed, l.already = true, !xp.Changed()
+			w.finishIfDone()
+			return true
+		}
 	}
-	w.finishIfDone()
-	return true
+	return false
 }
 
 // Caller holds mu.
 func (w *waiter) finishIfDone() {
-	if len(w.wire) == 0 && !w.closed {
+	if !w.closed && len(w.filter(wanted)) == 0 {
 		w.closed = true
 		close(w.done)
 	}
+}
+
+// register makes the router's answers to the take count as its own: the
+// waiter sees them, changes elsewhere may follow its cause, and own keeps
+// them out of the changes made elsewhere. Only levels the router will
+// answer with a Connected get an own key: one already on src gets none,
+// and its key would linger and swallow a real change back to it.
+// Caller holds mu.
+func (w *waiter) register(a *App) {
+	a.waiters[w] = struct{}{}
+	a.causes = append(a.causes, w.cause)
+	until := time.Now().Add(ownFor)
+	for _, l := range w.levels {
+		if !l.same {
+			a.own[ownKey{w.dst, l.wire, w.src}] = until
+		}
+	}
+}
+
+// unregister ends a take recorded as history entry id. Changes elsewhere
+// may now follow it, and levels never confirmed (or never sent) won't be
+// answered now, so their own keys go.
+func (w *waiter) unregister(a *App, id int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	w.cause.id, w.cause.done = id, true
+	for _, l := range w.levels {
+		if !l.confirmed || l.unsent {
+			delete(a.own, ownKey{w.dst, l.wire, w.src})
+		}
+	}
+	delete(a.waiters, w)
 }
 
 const (
@@ -776,163 +833,146 @@ func levelList(r *runtime, ls []int) string {
 	return strings.Join(parts, ", ")
 }
 
+// uis is levels' UI numbers.
+func uis(ls []*takeLevel) []int {
+	out := make([]int, len(ls))
+	for i, l := range ls {
+		out[i] = l.ui
+	}
+	return out
+}
+
+// take routes one source to one destination on some levels: plan,
+// register, send, wait, then record what the router confirmed.
 func (a *App) take(c *client, req takeReq) {
 	r := a.r()
 	res := map[string]any{"t": "takeResult", "id": req.ID, "ok": false}
-
-	if req.Src < 0 || req.Src > 0xFFFE || req.Dst < 0 || req.Dst > 0xFFFE || len(req.Levels) == 0 {
-		res["err"] = "bad request"
+	w, err := planTake(r, req)
+	if err != nil {
+		res["err"] = err.Error()
 		a.reply(c, res)
 		return
 	}
-	type send struct {
-		ui, wire int
-		msg      []byte
-	}
-	var sends []send
-	for _, ui := range req.Levels {
-		l, ok := r.byUI[ui]
-		if !ok {
-			res["err"] = "unknown level " + r.cfg.LevelLabel(ui)
-			a.reply(c, res)
-			return
-		}
-		sends = append(sends, send{ui, l.Wire, swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
-	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: req.Levels, Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
-	w := &waiter{dst: req.Dst, src: req.Src, wire: map[int]bool{}, already: map[int]bool{}, done: make(chan struct{}),
-		cause: &cause{src: req.Src, dst: req.Dst, id: -1}}
 	var protected []int
-	same := map[int]bool{} // wire levels the cache says are already on src
 	a.mu.Lock()
 	e.SrcName, e.DstName = a.srcNames[req.Src], a.dstNames[req.Dst]
-	for _, s := range sends {
-		if prev, ok := a.tally[req.Dst][s.ui]; ok {
-			e.Prev = append(e.Prev, [2]int{s.ui, prev})
-			if prev == req.Src {
-				same[s.wire] = true
-			}
+	for _, l := range w.levels {
+		if prev, ok := a.tally[req.Dst][l.ui]; ok {
+			e.Prev = append(e.Prev, [2]int{l.ui, prev})
+			l.same = prev == req.Src
 		}
-		if _, ok := a.protect[req.Dst][s.ui]; ok {
-			protected = append(protected, s.ui)
+		if _, ok := a.protect[req.Dst][l.ui]; ok {
+			protected = append(protected, l.ui)
 		}
-		w.wire[s.wire] = true
 	}
 	if len(protected) == 0 {
-		a.waiters[w] = struct{}{}
-		a.causes = append(a.causes, w.cause)
-		// Only levels the router will answer with a Connected: one already
-		// on src gets none, and its key would linger and swallow a real
-		// change back to it.
-		until := time.Now().Add(ownFor)
-		for _, s := range sends {
-			if !same[s.wire] {
-				a.own[ownKey{req.Dst, s.wire, req.Src}] = until
-			}
-		}
+		w.register(a)
 	}
 	a.mu.Unlock()
-
 	if len(protected) > 0 {
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return
 	}
-	defer func() {
-		a.mu.Lock()
-		delete(a.waiters, w)
-		a.mu.Unlock()
-	}()
 
-	// Queue every level. If the queue refuses partway, the levels already
-	// queued will still switch, so wait for those and report both halves.
-	var sendErr error
-	var unsent []int
-	for i, s := range sends {
-		if err := a.sendMsg(s.msg); err != nil {
-			sendErr = err
-			a.mu.Lock()
-			for _, u := range sends[i:] {
-				unsent = append(unsent, u.ui)
-				delete(w.wire, u.wire)
-			}
-			w.finishIfDone()
-			a.mu.Unlock()
-			break
-		}
-	}
-
-	// Levels already on src won't be announced, so ask. Queued after the
-	// connects, the answer reflects them.
-	interrogate := func(wires []int) {
-		for _, wire := range wires {
-			a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, wire, req.Dst))
-		}
-	}
-	outstanding := func() []int {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		var ws []int
-		for wire := range w.wire {
-			ws = append(ws, wire)
-		}
-		return ws
-	}
-	var sameSent []int
-	for _, s := range sends[:len(sends)-len(unsent)] {
-		if same[s.wire] {
-			sameSent = append(sameSent, s.wire)
-		}
-	}
-	interrogate(sameSent)
+	sendErr := a.sendTake(r, w)
+	missing := a.awaitTake(r, w)
 
 	var errs []string
-	if len(unsent) < len(sends) {
-		select {
-		case <-w.done:
-		case <-time.After(takeTimeout):
-			// Last chance: ask about whatever is still unconfirmed (a stale
-			// cache, or a Connected lost on the wire) and give it a moment.
-			interrogate(outstanding())
-			select {
-			case <-w.done:
-			case <-time.After(takeGrace):
-			}
-			var missing []int
-			for _, wire := range outstanding() {
-				missing = append(missing, r.byWire[wire].UI)
-			}
-			if len(missing) > 0 {
-				errs = append(errs, "no confirmation from router for levels "+levelList(r, missing))
-			}
-		}
+	if len(missing) > 0 {
+		errs = append(errs, "no confirmation from router for levels "+levelList(r, uis(missing)))
 	}
 	a.mu.Lock()
-	for wire := range w.already {
-		e.Already = append(e.Already, r.byWire[wire].UI)
-	}
+	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
 	a.mu.Unlock()
 	sort.Ints(e.Already)
 	if len(e.Already) > 0 {
 		res["already"] = e.Already
 	}
 	if sendErr != nil {
-		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(r, unsent), sendErr))
+		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(r, uis(w.filter(func(l *takeLevel) bool { return l.unsent }))), sendErr))
 	}
-	var err error
 	if len(errs) > 0 {
 		err = fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	a.finish(c, res, e, err)
-	a.mu.Lock()
-	w.cause.id, w.cause.done = e.ID, true
-	// Levels never confirmed (or never sent) won't be answered now.
-	for _, s := range sends {
-		if w.wire[s.wire] || slices.Contains(unsent, s.ui) {
-			delete(a.own, ownKey{req.Dst, s.wire, req.Src})
+	w.unregister(a, e.ID)
+}
+
+// planTake checks a take and builds its waiter, one record per level.
+func planTake(r *runtime, req takeReq) (*waiter, error) {
+	if req.Src < 0 || req.Src > 0xFFFE || req.Dst < 0 || req.Dst > 0xFFFE || len(req.Levels) == 0 {
+		return nil, errors.New("bad request")
+	}
+	w := &waiter{dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1}}
+	for _, ui := range req.Levels {
+		l, ok := r.byUI[ui]
+		if !ok {
+			return nil, errors.New("unknown level " + r.cfg.LevelLabel(ui))
+		}
+		if slices.ContainsFunc(w.levels, func(x *takeLevel) bool { return x.ui == ui }) {
+			continue
+		}
+		w.levels = append(w.levels, &takeLevel{ui: ui, wire: l.Wire, connect: swp08.ExtConnect(r.cfg.Matrix, l.Wire, req.Dst, req.Src)})
+	}
+	return w, nil
+}
+
+// sendTake queues every level's connect. If the queue refuses partway, the
+// levels already queued will still switch, so the rest are marked unsent
+// and the take waits for the others. Levels already on src won't be
+// announced, so they're interrogated, after the connects so the answers
+// reflect them.
+func (a *App) sendTake(r *runtime, w *waiter) error {
+	var sendErr error
+	for i, l := range w.levels {
+		if err := a.sendMsg(l.connect); err != nil {
+			sendErr = err
+			a.mu.Lock()
+			for _, u := range w.levels[i:] {
+				u.unsent = true
+			}
+			w.finishIfDone()
+			a.mu.Unlock()
+			break
 		}
 	}
-	a.mu.Unlock()
+	// Only this goroutine sets same and unsent.
+	a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }))
+	return sendErr
+}
+
+func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel) {
+	for _, l := range ls {
+		a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst))
+	}
+}
+
+// awaitTake waits for the router to confirm every sent level and returns
+// the ones it never confirmed.
+func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
+	if len(w.filter(func(l *takeLevel) bool { return !l.unsent })) == 0 {
+		return nil
+	}
+	outstanding := func() []*takeLevel {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		return w.filter(wanted)
+	}
+	select {
+	case <-w.done:
+		return nil
+	case <-time.After(takeTimeout):
+	}
+	// Last chance: ask about whatever is still unconfirmed (a stale cache,
+	// or a Connected lost on the wire) and give it a moment.
+	a.interrogate(r, w, outstanding())
+	select {
+	case <-w.done:
+	case <-time.After(takeGrace):
+	}
+	return outstanding()
 }
 
 // finish records a take in history and answers the browser.
