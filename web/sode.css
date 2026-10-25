@@ -660,6 +660,11 @@ code,
   display: flex;
   justify-content: center;
 }
+/* Load more fills as the list is pulled on past its end (pullToLoad). */
+.sode__hist-more > .pb-btn,
+.sode-m__recent-more > .pb-btn {
+  background-image: linear-gradient(to right, var(--pb-surface-hover) calc(var(--sode-pull, 0) * 100%), transparent 0);
+}
 .sode-m__recent-more:empty,
 .sode__hist-more:empty { display: none; }
 

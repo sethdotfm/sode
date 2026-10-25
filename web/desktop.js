@@ -10,7 +10,7 @@ import {
 } from './core.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, followBoxes, clickToToggle } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, followBoxes, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -306,6 +306,7 @@ function histTime(iso) {
 const curClass = (key) => (key === cursor ? ' sode__hist-row--cur' : '');
 
 const pager = historyPager(10, () => layout() === 'desktop');
+pullToLoad(window, $('history-more'), pager, () => active() && !document.querySelector('dialog[open]'));
 
 // scroll: bring the cursor row into view (the cursor just moved). Other
 // redraws (someone else's take, a result) leave the page where it is.

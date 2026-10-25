@@ -299,6 +299,53 @@ export function followBoxes(follows, levels) {
       same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`))));
 }
 
+// ---- pull to load more
+
+// Pulling on past the end of scroller (window or an element), like pull to
+// refresh, presses Load more: a touch dragged PULL px up from the bottom
+// and let go, or WHEEL of wheel scrolling at the bottom in one go (a pause
+// starts over). box holds the button, which fills as the pull grows
+// (--sode-pull, 0..1). when(): this layout is the one showing.
+const PULL = 140, WHEEL = 700, GAP_MS = 250;
+export function pullToLoad(scroller, box, pager, when) {
+  const el0 = () => (scroller === window ? document.scrollingElement : scroller);
+  const atEnd = () => { const s = el0(); return s.scrollTop + s.clientHeight >= s.scrollHeight - 2; };
+  const ready = () => when() && pager.hasMore() && !S.histLoading && !!box.querySelector('button');
+  const show = (p) => box.style.setProperty('--sode-pull', String(Math.max(0, Math.min(1, p))));
+  const fire = () => { show(0); pager.more(); };
+
+  let sum = 0, last = 0, idle = 0;
+  scroller.addEventListener('wheel', (e) => {
+    const now = performance.now();
+    if (now - last > GAP_MS) sum = 0;
+    last = now;
+    clearTimeout(idle);
+    if (e.deltaY <= 0 || !atEnd() || !ready()) { sum = Math.min(sum, 0); show(0); return; }
+    sum += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el0().clientHeight : 1);
+    if (sum >= WHEEL) { sum = -Infinity; fire(); return; } // once per gesture
+    show(sum / WHEEL);
+    idle = setTimeout(() => { sum = 0; show(0); }, GAP_MS);
+  }, { passive: true });
+
+  let y0 = null, pulled = 0;
+  scroller.addEventListener('touchstart', (e) => {
+    y0 = e.touches.length === 1 && atEnd() && ready() ? e.touches[0].clientY : null;
+    pulled = 0;
+  }, { passive: true });
+  scroller.addEventListener('touchmove', (e) => {
+    if (y0 == null) return;
+    pulled = (y0 - e.touches[0].clientY) / PULL;
+    show(pulled);
+  }, { passive: true });
+  const end = () => {
+    if (y0 != null && pulled >= 1 && ready()) fire();
+    else show(0);
+    y0 = null;
+  };
+  scroller.addEventListener('touchend', end);
+  scroller.addEventListener('touchcancel', () => { y0 = null; show(0); });
+}
+
 // ---- Feeding: the destinations a source feeds
 
 // The first two as chips, all of them once open, and a toggle for the

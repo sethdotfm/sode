@@ -12,7 +12,7 @@ import {
 } from './core.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, clickToToggle } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -328,6 +328,7 @@ function closeSwipes(except) {
 }
 
 const pager = historyPager(5, () => layout() === 'phone');
+pullToLoad($('m-thread'), $('m-recent-more'), pager, () => layout() === 'phone' && !$('m-recent').hidden);
 
 function renderRecent() {
   const rows = pager.list();
