@@ -10,6 +10,11 @@ const PAGE = 100;
 const FILL = 500;
 // Requests in a row for one Load older while the filters hide everything.
 const AUTO_PAGES = 20;
+// Entries are kept in the order they finished but stamped with when they
+// were first sent (or queued), so the log isn't strictly in time order: a
+// message that retried can finish after later ones. Reading back for a
+// range goes this much further than its start to catch those.
+const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
 
 // Filter groups, in the order shown. Connects alone by default: the routes.
@@ -138,6 +143,9 @@ function initFilters() {
 
 let list = [];
 const seen = new Set(); // seqs in list
+// The entries in the table, in its order: kept in step with tbody's rows
+// so new ones go in place instead of redrawing everything.
+let shown = [];
 let more = false;
 let loading = false;
 let autoLeft = 0;
@@ -164,8 +172,8 @@ const oldest = () => list[list.length - 1];
 // to its end).
 function rangeNeedsMore() {
   if (!more || !list.length) return false;
-  if (range.from != null) return oldest().t >= range.from;
-  if (range.to != null) return oldest().t > range.to;
+  if (range.from != null) return oldest().t >= range.from - TIME_SLACK;
+  if (range.to != null) return oldest().t > range.to - TIME_SLACK;
   return false;
 }
 
@@ -190,26 +198,34 @@ on('hello', () => {
 on('sentPage', (m) => {
   if (!started) return;
   const last = list.length ? oldest().seq : -1;
-  if (m.before === -1) {
+  const newest = m.before === -1;
+  let older = [];
+  if (newest) {
     // Live entries may have come in first: merge.
     list = [...list, ...add(m.entries)].sort((a, b) => b.seq - a.seq);
   } else if (m.before === last) {
-    list.push(...add(m.entries));
+    older = add(m.entries);
+    list.push(...older);
   } else {
     return; // for a list since replaced
   }
   more = m.more;
   loading = false;
   showCounts(m);
-  render();
+  // Older entries go at the end newest first. In any other order the
+  // table is drawn once when reading back stops, not after every page.
+  if (newest) render();
+  else if (newestFirst()) appendRows(older.filter(passes));
   if (rangeNeedsMore()) return fill();
   // Keep reading back while the filters hide everything read so far.
-  if (more && autoLeft > 0 && !tbody.childElementCount) {
+  if (more && autoLeft > 0 && !shown.length && !older.some(passes)) {
     autoLeft--;
     request(oldest().seq, FILL);
-  } else {
-    autoLeft = 0;
+    return;
   }
+  autoLeft = 0;
+  if (!newest && !newestFirst()) render();
+  else renderMore();
 });
 
 on('sentAdd', (m) => {
@@ -217,13 +233,15 @@ on('sentAdd', (m) => {
   showCounts(m);
   const fresh = add(m.entries).sort((a, b) => b.seq - a.seq);
   if (!fresh.length) return;
-  list = [...fresh, ...list];
+  list.unshift(...fresh);
+  const pass = fresh.filter(passes);
   if (newestFirst()) {
-    tbody.prepend(...fresh.filter(passes).map((e) => row(e, true)));
-    renderMore();
+    tbody.prepend(...pass.map((e) => row(e, true)));
+    shown.unshift(...pass);
   } else {
-    render(new Set(fresh.map((e) => e.seq)));
+    for (const e of pass) insertRow(e);
   }
+  renderMore();
 });
 
 function showCounts(m) {
@@ -325,18 +343,46 @@ function cmp(a, b) {
   return a - b;
 }
 
+// Sort order of two entries given their sort keys (xv, yv).
+function cmpKeyed(x, xv, y, yv) {
+  if (xv == null || yv == null) return xv == null ? (yv == null ? y.seq - x.seq : 1) : -1;
+  return (sort.dir === 'asc' ? 1 : -1) * cmp(xv, yv) || y.seq - x.seq;
+}
+
+// Where one entry goes relative to another in the table.
+function order(x, y) {
+  if (newestFirst()) return y.seq - x.seq;
+  const key = SORTS[sort.col];
+  return cmpKeyed(x, key(x), y, key(y));
+}
+
 // The rows shown, in the order shown: also what the CSV holds.
 function shownRows() {
   const rows = list.filter(passes);
   if (newestFirst()) return rows;
-  const key = SORTS[sort.col], k = sort.dir === 'asc' ? 1 : -1;
+  const key = SORTS[sort.col];
   return rows
     .map((e) => ({ e, v: key(e) }))
-    .sort((x, y) => {
-      if (x.v == null || y.v == null) return x.v == null ? (y.v == null ? y.e.seq - x.e.seq : 1) : -1;
-      return k * cmp(x.v, y.v) || y.e.seq - x.e.seq;
-    })
+    .sort((x, y) => cmpKeyed(x.e, x.v, y.e, y.v))
     .map((x) => x.e);
+}
+
+// Older entries, after everything shown (newest first only).
+function appendRows(es) {
+  tbody.append(...es.map((e) => row(e)));
+  shown.push(...es);
+}
+
+// A new entry, in its place in the current order.
+function insertRow(e) {
+  let lo = 0, hi = shown.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (order(shown[mid], e) <= 0) lo = mid + 1;
+    else hi = mid;
+  }
+  tbody.insertBefore(row(e, true), tbody.children[lo] || null);
+  shown.splice(lo, 0, e);
 }
 
 function renderSort() {
@@ -368,9 +414,9 @@ for (const th of document.querySelectorAll('th[data-sort]')) {
 }
 renderSort();
 
-// fresh: seqs that just arrived, animated in.
-function render(fresh) {
-  tbody.replaceChildren(...shownRows().map((e) => row(e, !!fresh?.has(e.seq))));
+function render() {
+  shown = shownRows();
+  tbody.replaceChildren(...shown.map((e) => row(e)));
   renderMore();
 }
 
