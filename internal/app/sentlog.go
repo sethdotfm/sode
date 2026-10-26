@@ -35,7 +35,7 @@ type Sent struct {
 	Hex     string    `json:"hex"`
 }
 
-// sentMem is how many entries the log keeps with no file.
+// sentMem is how many entries the log keeps at least with no file.
 const sentMem = 20000
 
 // segment is one file of the sent log: line i holds seq first+i.
@@ -191,7 +191,9 @@ func (l *SentLog) Append(e *Sent) error {
 	if l.cur == nil {
 		l.next++
 		l.mem = append(l.mem, *e)
-		if len(l.mem) > sentMem {
+		// Trimmed at twice the size, so the copy happens once per sentMem
+		// appends rather than on every one.
+		if len(l.mem) > 2*sentMem {
 			l.mem = append(l.mem[:0:0], l.mem[len(l.mem)-sentMem:]...)
 		}
 		return nil
@@ -234,14 +236,17 @@ func (l *SentLog) rotate() error {
 
 // Page returns up to n entries older than seq before, newest first, and
 // whether there are older ones still. before < 0 means from the newest.
+// A page's lines are read with one ReadAt per file and decoded after the
+// lock is released, so a page doesn't hold up Append. A line that won't
+// decode is logged and left out.
 func (l *SentLog) Page(before int64, n int) ([]Sent, bool, error) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	if before < 0 || before > l.next {
 		before = l.next
 	}
 	out := []Sent{}
 	if l.cur == nil {
+		defer l.mu.Unlock()
 		first := l.next - int64(len(l.mem))
 		seq := before - 1
 		for ; seq >= first && len(out) < n; seq-- {
@@ -249,42 +254,58 @@ func (l *SentLog) Page(before int64, n int) ([]Sent, bool, error) {
 		}
 		return out, seq >= first, nil
 	}
+	type line struct {
+		seq int64
+		b   []byte
+	}
+	var lines []line
+	var err error
 	oldest := l.cur.first
 	if l.old != nil {
 		oldest = l.old.first
 	}
 	seq := before - 1
-	for ; seq >= oldest && len(out) < n; seq-- {
+	for seq >= oldest && len(lines) < n {
 		s := l.cur
 		if seq < s.first {
 			s = l.old
 		}
-		if s == nil || seq >= s.end() {
+		if s == nil {
+			break
+		}
+		if seq >= s.end() { // between the files: on to the older one's last
+			seq = s.end() - 1
 			continue
 		}
-		e, err := s.at(seq)
-		if err != nil { // one bad line doesn't hide the rest
-			log.Printf("sent log: %v", err)
+		hi := seq - s.first
+		lo := max(0, hi-int64(n-len(lines))+1)
+		end := s.size
+		if hi+1 < int64(len(s.offs)) {
+			end = s.offs[hi+1]
+		}
+		buf := make([]byte, end-s.offs[lo])
+		if _, err = s.f.ReadAt(buf, s.offs[lo]); err != nil {
+			break
+		}
+		for i := hi; i >= lo; i-- {
+			to := int64(len(buf))
+			if i+1 <= hi {
+				to = s.offs[i+1] - s.offs[lo]
+			}
+			lines = append(lines, line{s.first + i, buf[s.offs[i]-s.offs[lo] : to]})
+		}
+		seq = s.first + lo - 1
+	}
+	more := err == nil && seq >= oldest
+	l.mu.Unlock()
+
+	for _, ln := range lines {
+		var e Sent
+		if err := json.Unmarshal(ln.b, &e); err != nil {
+			log.Printf("sent log entry %d: %v", ln.seq, err)
 			continue
 		}
 		out = append(out, e)
 	}
-	return out, seq >= oldest, nil
-}
-
-func (s *segment) at(seq int64) (Sent, error) {
-	i := seq - s.first
-	end := s.size
-	if i+1 < int64(len(s.offs)) {
-		end = s.offs[i+1]
-	}
-	buf := make([]byte, end-s.offs[i])
-	if _, err := s.f.ReadAt(buf, s.offs[i]); err != nil {
-		return Sent{}, err
-	}
-	var e Sent
-	if err := json.Unmarshal(buf, &e); err != nil {
-		return Sent{}, fmt.Errorf("sent log entry %d: %w", seq, err)
-	}
-	return e, nil
+	return out, more, err
 }

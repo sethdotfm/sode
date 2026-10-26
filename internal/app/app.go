@@ -144,13 +144,19 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.sw.OnTx = a.onTx
 	a.sendMsg = func(m []byte, why swp08.Why) error {
 		err := a.sw.Send(m, why)
-		if err != nil { // never queued, so the client won't report it
+		// Never queued, so the client won't report it. Only a take's are
+		// logged: re-reads refused while the router is down would fill
+		// the log with rows for nothing that was tried.
+		if err != nil && !background[why.Reason] {
 			a.onTx(swp08.TxEvent{Msg: m, Why: why, At: time.Now(), Result: "unsent", Err: err.Error()})
 		}
 		return err
 	}
 	return a, nil
 }
+
+// background reasons are Sode's own upkeep, not something a browser asked for.
+var background = map[string]bool{"resync": true, "names": true, "keepalive": true}
 
 func (a *App) r() *runtime { return a.rt.Load() }
 

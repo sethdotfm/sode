@@ -383,7 +383,24 @@ func TestDescribeSent(t *testing.T) {
 		t.Fatalf("connect = %+v", e)
 	}
 	e = a.describe(swp08.TxEvent{Msg: swp08.ExtInterrogate(0, 0, 0), Why: swp08.Why{Reason: "keepalive"}})
-	if e.Kind != "keepalive" || e.Level != 1 || e.Src != -1 {
+	if e.Kind != "keepalive" || e.Level != 0 || e.Wire != -1 || e.Dst != -1 || e.Src != -1 {
 		t.Fatalf("probe = %+v", e)
+	}
+}
+
+// With the router down, only refused sends a browser asked for are logged;
+// Sode's own re-reads aren't.
+func TestUnsentOnlyForTakes(t *testing.T) {
+	a := newTestApp(t) // never connected: every Send is refused
+	if err := a.sendMsg(swp08.NamesReq(false, false, 0, 0, 2), swp08.Why{Reason: "names"}); err == nil {
+		t.Fatal("send with no router succeeded")
+	}
+	a.sendMsg(swp08.ExtTallyDumpReq(0, 0), swp08.Why{Reason: "resync"})
+	a.sendMsg(swp08.ExtConnect(0, 0, 5, 7), swp08.Why{Reason: "take", By: "10.0.0.1"})
+	if n := len(a.txq); n != 1 {
+		t.Fatalf("%d events, want just the take's", n)
+	}
+	if ev := <-a.txq; ev.Why.Reason != "take" || ev.Result != "unsent" {
+		t.Fatalf("event %+v, want the take, unsent", ev)
 	}
 }

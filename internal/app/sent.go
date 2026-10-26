@@ -63,7 +63,11 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 		e.Cmd = int(ev.Msg[0])
 	}
 	if ev.Why.Reason == "keepalive" {
+		// A link check, not a question about a route: whatever it asks
+		// about is beside the point.
 		e.Kind = "keepalive"
+		q.Level, q.Dst = -1, -1
+		e.Wire, e.Dst = -1, -1
 	}
 	if l, ok := r.byWire[q.Level]; ok && q.Level >= 0 {
 		e.Level = l.UI

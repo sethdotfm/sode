@@ -88,16 +88,16 @@ func TestSentLogRotateAndReopen(t *testing.T) {
 
 func TestSentLogMemoryCap(t *testing.T) {
 	l, _ := OpenSentLog("", 0)
-	for i := 0; i < sentMem+5; i++ {
+	for i := 0; i < 2*sentMem+1; i++ {
 		l.Append(&Sent{})
 	}
 	page, more, _ := l.Page(-1, 3)
-	if len(page) != 3 || page[0].Seq != sentMem+4 || !more {
+	if len(page) != 3 || page[0].Seq != 2*sentMem || !more {
 		t.Fatalf("newest %v more %v", seqs(page), more)
 	}
-	page, more, _ = l.Page(7, 10)
-	if len(page) != 2 || page[1].Seq != 5 || more {
-		t.Fatalf("oldest %v more %v, want 6, 5 and no more", seqs(page), more)
+	page, more, _ = l.Page(sentMem+3, 10)
+	if len(page) != 2 || page[1].Seq != sentMem+1 || more {
+		t.Fatalf("oldest %v more %v, want %d, %d and no more", seqs(page), more, sentMem+2, sentMem+1)
 	}
 }
 
