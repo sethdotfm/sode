@@ -725,6 +725,7 @@ code,
 
 .sode__footer {
   display: flex;
+  gap: var(--pb-space-4);
   justify-content: center;
   padding-top: var(--pb-space-6);
   width: 100%;
@@ -791,10 +792,11 @@ code,
    options show until it's entered. */
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
-.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device) { display: none; }
+.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__open-log) { display: none; }
 /* This device first, then the prompt: it's the part anyone can change. */
 .sode__settings[data-locked] > .sode__settings-head { order: -2; }
 .sode__settings[data-locked] > .sode__device { order: -1; }
+.sode__settings[data-locked] > .sode__open-log { order: 1; } /* after the lock */
 .sode__settings[data-locked] > .sode__lock {
   border-top: var(--pb-border-w) solid var(--pb-edge);
   padding-top: var(--pb-space-5);
@@ -1502,3 +1504,76 @@ code,
 .sode--tap .sode__hist-before,
 .sode--tap .sode__hist-folder,
 .sode--tap .sode-m__changes { cursor: auto; }
+
+/* The sent log page (/log): a wide table of what went to the router. */
+.sode-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  margin: 0 auto;
+  max-width: 1600px;
+  padding: var(--pb-space-8);
+}
+.sode-log__head {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-4);
+}
+.sode-log__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+  margin: 0 var(--pb-space-4) 0 0;
+}
+.sode-log__spacer { flex: 1 1 auto; }
+.sode-log__filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode-log__line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4) var(--pb-space-6);
+}
+.sode-log__kinds {
+  align-items: center;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-5);
+  margin: 0;
+  padding: 0;
+}
+.sode-log__kinds > legend {
+  float: left;
+  margin: 0;
+  padding: 0;
+  width: auto;
+}
+.sode-log__expr { flex: 0 1 16rem; min-width: 10rem; }
+.sode-log__when {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin: 0;
+}
+.sode-log__when > .pb-input { width: auto; }
+.sode-log__scroll { overflow-x: auto; }
+.sode-log__table td { white-space: nowrap; }
+.sode-log__time,
+.sode-log__hex { font-family: var(--pb-font-mono); font-size: var(--pb-text-xs); }
+.sode-log__hex { color: var(--pb-text-muted); }
+.sode-log__name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
+.sode-log__row--problem > td:first-child { box-shadow: inset var(--pb-accent-bar-w) 0 0 0 var(--pb-status-error); }
+.sode-log__lvl { min-width: calc(var(--pb-space-8) + var(--pb-space-1)); padding: 0 var(--pb-space-2); }
+.sode-log__more {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}

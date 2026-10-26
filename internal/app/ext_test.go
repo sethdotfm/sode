@@ -14,7 +14,7 @@ func newTestApp(t *testing.T) *App {
 	cfg := config.Defaults()
 	cfg.Levels = 3
 	cfg.Normalize()
-	a, err := New(cfg, "", h, false)
+	a, err := New(cfg, "", h, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

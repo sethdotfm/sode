@@ -109,7 +109,11 @@ docker compose exec sode /sode -reset-pin && docker compose restart sode
 
 or delete the `settingsPin:` line from `/data/config.yaml` and restart. The running server keeps the PIN in memory, so the restart is needed either way.
 
-Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
+Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`) and `SODE_SENTLOG_MB` (`64`, the sent log's total size on disk), and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
+
+## Sent log
+
+`/log` (**Open Log** in Settings, there even while Settings are locked) lists every message Sode wrote to the router, newest first and live: connects, interrogates, dumps, name requests and keepalives. Each row has the level, destination and source (with names as they were when it was sent), what it was for (a take, undo or retry, with the browser's address; the check before a take; a resync; a name refresh; a link check) and what the router made of it: ACK, ACK after retries, NAK, no ACK, or never sent because the link was down. It's read-only. It opens with the newest 100 entries; **Load older** reads 100 more. **From**/**To** limit it to a time range, and setting From reads the log back as far as it needs to cover the range. By default it shows connects only; the filters (kinds, problems only, source and destination expressions in Recent's filter language) are kept per browser. The log is `SODE_SENTLOG`, kept to `SODE_SENTLOG_MB` across it and one older file (`sent.1.jsonl`); without `SODE_SENTLOG` it keeps the last 20,000 messages in memory. A damaged log file doesn't stop Sode: it's renamed to `….bad-<date>` and a fresh one starts.
 
 ## Protocol notes
 

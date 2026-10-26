@@ -112,8 +112,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("history: %v", err)
 	}
+	sentMB, err := strconv.Atoi(env("SODE_SENTLOG_MB", "64"))
+	if err != nil || sentMB < 1 {
+		log.Fatalf("SODE_SENTLOG_MB: want a whole number of megabytes, at least 1")
+	}
+	sent, err := app.OpenSentLog(os.Getenv("SODE_SENTLOG"), int64(sentMB)<<20)
+	if err != nil {
+		log.Fatalf("sent log: %v", err)
+	}
 	debug, _ := strconv.ParseBool(os.Getenv("SODE_DEBUG"))
-	a, err := app.New(cfg, cfgPath, hist, debug)
+	a, err := app.New(cfg, cfgPath, hist, sent, debug)
 	if err != nil {
 		log.Fatal(err)
 	}

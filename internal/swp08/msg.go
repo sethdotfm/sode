@@ -152,6 +152,47 @@ func NamesReq(dest, ext bool, matrix, level int, lenCode byte) []byte {
 	return []byte{cmd, byte(matrix<<4 | level&0x0f), lenCode}
 }
 
+// Request describes an outgoing message for the sent log. Fields it
+// doesn't carry are -1.
+type Request struct {
+	Kind          string // connect, interrogate, tallyDump, protectDump, srcNames, dstNames, other
+	Matrix, Level int
+	Dst, Src      int
+}
+
+// DescribeTx decodes a message Sode sends. Unknown or short ones are kind
+// other.
+func DescribeTx(m []byte) Request {
+	r := Request{Kind: "other", Matrix: -1, Level: -1, Dst: -1, Src: -1}
+	if len(m) == 0 {
+		return r
+	}
+	d := m[1:]
+	word := func(i int) int { return int(d[i])<<8 | int(d[i+1]) }
+	switch {
+	case m[0] == CmdExtConnect && len(d) >= 6:
+		r = Request{Kind: "connect", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: word(4)}
+	case m[0] == CmdExtInterrogate && len(d) >= 4:
+		r = Request{Kind: "interrogate", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1}
+	case m[0] == CmdExtTallyDumpReq && len(d) >= 2:
+		r = Request{Kind: "tallyDump", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1}
+	case m[0] == CmdExtProtectDumpReq && len(d) >= 4:
+		r = Request{Kind: "protectDump", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1}
+	// Names aren't per level, whatever the request's level byte says.
+	case (m[0] == CmdExtSrcNamesReq || m[0] == CmdExtDstNamesReq) && len(d) >= 2:
+		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: -1, Dst: -1, Src: -1}
+		if m[0] == CmdExtDstNamesReq {
+			r.Kind = "dstNames"
+		}
+	case (m[0] == CmdSrcNamesReq || m[0] == CmdDstNamesReq) && len(d) >= 1:
+		r = Request{Kind: "srcNames", Matrix: int(d[0] >> 4), Level: -1, Dst: -1, Src: -1}
+		if m[0] == CmdDstNamesReq {
+			r.Kind = "dstNames"
+		}
+	}
+	return r
+}
+
 // NamesResp builds one names response message.
 func NamesResp(dest, ext bool, matrix, level int, lenCode byte, first int, names []string) []byte {
 	n := nameLens[lenCode]
