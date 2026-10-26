@@ -173,11 +173,11 @@ on('sentAdd', (m) => {
 // Link checks that went fine are counted on the server, not listed.
 function showCounts(m) {
   const k = m.keepalives || 0;
-  $('log-keep').textContent = k ? `(${k.toLocaleString()} OK since restart, not listed)` : '';
+  $('log-keep').textContent = k ? `(${k.toLocaleString()} OK since restart, not shown)` : '';
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
-  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} sent since the server started ${n === 1 ? 'is' : 'are'} missing from the log: it fell behind or couldn't be saved (see the server log).` : '';
+  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'wasn’t' : 'weren’t'} saved to this log. The server log has details.` : '';
 }
 
 // ---- rendering
@@ -206,7 +206,7 @@ function outcome(e) {
     nak: ['error', `NAK, gave up after ${tries}`],
     noack: ['error', `No ACK after ${tries}`],
     write: ['error', 'Write failed'],
-    dropped: ['error', 'Dropped: link lost before sending'],
+    dropped: ['error', 'Not sent: link dropped'],
     unsent: ['error', 'Not sent'],
   }[e.result] || ['idle', e.result];
   const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);

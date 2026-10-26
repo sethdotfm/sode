@@ -1529,7 +1529,6 @@ code,
   margin: 0 var(--pb-space-4) 0 0;
 }
 .sode-log__spacer { flex: 1 1 auto; }
-.sode-log__about { margin: 0; }
 .sode-log__filters {
   display: flex;
   flex-direction: column;
