@@ -43,7 +43,7 @@
       <input class="pb-input sode-log__expr" id="log-dst" placeholder="Filter by Destination" aria-label="Filter by destination" spellcheck="false">
       <span class="sode__hint" id="log-count" aria-live="polite"></span>
       <span class="sode-log__spacer"></span>
-      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-csv" title="The rows shown: loaded entries that match the filters. Load older first to include more.">Download CSV</button>
+      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-csv" title="The rows shown, in the order shown: loaded entries that match the filters. Load older first to include more.">Download CSV</button>
     </div>
   </form>
   <div class="pb-note pb-note--warn" id="log-lost" role="status" hidden></div>
@@ -51,7 +51,16 @@
   <div class="sode-log__scroll">
     <table class="pb-table pb-table--compact sode-log__table">
       <thead>
-        <tr><th scope="col">Time</th><th scope="col">Message</th><th scope="col">Level</th><th scope="col">Destination</th><th scope="col">Source</th><th scope="col">For</th><th scope="col">Router</th><th scope="col">Bytes</th></tr>
+        <tr>
+          <th scope="col" data-sort="time">Time</th>
+          <th scope="col" data-sort="message">Message</th>
+          <th scope="col" data-sort="level">Level</th>
+          <th scope="col" data-sort="dst">Destination</th>
+          <th scope="col" data-sort="src">Source</th>
+          <th scope="col" data-sort="why">For</th>
+          <th scope="col" data-sort="result">Router</th>
+          <th scope="col" data-sort="hex">Bytes</th>
+        </tr>
       </thead>
       <tbody id="log-rows"></tbody>
     </table>

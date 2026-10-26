@@ -156,9 +156,12 @@ on('sentAdd', (m) => {
   if (!fresh.length) return;
   list = [...fresh, ...list];
   showLost(m.lost);
-  const shown = fresh.filter(passes);
-  tbody.prepend(...shown.map((e) => row(e, true)));
-  renderMore();
+  if (newestFirst()) {
+    tbody.prepend(...fresh.filter(passes).map((e) => row(e, true)));
+    renderMore();
+  } else {
+    render(new Set(fresh.map((e) => e.seq)));
+  }
 });
 
 function showLost(n) {
@@ -225,8 +228,86 @@ function row(e, fresh = false) {
   return tr;
 }
 
-function render() {
-  tbody.replaceChildren(...list.filter(passes).map((e) => row(e)));
+// ---- sorting: click a column header. Newest first by default; ties
+// keep newest first, and rows without that column go last either way.
+
+const SORT_KEY = 'sode-log-sort';
+const resultRank = (e) => (e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
+const SORTS = {
+  time: (e) => e.seq,
+  message: (e) => KIND_LABEL[e.kind] || e.kind,
+  level: (e) => (e.level ? e.level : e.wire >= 0 ? 1000 + e.wire : null),
+  dst: (e) => (e.dst >= 0 ? e.dst : null),
+  src: (e) => (e.src >= 0 ? e.src : null),
+  why: (e) => (e.why ? `${WHY_LABEL[e.why] || e.why} ${e.by || ''}` : null),
+  result: (e) => [resultRank(e), e.result, e.tries],
+  hex: (e) => e.hex,
+};
+let sort = { col: 'time', dir: 'desc' };
+try {
+  const saved = JSON.parse(localStorage.getItem(SORT_KEY));
+  if (SORTS[saved?.col] && ['asc', 'desc'].includes(saved.dir)) sort = saved;
+} catch (e) {}
+const newestFirst = () => sort.col === 'time' && sort.dir === 'desc';
+
+function cmp(a, b) {
+  if (Array.isArray(a)) {
+    for (let i = 0; i < a.length; i++) {
+      const c = cmp(a[i], b[i]);
+      if (c) return c;
+    }
+    return 0;
+  }
+  if (typeof a === 'string') return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  return a - b;
+}
+
+// The rows shown, in the order shown: also what the CSV holds.
+function shownRows() {
+  const rows = list.filter(passes);
+  if (newestFirst()) return rows;
+  const key = SORTS[sort.col], k = sort.dir === 'asc' ? 1 : -1;
+  return rows
+    .map((e) => ({ e, v: key(e) }))
+    .sort((x, y) => {
+      if (x.v == null || y.v == null) return x.v == null ? (y.v == null ? y.e.seq - x.e.seq : 1) : -1;
+      return k * cmp(x.v, y.v) || y.e.seq - x.e.seq;
+    })
+    .map((x) => x.e);
+}
+
+function renderSort() {
+  for (const th of document.querySelectorAll('th[data-sort]')) {
+    th.setAttribute('aria-sort', th.dataset.sort !== sort.col ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending');
+  }
+}
+
+// The same column flips; a new one starts newest first for time and
+// A→Z / lowest first for the rest.
+function setSort(col) {
+  sort = sort.col === col ? { col, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'time' ? 'desc' : 'asc' };
+  try {
+    if (newestFirst()) localStorage.removeItem(SORT_KEY);
+    else localStorage.setItem(SORT_KEY, JSON.stringify(sort));
+  } catch (e) {}
+  renderSort();
+  render();
+}
+
+for (const th of document.querySelectorAll('th[data-sort]')) {
+  th.tabIndex = 0;
+  th.addEventListener('click', () => setSort(th.dataset.sort));
+  th.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    setSort(th.dataset.sort);
+  });
+}
+renderSort();
+
+// fresh: seqs that just arrived, animated in.
+function render(fresh) {
+  tbody.replaceChildren(...shownRows().map((e) => row(e, !!fresh?.has(e.seq))));
   renderMore();
 }
 
@@ -275,7 +356,7 @@ function csvCell(v) {
 }
 
 $('log-csv').addEventListener('click', () => {
-  const rows = list.filter(passes);
+  const rows = shownRows();
   const text = [CSV_COLS.map(([h]) => h), ...rows.map((e) => CSV_COLS.map(([, f]) => f(e)))]
     .map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
