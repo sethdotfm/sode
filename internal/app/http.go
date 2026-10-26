@@ -24,6 +24,9 @@ type client struct {
 	// pin is the settings PIN hash this connection unlocked, guarded by
 	// App.mu; a changed or removed PIN no longer matches it.
 	pin string
+
+	// sent: this is a /log page, sent new sent log entries. Guarded by App.mu.
+	sent bool
 }
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -33,6 +36,10 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 		files.ServeHTTP(w, r)
+	})
+	mux.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFileFS(w, r, static, "log.html")
 	})
 	mux.HandleFunc("/ws", a.serveWS)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +172,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go a.batch(c, []takeReq{m.takeReq})
 		case "history":
 			go a.history(c, m.Before, m.N)
+		case "sent":
+			go a.sentHistory(c, int64(m.Before), m.N)
 		case "refreshNames":
 			go a.RefreshNames()
 		case "unlock":

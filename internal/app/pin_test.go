@@ -16,7 +16,7 @@ func pinApp(t *testing.T) *App {
 	cfg := config.Defaults()
 	cfg.Normalize()
 	hist, _ := OpenHistory("")
-	a, err := New(cfg, "", hist, false)
+	a, err := New(cfg, "", hist, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

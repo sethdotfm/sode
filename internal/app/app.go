@@ -56,8 +56,11 @@ func (r *runtime) probe() []byte {
 
 type App struct {
 	sw      *swp08.Client
-	sendMsg func([]byte) error // sw.Send; tests answer as the router would
+	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
 	hist    *History
+	sent    *SentLog
+	txq     chan swp08.TxEvent // from the writer goroutine to the sent log
+	txLost  atomic.Int64       // events dropped because txq was full
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
@@ -72,6 +75,7 @@ type App struct {
 	checks   map[*tallyCheck]struct{}
 	pend     [][3]int // tally changes awaiting broadcast
 	pendProt [][3]int // protect changes awaiting broadcast (device -1 = cleared)
+	pendSent []Sent   // sent log entries awaiting broadcast to /log pages
 
 	// Routes changed elsewhere, collected into bursts for history (ext.go).
 	ext      map[int]map[int]*extLevel // dst → UI level
@@ -104,13 +108,19 @@ type statusMsg struct {
 	Err    string `json:"err,omitempty"`
 }
 
-func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, error) {
+// New makes the app. A nil sent log keeps it in memory.
+func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug bool) (*App, error) {
 	r, err := newRuntime(cfg)
 	if err != nil {
 		return nil, err
 	}
+	if sent == nil {
+		sent, _ = OpenSentLog("", 0)
+	}
 	a := &App{
 		hist:     hist,
+		sent:     sent,
+		txq:      make(chan swp08.TxEvent, 1024),
 		cfgPath:  cfgPath,
 		srcNames: map[int]string{},
 		dstNames: map[int]string{},
@@ -131,7 +141,14 @@ func New(cfg config.Config, cfgPath string, hist *History, debug bool) (*App, er
 	a.sw.OnUp = a.onRouterUp
 	a.sw.OnMsg = a.onRouterMsg
 	a.sw.OnState = a.onRouterState
-	a.sendMsg = a.sw.Send
+	a.sw.OnTx = a.onTx
+	a.sendMsg = func(m []byte, why swp08.Why) error {
+		err := a.sw.Send(m, why)
+		if err != nil { // never queued, so the client won't report it
+			a.onTx(swp08.TxEvent{Msg: m, Why: why, At: time.Now(), Result: "unsent", Err: err.Error()})
+		}
+		return err
+	}
 	return a, nil
 }
 
@@ -141,6 +158,7 @@ func (a *App) r() *runtime { return a.rt.Load() }
 // until ctx ends.
 func (a *App) Run(ctx context.Context) {
 	go a.sw.Run(ctx)
+	go a.logSent(ctx)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
 	for {
@@ -187,7 +205,7 @@ func (a *App) RefreshNames() {
 	a.mu.Unlock()
 	ext := r.cfg.NameRequests == "ext"
 	for _, dest := range []bool{false, true} {
-		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode))
+		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), "names")
 	}
 }
 
@@ -198,13 +216,13 @@ func (a *App) requestDumps() {
 	a.dumpAt = time.Now()
 	a.mu.Unlock()
 	for _, l := range r.levels {
-		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire))
-		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0))
+		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), "resync")
+		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), "resync")
 	}
 }
 
-func (a *App) send(m []byte) {
-	if err := a.sendMsg(m); err != nil {
+func (a *App) send(m []byte, reason string) {
+	if err := a.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
 		log.Printf("send cmd 0x%02X: %v", m[0], err)
 	}
 }
@@ -335,6 +353,10 @@ func (a *App) flush() {
 	if len(a.pendProt) > 0 {
 		a.broadcast(map[string]any{"t": "protect", "u": a.pendProt})
 		a.pendProt = nil
+	}
+	if len(a.pendSent) > 0 {
+		a.broadcastSent(a.pendSent)
+		a.pendSent = nil
 	}
 
 	if a.newSrc != nil {
@@ -747,6 +769,7 @@ type takeLevel struct {
 
 type waiter struct {
 	dst, src int
+	why      swp08.Why // the connects' reason and browser, for the sent log
 	levels   []*takeLevel
 	done     chan struct{}
 	closed   bool
@@ -881,7 +904,7 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 		delete(a.checks, c)
 		a.mu.Unlock()
 	}()
-	if a.interrogate(r, w, w.levels) != nil {
+	if a.interrogate(r, w, w.levels, "check") != nil {
 		return false // the link is down or full: no answers are coming
 	}
 	select {
@@ -933,6 +956,12 @@ func (a *App) take(c *client, req takeReq) {
 		res["err"] = err.Error()
 		a.reply(c, res)
 		return
+	}
+	w.why = swp08.Why{Reason: "take", By: c.ip}
+	if req.Undo != nil {
+		w.why.Reason = "undo"
+	} else if req.Retry != nil {
+		w.why.Reason = "retry"
 	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
@@ -1026,7 +1055,7 @@ func planTake(r *runtime, req takeReq) (*waiter, error) {
 func (a *App) sendTake(r *runtime, w *waiter) error {
 	var sendErr error
 	for i, l := range w.levels {
-		if err := a.sendMsg(l.connect); err != nil {
+		if err := a.sendMsg(l.connect, w.why); err != nil {
 			sendErr = err
 			a.mu.Lock()
 			for _, u := range w.levels[i:] {
@@ -1038,15 +1067,16 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 		}
 	}
 	// Only this goroutine sets same and unsent.
-	a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }))
+	a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), "confirm")
 	return sendErr
 }
 
 // interrogate asks about levels of the take's dst, stopping at the first
 // that can't be sent.
-func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel) error {
+func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason string) error {
+	why := swp08.Why{Reason: reason, By: w.why.By}
 	for _, l := range ls {
-		if err := a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst)); err != nil {
+		if err := a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why); err != nil {
 			return err
 		}
 	}
@@ -1071,7 +1101,7 @@ func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 	}
 	// Last chance: ask about whatever is still unconfirmed (a stale cache,
 	// or a Connected lost on the wire) and give it a moment.
-	a.interrogate(r, w, outstanding())
+	a.interrogate(r, w, outstanding(), "confirm")
 	select {
 	case <-w.done:
 	case <-time.After(takeGrace):

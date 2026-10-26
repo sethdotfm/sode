@@ -39,7 +39,13 @@ type fakeRouter struct {
 	mute   map[int]bool   // dsts whose interrogates go unanswered (connects still do)
 	failAt int            // this send and every later one fail (1-based; 0 = never)
 	n      int
+	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
+}
+
+type sentWhy struct {
+	cmd byte
+	why swp08.Why
 }
 
 func newFakeRouter(t *testing.T, a *App) *fakeRouter {
@@ -66,10 +72,11 @@ func (f *fakeRouter) seed(dst, src int, wires ...int) {
 	}
 }
 
-func (f *fakeRouter) send(m []byte) error {
+func (f *fakeRouter) send(m []byte, why swp08.Why) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.n++
+	f.whys = append(f.whys, sentWhy{m[0], why})
 	if f.failAt > 0 && f.n >= f.failAt {
 		return swp08.ErrBusy
 	}
@@ -341,4 +348,42 @@ func equalPrev(a, b [][2]int) bool {
 		}
 	}
 	return true
+}
+
+// A take's messages carry what they're for and whose take it is, for the
+// sent log: the check's interrogates, then the connects.
+func TestTakeWhy(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	takeOne(t, a, 7, 5, 1, 2)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	check := swp08.Why{Reason: "check", By: "10.0.0.1"}
+	take := swp08.Why{Reason: "take", By: "10.0.0.1"}
+	want := []sentWhy{{swp08.CmdExtInterrogate, check}, {swp08.CmdExtInterrogate, check}, {swp08.CmdExtConnect, take}, {swp08.CmdExtConnect, take}}
+	if len(f.whys) != len(want) {
+		t.Fatalf("sent %+v, want %+v", f.whys, want)
+	}
+	for i := range want {
+		if f.whys[i] != want[i] {
+			t.Fatalf("sent %+v, want %+v", f.whys, want)
+		}
+	}
+}
+
+// Sent log entries are decoded with UI levels and names.
+func TestDescribeSent(t *testing.T) {
+	a := newTestApp(t)
+	a.mu.Lock()
+	a.srcNames[7], a.dstNames[5] = "CAM 7", "MON 5"
+	a.mu.Unlock()
+	e := a.describe(swp08.TxEvent{Msg: swp08.ExtConnect(0, 1, 5, 7), Why: swp08.Why{Reason: "take", By: "10.0.0.1"}, Tries: 1, Result: swp08.TxAck})
+	if e.Kind != "connect" || e.Level != 2 || e.Wire != 1 || e.Dst != 5 || e.DstName != "MON 5" || e.Src != 7 || e.SrcName != "CAM 7" ||
+		e.By != "10.0.0.1" || e.Why != "take" || e.Hex != "82 00 01 00 05 00 07" {
+		t.Fatalf("connect = %+v", e)
+	}
+	e = a.describe(swp08.TxEvent{Msg: swp08.ExtInterrogate(0, 0, 0), Why: swp08.Why{Reason: "keepalive"}})
+	if e.Kind != "keepalive" || e.Level != 1 || e.Src != -1 {
+		t.Fatalf("probe = %+v", e)
+	}
 }

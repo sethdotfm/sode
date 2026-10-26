@@ -31,6 +31,38 @@ const (
 	StateDown       State = "down"
 )
 
+// Why says what a message was sent for, for the sent log.
+type Why struct {
+	Reason string // take, check, confirm, resync, names, keepalive
+	By     string // the browser's address, for take traffic
+}
+
+// Tx results, as reported to OnTx.
+const (
+	TxAck     = "ack"     // the router ACKed it
+	TxNak     = "nak"     // NAKed on the last try; gave up
+	TxNoAck   = "noack"   // written, nothing back; gave up
+	TxWrite   = "write"   // the write itself failed
+	TxDropped = "dropped" // queued, but the connection ended before it was written
+)
+
+// TxEvent is one message's fate on the wire: one per message, however
+// many times it was written.
+type TxEvent struct {
+	Msg    []byte
+	Why    Why
+	At     time.Time // first write (when queued, for dropped)
+	Tries  int
+	Result string
+	Err    string // for TxWrite
+}
+
+type out struct {
+	msg []byte
+	why Why
+	at  time.Time
+}
+
 // Client keeps one TCP connection to a router alive and serializes sends,
 // waiting for each ACK before the next message as SW-P-08 requires.
 type Client struct {
@@ -41,6 +73,10 @@ type Client struct {
 	OnMsg func(msg []byte)
 	// OnState reports connection changes; err explains a drop.
 	OnState func(s State, err error)
+	// OnTx reports each message written to the router (or dropped from the
+	// queue) once its outcome is known. It runs on the writer goroutine,
+	// which waits for ACKs: it must not block.
+	OnTx func(TxEvent)
 
 	// Timings, from the constants; tests shorten them.
 	ackTimeout, probeIdle time.Duration
@@ -50,7 +86,7 @@ type Client struct {
 	mu     sync.Mutex
 	addr   string
 	probe  []byte             // sent on connect and when the link is quiet; must provoke a reply
-	q      chan []byte        // nil until the router has answered
+	q      chan out           // nil until the router has answered
 	cancel context.CancelFunc // ends the current session
 	kick   chan struct{}
 
@@ -92,7 +128,7 @@ func (c *Client) target() (string, []byte) {
 
 // Send queues a message. Messages queued on a connection that drops are
 // discarded, never replayed on the next one: a stale take must not fire later.
-func (c *Client) Send(msg []byte) error {
+func (c *Client) Send(msg []byte, why Why) error {
 	c.mu.Lock()
 	q := c.q
 	c.mu.Unlock()
@@ -100,7 +136,7 @@ func (c *Client) Send(msg []byte) error {
 		return ErrDown
 	}
 	select {
-	case q <- msg:
+	case q <- out{msg, why, time.Now()}:
 		return nil
 	default:
 		return ErrBusy
@@ -174,11 +210,21 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 	c.cancel = cancel
 	stale := c.addr != addr // SetTarget ran before this session could be cancelled
 	c.mu.Unlock()
+	var q chan out
 	defer func() {
 		c.mu.Lock()
 		c.q = nil
 		c.cancel = nil
 		c.mu.Unlock()
+		// Whatever the writer didn't get to is never sent.
+		for q != nil {
+			select {
+			case m := <-q:
+				c.tx(TxEvent{Msg: m.msg, Why: m.why, At: m.at, Result: TxDropped})
+			default:
+				q = nil
+			}
+		}
 	}()
 	if stale {
 		return errRetarget
@@ -194,7 +240,7 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 		conn.Close()
 	}()
 
-	q := make(chan []byte, 4096)
+	q = make(chan out, 4096)
 	acks := make(chan bool, 1)
 	rx := newLastRx()
 
@@ -234,6 +280,12 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 		c.OnUp()
 	}
 	return wait(nil)
+}
+
+func (c *Client) tx(e TxEvent) {
+	if c.OnTx != nil {
+		c.OnTx(e)
+	}
 }
 
 func (c *Client) write(conn net.Conn, b []byte) error {
@@ -317,7 +369,7 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *lastRx) error {
 // and drops the connection so it shows as down and reconnects. A message
 // that alone goes unanswered (a command this router ignores) only costs a
 // probe: if that's answered, the router is fine.
-func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks chan bool, rx *lastRx) error {
+func (c *Client) writer(ctx context.Context, conn net.Conn, q chan out, acks chan bool, rx *lastRx) error {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	check := func() error {
@@ -325,7 +377,7 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 		if probe == nil {
 			return nil
 		}
-		heard, err := c.transmit(ctx, conn, probe, acks, rx)
+		heard, err := c.transmit(ctx, conn, out{msg: probe, why: Why{Reason: "keepalive"}}, acks, rx)
 		if err == nil && !heard {
 			err = errors.New("no reply from router")
 		}
@@ -340,6 +392,10 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 		case <-ctx.Done():
 			return ctx.Err()
 		case m := <-q:
+			if ctx.Err() != nil { // picked over Done: it won't be written
+				c.tx(TxEvent{Msg: m.msg, Why: m.why, At: m.at, Result: TxDropped})
+				return ctx.Err()
+			}
 			heard, err := c.transmit(ctx, conn, m, acks, rx)
 			if err != nil {
 				return err
@@ -359,29 +415,38 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan []byte, acks 
 	}
 }
 
-// transmit sends m and waits for its ACK, retrying on NAK or silence.
+// transmit sends o and waits for its ACK, retrying on NAK or silence.
 // heard reports whether anything at all came back from the router while
 // it tried.
-func (c *Client) transmit(ctx context.Context, conn net.Conn, m []byte, acks chan bool, rx *lastRx) (heard bool, err error) {
+func (c *Client) transmit(ctx context.Context, conn net.Conn, o out, acks chan bool, rx *lastRx) (heard bool, err error) {
+	m := o.msg
 	frame := Encode(m)
 	sent := rx.now()
+	e := TxEvent{Msg: m, Why: o.why, At: time.Now(), Result: TxNoAck}
+	defer func() { c.tx(e) }()
 	for try := 1; try <= sendTries; try++ {
 		select { // discard any stray ACK left from before
 		case <-acks:
 		default:
 		}
+		e.Tries = try
 		if err := c.write(conn, frame); err != nil {
+			e.Result, e.Err = TxWrite, err.Error()
 			return false, err
 		}
 		select {
 		case ok := <-acks:
 			if ok {
+				e.Result = TxAck
 				return true, nil
 			}
+			e.Result = TxNak
 			log.Printf("swp08: NAK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-time.After(c.ackTimeout):
+			e.Result = TxNoAck
 			log.Printf("swp08: no ACK for cmd 0x%02X (try %d/%d)", m[0], try, sendTries)
 		case <-ctx.Done():
+			e.Result = TxNoAck
 			return false, ctx.Err()
 		}
 	}

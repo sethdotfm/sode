@@ -19,6 +19,18 @@ func fakeRouter(t *testing.T, answer func(msg []byte) bool) string {
 // time it accepts a connection.
 func fakeRouterAccepted(t *testing.T, answer func(msg []byte) bool) (string, chan struct{}) {
 	t.Helper()
+	return fakeRouterReplies(t, func(m []byte) []byte {
+		if answer(m) {
+			return AckFrame
+		}
+		return nil
+	})
+}
+
+// fakeRouterReplies writes whatever reply returns for each message (nil:
+// nothing).
+func fakeRouterReplies(t *testing.T, reply func(msg []byte) []byte) (string, chan struct{}) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -45,8 +57,11 @@ func fakeRouterAccepted(t *testing.T, answer func(msg []byte) bool) (string, cha
 						return
 					}
 					d.Feed(buf[:n], func(f Frame) {
-						if f.Kind == KindMsg && answer(f.Msg) {
-							conn.Write(AckFrame)
+						if f.Kind != KindMsg {
+							return
+						}
+						if b := reply(f.Msg); b != nil {
+							conn.Write(b)
 						}
 					})
 				}
@@ -131,7 +146,7 @@ func TestSilentRouterNeverUp(t *testing.T) {
 // A router that ignores one command but answers the probe stays up.
 func TestIgnoredCommandKeepsLink(t *testing.T) {
 	addr := fakeRouter(t, func(m []byte) bool { return m[0] == CmdExtInterrogate })
-	log := runClient(t, addr, func(c *Client) { c.Send([]byte{0x7F, 0x00}) })
+	log := runClient(t, addr, func(c *Client) { c.Send([]byte{0x7F, 0x00}, Why{}) })
 	if !eventually(func() bool { return log.has(StateUp) }) {
 		t.Fatal("router never came up")
 	}
@@ -153,7 +168,7 @@ func TestSendRefusedUntilHeard(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("never connected")
 	}
-	if err := c.Send([]byte{0x7F}); err != ErrDown {
+	if err := c.Send([]byte{0x7F}, Why{}); err != ErrDown {
 		t.Fatalf("Send before the first reply = %v, want ErrDown", err)
 	}
 }
@@ -227,5 +242,94 @@ func TestDropAfterRetargetInBackoffIsDown(t *testing.T) {
 	mu.Unlock()
 	if !eventually(func() bool { return log.has(StateDown) }) {
 		t.Fatal("a real drop after a retarget wasn't reported down")
+	}
+}
+
+type txLog struct {
+	mu  sync.Mutex
+	got []TxEvent
+}
+
+func (l *txLog) add(e TxEvent) {
+	l.mu.Lock()
+	l.got = append(l.got, e)
+	l.mu.Unlock()
+}
+
+// find returns the first event for cmd.
+func (l *txLog) find(cmd byte) (TxEvent, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, e := range l.got {
+		if e.Msg[0] == cmd {
+			return e, true
+		}
+	}
+	return TxEvent{}, false
+}
+
+// OnTx reports each message once, with how many writes it took and how it
+// ended, and the probe as a keepalive.
+func TestOnTx(t *testing.T) {
+	var mu sync.Mutex
+	naked := false
+	addr, _ := fakeRouterReplies(t, func(m []byte) []byte {
+		switch m[0] {
+		case CmdExtInterrogate:
+			return AckFrame
+		case 0x7F: // NAKed once, then ACKed
+			mu.Lock()
+			defer mu.Unlock()
+			if !naked {
+				naked = true
+				return NakFrame
+			}
+			return AckFrame
+		}
+		return nil // 0x7E: never answered
+	})
+	c, _, start := fastClient(t, addr)
+	var tx txLog
+	c.OnTx = tx.add
+	c.OnUp = func() {
+		c.Send([]byte{0x7F}, Why{Reason: "take", By: "10.0.0.9"})
+		c.Send([]byte{0x7E}, Why{Reason: "resync"})
+	}
+	start()
+	if !eventually(func() bool { _, ok := tx.find(0x7E); return ok }) {
+		t.Fatal("no event for the unanswered message")
+	}
+	if e, _ := tx.find(CmdExtInterrogate); e.Why.Reason != "keepalive" || e.Result != TxAck || e.Tries != 1 {
+		t.Errorf("probe = %+v, want an ACKed keepalive", e)
+	}
+	if e, _ := tx.find(0x7F); e.Result != TxAck || e.Tries != 2 || e.Why != (Why{Reason: "take", By: "10.0.0.9"}) {
+		t.Errorf("NAKed then ACKed = %+v, want ack after 2 tries", e)
+	}
+	if e, _ := tx.find(0x7E); e.Result != TxNoAck || e.Tries != sendTries {
+		t.Errorf("unanswered = %+v, want noack after %d tries", e, sendTries)
+	}
+}
+
+// Messages still queued when the connection ends are reported dropped,
+// not lost silently.
+func TestOnTxDropped(t *testing.T) {
+	addr := fakeRouter(t, func(m []byte) bool { return m[0] == CmdExtInterrogate })
+	c, log, start := fastClient(t, addr)
+	c.ackTimeout = time.Second // the unanswered message holds the writer
+	var tx txLog
+	c.OnTx = tx.add
+	start()
+	if !eventually(func() bool { return log.has(StateUp) }) {
+		t.Fatal("router never came up")
+	}
+	c.Send([]byte{0x7E}, Why{})
+	c.Send([]byte{0x7D}, Why{Reason: "take"})
+	time.Sleep(100 * time.Millisecond) // 0x7E written, waiting for its ACK
+	c.SetTarget(addr, ExtInterrogate(0, 0, 0))
+	if !eventually(func() bool { _, ok := tx.find(0x7D); return ok }) {
+		t.Fatal("no event for the queued message")
+	}
+	if e, _ := tx.find(0x7D); e.Result != TxDropped || e.Tries != 0 || e.Why.Reason != "take" {
+		t.Errorf("queued = %+v, want dropped", e)
 	}
 }

@@ -118,6 +118,7 @@
 
     <footer class="sode__footer">
       <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="settings-open">Settings</button>
+      <a class="pb-btn pb-btn--ghost pb-btn--sm" href="log" target="_blank" rel="noopener">Sent log</a>
     </footer>
   </div>
 
@@ -159,6 +160,16 @@
         <div class="sode__field">
           <label for="cfg-namereq">Name requests</label>
           <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="sode__group sode__open-log">
+      <legend>Sent log</legend>
+      <div class="sode__field">
+        <span>Every message Sode sent to the router, with whether it was acknowledged. Read-only, so it opens even while Settings are locked.</span>
+        <div class="sode__names">
+          <a class="pb-btn pb-btn--outline" href="log" target="_blank" rel="noopener">Open Log</a>
         </div>
       </div>
     </fieldset>

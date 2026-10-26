@@ -230,6 +230,10 @@ function handle(m) {
     case 'history':
       if (takePage(m)) emit('history');
       break;
+    case 'sentPage': // the /log page (log.js)
+    case 'sentAdd':
+      emit(m.t, m);
+      break;
   }
 }
 

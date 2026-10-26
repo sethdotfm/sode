@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sent log · Sode</title>
+<script>
+  // Apply the saved theme before first paint, as index.html does.
+  (() => {
+    let theme = null;
+    try { theme = localStorage.getItem('sode-theme'); } catch (e) {}
+    if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
+<link rel="stylesheet" href="sode.css">
+</head>
+<body>
+
+<main class="sode-log">
+  <header class="sode-log__head">
+    <h1 class="sode-log__title">Sent log</h1>
+    <span class="pb-status"><span class="pb-dot pb-dot--warn" id="log-ws-dot" aria-hidden="true"></span><span id="log-ws-text">Server</span></span>
+    <span class="pb-status"><span class="pb-dot pb-dot--idle" id="log-rt-dot" aria-hidden="true"></span><span id="log-rt-text">Router</span></span>
+    <span class="sode__conn-addr" id="log-addr"></span>
+    <span class="sode-log__spacer"></span>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" href="./">Back to Sode</a>
+  </header>
+  <p class="sode__hint sode-log__about">Every message Sode wrote to the router, newest first, with what it was for and whether the router acknowledged it. Routes made elsewhere are in Recent, not here.</p>
+
+  <form class="sode-log__filters" autocomplete="off" onsubmit="return false" aria-label="Filters">
+    <div class="sode-log__line">
+      <fieldset class="sode-log__kinds" id="log-kinds">
+        <legend class="sode__label">Show</legend>
+      </fieldset>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="log-problems"><span class="pb-check__label">Problems only</span></label>
+    </div>
+    <div class="sode-log__line">
+      <input class="pb-input sode-log__expr" id="log-src" placeholder="Filter by Source" aria-label="Filter by source" spellcheck="false">
+      <input class="pb-input sode-log__expr" id="log-dst" placeholder="Filter by Destination" aria-label="Filter by destination" spellcheck="false">
+      <span class="sode__hint" id="log-count" aria-live="polite"></span>
+      <span class="sode-log__spacer"></span>
+      <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-csv" title="The rows shown: loaded entries that match the filters. Load older first to include more.">Download CSV</button>
+    </div>
+  </form>
+  <div class="pb-note pb-note--warn" id="log-lost" role="status" hidden></div>
+
+  <div class="sode-log__scroll">
+    <table class="pb-table pb-table--compact sode-log__table">
+      <thead>
+        <tr><th scope="col">Time</th><th scope="col">Message</th><th scope="col">Level</th><th scope="col">Destination</th><th scope="col">Source</th><th scope="col">For</th><th scope="col">Router</th><th scope="col">Bytes</th></tr>
+      </thead>
+      <tbody id="log-rows"></tbody>
+    </table>
+  </div>
+  <div class="sode-log__more">
+    <span class="sode__hint" id="log-empty" hidden></span>
+    <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="log-older" hidden>Load older</button>
+  </div>
+</main>
+
+<script type="module" src="log.js"></script>
+</body>
+</html>
