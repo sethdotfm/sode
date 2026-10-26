@@ -71,13 +71,7 @@ function initFilters() {
       saveFilter();
       render();
     });
-    const label = el('span', 'pb-check__label', g.label);
-    if (g.id === 'keepalive') {
-      const n = el('span', 'pb-text-muted');
-      n.id = 'log-keep';
-      label.append(' ', n);
-    }
-    box.append(el('label', 'pb-check', input, label));
+    box.append(el('label', 'pb-check', input, el('span', 'pb-check__label', g.label)));
   }
   const problems = $('log-problems');
   problems.checked = filter.problems;
@@ -170,10 +164,7 @@ on('sentAdd', (m) => {
   }
 });
 
-// Link checks that went fine are counted on the server, not listed.
 function showCounts(m) {
-  const k = m.keepalives || 0;
-  $('log-keep').textContent = k ? `(${k.toLocaleString()} OK since restart, not shown)` : '';
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;

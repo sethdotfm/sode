@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"testing"
@@ -386,32 +385,5 @@ func TestDescribeSent(t *testing.T) {
 	e = a.describe(swp08.TxEvent{Msg: swp08.ExtInterrogate(0, 0, 0), Why: swp08.Why{Reason: "keepalive"}})
 	if e.Kind != "keepalive" || e.Level != 1 || e.Src != -1 {
 		t.Fatalf("probe = %+v", e)
-	}
-}
-
-// Link checks that went fine are counted, not logged; failed ones are logged.
-func TestKeepalivesCounted(t *testing.T) {
-	a := newTestApp(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go a.logSent(ctx)
-	probe := swp08.ExtInterrogate(0, 0, 0)
-	keep := swp08.Why{Reason: "keepalive"}
-	a.txq <- swp08.TxEvent{Msg: probe, Why: keep, Tries: 1, Result: swp08.TxAck}
-	a.txq <- swp08.TxEvent{Msg: probe, Why: keep, Tries: 3, Result: swp08.TxNoAck}
-	a.txq <- swp08.TxEvent{Msg: probe, Why: swp08.Why{Reason: "check"}, Tries: 1, Result: swp08.TxAck}
-	deadline := time.Now().Add(2 * time.Second)
-	var page []Sent
-	for time.Now().Before(deadline) {
-		if page, _, _ = a.sent.Page(-1, 10); len(page) == 2 {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if len(page) != 2 || page[1].Result != swp08.TxNoAck || page[0].Why != "check" {
-		t.Fatalf("logged %+v, want the failed keepalive and the check", page)
-	}
-	if n := a.keepalives.Load(); n != 1 {
-		t.Fatalf("keepalives %d, want 1", n)
 	}
 }

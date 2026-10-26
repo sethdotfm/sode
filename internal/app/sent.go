@@ -33,15 +33,6 @@ func (a *App) logSent(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case ev := <-a.txq:
-			// Link checks that went fine are only counted: one every 10s
-			// idle would crowd takes out of the size cap.
-			if ev.Why.Reason == "keepalive" && ev.Result == swp08.TxAck && ev.Tries == 1 {
-				a.keepalives.Add(1)
-				a.mu.Lock()
-				a.keepDirty = true
-				a.mu.Unlock()
-				continue
-			}
 			e := a.describe(ev)
 			if err := a.sent.Append(&e); err != nil {
 				// Not saved, so not shown live either: its seq goes to the
@@ -89,12 +80,9 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 }
 
 // broadcastSent sends new entries, oldest first, to the browsers showing
-// the sent log; none just updates the keepalive count. Caller holds mu.
+// the sent log. Caller holds mu.
 func (a *App) broadcastSent(es []Sent) {
-	if es == nil {
-		es = []Sent{}
-	}
-	b, err := json.Marshal(map[string]any{"t": "sentAdd", "entries": es, "lost": a.txLost.Load(), "keepalives": a.keepalives.Load()})
+	b, err := json.Marshal(map[string]any{"t": "sentAdd", "entries": es, "lost": a.txLost.Load()})
 	if err != nil {
 		log.Printf("marshal: %v", err)
 		return
@@ -121,5 +109,5 @@ func (a *App) sentHistory(c *client, before int64, n int) {
 	if err != nil {
 		log.Printf("sent log: %v", err)
 	}
-	a.reply(c, map[string]any{"t": "sentPage", "before": before, "entries": page, "more": more, "lost": a.txLost.Load(), "keepalives": a.keepalives.Load()})
+	a.reply(c, map[string]any{"t": "sentPage", "before": before, "entries": page, "more": more, "lost": a.txLost.Load()})
 }
