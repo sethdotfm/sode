@@ -38,6 +38,11 @@
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="log-problems"><span class="pb-check__label">Problems only</span></label>
     </div>
     <div class="sode-log__line">
+      <label class="sode-log__when"><span class="sode__label">From</span><input type="datetime-local" step="1" class="pb-input" id="log-from"></label>
+      <label class="sode-log__when"><span class="sode__label">To</span><input type="datetime-local" step="1" class="pb-input" id="log-to"></label>
+      <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="log-range-clear" hidden>Clear times</button>
+    </div>
+    <div class="sode-log__line">
       <input class="pb-input sode-log__expr" id="log-src" placeholder="Filter by Source" aria-label="Filter by source" spellcheck="false">
       <input class="pb-input sode-log__expr" id="log-dst" placeholder="Filter by Destination" aria-label="Filter by destination" spellcheck="false">
       <span class="sode__hint" id="log-count" aria-live="polite"></span>

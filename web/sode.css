@@ -1556,6 +1556,13 @@ code,
   width: auto;
 }
 .sode-log__expr { flex: 0 1 16rem; min-width: 10rem; }
+.sode-log__when {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  margin: 0;
+}
+.sode-log__when > .pb-input { width: auto; }
 .sode-log__scroll { overflow-x: auto; }
 .sode-log__table td { white-space: nowrap; }
 .sode-log__time,

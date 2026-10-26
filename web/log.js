@@ -3,8 +3,12 @@
 import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, labelNode, levelColor, clockPref } from './core.js';
 import { filterFn } from './filter.js';
 
-const PAGE = 500;
-// Pages read in a row for one Load older while the filters hide them all.
+// Entries read on open and per Load older.
+const PAGE = 100;
+// Entries per request while reading back to the start of a time range, or
+// through pages the filters hide entirely (the server's most).
+const FILL = 500;
+// Requests in a row for one Load older while the filters hide everything.
 const AUTO_PAGES = 20;
 const FILTER_KEY = 'sode-log-filter';
 
@@ -51,8 +55,14 @@ const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.incl
 const problem = (e) => e.result !== 'ack' || e.tries > 1;
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
+// The time range, as ms (null: open). Not kept: a range far back means
+// reading the log back to it, which shouldn't happen on every open.
+const range = { from: null, to: null };
+
 // An expression filters out entries without that side.
 function passes(e) {
+  if (range.from != null && e.t < range.from) return false;
+  if (range.to != null && e.t > range.to) return false;
   if (!kindOn(KINDS.some((g) => g.kinds.includes(e.kind)) ? e.kind : 'other')) return false;
   if (filter.problems && !problem(e)) return false;
   if (filter.src.trim() && (e.src < 0 || !srcOk(e.src + off(), e.srcName || ''))) return false;
@@ -80,6 +90,34 @@ function initFilters() {
     saveFilter();
     render();
   });
+  // datetime-local is local time. To counts to the end of what it shows:
+  // 14:30 is up to 14:30:59.999.
+  const from = $('log-from'), to = $('log-to');
+  const parse = (input, end) => {
+    if (!input.value) return null;
+    const t = new Date(input.value).getTime();
+    if (Number.isNaN(t)) return undefined;
+    return end ? t + (input.value.length <= 16 ? 59999 : 999) : t;
+  };
+  const applyRange = () => {
+    const f = parse(from, false), t = parse(to, true);
+    const bad = f === undefined || t === undefined || (f != null && t != null && f > t);
+    from.classList.toggle('pb-input--invalid', bad);
+    to.classList.toggle('pb-input--invalid', bad);
+    if (bad) return;
+    range.from = f;
+    range.to = t;
+    $('log-range-clear').hidden = f == null && t == null;
+    render();
+    fill();
+  };
+  from.addEventListener('change', applyRange);
+  to.addEventListener('change', applyRange);
+  $('log-range-clear').addEventListener('click', () => {
+    from.value = to.value = '';
+    applyRange();
+  });
+
   for (const side of ['src', 'dst']) {
     const input = $(`log-${side}`);
     input.value = filter[side];
@@ -107,13 +145,36 @@ let started = false; // asked for the newest page on this connection
 
 function add(entries) {
   const fresh = entries.filter((e) => !seen.has(e.seq));
-  for (const e of fresh) seen.add(e.seq);
+  for (const e of fresh) {
+    seen.add(e.seq);
+    e.t = Date.parse(e.time);
+  }
   return fresh;
 }
 
-function request(before) {
-  if (wsSend({ t: 'sent', before, n: PAGE })) loading = true;
+function request(before, n = PAGE) {
+  if (wsSend({ t: 'sent', before, n })) loading = true;
   renderMore();
+}
+
+const oldest = () => list[list.length - 1];
+
+// Whether entries older than those loaded can still fall in the range:
+// the log hasn't been read back past its start (or, with only an end,
+// to its end).
+function rangeNeedsMore() {
+  if (!more || !list.length) return false;
+  if (range.from != null) return oldest().t >= range.from;
+  if (range.to != null) return oldest().t > range.to;
+  return false;
+}
+
+// Everything in the range is loaded: older pages are all before it.
+const rangeDone = () => range.from != null && list.length > 0 && !rangeNeedsMore();
+
+// Reads back until the range is covered. One request at a time.
+function fill() {
+  if (!loading && rangeNeedsMore()) request(oldest().seq, FILL);
 }
 
 on('hello', () => {
@@ -128,11 +189,11 @@ on('hello', () => {
 
 on('sentPage', (m) => {
   if (!started) return;
-  const oldest = list.length ? list[list.length - 1].seq : -1;
+  const last = list.length ? oldest().seq : -1;
   if (m.before === -1) {
     // Live entries may have come in first: merge.
     list = [...list, ...add(m.entries)].sort((a, b) => b.seq - a.seq);
-  } else if (m.before === oldest) {
+  } else if (m.before === last) {
     list.push(...add(m.entries));
   } else {
     return; // for a list since replaced
@@ -141,10 +202,11 @@ on('sentPage', (m) => {
   loading = false;
   showCounts(m);
   render();
+  if (rangeNeedsMore()) return fill();
   // Keep reading back while the filters hide everything read so far.
   if (more && autoLeft > 0 && !tbody.childElementCount) {
     autoLeft--;
-    request(list[list.length - 1].seq);
+    request(oldest().seq, FILL);
   } else {
     autoLeft = 0;
   }
@@ -317,14 +379,15 @@ function renderMore() {
   $('log-count').textContent = list.length ? `${shown} of ${list.length} loaded` : '';
   $('log-csv').disabled = !shown;
   const older = $('log-older');
-  older.hidden = !more;
+  const filling = loading && rangeNeedsMore();
+  older.hidden = !more || rangeDone();
   older.disabled = loading;
-  older.textContent = loading ? 'Loading…' : 'Load older';
+  older.textContent = filling ? `Loading back to ${fmtDay(oldest().t)}…` : loading ? 'Loading…' : 'Load older';
   const empty = $('log-empty');
   empty.hidden = shown > 0 || loading;
   empty.textContent = !list.length
     ? (more ? '' : 'Nothing sent yet.')
-    : more ? 'Nothing loaded matches the filters.' : 'Nothing matches the filters.';
+    : rangeDone() || !more ? 'Nothing matches the filters.' : 'Nothing loaded matches the filters.';
 }
 
 // ---- CSV: the rows shown, newest first, as logged (numbers as displayed).
@@ -373,8 +436,15 @@ $('log-csv').addEventListener('click', () => {
 $('log-older').addEventListener('click', () => {
   if (loading || !list.length) return;
   autoLeft = AUTO_PAGES;
-  request(list[list.length - 1].seq);
+  request(oldest().seq);
 });
+
+// Where a range fill has got to.
+const fmtDay = (t) => {
+  const d = new Date(t);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
 
 // ---- connection
 
