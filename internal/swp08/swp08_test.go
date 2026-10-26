@@ -113,8 +113,8 @@ func TestDescribeTx(t *testing.T) {
 		{ExtInterrogate(0, 16, 300), Request{"interrogate", 0, 16, 300, -1}},
 		{ExtTallyDumpReq(0, 3), Request{"tallyDump", 0, 3, -1, -1}},
 		{ExtProtectDumpReq(0, 4, 5), Request{"protectDump", 0, 4, 5, -1}},
-		{NamesReq(false, true, 0, 0, 2), Request{"srcNames", 0, 0, -1, -1}},
-		{NamesReq(true, false, 1, 0, 2), Request{"dstNames", 1, 0, -1, -1}},
+		{NamesReq(false, true, 0, 0, 2), Request{"srcNames", 0, -1, -1, -1}},
+		{NamesReq(true, false, 1, 0, 2), Request{"dstNames", 1, -1, -1, -1}},
 		{[]byte{0x7F, 1}, Request{"other", -1, -1, -1, -1}},
 		{[]byte{CmdExtConnect, 0}, Request{"other", -1, -1, -1, -1}},
 	} {

@@ -128,15 +128,17 @@ func (c *Client) target() (string, []byte) {
 
 // Send queues a message. Messages queued on a connection that drops are
 // discarded, never replayed on the next one: a stale take must not fire later.
+//
+// The push happens under mu, so once a session has cleared c.q nothing more
+// lands in its queue and every message there is reported (sent or dropped).
 func (c *Client) Send(msg []byte, why Why) error {
 	c.mu.Lock()
-	q := c.q
-	c.mu.Unlock()
-	if q == nil {
+	defer c.mu.Unlock()
+	if c.q == nil {
 		return ErrDown
 	}
 	select {
-	case q <- out{msg, why, time.Now()}:
+	case c.q <- out{msg, why, time.Now()}:
 		return nil
 	default:
 		return ErrBusy
@@ -200,22 +202,21 @@ func (c *Client) state(s State, err error) {
 // surfaced as: a reconnect, not a failure.
 func (c *Client) session(ctx context.Context, addr string) (err error) {
 	sctx, cancel := context.WithCancel(ctx)
+	var q chan out
+	var wdone chan struct{} // closed when the writer returns
 	defer func() {
+		// A retarget is told by sctx ending first, so before cancel.
 		if ctx.Err() == nil && sctx.Err() != nil {
 			err = errRetarget
 		}
-		cancel()
-	}()
-	c.mu.Lock()
-	c.cancel = cancel
-	stale := c.addr != addr // SetTarget ran before this session could be cancelled
-	c.mu.Unlock()
-	var q chan out
-	defer func() {
 		c.mu.Lock()
-		c.q = nil
+		c.q = nil // no more Sends into q
 		c.cancel = nil
 		c.mu.Unlock()
+		cancel()
+		if wdone != nil {
+			<-wdone // nothing still taking from q
+		}
 		// Whatever the writer didn't get to is never sent.
 		for q != nil {
 			select {
@@ -226,6 +227,10 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 			}
 		}
 	}()
+	c.mu.Lock()
+	c.cancel = cancel
+	stale := c.addr != addr // SetTarget ran before this session could be cancelled
+	c.mu.Unlock()
 	if stale {
 		return errRetarget
 	}
@@ -246,7 +251,8 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 
 	errc := make(chan error, 2)
 	go func() { errc <- c.reader(conn, acks, rx) }()
-	go func() { errc <- c.writer(sctx, conn, q, acks, rx) }()
+	wdone = make(chan struct{})
+	go func() { errc <- c.writer(sctx, conn, q, acks, rx); close(wdone) }()
 
 	// wait blocks until ch is closed (nil: forever) or the session ends;
 	// nil means ch closed.

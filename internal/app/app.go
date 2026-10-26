@@ -60,22 +60,26 @@ type App struct {
 	hist    *History
 	sent    *SentLog
 	txq     chan swp08.TxEvent // from the writer goroutine to the sent log
-	txLost  atomic.Int64       // events dropped because txq was full
-	cfgPath string
-	rt      atomic.Pointer[runtime]
+	txLost  atomic.Int64       // events dropped because txq was full, or not saved
+	// keepalives is how many link checks went fine since startup: counted,
+	// not logged.
+	keepalives atomic.Int64
+	cfgPath    string
+	rt         atomic.Pointer[runtime]
 
-	mu       sync.Mutex
-	srcNames map[int]string
-	dstNames map[int]string
-	tally    map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
-	protect  map[int]map[int]int // dst → UI level → protecting device
-	status   statusMsg
-	clients  map[*client]struct{}
-	waiters  map[*waiter]struct{}
-	checks   map[*tallyCheck]struct{}
-	pend     [][3]int // tally changes awaiting broadcast
-	pendProt [][3]int // protect changes awaiting broadcast (device -1 = cleared)
-	pendSent []Sent   // sent log entries awaiting broadcast to /log pages
+	mu        sync.Mutex
+	srcNames  map[int]string
+	dstNames  map[int]string
+	tally     map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
+	protect   map[int]map[int]int // dst → UI level → protecting device
+	status    statusMsg
+	clients   map[*client]struct{}
+	waiters   map[*waiter]struct{}
+	checks    map[*tallyCheck]struct{}
+	pend      [][3]int // tally changes awaiting broadcast
+	pendProt  [][3]int // protect changes awaiting broadcast (device -1 = cleared)
+	pendSent  []Sent   // sent log entries awaiting broadcast to /log pages
+	keepDirty bool     // keepalives changed since the last broadcast
 
 	// Routes changed elsewhere, collected into bursts for history (ext.go).
 	ext      map[int]map[int]*extLevel // dst → UI level
@@ -354,9 +358,9 @@ func (a *App) flush() {
 		a.broadcast(map[string]any{"t": "protect", "u": a.pendProt})
 		a.pendProt = nil
 	}
-	if len(a.pendSent) > 0 {
+	if len(a.pendSent) > 0 || a.keepDirty {
 		a.broadcastSent(a.pendSent)
-		a.pendSent = nil
+		a.pendSent, a.keepDirty = nil, false
 	}
 
 	if a.newSrc != nil {

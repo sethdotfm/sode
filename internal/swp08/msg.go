@@ -178,13 +178,14 @@ func DescribeTx(m []byte) Request {
 		r = Request{Kind: "tallyDump", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1}
 	case m[0] == CmdExtProtectDumpReq && len(d) >= 4:
 		r = Request{Kind: "protectDump", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1}
+	// Names aren't per level, whatever the request's level byte says.
 	case (m[0] == CmdExtSrcNamesReq || m[0] == CmdExtDstNamesReq) && len(d) >= 2:
-		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1}
+		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: -1, Dst: -1, Src: -1}
 		if m[0] == CmdExtDstNamesReq {
 			r.Kind = "dstNames"
 		}
 	case (m[0] == CmdSrcNamesReq || m[0] == CmdDstNamesReq) && len(d) >= 1:
-		r = Request{Kind: "srcNames", Matrix: int(d[0] >> 4), Level: int(d[0] & 0x0f), Dst: -1, Src: -1}
+		r = Request{Kind: "srcNames", Matrix: int(d[0] >> 4), Level: -1, Dst: -1, Src: -1}
 		if m[0] == CmdDstNamesReq {
 			r.Kind = "dstNames"
 		}

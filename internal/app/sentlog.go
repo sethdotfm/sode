@@ -67,6 +67,17 @@ func rotatedPath(path string) string {
 	return strings.TrimSuffix(path, ext) + ".1" + ext
 }
 
+// errDamaged marks a file whose lines can't be trusted: it's set aside
+// rather than stopping Sode from starting.
+var errDamaged = errors.New("damaged")
+
+// quarantine renames a damaged file out of the way, keeping it to look at.
+func quarantine(path string, why error) error {
+	bad := path + ".bad-" + time.Now().Format("20060102-150405")
+	log.Printf("sent log: %v; moved to %s and starting afresh", why, bad)
+	return os.Rename(path, bad)
+}
+
 func OpenSentLog(path string, capBytes int64) (*SentLog, error) {
 	l := &SentLog{path: path, half: capBytes / 2}
 	if path == "" {
@@ -76,11 +87,22 @@ func OpenSentLog(path string, capBytes int64) (*SentLog, error) {
 		return nil, errors.New("sent log: size cap too small")
 	}
 	old, oldLast, err := openSegment(rotatedPath(path), false)
+	if errors.Is(err, errDamaged) {
+		err = quarantine(rotatedPath(path), err)
+	}
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	cur, curLast, err := openSegment(path, true)
+	if errors.Is(err, errDamaged) {
+		if err = quarantine(path, err); err == nil {
+			cur, curLast, err = openSegment(path, true)
+		}
+	}
 	if err != nil {
+		if old != nil {
+			old.f.Close()
+		}
 		return nil, err
 	}
 	l.next = 0
@@ -146,21 +168,22 @@ func openSegment(path string, current bool) (*segment, int64, error) {
 	var a, b Sent
 	if err := json.Unmarshal(first, &a); err != nil {
 		f.Close()
-		return nil, 0, fmt.Errorf("sent log %s: %w", path, err)
+		return nil, 0, fmt.Errorf("%s %w: first line: %v", path, errDamaged, err)
 	}
 	if err := json.Unmarshal(last, &b); err != nil {
 		f.Close()
-		return nil, 0, fmt.Errorf("sent log %s: %w", path, err)
+		return nil, 0, fmt.Errorf("%s %w: last line: %v", path, errDamaged, err)
 	}
 	s.first = a.Seq
 	if b.Seq != a.Seq+int64(len(s.offs))-1 {
 		f.Close()
-		return nil, 0, fmt.Errorf("sent log %s: seqs %d…%d over %d lines", path, a.Seq, b.Seq, len(s.offs))
+		return nil, 0, fmt.Errorf("%s %w: seqs %d…%d over %d lines", path, errDamaged, a.Seq, b.Seq, len(s.offs))
 	}
 	return s, b.Seq, nil
 }
 
-// Append assigns e.Seq and stores it.
+// Append assigns e.Seq and stores it. When the write fails, the seq stays
+// unused (lines' seqs run without gaps) and e must not be shown as logged.
 func (l *SentLog) Append(e *Sent) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -184,6 +207,7 @@ func (l *SentLog) Append(e *Sent) error {
 		}
 	}
 	if _, err := l.cur.f.WriteAt(b, l.cur.size); err != nil {
+		l.cur.f.Truncate(l.cur.size) // best effort: no partial line left behind
 		return err
 	}
 	l.next++
@@ -239,8 +263,9 @@ func (l *SentLog) Page(before int64, n int) ([]Sent, bool, error) {
 			continue
 		}
 		e, err := s.at(seq)
-		if err != nil {
-			return out, false, err
+		if err != nil { // one bad line doesn't hide the rest
+			log.Printf("sent log: %v", err)
+			continue
 		}
 		out = append(out, e)
 	}

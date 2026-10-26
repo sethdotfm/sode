@@ -71,7 +71,13 @@ function initFilters() {
       saveFilter();
       render();
     });
-    box.append(el('label', 'pb-check', input, el('span', 'pb-check__label', g.label)));
+    const label = el('span', 'pb-check__label', g.label);
+    if (g.id === 'keepalive') {
+      const n = el('span', 'pb-text-muted');
+      n.id = 'log-keep';
+      label.append(' ', n);
+    }
+    box.append(el('label', 'pb-check', input, label));
   }
   const problems = $('log-problems');
   problems.checked = filter.problems;
@@ -139,7 +145,7 @@ on('sentPage', (m) => {
   }
   more = m.more;
   loading = false;
-  showLost(m.lost);
+  showCounts(m);
   render();
   // Keep reading back while the filters hide everything read so far.
   if (more && autoLeft > 0 && !tbody.childElementCount) {
@@ -152,10 +158,10 @@ on('sentPage', (m) => {
 
 on('sentAdd', (m) => {
   if (!started) return;
+  showCounts(m);
   const fresh = add(m.entries).sort((a, b) => b.seq - a.seq);
   if (!fresh.length) return;
   list = [...fresh, ...list];
-  showLost(m.lost);
   if (newestFirst()) {
     tbody.prepend(...fresh.filter(passes).map((e) => row(e, true)));
     renderMore();
@@ -164,10 +170,14 @@ on('sentAdd', (m) => {
   }
 });
 
-function showLost(n) {
+// Link checks that went fine are counted on the server, not listed.
+function showCounts(m) {
+  const k = m.keepalives || 0;
+  $('log-keep').textContent = k ? `(${k.toLocaleString()} OK since restart, not listed)` : '';
+  const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
-  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} sent since the server started ${n === 1 ? 'is' : 'are'} missing here: the log fell behind.` : '';
+  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} sent since the server started ${n === 1 ? 'is' : 'are'} missing from the log: it fell behind or couldn't be saved (see the server log).` : '';
 }
 
 // ---- rendering
@@ -351,7 +361,7 @@ const CSV_COLS = [
 // doesn't run a router-supplied name as a formula.
 function csvCell(v) {
   let s = String(v);
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d/.test(s)) s = `'${s}`;
+  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

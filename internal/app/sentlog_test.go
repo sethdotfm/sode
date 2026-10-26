@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -97,5 +98,74 @@ func TestSentLogMemoryCap(t *testing.T) {
 	page, more, _ = l.Page(7, 10)
 	if len(page) != 2 || page[1].Seq != 5 || more {
 		t.Fatalf("oldest %v more %v, want 6, 5 and no more", seqs(page), more)
+	}
+}
+
+// A damaged file is set aside, not fatal; the log starts afresh.
+func TestSentLogDamagedFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sent.jsonl")
+	l, _ := OpenSentLog(path, 1<<20)
+	for i := 0; i < 3; i++ {
+		l.Append(&Sent{Kind: "connect"})
+	}
+	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	f.WriteString("\x00\x00garbage\n")
+	f.Close()
+	l2, err := OpenSentLog(path, 1<<20)
+	if err != nil {
+		t.Fatalf("damaged file stopped the open: %v", err)
+	}
+	bad, _ := filepath.Glob(path + ".bad-*")
+	if len(bad) != 1 {
+		t.Fatalf("quarantined files %v, want one", bad)
+	}
+	if err := l2.Append(&Sent{Kind: "connect"}); err != nil {
+		t.Fatal(err)
+	}
+	if page, _, _ := l2.Page(-1, 10); len(page) != 1 {
+		t.Fatalf("after quarantine %v, want just the new entry", seqs(page))
+	}
+}
+
+// One unreadable line in the middle doesn't hide the others.
+func TestSentLogBadMiddleLine(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sent.jsonl")
+	l, _ := OpenSentLog(path, 1<<20)
+	for i := 0; i < 3; i++ {
+		l.Append(&Sent{Kind: "connect"})
+	}
+	// Garble the middle line in place, keeping its length.
+	l.mu.Lock()
+	off, end := l.cur.offs[1], l.cur.offs[2]
+	l.mu.Unlock()
+	f, _ := os.OpenFile(path, os.O_WRONLY, 0)
+	f.WriteAt([]byte(strings.Repeat("#", int(end-off)-1)), off)
+	f.Close()
+	page, _, err := l.Page(-1, 10)
+	if err != nil || len(page) != 2 || page[0].Seq != 2 || page[1].Seq != 0 {
+		t.Fatalf("page %v err %v, want 2 and 0", seqs(page), err)
+	}
+}
+
+// A failed write doesn't give out its seq: the next entry gets it, so
+// seqs stay unique and the file stays gapless.
+func TestSentLogWriteFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sent.jsonl")
+	l, _ := OpenSentLog(path, 1<<20)
+	l.Append(&Sent{Kind: "connect"})
+	l.mu.Lock()
+	l.cur.f.Close() // every write fails from here
+	l.mu.Unlock()
+	if err := l.Append(&Sent{Kind: "connect"}); err == nil {
+		t.Fatal("write to a closed file succeeded")
+	}
+	l2, err := OpenSentLog(path, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &Sent{Kind: "connect"}
+	if err := l2.Append(e); err != nil || e.Seq != 1 {
+		t.Fatalf("seq %d err %v, want 1", e.Seq, err)
 	}
 }
