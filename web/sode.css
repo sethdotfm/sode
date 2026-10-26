@@ -940,27 +940,61 @@ code,
   flex-direction: column;
   gap: var(--pb-space-4);
 }
-.sode-m__bubble {
-  align-self: flex-end;
+/* The patch so far: one row per step, the current one marked. Values are
+   tappable to edit; a match not yet picked shows dashed. */
+.sode-m__sum {
   background: var(--pb-surface-raised);
   border: var(--pb-border-w) solid var(--pb-edge);
-  border-left: var(--pb-accent-bar-w) solid var(--pb-source);
-  color: var(--pb-text-strong);
   display: flex;
   flex-direction: column;
-  font-family: inherit;
-  font-size: var(--pb-text-lg);
-  max-width: 85%;
-  padding: var(--pb-space-4) var(--pb-space-5);
-  text-align: left;
 }
-.sode-m__bubble--dst { border-left-color: var(--pb-dest); }
-.sode-m__bubble--editing { border-style: dashed; }
-.sode-m__bubble-label {
+.sode-m__sum-row {
+  align-items: center;
+  border-left: var(--pb-accent-bar-w) solid var(--pb-source);
+  display: grid;
+  gap: var(--pb-space-4);
+  grid-template-columns: 6.5em 1fr;
+  min-height: var(--pb-control-h-lg);
+  padding: var(--pb-space-2) var(--pb-space-4);
+}
+.sode-m__sum-row + .sode-m__sum-row { border-top: var(--pb-border-w) solid var(--pb-edge-soft); }
+.sode-m__sum-row--dst { border-left-color: var(--pb-dest); }
+.sode-m__sum-row--lvl { border-left-color: var(--pb-edge); }
+.sode-m__sum-row--on { background: var(--pb-accent-wash); }
+.sode-m__sum-key {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
   letter-spacing: var(--pb-tracking-label);
   text-transform: uppercase;
+}
+.sode-m__sum-row--on .sode-m__sum-key {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-m__sum-vals {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode-m__sum-val {
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  font-family: inherit;
+  font-size: var(--pb-text-md);
+  max-width: 100%;
+  overflow: hidden;
+  padding: var(--pb-space-1) var(--pb-space-3);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-m__sum-val--maybe {
+  background: transparent;
+  border-style: dashed;
+  color: var(--pb-text-muted);
 }
 .sode-m__card {
   display: flex;
@@ -1093,20 +1127,26 @@ code,
   flex: 0 0 auto;
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-3);
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   padding: var(--pb-space-3) var(--pb-space-5) var(--pb-space-4);
 }
-.pb-btn.sode-m__cancel {
-  font-size: var(--pb-text-md);
-  height: calc(var(--pb-control-h-lg) * 1.4);
-}
+/* The step's name sits on the source/destination color, so which box this
+   is reads at a glance; Cancel stays small beside it. */
 .sode-m__step {
-  color: var(--pb-text-muted);
+  background: var(--pb-surface-high);
+  color: var(--pb-text-strong);
   font-size: var(--pb-text-xs);
-  grid-column: 1 / -1;
+  font-weight: var(--pb-weight-bold);
+  justify-self: start;
   letter-spacing: var(--pb-tracking-label);
+  padding: var(--pb-space-1) var(--pb-space-3);
   text-transform: uppercase;
 }
+.sode-m__bar[data-step="src"] .sode-m__step { background: var(--pb-source); }
+.sode-m__bar[data-step="dst"] .sode-m__step { background: var(--pb-dest); }
+.sode-m__bar[data-step="src"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
+.sode-m__bar[data-step="dst"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
+.pb-btn.sode-m__cancel { justify-self: end; }
 /* 16px+ text stops iOS zooming into the field on focus. */
 .pb-input.sode-m__input {
   font-size: max(16px, var(--pb-text-lg));
@@ -1576,4 +1616,10 @@ code,
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
+}
+
+/* iOS zooms into any field under 16px when it takes focus, and doesn't
+   zoom back out after (issue 30). Touch screens get 16px fields. */
+@media (pointer: coarse) {
+  :root :is(.pb-input, .pb-select, .pb-textarea):not(.sode__input, .sode-m__input) { font-size: 16px; }
 }

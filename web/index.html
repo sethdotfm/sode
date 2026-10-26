@@ -382,11 +382,11 @@
         <div class="sode-m__picks" id="m-picks" role="group" aria-label="Pick levels"></div>
         <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1"><span>Select</span><span>All</span></button>
       </div>
-      <div class="sode-m__bar">
+      <div class="sode-m__bar" id="m-bar" data-step="src">
         <label class="sode-m__step" id="m-step" for="m-src">Source</label>
-        <button type="button" class="pb-btn pb-btn--outline sode-m__cancel" id="m-cancel">Cancel</button>
-        <input id="m-src" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <input id="m-dst" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode-m__cancel" id="m-cancel">Cancel</button>
+        <input id="m-src" class="pb-input sode-m__input" placeholder="Source" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input id="m-dst" class="pb-input sode-m__input" placeholder="Destination" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <span class="sode-m__actions">
           <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>

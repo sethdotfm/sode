@@ -1,7 +1,9 @@
-// Phone layout: a text-message style composer. One input at a time steps
-// Source → Destination → Levels; the keyboard's Next/Go advances, and a
-// bottom sheet with a slider confirms. On the Destination step, + (typed
-// or the button) adds another destination and stays on the step.
+// Phone layout: a composer over a summary of the patch so far. One input
+// at a time steps Source → Destination → Levels; the keyboard's Next/Go
+// advances, and a bottom sheet with a slider confirms. On the Destination
+// step, + (typed or the button) adds another destination and stays on the
+// step. A blank Source goes to Destination first (to see what's on it)
+// and comes back for the source.
 
 import {
   $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, defaultLevelsText, levelBar, allLevels,
@@ -17,6 +19,7 @@ import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feed
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
 const inputs = { src: $('m-src'), dst: $('m-dst'), lvl: $('m-lvl') };
+const view = $('mobile-view');
 const M = {
   step: 'src',
   sel: { src: null },
@@ -35,7 +38,11 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
   hiCls: 'sode-m__match--hi',
   reverse: true,
 });
-const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), { hold: 'pointerdown', placeholder: () => `${defaultLevelsText()} (default)` });
+const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), {
+  hold: 'pointerdown',
+  placeholder: () => `${defaultLevelsText()} (default)`,
+  onChange: () => renderThread(),
+});
 const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings';
 
 // ---- header
@@ -64,6 +71,7 @@ function syncGo() {
 
 function setStep(step, focus = true) {
   M.step = step;
+  $('m-bar').dataset.step = step;
   for (const k of STEPS) inputs[k].hidden = k !== step;
   $('m-step').textContent = PROMPT[step];
   $('m-step').htmlFor = inputs[step].id;
@@ -89,6 +97,8 @@ function advance() {
   const step = M.step;
   if (step === 'src') {
     if (!M.sel.src) {
+      // Blank: pick the destination first and come back for the source.
+      if (!inputs.src.value.trim() && !M.dsts.length) return setStep('dst');
       const it = matches.current();
       if (!it) return shake(inputs.src);
       choose(it);
@@ -102,7 +112,7 @@ function advance() {
       if (!it) return shake(inputs.dst);
       addDst(it);
     }
-    return setStep('lvl');
+    return setStep(M.sel.src ? 'lvl' : 'src');
   }
   if (!M.sel.src) return setStep('src');
   if (!M.dsts.length) return setStep('dst');
@@ -139,7 +149,7 @@ function addDst(it) {
 // Puts a destination bubble back in the box to edit.
 function editDst(i) {
   const [it] = M.dsts.splice(i, 1);
-  inputs.dst.value = it.label.startsWith(it.num + ' ') ? it.name : it.label;
+  inputs.dst.value = editText(it);
   setStep('dst');
   inputs.dst.select();
   matches.refresh();
@@ -153,40 +163,70 @@ function reset() {
   setStep('src', false);
 }
 
-// ---- thread: recent, result, bubbles, currently
+// ---- thread: recent, result, the patch summary, currently
 
-function bubble(k, it, onTap) {
-  const b = el('button', `sode-m__bubble sode-m__bubble--${k}` + (k === 'src' && M.step === k ? ' sode-m__bubble--editing' : ''),
-    el('span', 'sode-m__bubble-label', PROMPT[k]), it.label);
-  b.type = 'button';
-  b.setAttribute('aria-label', `${PROMPT[k]} ${it.label}, tap to change`);
-  b.addEventListener('pointerdown', (e) => e.preventDefault());
-  b.addEventListener('click', onTap);
-  return b;
+// Puts a picked item back in its box to edit.
+const editText = (it) => (it.label.startsWith(it.num + ' ') ? it.name : it.label);
+
+function editSrc() {
+  const it = M.sel.src;
+  M.sel.src = null;
+  inputs.src.value = editText(it);
+  setStep('src');
+  inputs.src.select();
+  matches.refresh();
 }
 
-function srcBubble() {
-  const it = M.sel.src;
-  return bubble('src', it, () => {
-    M.sel.src = null;
-    inputs.src.value = it.label.startsWith(it.num + ' ') ? it.name : it.label;
-    setStep('src');
-    inputs.src.select();
-    matches.refresh();
-  });
+// Taps in the summary act without taking focus, so the keyboard stays up.
+function tap(node, label, onTap) {
+  if (label) node.setAttribute('aria-label', label);
+  node.addEventListener('pointerdown', (e) => e.preventDefault());
+  node.addEventListener('click', (e) => { e.stopPropagation(); onTap(); });
+  return node;
+}
+
+// The best match for what's typed on this step, before it's picked.
+const maybe = (k) => (M.step === k && inputs[k].value.trim() ? matches.current() : null);
+
+// One summary row: its name, then what's picked (or the match it would be).
+function sumRow(k, ...vals) {
+  const row = el('div', `sode-m__sum-row sode-m__sum-row--${k}` + (M.step === k ? ' sode-m__sum-row--on' : ''),
+    el('span', 'sode-m__sum-key', PROMPT[k]), el('span', 'sode-m__sum-vals', ...vals));
+  return tap(row, null, () => { if (M.step !== k) setStep(k); });
+}
+
+const sumVal = (it, cls = '') => el('span', 'sode-m__sum-val' + cls, labelNode(it));
+const sumNone = (text) => el('span', 'sode__hint', text);
+
+function summary() {
+  const src = M.sel.src
+    ? tap(el('button', 'sode-m__sum-val', labelNode(M.sel.src)), `Source ${M.sel.src.label}, tap to change`, editSrc)
+    : maybe('src') ? sumVal(maybe('src'), ' sode-m__sum-val--maybe')
+      : sumNone(M.step === 'src' && !M.dsts.length ? 'blank: Next picks the destination first' : '—');
+  const dsts = M.dsts.map((it, i) =>
+    tap(el('button', 'sode-m__sum-val', labelNode(it)), `Destination ${it.label}, tap to change`, () => editDst(i)));
+  const next = maybe('dst');
+  if (next) dsts.push(sumVal(next, ' sode-m__sum-val--maybe'));
+  const levels = lvl.levels();
+  return el('div', 'sode-m__sum',
+    sumRow('src', src),
+    sumRow('dst', ...(dsts.length ? dsts : [sumNone('—')])),
+    sumRow('lvl', levels ? levelBar(levels) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
+      levels && lvl.empty() ? sumNone('default') : null));
 }
 
 function renderThread() {
   if (!S.cfg) return;
   const nodes = [];
-  if (M.sel.src) nodes.push(srcBubble());
-  nodes.push(...M.dsts.map((it, i) => bubble('dst', it, () => editDst(i))));
-  // Room is short: Currently for the newest destination only.
-  const last = M.dsts[M.dsts.length - 1];
+  const typing = view.classList.contains('sode-m--typing');
+  if (typing || M.sel.src || M.dsts.length) nodes.push(summary());
+  // Room is short: Currently for the newest destination only, or the one
+  // being typed.
+  const last = M.dsts[M.dsts.length - 1] || maybe('dst');
   const others = M.dsts.length - 1;
   if (last) {
     nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last),
-      others ? el('div', 'sode__hint', `and ${others} more destination${others === 1 ? '' : 's'}`) : null));
+      others > 0 ? el('div', 'sode__hint', `and ${others} more destination${others === 1 ? '' : 's'}`) : null));
   } else if (M.sel.src) {
     nodes.push(el('div', 'sode-m__card', feeding(fedBy(M.sel.src.n, allLevels()), {
       open: M.feedOpen,
@@ -425,6 +465,7 @@ $('m-sheet').addEventListener('click', (e) => { if (e.target === $('m-sheet')) c
 inputs.src.addEventListener('input', () => {
   M.sel.src = null;
   matches.refresh();
+  renderThread();
 });
 // A typed + adds the destination. Read from the value, since phone
 // keyboards often send no usable key code.
@@ -437,6 +478,7 @@ inputs.dst.addEventListener('input', () => {
     return;
   }
   matches.refresh();
+  renderThread();
 });
 for (const k of STEPS) {
   inputs[k].addEventListener('keydown', (e) => {
@@ -479,12 +521,11 @@ $('m-cancel').addEventListener('click', () => {
 // so Recent hides and the bubbles, levels and Currently get the space.
 // It returns when the keyboard goes away. Focus moving between steps
 // happens synchronously, so check after the blur settles.
-const view = $('mobile-view');
 function syncTyping() {
   const typing = STEPS.some((k) => document.activeElement === inputs[k]);
   if (view.classList.contains('sode-m--typing') === typing) return;
   view.classList.toggle('sode-m--typing', typing);
-  scrollThread();
+  renderThread();
 }
 for (const k of STEPS) {
   inputs[k].addEventListener('focus', syncTyping);
