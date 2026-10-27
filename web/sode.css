@@ -893,6 +893,13 @@ code,
   gap: var(--pb-space-5);
   justify-content: space-between;
 }
+/* Save is green (the ok status color), set apart from the red of
+   discarding unsaved changes. */
+.sode__save {
+  background-color: var(--pb-status-ok);
+  color: var(--pb-text-on-accent);
+}
+.sode__save:hover { background-color: color-mix(in srgb, var(--pb-status-ok) 85%, black); }
 
 /* ---- Phone layout ----------------------------------------------------- */
 

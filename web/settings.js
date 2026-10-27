@@ -57,6 +57,7 @@ function warnUnsaved() {
   if (!dirty() || warned()) return false;
   $('settings-unsaved').hidden = false;
   $('settings-exit').textContent = 'Discard and exit';
+  $('settings-exit').classList.replace('pb-btn--outline', 'pb-btn--danger');
   renderSaveState();
   return true;
 }
@@ -64,6 +65,7 @@ function warnUnsaved() {
 function unwarn() {
   $('settings-unsaved').hidden = true;
   $('settings-exit').textContent = 'Exit';
+  $('settings-exit').classList.replace('pb-btn--danger', 'pb-btn--outline');
   renderSaveState();
 }
 
