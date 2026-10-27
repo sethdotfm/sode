@@ -5,6 +5,7 @@
   --sode-scale: 1.25;
   --sode-side-w: 5px; /* source and destination color edges */
   --sode-motion-enter: 400ms; /* a new history entry arriving */
+  --pb-font-mono: var(--pb-font); /* test: Plex Sans in place of Plex Mono */
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --sode-motion-enter: 0ms; }
