@@ -486,9 +486,10 @@ for (const k of STEPS) {
     if (e.key === 'Enter') {
       e.preventDefault();
       advance();
-    } else if (e.key === 'Backspace' && !inputs[k].value && k !== 'src') {
+    } else if (e.key === 'Backspace' && !inputs[k].value && (k !== 'src' || (!M.sel.src && M.dsts.length))) {
       // Backspace on an empty step goes back to edit the previous one:
-      // the newest destination, then the source.
+      // the newest destination, then the source. (A blank Source after
+      // Destination-first goes back to the destination.)
       e.preventDefault();
       if (M.dsts.length) {
         const it = M.dsts.pop();

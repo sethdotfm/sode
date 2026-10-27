@@ -1622,4 +1622,6 @@ code,
    zoom back out after (issue 30). Touch screens get 16px fields. */
 @media (pointer: coarse) {
   :root :is(.pb-input, .pb-select, .pb-textarea):not(.sode__input, .sode-m__input) { font-size: 16px; }
+  /* Room for the bigger text in Recent's Filter by boxes. */
+  .sode__search-box > .pb-input { height: var(--pb-control-h); }
 }
