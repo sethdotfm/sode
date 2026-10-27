@@ -67,6 +67,10 @@ func TestSentLogRotateAndReopen(t *testing.T) {
 	if all[len(all)-1].Seq == 0 {
 		t.Fatal("nothing was rotated away")
 	}
+	// The total counts what's left on disk, not everything ever appended.
+	if got := l.Total(); got != int64(len(all)) {
+		t.Fatalf("Total = %d, want %d", got, len(all))
+	}
 
 	// A torn write is dropped on reopen and numbering carries on.
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
@@ -79,6 +83,9 @@ func TestSentLogRotateAndReopen(t *testing.T) {
 	e := &Sent{Kind: "connect"}
 	if err := l2.Append(e); err != nil || e.Seq != 100 {
 		t.Fatalf("after reopen seq %d err %v, want 100", e.Seq, err)
+	}
+	if got := l2.Total(); got != int64(len(all))+1 {
+		t.Fatalf("Total after reopen = %d, want %d", got, len(all)+1)
 	}
 	page, _, err := l2.Page(-1, len(all)+1)
 	if err != nil || len(page) != len(all)+1 || page[0].Seq != 100 || page[1].Seq != 99 {
@@ -167,5 +174,15 @@ func TestSentLogWriteFailure(t *testing.T) {
 	e := &Sent{Kind: "connect"}
 	if err := l2.Append(e); err != nil || e.Seq != 1 {
 		t.Fatalf("seq %d err %v, want 1", e.Seq, err)
+	}
+}
+
+func TestSentLogTotalMemory(t *testing.T) {
+	l, _ := OpenSentLog("", 0)
+	for i := 0; i < 5; i++ {
+		l.Append(&Sent{Kind: "connect"})
+	}
+	if got := l.Total(); got != 5 {
+		t.Fatalf("Total = %d, want 5", got)
 	}
 }

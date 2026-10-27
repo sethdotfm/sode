@@ -147,6 +147,7 @@ const seen = new Set(); // seqs in list
 // so new ones go in place instead of redrawing everything.
 let shown = [];
 let more = false;
+let total = 0; // entries in the log on the server, as last reported
 let loading = false;
 let autoLeft = 0;
 let started = false; // asked for the newest page on this connection
@@ -245,6 +246,7 @@ on('sentAdd', (m) => {
 });
 
 function showCounts(m) {
+  if (m.total != null) total = m.total;
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
@@ -422,7 +424,7 @@ function render() {
 
 function renderMore() {
   const shown = tbody.childElementCount;
-  $('log-count').textContent = list.length ? `${shown} of ${list.length} loaded` : '';
+  $('log-count').textContent = list.length ? `${shown.toLocaleString()} of ${total.toLocaleString()} in log` : '';
   $('log-csv').disabled = !shown;
   const older = $('log-older');
   const filling = loading && rangeNeedsMore();

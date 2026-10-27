@@ -568,10 +568,24 @@ export function routeRow(levels, srcText, dstText) {
     el('span', 'sode__end sode__end--dst', dstText));
 }
 
+// A route row's end as a button, for lists where a name picks it.
+export function pickEnd(side, text, title, onPick) {
+  const b = el('button', `pb-btn pb-btn--ghost pb-btn--sm sode__end sode__end--${side}`, text);
+  b.type = 'button';
+  b.tabIndex = -1;
+  b.title = title;
+  b.addEventListener('mousedown', (e) => e.preventDefault());
+  b.addEventListener('click', onPick);
+  return b;
+}
+
 // The whole of dst: a heading, one row per source, and any protect.
-export function currentlyNodes(dst) {
+// onPick(src), if given, makes each routed source a button.
+export function currentlyNodes(dst, onPick) {
   const all = allLevels();
-  const rows = bySource(dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
+  const rows = bySource(dst.n, all).map((r) => (onPick && r.src != null && r.src >= 0
+    ? el('div', 'sode__route', levelBar(r.levels), pickEnd('src', tallyText(r.src), 'Use as source', () => onPick(r.src)))
+    : srcRow(r.levels, tallyText(r.src))));
   const p = protectedOn(dst.n, all);
   const prot = p.levels.length
     ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),

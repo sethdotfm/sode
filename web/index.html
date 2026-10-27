@@ -28,7 +28,7 @@
     if (pick('sode-flip', 'flip', ['on', 'off'], 'off') === 'on') root.dataset.flip = '';
   })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
@@ -77,7 +77,7 @@
       </div>
       <div class="sode__box sode__box--add">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+)">+</button>
+        <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+, Ctrl+Enter, ⌘Enter)">+</button>
       </div>
       <div class="sode__box sode__box--levels">
         <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
@@ -94,9 +94,11 @@
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
         <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1" data-tip="Enter">Take</button>
       </div>
+      <!-- On a row of their own, so both start at the same height. -->
+      <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
+      <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
 
-    <div class="sode__tally" id="tally" aria-live="polite"></div>
     <div class="sode__result" id="result" aria-live="polite"></div>
 
     <section class="sode__history" aria-labelledby="history-head">
@@ -144,10 +146,9 @@
       </div>
       <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
       <div class="sode__names">
-        <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
+        <button type="button" class="pb-btn pb-btn--outline" id="lock-help-open">Forgot PIN</button>
         <button type="submit" class="pb-btn sode__save" id="lock-unlock">Unlock</button>
       </div>
-      <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then <code>docker compose restart sode</code>.</span>
     </div>
 
     <fieldset class="sode__group sode__device">
@@ -238,6 +239,10 @@
 
     <div class="sode__open-log">
       <a class="pb-btn pb-btn--outline" href="log" target="_blank" rel="noopener">Open Log</a>
+    </div>
+
+    <div class="sode__lock-exit">
+      <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
     </div>
 
     <fieldset class="sode__group">
@@ -523,6 +528,21 @@
     </div>
   </div>
 </div>
+<div class="pb-modal-backdrop sode__scrim" id="lock-help" hidden>
+  <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="lock-help-title" tabindex="-1" id="lock-help-dialog">
+    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot the settings PIN</span></div>
+    <div class="pb-modal__body sode__lock-help">
+      <p>On the machine running Sode, in the folder with its <code>docker-compose.yml</code>, remove the PIN:</p>
+      <pre><code>docker compose exec sode /sode -reset-pin</code></pre>
+      <p>Then restart Sode to apply it:</p>
+      <pre><code>docker compose restart sode</code></pre>
+      <p>Settings then open without a PIN. Set a new one under Settings PIN.</p>
+    </div>
+    <div class="pb-modal__footer">
+      <button type="button" class="pb-btn pb-btn--outline" id="lock-help-close">Close</button>
+    </div>
+  </div>
+</div>
 <div class="pb-modal-backdrop sode__scrim" id="keys" hidden>
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" id="keys-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="keys-title">Keyboard shortcuts</span></div>
@@ -531,7 +551,7 @@
       <dl>
         <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Pick a match</dd>
-        <dt><kbd>+</kbd></dt><dd>Add destination</dd>
+        <dt><kbd>+</kbd> <kbd data-mac="⌘Enter">Ctrl+Enter</kbd> <kbd data-mac="⌃Enter" hidden></kbd></dt><dd>Add destination</dd>
         <dt><kbd data-mac="⌃s">Ctrl+s</kbd> <kbd data-mac="⌃d">Ctrl+d</kbd> <kbd data-mac="⌃f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
