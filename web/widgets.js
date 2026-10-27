@@ -368,7 +368,7 @@ export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty
     return c;
   };
   const shown = open ? fed : fed.slice(0, 2);
-  const out = el('div', 'sode__feed', label && el('span', 'sode__label', `Feeding ${fed.length}`), el('div', 'sode__chips', ...shown.map(chip)));
+  const out = el('div', 'sode__feed', label ? el('span', 'sode__label', `Feeding ${fed.length}`) : null, el('div', 'sode__chips', ...shown.map(chip)));
   if (fed.length > 2) {
     const more = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', open ? 'Show less' : `and ${fed.length - 2} others`);
     more.type = 'button';
