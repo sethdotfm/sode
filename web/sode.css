@@ -1192,6 +1192,7 @@ code,
   display: flex;
   gap: var(--pb-space-2);
   grid-column: 1 / -1;
+  margin-top: var(--pb-space-3); /* set apart from the box, toward the keyboard */
 }
 .sode-m__ops[hidden] { display: none; }
 .sode-m__key {
@@ -1203,7 +1204,7 @@ code,
   flex: 1 1 0;
   font-family: inherit;
   font-size: max(16px, var(--pb-text-md));
-  height: calc(var(--pb-control-h-lg) * 1.2);
+  height: var(--pb-control-h-lg);
   touch-action: manipulation;
 }
 .sode-m__key:active {
