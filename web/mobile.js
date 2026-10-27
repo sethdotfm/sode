@@ -226,6 +226,7 @@ function summary() {
 
 function renderThread() {
   if (!S.cfg) return;
+  const end = atEnd();
   const nodes = [];
   const typing = view.classList.contains('sode-m--typing');
   if (typing || M.sel.src || M.dsts.length) nodes.push(summary());
@@ -245,16 +246,22 @@ function renderThread() {
     })));
   }
   $('m-compose').replaceChildren(...nodes);
-  scrollThread();
+  if (end) scrollThread();
 }
 
-// After layout settles (the composer may just have grown or shrunk), keep
-// the newest content in view at the bottom of the thread; while typing,
-// the summary at the top.
+// Redraws (a tally, names, a result) keep the thread's end in view only if
+// it was in view before, so reading back through Recent isn't interrupted.
+// While typing the summary is pinned at the top and nothing scrolls.
+function atEnd() {
+  const t = $('m-thread');
+  return t.scrollHeight - t.scrollTop - t.clientHeight < 24;
+}
+// After layout settles (the composer may just have grown or shrunk).
 function scrollThread() {
   requestAnimationFrame(() => {
+    if (view.classList.contains('sode-m--typing')) return;
     const t = $('m-thread');
-    t.scrollTop = view.classList.contains('sode-m--typing') ? 0 : t.scrollHeight;
+    t.scrollTop = t.scrollHeight;
   });
 }
 
@@ -562,6 +569,9 @@ function syncTyping() {
   if (view.classList.contains('sode-m--typing') === typing) return;
   view.classList.toggle('sode-m--typing', typing);
   renderThread();
+  // The summary to the top while typing; back to the composer after.
+  if (typing) $('m-thread').scrollTop = 0;
+  else scrollThread();
 }
 for (const k of STEPS) {
   inputs[k].addEventListener('focus', syncTyping);
@@ -598,8 +608,9 @@ on('tally', renderThread);
 on('conn', renderConn);
 on('history', renderRecent);
 on('result', (r) => {
+  const end = atEnd();
   $('m-result').replaceChildren(resultNode(r));
-  scrollThread();
+  if (end) scrollThread();
 });
 // Order changed in Settings: an empty composer starts on the new first step.
 on('flip', () => {
