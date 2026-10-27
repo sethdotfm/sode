@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultrix).
 
-Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8` or `1+3+5-8`; `!` leaves levels out: `!1` is every level but 1, `1-8!3` is 1-8 without 3; words work too: `t`, `thru` or `through` for `-`, `n` or `not` for `!`, as in `1 thru 8 not 3`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
+Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8` or `1+3+5-8`; `!` leaves levels out: `!1` is every level but 1, `1-8!3` is 1-8 without 3; words work too: `t`, `thru` or `through` for `-`, `n` or `not` for `!`, as in `1 thru 8 not 3`; on a phone's number pad `.` for `,` and `..` for `-`, as in `1..8.10`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
 
 Ctrl+S, Ctrl+D and Ctrl+F (Control on a Mac too) fill Source, Destination(s) or Levels from your last take and move on (Source to Destination, Destination back to Source). After a reload, they use the newest Sode take in history. Each box shows that value as a small chip by its label (Levels only when they aren't the default); clicking it does the same.
 

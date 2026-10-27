@@ -1111,16 +1111,21 @@ code,
   padding: var(--pb-space-3) var(--pb-space-5);
 }
 .sode-m__picker[hidden] { display: none; }
+.sode-m__sum-lvls { font-family: var(--pb-font-mono); }
+/* Two rows like the level bar, the columns sharing the width. */
 .sode-m__picks {
-  display: flex;
+  display: grid;
   flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: var(--pb-space-2);
+  gap: var(--pb-space-1);
+  grid-template-columns: repeat(var(--sode-bar-cols), 1fr);
 }
-/* Bigger tap targets than desktop. */
 .sode-m__picks .sode__pick {
-  height: calc(var(--pb-control-h) + var(--pb-space-2));
-  min-width: calc(var(--pb-control-h) + var(--pb-space-2));
+  height: var(--pb-control-h);
+  min-width: 0;
+}
+.sode-m__picks.sode__levels--odd > .sode__pick:first-child {
+  grid-row: span 2;
+  height: auto;
 }
 .sode-m__bar {
   align-items: center;

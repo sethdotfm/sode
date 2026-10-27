@@ -7,7 +7,7 @@
 
 import {
   $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, defaultLevelsText, levelBar, allLevels,
-  fedBy, dstItem, srcItem, labelNode, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
+  levelText, fedBy, dstItem, srcItem, labelNode, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan,
   resultNode, showResult,
   patchPlan, planBlocked, planSummary, sendTakes,
@@ -202,7 +202,7 @@ function summary() {
   const src = M.sel.src
     ? tap(el('button', 'sode-m__sum-val', labelNode(M.sel.src)), `Source ${M.sel.src.label}, tap to change`, editSrc)
     : maybe('src') ? sumVal(maybe('src'), ' sode-m__sum-val--maybe')
-      : sumNone(M.step === 'src' && !M.dsts.length ? 'blank: Next picks the destination first' : '—');
+      : sumNone(M.step === 'src' && !M.dsts.length && !inputs.src.value.trim() ? 'blank: Next picks the destination first' : '—');
   const dsts = M.dsts.map((it, i) =>
     tap(el('button', 'sode-m__sum-val', labelNode(it)), `Destination ${it.label}, tap to change`, () => editDst(i)));
   const next = maybe('dst');
@@ -211,7 +211,7 @@ function summary() {
   return el('div', 'sode-m__sum',
     sumRow('src', src),
     sumRow('dst', ...(dsts.length ? dsts : [sumNone('—')])),
-    sumRow('lvl', levels ? levelBar(levels) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
+    sumRow('lvl', levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
       levels && lvl.empty() ? sumNone('default') : null));
 }
 
