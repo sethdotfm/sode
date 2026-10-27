@@ -865,11 +865,14 @@ code,
    options show until it's entered. */
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
-.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__open-log) { display: none; }
+.sode__lock-exit { display: none; }
+.sode__settings[data-locked] > .sode__lock-exit { display: flex; }
+.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__open-log, .sode__lock-exit) { display: none; }
 /* This device first, then the prompt: it's the part anyone can change. */
 .sode__settings[data-locked] > .sode__settings-head { order: -2; }
 .sode__settings[data-locked] > .sode__device { order: -1; }
 .sode__settings[data-locked] > .sode__open-log { order: 1; } /* after the lock */
+.sode__settings[data-locked] > .sode__lock-exit { order: 2; } /* last of all */
 .sode__settings[data-locked] > .sode__lock {
   border-top: var(--pb-border-w) solid var(--pb-edge);
   padding-top: var(--pb-space-5);
@@ -1416,6 +1419,9 @@ code,
 /* Shortcut list: key on the left, what it does on the right. One grid
    for both sections (the lists dissolve into it), so the key column is as
    wide as the widest key in either. */
+.sode__lock-help { max-width: 60ch; }
+.sode__lock-help > p { margin: 0 0 var(--pb-space-3); }
+.sode__lock-help > pre { margin: 0 0 var(--pb-space-5); user-select: all; }
 .sode__keys {
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-6);
