@@ -761,9 +761,11 @@ for (const b of searchBoxes) {
       else f.blur();
     });
   }
-  b.querySelector('[data-search-clear]').addEventListener('click', () => {
+  // Clear leaves focus alone (no keyboard popping up on a phone); the
+  // button hides itself, so let focus go rather than sit on it.
+  b.querySelector('[data-search-clear]').addEventListener('click', (e) => {
     clearSearch();
-    b.querySelector('[data-search-src]').focus();
+    e.currentTarget.blur();
   });
 }
 
