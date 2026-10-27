@@ -46,12 +46,16 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
   // putEntry: new goes first, a known id is replaced in place.
   S.hist = [{ id: 3 }, { id: 2 }, { id: 1 }];
   const before = S.hist;
-  assert.equal(putEntry({ id: 4 }), false);
+  assert.equal(putEntry({ id: 4 }), 'new');
   assert.deepEqual(S.hist.map((e) => e.id), [4, 3, 2, 1]);
-  assert.equal(putEntry({ id: 2, fixed: true }), true);
+  assert.equal(putEntry({ id: 2, fixed: true }, S, true), 'replaced');
   assert.deepEqual(S.hist.map((e) => e.id), [4, 3, 2, 1]);
   assert.equal(S.hist[2].fixed, true);
   assert.notEqual(S.hist, before);
+  // An amendment of an entry that isn't loaded is dropped, not added as new.
+  const loaded = S.hist;
+  assert.equal(putEntry({ id: 40, fixed: true }, S, true), 'skipped');
+  assert.equal(S.hist, loaded);
 
   // Corrected entry (ok now): undo uses prev for every level, nothing untouched.
   const fixed = { ...base, id: 10, ok: true, late: [3, 4] };
@@ -94,6 +98,13 @@ test('histRows: followers of a confirm go in its folder', async () => {
   setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '!D8' });
   rows = histRows([ext(8, 7, { followGroup: 'g' }), ext(6, 8, { followGroup: 'g' }), ext(5, 9, { followGroup: 'g' }), ...list.slice(2)]);
   assert.deepEqual(rows[0].f.followers.map((e) => e.id), [8, 5]);
+  setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '' });
+  // Sode takes hidden: the folder doesn't show, so a follower that passes
+  // stands on its own rather than vanishing with it.
+  setFilter({ sode: false, ext: true, hidden: true, src: '', dst: '' });
+  rows = histRows([ext(8, 7, { followGroup: 'g' }), ext(7, 7, { followGroup: 'g' }), ...takes]);
+  assert.ok(rows.every((r) => !r.f));
+  assert.ok(rows.length >= 1 && rows.some((r) => r.e.id === 8 || r.e.merged));
   setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '' });
 });
 

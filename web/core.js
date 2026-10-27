@@ -221,10 +221,12 @@ function handle(m) {
     case 'takeResult':
       takeResult(m);
       break;
-    case 'recent':
-      if (!putEntry(m.e)) S.newId = m.e.id; // views animate a new one in, once, not a correction
-      emit('history');
+    case 'recent': {
+      const how = putEntry(m.e, S, m.update);
+      if (how === 'new') S.newId = m.e.id; // views animate a new one in, once, not a correction
+      if (how !== 'skipped') emit('history');
       break;
+    }
     case 'historyCleared':
       S.hist = [];
       S.histMore = false;
@@ -818,13 +820,19 @@ export function failureGroups(e) {
 // Add a recent entry: a known id (a failed take the server corrected) is
 // replaced where it stands; a new one goes first. S.hist gets a new array
 // either way, as the filter candidate cache compares it by identity.
-// Returns true for a replacement.
-export function putEntry(e, hist = S) {
+// An update (the server amending an old take) for an entry that isn't
+// loaded is left out: it isn't new, and comes with its page when loaded.
+// Returns 'new', 'replaced' or 'skipped'.
+export function putEntry(e, hist = S, update = false) {
   const i = hist.hist.findIndex((x) => x.id === e.id);
-  if (i < 0) { hist.hist = [e, ...hist.hist]; return false; }
+  if (i < 0) {
+    if (update) return 'skipped';
+    hist.hist = [e, ...hist.hist];
+    return 'new';
+  }
   hist.hist = hist.hist.slice();
   hist.hist[i] = e;
-  return true;
+  return 'replaced';
 }
 
 // " (undo of #3; 4–17 already)" for a history entry, or null.
@@ -1111,10 +1119,15 @@ function buildRows(list) {
   // Followers of a multi-take confirm (followGroup) go in its folder's
   // f.followers, not on any one take: the server doesn't say which. Only
   // when the folder is loaded; otherwise they stay rows of their own.
+  // And only when that folder will show (a take of it passes the filters, or
+  // a search matches the follower): otherwise a follower that passes
+  // stands on its own, as a follow does when its take is hidden.
   const groups = new Set(list.filter((e) => e.group && !e.ext).map((e) => e.group));
+  const shows = new Set(list.filter((e) => e.group && !e.ext && passes(e)).map((e) => e.group));
   const followers = new Map();
   for (const e of list) {
     if (!e.ext || !e.followGroup || !groups.has(e.followGroup)) continue;
+    if (!shows.has(e.followGroup) && !(searchActive() && passes(e))) continue;
     attached.add(e);
     if (!followers.has(e.followGroup)) followers.set(e.followGroup, []);
     followers.get(e.followGroup).push(e);
