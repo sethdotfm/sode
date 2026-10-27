@@ -966,27 +966,18 @@ code,
 }
 .sode-m__sum-row {
   align-items: center;
-  border-left: var(--pb-accent-bar-w) solid var(--pb-source);
   display: grid;
   gap: var(--pb-space-4);
-  grid-template-columns: 6.5em 1fr;
+  grid-template-columns: 8.5em 1fr;
   min-height: var(--pb-control-h-lg);
   padding: var(--pb-space-2) var(--pb-space-4);
 }
 .sode-m__sum-row + .sode-m__sum-row { border-top: var(--pb-border-w) solid var(--pb-edge-soft); }
-.sode-m__sum-row--dst { border-left-color: var(--pb-dest); }
-.sode-m__sum-row--lvl { border-left-color: var(--pb-edge); }
 .sode-m__sum-row--on { background: var(--pb-accent-wash); }
-.sode-m__sum-key {
-  color: var(--pb-text-muted);
-  font-size: var(--pb-text-xs);
-  letter-spacing: var(--pb-tracking-label);
-  text-transform: uppercase;
-}
-.sode-m__sum-row--on .sode-m__sum-key {
-  color: var(--pb-text-strong);
-  font-weight: var(--pb-weight-bold);
-}
+/* Each row's name on its color, as on the step label over the box. */
+.sode-m__sum-key { justify-self: start; }
+.sode-m__sum-row--src .sode-m__sum-key { background: var(--pb-source); }
+.sode-m__sum-row--dst .sode-m__sum-key { background: var(--pb-dest); }
 .sode-m__sum-vals {
   align-items: center;
   display: flex;
@@ -1157,7 +1148,8 @@ code,
 }
 /* The step's name sits on the source/destination color, so which box this
    is reads at a glance; Cancel stays small beside it. */
-.sode-m__step {
+.sode-m__step,
+.sode-m__sum-key {
   background: var(--pb-surface-high);
   color: var(--pb-text-strong);
   font-size: var(--pb-text-xs);
