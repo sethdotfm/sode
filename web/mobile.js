@@ -131,12 +131,13 @@ function advance() {
   openSheet(patchPlan(M.sel.src, M.dsts, levels));
 }
 
-// +: the best match becomes a bubble and the step starts over for another.
+// +: the best match becomes a bubble. The typed search stays and its list
+// stays open without the bubbles, so the next match is one + away.
 function plus() {
   if (M.step !== 'dst') return;
   const it = matches.current();
   if (!it) return shake(inputs.dst);
-  addDst(it);
+  addDst(it, true);
   inputs.dst.focus();
 }
 
@@ -148,11 +149,13 @@ function choose(it) {
   renderThread();
 }
 
-function addDst(it) {
+// keep: the search text and its match list stay for another (+).
+function addDst(it, keep = false) {
   if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
-  inputs.dst.value = '';
-  matches.close();
+  if (!keep) inputs.dst.value = '';
   renderThread();
+  if (keep) matches.refresh();
+  else matches.close();
 }
 
 // Puts a destination bubble back in the box to edit.
