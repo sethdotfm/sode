@@ -171,7 +171,7 @@ func (a *App) flushFound(dst int) {
 }
 
 // extAwaitsTake reports whether a pending change may follow one of our
-// takes still waiting for the router. Caller holds mu.
+// takes still waiting for the router, or still to be answered late. Caller holds mu.
 func (a *App) extAwaitsTake() bool {
 	for _, c := range a.causes {
 		if c.done {
@@ -180,6 +180,21 @@ func (a *App) extAwaitsTake() bool {
 		for dst, ls := range a.ext {
 			for _, l := range ls {
 				if !l.found && l.src == c.src && dst != c.dst {
+					return true
+				}
+			}
+		}
+	}
+	// A take that gave up may still be answered late, and its followers
+	// change with that answer (#91).
+	now := time.Now()
+	for _, lt := range a.lateTake {
+		if !now.Before(lt.until) {
+			continue
+		}
+		for dst, ls := range a.ext {
+			for _, l := range ls {
+				if !l.found && l.src == lt.cause.src && dst != lt.cause.dst {
 					return true
 				}
 			}

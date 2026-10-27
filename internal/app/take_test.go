@@ -563,3 +563,23 @@ func TestUnsentOnlyForTakes(t *testing.T) {
 		t.Fatalf("event %+v, want the take, unsent", ev)
 	}
 }
+
+// A take gives up on dst 5, then the router answers late: a PiP (dst 9)
+// that follows it changes with that answer, so it's the take's follow, not
+// a panel change (#91).
+func TestTakeLateFollow(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.seed(9, 1, 0, 1, 2)
+	f.ignore[5] = true
+	e := takeOne(t, a, 7, 5, 1)
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 7))
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 3)
+	if len(es) != 2 || !es[0].Ext || es[0].Dst != 9 || es[0].Follow == nil || *es[0].Follow != e.ID || !es[1].OK {
+		t.Fatalf("late follow %+v", es)
+	}
+}

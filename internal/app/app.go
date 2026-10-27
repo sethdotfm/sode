@@ -890,7 +890,7 @@ func (w *waiter) unregister(a *App, id int) {
 		if !l.confirmed && !l.unsent {
 			until := time.Now().Add(lateFor)
 			a.late[k] = until
-			a.lateTake[k] = lateTake{id: id, until: until}
+			a.lateTake[k] = lateTake{id: id, until: until, cause: w.cause}
 		}
 	}
 	delete(a.waiters, w)
@@ -1075,6 +1075,7 @@ func (a *App) take(c *client, req takeReq) {
 type lateTake struct {
 	id    int
 	until time.Time
+	cause *cause // so a late answer counts as one of the take's changes: what follows it follows this take
 }
 
 // lateHit is one level of entry id that the router confirmed after all.
@@ -1093,6 +1094,12 @@ func (a *App) claimLate(k ownKey, ui int) bool {
 		return false
 	}
 	a.lateHits = append(a.lateHits, lateHit{lt.id, ui})
+	// Destinations that follow this one (a PiP its DSM) change with it, now,
+	// not when the take was recorded. The cause may have been dropped.
+	lt.cause.saw(time.Now())
+	if !slices.Contains(a.causes, lt.cause) {
+		a.causes = append(a.causes, lt.cause)
+	}
 	return true
 }
 
