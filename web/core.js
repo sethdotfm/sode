@@ -222,8 +222,7 @@ function handle(m) {
       takeResult(m);
       break;
     case 'recent':
-      if (!S.hist.some((e) => e.id === m.e.id)) S.hist.unshift(m.e);
-      S.newId = m.e.id; // views animate this one in, once
+      if (!putEntry(m.e)) S.newId = m.e.id; // views animate a new one in, once, not a correction
       emit('history');
       break;
     case 'historyCleared':
@@ -702,7 +701,8 @@ export const timeNodes = (iso) => {
 // take didn't change them: still on their old route, or on someone else's.
 // Undo leaves them alone (restoring would overwrite a route that isn't the
 // take's). Levels with no answer stay in: they may have switched.
-const untouchedLevels = (e) => new Set(e.ok ? [] : (e.now || []).map(([u]) => u));
+// Late levels did change with the take, whatever `now` says.
+const untouchedLevels = (e) => new Set(e.ok ? [] : (e.now || []).map(([u]) => u).filter((u) => !e.late?.includes(u)));
 
 // Groups an entry's previous routing into restorable takes.
 function undoItem(e) {
@@ -801,6 +801,18 @@ export function failureGroups(e) {
   return [...groups].map(([text, levels]) => ({ levels, text }));
 }
 
+// Add a recent entry: a known id (a failed take the server corrected) is
+// replaced where it stands; a new one goes first. S.hist gets a new array
+// either way, as the filter candidate cache compares it by identity.
+// Returns true for a replacement.
+export function putEntry(e, hist = S) {
+  const i = hist.hist.findIndex((x) => x.id === e.id);
+  if (i < 0) { hist.hist = [e, ...hist.hist]; return false; }
+  hist.hist = hist.hist.slice();
+  hist.hist[i] = e;
+  return true;
+}
+
 // " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
   const parts = [];
@@ -810,6 +822,7 @@ export function entryNote(e) {
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
+  if (e.late?.length) parts.push(`level${e.late.length === 1 ? '' : 's'} ${levelText(e.late)} confirmed late`);
   const why = failureGroups(e);
   if (why.length) parts.push(why.map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels)} ${g.text}`).join('; '));
   else if (!e.ok && !e.ext && e.err) parts.push(e.err);

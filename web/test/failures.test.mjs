@@ -32,3 +32,39 @@ test('failed takes: reasons, undo and changedSince', async () => {
   // An old failed entry without the data checks nothing, as before.
   assert.deepEqual(changedSince(undoPlan({ ...e, failed: undefined, now: undefined }).items[0]), []);
 });
+
+test('late confirms: note, putEntry, undo and changedSince', async () => {
+  const { S, entryNote, putEntry, undoPlan, changedSince } = await import('../core.js');
+  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.levelBy = new Map([[1, {}], [2, {}], [3, {}], [4, {}]]);
+  const base = { id: 9, dst: 5, src: 7, srcName: 'X', dstName: 'Y', time: new Date().toISOString(), levels: [1, 2, 3, 4], prev: [[1, 0], [2, 0], [3, 0], [4, 0]] };
+  // The note is an opaque el() result under the Proxy stub, so only its presence is checked.
+  const note = entryNote({ ...base, ok: true, late: [3, 4] });
+  const note1 = entryNote({ ...base, ok: true, late: [3] });
+  assert.ok(note && note1);
+
+  // putEntry: new goes first, a known id is replaced in place.
+  S.hist = [{ id: 3 }, { id: 2 }, { id: 1 }];
+  const before = S.hist;
+  assert.equal(putEntry({ id: 4 }), false);
+  assert.deepEqual(S.hist.map((e) => e.id), [4, 3, 2, 1]);
+  assert.equal(putEntry({ id: 2, fixed: true }), true);
+  assert.deepEqual(S.hist.map((e) => e.id), [4, 3, 2, 1]);
+  assert.equal(S.hist[2].fixed, true);
+  assert.notEqual(S.hist, before);
+
+  // Corrected entry (ok now): undo uses prev for every level, nothing untouched.
+  const fixed = { ...base, id: 10, ok: true, late: [3, 4] };
+  const item = undoPlan(fixed).items[0];
+  assert.deepEqual(item.groups.map((g) => g.levels), [[1, 2, 3, 4]]);
+  assert.deepEqual(item.untouched, []);
+  // Late level 3 moved on since: counted like any level of the take.
+  S.tally = new Map([[5, new Map([[3, 9], [4, 7]])]]);
+  assert.deepEqual(changedSince(item).map((r) => r.levels), [[3]]);
+
+  // Still partly failed: late level 3 is undone, even if `now` lists it.
+  const part = { ...base, id: 11, ok: false, failed: [1], late: [3], now: [[1, 0], [3, 7]], err: 'x' };
+  const p = undoPlan(part).items[0];
+  assert.deepEqual(p.untouched, [1]);
+  assert.ok(p.groups.flatMap((g) => g.levels).includes(3));
+});
