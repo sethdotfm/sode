@@ -196,6 +196,39 @@ func TestExtFollows(t *testing.T) {
 		t.Fatalf("salvo follow by what it followed before: %+v", e)
 	}
 
+	// A cause from a multi-take confirm: the follower is tied to the group,
+	// not to one take, and isn't a panel route. A salvo of them all gets it.
+	a.mu.Lock()
+	t3 := time.Now()
+	a.causes = []*cause{
+		{src: 3, dst: 5, first: t3, last: t3, id: 90, done: true, group: "g1"},
+		{src: 3, dst: 6, first: t3, last: t3, id: 91, done: true, group: "g1"},
+	}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 3))
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 11, 3))
+	endBurst(a)
+	es, _ = a.hist.Page(-1, 2)
+	for _, e := range es {
+		if e.FollowGroup != "g1" || e.Follow != nil || e.Group != "" || e.GroupN != 0 {
+			t.Fatalf("follower of a grouped cause %+v", e)
+		}
+	}
+	// With no group it's a follow of that take, as before.
+	a.mu.Lock()
+	t4 := time.Now()
+	a.causes = []*cause{{src: 13, dst: 5, first: t4, last: t4, id: 92, done: true}}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 13))
+	endBurst(a)
+	if e := last(); e.Follow == nil || *e.Follow != 92 || e.FollowGroup != "" {
+		t.Fatalf("ungrouped follow %+v", e)
+	}
+
+	a.mu.Lock()
+	a.causes = nil
+	a.mu.Unlock()
+
 	// Too long after a take: a take of its own.
 	a.mu.Lock()
 	old := time.Now().Add(-2 * time.Second)
@@ -208,7 +241,7 @@ func TestExtFollows(t *testing.T) {
 	}
 
 	// A change that may follow our take still in flight waits for it.
-	c := &cause{src: 6, dst: 5, id: -1}
+	c := &cause{src: 6, dst: 5, id: -1, sent: time.Now().Add(-time.Second)}
 	a.mu.Lock()
 	a.causes = append(a.causes, c)
 	c.saw(time.Now())
@@ -225,6 +258,21 @@ func TestExtFollows(t *testing.T) {
 	a.flushExt()
 	if e := last(); e.Follow == nil || *e.Follow != 77 {
 		t.Fatalf("held follow %+v", e)
+	}
+}
+
+// A take still queued behind others' messages (not sent yet) can't have
+// caused a change that's already here, so it doesn't hold the burst.
+func TestExtNotHeldByQueuedTake(t *testing.T) {
+	a := newTestApp(t)
+	a.mu.Lock()
+	a.causes = append(a.causes, &cause{src: 6, dst: 5, id: -1})
+	a.mu.Unlock()
+	n := a.hist.Len()
+	a.onRouterMsg(swp08.ExtConnected(0, 2, 9, 6))
+	endBurst(a)
+	if a.hist.Len() != n+1 {
+		t.Fatal("burst held for a take whose connects hadn't gone out")
 	}
 }
 

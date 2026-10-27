@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"time"
@@ -31,13 +32,15 @@ const (
 	extMax   = 3 * time.Second        // or this long after it began
 	// ownFor is how long a Connected matching one of our connects counts
 	// as ours: the take's whole wait, and some slack for a late reply.
-	ownFor = takeTimeout + takeGrace + 5*time.Second
+	ownFor = takeTimeout + takeGrace + 5*time.Second // counted from when the connects have gone out (sendTake)
 
 	followAfter  = 500 * time.Millisecond // a follow comes this soon after its take's last change
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
 	// A burst that may follow a take still in flight waits for it to be
 	// recorded, up to this long after the burst began.
-	extHold   = checkTimeout + takeTimeout + takeGrace + 2*time.Second
+	// A take still queued behind others' messages holds nothing: its changes
+	// can't have come yet (cause.sent).
+	extHold   = takeTimeout + takeGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 
@@ -56,8 +59,10 @@ type ownKey struct{ dst, wire, src int }
 type cause struct {
 	src, dst    int
 	first, last time.Time // its changes as the router reported them; zero = none yet
+	sent        time.Time // when its connects had gone out; zero while they're queued
 	id          int
-	done        bool // recorded
+	done        bool   // recorded
+	group       string // history group of the multi-take confirm it belongs to, "" if alone
 }
 
 // saw notes one of the take's changes. Caller holds mu.
@@ -87,6 +92,10 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 			return
 		}
 	}
+	// A take gave up on this route, but the router did make it: ours too.
+	if !found && a.claimLate(k, ui) {
+		return
+	}
 	now := time.Now()
 	if len(a.ext) == 0 {
 		a.extFirst = now
@@ -106,8 +115,17 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 
 // flushExt writes a finished burst to history.
 func (a *App) flushExt() {
+	a.flushLate()
 	a.mu.Lock()
 	now := time.Now()
+	for k, lts := range a.lateTake {
+		lts = slices.DeleteFunc(lts, func(lt lateTake) bool { return now.After(lt.until) })
+		if len(lts) == 0 {
+			delete(a.lateTake, k)
+		} else {
+			a.lateTake[k] = lts
+		}
+	}
 	for _, m := range []map[ownKey]time.Time{a.own, a.late} {
 		for k, until := range m {
 			if now.After(until) {
@@ -164,12 +182,13 @@ func (a *App) flushFound(dst int) {
 // takes still waiting for the router. Caller holds mu.
 func (a *App) extAwaitsTake() bool {
 	for _, c := range a.causes {
-		if c.done {
+		if c.done || c.sent.IsZero() {
 			continue
 		}
 		for dst, ls := range a.ext {
 			for _, l := range ls {
-				if !l.found && l.src == c.src && dst != c.dst {
+				// A change before the connects went out can't follow them.
+				if !l.found && l.src == c.src && dst != c.dst && !l.first.Before(c.sent.Add(-followBefore)) {
 					return true
 				}
 			}
@@ -238,8 +257,15 @@ func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry
 		if e.Found {
 			found = append(found, e)
 		} else if c := a.followed(e.Src, e.Dst, o.first); c != nil {
-			id := c.id
-			e.Follow = &id
+			if c.group != "" {
+				// One take of a multi-take confirm: which one is a guess, so
+				// the entry is tied to the whole confirm, and is neither a
+				// panel route (no Group) nor a follow of one take.
+				e.FollowGroup = c.group
+			} else {
+				id := c.id
+				e.Follow = &id
+			}
 		} else {
 			takes = append(takes, e)
 		}

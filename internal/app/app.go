@@ -81,10 +81,14 @@ type App struct {
 	ext      map[int]map[int]*extLevel // dst → UI level
 	extFirst time.Time
 	extLast  time.Time
-	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
-	late     map[ownKey]time.Time // finished takes' unconfirmed routes → until when a tally of one is ours
-	causes   []*cause             // recent takes that changes elsewhere may follow
-	leaders  map[int]int          // dst → the dst it was last seen following
+	own      map[ownKey]time.Time  // our takes' connects → when to stop treating them as ours
+	late     map[ownKey]time.Time  // finished takes' unconfirmed routes → until when a tally of one is ours
+	seenAt   map[[2]int]time.Time  // dst, UI level → when the router last reported its route
+	lateTake map[ownKey][]lateTake // the same, with the history entry to amend if one turns up (#91)
+	lateHits []lateHit             // late answers awaiting their entry's amendment (flushLate)
+	lateQ    chan lateJob          // to lateWorker; nil = amend in line (tests)
+	causes   []*cause              // recent takes that changes elsewhere may follow
+	leaders  map[int]int           // dst → the dst it was last seen following
 
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
@@ -97,6 +101,8 @@ type App struct {
 
 	pin   pinState   // wrong settings PINs
 	cfgMu sync.Mutex // serializes settings saves
+
+	gapHook func() // test seam: runs between a take's finish and unregister
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }
@@ -132,6 +138,8 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		ext:      map[int]map[int]*extLevel{},
 		own:      map[ownKey]time.Time{},
 		late:     map[ownKey]time.Time{},
+		lateTake: map[ownKey][]lateTake{},
+		seenAt:   map[[2]int]time.Time{},
 		leaders:  map[int]int{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
@@ -165,6 +173,8 @@ func (a *App) r() *runtime { return a.rt.Load() }
 func (a *App) Run(ctx context.Context) {
 	go a.sw.Run(ctx)
 	go a.logSent(ctx)
+	a.lateQ = make(chan lateJob, 64)
+	go a.lateWorker(ctx)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
 	for {
@@ -269,6 +279,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		if xp.Src == 0xFFFF { // router's "nothing routed"
 			xp.Src = -1
 		}
+		a.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
 		t := a.tally[xp.Dst]
 		if t == nil {
 			t = map[int]int{}
@@ -279,7 +290,10 @@ func (a *App) onRouterMsg(msg []byte) {
 			a.pend = append(a.pend, [3]int{xp.Dst, l.UI, xp.Src})
 			// A changed route the router didn't announce shows up in a
 			// dump or an interrogate: noted too, unless it's ours.
-			if xp.Changed() || (ok && !a.awaited(xp)) {
+			// A tally of a route a take gave up on confirms it after all.
+			if !xp.Changed() && a.claimLate(ownKey{xp.Dst, xp.Level, xp.Src}, l.UI) {
+				// ours: the entry is amended by flushLate
+			} else if xp.Changed() || (ok && !a.awaited(xp)) {
 				a.noteExt(xp, l.UI, old, ok)
 			}
 		}
@@ -684,11 +698,13 @@ func (a *App) ApplyConfig(c config.Config) error {
 	if reconnect {
 		a.srcNames, a.dstNames = map[int]string{}, map[int]string{}
 		a.tally, a.protect = map[int]map[int]int{}, map[int]map[int]int{}
+		a.seenAt = map[[2]int]time.Time{}
 		a.pend, a.pendProt = nil, nil
 		a.ext = map[int]map[int]*extLevel{}
 		a.causes = nil
 		a.leaders = map[int]int{}
 		a.own = map[ownKey]time.Time{}
+		a.lateTake, a.lateHits = map[ownKey][]lateTake{}, nil
 		a.extFirst, a.extLast = time.Time{}, time.Time{}
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
@@ -729,6 +745,9 @@ type takeReq struct {
 
 	Group  string `json:"-"` // set by batch for confirms of more than one take
 	GroupN int    `json:"-"`
+	// NoCheck skips reading dst's routes from the router first (set by
+	// batch for big batches): the cache is used for Prev.
+	NoCheck bool `json:"-"`
 }
 
 // takeLimit caps how many takes of one batch run at once. The router link
@@ -736,9 +755,20 @@ type takeReq struct {
 // the later takes time out while their connects are still waiting to go.
 const takeLimit = 8
 
+// bigBatch is how many takes in one confirm make the router too busy to
+// read every destination's routes first (17 interrogates each): they use the
+// cache, which the router keeps current by announcing changes and resyncing.
+const bigBatch = 6
+
 // batch runs the takes from one confirm, grouping them in history when
 // there is more than one.
 func (a *App) batch(c *client, items []takeReq) {
+	if len(items) >= bigBatch {
+		log.Printf("batch of %d takes: not reading routes from the router first, to spare it", len(items))
+		for i := range items {
+			items[i].NoCheck = true
+		}
+	}
 	if len(items) > 1 {
 		g := strconv.FormatInt(time.Now().UnixNano(), 36)
 		for i := range items {
@@ -771,6 +801,8 @@ type takeLevel struct {
 	unsent    bool // the router link refused it
 	confirmed bool
 	already   bool // confirmed by a tally, not by a change
+	seen      bool // the router reported some other route for the level...
+	now       int  // ...this src (-1 = nothing routed), the latest report
 }
 
 type waiter struct {
@@ -799,17 +831,24 @@ func (w *waiter) filter(keep func(*takeLevel) bool) []*takeLevel {
 // see marks a level confirmed when the router reports the requested route.
 // Routers only announce changes (Connected), so a level that was already
 // on src is confirmed by the answer to an interrogate instead.
+// What it reports for a wanted level instead is kept (seen, now), for the
+// reason if the level is never confirmed.
 // It reports whether xp was one of this take's. Caller holds mu.
 func (w *waiter) see(xp swp08.Crosspoint) bool {
-	if xp.Dst != w.dst || xp.Src != w.src {
+	if xp.Dst != w.dst {
 		return false
 	}
 	for _, l := range w.levels {
-		if l.wire == xp.Level && wanted(l) {
-			l.confirmed, l.already = true, !xp.Changed()
-			w.finishIfDone()
-			return true
+		if l.wire != xp.Level || !wanted(l) {
+			continue
 		}
+		if xp.Src != w.src {
+			l.seen, l.now = true, xp.Src
+			return false
+		}
+		l.confirmed, l.already = true, !xp.Changed()
+		w.finishIfDone()
+		return true
 	}
 	return false
 }
@@ -846,7 +885,9 @@ func (w *waiter) finishIfDone() {
 func (w *waiter) register(a *App) {
 	a.waiters[w] = struct{}{}
 	a.causes = append(a.causes, w.cause)
-	until := time.Now().Add(ownFor)
+	// The connects may wait behind other takes' messages for up to queueMax;
+	// sendTake shortens the keys to ownFor once they have gone out.
+	until := time.Now().Add(queueMax + ownFor)
 	for _, l := range w.levels {
 		if !l.same {
 			a.own[ownKey{w.dst, l.wire, w.src}] = until
@@ -867,9 +908,19 @@ func (w *waiter) unregister(a *App, id int) {
 		if !l.confirmed || l.unsent || l.already {
 			delete(a.own, k)
 		}
-		// The answer to the last interrogate may still be on its way.
+		// The answer to the last interrogate, or a slow Connected, may
+		// still be on its way: it's ours, and the entry gets amended.
 		if !l.confirmed && !l.unsent {
-			a.late[k] = time.Now().Add(lateFor)
+			until := time.Now().Add(lateFor)
+			a.late[k] = until
+			// Only a level the router said nothing about may be answered late;
+			// one it reported on (still on the old route, or on someone
+			// else's) isn't waiting for this take, and a later Connected for
+			// src is a change made elsewhere. Retries of the same route each
+			// wait for the answer.
+			if !l.seen {
+				a.lateTake[k] = append(a.lateTake[k], lateTake{id: id, until: until, cause: w.cause})
+			}
 		}
 	}
 	delete(a.waiters, w)
@@ -899,20 +950,33 @@ func (c *tallyCheck) see(xp swp08.Crosspoint) {
 // (they update the cache) or checkTimeout. It reports whether all came.
 func (a *App) checkTally(r *runtime, w *waiter) bool {
 	c := &tallyCheck{dst: w.dst, wires: map[int]bool{}, done: make(chan struct{})}
-	for _, l := range w.levels {
-		c.wires[l.wire] = true
-	}
+	// Levels the router reported lately need no second look: undo and retry
+	// come straight after the Connected that set them.
+	var ls []*takeLevel
 	a.mu.Lock()
-	a.checks[c] = struct{}{}
+	for _, l := range w.levels {
+		if at, ok := a.seenAt[[2]int{w.dst, l.ui}]; !ok || time.Since(at) > checkFresh {
+			ls = append(ls, l)
+			c.wires[l.wire] = true
+		}
+	}
+	if len(ls) > 0 {
+		a.checks[c] = struct{}{}
+	}
 	a.mu.Unlock()
+	if len(ls) == 0 {
+		return true
+	}
 	defer func() {
 		a.mu.Lock()
 		delete(a.checks, c)
 		a.mu.Unlock()
 	}()
-	if a.interrogate(r, w, w.levels, "check") != nil {
+	done, err := a.interrogate(r, w, ls, "check")
+	if err != nil {
 		return false // the link is down or full: no answers are coming
 	}
+	leftQueue(done)
 	select {
 	case <-c.done:
 		return true
@@ -924,8 +988,16 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 const (
 	// A take first reads dst's levels from the router, for this long at most.
 	checkTimeout = time.Second
+	// A level the router reported within this long isn't read again first.
+	checkFresh = 15 * time.Second
+	// queueMax caps the wait for a take's messages to leave the send queue
+	// (which is one message per ACK, shared by every take): after that its
+	// own timeouts start regardless. A dead link ends the session, which
+	// drops the queue, long before.
+	queueMax = 30 * time.Second
 	// A tally of a route a take gave up on is still its own for this long.
-	lateFor     = 5 * time.Second
+	// (Seen once: a Connected a few seconds after the take gave up, #91.)
+	lateFor     = 15 * time.Second
 	takeTimeout = 3 * time.Second
 	// After the timeout, unconfirmed levels are interrogated and given this
 	// long to answer before they count as failed.
@@ -1000,7 +1072,7 @@ func (a *App) take(c *client, req takeReq) {
 
 	// Prev is what undo restores, so it comes from the router, not a cache
 	// that may have missed a change. Answers that differ are logged as found.
-	if !a.checkTally(r, w) {
+	if !req.NoCheck && !a.checkTally(r, w) {
 		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", req.Dst, checkTimeout)
 	}
 	a.flushFound(req.Dst)
@@ -1014,11 +1086,15 @@ func (a *App) take(c *client, req takeReq) {
 	missing := a.awaitTake(r, w)
 
 	var errs []string
-	if len(missing) > 0 {
-		errs = append(errs, "no confirmation from router for levels "+levelList(r, uis(missing)))
-	}
 	a.mu.Lock()
+	if len(missing) > 0 {
+		errs = append(errs, "no confirmation from router: "+a.whyMissing(r, e, missing))
+	}
 	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
+	if unsent := w.filter(func(l *takeLevel) bool { return l.unsent }); len(unsent) > 0 {
+		e.Failed = append(e.Failed, uis(unsent)...)
+		sort.Ints(e.Failed)
+	}
 	a.mu.Unlock()
 	sort.Ints(e.Already)
 	if len(e.Already) > 0 {
@@ -1031,7 +1107,201 @@ func (a *App) take(c *client, req takeReq) {
 		err = fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	a.finish(c, res, e, err)
+	if a.gapHook != nil {
+		a.gapHook()
+	}
 	w.unregister(a, e.ID)
+	// An answer between finish and unregister confirmed a level the entry
+	// just recorded as failed.
+	a.mu.Lock()
+	gap := w.filter(func(l *takeLevel) bool { return l.confirmed && slices.Contains(e.Failed, l.ui) })
+	a.mu.Unlock()
+	if len(gap) > 0 {
+		a.lateConfirm(e.ID, uis(gap))
+	}
+}
+
+// lateTake is a take that gave up on a route: the history entry that says so.
+type lateTake struct {
+	id    int
+	until time.Time
+	cause *cause // so a late answer counts as one of the take's changes: what follows it follows this take
+}
+
+// lateHit is one level of entry id that the router confirmed after all.
+type lateHit struct{ id, ui int }
+
+// claimLate reports whether k is a route a recent take gave up on, and if so
+// queues the amendment of its entries (flushLate; history I/O doesn't belong
+// under mu): every take that gave up on it, a retry too. The claims are used up. Caller holds mu.
+func (a *App) claimLate(k ownKey, ui int) bool {
+	lts, ok := a.lateTake[k]
+	if !ok {
+		return false
+	}
+	delete(a.lateTake, k)
+	claimed := false
+	for _, lt := range lts {
+		if !time.Now().Before(lt.until) {
+			continue
+		}
+		claimed = true
+		a.lateHits = append(a.lateHits, lateHit{lt.id, ui})
+		// Destinations that follow this one (a PiP its DSM) change with it, now,
+		// not when the take was recorded. The cause may have been dropped.
+		lt.cause.saw(time.Now())
+		if !slices.Contains(a.causes, lt.cause) {
+			a.causes = append(a.causes, lt.cause)
+		}
+	}
+	return claimed
+}
+
+// lateJob is the levels of entry id that the router confirmed late.
+type lateJob struct {
+	id  int
+	uis []int
+}
+
+// flushLate hands the entries of takes whose late answers have come to the
+// late worker. Amending rewrites the history file, which the 100ms tick
+// shouldn't wait for; without a worker (tests) it's done here.
+func (a *App) flushLate() {
+	a.mu.Lock()
+	hits := a.lateHits
+	a.lateHits = nil
+	a.mu.Unlock()
+	var jobs []lateJob
+	for _, h := range hits {
+		i := slices.IndexFunc(jobs, func(j lateJob) bool { return j.id == h.id })
+		if i < 0 {
+			jobs = append(jobs, lateJob{id: h.id})
+			i = len(jobs) - 1
+		}
+		jobs[i].uis = append(jobs[i].uis, h.ui)
+	}
+	for _, j := range jobs {
+		if a.lateQ == nil {
+			a.lateConfirm(j.id, j.uis)
+			continue
+		}
+		a.lateQ <- j // buffered; if the worker is far behind this waits rather than lose the amendment
+	}
+}
+
+// lateWorker amends entries in the order flushLate queued them.
+func (a *App) lateWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case j := <-a.lateQ:
+			a.lateConfirm(j.id, j.uis)
+		}
+	}
+}
+
+// lateConfirm amends take id's entry: levels uis were confirmed after the
+// take gave up. They leave Failed (and Now), join Late, and the entry turns
+// OK once nothing is left failing. One history update for all of them.
+// Caller doesn't hold mu.
+func (a *App) lateConfirm(id int, uis []int) {
+	r := a.r()
+	var done []int
+	e, ok := a.hist.Update(id, func(e *Entry) {
+		for _, ui := range uis {
+			if !slices.Contains(e.Failed, ui) {
+				continue
+			}
+			done = append(done, ui)
+			e.Failed = slices.DeleteFunc(e.Failed, func(x int) bool { return x == ui })
+			e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[0] == ui })
+			e.Late = append(e.Late, ui)
+			if len(e.Failed) > 0 {
+				e.Err = dropMissing(e.Err, r.cfg.LevelLabel(ui))
+			}
+		}
+		if len(done) == 0 {
+			return
+		}
+		sort.Ints(e.Late)
+		if len(e.Failed) == 0 {
+			e.OK, e.Err = true, ""
+		}
+	})
+	if !ok || len(done) == 0 {
+		return
+	}
+	log.Printf("LATE #%d src=%d %q dst=%d %q level %s confirmed after the take gave up (ok=%t)",
+		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r, done), e.OK)
+	a.mu.Lock()
+	a.broadcast(map[string]any{"t": "recent", "e": e, "update": true})
+	a.mu.Unlock()
+}
+
+// dropMissing takes the part about one level out of a take's error, which
+// whyMissing wrote as "no confirmation from router: level 1 no answer;
+// level 2 ...", possibly followed by "levels 3 not sent: ...". Parts that
+// aren't about a missing level stay.
+func dropMissing(err, label string) string {
+	const pre = "no confirmation from router: "
+	var missing, others []string
+	for i, seg := range strings.Split(err, "; ") {
+		if i == 0 {
+			seg = strings.TrimPrefix(seg, pre)
+		}
+		switch {
+		case strings.HasPrefix(seg, "level "+label+" "):
+		case strings.HasPrefix(seg, "level "):
+			missing = append(missing, seg)
+		default:
+			others = append(others, seg)
+		}
+	}
+	var out []string
+	if len(missing) > 0 {
+		out = append(out, pre+strings.Join(missing, "; "))
+	}
+	return strings.Join(append(out, others...), "; ")
+}
+
+// whyMissing says, per level, what the router reports for levels that never
+// confirmed, and records it in e: Failed (every such level) and Now (the
+// levels it answered for). A level on its previous src was ignored; on
+// another src, someone else's route got there; no answer means the router
+// said nothing, so it may or may not have switched. A level that is on src
+// after all was confirmed by see and isn't here. Caller holds mu.
+func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel) string {
+	slices.SortFunc(missing, func(x, y *takeLevel) int { return x.ui - y.ui })
+	src := func(n int) string {
+		switch {
+		case n < 0:
+			return "nothing"
+		case a.srcNames[n] != "":
+			return a.srcNames[n]
+		}
+		return fmt.Sprintf("source %d", n+r.cfg.NumberOffset)
+	}
+	prev := map[int]int{}
+	for _, p := range e.Prev {
+		prev[p[0]] = p[1]
+	}
+	parts := make([]string, len(missing))
+	for i, l := range missing {
+		e.Failed = append(e.Failed, l.ui)
+		label := "level " + r.cfg.LevelLabel(l.ui)
+		switch p, had := prev[l.ui]; {
+		case !l.seen:
+			parts[i] = label + " no answer"
+			continue
+		case had && p == l.now:
+			parts[i] = fmt.Sprintf("%s still on %s", label, src(l.now))
+		default:
+			parts[i] = fmt.Sprintf("%s on %s", label, src(l.now))
+		}
+		e.Now = append(e.Now, [2]int{l.ui, l.now})
+	}
+	return strings.Join(parts, "; ")
 }
 
 // planTake checks a take and builds its waiter, one record per level.
@@ -1039,7 +1309,7 @@ func planTake(r *runtime, req takeReq) (*waiter, error) {
 	if req.Src < 0 || req.Src > 0xFFFE || req.Dst < 0 || req.Dst > 0xFFFE || len(req.Levels) == 0 {
 		return nil, errors.New("bad request")
 	}
-	w := &waiter{dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1}}
+	w := &waiter{dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1, group: req.Group}}
 	for _, ui := range req.Levels {
 		l, ok := r.byUI[ui]
 		if !ok {
@@ -1060,8 +1330,10 @@ func planTake(r *runtime, req takeReq) (*waiter, error) {
 // reflect them.
 func (a *App) sendTake(r *runtime, w *waiter) error {
 	var sendErr error
+	var last <-chan struct{}
 	for i, l := range w.levels {
-		if err := a.sendMsg(l.connect, w.why); err != nil {
+		done, err := a.sendTracked(l.connect, w.why)
+		if err != nil {
 			sendErr = err
 			a.mu.Lock()
 			for _, u := range w.levels[i:] {
@@ -1071,26 +1343,66 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 			a.mu.Unlock()
 			break
 		}
+		last = done
 	}
 	// Only this goroutine sets same and unsent.
-	a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), "confirm")
+	if done, _ := a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), "confirm"); done != nil {
+		last = done
+	}
+	// The router can't answer what is still queued behind other takes'
+	// messages, so the wait for confirms starts when ours have gone out, and
+	// the connects' own keys run from then.
+	leftQueue(last)
+	a.mu.Lock()
+	w.cause.sent = time.Now()
+	until := w.cause.sent.Add(ownFor)
+	for _, l := range w.levels {
+		k := ownKey{w.dst, l.wire, w.src}
+		if _, ok := a.own[k]; ok {
+			a.own[k] = until
+		}
+	}
+	a.mu.Unlock()
 	return sendErr
 }
 
-// interrogate asks about levels of the take's dst, stopping at the first
-// that can't be sent.
-func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason string) error {
-	why := swp08.Why{Reason: reason, By: w.why.By}
-	for _, l := range ls {
-		if err := a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why); err != nil {
-			return err
-		}
+// sendTracked sends m and returns a channel closed when its fate is known
+// (nil if it wasn't accepted).
+func (a *App) sendTracked(m []byte, why swp08.Why) (<-chan struct{}, error) {
+	why.Done = make(chan struct{})
+	if err := a.sendMsg(m, why); err != nil {
+		return nil, err
 	}
-	return nil
+	return why.Done, nil
 }
 
-// awaitTake waits for the router to confirm every sent level and returns
-// the ones it never confirmed.
+// leftQueue waits for the message behind done to be written and answered or
+// given up on, at most queueMax. nil returns at once.
+func leftQueue(done <-chan struct{}) {
+	if done == nil {
+		return
+	}
+	select {
+	case <-done:
+	case <-time.After(queueMax):
+	}
+}
+
+// interrogate asks for ls's routes on w's destination. It returns the
+// channel of the last message sent (see sendTracked), nil if none was.
+func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason string) (<-chan struct{}, error) {
+	why := swp08.Why{Reason: reason, By: w.why.By}
+	var last <-chan struct{}
+	for _, l := range ls {
+		done, err := a.sendTracked(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why)
+		if err != nil {
+			return last, err
+		}
+		last = done
+	}
+	return last, nil
+}
+
 func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 	if len(w.filter(func(l *takeLevel) bool { return !l.unsent })) == 0 {
 		return nil
@@ -1107,7 +1419,8 @@ func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 	}
 	// Last chance: ask about whatever is still unconfirmed (a stale cache,
 	// or a Connected lost on the wire) and give it a moment.
-	a.interrogate(r, w, outstanding(), "confirm")
+	done, _ := a.interrogate(r, w, outstanding(), "confirm")
+	leftQueue(done)
 	select {
 	case <-w.done:
 	case <-time.After(takeGrace):
@@ -1124,6 +1437,7 @@ func (a *App) finish(c *client, res map[string]any, e *Entry, err error) {
 		res["err"] = e.Err
 	}
 	a.record(e)
+	res["entry"] = e.ID // the browser's banner follows this entry
 	a.reply(c, res)
 }
 
@@ -1153,8 +1467,12 @@ func (a *App) record(e *Entry) {
 		if e.Follow != nil {
 			follow = fmt.Sprint(*e.Follow)
 		}
-		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s found=%t",
-			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, e.Found)
+		followGroup := "-"
+		if e.FollowGroup != "" {
+			followGroup = e.FollowGroup
+		}
+		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s followGroup=%s found=%t",
+			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, followGroup, e.Found)
 	} else {
 		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
 			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
@@ -1174,6 +1492,7 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
+	a.lateTake, a.lateHits = map[ownKey][]lateTake{}, nil // their entries are gone
 	a.broadcast(map[string]any{"t": "historyCleared"})
 	a.mu.Unlock()
 }

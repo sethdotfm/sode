@@ -221,11 +221,12 @@ function handle(m) {
     case 'takeResult':
       takeResult(m);
       break;
-    case 'recent':
-      if (!S.hist.some((e) => e.id === m.e.id)) S.hist.unshift(m.e);
-      S.newId = m.e.id; // views animate this one in, once
-      emit('history');
+    case 'recent': {
+      const how = putEntry(m.e, S, m.update);
+      if (how === 'new') S.newId = m.e.id; // views animate a new one in, once, not a correction
+      if (how !== 'skipped') emit('history');
       break;
+    }
     case 'historyCleared':
       S.hist = [];
       S.histMore = false;
@@ -712,22 +713,31 @@ export const timeNodes = (iso) => {
 // One item per destination. undo/retry are the history entries an item
 // undoes or retries. Protection isn't kept here: planBlocked returns it.
 
+// Levels of a failed take that the router answered for, so it is known the
+// take didn't change them: still on their old route, or on someone else's.
+// Undo leaves them alone (restoring would overwrite a route that isn't the
+// take's). Levels with no answer stay in: they may have switched.
+// Late levels did change with the take, whatever `now` says.
+const untouchedLevels = (e) => new Set(e.ok ? [] : (e.now || []).map(([u]) => u).filter((u) => !e.late?.includes(u)));
+
 // Groups an entry's previous routing into restorable takes.
 function undoItem(e) {
   const groups = new Map();
   const skipped = [];
+  const untouched = untouchedLevels(e);
   for (const [u, s] of e.prev) {
-    if (!S.levelBy.has(u)) continue;
+    if (!S.levelBy.has(u) || untouched.has(u)) continue;
     if (s < 0) { skipped.push(u); continue; }
     if (!groups.has(s)) groups.set(s, []);
     groups.get(s).push(u);
   }
   const known = new Set(e.prev.map(([u]) => u));
-  for (const u of e.levels) if (!known.has(u)) skipped.push(u);
+  for (const u of e.levels) if (!known.has(u) && !untouched.has(u)) skipped.push(u);
   return {
     dst: dstItem(e.dst, e.dstName),
     groups: [...groups].map(([s, levels]) => ({ src: srcItem(s), levels: levels.sort((a, b) => a - b) })),
     skipped: skipped.sort((a, b) => a - b),
+    untouched: [...untouched].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b),
     undo: e, retry: null,
   };
 }
@@ -736,12 +746,12 @@ function undoItem(e) {
 const retryItem = (e) => ({
   dst: dstItem(e.dst, e.dstName),
   groups: [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
-  skipped: [], undo: null, retry: e,
+  skipped: [], untouched: [], undo: null, retry: e,
 });
 
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
-  items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], undo: null, retry: null })),
+  items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], untouched: [], undo: null, retry: null })),
 });
 // e with the loaded changes that followed it, as histRows attaches them.
 export function attachFollows(e) {
@@ -789,15 +799,56 @@ export function beforeGroups(e) {
   return [...groups].map(([src, levels]) => ({ src, levels }));
 }
 
+// What the router reported for the levels a take never got confirmed, as
+// [{levels, text}]: "still on X" (it ignored the take), "on X" (some other
+// route got there) or "no answer" (it may or may not have switched; also a
+// level that wasn't sent). Empty for a take that worked and for entries
+// from before this was recorded.
+export function failureGroups(e) {
+  if (e.ok || !e.failed?.length) return [];
+  const now = new Map(e.now || []), prev = new Map(e.prev);
+  const groups = new Map();
+  for (const u of [...e.failed].sort((a, b) => a - b)) {
+    if (!S.levelBy.has(u)) continue;
+    const text = !now.has(u) ? 'no answer' : `${prev.get(u) === now.get(u) ? 'still on' : 'on'} ${tallyText(now.get(u))}`;
+    if (!groups.has(text)) groups.set(text, []);
+    groups.get(text).push(u);
+  }
+  return [...groups].map(([text, levels]) => ({ levels, text }));
+}
+
+// Add a recent entry: a known id (a failed take the server corrected) is
+// replaced where it stands; a new one goes first. S.hist gets a new array
+// either way, as the filter candidate cache compares it by identity.
+// An update (the server amending an old take) for an entry that isn't
+// loaded is left out: it isn't new, and comes with its page when loaded.
+// Returns 'new', 'replaced' or 'skipped'.
+export function putEntry(e, hist = S, update = false) {
+  const i = hist.hist.findIndex((x) => x.id === e.id);
+  if (i < 0) {
+    if (update) return 'skipped';
+    hist.hist = [e, ...hist.hist];
+    return 'new';
+  }
+  hist.hist = hist.hist.slice();
+  hist.hist[i] = e;
+  return 'replaced';
+}
+
 // " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
   const parts = [];
   if (e.merged > 1) parts.push(`${e.merged} changes`);
   if (e.follows?.length) parts.push(`+${e.follows.length} follow${e.follows.length === 1 ? '' : 's'}`);
   if (e.follow != null) parts.push(`follow of #${e.follow}`);
+  if (e.followGroup) parts.push('follow of this confirm');
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
+  if (e.late?.length) parts.push(`level${e.late.length === 1 ? '' : 's'} ${levelText(e.late)} confirmed late`);
+  const why = failureGroups(e);
+  if (why.length) parts.push(why.map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels)} ${g.text}`).join('; '));
+  else if (!e.ok && !e.ext && e.err) parts.push(e.err);
   return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }
 
@@ -1065,6 +1116,22 @@ function buildRows(list) {
     if (!passes({ ...byId.get(id), follows: fs })) followsOf.delete(id);
   }
   const attached = new Set([...followsOf.values()].flat());
+  // Followers of a multi-take confirm (followGroup) go in its folder's
+  // f.followers, not on any one take: the server doesn't say which. Only
+  // when the folder is loaded; otherwise they stay rows of their own.
+  // And only when that folder will show (a take of it passes the filters, or
+  // a search matches the follower): otherwise a follower that passes
+  // stands on its own, as a follow does when its take is hidden.
+  const groups = new Set(list.filter((e) => e.group && !e.ext).map((e) => e.group));
+  const shows = new Set(list.filter((e) => e.group && !e.ext && passes(e)).map((e) => e.group));
+  const followers = new Map();
+  for (const e of list) {
+    if (!e.ext || !e.followGroup || !groups.has(e.followGroup)) continue;
+    if (!shows.has(e.followGroup) && !(searchActive() && passes(e))) continue;
+    attached.add(e);
+    if (!followers.has(e.followGroup)) followers.set(e.followGroup, []);
+    followers.get(e.followGroup).push(e);
+  }
   for (const orig of list) {
     if (attached.has(orig)) {
       chains.delete(orig.dst);
@@ -1078,7 +1145,7 @@ function buildRows(list) {
     const k = `${e.levels.join(',')}${e.found ? ' found' : ''}`; // found and announced don't mix
     const t = Date.parse(e.time);
     const c = chains.get(e.dst);
-    if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
+    if (solo && e.ext && e.follow == null && !e.followGroup && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
       c.list.push(orig);
       const follows = [...(c.row.e.follows || []), ...(e.follows || [])];
       c.row.e = { ...c.row.e, prev: e.prev, merged: c.list.length, chain: c.list, ...(follows.length ? { follows } : {}) };
@@ -1089,7 +1156,7 @@ function buildRows(list) {
     if (solo) {
       if (!passes(e)) continue;
       const row = { e };
-      if (e.ext && e.follow == null) chains.set(e.dst, { k, row, t, list: [orig] });
+      if (e.ext && e.follow == null && !e.followGroup) chains.set(e.dst, { k, row, t, list: [orig] });
       rows.push(row);
       continue;
     }
@@ -1101,6 +1168,14 @@ function buildRows(list) {
     }
     f.entries.push(e);
     if (passes(e)) f.shown.push(e);
+  }
+  for (const [g, fs] of followers) {
+    const f = folders.get(g);
+    if (!f) continue;
+    const shown = fs.filter(passes);
+    if (shown.length) f.followers = shown;
+    // A search that only a follower matches still shows the confirm.
+    if (shown.length && searchActive() && !f.shown.length) f.shown = f.entries;
   }
   return rows.filter((r) => !r.f || r.f.shown.length);
 }
@@ -1132,6 +1207,7 @@ const extStatus = (found, title = '') => (found
 // A pb-status node for a single take or a folder.
 export function statusNode(row) {
   const st = row.f ? folderStatus(row.f)
+    : row.e.ext && row.e.followGroup ? { dot: 'info', text: 'follow', title: 'Changed along with this confirm' }
     : row.e.ext ? extStatus(row.e.found)
     : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
@@ -1239,8 +1315,8 @@ export function historyPager(step, visible = () => true) {
 // ---- results
 
 // text: a string, or a function building nodes (each layout renders its own).
-export function showResult(kind, title, text) {
-  S.result = { kind, title, text };
+export function showResult(kind, title, text, track = null) {
+  S.result = { kind, title, text, track };
   emit('result', S.result);
 }
 
@@ -1265,7 +1341,7 @@ function takeResult(m) {
   const b = takes.get(m.id);
   if (!b) return;
   takes.delete(m.id);
-  b.results.push({ ...b.byId.get(m.id), ok: m.ok, err: m.err, already: m.already || [] });
+  b.results.push({ ...b.byId.get(m.id), ok: m.ok, err: m.err, entry: m.entry, already: m.already || [] });
   if (b.results.length < b.byId.size) return;
   const undo = b.verb === 'undo';
   const dsts = new Set(b.results.map((r) => r.dst.n)).size;
@@ -1276,11 +1352,73 @@ function takeResult(m) {
     showResult('ok', title, capped(b.results.map((r) => takeText(r, r.already))));
     return;
   }
-  const partly = failed.length < b.results.length;
-  const count = b.results.length > 1 ? ` (${failed.length} of ${b.results.length})` : '';
-  const title = `${undo ? 'Undo' : 'Take'} ${partly ? 'partly failed' : 'failed'}${count}`;
-  showResult('error', title, capped(failed.map((r) => `${takeText(r)}: ${r.err}`), 5));
+  // The banner follows the entries of the failed takes, so it shrinks as
+  // they're confirmed late or retried (refreshResult), instead of going stale.
+  const track = { verb: b.verb, total: b.results.length, items: failed.map((r) => ({ entry: r.entry, dst: r.dst, err: r.err })) };
+  const banner = failureBanner(track);
+  track.key = banner.key;
+  showResult(banner.kind, banner.title, banner.text, track);
 }
+
+// What the router said about a failed take, short: its levels grouped by
+// outcome ("levels 0–16 no answer"), at most two groups; older entries
+// (before outcomes were recorded) and failures with no breakdown give a
+// clipped err.
+function outcomeText(e, err) {
+  const why = e ? failureGroups(e) : [];
+  if (why.length) {
+    const shown = why.slice(0, 2).map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels)} ${g.text}`);
+    return shown.join('; ') + (why.length > 2 ? '; …' : '');
+  }
+  const t = e?.err || err || 'failed';
+  return t.length > 90 ? `${t.slice(0, 87)}…` : t;
+}
+
+// The result banner for failed takes of one confirm, from the history now:
+// one line per distinct outcome, naming a few destinations. A take counts as
+// resolved once its entry is ok (confirmed late) or a retry of it went
+// through; with none left the banner turns into a confirmation.
+// t: { verb, total, items: [{ entry, dst, err }] }.
+export function failureBanner(t, hist = S.hist) {
+  const byId = new Map(hist.map((e) => [e.id, e]));
+  const retried = new Set(hist.filter((e) => e.ok && e.retry != null).map((e) => e.retry));
+  const open = t.items.filter((it) => {
+    const e = byId.get(it.entry);
+    return !(e && (e.ok || retried.has(e.id)));
+  });
+  const what = t.verb === 'undo' ? 'Undo' : 'Take';
+  if (!open.length) {
+    const n = t.items.length;
+    const title = `${what} resolved: ${n === 1 ? 'the take' : `all ${n} takes`} confirmed`;
+    return { kind: 'ok', title, key: title, text: 'The router confirmed after all, or a retry went through.' };
+  }
+  const lines = new Map();
+  for (const it of open) {
+    const k = outcomeText(byId.get(it.entry), it.err);
+    if (!lines.has(k)) lines.set(k, []);
+    lines.get(k).push(it.dst.label);
+  }
+  const rows = [...lines].map(([k, dsts]) => `${dsts.slice(0, 3).join(', ')}${dsts.length > 3 ? ` +${dsts.length - 3}` : ''}: ${k}`);
+  const shown = rows.slice(0, 3);
+  if (rows.length > 3) shown.push(`and ${rows.length - 3} more; see Recent`);
+  const partly = open.length < t.total;
+  const count = t.total > 1 ? ` (${open.length} of ${t.total}${open.length < t.items.length ? ' still' : ''})` : '';
+  const title = `${what} ${partly ? 'partly failed' : 'failed'}${count}`;
+  return { kind: 'error', title, key: [title, ...shown].join('\n'),
+    text: () => el('div', null, ...shown.map((l) => el('div', null, l))) };
+}
+
+// Redraws the banner as the failed takes it names get resolved.
+function refreshResult() {
+  const r = S.result;
+  if (!r?.track) return;
+  const next = failureBanner(r.track);
+  if (next.key === r.track.key) return;
+  r.track.key = next.key;
+  S.result = { kind: next.kind, title: next.title, text: next.text, track: r.track };
+  emit('result', S.result);
+}
+on('history', refreshResult);
 
 // Whether a plan can be confirmed right now. block: why not, as a result
 // banner, or null. prot: each protected item's protection ({levels,
@@ -1340,12 +1478,15 @@ function planQuestion(plan) {
 // What an undo item would overwrite besides the take it undoes: the levels
 // it restores where dst no longer has that take's source, because
 // something changed them since. [{src, levels}] by what's there now. A
-// failed take may have left some levels as they were, so it can't tell.
+// failed take may have left some levels as they were: those it never
+// confirmed (failed) can't tell, so only the rest are checked. An entry
+// from before failures were recorded can't say which, so it checks none.
 export function changedSince(item) {
   const e = item.undo;
-  if (!e?.ok) return [];
+  if (!e || (!e.ok && !e.failed?.length)) return [];
   const t = S.tally.get(e.dst);
-  const levels = item.groups.flatMap((g) => g.levels).filter((u) => t?.has(u) && t.get(u) !== e.src);
+  const failed = new Set(e.ok ? [] : e.failed);
+  const levels = item.groups.flatMap((g) => g.levels).filter((u) => !failed.has(u) && t?.has(u) && t.get(u) !== e.src);
   return bySource(e.dst, levels.sort((a, b) => a - b));
 }
 
@@ -1361,6 +1502,9 @@ function itemSummary(item, boxed, prot, since) {
     prot
       ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
         `by device ${prot.devices.join(', ')}; will be refused`)
+      : null,
+    item.untouched?.length
+      ? el('div', 'sode__hist-note', `Level${item.untouched.length === 1 ? '' : 's'} ${levelText(item.untouched)}: the take didn't change ${item.untouched.length === 1 ? 'it' : 'them'}, left as is.`)
       : null,
     item.skipped.length
       ? el('div', 'sode__hist-note', `Level${item.skipped.length === 1 ? '' : 's'} ${levelText(item.skipped)}: nothing was routed before, left as is.`)

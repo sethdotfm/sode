@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 )
@@ -28,12 +30,17 @@ type Entry struct {
 	Err     string    `json:"err,omitempty"`
 	Undo    *int      `json:"undo,omitempty"`    // ID of the entry this take undid
 	Retry   *int      `json:"retry,omitempty"`   // ID of the failed entry this take retried
+	Failed  []int     `json:"failed,omitempty"`  // levels the router never confirmed or that weren't sent
+	Now     [][2]int  `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
 	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
 	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
-	Follow  *int      `json:"follow,omitempty"`  // ext only: ID of the take this seems to follow (destination follow, automation)
-	Found   bool      `json:"found,omitempty"`   // ext only: changed without a Connected; seen when Sode re-read the router
+	// ext only: group ID of the multi-take confirm this seems to follow; never one of its takes in particular
+	FollowGroup string `json:"followGroup,omitempty"`
+	Follow      *int   `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
+	Found       bool   `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
+	Late        []int  `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept
@@ -41,6 +48,7 @@ type Entry struct {
 // keeps entries in memory instead.
 type History struct {
 	mu   sync.Mutex
+	path string
 	f    *os.File
 	offs []int64 // start of each entry's line, indexed by ID
 	size int64
@@ -75,7 +83,7 @@ func OpenHistory(path string) (*History, error) {
 		h.offs = append(h.offs, off)
 		off += int64(len(line))
 	}
-	h.f, h.size = f, off
+	h.f, h.size, h.path = f, off, path
 	log.Printf("history: %s, %d entries", path, len(h.offs))
 	return h, nil
 }
@@ -101,6 +109,105 @@ func (h *History) Append(e *Entry) error {
 	h.offs = append(h.offs, h.size)
 	h.size += int64(len(b))
 	return nil
+}
+
+// Update changes entry id with fn and stores it, keeping its ID and place.
+// It reports the entry as stored, and false if there's no such entry. On
+// disk the file is rewritten (temp file, then rename), since a line's length
+// changes; that is rare (a late confirm), so it isn't made cheap, and callers
+// keep it off their hot path (App.lateWorker).
+func (h *History) Update(id int, fn func(*Entry)) (Entry, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.f == nil {
+		if id < 0 || id >= len(h.mem) {
+			return Entry{}, false
+		}
+		// Work on a copy: entries already handed out share the slices.
+		e := cloneEntry(h.mem[id])
+		fn(&e)
+		e.ID = id
+		h.mem[id] = e
+		return e, true
+	}
+	if id < 0 || id >= len(h.offs) {
+		return Entry{}, false
+	}
+	e, err := h.at(id)
+	if err != nil {
+		log.Printf("history: update %d: %v", id, err)
+		return Entry{}, false
+	}
+	old, _ := json.Marshal(e)
+	fn(&e)
+	e.ID = id
+	b, err := json.Marshal(e)
+	if err != nil {
+		log.Printf("history: update %d: %v", id, err)
+		return e, false
+	}
+	if string(b) == string(old) {
+		return e, true
+	}
+	b = append(b, '\n')
+	if err := h.rewrite(id, b); err != nil {
+		log.Printf("history: update %d: %v", id, err)
+		return e, false
+	}
+	return e, true
+}
+
+// rewrite replaces entry id's line with line, via a temp file renamed over
+// the log, and reopens it. Caller holds mu.
+func (h *History) rewrite(id int, line []byte) error {
+	start, end := h.offs[id], h.size
+	if id+1 < len(h.offs) {
+		end = h.offs[id+1]
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(h.path), filepath.Base(h.path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name()) // a no-op once renamed
+	tmp.Chmod(0o644)            // CreateTemp makes it 0600
+	_, err = io.Copy(tmp, io.NewSectionReader(h.f, 0, start))
+	if err == nil {
+		_, err = tmp.Write(line)
+	}
+	if err == nil {
+		_, err = io.Copy(tmp, io.NewSectionReader(h.f, end, h.size-end))
+	}
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if err == nil {
+		err = os.Rename(tmp.Name(), h.path)
+	}
+	if err != nil {
+		tmp.Close()
+		return err
+	}
+	// tmp is the log now, and already open read-write: no reopen to fail
+	// and leave h.f on the replaced file.
+	h.f.Close()
+	h.f = tmp
+	delta := int64(len(line)) - (end - start)
+	for i := id + 1; i < len(h.offs); i++ {
+		h.offs[i] += delta
+	}
+	h.size += delta
+	return nil
+}
+
+// cloneEntry copies e with its own slices.
+func cloneEntry(e Entry) Entry {
+	e.Levels = slices.Clone(e.Levels)
+	e.Prev = slices.Clone(e.Prev)
+	e.Failed = slices.Clone(e.Failed)
+	e.Now = slices.Clone(e.Now)
+	e.Already = slices.Clone(e.Already)
+	e.Late = slices.Clone(e.Late)
+	return e
 }
 
 // Clear drops every entry; IDs start again from 0.

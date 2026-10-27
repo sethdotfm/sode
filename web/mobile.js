@@ -321,6 +321,7 @@ const REVEAL = 96;
 const arrived = arrivals();
 
 const openFolders = new Set(); // history groups showing their takes
+const openFollowers = new Set(); // history groups showing their Followers
 const openChanges = new Set(); // merged rows (history IDs) listing their changes
 
 // Recent's buttons close any swiped-open row, then confirm.
@@ -384,9 +385,31 @@ function folderRows(f) {
   const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   if (!open) return [row];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(recentRow)));
+  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(recentRow), ...followerRows(f)));
   kids.id = kidsId;
   return [row, kids];
+}
+
+// "Followers · N" at the bottom of an open folder: changes made elsewhere
+// that seem to follow the confirm (not any one take), opening to their rows.
+function followerRows(f) {
+  if (!f.followers?.length) return [];
+  const open = openFollowers.has(f.group);
+  const kidsId = `m-followers-${f.group}`;
+  const toggle = disclosure(open, `${f.followers.length}`, kidsId, () => {
+    if (openFollowers.has(f.group)) openFollowers.delete(f.group);
+    else openFollowers.add(f.group);
+    renderRecent();
+  });
+  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
+  const face = el('div', 'sode-m__recent-face',
+    el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', toggle)));
+  clickToToggle(face, toggle);
+  const head = el('li', 'sode-m__recent-row', face);
+  if (!open) return [head];
+  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.followers.map(recentRow)));
+  kids.id = kidsId;
+  return [head, kids];
 }
 
 function swipeable(row, face) {
