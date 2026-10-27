@@ -452,6 +452,19 @@ code,
   font-size: var(--pb-text-xl);
 }
 .sode__down-arrow::before { content: "↓"; }
+/* Sending and Receiving: a window of about six rows, with a scrollbar
+   that stays visible (styled, so macOS doesn't overlay and hide it). */
+.sode__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: calc(var(--pb-control-h) * 6);
+  overflow-y: scroll;
+  padding-right: var(--pb-space-2);
+}
+.sode__scroll::-webkit-scrollbar { width: var(--pb-space-2); }
+.sode__scroll::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
+.sode__scroll::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
 .sode__feed {
   display: flex;
   flex-direction: column;

@@ -3,14 +3,14 @@
 
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelBar,
-  allLevels, fedBy, dstItem, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
+  allLevels, fedBy, bySource, dstLabel, dstItem, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, attachFollows, labelNode, retryPlan, planVerb, entryNote,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, scrollTopPref, flipped, setFlip,
 } from './core.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, followBoxes, clickToToggle, pullToLoad } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, lockout, stackSteps, followBoxes, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -32,7 +32,6 @@ for (const k of ['src', 'dst']) {
 }
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { onChange: () => renderTally() });
-let feedOpen = false; // "and N others" expanded
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -61,7 +60,6 @@ needsLink($('patch'));
 
 function select(k, it) {
   sel[k] = it;
-  if (k === 'src') feedOpen = false;
   const b = boxes[k];
   b.input.value = it ? it.label : '';
   b.input.classList.remove('pb-input--invalid');
@@ -167,10 +165,24 @@ function useLast(k) {
 
 // ---- tally display
 
-// Under each box: what the source feeds, and what is on the destinations.
-// Both show at once; each sits in its own box, so the flip moves them too.
+// Under each box: where the source is sending, and what the destinations
+// are receiving, as level bars like the history's. Both show at once; each
+// sits in its own box, so the flip moves them too. Long lists scroll.
 function underHead(text) {
   return el('div', 'sode__under-head', el('span', 'sode__down-arrow'), el('span', 'sode__label', text));
+}
+
+// One row per destination src is on, with the levels it's on there; the
+// name picks it as the destination.
+function sendingRow(src, d, levels) {
+  const t = S.tally.get(d);
+  const pick = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__end sode__end--dst', dstLabel(d));
+  pick.type = 'button';
+  pick.tabIndex = -1;
+  pick.title = 'Use as destination';
+  pick.addEventListener('mousedown', (e) => e.preventDefault());
+  pick.addEventListener('click', () => { select('dst', dstItem(d)); lvlInput.focus(); });
+  return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
 function renderTally() {
@@ -178,18 +190,18 @@ function renderTally() {
   const srcUnder = $('src-under'), dstUnder = $('dst-under');
   if (!S.cfg) { srcUnder.replaceChildren(); return dstUnder.replaceChildren(); }
   if (sel.src) {
-    const fed = fedBy(sel.src.n, lvl.levels() || allLevels());
-    srcUnder.replaceChildren(underHead(fed.length ? `Feeding ${fed.length}` : 'Feeding'), feeding(fed, {
-      open: feedOpen,
-      label: false,
-      onToggle: () => { feedOpen = !feedOpen; renderTally(); },
-      onPick: (d) => { select('dst', dstItem(d)); lvlInput.focus(); },
-      empty: 'Not feeding any destination on these levels',
-    }));
+    const levels = lvl.levels() || allLevels();
+    const fed = fedBy(sel.src.n, levels);
+    srcUnder.replaceChildren(underHead(fed.length ? `Sending to ${fed.length}` : 'Sending'), fed.length
+      ? el('div', 'sode__scroll', ...fed.map((d) => sendingRow(sel.src.n, d, levels)))
+      : el('div', 'sode__hint', 'Not sending to any destination on these levels'));
   } else srcUnder.replaceChildren();
   const ds = allDsts();
-  if (ds.length) dstUnder.replaceChildren(underHead('Receiving'), ...ds.flatMap(currentlyNodes));
-  else dstUnder.replaceChildren();
+  if (ds.length) {
+    const srcs = new Set(ds.flatMap((d) => bySource(d.n, allLevels()).map((r) => r.src)).filter((s) => s != null && s >= 0));
+    dstUnder.replaceChildren(underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving'),
+      el('div', 'sode__scroll', ...ds.flatMap(currentlyNodes)));
+  } else dstUnder.replaceChildren();
 }
 
 // ---- history
@@ -690,8 +702,7 @@ for (const k of ['src', 'dst']) {
   const b = boxes[k];
   b.input.addEventListener('input', () => {
     sel[k] = null;
-    if (k === 'src') feedOpen = false;
-    b.input.classList.remove('pb-input--invalid');
+      b.input.classList.remove('pb-input--invalid');
     b.cb.refresh();
     renderTally();
   });
