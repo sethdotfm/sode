@@ -234,6 +234,20 @@ func (l *SentLog) rotate() error {
 	return nil
 }
 
+// Total is how many entries the log holds now: the next seq less the
+// oldest one still on disk (or in memory). Rotation lowers it.
+func (l *SentLog) Total() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.cur == nil {
+		return int64(len(l.mem))
+	}
+	if l.old != nil {
+		return l.next - l.old.first
+	}
+	return l.next - l.cur.first
+}
+
 // Page returns up to n entries older than seq before, newest first, and
 // whether there are older ones still. before < 0 means from the newest.
 // A page's lines are read with one ReadAt per file and decoded after the
