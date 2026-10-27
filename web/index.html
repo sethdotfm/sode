@@ -94,9 +94,11 @@
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
         <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1" data-tip="Enter">Take</button>
       </div>
+      <!-- On a row of their own, so both start at the same height. -->
+      <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
+      <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
 
-    <div class="sode__tally" id="tally" aria-live="polite"></div>
     <div class="sode__result" id="result" aria-live="polite"></div>
 
     <section class="sode__history" aria-labelledby="history-head">

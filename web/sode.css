@@ -3,6 +3,7 @@
 /* Whole-UI scale for reading at a distance. */
 :root {
   --sode-scale: 1.25;
+  --sode-side-w: 5px; /* source and destination color edges */
   --sode-motion-enter: 400ms; /* a new history entry arriving */
 }
 @media (prefers-reduced-motion: reduce) {
@@ -238,6 +239,9 @@ code,
 [data-flip] .sode__box--levels,
 [data-flip] .sode__box--levels ~ .sode__box { order: 5; }
 .sode__chips[hidden] { display: none; }
+/* Source and destination colors on their inputs, as on the phone. */
+.sode__box--src .sode__input { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode__box--dst .sode__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
 /* About eight rows plus the count; the rest scrolls. */
 .sode__menu {
   left: 0;
@@ -341,7 +345,6 @@ code,
   color: var(--sode-ink, var(--pb-text-on-accent));
 }
 
-.sode__tally,
 .sode__result {
   display: flex;
   flex-direction: column;
@@ -360,8 +363,8 @@ code,
   color: var(--pb-text-strong);
   padding: var(--pb-space-2) var(--pb-space-4);
 }
-.sode__end--src { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
-.sode__end--dst { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
+.sode__end--src { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode__end--dst { border-left: var(--sode-side-w) solid var(--pb-dest); }
 .sode__arrow { color: var(--pb-text-muted); }
 
 .sode__scrim {
@@ -436,6 +439,43 @@ code,
 }
 .sode__bar > .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
 
+/* Under the Source and Destination boxes; the arrow is the → button's, turned down. */
+.sode__under {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__under:empty { display: none; }
+/* Below the boxes' row, under Source and Destination (the flip swaps
+   their columns), so both start at the same height. */
+.sode__under--src { grid-column: 1; grid-row: 2; }
+.sode__under--dst { grid-column: 3; grid-row: 2; }
+[data-flip] .sode__under--src { grid-column: 4; }
+[data-flip] .sode__under--dst { grid-column: 1; }
+.sode__under-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__down-arrow {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+}
+.sode__down-arrow::before { content: "↓"; }
+.sode__down-arrow--up::before { content: "↑"; }
+/* Sending and Receiving: a window of about six rows, with a scrollbar
+   that stays visible (styled, so macOS doesn't overlay and hide it). */
+.sode__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: calc(var(--pb-control-h) * 6);
+  overflow-y: scroll;
+  padding-right: var(--pb-space-2);
+}
+.sode__scroll::-webkit-scrollbar { width: var(--pb-space-2); }
+.sode__scroll::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
+.sode__scroll::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
 .sode__feed {
   display: flex;
   flex-direction: column;
@@ -561,7 +601,7 @@ code,
 .sode__plan-item {
   background: var(--pb-surface-sunken);
   border: var(--pb-border-w) solid var(--pb-edge);
-  border-left: var(--pb-accent-bar-w) solid var(--pb-dest);
+  border-left: var(--sode-side-w) solid var(--pb-dest);
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
@@ -1202,8 +1242,8 @@ code,
 }
 .sode-m__bar[data-step="src"] .sode-m__step { background: var(--pb-source); }
 .sode-m__bar[data-step="dst"] .sode-m__step { background: var(--pb-dest); }
-.sode-m__bar[data-step="src"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
-.sode-m__bar[data-step="dst"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
+.sode-m__bar[data-step="src"] .sode-m__input { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode-m__bar[data-step="dst"] .sode-m__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
 .sode-m__bar-head {
   align-items: center;
   display: flex;
