@@ -208,7 +208,7 @@ function summary() {
   const src = M.sel.src
     ? tap(el('button', 'sode-m__sum-val', labelNode(M.sel.src)), `Source ${M.sel.src.label}, tap to change`, editSrc)
     : maybe('src') ? sumVal(maybe('src'), ' sode-m__sum-val--maybe')
-      : sumNone(M.step === 'src' && !M.dsts.length && !inputs.src.value.trim() ? 'blank: Next picks the destination first' : '—');
+      : sumNone(M.step === 'src' && !M.dsts.length && !inputs.src.value.trim() ? '— Press Next to select a destination first.' : '—');
   const blankDst = M.step === 'dst' && !M.sel.src && !M.dsts.length && !inputs.dst.value.trim();
   const dsts = M.dsts.map((it, i) =>
     tap(el('button', 'sode-m__sum-val', labelNode(it)), `Destination ${it.label}, tap to change`, () => editDst(i)));
@@ -217,7 +217,7 @@ function summary() {
   const levels = lvl.levels();
   const rows = {
     src: () => sumRow('src', src),
-    dst: () => sumRow('dst', ...(dsts.length ? dsts : [sumNone(blankDst ? 'blank: Next picks the source first' : '—')])),
+    dst: () => sumRow('dst', ...(dsts.length ? dsts : [sumNone(blankDst ? '— Press Next to select a source first.' : '—')])),
     lvl: () => sumRow('lvl', levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
       levels && lvl.empty() ? sumNone('default') : null),
   };

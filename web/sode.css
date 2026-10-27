@@ -1226,6 +1226,13 @@ code,
   height: calc(var(--pb-control-h-lg) * 1.4);
   min-width: calc(var(--pb-control-h-lg) * 2.2);
 }
+/* Next stands out against the page (light in dark mode, dark in light)
+   without the red that Go keeps for the take. */
+.pb-btn.sode-m__go:not(.pb-btn--danger) {
+  background: var(--pb-text-strong);
+  border-color: var(--pb-text-strong);
+  color: var(--pb-surface-base);
+}
 @keyframes sode-shake {
   25% { transform: translateX(calc(var(--pb-space-2) * -1)); }
   75% { transform: translateX(var(--pb-space-2)); }
