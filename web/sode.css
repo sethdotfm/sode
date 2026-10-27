@@ -3,6 +3,7 @@
 /* Whole-UI scale for reading at a distance. */
 :root {
   --sode-scale: 1.25;
+  --sode-side-w: 5px; /* source and destination color edges */
   --sode-motion-enter: 400ms; /* a new history entry arriving */
 }
 @media (prefers-reduced-motion: reduce) {
@@ -239,8 +240,8 @@ code,
 [data-flip] .sode__box--levels ~ .sode__box { order: 5; }
 .sode__chips[hidden] { display: none; }
 /* Source and destination colors on their inputs, as on the phone. */
-.sode__box--src .sode__input { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
-.sode__box--dst .sode__input { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
+.sode__box--src .sode__input { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode__box--dst .sode__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
 /* About eight rows plus the count; the rest scrolls. */
 .sode__menu {
   left: 0;
@@ -362,8 +363,8 @@ code,
   color: var(--pb-text-strong);
   padding: var(--pb-space-2) var(--pb-space-4);
 }
-.sode__end--src { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
-.sode__end--dst { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
+.sode__end--src { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode__end--dst { border-left: var(--sode-side-w) solid var(--pb-dest); }
 .sode__arrow { color: var(--pb-text-muted); }
 
 .sode__scrim {
@@ -600,7 +601,7 @@ code,
 .sode__plan-item {
   background: var(--pb-surface-sunken);
   border: var(--pb-border-w) solid var(--pb-edge);
-  border-left: var(--pb-accent-bar-w) solid var(--pb-dest);
+  border-left: var(--sode-side-w) solid var(--pb-dest);
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
@@ -1241,8 +1242,8 @@ code,
 }
 .sode-m__bar[data-step="src"] .sode-m__step { background: var(--pb-source); }
 .sode-m__bar[data-step="dst"] .sode-m__step { background: var(--pb-dest); }
-.sode-m__bar[data-step="src"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
-.sode-m__bar[data-step="dst"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
+.sode-m__bar[data-step="src"] .sode-m__input { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode-m__bar[data-step="dst"] .sode-m__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
 .sode-m__bar-head {
   align-items: center;
   display: flex;
