@@ -383,8 +383,15 @@
         <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1"><span>Select</span><span>All</span></button>
       </div>
       <div class="sode-m__bar" id="m-bar" data-step="src">
-        <label class="sode-m__step" id="m-step" for="m-src">Source</label>
-        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode-m__cancel" id="m-cancel">Cancel</button>
+        <div class="sode-m__bar-head">
+          <label class="sode-m__step" id="m-step" for="m-src">Source</label>
+          <span class="sode-m__ops" id="m-ops" role="group" aria-label="Level operators" hidden>
+            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" data-op="!" aria-label="Not (leave out)" tabindex="-1">!</button>
+            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" data-op="+" aria-label="And" tabindex="-1">+</button>
+            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" data-op="-" aria-label="Through" tabindex="-1">-</button>
+          </span>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode-m__cancel" id="m-cancel">Cancel</button>
+        </div>
         <input id="m-src" class="pb-input sode-m__input" placeholder="Source" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <input id="m-dst" class="pb-input sode-m__input" placeholder="Destination" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>

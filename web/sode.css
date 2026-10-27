@@ -1142,7 +1142,6 @@ code,
   color: var(--pb-text-strong);
   font-size: var(--pb-text-xs);
   font-weight: var(--pb-weight-bold);
-  justify-self: start;
   letter-spacing: var(--pb-tracking-label);
   padding: var(--pb-space-1) var(--pb-space-3);
   text-transform: uppercase;
@@ -1151,7 +1150,23 @@ code,
 .sode-m__bar[data-step="dst"] .sode-m__step { background: var(--pb-dest); }
 .sode-m__bar[data-step="src"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
 .sode-m__bar[data-step="dst"] .sode-m__input { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
-.pb-btn.sode-m__cancel { justify-self: end; }
+.sode-m__bar-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  grid-column: 1 / -1;
+}
+.pb-btn.sode-m__cancel { margin-left: auto; }
+.sode-m__ops {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-m__ops[hidden] { display: none; }
+.sode-m__ops > .pb-btn {
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-lg);
+  min-width: var(--pb-control-h-lg);
+}
 /* 16px+ text stops iOS zooming into the field on focus. */
 .pb-input.sode-m__input {
   font-size: max(16px, var(--pb-text-lg));

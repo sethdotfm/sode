@@ -79,6 +79,7 @@ function setStep(step, focus = true) {
   syncGo();
   $('m-add').hidden = step !== 'dst';
   $('m-picker').hidden = step !== 'lvl';
+  $('m-ops').hidden = step !== 'lvl';
   matches.refresh(); // none on the Levels step
   lvl.render();
   if (focus) inputs[step].focus();
@@ -505,6 +506,15 @@ for (const k of STEPS) {
       setStep('src');
       matches.refresh();
     }
+  });
+}
+// The number pad has no ! + or -, so these type them at the cursor.
+for (const b of $('m-ops').children) {
+  b.addEventListener('pointerdown', (e) => e.preventDefault());
+  b.addEventListener('click', () => {
+    const i = inputs.lvl;
+    i.setRangeText(b.dataset.op, i.selectionStart ?? i.value.length, i.selectionEnd ?? i.value.length, 'end');
+    i.dispatchEvent(new Event('input'));
   });
 }
 for (const id of ['m-go', 'm-add']) $(id).addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
