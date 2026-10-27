@@ -442,6 +442,12 @@ code,
   gap: var(--pb-space-3);
 }
 .sode__under:empty { display: none; }
+/* Below the boxes' row, under Source and Destination (the flip swaps
+   their columns), so both start at the same height. */
+.sode__under--src { grid-column: 1; grid-row: 2; }
+.sode__under--dst { grid-column: 3; grid-row: 2; }
+[data-flip] .sode__under--src { grid-column: 4; }
+[data-flip] .sode__under--dst { grid-column: 1; }
 .sode__under-head {
   align-items: center;
   display: flex;

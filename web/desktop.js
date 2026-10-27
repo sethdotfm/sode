@@ -166,8 +166,8 @@ function useLast(k) {
 // ---- tally display
 
 // Under each box: where the source is sending, and what the destinations
-// are receiving, as level bars like the history's. Both show at once; each
-// sits in its own box, so the flip moves them too. Long lists scroll.
+// are receiving, as level bars like the history's. Both show at once, on a
+// row of their own under their boxes (the flip swaps them). Long lists scroll.
 function underHead(text) {
   return el('div', 'sode__under-head', el('span', 'sode__down-arrow'), el('span', 'sode__label', text));
 }
