@@ -144,37 +144,10 @@
       </div>
       <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
       <div class="sode__names">
-        <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Cancel</button>
+        <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
         <button type="submit" class="pb-btn pb-btn--commit" id="lock-unlock">Unlock</button>
       </div>
       <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then <code>docker compose restart sode</code>.</span>
-    </div>
-
-    <fieldset class="sode__group">
-      <legend>Names</legend>
-      <div class="sode__names">
-        <span id="names-status"></span>
-        <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh now</button>
-      </div>
-      <div class="sode__fields">
-        <div class="sode__field">
-          <label for="cfg-namerefresh">Refresh every (s)</label>
-          <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRefreshSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">0 = off</span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-namelen">Name length</label>
-          <span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
-        </div>
-        <div class="sode__field">
-          <label for="cfg-namereq">Name requests</label>
-          <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
-        </div>
-      </div>
-    </fieldset>
-
-    <div class="sode__open-log">
-      <a class="pb-btn pb-btn--outline" href="log" target="_blank" rel="noopener">Open Log</a>
     </div>
 
     <fieldset class="sode__group sode__device">
@@ -239,6 +212,33 @@
         </div>
       </div>
     </fieldset>
+
+    <fieldset class="sode__group">
+      <legend>Names</legend>
+      <div class="sode__names">
+        <span id="names-status"></span>
+        <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh now</button>
+      </div>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-namerefresh">Refresh every (s)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRefreshSeconds" data-type="int" min="0"></span>
+          <span class="sode__hint">0 = off</span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-namelen">Name length</label>
+          <span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-namereq">Name requests</label>
+          <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="sode__open-log">
+      <a class="pb-btn pb-btn--outline" href="log" target="_blank" rel="noopener">Open Log</a>
+    </div>
 
     <fieldset class="sode__group">
       <legend>Level colors</legend>
@@ -380,8 +380,9 @@
 
     <div class="sode__savebar">
       <div class="pb-note pb-note--error" id="settings-err" role="alert" hidden></div>
+      <div class="pb-note pb-note--warn" id="settings-unsaved" role="alert" hidden>Unsaved changes. Save them, or exit again to discard them.</div>
       <div class="sode__savebar-row">
-        <button type="button" class="pb-btn pb-btn--outline" id="settings-cancel">Cancel</button>
+        <button type="button" class="pb-btn pb-btn--outline" id="settings-exit">Exit</button>
         <span class="sode__hint" id="settings-path"></span>
         <button type="submit" class="pb-btn pb-btn--commit" id="settings-save">Save</button>
       </div>

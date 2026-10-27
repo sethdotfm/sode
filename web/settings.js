@@ -1,7 +1,8 @@
 // Settings view, shared by both layouts. Lives at #settings so Back and
-// reload work. Server settings save together; the layout choice is per
-// browser and applies at once. With a settings PIN, the view opens locked
-// and locks again when it closes.
+// reload work. Server settings save together, and the view stays open
+// after a save; the This device choices are per browser and apply at once.
+// Leaving with unsaved changes warns first. With a settings PIN, the view
+// opens locked and locks again when it closes.
 
 import { $, el, S, on, wsSend, sentence, fmtTime, ownPref, globalPref, setPref, filterSummary, normFilter, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { PREFS, resolve, toGlobal } from './prefs.js';
@@ -26,7 +27,58 @@ let shownMode = '1';
 function showView() {
   const want = location.hash === '#settings' && S.cfg;
   if (want && !isOpen()) openSettings();
-  else if (!want && isOpen()) closeSettings();
+  else if (!want && isOpen()) {
+    // Back with unsaved changes: stay, and warn; Back again leaves.
+    if (warnUnsaved()) history.pushState(null, '', '#settings');
+    else closeSettings();
+  }
+}
+
+// ---- unsaved changes: the server settings in the form against the last
+// opened or saved state. This device applies at once, so it isn't counted.
+
+let clean = '';
+let savedAt = null;
+const formState = () => JSON.stringify([...form.querySelectorAll('input, select, textarea')]
+  .filter((f) => !f.closest('.sode__device, .sode__lock'))
+  .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)));
+const dirty = () => isOpen() && formState() !== clean;
+const warned = () => !$('settings-unsaved').hidden;
+
+function markClean(saved) {
+  clean = formState();
+  savedAt = saved ? new Date().toISOString() : null;
+  unwarn();
+}
+
+// The first try at leaving with unsaved changes shows the warning and
+// returns true; the next one goes.
+function warnUnsaved() {
+  if (!dirty() || warned()) return false;
+  $('settings-unsaved').hidden = false;
+  $('settings-exit').textContent = 'Discard and exit';
+  renderSaveState();
+  return true;
+}
+
+function unwarn() {
+  $('settings-unsaved').hidden = true;
+  $('settings-exit').textContent = 'Exit';
+  renderSaveState();
+}
+
+function exitSettings() {
+  if (!warnUnsaved()) closeSettings();
+}
+
+// Next to Save: unsaved changes, or where (and when) it was saved.
+function renderSaveState() {
+  const path = S.configPath ? el('code', null, S.configPath) : null;
+  // The warning, once shown, says it already.
+  $('settings-path').replaceChildren(...(dirty() ? (warned() ? [] : ['Unsaved changes'])
+    : !path ? [savedAt ? `Applied ${fmtTime(savedAt)}; not saved: ` : 'Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']
+    : savedAt ? [`Saved ${fmtTime(savedAt)} to `, path]
+    : ['Saved to ', path]));
 }
 
 export function openSettings() {
@@ -56,7 +108,6 @@ export function openSettings() {
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
-  $('settings-path').replaceChildren(...(S.configPath ? ['Saved to ', el('code', null, S.configPath)] : ['Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']));
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderHiddenNote();
@@ -64,6 +115,7 @@ export function openSettings() {
   renderNamesStatus();
   window.scrollTo(0, 0);
   markSection();
+  markClean(false);
   renderLock(true);
 }
 
@@ -305,8 +357,15 @@ function renderNamesStatus() {
 function configResult(m) {
   $('settings-save').disabled = false;
   if (m.ok) {
-    if (isOpen()) closeSettings();
-    showResult('ok', 'Settings saved', S.configPath ? `Written to ${S.configPath}.` : 'Applied (not saved to disk).');
+    if (!isOpen()) return;
+    // Stay open. A new or removed PIN was sent once; a changed PIN has
+    // relocked everyone, this view included.
+    $('cfg-pin').value = '';
+    $('cfg-pin2').value = '';
+    $('cfg-pin-clear').checked = false;
+    renderPinStatus();
+    markClean(true);
+    renderLock();
     return;
   }
   if (m.locked) {
@@ -374,9 +433,14 @@ $('clear-confirm').addEventListener('click', () => {
 });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
-$('settings-cancel').addEventListener('click', closeSettings);
-$('settings-back').addEventListener('click', closeSettings); // phone: like Cancel
-$('lock-cancel').addEventListener('click', closeSettings);
+$('settings-exit').addEventListener('click', exitSettings);
+$('settings-back').addEventListener('click', exitSettings); // phone: like Exit
+$('lock-cancel').addEventListener('click', exitSettings);
+// Editing again after the warning takes it back, until the next try to leave.
+for (const ev of ['input', 'change']) form.addEventListener(ev, () => (warned() ? unwarn() : renderSaveState()));
+window.addEventListener('beforeunload', (e) => {
+  if (dirty()) e.preventDefault();
+});
 $('cfg-offset').addEventListener('input', renderOffsetNote);
 $('cfg-hidden').addEventListener('input', renderHiddenNote);
 $('cfg-colors-reset').addEventListener('click', () => {
@@ -451,7 +515,7 @@ form.addEventListener('submit', (e) => {
 document.addEventListener('keydown', (e) => {
   if (isOpen() && e.key === 'Escape') {
     e.preventDefault();
-    closeSettings();
+    exitSettings();
   }
 });
 window.addEventListener('popstate', showView);
