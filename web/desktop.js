@@ -80,6 +80,12 @@ const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...ds
 // +: the box's match becomes a chip. The typed search stays and its list
 // stays open without the chips, so the next match is one + away; typing
 // edits the search.
+// The search left in the box by the last + (null when there is none).
+// While the box still holds exactly that, it isn't a destination waiting
+// to be picked: Enter, Tab and Patch go on with the chips.
+let kept = null;
+const keptText = () => kept !== null && boxes.dst.input.value === kept;
+
 function addDst(pick) {
   const b = boxes.dst;
   b.input.focus();
@@ -94,6 +100,7 @@ function addDst(pick) {
   if (!chosen(sel.dst)) dsts.push(sel.dst);
   sel.dst = null;
   b.input.value = typed;
+  kept = typed.trim() ? typed : null;
   b.input.classList.remove('pb-input--invalid');
   renderChips();
   renderTally();
@@ -635,7 +642,7 @@ let confirmFromHist = false; // opened from Recent (decided then: rows get redra
 function patchNow() {
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
-    if (!sel[k] && b.input.value.trim()) {
+    if (!sel[k] && b.input.value.trim() && !(k === 'dst' && keptText())) {
       if (!b.cb.open) b.cb.refresh();
       b.cb.accept();
     }
@@ -670,7 +677,7 @@ function tryConfirm() {
     // The destination box may be empty when chips are there, but text
     // that matched nothing still stops the patch.
     const b = boxes[k];
-    if (!sel[k] && (k === 'src' || !dsts.length || b.input.value.trim())) {
+    if (!sel[k] && (k === 'src' || !dsts.length || (b.input.value.trim() && !(k === 'dst' && keptText())))) {
       b.input.classList.add('pb-input--invalid');
       b.input.focus();
       return;
@@ -877,7 +884,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Tab') {
     // Leaving a box either way takes its best match, like Enter does.
-    if (b && !sel[k] && b.input.value.trim() && !b.cb.accept()) {
+    if (b && !sel[k] && b.input.value.trim() && !(k === 'dst' && keptText()) && !b.cb.accept()) {
       e.preventDefault();
       b.input.classList.add('pb-input--invalid');
       return;

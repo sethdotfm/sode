@@ -116,7 +116,7 @@ function advance() {
     // Blank: pick the source first and come back for the destination.
     if (!inputs.dst.value.trim() && !M.dsts.length && !M.sel.src) return setStep('src');
     // Next with an empty box goes on with the destinations already added.
-    if (inputs.dst.value.trim() || !M.dsts.length) {
+    if ((inputs.dst.value.trim() && !keptText()) || !M.dsts.length) {
       const it = matches.current();
       if (!it) return shake(inputs.dst);
       addDst(it);
@@ -149,10 +149,17 @@ function choose(it) {
   renderThread();
 }
 
+// The search left in the box by the last + (null when there is none).
+// While the box still holds exactly that, Next goes on with the bubbles
+// instead of adding another match.
+let kept = null;
+const keptText = () => kept !== null && inputs.dst.value === kept;
+
 // keep: the search text and its match list stay for another (+).
 function addDst(it, keep = false) {
   if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
   if (!keep) inputs.dst.value = '';
+  kept = keep && inputs.dst.value.trim() ? inputs.dst.value : null;
   renderThread();
   if (keep) matches.refresh();
   else matches.close();
