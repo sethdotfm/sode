@@ -89,12 +89,35 @@ let boxSeq = 0;
 // pointerdown (keeps a phone's keyboard up) and picks on click, so a
 // scroll doesn't pick. reverse: the list is drawn bottom-up, so ↑ moves to
 // the next match. foot: a count pinned at the bottom of a long list.
-export function combobox(input, menu, { source, onPick, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = false }) {
+// add: a + button on every row; add(item) when it is pressed (the list and
+// the box's focus stay as they are); canAdd() says whether the list has
+// them now (the phone's source step doesn't).
+export function combobox(input, menu, { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = false }) {
   const box = typeof input === 'function' ? input : () => input;
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;
   let matches = [];
   let hi = 0;
   let last = null; // the box last drawn for, while it can change
+
+  function addButton(it) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'pb-icon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', 'vendor/patchbay/icons/lucide.svg#plus');
+    svg.append(use);
+    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', svg);
+    b.type = 'button';
+    b.tabIndex = -1;
+    b.title = 'Add and keep searching';
+    b.setAttribute('aria-label', `Add ${it.name}`);
+    // Neither the row's pick nor a blur of the box.
+    // pointerdown too: the phone's rows pick on click and keep the keyboard up.
+    for (const t of ['mousedown', 'pointerdown']) b.addEventListener(t, (e) => { e.preventDefault(); e.stopPropagation(); });
+    b.addEventListener('click', (e) => { e.stopPropagation(); add(it); });
+    return b;
+  }
 
   function render() {
     const open = matches.length > 0;
@@ -119,6 +142,7 @@ export function combobox(input, menu, { source, onPick, press = 'mousedown', cls
       } else {
         li.addEventListener('mousedown', (e) => { e.preventDefault(); hi = i; accept(); });
       }
+      if (add && canAdd()) li.append(addButton(it));
       return li;
     }));
     // A pinned count makes it clear the list scrolls.

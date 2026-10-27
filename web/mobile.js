@@ -36,6 +36,9 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
   source: (text) => (M.step === 'lvl' || M.sel[M.step] ? []
     : search(M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n)), text, 50)),
   onPick: () => advance(),
+  // Destination rows have a + that adds the match and keeps the search.
+  add: (it) => { addDst(it, true); inputs.dst.focus(); },
+  canAdd: () => M.step === 'dst',
   press: 'click',
   cls: 'sode-m__match',
   hiCls: 'sode-m__match--hi',
@@ -116,7 +119,7 @@ function advance() {
     // Blank: pick the source first and come back for the destination.
     if (!inputs.dst.value.trim() && !M.dsts.length && !M.sel.src) return setStep('src');
     // Next with an empty box goes on with the destinations already added.
-    if (inputs.dst.value.trim() || !M.dsts.length) {
+    if ((inputs.dst.value.trim() && !keptText()) || !M.dsts.length) {
       const it = matches.current();
       if (!it) return shake(inputs.dst);
       addDst(it);
@@ -131,12 +134,13 @@ function advance() {
   openSheet(patchPlan(M.sel.src, M.dsts, levels));
 }
 
-// +: the best match becomes a bubble and the step starts over for another.
+// +: the best match becomes a bubble. The typed search stays and its list
+// stays open without the bubbles, so the next match is one + away.
 function plus() {
   if (M.step !== 'dst') return;
   const it = matches.current();
   if (!it) return shake(inputs.dst);
-  addDst(it);
+  addDst(it, true);
   inputs.dst.focus();
 }
 
@@ -148,11 +152,20 @@ function choose(it) {
   renderThread();
 }
 
-function addDst(it) {
+// The search left in the box by the last + (null when there is none).
+// While the box still holds exactly that, Next goes on with the bubbles
+// instead of adding another match.
+let kept = null;
+const keptText = () => kept !== null && inputs.dst.value === kept;
+
+// keep: the search text and its match list stay for another (+).
+function addDst(it, keep = false) {
   if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
-  inputs.dst.value = '';
-  matches.close();
+  if (!keep) inputs.dst.value = '';
+  kept = keep && inputs.dst.value.trim() ? inputs.dst.value : null;
   renderThread();
+  if (keep) matches.refresh();
+  else matches.close();
 }
 
 // Puts a destination bubble back in the box to edit.

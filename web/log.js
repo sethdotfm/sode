@@ -299,7 +299,7 @@ function row(e, fresh = false) {
   const why = WHY_LABEL[e.why] || e.why || '';
   const tr = el('tr', fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
-    el('td', null, KIND_LABEL[e.kind] || e.kind, ' ', el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`)),
+    el('td', null, el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`), ' ', KIND_LABEL[e.kind] || e.kind),
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),

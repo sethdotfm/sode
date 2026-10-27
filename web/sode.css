@@ -254,6 +254,7 @@ code,
   top: 100%;
   width: auto;
 }
+.sode__menu-add { margin-left: auto; }
 .sode__menu-count {
   background: var(--pb-surface-overlay);
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);
@@ -867,7 +868,7 @@ code,
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
 .sode__lock-exit { display: none; }
-.sode__settings[data-locked] > .sode__lock-exit { display: flex; }
+.sode__settings[data-locked] > .sode__lock-exit { align-items: center; display: flex; gap: var(--pb-space-5); justify-content: space-between; }
 .sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__open-log, .sode__lock-exit) { display: none; }
 /* This device first, then the prompt: it's the part anyone can change. */
 .sode__settings[data-locked] > .sode__settings-head { order: -2; }
@@ -937,7 +938,7 @@ code,
   gap: var(--pb-space-5);
   justify-content: space-between;
 }
-/* Save and the PIN Unlock buttons are green (the ok status color), set
+/* Save, Filters' Done and the PIN Unlock buttons are green (the ok status color), set
    apart from the red of discarding unsaved changes. */
 .sode__save {
   background-color: var(--pb-status-ok);
@@ -1197,6 +1198,7 @@ code,
 .sode-m__match { flex: 0 0 auto; }
 /* column-reverse: a later item sits above, so its bottom edge divides them. */
 .sode-m__match + .sode-m__match { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); }
+.sode-m__match > .sode__menu-add { height: var(--pb-control-h-lg); width: var(--pb-control-h-lg); }
 .sode-m__match--hi { background: var(--pb-accent-wash); }
 .sode-m__picker {
   align-items: center;

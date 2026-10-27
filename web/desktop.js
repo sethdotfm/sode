@@ -1,5 +1,6 @@
 // Desktop layout: three boxes, Tab between them, churning-key confirm.
-// + in the destination box adds another destination as a chip.
+// + in the destination box adds another destination as a chip; the search
+// and its match list stay for the next one.
 
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelBar,
@@ -27,6 +28,8 @@ for (const k of ['src', 'dst']) {
   b.cb = combobox(b.input, $(`${k}-menu`), {
     source: (text) => search(b.list(), text, MAX_MATCHES),
     onPick: (it) => select(k, it),
+    // Destinations: a + on each row adds it as a chip and keeps the search.
+    add: k === 'dst' ? (it) => addDst(it) : undefined,
     foot: true,
   });
 }
@@ -74,17 +77,34 @@ function select(k, it) {
 // Every destination the patch will go to: the chips, then the box.
 const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...dsts]);
 
-// +: the box's match becomes a chip and the box starts over for the next.
-function addDst() {
+// +: the box's match becomes a chip. The typed search stays and its list
+// stays open without the chips, so the next match is one + away; typing
+// edits the search.
+// The search left in the box by the last + (null when there is none).
+// While the box still holds exactly that, it isn't a destination waiting
+// to be picked: Enter, Tab and Patch go on with the chips.
+let kept = null;
+const keptText = () => kept !== null && boxes.dst.input.value === kept;
+
+function addDst(pick) {
   const b = boxes.dst;
   b.input.focus();
-  if (!sel.dst) {
-    if (!b.input.value.trim()) return;
+  // Picking a match writes its label into the box; the search is put back.
+  let typed = b.input.value;
+  if (pick) sel.dst = pick;
+  else if (!sel.dst) {
+    if (!typed.trim()) return;
     if (!b.cb.open) b.cb.refresh();
     if (!b.cb.accept()) { b.input.classList.add('pb-input--invalid'); return; }
-  }
+  } else typed = '';
   if (!chosen(sel.dst)) dsts.push(sel.dst);
-  select('dst', null);
+  sel.dst = null;
+  b.input.value = typed;
+  kept = typed.trim() ? typed : null;
+  b.input.classList.remove('pb-input--invalid');
+  renderChips();
+  renderTally();
+  b.cb.refresh();
 }
 
 function renderChips() {
@@ -622,7 +642,7 @@ let confirmFromHist = false; // opened from Recent (decided then: rows get redra
 function patchNow() {
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
-    if (!sel[k] && b.input.value.trim()) {
+    if (!sel[k] && b.input.value.trim() && !(k === 'dst' && keptText())) {
       if (!b.cb.open) b.cb.refresh();
       b.cb.accept();
     }
@@ -657,7 +677,7 @@ function tryConfirm() {
     // The destination box may be empty when chips are there, but text
     // that matched nothing still stops the patch.
     const b = boxes[k];
-    if (!sel[k] && (k === 'src' || !dsts.length || b.input.value.trim())) {
+    if (!sel[k] && (k === 'src' || !dsts.length || (b.input.value.trim() && !(k === 'dst' && keptText())))) {
       b.input.classList.add('pb-input--invalid');
       b.input.focus();
       return;
@@ -864,7 +884,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Tab') {
     // Leaving a box either way takes its best match, like Enter does.
-    if (b && !sel[k] && b.input.value.trim() && !b.cb.accept()) {
+    if (b && !sel[k] && b.input.value.trim() && !(k === 'dst' && keptText()) && !b.cb.accept()) {
       e.preventDefault();
       b.input.classList.add('pb-input--invalid');
       return;
@@ -903,7 +923,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
-$('dst-add').addEventListener('click', addDst);
+$('dst-add').addEventListener('click', () => addDst());
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
 $('confirm-cancel').addEventListener('click', () => closeConfirm());
