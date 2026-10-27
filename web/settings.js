@@ -298,6 +298,7 @@ $('clear-confirm').addEventListener('click', () => {
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-cancel').addEventListener('click', closeSettings);
+$('settings-back').addEventListener('click', closeSettings); // phone: like Cancel
 $('lock-cancel').addEventListener('click', closeSettings);
 $('cfg-offset').addEventListener('input', renderOffsetNote);
 $('cfg-hidden').addEventListener('input', renderHiddenNote);
