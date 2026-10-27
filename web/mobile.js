@@ -520,6 +520,18 @@ for (const b of $('m-ops').children) {
     i.dispatchEvent(new Event('input'));
   });
 }
+// Backspace right after one of those words takes the whole word and its
+// spaces. beforeinput, since phone keyboards often send no key code.
+inputs.lvl.addEventListener('beforeinput', (e) => {
+  const i = inputs.lvl;
+  if (e.inputType !== 'deleteContentBackward' || i.selectionStart !== i.selectionEnd) return;
+  const before = i.value.slice(0, i.selectionStart);
+  const m = before.match(/\s*\b(not|and|through)\s*$/i);
+  if (!m) return;
+  e.preventDefault();
+  i.setRangeText('', m.index, i.selectionStart, 'end');
+  i.dispatchEvent(new Event('input'));
+});
 for (const id of ['m-go', 'm-add']) $(id).addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
 $('m-go').addEventListener('click', advance);
 $('m-add').addEventListener('click', plus);
