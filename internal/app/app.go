@@ -367,11 +367,11 @@ func (a *App) flush() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if len(a.pend) > 0 {
-		a.broadcast(map[string]any{"t": "tally", "u": a.pend})
+		a.broadcast(deltaMsg{T: "tally", U: a.pend})
 		a.pend = nil
 	}
 	if len(a.pendProt) > 0 {
-		a.broadcast(map[string]any{"t": "protect", "u": a.pendProt})
+		a.broadcast(deltaMsg{T: "protect", U: a.pendProt})
 		a.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
@@ -398,7 +398,7 @@ func (a *App) flush() {
 				log.Printf("names: %d sources, %d destinations", len(a.srcNames), len(a.dstNames))
 				a.namesDirt = true
 			} else {
-				a.broadcast(map[string]any{"t": "namesChecked", "at": a.namesAt})
+				a.broadcast(namesCheckedMsg{T: "namesChecked", At: a.namesAt})
 			}
 		}
 	}
@@ -431,8 +431,8 @@ func refreshed(old, got map[int]string) map[int]string {
 	return got
 }
 
-func (a *App) namesMsg() map[string]any {
-	return map[string]any{"t": "names", "srcs": sorted(a.srcNames), "dsts": sorted(a.dstNames), "at": a.namesAt}
+func (a *App) namesMsg() namesMsg {
+	return namesMsg{T: "names", Srcs: sorted(a.srcNames), Dsts: sorted(a.dstNames), At: a.namesAt}
 }
 
 func sorted(m map[int]string) [][2]any {
@@ -476,8 +476,8 @@ func (a *App) readHello() helloPage {
 // Caller holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
-	m := a.namesMsg()
-	m["t"] = "hello"
+	n := a.namesMsg()
+	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
 	m["tally"] = triples(a.tally)
 	m["protect"] = triples(a.protect)
 	m["status"] = a.status
@@ -640,24 +640,28 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 	if a.locked(c) {
 		return errLocked
 	}
-	cfg.SettingsPin = a.r().cfg.SettingsPin
-	// Filter sets are saved from Recent's Filters, not the settings form,
-	// so a browser's copy may be stale: keep the current ones.
-	cfg.FilterSets = slices.Clone(a.r().cfg.FilterSets)
-	switch {
-	case clearPin:
-		cfg.SettingsPin = ""
-	case pin != "":
-		if err := config.CheckPinRules(pin); err != nil {
-			return err
+	return a.applyConfig(func(cur *config.Config) error {
+		// cur is a copy of the live config. Filter sets are saved from
+		// Recent's Filters, not the settings form, so a browser's copy may
+		// be stale: keep the current ones.
+		keepSets, keepPin := cur.FilterSets, cur.SettingsPin
+		*cur = cfg
+		cur.FilterSets, cur.SettingsPin = keepSets, keepPin
+		switch {
+		case clearPin:
+			cur.SettingsPin = ""
+		case pin != "":
+			if err := config.CheckPinRules(pin); err != nil {
+				return err
+			}
+			h, err := config.HashPin(pin)
+			if err != nil {
+				return err
+			}
+			cur.SettingsPin = h
 		}
-		h, err := config.HashPin(pin)
-		if err != nil {
-			return err
-		}
-		cfg.SettingsPin = h
-	}
-	return a.ApplyConfig(cfg)
+		return nil
+	})
 }
 
 // SaveFilterSets replaces the filter sets for everyone, from c (Recent's
@@ -668,51 +672,65 @@ func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	if a.locked(c) {
 		return errLocked
 	}
-	cfg := a.r().cfg
-	// Its own copies: Normalize rewrites slices in place, and the live
-	// config's are read by others meanwhile.
-	cfg.LevelColors = slices.Clone(cfg.LevelColors)
-	cfg.TrustedProxies = slices.Clone(cfg.TrustedProxies)
-	cfg.FilterSets = sets
-	cfg.Normalize()
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	nr, err := newRuntime(cfg)
+	_, nr, err := a.update(func(cur *config.Config) error {
+		cur.FilterSets = sets
+		return nil
+	})
 	if err != nil {
 		return err
-	}
-	if a.cfgPath != "" {
-		if err := config.Save(a.cfgPath, cfg); err != nil {
-			return fmt.Errorf("saving %s: %w", a.cfgPath, err)
-		}
 	}
 	// Only the sets changed: browsers get them alone, not a full snapshot
 	// that would reset their Recent.
 	a.mu.Lock()
 	a.rt.Store(nr)
-	a.broadcast(map[string]any{"t": "filterSets", "sets": cfg.FilterSets})
+	a.broadcast(filterSetsMsg{T: "filterSets", Sets: nr.cfg.FilterSets})
 	a.mu.Unlock()
 	return nil
+}
+
+// update is the one way settings change: mutate edits a copy of the live
+// config, which is then normalized, validated, built into a runtime and
+// saved. It stores nothing: the caller swaps in the new runtime (under mu,
+// with whatever else must change at once) and says who hears of it. Caller
+// holds cfgMu.
+func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err error) {
+	old = a.r()
+	cfg := old.cfg.Clone()
+	if err := mutate(&cfg); err != nil {
+		return nil, nil, err
+	}
+	cfg.Normalize()
+	if err := cfg.Validate(); err != nil {
+		return nil, nil, err
+	}
+	nw, err = newRuntime(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	if a.cfgPath != "" {
+		if err := config.Save(a.cfgPath, cfg); err != nil {
+			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
+		}
+	}
+	return old, nw, nil
 }
 
 // ApplyConfig validates, saves and applies new settings. Router-side changes
 // clear state and reconnect; every browser gets a fresh snapshot.
 func (a *App) ApplyConfig(c config.Config) error {
-	c.Normalize()
-	if err := c.Validate(); err != nil {
-		return err
-	}
-	nr, err := newRuntime(c)
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	return a.applyConfig(func(cur *config.Config) error { *cur = c; return nil })
+}
+
+// applyConfig is update, then the swap and a full snapshot for everyone.
+// Caller holds cfgMu.
+func (a *App) applyConfig(mutate func(*config.Config) error) error {
+	oldRt, nr, err := a.update(mutate)
 	if err != nil {
 		return err
 	}
-	if a.cfgPath != "" {
-		if err := config.Save(a.cfgPath, c); err != nil {
-			return fmt.Errorf("saving %s: %w", a.cfgPath, err)
-		}
-	}
-	old := a.r().cfg
+	old, c := oldRt.cfg, nr.cfg
 	reconnect := old.Router != c.Router || old.Matrix != c.Matrix || old.Levels != c.Levels ||
 		old.LevelWireOffset != c.LevelWireOffset || old.NameLength != c.NameLength || old.NameRequests != c.NameRequests
 
@@ -738,7 +756,7 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.status.Err = ""
 	}
 	hello := a.hello(page)
-	locked, _ := json.Marshal(map[string]any{"t": "locked"})
+	locked, _ := json.Marshal(simpleMsg{T: "locked"})
 	for cl := range a.clients {
 		a.deliver(cl, hello)
 		// An unlock is for the PIN it was entered against.
@@ -1052,10 +1070,10 @@ func uis(ls []*takeLevel) []int {
 // confirmed.
 func (a *App) take(c *client, req takeReq) {
 	r := a.r()
-	res := map[string]any{"t": "takeResult", "id": req.ID, "ok": false}
+	res := &takeResult{T: "takeResult", ID: req.ID}
 	w, err := planTake(r, req)
 	if err != nil {
-		res["err"] = err.Error()
+		res.Err = err.Error()
 		a.reply(c, res)
 		return
 	}
@@ -1122,7 +1140,7 @@ func (a *App) take(c *client, req takeReq) {
 	a.mu.Unlock()
 	sort.Ints(e.Already)
 	if len(e.Already) > 0 {
-		res["already"] = e.Already
+		res.Already = e.Already
 	}
 	if sendErr != nil {
 		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(r, uis(w.filter(func(l *takeLevel) bool { return l.unsent }))), sendErr))
@@ -1259,7 +1277,7 @@ func (a *App) lateConfirm(id int, uis []int) {
 	log.Printf("LATE #%d src=%d %q dst=%d %q level %s confirmed after the take gave up (ok=%t)",
 		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r, done), e.OK)
 	a.mu.Lock()
-	a.broadcast(map[string]any{"t": "recent", "e": e, "update": true})
+	a.broadcast(recentMsg{T: "recent", E: &e, Update: true})
 	a.mu.Unlock()
 }
 
@@ -1453,15 +1471,15 @@ func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 }
 
 // finish records a take in history and answers the browser.
-func (a *App) finish(c *client, res map[string]any, e *Entry, err error) {
+func (a *App) finish(c *client, res *takeResult, e *Entry, err error) {
 	e.OK = err == nil
-	res["ok"] = e.OK
+	res.OK = e.OK
 	if err != nil {
 		e.Err = err.Error()
-		res["err"] = e.Err
+		res.Err = e.Err
 	}
 	a.record(e)
-	res["entry"] = e.ID // the browser's banner follows this entry
+	res.Entry = &e.ID // the browser's banner follows this entry
 	a.reply(c, res)
 }
 
@@ -1502,7 +1520,7 @@ func (a *App) record(e *Entry) {
 			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
 	}
 	a.mu.Lock()
-	a.broadcast(map[string]any{"t": "recent", "e": e})
+	a.broadcast(recentMsg{T: "recent", E: e})
 	a.mu.Unlock()
 }
 
@@ -1517,7 +1535,7 @@ func (a *App) ClearHistory(who string) {
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
 	a.lateTake, a.lateHits = map[ownKey][]lateTake{}, nil // their entries are gone
-	a.broadcast(map[string]any{"t": "historyCleared"})
+	a.broadcast(simpleMsg{T: "historyCleared"})
 	a.mu.Unlock()
 }
 
@@ -1534,7 +1552,7 @@ func (a *App) history(c *client, before, n int) {
 		log.Printf("history: %v", err)
 	}
 	// before as asked, so the browser can tell a page it no longer wants.
-	a.reply(c, map[string]any{"t": "history", "before": before, "entries": entries, "more": morePages(entries)})
+	a.reply(c, historyMsg{T: "history", Before: before, Entries: entries, More: morePages(entries)})
 }
 
 // morePages reports whether entries older than a page remain.

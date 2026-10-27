@@ -158,9 +158,9 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			Config   *config.Config     `json:"config"`
 			Pin      string             `json:"pin"`
 			ClearPin bool               `json:"clearPin"`
+			ID       int                `json:"id"` // echoed by unlock and filterSets replies
 			Items    []takeReq          `json:"items"`
 			Sets     []config.FilterSet `json:"sets"`
-			takeReq
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
@@ -168,8 +168,6 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		switch m.T {
 		case "batch":
 			go a.batch(c, m.Items)
-		case "take": // pages loaded before batches existed
-			go a.batch(c, []takeReq{m.takeReq})
 		case "history":
 			go a.history(c, m.Before, m.N)
 		case "sent":
@@ -179,25 +177,25 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "unlock":
 			// Checked in line, so a lock sent after it is handled after it
 			// and one connection checks one PIN at a time.
-			res := map[string]any{"t": "unlockResult", "ok": true, "id": m.ID}
+			res := opResult{T: "unlockResult", OK: true, ID: &m.ID}
 			if err := a.Unlock(c, m.Pin); err != nil {
-				res["ok"], res["err"] = false, err.Error()
+				res.OK, res.Err = false, err.Error()
 			}
 			a.reply(c, res)
 		case "lock":
 			a.Lock(c)
 		case "clearHistory":
 			if a.locked(c) {
-				a.reply(c, map[string]any{"t": "locked"})
+				a.reply(c, simpleMsg{T: "locked"})
 				continue
 			}
 			go a.ClearHistory(c.ip)
 		case "filterSets":
 			go func(sets []config.FilterSet, id int) {
-				res := map[string]any{"t": "filterSetsResult", "ok": true, "id": id}
+				res := opResult{T: "filterSetsResult", OK: true, ID: &id}
 				if err := a.SaveFilterSets(c, sets); err != nil {
-					res["ok"], res["err"] = false, err.Error()
-					res["locked"] = errors.Is(err, errLocked)
+					res.OK, res.Err = false, err.Error()
+					res.Locked = locked(err)
 				} else {
 					log.Printf("config: filter sets saved by %s", c.ip)
 				}
@@ -221,10 +219,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				if keepDefaults {
 					cfg.DeviceDefaults = a.r().cfg.DeviceDefaults
 				}
-				res := map[string]any{"t": "configResult", "ok": true}
+				res := opResult{T: "configResult", OK: true}
 				if err := a.SaveSettings(c, cfg, pin, clearPin); err != nil {
-					res["ok"], res["err"] = false, err.Error()
-					res["locked"] = errors.Is(err, errLocked)
+					res.OK, res.Err = false, err.Error()
+					res.Locked = locked(err)
 				} else {
 					log.Printf("config: saved by %s", c.ip)
 				}
@@ -232,4 +230,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}(*m.Config, m.Pin, m.ClearPin)
 		}
 	}
+}
+
+// locked is opResult.Locked for a failed save: whether the PIN was why.
+func locked(err error) *bool {
+	l := errors.Is(err, errLocked)
+	return &l
 }

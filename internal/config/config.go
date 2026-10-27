@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -161,6 +162,16 @@ func FromEnv(c Config) (Config, error) {
 }
 
 // Normalize fills derived defaults; call before Validate.
+// Clone returns a copy that shares no slices with c, so Normalize and other
+// in-place edits on it can't touch a config others are reading.
+func (c Config) Clone() Config {
+	c.TrustedProxies = slices.Clone(c.TrustedProxies)
+	c.LevelColors = slices.Clone(c.LevelColors)
+	c.FilterSets = slices.Clone(c.FilterSets)
+	c.HideDsts = slices.Clone(c.HideDsts)
+	return c
+}
+
 func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
 	c.RouterName = strings.TrimSpace(c.RouterName)
