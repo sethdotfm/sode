@@ -97,3 +97,66 @@ func TestHistoryPageKeepsGroups(t *testing.T) {
 		t.Fatalf("after reopen %+v", page[0])
 	}
 }
+
+func TestHistoryUpdate(t *testing.T) {
+	for _, name := range []string{"", "h.jsonl"} {
+		path := name
+		if path != "" {
+			path = filepath.Join(t.TempDir(), name)
+		}
+		h, err := OpenHistory(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 5; i++ {
+			h.Append(&Entry{Src: i, Failed: []int{1, 2}, Err: "short"})
+		}
+		long := "a much longer error than the one it replaces"
+		e, ok := h.Update(2, func(e *Entry) { e.Failed, e.Late, e.Err, e.ID = []int{2}, []int{1}, long, 99 })
+		if !ok || e.ID != 2 || e.Err != long {
+			t.Fatalf("%q: update %+v %v", name, e, ok)
+		}
+		if _, ok := h.Update(5, func(*Entry) {}); ok {
+			t.Fatal("updated an entry that isn't there")
+		}
+		if _, ok := h.Update(1, func(*Entry) {}); !ok {
+			t.Fatal("no-op update failed")
+		}
+		check := func(h *History) {
+			t.Helper()
+			page, err := h.Page(-1, 10)
+			if err != nil || len(page) != 5 {
+				t.Fatalf("%q: page %+v err %v", name, page, err)
+			}
+			for i, e := range page {
+				id := 4 - i
+				if e.ID != id || e.Src != id {
+					t.Fatalf("%q: entry %d is %+v", name, id, e)
+				}
+				if (id == 2) != (e.Err == long) || (id == 2) != (len(e.Late) == 1) {
+					t.Fatalf("%q: entry %d amended wrongly: %+v", name, id, e)
+				}
+			}
+		}
+		check(h)
+		h.Append(&Entry{Src: 5})
+		if h.Len() != 6 {
+			t.Fatalf("%q: len %d", name, h.Len())
+		}
+		h.Update(5, func(e *Entry) { e.Err = long })
+		if path == "" {
+			continue
+		}
+		h2, err := OpenHistory(path)
+		if err != nil || h2.Len() != 6 {
+			t.Fatalf("reopen: %v, len %d", err, h2.Len())
+		}
+		page, _ := h2.Page(-1, 10)
+		if page[0].ID != 5 || page[0].Err != long || page[3].Err != long || page[3].ID != 2 {
+			t.Fatalf("reopened %+v", page)
+		}
+		if m, _ := filepath.Glob(path + ".tmp-*"); len(m) != 0 {
+			t.Fatalf("temp files left: %v", m)
+		}
+	}
+}

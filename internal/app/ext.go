@@ -87,6 +87,10 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 			return
 		}
 	}
+	// A take gave up on this route, but the router did make it: ours too.
+	if !found && a.claimLate(k, ui) {
+		return
+	}
 	now := time.Now()
 	if len(a.ext) == 0 {
 		a.extFirst = now
@@ -106,8 +110,14 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 
 // flushExt writes a finished burst to history.
 func (a *App) flushExt() {
+	a.flushLate()
 	a.mu.Lock()
 	now := time.Now()
+	for k, lt := range a.lateTake {
+		if now.After(lt.until) {
+			delete(a.lateTake, k)
+		}
+	}
 	for _, m := range []map[ownKey]time.Time{a.own, a.late} {
 		for k, until := range m {
 			if now.After(until) {

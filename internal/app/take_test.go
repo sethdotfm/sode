@@ -232,17 +232,102 @@ func TestTakeNoConfirmation(t *testing.T) {
 		t.Fatalf("failed %v, now %v", e.Failed, e.Now)
 	}
 	leftovers(t, a)
-	// A late answer to the last interrogate is still ours, not a change found.
-	a.onRouterMsg(swp08.ExtTally(0, 1, 5, 7))
-	endBurst(a)
-	if n := a.hist.Len(); n != 1 {
-		t.Fatalf("late tally of our route recorded: %d entries", n)
+	last := func() Entry {
+		es, _ := a.hist.Page(-1, 1)
+		return es[0]
 	}
-	// The route made later elsewhere is someone else's.
+	// A late Connected is the take's after all (#91): not an ext entry, and
+	// the take's entry loses that level from Failed.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
-	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || !es[0].Ext || es[0].Src != 7 {
+	if n := a.hist.Len(); n != 1 {
+		t.Fatalf("late Connected of our route recorded: %d entries", n)
+	}
+	e = last()
+	if e.OK || !equalInts(e.Failed, []int{2, 3}) || !equalInts(e.Late, []int{1}) ||
+		e.Err != "no confirmation from router: level 2 no answer; level 3 no answer" {
+		t.Fatalf("partly late %+v", e)
+	}
+	// So is a late answer to the last interrogate.
+	a.onRouterMsg(swp08.ExtTally(0, 1, 5, 7))
+	endBurst(a)
+	e = last()
+	if a.hist.Len() != 1 || e.OK || !equalInts(e.Failed, []int{3}) || !equalInts(e.Late, []int{1, 2}) ||
+		e.Err != "no confirmation from router: level 3 no answer" {
+		t.Fatalf("entries %d, %+v", a.hist.Len(), e)
+	}
+	// The last level: nothing left failing.
+	a.onRouterMsg(swp08.ExtConnected(0, 2, 5, 7))
+	endBurst(a)
+	e = last()
+	if a.hist.Len() != 1 || !e.OK || e.Err != "" || len(e.Failed) != 0 || !equalInts(e.Late, []int{1, 2, 3}) {
+		t.Fatalf("all late %+v", e)
+	}
+	// The claim is used up: the route made again elsewhere is someone else's.
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 8))
+	endBurst(a)
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
+	endBurst(a)
+	if es, _ := a.hist.Page(-1, 1); a.hist.Len() != 3 || !es[0].Ext || es[0].Src != 7 {
 		t.Fatalf("later change elsewhere %+v", es)
+	}
+}
+
+// Past the window, a Connected for the route is a change made elsewhere.
+func TestTakeLateTooLate(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.ignore[5] = true
+	e := takeOne(t, a, 7, 5, 1)
+	a.mu.Lock()
+	if len(a.lateTake) != 1 {
+		t.Fatalf("lateTake %v", a.lateTake)
+	}
+	for k, lt := range a.lateTake {
+		lt.until = time.Now().Add(-time.Second)
+		a.lateTake[k] = lt
+	}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 2)
+	if len(es) != 2 || !es[0].Ext || es[0].Src != 7 || es[1].OK || len(es[1].Late) != 0 || es[1].ID != e.ID {
+		t.Fatalf("too late %+v", es)
+	}
+}
+
+// An answer between the take's entry being recorded and its waiter being
+// removed confirms the level in the waiter; the entry is amended too.
+func TestTakeAnswerInGap(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.ignore[5] = true
+	a.gapHook = func() { a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7)) }
+	takeOne(t, a, 7, 5, 1, 2, 3)
+	leftovers(t, a)
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 2)
+	if len(es) != 1 || es[0].OK || !equalInts(es[0].Failed, []int{2, 3}) || !equalInts(es[0].Late, []int{1}) ||
+		es[0].Err != "no confirmation from router: level 2 no answer; level 3 no answer" {
+		t.Fatalf("amended %+v", es)
+	}
+}
+
+func TestDropMissing(t *testing.T) {
+	const pre = "no confirmation from router: "
+	for _, c := range []struct{ in, label, want string }{
+		{pre + "level 1 no answer; level 2 still on X", "1", pre + "level 2 still on X"},
+		{pre + "level 1 no answer; level 2 no answer; levels 3 not sent: busy", "2", pre + "level 1 no answer; levels 3 not sent: busy"},
+		{pre + "level 1 no answer; levels 3 not sent: busy", "1", "levels 3 not sent: busy"},
+		{pre + "level 10 no answer; level 1 no answer", "1", pre + "level 10 no answer"},
+	} {
+		if got := dropMissing(c.in, c.label); got != c.want {
+			t.Errorf("dropMissing(%q, %q) = %q, want %q", c.in, c.label, got, c.want)
+		}
 	}
 }
 
