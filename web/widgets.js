@@ -4,7 +4,7 @@
 // the few things it does differently.
 
 import {
-  el, S, needsLink, levelBar, srcItem, dstItem, levelText, beforeGroups, tallyText, fmtClock, restorePlan, parseLevels, levelInput, defaultLevelsText, relabelLevels, pickButtons, allLevels, dstLabel, planEmpty, chevron,
+  el, S, needsLink, levelBar, srcItem, dstItem, levelText, beforeGroups, tallyText, fmtClock, restorePlan, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels, dstLabel, planEmpty, chevron,
 } from './core.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -15,7 +15,7 @@ const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 // take focus ('mousedown' on desktop, 'pointerdown' on a phone, to keep the
 // keyboard up). placeholder() is the blank box's text. onChange after the
 // levels change.
-export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsText, onChange = () => {} } = {}) {
+export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholder = defaultLevelsHint, onChange = () => {} } = {}) {
   let none = false; // picker cleared to no levels (a blank box would mean default)
   const levels = () => parseLevels(input.value, none);
 

@@ -7,7 +7,7 @@
 // goes to the other first (to see what's on it) and comes back.
 
 import {
-  $, el, S, on, flipped, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, defaultLevelsText, levelBar, allLevels,
+  $, el, S, on, flipped, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, defaultLevelsWord, levelBar, allLevels,
   levelText, fedBy, dstItem, srcItem, labelNode, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan,
   resultNode, showResult,
@@ -42,7 +42,6 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
 });
 const lvl = levelBox(inputs.lvl, $('m-picks'), $('m-all'), {
   hold: 'pointerdown',
-  placeholder: () => `${defaultLevelsText()} (default)`,
   onChange: () => renderThread(),
 });
 const active = () => layout() === 'phone' && document.documentElement.dataset.view !== 'settings';
@@ -262,7 +261,7 @@ function summary() {
     src: () => sumRow('src', src),
     dst: () => sumRow('dst', ...(dsts.length ? dsts : [sumNone(blankDst ? '— Press Next to select a source first.' : '—')])),
     lvl: () => sumRow('lvl', levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
-      levels && lvl.empty() ? sumNone('default') : null),
+      levels && lvl.empty() ? sumNone(`(${defaultLevelsWord()})`) : null),
   };
   return el('div', 'sode-m__sum', ...order().map((k) => rows[k]()));
 }

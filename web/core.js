@@ -486,6 +486,10 @@ export function relabelLevels(text) {
 
 // The default levels as they'd be typed, for a box's placeholder.
 export const defaultLevelsText = () => levelInput(parseLevels('') || []);
+// What the default is called by a blank levels box: All when it's every
+// level.
+export const defaultLevelsWord = () => ((parseLevels('') || []).length === S.levels.length ? 'All' : 'default');
+export const defaultLevelsHint = () => `${defaultLevelsText()} (${defaultLevelsWord()})`;
 
 // Collapses a sorted level list into runs: [[1,3],[5,5]].
 function levelRuns(list) {
