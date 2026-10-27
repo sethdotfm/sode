@@ -752,11 +752,35 @@ code,
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
 /* Settings: one plain column, labels above fields, the page scrolls.
-   Sections sit further apart than the fields inside them. */
+   Sections sit well apart from each other, further than the fields inside
+   them. */
 .sode__settings {
   align-items: stretch;
-  gap: var(--pb-space-9);
+  gap: calc(var(--pb-space-10) + var(--pb-space-5));
   max-width: 640px;
+}
+/* The table of contents: a strip across the top, held there as the page
+   scrolls, and beside the column where there's room. The phone layout has
+   Back and a short page of its own, so it goes without. */
+.sode__toc {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2); }
+[data-layout="phone"] .sode__toc { display: none; }
+@media (min-width: 1100px) {
+  .sode__toc {
+    border-bottom: 0;
+    flex-direction: column;
+    left: calc(50% - 320px - 200px - var(--pb-space-8));
+    overflow-x: hidden;
+    position: fixed;
+    top: 10vh;
+    width: 200px;
+  }
+  .sode__toc .pb-tab { text-align: left; }
+  .sode__settings > .sode__group { scroll-margin-top: var(--pb-space-10); }
 }
 .sode__settings-head {
   align-items: center;
@@ -869,6 +893,13 @@ code,
   gap: var(--pb-space-5);
   justify-content: space-between;
 }
+/* Save and the PIN Unlock buttons are green (the ok status color), set
+   apart from the red of discarding unsaved changes. */
+.sode__save {
+  background-color: var(--pb-status-ok);
+  color: var(--pb-text-on-accent);
+}
+.sode__save:hover { background-color: color-mix(in srgb, var(--pb-status-ok) 85%, black); }
 
 /* ---- Phone layout ----------------------------------------------------- */
 
