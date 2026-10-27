@@ -81,13 +81,13 @@ type App struct {
 	ext      map[int]map[int]*extLevel // dst → UI level
 	extFirst time.Time
 	extLast  time.Time
-	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
-	late     map[ownKey]time.Time // finished takes' unconfirmed routes → until when a tally of one is ours
-	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
-	lateTake map[ownKey]lateTake  // the same, with the history entry to amend if one turns up (#91)
-	lateHits []lateHit            // late answers awaiting their entry's amendment (flushLate)
-	causes   []*cause             // recent takes that changes elsewhere may follow
-	leaders  map[int]int          // dst → the dst it was last seen following
+	own      map[ownKey]time.Time  // our takes' connects → when to stop treating them as ours
+	late     map[ownKey]time.Time  // finished takes' unconfirmed routes → until when a tally of one is ours
+	seenAt   map[[2]int]time.Time  // dst, UI level → when the router last reported its route
+	lateTake map[ownKey][]lateTake // the same, with the history entry to amend if one turns up (#91)
+	lateHits []lateHit             // late answers awaiting their entry's amendment (flushLate)
+	causes   []*cause              // recent takes that changes elsewhere may follow
+	leaders  map[int]int           // dst → the dst it was last seen following
 
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
@@ -137,7 +137,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		ext:      map[int]map[int]*extLevel{},
 		own:      map[ownKey]time.Time{},
 		late:     map[ownKey]time.Time{},
-		lateTake: map[ownKey]lateTake{},
+		lateTake: map[ownKey][]lateTake{},
 		seenAt:   map[[2]int]time.Time{},
 		leaders:  map[int]int{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
@@ -701,7 +701,7 @@ func (a *App) ApplyConfig(c config.Config) error {
 		a.causes = nil
 		a.leaders = map[int]int{}
 		a.own = map[ownKey]time.Time{}
-		a.lateTake, a.lateHits = map[ownKey]lateTake{}, nil
+		a.lateTake, a.lateHits = map[ownKey][]lateTake{}, nil
 		a.extFirst, a.extLast = time.Time{}, time.Time{}
 		a.newSrc, a.newDst = nil, nil
 		a.namesAt = time.Time{}
@@ -882,7 +882,9 @@ func (w *waiter) finishIfDone() {
 func (w *waiter) register(a *App) {
 	a.waiters[w] = struct{}{}
 	a.causes = append(a.causes, w.cause)
-	until := time.Now().Add(ownFor)
+	// The connects may wait behind other takes' messages for up to queueMax;
+	// sendTake shortens the keys to ownFor once they have gone out.
+	until := time.Now().Add(queueMax + ownFor)
 	for _, l := range w.levels {
 		if !l.same {
 			a.own[ownKey{w.dst, l.wire, w.src}] = until
@@ -908,7 +910,14 @@ func (w *waiter) unregister(a *App, id int) {
 		if !l.confirmed && !l.unsent {
 			until := time.Now().Add(lateFor)
 			a.late[k] = until
-			a.lateTake[k] = lateTake{id: id, until: until, cause: w.cause}
+			// Only a level the router said nothing about may be answered late;
+			// one it reported on (still on the old route, or on someone
+			// else's) isn't waiting for this take, and a later Connected for
+			// src is a change made elsewhere. Retries of the same route each
+			// wait for the answer.
+			if !l.seen {
+				a.lateTake[k] = append(a.lateTake[k], lateTake{id: id, until: until, cause: w.cause})
+			}
 		}
 	}
 	delete(a.waiters, w)
@@ -1120,25 +1129,29 @@ type lateTake struct {
 type lateHit struct{ id, ui int }
 
 // claimLate reports whether k is a route a recent take gave up on, and if so
-// queues the amendment of its entry (flushLate; history I/O doesn't belong
-// under mu). The claim is used up. Caller holds mu.
+// queues the amendment of its entries (flushLate; history I/O doesn't belong
+// under mu): every take that gave up on it, a retry too. The claims are used up. Caller holds mu.
 func (a *App) claimLate(k ownKey, ui int) bool {
-	lt, ok := a.lateTake[k]
+	lts, ok := a.lateTake[k]
 	if !ok {
 		return false
 	}
 	delete(a.lateTake, k)
-	if !time.Now().Before(lt.until) {
-		return false
+	claimed := false
+	for _, lt := range lts {
+		if !time.Now().Before(lt.until) {
+			continue
+		}
+		claimed = true
+		a.lateHits = append(a.lateHits, lateHit{lt.id, ui})
+		// Destinations that follow this one (a PiP its DSM) change with it, now,
+		// not when the take was recorded. The cause may have been dropped.
+		lt.cause.saw(time.Now())
+		if !slices.Contains(a.causes, lt.cause) {
+			a.causes = append(a.causes, lt.cause)
+		}
 	}
-	a.lateHits = append(a.lateHits, lateHit{lt.id, ui})
-	// Destinations that follow this one (a PiP its DSM) change with it, now,
-	// not when the take was recorded. The cause may have been dropped.
-	lt.cause.saw(time.Now())
-	if !slices.Contains(a.causes, lt.cause) {
-		a.causes = append(a.causes, lt.cause)
-	}
-	return true
+	return claimed
 }
 
 // flushLate amends the entries of takes whose late answers have come.
@@ -1298,7 +1311,8 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 	// the connects' own keys run from then.
 	leftQueue(last)
 	a.mu.Lock()
-	until := time.Now().Add(ownFor)
+	w.cause.sent = time.Now()
+	until := w.cause.sent.Add(ownFor)
 	for _, l := range w.levels {
 		k := ownKey{w.dst, l.wire, w.src}
 		if _, ok := a.own[k]; ok {
@@ -1435,7 +1449,7 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
-	a.lateTake, a.lateHits = map[ownKey]lateTake{}, nil // their entries are gone
+	a.lateTake, a.lateHits = map[ownKey][]lateTake{}, nil // their entries are gone
 	a.broadcast(map[string]any{"t": "historyCleared"})
 	a.mu.Unlock()
 }

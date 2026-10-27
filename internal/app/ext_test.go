@@ -241,7 +241,7 @@ func TestExtFollows(t *testing.T) {
 	}
 
 	// A change that may follow our take still in flight waits for it.
-	c := &cause{src: 6, dst: 5, id: -1}
+	c := &cause{src: 6, dst: 5, id: -1, sent: time.Now().Add(-time.Second)}
 	a.mu.Lock()
 	a.causes = append(a.causes, c)
 	c.saw(time.Now())
@@ -258,6 +258,21 @@ func TestExtFollows(t *testing.T) {
 	a.flushExt()
 	if e := last(); e.Follow == nil || *e.Follow != 77 {
 		t.Fatalf("held follow %+v", e)
+	}
+}
+
+// A take still queued behind others' messages (not sent yet) can't have
+// caused a change that's already here, so it doesn't hold the burst.
+func TestExtNotHeldByQueuedTake(t *testing.T) {
+	a := newTestApp(t)
+	a.mu.Lock()
+	a.causes = append(a.causes, &cause{src: 6, dst: 5, id: -1})
+	a.mu.Unlock()
+	n := a.hist.Len()
+	a.onRouterMsg(swp08.ExtConnected(0, 2, 9, 6))
+	endBurst(a)
+	if a.hist.Len() != n+1 {
+		t.Fatal("burst held for a take whose connects hadn't gone out")
 	}
 }
 

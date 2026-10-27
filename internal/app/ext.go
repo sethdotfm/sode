@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"time"
@@ -37,7 +38,9 @@ const (
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
 	// A burst that may follow a take still in flight waits for it to be
 	// recorded, up to this long after the burst began.
-	extHold   = queueMax + checkTimeout + takeTimeout + takeGrace + 2*time.Second
+	// A take still queued behind others' messages holds nothing: its changes
+	// can't have come yet (cause.sent).
+	extHold   = takeTimeout + takeGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 
@@ -56,6 +59,7 @@ type ownKey struct{ dst, wire, src int }
 type cause struct {
 	src, dst    int
 	first, last time.Time // its changes as the router reported them; zero = none yet
+	sent        time.Time // when its connects had gone out; zero while they're queued
 	id          int
 	done        bool   // recorded
 	group       string // history group of the multi-take confirm it belongs to, "" if alone
@@ -114,9 +118,12 @@ func (a *App) flushExt() {
 	a.flushLate()
 	a.mu.Lock()
 	now := time.Now()
-	for k, lt := range a.lateTake {
-		if now.After(lt.until) {
+	for k, lts := range a.lateTake {
+		lts = slices.DeleteFunc(lts, func(lt lateTake) bool { return now.After(lt.until) })
+		if len(lts) == 0 {
 			delete(a.lateTake, k)
+		} else {
+			a.lateTake[k] = lts
 		}
 	}
 	for _, m := range []map[ownKey]time.Time{a.own, a.late} {
@@ -175,12 +182,13 @@ func (a *App) flushFound(dst int) {
 // takes still waiting for the router. Caller holds mu.
 func (a *App) extAwaitsTake() bool {
 	for _, c := range a.causes {
-		if c.done {
+		if c.done || c.sent.IsZero() {
 			continue
 		}
 		for dst, ls := range a.ext {
 			for _, l := range ls {
-				if !l.found && l.src == c.src && dst != c.dst {
+				// A change before the connects went out can't follow them.
+				if !l.found && l.src == c.src && dst != c.dst && !l.first.Before(c.sent.Add(-followBefore)) {
 					return true
 				}
 			}

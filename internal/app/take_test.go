@@ -307,9 +307,10 @@ func TestTakeLateTooLate(t *testing.T) {
 	if len(a.lateTake) != 1 {
 		t.Fatalf("lateTake %v", a.lateTake)
 	}
-	for k, lt := range a.lateTake {
-		lt.until = time.Now().Add(-time.Second)
-		a.lateTake[k] = lt
+	for _, lts := range a.lateTake {
+		for i := range lts {
+			lts[i].until = time.Now().Add(-time.Second)
+		}
 	}
 	a.mu.Unlock()
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
@@ -726,4 +727,62 @@ func TestTakeWaitsForQueue(t *testing.T) {
 		t.Fatalf("take %+v", e)
 	}
 	leftovers(t, a)
+}
+
+// A retry that fails too must not take over the first take's claim: when
+// the router answers late, both entries are amended (#91).
+func TestTakeLateRetryKeepsBoth(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0)
+	f.ignore[5] = true
+	e1 := takeOne(t, a, 7, 5, 1)
+	e2 := takeOne(t, a, 7, 5, 1)
+	if e1.OK || e2.OK || e1.ID == e2.ID {
+		t.Fatalf("takes %+v %+v", e1, e2)
+	}
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 3)
+	if len(es) != 2 || !es[0].OK || !es[1].OK || !equalInts(es[0].Late, []int{1}) || !equalInts(es[1].Late, []int{1}) {
+		t.Fatalf("both should be amended: %+v", es)
+	}
+}
+
+// A level the router answered for (still on its old route) isn't waiting
+// for the take: a Connected for src soon after is someone else's change.
+func TestTakeLateOnlyUnanswered(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0)
+	f.deaf[[2]int{5, 0}] = true // connect ignored, interrogate answers: still on source 1
+	e := takeOne(t, a, 7, 5, 1)
+	if e.OK || len(e.Now) != 1 {
+		t.Fatalf("take %+v", e)
+	}
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 3)
+	if len(es) != 2 || !es[0].Ext || es[0].Src != 7 || es[1].OK || len(es[1].Late) != 0 {
+		t.Fatalf("panel change claimed by the take: %+v", es)
+	}
+}
+
+// The connects' own keys last through the longest wait in the send queue.
+func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	w, err := planTake(a.r(), takeReq{Src: 7, Dst: 5, Levels: []int{1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.mu.Lock()
+	w.register(a)
+	until := a.own[ownKey{5, w.levels[0].wire, 7}]
+	a.mu.Unlock()
+	if time.Until(until) < queueMax+ownFor-time.Second {
+		t.Fatalf("own key ends in %v", time.Until(until))
+	}
 }
