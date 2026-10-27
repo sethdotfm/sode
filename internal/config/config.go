@@ -60,6 +60,23 @@ type Config struct {
 	// PinMaxTries wrong PINs in a row lock settings until the PIN is reset
 	// (sode -reset-pin) or Sode restarts; 0 = never.
 	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries"`
+	// DeviceDefaults are what the "This device" settings are for browsers
+	// that haven't chosen their own. Browser-side only: changing them never
+	// touches the router link.
+	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults"`
+}
+
+// DeviceDefaults mirrors the per-browser settings (web/prefs.js): Theme is
+// system | light | dark, Layout auto | phone | desktop, Clock 24 | 12 |
+// locale; Flip is Destination before Source, ScrollTop scrolls to the top
+// when a box is focused, SearchFilters makes quick search respect filters.
+type DeviceDefaults struct {
+	Theme         string `yaml:"theme" json:"theme"`
+	Layout        string `yaml:"layout" json:"layout"`
+	Clock         string `yaml:"clock" json:"clock"`
+	Flip          bool   `yaml:"flip" json:"flip"`
+	ScrollTop     bool   `yaml:"scrollTop" json:"scrollTop"`
+	SearchFilters bool   `yaml:"searchFilters" json:"searchFilters"`
 }
 
 // FilterSet is one named Recent filter (see web/filter.js): which kinds of
@@ -89,6 +106,7 @@ func Defaults() Config {
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
+		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true},
 	}
 }
 
@@ -163,6 +181,19 @@ func (c *Config) Normalize() {
 	}
 	if c.LevelColors == nil {
 		c.LevelColors = []string{}
+	}
+	d := &c.DeviceDefaults
+	d.Theme = strings.ToLower(strings.TrimSpace(d.Theme))
+	d.Layout = strings.ToLower(strings.TrimSpace(d.Layout))
+	d.Clock = strings.ToLower(strings.TrimSpace(d.Clock))
+	if d.Theme == "" {
+		d.Theme = "system"
+	}
+	if d.Layout == "" {
+		d.Layout = "auto"
+	}
+	if d.Clock == "" {
+		d.Clock = "24"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
@@ -258,6 +289,21 @@ func (c Config) Validate() error {
 	}
 	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
 		bad("PIN tries before lockout must be 0 (never) or 1-1000")
+	}
+	switch c.DeviceDefaults.Theme {
+	case "system", "light", "dark":
+	default:
+		bad("default theme must be system, light or dark")
+	}
+	switch c.DeviceDefaults.Layout {
+	case "auto", "phone", "desktop":
+	default:
+		bad("default layout must be auto, phone or desktop")
+	}
+	switch c.DeviceDefaults.Clock {
+	case "24", "12", "locale":
+	default:
+		bad("default clock must be 24, 12 or locale")
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {

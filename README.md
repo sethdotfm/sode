@@ -4,7 +4,7 @@ Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultri
 
 Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8` or `1+3+5-8`; `!` leaves levels out: `!1` is every level but 1, `1-8!3` is 1-8 without 3; words work too: `t`, `thru` or `through` for `-`, `n` or `not` for `!`, `and` for `,`, as in `1 thru 8 not 3`; on a phone's number pad `.` for `,` and `..` for `-`, as in `1..8.10`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
 
-Ctrl+S, Ctrl+D and Ctrl+F (Control on a Mac too) fill Source, Destination(s) or Levels from your last take and move on (Source to Destination, Destination back to Source). After a reload, they use the newest Sode take in history. Each box shows that value as a small chip by its label (Levels only when they aren't the default); clicking it does the same.
+Ctrl+s, Ctrl+d and Ctrl+f fill Source, Destination(s) or Levels from your last take and move on (Source to Destination, Destination back to Source). After a reload, they use the newest Sode take in history. Each box shows that value as a small chip by its label (Levels only when they aren't the default); clicking it does the same.
 
 To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip and the box starts over. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
 
@@ -12,7 +12,7 @@ To patch one source to several destinations, press `+` (or the + button) instead
 
 The router also moves destinations by itself, such as a multiviewer PiP that follows a DSM. When the same source lands on another destination within half a second of a Sode take, Sode logs it as a **follow** of that take ("+1 follow") rather than a row of its own. Before lists the follows. Undo leaves them out unless you tick "Also undo … suspected automation" in the confirm (Space on desktop), because undoing the take lets the router redo its own automation. Each take of a Sode salvo has its own follows and its own Undo. A panel salvo of one source to several destinations stays one folder. Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
 
-**Search.** Filter by Source and Filter by Destination above Recent work like the patch boxes. Typing lists matching sources or destinations, including names logged in history, so a source the router has since renamed is still found. Pick one with ↑↓ (or Alt+J/K) and Enter, Tab or `+`, and Recent shows every entry for it, from the whole log. Each pick becomes a chip, so you can add more, and Recent shows entries for any of them. Backspace in an empty box removes the last pick. A take also shows if one of its follows matches. You can type an expression instead (`1-50`, `MV, !PGM`, `/^DSM/`), which applies as typed. Search ignores Filters unless Settings → This device → **Search respects filters** is on. Esc closes the list, then clears the box. On desktop, Shift+S and Shift+D jump to them from keyboard mode.
+**Search.** Filter by Source and Filter by Destination above Recent work like the patch boxes. Typing lists matching sources or destinations, including names logged in history, so a source the router has since renamed is still found. Pick one with ↑↓ (or Ctrl+j/k, ⌘j/k on a Mac) and Enter, Tab or `+`, and Recent shows every entry for it, from the whole log. Each pick becomes a chip, so you can add more, and Recent shows entries for any of them. Backspace in an empty box removes the last pick. A take also shows if one of its follows matches. You can type an expression instead (`1-50`, `MV, !PGM`, `/^DSM/`), which applies as typed. Search ignores Filters unless Settings → This device → **Search respects filters** is on. Esc closes the list, then clears the box. On desktop, ⇧s and ⇧d jump to them from keyboard mode.
 
 **Filters.** The **Filters** button in Recent's header scopes what Recent shows *in this browser*. It reads "Filters · 2" in blue while any are on.
 - Pick which entries to show: Sode takes, panel changes, and panel changes to globally hidden destinations.
@@ -48,7 +48,7 @@ Terms are separated by commas. A name matches if it fits any plain term and no `
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
 - Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
-- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. While you type, a summary of the patch stays at the top and Currently shows what's on the destination. Leave Source blank and press Next to pick the destination first. Swipe a recent take or folder left to undo. Settings → This device can put Destination before Source (on desktop the arrow between the boxes does the same), force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
+- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. While you type, a summary of the patch stays at the top and Currently shows what's on the destination. Leave Source blank and press Next to pick the destination first. Swipe a recent take or folder left to undo. Settings → This device (each choice can also stay on **Global**, the default set for everyone in Defaults for every device) can put Destination before Source (on desktop the arrow between the boxes does the same), force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
 
 ## Run
 
@@ -69,7 +69,7 @@ SODE_ROUTER=10.0.0.50:8910 docker compose up -d --build
 
 ## Settings
 
-Settings live in `/data/config.yaml` on the `sode-data` volume and are edited from the **Settings** button at the bottom of the page. Saving applies immediately; changes to the router, matrix, levels or name options reconnect and reload names and routes.
+Settings live in `/data/config.yaml` on the `sode-data` volume and are edited from the **Settings** button at the bottom of the page (a contents list beside or above the groups jumps to each one). Saving applies immediately; changes to the router, matrix, levels or name options reconnect and reload names and routes.
 
 On first start, when there is no config file yet, it is created from these seed variables. After that the file wins and the variables are ignored.
 
@@ -94,6 +94,7 @@ On first start, when there is no config file yet, it is created from these seed 
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
 | | `filterSets` | `[]` | Named Recent filters offered to every browser as quick buttons: `name`, `src`, `dst` (filter expressions), `sode`, `ext`, `hidden`. Settings only |
 | | `hiddenDsts` | | Filter expression (see Filters) for destinations whose changes from other panels every browser's Recent hides unless its Filters show them. Still recorded. Settings only |
+| | `deviceDefaults` | `theme: system`, `layout: auto`, `clock: "24"`, `flip: false`, `scrollTop: true`, `searchFilters: false` | What Settings → This device follows in a browser that hasn't chosen its own: theme (`system`, `light`, `dark`), layout (`auto`, `phone`, `desktop`), clock (`"24"`, `"12"`, `locale`), Destination before Source, scroll to the top on focus, search respects filters. A browser's own choice wins; **Global** in its dropdown goes back to this. Settings → Defaults for every device; applying never reconnects. Settings only |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
 | | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |
 
