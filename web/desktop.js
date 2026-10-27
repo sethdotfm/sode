@@ -327,25 +327,32 @@ function folderRow(f) {
 }
 
 // The "Followers" row at the bottom of a folder, and (opened) the
-// followers under it: changes made elsewhere that seem to follow the
-// confirm, not any one take. Same columns as a take's row.
+// followers inside it: changes made elsewhere that seem to follow the
+// confirm, not any one take. Same columns as a take's row, and a stop for
+// the keyboard cursor like a folder (key w<group>).
 function followerRows(f) {
   if (!f.followers?.length) return [];
   const open = openFollowers.has(f.group);
-  const id = `hist-followers-${f.group}`;
-  const toggle = disclosure(open, `${f.followers.length}`, id, () => {
+  const kidsId = `hist-followers-${f.group}`;
+  const key = `w${f.group}`;
+  const toggle = disclosure(open, `${f.followers.length}`, kidsId, () => {
     if (openFollowers.has(f.group)) openFollowers.delete(f.group);
     else openFollowers.add(f.group);
     renderHistory();
   });
   toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
-  const head = el('li', 'pb-input sode__hist-row',
+  const head = el('li', 'pb-input sode__hist-row' + curClass(key),
     el('span', 'sode__hist-id'), el('span', 'sode__hist-time'), el('span'),
     el('span', 'sode__hist-route', 'Followers'),
     el('span'), toggle, el('span', 'sode__hist-actions'));
-  clickToToggle(head, toggle);
-  head.id = id;
-  return [head, ...(open ? f.followers.map(histRow) : [])];
+  head.dataset.key = key;
+  clickToToggle(head, toggle, '.sode__hist-folder');
+  if (open) {
+    const kids = el('ul', 'sode__hist-folder', ...f.followers.map(histRow));
+    kids.id = kidsId;
+    head.append(kids);
+  }
+  return [head];
 }
 
 // A row's date and time; below 1000px the date hides and shows on hover.
@@ -406,7 +413,12 @@ function stops(list = pager.list()) {
   list.forEach((r, top) => {
     if (r.e) return out.push({ key: `e${r.e.id}`, e: r.e, top });
     out.push({ key: `f${r.f.group}`, f: r.f, top });
-    if (openFolders.has(r.f.group)) for (const e of r.f.shown) out.push({ key: `e${e.id}`, e, top, in: r.f });
+    if (!openFolders.has(r.f.group)) return;
+    for (const e of r.f.shown) out.push({ key: `e${e.id}`, e, top, in: r.f });
+    // The Followers row, and its rows when open.
+    if (!r.f.followers?.length) return;
+    out.push({ key: `w${r.f.group}`, head: r.f, top, in: r.f });
+    if (openFollowers.has(r.f.group)) for (const e of r.f.followers) out.push({ key: `e${e.id}`, e, top, in: r.f, follower: true });
   });
   return out;
 }
@@ -446,8 +458,8 @@ function step(d) {
   // Coming up into a closed folder lands on its last take, mirroring
   // the way down.
   if (d < 0 && next.f && list[i].in?.group !== next.f.group && autoOpen.has(next.f.group)) {
-    const last = next.f.shown[next.f.shown.length - 1];
-    moveTo(stops().find((x) => x.key === `e${last.id}`));
+    const kids = stops().filter((x) => x.in?.group === next.f.group);
+    moveTo(kids[kids.length - 1]);
   }
 }
 
@@ -471,9 +483,15 @@ function nextGroup() {
 function open(on) {
   const s = curStop();
   if (!s) return;
-  if (s.e) {
+  if (s.head) {
+    // l opens the Followers row, h closes it, or goes up to the folder.
+    if (on) openFollowers.add(s.head.group);
+    else if (openFollowers.has(s.head.group)) openFollowers.delete(s.head.group);
+    else return moveTo(stops().find((x) => x.key === `f${s.in.group}`));
+  } else if (s.e) {
     if (on) expanded.add(s.e.id);
     else if (expanded.has(s.e.id)) expanded.delete(s.e.id);
+    else if (s.follower) return moveTo(stops().find((x) => x.key === `w${s.in.group}`));
     else if (s.in) return moveTo(stops().find((x) => x.key === `f${s.in.group}`));
   } else if (on) {
     openFolders.add(s.f.group);
@@ -524,7 +542,7 @@ function onListKey(e) {
     J: nextGroup, K: latest,
     l: () => open(true), ArrowRight: () => open(true), Enter: () => open(!e.shiftKey),
     h: () => open(false), ArrowLeft: () => open(false),
-    u: () => { const s = curStop(); if (s) undoRow(s.f ? { f: s.f } : { e: s.e }); },
+    u: () => { const s = curStop(); if (s && (s.f || s.e)) undoRow(s.f ? { f: s.f } : { e: s.e }); },
     r: retryCur,
   }[k];
   if (!act) return false;

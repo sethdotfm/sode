@@ -395,8 +395,8 @@ function folderRows(f) {
 function followerRows(f) {
   if (!f.followers?.length) return [];
   const open = openFollowers.has(f.group);
-  const id = `m-followers-${f.group}`;
-  const toggle = disclosure(open, `${f.followers.length}`, id, () => {
+  const kidsId = `m-followers-${f.group}`;
+  const toggle = disclosure(open, `${f.followers.length}`, kidsId, () => {
     if (openFollowers.has(f.group)) openFollowers.delete(f.group);
     else openFollowers.add(f.group);
     renderRecent();
@@ -406,8 +406,10 @@ function followerRows(f) {
     el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', toggle)));
   clickToToggle(face, toggle);
   const head = el('li', 'sode-m__recent-row', face);
-  head.id = id;
-  return [head, ...(open ? f.followers.map(recentRow) : [])];
+  if (!open) return [head];
+  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.followers.map(recentRow)));
+  kids.id = kidsId;
+  return [head, kids];
 }
 
 function swipeable(row, face) {
