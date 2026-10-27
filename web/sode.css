@@ -238,6 +238,9 @@ code,
 [data-flip] .sode__box--levels,
 [data-flip] .sode__box--levels ~ .sode__box { order: 5; }
 .sode__chips[hidden] { display: none; }
+/* Source and destination colors on their inputs, as on the phone. */
+.sode__box--src .sode__input { border-left: var(--pb-accent-bar-w) solid var(--pb-source); }
+.sode__box--dst .sode__input { border-left: var(--pb-accent-bar-w) solid var(--pb-dest); }
 /* About eight rows plus the count; the rest scrolls. */
 .sode__menu {
   left: 0;
