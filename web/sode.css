@@ -1198,6 +1198,7 @@ code,
 .sode-m__match { flex: 0 0 auto; }
 /* column-reverse: a later item sits above, so its bottom edge divides them. */
 .sode-m__match + .sode-m__match { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); }
+.sode-m__match > .sode__menu-add { height: var(--pb-control-h-lg); width: var(--pb-control-h-lg); }
 .sode-m__match--hi { background: var(--pb-accent-wash); }
 .sode-m__picker {
   align-items: center;

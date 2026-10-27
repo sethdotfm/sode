@@ -36,6 +36,9 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
   source: (text) => (M.step === 'lvl' || M.sel[M.step] ? []
     : search(M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n)), text, 50)),
   onPick: () => advance(),
+  // Destination rows have a + that adds the match and keeps the search.
+  add: (it) => { addDst(it, true); inputs.dst.focus(); },
+  canAdd: () => M.step === 'dst',
   press: 'click',
   cls: 'sode-m__match',
   hiCls: 'sode-m__match--hi',

@@ -90,8 +90,9 @@ let boxSeq = 0;
 // scroll doesn't pick. reverse: the list is drawn bottom-up, so ↑ moves to
 // the next match. foot: a count pinned at the bottom of a long list.
 // add: a + button on every row; add(item) when it is pressed (the list and
-// the box's focus stay as they are).
-export function combobox(input, menu, { source, onPick, add, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = false }) {
+// the box's focus stay as they are); canAdd() says whether the list has
+// them now (the phone's source step doesn't).
+export function combobox(input, menu, { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = false }) {
   const box = typeof input === 'function' ? input : () => input;
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;
   let matches = [];
@@ -112,7 +113,8 @@ export function combobox(input, menu, { source, onPick, add, press = 'mousedown'
     b.title = 'Add and keep searching';
     b.setAttribute('aria-label', `Add ${it.name}`);
     // Neither the row's pick nor a blur of the box.
-    b.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+    // pointerdown too: the phone's rows pick on click and keep the keyboard up.
+    for (const t of ['mousedown', 'pointerdown']) b.addEventListener(t, (e) => { e.preventDefault(); e.stopPropagation(); });
     b.addEventListener('click', (e) => { e.stopPropagation(); add(it); });
     return b;
   }
@@ -140,7 +142,7 @@ export function combobox(input, menu, { source, onPick, add, press = 'mousedown'
       } else {
         li.addEventListener('mousedown', (e) => { e.preventDefault(); hi = i; accept(); });
       }
-      if (add) li.append(addButton(it));
+      if (add && canAdd()) li.append(addButton(it));
       return li;
     }));
     // A pinned count makes it clear the list scrolls.
