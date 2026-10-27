@@ -168,8 +168,10 @@ function useLast(k) {
 // Under each box: where the source is sending, and what the destinations
 // are receiving, as level bars like the history's. Both show at once, on a
 // row of their own under their boxes (the flip swaps them). Long lists scroll.
-function underHead(text) {
-  return el('div', 'sode__under-head', el('span', 'sode__down-arrow'), el('span', 'sode__label', text));
+// The arrow points down for what the source sends, up for what the
+// destinations receive.
+function underHead(text, up) {
+  return el('div', 'sode__under-head', el('span', up ? 'sode__down-arrow sode__down-arrow--up' : 'sode__down-arrow'), el('span', 'sode__label', text));
 }
 
 // One row per destination src is on, with the levels it's on there; the
@@ -199,7 +201,7 @@ function renderTally() {
   const ds = allDsts();
   if (ds.length) {
     const srcs = new Set(ds.flatMap((d) => bySource(d.n, allLevels()).map((r) => r.src)).filter((s) => s != null && s >= 0));
-    dstUnder.replaceChildren(underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving'),
+    dstUnder.replaceChildren(underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving', true),
       el('div', 'sode__scroll', ...ds.flatMap(currentlyNodes)));
   } else dstUnder.replaceChildren();
 }

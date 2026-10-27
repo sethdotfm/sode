@@ -458,6 +458,7 @@ code,
   font-size: var(--pb-text-xl);
 }
 .sode__down-arrow::before { content: "↓"; }
+.sode__down-arrow--up::before { content: "↑"; }
 /* Sending and Receiving: a window of about six rows, with a scrollbar
    that stays visible (styled, so macOS doesn't overlay and hide it). */
 .sode__scroll {
