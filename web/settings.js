@@ -139,32 +139,50 @@ on('prefs', renderPrefs);
 
 const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
 const toc = $('settings-toc');
-toc.replaceChildren(...sections.map((sec) => {
+// A clicked section stays marked while the page scrolls to it, which may
+// stop short of it near the bottom, until the scroll ends or the user
+// scrolls themselves.
+let picked = -1;
+toc.replaceChildren(...sections.map((sec, i) => {
   const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
   b.type = 'button';
-  b.addEventListener('click', () => sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
+  b.addEventListener('click', () => {
+    picked = i;
+    mark(i);
+    sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  });
   return b;
 }));
-let tocTick = false;
-function markSection() {
-  tocTick = false;
-  if (!isOpen()) return;
-  // The last section whose top has passed the upper part of the window; at
-  // the very bottom the last one, which may be too short to ever reach it.
-  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-  let cur = atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= window.innerHeight * 0.3);
-  cur = Math.max(cur, 0);
+function mark(cur) {
   [...toc.children].forEach((b, i) => {
     b.classList.toggle('active', i === cur);
     if (i === cur) b.setAttribute('aria-current', 'location');
     else b.removeAttribute('aria-current');
   });
 }
+let tocTick = false;
+function markSection() {
+  tocTick = false;
+  if (!isOpen() || picked >= 0) return;
+  // The last section whose top has reached the top of the window (where a
+  // click scrolls it to, its scroll margin down); at the very bottom the
+  // last one, which may be too short to ever reach it.
+  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+  const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
+  mark(Math.max(atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
+}
 window.addEventListener('scroll', () => {
   if (tocTick) return;
   tocTick = true;
   requestAnimationFrame(markSection);
 }, { passive: true });
+for (const ev of ['scrollend', 'wheel', 'touchstart', 'keydown']) {
+  window.addEventListener(ev, () => {
+    if (picked < 0) return;
+    picked = -1;
+    if (ev !== 'scrollend') markSection();
+  }, { passive: true });
+}
 
 // ---- level numbering: a three-way switch, labelled for the level count
 
