@@ -126,7 +126,7 @@ function renderLast() {
     const slot = document.querySelector(`[data-last="${k}"]`);
     const v = now[k];
     if (!v) { slot.replaceChildren(); continue; }
-    const key = { src: 'S', dst: 'D', lvl: 'F' }[k];
+    const key = { src: 's', dst: 'd', lvl: 'f' }[k];
     const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...v), el('kbd', 'sode__key-note', `⌃${key}`));
     b.type = 'button';
     b.tabIndex = -1;
@@ -490,7 +490,7 @@ showFlip();
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
 
 const TIP_KEY = 'sode-hint-keys';
-$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
+$('keys-tip-text').textContent = `${mac ? '⌘z' : 'Ctrl+z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
 try { $('keys-tip').hidden = localStorage.getItem(TIP_KEY) === 'hidden'; } catch (e) { $('keys-tip').hidden = false; }
 $('keys-tip-close').addEventListener('click', () => {
   $('keys-tip').hidden = true;
@@ -706,10 +706,11 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   });
 }
 
-// Modifiers, on every OS: Control is for Sode's commands (Mac too, where it
-// is free of browser shortcuts), Option/Alt is for moving through lists (and
-// the theme toggle), and ⌘ is left to the OS and the browser, but for ⌘Z,
-// which undoes as Ctrl+Z does. Each check excludes the other two modifiers.
+// Modifiers, on every OS: Control is for Sode's commands and moving through
+// match lists (Mac too, where it is free of browser shortcuts), Option/Alt
+// only toggles the theme, and ⌘ is left to the OS and the browser, but for
+// ⌘Z, which undoes as Ctrl+Z does. Each check excludes the other two
+// modifiers. Key labels are lowercase, with ⇧ where Shift is needed.
 document.addEventListener('keydown', (e) => {
   if (pending) return onConfirmKey(e);
   if (layout() !== 'desktop') return;
@@ -732,6 +733,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!active()) return;
+  // Ctrl+, opens Settings from anywhere (⌘, is the browser's own).
+  if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === ',') {
+    e.preventDefault();
+    $('settings-open').click();
+    return;
+  }
   // Ctrl+S/D/F: the last take's source, destinations or levels, from
   // anywhere.
   const last = e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
@@ -756,7 +763,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // The match list's keys: ↑/↓, PgUp/PgDn, Alt+J/K.
+  // The match list's keys: ↑/↓, PgUp/PgDn, Ctrl+J/K.
   if (b && b.cb.nav(e)) return;
   // + adds another destination; Ctrl/Cmd + is left for zoom.
   if (k === 'dst' && e.key === '+' && !e.ctrlKey && !e.metaKey) {
