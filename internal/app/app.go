@@ -384,11 +384,11 @@ func (a *App) flush() {
 		if (got && time.Since(a.nameRxAt) > namesQuiet) || time.Since(a.nameReqAt) > namesTimeout {
 			changed := false
 			// A side that got no replies keeps its old names rather than emptying.
-			if len(a.newSrc) > 0 && !maps.Equal(a.newSrc, a.srcNames) {
-				a.srcNames, changed = a.newSrc, true
+			if next := refreshed(a.srcNames, a.newSrc); next != nil {
+				a.srcNames, changed = next, true
 			}
-			if len(a.newDst) > 0 && !maps.Equal(a.newDst, a.dstNames) {
-				a.dstNames, changed = a.newDst, true
+			if next := refreshed(a.dstNames, a.newDst); next != nil {
+				a.dstNames, changed = next, true
 			}
 			a.newSrc, a.newDst = nil, nil
 			if got {
@@ -406,6 +406,29 @@ func (a *App) flush() {
 		a.namesDirt = false
 		a.broadcast(a.namesMsg())
 	}
+}
+
+// refreshed returns the names to use after a refresh, or nil to keep old. A
+// refresh that ends early (replies stalled for namesQuiet, or the timeout hit
+// with thousands of sources still arriving) holds only part of the list, so one
+// with fewer names than before is laid over the old names rather than replacing
+// them (#32).
+func refreshed(old, got map[int]string) map[int]string {
+	if len(got) == 0 {
+		return nil
+	}
+	if len(got) < len(old) {
+		got = maps.Clone(got)
+		for k, v := range old {
+			if _, ok := got[k]; !ok {
+				got[k] = v
+			}
+		}
+	}
+	if maps.Equal(got, old) {
+		return nil
+	}
+	return got
 }
 
 func (a *App) namesMsg() map[string]any {
