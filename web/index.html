@@ -350,6 +350,7 @@
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
 
+    <div class="sode-m__stage">
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head" hidden>
@@ -375,9 +376,10 @@
       </section>
       <div class="sode-m__compose" id="m-compose"></div>
     </div>
+    <ul class="sode-m__matches" id="m-matches" role="listbox" aria-label="Matches" hidden></ul>
+    </div>
 
     <div class="sode-m__composer">
-      <ul class="sode-m__matches" id="m-matches" role="listbox" aria-label="Matches" hidden></ul>
       <div class="sode-m__picker" id="m-picker" hidden>
         <div class="sode-m__picks" id="m-picks" role="group" aria-label="Pick levels"></div>
         <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1"><span>Select</span><span>All</span></button>
@@ -385,7 +387,7 @@
       <div class="sode-m__bar" id="m-bar" data-step="src">
         <div class="sode-m__bar-head">
           <label class="sode-m__step" id="m-step" for="m-src">Source</label>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode-m__cancel" id="m-cancel">Cancel</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode-m__cancel" id="m-cancel">Cancel</button>
         </div>
         <input id="m-src" class="pb-input sode-m__input" placeholder="Source" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <input id="m-dst" class="pb-input sode-m__input" placeholder="Destination" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>

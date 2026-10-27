@@ -922,7 +922,15 @@ code,
 }
 
 /* Basis 0: the thread only gets what the composer leaves, so it gives up
-   space first when the keyboard is up. */
+   space first when the keyboard is up. The stage holds it and the match
+   list, which floats over its bottom rather than pushing it up. */
+.sode-m__stage {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
 .sode-m__thread {
   display: flex;
   flex: 1 1 0;
@@ -933,8 +941,16 @@ code,
   overscroll-behavior: contain;
   padding: var(--pb-space-5);
 }
-/* Pushes content to the bottom of the thread, nearest the composer. */
+/* Pushes content to the bottom of the thread, nearest the composer. While
+   typing (Recent hidden) the summary sits at the top instead and stays
+   there, under the match list when that's long. */
 .sode-m__fill { flex: 1 1 auto; }
+.sode-m--typing .sode-m__fill { display: none; }
+.sode-m--typing .sode-m__sum {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
 .sode-m__compose {
   display: flex;
   flex-direction: column;
@@ -1074,18 +1090,22 @@ code,
   padding-bottom: env(safe-area-inset-bottom);
 }
 .sode-m__matches {
-  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  background: var(--pb-surface-raised);
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  bottom: 0;
   display: flex;
-  flex: 0 1 auto;
   flex-direction: column-reverse;
+  left: 0;
   list-style: none;
   margin: 0;
-  /* Five rows show; the rest scroll. */
-  max-height: calc(var(--pb-control-h-lg) * 1.4 * 5);
-  min-height: 0;
+  /* Five rows show, fewer if the stage is short; the rest scroll. */
+  max-height: min(calc(var(--pb-control-h-lg) * 1.4 * 5), 100%);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0;
+  position: absolute;
+  right: 0;
+  z-index: 2;
 }
 .sode-m__matches[hidden] { display: none; }
 .sode-m__match {
@@ -1156,7 +1176,10 @@ code,
   gap: var(--pb-space-3);
   grid-column: 1 / -1;
 }
-.pb-btn.sode-m__cancel { margin-left: auto; }
+.pb-btn.sode-m__cancel {
+  margin-left: auto;
+  min-width: calc(var(--pb-control-h-lg) * 2.2); /* as wide as Next */
+}
 /* Word keys under the levels box, right above the phone's keyboard, drawn
    as keycaps: equal widths, a heavier bottom edge. */
 .sode-m__ops {

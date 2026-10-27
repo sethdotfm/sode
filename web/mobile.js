@@ -241,11 +241,12 @@ function renderThread() {
 }
 
 // After layout settles (the composer may just have grown or shrunk), keep
-// the newest content in view at the bottom of the thread.
+// the newest content in view at the bottom of the thread; while typing,
+// the summary at the top.
 function scrollThread() {
   requestAnimationFrame(() => {
     const t = $('m-thread');
-    t.scrollTop = t.scrollHeight;
+    t.scrollTop = view.classList.contains('sode-m--typing') ? 0 : t.scrollHeight;
   });
 }
 
