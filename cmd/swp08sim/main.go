@@ -26,9 +26,10 @@ type sim struct {
 	dsts    []string
 	tally   map[int][]int // wire level → dst → src
 	clients map[net.Conn]*sync.Mutex
-	deaf    map[int]bool  // dsts whose connects are ACKed but never carried out
-	silent  map[int]bool  // dsts whose connects are carried out but never announced
-	follows map[int][]int // dst → dsts that follow it, like a multiviewer PiP
+	deaf    map[int]bool          // dsts whose connects are ACKed but never carried out
+	silent  map[int]bool          // dsts whose connects are carried out but never announced
+	slow    map[int]time.Duration // dsts whose connects are carried out but announced late
+	follows map[int][]int         // dst → dsts that follow it, like a multiviewer PiP
 }
 
 func envInt(k string, def int) int {
@@ -42,7 +43,7 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}}
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}}
 	// SIM_IGNORE_DSTS=5,7 makes connects to those (0-based) destinations
 	// silently fail, so Sode's timeout and retry paths can be exercised.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
@@ -56,6 +57,19 @@ func main() {
 	for _, f := range strings.Split(os.Getenv("SIM_SILENT_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.silent[n] = true
+		}
+	}
+	// SIM_SLOW_DSTS=9:6000,11:8000 (0-based dst:milliseconds): the connect
+	// is carried out at once (the tally changes) but its Connected reaches
+	// clients only after the delay, like a laggy router, so a take can give
+	// up and see the Connected arrive late. Interrogate replies stay
+	// immediate; only the announcement is delayed.
+	for _, f := range strings.Split(os.Getenv("SIM_SLOW_DSTS"), ",") {
+		dst, ms, ok := strings.Cut(strings.TrimSpace(f), ":")
+		n, err1 := strconv.Atoi(dst)
+		d, err2 := strconv.Atoi(strings.TrimSpace(ms))
+		if ok && err1 == nil && err2 == nil && d > 0 {
+			s.slow[n] = time.Duration(d) * time.Millisecond
 		}
 	}
 	// SIM_FOLLOWS=2>40,3>41 (0-based): when dst 2 changes, dst 40 follows
@@ -171,14 +185,33 @@ func (s *sim) route(mx, l, dst, src int, announce bool) {
 		log.Printf("connect level %d: dst %d already on src %d (no Connected)", l, dst, src)
 		return
 	}
-	log.Printf("connect level %d: dst %d ← src %d", l, dst, src)
-	if announce {
-		for _, cc := range all {
-			s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
+	if d, ok := s.slow[dst]; ok && announce {
+		log.Printf("connect level %d: dst %d ← src %d (Connected in %v, SIM_SLOW_DSTS)", l, dst, src, d)
+		time.AfterFunc(d, func() { s.announce(mx, l, dst, src) })
+	} else {
+		log.Printf("connect level %d: dst %d ← src %d", l, dst, src)
+		if announce {
+			for _, cc := range all {
+				s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
+			}
 		}
 	}
 	for _, f := range s.follows[dst] {
 		time.AfterFunc(30*time.Millisecond, func() { s.route(mx, l, f, src, announce) })
+	}
+}
+
+// announce sends a Connected for a crosspoint to every client connected
+// now, so a delayed one reaches whoever is listening at the time.
+func (s *sim) announce(mx, l, dst, src int) {
+	s.mu.Lock()
+	var all []net.Conn
+	for cc := range s.clients {
+		all = append(all, cc)
+	}
+	s.mu.Unlock()
+	for _, cc := range all {
+		s.write(cc, swp08.Encode(swp08.ExtConnected(mx, l, dst, src)))
 	}
 }
 

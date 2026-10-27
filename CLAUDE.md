@@ -17,7 +17,7 @@ go vet ./...
 docker run --rm -v "$PWD/web":/w node:22-alpine node --test '/w/test/*.test.mjs'   # browser-side tests (filter language, histRows)
 
 # Local dev without Docker: simulator + server
-go run ./cmd/swp08sim                          # :8910; SIM_SOURCES/SIM_DESTS/SIM_LEVELS, SIM_IGNORE_DSTS=9,12 (0-based, never confirm), SIM_SILENT_DSTS=9 (switch but send no Connected), SIM_PANEL_SECONDS=5 (routes by itself like a panel), SIM_FOLLOWS=2>40 (dst 40 follows dst 2), SIM_PANEL_SILENT=1 (panel routes send no Connected)
+go run ./cmd/swp08sim                          # :8910; SIM_SOURCES/SIM_DESTS/SIM_LEVELS, SIM_IGNORE_DSTS=9,12 (0-based, never confirm), SIM_SILENT_DSTS=9 (switch but send no Connected), SIM_SLOW_DSTS=9:6000 (connect works, Connected arrives 6000ms later), SIM_PANEL_SECONDS=5 (routes by itself like a panel), SIM_FOLLOWS=2>40 (dst 40 follows dst 2), SIM_PANEL_SILENT=1 (panel routes send no Connected)
 SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   # :8080; SODE_DEBUG hex-dumps SW-P-08
 # Without SODE_CONFIG, config comes from SODE_* env and is not persisted.
 
