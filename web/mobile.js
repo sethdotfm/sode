@@ -655,12 +655,20 @@ $('m-cancel').addEventListener('click', () => {
 function syncTyping() {
   const typing = STEPS.some((k) => document.activeElement === inputs[k]);
   if (view.classList.contains('sode-m--typing') === typing) return;
+  const t = $('m-thread');
+  // Where Recent was, and its newest entry, to come back to.
+  if (typing) before = { top: t.scrollTop, newest: S.hist[0]?.id };
   view.classList.toggle('sode-m--typing', typing);
   renderThread();
-  // The summary to the top while typing; back to the composer after.
-  if (typing) $('m-thread').scrollTop = 0;
-  else scrollThread();
+  // The summary to the top while typing; after, Recent where it was, or
+  // at the top if a take has made a newer entry meanwhile.
+  if (typing) t.scrollTop = 0;
+  else {
+    const same = before && before.newest === S.hist[0]?.id;
+    requestAnimationFrame(() => { t.scrollTop = same ? before.top : 0; });
+  }
 }
+let before = null; // thread scroll at the start of typing
 // Typing in Recent's Filter by boxes: the composer goes instead, leaving
 // the room to Recent.
 const filterBox = () => !!document.activeElement?.closest('#m-recent [data-search]');
