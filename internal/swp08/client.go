@@ -35,6 +35,10 @@ const (
 type Why struct {
 	Reason string // take, check, confirm, resync, names, keepalive
 	By     string // the browser's address, for take traffic
+	// Done, if set, is closed once the message's fate is known: ACKed,
+	// given up on, or dropped. Callers use it to count their timeouts from
+	// when the router could have seen the message, not from when it queued.
+	Done chan struct{}
 }
 
 // Tx results, as reported to OnTx.
@@ -291,6 +295,9 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 func (c *Client) tx(e TxEvent) {
 	if c.OnTx != nil {
 		c.OnTx(e)
+	}
+	if e.Why.Done != nil {
+		close(e.Why.Done)
 	}
 }
 

@@ -83,6 +83,7 @@ type App struct {
 	extLast  time.Time
 	own      map[ownKey]time.Time // our takes' connects → when to stop treating them as ours
 	late     map[ownKey]time.Time // finished takes' unconfirmed routes → until when a tally of one is ours
+	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
 	lateTake map[ownKey]lateTake  // the same, with the history entry to amend if one turns up (#91)
 	lateHits []lateHit            // late answers awaiting their entry's amendment (flushLate)
 	causes   []*cause             // recent takes that changes elsewhere may follow
@@ -137,6 +138,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		own:      map[ownKey]time.Time{},
 		late:     map[ownKey]time.Time{},
 		lateTake: map[ownKey]lateTake{},
+		seenAt:   map[[2]int]time.Time{},
 		leaders:  map[int]int{},
 		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
@@ -274,6 +276,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		if xp.Src == 0xFFFF { // router's "nothing routed"
 			xp.Src = -1
 		}
+		a.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
 		t := a.tally[xp.Dst]
 		if t == nil {
 			t = map[int]int{}
@@ -692,6 +695,7 @@ func (a *App) ApplyConfig(c config.Config) error {
 	if reconnect {
 		a.srcNames, a.dstNames = map[int]string{}, map[int]string{}
 		a.tally, a.protect = map[int]map[int]int{}, map[int]map[int]int{}
+		a.seenAt = map[[2]int]time.Time{}
 		a.pend, a.pendProt = nil, nil
 		a.ext = map[int]map[int]*extLevel{}
 		a.causes = nil
@@ -738,6 +742,9 @@ type takeReq struct {
 
 	Group  string `json:"-"` // set by batch for confirms of more than one take
 	GroupN int    `json:"-"`
+	// NoCheck skips reading dst's routes from the router first (set by
+	// batch for big batches): the cache is used for Prev.
+	NoCheck bool `json:"-"`
 }
 
 // takeLimit caps how many takes of one batch run at once. The router link
@@ -745,9 +752,20 @@ type takeReq struct {
 // the later takes time out while their connects are still waiting to go.
 const takeLimit = 8
 
+// bigBatch is how many takes in one confirm make the router too busy to
+// read every destination's routes first (17 interrogates each): they use the
+// cache, which the router keeps current by announcing changes and resyncing.
+const bigBatch = 6
+
 // batch runs the takes from one confirm, grouping them in history when
 // there is more than one.
 func (a *App) batch(c *client, items []takeReq) {
+	if len(items) >= bigBatch {
+		log.Printf("batch of %d takes: not reading routes from the router first, to spare it", len(items))
+		for i := range items {
+			items[i].NoCheck = true
+		}
+	}
 	if len(items) > 1 {
 		g := strconv.FormatInt(time.Now().UnixNano(), 36)
 		for i := range items {
@@ -920,20 +938,33 @@ func (c *tallyCheck) see(xp swp08.Crosspoint) {
 // (they update the cache) or checkTimeout. It reports whether all came.
 func (a *App) checkTally(r *runtime, w *waiter) bool {
 	c := &tallyCheck{dst: w.dst, wires: map[int]bool{}, done: make(chan struct{})}
-	for _, l := range w.levels {
-		c.wires[l.wire] = true
-	}
+	// Levels the router reported lately need no second look: undo and retry
+	// come straight after the Connected that set them.
+	var ls []*takeLevel
 	a.mu.Lock()
-	a.checks[c] = struct{}{}
+	for _, l := range w.levels {
+		if at, ok := a.seenAt[[2]int{w.dst, l.ui}]; !ok || time.Since(at) > checkFresh {
+			ls = append(ls, l)
+			c.wires[l.wire] = true
+		}
+	}
+	if len(ls) > 0 {
+		a.checks[c] = struct{}{}
+	}
 	a.mu.Unlock()
+	if len(ls) == 0 {
+		return true
+	}
 	defer func() {
 		a.mu.Lock()
 		delete(a.checks, c)
 		a.mu.Unlock()
 	}()
-	if a.interrogate(r, w, w.levels, "check") != nil {
+	done, err := a.interrogate(r, w, ls, "check")
+	if err != nil {
 		return false // the link is down or full: no answers are coming
 	}
+	leftQueue(done)
 	select {
 	case <-c.done:
 		return true
@@ -945,6 +976,13 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 const (
 	// A take first reads dst's levels from the router, for this long at most.
 	checkTimeout = time.Second
+	// A level the router reported within this long isn't read again first.
+	checkFresh = 15 * time.Second
+	// queueMax caps the wait for a take's messages to leave the send queue
+	// (which is one message per ACK, shared by every take): after that its
+	// own timeouts start regardless. A dead link ends the session, which
+	// drops the queue, long before.
+	queueMax = 30 * time.Second
 	// A tally of a route a take gave up on is still its own for this long.
 	// (Seen once: a Connected a few seconds after the take gave up, #91.)
 	lateFor     = 15 * time.Second
@@ -1022,7 +1060,7 @@ func (a *App) take(c *client, req takeReq) {
 
 	// Prev is what undo restores, so it comes from the router, not a cache
 	// that may have missed a change. Answers that differ are logged as found.
-	if !a.checkTally(r, w) {
+	if !req.NoCheck && !a.checkTally(r, w) {
 		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", req.Dst, checkTimeout)
 	}
 	a.flushFound(req.Dst)
@@ -1236,8 +1274,10 @@ func planTake(r *runtime, req takeReq) (*waiter, error) {
 // reflect them.
 func (a *App) sendTake(r *runtime, w *waiter) error {
 	var sendErr error
+	var last <-chan struct{}
 	for i, l := range w.levels {
-		if err := a.sendMsg(l.connect, w.why); err != nil {
+		done, err := a.sendTracked(l.connect, w.why)
+		if err != nil {
 			sendErr = err
 			a.mu.Lock()
 			for _, u := range w.levels[i:] {
@@ -1247,26 +1287,65 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 			a.mu.Unlock()
 			break
 		}
+		last = done
 	}
 	// Only this goroutine sets same and unsent.
-	a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), "confirm")
+	if done, _ := a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), "confirm"); done != nil {
+		last = done
+	}
+	// The router can't answer what is still queued behind other takes'
+	// messages, so the wait for confirms starts when ours have gone out, and
+	// the connects' own keys run from then.
+	leftQueue(last)
+	a.mu.Lock()
+	until := time.Now().Add(ownFor)
+	for _, l := range w.levels {
+		k := ownKey{w.dst, l.wire, w.src}
+		if _, ok := a.own[k]; ok {
+			a.own[k] = until
+		}
+	}
+	a.mu.Unlock()
 	return sendErr
 }
 
-// interrogate asks about levels of the take's dst, stopping at the first
-// that can't be sent.
-func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason string) error {
-	why := swp08.Why{Reason: reason, By: w.why.By}
-	for _, l := range ls {
-		if err := a.sendMsg(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why); err != nil {
-			return err
-		}
+// sendTracked sends m and returns a channel closed when its fate is known
+// (nil if it wasn't accepted).
+func (a *App) sendTracked(m []byte, why swp08.Why) (<-chan struct{}, error) {
+	why.Done = make(chan struct{})
+	if err := a.sendMsg(m, why); err != nil {
+		return nil, err
 	}
-	return nil
+	return why.Done, nil
 }
 
-// awaitTake waits for the router to confirm every sent level and returns
-// the ones it never confirmed.
+// leftQueue waits for the message behind done to be written and answered or
+// given up on, at most queueMax. nil returns at once.
+func leftQueue(done <-chan struct{}) {
+	if done == nil {
+		return
+	}
+	select {
+	case <-done:
+	case <-time.After(queueMax):
+	}
+}
+
+// interrogate asks for ls's routes on w's destination. It returns the
+// channel of the last message sent (see sendTracked), nil if none was.
+func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason string) (<-chan struct{}, error) {
+	why := swp08.Why{Reason: reason, By: w.why.By}
+	var last <-chan struct{}
+	for _, l := range ls {
+		done, err := a.sendTracked(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why)
+		if err != nil {
+			return last, err
+		}
+		last = done
+	}
+	return last, nil
+}
+
 func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 	if len(w.filter(func(l *takeLevel) bool { return !l.unsent })) == 0 {
 		return nil
@@ -1283,7 +1362,8 @@ func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 	}
 	// Last chance: ask about whatever is still unconfirmed (a stale cache,
 	// or a Connected lost on the wire) and give it a moment.
-	a.interrogate(r, w, outstanding(), "confirm")
+	done, _ := a.interrogate(r, w, outstanding(), "confirm")
+	leftQueue(done)
 	select {
 	case <-w.done:
 	case <-time.After(takeGrace):

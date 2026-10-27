@@ -31,13 +31,13 @@ const (
 	extMax   = 3 * time.Second        // or this long after it began
 	// ownFor is how long a Connected matching one of our connects counts
 	// as ours: the take's whole wait, and some slack for a late reply.
-	ownFor = takeTimeout + takeGrace + 5*time.Second
+	ownFor = takeTimeout + takeGrace + 5*time.Second // counted from when the connects have gone out (sendTake)
 
 	followAfter  = 500 * time.Millisecond // a follow comes this soon after its take's last change
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
 	// A burst that may follow a take still in flight waits for it to be
 	// recorded, up to this long after the burst began.
-	extHold   = checkTimeout + takeTimeout + takeGrace + 2*time.Second
+	extHold   = queueMax + checkTimeout + takeTimeout + takeGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 

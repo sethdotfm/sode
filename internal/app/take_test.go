@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -39,6 +40,7 @@ type fakeRouter struct {
 	lose   map[int]bool    // dsts whose Connected goes missing (interrogates still answer)
 	mute   map[int]bool    // dsts whose interrogates go unanswered (connects still do)
 	failAt int             // this send and every later one fail (1-based; 0 = never)
+	hold   time.Duration   // each message is only "written" (answered, Done closed) this long after Send, like a busy queue
 	n      int
 	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
@@ -71,13 +73,33 @@ func (f *fakeRouter) seed(dst, src int, wires ...int) {
 		f.mu.Unlock()
 		f.a.onRouterMsg(swp08.ExtTally(0, l, dst, src))
 	}
+	// Seeded routes count as not read lately, so takes check them first.
+	f.a.mu.Lock()
+	f.a.seenAt = map[[2]int]time.Time{}
+	f.a.mu.Unlock()
 }
 
 func (f *fakeRouter) send(m []byte, why swp08.Why) error {
+	if f.hold > 0 {
+		go func() {
+			time.Sleep(f.hold)
+			f.deliver(m, why)
+		}()
+		return nil
+	}
+	return f.deliver(m, why)
+}
+
+func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
+	if why.Done != nil {
+		defer close(why.Done) // answered at once; after the router's reply
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.n++
-	f.whys = append(f.whys, sentWhy{m[0], why})
+	rec := why
+	rec.Done = nil // a fresh channel each time; not part of what a message is for
+	f.whys = append(f.whys, sentWhy{m[0], rec})
 	if f.failAt > 0 && f.n >= f.failAt {
 		return swp08.ErrBusy
 	}
@@ -582,4 +604,94 @@ func TestTakeLateFollow(t *testing.T) {
 	if len(es) != 2 || !es[0].Ext || es[0].Dst != 9 || es[0].Follow == nil || *es[0].Follow != e.ID || !es[1].OK {
 		t.Fatalf("late follow %+v", es)
 	}
+}
+
+// Counts what the router was sent for, by reason.
+func (f *fakeRouter) sentFor(reason string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, w := range f.whys {
+		if w.why.Reason == reason {
+			n++
+		}
+	}
+	return n
+}
+
+// Levels the router reported a moment ago aren't read again before a take:
+// an undo comes straight after the Connected that set them.
+func TestTakeFreshSkipsCheck(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	a.mu.Lock()
+	for l := 1; l <= 3; l++ {
+		a.seenAt[[2]int{5, l}] = time.Now()
+	}
+	a.mu.Unlock()
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if !e.OK || f.sentFor("check") != 0 || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 1}, {3, 1}}) {
+		t.Fatalf("take %+v, checks %d", e, f.sentFor("check"))
+	}
+	// Stale ones are read.
+	a.mu.Lock()
+	a.seenAt[[2]int{5, 2}] = time.Now().Add(-time.Minute)
+	a.mu.Unlock()
+	takeOne(t, a, 8, 5, 1, 2, 3)
+	if n := f.sentFor("check"); n != 1 {
+		t.Fatalf("checks %d, want just the stale level", n)
+	}
+}
+
+// A big confirm doesn't read every destination's routes first.
+func TestBatchBigSkipsCheck(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	var items []takeReq
+	for d := 0; d < bigBatch; d++ {
+		f.seed(d, 1, 0, 1, 2)
+		items = append(items, takeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
+	}
+	a.batch(&client{ip: "10.0.0.1"}, items)
+	if n := f.sentFor("check"); n != 0 {
+		t.Fatalf("%d checks for a big batch", n)
+	}
+	if es, _ := a.hist.Page(-1, bigBatch); len(es) != bigBatch || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK }) {
+		t.Fatalf("takes %+v", es)
+	}
+	// One fewer reads them.
+	b := newTestApp(t)
+	g := newFakeRouter(t, b)
+	items = items[:0]
+	for d := 0; d < bigBatch-1; d++ {
+		g.seed(d, 1, 0, 1, 2)
+		items = append(items, takeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
+	}
+	b.batch(&client{ip: "10.0.0.1"}, items)
+	if n := g.sentFor("check"); n != 3*(bigBatch-1) {
+		t.Fatalf("%d checks for a small batch", n)
+	}
+}
+
+// The router is only asked about a take once its messages have gone out, so
+// a take waiting in a long queue isn't failed for the queue's delay.
+func TestTakeWaitsForQueue(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	a.mu.Lock()
+	for l := 1; l <= 3; l++ {
+		a.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
+	}
+	a.mu.Unlock()
+	f.hold = takeTimeout + takeGrace + 200*time.Millisecond
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if !e.OK || len(e.Failed) != 0 {
+		t.Fatalf("take %+v", e)
+	}
+	leftovers(t, a)
 }
