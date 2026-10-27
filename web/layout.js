@@ -3,7 +3,8 @@
 // global default (Settings) applies. index.html applies the same rule before
 // first paint.
 
-import { on, pref, setPref } from './core.js';
+import { on } from './core.js';
+import { pref, setPref } from './device.js';
 
 const root = document.documentElement;
 const narrowTouch = matchMedia('(max-width: 700px) and (pointer: coarse)');

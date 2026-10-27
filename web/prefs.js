@@ -2,7 +2,7 @@
 // browser's own choice (a localStorage value), else the global default from
 // Settings (config deviceDefaults), else the built-in one. A missing or
 // unknown stored value means "follow the global default". Pure, so Node
-// tests it; core.js does the storage. index.html repeats the lookup for
+// tests it; device.js does the storage. index.html repeats the lookup for
 // theme, layout and flip before first paint (keep them in step).
 
 // Values are strings in localStorage; the on/off ones are booleans in the

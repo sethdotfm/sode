@@ -1,16 +1,19 @@
 // Recent's Filters dialog, shared by both layouts: which kinds of entry
 // show, and filter expressions for sources and destinations, edited as
 // rule rows (Visual) or typed (Code). Everything applies as you type and
-// is kept per browser (core.js). Named sets (global from Settings, or this
+// is kept per browser (filterstore.js). Named sets (global from Settings, or this
 // browser's own) are quick buttons in Recent's header. Share link puts the
 // filter in a URL that applies it in another browser; the URL is cleaned
 // once read.
 
+import { $, el, S, on, off, wsSend, sentence, search, item, labelNode } from './core.js';
+import { readStr, writeStr } from './store.js';
 import {
-  $, el, S, on, wsSend, showResult, sentence, filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter,
-  allSets, activeSet, activeRef, adoptFilter, pickSet, saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
-  histRows, setSearch, searchActive, searchRespectsFilters, search, item, labelNode,
-} from './core.js';
+  filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter, allSets, activeSet, activeRef, adoptFilter, pickSet,
+  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
+} from './filterstore.js';
+import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
+import { showResult } from './plans.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
 import { combobox } from './widgets.js';
@@ -18,8 +21,7 @@ import { combobox } from './widgets.js';
 const root = $('filters');
 const dialog = $('filters-dialog');
 const MODE_KEY = 'sode-filter-mode';
-let mode = 'visual';
-try { if (localStorage.getItem(MODE_KEY) === 'code') mode = 'code'; } catch (e) {}
+let mode = readStr(MODE_KEY) === 'code' ? 'code' : 'visual';
 
 const KINDS = [
   ['name', 'Name contains'],
@@ -28,7 +30,6 @@ const KINDS = [
   ['range', 'Number between'],
   ['re', 'Name matches regex'],
 ];
-const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // Whether a visual row says enough to be a rule.
 function complete(r) {
@@ -217,7 +218,7 @@ function setMode(m) {
   if (m === mode) return;
   if (m === 'visual' && !['src', 'dst'].map((k) => eds[k].toVisual()).every(Boolean)) return;
   mode = m;
-  try { localStorage.setItem(MODE_KEY, m); } catch (e) {}
+  writeStr(MODE_KEY, m);
   renderMode();
   eds.src.render();
   eds.dst.render();
