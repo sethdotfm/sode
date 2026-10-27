@@ -36,7 +36,7 @@ func TestValidate(t *testing.T) {
 		"bad theme":         func(c *Config) { c.DeviceDefaults.Theme = "blue" },
 		"bad layout":        func(c *Config) { c.DeviceDefaults.Layout = "tablet" },
 		"bad clock":         func(c *Config) { c.DeviceDefaults.Clock = "13" },
-		"unnamed set":      func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
+		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
 		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
 	} {
 		c := ok
