@@ -1,5 +1,6 @@
 // Desktop layout: three boxes, Tab between them, churning-key confirm.
-// + in the destination box adds another destination as a chip.
+// + in the destination box adds another destination as a chip; the search
+// and its match list stay for the next one.
 
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelBar,
@@ -74,7 +75,9 @@ function select(k, it) {
 // Every destination the patch will go to: the chips, then the box.
 const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...dsts]);
 
-// +: the box's match becomes a chip and the box starts over for the next.
+// +: the box's match becomes a chip. The typed search stays and its list
+// stays open without the chips, so the next match is one + away; typing
+// edits the search.
 function addDst() {
   const b = boxes.dst;
   b.input.focus();
@@ -84,7 +87,11 @@ function addDst() {
     if (!b.cb.accept()) { b.input.classList.add('pb-input--invalid'); return; }
   }
   if (!chosen(sel.dst)) dsts.push(sel.dst);
-  select('dst', null);
+  sel.dst = null;
+  b.input.classList.remove('pb-input--invalid');
+  renderChips();
+  renderTally();
+  b.cb.refresh();
 }
 
 function renderChips() {
