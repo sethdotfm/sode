@@ -893,8 +893,8 @@ code,
   gap: var(--pb-space-5);
   justify-content: space-between;
 }
-/* Save is green (the ok status color), set apart from the red of
-   discarding unsaved changes. */
+/* Save and the PIN Unlock buttons are green (the ok status color), set
+   apart from the red of discarding unsaved changes. */
 .sode__save {
   background-color: var(--pb-status-ok);
   color: var(--pb-text-on-accent);

@@ -145,7 +145,7 @@
       <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
       <div class="sode__names">
         <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
-        <button type="submit" class="pb-btn pb-btn--commit" id="lock-unlock">Unlock</button>
+        <button type="submit" class="pb-btn sode__save" id="lock-unlock">Unlock</button>
       </div>
       <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then <code>docker compose restart sode</code>.</span>
     </div>
@@ -490,7 +490,7 @@
         </div>
         <div class="sode__filters-set" id="flt-pin-row" hidden>
           <input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Settings PIN">
-          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-pin-ok">Unlock</button>
+          <button type="button" class="pb-btn sode__save pb-btn--sm" id="flt-pin-ok">Unlock</button>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-pin-cancel">Cancel</button>
         </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
