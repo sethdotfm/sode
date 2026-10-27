@@ -2,6 +2,9 @@
 // Views subscribe with on(event, fn) and render from S.
 
 import { filterFn } from './filter.js';
+import { parseLevelsAs } from './levels.js';
+
+export { parseLevelsAs };
 
 export const $ = (id) => document.getElementById(id);
 
@@ -429,42 +432,6 @@ export function levelLabel(ui, mode) {
   return String(ui);
 }
 
-// One typed level ("3", or in "va" also "v" and "a2" = 2) → UI level, or
-// NaN.
-function levelTok(tok, mode) {
-  const t = tok.toLowerCase();
-  if (mode === 'va') {
-    if (t === 'v') return 1;
-    const a = t.match(/^a(\d+)$/);
-    if (a) return +a[1] >= 1 ? +a[1] + 1 : NaN;
-  }
-  return /^\d+$/.test(t) ? +t + (mode === '1' ? 0 : 1) : NaN;
-}
-
-// "1-3,5" (or "v,1-4") in mode → sorted UI levels within 1..max, or null.
-// A part starting with ! is left out: "!0" is every level but 0, and
-// "1-8 !3" (or "1-8!3") is 1-8 without 3. + is the same as a comma, t,
-// thru or through as -, and n or not as !: "1 thru 8 not 3".
-export function parseLevelsAs(text, mode, max) {
-  const out = new Set(), not = new Set();
-  const norm = text.replace(/not|n/gi, '!').replace(/through|thru|t/gi, '-')
-    .replace(/\s*-\s*/g, '-').replace(/!\s*/g, ' !');
-  for (const part of norm.split(/[\s,+]+/).filter(Boolean)) {
-    const m = part.match(/^(!?)([^-!]+)(?:-([^-!]+))?$/);
-    if (!m) return null;
-    let a = levelTok(m[2], mode), b = m[3] ? levelTok(m[3], mode) : a;
-    if (!Number.isInteger(a) || !Number.isInteger(b)) return null;
-    if (a > b) [a, b] = [b, a];
-    for (let i = a; i <= b; i++) {
-      if (i < 1 || i > max) return null;
-      (m[1] ? not : out).add(i);
-    }
-  }
-  if (!out.size && not.size) for (let i = 1; i <= max; i++) out.add(i);
-  for (const i of not) out.delete(i);
-  return out.size ? [...out].sort((x, y) => x - y) : null;
-}
-
 // What a levels box means. Blank is the default (stored as plain 1-based
 // levels); none: the picker was cleared to no levels, so blank means none.
 export function parseLevels(text, none = false) {
@@ -485,6 +452,10 @@ export function relabelLevels(text) {
 
 // The default levels as they'd be typed, for a box's placeholder.
 export const defaultLevelsText = () => levelInput(parseLevels('') || []);
+// What the default is called by a blank levels box: All when it's every
+// level.
+export const defaultLevelsWord = () => ((parseLevels('') || []).length === S.levels.length ? 'All' : 'default');
+export const defaultLevelsHint = () => `${defaultLevelsText()} (${defaultLevelsWord()})`;
 
 // Collapses a sorted level list into runs: [[1,3],[5,5]].
 function levelRuns(list) {
@@ -629,6 +600,17 @@ export function clockPref() {
   let v = null;
   try { v = localStorage.getItem(CLOCK_KEY); } catch (e) {}
   return v === '12' || v === 'locale' ? v : '24';
+}
+
+// Destination before Source, per browser: the desktop arrow, Settings, and
+// on a phone the order of the steps. index.html sets data-flip before first
+// paint; setFlip keeps it and tells the layouts ('flip').
+const FLIP_KEY = 'sode-flip';
+export const flipped = () => 'flip' in document.documentElement.dataset;
+export function setFlip(on) {
+  document.documentElement.toggleAttribute('data-flip', on);
+  try { localStorage.setItem(FLIP_KEY, on ? 'on' : 'off'); } catch (e) {}
+  emit('flip');
 }
 
 // Scroll to the top when a box is focused (desktop): per browser, on unless
@@ -1378,6 +1360,22 @@ function extraBox(plan, spaceHint) {
     `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`));
 }
 
+// This browser's last patch (not an undo or retry) as numbers, so names
+// stay current; until it makes one, the newest take in history made in
+// Sode. For the "Last:" chips and Ctrl+S/D/F.
+let lastPatch = null;
+
+export function lastTake() {
+  let t = lastPatch;
+  if (!t) {
+    const e = S.hist.find((x) => !x.ext && x.undo == null && x.retry == null);
+    if (!e) return null;
+    const es = e.group && e.groupN > 1 ? S.hist.filter((x) => x.group === e.group).reverse() : [e];
+    t = { src: [e.src, e.srcName], dsts: es.map((x) => [x.dst, x.dstName]), levels: e.levels };
+  }
+  return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
+}
+
 // Sends every take in a plan as one batch. False if the connection is gone.
 export function sendTakes(p) {
   const batch = { verb: p.verb, byId: new Map(), results: [] };
@@ -1397,6 +1395,10 @@ export function sendTakes(p) {
     return false;
   }
   for (const id of batch.byId.keys()) takes.set(id, batch);
+  if (p.verb === 'patch') {
+    const g = p.items[0].groups[0];
+    lastPatch = { src: [g.src.n, g.src.name], dsts: p.items.map((i) => [i.dst.n, i.dst.name]), levels: g.levels };
+  }
   const list = [...batch.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;
   const text = dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1

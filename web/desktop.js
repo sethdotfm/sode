@@ -6,7 +6,7 @@ import {
   allLevels, fedBy, dstItem, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, attachFollows, labelNode, retryPlan, planVerb, entryNote,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
-  resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, scrollTopPref,
+  resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, scrollTopPref, flipped, setFlip,
 } from './core.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
@@ -108,21 +108,6 @@ function renderChips() {
 
 // ---- the last take's source, destinations or levels (Ctrl+S/D/F)
 
-// This browser's last take as numbers, so names stay current; until it
-// makes one, the newest take in history made in Sode.
-let lastPatch = null;
-
-function lastTake() {
-  let t = lastPatch;
-  if (!t) {
-    const e = S.hist.find((x) => !x.ext && x.undo == null && x.retry == null);
-    if (!e) return null;
-    const es = e.group && e.groupN > 1 ? S.hist.filter((x) => x.group === e.group).reverse() : [e];
-    t = { src: [e.src, e.srcName], dsts: es.map((x) => [x.dst, x.dstName]), levels: e.levels };
-  }
-  return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
-}
-
 // The last take's value for each box, as a chip by its label that does
 // what Ctrl+S/D/F does. Hidden when the box already has it, and for
 // levels when they're the default.
@@ -133,7 +118,7 @@ function renderLast() {
   const lv = lvl.levels() || [];
   const now = {
     src: t && !(sel.src && sel.src.n === t.src.n) && [labelNode(t.src)],
-    dst: t && !sameList(allDsts().map((d) => d.n), t.dsts.map((d) => d.n)) &&
+    dst: t && !t.dsts.every((d) => allDsts().some((x) => x.n === d.n)) &&
       [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
     lvl: t && t.levels.length && !sameList(lv, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
   };
@@ -162,8 +147,14 @@ function useLast(k) {
     select('src', t.src);
     focusBox(boxes.dst.input);
   } else if (k === 'dst') {
-    dsts = t.dsts.slice(0, -1);
-    select('dst', t.dsts[t.dsts.length - 1]);
+    // Adds to the destinations already there; the last one added lands
+    // in the box.
+    const have = allDsts();
+    const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
+    if (add.length) {
+      dsts = [...have, ...add.slice(0, -1)];
+      select('dst', add[add.length - 1]);
+    }
     focusBox(boxes.src.input);
   } else {
     lvl.set(t.levels);
@@ -486,18 +477,14 @@ function onListKey(e) {
 // ---- Source/Destination order: the arrow flips how they're shown (per
 // browser; index.html applies it before first paint)
 
-const FLIP_KEY = 'sode-flip';
 function showFlip() {
-  const on = 'flip' in document.documentElement.dataset;
+  const on = flipped();
   $('flip').setAttribute('aria-pressed', String(on));
   $('flip').dataset.tip = on ? 'Show Source first' : 'Show Destination first';
 }
 $('flip').addEventListener('mousedown', (e) => e.preventDefault());
-$('flip').addEventListener('click', () => {
-  const on = document.documentElement.toggleAttribute('data-flip');
-  try { localStorage.setItem(FLIP_KEY, on ? 'on' : 'off'); } catch (e) {}
-  showFlip();
-});
+$('flip').addEventListener('click', () => setFlip(!flipped()));
+on('flip', showFlip);
 showFlip();
 
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
@@ -660,11 +647,7 @@ function doTake(viaKeys = false) {
   pending = null;
   $('confirm').hidden = true;
   // Only a patch came from the boxes; an undo or retry leaves them be.
-  if (sendTakes(p) && p.verb === 'patch') {
-    const g = p.items[0].groups[0];
-    lastPatch = { src: [g.src.n, g.src.name], dsts: p.items.map((i) => [i.dst.n, i.dst.name]), levels: g.levels };
-    clearAll();
-  }
+  if (sendTakes(p) && p.verb === 'patch') clearAll();
   else focusBack(viaKeys);
 }
 

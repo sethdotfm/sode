@@ -123,6 +123,7 @@
 
   <form class="sode__view sode__settings" id="settings-view" novalidate aria-labelledby="settings-title">
     <div class="sode__settings-head">
+      <button type="button" class="pb-btn pb-btn--ghost sode__back" id="settings-back"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#chevron-left"/></svg>Back</button>
       <h2 class="sode__settings-title" id="settings-title">Settings</h2>
     </div>
 
@@ -185,6 +186,7 @@
           <span class="pb-select-wrap"><select id="cfg-clock" class="pb-select"><option value="24">24-hour</option><option value="12">12-hour</option><option value="locale">Browser language</option></select></span>
         </div>
       </div>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-flip"><span class="pb-check__label">Destination before Source</span></label>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-scrolltop"><span class="pb-check__label">Scroll to the top when a box is focused</span></label>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-search-filters"><span class="pb-check__label">Search respects filters</span></label>
     </fieldset>
@@ -350,6 +352,7 @@
     <div class="sode__down sode-m__down" id="m-down" role="alert" hidden></div>
     <div class="sode-m__result" id="m-result" aria-live="polite"></div>
 
+    <div class="sode-m__stage">
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head" hidden>
@@ -373,25 +376,34 @@
         <ul class="sode-m__recent-list" id="m-recent-list"></ul>
         <div class="sode-m__recent-more" id="m-recent-more"></div>
       </section>
-      <div class="sode-m__compose" id="m-compose" aria-live="polite"></div>
+      <div class="sode-m__compose" id="m-compose"></div>
+    </div>
+    <ul class="sode-m__matches" id="m-matches" role="listbox" aria-label="Matches" hidden></ul>
     </div>
 
     <div class="sode-m__composer">
-      <ul class="sode-m__matches" id="m-matches" role="listbox" aria-label="Matches" hidden></ul>
       <div class="sode-m__picker" id="m-picker" hidden>
         <div class="sode-m__picks" id="m-picks" role="group" aria-label="Pick levels"></div>
         <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="m-all" tabindex="-1"><span>Select</span><span>All</span></button>
       </div>
-      <div class="sode-m__bar">
-        <label class="sode-m__step" id="m-step" for="m-src">Source</label>
-        <button type="button" class="pb-btn pb-btn--outline sode-m__cancel" id="m-cancel">Cancel</button>
-        <input id="m-src" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <input id="m-dst" class="pb-input sode-m__input" placeholder="Name or number" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
-        <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
+      <div class="sode-m__bar" id="m-bar" data-step="src">
+        <div class="sode-m__bar-head">
+          <label class="sode-m__step" id="m-step" for="m-src">Source</label>
+          <span class="sode-m__last" id="m-last"></span>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm sode-m__cancel" id="m-cancel">Cancel</button>
+        </div>
+        <input id="m-src" class="pb-input sode-m__input" placeholder="Source" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input id="m-dst" class="pb-input sode-m__input" placeholder="Destination" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
+        <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <span class="sode-m__actions">
           <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>
-          <button type="button" class="pb-btn pb-btn--danger sode-m__go" id="m-go">Next</button>
+          <button type="button" class="pb-btn sode-m__go" id="m-go">Next</button>
         </span>
+        <div class="sode-m__ops" id="m-ops" role="group" aria-label="Level words" hidden>
+          <button type="button" class="sode-m__key" data-op="not" tabindex="-1">not</button>
+          <button type="button" class="sode-m__key" data-op="and" tabindex="-1">and</button>
+          <button type="button" class="sode-m__key" data-op="through" tabindex="-1">through</button>
+        </div>
       </div>
     </div>
   </div>
