@@ -175,15 +175,22 @@ function underHead(text, up) {
 }
 
 // One row per destination src is on, with the levels it's on there; the
-// name picks it as the destination.
+// name adds it to the destinations (the newest lands in the box).
 function sendingRow(src, d, levels) {
   const t = S.tally.get(d);
   const pick = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__end sode__end--dst', dstLabel(d));
   pick.type = 'button';
   pick.tabIndex = -1;
-  pick.title = 'Use as destination';
+  pick.title = 'Add as a destination';
   pick.addEventListener('mousedown', (e) => e.preventDefault());
-  pick.addEventListener('click', () => { select('dst', dstItem(d)); lvlInput.focus(); });
+  pick.addEventListener('click', () => {
+    const have = allDsts();
+    if (!have.some((x) => x.n === d)) {
+      dsts = have;
+      select('dst', dstItem(d));
+    }
+    lvlInput.focus();
+  });
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
@@ -191,6 +198,8 @@ function renderTally() {
   renderLast();
   const srcUnder = $('src-under'), dstUnder = $('dst-under');
   if (!S.cfg) { srcUnder.replaceChildren(); return dstUnder.replaceChildren(); }
+  // Redrawing the lists keeps where they were scrolled to.
+  const scrolled = [srcUnder, dstUnder].map((u) => u.querySelector('.sode__scroll')?.scrollTop || 0);
   if (sel.src) {
     const levels = lvl.levels() || allLevels();
     const fed = fedBy(sel.src.n, levels);
@@ -204,6 +213,10 @@ function renderTally() {
     dstUnder.replaceChildren(underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving', true),
       el('div', 'sode__scroll', ...ds.flatMap(currentlyNodes)));
   } else dstUnder.replaceChildren();
+  [srcUnder, dstUnder].forEach((u, i) => {
+    const box = u.querySelector('.sode__scroll');
+    if (box) box.scrollTop = scrolled[i];
+  });
 }
 
 // ---- history
