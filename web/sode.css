@@ -765,7 +765,6 @@ code,
 }
 /* Back to the composer, on a phone (desktop has Cancel in reach). */
 .pb-btn.sode__back { margin-left: calc(var(--pb-space-4) * -1); }
-.sode__back > .pb-icon { transform: scaleX(-1); } /* the sprite has only chevron-right */
 [data-layout="desktop"] .sode__back { display: none; }
 .sode__settings-title {
   color: var(--pb-text-strong);
