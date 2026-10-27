@@ -35,9 +35,11 @@ type Entry struct {
 	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
 	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
-	Follow  *int      `json:"follow,omitempty"`  // ext only: ID of the take this seems to follow (destination follow, automation)
-	Found   bool      `json:"found,omitempty"`   // ext only: changed without a Connected; seen when Sode re-read the router
-	Late    []int     `json:"late,omitempty"`    // levels that were in Failed until the router confirmed them after the take gave up
+	// ext only: group ID of the multi-take confirm this seems to follow; never one of its takes in particular
+	FollowGroup string `json:"followGroup,omitempty"`
+	Follow      *int   `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
+	Found       bool   `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
+	Late        []int  `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept

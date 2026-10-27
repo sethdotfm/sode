@@ -1253,7 +1253,7 @@ func planTake(r *runtime, req takeReq) (*waiter, error) {
 	if req.Src < 0 || req.Src > 0xFFFE || req.Dst < 0 || req.Dst > 0xFFFE || len(req.Levels) == 0 {
 		return nil, errors.New("bad request")
 	}
-	w := &waiter{dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1}}
+	w := &waiter{dst: req.Dst, src: req.Src, done: make(chan struct{}), cause: &cause{src: req.Src, dst: req.Dst, id: -1, group: req.Group}}
 	for _, ui := range req.Levels {
 		l, ok := r.byUI[ui]
 		if !ok {
@@ -1380,6 +1380,7 @@ func (a *App) finish(c *client, res map[string]any, e *Entry, err error) {
 		res["err"] = e.Err
 	}
 	a.record(e)
+	res["entry"] = e.ID // the browser's banner follows this entry
 	a.reply(c, res)
 }
 
@@ -1409,8 +1410,12 @@ func (a *App) record(e *Entry) {
 		if e.Follow != nil {
 			follow = fmt.Sprint(*e.Follow)
 		}
-		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s found=%t",
-			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, e.Found)
+		followGroup := "-"
+		if e.FollowGroup != "" {
+			followGroup = e.FollowGroup
+		}
+		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s followGroup=%s found=%t",
+			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, followGroup, e.Found)
 	} else {
 		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
 			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)

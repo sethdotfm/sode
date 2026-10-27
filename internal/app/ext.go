@@ -57,7 +57,8 @@ type cause struct {
 	src, dst    int
 	first, last time.Time // its changes as the router reported them; zero = none yet
 	id          int
-	done        bool // recorded
+	done        bool   // recorded
+	group       string // history group of the multi-take confirm it belongs to, "" if alone
 }
 
 // saw notes one of the take's changes. Caller holds mu.
@@ -248,8 +249,15 @@ func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry
 		if e.Found {
 			found = append(found, e)
 		} else if c := a.followed(e.Src, e.Dst, o.first); c != nil {
-			id := c.id
-			e.Follow = &id
+			if c.group != "" {
+				// One take of a multi-take confirm: which one is a guess, so
+				// the entry is tied to the whole confirm, and is neither a
+				// panel route (no Group) nor a follow of one take.
+				e.FollowGroup = c.group
+			} else {
+				id := c.id
+				e.Follow = &id
+			}
 		} else {
 			takes = append(takes, e)
 		}

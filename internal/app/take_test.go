@@ -606,6 +606,38 @@ func TestTakeLateFollow(t *testing.T) {
 	}
 }
 
+// A PiP that follows a take of a multi-take confirm is tied to the confirm
+// (FollowGroup), not to that take.
+func TestBatchFollowGroup(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	for _, d := range []int{5, 6, 9} {
+		f.seed(d, 1, 0, 1, 2)
+	}
+	f.ignore[5] = true
+	a.batch(&client{ip: "10.0.0.1"}, []takeReq{
+		{ID: 1, Src: 7, Dst: 5, Levels: []int{1}},
+		{ID: 2, Src: 7, Dst: 6, Levels: []int{1}},
+	})
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 7))
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 5)
+	group := ""
+	var follower *Entry
+	for i, e := range es {
+		if e.Ext {
+			follower = &es[i]
+		} else if e.Group != "" {
+			group = e.Group
+		}
+	}
+	if group == "" || follower == nil || follower.Dst != 9 || follower.FollowGroup != group || follower.Follow != nil || follower.Group != "" {
+		t.Fatalf("batch follower: group %q, entries %+v", group, es)
+	}
+}
+
 // Counts what the router was sent for, by reason.
 func (f *fakeRouter) sentFor(reason string) int {
 	f.mu.Lock()

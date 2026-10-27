@@ -196,6 +196,39 @@ func TestExtFollows(t *testing.T) {
 		t.Fatalf("salvo follow by what it followed before: %+v", e)
 	}
 
+	// A cause from a multi-take confirm: the follower is tied to the group,
+	// not to one take, and isn't a panel route. A salvo of them all gets it.
+	a.mu.Lock()
+	t3 := time.Now()
+	a.causes = []*cause{
+		{src: 3, dst: 5, first: t3, last: t3, id: 90, done: true, group: "g1"},
+		{src: 3, dst: 6, first: t3, last: t3, id: 91, done: true, group: "g1"},
+	}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 3))
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 11, 3))
+	endBurst(a)
+	es, _ = a.hist.Page(-1, 2)
+	for _, e := range es {
+		if e.FollowGroup != "g1" || e.Follow != nil || e.Group != "" || e.GroupN != 0 {
+			t.Fatalf("follower of a grouped cause %+v", e)
+		}
+	}
+	// With no group it's a follow of that take, as before.
+	a.mu.Lock()
+	t4 := time.Now()
+	a.causes = []*cause{{src: 13, dst: 5, first: t4, last: t4, id: 92, done: true}}
+	a.mu.Unlock()
+	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 13))
+	endBurst(a)
+	if e := last(); e.Follow == nil || *e.Follow != 92 || e.FollowGroup != "" {
+		t.Fatalf("ungrouped follow %+v", e)
+	}
+
+	a.mu.Lock()
+	a.causes = nil
+	a.mu.Unlock()
+
 	// Too long after a take: a take of its own.
 	a.mu.Lock()
 	old := time.Now().Add(-2 * time.Second)
