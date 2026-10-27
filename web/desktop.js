@@ -490,7 +490,7 @@ showFlip();
 // ---- shortcut tip: a note in the corner until dismissed (per browser)
 
 const TIP_KEY = 'sode-hint-keys';
-$('keys-tip-text').textContent = `${mac ? '⌘Z' : 'Ctrl+Z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
+$('keys-tip-text').textContent = `${mac ? '⌃Z' : 'Ctrl+Z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
 try { $('keys-tip').hidden = localStorage.getItem(TIP_KEY) === 'hidden'; } catch (e) { $('keys-tip').hidden = false; }
 $('keys-tip-close').addEventListener('click', () => {
   $('keys-tip').hidden = true;
@@ -705,15 +705,18 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   });
 }
 
+// Modifiers, on every OS: Control is for Sode's commands (Mac too, where it
+// is free of browser shortcuts), Option/Alt is for moving through lists (and
+// the theme toggle), and ⌘ is left to the OS and the browser. Each check
+// excludes the other two modifiers.
 document.addEventListener('keydown', (e) => {
   if (pending) return onConfirmKey(e);
   if (layout() !== 'desktop') return;
   // Ctrl+? opens or closes the shortcut list from anywhere on desktop,
-  // Settings included, even mid-typing. ⌘? works too where the OS lets it
-  // through (macOS keeps it for the Help menu, hence ⌃? on the tip). By
-  // character, so any keyboard layout's ?; by the / key too, for browsers
-  // that report e.key without Shift under Ctrl.
-  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
+  // Settings included, even mid-typing. By character, so any keyboard
+  // layout's ?; by the / key too, for browsers that report e.key without
+  // Shift under Ctrl.
+  if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
     e.preventDefault();
     e.stopImmediatePropagation(); // not Settings' own keys
     if ($('keys').hidden) openKeys();
@@ -728,8 +731,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!active()) return;
-  // Ctrl+S/D/F (Control on a Mac too): the last take's source,
-  // destinations or levels, from anywhere.
+  // Ctrl+S/D/F: the last take's source, destinations or levels, from
+  // anywhere.
   const last = e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
   if (last) {
     e.preventDefault();
@@ -741,9 +744,10 @@ document.addEventListener('keydown', (e) => {
   const b = k && boxes[k];
   const inBox = k || id === 'lvl';
 
-  // Mod+Z undoes the last Sode take, unless a box has text to undo instead.
-  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
-    if (e.target instanceof HTMLInputElement && e.target.value) return;
+  // Ctrl+Z undoes the last Sode take. Where Ctrl+Z is also the text undo
+  // (not on a Mac, where that is ⌘Z, left alone), a box with text keeps it.
+  if (e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
+    if (!mac && e.target instanceof HTMLInputElement && e.target.value) return;
     e.preventDefault();
     undoLast();
     return;
