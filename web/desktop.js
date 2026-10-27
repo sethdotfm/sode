@@ -37,6 +37,7 @@ const active = () => layout() === 'desktop' && document.documentElement.dataset.
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 const expanded = new Set(); // history IDs showing their before state
 const openFolders = new Set(); // history groups showing their takes
+const openFollowers = new Set(); // history groups showing their Followers
 const arrived = arrivals();
 
 // ---- connection
@@ -318,11 +319,33 @@ function folderRow(f) {
   row.dataset.key = `f${f.group}`;
   clickToToggle(row, toggle, '.sode__hist-folder');
   if (open) {
-    const kids = el('ul', 'sode__hist-folder', ...f.shown.map(histRow));
+    const kids = el('ul', 'sode__hist-folder', ...f.shown.map(histRow), ...followerRows(f));
     kids.id = kidsId;
     row.append(kids);
   }
   return row;
+}
+
+// The "Followers" row at the bottom of a folder, and (opened) the
+// followers under it: changes made elsewhere that seem to follow the
+// confirm, not any one take. Same columns as a take's row.
+function followerRows(f) {
+  if (!f.followers?.length) return [];
+  const open = openFollowers.has(f.group);
+  const id = `hist-followers-${f.group}`;
+  const toggle = disclosure(open, `${f.followers.length}`, id, () => {
+    if (openFollowers.has(f.group)) openFollowers.delete(f.group);
+    else openFollowers.add(f.group);
+    renderHistory();
+  });
+  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
+  const head = el('li', 'pb-input sode__hist-row',
+    el('span', 'sode__hist-id'), el('span', 'sode__hist-time'), el('span'),
+    el('span', 'sode__hist-route', 'Followers'),
+    el('span'), toggle, el('span', 'sode__hist-actions'));
+  clickToToggle(head, toggle);
+  head.id = id;
+  return [head, ...(open ? f.followers.map(histRow) : [])];
 }
 
 // A row's date and time; below 1000px the date hides and shows on hover.

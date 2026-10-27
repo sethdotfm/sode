@@ -833,6 +833,7 @@ export function entryNote(e) {
   if (e.merged > 1) parts.push(`${e.merged} changes`);
   if (e.follows?.length) parts.push(`+${e.follows.length} follow${e.follows.length === 1 ? '' : 's'}`);
   if (e.follow != null) parts.push(`follow of #${e.follow}`);
+  if (e.followGroup) parts.push('follow of this confirm');
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
@@ -1107,6 +1108,17 @@ function buildRows(list) {
     if (!passes({ ...byId.get(id), follows: fs })) followsOf.delete(id);
   }
   const attached = new Set([...followsOf.values()].flat());
+  // Followers of a multi-take confirm (followGroup) go in its folder's
+  // f.followers, not on any one take: the server doesn't say which. Only
+  // when the folder is loaded; otherwise they stay rows of their own.
+  const groups = new Set(list.filter((e) => e.group && !e.ext).map((e) => e.group));
+  const followers = new Map();
+  for (const e of list) {
+    if (!e.ext || !e.followGroup || !groups.has(e.followGroup)) continue;
+    attached.add(e);
+    if (!followers.has(e.followGroup)) followers.set(e.followGroup, []);
+    followers.get(e.followGroup).push(e);
+  }
   for (const orig of list) {
     if (attached.has(orig)) {
       chains.delete(orig.dst);
@@ -1120,7 +1132,7 @@ function buildRows(list) {
     const k = `${e.levels.join(',')}${e.found ? ' found' : ''}`; // found and announced don't mix
     const t = Date.parse(e.time);
     const c = chains.get(e.dst);
-    if (solo && e.ext && e.follow == null && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
+    if (solo && e.ext && e.follow == null && !e.followGroup && c && c.k === k && c.t - t <= MERGE_MS && !searchActive()) {
       c.list.push(orig);
       const follows = [...(c.row.e.follows || []), ...(e.follows || [])];
       c.row.e = { ...c.row.e, prev: e.prev, merged: c.list.length, chain: c.list, ...(follows.length ? { follows } : {}) };
@@ -1131,7 +1143,7 @@ function buildRows(list) {
     if (solo) {
       if (!passes(e)) continue;
       const row = { e };
-      if (e.ext && e.follow == null) chains.set(e.dst, { k, row, t, list: [orig] });
+      if (e.ext && e.follow == null && !e.followGroup) chains.set(e.dst, { k, row, t, list: [orig] });
       rows.push(row);
       continue;
     }
@@ -1143,6 +1155,14 @@ function buildRows(list) {
     }
     f.entries.push(e);
     if (passes(e)) f.shown.push(e);
+  }
+  for (const [g, fs] of followers) {
+    const f = folders.get(g);
+    if (!f) continue;
+    const shown = fs.filter(passes);
+    if (shown.length) f.followers = shown;
+    // A search that only a follower matches still shows the confirm.
+    if (shown.length && searchActive() && !f.shown.length) f.shown = f.entries;
   }
   return rows.filter((r) => !r.f || r.f.shown.length);
 }
@@ -1174,6 +1194,7 @@ const extStatus = (found, title = '') => (found
 // A pb-status node for a single take or a folder.
 export function statusNode(row) {
   const st = row.f ? folderStatus(row.f)
+    : row.e.ext && row.e.followGroup ? { dot: 'info', text: 'follow', title: 'Changed along with this confirm' }
     : row.e.ext ? extStatus(row.e.found)
     : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);

@@ -68,3 +68,31 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
   assert.deepEqual(p.untouched, [1]);
   assert.ok(p.groups.flatMap((g) => g.levels).includes(3));
 });
+
+test('histRows: followers of a confirm go in its folder', async () => {
+  const { S, histRows, setFilter, entryNote } = await import('../core.js');
+  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.levelBy = new Map([[1, {}]]);
+  const t = (id, dst) => ({ id, dst, src: 1, srcName: 'A', dstName: `D${dst}`, time: new Date(Date.now() - (20 - id) * 1000).toISOString(), ok: true, levels: [1], group: 'g', groupN: 3 });
+  const ext = (id, dst, extra = {}) => ({ id, dst, src: 1, srcName: 'A', dstName: `D${dst}`, time: new Date(Date.now() - (20 - id) * 1000).toISOString(), ok: true, ext: true, levels: [1], ...extra });
+  const takes = [t(1, 1), t(2, 2), t(3, 3)];
+  // Same dst and levels within 30s: would chain if they were plain panel changes.
+  const list = [ext(8, 7, { followGroup: 'g' }), ext(7, 7, { followGroup: 'g' }), ...takes.reverse()];
+  let rows = histRows(list);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].f.entries.length, 3);
+  assert.equal(rows[0].f.shown.length, 3);
+  assert.deepEqual(rows[0].f.followers.map((e) => e.id), [8, 7]);
+  assert.equal(rows[0].f.followers[0].merged, undefined);
+  assert.ok(entryNote(list[0]));
+  // Unknown folder: stays a standalone row.
+  rows = histRows([ext(9, 7, { followGroup: 'zz' }), ...list.slice(2)]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].e.id, 9);
+  assert.equal(rows[1].f.followers, undefined);
+  // A filter hiding one follower drops it from the folder only.
+  setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '!D8' });
+  rows = histRows([ext(8, 7, { followGroup: 'g' }), ext(6, 8, { followGroup: 'g' }), ext(5, 9, { followGroup: 'g' }), ...list.slice(2)]);
+  assert.deepEqual(rows[0].f.followers.map((e) => e.id), [8, 5]);
+  setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '' });
+});
