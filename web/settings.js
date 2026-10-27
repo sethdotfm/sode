@@ -1,10 +1,12 @@
 // Settings view, shared by both layouts. Lives at #settings so Back and
-// reload work. Server settings save together; the layout choice is per
-// browser and applies at once. With a settings PIN, the view opens locked
-// and locks again when it closes.
+// reload work. Server settings save together, and the view stays open
+// after a save; the This device choices are per browser and apply at once.
+// Leaving with unsaved changes warns first. With a settings PIN, the view
+// opens locked and locks again when it closes.
 
-import { $, el, S, on, wsSend, sentence, fmtTime, clockPref, flipped, setFlip, scrollTopPref, searchRespectsFilters, setSearchRespectsFilters, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
-import { layout, layoutPref, setLayoutPref } from './layout.js';
+import { $, el, S, on, wsSend, sentence, fmtTime, ownPref, globalPref, setPref, filterSummary, normFilter, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { PREFS, resolve, toGlobal } from './prefs.js';
+import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
 
@@ -25,7 +27,60 @@ let shownMode = '1';
 function showView() {
   const want = location.hash === '#settings' && S.cfg;
   if (want && !isOpen()) openSettings();
-  else if (!want && isOpen()) closeSettings();
+  else if (!want && isOpen()) {
+    // Back with unsaved changes: stay, and warn; Back again leaves.
+    if (warnUnsaved()) history.pushState(null, '', '#settings');
+    else closeSettings();
+  }
+}
+
+// ---- unsaved changes: the server settings in the form against the last
+// opened or saved state. This device applies at once, so it isn't counted.
+
+let clean = '';
+let savedAt = null;
+const formState = () => JSON.stringify([...form.querySelectorAll('input, select, textarea')]
+  .filter((f) => !f.closest('.sode__device, .sode__lock'))
+  .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)));
+const dirty = () => isOpen() && formState() !== clean;
+const warned = () => !$('settings-unsaved').hidden;
+
+function markClean(saved) {
+  clean = formState();
+  savedAt = saved ? new Date().toISOString() : null;
+  unwarn();
+}
+
+// The first try at leaving with unsaved changes shows the warning and
+// returns true; the next one goes.
+function warnUnsaved() {
+  if (!dirty() || warned()) return false;
+  $('settings-unsaved').hidden = false;
+  $('settings-exit').textContent = 'Discard and exit';
+  $('settings-exit').classList.replace('pb-btn--outline', 'pb-btn--danger');
+  renderSaveState();
+  return true;
+}
+
+function unwarn() {
+  $('settings-unsaved').hidden = true;
+  $('settings-exit').textContent = 'Exit';
+  $('settings-exit').classList.replace('pb-btn--danger', 'pb-btn--outline');
+  renderSaveState();
+}
+
+function exitSettings() {
+  if (!warnUnsaved()) closeSettings();
+}
+
+// Next to Save: unsaved changes, or where (and when) it was saved.
+function renderSaveState() {
+  const path = S.configPath ? el('code', null, S.configPath) : null;
+  // The warning, once shown, says it already.
+  $('settings-path').replaceChildren(...(dirty() ? (warned() ? [] : ['Unsaved changes'])
+    : !path ? [savedAt ? `Applied ${fmtTime(savedAt)}; not saved: ` : 'Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']
+    : savedAt ? [`Saved ${fmtTime(savedAt)} to `, path]
+    : ['Saved to ', path]));
 }
 
 export function openSettings() {
@@ -50,21 +105,19 @@ export function openSettings() {
   $('lock-pin').value = '';
   $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
-  $('cfg-layout').value = layoutPref();
-  $('cfg-clock').value = clockPref();
-  $('cfg-flip').checked = flipped();
-  $('cfg-scrolltop').checked = scrollTopPref();
-  $('cfg-search-filters').checked = searchRespectsFilters();
+  renderPrefs();
+  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, S.cfg.deviceDefaults);
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
-  $('settings-path').replaceChildren(...(S.configPath ? ['Saved to ', el('code', null, S.configPath)] : ['Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']));
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderHiddenNote();
   renderGlobalSets();
   renderNamesStatus();
   window.scrollTo(0, 0);
+  markSection();
+  markClean(false);
   renderLock(true);
 }
 
@@ -99,12 +152,90 @@ function readSettings() {
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
+  c.deviceDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
 
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
   const list = def ? parseLevelsAs(def, c.levelNumbering, formLevels()) : [];
   c.defaultLevels = list ? levelInput(list, '1') : null;
   return c;
+}
+
+// ---- This device and Defaults for every device: the same six choices
+// (prefs.js). A device one starts with "Global (value)", which follows the
+// default; it applies at once. A default one is saved with the form.
+
+const prefOptions = (name, globalText) => {
+  const opt = (value, text) => Object.assign(el('option', null, text), { value });
+  return [
+    ...(globalText ? [opt('', globalText)] : []),
+    ...Object.entries(PREFS[name].values).map(([v, text]) => opt(v, text)),
+  ];
+};
+
+for (const s of form.querySelectorAll('select[data-gpref]')) s.replaceChildren(...prefOptions(s.dataset.gpref));
+
+// On any change of the settings in force, so "Global (value)" stays true
+// when the defaults change under an open form, and Alt+Shift+T shows.
+function renderPrefs() {
+  for (const s of form.querySelectorAll('select[data-pref]')) {
+    const name = s.dataset.pref;
+    s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
+    s.value = ownPref(name);
+  }
+}
+renderPrefs();
+on('prefs', renderPrefs);
+
+// ---- table of contents: one button per section, scrolling to it, with the
+// section in view marked. Wide screens pin it beside the column; narrow
+// ones show it as a strip across the top; the phone layout leaves it out.
+
+const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
+const toc = $('settings-toc');
+// A clicked section stays marked while the page scrolls to it, which may
+// stop short of it near the bottom, until the scroll ends or the user
+// scrolls themselves.
+let picked = -1;
+toc.replaceChildren(...sections.map((sec, i) => {
+  const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
+  b.type = 'button';
+  b.addEventListener('click', () => {
+    picked = i;
+    mark(i);
+    sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  });
+  return b;
+}));
+function mark(cur) {
+  [...toc.children].forEach((b, i) => {
+    b.classList.toggle('active', i === cur);
+    if (i === cur) b.setAttribute('aria-current', 'location');
+    else b.removeAttribute('aria-current');
+  });
+}
+let tocTick = false;
+function markSection() {
+  tocTick = false;
+  if (!isOpen() || picked >= 0) return;
+  // The last section whose top has reached the top of the window (where a
+  // click scrolls it to, its scroll margin down); at the very bottom the
+  // last one, which may be too short to ever reach it.
+  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+  const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
+  mark(Math.max(atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
+}
+window.addEventListener('scroll', () => {
+  if (tocTick) return;
+  tocTick = true;
+  requestAnimationFrame(markSection);
+}, { passive: true });
+for (const ev of ['scrollend', 'wheel', 'touchstart', 'keydown']) {
+  window.addEventListener(ev, () => {
+    if (picked < 0) return;
+    picked = -1;
+    if (ev !== 'scrollend') markSection();
+  }, { passive: true });
 }
 
 // ---- level numbering: a three-way switch, labelled for the level count
@@ -228,8 +359,15 @@ function renderNamesStatus() {
 function configResult(m) {
   $('settings-save').disabled = false;
   if (m.ok) {
-    if (isOpen()) closeSettings();
-    showResult('ok', 'Settings saved', S.configPath ? `Written to ${S.configPath}.` : 'Applied (not saved to disk).');
+    if (!isOpen()) return;
+    // Stay open. A new or removed PIN was sent once; a changed PIN has
+    // relocked everyone, this view included.
+    $('cfg-pin').value = '';
+    $('cfg-pin2').value = '';
+    $('cfg-pin-clear').checked = false;
+    renderPinStatus();
+    markClean(true);
+    renderLock();
     return;
   }
   if (m.locked) {
@@ -297,9 +435,14 @@ $('clear-confirm').addEventListener('click', () => {
 });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
-$('settings-cancel').addEventListener('click', closeSettings);
-$('settings-back').addEventListener('click', closeSettings); // phone: like Cancel
-$('lock-cancel').addEventListener('click', closeSettings);
+$('settings-exit').addEventListener('click', exitSettings);
+$('settings-back').addEventListener('click', exitSettings); // phone: like Exit
+$('lock-cancel').addEventListener('click', exitSettings);
+// Editing again after the warning takes it back, until the next try to leave.
+for (const ev of ['input', 'change']) form.addEventListener(ev, () => (warned() ? unwarn() : renderSaveState()));
+window.addEventListener('beforeunload', (e) => {
+  if (dirty()) e.preventDefault();
+});
 $('cfg-offset').addEventListener('input', renderOffsetNote);
 $('cfg-hidden').addEventListener('input', renderHiddenNote);
 $('cfg-colors-reset').addEventListener('click', () => {
@@ -313,10 +456,7 @@ $('cfg-levels').addEventListener('input', () => {
   renderNumbering();
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
-$('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
-$('cfg-flip').addEventListener('change', (e) => setFlip(e.target.checked));
-$('cfg-scrolltop').addEventListener('change', (e) => setScrollTopPref(e.target.checked));
-$('cfg-search-filters').addEventListener('change', (e) => setSearchRespectsFilters(e.target.checked));
+for (const s of form.querySelectorAll('select[data-pref]')) s.addEventListener('change', () => setPref(s.dataset.pref, s.value));
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'refreshNames' })) {
     $('names-refresh').disabled = true;
@@ -377,7 +517,7 @@ form.addEventListener('submit', (e) => {
 document.addEventListener('keydown', (e) => {
   if (isOpen() && e.key === 'Escape') {
     e.preventDefault();
-    closeSettings();
+    exitSettings();
   }
 });
 window.addEventListener('popstate', showView);

@@ -207,7 +207,20 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			if m.Config == nil {
 				continue
 			}
+			// A page from before deviceDefaults existed sends none, and its
+			// zero values would turn the "on" defaults off for everyone, so
+			// the current ones are kept.
+			var has struct {
+				Config struct {
+					DeviceDefaults json.RawMessage `json:"deviceDefaults"`
+				} `json:"config"`
+			}
+			json.Unmarshal(data, &has)
+			keepDefaults := has.Config.DeviceDefaults == nil
 			go func(cfg config.Config, pin string, clearPin bool) {
+				if keepDefaults {
+					cfg.DeviceDefaults = a.r().cfg.DeviceDefaults
+				}
 				res := map[string]any{"t": "configResult", "ok": true}
 				if err := a.SaveSettings(c, cfg, pin, clearPin); err != nil {
 					res["ok"], res["err"] = false, err.Error()
