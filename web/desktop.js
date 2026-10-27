@@ -118,7 +118,7 @@ function renderLast() {
   const lv = lvl.levels() || [];
   const now = {
     src: t && !(sel.src && sel.src.n === t.src.n) && [labelNode(t.src)],
-    dst: t && !sameList(allDsts().map((d) => d.n), t.dsts.map((d) => d.n)) &&
+    dst: t && !t.dsts.every((d) => allDsts().some((x) => x.n === d.n)) &&
       [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
     lvl: t && t.levels.length && !sameList(lv, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
   };
@@ -147,8 +147,14 @@ function useLast(k) {
     select('src', t.src);
     focusBox(boxes.dst.input);
   } else if (k === 'dst') {
-    dsts = t.dsts.slice(0, -1);
-    select('dst', t.dsts[t.dsts.length - 1]);
+    // Adds to the destinations already there; the last one added lands
+    // in the box.
+    const have = allDsts();
+    const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
+    if (add.length) {
+      dsts = [...have, ...add.slice(0, -1)];
+      select('dst', add[add.length - 1]);
+    }
     focusBox(boxes.src.input);
   } else {
     lvl.set(t.levels);

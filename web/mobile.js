@@ -26,6 +26,7 @@ const M = {
   step: order()[0],
   sel: { src: null },
   dsts: [], // destinations so far, one bubble each
+  dstFirst: false, // a blank Source went to Destination first
   feedOpen: false,
 };
 // The best match sits nearest the input (the list is column-reverse), so
@@ -101,7 +102,10 @@ function advance() {
   if (step === 'src') {
     if (!M.sel.src) {
       // Blank: pick the destination first and come back for the source.
-      if (!inputs.src.value.trim() && !M.dsts.length) return setStep('dst');
+      if (!inputs.src.value.trim() && !M.dsts.length) {
+        M.dstFirst = true;
+        return setStep('dst');
+      }
       const it = matches.current();
       if (!it) return shake(inputs.src);
       choose(it);
@@ -163,6 +167,7 @@ function editDst(i) {
 function reset() {
   M.sel = { src: null };
   M.dsts = [];
+  M.dstFirst = false;
   for (const k of ['src', 'dst']) inputs[k].value = '';
   lvl.clear();
   setStep(order()[0], false);
@@ -171,8 +176,9 @@ function reset() {
 // ---- the last take's source, destinations or levels
 
 // A "Last:" chip by the step's label, as on desktop: tap to fill the step
-// from the last take and move on. Hidden when the step already has it,
-// and for levels when they're the default.
+// from the last take (destinations are added to any already picked) and
+// move on. Hidden when the step already has it, and for levels when
+// they're the default.
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 function renderLast() {
   const slot = $('m-last');
@@ -180,7 +186,7 @@ function renderLast() {
   const k = M.step;
   let v = null;
   if (t && k === 'src' && !(M.sel.src && M.sel.src.n === t.src.n)) v = [labelNode(t.src)];
-  if (t && k === 'dst' && !sameList(M.dsts.map((d) => d.n), t.dsts.map((d) => d.n))) {
+  if (t && k === 'dst' && !t.dsts.every((d) => M.dsts.some((x) => x.n === d.n))) {
     v = [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''];
   }
   if (t && k === 'lvl' && t.levels.length && !sameList(lvl.levels() || [], t.levels) && !sameList(t.levels, parseLevels('') || [])) {
@@ -202,7 +208,8 @@ function useLast(k) {
     choose(t.src);
     setStep(M.dsts.length ? 'lvl' : 'dst');
   } else if (k === 'dst') {
-    M.dsts = [...t.dsts];
+    // Adds to the destinations already picked.
+    for (const d of t.dsts) if (!M.dsts.some((x) => x.n === d.n)) M.dsts.push(d);
     inputs.dst.value = '';
     matches.close();
     setStep(M.sel.src ? 'lvl' : 'src');
@@ -550,8 +557,10 @@ for (const k of STEPS) {
       // Backspace on an empty step goes back to edit what's picked before
       // it: from Levels the step before in the order, from Destination
       // its newest one and then the source, from Source the newest
-      // destination.
-      const back = k === 'lvl' ? order().slice(0, 2).reverse() : k === 'dst' ? ['dst', 'src'] : ['dst'];
+      // destination where Destination came first.
+      const back = k === 'lvl' ? order().slice(0, 2).reverse()
+        : k === 'dst' ? ['dst', 'src']
+          : flipped() || M.dstFirst ? ['dst'] : [];
       const to = back.find((b) => (b === 'dst' ? M.dsts.length : M.sel.src));
       if (!to) return;
       e.preventDefault();
@@ -670,3 +679,7 @@ onLayout((l) => {
   if (l !== 'phone') closeSheet();
   else { renderThread(); renderRecent(); }
 });
+
+// The first step from the start, so a Destination-first browser doesn't
+// show the Source box until hello.
+setStep(order()[0], false);
