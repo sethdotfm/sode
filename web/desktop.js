@@ -3,7 +3,7 @@
 
 import {
   $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelBar,
-  allLevels, fedBy, bySource, dstLabel, dstItem, srcItem, currentlyNodes, timeNodes, undoPlan, historyPager,
+  allLevels, fedBy, bySource, dstLabel, dstItem, srcItem, currentlyNodes, pickEnd, timeNodes, undoPlan, historyPager,
   beforeGroups, srcRow, tallyText, attachFollows, labelNode, retryPlan, planVerb, entryNote,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
   resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, scrollTopPref, flipped, setFlip,
@@ -178,12 +178,7 @@ function underHead(text, up) {
 // name adds it to the destinations (the newest lands in the box).
 function sendingRow(src, d, levels) {
   const t = S.tally.get(d);
-  const pick = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__end sode__end--dst', dstLabel(d));
-  pick.type = 'button';
-  pick.tabIndex = -1;
-  pick.title = 'Add as a destination';
-  pick.addEventListener('mousedown', (e) => e.preventDefault());
-  pick.addEventListener('click', () => {
+  const pick = pickEnd('dst', dstLabel(d), 'Add as a destination', () => {
     const have = allDsts();
     if (!have.some((x) => x.n === d)) {
       dsts = have;
@@ -192,6 +187,12 @@ function sendingRow(src, d, levels) {
     lvlInput.focus();
   });
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
+}
+
+// A source in Receiving becomes the source.
+function pickSrc(n) {
+  select('src', srcItem(n));
+  lvlInput.focus();
 }
 
 function renderTally() {
@@ -211,7 +212,7 @@ function renderTally() {
   if (ds.length) {
     const srcs = new Set(ds.flatMap((d) => bySource(d.n, allLevels()).map((r) => r.src)).filter((s) => s != null && s >= 0));
     dstUnder.replaceChildren(underHead(srcs.size ? `Receiving from ${srcs.size}` : 'Receiving', true),
-      el('div', 'sode__scroll', ...ds.flatMap(currentlyNodes)));
+      el('div', 'sode__scroll', ...ds.flatMap((d) => currentlyNodes(d, pickSrc))));
   } else dstUnder.replaceChildren();
   [srcUnder, dstUnder].forEach((u, i) => {
     const box = u.querySelector('.sode__scroll');
