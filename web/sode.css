@@ -937,7 +937,7 @@ code,
   gap: var(--pb-space-5);
   justify-content: space-between;
 }
-/* Save and the PIN Unlock buttons are green (the ok status color), set
+/* Save, Filters' Done and the PIN Unlock buttons are green (the ok status color), set
    apart from the red of discarding unsaved changes. */
 .sode__save {
   background-color: var(--pb-status-ok);
