@@ -128,7 +128,7 @@ function renderLock(opening = false) {
   const locked = S.pinSet && !unlocked();
   const flipped = locked !== ('locked' in form.dataset);
   if (locked) form.dataset.locked = '';
-  else delete form.dataset.locked;
+  else { delete form.dataset.locked; $('lock-help').hidden = true; }
   if (!opening && !flipped) return;
   if (locked) $('lock-pin').focus();
   else if (layout() === 'desktop') $('cfg-namerefresh').focus();
@@ -137,6 +137,7 @@ function renderLock(opening = false) {
 function closeSettings() {
   if (location.hash === '#settings') history.replaceState(null, '', location.pathname + location.search);
   delete root.dataset.view;
+  $('lock-help').hidden = true;
   relock(true);
   if (layout() === 'desktop') $('src').focus();
 }
@@ -438,6 +439,18 @@ for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click'
 $('settings-exit').addEventListener('click', exitSettings);
 $('settings-back').addEventListener('click', exitSettings); // phone: like Exit
 $('lock-cancel').addEventListener('click', exitSettings);
+
+// Forgot PIN: how to clear it, in a dialog like the shortcut list.
+function openLockHelp() {
+  $('lock-help').hidden = false;
+  $('lock-help-dialog').focus();
+}
+function closeLockHelp() {
+  $('lock-help').hidden = true;
+  if (isOpen()) $('lock-pin').focus();
+}
+$('lock-help-open').addEventListener('click', openLockHelp);
+$('lock-help-close').addEventListener('click', closeLockHelp);
 // Editing again after the warning takes it back, until the next try to leave.
 for (const ev of ['input', 'change']) form.addEventListener(ev, () => (warned() ? unwarn() : renderSaveState()));
 window.addEventListener('beforeunload', (e) => {
@@ -515,6 +528,12 @@ form.addEventListener('submit', (e) => {
   $('settings-save').disabled = true;
 });
 document.addEventListener('keydown', (e) => {
+  if (!$('lock-help').hidden) {
+    // Esc closes the dialog, not Settings; focus stays on Close.
+    if (e.key === 'Escape') { e.preventDefault(); closeLockHelp(); }
+    if (e.key === 'Tab') { e.preventDefault(); $('lock-help-close').focus(); }
+    return;
+  }
   if (isOpen() && e.key === 'Escape') {
     e.preventDefault();
     exitSettings();

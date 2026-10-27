@@ -146,10 +146,9 @@
       </div>
       <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
       <div class="sode__names">
-        <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
+        <button type="button" class="pb-btn pb-btn--outline" id="lock-help-open">Forgot PIN</button>
         <button type="submit" class="pb-btn sode__save" id="lock-unlock">Unlock</button>
       </div>
-      <span class="sode__hint">Forgot it? Run <code>docker compose exec sode /sode -reset-pin</code>, then <code>docker compose restart sode</code>.</span>
     </div>
 
     <fieldset class="sode__group sode__device">
@@ -240,6 +239,10 @@
 
     <div class="sode__open-log">
       <a class="pb-btn pb-btn--outline" href="log" target="_blank" rel="noopener">Open Log</a>
+    </div>
+
+    <div class="sode__lock-exit">
+      <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
     </div>
 
     <fieldset class="sode__group">
@@ -522,6 +525,21 @@
       <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
       <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share link</button>
       <button type="button" class="pb-btn pb-btn--commit" id="flt-done">Done</button>
+    </div>
+  </div>
+</div>
+<div class="pb-modal-backdrop sode__scrim" id="lock-help" hidden>
+  <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="lock-help-title" tabindex="-1" id="lock-help-dialog">
+    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot the settings PIN</span></div>
+    <div class="pb-modal__body sode__lock-help">
+      <p>On the machine running Sode, in the folder with its <code>docker-compose.yml</code>, remove the PIN:</p>
+      <pre><code>docker compose exec sode /sode -reset-pin</code></pre>
+      <p>Then restart Sode to apply it:</p>
+      <pre><code>docker compose restart sode</code></pre>
+      <p>Settings then open without a PIN. Set a new one under Settings PIN.</p>
+    </div>
+    <div class="pb-modal__footer">
+      <button type="button" class="pb-btn pb-btn--outline" id="lock-help-close">Close</button>
     </div>
   </div>
 </div>
