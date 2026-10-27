@@ -465,6 +465,7 @@ func (a *App) hello(p helloPage) []byte {
 	m["cfg"] = r.cfg
 	m["pinSet"] = r.cfg.SettingsPin != ""
 	m["configPath"] = a.cfgPath
+	m["version"] = VersionLabel()
 	b, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("marshal hello: %v", err)

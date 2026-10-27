@@ -85,6 +85,7 @@ function renderSaveState() {
 
 export function openSettings() {
   if (!S.cfg) return;
+  $('settings-version').textContent = S.version ? `Sode ${S.version}` : '';
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
   for (const f of fields()) {
     const v = S.cfg[f.dataset.key];
