@@ -28,6 +28,8 @@ type Entry struct {
 	Err     string    `json:"err,omitempty"`
 	Undo    *int      `json:"undo,omitempty"`    // ID of the entry this take undid
 	Retry   *int      `json:"retry,omitempty"`   // ID of the failed entry this take retried
+	Failed  []int     `json:"failed,omitempty"`  // levels the router never confirmed or that weren't sent
+	Now     [][2]int  `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
 	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent

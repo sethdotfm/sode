@@ -771,6 +771,8 @@ type takeLevel struct {
 	unsent    bool // the router link refused it
 	confirmed bool
 	already   bool // confirmed by a tally, not by a change
+	seen      bool // the router reported some other route for the level...
+	now       int  // ...this src (-1 = nothing routed), the latest report
 }
 
 type waiter struct {
@@ -799,17 +801,24 @@ func (w *waiter) filter(keep func(*takeLevel) bool) []*takeLevel {
 // see marks a level confirmed when the router reports the requested route.
 // Routers only announce changes (Connected), so a level that was already
 // on src is confirmed by the answer to an interrogate instead.
+// What it reports for a wanted level instead is kept (seen, now), for the
+// reason if the level is never confirmed.
 // It reports whether xp was one of this take's. Caller holds mu.
 func (w *waiter) see(xp swp08.Crosspoint) bool {
-	if xp.Dst != w.dst || xp.Src != w.src {
+	if xp.Dst != w.dst {
 		return false
 	}
 	for _, l := range w.levels {
-		if l.wire == xp.Level && wanted(l) {
-			l.confirmed, l.already = true, !xp.Changed()
-			w.finishIfDone()
-			return true
+		if l.wire != xp.Level || !wanted(l) {
+			continue
 		}
+		if xp.Src != w.src {
+			l.seen, l.now = true, xp.Src
+			return false
+		}
+		l.confirmed, l.already = true, !xp.Changed()
+		w.finishIfDone()
+		return true
 	}
 	return false
 }
@@ -1014,11 +1023,15 @@ func (a *App) take(c *client, req takeReq) {
 	missing := a.awaitTake(r, w)
 
 	var errs []string
-	if len(missing) > 0 {
-		errs = append(errs, "no confirmation from router for levels "+levelList(r, uis(missing)))
-	}
 	a.mu.Lock()
+	if len(missing) > 0 {
+		errs = append(errs, "no confirmation from router: "+a.whyMissing(r, e, missing))
+	}
 	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
+	if unsent := w.filter(func(l *takeLevel) bool { return l.unsent }); len(unsent) > 0 {
+		e.Failed = append(e.Failed, uis(unsent)...)
+		sort.Ints(e.Failed)
+	}
 	a.mu.Unlock()
 	sort.Ints(e.Already)
 	if len(e.Already) > 0 {
@@ -1032,6 +1045,45 @@ func (a *App) take(c *client, req takeReq) {
 	}
 	a.finish(c, res, e, err)
 	w.unregister(a, e.ID)
+}
+
+// whyMissing says, per level, what the router reports for levels that never
+// confirmed, and records it in e: Failed (every such level) and Now (the
+// levels it answered for). A level on its previous src was ignored; on
+// another src, someone else's route got there; no answer means the router
+// said nothing, so it may or may not have switched. A level that is on src
+// after all was confirmed by see and isn't here. Caller holds mu.
+func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel) string {
+	slices.SortFunc(missing, func(x, y *takeLevel) int { return x.ui - y.ui })
+	src := func(n int) string {
+		switch {
+		case n < 0:
+			return "nothing"
+		case a.srcNames[n] != "":
+			return a.srcNames[n]
+		}
+		return fmt.Sprintf("source %d", n+r.cfg.NumberOffset)
+	}
+	prev := map[int]int{}
+	for _, p := range e.Prev {
+		prev[p[0]] = p[1]
+	}
+	parts := make([]string, len(missing))
+	for i, l := range missing {
+		e.Failed = append(e.Failed, l.ui)
+		label := "level " + r.cfg.LevelLabel(l.ui)
+		switch p, had := prev[l.ui]; {
+		case !l.seen:
+			parts[i] = label + " no answer"
+			continue
+		case had && p == l.now:
+			parts[i] = fmt.Sprintf("%s still on %s", label, src(l.now))
+		default:
+			parts[i] = fmt.Sprintf("%s on %s", label, src(l.now))
+		}
+		e.Now = append(e.Now, [2]int{l.ui, l.now})
+	}
+	return strings.Join(parts, "; ")
 }
 
 // planTake checks a take and builds its waiter, one record per level.

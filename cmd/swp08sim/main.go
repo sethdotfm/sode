@@ -27,6 +27,7 @@ type sim struct {
 	tally   map[int][]int // wire level → dst → src
 	clients map[net.Conn]*sync.Mutex
 	deaf    map[int]bool  // dsts whose connects are ACKed but never carried out
+	silent  map[int]bool  // dsts whose connects are carried out but never announced
 	follows map[int][]int // dst → dsts that follow it, like a multiviewer PiP
 }
 
@@ -41,12 +42,20 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, follows: map[int][]int{}}
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}}
 	// SIM_IGNORE_DSTS=5,7 makes connects to those (0-based) destinations
 	// silently fail, so Sode's timeout and retry paths can be exercised.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.deaf[n] = true
+		}
+	}
+	// SIM_SILENT_DSTS=5,7 makes those destinations switch without a
+	// Connected, as the Ultrix sometimes does: Sode only learns of it from
+	// the interrogate it sends when nothing was announced.
+	for _, f := range strings.Split(os.Getenv("SIM_SILENT_DSTS"), ",") {
+		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
+			s.silent[n] = true
 		}
 	}
 	// SIM_FOLLOWS=2>40,3>41 (0-based): when dst 2 changes, dst 40 follows
@@ -230,7 +239,7 @@ func (s *sim) handle(c net.Conn, m []byte) {
 			log.Printf("connect level %d: dst %d ← src %d ignored (SIM_IGNORE_DSTS)", l, dst, src)
 			return
 		}
-		s.route(mx, l, dst, src, true)
+		s.route(mx, l, dst, src, !s.silent[dst])
 
 	case swp08.CmdExtInterrogate:
 		if len(m) < 5 {

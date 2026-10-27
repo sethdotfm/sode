@@ -33,11 +33,12 @@ func TestWaiterAlreadyRouted(t *testing.T) {
 type fakeRouter struct {
 	a      *App
 	mu     sync.Mutex
-	tally  map[[2]int]int // dst, wire level → src
-	ignore map[int]bool   // dsts the router never answers for
-	lose   map[int]bool   // dsts whose Connected goes missing (interrogates still answer)
-	mute   map[int]bool   // dsts whose interrogates go unanswered (connects still do)
-	failAt int            // this send and every later one fail (1-based; 0 = never)
+	tally  map[[2]int]int  // dst, wire level → src
+	ignore map[int]bool    // dsts the router never answers for
+	deaf   map[[2]int]bool // dst, wire level whose connects are ignored (interrogates still answer)
+	lose   map[int]bool    // dsts whose Connected goes missing (interrogates still answer)
+	mute   map[int]bool    // dsts whose interrogates go unanswered (connects still do)
+	failAt int             // this send and every later one fail (1-based; 0 = never)
 	n      int
 	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
@@ -49,7 +50,7 @@ type sentWhy struct {
 }
 
 func newFakeRouter(t *testing.T, a *App) *fakeRouter {
-	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, lose: map[int]bool{}, mute: map[int]bool{}, out: make(chan []byte, 256)}
+	f := &fakeRouter{a: a, tally: map[[2]int]int{}, ignore: map[int]bool{}, deaf: map[[2]int]bool{}, lose: map[int]bool{}, mute: map[int]bool{}, out: make(chan []byte, 256)}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -84,7 +85,7 @@ func (f *fakeRouter) send(m []byte, why swp08.Why) error {
 	case swp08.CmdExtConnect:
 		l, dst, src := int(m[2]), int(m[3])<<8|int(m[4]), int(m[5])<<8|int(m[6])
 		k := [2]int{dst, l}
-		if f.ignore[dst] {
+		if f.ignore[dst] || f.deaf[k] {
 			return nil
 		}
 		if old, ok := f.tally[k]; ok && old == src {
@@ -224,8 +225,11 @@ func TestTakeNoConfirmation(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
 	e := takeOne(t, a, 7, 5, 1, 2, 3)
-	if e.OK || e.Err != "no confirmation from router for levels 1, 2, 3" {
+	if e.OK || e.Err != "no confirmation from router: level 1 no answer; level 2 no answer; level 3 no answer" {
 		t.Fatalf("take %+v", e)
+	}
+	if !equalInts(e.Failed, []int{1, 2, 3}) || len(e.Now) != 0 {
+		t.Fatalf("failed %v, now %v", e.Failed, e.Now)
 	}
 	leftovers(t, a)
 	// A late answer to the last interrogate is still ours, not a change found.
@@ -240,6 +244,76 @@ func TestTakeNoConfirmation(t *testing.T) {
 	if es, _ := a.hist.Page(-1, 1); len(es) != 1 || !es[0].Ext || es[0].Src != 7 {
 		t.Fatalf("later change elsewhere %+v", es)
 	}
+}
+
+// Level 1's connect is ignored but the router answers the interrogate: it
+// is still on its old src, a real failure. The others switch.
+func TestTakeIgnoredLevel(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.deaf[[2]int{5, 0}] = true
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if e.OK || e.Err != "no confirmation from router: level 1 still on source 2" {
+		t.Fatalf("take %+v", e)
+	}
+	if !equalInts(e.Failed, []int{1}) || !equalPrev(e.Now, [][2]int{{1, 1}}) {
+		t.Fatalf("failed %v, now %v", e.Failed, e.Now)
+	}
+	leftovers(t, a)
+}
+
+// Every connect switches without a Connected, except level 1's, which is
+// ignored: the interrogate confirms the switched levels (not failures) and
+// shows level 1 unchanged.
+func TestTakeSilentSwitch(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.lose[5] = true
+	f.deaf[[2]int{5, 0}] = true
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if e.OK || e.Err != "no confirmation from router: level 1 still on source 2" {
+		t.Fatalf("take %+v", e)
+	}
+	if !equalInts(e.Already, []int{2, 3}) || !equalInts(e.Failed, []int{1}) {
+		t.Fatalf("already %v, failed %v", e.Already, e.Failed)
+	}
+	leftovers(t, a)
+}
+
+// Something else routes level 1 to another src meanwhile: a failure that
+// says where it is.
+func TestTakeOtherSource(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(5, 1, 0, 1, 2)
+	f.deaf[[2]int{5, 0}] = true
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		f.mu.Lock()
+		f.tally[[2]int{5, 0}] = 9
+		f.mu.Unlock()
+	}()
+	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	if e.OK || e.Err != "no confirmation from router: level 1 on source 10" || !equalPrev(e.Now, [][2]int{{1, 9}}) {
+		t.Fatalf("take %+v", e)
+	}
+}
+
+func equalInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestTakeSendFails(t *testing.T) {
