@@ -139,13 +139,15 @@ function renderLast() {
 on('history', renderLast);
 
 // Fills one box from the last take and moves on: source to destination,
-// destination back to source, levels stays.
+// destination back to source, but only if that one is empty (no pick, chips
+// or typing); otherwise on to levels. Levels stays.
 function useLast(k) {
   const t = lastTake();
   if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
   if (k === 'src') {
     select('src', t.src);
-    focusBox(boxes.dst.input);
+    const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
+    focusBox(dstEmpty ? boxes.dst.input : lvlInput);
   } else if (k === 'dst') {
     // Adds to the destinations already there; the last one added lands
     // in the box.
@@ -155,7 +157,8 @@ function useLast(k) {
       dsts = [...have, ...add.slice(0, -1)];
       select('dst', add[add.length - 1]);
     }
-    focusBox(boxes.src.input);
+    const srcEmpty = !sel.src && !boxes.src.input.value.trim();
+    focusBox(srcEmpty ? boxes.src.input : lvlInput);
   } else {
     lvl.set(t.levels);
     focusBox(lvlInput);
@@ -765,6 +768,12 @@ document.addEventListener('keydown', (e) => {
 
   // The match list's keys: ↑/↓, PgUp/PgDn, Ctrl+J/K (and ⌘J/K on a Mac).
   if (b && b.cb.nav(e)) return;
+  // Ctrl+Enter and ⌘Enter add another destination too.
+  if (k === 'dst' && e.key === 'Enter' && (e.ctrlKey !== e.metaKey) && !e.shiftKey && !e.altKey) {
+    e.preventDefault();
+    addDst();
+    return;
+  }
   // + adds another destination; Ctrl/Cmd + is left for zoom.
   if (k === 'dst' && e.key === '+' && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
