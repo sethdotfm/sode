@@ -28,6 +28,8 @@ for (const k of ['src', 'dst']) {
   b.cb = combobox(b.input, $(`${k}-menu`), {
     source: (text) => search(b.list(), text, MAX_MATCHES),
     onPick: (it) => select(k, it),
+    // Destinations: a + on each row adds it as a chip and keeps the search.
+    add: k === 'dst' ? (it) => addDst(it) : undefined,
     foot: true,
   });
 }
@@ -78,12 +80,13 @@ const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...ds
 // +: the box's match becomes a chip. The typed search stays and its list
 // stays open without the chips, so the next match is one + away; typing
 // edits the search.
-function addDst() {
+function addDst(pick) {
   const b = boxes.dst;
   b.input.focus();
   // Picking a match writes its label into the box; the search is put back.
   let typed = b.input.value;
-  if (!sel.dst) {
+  if (pick) sel.dst = pick;
+  else if (!sel.dst) {
     if (!typed.trim()) return;
     if (!b.cb.open) b.cb.refresh();
     if (!b.cb.accept()) { b.input.classList.add('pb-input--invalid'); return; }
@@ -913,7 +916,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
-$('dst-add').addEventListener('click', addDst);
+$('dst-add').addEventListener('click', () => addDst());
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
 $('confirm-cancel').addEventListener('click', () => closeConfirm());

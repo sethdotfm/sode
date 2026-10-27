@@ -254,6 +254,7 @@ code,
   top: 100%;
   width: auto;
 }
+.sode__menu-add { margin-left: auto; }
 .sode__menu-count {
   background: var(--pb-surface-overlay);
   border-top: var(--pb-border-w) solid var(--pb-edge-soft);

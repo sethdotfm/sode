@@ -29,5 +29,9 @@
     <symbol id="chevron-left">
       <path d="m15 18-6-6 6-6" />
     </symbol>
+    <symbol id="plus">
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </symbol>
   </defs>
 </svg>
