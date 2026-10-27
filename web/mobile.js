@@ -508,12 +508,15 @@ for (const k of STEPS) {
     }
   });
 }
-// The number pad has no ! + or -, so these type them at the cursor.
+// The number pad has no ! , or -, so these keys type the words for them
+// at the cursor, with a space either side.
 for (const b of $('m-ops').children) {
   b.addEventListener('pointerdown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
     const i = inputs.lvl;
-    i.setRangeText(b.dataset.op, i.selectionStart ?? i.value.length, i.selectionEnd ?? i.value.length, 'end');
+    const a = i.selectionStart ?? i.value.length, z = i.selectionEnd ?? a;
+    const pre = /(^|\s)$/.test(i.value.slice(0, a)) ? '' : ' ';
+    i.setRangeText(`${pre}${b.dataset.op} `, a, z, 'end');
     i.dispatchEvent(new Event('input'));
   });
 }

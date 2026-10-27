@@ -385,11 +385,6 @@
       <div class="sode-m__bar" id="m-bar" data-step="src">
         <div class="sode-m__bar-head">
           <label class="sode-m__step" id="m-step" for="m-src">Source</label>
-          <span class="sode-m__ops" id="m-ops" role="group" aria-label="Level operators" hidden>
-            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" data-op="!" aria-label="Not (leave out)" tabindex="-1">!</button>
-            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" data-op="+" aria-label="And" tabindex="-1">+</button>
-            <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" data-op="-" aria-label="Through" tabindex="-1">-</button>
-          </span>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode-m__cancel" id="m-cancel">Cancel</button>
         </div>
         <input id="m-src" class="pb-input sode-m__input" placeholder="Source" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -399,6 +394,11 @@
           <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>
           <button type="button" class="pb-btn pb-btn--danger sode-m__go" id="m-go">Next</button>
         </span>
+        <div class="sode-m__ops" id="m-ops" role="group" aria-label="Level words" hidden>
+          <button type="button" class="sode-m__key" data-op="not" tabindex="-1">not</button>
+          <button type="button" class="sode-m__key" data-op="and" tabindex="-1">and</button>
+          <button type="button" class="sode-m__key" data-op="through" tabindex="-1">through</button>
+        </div>
       </div>
     </div>
   </div>

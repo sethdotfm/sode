@@ -1157,15 +1157,29 @@ code,
   grid-column: 1 / -1;
 }
 .pb-btn.sode-m__cancel { margin-left: auto; }
+/* Word keys under the levels box, right above the phone's keyboard, drawn
+   as keycaps: equal widths, a heavier bottom edge. */
 .sode-m__ops {
   display: flex;
   gap: var(--pb-space-2);
+  grid-column: 1 / -1;
 }
 .sode-m__ops[hidden] { display: none; }
-.sode-m__ops > .pb-btn {
-  font-family: var(--pb-font-mono);
-  font-size: var(--pb-text-lg);
-  min-width: var(--pb-control-h-lg);
+.sode-m__key {
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-bottom-width: var(--pb-accent-bar-w);
+  color: var(--pb-text-strong);
+  cursor: pointer;
+  flex: 1 1 0;
+  font-family: inherit;
+  font-size: max(16px, var(--pb-text-md));
+  height: calc(var(--pb-control-h-lg) * 1.2);
+  touch-action: manipulation;
+}
+.sode-m__key:active {
+  background: var(--pb-surface-high);
+  border-bottom-width: var(--pb-border-w);
 }
 /* 16px+ text stops iOS zooming into the field on focus. */
 .pb-input.sode-m__input {
