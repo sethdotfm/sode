@@ -48,7 +48,7 @@ Terms are separated by commas. A name matches if it fits any plain term and no `
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
 - Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
-- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. Swipe a recent take or folder left to undo. Settings → This device can force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
+- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. While you type, a summary of the patch stays at the top and Currently shows what's on the destination. Leave Source blank and press Next to pick the destination first. Swipe a recent take or folder left to undo. Settings → This device can put Destination before Source (on desktop the arrow between the boxes does the same), force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
 
 ## Run
 

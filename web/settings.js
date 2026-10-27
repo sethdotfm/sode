@@ -3,7 +3,7 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, sentence, fmtTime, clockPref, scrollTopPref, searchRespectsFilters, setSearchRespectsFilters, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, sentence, fmtTime, clockPref, flipped, setFlip, scrollTopPref, searchRespectsFilters, setSearchRespectsFilters, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
 import { layout, layoutPref, setLayoutPref } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
@@ -52,6 +52,7 @@ export function openSettings() {
   $('lock-err').hidden = true;
   $('cfg-layout').value = layoutPref();
   $('cfg-clock').value = clockPref();
+  $('cfg-flip').checked = flipped();
   $('cfg-scrolltop').checked = scrollTopPref();
   $('cfg-search-filters').checked = searchRespectsFilters();
   resetClear();
@@ -312,6 +313,7 @@ $('cfg-levels').addEventListener('input', () => {
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
 $('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
+$('cfg-flip').addEventListener('change', (e) => setFlip(e.target.checked));
 $('cfg-scrolltop').addEventListener('change', (e) => setScrollTopPref(e.target.checked));
 $('cfg-search-filters').addEventListener('change', (e) => setSearchRespectsFilters(e.target.checked));
 $('names-refresh').addEventListener('click', () => {

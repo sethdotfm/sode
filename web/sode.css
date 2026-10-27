@@ -1177,6 +1177,7 @@ code,
   grid-column: 1 / -1;
 }
 .pb-btn.sode-m__cancel {
+  border-color: var(--pb-edge);
   margin-left: auto;
   min-width: calc(var(--pb-control-h-lg) * 2.2); /* as wide as Next */
 }

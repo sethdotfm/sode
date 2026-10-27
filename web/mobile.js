@@ -2,11 +2,12 @@
 // at a time steps Source → Destination → Levels; the keyboard's Next/Go
 // advances, and a bottom sheet with a slider confirms. On the Destination
 // step, + (typed or the button) adds another destination and stays on the
-// step. A blank Source goes to Destination first (to see what's on it)
-// and comes back for the source.
+// step. Destination comes first where this browser is set to
+// Destination before Source (Settings). A blank Source or Destination
+// goes to the other first (to see what's on it) and comes back.
 
 import {
-  $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, defaultLevelsText, levelBar, allLevels,
+  $, el, S, on, flipped, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, defaultLevelsText, levelBar, allLevels,
   levelText, fedBy, dstItem, srcItem, labelNode, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan,
   resultNode, showResult,
@@ -18,10 +19,11 @@ import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feed
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
+const order = () => (flipped() ? ['dst', 'src', 'lvl'] : STEPS);
 const inputs = { src: $('m-src'), dst: $('m-dst'), lvl: $('m-lvl') };
 const view = $('mobile-view');
 const M = {
-  step: 'src',
+  step: order()[0],
   sel: { src: null },
   dsts: [], // destinations so far, one bubble each
   feedOpen: false,
@@ -76,6 +78,7 @@ function setStep(step, focus = true) {
   $('m-step').textContent = PROMPT[step];
   $('m-step').htmlFor = inputs[step].id;
   $('m-go').textContent = step === 'lvl' ? 'Go' : 'Next';
+  $('m-go').classList.toggle('pb-btn--danger', step === 'lvl'); // red only for the take
   syncGo();
   $('m-add').hidden = step !== 'dst';
   $('m-picker').hidden = step !== 'lvl';
@@ -107,6 +110,8 @@ function advance() {
     return setStep(M.dsts.length ? 'lvl' : 'dst');
   }
   if (step === 'dst') {
+    // Blank: pick the source first and come back for the destination.
+    if (!inputs.dst.value.trim() && !M.dsts.length && !M.sel.src) return setStep('src');
     // Next with an empty box goes on with the destinations already added.
     if (inputs.dst.value.trim() || !M.dsts.length) {
       const it = matches.current();
@@ -115,8 +120,8 @@ function advance() {
     }
     return setStep(M.sel.src ? 'lvl' : 'src');
   }
-  if (!M.sel.src) return setStep('src');
-  if (!M.dsts.length) return setStep('dst');
+  const missing = order().find((k) => (k === 'src' ? !M.sel.src : k === 'dst' && !M.dsts.length));
+  if (missing) return setStep(missing);
   const levels = lvl.levels();
   if (!levels) return shake(inputs.lvl);
   inputs.lvl.blur();
@@ -161,7 +166,7 @@ function reset() {
   M.dsts = [];
   for (const k of ['src', 'dst']) inputs[k].value = '';
   lvl.clear();
-  setStep('src', false);
+  setStep(order()[0], false);
 }
 
 // ---- thread: recent, result, the patch summary, currently
@@ -204,16 +209,19 @@ function summary() {
     ? tap(el('button', 'sode-m__sum-val', labelNode(M.sel.src)), `Source ${M.sel.src.label}, tap to change`, editSrc)
     : maybe('src') ? sumVal(maybe('src'), ' sode-m__sum-val--maybe')
       : sumNone(M.step === 'src' && !M.dsts.length && !inputs.src.value.trim() ? 'blank: Next picks the destination first' : '—');
+  const blankDst = M.step === 'dst' && !M.sel.src && !M.dsts.length && !inputs.dst.value.trim();
   const dsts = M.dsts.map((it, i) =>
     tap(el('button', 'sode-m__sum-val', labelNode(it)), `Destination ${it.label}, tap to change`, () => editDst(i)));
   const next = maybe('dst');
   if (next) dsts.push(sumVal(next, ' sode-m__sum-val--maybe'));
   const levels = lvl.levels();
-  return el('div', 'sode-m__sum',
-    sumRow('src', src),
-    sumRow('dst', ...(dsts.length ? dsts : [sumNone('—')])),
-    sumRow('lvl', levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
-      levels && lvl.empty() ? sumNone('default') : null));
+  const rows = {
+    src: () => sumRow('src', src),
+    dst: () => sumRow('dst', ...(dsts.length ? dsts : [sumNone(blankDst ? 'blank: Next picks the source first' : '—')])),
+    lvl: () => sumRow('lvl', levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
+      levels && lvl.empty() ? sumNone('default') : null),
+  };
+  return el('div', 'sode-m__sum', ...order().map((k) => rows[k]()));
 }
 
 function renderThread() {
@@ -488,23 +496,24 @@ for (const k of STEPS) {
     if (e.key === 'Enter') {
       e.preventDefault();
       advance();
-    } else if (e.key === 'Backspace' && !inputs[k].value && (k !== 'src' || (!M.sel.src && M.dsts.length))) {
-      // Backspace on an empty step goes back to edit the previous one:
-      // the newest destination, then the source. (A blank Source after
-      // Destination-first goes back to the destination.)
+    } else if (e.key === 'Backspace' && !inputs[k].value) {
+      // Backspace on an empty step goes back to edit what's picked before
+      // it: from Levels the step before in the order, from Destination
+      // its newest one and then the source, from Source the newest
+      // destination.
+      const back = k === 'lvl' ? order().slice(0, 2).reverse() : k === 'dst' ? ['dst', 'src'] : ['dst'];
+      const to = back.find((b) => (b === 'dst' ? M.dsts.length : M.sel.src));
+      if (!to) return;
       e.preventDefault();
-      if (M.dsts.length) {
+      if (to === 'dst') {
         const it = M.dsts.pop();
         inputs.dst.value = it.name || it.num;
-        setStep('dst');
-        matches.refresh();
-        return;
+      } else {
+        const it = M.sel.src;
+        M.sel.src = null;
+        inputs.src.value = it.name || it.num;
       }
-      if (k === 'lvl') return setStep('dst');
-      const it = M.sel.src;
-      M.sel.src = null;
-      inputs.src.value = it ? it.name || it.num : '';
-      setStep('src');
+      setStep(to);
       matches.refresh();
     }
   });
@@ -591,6 +600,11 @@ on('history', renderRecent);
 on('result', (r) => {
   $('m-result').replaceChildren(resultNode(r));
   scrollThread();
+});
+// Order changed in Settings: an empty composer starts on the new first step.
+on('flip', () => {
+  if (!M.sel.src && !M.dsts.length) setStep(order()[0], false);
+  else renderThread();
 });
 onLayout((l) => {
   if (l !== 'phone') closeSheet();

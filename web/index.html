@@ -185,6 +185,7 @@
           <span class="pb-select-wrap"><select id="cfg-clock" class="pb-select"><option value="24">24-hour</option><option value="12">12-hour</option><option value="locale">Browser language</option></select></span>
         </div>
       </div>
+      <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-flip"><span class="pb-check__label">Destination before Source</span></label>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-scrolltop"><span class="pb-check__label">Scroll to the top when a box is focused</span></label>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-search-filters"><span class="pb-check__label">Search respects filters</span></label>
     </fieldset>
@@ -394,7 +395,7 @@
         <input id="m-lvl" class="pb-input sode-m__input" enterkeyhint="go" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" hidden>
         <span class="sode-m__actions">
           <button type="button" class="pb-btn pb-btn--outline sode-m__add" id="m-add" aria-label="Add another destination" hidden>+</button>
-          <button type="button" class="pb-btn pb-btn--danger sode-m__go" id="m-go">Next</button>
+          <button type="button" class="pb-btn sode-m__go" id="m-go">Next</button>
         </span>
         <div class="sode-m__ops" id="m-ops" role="group" aria-label="Level words" hidden>
           <button type="button" class="sode-m__key" data-op="not" tabindex="-1">not</button>

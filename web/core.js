@@ -632,6 +632,17 @@ export function clockPref() {
   return v === '12' || v === 'locale' ? v : '24';
 }
 
+// Destination before Source, per browser: the desktop arrow, Settings, and
+// on a phone the order of the steps. index.html sets data-flip before first
+// paint; setFlip keeps it and tells the layouts ('flip').
+const FLIP_KEY = 'sode-flip';
+export const flipped = () => 'flip' in document.documentElement.dataset;
+export function setFlip(on) {
+  document.documentElement.toggleAttribute('data-flip', on);
+  try { localStorage.setItem(FLIP_KEY, on ? 'on' : 'off'); } catch (e) {}
+  emit('flip');
+}
+
 // Scroll to the top when a box is focused (desktop): per browser, on unless
 // turned off.
 const SCROLL_KEY = 'sode-scroll-top';
