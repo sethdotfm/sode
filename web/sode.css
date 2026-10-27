@@ -766,6 +766,12 @@ code,
 /* Back to the composer, on a phone (desktop has Cancel in reach). */
 .pb-btn.sode__back { margin-left: calc(var(--pb-space-4) * -1); }
 [data-layout="desktop"] .sode__back { display: none; }
+/* Phone: Back on the left, the title centered on the page. */
+[data-layout="phone"] .sode__settings-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+}
+[data-layout="phone"] .sode__back { justify-self: start; }
 .sode__settings-title {
   color: var(--pb-text-strong);
   font-size: var(--pb-text-xl);
