@@ -1179,6 +1179,8 @@ code,
   gap: var(--pb-space-3);
   grid-column: 1 / -1;
 }
+.sode-m__last { display: flex; min-width: 0; }
+.sode-m__last > .sode__last { min-height: var(--pb-control-h-sm); }
 .pb-btn.sode-m__cancel {
   border-color: var(--pb-edge);
   margin-left: auto;

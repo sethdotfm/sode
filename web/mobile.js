@@ -11,7 +11,7 @@ import {
   levelText, fedBy, dstItem, srcItem, labelNode, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
   statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan,
   resultNode, showResult,
-  patchPlan, planBlocked, planSummary, sendTakes,
+  patchPlan, planBlocked, planSummary, sendTakes, lastTake, parseLevels,
 } from './core.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
@@ -169,6 +169,49 @@ function reset() {
   setStep(order()[0], false);
 }
 
+// ---- the last take's source, destinations or levels
+
+// A "Last:" chip by the step's label, as on desktop: tap to fill the step
+// from the last take and move on. Hidden when the step already has it,
+// and for levels when they're the default.
+const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+function renderLast() {
+  const slot = $('m-last');
+  const t = S.cfg && lastTake();
+  const k = M.step;
+  let v = null;
+  if (t && k === 'src' && !(M.sel.src && M.sel.src.n === t.src.n)) v = [labelNode(t.src)];
+  if (t && k === 'dst' && !sameList(M.dsts.map((d) => d.n), t.dsts.map((d) => d.n))) {
+    v = [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''];
+  }
+  if (t && k === 'lvl' && t.levels.length && !sameList(lvl.levels() || [], t.levels) && !sameList(t.levels, parseLevels('') || [])) {
+    v = [levelText(t.levels)];
+  }
+  if (!v) return slot.replaceChildren();
+  const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...v));
+  b.type = 'button';
+  b.setAttribute('aria-label', `Use the last take's ${{ src: 'source', dst: 'destinations', lvl: 'levels' }[k]}`);
+  b.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
+  b.addEventListener('click', () => useLast(k));
+  slot.replaceChildren(b);
+}
+
+function useLast(k) {
+  const t = lastTake();
+  if (!t) return;
+  if (k === 'src') {
+    choose(t.src);
+    setStep(M.dsts.length ? 'lvl' : 'dst');
+  } else if (k === 'dst') {
+    M.dsts = [...t.dsts];
+    inputs.dst.value = '';
+    matches.close();
+    setStep(M.sel.src ? 'lvl' : 'src');
+  } else {
+    lvl.set(t.levels);
+  }
+}
+
 // ---- thread: recent, result, the patch summary, currently
 
 // Puts a picked item back in its box to edit.
@@ -246,6 +289,7 @@ function renderThread() {
     })));
   }
   $('m-compose').replaceChildren(...nodes);
+  renderLast();
   if (end) scrollThread();
 }
 
@@ -612,7 +656,7 @@ on('hello', () => {
 on('names', () => { matches.refresh(); renderThread(); });
 on('tally', renderThread);
 on('conn', renderConn);
-on('history', renderRecent);
+on('history', () => { renderRecent(); renderLast(); });
 on('result', (r) => {
   const end = atEnd();
   $('m-result').replaceChildren(resultNode(r));

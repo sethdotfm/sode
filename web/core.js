@@ -1391,6 +1391,22 @@ function extraBox(plan, spaceHint) {
 }
 
 // Sends every take in a plan as one batch. False if the connection is gone.
+// This browser's last patch (not an undo or retry) as numbers, so names
+// stay current; until it makes one, the newest take in history made in
+// Sode. For the "Last:" chips and Ctrl+S/D/F.
+let lastPatch = null;
+
+export function lastTake() {
+  let t = lastPatch;
+  if (!t) {
+    const e = S.hist.find((x) => !x.ext && x.undo == null && x.retry == null);
+    if (!e) return null;
+    const es = e.group && e.groupN > 1 ? S.hist.filter((x) => x.group === e.group).reverse() : [e];
+    t = { src: [e.src, e.srcName], dsts: es.map((x) => [x.dst, x.dstName]), levels: e.levels };
+  }
+  return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
+}
+
 export function sendTakes(p) {
   const batch = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
@@ -1409,6 +1425,10 @@ export function sendTakes(p) {
     return false;
   }
   for (const id of batch.byId.keys()) takes.set(id, batch);
+  if (p.verb === 'patch') {
+    const g = p.items[0].groups[0];
+    lastPatch = { src: [g.src.n, g.src.name], dsts: p.items.map((i) => [i.dst.n, i.dst.name]), levels: g.levels };
+  }
   const list = [...batch.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;
   const text = dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
