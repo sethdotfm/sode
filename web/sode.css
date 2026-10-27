@@ -867,7 +867,7 @@ code,
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
 .sode__lock-exit { display: none; }
-.sode__settings[data-locked] > .sode__lock-exit { display: flex; }
+.sode__settings[data-locked] > .sode__lock-exit { align-items: center; display: flex; gap: var(--pb-space-5); justify-content: space-between; }
 .sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__open-log, .sode__lock-exit) { display: none; }
 /* This device first, then the prompt: it's the part anyone can change. */
 .sode__settings[data-locked] > .sode__settings-head { order: -2; }

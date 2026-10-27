@@ -81,13 +81,16 @@ const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...ds
 function addDst() {
   const b = boxes.dst;
   b.input.focus();
+  // Picking a match writes its label into the box; the search is put back.
+  let typed = b.input.value;
   if (!sel.dst) {
-    if (!b.input.value.trim()) return;
+    if (!typed.trim()) return;
     if (!b.cb.open) b.cb.refresh();
     if (!b.cb.accept()) { b.input.classList.add('pb-input--invalid'); return; }
-  }
+  } else typed = '';
   if (!chosen(sel.dst)) dsts.push(sel.dst);
   sel.dst = null;
+  b.input.value = typed;
   b.input.classList.remove('pb-input--invalid');
   renderChips();
   renderTally();
