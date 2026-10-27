@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 )
@@ -113,7 +114,8 @@ func (h *History) Append(e *Entry) error {
 // Update changes entry id with fn and stores it, keeping its ID and place.
 // It reports the entry as stored, and false if there's no such entry. On
 // disk the file is rewritten (temp file, then rename), since a line's length
-// changes; that is rare (a late confirm), so it isn't made cheap.
+// changes; that is rare (a late confirm), so it isn't made cheap, and callers
+// keep it off their hot path (App.lateWorker).
 func (h *History) Update(id int, fn func(*Entry)) (Entry, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -121,9 +123,12 @@ func (h *History) Update(id int, fn func(*Entry)) (Entry, bool) {
 		if id < 0 || id >= len(h.mem) {
 			return Entry{}, false
 		}
-		fn(&h.mem[id])
-		h.mem[id].ID = id
-		return h.mem[id], true
+		// Work on a copy: entries already handed out share the slices.
+		e := cloneEntry(h.mem[id])
+		fn(&e)
+		e.ID = id
+		h.mem[id] = e
+		return e, true
 	}
 	if id < 0 || id >= len(h.offs) {
 		return Entry{}, false
@@ -175,27 +180,34 @@ func (h *History) rewrite(id int, line []byte) error {
 	if err == nil {
 		err = tmp.Sync()
 	}
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
+	if err == nil {
+		err = os.Rename(tmp.Name(), h.path)
 	}
 	if err != nil {
+		tmp.Close()
 		return err
 	}
-	if err := os.Rename(tmp.Name(), h.path); err != nil {
-		return err
-	}
-	nf, err := os.OpenFile(h.path, os.O_RDWR, 0o644)
-	if err != nil {
-		return err // the renamed file is complete; the next restart reads it
-	}
+	// tmp is the log now, and already open read-write: no reopen to fail
+	// and leave h.f on the replaced file.
 	h.f.Close()
-	h.f = nf
+	h.f = tmp
 	delta := int64(len(line)) - (end - start)
 	for i := id + 1; i < len(h.offs); i++ {
 		h.offs[i] += delta
 	}
 	h.size += delta
 	return nil
+}
+
+// cloneEntry copies e with its own slices.
+func cloneEntry(e Entry) Entry {
+	e.Levels = slices.Clone(e.Levels)
+	e.Prev = slices.Clone(e.Prev)
+	e.Failed = slices.Clone(e.Failed)
+	e.Now = slices.Clone(e.Now)
+	e.Already = slices.Clone(e.Already)
+	e.Late = slices.Clone(e.Late)
+	return e
 }
 
 // Clear drops every entry; IDs start again from 0.

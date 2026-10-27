@@ -86,6 +86,7 @@ type App struct {
 	seenAt   map[[2]int]time.Time  // dst, UI level → when the router last reported its route
 	lateTake map[ownKey][]lateTake // the same, with the history entry to amend if one turns up (#91)
 	lateHits []lateHit             // late answers awaiting their entry's amendment (flushLate)
+	lateQ    chan lateJob          // to lateWorker; nil = amend in line (tests)
 	causes   []*cause              // recent takes that changes elsewhere may follow
 	leaders  map[int]int           // dst → the dst it was last seen following
 
@@ -172,6 +173,8 @@ func (a *App) r() *runtime { return a.rt.Load() }
 func (a *App) Run(ctx context.Context) {
 	go a.sw.Run(ctx)
 	go a.logSent(ctx)
+	a.lateQ = make(chan lateJob, 64)
+	go a.lateWorker(ctx)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
 	for {
@@ -1113,8 +1116,8 @@ func (a *App) take(c *client, req takeReq) {
 	a.mu.Lock()
 	gap := w.filter(func(l *takeLevel) bool { return l.confirmed && slices.Contains(e.Failed, l.ui) })
 	a.mu.Unlock()
-	for _, l := range gap {
-		a.lateConfirm(e.ID, l.ui)
+	if len(gap) > 0 {
+		a.lateConfirm(e.ID, uis(gap))
 	}
 }
 
@@ -1154,43 +1157,83 @@ func (a *App) claimLate(k ownKey, ui int) bool {
 	return claimed
 }
 
-// flushLate amends the entries of takes whose late answers have come.
+// lateJob is the levels of entry id that the router confirmed late.
+type lateJob struct {
+	id  int
+	uis []int
+}
+
+// flushLate hands the entries of takes whose late answers have come to the
+// late worker. Amending rewrites the history file, which the 100ms tick
+// shouldn't wait for; without a worker (tests) it's done here.
 func (a *App) flushLate() {
 	a.mu.Lock()
 	hits := a.lateHits
 	a.lateHits = nil
 	a.mu.Unlock()
+	var jobs []lateJob
 	for _, h := range hits {
-		a.lateConfirm(h.id, h.ui)
+		i := slices.IndexFunc(jobs, func(j lateJob) bool { return j.id == h.id })
+		if i < 0 {
+			jobs = append(jobs, lateJob{id: h.id})
+			i = len(jobs) - 1
+		}
+		jobs[i].uis = append(jobs[i].uis, h.ui)
+	}
+	for _, j := range jobs {
+		if a.lateQ == nil {
+			a.lateConfirm(j.id, j.uis)
+			continue
+		}
+		a.lateQ <- j // buffered; if the worker is far behind this waits rather than lose the amendment
 	}
 }
 
-// lateConfirm amends take id's entry: level ui was confirmed after the take
-// gave up. It leaves Failed (and Now), joins Late, and the entry turns OK
-// once nothing is left failing. Caller doesn't hold mu.
-func (a *App) lateConfirm(id, ui int) {
+// lateWorker amends entries in the order flushLate queued them.
+func (a *App) lateWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case j := <-a.lateQ:
+			a.lateConfirm(j.id, j.uis)
+		}
+	}
+}
+
+// lateConfirm amends take id's entry: levels uis were confirmed after the
+// take gave up. They leave Failed (and Now), join Late, and the entry turns
+// OK once nothing is left failing. One history update for all of them.
+// Caller doesn't hold mu.
+func (a *App) lateConfirm(id int, uis []int) {
 	r := a.r()
-	changed := false
+	var done []int
 	e, ok := a.hist.Update(id, func(e *Entry) {
-		if !slices.Contains(e.Failed, ui) {
+		for _, ui := range uis {
+			if !slices.Contains(e.Failed, ui) {
+				continue
+			}
+			done = append(done, ui)
+			e.Failed = slices.DeleteFunc(e.Failed, func(x int) bool { return x == ui })
+			e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[0] == ui })
+			e.Late = append(e.Late, ui)
+			if len(e.Failed) > 0 {
+				e.Err = dropMissing(e.Err, r.cfg.LevelLabel(ui))
+			}
+		}
+		if len(done) == 0 {
 			return
 		}
-		changed = true
-		e.Failed = slices.DeleteFunc(e.Failed, func(x int) bool { return x == ui })
-		e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[0] == ui })
-		e.Late = append(e.Late, ui)
 		sort.Ints(e.Late)
 		if len(e.Failed) == 0 {
 			e.OK, e.Err = true, ""
-		} else {
-			e.Err = dropMissing(e.Err, r.cfg.LevelLabel(ui))
 		}
 	})
-	if !ok || !changed {
+	if !ok || len(done) == 0 {
 		return
 	}
 	log.Printf("LATE #%d src=%d %q dst=%d %q level %s confirmed after the take gave up (ok=%t)",
-		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, r.cfg.LevelLabel(ui), e.OK)
+		e.ID, e.Src+r.cfg.NumberOffset, e.SrcName, e.Dst+r.cfg.NumberOffset, e.DstName, levelList(r, done), e.OK)
 	a.mu.Lock()
 	a.broadcast(map[string]any{"t": "recent", "e": e, "update": true})
 	a.mu.Unlock()

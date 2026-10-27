@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -158,5 +159,24 @@ func TestHistoryUpdate(t *testing.T) {
 		if m, _ := filepath.Glob(path + ".tmp-*"); len(m) != 0 {
 			t.Fatalf("temp files left: %v", m)
 		}
+	}
+}
+
+// An entry handed out before an Update keeps its own slices: the update
+// must not change them under a reader (a broadcast being marshalled).
+func TestHistoryUpdateMemoryDoesNotAlias(t *testing.T) {
+	h, _ := OpenHistory("")
+	h.Append(&Entry{Failed: []int{1, 2, 3}, Now: [][2]int{{1, 5}}})
+	before, _ := h.Page(-1, 1)
+	h.Update(0, func(e *Entry) {
+		e.Failed = slices.DeleteFunc(e.Failed, func(x int) bool { return x == 2 })
+		e.Late = append(e.Late, 2)
+	})
+	if !slices.Equal(before[0].Failed, []int{1, 2, 3}) || len(before[0].Late) != 0 {
+		t.Fatalf("earlier copy changed: %+v", before[0])
+	}
+	after, _ := h.Page(-1, 1)
+	if !slices.Equal(after[0].Failed, []int{1, 3}) {
+		t.Fatalf("update lost: %+v", after[0])
 	}
 }
