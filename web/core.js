@@ -660,22 +660,30 @@ export const timeNodes = (iso) => {
 // One item per destination. undo/retry are the history entries an item
 // undoes or retries. Protection isn't kept here: planBlocked returns it.
 
+// Levels of a failed take that the router answered for, so it is known the
+// take didn't change them: still on their old route, or on someone else's.
+// Undo leaves them alone (restoring would overwrite a route that isn't the
+// take's). Levels with no answer stay in: they may have switched.
+const untouchedLevels = (e) => new Set(e.ok ? [] : (e.now || []).map(([u]) => u));
+
 // Groups an entry's previous routing into restorable takes.
 function undoItem(e) {
   const groups = new Map();
   const skipped = [];
+  const untouched = untouchedLevels(e);
   for (const [u, s] of e.prev) {
-    if (!S.levelBy.has(u)) continue;
+    if (!S.levelBy.has(u) || untouched.has(u)) continue;
     if (s < 0) { skipped.push(u); continue; }
     if (!groups.has(s)) groups.set(s, []);
     groups.get(s).push(u);
   }
   const known = new Set(e.prev.map(([u]) => u));
-  for (const u of e.levels) if (!known.has(u)) skipped.push(u);
+  for (const u of e.levels) if (!known.has(u) && !untouched.has(u)) skipped.push(u);
   return {
     dst: dstItem(e.dst, e.dstName),
     groups: [...groups].map(([s, levels]) => ({ src: srcItem(s), levels: levels.sort((a, b) => a - b) })),
     skipped: skipped.sort((a, b) => a - b),
+    untouched: [...untouched].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b),
     undo: e, retry: null,
   };
 }
@@ -684,12 +692,12 @@ function undoItem(e) {
 const retryItem = (e) => ({
   dst: dstItem(e.dst, e.dstName),
   groups: [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
-  skipped: [], undo: null, retry: e,
+  skipped: [], untouched: [], undo: null, retry: e,
 });
 
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
-  items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], undo: null, retry: null })),
+  items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], untouched: [], undo: null, retry: null })),
 });
 // e with the loaded changes that followed it, as histRows attaches them.
 export function attachFollows(e) {
@@ -737,6 +745,24 @@ export function beforeGroups(e) {
   return [...groups].map(([src, levels]) => ({ src, levels }));
 }
 
+// What the router reported for the levels a take never got confirmed, as
+// [{levels, text}]: "still on X" (it ignored the take), "on X" (some other
+// route got there) or "no answer" (it may or may not have switched; also a
+// level that wasn't sent). Empty for a take that worked and for entries
+// from before this was recorded.
+export function failureGroups(e) {
+  if (e.ok || !e.failed?.length) return [];
+  const now = new Map(e.now || []), prev = new Map(e.prev);
+  const groups = new Map();
+  for (const u of [...e.failed].sort((a, b) => a - b)) {
+    if (!S.levelBy.has(u)) continue;
+    const text = !now.has(u) ? 'no answer' : `${prev.get(u) === now.get(u) ? 'still on' : 'on'} ${tallyText(now.get(u))}`;
+    if (!groups.has(text)) groups.set(text, []);
+    groups.get(text).push(u);
+  }
+  return [...groups].map(([text, levels]) => ({ levels, text }));
+}
+
 // " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
   const parts = [];
@@ -746,6 +772,9 @@ export function entryNote(e) {
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
+  const why = failureGroups(e);
+  if (why.length) parts.push(why.map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels)} ${g.text}`).join('; '));
+  else if (!e.ok && !e.ext && e.err) parts.push(e.err);
   return parts.length ? el('span', 'sode__hist-note', ` (${parts.join('; ')})`) : null;
 }
 
@@ -1298,12 +1327,15 @@ function planQuestion(plan) {
 // What an undo item would overwrite besides the take it undoes: the levels
 // it restores where dst no longer has that take's source, because
 // something changed them since. [{src, levels}] by what's there now. A
-// failed take may have left some levels as they were, so it can't tell.
+// failed take may have left some levels as they were: those it never
+// confirmed (failed) can't tell, so only the rest are checked. An entry
+// from before failures were recorded can't say which, so it checks none.
 export function changedSince(item) {
   const e = item.undo;
-  if (!e?.ok) return [];
+  if (!e || (!e.ok && !e.failed?.length)) return [];
   const t = S.tally.get(e.dst);
-  const levels = item.groups.flatMap((g) => g.levels).filter((u) => t?.has(u) && t.get(u) !== e.src);
+  const failed = new Set(e.ok ? [] : e.failed);
+  const levels = item.groups.flatMap((g) => g.levels).filter((u) => !failed.has(u) && t?.has(u) && t.get(u) !== e.src);
   return bySource(e.dst, levels.sort((a, b) => a - b));
 }
 
@@ -1319,6 +1351,9 @@ function itemSummary(item, boxed, prot, since) {
     prot
       ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
         `by device ${prot.devices.join(', ')}; will be refused`)
+      : null,
+    item.untouched?.length
+      ? el('div', 'sode__hist-note', `Level${item.untouched.length === 1 ? '' : 's'} ${levelText(item.untouched)}: the take didn't change ${item.untouched.length === 1 ? 'it' : 'them'}, left as is.`)
       : null,
     item.skipped.length
       ? el('div', 'sode__hist-note', `Level${item.skipped.length === 1 ? '' : 's'} ${levelText(item.skipped)}: nothing was routed before, left as is.`)

@@ -10,7 +10,7 @@ import {
 } from './core.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, followBoxes, clickToToggle, pullToLoad } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -217,6 +217,7 @@ function histRow(e) {
       ...(e.chain
         ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm)]
         : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src)))]),
+      ...failureRows(e),
       ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
     // Below 1000px the row's level bar moves in here (see sode.css).
     detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));

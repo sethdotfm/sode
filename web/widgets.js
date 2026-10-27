@@ -4,7 +4,7 @@
 // the few things it does differently.
 
 import {
-  el, S, needsLink, levelBar, srcItem, dstItem, levelText, beforeGroups, tallyText, fmtClock, restorePlan, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels, dstLabel, planEmpty, chevron,
+  el, S, needsLink, levelBar, srcItem, dstItem, levelText, beforeGroups, failureGroups, srcRow, tallyText, fmtClock, restorePlan, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels, dstLabel, planEmpty, chevron,
 } from './core.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -261,6 +261,17 @@ export function arrivals() {
       return fresh && !open;
     },
   };
+}
+
+// ---- why a take failed
+
+// What the router reported for a failed take's levels, one row per outcome
+// ("still on CAM 2", "no answer"), under a heading; [] if it isn't known.
+// The phone has no such card: its row's note says the same in full.
+export function failureRows(e) {
+  const why = failureGroups(e);
+  if (!why.length) return [];
+  return [el('div', 'sode__label', 'Not confirmed'), ...why.map((g) => srcRow(g.levels, g.text))];
 }
 
 // ---- a stacked row (repeated changes merged into one) as a timeline
