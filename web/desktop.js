@@ -164,22 +164,29 @@ function useLast(k) {
 
 // ---- tally display
 
+// Under each box: what the source feeds, and what is on the destinations.
+// Both show at once; each sits in its own box, so the flip moves them too.
+function underHead(text) {
+  return el('div', 'sode__under-head', el('span', 'sode__down-arrow'), el('span', 'sode__label', text));
+}
+
 function renderTally() {
   renderLast();
-  const box = $('tally');
-  if (!S.cfg) return box.replaceChildren();
-  const ds = allDsts();
-  if (ds.length) return box.replaceChildren(...ds.flatMap(currentlyNodes));
+  const srcUnder = $('src-under'), dstUnder = $('dst-under');
+  if (!S.cfg) { srcUnder.replaceChildren(); return dstUnder.replaceChildren(); }
   if (sel.src) {
     const fed = fedBy(sel.src.n, lvl.levels() || allLevels());
-    return box.replaceChildren(el('div', 'sode__label', 'Currently'), feeding(fed, {
+    srcUnder.replaceChildren(underHead(fed.length ? `Feeding ${fed.length}` : 'Feeding'), feeding(fed, {
       open: feedOpen,
+      label: false,
       onToggle: () => { feedOpen = !feedOpen; renderTally(); },
       onPick: (d) => { select('dst', dstItem(d)); lvlInput.focus(); },
       empty: 'Not feeding any destination on these levels',
     }));
-  }
-  box.replaceChildren();
+  } else srcUnder.replaceChildren();
+  const ds = allDsts();
+  if (ds.length) dstUnder.replaceChildren(underHead('Receiving'), ...ds.flatMap(currentlyNodes));
+  else dstUnder.replaceChildren();
 }
 
 // ---- history

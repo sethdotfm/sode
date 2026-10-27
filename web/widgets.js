@@ -356,7 +356,8 @@ export function pullToLoad(scroller, box, pager, when) {
 
 // The first two as chips, all of them once open, and a toggle for the
 // rest. onPick(d) uses one as the destination; hold as for levelBox.
-export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty = 'Not feeding any destination' }) {
+// label: false leaves out the "Feeding N" heading (the caller has its own).
+export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty = 'Not feeding any destination', label = true }) {
   if (!fed.length) return el('div', 'sode__hint', empty);
   const chip = (d) => {
     const c = el('button', 'pb-chip', dstLabel(d));
@@ -367,7 +368,7 @@ export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty
     return c;
   };
   const shown = open ? fed : fed.slice(0, 2);
-  const out = el('div', 'sode__feed', el('span', 'sode__label', `Feeding ${fed.length}`), el('div', 'sode__chips', ...shown.map(chip)));
+  const out = el('div', 'sode__feed', label && el('span', 'sode__label', `Feeding ${fed.length}`), el('div', 'sode__chips', ...shown.map(chip)));
   if (fed.length > 2) {
     const more = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', open ? 'Show less' : `and ${fed.length - 2} others`);
     more.type = 'button';

@@ -341,7 +341,6 @@ code,
   color: var(--sode-ink, var(--pb-text-on-accent));
 }
 
-.sode__tally,
 .sode__result {
   display: flex;
   flex-direction: column;
@@ -436,6 +435,23 @@ code,
 }
 .sode__bar > .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
 
+/* Under the Source and Destination boxes; the arrow is the → button's, turned down. */
+.sode__under {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__under:empty { display: none; }
+.sode__under-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__down-arrow {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+}
+.sode__down-arrow::before { content: "↓"; }
 .sode__feed {
   display: flex;
   flex-direction: column;
