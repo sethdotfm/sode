@@ -8,7 +8,10 @@
   // Apply the saved theme before first paint, as index.html does.
   (() => {
     let theme = null;
-    try { theme = localStorage.getItem('sode-theme'); } catch (e) {}
+    try {
+      theme = localStorage.getItem('sode-theme');
+      if (theme !== 'dark' && theme !== 'light' && theme !== 'system') theme = JSON.parse(localStorage.getItem('sode-device-defaults')).theme;
+    } catch (e) {}
     if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
   })();
 </script>

@@ -33,7 +33,10 @@ func TestValidate(t *testing.T) {
 		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
 		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 		"long hidden dsts":  func(c *Config) { c.HiddenDsts = strings.Repeat("x", 501) },
-		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
+		"bad theme":         func(c *Config) { c.DeviceDefaults.Theme = "blue" },
+		"bad layout":        func(c *Config) { c.DeviceDefaults.Layout = "tablet" },
+		"bad clock":         func(c *Config) { c.DeviceDefaults.Clock = "13" },
+		"unnamed set":      func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
 		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
 	} {
 		c := ok
@@ -82,6 +85,35 @@ func TestSaveLoad(t *testing.T) {
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
 	if _, _, err := Load(path); err == nil {
 		t.Fatal("unknown key should fail")
+	}
+}
+
+func TestDeviceDefaults(t *testing.T) {
+	// Files from before the block load with today's behavior.
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	os.WriteFile(path, []byte("router: 10.0.0.5:8910\n"), 0o644)
+	c, _, err := Load(path)
+	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true}
+	if err != nil || c.DeviceDefaults != want {
+		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
+	}
+	// A partial block keeps the rest, and values are normalized.
+	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n"), 0o644)
+	c, _, err = Load(path)
+	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true}
+	if err != nil || c.DeviceDefaults != want {
+		t.Fatalf("partial block: %+v %v", c.DeviceDefaults, err)
+	}
+	// Blank strings (a browser that doesn't know the block) become the defaults.
+	c.DeviceDefaults = DeviceDefaults{}
+	c.Normalize()
+	if err := c.Validate(); err != nil || c.DeviceDefaults.Theme != "system" || c.DeviceDefaults.Clock != "24" {
+		t.Fatalf("blank block: %+v %v", c.DeviceDefaults, err)
+	}
+	// Browsers get it as JSON, with booleans for the on/off ones.
+	b, _ := json.Marshal(Defaults())
+	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false}`) {
+		t.Fatalf("json: %s", b)
 	}
 }
 

@@ -189,7 +189,7 @@ test('follows and merged chains', async () => {
 
 test('quick search', async () => {
   const core = await import('../core.js');
-  const { S, histRows, setSearch, setFilter, setSearchRespectsFilters, FILTER_DEFAULT } = core;
+  const { S, histRows, setSearch, setFilter, setPref, FILTER_DEFAULT } = core;
   S.cfg = { numberOffset: 1, filterSets: [] };
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 14, 0, s)).toISOString();
   const e = (o) => ({ levels: [1], prev: [], ok: true, time: T(0), ...o });
@@ -217,9 +217,9 @@ test('quick search', async () => {
   assert.equal(ids(), '4');
   S.dstBy = new Map();
   setSearch({ src: 'CAM 2', dst: '' });
-  setSearchRespectsFilters(true);
+  setPref('searchFilters', 'on');
   assert.equal(ids(), '');
-  setSearchRespectsFilters(false);
+  setPref('searchFilters', 'off');
   setSearch({ src: '', dst: '' });
   setFilter(FILTER_DEFAULT);
   assert.equal(ids(), '4 3x2');

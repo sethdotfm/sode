@@ -48,7 +48,7 @@ Terms are separated by commas. A name matches if it fits any plain term and no `
 - Single static Go binary, ~15MB distroless image
 - Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
 - Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
-- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. While you type, a summary of the patch stays at the top and Currently shows what's on the destination. Leave Source blank and press Next to pick the destination first. Swipe a recent take or folder left to undo. Settings → This device can put Destination before Source (on desktop the arrow between the boxes does the same), force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
+- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. While you type, a summary of the patch stays at the top and Currently shows what's on the destination. Leave Source blank and press Next to pick the destination first. Swipe a recent take or folder left to undo. Settings → This device (each choice can also stay on **Global**, the default set for everyone in Defaults for every device) can put Destination before Source (on desktop the arrow between the boxes does the same), force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
 
 ## Run
 
@@ -69,7 +69,7 @@ SODE_ROUTER=10.0.0.50:8910 docker compose up -d --build
 
 ## Settings
 
-Settings live in `/data/config.yaml` on the `sode-data` volume and are edited from the **Settings** button at the bottom of the page. Saving applies immediately; changes to the router, matrix, levels or name options reconnect and reload names and routes.
+Settings live in `/data/config.yaml` on the `sode-data` volume and are edited from the **Settings** button at the bottom of the page (a contents list beside or above the groups jumps to each one). Saving applies immediately; changes to the router, matrix, levels or name options reconnect and reload names and routes.
 
 On first start, when there is no config file yet, it is created from these seed variables. After that the file wins and the variables are ignored.
 
@@ -94,6 +94,7 @@ On first start, when there is no config file yet, it is created from these seed 
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
 | | `filterSets` | `[]` | Named Recent filters offered to every browser as quick buttons: `name`, `src`, `dst` (filter expressions), `sode`, `ext`, `hidden`. Settings only |
 | | `hiddenDsts` | | Filter expression (see Filters) for destinations whose changes from other panels every browser's Recent hides unless its Filters show them. Still recorded. Settings only |
+| | `deviceDefaults` | `theme: system`, `layout: auto`, `clock: "24"`, `flip: false`, `scrollTop: true`, `searchFilters: false` | What Settings → This device follows in a browser that hasn't chosen its own: theme (`system`, `light`, `dark`), layout (`auto`, `phone`, `desktop`), clock (`"24"`, `"12"`, `locale`), Destination before Source, scroll to the top on focus, search respects filters. A browser's own choice wins; **Global** in its dropdown goes back to this. Settings → Defaults for every device; applying never reconnects. Settings only |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
 | | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |
 

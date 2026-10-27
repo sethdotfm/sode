@@ -3,6 +3,7 @@
 
 import { filterFn } from './filter.js';
 import { parseLevelsAs } from './levels.js';
+import { PREFS, CACHE_KEY, resolve, own } from './prefs.js';
 
 export { parseLevelsAs };
 
@@ -159,6 +160,7 @@ function handle(m) {
       // How levels were typed until now, so views can rewrite their boxes.
       prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
+      setGlobals(m.cfg.deviceDefaults);
       S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.levels = m.levels;
@@ -593,38 +595,74 @@ export function chevron(open) {
   return icon;
 }
 
-// Clock, per browser: '24' (default), '12', or 'locale' to follow the
-// browser's language. Pages can't read the OS 12/24-hour switch.
-const CLOCK_KEY = 'sode-clock';
-export function clockPref() {
-  let v = null;
-  try { v = localStorage.getItem(CLOCK_KEY); } catch (e) {}
-  return v === '12' || v === 'locale' ? v : '24';
-}
+// ---- this device: the per-browser settings (prefs.js). Each follows the
+// global default (cfg.deviceDefaults, cached here for the next load) until
+// this browser chooses its own. applyPrefs puts the resolved values to work
+// and tells the views ('prefs', 'flip'); the layout follows in layout.js.
 
-// Destination before Source, per browser: the desktop arrow, Settings, and
-// on a phone the order of the steps. index.html sets data-flip before first
-// paint; setFlip keeps it and tells the layouts ('flip').
-const FLIP_KEY = 'sode-flip';
-export const flipped = () => 'flip' in document.documentElement.dataset;
-export function setFlip(on) {
-  document.documentElement.toggleAttribute('data-flip', on);
-  try { localStorage.setItem(FLIP_KEY, on ? 'on' : 'off'); } catch (e) {}
-  emit('flip');
-}
+let globals = null;
+try { globals = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) {}
+const stored = (name) => { try { return localStorage.getItem(PREFS[name].key); } catch (e) { return null; } };
+const resolveAll = () => Object.fromEntries(Object.keys(PREFS).map((n) => [n, resolve(n, stored(n), globals)]));
+// What is in force now. index.html applied the same before first paint.
+let applied = resolveAll();
 
-// Scroll to the top when a box is focused (desktop): per browser, on unless
-// turned off.
-const SCROLL_KEY = 'sode-scroll-top';
-export function scrollTopPref() {
-  try { return localStorage.getItem(SCROLL_KEY) !== 'off'; } catch (e) { return true; }
-}
-export function setScrollTopPref(on) {
+export const pref = (name) => applied[name];
+// This browser's own choice, or '' when it follows the global default.
+export const ownPref = (name) => own(name, stored(name));
+export const globalPref = (name) => resolve(name, null, globals);
+
+// v '' (or anything unknown) goes back to the global default.
+export function setPref(name, v) {
   try {
-    if (on) localStorage.removeItem(SCROLL_KEY);
-    else localStorage.setItem(SCROLL_KEY, 'off');
+    if (own(name, v)) localStorage.setItem(PREFS[name].key, v);
+    else localStorage.removeItem(PREFS[name].key);
   } catch (e) {}
+  applyPrefs();
 }
+
+// The server's deviceDefaults, on every hello (so also after a save).
+function setGlobals(d) {
+  globals = d || null;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(globals)); } catch (e) {}
+  applyPrefs();
+}
+
+function applyPrefs() {
+  const was = applied;
+  applied = resolveAll();
+  const changed = (n) => was[n] !== applied[n];
+  const root = document.documentElement;
+  if (changed('theme')) {
+    const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
+    root.classList.add('pb-theme-transition');
+    if (applied.theme === 'system') delete root.dataset.theme;
+    else root.dataset.theme = applied.theme;
+    setTimeout(() => root.classList.remove('pb-theme-transition'), ms);
+  }
+  if (changed('flip')) {
+    root.toggleAttribute('data-flip', applied.flip === 'on');
+    emit('flip');
+  }
+  if (changed('clock')) {
+    timeFmt = null;
+    emit('namesChecked');
+  }
+  if (changed('clock') || changed('searchFilters')) emit('history');
+  emit('prefs');
+}
+
+// Clock: '24' (default), '12', or 'locale' to follow the browser's
+// language. Pages can't read the OS 12/24-hour switch.
+export const clockPref = () => pref('clock');
+
+// Destination before Source: the desktop arrow, Settings, and on a phone the
+// order of the steps.
+export const flipped = () => pref('flip') === 'on';
+export const setFlip = (on) => setPref('flip', on ? 'on' : 'off');
+
+// Scroll to the top when a box is focused (desktop).
+export const scrollTopPref = () => pref('scrollTop') === 'on';
 
 // The time formatter, built once and again only when the Clock changes.
 let timeFmt = null;
@@ -917,7 +955,6 @@ export function globallyHidden(num, name) {
 // auditing. Not kept. It reads back through the whole log and, unless this
 // browser's setting says otherwise, ignores the filters.
 
-const SEARCH_KEY = 'sode-search-filters';
 let query = { src: '', dst: '' };
 let searchSrc = anything, searchDst = anything;
 
@@ -933,17 +970,8 @@ export function setSearch(next) {
   emit('search');
   emit('history');
 }
-// Read once: it's asked for every entry while filtering.
-let respects = (() => { try { return localStorage.getItem(SEARCH_KEY) === 'on'; } catch (e) { return false; } })();
-export const searchRespectsFilters = () => respects;
-export function setSearchRespectsFilters(on) {
-  respects = !!on;
-  try {
-    if (on) localStorage.setItem(SEARCH_KEY, 'on');
-    else localStorage.removeItem(SEARCH_KEY);
-  } catch (e) {}
-  emit('history');
-}
+// pref() is a lookup, not a storage read: it's asked for every entry while filtering.
+export const searchRespectsFilters = () => pref('searchFilters') === 'on';
 
 // A search reads far back through the log; once it's cleared, drop all
 // but the newest entries again (whole groups), so Recent doesn't keep
@@ -1410,55 +1438,22 @@ export function sendTakes(p) {
 
 // ---- theme
 
-// Follows the OS until set in Settings (or with Alt/Option+Shift+T); the
-// choice is remembered per browser.
+// Follows the global default until this browser picks one in Settings (or
+// with Alt/Option+Shift+T); applyPrefs sets it, the select is settings.js's.
 export function initTheme() {
   const root = document.documentElement;
   const osDark = matchMedia('(prefers-color-scheme: dark)');
   const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : osDark.matches);
-  const select = $('cfg-theme');
-  const sync = () => { select.value = root.dataset.theme || 'system'; };
-
-  // pref: 'system', 'light' or 'dark'.
-  function setTheme(pref) {
-    const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
-    root.classList.add('pb-theme-transition');
-    if (pref === 'system') delete root.dataset.theme;
-    else root.dataset.theme = pref;
-    setTimeout(() => root.classList.remove('pb-theme-transition'), ms);
-    try {
-      if (pref === 'system') localStorage.removeItem('sode-theme');
-      else localStorage.setItem('sode-theme', pref);
-    } catch (e) {}
-    sync();
-  }
 
   // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
   // Matched by e.code because Option changes e.key on macOS.
   if (/Mac|iPhone|iPad/.test(navigator.platform)) {
     $('cfg-theme-hint').replaceChildren(el('code', null, '⌥⇧T'), ' toggles');
   }
-  select.addEventListener('change', () => setTheme(select.value));
   document.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    setTheme(isDark() ? 'light' : 'dark');
+    setPref('theme', isDark() ? 'light' : 'dark');
   }, true);
-  sync();
-}
-
-// The Clock select in Settings (synced when Settings opens) applies at
-// once and redraws every time.
-export function initClock() {
-  const select = $('cfg-clock');
-  select.addEventListener('change', () => {
-    try {
-      if (select.value === '24') localStorage.removeItem(CLOCK_KEY);
-      else localStorage.setItem(CLOCK_KEY, select.value);
-    } catch (e) {}
-    timeFmt = null;
-    emit('history');
-    emit('namesChecked');
-  });
 }

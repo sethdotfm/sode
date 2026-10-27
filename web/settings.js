@@ -3,8 +3,9 @@
 // browser and applies at once. With a settings PIN, the view opens locked
 // and locks again when it closes.
 
-import { $, el, S, on, wsSend, sentence, fmtTime, clockPref, flipped, setFlip, scrollTopPref, searchRespectsFilters, setSearchRespectsFilters, filterSummary, normFilter, setScrollTopPref, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
-import { layout, layoutPref, setLayoutPref } from './layout.js';
+import { $, el, S, on, wsSend, sentence, fmtTime, ownPref, globalPref, setPref, filterSummary, normFilter, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { PREFS, resolve, toGlobal } from './prefs.js';
+import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
 
@@ -50,11 +51,8 @@ export function openSettings() {
   $('lock-pin').value = '';
   $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
-  $('cfg-layout').value = layoutPref();
-  $('cfg-clock').value = clockPref();
-  $('cfg-flip').checked = flipped();
-  $('cfg-scrolltop').checked = scrollTopPref();
-  $('cfg-search-filters').checked = searchRespectsFilters();
+  renderPrefs();
+  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, S.cfg.deviceDefaults);
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
@@ -65,6 +63,7 @@ export function openSettings() {
   renderGlobalSets();
   renderNamesStatus();
   window.scrollTo(0, 0);
+  markSection();
   renderLock(true);
 }
 
@@ -99,6 +98,7 @@ function readSettings() {
   }
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
+  c.deviceDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
 
   // Default levels are typed in the form's numbering but saved 1-based.
   const def = $('cfg-default').value.trim();
@@ -106,6 +106,65 @@ function readSettings() {
   c.defaultLevels = list ? levelInput(list, '1') : null;
   return c;
 }
+
+// ---- This device and Defaults for every device: the same six choices
+// (prefs.js). A device one starts with "Global (value)", which follows the
+// default; it applies at once. A default one is saved with the form.
+
+const prefOptions = (name, globalText) => {
+  const opt = (value, text) => Object.assign(el('option', null, text), { value });
+  return [
+    ...(globalText ? [opt('', globalText)] : []),
+    ...Object.entries(PREFS[name].values).map(([v, text]) => opt(v, text)),
+  ];
+};
+
+for (const s of form.querySelectorAll('select[data-gpref]')) s.replaceChildren(...prefOptions(s.dataset.gpref));
+
+// On any change of the settings in force, so "Global (value)" stays true
+// when the defaults change under an open form, and Alt+Shift+T shows.
+function renderPrefs() {
+  for (const s of form.querySelectorAll('select[data-pref]')) {
+    const name = s.dataset.pref;
+    s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
+    s.value = ownPref(name);
+  }
+}
+renderPrefs();
+on('prefs', renderPrefs);
+
+// ---- table of contents: one button per section, scrolling to it, with the
+// section in view marked. Wide screens pin it beside the column; narrow
+// ones show it as a strip across the top; the phone layout leaves it out.
+
+const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
+const toc = $('settings-toc');
+toc.replaceChildren(...sections.map((sec) => {
+  const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
+  b.type = 'button';
+  b.addEventListener('click', () => sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
+  return b;
+}));
+let tocTick = false;
+function markSection() {
+  tocTick = false;
+  if (!isOpen()) return;
+  // The last section whose top has passed the upper part of the window; at
+  // the very bottom the last one, which may be too short to ever reach it.
+  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+  let cur = atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= window.innerHeight * 0.3);
+  cur = Math.max(cur, 0);
+  [...toc.children].forEach((b, i) => {
+    b.classList.toggle('active', i === cur);
+    if (i === cur) b.setAttribute('aria-current', 'location');
+    else b.removeAttribute('aria-current');
+  });
+}
+window.addEventListener('scroll', () => {
+  if (tocTick) return;
+  tocTick = true;
+  requestAnimationFrame(markSection);
+}, { passive: true });
 
 // ---- level numbering: a three-way switch, labelled for the level count
 
@@ -313,10 +372,7 @@ $('cfg-levels').addEventListener('input', () => {
   renderNumbering();
 });
 for (const r of form.querySelectorAll('input[name="lvlnum"]')) r.addEventListener('change', numberingChanged);
-$('cfg-layout').addEventListener('change', (e) => setLayoutPref(e.target.value));
-$('cfg-flip').addEventListener('change', (e) => setFlip(e.target.checked));
-$('cfg-scrolltop').addEventListener('change', (e) => setScrollTopPref(e.target.checked));
-$('cfg-search-filters').addEventListener('change', (e) => setSearchRespectsFilters(e.target.checked));
+for (const s of form.querySelectorAll('select[data-pref]')) s.addEventListener('change', () => setPref(s.dataset.pref, s.value));
 $('names-refresh').addEventListener('click', () => {
   if (wsSend({ t: 'refreshNames' })) {
     $('names-refresh').disabled = true;
