@@ -124,7 +124,7 @@ export function combobox(input, menu, { source, onPick, press = 'mousedown', cls
     // A pinned count makes it clear the list scrolls.
     if (foot && matches.length > PAGE) {
       const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-      const f = el('li', 'sode__menu-count', `${total} matches · ↑↓ ${mac ? '⌃j ⌃k' : 'Ctrl+j Ctrl+k'} PgUp PgDn`);
+      const f = el('li', 'sode__menu-count', `${total} matches · ↑↓ ${mac ? '⌘j ⌘k' : 'Ctrl+j Ctrl+k'} PgUp PgDn`);
       f.setAttribute('role', 'presentation');
       menu.append(f);
     }
@@ -165,11 +165,13 @@ export function combobox(input, menu, { source, onPick, press = 'mousedown', cls
     accept,
     current: () => matches[hi],
     get open() { return matches.length > 0; },
-    // ↑/↓, PgUp/PgDn, and Ctrl+J/K like ↓/↑ (swallowed with the list
-    // closed too, so neither the browser's Ctrl+J/K nor macOS's Ctrl+K,
-    // delete to the end of the line, acts). True when the key was used.
+    // ↑/↓, PgUp/PgDn, and Ctrl+J/K (⌘J/K too on a Mac) like ↓/↑
+    // (swallowed with the list closed too, so neither the browser's own
+    // J/K shortcuts nor macOS's Ctrl+K, delete to the end of the line,
+    // act). True when the key was used.
     nav(e) {
-      const ctrlJK = e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code];
+      const mod = (e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey);
+      const ctrlJK = mod && !e.altKey && !e.shiftKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code];
       const key = ctrlJK || e.key;
       if (!matches.length || !['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp'].includes(key)) {
         if (ctrlJK) e.preventDefault();

@@ -709,7 +709,7 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
 // Modifiers, on every OS: Control is for Sode's commands and moving through
 // match lists (Mac too, where it is free of browser shortcuts), Option/Alt
 // only toggles the theme, and ⌘ is left to the OS and the browser, but for
-// ⌘Z, which undoes as Ctrl+Z does. Each check excludes the other two
+// ⌘Z and ⌘J/K, which work as Ctrl+Z and Ctrl+J/K do. Each check excludes the other two
 // modifiers. Key labels are lowercase, with ⇧ where Shift is needed.
 document.addEventListener('keydown', (e) => {
   if (pending) return onConfirmKey(e);
@@ -763,7 +763,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // The match list's keys: ↑/↓, PgUp/PgDn, Ctrl+J/K.
+  // The match list's keys: ↑/↓, PgUp/PgDn, Ctrl+J/K (and ⌘J/K on a Mac).
   if (b && b.cb.nav(e)) return;
   // + adds another destination; Ctrl/Cmd + is left for zoom.
   if (k === 'dst' && e.key === '+' && !e.ctrlKey && !e.metaKey) {
