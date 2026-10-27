@@ -1302,8 +1302,8 @@ export function historyPager(step, visible = () => true) {
 // ---- results
 
 // text: a string, or a function building nodes (each layout renders its own).
-export function showResult(kind, title, text) {
-  S.result = { kind, title, text };
+export function showResult(kind, title, text, track = null) {
+  S.result = { kind, title, text, track };
   emit('result', S.result);
 }
 
@@ -1328,7 +1328,7 @@ function takeResult(m) {
   const b = takes.get(m.id);
   if (!b) return;
   takes.delete(m.id);
-  b.results.push({ ...b.byId.get(m.id), ok: m.ok, err: m.err, already: m.already || [] });
+  b.results.push({ ...b.byId.get(m.id), ok: m.ok, err: m.err, entry: m.entry, already: m.already || [] });
   if (b.results.length < b.byId.size) return;
   const undo = b.verb === 'undo';
   const dsts = new Set(b.results.map((r) => r.dst.n)).size;
@@ -1339,11 +1339,73 @@ function takeResult(m) {
     showResult('ok', title, capped(b.results.map((r) => takeText(r, r.already))));
     return;
   }
-  const partly = failed.length < b.results.length;
-  const count = b.results.length > 1 ? ` (${failed.length} of ${b.results.length})` : '';
-  const title = `${undo ? 'Undo' : 'Take'} ${partly ? 'partly failed' : 'failed'}${count}`;
-  showResult('error', title, capped(failed.map((r) => `${takeText(r)}: ${r.err}`), 5));
+  // The banner follows the entries of the failed takes, so it shrinks as
+  // they're confirmed late or retried (refreshResult), instead of going stale.
+  const track = { verb: b.verb, total: b.results.length, items: failed.map((r) => ({ entry: r.entry, dst: r.dst, err: r.err })) };
+  const banner = failureBanner(track);
+  track.key = banner.key;
+  showResult(banner.kind, banner.title, banner.text, track);
 }
+
+// What the router said about a failed take, short: its levels grouped by
+// outcome ("levels 0–16 no answer"), at most two groups; older entries
+// (before outcomes were recorded) and failures with no breakdown give a
+// clipped err.
+function outcomeText(e, err) {
+  const why = e ? failureGroups(e) : [];
+  if (why.length) {
+    const shown = why.slice(0, 2).map((g) => `level${g.levels.length === 1 ? '' : 's'} ${levelText(g.levels)} ${g.text}`);
+    return shown.join('; ') + (why.length > 2 ? '; …' : '');
+  }
+  const t = e?.err || err || 'failed';
+  return t.length > 90 ? `${t.slice(0, 87)}…` : t;
+}
+
+// The result banner for failed takes of one confirm, from the history now:
+// one line per distinct outcome, naming a few destinations. A take counts as
+// resolved once its entry is ok (confirmed late) or a retry of it went
+// through; with none left the banner turns into a confirmation.
+// t: { verb, total, items: [{ entry, dst, err }] }.
+export function failureBanner(t, hist = S.hist) {
+  const byId = new Map(hist.map((e) => [e.id, e]));
+  const retried = new Set(hist.filter((e) => e.ok && e.retry != null).map((e) => e.retry));
+  const open = t.items.filter((it) => {
+    const e = byId.get(it.entry);
+    return !(e && (e.ok || retried.has(e.id)));
+  });
+  const what = t.verb === 'undo' ? 'Undo' : 'Take';
+  if (!open.length) {
+    const n = t.items.length;
+    const title = `${what} resolved: ${n === 1 ? 'the take' : `all ${n} takes`} confirmed`;
+    return { kind: 'ok', title, key: title, text: 'The router confirmed after all, or a retry went through.' };
+  }
+  const lines = new Map();
+  for (const it of open) {
+    const k = outcomeText(byId.get(it.entry), it.err);
+    if (!lines.has(k)) lines.set(k, []);
+    lines.get(k).push(it.dst.label);
+  }
+  const rows = [...lines].map(([k, dsts]) => `${dsts.slice(0, 3).join(', ')}${dsts.length > 3 ? ` +${dsts.length - 3}` : ''}: ${k}`);
+  const shown = rows.slice(0, 3);
+  if (rows.length > 3) shown.push(`and ${rows.length - 3} more; see Recent`);
+  const partly = open.length < t.total;
+  const count = t.total > 1 ? ` (${open.length} of ${t.total}${open.length < t.items.length ? ' still' : ''})` : '';
+  const title = `${what} ${partly ? 'partly failed' : 'failed'}${count}`;
+  return { kind: 'error', title, key: [title, ...shown].join('\n'),
+    text: () => el('div', null, ...shown.map((l) => el('div', null, l))) };
+}
+
+// Redraws the banner as the failed takes it names get resolved.
+function refreshResult() {
+  const r = S.result;
+  if (!r?.track) return;
+  const next = failureBanner(r.track);
+  if (next.key === r.track.key) return;
+  r.track.key = next.key;
+  S.result = { kind: next.kind, title: next.title, text: next.text, track: r.track };
+  emit('result', S.result);
+}
+on('history', refreshResult);
 
 // Whether a plan can be confirmed right now. block: why not, as a result
 // banner, or null. prot: each protected item's protection ({levels,

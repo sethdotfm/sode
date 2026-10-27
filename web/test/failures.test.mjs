@@ -96,3 +96,34 @@ test('histRows: followers of a confirm go in its folder', async () => {
   assert.deepEqual(rows[0].f.followers.map((e) => e.id), [8, 5]);
   setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '' });
 });
+
+test('failure banner: grouped lines, shrinks as takes resolve', async () => {
+  const { S, failureBanner } = await import('../core.js');
+  S.cfg = { numberOffset: 1, filterSets: [] };
+  S.levelBy = new Map([[1, { label: '1' }], [2, { label: '2' }], [3, { label: '3' }]]);
+  S.srcBy = new Map([[0, { n: 0, num: 1, name: 'CAM 1', label: 'CAM 1' }]]);
+  const dst = (n) => ({ n, label: `D${n}` });
+  const mk = (id, extra = {}) => ({ id, dst: id, src: 7, ok: false, levels: [1, 2, 3], prev: [[1, 0], [2, 0], [3, 0]], failed: [1, 2, 3], ...extra });
+  const hist = [mk(10), mk(11), mk(12), mk(13, { now: [[1, 0], [2, 0], [3, 0]] })];
+  const t = { verb: 'patch', total: 5, items: [10, 11, 12, 13].map((id) => ({ entry: id, dst: dst(id), err: 'x' })) };
+  const b = failureBanner(t, hist);
+  assert.equal(b.kind, 'error');
+  assert.equal(b.title, 'Take partly failed (4 of 5)');
+  // Three destinations share "no answer" (one line), one is "still on" (another).
+  assert.match(b.key, /D10, D11, D12: levels 1–3 no answer/);
+  assert.match(b.key, /D13: levels 1–3 still on CAM 1/);
+  // One confirmed late, one retried: two left, and it says "still".
+  const h2 = hist.map((e) => (e.id === 10 ? { ...e, ok: true, failed: [], late: [1, 2, 3] } : e)).concat([{ id: 20, ok: true, retry: 11, dst: 11, levels: [1, 2, 3] }]);
+  const b2 = failureBanner(t, h2);
+  assert.equal(b2.title, 'Take partly failed (2 of 5 still)');
+  assert.notEqual(b2.key, b.key);
+  // All resolved: a confirmation.
+  const h3 = h2.concat([{ id: 21, ok: true, retry: 12, dst: 12, levels: [1] }, { id: 22, ok: true, retry: 13, dst: 13, levels: [1] }]);
+  const b3 = failureBanner(t, h3);
+  assert.equal(b3.kind, 'ok');
+  assert.match(b3.title, /resolved: all 4 takes confirmed/);
+  // Many outcomes are capped.
+  const many = [1, 2, 3, 4, 5].map((i) => mk(30 + i, { failed: [1], now: [[1, i]] }));
+  const t2 = { verb: 'patch', total: 5, items: many.map((e) => ({ entry: e.id, dst: dst(e.id), err: 'x' })) };
+  assert.match(failureBanner(t2, many).key, /and 2 more; see Recent/);
+});
