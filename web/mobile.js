@@ -573,6 +573,12 @@ function syncTyping() {
   if (typing) $('m-thread').scrollTop = 0;
   else scrollThread();
 }
+// Typing in Recent's Filter by boxes: the composer goes instead, leaving
+// the room to Recent.
+const filterBox = () => !!document.activeElement?.closest('#m-recent [data-search]');
+const syncFiltering = () => view.classList.toggle('sode-m--filtering', filterBox());
+$('m-recent').addEventListener('focusin', syncFiltering);
+$('m-recent').addEventListener('focusout', () => setTimeout(syncFiltering, 0));
 for (const k of STEPS) {
   inputs[k].addEventListener('focus', syncTyping);
   inputs[k].addEventListener('blur', () => setTimeout(syncTyping, 0));

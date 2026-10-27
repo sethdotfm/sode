@@ -1025,6 +1025,8 @@ code,
 }
 .sode-m__recent[hidden],
 .sode-m--typing .sode-m__recent { display: none; }
+/* Typing in Recent's Filter by boxes: the composer steps aside instead. */
+.sode-m--filtering .sode-m__composer { display: none; }
 .sode-m__recent-list {
   display: flex;
   flex-direction: column;
@@ -1506,7 +1508,7 @@ code,
 /* Quick search above Recent: kept quiet. Small boxes with only a faint
    underline until hovered, focused or filled. */
 .sode__search {
-  align-items: center;
+  align-items: flex-start; /* boxes stay lined up when one has picks */
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-1) var(--pb-space-3);
@@ -1514,6 +1516,7 @@ code,
 .sode__search[hidden] { display: none; }
 .sode__search > .sode__hint:empty { display: none; }
 .sode__search-box {
+  --sode-search-h: var(--pb-control-h-sm);
   display: flex;
   flex: 0 1 15em;
   min-width: 0;
@@ -1524,7 +1527,7 @@ code,
   border-color: transparent transparent var(--pb-edge-soft);
   flex: 1;
   font-size: var(--pb-text-sm);
-  height: var(--pb-control-h-sm);
+  height: var(--sode-search-h);
   min-width: 0;
 }
 .sode__search-box > .pb-input:hover,
@@ -1534,7 +1537,10 @@ code,
   border-color: var(--pb-edge);
 }
 .sode__search-box > .pb-input.pb-input--invalid { border-color: var(--pb-status-error); }
-.sode__search-box > .sode__menu { z-index: var(--pb-z-dropdown); }
+.sode__search-box > .sode__menu {
+  top: var(--sode-search-h); /* hangs off the box, over any picks */
+  z-index: var(--pb-z-dropdown);
+}
 @media (max-width: 599.98px) {
   .sode__search-box { flex: 1 1 8em; }
 }
@@ -1592,17 +1598,23 @@ code,
   font-family: var(--pb-font-mono);
   font-weight: var(--pb-weight-normal);
 }
-/* Picks in a filter box, before what's typed. */
+/* Picks in a filter box, on their own line under it. */
 .sode__search-box { flex-wrap: wrap; }
-.sode__search-chips { display: contents; }
+.sode__search-chips {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  order: 1;
+}
+.sode__search-chips:empty { display: none; }
+.sode__search-box > .sode__key-note { top: calc(var(--sode-search-h) / 2); }
 .pb-chip.sode__search-chip {
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-1);
   margin: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) 0;
   padding: 0 var(--pb-space-1) 0 var(--pb-space-2);
 }
-/* With picks, the box wraps rather than squeezing what you type. */
-.sode__search-box > .pb-input { min-width: 8em; }
+
 
 /* Rows that open and close when clicked anywhere (clickToToggle); their
    open panels don't. */
@@ -1689,5 +1701,5 @@ code,
 @media (pointer: coarse) {
   :root :is(.pb-input, .pb-select, .pb-textarea):not(.sode__input, .sode-m__input) { font-size: 16px; }
   /* Room for the bigger text in Recent's Filter by boxes. */
-  .sode__search-box > .pb-input { height: var(--pb-control-h); }
+  .sode__search-box { --sode-search-h: var(--pb-control-h); }
 }
