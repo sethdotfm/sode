@@ -655,11 +655,13 @@ $('m-cancel').addEventListener('click', () => {
 function syncTyping() {
   const typing = STEPS.some((k) => document.activeElement === inputs[k]);
   if (view.classList.contains('sode-m--typing') === typing) return;
+  const t = $('m-thread');
   view.classList.toggle('sode-m--typing', typing);
   renderThread();
-  // The summary to the top while typing; back to the composer after.
-  if (typing) $('m-thread').scrollTop = 0;
-  else scrollThread();
+  // The summary to the top while typing; after, the top again, which shows
+  // the result banner and the latest card.
+  if (typing) t.scrollTop = 0;
+  else requestAnimationFrame(() => { t.scrollTop = 0; });
 }
 // Typing in Recent's Filter by boxes: the composer goes instead, leaving
 // the room to Recent.
