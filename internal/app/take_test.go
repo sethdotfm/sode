@@ -779,6 +779,7 @@ func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
+	w.ext = a.ext // take sets it
 	w.register(a)
 	until := a.ext.own[ownKey{5, w.levels[0].wire, 7}]
 	a.mu.Unlock()

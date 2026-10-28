@@ -94,7 +94,14 @@ type waiter struct {
 	done     chan struct{}
 	closed   bool
 	cause    *cause // for changes that follow this take
+	// ext is the tracker of the router the take started on. The router
+	// changing replaces a.ext, so a different one means the take is stale.
+	ext *extTracker
+	cut bool // the router changed under the take
 }
+
+// errRouterChanged refuses a take's message once the router has changed.
+var errRouterChanged = errors.New("the router changed")
 
 // wanted: still waiting for the router to confirm l.
 func wanted(l *takeLevel) bool { return !l.confirmed && !l.unsent }
@@ -139,7 +146,7 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 // it, asked for xp's route, so a tally of it is ours even without a
 // Connected. Caller holds mu.
 func (a *App) awaited(xp swp08.Crosspoint) bool {
-	if until, ok := a.late[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
+	if until, ok := a.ext.late[ownKey{xp.Dst, xp.Level, xp.Src}]; ok && time.Now().Before(until) {
 		return true
 	}
 	for w := range a.waiters {
@@ -152,7 +159,14 @@ func (a *App) awaited(xp swp08.Crosspoint) bool {
 
 // Caller holds mu.
 func (w *waiter) finishIfDone() {
-	if !w.closed && len(w.filter(wanted)) == 0 {
+	if len(w.filter(wanted)) == 0 {
+		w.finish()
+	}
+}
+
+// finish closes done, once. Caller holds mu.
+func (w *waiter) finish() {
+	if !w.closed {
 		w.closed = true
 		close(w.done)
 	}
@@ -163,8 +177,12 @@ func (w *waiter) finishIfDone() {
 // them out of the changes made elsewhere. Only levels the router will
 // answer with a Connected get an own key: one already on src gets none,
 // and its key would linger and swallow a real change back to it.
+// Nothing is registered for a take of a router that has been replaced.
 // Caller holds mu.
 func (w *waiter) register(a *App) {
+	if a.ext != w.ext {
+		return
+	}
 	a.waiters[w] = struct{}{}
 	a.ext.causes = append(a.ext.causes, w.cause)
 	// The connects may wait behind other takes' messages for up to queueMax;
@@ -185,6 +203,10 @@ func (w *waiter) unregister(a *App, id int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	w.cause.id, w.cause.done = id, true
+	delete(a.waiters, w)
+	if w.ext != a.ext {
+		return // the router changed: its keys have no place in the new one's tracker
+	}
 	for _, l := range w.levels {
 		k := ownKey{w.dst, l.wire, w.src}
 		if !l.confirmed || l.unsent || l.already {
@@ -194,7 +216,7 @@ func (w *waiter) unregister(a *App, id int) {
 		// still be on its way: it's ours, and the entry gets amended.
 		if !l.confirmed && !l.unsent {
 			until := time.Now().Add(lateFor)
-			a.late[k] = until
+			a.ext.late[k] = until
 			// Only a level the router said nothing about may be answered late;
 			// one it reported on (still on the old route, or on someone
 			// else's) isn't waiting for this take, and a later Connected for
@@ -205,7 +227,6 @@ func (w *waiter) unregister(a *App, id int) {
 			}
 		}
 	}
-	delete(a.waiters, w)
 }
 
 // tallyCheck waits for the router's answers to interrogates of dst's
@@ -215,6 +236,15 @@ type tallyCheck struct {
 	dst   int
 	wires map[int]bool // still unanswered
 	done  chan struct{}
+	shut  bool // done is closed
+}
+
+// finish closes done, once. Caller holds mu.
+func (c *tallyCheck) finish() {
+	if !c.shut {
+		c.shut = true
+		close(c.done)
+	}
 }
 
 // Caller holds mu.
@@ -224,7 +254,7 @@ func (c *tallyCheck) see(xp swp08.Crosspoint) {
 	}
 	delete(c.wires, xp.Level)
 	if len(c.wires) == 0 {
-		close(c.done)
+		c.finish()
 	}
 }
 
@@ -338,6 +368,7 @@ func (a *App) take(c *client, req takeReq) {
 	}
 	var protected []int
 	a.mu.Lock()
+	w.ext = a.ext
 	e.SrcName, e.DstName = a.router.srcNames[req.Src], a.router.dstNames[req.Dst]
 	for _, l := range w.levels {
 		if _, ok := a.router.protect[req.Dst][l.ui]; ok {
@@ -370,7 +401,7 @@ func (a *App) take(c *client, req takeReq) {
 	var errs []string
 	a.mu.Lock()
 	if len(missing) > 0 {
-		errs = append(errs, "no confirmation from router: "+a.whyMissing(r, e, missing))
+		errs = append(errs, "no confirmation from router: "+a.whyMissing(r, e, missing, w.cut))
 	}
 	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
 	if unsent := w.filter(func(l *takeLevel) bool { return l.unsent }); len(unsent) > 0 {
@@ -552,8 +583,10 @@ func dropMissing(err, label string) string {
 // levels it answered for). A level on its previous src was ignored; on
 // another src, someone else's route got there; no answer means the router
 // said nothing, so it may or may not have switched. A level that is on src
-// after all was confirmed by see and isn't here. Caller holds mu.
-func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel) string {
+// after all was confirmed by see and isn't here. For a take cut by a router
+// change, what the old router said means nothing now: its levels just had no
+// answer in time. Caller holds mu.
+func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel, cut bool) string {
 	slices.SortFunc(missing, func(x, y *takeLevel) int { return x.ui - y.ui })
 	src := func(n int) string {
 		switch {
@@ -573,6 +606,9 @@ func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel) string {
 		e.Failed = append(e.Failed, l.ui)
 		label := "level " + r.cfg.LevelLabel(l.ui)
 		switch p, had := prev[l.ui]; {
+		case cut:
+			parts[i] = label + " no answer before the router changed"
+			continue
 		case !l.seen:
 			parts[i] = label + " no answer"
 			continue
@@ -614,7 +650,7 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 	var sendErr error
 	var last <-chan struct{}
 	for i, l := range w.levels {
-		done, err := a.sendTracked(l.connect, w.why)
+		done, err := a.sendTracked(w.ext, l.connect, w.why)
 		if err != nil {
 			sendErr = err
 			a.mu.Lock()
@@ -638,20 +674,31 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 	a.mu.Lock()
 	w.cause.sent = time.Now()
 	until := w.cause.sent.Add(ownFor)
-	for _, l := range w.levels {
-		k := ownKey{w.dst, l.wire, w.src}
-		if _, ok := a.ext.own[k]; ok {
-			a.ext.own[k] = until
+	if a.ext == w.ext { // else the keys were never made in this tracker
+		for _, l := range w.levels {
+			k := ownKey{w.dst, l.wire, w.src}
+			if _, ok := a.ext.own[k]; ok {
+				a.ext.own[k] = until
+			}
 		}
 	}
 	a.mu.Unlock()
 	return sendErr
 }
 
-// sendTracked sends m and returns a channel closed when its fate is known
-// (nil if it wasn't accepted).
-func (a *App) sendTracked(m []byte, why swp08.Why) (<-chan struct{}, error) {
+// sendTracked sends m for a take of the router that ext belongs to, and
+// returns a channel closed when its fate is known (nil if it wasn't
+// accepted). Once the router has changed it refuses: applyConfig swaps a.ext
+// under mu before it retargets the client, so a send that passed this check
+// lands in the old session's queue and never reaches the new router. Holding
+// mu across the send is fine: Client.Send and onTx never block or take it.
+func (a *App) sendTracked(ext *extTracker, m []byte, why swp08.Why) (<-chan struct{}, error) {
 	why.Done = make(chan struct{})
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.ext != ext {
+		return nil, errRouterChanged
+	}
 	if err := a.sendMsg(m, why); err != nil {
 		return nil, err
 	}
@@ -676,7 +723,7 @@ func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason string)
 	why := swp08.Why{Reason: reason, By: w.why.By}
 	var last <-chan struct{}
 	for _, l := range ls {
-		done, err := a.sendTracked(swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why)
+		done, err := a.sendTracked(w.ext, swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why)
 		if err != nil {
 			return last, err
 		}
@@ -695,14 +742,20 @@ func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 		return w.filter(wanted)
 	}
 	select {
-	case <-w.done:
-		return nil
+	case <-w.done: // all confirmed, or the take was cut and these are the unanswered
+		return outstanding()
 	case <-time.After(takeTimeout):
 	}
 	// Last chance: ask about whatever is still unconfirmed (a stale cache,
-	// or a Connected lost on the wire) and give it a moment.
-	done, _ := a.interrogate(r, w, outstanding(), "confirm")
-	leftQueue(done)
+	// or a Connected lost on the wire) and give it a moment. Not for a cut
+	// take: the router it asked is gone.
+	a.mu.Lock()
+	cut := w.cut
+	a.mu.Unlock()
+	if !cut {
+		done, _ := a.interrogate(r, w, outstanding(), "confirm")
+		leftQueue(done)
+	}
 	select {
 	case <-w.done:
 	case <-time.After(takeGrace):

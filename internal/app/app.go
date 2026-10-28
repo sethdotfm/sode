@@ -54,8 +54,11 @@ func (r *runtime) probe() []byte {
 // reconnect) these are RESET, because they describe the old router:
 //   - router (*routerState): names, tally, protect, seenAt, pending
 //     broadcasts, name-refresh buffers;
-//   - ext (*extTracker): the burst, own connects, causes, leaders,
-//     lateTake, lateHits;
+//   - ext (*extTracker): the burst, own connects, causes, leaders, late,
+//     lateTake, lateHits. The pointer is the router's generation;
+//   - waiters and checks: takes in flight are cut (cutTakes): they fail with
+//     "the router changed" and nothing they do reaches the new router or its
+//     tracker (each waiter keeps the extTracker it started on);
 //   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
 //
 // Everything else is KEPT:
@@ -64,14 +67,7 @@ func (r *runtime) probe() []byte {
 //   - clients: the browsers stay connected and get a fresh hello;
 //   - pendSent: sent log entries for /log pages (what we wrote);
 //   - nameReqAt, nameRxAt, namesDirt, dumpAt: the polling clock. Not cleared
-//     today; onRouterUp asks for names and dumps again when the new router answers;
-//   - late: not cleared today, and it expires by itself within ownFor.
-//
-// Known gaps, left as they are: waiters and checks are KEPT, not cancelled,
-// so a take in flight when the router changes can still write own/lateTake
-// keys into the new extTracker until it times out; and late is kept while
-// extTracker.lateTake is reset, so a stale late key can swallow a matching
-// Connected from the new router for up to ownFor.
+//     today; onRouterUp asks for names and dumps again when the new router answers.
 //
 // The fields from mu down to dumpAt are guarded by mu.
 type App struct {
@@ -93,8 +89,7 @@ type App struct {
 	checks   map[*tallyCheck]struct{} // pre-take interrogates in flight
 	pendSent []Sent                   // sent log entries awaiting broadcast to /log pages
 
-	late  map[ownKey]time.Time // finished takes' unconfirmed routes → until when a tally of one is ours
-	lateQ chan lateJob         // to lateWorker; nil = amend in line (tests)
+	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
 	nameReqAt time.Time // when the last name refresh was asked for
 	nameRxAt  time.Time // last name reply
@@ -170,7 +165,6 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		clients: map[*client]struct{}{},
 		waiters: map[*waiter]struct{}{},
 		checks:  map[*tallyCheck]struct{}{},
-		late:    map[ownKey]time.Time{},
 		status:  statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.rt.Store(r)
