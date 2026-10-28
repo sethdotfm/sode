@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -398,26 +399,29 @@ func (a *App) take(c *client, req takeReq) {
 	sendErr := a.sendTake(r, w)
 	missing := a.awaitTake(r, w)
 
-	var errs []string
 	a.mu.Lock()
+	e.Cut = w.cut
 	if len(missing) > 0 {
-		errs = append(errs, "no confirmation from router: "+a.whyMissing(r, e, missing, w.cut))
+		a.whyMissing(e, missing)
 	}
 	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
 	if unsent := w.filter(func(l *takeLevel) bool { return l.unsent }); len(unsent) > 0 {
-		e.Failed = append(e.Failed, uis(unsent)...)
+		e.Unsent = uis(unsent)
+		sort.Ints(e.Unsent)
+		e.Failed = append(e.Failed, e.Unsent...)
 		sort.Ints(e.Failed)
 	}
+	if sendErr != nil {
+		e.SendErr = sendErr.Error()
+	}
+	names := maps.Clone(a.router.srcNames)
 	a.mu.Unlock()
 	sort.Ints(e.Already)
 	if len(e.Already) > 0 {
 		res.Already = e.Already
 	}
-	if sendErr != nil {
-		errs = append(errs, fmt.Sprintf("levels %s not sent: %v", levelList(r, uis(w.filter(func(l *takeLevel) bool { return l.unsent }))), sendErr))
-	}
-	if len(errs) > 0 {
-		err = fmt.Errorf("%s", strings.Join(errs, "; "))
+	if msg := entryErr(r, names, e); msg != "" {
+		err = errors.New(msg)
 	}
 	a.finish(c, res, e, err)
 	if a.gapHook != nil {
@@ -578,48 +582,20 @@ func dropMissing(err, label string) string {
 	return strings.Join(append(out, others...), "; ")
 }
 
-// whyMissing says, per level, what the router reports for levels that never
-// confirmed, and records it in e: Failed (every such level) and Now (the
-// levels it answered for). A level on its previous src was ignored; on
-// another src, someone else's route got there; no answer means the router
-// said nothing, so it may or may not have switched. A level that is on src
-// after all was confirmed by see and isn't here. For a take cut by a router
-// change, what the old router said means nothing now: its levels just had no
-// answer in time. Caller holds mu.
-func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel, cut bool) string {
+// whyMissing records, for levels that never confirmed, what the router
+// reports for them in e: Failed (every such level) and Now (the levels it
+// answered for). A level on its previous src was ignored; on another src,
+// someone else's route got there; no answer means the router said nothing,
+// so it may or may not have switched. A level that is on src after all was
+// confirmed by see and isn't here. entryErr says it in words. Caller holds mu.
+func (a *App) whyMissing(e *Entry, missing []*takeLevel) {
 	slices.SortFunc(missing, func(x, y *takeLevel) int { return x.ui - y.ui })
-	src := func(n int) string {
-		switch {
-		case n < 0:
-			return "nothing"
-		case a.router.srcNames[n] != "":
-			return a.router.srcNames[n]
-		}
-		return fmt.Sprintf("source %d", n+r.cfg.NumberOffset)
-	}
-	prev := map[int]int{}
-	for _, p := range e.Prev {
-		prev[p[0]] = p[1]
-	}
-	parts := make([]string, len(missing))
-	for i, l := range missing {
+	for _, l := range missing {
 		e.Failed = append(e.Failed, l.ui)
-		label := "level " + r.cfg.LevelLabel(l.ui)
-		switch p, had := prev[l.ui]; {
-		case cut:
-			parts[i] = label + " no answer before the router changed"
-			continue
-		case !l.seen:
-			parts[i] = label + " no answer"
-			continue
-		case had && p == l.now:
-			parts[i] = fmt.Sprintf("%s still on %s", label, src(l.now))
-		default:
-			parts[i] = fmt.Sprintf("%s on %s", label, src(l.now))
+		if l.seen && !e.Cut {
+			e.Now = append(e.Now, [2]int{l.ui, l.now})
 		}
-		e.Now = append(e.Now, [2]int{l.ui, l.now})
 	}
-	return strings.Join(parts, "; ")
 }
 
 // entryErr is the part of a take's error about levels, rendered from e's
