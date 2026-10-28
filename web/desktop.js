@@ -529,7 +529,7 @@ function retryCur() {
 
 // key: put the cursor on that row (Esc from one of its buttons).
 function enterKeys(key) {
-  if (!S.hist.length) return focusBox(boxes.src.input); // nothing to drive
+  // Works on an empty list too: s/d/f, `,`, `/`, `?` and Esc still apply.
   keysOn = true;
   histList.classList.add('sode__hist--keys');
   histList.focus();
