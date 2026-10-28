@@ -4,7 +4,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"maps"
 	"net/netip"
@@ -553,38 +552,7 @@ func (a *App) record(e *Entry) {
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	off := a.r().cfg.NumberOffset
-	undo := "-"
-	if e.Undo != nil {
-		undo = fmt.Sprint(*e.Undo)
-	}
-	retry := "-"
-	if e.Retry != nil {
-		retry = fmt.Sprint(*e.Retry)
-	}
-	result := "ok"
-	if !e.OK {
-		result = e.Err
-	}
-	group := "-"
-	if e.Group != "" {
-		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
-	}
-	if e.Ext {
-		follow := "-"
-		if e.Follow != nil {
-			follow = fmt.Sprint(*e.Follow)
-		}
-		followGroup := "-"
-		if e.FollowGroup != "" {
-			followGroup = e.FollowGroup
-		}
-		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s followGroup=%s found=%t",
-			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, followGroup, e.Found)
-	} else {
-		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
-			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
-	}
+	log.Print(e.logLine(a.r().cfg.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "recent", E: e})
 	a.mu.Unlock()

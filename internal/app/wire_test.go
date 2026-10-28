@@ -137,3 +137,23 @@ func TestHistoryLineRoundTrip(t *testing.T) {
 		t.Fatalf("round trip:\n got %s\nwant %s", b, line)
 	}
 }
+
+func TestEntryLogLine(t *testing.T) {
+	undo, follow := 3, 4
+	cases := []struct {
+		e    Entry
+		want string
+	}{
+		{Entry{Client: "10.0.0.7", Src: 1, SrcName: "CAM 2", Dst: 4, DstName: "MON 5", Levels: []int{1, 2}, OK: true},
+			`TAKE client=10.0.0.7 src=2 "CAM 2" dst=5 "MON 5" levels=[1 2] undo=- retry=- group=- result="ok"`},
+		{Entry{Client: "10.0.0.7", Src: 1, SrcName: "CAM 2", Dst: 4, DstName: "MON 5", Levels: []int{1}, Undo: &undo, Group: "g1", GroupN: 2, Err: "no answer"},
+			`TAKE client=10.0.0.7 src=2 "CAM 2" dst=5 "MON 5" levels=[1] undo=3 retry=- group=g1/2 result="no answer"`},
+		{Entry{Ext: true, Found: true, Src: 1, SrcName: "CAM 2", Dst: 4, DstName: "MON 5", Levels: []int{1}, Follow: &follow, FollowGroup: "g9"},
+			`EXT src=2 "CAM 2" dst=5 "MON 5" levels=[1] group=- follow=4 followGroup=g9 found=true`},
+	}
+	for _, c := range cases {
+		if got := c.e.logLine(1); got != c.want {
+			t.Errorf("got  %s\nwant %s", got, c.want)
+		}
+	}
+}
