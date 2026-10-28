@@ -556,32 +556,6 @@ func (a *App) lateConfirm(id int, uis []int) {
 	a.mu.Unlock()
 }
 
-// dropMissing takes the part about one level out of a take's error, which
-// whyMissing wrote as "no confirmation from router: level 1 no answer;
-// level 2 ...", possibly followed by "levels 3 not sent: ...". Parts that
-// aren't about a missing level stay.
-func dropMissing(err, label string) string {
-	const pre = "no confirmation from router: "
-	var missing, others []string
-	for i, seg := range strings.Split(err, "; ") {
-		if i == 0 {
-			seg = strings.TrimPrefix(seg, pre)
-		}
-		switch {
-		case strings.HasPrefix(seg, "level "+label+" "):
-		case strings.HasPrefix(seg, "level "):
-			missing = append(missing, seg)
-		default:
-			others = append(others, seg)
-		}
-	}
-	var out []string
-	if len(missing) > 0 {
-		out = append(out, pre+strings.Join(missing, "; "))
-	}
-	return strings.Join(append(out, others...), "; ")
-}
-
 // whyMissing records, for levels that never confirmed, what the router
 // reports for them in e: Failed (every such level) and Now (the levels it
 // answered for). A level on its previous src was ignored; on another src,
