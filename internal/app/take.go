@@ -350,17 +350,13 @@ func (a *App) cachePrev(w *waiter, e *Entry) {
 	}
 }
 
-// take routes one source to one destination on some levels: plan, read
-// what dst has now, register, send, wait, then record what the router
-// confirmed.
-func (a *App) take(c *client, req takeReq) {
-	r := a.r()
-	res := &takeResult{T: "takeResult", ID: req.ID}
+// planPhase is a take's first phase: the waiter for its levels, with why
+// the connects are sent, and the history entry to record. It fails on a bad
+// request.
+func (a *App) planPhase(r *runtime, c *client, req takeReq) (*waiter, *Entry, error) {
 	w, err := planTake(r, req)
 	if err != nil {
-		res.Err = err.Error()
-		a.reply(c, res)
-		return
+		return nil, nil, err
 	}
 	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.ip}
 	if req.Undo != nil {
@@ -368,8 +364,22 @@ func (a *App) take(c *client, req takeReq) {
 	} else if req.Retry != nil {
 		w.why.Reason = swp08.ReasonRetry
 	}
-
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
+	return w, e, nil
+}
+
+// take routes one source to one destination on some levels: plan, read
+// what dst has now, register, send, wait, then record what the router
+// confirmed.
+func (a *App) take(c *client, req takeReq) {
+	r := a.r()
+	res := &takeResult{T: "takeResult", ID: req.ID}
+	w, e, err := a.planPhase(r, c, req)
+	if err != nil {
+		res.Err = err.Error()
+		a.reply(c, res)
+		return
+	}
 	var protected []int
 	a.mu.Lock()
 	w.ext = a.ext
