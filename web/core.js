@@ -40,6 +40,23 @@ export const S = {
   prevNumbering: null, // { mode, max } of the levels before the last hello
 };
 
+// Adds k to the set, or removes it if it's there.
+export function toggle(set, k) {
+  if (set.has(k)) set.delete(k);
+  else set.add(k);
+}
+
+// The search left in a box by the last + (a destination added with the
+// search kept): `is()` is true while the box still holds exactly that, so
+// it isn't a destination waiting to be picked. `read` gives the box's text.
+export function keepSearch(read) {
+  let kept = null;
+  return {
+    is: () => kept !== null && read() === kept,
+    set: (keep, text) => { kept = keep && text.trim() ? text : null; },
+  };
+}
+
 const listeners = {};
 export const on = (ev, fn) => { (listeners[ev] ||= []).push(fn); };
 // Like on, but runs before the listeners added so far and later: for a

@@ -2,7 +2,7 @@
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
 import { el, S, on, onMsg, emit, wsSend, linked, protectedOn, srcItem, dstItem, labelNode, tallyText } from './core.js';
-import { levelText, levelBar } from './levelview.js';
+import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock } from './device.js';
 import { failureGroups } from './history.js';
@@ -326,6 +326,22 @@ export function lastTake() {
     t = { src: [e.src, e.srcName], dsts: es.map((x) => [x.dst, x.dstName]), levels: e.levels };
   }
   return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
+}
+
+const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+// What the "Last:" chip of each box shows for take t (from lastTake), or
+// false when the box already has it. state: { src: the picked source or
+// null, dsts: the destinations already picked, levels: the levels now
+// typed }. For levels, also false when they're the default.
+export function lastChip(t, state) {
+  if (!t) return { src: false, dst: false, lvl: false };
+  return {
+    src: !(state.src && state.src.n === t.src.n) && [labelNode(t.src)],
+    dst: !t.dsts.every((d) => state.dsts.some((x) => x.n === d.n)) &&
+      [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
+    lvl: t.levels.length > 0 && !sameList(state.levels, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
+  };
 }
 
 // Sends every take in a plan as one batch. False if the connection is gone.

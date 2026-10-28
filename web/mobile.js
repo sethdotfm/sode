@@ -7,15 +7,15 @@
 // goes to the other first (to see what's on it) and comes back.
 
 import {
-  $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode,
+  $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode, toggle, keepSearch,
 } from './core.js';
-import { defaultLevelsWord, levelBar, allLevels, levelText, parseLevels } from './levelview.js';
+import { defaultLevelsWord, levelBar, allLevels, levelText } from './levelview.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
 import {
   undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
-  sendTakes, lastTake,
+  sendTakes, lastTake, lastChip,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
@@ -159,14 +159,14 @@ function choose(it) {
 // The search left in the box by the last + (null when there is none).
 // While the box still holds exactly that, Next goes on with the bubbles
 // instead of adding another match.
-let kept = null;
-const keptText = () => kept !== null && inputs.dst.value === kept;
+const kept = keepSearch(() => inputs.dst.value);
+const keptText = kept.is;
 
 // keep: the search text and its match list stay for another (+).
 function addDst(it, keep = false) {
   if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
   if (!keep) inputs.dst.value = '';
-  kept = keep && inputs.dst.value.trim() ? inputs.dst.value : null;
+  kept.set(keep, inputs.dst.value);
   renderThread();
   if (keep) matches.refresh();
   else matches.close();
@@ -196,20 +196,11 @@ function reset() {
 // from the last take (destinations are added to any already picked) and
 // move on. Hidden when the step already has it, and for levels when
 // they're the default.
-const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 function renderLast() {
   const slot = $('m-last');
-  const t = S.cfg && lastTake();
   const k = M.step;
-  let v = null;
-  if (t && k === 'src' && !(M.sel.src && M.sel.src.n === t.src.n)) v = [labelNode(t.src)];
-  if (t && k === 'dst' && !t.dsts.every((d) => M.dsts.some((x) => x.n === d.n))) {
-    v = [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''];
-  }
-  if (t && k === 'lvl' && t.levels.length && !sameList(lvl.levels() || [], t.levels) && !sameList(t.levels, parseLevels('') || [])) {
-    v = [levelText(t.levels)];
-  }
-  if (!v) return slot.replaceChildren();
+  const v = S.cfg && lastChip(lastTake(), { src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] })[k];
+  if (!v)return slot.replaceChildren();
   const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...v));
   b.type = 'button';
   b.setAttribute('aria-label', `Use the last take's ${{ src: 'source', dst: 'destinations', lvl: 'levels' }[k]}`);
@@ -355,9 +346,8 @@ function recentRow(e) {
   // A stacked row's changes, behind a toggle as on desktop.
   const open = !!e.chain && openChanges.has(e.id);
   const changesId = `m-changes-${e.id}`;
-  const toggle = e.chain && disclosure(open, 'Changes', changesId, () => {
-    if (openChanges.has(e.id)) openChanges.delete(e.id);
-    else openChanges.add(e.id);
+  const disc = e.chain && disclosure(open, 'Changes', changesId, () => {
+    toggle(openChanges, e.id);
     renderRecent();
   });
   let changes = null;
@@ -367,12 +357,12 @@ function recentRow(e) {
   }
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
-      el('span', 'sode-m__recent-status', status, retry, toggle)),
+      el('span', 'sode-m__recent-status', status, retry, disc)),
     el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e)),
     changes,
     e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
-  if (toggle) clickToToggle(face, toggle, '.sode-m__changes');
+  if (disc) clickToToggle(face, disc, '.sode-m__changes');
   const row = el('li', 'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   return row;
@@ -386,19 +376,18 @@ function folderRows(f) {
   const undo = undoBtn(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   const failed = f.entries.filter((e) => !e.ok).length;
   const retry = retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`, () => sheetFor(folderRetryPlan(f)));
-  const toggle = disclosure(open, `${f.shown.length}`, kidsId, () => {
-    if (openFolders.has(f.group)) openFolders.delete(f.group);
-    else openFolders.add(f.group);
+  const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
+    toggle(openFolders, f.group);
     renderRecent();
   });
-  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
+  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
 
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
-      el('span', 'sode-m__recent-status', statusNode({ f }), retry, toggle)),
+      el('span', 'sode-m__recent-status', statusNode({ f }), retry, disc)),
     el('div', 'sode-m__recent-route', ...folderTitle(f)),
     levelBar(folderLevels(f)));
-  clickToToggle(face, toggle);
+  clickToToggle(face, disc);
   const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   if (!open) return [row];
@@ -413,15 +402,14 @@ function followerRows(f) {
   if (!f.followers?.length) return [];
   const open = openFollowers.has(f.group);
   const kidsId = `m-followers-${f.group}`;
-  const toggle = disclosure(open, `${f.followers.length}`, kidsId, () => {
-    if (openFollowers.has(f.group)) openFollowers.delete(f.group);
-    else openFollowers.add(f.group);
+  const disc = disclosure(open, `${f.followers.length}`, kidsId, () => {
+    toggle(openFollowers, f.group);
     renderRecent();
   });
-  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
+  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
   const face = el('div', 'sode-m__recent-face',
-    el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', toggle)));
-  clickToToggle(face, toggle);
+    el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
+  clickToToggle(face, disc);
   const head = el('li', 'sode-m__recent-row', face);
   if (!open) return [head];
   const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.followers.map(recentRow)));

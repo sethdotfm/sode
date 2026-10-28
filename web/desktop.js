@@ -3,9 +3,9 @@
 // and its match list stay for the next one.
 
 import {
-  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode,
+  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
 } from './core.js';
-import { parseLevels, levelText, levelBar, allLevels } from './levelview.js';
+import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
 import { timeNodes, scrollTopPref, flipped, setFlip } from './device.js';
 import {
@@ -13,7 +13,7 @@ import {
 } from './history.js';
 import {
   undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
-  planBlocked, planSummary, sendTakes, lastTake,
+  planBlocked, planSummary, sendTakes, lastTake, lastChip,
 } from './plans.js';
 import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
@@ -90,8 +90,8 @@ const allDsts = () => (sel.dst && !chosen(sel.dst) ? [...dsts, sel.dst] : [...ds
 // The search left in the box by the last + (null when there is none).
 // While the box still holds exactly that, it isn't a destination waiting
 // to be picked: Enter, Tab and Patch go on with the chips.
-let kept = null;
-const keptText = () => kept !== null && boxes.dst.input.value === kept;
+const kept = keepSearch(() => boxes.dst.input.value);
+const keptText = kept.is;
 
 function addDst(pick) {
   const b = boxes.dst;
@@ -107,7 +107,7 @@ function addDst(pick) {
   if (!chosen(sel.dst)) dsts.push(sel.dst);
   sel.dst = null;
   b.input.value = typed;
-  kept = typed.trim() ? typed : null;
+  kept.set(true, typed);
   b.input.classList.remove('pb-input--invalid');
   renderChips();
   renderTally();
@@ -137,17 +137,9 @@ function renderChips() {
 // The last take's value for each box, as a chip by its label that does
 // what Ctrl+S/D/F does. Hidden when the box already has it, and for
 // levels when they're the default.
-const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 function renderLast() {
   if (!S.cfg) return;
-  const t = lastTake();
-  const lv = lvl.levels() || [];
-  const now = {
-    src: t && !(sel.src && sel.src.n === t.src.n) && [labelNode(t.src)],
-    dst: t && !t.dsts.every((d) => allDsts().some((x) => x.n === d.n)) &&
-      [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
-    lvl: t && t.levels.length && !sameList(lv, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
-  };
+  const now = lastChip(lastTake(), { src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] });
   for (const k of ['src', 'dst', 'lvl']) {
     const slot = document.querySelector(`[data-last="${k}"]`);
     const v = now[k];
@@ -262,9 +254,8 @@ function histRow(e) {
   // Before: what the destination had on these levels just before the take.
   const open = expanded.has(e.id);
   const detailId = `hist-before-${e.id}`;
-  const toggle = disclosure(open, 'Before', detailId, () => {
-    if (expanded.has(e.id)) expanded.delete(e.id);
-    else expanded.add(e.id);
+  const disc = disclosure(open, 'Before', detailId, () => {
+    toggle(expanded, e.id);
     renderHistory();
   });
 
@@ -274,10 +265,10 @@ function histRow(e) {
     levelBar(known),
     el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(src, dst), entryNote(e)),
     statusNode({ e }),
-    toggle,
+    disc,
     el('span', 'sode__hist-actions', retry, btn));
   row.dataset.key = `e${e.id}`;
-  clickToToggle(row, toggle, '.sode__hist-before');
+  clickToToggle(row, disc, '.sode__hist-before');
   if (open) {
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
@@ -327,13 +318,12 @@ function folderRow(f) {
   const retry = retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`,
     () => openConfirm(folderRetryPlan(f)), { placeholder: true });
 
-  const toggle = disclosure(open, `${f.shown.length}`, kidsId, () => {
-    if (openFolders.has(f.group)) openFolders.delete(f.group);
-    else openFolders.add(f.group);
+  const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
+    toggle(openFolders, f.group);
     autoOpen.delete(f.group); // opened by hand: stays open
     renderHistory();
   });
-  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
+  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
 
   const row = el('li', 'pb-input sode__hist-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + curClass(`f${f.group}`),
     el('span', 'sode__hist-id', folderIds(f)),
@@ -341,10 +331,10 @@ function folderRow(f) {
     levelBar(folderLevels(f)),
     el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild), ...title.slice(3)),
     statusNode({ f }),
-    toggle,
+    disc,
     el('span', 'sode__hist-actions', retry, undo));
   row.dataset.key = `f${f.group}`;
-  clickToToggle(row, toggle, '.sode__hist-folder');
+  clickToToggle(row, disc, '.sode__hist-folder');
   if (open) {
     const kids = el('ul', 'sode__hist-folder', ...f.shown.map(histRow), ...followerRows(f));
     kids.id = kidsId;
@@ -362,18 +352,17 @@ function followerRows(f) {
   const open = openFollowers.has(f.group);
   const kidsId = `hist-followers-${f.group}`;
   const key = `w${f.group}`;
-  const toggle = disclosure(open, `${f.followers.length}`, kidsId, () => {
-    if (openFollowers.has(f.group)) openFollowers.delete(f.group);
-    else openFollowers.add(f.group);
+  const disc = disclosure(open, `${f.followers.length}`, kidsId, () => {
+    toggle(openFollowers, f.group);
     renderHistory();
   });
-  toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
+  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
   const head = el('li', 'pb-input sode__hist-row' + curClass(key),
     el('span', 'sode__hist-id'), el('span', 'sode__hist-time'), el('span'),
     el('span', 'sode__hist-route', 'Followers'),
-    el('span'), toggle, el('span', 'sode__hist-actions'));
+    el('span'), disc, el('span', 'sode__hist-actions'));
   head.dataset.key = key;
-  clickToToggle(head, toggle, '.sode__hist-folder');
+  clickToToggle(head, disc, '.sode__hist-folder');
   if (open) {
     const kids = el('ul', 'sode__hist-folder', ...f.followers.map(histRow));
     kids.id = kidsId;
