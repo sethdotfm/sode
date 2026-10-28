@@ -521,9 +521,13 @@ func (a *App) lateWorker(ctx context.Context) {
 // lateConfirm amends take id's entry: levels uis were confirmed after the
 // take gave up. They leave Failed (and Now), join Late, and the entry turns
 // OK once nothing is left failing. One history update for all of them.
-// Caller doesn't hold mu.
+// Caller doesn't hold mu. The source names are copied first: the update runs
+// under the history's lock and must not take mu.
 func (a *App) lateConfirm(id int, uis []int) {
 	r := a.r()
+	a.mu.Lock()
+	names := maps.Clone(a.router.srcNames)
+	a.mu.Unlock()
 	var done []int
 	e, ok := a.hist.Update(id, func(e *Entry) {
 		for _, ui := range uis {
@@ -534,17 +538,13 @@ func (a *App) lateConfirm(id int, uis []int) {
 			e.Failed = slices.DeleteFunc(e.Failed, func(x int) bool { return x == ui })
 			e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[0] == ui })
 			e.Late = append(e.Late, ui)
-			if len(e.Failed) > 0 {
-				e.Err = dropMissing(e.Err, r.cfg.LevelLabel(ui))
-			}
 		}
 		if len(done) == 0 {
 			return
 		}
 		sort.Ints(e.Late)
-		if len(e.Failed) == 0 {
-			e.OK, e.Err = true, ""
-		}
+		e.Err = entryErr(r, names, e)
+		e.OK = len(e.Failed) == 0
 	})
 	if !ok || len(done) == 0 {
 		return
