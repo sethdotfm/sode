@@ -296,7 +296,12 @@
         <div class="sode__field">
           <label for="cfg-brandborder">Border colour</label>
           <span class="pb-select-wrap"><select id="cfg-brandborder" class="pb-select" data-key="brandBorder"><option value="">Off</option><option value="blue">Blue</option><option value="teal">Teal</option><option value="green">Green</option><option value="amber">Amber</option><option value="violet">Violet</option><option value="pink">Pink</option></select></span>
-          <span class="sode__hint">Round the window, for everyone</span>
+          <span class="sode__brand-preview" id="brand-preview">
+            <span class="sode__brand-swatch" id="brand-swatch" aria-hidden="true"></span>
+            <img class="sode__brand-icon" id="brand-icon" width="48" height="48" alt="App icon preview">
+            <span class="sode__hint" id="brand-name"></span>
+          </span>
+          <span class="sode__hint">Round the window and on the app icon, for everyone</span>
         </div>
       </div>
     </fieldset>

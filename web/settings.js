@@ -88,6 +88,18 @@ function renderSaveState() {
     : ['Saved to ', path]));
 }
 
+// The picked brand colour, as the window border and as the app icon the
+// server draws (icon.go), before it is saved.
+function renderBrandPreview() {
+  const c = $('cfg-brandborder').value;
+  const sw = $('brand-swatch');
+  if (c) sw.dataset.brand = c;
+  else delete sw.dataset.brand;
+  $('brand-icon').src = `icon.png?s=180${c ? `&c=${encodeURIComponent(c)}` : ''}`;
+  $('brand-name').textContent = c ? c[0].toUpperCase() + c.slice(1) : 'Off';
+}
+$('cfg-brandborder').addEventListener('change', renderBrandPreview);
+
 export function openSettings() {
   if (!S.cfg) return;
   // Locked or not: the version shows at the bottom of both views.
@@ -103,6 +115,7 @@ export function openSettings() {
   shownMode = formMode();
   $('cfg-default').value = levelInput(parseLevelsAs(S.cfg.defaultLevels, '1', S.cfg.levels) || [], shownMode);
   renderNumbering();
+  renderBrandPreview();
   renderColors(S.cfg.levelColors || []);
   $('cfg-pin').value = '';
   $('cfg-pin2').value = '';

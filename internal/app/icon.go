@@ -154,7 +154,7 @@ func (a *App) serveManifest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{
 		"name": name, "short_name": name,
 		"description": "Keyboard-first web patching for SW-P-08 routers",
-		"start_url":   "./", "scope": "./", "display": "standalone",
+		"id":          "./", "start_url": "./", "scope": "./", "display": "standalone",
 		"background_color": "#080808", "theme_color": "#080808",
 		"icons": []map[string]string{icon(192, "any"), icon(512, "any"), icon(512, "maskable")},
 	})

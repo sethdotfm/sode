@@ -196,6 +196,18 @@ code,
 [data-brand="amber"] { --brand-color: var(--pb-signal-02); }
 [data-brand="violet"] { --brand-color: var(--pb-signal-09); }
 [data-brand="pink"] { --brand-color: var(--pb-signal-11); }
+/* Settings: the picked colour as a window-border sample and the app icon. */
+.sode__brand-preview {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-4);
+}
+.sode__brand-swatch {
+  border: var(--pb-space-2) solid var(--brand-color, var(--pb-edge));
+  height: calc(var(--pb-space-10) + var(--pb-space-5));
+  width: calc(var(--pb-space-10) + var(--pb-space-5));
+}
+.sode__brand-icon { display: block; height: 48px; width: 48px; }
 .sode__label {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
