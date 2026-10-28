@@ -5,6 +5,7 @@ import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
+import './brand.js';
 
 // Entries read on open and per Load older.
 const PAGE = 100;
