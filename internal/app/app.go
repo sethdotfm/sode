@@ -4,7 +4,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"maps"
 	"net/netip"
@@ -112,8 +111,8 @@ type routerState struct {
 	tally    map[int]map[int]int  // dst → UI level → src (-1 = nothing routed)
 	protect  map[int]map[int]int  // dst → UI level → protecting device
 	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
-	pend     [][3]int             // tally changes awaiting broadcast
-	pendProt [][3]int             // protect changes awaiting broadcast (device -1 = cleared)
+	pend     []routeChange        // tally changes awaiting broadcast
+	pendProt []routeChange        // protect changes awaiting broadcast (device -1 = cleared)
 
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
@@ -188,7 +187,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 }
 
 // background reasons are Sode's own upkeep, not something a browser asked for.
-var background = map[string]bool{"resync": true, "names": true, "keepalive": true}
+var background = map[swp08.Reason]bool{swp08.ReasonResync: true, swp08.ReasonNames: true, swp08.ReasonKeepalive: true}
 
 func (a *App) r() *runtime { return a.rt.Load() }
 
@@ -245,7 +244,7 @@ func (a *App) RefreshNames() {
 	a.mu.Unlock()
 	ext := r.cfg.NameRequests == "ext"
 	for _, dest := range []bool{false, true} {
-		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), "names")
+		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), swp08.ReasonNames)
 	}
 }
 
@@ -256,12 +255,12 @@ func (a *App) requestDumps() {
 	a.dumpAt = time.Now()
 	a.mu.Unlock()
 	for _, l := range r.levels {
-		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), "resync")
-		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), "resync")
+		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
+		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
 	}
 }
 
-func (a *App) send(m []byte, reason string) {
+func (a *App) send(m []byte, reason swp08.Reason) {
 	if err := a.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
 		log.Printf("send cmd 0x%02X: %v", m[0], err)
 	}
@@ -311,7 +310,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		}
 		if old, ok := t[l.UI]; !ok || old != xp.Src {
 			t[l.UI] = xp.Src
-			a.router.pend = append(a.router.pend, [3]int{xp.Dst, l.UI, xp.Src})
+			a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
 			// A changed route the router didn't announce shows up in a
 			// dump or an interrogate: noted too, unless it's ours.
 			// A tally of a route a take gave up on confirms it after all.
@@ -359,7 +358,7 @@ func (a *App) onRouterMsg(msg []byte) {
 			}
 			t[l.UI] = dev
 		}
-		a.router.pendProt = append(a.router.pendProt, [3]int{p.Dst, l.UI, dev})
+		a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
 	}
 	if nb := ev.Names; nb != nil {
 		m := a.router.srcNames
@@ -472,11 +471,11 @@ func sorted(m map[int]string) [][2]any {
 	return out
 }
 
-func triples(m map[int]map[int]int) [][3]int {
-	out := [][3]int{}
+func routeChanges(m map[int]map[int]int) []routeChange {
+	out := []routeChange{}
 	for d, t := range m {
 		for l, v := range t {
-			out = append(out, [3]int{d, l, v})
+			out = append(out, routeChange{d, l, v})
 		}
 	}
 	return out
@@ -501,18 +500,13 @@ func (a *App) readHello() helloPage {
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
-	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
-	m["tally"] = triples(a.router.tally)
-	m["protect"] = triples(a.router.protect)
-	m["status"] = a.status
-	m["recent"] = p.recent
-	m["more"] = p.more
-	m["levels"] = r.levels
-	m["levelDefaults"] = config.DefaultLevelColors
-	m["cfg"] = r.cfg
-	m["pinSet"] = r.cfg.SettingsPin != ""
-	m["configPath"] = a.cfgPath
-	m["version"] = VersionLabel()
+	m := helloMsg{
+		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At,
+		Tally: routeChanges(a.router.tally), Protect: routeChanges(a.router.protect),
+		Status: a.status, Recent: p.recent, More: p.more,
+		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: r.cfg,
+		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: VersionLabel(),
+	}
 	b, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("marshal hello: %v", err)
@@ -558,38 +552,7 @@ func (a *App) record(e *Entry) {
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	off := a.r().cfg.NumberOffset
-	undo := "-"
-	if e.Undo != nil {
-		undo = fmt.Sprint(*e.Undo)
-	}
-	retry := "-"
-	if e.Retry != nil {
-		retry = fmt.Sprint(*e.Retry)
-	}
-	result := "ok"
-	if !e.OK {
-		result = e.Err
-	}
-	group := "-"
-	if e.Group != "" {
-		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
-	}
-	if e.Ext {
-		follow := "-"
-		if e.Follow != nil {
-			follow = fmt.Sprint(*e.Follow)
-		}
-		followGroup := "-"
-		if e.FollowGroup != "" {
-			followGroup = e.FollowGroup
-		}
-		log.Printf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s followGroup=%s found=%t",
-			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, followGroup, e.Found)
-	} else {
-		log.Printf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
-			e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
-	}
+	log.Print(e.logLine(a.r().cfg.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "recent", E: e})
 	a.mu.Unlock()

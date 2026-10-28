@@ -31,9 +31,24 @@ const (
 	StateDown       State = "down"
 )
 
+// Reason is why a message was sent, as the sent log records it (it is
+// logged as this string).
+type Reason string
+
+const (
+	ReasonTake      Reason = "take"
+	ReasonUndo      Reason = "undo"
+	ReasonRetry     Reason = "retry"
+	ReasonCheck     Reason = "check"
+	ReasonConfirm   Reason = "confirm"
+	ReasonResync    Reason = "resync"
+	ReasonNames     Reason = "names"
+	ReasonKeepalive Reason = "keepalive"
+)
+
 // Why says what a message was sent for, for the sent log.
 type Why struct {
-	Reason string // take, check, confirm, resync, names, keepalive
+	Reason Reason
 	By     string // the browser's address, for take traffic
 	// Done, if set, is closed once the message's fate is known: ACKed,
 	// given up on, or dropped. Callers use it to count their timeouts from
@@ -390,7 +405,7 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan out, acks cha
 		if probe == nil {
 			return nil
 		}
-		heard, err := c.transmit(ctx, conn, out{msg: probe, why: Why{Reason: "keepalive"}}, acks, rx)
+		heard, err := c.transmit(ctx, conn, out{msg: probe, why: Why{Reason: ReasonKeepalive}}, acks, rx)
 		if err == nil && !heard {
 			err = errors.New("no reply from router")
 		}

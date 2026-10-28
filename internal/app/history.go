@@ -46,6 +46,41 @@ type Entry struct {
 	Cut         bool   `json:"cut,omitempty"` // the router changed under the take, so its Failed levels just got no answer
 }
 
+// logLine is the server log's one-line account of e; off turns 0-based
+// source and destination numbers into the router's display numbers.
+func (e *Entry) logLine(off int) string {
+	undo := "-"
+	if e.Undo != nil {
+		undo = fmt.Sprint(*e.Undo)
+	}
+	retry := "-"
+	if e.Retry != nil {
+		retry = fmt.Sprint(*e.Retry)
+	}
+	result := "ok"
+	if !e.OK {
+		result = e.Err
+	}
+	group := "-"
+	if e.Group != "" {
+		group = fmt.Sprintf("%s/%d", e.Group, e.GroupN)
+	}
+	if e.Ext {
+		follow := "-"
+		if e.Follow != nil {
+			follow = fmt.Sprint(*e.Follow)
+		}
+		followGroup := "-"
+		if e.FollowGroup != "" {
+			followGroup = e.FollowGroup
+		}
+		return fmt.Sprintf("EXT src=%d %q dst=%d %q levels=%v group=%s follow=%s followGroup=%s found=%t",
+			e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, group, follow, followGroup, e.Found)
+	}
+	return fmt.Sprintf("TAKE client=%s src=%d %q dst=%d %q levels=%v undo=%s retry=%s group=%s result=%q",
+		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
+}
+
 // History is an append-only JSONL log of takes. Only line offsets are kept
 // in memory; pages are read back from disk on demand. With no path it
 // keeps entries in memory instead.

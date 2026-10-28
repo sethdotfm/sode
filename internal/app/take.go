@@ -348,11 +348,11 @@ func (a *App) take(c *client, req takeReq) {
 		a.reply(c, res)
 		return
 	}
-	w.why = swp08.Why{Reason: "take", By: c.ip}
+	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.ip}
 	if req.Undo != nil {
-		w.why.Reason = "undo"
+		w.why.Reason = swp08.ReasonUndo
 	} else if req.Retry != nil {
-		w.why.Reason = "retry"
+		w.why.Reason = swp08.ReasonRetry
 	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
@@ -664,7 +664,7 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 		last = done
 	}
 	// Only this goroutine sets same and unsent.
-	if done, _ := a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), "confirm"); done != nil {
+	if done, _ := a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), swp08.ReasonConfirm); done != nil {
 		last = done
 	}
 	// The router can't answer what is still queued behind other takes'
@@ -719,7 +719,7 @@ func leftQueue(done <-chan struct{}) {
 
 // interrogate asks for ls's routes on w's destination. It returns the
 // channel of the last message sent (see sendTracked), nil if none was.
-func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason string) (<-chan struct{}, error) {
+func (a *App) interrogate(r *runtime, w *waiter, ls []*takeLevel, reason swp08.Reason) (<-chan struct{}, error) {
 	why := swp08.Why{Reason: reason, By: w.why.By}
 	var last <-chan struct{}
 	for _, l := range ls {
@@ -753,7 +753,7 @@ func (a *App) awaitTake(r *runtime, w *waiter) []*takeLevel {
 	cut := w.cut
 	a.mu.Unlock()
 	if !cut {
-		done, _ := a.interrogate(r, w, outstanding(), "confirm")
+		done, _ := a.interrogate(r, w, outstanding(), swp08.ReasonConfirm)
 		leftQueue(done)
 	}
 	select {
