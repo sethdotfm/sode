@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/fs"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"net/netip"
@@ -16,6 +17,9 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 )
+
+// The distroless image has no mime.types, and Go knows no .webmanifest.
+func init() { _ = mime.AddExtensionType(".webmanifest", "application/manifest+json") }
 
 type client struct {
 	ip   string
