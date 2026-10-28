@@ -23,13 +23,26 @@ func fillRouterDerived(a *App) {
 	a.router.pendProt = [][3]int{{5, 1, 9}}
 	a.router.newSrc, a.router.newDst = map[int]string{1: "x"}, map[int]string{2: "y"}
 	a.router.namesAt = time.Now()
-	a.ext.noteExt(swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, 1, 3, true, false, time.Now())
+	a.ext.add(extChange{xp: swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, ui: 1, old: 3, known: true, at: time.Now()})
 	a.ext.own[ownKey{5, 0, 7}] = until
 	c := &cause{src: 7, dst: 5, id: 1, done: true}
 	a.ext.causes = append(a.ext.causes, c)
 	a.ext.leaders[6] = 5
 	a.ext.lateTake[ownKey{5, 0, 8}] = []lateTake{{id: 1, until: until, cause: c}}
 	a.ext.lateHits = append(a.ext.lateHits, lateHit{1, 1})
+}
+
+// noZeroFields fails for any field of the struct v points to that is still its
+// zero value, so a field added to routerState or extTracker must be filled by
+// fillRouterDerived (and so is checked to be cleared).
+func noZeroFields(t *testing.T, v any) {
+	t.Helper()
+	rv := reflect.ValueOf(v).Elem()
+	for i := 0; i < rv.NumField(); i++ {
+		if rv.Field(i).IsZero() {
+			t.Errorf("%s.%s is zero after fillRouterDerived: fill it in the test", rv.Type().Name(), rv.Type().Field(i).Name)
+		}
+	}
 }
 
 func TestRouterChangeClearsRouterState(t *testing.T) {
@@ -58,6 +71,13 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a.nameReqAt, a.nameRxAt, a.dumpAt, a.namesDirt = nameReq, nameRx, dump, true
 	a.mu.Unlock()
 	fillRouterDerived(a)
+	a.mu.Lock()
+	noZeroFields(t, a.router)
+	noZeroFields(t, a.ext)
+	w, ck := &waiter{}, &tallyCheck{}
+	a.waiters[w], a.checks[ck] = struct{}{}, struct{}{}
+	a.pendSent = []Sent{{}}
+	a.mu.Unlock()
 
 	// Not router-side: nothing is cleared.
 	cur := a.r().cfg
@@ -100,6 +120,15 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	if _, ok := a.clients[cl]; !ok {
 		t.Fatal("client dropped")
+	}
+	if _, ok := a.waiters[w]; !ok {
+		t.Fatal("waiters cleared")
+	}
+	if _, ok := a.checks[ck]; !ok {
+		t.Fatal("checks cleared")
+	}
+	if len(a.pendSent) != 1 {
+		t.Fatal("pendSent cleared")
 	}
 	if a.late[lateKey] != until {
 		t.Fatal("late claims cleared")

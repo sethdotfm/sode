@@ -117,7 +117,7 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 	if !found && a.claimLate(k, ui) {
 		return
 	}
-	a.ext.noteExt(xp, ui, old, known, found, time.Now())
+	a.ext.add(extChange{xp: xp, ui: ui, old: old, known: known, found: found, at: time.Now()})
 }
 
 // ownAnswer reports whether a Connected for k is the answer to one of our
@@ -132,8 +132,18 @@ func (x *extTracker) ownAnswer(k ownKey, found bool, now time.Time) bool {
 	return false
 }
 
-// noteExt adds a change to the burst.
-func (x *extTracker) noteExt(xp swp08.Crosspoint, ui, old int, known, found bool, now time.Time) {
+// extChange is one changed crosspoint for the burst: old/known is the cached
+// src before it, found that it came as a tally, not a Connected.
+type extChange struct {
+	xp           swp08.Crosspoint
+	ui, old      int
+	known, found bool
+	at           time.Time
+}
+
+// add puts a change in the burst.
+func (x *extTracker) add(c extChange) {
+	xp, ui, old, known, found, now := c.xp, c.ui, c.old, c.known, c.found, c.at
 	if len(x.pending) == 0 {
 		x.first = now
 	}
@@ -165,7 +175,7 @@ func (a *App) flushExt() {
 		a.mu.Unlock()
 		return
 	}
-	es := a.ext.entries(a.router, burst, first)
+	es := a.ext.entries(a.router.name, burst, first)
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
@@ -222,7 +232,7 @@ func (a *App) flushFound(dst int) {
 	}
 	// Grouped by now, not the burst's start: the rest of the burst, written
 	// later, gets that one.
-	es := a.ext.entries(a.router, map[int]map[int]*extLevel{dst: found}, time.Now())
+	es := a.ext.entries(a.router.name, map[int]map[int]*extLevel{dst: found}, time.Now())
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
@@ -253,7 +263,7 @@ func (x *extTracker) awaitsTake() bool {
 // began, earliest first. Changes that follow one of our takes name it;
 // the rest share a group when there's more than one, found ones apart.
 // Group ids are made from at. Caller holds mu.
-func (x *extTracker) entries(rs *routerState, burst map[int]map[int]*extLevel, at time.Time) []*Entry {
+func (x *extTracker) entries(name func(dst bool, n int) string, burst map[int]map[int]*extLevel, at time.Time) []*Entry {
 	type key struct {
 		dst, src int
 		found    bool
@@ -274,7 +284,7 @@ func (x *extTracker) entries(rs *routerState, burst map[int]map[int]*extLevel, a
 			o := byKey[k]
 			if o == nil {
 				o = &out{e: &Entry{Src: l.src, Dst: dst, Prev: [][2]int{}, OK: true, Ext: true, Found: l.found,
-					SrcName: rs.srcNames[l.src], DstName: rs.dstNames[dst]}, first: l.first}
+					SrcName: name(false, l.src), DstName: name(true, dst)}, first: l.first}
 				byKey[k] = o
 				outs = append(outs, o)
 			}

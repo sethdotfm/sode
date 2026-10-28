@@ -50,10 +50,30 @@ func (r *runtime) probe() []byte {
 	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
 }
 
-// App fields: router-side state is grouped in routerState and extTracker and
-// replaced when the router changes; everything else is KEPT across a router
-// change (sw, hist, sent, txq, txLost, cfgPath, rt, pin, cfgMu, gapHook,
-// xffWarn), and the rest are marked below.
+// App is the whole server state. When the router changes (applyConfig with
+// reconnect) these are RESET, because they describe the old router:
+//   - router (*routerState): names, tally, protect, seenAt, pending
+//     broadcasts, name-refresh buffers;
+//   - ext (*extTracker): the burst, own connects, causes, leaders,
+//     lateTake, lateHits;
+//   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
+//
+// Everything else is KEPT:
+//   - sw, hist, sent, txq, txLost, cfgPath, rt, pin, cfgMu, gapHook, xffWarn,
+//     lateQ: plumbing, history, config and PIN, none of it router state;
+//   - clients: the browsers stay connected and get a fresh hello;
+//   - pendSent: sent log entries for /log pages (what we wrote);
+//   - nameReqAt, nameRxAt, namesDirt, dumpAt: the polling clock. Not cleared
+//     today; onRouterUp asks for names and dumps again when the new router answers;
+//   - late: not cleared today, and it expires by itself within ownFor.
+//
+// Known gaps, left as they are: waiters and checks are KEPT, not cancelled,
+// so a take in flight when the router changes can still write own/lateTake
+// keys into the new extTracker until it times out; and late is kept while
+// extTracker.lateTake is reset, so a stale late key can swallow a matching
+// Connected from the new router for up to ownFor.
+//
+// The fields from mu down to dumpAt are guarded by mu.
 type App struct {
 	sw      *swp08.Client
 	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
@@ -64,26 +84,19 @@ type App struct {
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
-	// Every field below is guarded by mu. Each is marked as reset or kept
-	// when the router changes (applyConfig, reconnect=true).
 	mu       sync.Mutex
-	router   *routerState             // RESET: swapped for a fresh one
-	ext      *extTracker              // RESET: swapped for a fresh one (changes elsewhere, own connects, causes, late claims)
-	status   statusMsg                // RESET: Router/Addr/Err set by hand to "connecting" for the new address
-	clients  map[*client]struct{}     // KEEP: browser connections
-	waiters  map[*waiter]struct{}     // KEEP: takes in flight; they time out on their own (see report: not cancelled)
-	checks   map[*tallyCheck]struct{} // KEEP: pre-take interrogates in flight; they time out on their own
-	pendSent []Sent                   // KEEP: sent log entries awaiting broadcast to /log pages (what we wrote, not router state)
+	router   *routerState
+	ext      *extTracker
+	status   statusMsg
+	clients  map[*client]struct{}
+	waiters  map[*waiter]struct{}     // takes in flight
+	checks   map[*tallyCheck]struct{} // pre-take interrogates in flight
+	pendSent []Sent                   // sent log entries awaiting broadcast to /log pages
 
-	// late: finished takes' unconfirmed routes → until when a tally of one is ours.
-	// KEEP: not cleared today, and expires on its own within ownFor.
-	late map[ownKey]time.Time
-	// lateQ: to lateWorker; nil = amend in line (tests). KEEP: plumbing.
-	lateQ chan lateJob
+	late  map[ownKey]time.Time // finished takes' unconfirmed routes → until when a tally of one is ours
+	lateQ chan lateJob         // to lateWorker; nil = amend in line (tests)
 
-	// Name and dump polling clock. KEEP all four: not cleared today. The
-	// router coming up (onRouterUp) asks for names and dumps again anyway.
-	nameReqAt time.Time // when the last refresh was asked for
+	nameReqAt time.Time // when the last name refresh was asked for
 	nameRxAt  time.Time // last name reply
 	namesDirt bool      // unsolicited names changed outside a refresh
 	dumpAt    time.Time // last dump request
@@ -111,6 +124,14 @@ type routerState struct {
 	// they stop arriving, so names deleted on the router disappear here.
 	newSrc, newDst map[int]string // nil when no refresh is in flight
 	namesAt        time.Time      // last completed refresh
+}
+
+// name is the cached name of a source, or of a destination if dst.
+func (rs *routerState) name(dst bool, n int) string {
+	if dst {
+		return rs.dstNames[n]
+	}
+	return rs.srcNames[n]
 }
 
 func newRouterState() *routerState {
