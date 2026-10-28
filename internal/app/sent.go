@@ -57,12 +57,12 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	r := a.r()
 	q := swp08.DescribeTx(ev.Msg)
 	e := Sent{Time: ev.At, Kind: q.Kind, Wire: q.Level, Dst: q.Dst, Src: q.Src,
-		By: ev.Why.By, Why: ev.Why.Reason, Tries: ev.Tries, Result: ev.Result, Err: ev.Err,
+		By: ev.Why.By, Why: string(ev.Why.Reason), Tries: ev.Tries, Result: ev.Result, Err: ev.Err,
 		Hex: fmt.Sprintf("% X", ev.Msg)}
 	if len(ev.Msg) > 0 {
 		e.Cmd = int(ev.Msg[0])
 	}
-	if ev.Why.Reason == "keepalive" {
+	if ev.Why.Reason == swp08.ReasonKeepalive {
 		// A link check, not a question about a route: whatever it asks
 		// about is beside the point.
 		e.Kind = "keepalive"

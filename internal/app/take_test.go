@@ -660,7 +660,7 @@ func TestBatchFollowGroup(t *testing.T) {
 }
 
 // Counts what the router was sent for, by reason.
-func (f *fakeRouter) sentFor(reason string) int {
+func (f *fakeRouter) sentFor(reason swp08.Reason) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	n := 0

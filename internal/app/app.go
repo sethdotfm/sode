@@ -188,7 +188,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 }
 
 // background reasons are Sode's own upkeep, not something a browser asked for.
-var background = map[string]bool{"resync": true, "names": true, "keepalive": true}
+var background = map[swp08.Reason]bool{swp08.ReasonResync: true, swp08.ReasonNames: true, swp08.ReasonKeepalive: true}
 
 func (a *App) r() *runtime { return a.rt.Load() }
 
@@ -245,7 +245,7 @@ func (a *App) RefreshNames() {
 	a.mu.Unlock()
 	ext := r.cfg.NameRequests == "ext"
 	for _, dest := range []bool{false, true} {
-		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), "names")
+		a.send(swp08.NamesReq(dest, ext, r.cfg.Matrix, 0, r.lenCode), swp08.ReasonNames)
 	}
 }
 
@@ -256,12 +256,12 @@ func (a *App) requestDumps() {
 	a.dumpAt = time.Now()
 	a.mu.Unlock()
 	for _, l := range r.levels {
-		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), "resync")
-		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), "resync")
+		a.send(swp08.ExtTallyDumpReq(r.cfg.Matrix, l.Wire), swp08.ReasonResync)
+		a.send(swp08.ExtProtectDumpReq(r.cfg.Matrix, l.Wire, 0), swp08.ReasonResync)
 	}
 }
 
-func (a *App) send(m []byte, reason string) {
+func (a *App) send(m []byte, reason swp08.Reason) {
 	if err := a.sendMsg(m, swp08.Why{Reason: reason}); err != nil {
 		log.Printf("send cmd 0x%02X: %v", m[0], err)
 	}
