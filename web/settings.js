@@ -4,7 +4,12 @@
 // Leaving with unsaved changes warns first. With a settings PIN, the view
 // opens locked and locks again when it closes.
 
-import { $, el, S, on, wsSend, sentence, fmtTime, ownPref, globalPref, setPref, filterSummary, normFilter, showResult, levelColor, levelLabel, levelInput, parseLevelsAs } from './core.js';
+import { $, el, S, on, wsSend, sentence } from './core.js';
+import { levelColor, levelLabel, levelInput } from './levelview.js';
+import { fmtTime, ownPref, globalPref, setPref } from './device.js';
+import { filterSummary, normFilter } from './filterstore.js';
+import { showResult } from './plans.js';
+import { parseLevelsAs } from './levels.js';
 import { PREFS, resolve, toGlobal } from './prefs.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';

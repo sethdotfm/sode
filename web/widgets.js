@@ -3,9 +3,14 @@
 // row and the confirm's lockout. Each layout passes its own elements and
 // the few things it does differently.
 
+import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron } from './core.js';
 import {
-  el, S, needsLink, levelBar, srcItem, dstItem, levelText, beforeGroups, failureGroups, srcRow, tallyText, fmtClock, restorePlan, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels, dstLabel, planEmpty, chevron,
-} from './core.js';
+  levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels,
+} from './levelview.js';
+import { srcRow } from './routes.js';
+import { fmtClock } from './device.js';
+import { beforeGroups, failureGroups } from './history.js';
+import { restorePlan, planEmpty } from './plans.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 

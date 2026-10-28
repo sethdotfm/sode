@@ -3,13 +3,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// core.js reads these at load.
+// core.js and the modules on it read these at load.
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 globalThis.document = node();
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 
 test('failed takes: reasons, undo and changedSince', async () => {
-  const { S, undoPlan, failureGroups, changedSince } = await import('../core.js');
+  const { S, undoPlan, failureGroups, changedSince } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
   S.levelBy = new Map([[1, {}], [2, {}], [3, {}], [4, {}]]);
   S.srcBy = new Map([[0, { n: 0, num: 1, name: 'CAM 1', label: 'CAM 1' }], [8, { n: 8, num: 9, name: 'CAM 9', label: 'CAM 9' }]]);
@@ -34,7 +34,7 @@ test('failed takes: reasons, undo and changedSince', async () => {
 });
 
 test('late confirms: note, putEntry, undo and changedSince', async () => {
-  const { S, entryNote, putEntry, undoPlan, changedSince } = await import('../core.js');
+  const { S, entryNote, putEntry, undoPlan, changedSince } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
   S.levelBy = new Map([[1, {}], [2, {}], [3, {}], [4, {}]]);
   const base = { id: 9, dst: 5, src: 7, srcName: 'X', dstName: 'Y', time: new Date().toISOString(), levels: [1, 2, 3, 4], prev: [[1, 0], [2, 0], [3, 0], [4, 0]] };
@@ -74,7 +74,7 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
 });
 
 test('histRows: followers of a confirm go in its folder', async () => {
-  const { S, histRows, setFilter, entryNote } = await import('../core.js');
+  const { S, histRows, setFilter, entryNote } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
   S.levelBy = new Map([[1, {}]]);
   const t = (id, dst) => ({ id, dst, src: 1, srcName: 'A', dstName: `D${dst}`, time: new Date(Date.now() - (20 - id) * 1000).toISOString(), ok: true, levels: [1], group: 'g', groupN: 3 });
@@ -109,7 +109,7 @@ test('histRows: followers of a confirm go in its folder', async () => {
 });
 
 test('failure banner: grouped lines, shrinks as takes resolve', async () => {
-  const { S, failureBanner } = await import('../core.js');
+  const { S, failureBanner } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, filterSets: [] };
   S.levelBy = new Map([[1, { label: '1' }], [2, { label: '2' }], [3, { label: '3' }]]);
   S.srcBy = new Map([[0, { n: 0, num: 1, name: 'CAM 1', label: 'CAM 1' }]]);

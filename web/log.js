@@ -1,7 +1,10 @@
 // The /log page: every message Sode wrote to the router (issue 72), newest
 // first, live, with this browser's filters.
-import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, labelNode, levelColor, clockPref } from './core.js';
+import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, labelNode } from './core.js';
+import { levelColor } from './levelview.js';
+import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
+import { readJSON, writeJSON } from './store.js';
 
 // Entries read on open and per Load older.
 const PAGE = 100;
@@ -38,8 +41,7 @@ const WHY_LABEL = {
 // ---- filters
 
 function loadFilter() {
-  let f = {};
-  try { f = JSON.parse(localStorage.getItem(FILTER_KEY)) || {}; } catch (e) {}
+  const f = readJSON(FILTER_KEY) || {};
   return {
     kinds: Array.isArray(f.kinds) ? f.kinds.filter((k) => KINDS.some((g) => g.id === k)) : ['connect'],
     problems: !!f.problems,
@@ -53,7 +55,7 @@ let srcOk = filterFn(filter.src) || anything;
 let dstOk = filterFn(filter.dst) || anything;
 
 function saveFilter() {
-  try { localStorage.setItem(FILTER_KEY, JSON.stringify(filter)); } catch (e) {}
+  writeJSON(FILTER_KEY, filter);
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
@@ -327,10 +329,10 @@ const SORTS = {
   hex: (e) => e.hex,
 };
 let sort = { col: 'time', dir: 'desc' };
-try {
-  const saved = JSON.parse(localStorage.getItem(SORT_KEY));
+{
+  const saved = readJSON(SORT_KEY);
   if (SORTS[saved?.col] && ['asc', 'desc'].includes(saved.dir)) sort = saved;
-} catch (e) {}
+}
 const newestFirst = () => sort.col === 'time' && sort.dir === 'desc';
 
 function cmp(a, b) {
@@ -397,10 +399,7 @@ function renderSort() {
 // A→Z / lowest first for the rest.
 function setSort(col) {
   sort = sort.col === col ? { col, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'time' ? 'desc' : 'asc' };
-  try {
-    if (newestFirst()) localStorage.removeItem(SORT_KEY);
-    else localStorage.setItem(SORT_KEY, JSON.stringify(sort));
-  } catch (e) {}
+  writeJSON(SORT_KEY, newestFirst() ? null : sort);
   renderSort();
   render();
 }

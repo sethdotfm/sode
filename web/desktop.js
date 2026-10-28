@@ -3,12 +3,19 @@
 // and its match list stay for the next one.
 
 import {
-  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, parseLevels, levelText, levelBar,
-  allLevels, fedBy, bySource, dstLabel, dstItem, srcItem, currentlyNodes, pickEnd, timeNodes, undoPlan, historyPager,
-  beforeGroups, srcRow, tallyText, attachFollows, labelNode, retryPlan, planVerb, entryNote,
-  statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty,
-  resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, scrollTopPref, flipped, setFlip,
+  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode,
 } from './core.js';
+import { parseLevels, levelText, levelBar, allLevels } from './levelview.js';
+import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
+import { timeNodes, scrollTopPref, flipped, setFlip } from './device.js';
+import {
+  historyPager, beforeGroups, attachFollows, entryNote, statusNode, folderTitle, folderPartial, folderLevels, folderIds,
+} from './history.js';
+import {
+  undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
+  planBlocked, planSummary, sendTakes, lastTake,
+} from './plans.js';
+import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
 import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, lockout, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
@@ -591,10 +598,10 @@ showFlip();
 
 const TIP_KEY = 'sode-hint-keys';
 $('keys-tip-text').textContent = `${mac ? '⌘z' : 'Ctrl+z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
-try { $('keys-tip').hidden = localStorage.getItem(TIP_KEY) === 'hidden'; } catch (e) { $('keys-tip').hidden = false; }
+$('keys-tip').hidden = readStr(TIP_KEY) === 'hidden';
 $('keys-tip-close').addEventListener('click', () => {
   $('keys-tip').hidden = true;
-  try { localStorage.setItem(TIP_KEY, 'hidden'); } catch (e) {}
+  writeStr(TIP_KEY, 'hidden');
 });
 
 // ---- shortcut list (?)

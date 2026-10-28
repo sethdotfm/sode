@@ -80,7 +80,7 @@ test('histRows', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
   store.set('sode-ext', 'none'); // first beta's setting migrates
-  const { histRows, S, setFilter, filterState, filterCount, FILTER_DEFAULT } = await import('../core.js');
+  const { histRows, S, setFilter, filterState, filterCount, FILTER_DEFAULT } = await import('./all.mjs');
   assert.deepEqual(filterState(), { ...FILTER_DEFAULT, ext: false });
   assert.equal(store.has('sode-ext'), false);
 
@@ -116,7 +116,7 @@ test('histRows', async () => {
 });
 
 test('filter sets', async () => {
-  const core = await import('../core.js'); // same instance as the histRows test
+  const core = await import('./all.mjs'); // same instance as the histRows test
   const { S, setFilter, filterState, activeSet, pickSet, saveLocalSet, deleteLocalSet, allSets, FILTER_DEFAULT } = core;
   S.cfg = { numberOffset: 1, filterSets: [{ name: 'No shader', src: '', dst: '!MON', sode: true, ext: true, hidden: false }] };
   assert.deepEqual(allSets().map((s) => `${s.scope}:${s.name}`), ['all:All', 'global:No shader']);
@@ -142,7 +142,7 @@ test('filter sets', async () => {
 });
 
 test('follows and merged chains', async () => {
-  const core = await import('../core.js');
+  const core = await import('./all.mjs');
   const { S, histRows, undoPlan, folderUndoPlan, sendTakes, pickSet } = core;
   pickSet('all', 'All');
   S.cfg = { numberOffset: 1, filterSets: [] };
@@ -188,7 +188,7 @@ test('follows and merged chains', async () => {
 });
 
 test('quick search', async () => {
-  const core = await import('../core.js');
+  const core = await import('./all.mjs');
   const { S, histRows, setSearch, setFilter, setPref, FILTER_DEFAULT } = core;
   S.cfg = { numberOffset: 1, filterSets: [] };
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 14, 0, s)).toISOString();
@@ -226,7 +226,7 @@ test('quick search', async () => {
 });
 
 test('follows whose take is hidden, and trimming after a search', async () => {
-  const core = await import('../core.js');
+  const core = await import('./all.mjs');
   const { S, histRows, setFilter, setSearch, FILTER_DEFAULT } = core;
   S.cfg = { numberOffset: 1, filterSets: [] };
   S.srcBy = new Map(); S.dstBy = new Map();
@@ -255,7 +255,7 @@ test('follows whose take is hidden, and trimming after a search', async () => {
 });
 
 test('history pages', async () => {
-  const { S, takePage, setSearch } = await import('../core.js');
+  const { S, takePage, setSearch } = await import('./all.mjs');
   const ents = (from, n) => Array.from({ length: n }, (_, i) => ({ id: from - i, levels: [1], prev: [], ok: true, src: 0, dst: 0, time: new Date(0).toISOString() }));
   // A search read far back; the next page (before #100) is on its way.
   S.hist = ents(999, 900);
@@ -285,7 +285,7 @@ test('history pages', async () => {
 });
 
 test('undo warns about changes since', async () => {
-  const { S, undoPlan, restorePlan, changedSince } = await import('../core.js');
+  const { S, undoPlan, restorePlan, changedSince } = await import('./all.mjs');
   S.cfg = { ...S.cfg, numberOffset: 1 };
   S.levelBy = new Map([1, 2, 3].map((ui) => [ui, { ui, label: String(ui) }]));
   // #20 put src 7 on dst 5, levels 1-3, replacing src 1.
@@ -303,7 +303,7 @@ test('undo warns about changes since', async () => {
 });
 
 test('found and announced changes stack apart', async () => {
-  const { histRows, setFilter, FILTER_DEFAULT } = await import('../core.js');
+  const { histRows, setFilter, FILTER_DEFAULT } = await import('./all.mjs');
   setFilter(FILTER_DEFAULT);
   const T = (s) => new Date(Date.UTC(2026, 9, 23, 12, 0, s)).toISOString();
   const x = (o) => ({ ext: true, dst: 2, levels: [1], prev: [[1, 0]], ok: true, srcName: 'CAM', dstName: 'MV', ...o });

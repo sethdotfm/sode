@@ -7,12 +7,16 @@
 // goes to the other first (to see what's on it) and comes back.
 
 import {
-  $, el, S, on, flipped, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, defaultLevelsWord, levelBar, allLevels,
-  levelText, fedBy, dstItem, srcItem, labelNode, currentlyNodes, fmtTime, undoPlan, retryPlan, planVerb, entryNote, historyPager,
-  statusNode, folderTitle, folderPartial, folderLevels, folderIds, folderUndoPlan, folderRetryPlan,
-  resultNode, showResult,
-  patchPlan, planBlocked, planSummary, sendTakes, lastTake, parseLevels,
+  $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode,
 } from './core.js';
+import { defaultLevelsWord, levelBar, allLevels, levelText, parseLevels } from './levelview.js';
+import { fedBy, currentlyNodes } from './routes.js';
+import { flipped, fmtTime } from './device.js';
+import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
+import {
+  undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
+  sendTakes, lastTake,
+} from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
 import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
