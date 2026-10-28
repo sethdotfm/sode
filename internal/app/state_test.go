@@ -19,8 +19,8 @@ func fillRouterDerived(a *App) {
 	a.router.tally[5] = map[int]int{1: 7}
 	a.router.protect[5] = map[int]int{1: 9}
 	a.router.seenAt[[2]int{5, 1}] = time.Now()
-	a.router.pend = [][3]int{{5, 1, 7}}
-	a.router.pendProt = [][3]int{{5, 1, 9}}
+	a.router.pend = []routeChange{{5, 1, 7}}
+	a.router.pendProt = []routeChange{{5, 1, 9}}
 	a.router.newSrc, a.router.newDst = map[int]string{1: "x"}, map[int]string{2: "y"}
 	a.router.namesAt = time.Now()
 	a.ext.add(extChange{xp: swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, ui: 1, old: 3, known: true, at: time.Now()})

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -9,11 +10,30 @@ import (
 // Server -> browser messages. The `t` field names the kind; web/core.js switches on it. Keys
 // and omitempty rules are what the browser reads: change them with web/.
 
-// deltaMsg is a batch of tally or protect changes: [dst, ui level, src or
-// device] triples. T is "tally" or "protect".
+// routeChange is one tally or protect entry: destination, UI level, and the
+// source routed there (or the protecting device, -1 = none). On the wire and
+// in the browser it is the array [dst, level, src].
+type routeChange struct {
+	Dst, Level, Src int
+}
+
+func (c routeChange) MarshalJSON() ([]byte, error) {
+	return json.Marshal([3]int{c.Dst, c.Level, c.Src})
+}
+
+func (c *routeChange) UnmarshalJSON(b []byte) error {
+	var a [3]int
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+	*c = routeChange{a[0], a[1], a[2]}
+	return nil
+}
+
+// deltaMsg is a batch of tally or protect changes. T is "tally" or "protect".
 type deltaMsg struct {
-	T string   `json:"t"`
-	U [][3]int `json:"u"`
+	T string        `json:"t"`
+	U []routeChange `json:"u"`
 }
 
 // helloMsg is the full snapshot a browser gets on connect or config change.
@@ -23,8 +43,8 @@ type helloMsg struct {
 	Srcs          [][2]any       `json:"srcs"`
 	Dsts          [][2]any       `json:"dsts"`
 	At            time.Time      `json:"at"`
-	Tally         [][3]int       `json:"tally"`
-	Protect       [][3]int       `json:"protect"`
+	Tally         []routeChange  `json:"tally"`
+	Protect       []routeChange  `json:"protect"`
 	Status        statusMsg      `json:"status"`
 	Recent        []Entry        `json:"recent"`
 	More          bool           `json:"more"`

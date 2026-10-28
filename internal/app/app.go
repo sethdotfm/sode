@@ -112,8 +112,8 @@ type routerState struct {
 	tally    map[int]map[int]int  // dst → UI level → src (-1 = nothing routed)
 	protect  map[int]map[int]int  // dst → UI level → protecting device
 	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
-	pend     [][3]int             // tally changes awaiting broadcast
-	pendProt [][3]int             // protect changes awaiting broadcast (device -1 = cleared)
+	pend     []routeChange        // tally changes awaiting broadcast
+	pendProt []routeChange        // protect changes awaiting broadcast (device -1 = cleared)
 
 	// Name refresh: replies are collected into fresh maps and swapped in once
 	// they stop arriving, so names deleted on the router disappear here.
@@ -311,7 +311,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		}
 		if old, ok := t[l.UI]; !ok || old != xp.Src {
 			t[l.UI] = xp.Src
-			a.router.pend = append(a.router.pend, [3]int{xp.Dst, l.UI, xp.Src})
+			a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
 			// A changed route the router didn't announce shows up in a
 			// dump or an interrogate: noted too, unless it's ours.
 			// A tally of a route a take gave up on confirms it after all.
@@ -359,7 +359,7 @@ func (a *App) onRouterMsg(msg []byte) {
 			}
 			t[l.UI] = dev
 		}
-		a.router.pendProt = append(a.router.pendProt, [3]int{p.Dst, l.UI, dev})
+		a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
 	}
 	if nb := ev.Names; nb != nil {
 		m := a.router.srcNames
@@ -472,11 +472,11 @@ func sorted(m map[int]string) [][2]any {
 	return out
 }
 
-func triples(m map[int]map[int]int) [][3]int {
-	out := [][3]int{}
+func routeChanges(m map[int]map[int]int) []routeChange {
+	out := []routeChange{}
 	for d, t := range m {
 		for l, v := range t {
-			out = append(out, [3]int{d, l, v})
+			out = append(out, routeChange{d, l, v})
 		}
 	}
 	return out
@@ -503,7 +503,7 @@ func (a *App) hello(p helloPage) []byte {
 	n := a.namesMsg()
 	m := helloMsg{
 		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At,
-		Tally: triples(a.router.tally), Protect: triples(a.router.protect),
+		Tally: routeChanges(a.router.tally), Protect: routeChanges(a.router.protect),
 		Status: a.status, Recent: p.recent, More: p.more,
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: r.cfg,
 		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: VersionLabel(),
