@@ -107,27 +107,51 @@ func newExtTracker() *extTracker {
 	}
 }
 
-// noteExt records a changed crosspoint unless one of our takes sent it.
-// old/known is the cached src before the change. Caller holds mu.
-func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
-	// One of our connects: the router's answer to it, used up so the same
-	// route made again elsewhere later still counts.
-	found := !xp.Changed()
+// verdict is whose a crosspoint that differs from the cache is.
+type verdict int
+
+const (
+	verdictIgnore verdict = iota // a tally of a route a take asked for, or of one we had no value for
+	verdictOurs                  // the answer to one of our connects
+	verdictLate                  // the route a take gave up on, made after all
+	verdictExt                   // a change made elsewhere
+)
+
+// classify says whose a route change is, and does what each rule does:
+//   - a Connected that answers one of our connects is ours, and uses the key
+//     up so the same route made again elsewhere later still counts;
+//   - a route a take gave up on is claimed (late): its entry is amended by
+//     flushLate. A tally of it (resync, interrogate) confirms it too;
+//   - a tally of a route a take in flight, or one that just gave up, asked
+//     for is ours without a claim (ignore), as is a tally of a route the
+//     cache had no value for (known false);
+//   - anything else was made elsewhere (ext).
+//
+// ui is the UI level of xp. Caller holds mu.
+func (a *App) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
 	k := ownKey{xp.Dst, xp.Level, xp.Src}
-	if a.ext.ownAnswer(k, found, time.Now()) {
-		return
+	if xp.Changed() {
+		if a.ext.ownAnswer(k, time.Now()) {
+			return verdictOurs
+		}
+		if a.claimLate(k, ui) {
+			return verdictLate
+		}
+		return verdictExt
 	}
-	// A take gave up on this route, but the router did make it: ours too.
-	if !found && a.claimLate(k, ui) {
-		return
+	if a.claimLate(k, ui) {
+		return verdictLate
 	}
-	a.ext.add(extChange{xp: xp, ui: ui, old: old, known: known, found: found, at: time.Now()})
+	if known && !a.awaited(xp) {
+		return verdictExt
+	}
+	return verdictIgnore
 }
 
 // ownAnswer reports whether a Connected for k is the answer to one of our
 // connects, and uses the key up either way.
-func (x *extTracker) ownAnswer(k ownKey, found bool, now time.Time) bool {
-	if until, ok := x.own[k]; ok && !found {
+func (x *extTracker) ownAnswer(k ownKey, now time.Time) bool {
+	if until, ok := x.own[k]; ok {
 		delete(x.own, k)
 		if now.Before(until) {
 			return true

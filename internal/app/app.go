@@ -292,92 +292,108 @@ func (a *App) onRouterMsg(msg []byte) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, xp := range ev.Crosspoints {
-		if xp.Matrix != r.cfg.Matrix {
-			continue
-		}
-		l, ok := r.byWire[xp.Level]
-		if !ok {
-			continue
-		}
-		if xp.Src == 0xFFFF { // router's "nothing routed"
-			xp.Src = -1
-		}
-		a.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
-		t := a.router.tally[xp.Dst]
-		if t == nil {
-			t = map[int]int{}
-			a.router.tally[xp.Dst] = t
-		}
-		if old, ok := t[l.UI]; !ok || old != xp.Src {
-			t[l.UI] = xp.Src
-			a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
-			// A changed route the router didn't announce shows up in a
-			// dump or an interrogate: noted too, unless it's ours.
-			// A tally of a route a take gave up on confirms it after all.
-			if !xp.Changed() && a.claimLate(ownKey{xp.Dst, xp.Level, xp.Src}, l.UI) {
-				// ours: the entry is amended by flushLate
-			} else if xp.Changed() || (ok && !a.awaited(xp)) {
-				a.noteExt(xp, l.UI, old, ok)
-			}
-		}
-		for w := range a.waiters {
-			if w.see(xp) && xp.Changed() {
-				w.cause.saw(time.Now())
-			}
-		}
-		for c := range a.checks {
-			c.see(xp)
-		}
+		a.applyTally(r, xp)
 	}
 	for _, p := range ev.Protects {
-		if p.Matrix != r.cfg.Matrix {
-			continue
-		}
-		l, ok := r.byWire[p.Level]
-		if !ok {
-			continue
-		}
-		dev := -1
-		if p.Protected {
-			dev = p.Device
-		}
-		t := a.router.protect[p.Dst]
-		old, had := t[l.UI]
-		if dev < 0 {
-			if !had {
-				continue
-			}
-			delete(t, l.UI)
-		} else {
-			if had && old == dev {
-				continue
-			}
-			if t == nil {
-				t = map[int]int{}
-				a.router.protect[p.Dst] = t
-			}
-			t[l.UI] = dev
-		}
-		a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
+		a.applyProtect(r, p)
 	}
 	if nb := ev.Names; nb != nil {
-		m := a.router.srcNames
-		if a.router.newSrc != nil {
-			m = a.router.newSrc
+		a.applyNames(nb)
+	}
+}
+
+// applyTally takes one crosspoint (a Connected or a tally) from the router
+// into the cache, notes it if it is a change made elsewhere, and lets the
+// takes in flight see it. Caller holds mu.
+func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
+	if xp.Matrix != r.cfg.Matrix {
+		return
+	}
+	l, ok := r.byWire[xp.Level]
+	if !ok {
+		return
+	}
+	if xp.Src == 0xFFFF { // router's "nothing routed"
+		xp.Src = -1
+	}
+	a.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
+	t := a.router.tally[xp.Dst]
+	if t == nil {
+		t = map[int]int{}
+		a.router.tally[xp.Dst] = t
+	}
+	if old, known := t[l.UI]; !known || old != xp.Src {
+		t[l.UI] = xp.Src
+		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		// A changed route the router didn't announce shows up in a
+		// dump or an interrogate: noted too, unless it's ours.
+		if a.classify(xp, l.UI, known) == verdictExt {
+			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
 		}
-		if nb.Dest {
-			m = a.router.dstNames
-			if a.router.newDst != nil {
-				m = a.router.newDst
-			}
+	}
+	for w := range a.waiters {
+		if w.see(xp) && xp.Changed() {
+			w.cause.saw(time.Now())
 		}
-		for i, n := range nb.Names {
-			m[nb.First+i] = n
+	}
+	for c := range a.checks {
+		c.see(xp)
+	}
+}
+
+// applyProtect takes one protect state from the router into the cache.
+// Caller holds mu.
+func (a *App) applyProtect(r *runtime, p swp08.Protect) {
+	if p.Matrix != r.cfg.Matrix {
+		return
+	}
+	l, ok := r.byWire[p.Level]
+	if !ok {
+		return
+	}
+	dev := -1
+	if p.Protected {
+		dev = p.Device
+	}
+	t := a.router.protect[p.Dst]
+	old, had := t[l.UI]
+	if dev < 0 {
+		if !had {
+			return
 		}
-		a.nameRxAt = time.Now()
-		if a.router.newSrc == nil {
-			a.namesDirt = true
+		delete(t, l.UI)
+	} else {
+		if had && old == dev {
+			return
 		}
+		if t == nil {
+			t = map[int]int{}
+			a.router.protect[p.Dst] = t
+		}
+		t[l.UI] = dev
+	}
+	a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
+}
+
+// applyNames files a block of names under the refresh being collected, if
+// there is one, else under the current names. Caller holds mu.
+func (a *App) applyNames(nb *swp08.NameBlock) {
+	m := a.router.srcNames
+	if a.router.newSrc != nil {
+		m = a.router.newSrc
+	}
+	if nb.Dest {
+		m = a.router.dstNames
+		if a.router.newDst != nil {
+			m = a.router.newDst
+		}
+	}
+	for i, n := range nb.Names {
+		m[nb.First+i] = n
+	}
+	a.nameRxAt = time.Now()
+	if a.router.newSrc == nil {
+		a.namesDirt = true
 	}
 }
 

@@ -336,17 +336,27 @@ func uis(ls []*takeLevel) []int {
 	return out
 }
 
-// take routes one source to one destination on some levels: plan, read
-// what dst has now, register, send, wait, then record what the router
-// confirmed.
-func (a *App) take(c *client, req takeReq) {
-	r := a.r()
-	res := &takeResult{T: "takeResult", ID: req.ID}
+// cachePrev fills e.Prev with the routes the cache holds for w's levels
+// (what undo restores), and sets each level's same: whether it is already on
+// src, so it gets no own key and is confirmed by a tally. A level with no
+// cached route is left as it was. Caller holds mu.
+func (a *App) cachePrev(w *waiter, e *Entry) {
+	e.Prev = e.Prev[:0]
+	for _, l := range w.levels {
+		if p, ok := a.router.tally[w.dst][l.ui]; ok {
+			e.Prev = append(e.Prev, [2]int{l.ui, p})
+			l.same = p == w.src
+		}
+	}
+}
+
+// planPhase is a take's first phase: the waiter for its levels, with why
+// the connects are sent, and the history entry to record. It fails on a bad
+// request.
+func (a *App) planPhase(r *runtime, c *client, req takeReq) (*waiter, *Entry, error) {
 	w, err := planTake(r, req)
 	if err != nil {
-		res.Err = err.Error()
-		a.reply(c, res)
-		return
+		return nil, nil, err
 	}
 	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.ip}
 	if req.Undo != nil {
@@ -354,51 +364,49 @@ func (a *App) take(c *client, req takeReq) {
 	} else if req.Retry != nil {
 		w.why.Reason = swp08.ReasonRetry
 	}
-
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
-	// prev fills in e.Prev, and which levels are already on src, from the
-	// cache. Caller holds mu.
-	prev := func() {
-		e.Prev = e.Prev[:0]
-		for _, l := range w.levels {
-			if p, ok := a.router.tally[req.Dst][l.ui]; ok {
-				e.Prev = append(e.Prev, [2]int{l.ui, p})
-				l.same = p == req.Src
-			}
-		}
-	}
-	var protected []int
+	return w, e, nil
+}
+
+// guardPhase pins the take to the router it started on and names its ends,
+// and returns the levels dst is protected on. If there are any, e.Prev is
+// filled from the cache, ready to record the take as failed.
+func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 	a.mu.Lock()
+	defer a.mu.Unlock()
 	w.ext = a.ext
-	e.SrcName, e.DstName = a.router.srcNames[req.Src], a.router.dstNames[req.Dst]
+	e.SrcName, e.DstName = a.router.srcNames[w.src], a.router.dstNames[w.dst]
 	for _, l := range w.levels {
-		if _, ok := a.router.protect[req.Dst][l.ui]; ok {
+		if _, ok := a.router.protect[w.dst][l.ui]; ok {
 			protected = append(protected, l.ui)
 		}
 	}
 	if len(protected) > 0 {
-		prev()
-		a.mu.Unlock()
-		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
-		return
+		a.cachePrev(w, e)
 	}
-	a.mu.Unlock()
+	return protected
+}
 
-	// Prev is what undo restores, so it comes from the router, not a cache
-	// that may have missed a change. Answers that differ are logged as found.
-	if !req.NoCheck && !a.checkTally(r, w) {
-		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", req.Dst, checkTimeout)
+// checkPhase reads what dst has now, then fills e.Prev (what undo restores)
+// and which levels are already on src, and registers the take so the
+// router's answers count as its own. The levels' same flags are set here.
+func (a *App) checkPhase(r *runtime, w *waiter, e *Entry, noCheck bool) {
+	// Prev comes from the router, not a cache that may have missed a change.
+	// Answers that differ are logged as found.
+	if !noCheck && !a.checkTally(r, w) {
+		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", w.dst, checkTimeout)
 	}
-	a.flushFound(req.Dst)
+	a.flushFound(w.dst)
 	a.mu.Lock()
+	defer a.mu.Unlock()
 	e.Time = time.Now()
-	prev()
+	a.cachePrev(w, e)
 	w.register(a)
-	a.mu.Unlock()
+}
 
-	sendErr := a.sendTake(r, w)
-	missing := a.awaitTake(r, w)
-
+// outcomePhase writes what happened to the take into e, under one lock, and
+// returns the error to report, if any.
+func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*takeLevel, sendErr error) error {
 	a.mu.Lock()
 	e.Cut = w.cut
 	if len(missing) > 0 {
@@ -417,19 +425,50 @@ func (a *App) take(c *client, req takeReq) {
 	names := maps.Clone(a.router.srcNames)
 	a.mu.Unlock()
 	sort.Ints(e.Already)
+	if msg := entryErr(r, names, e); msg != "" {
+		return errors.New(msg)
+	}
+	return nil
+}
+
+// take routes one source to one destination on some levels: plan, read
+// what dst has now, register, send, wait, then record what the router
+// confirmed.
+func (a *App) take(c *client, req takeReq) {
+	r := a.r()
+	res := &takeResult{T: "takeResult", ID: req.ID}
+	w, e, err := a.planPhase(r, c, req)
+	if err != nil {
+		res.Err = err.Error()
+		a.reply(c, res)
+		return
+	}
+	if protected := a.guardPhase(w, e); len(protected) > 0 {
+		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
+		return
+	}
+
+	a.checkPhase(r, w, e, req.NoCheck)
+	sendErr := a.sendTake(r, w)
+	missing := a.awaitTake(r, w)
+
+	err = a.outcomePhase(r, w, e, missing, sendErr)
 	if len(e.Already) > 0 {
 		res.Already = e.Already
 	}
-	if msg := entryErr(r, names, e); msg != "" {
-		err = errors.New(msg)
-	}
 	a.finish(c, res, e, err)
+	// finish has recorded the entry; the take is still registered, so an
+	// answer from here until unregister is seen but not yet in the entry.
 	if a.gapHook != nil {
 		a.gapHook()
 	}
 	w.unregister(a, e.ID)
-	// An answer between finish and unregister confirmed a level the entry
-	// just recorded as failed.
+	a.gapPhase(w, e)
+}
+
+// gapPhase amends the entry for a level the router confirmed between
+// finish and unregister, which the entry just recorded as failed.
+func (a *App) gapPhase(w *waiter, e *Entry) {
 	a.mu.Lock()
 	gap := w.filter(func(l *takeLevel) bool { return l.confirmed && slices.Contains(e.Failed, l.ui) })
 	a.mu.Unlock()
