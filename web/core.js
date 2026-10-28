@@ -317,6 +317,9 @@ export function setDot(dotEl, textEl, [state, text]) {
   textEl.textContent = text;
 }
 
+// Badge text for protect devices: 'Protected by 9' or 'Protected by 9, 12'.
+export const protectedLabel = (devices) => `Protected by ${devices.join(', ')}`;
+
 // Protected levels of dst among levels, with the devices holding them.
 export function protectedOn(dst, levels) {
   const t = S.prot.get(dst);
