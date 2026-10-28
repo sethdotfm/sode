@@ -6,6 +6,7 @@ import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
 import { normalizeKinds, allKinds, pressAll, pressKind } from './logkinds.js';
+import './brand.js';
 
 // Entries read on open and per Load older.
 const PAGE = 100;

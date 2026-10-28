@@ -180,6 +180,22 @@ code,
   z-index: var(--pb-z-tooltip);
 }
 [data-conn="down"] .sode__frame { display: block; }
+/* The optional brand border (brand.js) is a separate, lower element, so the
+   red lost-link outline above always shows over it. */
+.sode__brandframe {
+  border: var(--pb-space-2) solid var(--brand-color, transparent);
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-sticky);
+}
+.sode__brandframe[hidden] { display: none; }
+[data-brand="blue"] { --brand-color: var(--pb-signal-07); }
+[data-brand="teal"] { --brand-color: var(--pb-signal-06); }
+[data-brand="green"] { --brand-color: var(--pb-signal-05); }
+[data-brand="amber"] { --brand-color: var(--pb-signal-02); }
+[data-brand="violet"] { --brand-color: var(--pb-signal-09); }
+[data-brand="pink"] { --brand-color: var(--pb-signal-11); }
 .sode__label {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);

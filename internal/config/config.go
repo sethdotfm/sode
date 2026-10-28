@@ -21,6 +21,11 @@ import (
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
 	Router string `yaml:"router" json:"router"`
+	// BrandText replaces "Sode" in the header and page titles ("" = Sode);
+	// BrandBorder is a colour name from BrandColors for a border round the
+	// window ("" = none). Display only: never touches the router link.
+	BrandText   string `yaml:"brandText,omitempty" json:"brandText"`
+	BrandBorder string `yaml:"brandBorder,omitempty" json:"brandBorder"`
 	// RouterName is a friendly name for the status card; RouterShow picks
 	// what the card shows: "address" (default), "name" or "none".
 	RouterName         string   `yaml:"routerName" json:"routerName"`
@@ -66,6 +71,10 @@ type Config struct {
 	// touches the router link.
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults"`
 }
+
+// BrandColors are the accepted BrandBorder names (mapped to tokens in
+// web/base.css). Never red: that is the lost-link outline.
+var BrandColors = []string{"blue", "teal", "green", "amber", "violet", "pink"}
 
 // DeviceDefaults mirrors the per-browser settings (web/prefs.js): Theme is
 // system | light | dark, Layout auto | phone | desktop, Clock 24 | 12 |
@@ -175,6 +184,8 @@ func (c Config) Clone() Config {
 func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
 	c.RouterName = strings.TrimSpace(c.RouterName)
+	c.BrandText = strings.TrimSpace(c.BrandText)
+	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
 	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
 	if c.RouterShow == "" {
 		c.RouterShow = "address"
@@ -297,6 +308,12 @@ func (c Config) Validate() error {
 	}
 	if n := len([]rune(c.RouterName)); n > 32 {
 		bad("router name must be at most 32 characters")
+	}
+	if n := len([]rune(c.BrandText)); n > 24 {
+		bad("logo text must be at most 24 characters")
+	}
+	if c.BrandBorder != "" && !slices.Contains(BrandColors, c.BrandBorder) {
+		bad("border colour must be one of %s", strings.Join(BrandColors, ", "))
 	}
 	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
 		bad("PIN tries before lockout must be 0 (never) or 1-1000")
