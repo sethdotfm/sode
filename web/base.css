@@ -472,8 +472,12 @@ code,
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-4);
 }
-.sode__links > a { color: var(--pb-accent); }
-.sode__links > a:hover { color: var(--pb-accent-hover); }
+.sode__links > a {
+  color: var(--pb-accent);
+  font-weight: var(--pb-weight-bold);
+  text-decoration: none;
+}
+.sode__links > a:hover { color: var(--pb-accent-hover); text-decoration: none; }
 .sode__names {
   align-items: center;
   display: flex;

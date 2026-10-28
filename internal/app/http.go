@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io/fs"
 	"log"
-	"mime"
 	"net"
 	"net/http"
 	"net/netip"
@@ -17,9 +16,6 @@ import (
 
 	"github.com/sethdotfm/sode/internal/config"
 )
-
-// The distroless image has no mime.types, and Go knows no .webmanifest.
-func init() { _ = mime.AddExtensionType(".webmanifest", "application/manifest+json") }
 
 type client struct {
 	ip   string
@@ -45,6 +41,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, static, "log.html")
 	})
+	mux.HandleFunc("/icon.png", serveIcon)
+	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
