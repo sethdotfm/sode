@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -128,18 +127,8 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	a.mu.Lock()
 	a.rt.Store(nr)
 	if reconnect {
-		a.srcNames, a.dstNames = map[int]string{}, map[int]string{}
-		a.tally, a.protect = map[int]map[int]int{}, map[int]map[int]int{}
-		a.seenAt = map[[2]int]time.Time{}
-		a.pend, a.pendProt = nil, nil
-		a.ext = map[int]map[int]*extLevel{}
-		a.causes = nil
-		a.leaders = map[int]int{}
-		a.own = map[ownKey]time.Time{}
-		a.lateTake, a.lateHits = map[ownKey][]lateTake{}, nil
-		a.extFirst, a.extLast = time.Time{}, time.Time{}
-		a.newSrc, a.newDst = nil, nil
-		a.namesAt = time.Time{}
+		a.router = newRouterState()
+		a.ext = newExtTracker()
 		// A new router starts from scratch: not the old one's state or error.
 		a.status.Router = string(swp08.StateConnecting)
 		a.status.Addr = c.Router

@@ -166,13 +166,13 @@ func (w *waiter) finishIfDone() {
 // Caller holds mu.
 func (w *waiter) register(a *App) {
 	a.waiters[w] = struct{}{}
-	a.causes = append(a.causes, w.cause)
+	a.ext.causes = append(a.ext.causes, w.cause)
 	// The connects may wait behind other takes' messages for up to queueMax;
 	// sendTake shortens the keys to ownFor once they have gone out.
 	until := time.Now().Add(queueMax + ownFor)
 	for _, l := range w.levels {
 		if !l.same {
-			a.own[ownKey{w.dst, l.wire, w.src}] = until
+			a.ext.own[ownKey{w.dst, l.wire, w.src}] = until
 		}
 	}
 }
@@ -188,7 +188,7 @@ func (w *waiter) unregister(a *App, id int) {
 	for _, l := range w.levels {
 		k := ownKey{w.dst, l.wire, w.src}
 		if !l.confirmed || l.unsent || l.already {
-			delete(a.own, k)
+			delete(a.ext.own, k)
 		}
 		// The answer to the last interrogate, or a slow Connected, may
 		// still be on its way: it's ours, and the entry gets amended.
@@ -201,7 +201,7 @@ func (w *waiter) unregister(a *App, id int) {
 			// src is a change made elsewhere. Retries of the same route each
 			// wait for the answer.
 			if !l.seen {
-				a.lateTake[k] = append(a.lateTake[k], lateTake{id: id, until: until, cause: w.cause})
+				a.ext.lateTake[k] = append(a.ext.lateTake[k], lateTake{id: id, until: until, cause: w.cause})
 			}
 		}
 	}
@@ -237,7 +237,7 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 	var ls []*takeLevel
 	a.mu.Lock()
 	for _, l := range w.levels {
-		if at, ok := a.seenAt[[2]int{w.dst, l.ui}]; !ok || time.Since(at) > checkFresh {
+		if at, ok := a.router.seenAt[[2]int{w.dst, l.ui}]; !ok || time.Since(at) > checkFresh {
 			ls = append(ls, l)
 			c.wires[l.wire] = true
 		}
@@ -330,7 +330,7 @@ func (a *App) take(c *client, req takeReq) {
 	prev := func() {
 		e.Prev = e.Prev[:0]
 		for _, l := range w.levels {
-			if p, ok := a.tally[req.Dst][l.ui]; ok {
+			if p, ok := a.router.tally[req.Dst][l.ui]; ok {
 				e.Prev = append(e.Prev, [2]int{l.ui, p})
 				l.same = p == req.Src
 			}
@@ -338,9 +338,9 @@ func (a *App) take(c *client, req takeReq) {
 	}
 	var protected []int
 	a.mu.Lock()
-	e.SrcName, e.DstName = a.srcNames[req.Src], a.dstNames[req.Dst]
+	e.SrcName, e.DstName = a.router.srcNames[req.Src], a.router.dstNames[req.Dst]
 	for _, l := range w.levels {
-		if _, ok := a.protect[req.Dst][l.ui]; ok {
+		if _, ok := a.router.protect[req.Dst][l.ui]; ok {
 			protected = append(protected, l.ui)
 		}
 	}
@@ -417,23 +417,23 @@ type lateHit struct{ id, ui int }
 // queues the amendment of its entries (flushLate; history I/O doesn't belong
 // under mu): every take that gave up on it, a retry too. The claims are used up. Caller holds mu.
 func (a *App) claimLate(k ownKey, ui int) bool {
-	lts, ok := a.lateTake[k]
+	lts, ok := a.ext.lateTake[k]
 	if !ok {
 		return false
 	}
-	delete(a.lateTake, k)
+	delete(a.ext.lateTake, k)
 	claimed := false
 	for _, lt := range lts {
 		if !time.Now().Before(lt.until) {
 			continue
 		}
 		claimed = true
-		a.lateHits = append(a.lateHits, lateHit{lt.id, ui})
+		a.ext.lateHits = append(a.ext.lateHits, lateHit{lt.id, ui})
 		// Destinations that follow this one (a PiP its DSM) change with it, now,
 		// not when the take was recorded. The cause may have been dropped.
 		lt.cause.saw(time.Now())
-		if !slices.Contains(a.causes, lt.cause) {
-			a.causes = append(a.causes, lt.cause)
+		if !slices.Contains(a.ext.causes, lt.cause) {
+			a.ext.causes = append(a.ext.causes, lt.cause)
 		}
 	}
 	return claimed
@@ -450,8 +450,8 @@ type lateJob struct {
 // shouldn't wait for; without a worker (tests) it's done here.
 func (a *App) flushLate() {
 	a.mu.Lock()
-	hits := a.lateHits
-	a.lateHits = nil
+	hits := a.ext.lateHits
+	a.ext.lateHits = nil
 	a.mu.Unlock()
 	var jobs []lateJob
 	for _, h := range hits {
@@ -559,8 +559,8 @@ func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel) string {
 		switch {
 		case n < 0:
 			return "nothing"
-		case a.srcNames[n] != "":
-			return a.srcNames[n]
+		case a.router.srcNames[n] != "":
+			return a.router.srcNames[n]
 		}
 		return fmt.Sprintf("source %d", n+r.cfg.NumberOffset)
 	}
@@ -640,8 +640,8 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 	until := w.cause.sent.Add(ownFor)
 	for _, l := range w.levels {
 		k := ownKey{w.dst, l.wire, w.src}
-		if _, ok := a.own[k]; ok {
-			a.own[k] = until
+		if _, ok := a.ext.own[k]; ok {
+			a.ext.own[k] = until
 		}
 	}
 	a.mu.Unlock()
