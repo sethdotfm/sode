@@ -537,12 +537,16 @@ func (a *App) lateConfirm(id int, uis []int) {
 			done = append(done, ui)
 			e.Failed = slices.DeleteFunc(e.Failed, func(x int) bool { return x == ui })
 			e.Now = slices.DeleteFunc(e.Now, func(p [2]int) bool { return p[0] == ui })
+			e.Unsent = slices.DeleteFunc(e.Unsent, func(x int) bool { return x == ui })
 			e.Late = append(e.Late, ui)
 		}
 		if len(done) == 0 {
 			return
 		}
 		sort.Ints(e.Late)
+		if len(e.Unsent) == 0 {
+			e.SendErr = ""
+		}
 		e.Err = entryErr(r, names, e)
 		e.OK = len(e.Failed) == 0
 	})

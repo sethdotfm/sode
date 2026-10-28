@@ -360,6 +360,20 @@ func TestLateConfirmNames(t *testing.T) {
 	}
 }
 
+// A level the link refused that the router confirms after all leaves nothing
+// failing: the entry is OK and says nothing about it.
+func TestLateConfirmUnsent(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	e := &Entry{Src: 7, Dst: 2, Levels: []int{1}, Prev: [][2]int{{1, 4}}, Failed: []int{1}, Unsent: []int{1}, SendErr: "busy"}
+	a.record(e)
+	a.lateConfirm(e.ID, []int{1})
+	got, _ := a.hist.Page(-1, 1)
+	if len(got) != 1 || !got[0].OK || got[0].Err != "" || len(got[0].Unsent) != 0 || got[0].SendErr != "" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
 // Level 1's connect is ignored but the router answers the interrogate: it
 // is still on its old src, a real failure. The others switch.
 func TestTakeIgnoredLevel(t *testing.T) {
