@@ -171,6 +171,12 @@ code,
   z-index: var(--pb-z-tooltip);
 }
 [data-conn="down"] .sode__frame { display: block; }
+.sode__label {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  letter-spacing: var(--pb-tracking-label);
+  text-transform: uppercase;
+}
 /* A level toggle (picker) or slot (level bar): filled when on, outlined in
    its signal color when off. Shared so both read the same. */
 .sode__pick,

@@ -23,12 +23,6 @@
   gap: var(--pb-space-2);
   position: relative;
 }
-.sode__label {
-  color: var(--pb-text-muted);
-  font-size: var(--pb-text-xs);
-  letter-spacing: var(--pb-tracking-label);
-  text-transform: uppercase;
-}
 .pb-input.sode__input {
   font-size: var(--pb-text-xl);
   height: calc(var(--pb-control-h-lg) * 1.6);
