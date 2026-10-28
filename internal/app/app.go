@@ -298,23 +298,29 @@ func (a *App) onRouterMsg(msg []byte) {
 		a.applyProtect(r, p)
 	}
 	if nb := ev.Names; nb != nil {
-		m := a.router.srcNames
-		if a.router.newSrc != nil {
-			m = a.router.newSrc
+		a.applyNames(nb)
+	}
+}
+
+// applyNames files a block of names under the refresh being collected, if
+// there is one, else under the current names. Caller holds mu.
+func (a *App) applyNames(nb *swp08.NameBlock) {
+	m := a.router.srcNames
+	if a.router.newSrc != nil {
+		m = a.router.newSrc
+	}
+	if nb.Dest {
+		m = a.router.dstNames
+		if a.router.newDst != nil {
+			m = a.router.newDst
 		}
-		if nb.Dest {
-			m = a.router.dstNames
-			if a.router.newDst != nil {
-				m = a.router.newDst
-			}
-		}
-		for i, n := range nb.Names {
-			m[nb.First+i] = n
-		}
-		a.nameRxAt = time.Now()
-		if a.router.newSrc == nil {
-			a.namesDirt = true
-		}
+	}
+	for i, n := range nb.Names {
+		m[nb.First+i] = n
+	}
+	a.nameRxAt = time.Now()
+	if a.router.newSrc == nil {
+		a.namesDirt = true
 	}
 }
 
