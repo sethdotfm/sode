@@ -41,6 +41,9 @@ type Entry struct {
 	Follow      *int   `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
 	Found       bool   `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
 	Late        []int  `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
+	Unsent      []int  `json:"unsent,omitempty"` // levels in Failed that the router link refused (SendErr says why)
+	SendErr     string `json:"sendErr,omitempty"`
+	Cut         bool   `json:"cut,omitempty"` // the router changed under the take, so its Failed levels just got no answer
 }
 
 // History is an append-only JSONL log of takes. Only line offsets are kept
@@ -207,6 +210,7 @@ func cloneEntry(e Entry) Entry {
 	e.Now = slices.Clone(e.Now)
 	e.Already = slices.Clone(e.Already)
 	e.Late = slices.Clone(e.Late)
+	e.Unsent = slices.Clone(e.Unsent)
 	return e
 }
 
