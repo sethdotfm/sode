@@ -112,6 +112,21 @@ func (a *App) ApplyConfig(c config.Config) error {
 	return a.applyConfig(func(cur *config.Config) error { *cur = c; return nil })
 }
 
+// cutTakes ends every take and check in flight, for a router change: their
+// waits stop at once, and each take fails as cut. Their sends are already
+// refused (the tracker they started on is no longer a.ext). Caller holds mu.
+func (a *App) cutTakes() {
+	for w := range a.waiters {
+		w.cut = true
+		w.finish()
+	}
+	clear(a.waiters)
+	for c := range a.checks {
+		c.finish()
+	}
+	clear(a.checks)
+}
+
 // applyConfig is update, then the swap and a full snapshot for everyone.
 // Caller holds cfgMu.
 func (a *App) applyConfig(mutate func(*config.Config) error) error {
@@ -129,6 +144,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	if reconnect {
 		a.router = newRouterState()
 		a.ext = newExtTracker()
+		a.cutTakes()
 		// A new router starts from scratch: not the old one's state or error.
 		a.status.Router = string(swp08.StateConnecting)
 		a.status.Addr = c.Router

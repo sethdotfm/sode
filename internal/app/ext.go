@@ -82,12 +82,15 @@ func (c *cause) leads(src, dst int, t time.Time) bool {
 // extTracker is the state behind routes changed elsewhere: the burst being
 // collected, our takes' connects (own), the takes changes may follow
 // (causes, leaders) and takes that gave up and may yet be answered
-// (lateTake, lateHits). It is replaced when the router changes. Guarded by
-// App.mu; its methods expect the caller to hold it.
+// (late, lateTake, lateHits). It is replaced when the router changes, and the
+// pointer is the router's generation: a take that holds an older one is cut
+// and touches nothing of the new router's. Guarded by App.mu; its methods
+// expect the caller to hold it.
 type extTracker struct {
 	pending     map[int]map[int]*extLevel // the burst: dst → UI level
 	first, last time.Time                 // when the burst began, and its latest change
 	own         map[ownKey]time.Time      // our takes' connects → when to stop treating them as ours
+	late        map[ownKey]time.Time      // finished takes' unconfirmed routes → until when a tally of one is ours
 	causes      []*cause                  // recent takes that changes elsewhere may follow
 	leaders     map[int]int               // dst → the dst it was last seen following
 	lateTake    map[ownKey][]lateTake     // finished takes' unconfirmed routes, with the history entry to amend if one turns up (#91)
@@ -98,6 +101,7 @@ func newExtTracker() *extTracker {
 	return &extTracker{
 		pending:  map[int]map[int]*extLevel{},
 		own:      map[ownKey]time.Time{},
+		late:     map[ownKey]time.Time{},
 		leaders:  map[int]int{},
 		lateTake: map[ownKey][]lateTake{},
 	}
@@ -165,11 +169,6 @@ func (a *App) flushExt() {
 	a.flushLate()
 	a.mu.Lock()
 	now := time.Now()
-	for k, until := range a.late {
-		if now.After(until) {
-			delete(a.late, k)
-		}
-	}
 	burst, first, ok := a.ext.flush(now)
 	if !ok {
 		a.mu.Unlock()
@@ -196,6 +195,11 @@ func (x *extTracker) flush(now time.Time) (burst map[int]map[int]*extLevel, firs
 	for k, until := range x.own {
 		if now.After(until) {
 			delete(x.own, k)
+		}
+	}
+	for k, until := range x.late {
+		if now.After(until) {
+			delete(x.late, k)
 		}
 	}
 	keep := x.causes[:0]

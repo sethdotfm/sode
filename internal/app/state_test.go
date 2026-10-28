@@ -25,6 +25,7 @@ func fillRouterDerived(a *App) {
 	a.router.namesAt = time.Now()
 	a.ext.add(extChange{xp: swp08.Crosspoint{Dst: 5, Level: 0, Src: 7}, ui: 1, old: 3, known: true, at: time.Now()})
 	a.ext.own[ownKey{5, 0, 7}] = until
+	a.ext.late[ownKey{5, 0, 9}] = until
 	c := &cause{src: 7, dst: 5, id: 1, done: true}
 	a.ext.causes = append(a.ext.causes, c)
 	a.ext.leaders[6] = 5
@@ -63,18 +64,15 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a.clients[cl] = struct{}{}
 	a.mu.Unlock()
 	a.record(&Entry{Src: 1, Dst: 5, OK: true})
-	lateKey := ownKey{5, 0, 9}
-	until := time.Now().Add(time.Minute)
 	nameReq, nameRx, dump := time.Now().Add(-time.Hour), time.Now().Add(-2*time.Hour), time.Now().Add(-3*time.Hour)
 	a.mu.Lock()
-	a.late[lateKey] = until
 	a.nameReqAt, a.nameRxAt, a.dumpAt, a.namesDirt = nameReq, nameRx, dump, true
 	a.mu.Unlock()
 	fillRouterDerived(a)
 	a.mu.Lock()
 	noZeroFields(t, a.router)
 	noZeroFields(t, a.ext)
-	w, ck := &waiter{}, &tallyCheck{}
+	w, ck := &waiter{done: make(chan struct{})}, &tallyCheck{done: make(chan struct{})}
 	a.waiters[w], a.checks[ck] = struct{}{}, struct{}{}
 	a.pendSent = []Sent{{}}
 	a.mu.Unlock()
@@ -92,7 +90,7 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	a.mu.Lock()
 	if len(a.router.tally) != 1 || len(a.router.srcNames) != 1 || len(a.ext.pending) != 1 || len(a.ext.own) != 1 ||
-		len(a.ext.lateTake) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
+		len(a.ext.lateTake) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
 		a.mu.Unlock()
 		t.Fatal("a settings change that is not router-side cleared state")
 	}
@@ -114,6 +112,20 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	if a.status.Router != string(swp08.StateConnecting) || a.status.Addr != "127.0.0.1:1" || a.status.Err != "" {
 		t.Fatalf("status %+v", a.status)
 	}
+	// Takes and checks in flight are cut: gone, and their waits released.
+	if len(a.waiters) != 0 || len(a.checks) != 0 || !w.cut || !w.closed || !ck.shut {
+		t.Fatalf("takes not cut: %d waiters, %d checks, cut=%v", len(a.waiters), len(a.checks), w.cut)
+	}
+	select {
+	case <-w.done:
+	default:
+		t.Fatal("cut waiter's done still open")
+	}
+	select {
+	case <-ck.done:
+	default:
+		t.Fatal("cut check's done still open")
+	}
 	// Kept (see the field comments on App).
 	if a.hist.Len() != 1 {
 		t.Fatalf("history has %d entries", a.hist.Len())
@@ -121,17 +133,8 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	if _, ok := a.clients[cl]; !ok {
 		t.Fatal("client dropped")
 	}
-	if _, ok := a.waiters[w]; !ok {
-		t.Fatal("waiters cleared")
-	}
-	if _, ok := a.checks[ck]; !ok {
-		t.Fatal("checks cleared")
-	}
 	if len(a.pendSent) != 1 {
 		t.Fatal("pendSent cleared")
-	}
-	if a.late[lateKey] != until {
-		t.Fatal("late claims cleared")
 	}
 	if !a.nameReqAt.Equal(nameReq) || !a.nameRxAt.Equal(nameRx) || !a.dumpAt.Equal(dump) || !a.namesDirt {
 		t.Fatal("name/dump clock changed")
