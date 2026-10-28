@@ -79,6 +79,30 @@ func (c *cause) leads(src, dst int, t time.Time) bool {
 		!t.Before(c.first.Add(-followBefore)) && !t.After(c.last.Add(followAfter))
 }
 
+// extTracker is the state behind routes changed elsewhere: the burst being
+// collected, our takes' connects (own), the takes changes may follow
+// (causes, leaders) and takes that gave up and may yet be answered
+// (lateTake, lateHits). It is replaced when the router changes. Guarded by
+// App.mu; its methods expect the caller to hold it.
+type extTracker struct {
+	pending     map[int]map[int]*extLevel // the burst: dst → UI level
+	first, last time.Time                 // when the burst began, and its latest change
+	own         map[ownKey]time.Time      // our takes' connects → when to stop treating them as ours
+	causes      []*cause                  // recent takes that changes elsewhere may follow
+	leaders     map[int]int               // dst → the dst it was last seen following
+	lateTake    map[ownKey][]lateTake     // finished takes' unconfirmed routes, with the history entry to amend if one turns up (#91)
+	lateHits    []lateHit                 // late answers awaiting their entry's amendment (flushLate)
+}
+
+func newExtTracker() *extTracker {
+	return &extTracker{
+		pending:  map[int]map[int]*extLevel{},
+		own:      map[ownKey]time.Time{},
+		leaders:  map[int]int{},
+		lateTake: map[ownKey][]lateTake{},
+	}
+}
+
 // noteExt records a changed crosspoint unless one of our takes sent it.
 // old/known is the cached src before the change. Caller holds mu.
 func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
@@ -86,25 +110,48 @@ func (a *App) noteExt(xp swp08.Crosspoint, ui, old int, known bool) {
 	// route made again elsewhere later still counts.
 	found := !xp.Changed()
 	k := ownKey{xp.Dst, xp.Level, xp.Src}
-	if until, ok := a.own[k]; ok && !found {
-		delete(a.own, k)
-		if time.Now().Before(until) {
-			return
-		}
+	if a.ext.ownAnswer(k, found, time.Now()) {
+		return
 	}
 	// A take gave up on this route, but the router did make it: ours too.
 	if !found && a.claimLate(k, ui) {
 		return
 	}
-	now := time.Now()
-	if len(a.ext) == 0 {
-		a.extFirst = now
+	a.ext.add(extChange{xp: xp, ui: ui, old: old, known: known, found: found, at: time.Now()})
+}
+
+// ownAnswer reports whether a Connected for k is the answer to one of our
+// connects, and uses the key up either way.
+func (x *extTracker) ownAnswer(k ownKey, found bool, now time.Time) bool {
+	if until, ok := x.own[k]; ok && !found {
+		delete(x.own, k)
+		if now.Before(until) {
+			return true
+		}
 	}
-	a.extLast = now
-	d := a.ext[xp.Dst]
+	return false
+}
+
+// extChange is one changed crosspoint for the burst: old/known is the cached
+// src before it, found that it came as a tally, not a Connected.
+type extChange struct {
+	xp           swp08.Crosspoint
+	ui, old      int
+	known, found bool
+	at           time.Time
+}
+
+// add puts a change in the burst.
+func (x *extTracker) add(c extChange) {
+	xp, ui, old, known, found, now := c.xp, c.ui, c.old, c.known, c.found, c.at
+	if len(x.pending) == 0 {
+		x.first = now
+	}
+	x.last = now
+	d := x.pending[xp.Dst]
 	if d == nil {
 		d = map[int]*extLevel{}
-		a.ext[xp.Dst] = d
+		x.pending[xp.Dst] = d
 	}
 	if l := d[ui]; l != nil {
 		l.src, l.at, l.found = xp.Src, now, found
@@ -118,40 +165,54 @@ func (a *App) flushExt() {
 	a.flushLate()
 	a.mu.Lock()
 	now := time.Now()
-	for k, lts := range a.lateTake {
-		lts = slices.DeleteFunc(lts, func(lt lateTake) bool { return now.After(lt.until) })
-		if len(lts) == 0 {
-			delete(a.lateTake, k)
-		} else {
-			a.lateTake[k] = lts
+	for k, until := range a.late {
+		if now.After(until) {
+			delete(a.late, k)
 		}
 	}
-	for _, m := range []map[ownKey]time.Time{a.own, a.late} {
-		for k, until := range m {
-			if now.After(until) {
-				delete(m, k)
-			}
-		}
-	}
-	keep := a.causes[:0]
-	for _, c := range a.causes {
-		if !c.done || (!c.last.IsZero() && now.Sub(c.last) < causeKeep) {
-			keep = append(keep, c)
-		}
-	}
-	clear(a.causes[len(keep):])
-	a.causes = keep
-	if len(a.ext) == 0 || (now.Sub(a.extLast) < extQuiet && now.Sub(a.extFirst) < extMax) ||
-		(now.Sub(a.extFirst) < extHold && a.extAwaitsTake()) {
+	burst, first, ok := a.ext.flush(now)
+	if !ok {
 		a.mu.Unlock()
 		return
 	}
-	es := a.extEntries(a.ext, a.extFirst)
-	a.ext = map[int]map[int]*extLevel{}
+	es := a.ext.entries(a.router.name, burst, first)
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
 	}
+}
+
+// flush drops what has expired and, if the burst is finished, takes it
+// (ok), with when it began.
+func (x *extTracker) flush(now time.Time) (burst map[int]map[int]*extLevel, first time.Time, ok bool) {
+	for k, lts := range x.lateTake {
+		lts = slices.DeleteFunc(lts, func(lt lateTake) bool { return now.After(lt.until) })
+		if len(lts) == 0 {
+			delete(x.lateTake, k)
+		} else {
+			x.lateTake[k] = lts
+		}
+	}
+	for k, until := range x.own {
+		if now.After(until) {
+			delete(x.own, k)
+		}
+	}
+	keep := x.causes[:0]
+	for _, c := range x.causes {
+		if !c.done || (!c.last.IsZero() && now.Sub(c.last) < causeKeep) {
+			keep = append(keep, c)
+		}
+	}
+	clear(x.causes[len(keep):])
+	x.causes = keep
+	if len(x.pending) == 0 || (now.Sub(x.last) < extQuiet && now.Sub(x.first) < extMax) ||
+		(now.Sub(x.first) < extHold && x.awaitsTake()) {
+		return nil, time.Time{}, false
+	}
+	burst, first = x.pending, x.first
+	x.pending = map[int]map[int]*extLevel{}
+	return burst, first, true
 }
 
 // flushFound writes the changes found on dst now, ahead of the rest of
@@ -160,32 +221,32 @@ func (a *App) flushExt() {
 func (a *App) flushFound(dst int) {
 	a.mu.Lock()
 	found := map[int]*extLevel{}
-	for ui, l := range a.ext[dst] {
+	for ui, l := range a.ext.pending[dst] {
 		if l.found {
 			found[ui] = l
-			delete(a.ext[dst], ui)
+			delete(a.ext.pending[dst], ui)
 		}
 	}
-	if len(a.ext[dst]) == 0 {
-		delete(a.ext, dst)
+	if len(a.ext.pending[dst]) == 0 {
+		delete(a.ext.pending, dst)
 	}
 	// Grouped by now, not the burst's start: the rest of the burst, written
 	// later, gets that one.
-	es := a.extEntries(map[int]map[int]*extLevel{dst: found}, time.Now())
+	es := a.ext.entries(a.router.name, map[int]map[int]*extLevel{dst: found}, time.Now())
 	a.mu.Unlock()
 	for _, e := range es {
 		a.record(e)
 	}
 }
 
-// extAwaitsTake reports whether a pending change may follow one of our
+// awaitsTake reports whether a pending change may follow one of our
 // takes still waiting for the router. Caller holds mu.
-func (a *App) extAwaitsTake() bool {
-	for _, c := range a.causes {
+func (x *extTracker) awaitsTake() bool {
+	for _, c := range x.causes {
 		if c.done || c.sent.IsZero() {
 			continue
 		}
-		for dst, ls := range a.ext {
+		for dst, ls := range x.pending {
 			for _, l := range ls {
 				// A change before the connects went out can't follow them.
 				if !l.found && l.src == c.src && dst != c.dst && !l.first.Before(c.sent.Add(-followBefore)) {
@@ -197,12 +258,12 @@ func (a *App) extAwaitsTake() bool {
 	return false
 }
 
-// extEntries turns the pending burst into history entries, one per
+// entries turns the pending burst into history entries, one per
 // destination, source and found, dropping levels that ended where they
 // began, earliest first. Changes that follow one of our takes name it;
 // the rest share a group when there's more than one, found ones apart.
 // Group ids are made from at. Caller holds mu.
-func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry {
+func (x *extTracker) entries(name func(dst bool, n int) string, burst map[int]map[int]*extLevel, at time.Time) []*Entry {
 	type key struct {
 		dst, src int
 		found    bool
@@ -223,7 +284,7 @@ func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry
 			o := byKey[k]
 			if o == nil {
 				o = &out{e: &Entry{Src: l.src, Dst: dst, Prev: [][2]int{}, OK: true, Ext: true, Found: l.found,
-					SrcName: a.srcNames[l.src], DstName: a.dstNames[dst]}, first: l.first}
+					SrcName: name(false, l.src), DstName: name(true, dst)}, first: l.first}
 				byKey[k] = o
 				outs = append(outs, o)
 			}
@@ -256,7 +317,7 @@ func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry
 		sort.Slice(e.Prev, func(i, j int) bool { return e.Prev[i][0] < e.Prev[j][0] })
 		if e.Found {
 			found = append(found, e)
-		} else if c := a.followed(e.Src, e.Dst, o.first); c != nil {
+		} else if c := x.followed(e.Src, e.Dst, o.first); c != nil {
 			if c.group != "" {
 				// One take of a multi-take confirm: which one is a guess, so
 				// the entry is tied to the whole confirm, and is neither a
@@ -289,9 +350,9 @@ func (a *App) extEntries(burst map[int]map[int]*extLevel, at time.Time) []*Entry
 // time (a PiP its DSM), so when only one fits it's remembered, and a
 // salvo goes by that. Failing that, the take whose last change came
 // latest. Caller holds mu.
-func (a *App) followed(src, dst int, t time.Time) *cause {
+func (x *extTracker) followed(src, dst int, t time.Time) *cause {
 	var fits []*cause
-	for _, c := range a.causes {
+	for _, c := range x.causes {
 		if c.leads(src, dst, t) {
 			fits = append(fits, c)
 		}
@@ -300,12 +361,12 @@ func (a *App) followed(src, dst int, t time.Time) *cause {
 	case 0:
 		return nil
 	case 1:
-		a.leaders[dst] = fits[0].dst
+		x.leaders[dst] = fits[0].dst
 		return fits[0]
 	}
 	best := fits[0]
 	for _, c := range fits {
-		if lead, ok := a.leaders[dst]; ok && c.dst == lead {
+		if lead, ok := x.leaders[dst]; ok && c.dst == lead {
 			return c
 		}
 		if c.last.After(best.last) {

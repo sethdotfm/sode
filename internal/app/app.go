@@ -50,6 +50,30 @@ func (r *runtime) probe() []byte {
 	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
 }
 
+// App is the whole server state. When the router changes (applyConfig with
+// reconnect) these are RESET, because they describe the old router:
+//   - router (*routerState): names, tally, protect, seenAt, pending
+//     broadcasts, name-refresh buffers;
+//   - ext (*extTracker): the burst, own connects, causes, leaders,
+//     lateTake, lateHits;
+//   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
+//
+// Everything else is KEPT:
+//   - sw, hist, sent, txq, txLost, cfgPath, rt, pin, cfgMu, gapHook, xffWarn,
+//     lateQ: plumbing, history, config and PIN, none of it router state;
+//   - clients: the browsers stay connected and get a fresh hello;
+//   - pendSent: sent log entries for /log pages (what we wrote);
+//   - nameReqAt, nameRxAt, namesDirt, dumpAt: the polling clock. Not cleared
+//     today; onRouterUp asks for names and dumps again when the new router answers;
+//   - late: not cleared today, and it expires by itself within ownFor.
+//
+// Known gaps, left as they are: waiters and checks are KEPT, not cancelled,
+// so a take in flight when the router changes can still write own/lateTake
+// keys into the new extTracker until it times out; and late is kept while
+// extTracker.lateTake is reset, so a stale late key can swallow a matching
+// Connected from the new router for up to ownFor.
+//
+// The fields from mu down to dumpAt are guarded by mu.
 type App struct {
 	sw      *swp08.Client
 	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
@@ -61,39 +85,21 @@ type App struct {
 	rt      atomic.Pointer[runtime]
 
 	mu       sync.Mutex
-	srcNames map[int]string
-	dstNames map[int]string
-	tally    map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
-	protect  map[int]map[int]int // dst → UI level → protecting device
+	router   *routerState
+	ext      *extTracker
 	status   statusMsg
 	clients  map[*client]struct{}
-	waiters  map[*waiter]struct{}
-	checks   map[*tallyCheck]struct{}
-	pend     [][3]int // tally changes awaiting broadcast
-	pendProt [][3]int // protect changes awaiting broadcast (device -1 = cleared)
-	pendSent []Sent   // sent log entries awaiting broadcast to /log pages
+	waiters  map[*waiter]struct{}     // takes in flight
+	checks   map[*tallyCheck]struct{} // pre-take interrogates in flight
+	pendSent []Sent                   // sent log entries awaiting broadcast to /log pages
 
-	// Routes changed elsewhere, collected into bursts for history (ext.go).
-	ext      map[int]map[int]*extLevel // dst → UI level
-	extFirst time.Time
-	extLast  time.Time
-	own      map[ownKey]time.Time  // our takes' connects → when to stop treating them as ours
-	late     map[ownKey]time.Time  // finished takes' unconfirmed routes → until when a tally of one is ours
-	seenAt   map[[2]int]time.Time  // dst, UI level → when the router last reported its route
-	lateTake map[ownKey][]lateTake // the same, with the history entry to amend if one turns up (#91)
-	lateHits []lateHit             // late answers awaiting their entry's amendment (flushLate)
-	lateQ    chan lateJob          // to lateWorker; nil = amend in line (tests)
-	causes   []*cause              // recent takes that changes elsewhere may follow
-	leaders  map[int]int           // dst → the dst it was last seen following
+	late  map[ownKey]time.Time // finished takes' unconfirmed routes → until when a tally of one is ours
+	lateQ chan lateJob         // to lateWorker; nil = amend in line (tests)
 
-	// Name refresh: replies are collected into fresh maps and swapped in once
-	// they stop arriving, so names deleted on the router disappear here.
-	newSrc, newDst map[int]string // nil when no refresh is in flight
-	nameReqAt      time.Time
-	nameRxAt       time.Time
-	namesAt        time.Time // last completed refresh
-	namesDirt      bool      // unsolicited names changed outside a refresh
-	dumpAt         time.Time
+	nameReqAt time.Time // when the last name refresh was asked for
+	nameRxAt  time.Time // last name reply
+	namesDirt bool      // unsolicited names changed outside a refresh
+	dumpAt    time.Time // last dump request
 
 	pin   pinState   // wrong settings PINs
 	cfgMu sync.Mutex // serializes settings saves
@@ -101,6 +107,41 @@ type App struct {
 	gapHook func() // test seam: runs between a take's finish and unregister
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
+}
+
+// routerState is everything read from the router: replaced as a whole when
+// the router changes, so nothing of the old one's is left. Guarded by App.mu.
+type routerState struct {
+	srcNames map[int]string
+	dstNames map[int]string
+	tally    map[int]map[int]int  // dst → UI level → src (-1 = nothing routed)
+	protect  map[int]map[int]int  // dst → UI level → protecting device
+	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
+	pend     [][3]int             // tally changes awaiting broadcast
+	pendProt [][3]int             // protect changes awaiting broadcast (device -1 = cleared)
+
+	// Name refresh: replies are collected into fresh maps and swapped in once
+	// they stop arriving, so names deleted on the router disappear here.
+	newSrc, newDst map[int]string // nil when no refresh is in flight
+	namesAt        time.Time      // last completed refresh
+}
+
+// name is the cached name of a source, or of a destination if dst.
+func (rs *routerState) name(dst bool, n int) string {
+	if dst {
+		return rs.dstNames[n]
+	}
+	return rs.srcNames[n]
+}
+
+func newRouterState() *routerState {
+	return &routerState{
+		srcNames: map[int]string{},
+		dstNames: map[int]string{},
+		tally:    map[int]map[int]int{},
+		protect:  map[int]map[int]int{},
+		seenAt:   map[[2]int]time.Time{},
+	}
 }
 
 type statusMsg struct {
@@ -120,24 +161,17 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		sent, _ = OpenSentLog("", 0)
 	}
 	a := &App{
-		hist:     hist,
-		sent:     sent,
-		txq:      make(chan swp08.TxEvent, 1024),
-		cfgPath:  cfgPath,
-		srcNames: map[int]string{},
-		dstNames: map[int]string{},
-		tally:    map[int]map[int]int{},
-		protect:  map[int]map[int]int{},
-		clients:  map[*client]struct{}{},
-		waiters:  map[*waiter]struct{}{},
-		checks:   map[*tallyCheck]struct{}{},
-		ext:      map[int]map[int]*extLevel{},
-		own:      map[ownKey]time.Time{},
-		late:     map[ownKey]time.Time{},
-		lateTake: map[ownKey][]lateTake{},
-		seenAt:   map[[2]int]time.Time{},
-		leaders:  map[int]int{},
-		status:   statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
+		hist:    hist,
+		sent:    sent,
+		txq:     make(chan swp08.TxEvent, 1024),
+		cfgPath: cfgPath,
+		router:  newRouterState(),
+		ext:     newExtTracker(),
+		clients: map[*client]struct{}{},
+		waiters: map[*waiter]struct{}{},
+		checks:  map[*tallyCheck]struct{}{},
+		late:    map[ownKey]time.Time{},
+		status:  statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())
@@ -212,7 +246,7 @@ func (a *App) onRouterUp() {
 func (a *App) RefreshNames() {
 	r := a.r()
 	a.mu.Lock()
-	a.newSrc, a.newDst = map[int]string{}, map[int]string{}
+	a.router.newSrc, a.router.newDst = map[int]string{}, map[int]string{}
 	a.nameReqAt = time.Now()
 	a.mu.Unlock()
 	ext := r.cfg.NameRequests == "ext"
@@ -275,15 +309,15 @@ func (a *App) onRouterMsg(msg []byte) {
 		if xp.Src == 0xFFFF { // router's "nothing routed"
 			xp.Src = -1
 		}
-		a.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
-		t := a.tally[xp.Dst]
+		a.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
+		t := a.router.tally[xp.Dst]
 		if t == nil {
 			t = map[int]int{}
-			a.tally[xp.Dst] = t
+			a.router.tally[xp.Dst] = t
 		}
 		if old, ok := t[l.UI]; !ok || old != xp.Src {
 			t[l.UI] = xp.Src
-			a.pend = append(a.pend, [3]int{xp.Dst, l.UI, xp.Src})
+			a.router.pend = append(a.router.pend, [3]int{xp.Dst, l.UI, xp.Src})
 			// A changed route the router didn't announce shows up in a
 			// dump or an interrogate: noted too, unless it's ours.
 			// A tally of a route a take gave up on confirms it after all.
@@ -314,7 +348,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		if p.Protected {
 			dev = p.Device
 		}
-		t := a.protect[p.Dst]
+		t := a.router.protect[p.Dst]
 		old, had := t[l.UI]
 		if dev < 0 {
 			if !had {
@@ -327,28 +361,28 @@ func (a *App) onRouterMsg(msg []byte) {
 			}
 			if t == nil {
 				t = map[int]int{}
-				a.protect[p.Dst] = t
+				a.router.protect[p.Dst] = t
 			}
 			t[l.UI] = dev
 		}
-		a.pendProt = append(a.pendProt, [3]int{p.Dst, l.UI, dev})
+		a.router.pendProt = append(a.router.pendProt, [3]int{p.Dst, l.UI, dev})
 	}
 	if nb := ev.Names; nb != nil {
-		m := a.srcNames
-		if a.newSrc != nil {
-			m = a.newSrc
+		m := a.router.srcNames
+		if a.router.newSrc != nil {
+			m = a.router.newSrc
 		}
 		if nb.Dest {
-			m = a.dstNames
-			if a.newDst != nil {
-				m = a.newDst
+			m = a.router.dstNames
+			if a.router.newDst != nil {
+				m = a.router.newDst
 			}
 		}
 		for i, n := range nb.Names {
 			m[nb.First+i] = n
 		}
 		a.nameRxAt = time.Now()
-		if a.newSrc == nil {
+		if a.router.newSrc == nil {
 			a.namesDirt = true
 		}
 	}
@@ -362,39 +396,39 @@ const (
 func (a *App) flush() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.pend) > 0 {
-		a.broadcast(deltaMsg{T: "tally", U: a.pend})
-		a.pend = nil
+	if len(a.router.pend) > 0 {
+		a.broadcast(deltaMsg{T: "tally", U: a.router.pend})
+		a.router.pend = nil
 	}
-	if len(a.pendProt) > 0 {
-		a.broadcast(deltaMsg{T: "protect", U: a.pendProt})
-		a.pendProt = nil
+	if len(a.router.pendProt) > 0 {
+		a.broadcast(deltaMsg{T: "protect", U: a.router.pendProt})
+		a.router.pendProt = nil
 	}
 	if len(a.pendSent) > 0 {
 		a.broadcastSent(a.pendSent)
 		a.pendSent = nil
 	}
 
-	if a.newSrc != nil {
+	if a.router.newSrc != nil {
 		got := a.nameRxAt.After(a.nameReqAt)
 		if (got && time.Since(a.nameRxAt) > namesQuiet) || time.Since(a.nameReqAt) > namesTimeout {
 			changed := false
 			// A side that got no replies keeps its old names rather than emptying.
-			if next := refreshed(a.srcNames, a.newSrc); next != nil {
-				a.srcNames, changed = next, true
+			if next := refreshed(a.router.srcNames, a.router.newSrc); next != nil {
+				a.router.srcNames, changed = next, true
 			}
-			if next := refreshed(a.dstNames, a.newDst); next != nil {
-				a.dstNames, changed = next, true
+			if next := refreshed(a.router.dstNames, a.router.newDst); next != nil {
+				a.router.dstNames, changed = next, true
 			}
-			a.newSrc, a.newDst = nil, nil
+			a.router.newSrc, a.router.newDst = nil, nil
 			if got {
-				a.namesAt = time.Now()
+				a.router.namesAt = time.Now()
 			}
 			if changed {
-				log.Printf("names: %d sources, %d destinations", len(a.srcNames), len(a.dstNames))
+				log.Printf("names: %d sources, %d destinations", len(a.router.srcNames), len(a.router.dstNames))
 				a.namesDirt = true
 			} else {
-				a.broadcast(namesCheckedMsg{T: "namesChecked", At: a.namesAt})
+				a.broadcast(namesCheckedMsg{T: "namesChecked", At: a.router.namesAt})
 			}
 		}
 	}
@@ -428,7 +462,7 @@ func refreshed(old, got map[int]string) map[int]string {
 }
 
 func (a *App) namesMsg() namesMsg {
-	return namesMsg{T: "names", Srcs: sorted(a.srcNames), Dsts: sorted(a.dstNames), At: a.namesAt}
+	return namesMsg{T: "names", Srcs: sorted(a.router.srcNames), Dsts: sorted(a.router.dstNames), At: a.router.namesAt}
 }
 
 func sorted(m map[int]string) [][2]any {
@@ -474,8 +508,8 @@ func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
 	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
-	m["tally"] = triples(a.tally)
-	m["protect"] = triples(a.protect)
+	m["tally"] = triples(a.router.tally)
+	m["protect"] = triples(a.router.protect)
 	m["status"] = a.status
 	m["recent"] = p.recent
 	m["more"] = p.more
@@ -577,7 +611,7 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
-	a.lateTake, a.lateHits = map[ownKey][]lateTake{}, nil // their entries are gone
+	a.ext.lateTake, a.ext.lateHits = map[ownKey][]lateTake{}, nil // their entries are gone
 	a.broadcast(simpleMsg{T: "historyCleared"})
 	a.mu.Unlock()
 }

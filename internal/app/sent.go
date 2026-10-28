@@ -74,10 +74,10 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	}
 	a.mu.Lock()
 	if q.Dst >= 0 {
-		e.DstName = a.dstNames[q.Dst]
+		e.DstName = a.router.dstNames[q.Dst]
 	}
 	if q.Src >= 0 {
-		e.SrcName = a.srcNames[q.Src]
+		e.SrcName = a.router.srcNames[q.Src]
 	}
 	a.mu.Unlock()
 	return e

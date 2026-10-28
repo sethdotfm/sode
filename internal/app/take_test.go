@@ -75,7 +75,7 @@ func (f *fakeRouter) seed(dst, src int, wires ...int) {
 	}
 	// Seeded routes count as not read lately, so takes check them first.
 	f.a.mu.Lock()
-	f.a.seenAt = map[[2]int]time.Time{}
+	f.a.router.seenAt = map[[2]int]time.Time{}
 	f.a.mu.Unlock()
 }
 
@@ -153,8 +153,8 @@ func leftovers(t *testing.T, a *App) {
 	t.Helper()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.waiters) != 0 || len(a.own) != 0 {
-		t.Fatalf("left behind: %d waiters, own %v", len(a.waiters), a.own)
+	if len(a.waiters) != 0 || len(a.ext.own) != 0 {
+		t.Fatalf("left behind: %d waiters, own %v", len(a.waiters), a.ext.own)
 	}
 }
 
@@ -171,8 +171,8 @@ func TestTakeChanges(t *testing.T) {
 	}
 	leftovers(t, a)
 	a.mu.Lock()
-	if len(a.causes) != 1 || !a.causes[0].done || a.causes[0].id != e.ID || a.causes[0].first.IsZero() {
-		t.Fatalf("cause %+v", a.causes)
+	if len(a.ext.causes) != 1 || !a.ext.causes[0].done || a.ext.causes[0].id != e.ID || a.ext.causes[0].first.IsZero() {
+		t.Fatalf("cause %+v", a.ext.causes)
 	}
 	a.mu.Unlock()
 	endBurst(a)
@@ -202,7 +202,7 @@ func TestTakeProtected(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
-	a.protect[5] = map[int]int{2: 9}
+	a.router.protect[5] = map[int]int{2: 9}
 	a.mu.Unlock()
 	n := f.sends()
 	e := takeOne(t, a, 7, 5, 1, 2, 3)
@@ -215,8 +215,8 @@ func TestTakeProtected(t *testing.T) {
 	leftovers(t, a)
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if len(a.causes) != 0 {
-		t.Fatalf("causes %+v", a.causes)
+	if len(a.ext.causes) != 0 {
+		t.Fatalf("causes %+v", a.ext.causes)
 	}
 }
 
@@ -304,10 +304,10 @@ func TestTakeLateTooLate(t *testing.T) {
 	f.ignore[5] = true
 	e := takeOne(t, a, 7, 5, 1)
 	a.mu.Lock()
-	if len(a.lateTake) != 1 {
-		t.Fatalf("lateTake %v", a.lateTake)
+	if len(a.ext.lateTake) != 1 {
+		t.Fatalf("lateTake %v", a.ext.lateTake)
 	}
-	for _, lts := range a.lateTake {
+	for _, lts := range a.ext.lateTake {
 		for i := range lts {
 			lts[i].until = time.Now().Add(-time.Second)
 		}
@@ -557,7 +557,7 @@ func TestTakeWhy(t *testing.T) {
 func TestDescribeSent(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
-	a.srcNames[7], a.dstNames[5] = "CAM 7", "MON 5"
+	a.router.srcNames[7], a.router.dstNames[5] = "CAM 7", "MON 5"
 	a.mu.Unlock()
 	e := a.describe(swp08.TxEvent{Msg: swp08.ExtConnect(0, 1, 5, 7), Why: swp08.Why{Reason: "take", By: "10.0.0.1"}, Tries: 1, Result: swp08.TxAck})
 	if e.Kind != "connect" || e.Level != 2 || e.Wire != 1 || e.Dst != 5 || e.DstName != "MON 5" || e.Src != 7 || e.SrcName != "CAM 7" ||
@@ -661,7 +661,7 @@ func TestTakeFreshSkipsCheck(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
 	for l := 1; l <= 3; l++ {
-		a.seenAt[[2]int{5, l}] = time.Now()
+		a.router.seenAt[[2]int{5, l}] = time.Now()
 	}
 	a.mu.Unlock()
 	e := takeOne(t, a, 7, 5, 1, 2, 3)
@@ -670,7 +670,7 @@ func TestTakeFreshSkipsCheck(t *testing.T) {
 	}
 	// Stale ones are read.
 	a.mu.Lock()
-	a.seenAt[[2]int{5, 2}] = time.Now().Add(-time.Minute)
+	a.router.seenAt[[2]int{5, 2}] = time.Now().Add(-time.Minute)
 	a.mu.Unlock()
 	takeOne(t, a, 8, 5, 1, 2, 3)
 	if n := f.sentFor("check"); n != 1 {
@@ -718,7 +718,7 @@ func TestTakeWaitsForQueue(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	a.mu.Lock()
 	for l := 1; l <= 3; l++ {
-		a.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
+		a.router.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
 	}
 	a.mu.Unlock()
 	f.hold = takeTimeout + takeGrace + 200*time.Millisecond
@@ -780,7 +780,7 @@ func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
 	}
 	a.mu.Lock()
 	w.register(a)
-	until := a.own[ownKey{5, w.levels[0].wire, 7}]
+	until := a.ext.own[ownKey{5, w.levels[0].wire, 7}]
 	a.mu.Unlock()
 	if time.Until(until) < queueMax+ownFor-time.Second {
 		t.Fatalf("own key ends in %v", time.Until(until))
