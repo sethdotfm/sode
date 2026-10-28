@@ -1,7 +1,6 @@
 package app
 
 import (
-	"slices"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -42,8 +41,6 @@ const (
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 
-type ownKey struct{ dst, wire, src int }
-
 // cause is one of our takes, which changes elsewhere may follow (id -1
 // until it's recorded).
 type cause struct {
@@ -77,22 +74,21 @@ func (c *cause) leads(src, dst int, t time.Time) bool {
 // and touches nothing of the new router's. Guarded by App.mu; its methods
 // expect the caller to hold it.
 type extTracker struct {
-	burst                          // the burst being collected
-	own      map[ownKey]time.Time  // our takes' connects → when to stop treating them as ours
-	late     map[ownKey]time.Time  // finished takes' unconfirmed routes → until when a tally of one is ours
-	causes   []*cause              // recent takes that changes elsewhere may follow
-	leaders  map[int]int           // dst → the dst it was last seen following
-	lateTake map[ownKey][]lateTake // finished takes' unconfirmed routes, with the history entry to amend if one turns up (#91)
-	lateHits []lateHit             // late answers awaiting their entry's amendment (flushLate)
+	burst                 // the burst being collected
+	ownership             // our takes' connects, and the routes of takes that gave up
+	causes    []*cause    // recent takes that changes elsewhere may follow
+	leaders   map[int]int // dst → the dst it was last seen following
 }
 
 func newExtTracker() *extTracker {
 	return &extTracker{
-		burst:    burst{pending: map[int]map[int]*extLevel{}},
-		own:      map[ownKey]time.Time{},
-		late:     map[ownKey]time.Time{},
-		leaders:  map[int]int{},
-		lateTake: map[ownKey][]lateTake{},
+		burst: burst{pending: map[int]map[int]*extLevel{}},
+		ownership: ownership{
+			own:      map[ownKey]time.Time{},
+			late:     map[ownKey]time.Time{},
+			lateTake: map[ownKey][]lateTake{},
+		},
+		leaders: map[int]int{},
 	}
 }
 
@@ -137,56 +133,10 @@ func (a *App) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
 	return verdictIgnore
 }
 
-// ownAnswer reports whether a Connected for k is the answer to one of our
-// connects, and uses the key up either way.
-func (x *extTracker) ownAnswer(k ownKey, now time.Time) bool {
-	if until, ok := x.own[k]; ok {
-		delete(x.own, k)
-		if now.Before(until) {
-			return true
-		}
-	}
-	return false
-}
-
-// flushExt writes a finished burst to history.
-func (a *App) flushExt() {
-	a.flushLate()
-	a.mu.Lock()
-	now := time.Now()
-	burst, first, ok := a.ext.flush(now)
-	if !ok {
-		a.mu.Unlock()
-		return
-	}
-	es := a.ext.entries(a.router.name, burst, first)
-	a.mu.Unlock()
-	for _, e := range es {
-		a.record(e)
-	}
-}
-
 // flush drops what has expired and, if the burst is finished, takes it
 // (ok), with when it began.
 func (x *extTracker) flush(now time.Time) (changes map[int]map[int]*extLevel, first time.Time, ok bool) {
-	for k, lts := range x.lateTake {
-		lts = slices.DeleteFunc(lts, func(lt lateTake) bool { return now.After(lt.until) })
-		if len(lts) == 0 {
-			delete(x.lateTake, k)
-		} else {
-			x.lateTake[k] = lts
-		}
-	}
-	for k, until := range x.own {
-		if now.After(until) {
-			delete(x.own, k)
-		}
-	}
-	for k, until := range x.late {
-		if now.After(until) {
-			delete(x.late, k)
-		}
-	}
+	x.ownership.expire(now)
 	keep := x.causes[:0]
 	for _, c := range x.causes {
 		if !c.done || (!c.last.IsZero() && now.Sub(c.last) < causeKeep) {
