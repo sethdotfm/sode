@@ -434,6 +434,20 @@ code,
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
 }
+.sode__about {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-5);
+}
+.sode__about > p { margin: 0; }
+.sode__links {
+  display: flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-4);
+}
+.sode__links > a { color: var(--pb-accent); }
+.sode__links > a:hover { color: var(--pb-accent-hover); }
 .sode__names {
   align-items: center;
   display: flex;
