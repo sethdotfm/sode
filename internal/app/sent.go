@@ -86,7 +86,7 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 // broadcastSent sends new entries, oldest first, to the browsers showing
 // the sent log. Caller holds mu.
 func (a *App) broadcastSent(es []Sent) {
-	b, err := json.Marshal(map[string]any{"t": "sentAdd", "entries": es, "total": a.sent.Total(), "lost": a.txLost.Load()})
+	b, err := json.Marshal(sentAddMsg{T: "sentAdd", Entries: es, Total: a.sent.Total(), Lost: a.txLost.Load()})
 	if err != nil {
 		log.Printf("marshal: %v", err)
 		return
@@ -113,5 +113,5 @@ func (a *App) sentHistory(c *client, before int64, n int) {
 	if err != nil {
 		log.Printf("sent log: %v", err)
 	}
-	a.reply(c, map[string]any{"t": "sentPage", "before": before, "entries": page, "more": more, "total": a.sent.Total(), "lost": a.txLost.Load()})
+	a.reply(c, sentPageMsg{T: "sentPage", Before: before, Entries: page, More: more, Total: a.sent.Total(), Lost: a.txLost.Load()})
 }
