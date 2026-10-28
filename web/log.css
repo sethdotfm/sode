@@ -40,7 +40,7 @@
   border: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pb-space-2) var(--pb-space-5);
+  gap: var(--pb-space-2);
   margin: 0;
   padding: 0;
 }
@@ -50,6 +50,9 @@
   padding: 0;
   width: auto;
 }
+.sode-log__kinds > legend { margin-right: var(--pb-space-2); }
+.sode-log__chip { font-size: var(--pb-text-xs); padding: var(--pb-space-1) var(--pb-space-3); }
+.sode-log__sep { color: var(--pb-text-muted); padding: 0 var(--pb-space-1); }
 .sode-log__expr { flex: 0 1 16rem; min-width: 10rem; }
 .sode-log__when {
   align-items: center;
