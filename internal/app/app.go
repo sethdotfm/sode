@@ -302,28 +302,6 @@ func (a *App) onRouterMsg(msg []byte) {
 	}
 }
 
-// applyNames files a block of names under the refresh being collected, if
-// there is one, else under the current names. Caller holds mu.
-func (a *App) applyNames(nb *swp08.NameBlock) {
-	m := a.router.srcNames
-	if a.router.newSrc != nil {
-		m = a.router.newSrc
-	}
-	if nb.Dest {
-		m = a.router.dstNames
-		if a.router.newDst != nil {
-			m = a.router.newDst
-		}
-	}
-	for i, n := range nb.Names {
-		m[nb.First+i] = n
-	}
-	a.nameRxAt = time.Now()
-	if a.router.newSrc == nil {
-		a.namesDirt = true
-	}
-}
-
 // applyTally takes one crosspoint (a Connected or a tally) from the router
 // into the cache, notes it if it is a change made elsewhere, and lets the
 // takes in flight see it. Caller holds mu.
@@ -349,11 +327,8 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
 		// A changed route the router didn't announce shows up in a
 		// dump or an interrogate: noted too, unless it's ours.
-		// A tally of a route a take gave up on confirms it after all.
-		if !xp.Changed() && a.claimLate(ownKey{xp.Dst, xp.Level, xp.Src}, l.UI) {
-			// ours: the entry is amended by flushLate
-		} else if xp.Changed() || (known && !a.awaited(xp)) {
-			a.noteExt(xp, l.UI, old, known)
+		if a.classify(xp, l.UI, known) == verdictExt {
+			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
 		}
 	}
 	for w := range a.waiters {
@@ -398,6 +373,28 @@ func (a *App) applyProtect(r *runtime, p swp08.Protect) {
 		t[l.UI] = dev
 	}
 	a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
+}
+
+// applyNames files a block of names under the refresh being collected, if
+// there is one, else under the current names. Caller holds mu.
+func (a *App) applyNames(nb *swp08.NameBlock) {
+	m := a.router.srcNames
+	if a.router.newSrc != nil {
+		m = a.router.newSrc
+	}
+	if nb.Dest {
+		m = a.router.dstNames
+		if a.router.newDst != nil {
+			m = a.router.newDst
+		}
+	}
+	for i, n := range nb.Names {
+		m[nb.First+i] = n
+	}
+	a.nameRxAt = time.Now()
+	if a.router.newSrc == nil {
+		a.namesDirt = true
+	}
 }
 
 const (
