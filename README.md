@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultrix).
 
-**Version:** Beta 0.9
+**Version:** Beta 0.10
 
 Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8` or `1+3+5-8`; `!` leaves levels out: `!1` is every level but 1, `1-8!3` is 1-8 without 3; words work too: `t`, `thru` or `through` for `-`, `n` or `not` for `!`, `and` for `,`, as in `1 thru 8 not 3`; on a phone's number pad `.` for `,` and `..` for `-`, as in `1..8.10`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
 
