@@ -6,7 +6,7 @@ package app
 // (say v0.9) names another version.
 const (
 	Stage   = "Beta"
-	Version = "0.9"
+	Version = "0.10"
 )
 
 // VersionLabel is how the version reads in the UI.
