@@ -124,6 +124,15 @@ code,
   width: 100%;
   z-index: var(--pb-z-sticky);
 }
+/* In Settings (where a down router gets fixed) the banner is compact and
+   scrolls away, so the table of contents never sits under it. */
+[data-view="settings"] .sode__down {
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-5) var(--pb-space-8);
+  position: static;
+}
+[data-view="settings"] .sode__down .sode__down-map { display: none; }
+[data-view="settings"] .sode__down .sode__down-title { font-size: var(--pb-text-md); }
 .sode__down-title {
   font-size: var(--pb-text-xl);
   font-weight: var(--pb-weight-bold);
@@ -312,7 +321,7 @@ code,
 [data-layout="phone"] .sode__conn,
 [data-layout="phone"] .sode__tip,
 [data-view="settings"] .sode__tip,
-[data-layout="phone"] #conn-down { display: none; }
+[data-layout="phone"]:not([data-view="settings"]) #conn-down { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
 /* Settings: one plain column, labels above fields, the page scrolls.
@@ -343,6 +352,7 @@ code,
     top: 10vh;
     width: 200px;
   }
+  [data-conn="down"] .sode__toc { top: max(10vh, calc(var(--pb-space-10) * 4)); }
   .sode__toc .pb-tab { text-align: left; }
   .sode__settings > .sode__group { scroll-margin-top: var(--pb-space-10); }
 }
