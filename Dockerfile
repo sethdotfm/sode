@@ -9,11 +9,13 @@ RUN go test ./... \
  && mkdir -p /out/data
 
 FROM gcr.io/distroless/static-debian12:nonroot AS sim
+LABEL org.opencontainers.image.source="https://github.com/sethdotfm/sode"
 COPY --from=build /out/swp08sim /swp08sim
 EXPOSE 8910
 ENTRYPOINT ["/swp08sim"]
 
 FROM gcr.io/distroless/static-debian12:nonroot AS sode
+LABEL org.opencontainers.image.source="https://github.com/sethdotfm/sode"
 COPY --from=build /out/sode /sode
 COPY --from=build --chown=65532:65532 /out/data /data
 ENV SODE_HISTORY=/data/history.jsonl SODE_SENTLOG=/data/sent.jsonl SODE_CONFIG=/data/config.yaml
