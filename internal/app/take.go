@@ -404,6 +404,33 @@ func (a *App) checkPhase(r *runtime, w *waiter, e *Entry, noCheck bool) {
 	w.register(a)
 }
 
+// outcomePhase writes what happened to the take into e, under one lock, and
+// returns the error to report, if any.
+func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*takeLevel, sendErr error) error {
+	a.mu.Lock()
+	e.Cut = w.cut
+	if len(missing) > 0 {
+		a.whyMissing(e, missing)
+	}
+	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
+	if unsent := w.filter(func(l *takeLevel) bool { return l.unsent }); len(unsent) > 0 {
+		e.Unsent = uis(unsent)
+		sort.Ints(e.Unsent)
+		e.Failed = append(e.Failed, e.Unsent...)
+		sort.Ints(e.Failed)
+	}
+	if sendErr != nil {
+		e.SendErr = sendErr.Error()
+	}
+	names := maps.Clone(a.router.srcNames)
+	a.mu.Unlock()
+	sort.Ints(e.Already)
+	if msg := entryErr(r, names, e); msg != "" {
+		return errors.New(msg)
+	}
+	return nil
+}
+
 // take routes one source to one destination on some levels: plan, read
 // what dst has now, register, send, wait, then record what the router
 // confirmed.
@@ -425,29 +452,9 @@ func (a *App) take(c *client, req takeReq) {
 	sendErr := a.sendTake(r, w)
 	missing := a.awaitTake(r, w)
 
-	a.mu.Lock()
-	e.Cut = w.cut
-	if len(missing) > 0 {
-		a.whyMissing(e, missing)
-	}
-	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
-	if unsent := w.filter(func(l *takeLevel) bool { return l.unsent }); len(unsent) > 0 {
-		e.Unsent = uis(unsent)
-		sort.Ints(e.Unsent)
-		e.Failed = append(e.Failed, e.Unsent...)
-		sort.Ints(e.Failed)
-	}
-	if sendErr != nil {
-		e.SendErr = sendErr.Error()
-	}
-	names := maps.Clone(a.router.srcNames)
-	a.mu.Unlock()
-	sort.Ints(e.Already)
+	err = a.outcomePhase(r, w, e, missing, sendErr)
 	if len(e.Already) > 0 {
 		res.Already = e.Already
-	}
-	if msg := entryErr(r, names, e); msg != "" {
-		err = errors.New(msg)
 	}
 	a.finish(c, res, e, err)
 	if a.gapHook != nil {
