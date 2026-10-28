@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
 
-**Version:** Beta 1.0
+**Version:** Beta 1.1
 
 Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
 
@@ -122,6 +122,8 @@ The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_D
 ## Releasing
 
 Bump `Version` in `internal/app/version.go` and the `**Version:**` line above, then run `go test ./internal/app -run TestVersionNoted` (with `SODE_RELEASE_TAG=v<version>` it also checks the tag).
+
+Pushing a `v<version>` tag makes CI check it and publish the multi-arch image to ghcr as `latest` and the tag name; then make a GitHub release from the tag.
 
 ## License
 
