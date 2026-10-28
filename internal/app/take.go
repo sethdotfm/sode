@@ -457,12 +457,18 @@ func (a *App) take(c *client, req takeReq) {
 		res.Already = e.Already
 	}
 	a.finish(c, res, e, err)
+	// finish has recorded the entry; the take is still registered, so an
+	// answer from here until unregister is seen but not yet in the entry.
 	if a.gapHook != nil {
 		a.gapHook()
 	}
 	w.unregister(a, e.ID)
-	// An answer between finish and unregister confirmed a level the entry
-	// just recorded as failed.
+	a.gapPhase(w, e)
+}
+
+// gapPhase amends the entry for a level the router confirmed between
+// finish and unregister, which the entry just recorded as failed.
+func (a *App) gapPhase(w *waiter, e *Entry) {
 	a.mu.Lock()
 	gap := w.filter(func(l *takeLevel) bool { return l.confirmed && slices.Contains(e.Failed, l.ui) })
 	a.mu.Unlock()
