@@ -1,0 +1,209 @@
+/* Desktop layout: the patch composer (Source, Destination, Levels) and its pieces. Load after base.css. */
+
+.sode__mark {
+  color: var(--pb-text-strong);
+  font-size: calc(var(--pb-text-xl) * 2.5);
+  font-weight: var(--pb-weight-bold);
+  letter-spacing: var(--pb-tracking-label);
+  margin: 0;
+}
+
+.sode__boxes {
+  /* Boxes keep their own height, so a dropdown hangs right off its input
+     rather than below the tallest box in the row. */
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-6);
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 2fr) auto auto auto;
+  width: 100%;
+}
+.sode__box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  position: relative;
+}
+.sode__label {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  letter-spacing: var(--pb-tracking-label);
+  text-transform: uppercase;
+}
+.pb-input.sode__input {
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+}
+/* Destination input; the dropdown hangs off it, above any chips. The +
+   is its own box, close beside it, so Source and Destination match. */
+.sode__entry {
+  display: flex;
+  gap: var(--pb-space-2);
+  position: relative;
+}
+.sode__entry > .sode__keyed {
+  flex: 1 1 auto;
+}
+.sode__box--add { margin-left: calc(var(--pb-space-2) - var(--pb-space-6)); }
+.pb-btn.sode__add {
+  border-color: var(--pb-edge); /* as the inputs beside it */
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+  padding: 0 var(--pb-space-5);
+}
+/* Source → Destination, sized like the + button. Clicking it shows the
+   boxes the other way round, Destination ← Source (per browser, set
+   before first paint); the boxes work just the same. */
+.pb-btn.sode__to {
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+  padding: 0 var(--pb-space-5);
+}
+.sode__to::before { content: "→"; }
+[data-flip] .sode__to::before { content: "←"; }
+[data-flip] .sode__boxes { grid-template-columns: minmax(0, 2fr) auto auto minmax(0, 2fr) auto auto; }
+[data-flip] .sode__box--dst { order: 1; }
+[data-flip] .sode__box--add { order: 2; }
+[data-flip] .sode__box--to { order: 3; }
+[data-flip] .sode__box--src { order: 4; }
+[data-flip] .sode__box--levels,
+[data-flip] .sode__box--levels ~ .sode__box { order: 5; }
+.sode__chips[hidden] { display: none; }
+/* Source and destination colors on their inputs, as on the phone. */
+.sode__box--src .sode__input { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode__box--dst .sode__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
+/* About eight rows plus the count; the rest scrolls. */
+.sode__menu {
+  left: 0;
+  max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: auto;
+}
+.sode__menu-add { margin-left: auto; }
+.sode__menu-count {
+  background: var(--pb-surface-overlay);
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  bottom: calc(var(--pb-space-2) * -1);
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  list-style: none;
+  padding: var(--pb-space-2) var(--pb-space-4);
+  position: sticky;
+}
+.sode__num {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  min-width: 4ch;
+  text-align: right;
+}
+.sode__levels {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+  min-height: var(--pb-space-8);
+}
+
+.sode__picker {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+/* As the level bar: two rows, an odd first level (0 or V) tall on its
+   own to their left. */
+.sode__picker .sode__levels {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(var(--sode-bar-cols), auto);
+}
+/* Select / All on two lines, as tall as the picker's two rows. */
+.pb-btn.sode__all {
+  align-self: stretch;
+  flex-direction: column;
+  gap: 0;
+  height: auto;
+  line-height: 1.1;
+  padding: 0 var(--pb-space-3);
+}
+/* Set apart from Destination; the text box only as wide as levels need. */
+/* Set apart from Destination. The text box spans the level buttons and
+   Select All/None beside them; the head and text box add
+   nothing to the box's width (width 0, then fill). */
+.sode__box--levels {
+  column-gap: var(--pb-space-3);
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  margin-left: var(--pb-space-8);
+}
+.sode__box--levels > .sode__box-head { grid-column: 1 / -1; min-width: 100%; width: 0; }
+.sode__box--levels > .sode__keyed { grid-column: 1 / -1; min-width: 100%; width: 0; }
+.sode__box--levels > .sode__picker { display: contents; }
+.sode__box--levels .sode__levels { grid-column: 1; grid-row: 3; }
+.sode__box--levels .sode__all { grid-column: 2; grid-row: 3; }
+.sode__picker .sode__levels--odd > .sode__pick:first-child {
+  align-self: stretch;
+  grid-row: span 2;
+  height: auto;
+}
+
+/* Under the Source and Destination boxes; the arrow is the → button's, turned down. */
+.sode__under {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__under:empty { display: none; }
+/* Below the boxes' row, under Source and Destination (the flip swaps
+   their columns), so both start at the same height. */
+.sode__under--src { grid-column: 1; grid-row: 2; }
+.sode__under--dst { grid-column: 3; grid-row: 2; }
+[data-flip] .sode__under--src { grid-column: 4; }
+[data-flip] .sode__under--dst { grid-column: 1; }
+.sode__under-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__down-arrow {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+}
+.sode__down-arrow::before { content: "↓"; }
+.sode__down-arrow--up::before { content: "↑"; }
+/* Sending and Receiving: a window of about six rows, with a scrollbar
+   that stays visible (styled, so macOS doesn't overlay and hide it). */
+.sode__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: calc(var(--pb-control-h) * 6);
+  overflow-y: scroll;
+  padding-right: var(--pb-space-2);
+}
+.sode__scroll::-webkit-scrollbar { width: var(--pb-space-2); }
+.sode__scroll::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
+.sode__scroll::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
+.sode__feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+
+.sode__footer {
+  display: flex;
+  gap: var(--pb-space-4);
+  justify-content: center;
+  padding-top: var(--pb-space-6);
+  width: 100%;
+}
