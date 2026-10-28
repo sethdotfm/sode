@@ -216,11 +216,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			json.Unmarshal(data, &has)
 			keepDefaults := has.Config.DeviceDefaults == nil
 			go func(cfg config.Config, pin string, clearPin bool) {
-				if keepDefaults {
-					cfg.DeviceDefaults = a.r().cfg.DeviceDefaults
-				}
 				res := opResult{T: "configResult", OK: true}
-				if err := a.SaveSettings(c, cfg, pin, clearPin); err != nil {
+				if err := a.saveSettings(c, cfg, pin, clearPin, keepDefaults); err != nil {
 					res.OK, res.Err = false, err.Error()
 					res.Locked = locked(err)
 				} else {

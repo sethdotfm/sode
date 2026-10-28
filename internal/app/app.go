@@ -635,6 +635,12 @@ func (a *App) locked(c *client) bool {
 // current one is kept unless pin sets a new one or clearPin drops it.
 // Saves run one at a time, so one can't drop a PIN another just set.
 func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bool) error {
+	return a.saveSettings(c, cfg, pin, clearPin, false)
+}
+
+// saveSettings is SaveSettings; keepDefaults keeps the current
+// deviceDefaults, for a page that sent none (read under cfgMu with the rest).
+func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, keepDefaults bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if a.locked(c) {
@@ -644,9 +650,12 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 		// cur is a copy of the live config. Filter sets are saved from
 		// Recent's Filters, not the settings form, so a browser's copy may
 		// be stale: keep the current ones.
-		keepSets, keepPin := cur.FilterSets, cur.SettingsPin
+		keepSets, keepPin, keepDev := cur.FilterSets, cur.SettingsPin, cur.DeviceDefaults
 		*cur = cfg
 		cur.FilterSets, cur.SettingsPin = keepSets, keepPin
+		if keepDefaults {
+			cur.DeviceDefaults = keepDev
+		}
 		switch {
 		case clearPin:
 			cur.SettingsPin = ""
@@ -1479,7 +1488,8 @@ func (a *App) finish(c *client, res *takeResult, e *Entry, err error) {
 		res.Err = e.Err
 	}
 	a.record(e)
-	res.Entry = &e.ID // the browser's banner follows this entry
+	id := e.ID // a copy: the reply is marshalled while the entry can still change
+	res.Entry = &id // the browser's banner follows this entry
 	a.reply(c, res)
 }
 

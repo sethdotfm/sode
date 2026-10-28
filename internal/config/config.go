@@ -161,7 +161,6 @@ func FromEnv(c Config) (Config, error) {
 	return c, errors.Join(errs...)
 }
 
-// Normalize fills derived defaults; call before Validate.
 // Clone returns a copy that shares no slices with c, so Normalize and other
 // in-place edits on it can't touch a config others are reading.
 func (c Config) Clone() Config {
@@ -172,6 +171,7 @@ func (c Config) Clone() Config {
 	return c
 }
 
+// Normalize fills derived defaults; call before Validate.
 func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
 	c.RouterName = strings.TrimSpace(c.RouterName)
