@@ -387,6 +387,23 @@ func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
 	return protected
 }
 
+// checkPhase reads what dst has now, then fills e.Prev (what undo restores)
+// and which levels are already on src, and registers the take so the
+// router's answers count as its own. The levels' same flags are set here.
+func (a *App) checkPhase(r *runtime, w *waiter, e *Entry, noCheck bool) {
+	// Prev comes from the router, not a cache that may have missed a change.
+	// Answers that differ are logged as found.
+	if !noCheck && !a.checkTally(r, w) {
+		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", w.dst, checkTimeout)
+	}
+	a.flushFound(w.dst)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	e.Time = time.Now()
+	a.cachePrev(w, e)
+	w.register(a)
+}
+
 // take routes one source to one destination on some levels: plan, read
 // what dst has now, register, send, wait, then record what the router
 // confirmed.
@@ -404,18 +421,7 @@ func (a *App) take(c *client, req takeReq) {
 		return
 	}
 
-	// Prev is what undo restores, so it comes from the router, not a cache
-	// that may have missed a change. Answers that differ are logged as found.
-	if !req.NoCheck && !a.checkTally(r, w) {
-		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", req.Dst, checkTimeout)
-	}
-	a.flushFound(req.Dst)
-	a.mu.Lock()
-	e.Time = time.Now()
-	a.cachePrev(w, e)
-	w.register(a)
-	a.mu.Unlock()
-
+	a.checkPhase(r, w, e, req.NoCheck)
 	sendErr := a.sendTake(r, w)
 	missing := a.awaitTake(r, w)
 
