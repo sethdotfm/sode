@@ -336,6 +336,20 @@ func uis(ls []*takeLevel) []int {
 	return out
 }
 
+// cachePrev fills e.Prev with the routes the cache holds for w's levels
+// (what undo restores), and sets each level's same: whether it is already on
+// src, so it gets no own key and is confirmed by a tally. A level with no
+// cached route is left as it was. Caller holds mu.
+func (a *App) cachePrev(w *waiter, e *Entry) {
+	e.Prev = e.Prev[:0]
+	for _, l := range w.levels {
+		if p, ok := a.router.tally[w.dst][l.ui]; ok {
+			e.Prev = append(e.Prev, [2]int{l.ui, p})
+			l.same = p == w.src
+		}
+	}
+}
+
 // take routes one source to one destination on some levels: plan, read
 // what dst has now, register, send, wait, then record what the router
 // confirmed.
@@ -356,17 +370,6 @@ func (a *App) take(c *client, req takeReq) {
 	}
 
 	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
-	// prev fills in e.Prev, and which levels are already on src, from the
-	// cache. Caller holds mu.
-	prev := func() {
-		e.Prev = e.Prev[:0]
-		for _, l := range w.levels {
-			if p, ok := a.router.tally[req.Dst][l.ui]; ok {
-				e.Prev = append(e.Prev, [2]int{l.ui, p})
-				l.same = p == req.Src
-			}
-		}
-	}
 	var protected []int
 	a.mu.Lock()
 	w.ext = a.ext
@@ -377,7 +380,7 @@ func (a *App) take(c *client, req takeReq) {
 		}
 	}
 	if len(protected) > 0 {
-		prev()
+		a.cachePrev(w, e)
 		a.mu.Unlock()
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return
@@ -392,7 +395,7 @@ func (a *App) take(c *client, req takeReq) {
 	a.flushFound(req.Dst)
 	a.mu.Lock()
 	e.Time = time.Now()
-	prev()
+	a.cachePrev(w, e)
 	w.register(a)
 	a.mu.Unlock()
 
