@@ -1,79 +1,70 @@
 # Sode
 
-Hyper-light, keyboard-first web patching for SW-P-08 routers (target: Ross Ultrix).
+Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
 
-**Version:** Beta 0.11
+**Version:** Beta 1.0
 
-Type a **source**, Tab, a **destination**, Tab, **levels** (`1`, `1-3`, `4-17`, `1,3,5-8` or `1+3+5-8`; `!` leaves levels out: `!1` is every level but 1, `1-8!3` is 1-8 without 3; words work too: `t`, `thru` or `through` for `-`, `n` or `not` for `!`, `and` for `,`, as in `1 thru 8 not 3`; on a phone's number pad `.` for `,` and `..` for `-`, as in `1..8.10`; blank = default; with V + A numbering also `v,a1-a8`), Enter, then press the churning confirm key.
+Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
 
-Ctrl+s, Ctrl+d and Ctrl+f fill Source, Destination(s) or Levels from your last take and move on (Source to Destination, Destination back to Source). After a reload, they use the newest Sode take in history. Each box shows that value as a small chip by its label (Levels only when they aren't the default); clicking it does the same.
+- Single static Go binary, small distroless image, plain HTTP on :8080 (put your own TLS proxy in front).
+- Always extended SW-P-08 commands (16-bit source/destination), protects honored, auto-reconnect.
+- Names come from the router and are re-read periodically.
+- Phones get a text-message style layout; the desktop is keyboard-first.
+- Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded: no external fetches.
 
-To patch one source to several destinations, press `+` (or the + button) instead of Tab after each destination: it becomes a chip, and what you typed stays with its matches open (minus the destinations already added), so the next `+` takes the next match. Each destination can only be added once; Backspace in the empty box takes the last one back to edit. The takes land in history as one folder with an overall status and **Undo all**; open it to undo or retry destinations one by one. Protected destinations in the set are refused and show as failed; the rest go ahead.
+## Run
 
-**Other panels (beta).** Routes made elsewhere (Ultrix panels, Companion) show up in Recent too, with a **panel** status, and can be undone like any take. A panel take arrives as one change per level, so Sode collects them until they stop for half a second, then logs one entry per destination and source. A burst that changes several destinations becomes one folder. If the same destination is punched on the same levels again within 30 seconds, with nothing else routed there in between, the punches show as one row ("3 changes"); its Before lists each change, and Undo goes back to the state before the first punch.
+`compose.yaml`:
 
-The router also moves destinations by itself, such as a multiviewer PiP that follows a DSM. When the same source lands on another destination within half a second of a Sode take, Sode logs it as a **follow** of that take ("+1 follow") rather than a row of its own. Before lists the follows. Undo leaves them out unless you tick "Also undo … suspected automation" in the confirm (Space on desktop), because undoing the take lets the router redo its own automation. Each take of a Sode salvo has its own follows and its own Undo. A panel salvo of one source to several destinations stays one folder. Beta limits: routes changed while Sode was disconnected are not logged, and a change that arrives before Sode has read the router's routes has no Before, so it can't be undone.
+```yaml
+services:
+  sode:
+    image: ghcr.io/sethdotfm/sode:latest
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    volumes: ["sode-data:/data"]
+    environment:
+      SODE_ROUTER: 10.0.0.50:8910   # your router's SW-P-08 host:port
 
-**Search.** Filter by Source and Filter by Destination above Recent work like the patch boxes. Typing lists matching sources or destinations, including names logged in history, so a source the router has since renamed is still found. Pick one with ↑↓ (or Ctrl+j/k, ⌘j/k on a Mac) and Enter, Tab or `+`, and Recent shows every entry for it, from the whole log. Each pick becomes a chip, so you can add more, and Recent shows entries for any of them. Backspace in an empty box removes the last pick. A take also shows if one of its follows matches. You can type an expression instead (`1-50`, `MV, !PGM`, `/^DSM/`), which applies as typed. Search ignores Filters unless Settings → This device → **Search respects filters** is on. Esc closes the list, then clears the box. On desktop, ⇧s and ⇧d jump to them from keyboard mode.
+volumes:
+  sode-data:
+```
 
-**Filters.** The **Filters** button in Recent's header scopes what Recent shows *in this browser*. It reads "Filters · 2" in blue while any are on.
-- Pick which entries to show: Sode takes, panel changes, and panel changes to globally hidden destinations.
-- Narrow sources and destinations, either as rule rows (Visual) or typed (Code). Both write the same language.
-- Everything applies as you type, with a live count of what matches.
-- **Share link** copies a URL that applies the same filters in another browser. The URL is cleaned once read, and a banner offers Undo.
-- Desktop keyboard mode opens Filters with `/`.
-- **Filter sets** are named filters, shown as quick buttons beside Filters (e.g. **All**, **All except shader**, **My destinations**). Click one to switch. A `*` means you've edited it since; click it again to go back.
-  - The buttons come in groups separated by `|`: **All**, then the sets for everyone, then this browser's own.
-  - Every set is managed in the Filters dialog's Set row, whichever group it's in:
-    - **Save as…** names the current filters "For this browser" or "For everyone".
-    - **Save** updates the set you've edited.
-    - **Rename** and **Delete** (which asks twice) work on any set.
-    - Sets for everyone are settings: with a settings PIN, the dialog asks for it the first time, and locks again when it closes.
-    - Every browser gets sets for everyone at once. A browser using one follows changes to it, unless it has edited it.
-    - Settings → History lists the sets for everyone.
-  - A shared link carries the set's name, and the banner offers to save it as a set in that browser.
+```sh
+docker compose up -d     # then open http://localhost:8080
+```
+
+To try it without a router, run the bundled simulator from a checkout: `docker compose --profile sim up --build`.
+
+## Using it
+
+**Levels** accept `1`, `1-3`, `1,3,5-8` (or `+`), `!1` (all but 1), `1-8!3`, and words: `thru`/`t` for `-`, `not`/`n` for `!`, `and` for `,`. On a phone's number pad `.` is `,` and `..` is `-`. Blank means the default levels. With V + A numbering, `v,a1-a8` also works.
+
+**Several destinations:** press `+` (or Ctrl+Enter) after each destination instead of Tab. The takes land in history as one folder with **Undo all**.
+
+**Last take:** Ctrl+s, Ctrl+d and Ctrl+f fill Source, Destination or Levels from your last take; each box shows it as a small chip you can click.
+
+**Recent** lists every take, shared by all browsers and kept in a log. Undo restores what the router actually had before. Routes made elsewhere (panels, Companion) appear too, marked **panel**, and can be undone the same way; changes the router made without announcing them are marked **found**. Destinations that follow another (a multiviewer PiP following a DSM) are shown as **follows** of the take; undo leaves them out unless you tick the box in the confirm. Routes changed while Sode was disconnected aren't logged.
+
+**Search and filters.** Filter by Source / Destination above Recent, and the **Filters** button (`/` in keyboard mode) scope what Recent shows, per browser. Filters can be named sets, shared with everyone from Settings, or shared as a link. They use one small expression language:
 
 | Typed | Matches |
 |---|---|
 | `65` | number 65 |
 | `1-50`, `1 thru 50`, `1 to 50` | numbers 1 to 50 |
 | `PIP` | names containing PIP (any case) |
-| `'NOT USED'` | names containing that text, taken literally (for text that looks like a number, has a comma, or starts with "not"; `''` for a quote inside) |
+| `'NOT USED'` | names containing that text, taken literally (`''` for a quote inside) |
 | `"CAM 1"` | the name exactly (any case), so not CAM 10 |
 | `/^DSM\d/` | names matching the regex (any case unless flags are given) |
-| `!65`, `!PIP`, `not 'PIP'` | excludes (`not` only before a number, quote or regex, so a bare `NOT USED` is a name) |
+| `!65`, `!PIP`, `not 'PIP'` | excludes |
 
-Terms are separated by commas. A name matches if it fits any plain term and no `!` term, and only `!` terms means everything but those. So `MV, !MV 1` means every multiviewer except the ones whose names contain "MV 1".
+Terms are separated by commas. A name matches if it fits any plain term and no `!` term; only `!` terms means everything but those.
 
-**Globally hidden destinations** (Settings → History) uses the same language to hide very noisy destinations, such as a shader's monitor, from everyone's Recent. Changes to them are still recorded, and a station whose Filters include globally hidden destinations (say the EIC's) sees and can revert everything.
-
-- Single static Go binary, ~15MB distroless image
-- Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded
-- Serves plain HTTP on :8080; put it behind your own TLS proxy (e.g. Caddy)
-- Phones get a text-message style layout: type a source, Next, a destination (+ for another), Next, levels, Go, then slide to confirm. While you type, a summary of the patch stays at the top and Currently shows what's on the destination. Leave Source blank and press Next to pick the destination first. Swipe a recent take or folder left to undo. Settings → This device (each choice can also stay on **Global**, the default set for everyone in Defaults for every device) can put Destination before Source (on desktop the arrow between the boxes does the same), force the phone or desktop layout, pick a 24-hour (default), 12-hour or browser-language clock, and turn off scrolling back to the top when a box is focused.
-
-## Run
-
-Against the built-in simulator:
-
-```sh
-docker compose --profile sim up --build
-# open http://localhost:8080
-```
-
-The simulator can fake a router that never confirms some destinations, to exercise timeouts and Retry: set `SIM_IGNORE_DSTS=9,12` (0-based destination numbers) on the `swp08sim` container. `SIM_SILENT_DSTS=9,12` makes those destinations switch but send no Connected, as the Ultrix sometimes does (Sode finds out from its interrogate and counts the take as confirmed). `SIM_SLOW_DSTS=9:6000,11:8000` (dst:milliseconds) makes those destinations switch at once but deliver the Connected only after the delay, like a laggy router: a take gives up and sees the Connected arrive late. Interrogate replies stay immediate. `SIM_FOLLOWS=2>40,3>41` makes destination 40 follow 2 and 41 follow 3, like a multiviewer PiP following a DSM. `SIM_PANEL_SECONDS=5` makes it route something by itself every 5 seconds, like a panel. Every other punch goes to `SIM_PANEL_DST` (default 3), so repeated punches can be seen merging. With `SIM_PANEL_SILENT=1` those routes aren't announced, as the Ultrix sometimes doesn't announce routes, so Sode only finds them at the next tally resync and logs them as `found`.
-
-Against a real router (first start):
-
-```sh
-SODE_ROUTER=10.0.0.50:8910 docker compose up -d --build
-```
+**Globally hidden destinations** (Settings → History) uses the same language to hide noisy destinations, such as a shader's monitor, from everyone's Recent. They're still recorded.
 
 ## Settings
 
-Settings live in `/data/config.yaml` on the `sode-data` volume and are edited from the **Settings** button at the bottom of the page (a contents list beside or above the groups jumps to each one). Saving applies immediately; changes to the router, matrix, levels or name options reconnect and reload names and routes.
-
-On first start, when there is no config file yet, it is created from these seed variables. After that the file wins and the variables are ignored.
+Edited from the **Settings** button at the bottom of the page, stored in `/data/config.yaml`. Saving applies at once; changes to the router, matrix, levels or name options reconnect and re-read names and routes. When there's no config file yet, it is seeded from these variables, then the file wins:
 
 | Seed var | YAML key | Default | Meaning |
 |---|---|---|---|
@@ -81,53 +72,57 @@ On first start, when there is no config file yet, it is created from these seed 
 | `SODE_MATRIX` | `matrix` | `0` | SW-P-08 matrix (0-15 with standard name requests) |
 | `SODE_LEVEL_COUNT` | `levels` | `17` | Number of levels; 1 gets the video swatch, the rest audio |
 | `SODE_LEVEL_WIRE_OFFSET` | `levelWireOffset` | `-1` | Wire level = level + offset. `-1`: level 1 → wire 0 |
-| `SODE_DEFAULT_LEVELS` | `defaultLevels` | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file; Settings shows it in the chosen numbering |
-| `SODE_LEVEL_NUMBERING` | `levelNumbering` | `1` | How levels are shown and typed, for everyone: `1` (1-17), `0` (0-16) or `va` (V, 1-16: like `0` but level 0 shows as V, and `v` can be typed) |
+| `SODE_DEFAULT_LEVELS` | `defaultLevels` | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file |
+| `SODE_LEVEL_NUMBERING` | `levelNumbering` | `1` | How levels are shown and typed: `1` (1-17), `0` (0-16) or `va` (V, 1-16) |
 | `SODE_NAME_LEN` | `nameLength` | `12` | Name length to request: 4, 8, 12 or 16 |
 | `SODE_NAMES` | `nameRequests` | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
 | `SODE_NUM_OFFSET` | `numberOffset` | `1` | Added to router numbers for display (Ultrix shows 1-based) |
-| `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | Confirm key ignored for this long after the dialog opens |
+| `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | Confirm key ignored this long after the dialog opens |
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
-| `SODE_NAME_REFRESH_S` | `nameRefreshSeconds` | `60` | Re-read names this often (0 = off); also a button in Settings |
+| `SODE_NAME_REFRESH_S` | `nameRefreshSeconds` | `60` | Re-read names this often (0 = off) |
 | `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and protects this often (0 = off) |
-| | `routerName` | | Friendly name for the router in the status card, e.g. `Ultrix` (up to 32 characters). Settings only |
-| | `routerShow` | `address` | What the status card shows for the router: `address`, `name` (falls back to the address when no name is set) or `none`. The disconnected banner always shows the address. Settings only |
-| | `levelColors` | `[]` | Per-level `#rrggbb`, level 1 first; blank keeps the default (the Ultrix colors for 1-17, built-in swatches after). Settings only, no seed var |
-| `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your Caddy). Others are logged by peer address |
-| | `filterSets` | `[]` | Named Recent filters offered to every browser as quick buttons: `name`, `src`, `dst` (filter expressions), `sode`, `ext`, `hidden`. Settings only |
-| | `hiddenDsts` | | Filter expression (see Filters) for destinations whose changes from other panels every browser's Recent hides unless its Filters show them. Still recorded. Settings only |
-| | `deviceDefaults` | `theme: system`, `layout: auto`, `clock: "24"`, `flip: false`, `scrollTop: true`, `searchFilters: false` | What Settings → This device follows in a browser that hasn't chosen its own: theme (`system`, `light`, `dark`), layout (`auto`, `phone`, `desktop`), clock (`"24"`, `"12"`, `locale`), Destination before Source, scroll to the top on focus, search respects filters. A browser's own choice wins; **Global** in its dropdown goes back to this. Settings → Defaults for every device; applying never reconnects. Settings only |
-| `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row, from anyone, before settings lock until the PIN is reset or Sode restarts. `0` = never |
-| | `settingsPin` | | Hash of the settings PIN (set from Settings → Access). Settings only, no seed var |
+| `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your proxy) |
+| `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row before settings lock until reset or restart. `0` = never |
+
+Settings-only keys (no seed var): `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` (theme, layout, clock, flip, scrollTop, searchFilters: what a browser follows until it chooses its own under Settings → This device) and `settingsPin`.
+
+Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
 ### Settings PIN
 
-Settings → Access can set a PIN or password (4-64 characters) that is asked for every time the Settings view opens; closing it locks again. Patching itself stays open. Wrong tries count for everyone, whatever address they come from: from the 5th in a row there's a wait (30 seconds, doubling each time, up to an hour), and after `pinMaxTries` (default 10) settings stay locked until the PIN is reset or Sode restarts. Only a salted PBKDF2 hash is stored, as `settingsPin` in the config file.
+Settings → Access can set a PIN (4-64 characters) asked every time Settings opens; patching stays open. Wrong tries count for everyone: from the 5th in a row there's a wait (30 seconds, doubling, up to an hour), and after `pinMaxTries` settings stay locked until the PIN is reset or Sode restarts. Only a salted PBKDF2 hash is stored.
 
-Forgot it? Either:
+Forgot it?
 
 ```sh
 docker compose exec sode /sode -reset-pin && docker compose restart sode
 ```
 
-or delete the `settingsPin:` line from `/data/config.yaml` and restart. The running server keeps the PIN in memory, so the restart is needed either way.
+or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
-Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`) and `SODE_SENTLOG_MB` (`64`, the sent log's total size on disk), and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
+## Communication log
 
-## Sode Communication Log
-
-`/log` (**Open Log** in Settings, there even while Settings are locked) lists every message Sode wrote to the router, newest first and live: connects, interrogates, dumps, name requests and keepalives. Each row has the level, destination and source (with names as they were when it was sent), what it was for (a take, undo or retry, with the browser's address; the check before a take; a resync; a name refresh; a link check) and what the router made of it: ACK, ACK after retries, NAK, no ACK, or never sent because the link was down. It's read-only. It opens with the newest 100 entries; **Load older** reads 100 more. **From**/**To** limit it to a time range, and setting From reads the log back as far as it needs to cover the range. By default it shows connects only; the filters (kinds, problems only, source and destination expressions in Recent's filter language) are kept per browser. The log is `SODE_SENTLOG`, kept to `SODE_SENTLOG_MB` across it and one older file (`sent.1.jsonl`); without `SODE_SENTLOG` it keeps the last 20,000 messages in memory. A damaged log file doesn't stop Sode: it's renamed to `….bad-<date>` and a fresh one starts.
+`/log` (**Open Log** in Settings, available even while Settings are locked) lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. It's read-only. Kept in `SODE_SENTLOG` up to `SODE_SENTLOG_MB`; without it the last 20,000 messages stay in memory.
 
 ## Protocol notes
 
-Crosspoints always use extended commands (0x82 connect, 0x84 connected, 0x95/0x97 tally dump), so source and destination numbers can go past 1024. A take only reports success once the router sends Connected for every requested level (3s timeout). Messages queued while the router is disconnected are discarded rather than sent after reconnect.
+Crosspoints use extended commands (0x82 connect, 0x84 connected, 0x95/0x97 tally dump). A take succeeds once the router sends Connected for every requested level (3s timeout); routers send nothing for a connect that changes nothing, so Sode interrogates and counts those as "already". Protects are read with the extended protect dump (0x93 → 0x94) and takes to protected destinations are refused before anything is sent. Messages queued while disconnected are discarded. Names are polled, since the router doesn't announce renames.
 
-Protects are read with the extended protect tally dump (0x93 → 0x94). The Ultrix packs each destination as two bytes: protect state in bits 4-5 of the first, device number in the rest. Takes to a protected destination/level are refused before anything is sent.
+## Development
 
-Names refresh into a fresh list that is swapped in once replies stop, so names deleted on the router disappear. The router does not announce name changes, so this polling is the only way to see them.
+```sh
+go test ./...                                        # also run by the Dockerfile
+go run ./cmd/swp08sim                                # simulator on :8910
+SODE_ROUTER=127.0.0.1:8910 go run ./cmd/sode         # server on :8080
+node --test 'web/test/*.test.mjs'                    # browser-side tests
+```
 
-See [PLAN.md](PLAN.md) for the roadmap.
+The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_FOLLOWS`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT`); see `cmd/swp08sim`. The web UI is embedded, so restart after frontend edits.
 
 ## Releasing
 
-The version is `Version` in `internal/app/version.go` (shown at the bottom of Settings) and the `**Version:**` line at the top of this README. Bump both, then run `go test ./internal/app -run TestVersionNoted`; with `SODE_RELEASE_TAG=v<version>` set it also checks the tag you are about to push. The Docker build runs the same test.
+Bump `Version` in `internal/app/version.go` and the `**Version:**` line above, then run `go test ./internal/app -run TestVersionNoted` (with `SODE_RELEASE_TAG=v<version>` it also checks the tag).
+
+## License
+
+Public domain ([Unlicense](LICENSE)). The vendored Lucide icons keep their own license in `web/vendor/patchbay/icons/`.
