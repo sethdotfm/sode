@@ -41,8 +41,7 @@ const WHY_LABEL = {
 // ---- filters
 
 function loadFilter() {
-  let f = {};
-  f = readJSON(FILTER_KEY) || {};
+  const f = readJSON(FILTER_KEY) || {};
   return {
     kinds: Array.isArray(f.kinds) ? f.kinds.filter((k) => KINDS.some((g) => g.id === k)) : ['connect'],
     problems: !!f.problems,

@@ -51,7 +51,10 @@ export const emit = (ev, ...args) => {
 
 // Messages from the server that other modules handle: onMsg('recent', fn).
 const handlers = {};
-export const onMsg = (t, fn) => { handlers[t] = fn; };
+export const onMsg = (t, fn) => {
+  if (handlers[t]) throw new Error(`onMsg('${t}') is already handled`);
+  handlers[t] = fn;
+};
 
 // The number shown beside a source or destination is its index plus this.
 export const off = () => (S.cfg ? S.cfg.numberOffset : 0);
