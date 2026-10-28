@@ -368,6 +368,25 @@ func (a *App) planPhase(r *runtime, c *client, req takeReq) (*waiter, *Entry, er
 	return w, e, nil
 }
 
+// guardPhase pins the take to the router it started on and names its ends,
+// and returns the levels dst is protected on. If there are any, e.Prev is
+// filled from the cache, ready to record the take as failed.
+func (a *App) guardPhase(w *waiter, e *Entry) (protected []int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	w.ext = a.ext
+	e.SrcName, e.DstName = a.router.srcNames[w.src], a.router.dstNames[w.dst]
+	for _, l := range w.levels {
+		if _, ok := a.router.protect[w.dst][l.ui]; ok {
+			protected = append(protected, l.ui)
+		}
+	}
+	if len(protected) > 0 {
+		a.cachePrev(w, e)
+	}
+	return protected
+}
+
 // take routes one source to one destination on some levels: plan, read
 // what dst has now, register, send, wait, then record what the router
 // confirmed.
@@ -380,22 +399,10 @@ func (a *App) take(c *client, req takeReq) {
 		a.reply(c, res)
 		return
 	}
-	var protected []int
-	a.mu.Lock()
-	w.ext = a.ext
-	e.SrcName, e.DstName = a.router.srcNames[req.Src], a.router.dstNames[req.Dst]
-	for _, l := range w.levels {
-		if _, ok := a.router.protect[req.Dst][l.ui]; ok {
-			protected = append(protected, l.ui)
-		}
-	}
-	if len(protected) > 0 {
-		a.cachePrev(w, e)
-		a.mu.Unlock()
+	if protected := a.guardPhase(w, e); len(protected) > 0 {
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
 		return
 	}
-	a.mu.Unlock()
 
 	// Prev is what undo restores, so it comes from the router, not a cache
 	// that may have missed a change. Answers that differ are logged as found.
