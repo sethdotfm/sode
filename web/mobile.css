@@ -1,0 +1,419 @@
+/* Phone layout (sode-m__). Load after base.css and desktop.css, before history.css. */
+
+/* ---- Phone layout ----------------------------------------------------- */
+
+[data-layout="phone"] { --sode-scale: 1; }
+[data-layout="phone"] body { min-width: 0; }
+[data-layout="phone"] .sode {
+  --sode-pad-bottom: var(--pb-space-5);
+  gap: var(--pb-space-6);
+  padding: var(--pb-space-5);
+}
+/* The phone view fills the visual viewport, so on iOS the composer sits on
+   top of the keyboard. --vvh/--vvt come from mobile.js. */
+.sode-m {
+  background: var(--pb-surface-base);
+  flex-direction: column;
+  height: var(--vvh, 100dvh);
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: var(--vvt, 0);
+}
+.sode-m__head {
+  align-items: center;
+  border-bottom: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-3) var(--pb-space-5);
+  padding-top: max(var(--pb-space-3), env(safe-area-inset-top));
+}
+.sode-m__spacer { flex: 1 1 auto; }
+/* Router name or address: gives way first on a narrow screen. */
+.sode-m__addr {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-m__addr:empty { display: none; }
+/* Last result, pinned under the header so it's always in view. */
+.sode-m__down {
+  flex: 0 0 auto;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-5);
+  position: static;
+}
+.sode-m__down .sode__down-title { font-size: var(--pb-text-md); }
+.sode-m__result {
+  flex: 0 0 auto;
+  padding: var(--pb-space-3) var(--pb-space-5) 0;
+}
+.sode-m__result:empty { display: none; }
+.sode-m__mark {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+  letter-spacing: var(--pb-tracking-label);
+}
+
+/* Basis 0: the thread only gets what the composer leaves, so it gives up
+   space first when the keyboard is up. The stage holds it and the match
+   list, which floats over its bottom rather than pushing it up. */
+.sode-m__stage {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+.sode-m__thread {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--pb-space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--pb-space-5);
+}
+/* Pushes content to the bottom of the thread, nearest the composer. While
+   typing (Recent hidden) the summary sits at the top instead and stays
+   there, under the match list when that's long. */
+.sode-m__fill { flex: 1 1 auto; }
+.sode-m--typing .sode-m__fill { display: none; }
+.sode-m--typing .sode-m__sum {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.sode-m__compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+/* The patch so far: one row per step, the current one marked. Values are
+   tappable to edit; a match not yet picked shows dashed. */
+.sode-m__sum {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+}
+.sode-m__sum-row {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-4);
+  grid-template-columns: 8.5em 1fr;
+  min-height: var(--pb-control-h-lg);
+  padding: var(--pb-space-2) var(--pb-space-4);
+}
+.sode-m__sum-row + .sode-m__sum-row { border-top: var(--pb-border-w) solid var(--pb-edge-soft); }
+.sode-m__sum-row--on { background: var(--pb-accent-wash); }
+/* Each row's name on its color, as on the step label over the box. */
+.sode-m__sum-key { justify-self: start; }
+.sode-m__sum-row--src .sode-m__sum-key { background: var(--pb-source); }
+.sode-m__sum-row--dst .sode-m__sum-key { background: var(--pb-dest); }
+.sode-m__sum-vals {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode-m__sum-val {
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  font-family: inherit;
+  font-size: var(--pb-text-md);
+  max-width: 100%;
+  overflow: hidden;
+  padding: var(--pb-space-1) var(--pb-space-3);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-m__sum-val--maybe {
+  background: transparent;
+  border-style: dashed;
+  color: var(--pb-text-muted);
+}
+.sode-m__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+
+.sode-m__recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-m__recent[hidden],
+.sode-m--typing .sode-m__recent { display: none; }
+/* Typing in Recent's Filter by boxes: the composer steps aside instead. */
+.sode-m--filtering .sode-m__composer { display: none; }
+.sode-m__recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* An open folder's takes, indented under it. */
+.sode-m__recent-kids {
+  border-left: var(--pb-accent-bar-w) solid var(--pb-edge-soft);
+  padding-left: var(--pb-space-4);
+}
+.sode-m__recent-row {
+  overflow: hidden;
+  position: relative;
+}
+.sode-m__undo {
+  background: var(--pb-status-error);
+  border: 0;
+  bottom: 0;
+  color: var(--pb-text-on-accent);
+  font-family: inherit;
+  font-weight: var(--pb-weight-bold);
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 96px;
+}
+.sode-m__undo:disabled,
+.sode-m__undo.disabled {
+  background: var(--pb-surface-high);
+  color: var(--pb-text-disabled);
+}
+.sode-m__recent-face {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4) var(--pb-space-5);
+  position: relative;
+  touch-action: pan-y;
+  transition: transform var(--pb-motion-normal) var(--pb-ease);
+}
+.sode-m__recent-face--drag { transition: none; }
+.sode-m__recent-top {
+  align-items: center;
+  display: flex;
+  font-size: var(--pb-text-xs);
+  justify-content: space-between;
+}
+
+/* The composer may shrink (with the keyboard up there's little room); the
+   input bar never does, so it always stays above the keyboard. */
+.sode-m__composer {
+  background: var(--pb-surface-raised);
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.sode-m__matches {
+  background: var(--pb-surface-raised);
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  bottom: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  left: 0;
+  list-style: none;
+  margin: 0;
+  /* Five rows show, fewer if the stage is short; the rest scroll. */
+  max-height: min(calc(var(--pb-control-h-lg) * 1.4 * 5), 100%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+  position: absolute;
+  right: 0;
+  z-index: 2;
+}
+.sode-m__matches[hidden] { display: none; }
+.sode-m__match {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-size: var(--pb-text-lg);
+  gap: var(--pb-space-5);
+  min-height: calc(var(--pb-control-h-lg) * 1.4);
+  padding: 0 var(--pb-space-5);
+}
+.sode-m__match { flex: 0 0 auto; }
+/* column-reverse: a later item sits above, so its bottom edge divides them. */
+.sode-m__match + .sode-m__match { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); }
+.sode-m__match > .sode__menu-add { height: var(--pb-control-h-lg); width: var(--pb-control-h-lg); }
+.sode-m__match--hi { background: var(--pb-accent-wash); }
+.sode-m__picker {
+  align-items: center;
+  display: flex;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-3) var(--pb-space-5);
+}
+.sode-m__picker[hidden] { display: none; }
+.sode-m__sum-lvls { font-family: var(--pb-font-mono); }
+/* Two rows like the level bar, the columns sharing the width. */
+.sode-m__picks {
+  display: grid;
+  flex: 1 1 auto;
+  gap: var(--pb-space-1);
+  grid-template-columns: repeat(var(--sode-bar-cols), 1fr);
+}
+.sode-m__picks .sode__pick {
+  height: var(--pb-control-h);
+  min-width: 0;
+}
+.sode-m__picks.sode__levels--odd > .sode__pick:first-child {
+  grid-row: span 2;
+  height: auto;
+}
+.sode-m__bar {
+  align-items: center;
+  flex: 0 0 auto;
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-3);
+  grid-template-columns: 1fr auto;
+  padding: var(--pb-space-3) var(--pb-space-5) var(--pb-space-4);
+}
+/* The step's name sits on the source/destination color, so which box this
+   is reads at a glance; Cancel stays small beside it. */
+.sode-m__step,
+.sode-m__sum-key {
+  background: var(--pb-surface-high);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  letter-spacing: var(--pb-tracking-label);
+  padding: var(--pb-space-1) var(--pb-space-3);
+  text-transform: uppercase;
+}
+.sode-m__bar[data-step="src"] .sode-m__step { background: var(--pb-source); }
+.sode-m__bar[data-step="dst"] .sode-m__step { background: var(--pb-dest); }
+.sode-m__bar[data-step="src"] .sode-m__input { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode-m__bar[data-step="dst"] .sode-m__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
+.sode-m__bar-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  grid-column: 1 / -1;
+}
+.sode-m__last { display: flex; min-width: 0; }
+.sode-m__last > .sode__last { min-height: var(--pb-control-h-sm); }
+.pb-btn.sode-m__cancel {
+  border-color: var(--pb-edge);
+  margin-left: auto;
+  min-width: calc(var(--pb-control-h-lg) * 2.2); /* as wide as Next */
+}
+/* Word keys under the levels box, right above the phone's keyboard, drawn
+   as keycaps: equal widths, a heavier bottom edge. */
+.sode-m__ops {
+  display: flex;
+  gap: var(--pb-space-2);
+  grid-column: 1 / -1;
+  margin-top: var(--pb-space-3); /* set apart from the box, toward the keyboard */
+}
+.sode-m__ops[hidden] { display: none; }
+.sode-m__key {
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-bottom-width: var(--pb-accent-bar-w);
+  color: var(--pb-text-strong);
+  cursor: pointer;
+  flex: 1 1 0;
+  font-family: inherit;
+  font-size: max(16px, var(--pb-text-md));
+  height: var(--pb-control-h-lg);
+  touch-action: manipulation;
+}
+.sode-m__key:active {
+  background: var(--pb-surface-high);
+  border-bottom-width: var(--pb-border-w);
+}
+/* 16px+ text stops iOS zooming into the field on focus. */
+.pb-input.sode-m__input {
+  font-size: max(16px, var(--pb-text-lg));
+  height: calc(var(--pb-control-h-lg) * 1.4);
+}
+.pb-input.sode-m__input[hidden] { display: none; }
+.sode-m__actions {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.pb-btn.sode-m__add {
+  font-size: var(--pb-text-xl);
+  height: calc(var(--pb-control-h-lg) * 1.4);
+  min-width: calc(var(--pb-control-h-lg) * 1.4);
+}
+.pb-btn.sode-m__add[hidden] { display: none; }
+.pb-btn.sode-m__go {
+  font-size: var(--pb-text-md);
+  height: calc(var(--pb-control-h-lg) * 1.4);
+  min-width: calc(var(--pb-control-h-lg) * 2.2);
+}
+/* Next stands out against the page (light in dark mode, dark in light)
+   without the red that Go keeps for the take. */
+.pb-btn.sode-m__go:not(.pb-btn--danger) {
+  background: var(--pb-text-strong);
+  border-color: var(--pb-text-strong);
+  color: var(--pb-surface-base);
+}
+@keyframes sode-shake {
+  25% { transform: translateX(calc(var(--pb-space-2) * -1)); }
+  75% { transform: translateX(var(--pb-space-2)); }
+}
+.sode-m__shake { animation: sode-shake var(--pb-motion-normal) var(--pb-ease) 2; }
+@media (prefers-reduced-motion: reduce) {
+  .sode-m__shake { animation: none; }
+}
+
+/* Confirm sheet */
+.sode-m__scrim {
+  align-items: flex-end;
+  background: var(--pb-overlay-scrim);
+  display: flex;
+  height: var(--vvh, 100dvh);
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: var(--vvt, 0);
+  z-index: var(--pb-z-modal);
+}
+.sode-m__scrim[hidden] { display: none; }
+.sode-m__sheet {
+  background: var(--pb-surface-overlay);
+  border-top: 3px solid var(--pb-status-error);
+  box-shadow: var(--pb-shadow-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-6);
+  max-height: 90%;
+  padding: var(--pb-space-6) var(--pb-space-5);
+  padding-bottom: max(var(--pb-space-6), env(safe-area-inset-bottom));
+  width: 100%;
+}
+.sode-m__sheet-title {
+  color: var(--pb-status-error);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+}
+/* Only the body gives way when the sheet runs out of room (a long
+   multi-destination confirm); it scrolls, the slider keeps its size. */
+.sode-m__sheet > * { flex-shrink: 0; }
+.sode-m__sheet-body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}

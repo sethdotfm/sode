@@ -1,0 +1,566 @@
+/* Sode page layout. Tokens only; components come from patchbay. */
+
+/* Whole-UI scale for reading at a distance. */
+:root {
+  --sode-scale: 1.25;
+  --sode-side-w: 5px; /* source and destination color edges */
+  --sode-motion-enter: 400ms; /* a new history entry arriving */
+  --pb-font-mono: var(--pb-font); /* Plex Sans throughout, numbers too */
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --sode-motion-enter: 0ms; }
+}
+
+/* New history entries fade and slide in. */
+@keyframes sode-enter {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--pb-space-6) * -1));
+  }
+}
+.sode--enter { animation: sode-enter var(--sode-motion-enter) var(--pb-ease); }
+body { zoom: var(--sode-scale); }
+
+/* Inline code: technical terms, paths and commands in running text. */
+code,
+.pb-code,
+.sode__keys kbd {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  color: var(--pb-text);
+  padding: 0 var(--pb-space-1);
+}
+
+/* Hover tooltip from data-tip. */
+[data-tip] { position: relative; }
+.pb-btn[data-tip] { overflow: visible; } /* pb-btn clips; the tip sits outside */
+[data-tip]:hover::after {
+  background: var(--pb-surface-overlay);
+  box-shadow: var(--pb-shadow-overlay);
+  color: var(--pb-text-strong);
+  content: attr(data-tip);
+  font-size: var(--pb-text-xs);
+  padding: var(--pb-space-2) var(--pb-space-4);
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--pb-space-2));
+  white-space: nowrap;
+  z-index: var(--pb-z-tooltip);
+}
+
+/* Full text of something cut off with an ellipsis, placed by core.js. */
+.sode__cut-tip {
+  background: var(--pb-surface-overlay);
+  box-shadow: var(--pb-shadow-overlay);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xs);
+  max-width: calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2);
+  overflow-wrap: anywhere;
+  padding: var(--pb-space-2) var(--pb-space-4);
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+.sode__cut-tip[hidden] { display: none; }
+
+.sode {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-8);
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 10vh var(--pb-space-8) var(--sode-pad-bottom);
+  --sode-pad-bottom: var(--pb-space-8);
+}
+
+/* Connection status, out of the way in the top corner and above the
+   page as it scrolls. */
+.sode__conn {
+  align-items: center;
+  background: var(--pb-surface-base);
+  color: var(--pb-text-muted);
+  display: flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-2) var(--pb-space-3);
+  position: fixed;
+  right: var(--pb-space-5);
+  top: var(--pb-space-4);
+  z-index: var(--pb-z-sticky);
+}
+.sode__conn-addr { font-family: var(--pb-font-mono); }
+.sode__conn-addr--name { color: var(--pb-text); font-family: inherit; }
+/* Shortcut tip, out of the way in the bottom corner until dismissed. */
+.sode__tip {
+  align-items: center;
+  background: var(--pb-surface-base);
+  bottom: var(--pb-space-4);
+  color: var(--pb-text-muted);
+  display: flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-3);
+  left: var(--pb-space-5);
+  padding: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) var(--pb-space-3);
+  position: fixed;
+  z-index: var(--pb-z-sticky);
+}
+/* A lost link: a solid red banner pinned to the top that says which link
+   is down, the corner status gives way to it, and a thick pulsing red
+   outline round the whole window. */
+.sode__down {
+  background: var(--pb-status-error);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-7) var(--pb-space-8);
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: var(--pb-z-sticky);
+}
+.sode__down-title {
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__down code {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+}
+.sode__down-map {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-weight: var(--pb-weight-medium);
+  gap: var(--pb-space-3);
+}
+.sode__down-node {
+  border: var(--pb-border-w) solid currentColor;
+  padding: var(--pb-space-1) var(--pb-space-4);
+}
+.sode__down-link {
+  align-items: center;
+  display: flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-3);
+}
+.sode__down-link::before,
+.sode__down-link::after {
+  border-top: var(--pb-border-w) solid currentColor;
+  content: "";
+  width: var(--pb-space-8);
+}
+.sode__down-link--lost { font-weight: var(--pb-weight-bold); }
+.sode__down-link--lost::before,
+.sode__down-link--lost::after { border-top: calc(var(--pb-border-w) * 2) dashed currentColor; }
+[data-conn="down"] .sode__conn { display: none; }
+/* The outline is its own element so it can pulse with patchbay's
+   .pb-dot--pulse (which also stops under reduced motion). */
+.sode__frame {
+  border: var(--pb-space-3) solid var(--pb-status-error);
+  display: none;
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+[data-conn="down"] .sode__frame { display: block; }
+.sode__label {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  letter-spacing: var(--pb-tracking-label);
+  text-transform: uppercase;
+}
+/* A level toggle (picker) or slot (level bar): filled when on, outlined in
+   its signal color when off. Shared so both read the same. */
+.sode__pick,
+.sode__slot {
+  align-items: center;
+  background: transparent;
+  border: var(--pb-accent-bar-w) solid var(--sode-c);
+  color: var(--pb-text);
+  display: inline-flex;
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+  height: calc(var(--pb-space-8) + var(--pb-space-1));
+  justify-content: center;
+  min-width: calc(var(--pb-space-8) + var(--pb-space-1));
+  padding: 0;
+}
+.sode__pick { cursor: pointer; }
+.sode__pick[aria-pressed="true"],
+.sode__slot--on {
+  background: var(--sode-c);
+  color: var(--sode-ink, var(--pb-text-on-accent));
+}
+
+.sode__result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  width: 100%;
+}
+.sode__route {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-4);
+}
+.sode__end {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  padding: var(--pb-space-2) var(--pb-space-4);
+}
+.sode__end--src { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode__end--dst { border-left: var(--sode-side-w) solid var(--pb-dest); }
+.sode__arrow { color: var(--pb-text-muted); }
+
+.sode__scrim {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: var(--pb-space-8);
+  position: fixed;
+  z-index: var(--pb-z-modal);
+}
+.sode__scrim[hidden] { display: none; }
+/* Dialogs size to their content but never past the window. vh/vw are
+   divided by the page zoom, which scales them too. */
+.sode__scrim > .pb-modal {
+  max-height: calc(100vh / var(--sode-scale) - var(--pb-space-8) * 2);
+  max-width: calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2);
+  min-width: min(600px, calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2));
+  width: max-content;
+}
+
+.sode__confirm {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-md);
+  gap: var(--pb-space-5);
+}
+.sode__prompt {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+/* An inverted keycap: maximum contrast in either theme. */
+.sode__key {
+  background: var(--pb-text-strong);
+  border: var(--pb-border-w) solid var(--pb-text-strong);
+  color: var(--pb-surface-base);
+  font-family: var(--pb-font-mono);
+  font-size: calc(var(--pb-text-xl) * 1.5);
+  font-weight: var(--pb-weight-bold);
+  line-height: 1.2;
+  padding: 0 var(--pb-space-5);
+}
+.sode__key--locked {
+  background: transparent;
+  border-color: var(--pb-edge);
+  color: var(--pb-text-disabled);
+}
+
+/* Level bar: every level, filled = in use, in two rows of small slots
+   with an odd first level (0 or V) on its own to their left. A thick
+   outline reads as filled at this size, so every slot gets the thin one;
+   a fixed width keeps two-digit slots from growing when filled. */
+.sode__bar {
+  display: grid;
+  flex: 0 0 auto;
+  gap: var(--pb-space-1);
+  grid-template-columns: repeat(var(--sode-bar-cols), auto);
+  justify-content: start;
+}
+.sode__bar--odd > .sode__slot:first-child {
+  grid-row: span 2;
+  height: auto;
+}
+.sode__bar > .sode__slot {
+  border-width: var(--pb-border-w);
+  font-size: var(--pb-text-2xs);
+  height: var(--pb-space-7);
+  min-width: 0;
+  width: var(--pb-space-7);
+}
+.sode__bar > .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
+
+.sode__view {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-8);
+  width: 100%;
+}
+/* Which view shows: settings over everything; otherwise the layout's own. */
+#settings-view,
+.sode-m { display: none; }
+[data-view="settings"] #settings-view { display: flex; }
+[data-view="settings"] #patch-view,
+[data-view="settings"] .sode-m { display: none; }
+[data-layout="phone"] #patch-view,
+[data-layout="phone"] .sode__conn,
+[data-layout="phone"] .sode__tip,
+[data-view="settings"] .sode__tip,
+[data-layout="phone"] #conn-down { display: none; }
+[data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
+
+/* Settings: one plain column, labels above fields, the page scrolls.
+   Sections sit well apart from each other, further than the fields inside
+   them. */
+.sode__settings {
+  align-items: stretch;
+  gap: calc(var(--pb-space-10) + var(--pb-space-5));
+  max-width: 640px;
+}
+/* The table of contents: a strip across the top, held there as the page
+   scrolls, and beside the column where there's room. The phone layout has
+   Back and a short page of its own, so it goes without. */
+.sode__toc {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2); }
+[data-layout="phone"] .sode__toc { display: none; }
+@media (min-width: 1100px) {
+  .sode__toc {
+    border-bottom: 0;
+    flex-direction: column;
+    left: calc(50% - 320px - 200px - var(--pb-space-8));
+    overflow-x: hidden;
+    position: fixed;
+    top: 10vh;
+    width: 200px;
+  }
+  .sode__toc .pb-tab { text-align: left; }
+  .sode__settings > .sode__group { scroll-margin-top: var(--pb-space-10); }
+}
+.sode__settings-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+/* Back to the composer, on a phone (desktop has Cancel in reach). */
+.pb-btn.sode__back { margin-left: calc(var(--pb-space-4) * -1); }
+[data-layout="desktop"] .sode__back { display: none; }
+/* Phone: Back on the left, the title centered on the page. */
+[data-layout="phone"] .sode__settings-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+}
+[data-layout="phone"] .sode__back { justify-self: start; }
+.sode__settings-title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+.sode__group {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+/* Section header: a rule across the column with the name under it. */
+.sode__group > legend {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  margin-bottom: var(--pb-space-3);
+  padding: var(--pb-space-5) 0 0;
+  width: 100%;
+}
+/* Locked by a settings PIN: only the prompt and this browser's own
+   options show until it's entered. */
+.sode__lock { display: none; }
+.sode__settings[data-locked] > .sode__lock { display: flex; }
+.sode__lock-exit { display: none; }
+.sode__settings[data-locked] > .sode__lock-exit { align-items: center; display: flex; gap: var(--pb-space-5); justify-content: space-between; }
+.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__open-log, .sode__lock-exit) { display: none; }
+/* This device first, then the prompt: it's the part anyone can change. */
+.sode__settings[data-locked] > .sode__settings-head { order: -2; }
+.sode__settings[data-locked] > .sode__device { order: -1; }
+.sode__settings[data-locked] > .sode__open-log { order: 1; } /* after the lock */
+.sode__settings[data-locked] > .sode__lock-exit { order: 2; } /* last of all */
+.sode__settings[data-locked] > .sode__lock {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  padding-top: var(--pb-space-5);
+}
+.sode__field > .pb-btn-group { align-self: flex-start; flex-wrap: wrap; }
+.sode__fields {
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.sode__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode__field > label,
+.sode__field-label { color: var(--pb-text); font-weight: var(--pb-weight-medium); }
+.sode__field .pb-input,
+.sode__field .pb-select,
+.sode__field .pb-number-wrap,
+.sode__field .pb-select-wrap { width: 100%; }
+/* Level colors: one row per level, its slot as a live preview. */
+.sode__colors {
+  display: grid;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.sode__color {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__color .pb-input { flex: 1 1 auto; font-family: var(--pb-font-mono); min-width: 0; }
+.sode__hint {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+}
+.sode__names {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-5);
+  justify-content: space-between;
+}
+.sode__savebar {
+  background: var(--pb-surface-base);
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  /* Down over the page's bottom padding, so no gap shows under the bar at
+     the end of the page; the safe area keeps it clear of the iOS home bar. */
+  margin-bottom: calc(-1 * var(--sode-pad-bottom));
+  padding: var(--pb-space-5) 0 calc(var(--pb-space-5) + env(safe-area-inset-bottom));
+  position: sticky;
+}
+.sode__savebar-row {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-5);
+  justify-content: space-between;
+}
+/* Save, Filters' Done and the PIN Unlock buttons are green (the ok status color), set
+   apart from the red of discarding unsaved changes. */
+.sode__save {
+  background-color: var(--pb-status-ok);
+  color: var(--pb-text-on-accent);
+}
+.sode__save:hover { background-color: color-mix(in srgb, var(--pb-status-ok) 85%, black); }
+
+/* Slide to confirm */
+.sode__slide {
+  --slide: 0px;
+  align-items: center;
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  height: calc(var(--pb-control-h-lg) * 1.6);
+  justify-content: center;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+/* The trail behind the handle. */
+.sode__slide::before {
+  background: color-mix(in srgb, var(--pb-status-error) 30%, transparent);
+  bottom: 0;
+  content: "";
+  left: 0;
+  position: absolute;
+  top: 0;
+  transition: width var(--pb-motion-normal) var(--pb-ease);
+  width: var(--slide);
+}
+.sode__slide-label {
+  color: var(--pb-text-muted);
+  font-weight: var(--pb-weight-medium);
+  letter-spacing: var(--pb-tracking-label);
+  position: relative;
+  text-transform: uppercase;
+}
+.sode__slide-handle {
+  align-items: center;
+  background: var(--pb-status-error);
+  bottom: 0;
+  color: var(--pb-text-on-accent);
+  cursor: grab;
+  display: flex;
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+  justify-content: center;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transition: transform var(--pb-motion-normal) var(--pb-ease);
+  width: calc(var(--pb-control-h-lg) * 1.6);
+}
+.sode__slide--drag .sode__slide-handle,
+.sode__slide--drag::before { transition: none; }
+.sode__slide--locked .sode__slide-handle {
+  background: var(--pb-surface-high);
+  color: var(--pb-text-disabled);
+  cursor: not-allowed;
+}
+
+/* Shortcut list: key on the left, what it does on the right. One grid
+   for both sections (the lists dissolve into it), so the key column is as
+   wide as the widest key in either. */
+.sode__lock-help { max-width: 60ch; }
+.sode__lock-help > p { margin: 0 0 var(--pb-space-3); }
+.sode__lock-help > pre { margin: 0 0 var(--pb-space-5); user-select: all; }
+
+/* A patch box's label, with the last take's value as a chip at its right. */
+.sode__box-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  justify-content: space-between;
+  min-height: var(--pb-control-h-sm);
+  min-width: 0;
+}
+.sode__box-head > [data-last] { display: flex; min-width: 0; }
+.pb-chip.sode__last {
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-2);
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 var(--pb-space-2);
+}
+.sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sode__last > .sode__key-note { position: static; transform: none; }
+
+/* A source or destination's number, muted and fixed-width before its name. */
+.sode__lbl-n {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  font-weight: var(--pb-weight-normal);
+}
+
+
+/* Rows that open and close when clicked anywhere (clickToToggle); their
+   open panels don't. */
+.sode--tap { cursor: pointer; }
+.sode--tap .sode__hist-before,
+.sode--tap .sode__hist-folder,
+.sode--tap .sode-m__changes { cursor: auto; }

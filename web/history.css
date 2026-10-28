@@ -1,0 +1,523 @@
+/* Recent (history list, folders, filters, sets, quick search) in both layouts, with the keyed boxes and shortcut list that keep their original order against it. Load after mobile.css. */
+
+.sode__history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  width: 100%;
+}
+/* One grid for the whole list: every row (and every take inside a folder)
+   is a subgrid of it, so id, time, levels, status, Before and the buttons
+   line up down the page, and a column grows when one row needs it to
+   (e.g. ids passing #999). Columns: id, time, levels, route, status,
+   Before, actions. */
+.sode__hist {
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-6);
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* The Before lines underneath line their level bars up with this row's
+   bar (column 3) the same way. */
+.pb-input.sode__hist-row {
+  align-items: center;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  height: auto;
+  min-height: var(--pb-control-h-lg);
+  overflow: visible;
+  row-gap: var(--pb-space-3);
+}
+.sode__hist-time {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  justify-self: end;
+  white-space: nowrap;
+}
+.sode__hist-toggle { gap: var(--pb-space-2); justify-self: start; }
+.sode__placeholder { visibility: hidden; }
+.sode__hist-row > .pb-status { justify-self: start; }
+.sode__hist-actions {
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: flex-end;
+}
+.sode-m__recent-status {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-4);
+}
+/* Each change on two lines, so the name gets the width: time, name and
+   Restore, then the bar under the name. The steps share the list's columns
+   (subgrid), so every time takes the same width. A name too long is cut
+   short rather than wrapped. */
+.sode-m__changes {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.sode-m__changes > .sode__step {
+  align-items: center;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-areas: "time name btn" ". bar bar";
+  grid-template-columns: subgrid;
+}
+.sode-m__changes > .sode__step + .sode__step { margin-top: var(--pb-space-2); }
+.sode-m__changes .sode__step-time {
+  font-size: var(--pb-text-xs); /* as the row's time */
+  grid-area: time;
+}
+.sode-m__changes .sode__bar { grid-area: bar; }
+.sode-m__changes .sode__step-what { grid-area: name; }
+.sode-m__changes .sode__end {
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-m__changes .sode__step > .pb-btn { grid-area: btn; }
+/* A folder: one confirm's takes, listed under a summary row and inside
+   its border. Being a subgrid, a take's columns still line up with the
+   folder's; an accent bar on the left marks them as members. */
+.sode__hist-folder {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 var(--pb-space-2);
+  row-gap: var(--pb-space-2);
+}
+/* Keyboard mode (--keys, set only from the keyboard): the list has focus
+   and its cursor row gets the input focus treatment (accent border,
+   doubled) in place of a ring round the whole list. */
+.sode__hist:focus-visible { outline: none; }
+.sode__hist--keys:focus .sode__hist-row--cur {
+  border-color: var(--pb-accent);
+  box-shadow: 0 0 0 var(--pb-border-w) var(--pb-accent);
+}
+.sode__hist--keys:focus .sode__hist-folder > .sode__hist-row--cur {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge), 0 0 0 var(--pb-border-w) var(--pb-accent);
+}
+.sode__hist-folder > .sode__hist-row {
+  box-shadow: inset var(--pb-accent-bar-w) 0 0 var(--pb-edge);
+  min-height: var(--pb-control-h-lg);
+}
+/* Each destination's part of a multi-destination confirm: a boxed block
+   headed by the destination, new routes first, what they replace below a
+   rule and muted. */
+.sode__plan-item {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-left: var(--sode-side-w) solid var(--pb-dest);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4) var(--pb-space-5);
+}
+.sode__plan-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-4);
+}
+.sode__plan-n {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-xs);
+}
+.sode__plan-before {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding-top: var(--pb-space-3);
+}
+.sode__plan-item .sode__plan-before .sode__end { color: var(--pb-text-muted); }
+.sode__hist-before {
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: grid;
+  gap: var(--pb-space-3) var(--pb-space-6);
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  padding: var(--pb-space-4) 0 var(--pb-space-3);
+}
+/* Heading starts in the levels column; each source line puts its bar in
+   the levels column and its source under the route. */
+.sode__hist-before > .sode__label { grid-column: 3 / -1; }
+.sode__hist-before > .sode__route { display: contents; }
+.sode__hist-before .sode__bar { grid-column: 3; }
+.sode__hist-before .sode__end { grid-column: 4 / -1; justify-self: start; }
+/* A stacked row's timeline: each change's time under the row's time (not
+   its date), its bar in the levels column and Restore with the row's
+   buttons. */
+.sode__step-time {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  white-space: nowrap;
+}
+.sode__hist-before .sode__step-time { align-self: center; grid-column: 2; justify-self: end; }
+/* A change's source, then its follows; a non-take's follows line up with
+   the sources. */
+.sode__step-what,
+.sode__follows {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-3);
+  min-width: 0;
+}
+.sode__hist-before .sode__step-what { grid-column: 4 / -2; }
+.sode__hist-before > .sode__route > .sode__follows { grid-column: 4 / -1; }
+.sode__hist-before .sode__step > .pb-btn { grid-column: -2; justify-self: end; }
+.sode__hist-id {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  min-width: 5ch;
+  text-align: right;
+  white-space: nowrap;
+}
+.pb-btn.sode__patch {
+  font-size: var(--pb-text-lg);
+  height: calc(var(--pb-control-h-lg) * 1.6);
+  padding: 0 var(--pb-space-8);
+}
+.sode__hist-route {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode__hist-route--boxes {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__hist-route--boxes > .sode__end {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  padding-bottom: var(--pb-space-1);
+  padding-top: var(--pb-space-1);
+  text-overflow: ellipsis;
+}
+/* A box that fills a patch box when clicked. */
+.sode__end--pick {
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+.sode__end--pick:hover { background: var(--pb-surface-hover); }
+.sode__hist-route--boxes > .sode__hist-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sode__hist-note { color: var(--pb-text-muted); }
+/* Below 1000px from → to always gets the room: a row's status is its
+   color alone (the text on hover, and still read out), and its level bar
+   moves into the Before panel. A group's takes each have their own. */
+.sode__hist-levels { display: none; }
+@media (max-width: 999.98px) {
+  .sode__hist-row > .sode__bar { display: none; }
+  .sode__hist-time > .sode__date { display: none; }
+  .sode__hist-time { --sode-hint: on; }
+  .sode__hist-row > .pb-status { --sode-hint: on; }
+  .sode__hist-row > .pb-status > .sode__status-text {
+    clip: rect(0, 0, 0, 0);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+  /* Stacked rather than in the list's columns, so an open panel's bars
+     don't widen the levels column for every row. */
+  .sode__hist-before { display: flex; flex-direction: column; }
+  .sode__hist-before > .sode__route { display: flex; }
+  .sode__hist-levels {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pb-space-3);
+  }
+}
+/* Trying out: tiny unnumbered slots stay in the row instead (the level on
+   hover), and the Before panel goes back to not repeating them. */
+@media (max-width: 999.98px) {
+  .sode__hist-row > .sode__bar { display: grid; }
+  .sode__hist-row > .sode__bar > .sode__slot {
+    --sode-hint: on;
+    font-size: 0;
+    height: var(--pb-space-4);
+    width: var(--pb-space-4);
+  }
+  .sode__hist-row > .sode__bar--odd > .sode__slot:first-child { height: auto; }
+  .sode__hist-levels { display: none; }
+}
+.sode__hist-more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--pb-space-3);
+}
+.sode-m__recent-more {
+  display: flex;
+  justify-content: center;
+}
+/* Load more fills as the list is pulled on past its end (pullToLoad). */
+.sode__hist-more > .pb-btn,
+.sode-m__recent-more > .pb-btn {
+  background-image: linear-gradient(to right, var(--pb-surface-hover) calc(var(--sode-pull, 0) * 100%), transparent 0);
+}
+.sode-m__recent-more:empty,
+.sode__hist-more:empty { display: none; }
+.sode__keys {
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-6);
+  grid-template-columns: auto 1fr;
+}
+.sode__keys > .sode__label,
+.sode__keys > .sode__keys-note { grid-column: 1 / -1; }
+.sode__keys > .sode__label + dl > dt:first-child,
+.sode__keys > .sode__label + dl > dt:first-child + dd,
+.sode__keys > .sode__keys-note + dl > dt:first-child,
+.sode__keys > .sode__keys-note + dl > dt:first-child + dd { margin-top: var(--pb-space-2); }
+.sode__keys-note { color: var(--pb-text-muted); margin: 0; max-width: 60ch; }
+.sode__keys > dl + .sode__label { margin-top: var(--pb-space-6); }
+.sode__keys dl { display: contents; }
+.sode__keys dt { font-weight: var(--pb-weight-normal); }
+.sode__keys dd { margin: 0; }
+
+/* ---- Recent filters */
+.sode__recent-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+.sode__recent-head[hidden] { display: none; }
+/* Active filters: the button's text turns the info color (its text says how many). */
+.sode__filters-btn--on { color: var(--pb-status-info); font-weight: var(--pb-weight-medium); }
+.sode__code { font-family: var(--pb-font-mono); }
+.sode__scrim > .sode__filters { width: 640px; }
+.sode__filters .pb-modal__header { gap: var(--pb-space-3); flex-wrap: wrap; }
+.sode__filters-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+}
+.sode__filters-show {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  margin: 0;
+  padding: 0;
+}
+.sode__filters-show > legend { margin-bottom: var(--pb-space-2); padding: 0; }
+.sode__filters-indent { margin-left: var(--pb-space-6); }
+.sode__filters-mode {
+  align-items: center;
+  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  padding-top: var(--pb-space-4);
+}
+.sode__filters-ed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode__filters-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode__filters-rule {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-2);
+  grid-template-columns: 7.5em 12em 1fr auto;
+}
+.sode__filters-vals {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode__filters-vals > .pb-input { flex: 1 1 0; min-width: 0; }
+.sode__filters-preview { overflow-wrap: anywhere; }
+.sode__filters-share {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode__filters-share > .pb-input { flex: 1; min-width: 0; }
+.sode__filters-empty {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+/* Phones: the dialog fills the width and rule rows stack in two lines. */
+@media (max-width: 599.98px) {
+  .sode__scrim:has(> .sode__filters) { padding: var(--pb-space-3); }
+  .sode__scrim > .sode__filters { min-width: 0; width: 100%; }
+  .sode__filters-rule { grid-template-columns: 1fr 1fr auto; }
+  .sode__filters-vals { grid-column: 1 / -1; grid-row: 2; }
+}
+.sode__filters .pb-modal__footer { gap: var(--pb-space-3); justify-content: flex-end; }
+.sode__filters .pb-modal__footer > :first-child { margin-right: auto; }
+
+/* Filter sets: quick buttons in Recent's header, the set bar in the
+   dialog, and the list for everyone in Settings. */
+.sode__recent-head > .sode__label { flex: none; }
+.sode__sets {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+  justify-content: flex-end;
+  min-width: 0;
+}
+.sode__set { font-size: var(--pb-text-xs); padding: var(--pb-space-1) var(--pb-space-3); }
+.sode__filters-sets {
+  border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  padding-bottom: var(--pb-space-4);
+}
+.sode__filters-set {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+.sode__filters-set[hidden] { display: none; }
+.sode__filters-set > .pb-select-wrap { flex: 1 1 12em; }
+.sode__filters-set > .pb-select-wrap > .pb-select { width: 100%; }
+.sode__filters-set > .pb-input { flex: 1 1 12em; min-width: 0; }
+.sode__gsets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Phones: the quick buttons scroll sideways in one line under the title. */
+@media (max-width: 599.98px) {
+  .sode-m__recent .sode__recent-head { flex-wrap: wrap; }
+  .sode-m__recent .sode__sets {
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    order: 3;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sode-m__recent .sode__set,
+  .sode-m__recent .sode__sets-sep { flex: none; }
+  .sode-m__recent .sode__sets-group { flex: none; flex-wrap: nowrap; }
+}
+.sode__sets-group { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
+.sode__sets-sep { align-self: center; color: var(--pb-text-muted); padding: 0 var(--pb-space-1); }
+.sode__gset {
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: minmax(8em, auto) 1fr;
+}
+.sode__gset > .sode__hint { overflow-wrap: anywhere; }
+.sode__filters-set > .sode__filters-scope { flex: 0 0 12em; }
+.sode__filters-set > .sode__filters-scope[hidden] { display: none; }
+.sode__filters-sets .sode__error-text { color: var(--pb-status-error); }
+
+/* Quick search above Recent: kept quiet. Small boxes with only a faint
+   underline until hovered, focused or filled. */
+.sode__search {
+  align-items: flex-start; /* boxes stay lined up when one has picks */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1) var(--pb-space-3);
+}
+.sode__search[hidden] { display: none; }
+.sode__search > .sode__hint:empty { display: none; }
+.sode__search-box {
+  --sode-search-h: var(--pb-control-h-sm);
+  display: flex;
+  flex: 0 1 15em;
+  min-width: 0;
+  position: relative;
+}
+.sode__search-box > .pb-input {
+  background: transparent;
+  border-color: transparent transparent var(--pb-edge-soft);
+  flex: 1;
+  font-size: var(--pb-text-sm);
+  height: var(--sode-search-h);
+  min-width: 0;
+}
+.sode__search-box > .pb-input:hover,
+.sode__search-box > .pb-input:focus,
+.sode__search-box > .pb-input:not(:placeholder-shown) {
+  background: var(--pb-surface-control);
+  border-color: var(--pb-edge);
+}
+.sode__search-box > .pb-input.pb-input--invalid { border-color: var(--pb-status-error); }
+.sode__search-box > .sode__menu {
+  top: var(--sode-search-h); /* hangs off the box, over any picks */
+  z-index: var(--pb-z-dropdown);
+}
+@media (max-width: 599.98px) {
+  .sode__search-box { flex: 1 1 8em; }
+}
+/* A box's keyboard-mode key, small at its right while it's empty and not
+   focused: the patch boxes (.sode__keyed) and the filter boxes. */
+.sode__keyed {
+  display: flex;
+  min-width: 0;
+  position: relative;
+}
+.sode__keyed > .pb-input { flex: 1; min-width: 0; }
+.sode__key-note {
+  background: none;
+  border: 0;
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-mono);
+  font-size: var(--pb-text-2xs);
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  right: var(--pb-space-2);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.sode__keyed > .sode__key-note { font-size: var(--pb-text-xs); right: var(--pb-space-3); }
+:is(.sode__keyed, .sode__search-box):has(> .sode__key-note) > .pb-input { padding-right: 3em; }
+:is(.sode__keyed, .sode__search-box) > .pb-input:focus ~ .sode__key-note,
+:is(.sode__keyed, .sode__search-box) > .pb-input:not(:placeholder-shown) ~ .sode__key-note { display: none; }
+/* Holding the default levels counts as empty (focus still hides it). */
+.sode__keyed.sode__keyed--default > .pb-input:not(:focus) ~ .sode__key-note { display: inline; }
+/* Picks in a filter box, on their own line under it. */
+.sode__search-box { flex-wrap: wrap; }
+.sode__search-chips {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  order: 1;
+}
+.sode__search-chips:empty { display: none; }
+.sode__search-box > .sode__key-note { top: calc(var(--sode-search-h) / 2); }
+.pb-chip.sode__search-chip {
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+  margin: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) 0;
+  padding: 0 var(--pb-space-1) 0 var(--pb-space-2);
+}

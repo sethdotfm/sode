@@ -276,7 +276,7 @@ function histRow(e) {
         : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src)))]),
       ...failureRows(e),
       ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
-    // Below 1000px the row's level bar moves in here (see sode.css).
+    // Below 1000px the row's level bar moves in here (see history.css).
     detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
     row.append(detail);
