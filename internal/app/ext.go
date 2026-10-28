@@ -41,31 +41,6 @@ const (
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 
-// cause is one of our takes, which changes elsewhere may follow (id -1
-// until it's recorded).
-type cause struct {
-	src, dst    int
-	first, last time.Time // its changes as the router reported them; zero = none yet
-	sent        time.Time // when its connects had gone out; zero while they're queued
-	id          int
-	done        bool   // recorded
-	group       string // history group of the multi-take confirm it belongs to, "" if alone
-}
-
-// saw notes one of the take's changes. Caller holds mu.
-func (c *cause) saw(t time.Time) {
-	if c.first.IsZero() {
-		c.first = t
-	}
-	c.last = t
-}
-
-// leads reports whether a change of src to dst at t looks like a follow of c.
-func (c *cause) leads(src, dst int, t time.Time) bool {
-	return c.done && c.id >= 0 && !c.first.IsZero() && c.src == src && c.dst != dst &&
-		!t.Before(c.first.Add(-followBefore)) && !t.After(c.last.Add(followAfter))
-}
-
 // extTracker is the state behind routes changed elsewhere: the burst being
 // collected, our takes' connects (own), the takes changes may follow
 // (causes, leaders) and takes that gave up and may yet be answered
@@ -74,10 +49,9 @@ func (c *cause) leads(src, dst int, t time.Time) bool {
 // and touches nothing of the new router's. Guarded by App.mu; its methods
 // expect the caller to hold it.
 type extTracker struct {
-	burst                 // the burst being collected
-	ownership             // our takes' connects, and the routes of takes that gave up
-	causes    []*cause    // recent takes that changes elsewhere may follow
-	leaders   map[int]int // dst → the dst it was last seen following
+	burst     // the burst being collected
+	ownership // our takes' connects, and the routes of takes that gave up
+	follows   // our takes that changes elsewhere may follow
 }
 
 func newExtTracker() *extTracker {
@@ -88,7 +62,7 @@ func newExtTracker() *extTracker {
 			late:     map[ownKey]time.Time{},
 			lateTake: map[ownKey][]lateTake{},
 		},
-		leaders: map[int]int{},
+		follows: follows{leaders: map[int]int{}},
 	}
 }
 
@@ -137,20 +111,13 @@ func (a *App) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
 // (ok), with when it began.
 func (x *extTracker) flush(now time.Time) (changes map[int]map[int]*extLevel, first time.Time, ok bool) {
 	x.ownership.expire(now)
-	keep := x.causes[:0]
-	for _, c := range x.causes {
-		if !c.done || (!c.last.IsZero() && now.Sub(c.last) < causeKeep) {
-			keep = append(keep, c)
-		}
-	}
-	clear(x.causes[len(keep):])
-	x.causes = keep
-	return x.burst.flush(now, x.awaitsTake)
+	x.follows.expire(now)
+	return x.burst.flush(now, x.follows.awaitsTake)
 }
 
 // entries turns a burst into history entries; see burst.entries.
 func (x *extTracker) entries(name func(dst bool, n int) string, changes map[int]map[int]*extLevel, at time.Time) []*Entry {
-	return x.burst.entries(name, changes, at, x.followed)
+	return x.burst.entries(name, changes, at, x.follows.followed)
 }
 
 // flushFound writes the changes found on dst now, ahead of the rest of
@@ -175,55 +142,4 @@ func (a *App) flushFound(dst int) {
 	for _, e := range es {
 		a.record(e)
 	}
-}
-
-// awaitsTake reports whether a pending change may follow one of our
-// takes still waiting for the router. Caller holds mu.
-func (x *extTracker) awaitsTake(pending map[int]map[int]*extLevel) bool {
-	for _, c := range x.causes {
-		if c.done || c.sent.IsZero() {
-			continue
-		}
-		for dst, ls := range pending {
-			for _, l := range ls {
-				// A change before the connects went out can't follow them.
-				if !l.found && l.src == c.src && dst != c.dst && !l.first.Before(c.sent.Add(-followBefore)) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-// followed is the take of ours a change of src to dst at t seems to
-// follow, or nil. A salvo of one source leaves several that fit, and
-// timing can't tell them apart; a destination follows the same one each
-// time (a PiP its DSM), so when only one fits it's remembered, and a
-// salvo goes by that. Failing that, the take whose last change came
-// latest. Caller holds mu.
-func (x *extTracker) followed(src, dst int, t time.Time) *cause {
-	var fits []*cause
-	for _, c := range x.causes {
-		if c.leads(src, dst, t) {
-			fits = append(fits, c)
-		}
-	}
-	switch len(fits) {
-	case 0:
-		return nil
-	case 1:
-		x.leaders[dst] = fits[0].dst
-		return fits[0]
-	}
-	best := fits[0]
-	for _, c := range fits {
-		if lead, ok := x.leaders[dst]; ok && c.dst == lead {
-			return c
-		}
-		if c.last.After(best.last) {
-			best = c
-		}
-	}
-	return best
 }
