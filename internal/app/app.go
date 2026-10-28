@@ -292,42 +292,7 @@ func (a *App) onRouterMsg(msg []byte) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, xp := range ev.Crosspoints {
-		if xp.Matrix != r.cfg.Matrix {
-			continue
-		}
-		l, ok := r.byWire[xp.Level]
-		if !ok {
-			continue
-		}
-		if xp.Src == 0xFFFF { // router's "nothing routed"
-			xp.Src = -1
-		}
-		a.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
-		t := a.router.tally[xp.Dst]
-		if t == nil {
-			t = map[int]int{}
-			a.router.tally[xp.Dst] = t
-		}
-		if old, ok := t[l.UI]; !ok || old != xp.Src {
-			t[l.UI] = xp.Src
-			a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
-			// A changed route the router didn't announce shows up in a
-			// dump or an interrogate: noted too, unless it's ours.
-			// A tally of a route a take gave up on confirms it after all.
-			if !xp.Changed() && a.claimLate(ownKey{xp.Dst, xp.Level, xp.Src}, l.UI) {
-				// ours: the entry is amended by flushLate
-			} else if xp.Changed() || (ok && !a.awaited(xp)) {
-				a.noteExt(xp, l.UI, old, ok)
-			}
-		}
-		for w := range a.waiters {
-			if w.see(xp) && xp.Changed() {
-				w.cause.saw(time.Now())
-			}
-		}
-		for c := range a.checks {
-			c.see(xp)
-		}
+		a.applyTally(r, xp)
 	}
 	for _, p := range ev.Protects {
 		if p.Matrix != r.cfg.Matrix {
@@ -378,6 +343,48 @@ func (a *App) onRouterMsg(msg []byte) {
 		if a.router.newSrc == nil {
 			a.namesDirt = true
 		}
+	}
+}
+
+// applyTally takes one crosspoint (a Connected or a tally) from the router
+// into the cache, notes it if it is a change made elsewhere, and lets the
+// takes in flight see it. Caller holds mu.
+func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
+	if xp.Matrix != r.cfg.Matrix {
+		return
+	}
+	l, ok := r.byWire[xp.Level]
+	if !ok {
+		return
+	}
+	if xp.Src == 0xFFFF { // router's "nothing routed"
+		xp.Src = -1
+	}
+	a.router.seenAt[[2]int{xp.Dst, l.UI}] = time.Now()
+	t := a.router.tally[xp.Dst]
+	if t == nil {
+		t = map[int]int{}
+		a.router.tally[xp.Dst] = t
+	}
+	if old, known := t[l.UI]; !known || old != xp.Src {
+		t[l.UI] = xp.Src
+		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
+		// A changed route the router didn't announce shows up in a
+		// dump or an interrogate: noted too, unless it's ours.
+		// A tally of a route a take gave up on confirms it after all.
+		if !xp.Changed() && a.claimLate(ownKey{xp.Dst, xp.Level, xp.Src}, l.UI) {
+			// ours: the entry is amended by flushLate
+		} else if xp.Changed() || (known && !a.awaited(xp)) {
+			a.noteExt(xp, l.UI, old, known)
+		}
+	}
+	for w := range a.waiters {
+		if w.see(xp) && xp.Changed() {
+			w.cause.saw(time.Now())
+		}
+	}
+	for c := range a.checks {
+		c.see(xp)
 	}
 }
 
