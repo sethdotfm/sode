@@ -1,7 +1,9 @@
-# Real router:   SODE_ROUTER=10.0.0.50:8910 docker compose up -d
-# Simulator:     docker compose --profile sim up
-# The SODE_* settings below only seed /data/config.yaml on first start;
-# after that, change them from the Settings dialog.
+# Checkout compose file: builds from this directory. To run the published
+# image instead, use the compose.yaml in README.md.
+# Real router:   SODE_ROUTER=10.0.0.50:8910 docker compose up -d --build
+# Simulator:     docker compose --profile sim up --build
+# SODE_ROUTER only seeds /data/config.yaml on first start; after that, change
+# it (and everything else) from the Settings dialog.
 services:
   sode:
     build: { context: ., target: sode }
@@ -11,18 +13,6 @@ services:
     volumes: ["sode-data:/data"]
     environment:
       SODE_ROUTER: ${SODE_ROUTER:-swp08sim:8910}
-      SODE_MATRIX: ${SODE_MATRIX:-0}
-      SODE_LEVEL_COUNT: ${SODE_LEVEL_COUNT:-17}
-      SODE_LEVEL_WIRE_OFFSET: ${SODE_LEVEL_WIRE_OFFSET:--1}
-      SODE_DEFAULT_LEVELS: ${SODE_DEFAULT_LEVELS:-}
-      SODE_NAME_LEN: ${SODE_NAME_LEN:-12}
-      SODE_NAMES: ${SODE_NAMES:-std}
-      SODE_NUM_OFFSET: ${SODE_NUM_OFFSET:-1}
-      SODE_CONFIRM_LOCKOUT_MS: ${SODE_CONFIRM_LOCKOUT_MS:-500}
-      SODE_CONFIRM_ENTER: ${SODE_CONFIRM_ENTER:-false}
-      SODE_LEVEL_NUMBERING: ${SODE_LEVEL_NUMBERING:-1}
-      SODE_PIN_MAX_TRIES: ${SODE_PIN_MAX_TRIES:-10}
-      SODE_DEBUG: ${SODE_DEBUG:-false}
 
   swp08sim:
     build: { context: ., target: sim }

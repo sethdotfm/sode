@@ -50,3 +50,9 @@ test('lastChip: hides what the box already has', async () => {
   assert.equal(lastChip(null, empty).src, false);
   assert.equal(lastChip({ ...t, levels: [] }, empty).lvl, false);
 });
+
+test('protectedLabel names the devices in the badge', async () => {
+  const { protectedLabel } = await import('./all.mjs');
+  assert.equal(protectedLabel([9]), 'Protected by 9');
+  assert.equal(protectedLabel([9, 12]), 'Protected by 9, 12');
+});

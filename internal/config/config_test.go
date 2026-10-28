@@ -30,6 +30,8 @@ func TestValidate(t *testing.T) {
 		"bad numbering":     func(c *Config) { c.LevelNumbering = "2" },
 		"bad router show":   func(c *Config) { c.RouterShow = "ip" },
 		"long router name":  func(c *Config) { c.RouterName = strings.Repeat("x", 33) },
+		"long brand text":   func(c *Config) { c.BrandText = strings.Repeat("x", 25) },
+		"bad brand border":  func(c *Config) { c.BrandBorder = "red" },
 		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
 		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 		"long hidden dsts":  func(c *Config) { c.HiddenDsts = strings.Repeat("x", 501) },

@@ -1,0 +1,87 @@
+# AGENTS.md
+
+Guidance for AI coding agents working in this repo.
+
+# Sode — notes for agents
+
+Keyboard-first web patching for one SW-P-08 router (Ross Ultrix). User-facing settings table and protocol summary: README.md.
+
+## Commands
+
+```sh
+go test ./...        # all tests (the Dockerfile build runs them too)
+go vet ./...
+go test ./internal/app -run TestWaiterAlreadyRouted -v   # one test
+node --test 'web/test/*.test.mjs'                        # browser-side tests (filter language, histRows, imports)
+
+go run ./cmd/swp08sim                                    # simulator on :8910, see SIM_* in cmd/swp08sim and README
+SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   # :8080; SODE_DEBUG hex-dumps SW-P-08
+docker compose --profile sim up --build                  # server + simulator
+```
+
+Without `SODE_CONFIG`, config comes from `SODE_*` env and is not persisted. The web UI is embedded with `go:embed` (`web/web.go`): restart after frontend edits.
+
+## Key decisions
+
+- Go, stdlib-first. Only deps: coder/websocket, yaml.v3. Distroless static image, HTTP :8080 (TLS is the user's proxy). Keep it light: no frameworks, no new deps without asking.
+- SW-P-08 over TCP to one router, **single matrix**, always **extended** commands (16-bit src/dst). Protects are honored. Auto-reconnect + keepalive. Names come from the router, re-polled (default 60s).
+- Levels: wire = level + configurable offset. Internally levels are UI 1..N everywhere (history, `defaultLevels`); `levelNumbering` (`1` / `0` / `va`) only changes display (`Level.Label` from `LevelMap`) and typing (`parseLevels` in `levelview.js`). `levelTypedBase` is a dropped setting kept so old files load (`KnownFields`). No free-text level names (removed at the user's request).
+- Config: `/data/config.yaml`, edited in the Settings dialog; `SODE_*` env only seeds the file on first start. Save writes and stays open; Exit/Esc/Back with unsaved server settings warns once, a second try discards.
+  - Settings PIN: PBKDF2 hash in `settingsPin` (`json:"-"`, never sent to browsers; `SaveSettings` carries it over). Unlock is per WebSocket connection *for that hash* (changing/removing the PIN relocks everyone) and relocks when Settings closes. `unlock` is handled in line in the read loop so a following `lock` wins. Wrong PINs are counted globally, one check at a time, waits double from 30s after the 5th, `pinMaxTries` (default 10, 0 = never) locks until `-reset-pin` or restart. A non-hash `settingsPin` stops startup. `SaveSettings` runs one at a time (`cfgMu`) and re-checks the lock.
+  - Device defaults (#49): `deviceDefaults` (`config.DeviceDefaults`: theme, layout, clock, flip, scrollTop, searchFilters) is what "This device" follows until a browser chooses its own. Not router-side, so saving never reconnects. A browser's value is a localStorage string (`sode-theme`, `sode-layout`, `sode-clock`, `sode-flip`, `sode-scroll-top`, `sode-search-filters`); missing/unknown = "Global". `resolve()` in `web/prefs.js` (pure, Node-tested): own value, then global default, then built-in. `device.js` `pref(name)`/`setPref(name, v)` (`''` removes) are the only readers/writers; `applyPrefs` re-applies live and emits `prefs`. The last global defaults are cached in `localStorage['sode-device-defaults']` on every `hello` so index.html's pre-paint script (and log.html's, theme only) follows them; that script repeats `resolve()` inline, keep them in step.
+- Frontend: vanilla JS ES modules, no build step. Follow patchbay rules exactly (https://github.com/sethdotfm/patchbay llms.txt): pb- classes only, tokens only, no Bootstrap utilities, no border-radius, status always with text. Patchbay is vendored under `web/vendor/patchbay`; copy missing icons from upstream, don't fake them.
+- Confirm dialog: random churning letter + lockout (default 500ms; Enter optional).
+- Version (#95): `Version`/`Stage` in `internal/app/version.go`, sent in `hello`, shown in Settings, noted in README's `**Version:**` line. **Every release bumps both**; `TestVersionNoted` fails if they differ, or (with `SODE_RELEASE_TAG=v1.0`) if the tag differs.
+
+## History, ext and follows
+
+JSONL history plus a shared server-side recent/undo list. Routes made elsewhere are `ext` entries (`ext.go`, split into `ext_burst.go`, `ext_ownership.go`, `ext_follows.go`):
+- Connected messages none of our takes sent, plus `found` entries (#57): a tally (resync or interrogate) differing from a *known* cached value that isn't a take in flight or one that just gave up (`awaited`, `late` keys for 5s). Found entries are never follows, are grouped apart from announced ones, and show as `found`.
+- `own` holds each take's (dst, wire level, src) for `ownFor`; keys are used up by the router's answer, so the same route made elsewhere right after still logs. Changes are collected into bursts (end after 500ms quiet or 3s total), logged one entry per dst+src; a burst over several dsts shares a `group`.
+- **Follows** (#53): an `ext` change of the same src to another dst within 500ms of one of *our* takes (`waiter.cause` → `a.causes`). Of several that fit, the one whose last confirm came latest wins (`followed`). Panel changes are never followed. Followers of a take in a multi-take confirm aren't tied to a destination: they carry `followGroup` and `histRows` lists them as `f.followers` (a Followers row at the bottom of the folder, not in `f.entries`, so Undo all leaves them; desktop keyboard stop `w<group>`). Otherwise the follow is written with `follow` = the take's ID, ungrouped, and `histRows` attaches it as `e.follows` unless filters hide the take. Undo plans carry follows as `plan.extra` (one per dst, the oldest), sent only if the confirm's box is ticked. A burst that might follow a take still in flight waits for it (`extAwaitsTake`), only once its connects went out (`cause.sent`). An undo's confirm flags levels where dst no longer has the undone take's source (`changedSince`; skips `Failed` levels and entries without `Failed`).
+- Repeated same-dst/same-levels `ext` entries within 30s merge into one row (newest, oldest's `prev`, `merged` count, `chain`); any other entry on that dst, even hidden, breaks the chain. `stackSteps` in `widgets.js` shows a stack as a timeline; older steps have Restore (`restorePlan`, `plan.at`).
+- `histRows` then applies this browser's Recent filter (`filterstore.js`, `localStorage['sode-filter']`: kinds plus `src`/`dst` expressions). Folders keep every entry in `f.entries` (Undo all covers the whole confirm) and visible ones in `f.shown`.
+- Filter language: `web/filter.js`, pure, no imports; the server's `hiddenDsts` uses it too and is evaluated only in browsers. Filter sets come from the built-in All, `cfg.filterSets` and `localStorage['sode-filter-sets']`; active one is `sode-filter-active` `{scope, name, base}`; `followGlobal()` on hello applies a changed global set unless the browser edited it. Names unique per scope, ignoring case.
+- Quick search (`setSearch`, `[data-search]` boxes): not kept, doesn't merge rows, reads back in 500-entry pages (`history` takes `n`, server caps at 500). Ignores the filter unless `sode-search-filters` is `on`. `web/filters.js`: the dialog, share links (`?f=` base64url JSON, applied and stripped in `main.js`), empty-state note.
+
+## Communication Log (#72, `/log`)
+
+Every message written to the router, captured at the wire. `swp08.Client.OnTx` fires once per message from `transmit` (after ACK/NAK/give-up, with `Tries`) or for messages still queued when a session ends (`dropped`); `sendMsg` logs `unsent` when `Send` refuses. Each `Send` carries a `swp08.Why`. `OnTx` only pushes onto `txq` (never blocks the ACK-gated writer); `logSent` decodes (`swp08.DescribeTx`), appends to `SentLog` (`sentlog.go`: JSONL with its own `seq`, rotated to `.1` at half of `SODE_SENTLOG_MB`) and queues `sentAdd`/`sentPage` (both carry `total`) for connections that asked (`client.sent`). A failed write keeps its seq unused and isn't broadcast (`txLost`), so seqs have no gaps; a damaged file is renamed `.bad-…`, not fatal. `Send` pushes under `c.mu` and the session drains the queue after the writer exits, so every queued message gets a TxEvent. Read-only, no clear, no PIN. `web/log.html` + `log.js` import `core.js` and `device.js` but not `initTheme`; filter in `localStorage['sode-log-filter']`.
+
+## Architecture
+
+- `internal/swp08`: framing (`frame.go`), message builders/parsers (`msg.go`), `Client` (`client.go`): one TCP session with reconnect and a keepalive probe (an interrogate, on connect and after 10s without rx). Up is reported, and `Send` accepts messages, only after the router's first reply. `SetTarget` reconnects without reporting down. A probe with no reply drops the link (~13s); any other unanswered message just triggers a probe. Rx times are monotonic offsets (`lastRx`), ACK-gated writer. Messages sent while disconnected are dropped. Callbacks `OnUp`/`OnMsg`/`OnState`.
+- `internal/app`: `App` owns all router state (names, tally, protect, keyed dst → **UI level**) under one mutex. Config is an immutable `runtime` behind an `atomic.Pointer`; `ApplyConfig` saves, swaps and, if router-side fields changed, clears state and calls `SetTarget`. `Run` ticks every 100ms: `flush()` batches changes into broadcasts and finishes name refreshes, `periodic()` re-polls names/dumps.
+  - Takes (`take()`): plan → check → register → send → wait → collect, one `takeLevel` per level in the `waiter`. Tests drive takes through `App.sendMsg` with a fake router (`take_test.go`).
+  - Check (`checkTally`, #57) interrogates every level and waits up to 1s so `Prev` (which undo restores) comes from the router, not a cache that misses unannounced changes (falls back to the cache). It skips levels reported within `checkFresh` (15s, `seenAt`) and every take of a confirm of `bigBatch` (6)+ (`takeReq.NoCheck`), trading undo accuracy for router load (#91).
+  - Router load: one message per ACK, so a take's timeouts count from when its last message was written and ACKed (`Why.Done`, closed by `Client.tx`; `sendTracked`, `leftQueue`, `queueMax`), and `own` keys are registered for `queueMax + ownFor` then shortened to `ownFor`.
+  - Late answers: a take the router answers late is claimed (`lateTake`, `lateFor`; a list per route; only for levels the router said nothing about) and its entry amended (`lateWorker`, one `History.Update` per entry, `Entry.Late`, a `recent` message with `update`).
+  - Failures (#15, #17): the cache holds only what the router reported, so the next `Prev` is the actual state. `waiter.see` keeps the latest route reported for unconfirmed levels; `whyMissing` writes `Failed` and `Now` (`[ui level, src]`, -1 = nothing) to the entry; a level the router reports on src after all is `already` (#36). `Err` says each level's outcome. Undo of a failed take (`undoItem` in `plans.js`) leaves out levels in `Now` and keeps no-answer levels.
+  - A router change cuts takes in flight (#106; `cutTakes`): they fail with "the router changed", and a waiter keeps the `extTracker` it started on.
+  - `history.go`: JSONL log with paging; a page never ends inside a group.
+- `internal/app/http.go`: `/` static, `/healthz`, `/ws`. One WebSocket per browser, JSON with a `t` field. Client → server: `batch` (all takes of one confirm; at most 8 at once, multi-take batches share a history `group`), `history` (+ `before`, echoed; `takePage` keeps a page only if it's for its current oldest entry), `refreshNames`, `clearHistory`, `config` (+ `pin`/`clearPin`), `filterSets` (+ `sets`, `id`; PIN-guarded like `config`, answered with `filterSetsResult`, then everyone gets a `filterSets` message), `unlock` (+ `id` echoed in `unlockResult`), `lock`. `config` and `clearHistory` are refused while a PIN is set and the connection isn't unlocked. Server → client: `hello` snapshot (carries `pinSet`, `version`), `status`, `names`, `namesChecked`, `tally`, `protect`, `unlockResult`, `locked`, history/results. Client IP honors `X-Forwarded-For` only from `trustedProxies`.
+- `internal/config`: `Defaults` → `FromEnv` (seed) → `Normalize`/`Validate`; YAML load/save; `LevelMap` does UI↔wire levels.
+- `cmd/swp08sim`: fake router; must keep mimicking real Ultrix quirks (e.g. no Connected for no-op connects).
+
+## Web layout
+
+`main.js` wires modules then calls `connect()`. `core.js` is the state/socket/bus core (state `S`, WebSocket, `on`/`onFirst`/`emit`/`onMsg`, `el`, fuzzy `search`, status helpers); it imports nothing but `tooltip.js`, and the rest sit on it with no import cycles (`test/imports.test.mjs` checks that and that every import exists). Others: `store.js` (never-throwing localStorage `readStr`/`writeStr`/`readJSON`/`writeJSON`: use these, no hand-written try/catch), `levelview.js`, `levels.js` (pure parser), `routes.js`, `device.js`, `filterstore.js`, `history.js` (`histRows`, quick search, pager, `putEntry`), `plans.js` (plan builders, `planBlocked`/`planSummary`, `sendTakes`, results and banners), `widgets.js` (shared `levelBox`, `combobox`, `undoButton`/`retryButton`/`disclosure`, `arrivals`, `feeding`, `lockout`), `pin.js` (settings PIN unlock, one `unlocked()` flag per connection), `settings.js` (shared; builds `#settings-toc`), `filters.js`, `filter.js`. Modules reach into `handle()` through events (`helloCfg`, `helloData`, `wsclose`, `onMsg('recent' | 'takeResult' | 'filterSets' …, fn)`), so a page only gets those if it imports the module. Tests import everything through `web/test/all.mjs`.
+
+- **Build DOM with `el()`, never `innerHTML`**: names come from the router.
+- `planBlocked` returns `{block, prot}` without touching the plan; pass `prot` on to `planSummary`.
+- Failed-take banner (`failureBanner`, `refreshResult`): one line per distinct outcome, follows the takes' history entries (`takeResult` carries `entry`), shrinks then turns into a confirmation as takes are confirmed late or retried.
+- `desktop.js` and `mobile.js` are the two layouts (`layout.js` picks: auto on narrow touch screens, per-browser override; `index.html` applies the same rule before first paint). Phone: one input stepping Source → Destination → Levels, patch summary pinned at the top, match list floating over it, number pad for Levels.
+- Desktop keyboard mode: Esc with every box empty (or Esc on a Recent button) focuses `#history` and sets `keysOn`, cleared by any click (`onListKey`: s/d/f boxes, j/k rows, J next group, K latest take, h/l or Shift+Enter/Enter close/open, u/r, `,` settings, `/` Filters, Shift+S/Shift+D Filter by boxes, `?` shortcut list, also Ctrl+? anywhere). Folders open as the cursor enters and close as it leaves (`autoOpen`); a small `.sode__key-note` shows each empty box's key.
+- Keys: Ctrl+Z (and ⌘Z on a Mac) undoes the last Sode take, except that the OS text-undo key leaves a box with text to undo its typing. Ctrl+, opens Settings. Modifier rule: Control = Sode commands and match-list moves (Ctrl+J/K) on every OS; Option/Alt = only the theme toggle (Alt+Shift+T); ⌘ left to the OS except ⌘Z, ⌘J/K and ⌘Enter in the Destination box; every check excludes the other two modifiers. Key labels are lowercase with ⇧ where Shift is needed (⇧j).
+- Ctrl+S/D/F fill a patch box from the last take (`useLast`, `lastTake()` in `plans.js`: this browser's last patch recorded by `sendTakes`, else the newest Sode take in history); destinations are added to those present; focus moves to the opposite box only if empty, otherwise Levels. Each box shows a "Last:" chip. Destination-before-Source is per browser unless following the global default (`flipped()`/`setFlip()`, `data-flip` on `<html>`).
+- Destination box `+`, Ctrl+Enter, ⌘Enter add another destination (#93): the match becomes a chip (bubble on the phone) and the typed search stays with its list open minus already-added ones. Enter with leftover text and chips is refused as unmatched text (Esc clears); Tab takes its best match (desktop).
+
+## Verified against the real Ultrix (2026-10-22, 172.17.60.101:8910)
+
+- UI level 1 → wire level 0 (`SODE_LEVEL_WIRE_OFFSET=-1`), display number = wire + 1 (`SODE_NUM_OFFSET=1`).
+- Standard name requests (100/102) with 12-char names work. ~2690 sources, 720 destinations.
+- Extended tally dump (0x95 → 0x97, 64 per message) works on all 17 levels; source 0xFFFF = nothing routed. Extended connect (0x82) is confirmed by 0x84.
+- Routers send Connected only when a crosspoint *changes*; a matching connect gets no reply, so `take()` interrogates (0x81 → 0x83) levels already on the source, and any level still unconfirmed at the 3s timeout gets a 1s interrogate grace; those are reported `already`. The simulator mimics this.
+- The router does **not** announce every change: 2026-10-23 KiPro 4 went UDX 04 → UDX 03 with no 0x84 to Sode (the next entry's `prev` showed it). Hence `found` entries and the pre-take check.
+- 2026-10-23 18:01:40: the router sent 0x84 for a route Sode didn't make (PIX 03 to DSM 03 and MV08 PIP015), logged as an `ext` burst; source (panel, Companion, other client) unidentified.
+- Extended protect dump (0x93 matrix, level, startDst(2) → 0x94 matrix, level, count, firstDst(2), count × 2 bytes): state in bits 4-5 of byte 1, device in the rest. Dest 65 was protected by device 9 on all levels. Single protect change messages (0x8B/0x8D/0x8F) not yet seen live.

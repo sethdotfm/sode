@@ -5,6 +5,8 @@ import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
+import { normalizeKinds, allKinds, pressAll, pressKind } from './logkinds.js';
+import './brand.js';
 
 // Entries read on open and per Load older.
 const PAGE = 100;
@@ -40,10 +42,11 @@ const WHY_LABEL = {
 
 // ---- filters
 
+const KIND_IDS = KINDS.map((g) => g.id);
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    kinds: Array.isArray(f.kinds) ? f.kinds.filter((k) => KINDS.some((g) => g.id === k)) : ['connect'],
+    kinds: normalizeKinds(f.kinds, KIND_IDS, ['connect']),
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
@@ -79,24 +82,34 @@ function passes(e) {
 
 function initFilters() {
   const box = $('log-kinds');
-  for (const g of KINDS) {
-    const input = el('input', 'pb-check__input');
-    input.type = 'checkbox';
-    input.checked = filter.kinds.includes(g.id);
-    input.addEventListener('change', () => {
-      filter.kinds = KINDS.map((k) => k.id).filter((id) => (id === g.id ? input.checked : filter.kinds.includes(id)));
+  const legend = box.querySelector('legend');
+  const chip = (label, on, press) => {
+    const b = el('button', 'pb-chip sode-log__chip', label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(on));
+    b.addEventListener('click', () => {
+      press();
       saveFilter();
+      drawKinds();
       render();
     });
-    box.append(el('label', 'pb-check', input, el('span', 'pb-check__label', g.label)));
-  }
-  const problems = $('log-problems');
-  problems.checked = filter.problems;
-  problems.addEventListener('change', () => {
-    filter.problems = problems.checked;
-    saveFilter();
-    render();
-  });
+    return b;
+  };
+  // All | each kind | Problems only. Problems is its own dimension, so it
+  // sits after a separator and stays out of the All logic.
+  const drawKinds = () => {
+    const all = allKinds(filter.kinds, KIND_IDS);
+    const bar = el('span', 'sode-log__sep', '|');
+    bar.setAttribute('aria-hidden', 'true');
+    box.replaceChildren(
+      legend,
+      chip('All', all, () => { filter.kinds = pressAll(KIND_IDS); }),
+      ...KINDS.map((g) => chip(g.label, !all && filter.kinds.includes(g.id), () => { filter.kinds = pressKind(filter.kinds, KIND_IDS, g.id); })),
+      bar,
+      chip('Problems only', filter.problems, () => { filter.problems = !filter.problems; }),
+    );
+  };
+  drawKinds();
   // datetime-local is local time. To counts to the end of what it shows:
   // 14:30 is up to 14:30:59.999.
   const from = $('log-from'), to = $('log-to');

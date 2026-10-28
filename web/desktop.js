@@ -529,7 +529,7 @@ function retryCur() {
 
 // key: put the cursor on that row (Esc from one of its buttons).
 function enterKeys(key) {
-  if (!S.hist.length) return focusBox(boxes.src.input); // nothing to drive
+  // Works on an empty list too: s/d/f, `,`, `/`, `?` and Esc still apply.
   keysOn = true;
   histList.classList.add('sode__hist--keys');
   histList.focus();
@@ -883,6 +883,14 @@ document.addEventListener('keydown', (e) => {
     if (b && !sel[k] && b.input.value.trim() && !(k === 'dst' && keptText()) && !b.cb.accept()) {
       e.preventDefault();
       b.input.classList.add('pb-input--invalid');
+      return;
+    }
+    if (flipped() && inBox) {
+      // Destination first: Destination, Source, Levels, then around.
+      const ring = ['dst', 'src', 'lvl'];
+      const to = ring[(ring.indexOf(id) + (e.shiftKey ? 2 : 1)) % 3];
+      e.preventDefault();
+      $(to).focus();
       return;
     }
     if (id === 'lvl' && !e.shiftKey) { e.preventDefault(); boxes.src.input.focus(); }

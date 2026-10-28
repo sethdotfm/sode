@@ -1,7 +1,7 @@
 // Routing views: who feeds a destination and what a source feeds, as rows
 // of the level bar and a route.
 
-import { el, S, tallyText, protectedOn } from './core.js';
+import { el, S, tallyText, protectedOn, protectedLabel } from './core.js';
 import { levelBar, allLevels } from './levelview.js';
 
 // One entry per source feeding dst on any of levels, in order of each
@@ -57,8 +57,7 @@ export function currentlyNodes(dst, onPick) {
     : srcRow(r.levels, tallyText(r.src))));
   const p = protectedOn(dst.n, all);
   const prot = p.levels.length
-    ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
-      `by device ${p.devices.join(', ')}`)
+    ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(p.devices)))
     : null;
   return [el('div', 'sode__label', `Currently on ${dst.label}`), ...rows, prot].filter(Boolean);
 }

@@ -1,7 +1,7 @@
 // Plans (what a confirm shows and sends), take results and their banners.
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
-import { el, S, on, onMsg, emit, wsSend, linked, protectedOn, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, on, onMsg, emit, wsSend, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
 import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock } from './device.js';
@@ -266,8 +266,8 @@ function itemSummary(item, boxed, prot, since) {
     ...(since ? changedSince(item) : []).map((r) => el('div', 'sode__route', levelBar(r.levels),
       el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`)),
     prot
-      ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', 'Protected'),
-        `by device ${prot.devices.join(', ')}; will be refused`)
+      ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)),
+        'will be refused')
       : null,
     item.untouched?.length
       ? el('div', 'sode__hist-note', `Level${item.untouched.length === 1 ? '' : 's'} ${levelText(item.untouched)}: the take didn't change ${item.untouched.length === 1 ? 'it' : 'them'}, left as is.`)
