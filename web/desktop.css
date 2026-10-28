@@ -119,11 +119,14 @@
    levels (9 columns); fewer leave blank space, more scroll sideways. */
 .sode__box--levels .sode__levels {
   --sode-pick-w: calc(var(--pb-space-8) + var(--pb-space-1));
-  overflow-x: auto;
+  overflow-x: scroll; /* always shown, as in Sending and Receiving */
   overscroll-behavior-x: contain;
-  scrollbar-width: thin;
+  padding-bottom: var(--pb-space-2);
   width: calc(9 * var(--sode-pick-w) + 8 * var(--pb-space-1));
 }
+.sode__box--levels .sode__levels::-webkit-scrollbar { height: var(--pb-space-2); }
+.sode__box--levels .sode__levels::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
+.sode__box--levels .sode__levels::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
 /* Select / All on two lines, as tall as the picker's two rows. */
 .pb-btn.sode__all {
   align-self: stretch;
