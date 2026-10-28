@@ -1,0 +1,9 @@
+/* Touch screens (pointer: coarse). Last in the cascade on every page; it overrides rules in base.css and history.css. */
+
+/* iOS zooms into any field under 16px when it takes focus, and doesn't
+   zoom back out after (issue 30). Touch screens get 16px fields. */
+@media (pointer: coarse) {
+  :root :is(.pb-input, .pb-select, .pb-textarea):not(.sode__input, .sode-m__input) { font-size: 16px; }
+  /* Room for the bigger text in Recent's Filter by boxes. */
+  .sode__search-box { --sode-search-h: var(--pb-control-h); }
+}
