@@ -501,18 +501,13 @@ func (a *App) readHello() helloPage {
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
-	m := map[string]any{"t": "hello", "srcs": n.Srcs, "dsts": n.Dsts, "at": n.At}
-	m["tally"] = triples(a.router.tally)
-	m["protect"] = triples(a.router.protect)
-	m["status"] = a.status
-	m["recent"] = p.recent
-	m["more"] = p.more
-	m["levels"] = r.levels
-	m["levelDefaults"] = config.DefaultLevelColors
-	m["cfg"] = r.cfg
-	m["pinSet"] = r.cfg.SettingsPin != ""
-	m["configPath"] = a.cfgPath
-	m["version"] = VersionLabel()
+	m := helloMsg{
+		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At,
+		Tally: triples(a.router.tally), Protect: triples(a.router.protect),
+		Status: a.status, Recent: p.recent, More: p.more,
+		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: r.cfg,
+		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: VersionLabel(),
+	}
 	b, err := json.Marshal(m)
 	if err != nil {
 		log.Printf("marshal hello: %v", err)

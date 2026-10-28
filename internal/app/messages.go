@@ -6,7 +6,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Server -> browser messages (hello aside, which stays a map). The `t` field names the kind; web/core.js switches on it. Keys
+// Server -> browser messages. The `t` field names the kind; web/core.js switches on it. Keys
 // and omitempty rules are what the browser reads: change them with web/.
 
 // deltaMsg is a batch of tally or protect changes: [dst, ui level, src or
@@ -14,6 +14,26 @@ import (
 type deltaMsg struct {
 	T string   `json:"t"`
 	U [][3]int `json:"u"`
+}
+
+// helloMsg is the full snapshot a browser gets on connect or config change.
+// Every key is always sent (none is omitempty).
+type helloMsg struct {
+	T             string         `json:"t"` // "hello"
+	Srcs          [][2]any       `json:"srcs"`
+	Dsts          [][2]any       `json:"dsts"`
+	At            time.Time      `json:"at"`
+	Tally         [][3]int       `json:"tally"`
+	Protect       [][3]int       `json:"protect"`
+	Status        statusMsg      `json:"status"`
+	Recent        []Entry        `json:"recent"`
+	More          bool           `json:"more"`
+	Levels        []config.Level `json:"levels"`
+	LevelDefaults []string       `json:"levelDefaults"`
+	Cfg           config.Config  `json:"cfg"`
+	PinSet        bool           `json:"pinSet"`
+	ConfigPath    string         `json:"configPath"`
+	Version       string         `json:"version"`
 }
 
 type namesCheckedMsg struct {
