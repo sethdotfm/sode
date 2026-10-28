@@ -622,6 +622,52 @@ func (a *App) whyMissing(r *runtime, e *Entry, missing []*takeLevel, cut bool) s
 	return strings.Join(parts, "; ")
 }
 
+// entryErr is the part of a take's error about levels, rendered from e's
+// structured fields: Failed (less Unsent) are the levels the router never
+// confirmed, Now and Prev say why, Cut that the router changed, Unsent and
+// SendErr the levels the link refused. names are the source names to show
+// for Now. "" when nothing is left failing.
+func entryErr(r *runtime, names map[int]string, e *Entry) string {
+	src := func(n int) string {
+		switch {
+		case n < 0:
+			return "nothing"
+		case names[n] != "":
+			return names[n]
+		}
+		return fmt.Sprintf("source %d", n+r.cfg.NumberOffset)
+	}
+	now := map[int]int{}
+	for _, p := range e.Now {
+		now[p[0]] = p[1]
+	}
+	var parts []string
+	for _, ui := range e.Failed {
+		if slices.Contains(e.Unsent, ui) {
+			continue
+		}
+		label := "level " + r.cfg.LevelLabel(ui)
+		switch n, seen := now[ui]; {
+		case e.Cut:
+			parts = append(parts, label+" no answer before the router changed")
+		case !seen:
+			parts = append(parts, label+" no answer")
+		case slices.Contains(e.Prev, [2]int{ui, n}):
+			parts = append(parts, fmt.Sprintf("%s still on %s", label, src(n)))
+		default:
+			parts = append(parts, fmt.Sprintf("%s on %s", label, src(n)))
+		}
+	}
+	var out []string
+	if len(parts) > 0 {
+		out = append(out, "no confirmation from router: "+strings.Join(parts, "; "))
+	}
+	if e.SendErr != "" {
+		out = append(out, fmt.Sprintf("levels %s not sent: %s", levelList(r, slices.Clone(e.Unsent)), e.SendErr))
+	}
+	return strings.Join(out, "; ")
+}
+
 // planTake checks a take and builds its waiter, one record per level.
 func planTake(r *runtime, req takeReq) (*waiter, error) {
 	if req.Src < 0 || req.Src > 0xFFFE || req.Dst < 0 || req.Dst > 0xFFFE || len(req.Levels) == 0 {
