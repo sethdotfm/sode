@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Sode</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script>
   // Apply the theme, the layout and the flip before first paint so there's
   // no flash: this browser's own choice, else the global default last cached
@@ -247,7 +248,7 @@
 
     <div class="sode__lock-exit">
       <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
-      <span class="sode__hint" data-version></span>
+      <span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></span>
     </div>
 
     <fieldset class="sode__group">
@@ -396,7 +397,7 @@
         <span class="sode__hint" id="settings-path"></span>
         <button type="submit" class="pb-btn sode__save" id="settings-save">Save</button>
       </div>
-      <p class="sode__hint" data-version></p>
+      <div class="sode__about"><p class="sode__hint" data-version></p><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></div>
     </div>
   </form>
 
