@@ -340,17 +340,37 @@ func TestTakeAnswerInGap(t *testing.T) {
 	}
 }
 
-func TestDropMissing(t *testing.T) {
-	const pre = "no confirmation from router: "
-	for _, c := range []struct{ in, label, want string }{
-		{pre + "level 1 no answer; level 2 still on X", "1", pre + "level 2 still on X"},
-		{pre + "level 1 no answer; level 2 no answer; levels 3 not sent: busy", "2", pre + "level 1 no answer; levels 3 not sent: busy"},
-		{pre + "level 1 no answer; levels 3 not sent: busy", "1", "levels 3 not sent: busy"},
-		{pre + "level 10 no answer; level 1 no answer", "1", pre + "level 10 no answer"},
-	} {
-		if got := dropMissing(c.in, c.label); got != c.want {
-			t.Errorf("dropMissing(%q, %q) = %q, want %q", c.in, c.label, got, c.want)
-		}
+// A late amendment re-renders the error from the entry's fields, so source
+// names with "; " and "level " in them can't be mistaken for its parts.
+func TestLateConfirmNames(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	a.mu.Lock()
+	a.router.srcNames[5] = "CAM; level 3 no answer"
+	a.router.srcNames[6] = "level 1 B"
+	a.mu.Unlock()
+	e := &Entry{Src: 7, Dst: 2, Levels: []int{1, 2, 3}, Prev: [][2]int{{1, 5}, {2, 6}, {3, 4}},
+		Failed: []int{1, 2, 3, 4}, Unsent: []int{4}, SendErr: "busy; level 1 no", Now: [][2]int{{1, 5}, {2, 6}}}
+	a.record(e)
+	a.lateConfirm(e.ID, []int{3})
+	got, _ := a.hist.Page(-1, 1)
+	want := "no confirmation from router: level 1 still on CAM; level 3 no answer; level 2 still on level 1 B; levels 4 not sent: busy; level 1 no"
+	if len(got) != 1 || got[0].Err != want {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+// A level the link refused that the router confirms after all leaves nothing
+// failing: the entry is OK and says nothing about it.
+func TestLateConfirmUnsent(t *testing.T) {
+	t.Parallel()
+	a := newTestApp(t)
+	e := &Entry{Src: 7, Dst: 2, Levels: []int{1}, Prev: [][2]int{{1, 4}}, Failed: []int{1}, Unsent: []int{1}, SendErr: "busy"}
+	a.record(e)
+	a.lateConfirm(e.ID, []int{1})
+	got, _ := a.hist.Page(-1, 1)
+	if len(got) != 1 || !got[0].OK || got[0].Err != "" || len(got[0].Unsent) != 0 || got[0].SendErr != "" {
+		t.Fatalf("got %+v", got)
 	}
 }
 
