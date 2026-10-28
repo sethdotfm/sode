@@ -295,35 +295,7 @@ func (a *App) onRouterMsg(msg []byte) {
 		a.applyTally(r, xp)
 	}
 	for _, p := range ev.Protects {
-		if p.Matrix != r.cfg.Matrix {
-			continue
-		}
-		l, ok := r.byWire[p.Level]
-		if !ok {
-			continue
-		}
-		dev := -1
-		if p.Protected {
-			dev = p.Device
-		}
-		t := a.router.protect[p.Dst]
-		old, had := t[l.UI]
-		if dev < 0 {
-			if !had {
-				continue
-			}
-			delete(t, l.UI)
-		} else {
-			if had && old == dev {
-				continue
-			}
-			if t == nil {
-				t = map[int]int{}
-				a.router.protect[p.Dst] = t
-			}
-			t[l.UI] = dev
-		}
-		a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
+		a.applyProtect(r, p)
 	}
 	if nb := ev.Names; nb != nil {
 		m := a.router.srcNames
@@ -386,6 +358,40 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 	for c := range a.checks {
 		c.see(xp)
 	}
+}
+
+// applyProtect takes one protect state from the router into the cache.
+// Caller holds mu.
+func (a *App) applyProtect(r *runtime, p swp08.Protect) {
+	if p.Matrix != r.cfg.Matrix {
+		return
+	}
+	l, ok := r.byWire[p.Level]
+	if !ok {
+		return
+	}
+	dev := -1
+	if p.Protected {
+		dev = p.Device
+	}
+	t := a.router.protect[p.Dst]
+	old, had := t[l.UI]
+	if dev < 0 {
+		if !had {
+			return
+		}
+		delete(t, l.UI)
+	} else {
+		if had && old == dev {
+			return
+		}
+		if t == nil {
+			t = map[int]int{}
+			a.router.protect[p.Dst] = t
+		}
+		t[l.UI] = dev
+	}
+	a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
 }
 
 const (
