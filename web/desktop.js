@@ -885,6 +885,14 @@ document.addEventListener('keydown', (e) => {
       b.input.classList.add('pb-input--invalid');
       return;
     }
+    if (flipped() && inBox) {
+      // Destination first: Destination, Source, Levels, then around.
+      const ring = ['dst', 'src', 'lvl'];
+      const to = ring[(ring.indexOf(id) + (e.shiftKey ? 2 : 1)) % 3];
+      e.preventDefault();
+      $(to).focus();
+      return;
+    }
     if (id === 'lvl' && !e.shiftKey) { e.preventDefault(); boxes.src.input.focus(); }
     return;
   }
