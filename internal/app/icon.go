@@ -2,34 +2,29 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
 	"math"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // The app icon (home screen, install dialog) is the Lucide "route" glyph on
 // a solid tile. Default: accent glyph on the dark surface. With a brand
 // colour (issue 126) the tile takes the colour and the glyph goes dark, so
-// instances tell apart on a home screen. The colours are the dark values of
-// the signal tokens that web/base.css maps the same names to.
+// instances tell apart on a home screen. The colours are config.BrandColors,
+// the dark values of the signal tokens web/base.css maps the names to.
 var (
 	iconDark   = color.NRGBA{0x08, 0x08, 0x08, 0xff}
 	iconAccent = color.NRGBA{0x8b, 0x93, 0xff, 0xff}
-	iconBrand  = map[string]color.NRGBA{
-		"blue":   {0x5f, 0xb2, 0xe8, 0xff},
-		"teal":   {0x5c, 0xcf, 0xc9, 0xff},
-		"green":  {0x5f, 0xd0, 0x9a, 0xff},
-		"amber":  {0xe8, 0xa3, 0x5e, 0xff},
-		"violet": {0xa6, 0x7e, 0xf0, 0xff},
-		"pink":   {0xe8, 0x7b, 0xb3, 0xff},
-	}
-	iconSizes = []int{180, 192, 512}
+	iconSizes  = []int{180, 192, 512}
 )
 
 type iconKey struct {
@@ -39,8 +34,10 @@ type iconKey struct {
 
 var iconCache sync.Map // iconKey → []byte
 
-// The glyph in its own 24-unit space, stroked 2 wide: three segments of the
-// path and the two rings. Drawn at 56% of the tile, inside the maskable
+// The glyph in its own 24-unit space, stroked 2 wide. It mirrors the Lucide
+// "route" icon: path `M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15`
+// (three segments and two half circles) plus circles at (6,19) and (18,5),
+// r=3. Drawn at 56% of the tile, inside the maskable
 // safe zone.
 type seg struct{ x1, y1, x2, y2 float64 }
 
@@ -79,10 +76,26 @@ func distArc(x, y, cx, cy, r float64, right bool) float64 {
 	return math.Min(math.Hypot(x-cx, y-(cy-r)), math.Hypot(x-cx, y-(cy+r)))
 }
 
+// hexColor parses the table's "#rrggbb".
+func hexColor(h string) color.NRGBA {
+	v, _ := strconv.ParseUint(strings.TrimPrefix(h, "#"), 16, 32)
+	return color.NRGBA{uint8(v >> 16), uint8(v >> 8), uint8(v), 0xff}
+}
+
+// iconURL is the path of the icon the server draws (web/brandicon.js builds
+// the same); brand "" is the default look.
+func iconURL(size int, brand string) string {
+	u := "icon.png?s=" + strconv.Itoa(size)
+	if brand != "" {
+		u += "&c=" + url.QueryEscape(brand)
+	}
+	return u
+}
+
 func renderIcon(size int, brand string) []byte {
 	bg, fg := iconDark, iconAccent
-	if c, ok := iconBrand[brand]; ok {
-		bg, fg = c, iconDark
+	if c, ok := config.BrandColorByName(brand); ok {
+		bg, fg = hexColor(c.Hex), iconDark
 	}
 	img := image.NewNRGBA(image.Rect(0, 0, size, size))
 	scale := float64(size) * 12 / 512 // pixels per glyph unit
@@ -118,7 +131,7 @@ func serveIcon(w http.ResponseWriter, r *http.Request) {
 		size = 192
 	}
 	brand := r.URL.Query().Get("c")
-	if _, ok := iconBrand[brand]; !ok {
+	if _, ok := config.BrandColorByName(brand); !ok {
 		brand = ""
 	}
 	k := iconKey{size, brand}
@@ -129,33 +142,4 @@ func serveIcon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Write(b.([]byte))
-}
-
-// serveManifest: the web app manifest follows the logo text and colour set
-// in Settings, so each instance installs under its own name and icon.
-func (a *App) serveManifest(w http.ResponseWriter, r *http.Request) {
-	cfg := a.r().cfg
-	name := cfg.BrandText
-	if name == "" {
-		name = "Sode"
-	}
-	q := ""
-	if _, ok := iconBrand[cfg.BrandBorder]; ok {
-		q = "&c=" + cfg.BrandBorder
-	}
-	icon := func(size int, purpose string) map[string]string {
-		return map[string]string{
-			"src": "icon.png?s=" + strconv.Itoa(size) + q, "type": "image/png",
-			"sizes": strconv.Itoa(size) + "x" + strconv.Itoa(size), "purpose": purpose,
-		}
-	}
-	w.Header().Set("Content-Type", "application/manifest+json")
-	w.Header().Set("Cache-Control", "no-cache")
-	json.NewEncoder(w).Encode(map[string]any{
-		"name": name, "short_name": name,
-		"description": "Keyboard-first web patching for SW-P-08 routers",
-		"id":          "./", "start_url": "./", "scope": "./", "display": "standalone",
-		"background_color": "#080808", "theme_color": "#080808",
-		"icons": []map[string]string{icon(192, "any"), icon(512, "any"), icon(512, "maskable")},
-	})
 }

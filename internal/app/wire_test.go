@@ -35,6 +35,7 @@ func legacyHello(a *App, p helloPage) []byte {
 	m["pinSet"] = r.cfg.SettingsPin != ""
 	m["configPath"] = a.cfgPath
 	m["version"] = VersionLabel()
+	m["brandColors"] = config.BrandColors
 	b, _ := json.Marshal(m)
 	return b
 }

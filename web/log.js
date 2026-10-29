@@ -8,6 +8,11 @@ import { readJSON, writeJSON } from './store.js';
 import { normalizeKinds, allKinds, pressAll, pressKind } from './logkinds.js';
 import './brand.js';
 
+on('brand', ({ text }) => {
+  document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
+  document.title = `${text} Communication Log \u00b7 ${text}`;
+});
+
 // Entries read on open and per Load older.
 const PAGE = 100;
 // Entries per request while reading back to the start of a time range, or

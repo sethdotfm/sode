@@ -72,9 +72,43 @@ type Config struct {
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults"`
 }
 
-// BrandColors are the accepted BrandBorder names (mapped to tokens in
-// web/base.css). Never red: that is the lost-link outline.
-var BrandColors = []string{"blue", "teal", "green", "amber", "violet", "pink"}
+// BrandColor is one accepted BrandBorder name. Hex is the dark-mode value of
+// the signal token web/base.css maps the name to (`[data-brand="name"]`); the
+// server draws the app icon with it. Label is how browsers list it.
+type BrandColor struct {
+	Name  string `json:"name"`
+	Label string `json:"label"`
+	Hex   string `json:"-"`
+}
+
+// BrandColors is the one table of colours. Never red: that is the lost-link
+// outline.
+var BrandColors = []BrandColor{
+	{"blue", "Blue", "#5fb2e8"},
+	{"teal", "Teal", "#5ccfc9"},
+	{"green", "Green", "#5fd09a"},
+	{"amber", "Amber", "#e8a35e"},
+	{"violet", "Violet", "#a67ef0"},
+	{"pink", "Pink", "#e87bb3"},
+}
+
+// BrandColorByName looks a name up in BrandColors.
+func BrandColorByName(name string) (BrandColor, bool) {
+	i := slices.IndexFunc(BrandColors, func(c BrandColor) bool { return c.Name == name })
+	if i < 0 {
+		return BrandColor{}, false
+	}
+	return BrandColors[i], true
+}
+
+// BrandNames lists the names, for messages.
+func BrandNames() []string {
+	out := make([]string, len(BrandColors))
+	for i, c := range BrandColors {
+		out[i] = c.Name
+	}
+	return out
+}
 
 // DeviceDefaults mirrors the per-browser settings (web/prefs.js): Theme is
 // system | light | dark, Layout auto | phone | desktop, Clock 24 | 12 |
@@ -312,8 +346,8 @@ func (c Config) Validate() error {
 	if n := len([]rune(c.BrandText)); n > 24 {
 		bad("logo text must be at most 24 characters")
 	}
-	if c.BrandBorder != "" && !slices.Contains(BrandColors, c.BrandBorder) {
-		bad("border colour must be one of %s", strings.Join(BrandColors, ", "))
+	if _, ok := BrandColorByName(c.BrandBorder); c.BrandBorder != "" && !ok {
+		bad("border colour must be one of %s", strings.Join(BrandNames(), ", "))
 	}
 	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
 		bad("PIN tries before lockout must be 0 (never) or 1-1000")

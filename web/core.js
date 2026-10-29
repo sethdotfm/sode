@@ -20,6 +20,7 @@ export const S = {
   cfg: null,
   configPath: '',
   version: '',
+  brandColors: [], // [{name, label}] for Settings' border colour
   srcs: [], dsts: [],
   srcBy: new Map(), dstBy: new Map(),
   tally: new Map(), // dst → Map(ui level → src)
@@ -130,6 +131,7 @@ function handle(m) {
       S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.version = m.version || '';
+      S.brandColors = m.brandColors || [];
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
