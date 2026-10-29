@@ -124,12 +124,11 @@ code,
   width: 100%;
   z-index: var(--pb-z-sticky);
 }
-/* In Settings (where a down router gets fixed) the banner is compact and
-   scrolls away, so the table of contents never sits under it. */
+/* In Settings (where a down router gets fixed) the banner stays pinned but
+   compact; the table of contents sits below it (--sode-down-h, core.js). */
 [data-view="settings"] .sode__down {
   gap: var(--pb-space-3);
   padding: var(--pb-space-5) var(--pb-space-8);
-  position: static;
 }
 [data-view="settings"] .sode__down .sode__down-map { display: none; }
 [data-view="settings"] .sode__down .sode__down-title { font-size: var(--pb-text-md); }
@@ -365,10 +364,10 @@ code,
    Back and a short page of its own, so it goes without. */
 .sode__toc {
   position: sticky;
-  top: 0;
+  top: var(--sode-down-h, 0px);
   z-index: 1;
 }
-.sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2); }
+.sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px)); }
 [data-layout="phone"] .sode__toc { display: none; }
 @media (min-width: 1100px) {
   .sode__toc {
@@ -377,12 +376,11 @@ code,
     left: calc(50% - 320px - 200px - var(--pb-space-8));
     overflow-x: hidden;
     position: fixed;
-    top: 10vh;
+    top: max(10vh, calc(var(--sode-down-h, 0px) + var(--pb-space-5)));
     width: 200px;
   }
-  [data-conn="down"] .sode__toc { top: max(10vh, calc(var(--sode-down-h, 0px) + var(--pb-space-5))); }
   .sode__toc .pb-tab { text-align: left; }
-  .sode__settings > .sode__group { scroll-margin-top: var(--pb-space-10); }
+  .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px)); }
 }
 .sode__settings-head {
   align-items: center;
