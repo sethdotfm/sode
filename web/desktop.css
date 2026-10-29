@@ -145,9 +145,9 @@
 .sode__box--levels .sode__levels {
   grid-column: 1;
   grid-row: 3;
-  overflow-x: scroll; /* always shown, as in Sending and Receiving */
+  overflow-x: auto; /* the scrollbar only shows past 17 levels */
   overscroll-behavior-x: contain;
-  padding-bottom: var(--pb-space-2);
+  padding-bottom: var(--pb-space-1);
   width: calc(var(--sode-picker-cols) * (var(--pb-space-8) + var(--pb-space-1))
     + (var(--sode-picker-cols) - 1) * var(--pb-space-1));
 }
@@ -193,13 +193,16 @@
   padding-right: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar,
+.sode__bar::-webkit-scrollbar,
 .sode__box--levels .sode__levels::-webkit-scrollbar {
   height: var(--pb-space-2);
   width: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar-track,
+.sode__bar::-webkit-scrollbar-track,
 .sode__box--levels .sode__levels::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
 .sode__scroll::-webkit-scrollbar-thumb,
+.sode__bar::-webkit-scrollbar-thumb,
 .sode__box--levels .sode__levels::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
 .sode__feed {
   display: flex;

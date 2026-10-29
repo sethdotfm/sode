@@ -312,10 +312,15 @@ code,
    with an odd first level (0 or V) on its own to their left. A thick
    outline reads as filled at this size, so every slot gets the thin one;
    a fixed width keeps two-digit slots from growing when filled. */
+/* However many levels there are, a bar never outgrows its container: past
+   that it scrolls sideways (the scrollbar style is in desktop.css). */
 .sode__bar {
   display: grid;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   gap: var(--pb-space-1);
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
   grid-template-columns: repeat(var(--sode-bar-cols), auto);
   justify-content: start;
 }

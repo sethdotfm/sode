@@ -14,7 +14,9 @@
 .sode__hist {
   display: grid;
   gap: var(--pb-space-2) var(--pb-space-6);
-  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto auto;
+  /* The levels column fits its widest bar up to 14 columns (28 levels); a
+     wider bar scrolls inside it instead of widening every row. */
+  grid-template-columns: auto auto fit-content(calc(14 * (var(--pb-space-7) + var(--pb-space-1)))) minmax(0, 1fr) auto auto auto;
   list-style: none;
   margin: 0;
   padding: 0;
