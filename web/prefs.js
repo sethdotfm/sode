@@ -13,6 +13,7 @@ export const PREFS = {
   clock: { key: 'sode-clock', def: '24', values: { 24: '24-hour', 12: '12-hour', locale: 'Browser language' } },
   flip: { key: 'sode-flip', def: 'off', bool: true, values: { on: 'On', off: 'Off' } },
   scrollTop: { key: 'sode-scroll-top', def: 'on', bool: true, values: { on: 'On', off: 'Off' } },
+  setStack: { key: 'sode-set-stack', def: 'and', values: { and: 'All must match', or: 'Any may match' } },
   searchFilters: { key: 'sode-search-filters', def: 'off', bool: true, values: { on: 'On', off: 'Off' } },
 };
 

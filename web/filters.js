@@ -10,8 +10,10 @@ import { $, el, S, on, off, wsSend, sentence, search, item, labelNode } from './
 import { readStr, writeStr } from './store.js';
 import {
   filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter, allSets, activeSet, activeRef, adoptFilter, pickSet,
-  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary,
+  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary, toggleSet, activeStack, activeRefs, isActive,
 } from './filterstore.js';
+import { pref } from './device.js';
+import { PREFS } from './prefs.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
 import { showResult } from './plans.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
@@ -237,25 +239,28 @@ function renderShow() {
 // ---- the Filters buttons in Recent's headers
 
 function renderButtons() {
-  const n = filterCount();
+  const stack = activeStack().length;
+  const n = stack || filterCount();
   for (const b of document.querySelectorAll('[data-filters]')) {
-    b.textContent = n ? `Filters · ${n}` : 'Filters';
+    b.textContent = stack ? `Filters · ${stack} sets` : n ? `Filters · ${n}` : 'Filters';
     b.classList.toggle('sode__filters-btn--on', n > 0);
-    b.setAttribute('aria-label', n ? `Filters, ${n} active` : 'Filters, none active');
+    b.setAttribute('aria-label', stack ? `Filters, ${stack} sets stacked` : n ? `Filters, ${n} active` : 'Filters, none active');
   }
-  // Quick buttons for the sets, once there's any besides All. The active
-  // one is selected; * when its filter has been edited since.
+  // Quick buttons for the sets, once there's any besides All. Active ones
+  // are selected (click again to take one off; none left is All); * when
+  // a single one's filter has been edited since.
   const sets = allSets();
   const a = activeSet();
   const chip = (s) => {
-    const on = !!a && setKey(a) === setKey(s);
-    const b = el('button', 'pb-chip sode__set', s.name + (on && a.edited ? '*' : ''));
+    const on = s.scope === 'all' ? !!a && a.scope === 'all' : isActive(s.scope, s.name);
+    const edited = on && !!a && a.scope !== 'all' && a.edited;
+    const b = el('button', 'pb-chip sode__set', s.name + (edited ? '*' : ''));
     b.type = 'button';
     b.setAttribute('aria-pressed', String(on));
-    if (on && a.edited) b.setAttribute('aria-label', `${s.name} (edited)`);
-    b.title = filterSummary(s.f) + (on && a.edited ? ' (edited)' : '');
+    if (edited) b.setAttribute('aria-label', `${s.name} (edited)`);
+    b.title = filterSummary(s.f) + (edited ? ' (edited)' : '');
     b.addEventListener('click', () => {
-      pickSet(s.scope, s.name);
+      toggleSet(s.scope, s.name);
       if (filtersOpen()) reload();
     });
     return b;
@@ -356,12 +361,13 @@ let opSeq = 0;
 
 function renderSetBar() {
   const a = activeSet();
+  const stack = activeStack();
   const select = $('flt-set');
   const groups = [['all', 'Default'], ['global', 'Everyone'], ['local', 'This browser']];
   const sets = allSets();
   const opts = [];
   if (!a) {
-    const o = el('option', null, 'Unsaved');
+    const o = el('option', null, stack.length ? stack.map((s) => s.name).join(' + ') : 'Unsaved');
     o.value = '';
     opts.push(o);
   }
@@ -382,12 +388,17 @@ function renderSetBar() {
   const named = a && a.scope !== 'all';
   const busy = !!pending;
   $('flt-set-save').disabled = busy || !(named && a.edited);
-  $('flt-set-saveas').disabled = busy;
+  $('flt-set-saveas').disabled = busy || stack.length > 0;
+  $('flt-share-btn').disabled = stack.length > 0;
   $('flt-set-rename').disabled = busy || !named;
   $('flt-set-del').disabled = busy || !named;
   $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
   $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
   if (busy) return;
+  if (stack.length) {
+    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. `
+      + 'Changing a filter leaves the stack, and the share link is off.');
+  }
   setNote(a && a.scope !== 'all' ? `${a.scope === 'global' ? 'Everyone' : 'This browser'}${a.edited ? ' · edited' : ''}` : '');
 }
 const setNote = (text, error = false) => {
@@ -607,7 +618,7 @@ export function applySharedLink() {
     showResult('warn', 'Invalid filter link', '');
     return;
   }
-  const prev = filterState(), prevRef = activeRef();
+  const prev = filterState(), prevRef = activeRefs();
   adoptFilter(next);
   const btn = (text, fn) => {
     const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', text);
@@ -639,7 +650,7 @@ export function emptyNote(rows, fetching) {
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');
   clear.type = 'button';
   clear.addEventListener('click', () => (searching ? clearSearch() : pickSet('all', 'All')));
-  return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No matches.'), clear);
+  return el('div', 'sode__filters-empty', el('span', 'sode__hint', !searching && activeStack().length ? 'No matches in the stacked sets.' : 'No matches.'), clear);
 }
 
 // ---- quick search: the Filter by Source / Destination boxes above Recent,
@@ -801,6 +812,7 @@ on('search', renderSearch);
 on('history', () => { if (searchActive()) renderSearch(); });
 
 on('filters', renderButtons);
+on('prefs', () => filtersOpen() && renderSetBar());
 on('hello', () => {
   renderButtons();
   if (filtersOpen()) { renderShow(); eds.src.preview(); eds.dst.preview(); }
