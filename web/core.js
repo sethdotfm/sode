@@ -20,6 +20,7 @@ export const S = {
   cfg: null,
   configPath: '',
   version: '',
+  brandColors: [], // [{name, label}] for Settings' border colour
   srcs: [], dsts: [],
   srcBy: new Map(), dstBy: new Map(),
   tally: new Map(), // dst → Map(ui level → src)
@@ -130,6 +131,7 @@ function handle(m) {
       S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.version = m.version || '';
+      S.brandColors = m.brandColors || [];
       S.levels = m.levels;
       S.levelBy = new Map(m.levels.map((l) => [l.ui, l]));
       S.levelDefaults = m.levelDefaults || [];
@@ -262,12 +264,31 @@ export function routerLabel() {
   return [S.routerAddr || '', false];
 }
 
+// The page starts below the banner when it is fixed to the top of the
+// window (the desktop one; the phone's sits in its own column). Both
+// layouts call renderDown with their own banner, so watch them all and
+// publish the height of whichever is fixed and showing as --sode-down-h.
+const banners = new Set();
+let downObs;
+function publishDownHeight() {
+  let h = 0;
+  for (const b of banners) {
+    if (!b.hidden && getComputedStyle(b).position === 'fixed') h = Math.max(h, b.offsetHeight);
+  }
+  document.documentElement.style.setProperty('--sode-down-h', `${h}px`);
+}
 // Fills (or hides) a disconnected banner: what's lost, a browser → server
 // → router map with each link marked, and the router's error if any.
 // Redrawn only when its content changes: status flaps while reconnecting,
 // and each redraw would re-announce the alert.
 export function renderDown(box, c) {
   box.hidden = !c.down;
+  if (typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined' && !banners.has(box)) {
+    downObs ??= new ResizeObserver(publishDownHeight);
+    banners.add(box);
+    downObs.observe(box);
+  }
+  if (downObs) publishDownHeight();
   const key = c.down ? JSON.stringify([c.down, S.routerAddr, S.cfg?.routerName]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key;

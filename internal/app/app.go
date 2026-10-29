@@ -522,6 +522,7 @@ func (a *App) hello(p helloPage) []byte {
 		Status: a.status, Recent: p.recent, More: p.more,
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: r.cfg,
 		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: VersionLabel(),
+		BrandColors: config.BrandColors,
 	}
 	b, err := json.Marshal(m)
 	if err != nil {

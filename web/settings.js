@@ -11,6 +11,7 @@ import { filterSummary, normFilter } from './filterstore.js';
 import { showResult } from './plans.js';
 import { parseLevelsAs } from './levels.js';
 import { PREFS, resolve, toGlobal } from './prefs.js';
+import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
@@ -91,12 +92,17 @@ function renderSaveState() {
 // The picked brand colour, as the window border and as the app icon the
 // server draws (icon.go), before it is saved.
 function renderBrandPreview() {
-  const c = $('cfg-brandborder').value;
-  const sw = $('brand-swatch');
-  if (c) sw.dataset.brand = c;
-  else delete sw.dataset.brand;
-  $('brand-icon').src = `icon.png?s=180${c ? `&c=${encodeURIComponent(c)}` : ''}`;
-  $('brand-name').textContent = c ? c[0].toUpperCase() + c.slice(1) : 'Off';
+  const sel = $('cfg-brandborder');
+  const c = sel.value;
+  setBrand($('brand-swatch'), c);
+  $('brand-icon').src = iconURL(180, c);
+  $('brand-name').textContent = sel.selectedOptions[0]?.textContent || 'Off';
+}
+// The colours come from the server's table (hello), Off first.
+function fillBrandColors() {
+  const sel = $('cfg-brandborder');
+  const opt = (value, text) => Object.assign(el('option', null, text), { value });
+  sel.replaceChildren(opt('', 'Off'), ...S.brandColors.map((c) => opt(c.name, c.label)));
 }
 $('cfg-brandborder').addEventListener('change', renderBrandPreview);
 
@@ -105,6 +111,7 @@ export function openSettings() {
   // Locked or not: the version shows at the bottom of both views.
   for (const v of form.querySelectorAll('[data-version]')) v.textContent = S.version ? `Sode ${S.version}` : '';
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
+  fillBrandColors();
   for (const f of fields()) {
     const v = S.cfg[f.dataset.key];
     if (f.dataset.type === 'bool') f.checked = !!v;
