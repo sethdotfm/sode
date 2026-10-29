@@ -123,6 +123,11 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	return host
 }
 
+// How often each browser gets a {"t":"ping"} message. Browsers can't see
+// WebSocket ping frames, so without this a socket a proxy or the network
+// dropped silently stays OPEN on the page (#142). A var so a test can shorten it.
+var wsHeartbeat = 5 * time.Second
+
 func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
@@ -163,6 +168,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 		ping := time.NewTicker(20 * time.Second)
 		defer ping.Stop()
+		beat := time.NewTicker(wsHeartbeat)
+		defer beat.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -174,6 +181,13 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				}
 				wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
 				err := conn.Write(wctx, websocket.MessageText, b)
+				wcancel()
+				if err != nil {
+					return
+				}
+			case <-beat.C:
+				wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
+				err := conn.Write(wctx, websocket.MessageText, []byte(`{"t":"ping"}`))
 				wcancel()
 				if err != nil {
 					return

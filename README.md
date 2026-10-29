@@ -38,6 +38,8 @@ To try it without a router, run the bundled simulator from a checkout: `docker c
 
 **Install as an app.** Sode is a web app: use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS (or on localhost), so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own; on iOS, remove the app and add it again. It still needs the server to run, so there is no offline mode.
 
+**Behind a proxy.** Set `trustedProxies` (`SODE_TRUSTED_PROXIES`) to the proxy's address so history shows real client IPs; the server logs a warning when it sees `X-Forwarded-For` and the setting is empty. The proxy must pass WebSocket connections (`/ws`) and keep them open while idle for at least 15 seconds. The server sends a small heartbeat every 5 seconds and the page treats a connection that has been silent for 15 seconds as dead: it reconnects, and a patch is refused ("NOT sent") if the connection has been quiet for more than about 7 seconds, rather than being lost.
+
 ## Using it
 
 **Levels** accept `1`, `1-3`, `1,3,5-8` (or `+`), `!1` (all but 1), `1-8!3`, and words: `thru`/`t` for `-`, `not`/`n` for `!`, `and` for `,`. On a phone's number pad `.` is `,` and `..` is `-`. Blank means the default levels. With V + A numbering, `v,a1-a8` also works.
