@@ -268,8 +268,18 @@ export function routerLabel() {
 // → router map with each link marked, and the router's error if any.
 // Redrawn only when its content changes: status flaps while reconnecting,
 // and each redraw would re-announce the alert.
+let downObs;
+function publishDownHeight(box) {
+  document.documentElement.style.setProperty('--sode-down-h', `${box.hidden ? 0 : box.offsetHeight}px`);
+}
 export function renderDown(box, c) {
   box.hidden = !c.down;
+  if (!downObs && typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined') {
+    // Publish the banner's real height so the Settings contents list clears it.
+    downObs = new ResizeObserver(() => publishDownHeight(box));
+    downObs.observe(box);
+  }
+  if (downObs) publishDownHeight(box);
   const key = c.down ? JSON.stringify([c.down, S.routerAddr, S.cfg?.routerName]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key;
