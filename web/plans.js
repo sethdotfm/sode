@@ -359,7 +359,7 @@ export function sendTakes(p) {
     }
   }
   if (!wsSend({ t: 'batch', items })) {
-    showResult('error', 'Not connected', 'Lost connection to Sode before the take was sent.');
+    showResult('error', 'Not sent', 'The patch was NOT sent: the connection to the Sode server was lost. It is reconnecting; try again in a moment.');
     return false;
   }
   for (const id of batch.byId.keys()) takes.set(id, batch);

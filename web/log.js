@@ -1,11 +1,14 @@
-// The /log page: every message Sode wrote to the router (issue 72), newest
-// first, live, with this browser's filters.
+// The /log page: every message Sode wrote to the router (issue 72), plus
+// browser connects, commands and router link changes (#139), newest first,
+// live, with this browser's filters, and the router uptime graph.
 import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
-import { KINDS, KIND_IDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { newPager } from './logpager.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, slots, summary, slotText } from './uptime.js';
 import './brand.js';
 
 on('brand', ({ text }) => {
@@ -13,13 +16,6 @@ on('brand', ({ text }) => {
   document.title = `${text} Communication Log \u00b7 ${text}`;
 });
 
-// Entries read on open and per Load older.
-const PAGE = 100;
-// Entries per request while reading back to the start of a time range, or
-// through pages the filters hide entirely (the server's most).
-const FILL = 500;
-// Requests in a row for one Load older while the filters hide everything.
-const AUTO_PAGES = 20;
 // Entries are kept in the order they finished but stamped with when they
 // were first sent (or queued), so the log isn't strictly in time order: a
 // message that retried can finish after later ones. Reading back for a
@@ -30,19 +26,25 @@ const FILTER_KEY = 'sode-log-filter';
 const KIND_LABEL = {
   connect: 'Connect', interrogate: 'Interrogate', keepalive: 'Keepalive', tallyDump: 'Tally dump',
   protectDump: 'Protect dump', srcNames: 'Source names', dstNames: 'Destination names', other: 'Other',
+  browser: 'Browser', command: 'Command', link: 'Router link', server: 'Sode',
 };
 const WHY_LABEL = {
   take: 'Take', undo: 'Undo', retry: 'Retry', check: 'Check before take', confirm: 'Confirm take',
   resync: 'Resync', names: 'Name refresh', keepalive: 'Link check',
+  connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
+  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved',
+  unlock: 'Settings PIN', lock: 'Settings locked',
 };
+// Events, not messages to the router: no command byte, no bytes.
+const isEvent = (e) => EVENT_KINDS.has(e.kind);
 
 // ---- filters
 
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    // Connects alone by default: the routes.
-    kinds: normalizeKinds(f.kinds, ['connect']),
+    // The routes, what people did and the link by default.
+    kinds: normalizeKinds(f.kinds, ['connect', 'command', 'link']),
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
@@ -58,7 +60,8 @@ function saveFilter() {
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const problem = (e) => e.result !== 'ack' || e.tries > 1;
+const EVENT_PROBLEM = { command: ['refused', 'locked', 'error'], link: ['down'] };
+const problem = (e) => (isEvent(e) ? !!EVENT_PROBLEM[e.kind]?.includes(e.result) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // The time range, as ms (null: open). Not kept: a range far back means
@@ -126,10 +129,18 @@ function initFilters() {
     $('log-range-clear').hidden = f == null && t == null;
     render();
     fill();
+    refreshUptime();
   };
-  from.addEventListener('change', applyRange);
-  to.addEventListener('change', applyRange);
+  // Times typed by hand end a toggle's range; its own change event is not trusted.
+  const byHand = (e) => {
+    if (e.isTrusted) { chipOn = null; leaveSlot(); }
+    applyRange();
+  };
+  from.addEventListener('change', byHand);
+  to.addEventListener('change', byHand);
   $('log-range-clear').addEventListener('click', () => {
+    chipOn = null;
+    leaveSlot();
     from.value = to.value = '';
     applyRange();
   });
@@ -152,100 +163,62 @@ function initFilters() {
 
 // ---- entries: newest first
 
-let list = [];
-const seen = new Set(); // seqs in list
+const pager = newPager();
 // The entries in the table, in its order: kept in step with tbody's rows
 // so new ones go in place instead of redrawing everything.
 let shown = [];
-let more = false;
-let total = 0; // entries in the log on the server, as last reported
-let loading = false;
-let autoLeft = 0;
-let started = false; // asked for the newest page on this connection
 
-function add(entries) {
-  const fresh = entries.filter((e) => !seen.has(e.seq));
-  for (const e of fresh) {
-    seen.add(e.seq);
-    e.t = Date.parse(e.time);
-  }
-  return fresh;
-}
-
-function request(before, n = PAGE) {
-  if (wsSend({ t: 'sent', before, n })) loading = true;
+function send(req) {
+  if (!req) return;
+  // Not sent (no connection): nothing to wait for.
+  if (!wsSend({ t: 'sent', ...req })) pager.unsent();
   renderMore();
 }
-
-const oldest = () => list[list.length - 1];
 
 // Whether entries older than those loaded can still fall in the range:
 // the log hasn't been read back past its start (or, with only an end,
 // to its end).
 function rangeNeedsMore() {
-  if (!more || !list.length) return false;
-  if (range.from != null) return oldest().t >= range.from - TIME_SLACK;
-  if (range.to != null) return oldest().t > range.to - TIME_SLACK;
+  if (!pager.more || !pager.list.length) return false;
+  if (range.from != null) return pager.oldest.t >= range.from - TIME_SLACK;
+  if (range.to != null) return pager.oldest.t > range.to - TIME_SLACK;
   return false;
 }
 
 // Everything in the range is loaded: older pages are all before it.
-const rangeDone = () => range.from != null && list.length > 0 && !rangeNeedsMore();
+const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNeedsMore();
 
 // Reads back until the range is covered. One request at a time.
-function fill() {
-  if (!loading && rangeNeedsMore()) request(oldest().seq, FILL);
-}
+const fill = () => rangeNeedsMore() && send(pager.back());
 
 on('hello', () => {
   // Fresh after a reconnect: entries may have been missed while away.
-  list = [];
-  seen.clear();
-  more = false;
-  started = true;
-  request(-1);
+  send(pager.open());
   render();
+  refreshUptime();
 });
 
 on('sentPage', (m) => {
-  if (!started) return;
-  const last = list.length ? oldest().seq : -1;
-  const newest = m.before === -1;
-  let older = [];
-  if (newest) {
-    // Live entries may have come in first: merge.
-    list = [...list, ...add(m.entries)].sort((a, b) => b.seq - a.seq);
-  } else if (m.before === last) {
-    older = add(m.entries);
-    list.push(...older);
-  } else {
-    return; // for a list since replaced
-  }
-  more = m.more;
-  loading = false;
+  const r = pager.receive(m);
+  if (!r) return; // not the reply awaited: a connection since replaced
   showCounts(m);
   // Older entries go at the end newest first. In any other order the
   // table is drawn once when reading back stops, not after every page.
-  if (newest) render();
-  else if (newestFirst()) appendRows(older.filter(passes));
-  if (rangeNeedsMore()) return fill();
-  // Keep reading back while the filters hide everything read so far.
-  if (more && autoLeft > 0 && !shown.length && !older.some(passes)) {
-    autoLeft--;
-    request(oldest().seq, FILL);
-    return;
-  }
-  autoLeft = 0;
-  if (!newest && !newestFirst()) render();
+  if (r.newest) render();
+  else if (newestFirst()) appendRows(r.fresh.filter(passes));
+  // Read on while a range isn't covered, or the filters leave fewer than a
+  // page shown: opening, or Load older, shouldn't look like nothing happened.
+  const req = rangeNeedsMore() ? pager.back() : pager.next(pager.list.filter(passes).length);
+  if (req) return send(req);
+  if (!r.newest && !newestFirst()) render();
   else renderMore();
 });
 
 on('sentAdd', (m) => {
-  if (!started) return;
+  if (!pager.started) return;
   showCounts(m);
-  const fresh = add(m.entries).sort((a, b) => b.seq - a.seq);
+  const fresh = pager.live(m);
   if (!fresh.length) return;
-  list.unshift(...fresh);
   const pass = fresh.filter(passes);
   if (newestFirst()) {
     tbody.prepend(...pass.map((e) => row(e, true)));
@@ -257,7 +230,6 @@ on('sentAdd', (m) => {
 });
 
 function showCounts(m) {
-  if (m.total != null) total = m.total;
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
@@ -283,10 +255,23 @@ function fmtStamp(iso) {
 }
 
 // What the router made of it: status always with text.
+const EVENT_RESULT = {
+  up: ['ok', 'Router up'], down: ['error', 'Router down'], changed: ['warn', 'Router changed'],
+  connected: ['ok', 'Connected'], disconnected: ['idle', 'Disconnected'],
+  sent: ['ok', 'Sent'], ok: ['ok', 'Done'], refused: ['error', 'Refused'], locked: ['warn', 'Locked'], error: ['error', 'Failed'],
+  start: ['ok', 'Started'], stop: ['idle', 'Stopped'],
+};
+
 function outcome(e) {
+  if (isEvent(e)) {
+    const [dot, text] = EVENT_RESULT[e.result] || ['idle', e.result];
+    const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
+    if (e.err) s.title = e.err;
+    return s;
+  }
   const tries = `${e.tries} ${e.tries === 1 ? 'try' : 'tries'}`;
   const [dot, text] = {
-    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', 'ACK'],
+    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', e.ackMs ? `ACK · ${fmtMs(e.ackMs)}` : 'ACK'],
     nak: ['error', `NAK, gave up after ${tries}`],
     noack: ['error', `No ACK after ${tries}`],
     write: ['error', 'Write failed'],
@@ -297,6 +282,8 @@ function outcome(e) {
   if (e.err) s.title = e.err;
   return s;
 }
+
+const fmtMs = (ms) => (ms < 10 ? ms.toFixed(1) : String(Math.round(ms))) + ' ms';
 
 function levelCell(e) {
   const l = S.levelBy.get(e.level);
@@ -310,11 +297,11 @@ function row(e, fresh = false) {
   const why = WHY_LABEL[e.why] || e.why || '';
   const tr = el('tr', fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
-    el('td', null, el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`), ' ', KIND_LABEL[e.kind] || e.kind),
+    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), KIND_LABEL[e.kind] || e.kind),
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
-    el('td', null, why, e.by ? el('span', 'pb-text-muted', ` · ${e.by}`) : ''),
+    el('td', null, why, e.by ? el('span', 'pb-text-muted', ` · ${e.by}`) : '', e.note ? el('span', 'pb-text-muted', ` · ${e.note}`) : ''),
     el('td', null, outcome(e)),
     el('td', 'sode-log__hex', e.hex),
   );
@@ -326,7 +313,7 @@ function row(e, fresh = false) {
 // keep newest first, and rows without that column go last either way.
 
 const SORT_KEY = 'sode-log-sort';
-const resultRank = (e) => (e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
+const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
 const SORTS = {
   time: (e) => e.seq,
   message: (e) => KIND_LABEL[e.kind] || e.kind,
@@ -371,7 +358,7 @@ function order(x, y) {
 
 // The rows shown, in the order shown: also what the CSV holds.
 function shownRows() {
-  const rows = list.filter(passes);
+  const rows = pager.list.filter(passes);
   if (newestFirst()) return rows;
   const key = SORTS[sort.col];
   return rows
@@ -432,18 +419,19 @@ function render() {
 
 function renderMore() {
   const shown = tbody.childElementCount;
-  $('log-count').textContent = list.length ? `${shown.toLocaleString()} of ${total.toLocaleString()} in log` : '';
+  $('log-count').textContent = pager.list.length ? `${shown.toLocaleString()} of ${pager.total.toLocaleString()} in log` : '';
   $('log-csv').disabled = !shown;
   const older = $('log-older');
-  const filling = loading && rangeNeedsMore();
-  older.hidden = !more || rangeDone();
-  older.disabled = loading;
-  older.textContent = filling ? `Loading back to ${fmtDay(oldest().t)}…` : loading ? 'Loading…' : 'Load older';
+  const busy = pager.loading;
+  const filling = busy && rangeNeedsMore();
+  older.hidden = !pager.more || rangeDone();
+  older.disabled = busy;
+  older.textContent = filling ? `Loading back to ${fmtDay(pager.oldest.t)}…` : busy ? 'Loading…' : 'Load older';
   const empty = $('log-empty');
-  empty.hidden = shown > 0 || loading;
-  empty.textContent = !list.length
-    ? (more ? '' : 'Nothing sent yet.')
-    : rangeDone() || !more ? 'Nothing matches the filters.' : 'Nothing loaded matches the filters.';
+  empty.hidden = shown > 0 || busy;
+  empty.textContent = !pager.list.length
+    ? (pager.more ? '' : 'Nothing sent yet.')
+    : rangeDone() || !pager.more ? 'Nothing matches the filters.' : 'Nothing loaded matches the filters.';
 }
 
 // ---- CSV: the rows shown, newest first, as logged (numbers as displayed).
@@ -452,7 +440,7 @@ const CSV_COLS = [
   ['time', (e) => e.time],
   ['seq', (e) => e.seq],
   ['message', (e) => KIND_LABEL[e.kind] || e.kind],
-  ['cmd', (e) => `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`],
+  ['cmd', (e) => (isEvent(e) ? '' : `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`)],
   ['level', (e) => S.levelBy.get(e.level)?.label ?? ''],
   ['wire level', (e) => (e.wire >= 0 ? e.wire : '')],
   ['destination', (e) => (e.dst >= 0 ? e.dst + off() : '')],
@@ -464,6 +452,8 @@ const CSV_COLS = [
   ['result', (e) => e.result],
   ['tries', (e) => e.tries],
   ['error', (e) => e.err || ''],
+  ['note', (e) => e.note || ''],
+  ['ack ms', (e) => (e.ackMs ? e.ackMs : '')],
   ['bytes', (e) => e.hex],
 ];
 
@@ -490,9 +480,7 @@ $('log-csv').addEventListener('click', () => {
 });
 
 $('log-older').addEventListener('click', () => {
-  if (loading || !list.length) return;
-  autoLeft = AUTO_PAGES;
-  request(oldest().seq);
+  send(pager.older(pager.list.filter(passes).length));
 });
 
 // Where a range fill has got to.
@@ -504,12 +492,156 @@ const fmtDay = (t) => {
 
 // ---- connection
 
+let routerWas = null;
 on('conn', () => {
   const c = connState();
+  // The graph follows the router link: ask again when it changes.
+  if (routerWas !== null && c.rt[0] !== routerWas) refreshUptime();
+  routerWas = c.rt[0];
   setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
   setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
   $('log-addr').textContent = routerLabel()[0];
-  if (S.wsState !== 'up') { started = false; loading = false; renderMore(); }
+  if (S.wsState !== 'up') { pager.close(); renderMore(); }
 });
+// ---- uptime graph (#139)
+
+// One strip. Its toggles set the log's time range (From = that long ago,
+// no To), and while one is on the strip keeps rolling with the clock. With
+// no times set it shows the last 24 hours; with times set by hand, those.
+// Only the newest reply to a request is drawn.
+let chipOn = null; // the toggle whose range is set, or null
+// Slot mode: a bar was clicked and the log shows just its slot. The strip
+// keeps the window it had (view) so the bars next to it can be clicked, and
+// what was set before (prev) comes back with Back.
+let slotMode = null; // { from, to, view: {from, to}, prev: {from, to, chip, sort} }
+let upLast = null; // the window of the strip as last drawn
+let upId = 0;
+const upBars = $('log-uptime-bars');
+const upSum = $('log-uptime-sum');
+const customTimes = () => range.from != null || range.to != null;
+
+// datetime-local's value, in local time.
+function localStamp(t) {
+  const d = new Date(t), p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function initUptime() {
+  const box = $('log-uptime-presets');
+  const chips = PRESETS.map((p) => {
+    const b = el('button', 'pb-chip sode-log__chip', presetText(p));
+    b.type = 'button';
+    b.title = `Show the last ${p.label} and limit the log to it. Each bar of the graph is ${slotLabel(slotFor(0, p.span))}.`;
+    b.addEventListener('click', () => {
+      const from = $('log-from');
+      from.value = localStamp(Date.now() - p.span);
+      $('log-to').value = '';
+      leaveSlot();
+      chipOn = p.id;
+      from.dispatchEvent(new Event('change'));
+    });
+    return { id: p.id, b };
+  });
+  box.replaceChildren(...chips.map((c) => c.b));
+  syncPresets = () => {
+    const on = chipOn || (customTimes() ? null : DEFAULT_PRESET);
+    for (const c of chips) c.b.setAttribute('aria-pressed', String(c.id === on));
+  };
+  syncPresets();
+}
+let syncPresets = () => {};
+
+function refreshUptime() {
+  if (!customTimes()) chipOn = null;
+  syncPresets();
+  const now = Date.now();
+  const r = slotMode ? slotMode.view : chipOn ? rangeFor(chipOn, null, null, now) : rangeFor(DEFAULT_PRESET, range.from, range.to, now);
+  if (!r) {
+    upBars.replaceChildren();
+    upSum.textContent = 'The From time is after the To time.';
+    return;
+  }
+  const id = ++upId;
+  if (!wsSend({ t: 'uptime', id, from: r.from, to: r.to, slot: slotFor(r.from, r.to) })) return;
+  if (!upBars.childElementCount) upSum.textContent = 'Loading…';
+}
+
+// A bar was clicked: the log's time range becomes that slot, newest first.
+function enterSlot(s) {
+  const from = $('log-from'), to = $('log-to');
+  const prev = slotMode ? slotMode.prev : { from: from.value, to: to.value, chip: chipOn, sort: { ...sort } };
+  const view = slotMode ? slotMode.view : upLast;
+  slotMode = { from: s.from, to: s.to, view, prev };
+  chipOn = null;
+  sort = { col: 'time', dir: 'desc' };
+  writeJSON(SORT_KEY, null);
+  renderSort();
+  from.value = localStamp(s.from);
+  to.value = localStamp(s.to - 1000); // To counts to the end of the second it shows
+  from.dispatchEvent(new Event('change'));
+  showSlot();
+}
+
+// Back: what was set before comes back, sort included.
+function leaveSlotBack() {
+  const { prev } = slotMode;
+  slotMode = null;
+  chipOn = prev.chip;
+  sort = prev.sort;
+  writeJSON(SORT_KEY, newestFirst() ? null : sort);
+  renderSort();
+  $('log-from').value = prev.from;
+  $('log-to').value = prev.to;
+  $('log-from').dispatchEvent(new Event('change'));
+  showSlot();
+}
+
+// Leaving slot mode by changing the times another way: nothing to restore.
+function leaveSlot() {
+  if (!slotMode) return;
+  slotMode = null;
+  showSlot();
+}
+
+// Slot mode is obvious: a banner above the table says what is shown.
+function showSlot() {
+  const note = $('log-slot');
+  note.hidden = !slotMode;
+  if (!slotMode) return;
+  const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
+  back.type = 'button';
+  back.addEventListener('click', leaveSlotBack);
+  note.replaceChildren(
+    el('strong', null, 'One slot of the graph'),
+    ` · ${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)} · newest first`,
+    back,
+  );
+}
+
+on('uptimeResult', (m) => {
+  if (m.id !== upId) return; // an older request than the latest
+  const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
+  const text = summary(data);
+  upLast = { from: m.from, to: m.to };
+  upBars.replaceChildren(...slots(data).map((s) => {
+    const bar = el('button', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
+    bar.type = 'button';
+    bar.title = slotText(s, fmtDay);
+    bar.setAttribute('aria-label', bar.title);
+    bar.disabled = s.colour === 'future';
+    const sel = !!slotMode && s.from === slotMode.from;
+    if (sel) bar.classList.add('sode-log__up-bar--sel');
+    bar.setAttribute('aria-pressed', String(sel));
+    bar.addEventListener('click', () => enterSlot(s));
+    return bar;
+  }));
+  const label = slotMode || chipOn || !customTimes() ? (slotMode ? `${fmtDay(m.from)} to ${fmtDay(m.to)}` : PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label) : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
+  upBars.setAttribute('aria-label', `Router uptime, ${label}: ${text}`);
+  upSum.textContent = text;
+});
+
+setInterval(refreshUptime, 60_000);
+
 initFilters();
+initUptime();
 connect();

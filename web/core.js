@@ -95,14 +95,35 @@ export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : src
 
 let retry = 1000;
 
+// Browsers can't see WebSocket ping frames, so the server sends a {"t":"ping"}
+// message every ~5s (#142). A socket that stays quiet for STALE_MS is dead
+// even if it still says OPEN; nothing is sent into one quiet for FRESH_MS.
+// ws.lastRx is when anything last arrived.
+const STALE_MS = 15000;
+const FRESH_MS = 7000;
+const quiet = (ws) => Date.now() - ws.lastRx;
+
+// Gives up on a socket we no longer trust. Its own close event can be long
+// in coming on a dead link, so the loss is reported now, once.
+function drop(ws) {
+  const lost = ws.onclose;
+  ws.onclose = ws.onmessage = null;
+  try { ws.close(); } catch { /* already closed */ }
+  lost?.();
+}
+
 export function connect() {
   const base = location.pathname.replace(/[^/]*$/, '');
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + base + 'ws');
   S.ws = ws;
   S.wsState = 'connecting';
   emit('conn');
-  ws.onopen = () => { retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
+  const watch = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN && quiet(ws) > STALE_MS) drop(ws);
+  }, 1000);
+  ws.onopen = () => { ws.lastRx = Date.now(); retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
   ws.onclose = () => {
+    clearInterval(watch);
     S.ws = null;
     S.wsState = 'down';
     S.wsLost = true;
@@ -112,12 +133,19 @@ export function connect() {
     setTimeout(connect, retry);
     retry = Math.min(retry * 2, 10000);
   };
-  ws.onmessage = (e) => handle(JSON.parse(e.data));
+  ws.onmessage = (e) => { ws.lastRx = Date.now(); handle(JSON.parse(e.data)); };
 }
 
+// False if the message wasn't sent: no open socket, or one that has gone
+// quiet (probably dead), which is dropped so the page reconnects.
 export function wsSend(m) {
-  if (!S.ws || S.ws.readyState !== WebSocket.OPEN) return false;
-  S.ws.send(JSON.stringify(m));
+  const ws = S.ws;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  if (quiet(ws) > FRESH_MS) {
+    drop(ws);
+    return false;
+  }
+  ws.send(JSON.stringify(m));
   return true;
 }
 
@@ -144,6 +172,9 @@ function handle(m) {
       setStatus(m.status);
       S.hist = m.recent || [];
       S.histMore = m.more;
+      // A page asked for before this snapshot is for a list since replaced
+      // and will be ignored (takePage): don't wait for it.
+      S.histLoading = false;
       emit('helloData'); // filterstore.js: follow a global filter set that changed
       emit('hello');
       emit('conn');
@@ -181,7 +212,10 @@ function handle(m) {
       setStatus(m);
       emit('conn');
       break;
+    case 'ping': // heartbeat: receiving it is all that matters
+      break;
     case 'sentPage': // the /log page (log.js)
+    case 'uptimeResult':
     case 'sentAdd':
       emit(m.t, m);
       break;

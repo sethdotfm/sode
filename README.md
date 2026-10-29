@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
 
-**Version:** Beta 1.2
+**Version:** Beta 1.3
 
 Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
 
@@ -37,6 +37,8 @@ docker compose up -d     # then open http://localhost:8080
 To try it without a router, run the bundled simulator from a checkout: `docker compose --profile sim up --build`.
 
 **Install as an app.** Sode is a web app: use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS (or on localhost), so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own; on iOS, remove the app and add it again. It still needs the server to run, so there is no offline mode.
+
+**Behind a proxy.** Set `trustedProxies` (`SODE_TRUSTED_PROXIES`) to the proxy's address so history shows real client IPs; the server logs a warning when it sees `X-Forwarded-For` and the setting is empty. The proxy must pass WebSocket connections (`/ws`) and keep them open while idle for at least 15 seconds. The server sends a small heartbeat every 5 seconds and the page treats a connection that has been silent for 15 seconds as dead: it reconnects, and a patch is refused ("NOT sent") if the connection has been quiet for more than about 7 seconds, rather than being lost.
 
 ## Using it
 
@@ -88,7 +90,7 @@ Edited from the **Settings** button at the bottom of the page, stored in `/data/
 
 Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` (theme, layout, clock, flip, scrollTop, searchFilters: what a browser follows until it chooses its own under Settings → This device) and `settingsPin`.
 
-Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
+Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`; without it the router uptime is kept in memory only) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
 ### Settings PIN
 
@@ -102,9 +104,23 @@ docker compose exec sode /sode -reset-pin && docker compose restart sode
 
 or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
+## Monitoring (Uptime Kuma)
+
+`GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:
+
+```json
+{"server":"up","router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3","uptimeSeconds":86400,"browsers":2}
+```
+
+`router` is `up`, `connecting` or `down`; `err` appears when the router link has a problem. The status code is 200 only while the router is up and 503 otherwise, so a plain HTTP(s) monitor alerts when the router is lost (a dead server shows as no answer). Uptime Kuma counts a 503 as down even for a JSON Query monitor, so to watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `router` as the key and `up` as the expected value. `/healthz` is unchanged.
+
 ## Communication log
 
 `/log` (**Open Log** in Settings, available even while Settings are locked) lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. It's read-only. Kept in `SODE_SENTLOG` up to `SODE_SENTLOG_MB`; without it the last 20,000 messages stay in memory.
+
+Besides messages to the router the log has event rows (#139), which show in the default view and have their own filter chips: **Browsers** (a browser's WebSocket connecting or dropping, with its address), **Commands** (what people fire that changes something: takes, undos and retries, refreshing names, clearing history, saving settings or filter sets, unlocking and locking the settings PIN: whether the PIN was right, never the PIN itself), and **Router link** (the router link going down once per outage, coming up, being changed in Settings, and Sode starting and stopping). ACKed messages also show how long the router took.
+
+The **Router uptime** graph at the top is one strip with toggles for 1 hour, 24 hours (the default view), 7 days and 30 days, each showing its bar length, e.g. "24 hours (15 min)". A toggle also sets the log's From time to that long ago, so the table shows the same period; Clear times undoes it. Setting From or To by hand shows that range instead. Click a bar to see just that slot: the log's times become the bar's, the table is sorted newest first, and a banner says so; **Back** restores the times and sort you had. Each bar is a slot (a minute for an hour, 15 minutes for a day, an hour for a week; hover for the details): green when the router link was up the whole slot, yellow when it was down for part of it or messages failed, needed a retry or took over 300 ms to ACK, red when it was down or Sode wasn't running, grey with nothing recorded. The record is kept for 400 days in `SODE_UPTIME`; Sode not running is found from a stamp it rewrites every minute, so a crash shows as down from the last minute it was alive.
 
 ## Protocol notes
 
