@@ -95,13 +95,31 @@ export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : src
 
 let retry = 1000;
 
+// Browsers can't see WebSocket ping frames, so the server sends a {"t":"ping"}
+// message every ~5s (#142). A socket that stays quiet this long is dead even
+// if it still says OPEN, and a take must not be sent into one.
+export const WS_STALE_MS = 15000; // close the socket after this much silence
+export const WS_FRESH_MS = 7000; // a take is sent only if heard from this recently
+export const wsStale = (last, now) => now - last > WS_STALE_MS;
+export const wsFresh = (open, last, now) => open && now - last <= WS_FRESH_MS;
+let lastRx = 0;
+export const wsTouch = () => { lastRx = Date.now(); }; // anything arrived
+// OPEN and heard from within WS_FRESH_MS.
+export const wsFreshNow = () => wsFresh(!!S.ws && S.ws.readyState === WebSocket.OPEN, lastRx, Date.now());
+// Drop a socket we no longer trust; onclose then reconnects.
+export function wsReset() { try { S.ws?.close(); } catch { /* already closed */ } }
+const wsWatch = setInterval(() => {
+  if (S.ws && S.ws.readyState === WebSocket.OPEN && wsStale(lastRx, Date.now())) wsReset();
+}, 1000);
+wsWatch.unref?.(); // Node tests import this module
+
 export function connect() {
   const base = location.pathname.replace(/[^/]*$/, '');
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + base + 'ws');
   S.ws = ws;
   S.wsState = 'connecting';
   emit('conn');
-  ws.onopen = () => { retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
+  ws.onopen = () => { wsTouch(); retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
   ws.onclose = () => {
     S.ws = null;
     S.wsState = 'down';
@@ -112,7 +130,7 @@ export function connect() {
     setTimeout(connect, retry);
     retry = Math.min(retry * 2, 10000);
   };
-  ws.onmessage = (e) => handle(JSON.parse(e.data));
+  ws.onmessage = (e) => { wsTouch(); handle(JSON.parse(e.data)); };
 }
 
 export function wsSend(m) {
@@ -180,6 +198,8 @@ function handle(m) {
     case 'status':
       setStatus(m);
       emit('conn');
+      break;
+    case 'ping': // heartbeat: receiving it is all that matters
       break;
     case 'sentPage': // the /log page (log.js)
     case 'sentAdd':

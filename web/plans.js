@@ -1,7 +1,7 @@
 // Plans (what a confirm shows and sends), take results and their banners.
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
-import { el, S, on, onMsg, emit, wsSend, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, on, onMsg, emit, wsSend, wsFreshNow, wsReset, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
 import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock } from './device.js';
@@ -357,6 +357,13 @@ export function sendTakes(p) {
       items.push(msg);
       batch.byId.set(id, { dst: it.dst, g });
     }
+  }
+  if (!wsFreshNow()) {
+    // Nothing has come from the server lately: the socket is probably dead
+    // though it says open. Don't send into it; reconnect instead.
+    wsReset();
+    showResult('error', 'Not sent', 'The patch was NOT sent: the connection to the Sode server went stale. It is reconnecting; try again in a moment.');
+    return false;
   }
   if (!wsSend({ t: 'batch', items })) {
     showResult('error', 'Not connected', 'Lost connection to Sode before the take was sent.');
