@@ -2,7 +2,7 @@
 // docker run --rm -v "$PWD/web":/w node:22-alpine node --test '/w/test/*.test.mjs'
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseFilter, filterText, compileFilter, filterFn } from '../filter.js';
+import { parseFilter, filterText, compileFilter, filterFn, entryAllows, stackAllows } from '../filter.js';
 
 const kinds = (t) => parseFilter(t).rules.map((r) => `${r.not ? '!' : ''}${r.kind}:${r.text ?? `${r.a}${r.b != null ? '-' + r.b : ''}`}`);
 
@@ -309,4 +309,101 @@ test('found and announced changes stack apart', async () => {
   const x = (o) => ({ ext: true, dst: 2, levels: [1], prev: [[1, 0]], ok: true, srcName: 'CAM', dstName: 'MV', ...o });
   const rows = histRows([x({ id: 3, src: 3, time: T(20) }), x({ id: 2, src: 2, time: T(10), found: true }), x({ id: 1, src: 1, time: T(5), found: true })]);
   assert.deepEqual(rows.map((r) => `${r.e.id}${r.e.merged ? 'x' + r.e.merged : ''}`), ['3', '2x2']);
+});
+
+test('stacked sets combine', () => {
+  const set = (o) => {
+    const f = { src: '', dst: '', sode: true, ext: true, hidden: false, ...o };
+    return { f, srcOk: filterFn(f.src), dstOk: filterFn(f.dst) };
+  };
+  const x = (o) => ({ ext: false, sn: 1, sname: 'CAM', dn: 5, dname: 'MV 5', hiddenDst: false, ...o });
+  const mv = set({ dst: 'MV' }), noPip = set({ dst: '!PIP' }), extOnly = set({ sode: false });
+  assert.equal(entryAllows(mv.f, mv, x()), true);
+  // AND: every set must allow; OR: any may.
+  const mon = set({ dst: 'MON' });
+  assert.equal(stackAllows('and', [mv, mon], x()), false);
+  assert.equal(stackAllows('or', [mv, mon], x()), true);
+  assert.equal(stackAllows('or', [mon, set({ dst: 'PGM' })], x()), false);
+  // An exclude counts only inside its own set, so OR still shows what
+  // another set wants; AND hides it.
+  const pip = x({ dname: 'PIP 1' });
+  assert.equal(stackAllows('and', [noPip, set({ dst: 'PIP' })], pip), false);
+  assert.equal(stackAllows('or', [noPip, set({ dst: 'PIP' })], pip), true);
+  // Kinds are per set too.
+  const ext = x({ ext: true });
+  assert.equal(stackAllows('and', [extOnly, mv], x()), false);
+  assert.equal(stackAllows('or', [extOnly, mv], x()), true);
+  assert.equal(stackAllows('and', [extOnly, mv], ext), true);
+  // Hidden destinations show only in a set that asks for them.
+  const hid = x({ ext: true, hiddenDst: true });
+  assert.equal(stackAllows('or', [mv, set({ hidden: true })], hid), true);
+  assert.equal(stackAllows('and', [mv, set({ hidden: true })], hid), false);
+});
+
+test('stacking sets in the store', async () => {
+  const core = await import('./all.mjs');
+  const { S, setFilter, filterState, activeSet, activeStack, pickSet, toggleSet, allSets, snapshot, restore, deleteLocalSet, saveLocalSet, setPref, filterAllows, FILTER_DEFAULT } = core;
+  const f = (o) => ({ name: '', src: '', dst: '', sode: true, ext: true, hidden: false, ...o });
+  S.cfg = { numberOffset: 1, filterSets: [f({ name: 'MV', dst: 'MV' }), f({ name: 'PGM', dst: 'PGM' }), f({ name: 'Ext', sode: false })] };
+  const e = (o) => ({ levels: [1], prev: [], ok: true, src: 1, srcName: 'CAM', dst: 4, dstName: 'MV 5', ...o });
+  const names = () => allSets().filter((s) => s.scope === 'global').map((s) => s.name);
+  assert.deepEqual(names(), ['MV', 'PGM', 'Ext']);
+
+  pickSet('all', 'All');
+  toggleSet('global', 'MV');
+  assert.equal(activeSet().name, 'MV');
+  assert.equal(activeStack().length, 0);
+  toggleSet('global', 'PGM');
+  assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM']);
+  assert.equal(activeSet(), null);
+  assert.equal(filterState().dst, 'MV'); // the first one's
+  assert.equal(localStorage.getItem('sode-filter-active'), null);
+  assert.equal(JSON.parse(localStorage.getItem('sode-filter-stack')).length, 2);
+  setPref('setStack', 'and');
+  assert.equal(filterAllows(e()), false);
+  setPref('setStack', 'or');
+  assert.equal(filterAllows(e()), true);
+  assert.equal(filterAllows(e({ dstName: 'DSM 1' })), false);
+  setPref('setStack', 'and');
+  // Taking one off leaves the other, alone; the last off is All.
+  toggleSet('global', 'MV');
+  assert.deepEqual([activeSet().name, filterState().dst], ['PGM', 'PGM']);
+  toggleSet('global', 'PGM');
+  assert.equal(activeSet().scope, 'all');
+  // Adding to a single edited set drops the edit.
+  pickSet('global', 'MV');
+  setFilter({ ...filterState(), dst: 'MV, X' });
+  toggleSet('global', 'Ext');
+  assert.equal(filterState().dst, 'MV');
+  assert.equal(activeStack().length, 2);
+  // Any edit leaves the stack, keeping what was typed.
+  setFilter({ ...filterState(), src: 'CAM' });
+  assert.deepEqual([activeStack().length, activeSet(), filterState().src], [0, null, 'CAM']);
+  // Stack, then All.
+  pickSet('global', 'MV');
+  toggleSet('global', 'PGM');
+  toggleSet('all', 'All');
+  assert.deepEqual([activeStack().length, activeSet().scope, filterState()], [0, 'all', { ...FILTER_DEFAULT }]);
+  // A snapshot puts a stack back as it was.
+  pickSet('global', 'MV');
+  toggleSet('global', 'PGM');
+  const snap = snapshot();
+  pickSet('all', 'All');
+  restore(snap);
+  assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM']);
+  // A local set deleted from a stack of three leaves two; of two, one.
+  setFilter({ ...FILTER_DEFAULT, dst: 'LOC' });
+  saveLocalSet('Loc');
+  pickSet('global', 'MV');
+  toggleSet('global', 'PGM');
+  toggleSet('local', 'Loc');
+  assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM', 'Loc']);
+  deleteLocalSet('Loc');
+  assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM']);
+  // Sets removed in Settings drop out of a stack; none left is All.
+  toggleSet('global', 'MV');
+  toggleSet('global', 'PGM');
+  S.cfg = { ...S.cfg, filterSets: S.cfg.filterSets.slice(2) };
+  core.emit('helloData');
+  assert.equal(activeSet().scope, 'all');
 });

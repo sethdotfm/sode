@@ -50,7 +50,7 @@ To try it without a router, run the bundled simulator from a checkout: `docker c
 
 **Recent** lists every take, shared by all browsers and kept in a log. Undo restores what the router actually had before. Routes made elsewhere (panels, Companion) appear too, marked **panel**, and can be undone the same way; changes the router made without announcing them are marked **found**. Destinations that follow another (a multiviewer PiP following a DSM) are shown as **follows** of the take; undo leaves them out unless you tick the box in the confirm. Routes changed while Sode was disconnected aren't logged.
 
-**Search and filters.** Filter by Source / Destination above Recent, and the **Filters** button (`/` in keyboard mode) scope what Recent shows, per browser. Filters can be named sets, shared with everyone from Settings, or shared as a link. They use one small expression language:
+**Search and filters.** Filter by Source / Destination above Recent, and the **Filters** button (`/` in keyboard mode) scope what Recent shows, per browser. Filters can be named sets, shared with everyone from Settings, or shared as a link. Click several set buttons in Recent's header to stack them (click one again to take it off; none left is All). Under Settings → This device, **Stacked filter sets** says whether an entry must match all of them (the default) or any one. They use one small expression language:
 
 | Typed | Matches |
 |---|---|
@@ -88,7 +88,7 @@ Edited from the **Settings** button at the bottom of the page, stored in `/data/
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your proxy) |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row before settings lock until reset or restart. `0` = never |
 
-Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` (theme, layout, clock, flip, scrollTop, searchFilters: what a browser follows until it chooses its own under Settings → This device) and `settingsPin`.
+Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` (theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`): what a browser follows until it chooses its own under Settings → This device) and `settingsPin`.
 
 Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`; without it the router uptime is kept in memory only) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
