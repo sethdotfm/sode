@@ -5,7 +5,7 @@ import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
-import { normalizeKinds, allKinds, pressAll, pressKind } from './logkinds.js';
+import { KINDS, KIND_IDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
 import './brand.js';
 
 // Entries read on open and per Load older.
@@ -22,15 +22,6 @@ const AUTO_PAGES = 20;
 const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
 
-// Filter groups, in the order shown. Connects alone by default: the routes.
-const KINDS = [
-  { id: 'connect', label: 'Connects', kinds: ['connect'] },
-  { id: 'interrogate', label: 'Interrogates', kinds: ['interrogate'] },
-  { id: 'keepalive', label: 'Keepalives', kinds: ['keepalive'] },
-  { id: 'dump', label: 'Dumps', kinds: ['tallyDump', 'protectDump'] },
-  { id: 'names', label: 'Name requests', kinds: ['srcNames', 'dstNames'] },
-  { id: 'other', label: 'Other', kinds: ['other'] },
-];
 const KIND_LABEL = {
   connect: 'Connect', interrogate: 'Interrogate', keepalive: 'Keepalive', tallyDump: 'Tally dump',
   protectDump: 'Protect dump', srcNames: 'Source names', dstNames: 'Destination names', other: 'Other',
@@ -42,11 +33,11 @@ const WHY_LABEL = {
 
 // ---- filters
 
-const KIND_IDS = KINDS.map((g) => g.id);
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    kinds: normalizeKinds(f.kinds, KIND_IDS, ['connect']),
+    // Connects alone by default: the routes.
+    kinds: normalizeKinds(f.kinds, ['connect']),
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
@@ -83,33 +74,33 @@ function passes(e) {
 function initFilters() {
   const box = $('log-kinds');
   const legend = box.querySelector('legend');
-  const chip = (label, on, press) => {
+  // Built once and updated in place, so a pressed chip keeps keyboard focus.
+  const chip = (label, press) => {
     const b = el('button', 'pb-chip sode-log__chip', label);
     b.type = 'button';
-    b.setAttribute('aria-pressed', String(on));
     b.addEventListener('click', () => {
       press();
       saveFilter();
-      drawKinds();
+      sync();
       render();
     });
     return b;
   };
   // All | each kind | Problems only. Problems is its own dimension, so it
   // sits after a separator and stays out of the All logic.
-  const drawKinds = () => {
-    const all = allKinds(filter.kinds, KIND_IDS);
-    const bar = el('span', 'sode-log__sep', '|');
-    bar.setAttribute('aria-hidden', 'true');
-    box.replaceChildren(
-      legend,
-      chip('All', all, () => { filter.kinds = pressAll(KIND_IDS); }),
-      ...KINDS.map((g) => chip(g.label, !all && filter.kinds.includes(g.id), () => { filter.kinds = pressKind(filter.kinds, KIND_IDS, g.id); })),
-      bar,
-      chip('Problems only', filter.problems, () => { filter.problems = !filter.problems; }),
-    );
+  const allChip = chip('All', () => { filter.kinds = KIND_IDS.slice(); });
+  const kindChips = KINDS.map((g) => ({ id: g.id, b: chip(g.label, () => { filter.kinds = pressKind(filter.kinds, g.id); }) }));
+  const problemsChip = chip('Problems only', () => { filter.problems = !filter.problems; });
+  const bar = el('span', 'sode-log__sep', '|');
+  bar.setAttribute('aria-hidden', 'true');
+  const sync = () => {
+    const all = allKinds(filter.kinds);
+    allChip.setAttribute('aria-pressed', String(all));
+    for (const k of kindChips) k.b.setAttribute('aria-pressed', String(!all && filter.kinds.includes(k.id)));
+    problemsChip.setAttribute('aria-pressed', String(filter.problems));
   };
-  drawKinds();
+  box.replaceChildren(legend, allChip, ...kindChips.map((k) => k.b), bar, problemsChip);
+  sync();
   // datetime-local is local time. To counts to the end of what it shows:
   // 14:30 is up to 14:30:59.999.
   const from = $('log-from'), to = $('log-to');
