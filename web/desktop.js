@@ -885,15 +885,16 @@ document.addEventListener('keydown', (e) => {
       b.input.classList.add('pb-input--invalid');
       return;
     }
-    if (flipped() && inBox) {
-      // Destination first: Destination, Source, Levels, then around.
-      const ring = ['dst', 'src', 'lvl'];
-      const to = ring[(ring.indexOf(id) + (e.shiftKey ? 2 : 1)) % 3];
-      e.preventDefault();
-      $(to).focus();
-      return;
+    if (inBox) {
+      // One ring, wrapping both ways: Source, Destination, Levels (Destination
+      // first when flipped).
+      const ring = flipped() ? ['dst', 'src', 'lvl'] : ['src', 'dst', 'lvl'];
+      const i = ring.indexOf(id);
+      if (i >= 0) {
+        e.preventDefault();
+        $(ring[(i + (e.shiftKey ? ring.length - 1 : 1)) % ring.length]).focus();
+      }
     }
-    if (id === 'lvl' && !e.shiftKey) { e.preventDefault(); boxes.src.input.focus(); }
     return;
   }
   if (e.target === histList || e.target === document.body) {
