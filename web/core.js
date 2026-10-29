@@ -215,6 +215,7 @@ function handle(m) {
     case 'ping': // heartbeat: receiving it is all that matters
       break;
     case 'sentPage': // the /log page (log.js)
+    case 'uptimeResult':
     case 'sentAdd':
       emit(m.t, m);
       break;

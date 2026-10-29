@@ -10,14 +10,24 @@ export const KINDS = [
   { id: 'dump', label: 'Dumps', kinds: ['tallyDump', 'protectDump'] },
   { id: 'names', label: 'Name requests', kinds: ['srcNames', 'dstNames'] },
   { id: 'other', label: 'Other', kinds: ['other'] },
+  // Events (#139): not messages to the router, so no hex or command byte.
+  { id: 'browser', label: 'Browsers', kinds: ['browser'] },
+  { id: 'command', label: 'Commands', kinds: ['command'] },
+  { id: 'link', label: 'Router link', kinds: ['link', 'server'] },
 ];
 export const KIND_IDS = KINDS.map((g) => g.id);
+// The kinds that are events.
+export const EVENT_KINDS = new Set(['browser', 'command', 'link', 'server']);
+// The groups before events existed: a saved list of all of these was All.
+const LEGACY_IDS = ['connect', 'interrogate', 'keepalive', 'dump', 'names', 'other'];
 
 // Reads a saved kinds list. Anything but a list gives the default; a list
-// with no known kind means All, so the view is never empty by accident.
+// with no known kind means All, so the view is never empty by accident. A
+// list of every group from before events means All, which now includes them.
 export function normalizeKinds(saved, dflt) {
   if (!Array.isArray(saved)) return dflt.slice();
   const known = KIND_IDS.filter((id) => saved.includes(id));
+  if (LEGACY_IDS.every((id) => known.includes(id)) && !known.some((id) => !LEGACY_IDS.includes(id))) return KIND_IDS.slice();
   return known.length ? known : KIND_IDS.slice();
 }
 

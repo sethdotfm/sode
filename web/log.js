@@ -1,12 +1,14 @@
-// The /log page: every message Sode wrote to the router (issue 72), newest
-// first, live, with this browser's filters.
+// The /log page: every message Sode wrote to the router (issue 72), plus
+// browser connects, commands and router link changes (#139), newest first,
+// live, with this browser's filters, and the router uptime graph.
 import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
 import { newPager } from './logpager.js';
-import { KINDS, KIND_IDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { rangesFor, slotFor, slots, summary, slotText } from './uptime.js';
 import './brand.js';
 
 on('brand', ({ text }) => {
@@ -24,19 +26,25 @@ const FILTER_KEY = 'sode-log-filter';
 const KIND_LABEL = {
   connect: 'Connect', interrogate: 'Interrogate', keepalive: 'Keepalive', tallyDump: 'Tally dump',
   protectDump: 'Protect dump', srcNames: 'Source names', dstNames: 'Destination names', other: 'Other',
+  browser: 'Browser', command: 'Command', link: 'Router link', server: 'Sode',
 };
 const WHY_LABEL = {
   take: 'Take', undo: 'Undo', retry: 'Retry', check: 'Check before take', confirm: 'Confirm take',
   resync: 'Resync', names: 'Name refresh', keepalive: 'Link check',
+  connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
+  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved',
+  unlock: 'Settings PIN', lock: 'Settings locked',
 };
+// Events, not messages to the router: no command byte, no bytes.
+const isEvent = (e) => EVENT_KINDS.has(e.kind);
 
 // ---- filters
 
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    // Connects alone by default: the routes.
-    kinds: normalizeKinds(f.kinds, ['connect']),
+    // The routes, what people did and the link by default.
+    kinds: normalizeKinds(f.kinds, ['connect', 'command', 'link']),
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
@@ -52,7 +60,8 @@ function saveFilter() {
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const problem = (e) => e.result !== 'ack' || e.tries > 1;
+const EVENT_PROBLEM = { command: ['refused', 'locked', 'error'], link: ['down'] };
+const problem = (e) => (isEvent(e) ? !!EVENT_PROBLEM[e.kind]?.includes(e.result) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // The time range, as ms (null: open). Not kept: a range far back means
@@ -120,6 +129,7 @@ function initFilters() {
     $('log-range-clear').hidden = f == null && t == null;
     render();
     fill();
+    refreshUptime();
   };
   from.addEventListener('change', applyRange);
   to.addEventListener('change', applyRange);
@@ -178,6 +188,7 @@ on('hello', () => {
   // Fresh after a reconnect: entries may have been missed while away.
   send(pager.open());
   render();
+  refreshUptime();
 });
 
 on('sentPage', (m) => {
@@ -237,10 +248,23 @@ function fmtStamp(iso) {
 }
 
 // What the router made of it: status always with text.
+const EVENT_RESULT = {
+  up: ['ok', 'Router up'], down: ['error', 'Router down'], changed: ['warn', 'Router changed'],
+  connected: ['ok', 'Connected'], disconnected: ['idle', 'Disconnected'],
+  sent: ['ok', 'Sent'], ok: ['ok', 'Done'], refused: ['error', 'Refused'], locked: ['warn', 'Locked'], error: ['error', 'Failed'],
+  start: ['ok', 'Started'], stop: ['idle', 'Stopped'],
+};
+
 function outcome(e) {
+  if (isEvent(e)) {
+    const [dot, text] = EVENT_RESULT[e.result] || ['idle', e.result];
+    const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
+    if (e.err) s.title = e.err;
+    return s;
+  }
   const tries = `${e.tries} ${e.tries === 1 ? 'try' : 'tries'}`;
   const [dot, text] = {
-    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', 'ACK'],
+    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', e.ackMs ? `ACK · ${fmtMs(e.ackMs)}` : 'ACK'],
     nak: ['error', `NAK, gave up after ${tries}`],
     noack: ['error', `No ACK after ${tries}`],
     write: ['error', 'Write failed'],
@@ -251,6 +275,8 @@ function outcome(e) {
   if (e.err) s.title = e.err;
   return s;
 }
+
+const fmtMs = (ms) => (ms < 10 ? ms.toFixed(1) : String(Math.round(ms))) + ' ms';
 
 function levelCell(e) {
   const l = S.levelBy.get(e.level);
@@ -264,11 +290,11 @@ function row(e, fresh = false) {
   const why = WHY_LABEL[e.why] || e.why || '';
   const tr = el('tr', fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
-    el('td', null, el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`), ' ', KIND_LABEL[e.kind] || e.kind),
+    el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), KIND_LABEL[e.kind] || e.kind),
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
-    el('td', null, why, e.by ? el('span', 'pb-text-muted', ` · ${e.by}`) : ''),
+    el('td', null, why, e.by ? el('span', 'pb-text-muted', ` · ${e.by}`) : '', e.note ? el('span', 'pb-text-muted', ` · ${e.note}`) : ''),
     el('td', null, outcome(e)),
     el('td', 'sode-log__hex', e.hex),
   );
@@ -280,7 +306,7 @@ function row(e, fresh = false) {
 // keep newest first, and rows without that column go last either way.
 
 const SORT_KEY = 'sode-log-sort';
-const resultRank = (e) => (e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
+const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
 const SORTS = {
   time: (e) => e.seq,
   message: (e) => KIND_LABEL[e.kind] || e.kind,
@@ -407,7 +433,7 @@ const CSV_COLS = [
   ['time', (e) => e.time],
   ['seq', (e) => e.seq],
   ['message', (e) => KIND_LABEL[e.kind] || e.kind],
-  ['cmd', (e) => `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`],
+  ['cmd', (e) => (isEvent(e) ? '' : `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`)],
   ['level', (e) => S.levelBy.get(e.level)?.label ?? ''],
   ['wire level', (e) => (e.wire >= 0 ? e.wire : '')],
   ['destination', (e) => (e.dst >= 0 ? e.dst + off() : '')],
@@ -419,6 +445,8 @@ const CSV_COLS = [
   ['result', (e) => e.result],
   ['tries', (e) => e.tries],
   ['error', (e) => e.err || ''],
+  ['note', (e) => e.note || ''],
+  ['ack ms', (e) => (e.ackMs ? e.ackMs : '')],
   ['bytes', (e) => e.hex],
 ];
 
@@ -457,12 +485,73 @@ const fmtDay = (t) => {
 
 // ---- connection
 
+let routerWas = null;
 on('conn', () => {
   const c = connState();
+  // The graph follows the router link: ask again when it changes.
+  if (routerWas !== null && c.rt[0] !== routerWas) refreshUptime();
+  routerWas = c.rt[0];
   setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
   setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
   $('log-addr').textContent = routerLabel()[0];
   if (S.wsState !== 'up') { pager.close(); renderMore(); }
 });
+// ---- uptime graph (#139)
+
+// One row per range, built once per set of ranges and filled in place when
+// the server answers. A row only takes the newest reply it asked for.
+const upBox = $('log-uptime-rows');
+let upRows = []; // { label, bars, sum, id }
+let upKey = '';
+let upId = 0;
+const upPending = new Map(); // request id → row
+
+function upRow(label) {
+  const bars = el('div', 'sode-log__up-bars');
+  const sum = el('div', 'sode-log__up-sum', 'Loading…');
+  bars.setAttribute('role', 'img');
+  bars.setAttribute('aria-label', `${label}: loading`);
+  upBox.append(el('div', 'sode-log__up-row', el('div', 'sode-log__up-label', label), bars, sum));
+  return { label, bars, sum, id: 0 };
+}
+
+function refreshUptime() {
+  const ranges = rangesFor(range.from, range.to, Date.now());
+  const key = ranges.map((r) => r.label).join('|');
+  if (key !== upKey) {
+    upKey = key;
+    upBox.replaceChildren();
+    upRows = ranges.map((r) => upRow(r.label));
+  }
+  if (!ranges.length) {
+    upBox.replaceChildren(el('div', 'sode__hint', 'The From time is after the To time.'));
+    upKey = '';
+    return;
+  }
+  ranges.forEach((r, i) => {
+    const row = upRows[i];
+    row.id = ++upId;
+    upPending.set(row.id, { row, r });
+    if (!wsSend({ t: 'uptime', id: row.id, from: r.from, to: r.to, slot: slotFor(r.from, r.to) })) upPending.delete(row.id);
+  });
+}
+
+on('uptimeResult', (m) => {
+  const p = upPending.get(m.id);
+  upPending.delete(m.id);
+  if (!p || p.row.id !== m.id) return; // an older request than the row's latest
+  const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
+  const text = summary(data);
+  p.row.bars.replaceChildren(...slots(data).map((s) => {
+    const bar = el('div', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
+    bar.title = slotText(s, fmtDay);
+    return bar;
+  }));
+  p.row.bars.setAttribute('aria-label', `${p.row.label}: ${text}`);
+  p.row.sum.textContent = text;
+});
+
+setInterval(refreshUptime, 60_000);
+
 initFilters();
 connect();

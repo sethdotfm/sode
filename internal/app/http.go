@@ -362,6 +362,11 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	if from <= 0 {
 		from = to - 7*24*3600_000
 	}
+	// Cut here, not only in Range, so the slots are counted from the start the
+	// reply says.
+	if oldest := time.UnixMilli(now).Add(-uptimeKeep).UnixMilli(); from < oldest {
+		from = oldest
+	}
 	r := a.up.Range(from, to, slot)
 	m := uptimeMsg{T: "uptimeResult", ID: id, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
 	if m.Trans == nil {

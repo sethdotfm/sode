@@ -90,7 +90,7 @@ Edited from the **Settings** button at the bottom of the page, stored in `/data/
 
 Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` (theme, layout, clock, flip, scrollTop, searchFilters: what a browser follows until it chooses its own under Settings → This device) and `settingsPin`.
 
-Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
+Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`; without it the router uptime is kept in memory only) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
 ### Settings PIN
 
@@ -117,6 +117,10 @@ or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 ## Communication log
 
 `/log` (**Open Log** in Settings, available even while Settings are locked) lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. It's read-only. Kept in `SODE_SENTLOG` up to `SODE_SENTLOG_MB`; without it the last 20,000 messages stay in memory.
+
+Besides messages to the router the log has event rows (#139), which show in the default view and have their own filter chips: **Browsers** (a browser's WebSocket connecting or dropping, with its address), **Commands** (what people fire that changes something: takes, undos and retries, refreshing names, clearing history, saving settings or filter sets, unlocking and locking the settings PIN: whether the PIN was right, never the PIN itself), and **Router link** (the router link going down once per outage, coming up, being changed in Settings, and Sode starting and stopping). ACKed messages also show how long the router took.
+
+The **Router uptime** graph at the top shows the last 24 hours and the last 7 days, or, once From or To is set, that range. Each bar is a slot (15 minutes for a day, an hour for a week; hover for the details): green when the router link was up the whole slot, yellow when it was down for part of it or messages failed, needed a retry or took over 300 ms to ACK, red when it was down or Sode wasn't running, grey with nothing recorded. The record is kept for 400 days in `SODE_UPTIME`; Sode not running is found from a stamp it rewrites every minute, so a crash shows as down from the last minute it was alive.
 
 ## Protocol notes
 
