@@ -83,6 +83,7 @@ type App struct {
 	router   *routerState
 	ext      *extTracker
 	status   statusMsg
+	started  time.Time // process start, for /api/health
 	clients  map[*client]struct{}
 	waiters  map[*waiter]struct{}     // takes in flight
 	checks   map[*tallyCheck]struct{} // pre-take interrogates in flight
@@ -162,6 +163,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		router:  newRouterState(),
 		ext:     newExtTracker(),
 		clients: map[*client]struct{}{},
+		started: time.Now(),
 		waiters: map[*waiter]struct{}{},
 		checks:  map[*tallyCheck]struct{}{},
 		status:  statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
