@@ -308,6 +308,13 @@ func TestOnTx(t *testing.T) {
 	if e, _ := tx.find(0x7E); e.Result != TxNoAck || e.Tries != sendTries {
 		t.Errorf("unanswered = %+v, want noack after %d tries", e, sendTries)
 	}
+	// Ack is the wait for the ACK that came, so only ACKed messages have one.
+	if e, _ := tx.find(0x7F); e.Ack <= 0 || e.Ack > ackTimeout {
+		t.Errorf("ACKed after a NAK: Ack = %v, want the last try's wait", e.Ack)
+	}
+	if e, _ := tx.find(0x7E); e.Ack != 0 {
+		t.Errorf("unanswered: Ack = %v, want 0", e.Ack)
+	}
 }
 
 // Messages still queued when the connection ends are reported dropped,

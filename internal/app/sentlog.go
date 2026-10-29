@@ -19,7 +19,7 @@ import (
 type Sent struct {
 	Seq     int64     `json:"seq"`
 	Time    time.Time `json:"time"`
-	Kind    string    `json:"kind"` // swp08.Request kinds, plus keepalive
+	Kind    string    `json:"kind"` // swp08.Request kinds, plus keepalive and the event kinds (kindBrowser…)
 	Cmd     int       `json:"cmd"`
 	Level   int       `json:"level"` // UI level; 0 = none or not one of ours
 	Wire    int       `json:"wire"`  // wire level; -1 = none
@@ -28,11 +28,28 @@ type Sent struct {
 	Src     int       `json:"src"` // -1 = none
 	SrcName string    `json:"srcName,omitempty"`
 	By      string    `json:"by,omitempty"`  // the browser's address, for take traffic
-	Why     string    `json:"why,omitempty"` // take, check, confirm, resync, names, keepalive
+	Why     string    `json:"why,omitempty"` // take, check, confirm, resync, names, keepalive; for events, what happened
 	Tries   int       `json:"tries"`
-	Result  string    `json:"result"` // ack, nak, noack, write, dropped, unsent
+	Result  string    `json:"result"` // ack, nak, noack, write, dropped, unsent; for events, see event()
 	Err     string    `json:"err,omitempty"`
 	Hex     string    `json:"hex"`
+	Note    string    `json:"note,omitempty"`  // events: the detail (a count, an address)
+	AckMs   float64   `json:"ackMs,omitempty"` // how long the router took to ACK
+}
+
+// Event kinds: what happened around the router link rather than a message
+// written to it (#139). They share the log so they get its seqs, paging and
+// live view; cmd, wire level, dst and src are -1 and hex is empty.
+const (
+	kindBrowser = "browser" // a browser's WebSocket connected or dropped
+	kindCommand = "command" // something a browser asked for that acts
+	kindLink    = "link"    // the router link came up, went down or was changed
+	kindServer  = "server"  // Sode started or stopped
+)
+
+// event is a Sent for an event kind. Time is set when it is logged.
+func event(kind, why, by, result string) Sent {
+	return Sent{Kind: kind, Why: why, By: by, Result: result, Cmd: -1, Wire: -1, Dst: -1, Src: -1}
 }
 
 // sentMem is how many entries the log keeps at least with no file.

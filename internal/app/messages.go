@@ -131,3 +131,17 @@ type sentPageMsg struct {
 	Total   int64  `json:"total"`
 	Lost    int64  `json:"lost"`
 }
+
+// uptimeMsg answers an uptime request: the link's record from..to (unix ms)
+// in slots of slot ms, echoing the request's id. Now is the server's clock.
+type uptimeMsg struct {
+	T      string        `json:"t"` // "uptimeResult"
+	ID     int           `json:"id"`
+	From   int64         `json:"from"`
+	To     int64         `json:"to"`
+	Slot   int64         `json:"slot"`
+	Now    int64         `json:"now"`
+	Start  string        `json:"start"` // the state at from; "" = nothing recorded
+	Trans  []UptimeTrans `json:"trans"`
+	Counts []UptimeSlot  `json:"counts"`
+}

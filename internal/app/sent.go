@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/swp08"
 )
@@ -24,30 +25,79 @@ func (a *App) onTx(e swp08.TxEvent) {
 	}
 }
 
-// logSent writes queued events to the sent log and queues them for /log
-// pages, until ctx ends.
+// logEvent queues an event row (see event). It only pushes, so it is safe
+// anywhere, including under mu. A full queue loses it, counted.
+func (a *App) logEvent(e Sent) {
+	e.Time = time.Now()
+	select {
+	case a.evq <- e:
+	default:
+		a.txLost.Add(1)
+	}
+}
+
+// command logs something a browser asked for.
+func (a *App) command(c *client, why, result, note string, err error) {
+	e := event(kindCommand, why, c.ip, result)
+	e.Note = note
+	if err != nil {
+		e.Err = err.Error()
+	}
+	a.logEvent(e)
+}
+
+// logSent writes queued messages and events to the sent log and queues them
+// for /log pages, until ctx ends. It is the only writer, so seqs, the live
+// feed and the file agree on the order. Once ctx ends it writes what is
+// queued and a stop row, then returns.
 func (a *App) logSent(ctx context.Context) {
 	failing := false // logged once per run of failed writes
+	write := func(e Sent) {
+		if err := a.sent.Append(&e); err != nil {
+			// Not saved, so not shown live either: its seq goes to the
+			// next entry. Counted with the ones the queue dropped.
+			a.txLost.Add(1)
+			if !failing {
+				log.Printf("sent log: not saved: %v", err)
+			}
+			failing = true
+			return
+		}
+		failing = false
+		a.mu.Lock()
+		a.pendSent = append(a.pendSent, e)
+		a.mu.Unlock()
+	}
+	// Counted before the append, so a failing disk doesn't lose the graph's
+	// data too.
+	tx := func(ev swp08.TxEvent) {
+		e := a.describe(ev)
+		a.up.Note(e)
+		write(e)
+	}
 	for {
 		select {
 		case <-ctx.Done():
+			for {
+				select {
+				case ev := <-a.txq:
+					tx(ev)
+					continue
+				case e := <-a.evq:
+					write(e)
+					continue
+				default:
+				}
+				break
+			}
+			stop := event(kindServer, "", "", "stop")
+			stop.Time = time.Now()
+			write(stop)
 			return
 		case ev := <-a.txq:
-			e := a.describe(ev)
-			if err := a.sent.Append(&e); err != nil {
-				// Not saved, so not shown live either: its seq goes to the
-				// next entry. Counted with the ones the queue dropped.
-				a.txLost.Add(1)
-				if !failing {
-					log.Printf("sent log: not saved: %v", err)
-				}
-				failing = true
-				continue
-			}
-			failing = false
-			a.mu.Lock()
-			a.pendSent = append(a.pendSent, e)
-			a.mu.Unlock()
+			tx(ev)
+		case e := <-a.evq:
+			write(e)
 		}
 	}
 }
@@ -58,7 +108,7 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	q := swp08.DescribeTx(ev.Msg)
 	e := Sent{Time: ev.At, Kind: q.Kind, Wire: q.Level, Dst: q.Dst, Src: q.Src,
 		By: ev.Why.By, Why: string(ev.Why.Reason), Tries: ev.Tries, Result: ev.Result, Err: ev.Err,
-		Hex: fmt.Sprintf("% X", ev.Msg)}
+		Hex: fmt.Sprintf("% X", ev.Msg), AckMs: float64(ev.Ack.Microseconds()) / 1000}
 	if len(ev.Msg) > 0 {
 		e.Cmd = int(ev.Msg[0])
 	}

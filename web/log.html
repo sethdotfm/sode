@@ -36,6 +36,17 @@
     <a class="pb-btn pb-btn--outline pb-btn--sm" href="./">Back to Sode</a>
   </header>
 
+  <section class="sode-log__uptime" aria-labelledby="log-uptime-title">
+    <h2 class="sode__label" id="log-uptime-title">Router uptime</h2>
+    <div id="log-uptime-rows"></div>
+    <p class="sode__hint sode-log__legend">
+      <span><i class="sode-log__up-key sode-log__up-bar--ok"></i>Up</span>
+      <span><i class="sode-log__up-key sode-log__up-bar--warn"></i>Partly down, or messages failed or were slow</span>
+      <span><i class="sode-log__up-key sode-log__up-bar--error"></i>Down, or Sode not running</span>
+      <span><i class="sode-log__up-key sode-log__up-bar--none"></i>No record</span>
+    </p>
+  </section>
+
   <form class="sode-log__filters" autocomplete="off" onsubmit="return false" aria-label="Filters">
     <div class="sode-log__line">
       <fieldset class="sode-log__kinds" id="log-kinds">

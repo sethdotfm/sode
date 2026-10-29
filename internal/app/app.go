@@ -61,7 +61,7 @@ func (r *runtime) probe() []byte {
 //   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
 //
 // Everything else is KEPT:
-//   - sw, hist, sent, txq, txLost, cfgPath, rt, pin, cfgMu, gapHook, xffWarn,
+//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, cfgMu, gapHook, xffWarn,
 //     lateQ: plumbing, history, config and PIN, none of it router state;
 //   - clients: the browsers stay connected and get a fresh hello;
 //   - pendSent: sent log entries for /log pages (what we wrote);
@@ -75,7 +75,9 @@ type App struct {
 	hist    *History
 	sent    *SentLog
 	txq     chan swp08.TxEvent // from the writer goroutine to the sent log
-	txLost  atomic.Int64       // events dropped because txq was full, or not saved
+	evq     chan Sent          // event rows (logEvent) to the sent log
+	txLost  atomic.Int64       // events dropped because txq or evq was full, or not saved
+	up      *Uptime            // the router link's history, for the /log graph
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
@@ -88,6 +90,8 @@ type App struct {
 	waiters  map[*waiter]struct{}     // takes in flight
 	checks   map[*tallyCheck]struct{} // pre-take interrogates in flight
 	pendSent []Sent                   // sent log entries awaiting broadcast to /log pages
+	linkSeen string                   // the router link state last logged: up, down or ""
+	linkErr  string                   // ...and the error logged with down
 
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
@@ -159,6 +163,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		hist:    hist,
 		sent:    sent,
 		txq:     make(chan swp08.TxEvent, 1024),
+		evq:     make(chan Sent, 256),
 		cfgPath: cfgPath,
 		router:  newRouterState(),
 		ext:     newExtTracker(),
@@ -168,6 +173,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		checks:  map[*tallyCheck]struct{}{},
 		status:  statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
+	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())
 	a.sw.Debug = debug
@@ -196,8 +202,15 @@ func (a *App) r() *runtime { return a.rt.Load() }
 // Run drives the router client, batched broadcasts and periodic refreshes
 // until ctx ends.
 func (a *App) Run(ctx context.Context) {
+	a.logEvent(event(kindServer, "", "", "start")) // queued first, so a quick stop still has it
 	go a.sw.Run(ctx)
-	go a.logSent(ctx)
+	// Once ctx ends the sent log writes what is queued and a stop row; then
+	// the uptime notes that Sode is off. Run waits for both.
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); a.logSent(ctx) }()
+	go func() { defer wg.Done(); a.up.Run(ctx) }()
+	defer func() { wg.Wait(); a.up.Stop() }()
 	a.lateQ = make(chan lateJob, 64)
 	go a.lateWorker(ctx)
 	t := time.NewTicker(100 * time.Millisecond)
@@ -268,9 +281,14 @@ func (a *App) send(m []byte, reason swp08.Reason) {
 	}
 }
 
+// SetUptime replaces the in-memory uptime record. Before Run.
+func (a *App) SetUptime(u *Uptime) { a.up = u }
+
 func (a *App) onRouterState(s swp08.State, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	a.up.State(s == swp08.StateUp)
+	a.logLink(s, err)
 	a.status.Router = string(s)
 	a.status.Addr = a.r().cfg.Router
 	// Retrying keeps the last error, so a browser that loads mid-retry still
@@ -283,6 +301,27 @@ func (a *App) onRouterState(s swp08.State, err error) {
 		a.status.Err = err.Error()
 	}
 	a.broadcast(a.status)
+}
+
+// logLink logs the router link coming up or going down, once each: retrying
+// (connecting, down, connecting…) while it is down adds nothing, unless the
+// error changes. Caller holds mu.
+func (a *App) logLink(s swp08.State, err error) {
+	why := ""
+	if err != nil {
+		why = err.Error()
+	}
+	switch {
+	case s == swp08.StateUp && a.linkSeen != upUp:
+		a.linkSeen, a.linkErr = upUp, ""
+	case s == swp08.StateDown && (a.linkSeen != upDown || a.linkErr != why):
+		a.linkSeen, a.linkErr = upDown, why
+	default:
+		return
+	}
+	e := event(kindLink, "", "", a.linkSeen)
+	e.Err, e.Note = a.linkErr, a.r().cfg.Router
+	a.logEvent(e)
 }
 
 func (a *App) onRouterMsg(msg []byte) {
