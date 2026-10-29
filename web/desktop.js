@@ -215,6 +215,13 @@ function pickSrc(n) {
   lvlInput.focus();
 }
 
+// A source in a row's Before panel, like the row's own source box
+// (routeBox): fills Source and moves on to Destination.
+function pickBeforeSrc(n) {
+  select('src', srcItem(n));
+  focusBox(boxes.dst.input);
+}
+
 function renderTally() {
   renderLast();
   const srcUnder = $('src-under'), dstUnder = $('dst-under');
@@ -272,8 +279,8 @@ function histRow(e) {
   if (open) {
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
-        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, pickSrc)]
-        : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src != null && g.src >= 0 ? () => pickSrc(g.src) : null))]),
+        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, pickBeforeSrc)]
+        : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src != null && g.src >= 0 ? () => pickBeforeSrc(g.src) : null))]),
       ...failureRows(e),
       ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
     // Below 1000px the row's level bar moves in here (see history.css).
