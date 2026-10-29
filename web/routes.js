@@ -26,8 +26,10 @@ export function fedBy(src, levels) {
   return fed.sort((a, b) => a - b);
 }
 
-export const srcRow = (levels, srcText) =>
-  el('div', 'sode__route', levelBar(levels), el('span', 'sode__end sode__end--src', srcText));
+// A source's row. onPick, if given, makes the source a button.
+export const srcRow = (levels, srcText, onPick) =>
+  el('div', 'sode__route', levelBar(levels),
+    onPick ? pickEnd('src', srcText, 'Use as source', onPick) : el('span', 'sode__end sode__end--src', srcText));
 
 export function routeRow(levels, srcText, dstText) {
   return el('div', 'sode__route',
@@ -52,9 +54,8 @@ export function pickEnd(side, text, title, onPick) {
 // onPick(src), if given, makes each routed source a button.
 export function currentlyNodes(dst, onPick) {
   const all = allLevels();
-  const rows = bySource(dst.n, all).map((r) => (onPick && r.src != null && r.src >= 0
-    ? el('div', 'sode__route', levelBar(r.levels), pickEnd('src', tallyText(r.src), 'Use as source', () => onPick(r.src)))
-    : srcRow(r.levels, tallyText(r.src))));
+  const rows = bySource(dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src),
+    onPick && r.src != null && r.src >= 0 ? () => onPick(r.src) : null));
   const p = protectedOn(dst.n, all);
   const prot = p.levels.length
     ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(p.devices)))

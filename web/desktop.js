@@ -272,8 +272,8 @@ function histRow(e) {
   if (open) {
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
-        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm)]
-        : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src)))]),
+        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, pickSrc)]
+        : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src != null && g.src >= 0 ? () => pickSrc(g.src) : null))]),
       ...failureRows(e),
       ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
     // Below 1000px the row's level bar moves in here (see history.css).

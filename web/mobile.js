@@ -209,6 +209,13 @@ function renderLast() {
   slot.replaceChildren(b);
 }
 
+// A source in a stacked row's changes becomes the source.
+function pickSrc(n) {
+  closeSwipes();
+  choose(srcItem(n));
+  setStep(M.dsts.length ? 'lvl' : 'dst');
+}
+
 function useLast(k) {
   const t = lastTake();
   if (!t) return;
@@ -352,7 +359,7 @@ function recentRow(e) {
   });
   let changes = null;
   if (open) {
-    changes = el('div', 'sode-m__changes', ...stackSteps(e, sheetFor));
+    changes = el('div', 'sode-m__changes', ...stackSteps(e, sheetFor, pickSrc));
     changes.id = changesId;
   }
   const face = el('div', 'sode-m__recent-face',
