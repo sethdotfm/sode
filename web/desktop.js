@@ -209,17 +209,11 @@ function sendingRow(src, d, levels) {
   return el('div', 'sode__route', levelBar(levels.filter((u) => t.get(u) === src)), pick);
 }
 
-// A source in Receiving becomes the source.
+// A source in Receiving becomes the source and Levels is next (history's
+// boxes use useEnd, which goes to the opposite box).
 function pickSrc(n) {
   select('src', srcItem(n));
   lvlInput.focus();
-}
-
-// A source in a row's Before panel, like the row's own source box
-// (routeBox): fills Source and moves on to Destination.
-function pickBeforeSrc(n) {
-  select('src', srcItem(n));
-  focusBox(boxes.dst.input);
 }
 
 function renderTally() {
@@ -279,8 +273,8 @@ function histRow(e) {
   if (open) {
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
-        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, pickBeforeSrc)]
-        : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src != null && g.src >= 0 ? () => pickBeforeSrc(g.src) : null))]),
+        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, useRowSrc)]
+        : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc))]),
       ...failureRows(e),
       ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
     // Below 1000px the row's level bar moves in here (see history.css).
@@ -303,12 +297,16 @@ function routeBox(k, it) {
   b.tabIndex = -1;
   b.title = `Use as ${k === 'src' ? 'source' : 'destination'}`;
   b.addEventListener('mousedown', (e) => e.preventDefault());
-  b.addEventListener('click', () => {
-    select(k, it);
-    focusBox(k === 'src' ? boxes.dst.input : boxes.src.input);
-  });
+  b.addEventListener('click', () => useEnd(k, it));
   return b;
 }
+
+// Fills a patch box from a history row and moves to the opposite one.
+function useEnd(k, it) {
+  select(k, it);
+  focusBox(k === 'src' ? boxes.dst.input : boxes.src.input);
+}
+function useRowSrc(n) { useEnd('src', srcItem(n)); }
 
 // A folder: one confirm's takes under a summary row with the master status,
 // Undo all and (if any failed) Retry for the failed ones.

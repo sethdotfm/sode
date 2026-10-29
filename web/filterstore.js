@@ -41,7 +41,7 @@ export const filterCount = () => ['src', 'dst'].filter((k) => filter[k].trim()).
   ['sode', 'ext', 'hidden'].filter((k) => filter[k] !== FILTER_DEFAULT[k]).length;
 
 // Puts a filter to work, whatever the sets say.
-function put(next) {
+function applyFilter(next) {
   filter = normFilter(next);
   srcOk = filterFn(filter.src) || srcOk;
   dstOk = filterFn(filter.dst) || dstOk;
@@ -50,12 +50,12 @@ function put(next) {
   emit('history');
 }
 
-// Any change to the filter itself leaves a stack of sets: what's left is
-// this filter, in no set. Only pickSet, toggleSet and adoptFilter set the
-// list, so every editor, checkbox and share link is covered here.
+// The way every edit of the filter goes in (editors, checkboxes, quick
+// search boxes, share links): it leaves a stack of sets, so what's left is
+// this filter in no set. A single set stays active, shown as edited.
 export function setFilter(next) {
-  if (active.length > 1) setActive([]);
-  put(next);
+  if (stack.length) setActive(null);
+  applyFilter(next);
 }
 
 // ---- named filter sets: the built-in All, global ones from Settings
@@ -77,74 +77,83 @@ export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_
 const findSet = (scope, name) => allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase());
 const saveLocals = (list) => writeJSON(SETS_KEY, list.length ? list.map(({ name, f }) => ({ name, f })) : null);
 
-// The active sets, each { scope, name, base }. Empty: no set (the filter
-// is unsaved). One: that set, edited or not. Two or more: a stack, whose
-// `filter` is the first one's; filterAllows combines them (stackAllows).
-// Older versions kept just one object.
-export const normActive = (raw) => [].concat(raw ?? [])
-  .filter((r) => r && typeof r.scope === 'string' && typeof r.name === 'string')
-  .map((r) => ({ scope: r.scope, name: r.name, base: normFilter(r.base) }));
-let active = normActive(readJSON(ACTIVE_KEY, null));
-
-// The stack's compiled matchers, built when first needed and dropped
-// whenever the list or the sets might have changed.
-let stackM = null;
-function setActive(list) {
-  active = list;
-  writeJSON(ACTIVE_KEY, active.length ? active : null);
-  stackM = null;
+// The active set { scope, name, base }, or null (the filter is unsaved). Or
+// a stack of two or more sets, [{ scope, name }], none of them `active`;
+// `filter` is then the first one's, and filterAllows combines them with
+// stackAllows. The stack lives in its own key, since it can't be edited.
+const STACK_KEY = 'sode-filter-stack';
+const isRef = (r) => r && typeof r.scope === 'string' && typeof r.name === 'string';
+const sameRef = (a, b) => a.scope === b.scope && a.name.toLowerCase() === b.name.toLowerCase();
+const loadStack = () => [].concat(readJSON(STACK_KEY, null) ?? []).filter(isRef).map(({ scope, name }) => ({ scope, name }));
+let active = null, stack = [];
+{
+  // The first beta kept a list under the active key.
+  const stored = [].concat(readJSON(ACTIVE_KEY, null) ?? []).filter(isRef);
+  stack = stored.length > 1 ? stored.map(({ scope, name }) => ({ scope, name })) : loadStack();
+  if (stack.length < 2) stack = [];
+  if (!stack.length && stored.length) active = { scope: stored[0].scope, name: stored[0].name, base: normFilter(stored[0].base) };
 }
 
-// The active set when there is just one, with edited = the filter differs
-// from it now; or null.
+// The stack's sets with their compiled matchers, built on first use after
+// the list changes. setActive is the only thing that changes it.
+let stackM = null;
+function setActive(a, refs = []) {
+  active = a;
+  stack = refs;
+  stackM = null;
+  writeJSON(ACTIVE_KEY, active);
+  writeJSON(STACK_KEY, stack.length ? stack : null);
+}
+
+// The active set, with edited = the filter differs from it now; or null.
 export function activeSet() {
-  const s = active.length === 1 && findSet(active[0].scope, active[0].name);
+  const s = active && findSet(active.scope, active.name);
   return s ? { ...s, edited: !sameFilter(filter, s.f) } : null;
 }
 
-// The sets of a stack (two or more), or [].
-export function activeStack() {
-  if (active.length < 2) return [];
-  return active.map((r) => findSet(r.scope, r.name)).filter(Boolean);
-}
-export const isActive = (scope, name) => active.some((r) => r.scope === scope && r.name.toLowerCase() === name.toLowerCase());
+// The sets of a stack, or [].
+export const activeStack = () => stack.map((r) => findSet(r.scope, r.name)).filter(Boolean);
+export const isActive = (scope, name) => [active, ...stack].some((r) => r && sameRef(r, { scope, name }));
 
-// The active set as stored (activeRefs: all of them), for putting things
-// back as they were with adoptFilter.
-export const activeRef = () => (active.length === 1 ? { ...active[0] } : null);
-export const activeRefs = () => active.map((r) => ({ ...r }));
+// The active set as stored, and a filter to use with it (null: no set),
+// for putting things back as they were.
+export const activeRef = () => active && { ...active };
 export function adoptFilter(f, ref = null) {
-  setActive(normActive(ref));
-  put(f);
+  setActive(ref);
+  applyFilter(f);
+}
+
+// The set and stack as they are now, for restore.
+export const snapshot = () => ({ filter: filterState(), active: activeRef(), stack: stack.map((r) => ({ ...r })) });
+export function restore(snap) {
+  setActive(snap.active, snap.stack);
+  applyFilter(snap.filter);
 }
 
 export function pickSet(scope, name) {
   const s = findSet(scope, name);
   if (!s) return;
-  setActive([{ scope, name, base: s.f }]);
-  put(s.f);
+  setActive({ scope, name, base: s.f });
+  applyFilter(s.f);
 }
 
-// Where a list of sets leaves the filter: none is All, one is that set, a
-// stack starts from its first.
-function useSets(list) {
-  const sets = list.map((r) => findSet(r.scope, r.name));
-  if (!list.length || sets.some((s) => !s)) return pickSet('all', 'All');
-  setActive(list);
-  put(sets[0].f);
+// Where some sets leave the filter: those that still exist, none being All,
+// one being that set, more a stack starting from the first.
+function useSets(refs) {
+  const sets = refs.map((r) => findSet(r.scope, r.name)).filter(Boolean);
+  if (sets.length < 2) return sets.length ? pickSet(sets[0].scope, sets[0].name) : pickSet('all', 'All');
+  setActive(null, sets.map(({ scope, name }) => ({ scope, name })));
+  applyFilter(sets[0].f);
 }
 
-// A chip click: All alone, or a set in or out of the stack. Adding to a
+// A chip click: All alone, or a set in or out of those active. Adding to a
 // single set that was edited drops the edit; none left is All.
 export function toggleSet(scope, name) {
   const s = findSet(scope, name);
   if (!s) return;
   if (s.scope === 'all') return pickSet('all', 'All');
-  const named = active.filter((r) => r.scope !== 'all');
-  if (isActive(s.scope, s.name)) {
-    return useSets(named.filter((r) => !(r.scope === s.scope && r.name.toLowerCase() === s.name.toLowerCase())));
-  }
-  useSets([...named, { scope: s.scope, name: s.name, base: s.f }]);
+  const now = stack.length ? stack : active && active.scope !== 'all' ? [active] : [];
+  useSets(isActive(s.scope, s.name) ? now.filter((r) => !sameRef(r, s)) : [...now, s]);
 }
 
 // The stack's matchers, one per set; null unless there are two or more.
@@ -163,43 +172,32 @@ export function saveLocalSet(name) {
   const list = localSets().filter((s) => s.name.toLowerCase() !== name.toLowerCase());
   list.push({ scope: 'local', name, f: filterState() });
   saveLocals(list);
-  setActive([{ scope: 'local', name, base: filterState() }]);
+  setActive({ scope: 'local', name, base: filterState() });
   emit('filters');
 }
 
 export function renameLocalSet(old, name) {
   saveLocals(localSets().map((s) => (s.name === old ? { ...s, name } : s)));
-  setActive(active.map((r) => (r.scope === 'local' && r.name === old ? { ...r, name } : r)));
+  const ren = (r) => (r.scope === 'local' && r.name === old ? { ...r, name } : r);
+  setActive(active && ren(active), stack.map(ren));
   emit('filters');
 }
 
 export function deleteLocalSet(name) {
   saveLocals(localSets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()));
-  const gone = (r) => r.scope === 'local' && r.name.toLowerCase() === name.toLowerCase();
-  if (active.length > 1 && active.some(gone)) useSets(active.filter((r) => !gone(r)));
-  else if (active.some(gone)) setActive([]);
-  stackM = null;
+  if (stack.length) useSets(stack);
+  else if (active?.scope === 'local' && active.name.toLowerCase() === name.toLowerCase()) setActive(null);
   emit('filters');
 }
 
 // After a hello: follow a global set that changed in Settings, unless this
-// browser changed the filter since picking it.
+// browser changed the filter since picking it. A stack can't have been
+// edited, so it simply follows (and loses sets that are gone).
 function followGlobal() {
-  stackM = null;
-  if (active.length > 1) {
-    // A stack can't have been edited: global sets gone are dropped, the
-    // rest follow what changed.
-    const list = active.filter((r) => r.scope !== 'global' || findSet('global', r.name)).map((r) => {
-      const s = r.scope === 'global' && findSet('global', r.name);
-      return s ? { scope: 'global', name: s.name, base: s.f } : r;
-    });
-    if (JSON.stringify(list) !== JSON.stringify(active)) useSets(list);
-    return;
-  }
-  const r = active[0];
-  const s = r?.scope === 'global' && findSet('global', r.name);
-  if (!s || sameFilter(s.f, r.base) || !sameFilter(filter, r.base)) return;
-  setActive([{ scope: 'global', name: s.name, base: s.f }]);
+  if (stack.length) return useSets(stack);
+  const s = active?.scope === 'global' && findSet('global', active.name);
+  if (!s || sameFilter(s.f, active.base) || !sameFilter(filter, active.base)) return;
+  setActive({ scope: 'global', name: s.name, base: s.f });
   setFilter(s.f);
 }
 

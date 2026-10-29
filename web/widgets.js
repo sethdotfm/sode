@@ -7,7 +7,7 @@ import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron } from
 import {
   levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels,
 } from './levelview.js';
-import { srcRow, pickEnd } from './routes.js';
+import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
 import { beforeGroups, failureGroups } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
@@ -315,11 +315,7 @@ export function stackSteps(e, onRestore, onPickSrc) {
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
   const step = (time, levels, text, btn, follows = null, src = null) => el('div', 'sode__route sode__step',
     el('span', 'sode__step-time', time), levelBar(levels),
-    el('span', 'sode__step-what',
-      onPickSrc && src != null && src >= 0
-        ? pickEnd('src', text, 'Use as source', () => onPickSrc(src))
-        : el('span', 'sode__end sode__end--src', text),
-      follows), btn);
+    el('span', 'sode__step-what', srcEnd(src, text, onPickSrc), follows), btn);
   const restore = (then, at) => {
     const label = srcItem(at.src, at.srcName).label;
     const plan = restorePlan(then, at);

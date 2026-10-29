@@ -10,7 +10,7 @@ import { $, el, S, on, off, wsSend, sentence, search, item, labelNode } from './
 import { readStr, writeStr } from './store.js';
 import {
   filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter, allSets, activeSet, activeRef, adoptFilter, pickSet,
-  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary, toggleSet, activeStack, activeRefs, isActive,
+  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary, toggleSet, activeStack, isActive, snapshot, restore,
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
@@ -238,13 +238,22 @@ function renderShow() {
 
 // ---- the Filters buttons in Recent's headers
 
+// What the Filters button says: stacked sets, else how many parts differ
+// from the default.
+function buttonState() {
+  const sets = activeStack().length;
+  const parts = filterCount();
+  if (sets) return { text: `Filters · ${sets} sets`, aria: `Filters, ${sets} sets stacked`, on: true };
+  if (parts) return { text: `Filters · ${parts}`, aria: `Filters, ${parts} active`, on: true };
+  return { text: 'Filters', aria: 'Filters, none active', on: false };
+}
+
 function renderButtons() {
-  const stack = activeStack().length;
-  const n = stack || filterCount();
+  const { text, aria, on: lit } = buttonState();
   for (const b of document.querySelectorAll('[data-filters]')) {
-    b.textContent = stack ? `Filters · ${stack} sets` : n ? `Filters · ${n}` : 'Filters';
-    b.classList.toggle('sode__filters-btn--on', n > 0);
-    b.setAttribute('aria-label', stack ? `Filters, ${stack} sets stacked` : n ? `Filters, ${n} active` : 'Filters, none active');
+    b.textContent = text;
+    b.classList.toggle('sode__filters-btn--on', lit);
+    b.setAttribute('aria-label', aria);
   }
   // Quick buttons for the sets, once there's any besides All. Active ones
   // are selected (click again to take one off; none left is All); * when
@@ -618,7 +627,7 @@ export function applySharedLink() {
     showResult('warn', 'Invalid filter link', '');
     return;
   }
-  const prev = filterState(), prevRef = activeRefs();
+  const prev = snapshot();
   adoptFilter(next);
   const btn = (text, fn) => {
     const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', text);
@@ -627,7 +636,7 @@ export function applySharedLink() {
     return b;
   };
   const undo = () => btn('Undo', () => {
-    adoptFilter(prev, prevRef);
+    restore(prev);
     showResult('ok', 'Filters restored', '');
   });
   const keep = () => btn('Save as set', () => {
@@ -812,7 +821,7 @@ on('search', renderSearch);
 on('history', () => { if (searchActive()) renderSearch(); });
 
 on('filters', renderButtons);
-on('prefs', () => filtersOpen() && renderSetBar());
+on('prefs', () => { if (filtersOpen()) renderSetBar(); });
 on('hello', () => {
   renderButtons();
   if (filtersOpen()) { renderShow(); eds.src.preview(); eds.dst.preview(); }

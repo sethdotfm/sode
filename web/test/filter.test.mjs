@@ -342,12 +342,7 @@ test('stacked sets combine', () => {
 
 test('stacking sets in the store', async () => {
   const core = await import('./all.mjs');
-  const { S, setFilter, filterState, activeSet, activeStack, pickSet, toggleSet, allSets, normActive, setPref, filterAllows, FILTER_DEFAULT } = core;
-  // An older browser kept one object; the list is the same with one item.
-  assert.deepEqual(normActive({ scope: 'local', name: 'A', base: { dst: 'x' } }).map((r) => [r.scope, r.name, r.base.dst]), [['local', 'A', 'x']]);
-  assert.deepEqual(normActive(null), []);
-  assert.deepEqual(normActive([{ scope: 'global', name: 'B' }, 3, {}]).map((r) => r.name), ['B']);
-
+  const { S, setFilter, filterState, activeSet, activeStack, pickSet, toggleSet, allSets, snapshot, restore, deleteLocalSet, saveLocalSet, setPref, filterAllows, FILTER_DEFAULT } = core;
   const f = (o) => ({ name: '', src: '', dst: '', sode: true, ext: true, hidden: false, ...o });
   S.cfg = { numberOffset: 1, filterSets: [f({ name: 'MV', dst: 'MV' }), f({ name: 'PGM', dst: 'PGM' }), f({ name: 'Ext', sode: false })] };
   const e = (o) => ({ levels: [1], prev: [], ok: true, src: 1, srcName: 'CAM', dst: 4, dstName: 'MV 5', ...o });
@@ -362,7 +357,8 @@ test('stacking sets in the store', async () => {
   assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM']);
   assert.equal(activeSet(), null);
   assert.equal(filterState().dst, 'MV'); // the first one's
-  assert.equal(JSON.parse(localStorage.getItem('sode-filter-active')).length, 2);
+  assert.equal(localStorage.getItem('sode-filter-active'), null);
+  assert.equal(JSON.parse(localStorage.getItem('sode-filter-stack')).length, 2);
   setPref('setStack', 'and');
   assert.equal(filterAllows(e()), false);
   setPref('setStack', 'or');
@@ -388,6 +384,22 @@ test('stacking sets in the store', async () => {
   toggleSet('global', 'PGM');
   toggleSet('all', 'All');
   assert.deepEqual([activeStack().length, activeSet().scope, filterState()], [0, 'all', { ...FILTER_DEFAULT }]);
+  // A snapshot puts a stack back as it was.
+  pickSet('global', 'MV');
+  toggleSet('global', 'PGM');
+  const snap = snapshot();
+  pickSet('all', 'All');
+  restore(snap);
+  assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM']);
+  // A local set deleted from a stack of three leaves two; of two, one.
+  setFilter({ ...FILTER_DEFAULT, dst: 'LOC' });
+  saveLocalSet('Loc');
+  pickSet('global', 'MV');
+  toggleSet('global', 'PGM');
+  toggleSet('local', 'Loc');
+  assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM', 'Loc']);
+  deleteLocalSet('Loc');
+  assert.deepEqual(activeStack().map((s) => s.name), ['MV', 'PGM']);
   // Sets removed in Settings drop out of a stack; none left is All.
   toggleSet('global', 'MV');
   toggleSet('global', 'PGM');
