@@ -8,10 +8,15 @@ const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const SLOTS = [MIN, 5 * MIN, 15 * MIN, 30 * MIN, HOUR, 3 * HOUR, 6 * HOUR, 12 * HOUR, DAY, 7 * DAY];
 // The most slots a row has: 24h is 96 × 15 min, 7 days 168 × 1 h.
 export const MAX_SLOTS = 200;
-export const DEFAULT_RANGES = [
-  { label: 'Last 24 hours', span: DAY },
-  { label: 'Last 7 days', span: 7 * DAY },
+// The toggles for common ranges, shortest first.
+export const PRESETS = [
+  { id: '1h', label: '1 hour', span: HOUR },
+  { id: '24h', label: '24 hours', span: DAY },
+  { id: '7d', label: '7 days', span: 7 * DAY },
+  { id: '30d', label: '30 days', span: 30 * DAY },
 ];
+export const DEFAULT_PRESET = '24h';
+export const presetId = (id) => (PRESETS.some((p) => p.id === id) ? id : DEFAULT_PRESET);
 
 // The shortest slot that keeps a range within MAX_SLOTS (ms).
 export function slotFor(from, to) {
@@ -93,12 +98,12 @@ export function slotText(s, fmt) {
   return `${when}: ${bits.join(', ')}`;
 }
 
-// The ranges to draw: the two defaults, or, once a From or To is set, that
-// one range. From alone runs to now; To alone starts a week before it.
-export function rangesFor(rangeFrom, rangeTo, now) {
-  if (rangeFrom == null && rangeTo == null) return DEFAULT_RANGES.map((r) => ({ label: r.label, from: now - r.span, to: now }));
+// The range to draw: the times chosen with From and To if any (From alone
+// runs to now; To alone starts a week before it), else the preset back from
+// now. null if From is after To.
+export function rangeFor(preset, rangeFrom, rangeTo, now) {
+  if (rangeFrom == null && rangeTo == null) return { custom: false, from: now - PRESETS.find((p) => p.id === presetId(preset)).span, to: now };
   const to = rangeTo ?? now;
   const from = rangeFrom ?? to - 7 * DAY;
-  if (from >= to) return [];
-  return [{ label: 'Selected times', from, to }];
+  return from < to ? { custom: true, from, to } : null;
 }

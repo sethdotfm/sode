@@ -37,8 +37,12 @@
   </header>
 
   <section class="sode-log__uptime" aria-labelledby="log-uptime-title">
-    <h2 class="sode__label" id="log-uptime-title">Router uptime</h2>
-    <div id="log-uptime-rows"></div>
+    <div class="sode-log__line">
+      <h2 class="sode__label" id="log-uptime-title">Router uptime</h2>
+      <fieldset class="sode-log__kinds" id="log-uptime-presets" aria-label="Time range"></fieldset>
+      <span class="sode-log__up-sum" id="log-uptime-sum" aria-live="polite"></span>
+    </div>
+    <div class="sode-log__up-bars" id="log-uptime-bars" role="img" aria-label="Router uptime: loading"></div>
     <p class="sode__hint sode-log__legend">
       <span><i class="sode-log__up-key sode-log__up-bar--ok"></i>Up</span>
       <span><i class="sode-log__up-key sode-log__up-bar--warn"></i>Partly down, or messages failed or were slow</span>

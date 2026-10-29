@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { slots, summary, drops, slotFor, slotText, rangesFor, MAX_SLOTS } from '../uptime.js';
+import { slots, summary, drops, slotFor, slotText, rangeFor, presetId, PRESETS, MAX_SLOTS } from '../uptime.js';
 
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const colours = (d) => slots(d).map((s) => s.colour);
@@ -66,13 +66,20 @@ test('slot length: 24 h is 15 min slots, 7 days 1 h, and rows never pass MAX_SLO
   }
 });
 
-test('ranges: both defaults, or the one chosen', () => {
+test('every preset fits in MAX_SLOTS, and the day and week keep their slots', () => {
+  for (const p of PRESETS) assert.ok(Math.ceil(p.span / slotFor(0, p.span)) <= MAX_SLOTS, p.id);
+  assert.equal(slotFor(0, HOUR), MIN);
+});
+
+test('range: the preset back from now, or the times chosen', () => {
   const now = 100 * DAY;
-  const d = rangesFor(null, null, now);
-  assert.deepEqual(d.map((r) => [r.label, now - r.from]), [['Last 24 hours', DAY], ['Last 7 days', 7 * DAY]]);
-  assert.deepEqual(rangesFor(now - 3 * DAY, null, now), [{ label: 'Selected times', from: now - 3 * DAY, to: now }]);
-  assert.deepEqual(rangesFor(null, now - DAY, now), [{ label: 'Selected times', from: now - 8 * DAY, to: now - DAY }]);
-  assert.deepEqual(rangesFor(now, now - DAY, now), []);
+  assert.deepEqual(rangeFor('7d', null, null, now), { custom: false, from: now - 7 * DAY, to: now });
+  assert.deepEqual(rangeFor('nonsense', null, null, now), { custom: false, from: now - DAY, to: now });
+  assert.deepEqual(rangeFor('1h', now - 3 * DAY, null, now), { custom: true, from: now - 3 * DAY, to: now });
+  assert.deepEqual(rangeFor('1h', null, now - DAY, now), { custom: true, from: now - 8 * DAY, to: now - DAY });
+  assert.equal(rangeFor('1h', now, now - DAY, now), null);
+  assert.equal(presetId('30d'), '30d');
+  assert.equal(presetId(null), '24h');
 });
 
 test('slot text says why, with the time', () => {

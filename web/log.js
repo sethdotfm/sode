@@ -5,10 +5,10 @@ import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, la
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
-import { readJSON, writeJSON } from './store.js';
+import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 import { newPager } from './logpager.js';
 import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
-import { rangesFor, slotFor, slots, summary, slotText } from './uptime.js';
+import { PRESETS, presetId, rangeFor, slotFor, slots, summary, slotText } from './uptime.js';
 import './brand.js';
 
 on('brand', ({ text }) => {
@@ -498,60 +498,68 @@ on('conn', () => {
 });
 // ---- uptime graph (#139)
 
-// One row per range, built once per set of ranges and filled in place when
-// the server answers. A row only takes the newest reply it asked for.
-const upBox = $('log-uptime-rows');
-let upRows = []; // { label, bars, sum, id }
-let upKey = '';
+// One strip for the range chosen with the toggles, or with From and To
+// (which win while set). Only the newest reply to a request is drawn.
+const PRESET_KEY = 'sode-log-uptime';
+let preset = presetId(readStr(PRESET_KEY));
 let upId = 0;
-const upPending = new Map(); // request id → row
+const upBars = $('log-uptime-bars');
+const upSum = $('log-uptime-sum');
 
-function upRow(label) {
-  const bars = el('div', 'sode-log__up-bars');
-  const sum = el('div', 'sode-log__up-sum', 'Loading…');
-  bars.setAttribute('role', 'img');
-  bars.setAttribute('aria-label', `${label}: loading`);
-  upBox.append(el('div', 'sode-log__up-row', el('div', 'sode-log__up-label', label), bars, sum));
-  return { label, bars, sum, id: 0 };
+function initUptime() {
+  const box = $('log-uptime-presets');
+  const chips = PRESETS.map((p) => {
+    const b = el('button', 'pb-chip sode-log__chip', p.label);
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      preset = p.id;
+      writeStr(PRESET_KEY, preset);
+      // A preset replaces times set by hand.
+      if (range.from != null || range.to != null) $('log-range-clear').click();
+      else refreshUptime();
+      syncPresets();
+    });
+    return { id: p.id, b };
+  });
+  box.replaceChildren(...chips.map((c) => c.b));
+  syncPresets = () => {
+    const custom = range.from != null || range.to != null;
+    for (const c of chips) c.b.setAttribute('aria-pressed', String(!custom && c.id === preset));
+  };
+  syncPresets();
 }
+let syncPresets = () => {};
 
 function refreshUptime() {
-  const ranges = rangesFor(range.from, range.to, Date.now());
-  const key = ranges.map((r) => r.label).join('|');
-  if (key !== upKey) {
-    upKey = key;
-    upBox.replaceChildren();
-    upRows = ranges.map((r) => upRow(r.label));
-  }
-  if (!ranges.length) {
-    upBox.replaceChildren(el('div', 'sode__hint', 'The From time is after the To time.'));
-    upKey = '';
+  syncPresets();
+  const r = rangeFor(preset, range.from, range.to, Date.now());
+  if (!r) {
+    upBars.replaceChildren();
+    upSum.textContent = 'The From time is after the To time.';
     return;
   }
-  ranges.forEach((r, i) => {
-    const row = upRows[i];
-    row.id = ++upId;
-    upPending.set(row.id, { row, r });
-    if (!wsSend({ t: 'uptime', id: row.id, from: r.from, to: r.to, slot: slotFor(r.from, r.to) })) upPending.delete(row.id);
-  });
+  const id = ++upId;
+  if (!wsSend({ t: 'uptime', id, from: r.from, to: r.to, slot: slotFor(r.from, r.to) })) return;
+  if (!upBars.childElementCount) upSum.textContent = 'Loading…';
 }
 
 on('uptimeResult', (m) => {
-  const p = upPending.get(m.id);
-  upPending.delete(m.id);
-  if (!p || p.row.id !== m.id) return; // an older request than the row's latest
+  if (m.id !== upId) return; // an older request than the latest
   const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
   const text = summary(data);
-  p.row.bars.replaceChildren(...slots(data).map((s) => {
+  upBars.replaceChildren(...slots(data).map((s) => {
     const bar = el('div', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
     bar.title = slotText(s, fmtDay);
     return bar;
   }));
-  p.row.bars.setAttribute('aria-label', `${p.row.label}: ${text}`);
-  p.row.sum.textContent = text;
+  const custom = range.from != null || range.to != null;
+  const label = custom ? `${fmtDay(m.from)} to ${fmtDay(m.to)}` : PRESETS.find((p) => p.id === preset).label;
+  upBars.setAttribute('aria-label', `Router uptime, ${label}: ${text}`);
+  upSum.textContent = text;
 });
 
 setInterval(refreshUptime, 60_000);
 
 initFilters();
+initUptime();
 connect();
