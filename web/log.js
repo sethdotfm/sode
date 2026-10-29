@@ -5,10 +5,10 @@ import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, la
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
-import { readJSON, writeJSON, readStr, writeStr } from './store.js';
+import { readJSON, writeJSON } from './store.js';
 import { newPager } from './logpager.js';
 import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
-import { PRESETS, presetId, rangeFor, slotFor, slots, summary, slotText } from './uptime.js';
+import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, slots, summary, slotText } from './uptime.js';
 import './brand.js';
 
 on('brand', ({ text }) => {
@@ -131,9 +131,15 @@ function initFilters() {
     fill();
     refreshUptime();
   };
-  from.addEventListener('change', applyRange);
-  to.addEventListener('change', applyRange);
+  // Times typed by hand end a toggle's range; its own change event is not trusted.
+  const byHand = (e) => {
+    if (e.isTrusted) chipOn = null;
+    applyRange();
+  };
+  from.addEventListener('change', byHand);
+  to.addEventListener('change', byHand);
   $('log-range-clear').addEventListener('click', () => {
+    chipOn = null;
     from.value = to.value = '';
     applyRange();
   });
@@ -498,41 +504,51 @@ on('conn', () => {
 });
 // ---- uptime graph (#139)
 
-// One strip for the range chosen with the toggles, or with From and To
-// (which win while set). Only the newest reply to a request is drawn.
-const PRESET_KEY = 'sode-log-uptime';
-let preset = presetId(readStr(PRESET_KEY));
+// One strip. Its toggles set the log's time range (From = that long ago,
+// no To), and while one is on the strip keeps rolling with the clock. With
+// no times set it shows the last 24 hours; with times set by hand, those.
+// Only the newest reply to a request is drawn.
+let chipOn = null; // the toggle whose range is set, or null
 let upId = 0;
 const upBars = $('log-uptime-bars');
 const upSum = $('log-uptime-sum');
+const customTimes = () => range.from != null || range.to != null;
+
+// datetime-local's value, in local time.
+function localStamp(t) {
+  const d = new Date(t), p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
 
 function initUptime() {
   const box = $('log-uptime-presets');
   const chips = PRESETS.map((p) => {
-    const b = el('button', 'pb-chip sode-log__chip', p.label);
+    const b = el('button', 'pb-chip sode-log__chip', presetText(p));
     b.type = 'button';
+    b.title = `Show the last ${p.label} and limit the log to it. Each bar of the graph is ${slotLabel(slotFor(0, p.span))}.`;
     b.addEventListener('click', () => {
-      preset = p.id;
-      writeStr(PRESET_KEY, preset);
-      // A preset replaces times set by hand.
-      if (range.from != null || range.to != null) $('log-range-clear').click();
-      else refreshUptime();
-      syncPresets();
+      const from = $('log-from');
+      from.value = localStamp(Date.now() - p.span);
+      $('log-to').value = '';
+      chipOn = p.id;
+      from.dispatchEvent(new Event('change'));
     });
     return { id: p.id, b };
   });
   box.replaceChildren(...chips.map((c) => c.b));
   syncPresets = () => {
-    const custom = range.from != null || range.to != null;
-    for (const c of chips) c.b.setAttribute('aria-pressed', String(!custom && c.id === preset));
+    const on = chipOn || (customTimes() ? null : DEFAULT_PRESET);
+    for (const c of chips) c.b.setAttribute('aria-pressed', String(c.id === on));
   };
   syncPresets();
 }
 let syncPresets = () => {};
 
 function refreshUptime() {
+  if (!customTimes()) chipOn = null;
   syncPresets();
-  const r = rangeFor(preset, range.from, range.to, Date.now());
+  const now = Date.now();
+  const r = chipOn ? rangeFor(chipOn, null, null, now) : rangeFor(DEFAULT_PRESET, range.from, range.to, now);
   if (!r) {
     upBars.replaceChildren();
     upSum.textContent = 'The From time is after the To time.';
@@ -552,8 +568,7 @@ on('uptimeResult', (m) => {
     bar.title = slotText(s, fmtDay);
     return bar;
   }));
-  const custom = range.from != null || range.to != null;
-  const label = custom ? `${fmtDay(m.from)} to ${fmtDay(m.to)}` : PRESETS.find((p) => p.id === preset).label;
+  const label = chipOn || !customTimes() ? PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
   upBars.setAttribute('aria-label', `Router uptime, ${label}: ${text}`);
   upSum.textContent = text;
 });

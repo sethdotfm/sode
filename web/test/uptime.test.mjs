@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { slots, summary, drops, slotFor, slotText, rangeFor, presetId, PRESETS, MAX_SLOTS } from '../uptime.js';
+import { slots, summary, drops, slotFor, slotText, rangeFor, presetId, presetText, slotLabel, PRESETS, MAX_SLOTS } from '../uptime.js';
 
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const colours = (d) => slots(d).map((s) => s.colour);
@@ -87,4 +87,9 @@ test('slot text says why, with the time', () => {
   const [ok, warn] = slots(base({ trans: [{ t: HOUR + 30 * MIN, s: 'down' }], counts: [{ i: 1, bad: 1, slow: 0 }] }));
   assert.equal(slotText(ok, fmt), 't0 – t60: router up');
   assert.match(slotText(warn, fmt), /router up 50% of the time, 1 message failed or needed a retry/);
+});
+
+test('chip text says how long each bar is', () => {
+  assert.deepEqual(PRESETS.map(presetText), ['1 hour (1 min)', '24 hours (15 min)', '7 days (1 hour)', '30 days (6 hours)']);
+  assert.equal(slotLabel(30 * MIN), '30 min');
 });

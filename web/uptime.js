@@ -18,6 +18,15 @@ export const PRESETS = [
 export const DEFAULT_PRESET = '24h';
 export const presetId = (id) => (PRESETS.some((p) => p.id === id) ? id : DEFAULT_PRESET);
 
+// A slot length as words: "1 min", "15 min", "1 hour", "6 hours".
+export function slotLabel(ms) {
+  const [n, unit] = ms % HOUR === 0 ? [ms / HOUR, 'hour'] : ms % MIN === 0 ? [ms / MIN, 'min'] : [ms / 1000, 'sec'];
+  return `${n} ${unit}${unit === 'hour' && n !== 1 ? 's' : ''}`;
+}
+
+// A preset's chip text: the range, then how long each bar is.
+export const presetText = (p) => `${p.label} (${slotLabel(slotFor(0, p.span))})`;
+
 // The shortest slot that keeps a range within MAX_SLOTS (ms).
 export function slotFor(from, to) {
   const span = Math.max(to - from, MIN);
