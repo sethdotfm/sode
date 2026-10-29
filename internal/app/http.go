@@ -78,7 +78,7 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(struct {
 		Server        string `json:"server"`
 		Router        string `json:"router"`
-		Addr          string `json:"addr"`
+		Addr          string `json:"targetAddress"`
 		Err           string `json:"err,omitempty"`
 		Version       string `json:"version"`
 		UptimeSeconds int64  `json:"uptimeSeconds"`

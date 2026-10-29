@@ -35,7 +35,7 @@ func TestHealthRouterUp(t *testing.T) {
 	if rec.Header().Get("Cache-Control") != "no-store" {
 		t.Errorf("cache-control %q", rec.Header().Get("Cache-Control"))
 	}
-	if b["server"] != "up" || b["router"] != "up" || b["addr"] != "10.0.0.1:8910" || b["version"] != VersionLabel() {
+	if b["server"] != "up" || b["router"] != "up" || b["targetAddress"] != "10.0.0.1:8910" || b["version"] != VersionLabel() {
 		t.Errorf("body %v", b)
 	}
 	if _, ok := b["err"]; ok {
