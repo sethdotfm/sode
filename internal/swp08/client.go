@@ -73,7 +73,8 @@ type TxEvent struct {
 	At     time.Time // first write (when queued, for dropped)
 	Tries  int
 	Result string
-	Err    string // for TxWrite
+	Err    string        // for TxWrite
+	Ack    time.Duration // from the last write to its ACK; 0 when there was none
 }
 
 type out struct {
@@ -458,6 +459,7 @@ func (c *Client) transmit(ctx context.Context, conn net.Conn, o out, acks chan b
 		default:
 		}
 		e.Tries = try
+		wrote := time.Now()
 		if err := c.write(conn, frame); err != nil {
 			e.Result, e.Err = TxWrite, err.Error()
 			return false, err
@@ -466,6 +468,7 @@ func (c *Client) transmit(ctx context.Context, conn net.Conn, o out, acks chan b
 		case ok := <-acks:
 			if ok {
 				e.Result = TxAck
+				e.Ack = time.Since(wrote)
 				return true, nil
 			}
 			e.Result = TxNak

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net"
@@ -158,7 +159,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	c.send <- a.hello(page)
 	a.mu.Unlock()
 	log.Printf("ws %s: connected", c.ip)
+	connected := time.Now()
+	a.logEvent(event(kindBrowser, "connect", c.ip, "connected"))
 
+	// Why the read loop ended, for the log.
+	var gone error
 	defer func() {
 		a.mu.Lock()
 		if _, ok := a.clients[c]; ok {
@@ -167,6 +172,16 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 		a.mu.Unlock()
 		log.Printf("ws %s: disconnected", c.ip)
+		e := event(kindBrowser, "disconnect", c.ip, "disconnected")
+		e.Note = "connected " + time.Since(connected).Round(time.Second).String()
+		switch websocket.CloseStatus(gone) {
+		case websocket.StatusNormalClosure, websocket.StatusGoingAway:
+		default:
+			if gone != nil && !errors.Is(gone, context.Canceled) {
+				e.Err = gone.Error()
+			}
+		}
+		a.logEvent(e)
 	}()
 
 	go func() {
@@ -210,12 +225,16 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
+			gone = err
 			return
 		}
 		var m struct {
 			T        string             `json:"t"`
 			Before   int                `json:"before"`
-			N        int                `json:"n"` // history page size; 0 = the default
+			N        int                `json:"n"`    // history page size; 0 = the default
+			From     int64              `json:"from"` // uptime range, unix ms
+			To       int64              `json:"to"`
+			Slot     int64              `json:"slot"` // ...and its slot length, ms
 			Config   *config.Config     `json:"config"`
 			Pin      string             `json:"pin"`
 			ClearPin bool               `json:"clearPin"`
@@ -228,33 +247,55 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 		switch m.T {
 		case "batch":
+			if len(m.Items) > 0 {
+				why, n := "take", len(m.Items)
+				for _, it := range m.Items {
+					if it.Undo != nil {
+						why = "undo"
+					} else if it.Retry != nil && why == "take" {
+						why = "retry"
+					}
+				}
+				a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
+			}
 			go a.batch(c, m.Items)
 		case "history":
 			go a.history(c, m.Before, m.N)
 		case "sent":
 			go a.sentHistory(c, int64(m.Before), m.N)
+		case "uptime":
+			a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
 		case "refreshNames":
+			a.command(c, "refreshNames", "sent", "", nil)
 			go a.RefreshNames()
 		case "unlock":
 			// Checked in line, so a lock sent after it is handled after it
 			// and one connection checks one PIN at a time.
 			res := opResult{T: "unlockResult", OK: true, ID: &m.ID}
-			if err := a.Unlock(c, m.Pin); err != nil {
+			err := a.Unlock(c, m.Pin)
+			if err != nil {
 				res.OK, res.Err = false, err.Error()
 			}
+			// Never the PIN, only whether it was right.
+			a.command(c, "unlock", map[bool]string{true: "ok", false: "refused"}[err == nil], "", err)
 			a.reply(c, res)
 		case "lock":
 			a.Lock(c)
+			a.command(c, "lock", "ok", "", nil)
 		case "clearHistory":
 			if a.locked(c) {
+				a.command(c, "clearHistory", "locked", "", nil)
 				a.reply(c, simpleMsg{T: "locked"})
 				continue
 			}
+			a.command(c, "clearHistory", "ok", "", nil)
 			go a.ClearHistory(c.ip)
 		case "filterSets":
 			go func(sets []config.FilterSet, id int) {
 				res := opResult{T: "filterSetsResult", OK: true, ID: &id}
-				if err := a.SaveFilterSets(c, sets); err != nil {
+				err := a.SaveFilterSets(c, sets)
+				a.command(c, "filterSets", outcome(err), fmt.Sprintf("%d %s", len(sets), plural(len(sets), "set", "sets")), err)
+				if err != nil {
 					res.OK, res.Err = false, err.Error()
 					res.Locked = locked(err)
 				} else {
@@ -278,7 +319,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			keepDefaults := has.Config.DeviceDefaults == nil
 			go func(cfg config.Config, pin string, clearPin bool) {
 				res := opResult{T: "configResult", OK: true}
-				if err := a.saveSettings(c, cfg, pin, clearPin, keepDefaults); err != nil {
+				err := a.saveSettings(c, cfg, pin, clearPin, keepDefaults)
+				// Who saved, not what: the settings hold the PIN's hash.
+				a.command(c, "config", outcome(err), "", err)
+				if err != nil {
 					res.OK, res.Err = false, err.Error()
 					res.Locked = locked(err)
 				} else {
@@ -288,6 +332,45 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}(*m.Config, m.Pin, m.ClearPin)
 		}
 	}
+}
+
+// outcome is a command's result: ok, locked (the PIN was why) or error.
+func outcome(err error) string {
+	switch {
+	case err == nil:
+		return "ok"
+	case errors.Is(err, errLocked):
+		return "locked"
+	}
+	return "error"
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// uptimeReply is the link's record for an uptime request. A range with no
+// end runs to now; one with no start, a week back.
+func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
+	now := time.Now().UnixMilli()
+	if to <= 0 || to > now {
+		to = now
+	}
+	if from <= 0 {
+		from = to - 7*24*3600_000
+	}
+	r := a.up.Range(from, to, slot)
+	m := uptimeMsg{T: "uptimeResult", ID: id, From: from, To: to, Slot: max(slot, 60_000), Now: now, Start: r.Start, Trans: r.Trans, Counts: r.Counts}
+	if m.Trans == nil {
+		m.Trans = []UptimeTrans{}
+	}
+	if m.Counts == nil {
+		m.Counts = []UptimeSlot{}
+	}
+	return m
 }
 
 // locked is opResult.Locked for a failed save: whether the PIN was why.

@@ -149,6 +149,13 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		a.status.Router = string(swp08.StateConnecting)
 		a.status.Addr = c.Router
 		a.status.Err = ""
+		// SetTarget doesn't report down, so the link log and the uptime
+		// record are told here; the next up is logged again.
+		a.up.State(false)
+		a.linkSeen, a.linkErr = "", ""
+		ch := event(kindLink, "", "", "changed")
+		ch.Note = c.Router
+		a.logEvent(ch)
 	}
 	hello := a.hello(page)
 	locked, _ := json.Marshal(simpleMsg{T: "locked"})
