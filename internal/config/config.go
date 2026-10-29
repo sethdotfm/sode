@@ -113,7 +113,9 @@ func BrandNames() []string {
 // DeviceDefaults mirrors the per-browser settings (web/prefs.js): Theme is
 // system | light | dark, Layout auto | phone | desktop, Clock 24 | 12 |
 // locale; Flip is Destination before Source, ScrollTop scrolls to the top
-// when a box is focused, SearchFilters makes quick search respect filters.
+// when a box is focused, SearchFilters makes quick search respect filters,
+// SetStack is how stacked filter sets combine: and (all must match) | or
+// (any may).
 type DeviceDefaults struct {
 	Theme         string `yaml:"theme" json:"theme"`
 	Layout        string `yaml:"layout" json:"layout"`
@@ -121,6 +123,7 @@ type DeviceDefaults struct {
 	Flip          bool   `yaml:"flip" json:"flip"`
 	ScrollTop     bool   `yaml:"scrollTop" json:"scrollTop"`
 	SearchFilters bool   `yaml:"searchFilters" json:"searchFilters"`
+	SetStack      string `yaml:"setStack" json:"setStack"`
 }
 
 // FilterSet is one named Recent filter (see web/filter.js): which kinds of
@@ -150,7 +153,7 @@ func Defaults() Config {
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
-		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true},
+		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and"},
 	}
 }
 
@@ -242,6 +245,7 @@ func (c *Config) Normalize() {
 	d.Theme = strings.ToLower(strings.TrimSpace(d.Theme))
 	d.Layout = strings.ToLower(strings.TrimSpace(d.Layout))
 	d.Clock = strings.ToLower(strings.TrimSpace(d.Clock))
+	d.SetStack = strings.ToLower(strings.TrimSpace(d.SetStack))
 	if d.Theme == "" {
 		d.Theme = "system"
 	}
@@ -250,6 +254,9 @@ func (c *Config) Normalize() {
 	}
 	if d.Clock == "" {
 		d.Clock = "24"
+	}
+	if d.SetStack == "" {
+		d.SetStack = "and"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
@@ -366,6 +373,11 @@ func (c Config) Validate() error {
 	case "24", "12", "locale":
 	default:
 		bad("default clock must be 24, 12 or locale")
+	}
+	switch c.DeviceDefaults.SetStack {
+	case "and", "or":
+	default:
+		bad("default set stacking must be and or or")
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {

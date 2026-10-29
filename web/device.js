@@ -53,7 +53,7 @@ function applyPrefs() {
     timeFmt = null;
     emit('namesChecked');
   }
-  if (changed('clock') || changed('searchFilters')) emit('history');
+  if (changed('clock') || changed('searchFilters') || changed('setStack')) emit('history');
   emit('prefs');
 }
 

@@ -166,3 +166,19 @@ export function filterFn(text, opts) {
   const p = parseFilter(text || '');
   return p.rules ? compileFilter(p.rules, opts) : null;
 }
+
+// ---- filter sets: whether one set's saved filter f (kinds plus the
+// compiled srcOk/dstOk) lets an entry show. x: ext (made elsewhere), the
+// source and destination as number+name (sn, sname, dn, dname) and
+// hiddenDst (Settings hides that destination).
+export function entryAllows(f, { srcOk, dstOk }, x) {
+  if (x.ext ? !f.ext : !f.sode) return false;
+  if (x.ext && !f.hidden && x.hiddenDst) return false;
+  return srcOk(x.sn, x.sname) && dstOk(x.dn, x.dname);
+}
+
+// Stacked sets: 'or' lets an entry show if any set allows it, otherwise
+// every set must. Each set's excludes and kinds count only in that set.
+// sets: [{ f, srcOk, dstOk }].
+export const stackAllows = (mode, sets, x) =>
+  (mode === 'or' ? sets.some((s) => entryAllows(s.f, s, x)) : sets.every((s) => entryAllows(s.f, s, x)));
