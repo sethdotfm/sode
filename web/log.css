@@ -81,7 +81,13 @@
 .sode-log__uptime > .sode-log__line > h2 { margin: 0; }
 .sode-log__up-sum { color: var(--pb-text-strong); font-size: var(--pb-text-sm); }
 .sode-log__up-bars { display: flex; gap: 1px; height: var(--pb-space-8); }
-.sode-log__up-bar { background: var(--pb-surface-control); flex: 1 1 0; min-width: 1px; }
+.sode-log__up-bar { background: var(--pb-surface-control); border: 0; cursor: pointer; flex: 1 1 0; min-width: 1px; padding: 0; }
+.sode-log__up-bar:disabled { cursor: default; }
+.sode-log__up-bar:not(:disabled):hover,
+.sode-log__up-bar:focus-visible { box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-text-strong); }
+.sode-log__up-bar--sel,
+.sode-log__up-bar--sel:hover { box-shadow: inset 0 0 0 calc(var(--pb-border-w) * 3) var(--pb-text-strong); }
+.sode-log__slot { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-4); }
 .sode-log__up-bar--ok { background: var(--pb-status-ok); }
 .sode-log__up-bar--warn { background: var(--pb-status-warn-fill); }
 .sode-log__up-bar--error { background: var(--pb-status-error); }

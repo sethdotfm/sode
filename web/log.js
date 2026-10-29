@@ -133,13 +133,14 @@ function initFilters() {
   };
   // Times typed by hand end a toggle's range; its own change event is not trusted.
   const byHand = (e) => {
-    if (e.isTrusted) chipOn = null;
+    if (e.isTrusted) { chipOn = null; leaveSlot(); }
     applyRange();
   };
   from.addEventListener('change', byHand);
   to.addEventListener('change', byHand);
   $('log-range-clear').addEventListener('click', () => {
     chipOn = null;
+    leaveSlot();
     from.value = to.value = '';
     applyRange();
   });
@@ -509,6 +510,11 @@ on('conn', () => {
 // no times set it shows the last 24 hours; with times set by hand, those.
 // Only the newest reply to a request is drawn.
 let chipOn = null; // the toggle whose range is set, or null
+// Slot mode: a bar was clicked and the log shows just its slot. The strip
+// keeps the window it had (view) so the bars next to it can be clicked, and
+// what was set before (prev) comes back with Back.
+let slotMode = null; // { from, to, view: {from, to}, prev: {from, to, chip, sort} }
+let upLast = null; // the window of the strip as last drawn
 let upId = 0;
 const upBars = $('log-uptime-bars');
 const upSum = $('log-uptime-sum');
@@ -530,6 +536,7 @@ function initUptime() {
       const from = $('log-from');
       from.value = localStamp(Date.now() - p.span);
       $('log-to').value = '';
+      leaveSlot();
       chipOn = p.id;
       from.dispatchEvent(new Event('change'));
     });
@@ -548,7 +555,7 @@ function refreshUptime() {
   if (!customTimes()) chipOn = null;
   syncPresets();
   const now = Date.now();
-  const r = chipOn ? rangeFor(chipOn, null, null, now) : rangeFor(DEFAULT_PRESET, range.from, range.to, now);
+  const r = slotMode ? slotMode.view : chipOn ? rangeFor(chipOn, null, null, now) : rangeFor(DEFAULT_PRESET, range.from, range.to, now);
   if (!r) {
     upBars.replaceChildren();
     upSum.textContent = 'The From time is after the To time.';
@@ -559,16 +566,76 @@ function refreshUptime() {
   if (!upBars.childElementCount) upSum.textContent = 'Loading…';
 }
 
+// A bar was clicked: the log's time range becomes that slot, newest first.
+function enterSlot(s) {
+  const from = $('log-from'), to = $('log-to');
+  const prev = slotMode ? slotMode.prev : { from: from.value, to: to.value, chip: chipOn, sort: { ...sort } };
+  const view = slotMode ? slotMode.view : upLast;
+  slotMode = { from: s.from, to: s.to, view, prev };
+  chipOn = null;
+  sort = { col: 'time', dir: 'desc' };
+  writeJSON(SORT_KEY, null);
+  renderSort();
+  from.value = localStamp(s.from);
+  to.value = localStamp(s.to - 1000); // To counts to the end of the second it shows
+  from.dispatchEvent(new Event('change'));
+  showSlot();
+}
+
+// Back: what was set before comes back, sort included.
+function leaveSlotBack() {
+  const { prev } = slotMode;
+  slotMode = null;
+  chipOn = prev.chip;
+  sort = prev.sort;
+  writeJSON(SORT_KEY, newestFirst() ? null : sort);
+  renderSort();
+  $('log-from').value = prev.from;
+  $('log-to').value = prev.to;
+  $('log-from').dispatchEvent(new Event('change'));
+  showSlot();
+}
+
+// Leaving slot mode by changing the times another way: nothing to restore.
+function leaveSlot() {
+  if (!slotMode) return;
+  slotMode = null;
+  showSlot();
+}
+
+// Slot mode is obvious: a banner above the table says what is shown.
+function showSlot() {
+  const note = $('log-slot');
+  note.hidden = !slotMode;
+  if (!slotMode) return;
+  const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
+  back.type = 'button';
+  back.addEventListener('click', leaveSlotBack);
+  note.replaceChildren(
+    el('strong', null, 'One slot of the graph'),
+    ` · ${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)} · newest first`,
+    back,
+  );
+}
+
 on('uptimeResult', (m) => {
   if (m.id !== upId) return; // an older request than the latest
   const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
   const text = summary(data);
+  upLast = { from: m.from, to: m.to };
   upBars.replaceChildren(...slots(data).map((s) => {
-    const bar = el('div', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
+    const bar = el('button', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
+    bar.type = 'button';
     bar.title = slotText(s, fmtDay);
+    bar.setAttribute('aria-label', bar.title);
+    bar.disabled = s.colour === 'future';
+    const sel = !!slotMode && s.from === slotMode.from;
+    if (sel) bar.classList.add('sode-log__up-bar--sel');
+    bar.setAttribute('aria-pressed', String(sel));
+    bar.addEventListener('click', () => enterSlot(s));
     return bar;
   }));
-  const label = chipOn || !customTimes() ? PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
+  const label = slotMode || chipOn || !customTimes() ? (slotMode ? `${fmtDay(m.from)} to ${fmtDay(m.to)}` : PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label) : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
   upBars.setAttribute('aria-label', `Router uptime, ${label}: ${text}`);
   upSum.textContent = text;
 });
