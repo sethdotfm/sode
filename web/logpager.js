@@ -4,6 +4,9 @@
 // or the log, or the page cap, runs out. Without that, an open or a Load
 // older whose pages hold only hidden entries (keepalives under the
 // default "Connects" filter) showed nothing, and looked stuck.
+//
+// Each method that asks for something returns the request to send,
+// { before, n }, or null.
 
 // Entries per request on open and per Load older.
 export const PAGE = 100;
@@ -14,97 +17,105 @@ export const FILL = 500;
 export const AUTO_PAGES = 20;
 
 export function newPager() {
-  return {
-    list: [], // loaded entries, newest first
-    seen: new Set(), // their seqs
-    more: false, // the server has older ones
-    total: 0,
-    pending: null, // the `before` of the request awaiting its reply
-    started: false, // asked for the newest page on this connection
-    want: 0, // shown rows to read on until
-    pages: 0, // requests since the last open or Load older
-  };
-}
+  let list = []; // loaded entries, newest first
+  const seen = new Set(); // their seqs
+  let more = false; // the server has older ones
+  let total = 0; // entries in the log, as last reported
+  let pending = null; // the `before` of the request awaiting its reply
+  let started = false; // asked for the newest page on this connection
+  let want = 0; // shown rows to read on until
+  let pages = 0; // requests since the last open or Load older
 
-export const loading = (p) => p.pending !== null;
-export const oldest = (p) => p.list[p.list.length - 1];
+  const oldest = () => list[list.length - 1];
+  const byNewest = (a, b) => b.seq - a.seq;
 
-// The entries not loaded yet, stamped with their time as ms (t).
-export function add(p, entries) {
-  const fresh = entries.filter((e) => !p.seen.has(e.seq));
-  for (const e of fresh) {
-    p.seen.add(e.seq);
-    e.t = Date.parse(e.time);
+  // The entries not loaded yet, stamped with their time as ms (t), newest first.
+  function add(entries) {
+    const fresh = entries.filter((e) => !seen.has(e.seq));
+    for (const e of fresh) {
+      seen.add(e.seq);
+      e.t = Date.parse(e.time);
+    }
+    return fresh.sort(byNewest);
   }
-  return fresh;
-}
 
-function ask(p, before, n) {
-  p.pending = before;
-  p.pages++;
-  return { before, n };
-}
+  function ask(before, n) {
+    pending = before;
+    pages++;
+    return { before, n };
+  }
 
-// A fresh connection: forget everything and ask for the newest page.
-// Returns the request to send.
-export function open(p) {
-  p.list = [];
-  p.seen.clear();
-  p.more = false;
-  p.started = true;
-  p.want = PAGE;
-  p.pages = 0;
-  p.pending = null;
-  return ask(p, -1, PAGE);
-}
+  const idle = () => started && pending === null && more && list.length > 0;
 
-// Load older: PAGE more shown rows than now. null if busy or nothing loaded.
-export function older(p, shownNow) {
-  if (!p.started || loading(p) || !p.list.length) return null;
-  p.want = shownNow + PAGE;
-  p.pages = 0;
-  return ask(p, oldest(p).seq, PAGE);
-}
+  return {
+    get list() { return list; },
+    get more() { return more; },
+    get total() { return total; },
+    get started() { return started; },
+    get loading() { return pending !== null; },
+    get oldest() { return oldest(); },
 
-// A reply. Returns null when it isn't the one awaited (a connection since
-// replaced, or a duplicate) and leaves the request pending. Else
-// { fresh, newest }: the entries it added.
-export function receive(p, m) {
-  if (!p.started || p.pending === null || m.before !== p.pending) return null;
-  const newest = m.before === -1;
-  p.pending = null;
-  const fresh = add(p, m.entries);
-  // Newest: live entries may have come in first. Older: all before the
-  // oldest, which the list ends with.
-  p.list = newest ? [...p.list, ...fresh].sort((a, b) => b.seq - a.seq) : [...p.list, ...fresh.sort((a, b) => b.seq - a.seq)];
-  p.more = m.more;
-  if (m.total != null) p.total = m.total;
-  return { fresh, newest };
-}
+    // A fresh connection: forget everything and ask for the newest page.
+    open() {
+      list = [];
+      seen.clear();
+      more = false;
+      started = true;
+      want = PAGE;
+      pages = 0;
+      return ask(-1, PAGE);
+    },
 
-// Live entries (sentAdd), newest first; those already loaded are dropped.
-export function live(p, entries) {
-  const fresh = add(p, entries).sort((a, b) => b.seq - a.seq);
-  p.list.unshift(...fresh);
-  return fresh;
-}
+    // Load older: PAGE more shown rows than now. null if busy or nothing loaded.
+    older(shownNow) {
+      if (!started || pending !== null || !list.length) return null;
+      want = shownNow + PAGE;
+      pages = 0;
+      return ask(oldest().seq, PAGE);
+    },
 
-// What to ask next after a reply: more of the log while the filters leave
-// fewer than `want` shown (within the page cap), or while a time range
-// isn't covered (rangeNeeds). null: nothing.
-export function next(p, shownNow, rangeNeeds) {
-  if (!p.started || loading(p) || !p.more || !p.list.length) return null;
-  if (rangeNeeds || (shownNow < p.want && p.pages < AUTO_PAGES)) return ask(p, oldest(p).seq, FILL);
-  return null;
-}
+    // A reply. null when it isn't the one awaited (a connection since
+    // replaced, or a duplicate), leaving the request pending. Else
+    // { fresh, newest }: the entries it added.
+    receive(m) {
+      if (!started || pending === null || m.before !== pending) return null;
+      const newest = m.before === -1;
+      pending = null;
+      const fresh = add(m.entries);
+      // Newest: live entries may have come in first. Older: all before the
+      // oldest, which the list ends with.
+      list = newest ? [...list, ...fresh].sort(byNewest) : [...list, ...fresh];
+      more = m.more;
+      if (m.total != null) total = m.total;
+      return { fresh, newest };
+    },
 
-// A time range changed: read on only if it needs more.
-export function fill(p, rangeNeeds) {
-  return rangeNeeds ? next(p, Infinity, true) : null;
-}
+    // Live entries (sentAdd), newest first; those already loaded are dropped.
+    live(m) {
+      const fresh = add(m.entries);
+      list.unshift(...fresh);
+      if (m.total != null) total = m.total;
+      return fresh;
+    },
 
-// The connection dropped.
-export function close(p) {
-  p.started = false;
-  p.pending = null;
+    // After a reply: more of the log while the filters leave fewer than
+    // `want` of the loaded entries shown, within the page cap.
+    next(shownNow) {
+      return idle() && shownNow < want && pages < AUTO_PAGES ? ask(oldest().seq, FILL) : null;
+    },
+
+    // Read on to cover a time range, whatever is shown and however many pages.
+    back() {
+      return idle() ? ask(oldest().seq, FILL) : null;
+    },
+
+    // The request returned couldn't be sent: there is nothing to wait for.
+    unsent() { pending = null; },
+
+    // The connection dropped.
+    close() {
+      started = false;
+      pending = null;
+    },
+  };
 }

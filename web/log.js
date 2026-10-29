@@ -5,7 +5,7 @@ import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
-import * as P from './logpager.js';
+import { newPager } from './logpager.js';
 import { KINDS, KIND_IDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
 import './brand.js';
 
@@ -146,17 +146,15 @@ function initFilters() {
 
 // ---- entries: newest first
 
-const p = P.newPager();
+const pager = newPager();
 // The entries in the table, in its order: kept in step with tbody's rows
 // so new ones go in place instead of redrawing everything.
 let shown = [];
-const loading = () => P.loading(p);
-const oldest = () => P.oldest(p);
 
 function send(req) {
   if (!req) return;
   // Not sent (no connection): nothing to wait for.
-  if (!wsSend({ t: 'sent', ...req })) p.pending = null;
+  if (!wsSend({ t: 'sent', ...req })) pager.unsent();
   renderMore();
 }
 
@@ -164,26 +162,26 @@ function send(req) {
 // the log hasn't been read back past its start (or, with only an end,
 // to its end).
 function rangeNeedsMore() {
-  if (!p.more || !p.list.length) return false;
-  if (range.from != null) return oldest().t >= range.from - TIME_SLACK;
-  if (range.to != null) return oldest().t > range.to - TIME_SLACK;
+  if (!pager.more || !pager.list.length) return false;
+  if (range.from != null) return pager.oldest.t >= range.from - TIME_SLACK;
+  if (range.to != null) return pager.oldest.t > range.to - TIME_SLACK;
   return false;
 }
 
 // Everything in the range is loaded: older pages are all before it.
-const rangeDone = () => range.from != null && p.list.length > 0 && !rangeNeedsMore();
+const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNeedsMore();
 
 // Reads back until the range is covered. One request at a time.
-const fill = () => send(P.fill(p, rangeNeedsMore()));
+const fill = () => rangeNeedsMore() && send(pager.back());
 
 on('hello', () => {
   // Fresh after a reconnect: entries may have been missed while away.
-  send(P.open(p));
+  send(pager.open());
   render();
 });
 
 on('sentPage', (m) => {
-  const r = P.receive(p, m);
+  const r = pager.receive(m);
   if (!r) return; // not the reply awaited: a connection since replaced
   showCounts(m);
   // Older entries go at the end newest first. In any other order the
@@ -192,16 +190,16 @@ on('sentPage', (m) => {
   else if (newestFirst()) appendRows(r.fresh.filter(passes));
   // Read on while a range isn't covered, or the filters leave fewer than a
   // page shown: opening, or Load older, shouldn't look like nothing happened.
-  const req = P.next(p, p.list.filter(passes).length, rangeNeedsMore());
+  const req = rangeNeedsMore() ? pager.back() : pager.next(pager.list.filter(passes).length);
   if (req) return send(req);
   if (!r.newest && !newestFirst()) render();
   else renderMore();
 });
 
 on('sentAdd', (m) => {
-  if (!p.started) return;
+  if (!pager.started) return;
   showCounts(m);
-  const fresh = P.live(p, m.entries);
+  const fresh = pager.live(m);
   if (!fresh.length) return;
   const pass = fresh.filter(passes);
   if (newestFirst()) {
@@ -214,7 +212,6 @@ on('sentAdd', (m) => {
 });
 
 function showCounts(m) {
-  if (m.total != null) p.total = m.total;
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
@@ -328,7 +325,7 @@ function order(x, y) {
 
 // The rows shown, in the order shown: also what the CSV holds.
 function shownRows() {
-  const rows = p.list.filter(passes);
+  const rows = pager.list.filter(passes);
   if (newestFirst()) return rows;
   const key = SORTS[sort.col];
   return rows
@@ -389,19 +386,19 @@ function render() {
 
 function renderMore() {
   const shown = tbody.childElementCount;
-  $('log-count').textContent = p.list.length ? `${shown.toLocaleString()} of ${p.total.toLocaleString()} in log` : '';
+  $('log-count').textContent = pager.list.length ? `${shown.toLocaleString()} of ${pager.total.toLocaleString()} in log` : '';
   $('log-csv').disabled = !shown;
   const older = $('log-older');
-  const busy = loading();
+  const busy = pager.loading;
   const filling = busy && rangeNeedsMore();
-  older.hidden = !p.more || rangeDone();
+  older.hidden = !pager.more || rangeDone();
   older.disabled = busy;
-  older.textContent = filling ? `Loading back to ${fmtDay(oldest().t)}…` : busy ? 'Loading…' : 'Load older';
+  older.textContent = filling ? `Loading back to ${fmtDay(pager.oldest.t)}…` : busy ? 'Loading…' : 'Load older';
   const empty = $('log-empty');
   empty.hidden = shown > 0 || busy;
-  empty.textContent = !p.list.length
-    ? (p.more ? '' : 'Nothing sent yet.')
-    : rangeDone() || !p.more ? 'Nothing matches the filters.' : 'Nothing loaded matches the filters.';
+  empty.textContent = !pager.list.length
+    ? (pager.more ? '' : 'Nothing sent yet.')
+    : rangeDone() || !pager.more ? 'Nothing matches the filters.' : 'Nothing loaded matches the filters.';
 }
 
 // ---- CSV: the rows shown, newest first, as logged (numbers as displayed).
@@ -448,7 +445,7 @@ $('log-csv').addEventListener('click', () => {
 });
 
 $('log-older').addEventListener('click', () => {
-  send(P.older(p, p.list.filter(passes).length));
+  send(pager.older(pager.list.filter(passes).length));
 });
 
 // Where a range fill has got to.
@@ -465,7 +462,7 @@ on('conn', () => {
   setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
   setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
   $('log-addr').textContent = routerLabel()[0];
-  if (S.wsState !== 'up') { P.close(p); renderMore(); }
+  if (S.wsState !== 'up') { pager.close(); renderMore(); }
 });
 initFilters();
 connect();

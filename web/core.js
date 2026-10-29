@@ -96,22 +96,21 @@ export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : src
 let retry = 1000;
 
 // Browsers can't see WebSocket ping frames, so the server sends a {"t":"ping"}
-// message every ~5s (#142). A socket that stays quiet this long is dead even
-// if it still says OPEN, and a take must not be sent into one.
-export const WS_STALE_MS = 15000; // close the socket after this much silence
-export const WS_FRESH_MS = 7000; // a take is sent only if heard from this recently
-export const wsStale = (last, now) => now - last > WS_STALE_MS;
-export const wsFresh = (open, last, now) => open && now - last <= WS_FRESH_MS;
-let lastRx = 0;
-export const wsTouch = () => { lastRx = Date.now(); }; // anything arrived
-// OPEN and heard from within WS_FRESH_MS.
-export const wsFreshNow = () => wsFresh(!!S.ws && S.ws.readyState === WebSocket.OPEN, lastRx, Date.now());
-// Drop a socket we no longer trust; onclose then reconnects.
-export function wsReset() { try { S.ws?.close(); } catch { /* already closed */ } }
-const wsWatch = setInterval(() => {
-  if (S.ws && S.ws.readyState === WebSocket.OPEN && wsStale(lastRx, Date.now())) wsReset();
-}, 1000);
-wsWatch.unref?.(); // Node tests import this module
+// message every ~5s (#142). A socket that stays quiet for STALE_MS is dead
+// even if it still says OPEN; nothing is sent into one quiet for FRESH_MS.
+// ws.lastRx is when anything last arrived.
+const STALE_MS = 15000;
+const FRESH_MS = 7000;
+const quiet = (ws) => Date.now() - ws.lastRx;
+
+// Gives up on a socket we no longer trust. Its own close event can be long
+// in coming on a dead link, so the loss is reported now, once.
+function drop(ws) {
+  const lost = ws.onclose;
+  ws.onclose = ws.onmessage = null;
+  try { ws.close(); } catch { /* already closed */ }
+  lost?.();
+}
 
 export function connect() {
   const base = location.pathname.replace(/[^/]*$/, '');
@@ -119,8 +118,12 @@ export function connect() {
   S.ws = ws;
   S.wsState = 'connecting';
   emit('conn');
-  ws.onopen = () => { wsTouch(); retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
+  const watch = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN && quiet(ws) > STALE_MS) drop(ws);
+  }, 1000);
+  ws.onopen = () => { ws.lastRx = Date.now(); retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
   ws.onclose = () => {
+    clearInterval(watch);
     S.ws = null;
     S.wsState = 'down';
     S.wsLost = true;
@@ -130,12 +133,19 @@ export function connect() {
     setTimeout(connect, retry);
     retry = Math.min(retry * 2, 10000);
   };
-  ws.onmessage = (e) => { wsTouch(); handle(JSON.parse(e.data)); };
+  ws.onmessage = (e) => { ws.lastRx = Date.now(); handle(JSON.parse(e.data)); };
 }
 
+// False if the message wasn't sent: no open socket, or one that has gone
+// quiet (probably dead), which is dropped so the page reconnects.
 export function wsSend(m) {
-  if (!S.ws || S.ws.readyState !== WebSocket.OPEN) return false;
-  S.ws.send(JSON.stringify(m));
+  const ws = S.ws;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  if (quiet(ws) > FRESH_MS) {
+    drop(ws);
+    return false;
+  }
+  ws.send(JSON.stringify(m));
   return true;
 }
 

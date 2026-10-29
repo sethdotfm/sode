@@ -172,8 +172,7 @@ test('follows and merged chains', async () => {
   // Undo leaves follows out unless the box is ticked.
   const sent = [];
   globalThis.WebSocket = { OPEN: 1 };
-  core.wsTouch();
-  S.ws = { readyState: 1, send: (m) => sent.push(JSON.parse(m)) };
+  S.ws = { readyState: 1, lastRx: Date.now(), send: (m) => sent.push(JSON.parse(m)) };
   const plan = undoPlan(take);
   assert.equal(plan.extra.items.length, 1);
   sendTakes({ ...plan });

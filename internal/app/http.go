@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"slices"
 	"strings"
 	"time"
 
@@ -56,6 +57,17 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	return mux
 }
 
+// healthMsg is the /api/health body.
+type healthMsg struct {
+	Server        string `json:"server"`
+	Router        string `json:"router"`
+	Addr          string `json:"targetAddress"`
+	Err           string `json:"err,omitempty"`
+	Version       string `json:"version"`
+	UptimeSeconds int64  `json:"uptimeSeconds"`
+	Browsers      int    `json:"browsers"`
+}
+
 // serveHealth reports server and router health apart for uptime monitors:
 // 200 while the router is up, 503 otherwise. No PIN, no config.
 func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
@@ -75,49 +87,40 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(struct {
-		Server        string `json:"server"`
-		Router        string `json:"router"`
-		Addr          string `json:"targetAddress"`
-		Err           string `json:"err,omitempty"`
-		Version       string `json:"version"`
-		UptimeSeconds int64  `json:"uptimeSeconds"`
-		Browsers      int    `json:"browsers"`
-	}{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
+	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
 // clientIP is the peer address, or, when the peer is a trusted proxy, the
-// nearest untrusted hop in X-Forwarded-For. Untrusted peers can't spoof it.
+// nearest untrusted hop in X-Forwarded-For (X-Real-IP when there is none).
+// Untrusted peers can't spoof it, and a hop that isn't an address ends the
+// search at the peer rather than trusting what lies beyond it.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	isTrusted := func(s string) bool {
+	parse := func(s string) (netip.Addr, bool) {
 		a, err := netip.ParseAddr(strings.TrimSpace(s))
-		if err != nil {
-			return false
-		}
-		for _, p := range trusted {
-			if p.Contains(a.Unmap()) {
-				return true
-			}
-		}
-		return false
+		return a.Unmap(), err == nil
 	}
-	if !isTrusted(host) {
+	isTrusted := func(a netip.Addr) bool {
+		return slices.ContainsFunc(trusted, func(p netip.Prefix) bool { return p.Contains(a) })
+	}
+	if a, ok := parse(host); !ok || !isTrusted(a) {
 		return host
 	}
-	// Several X-Forwarded-For lines are one list, in order.
-	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
-	for i := len(hops) - 1; i >= 0; i-- {
-		if h := strings.TrimSpace(hops[i]); h != "" && !isTrusted(h) {
-			return h
-		}
+	// Several header lines are one list, in order.
+	lines := r.Header.Values("X-Forwarded-For")
+	if len(lines) == 0 {
+		lines = r.Header.Values("X-Real-IP") // nginx's usual recipe
 	}
-	// A proxy that sets only X-Real-IP (nginx's usual recipe).
-	if len(hops) == 1 && strings.TrimSpace(hops[0]) == "" {
-		if h := strings.TrimSpace(r.Header.Get("X-Real-IP")); h != "" && !isTrusted(h) {
-			if _, err := netip.ParseAddr(h); err == nil {
-				return h
-			}
+	for _, h := range slices.Backward(strings.Split(strings.Join(lines, ","), ",")) {
+		if strings.TrimSpace(h) == "" {
+			continue
+		}
+		a, ok := parse(h)
+		if !ok {
+			return host
+		}
+		if !isTrusted(a) {
+			return a.String()
 		}
 	}
 	return host
@@ -127,6 +130,8 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 // WebSocket ping frames, so without this a socket a proxy or the network
 // dropped silently stays OPEN on the page (#142). A var so a test can shorten it.
 var wsHeartbeat = 5 * time.Second
+
+var pingMsg = []byte(`{"t":"ping"}`)
 
 func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, nil)
@@ -170,6 +175,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		defer ping.Stop()
 		beat := time.NewTicker(wsHeartbeat)
 		defer beat.Stop()
+		write := func(b []byte) error {
+			wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
+			defer wcancel()
+			return conn.Write(wctx, websocket.MessageText, b)
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -179,17 +189,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 					conn.Close(websocket.StatusPolicyViolation, "too slow")
 					return
 				}
-				wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
-				err := conn.Write(wctx, websocket.MessageText, b)
-				wcancel()
-				if err != nil {
+				if write(b) != nil {
 					return
 				}
 			case <-beat.C:
-				wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
-				err := conn.Write(wctx, websocket.MessageText, []byte(`{"t":"ping"}`))
-				wcancel()
-				if err != nil {
+				if write(pingMsg) != nil {
 					return
 				}
 			case <-ping.C:

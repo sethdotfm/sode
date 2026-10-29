@@ -27,6 +27,7 @@ func TestClientIP(t *testing.T) {
 		{"several header lines are one list", "172.18.0.2:1", http.Header{"X-Forwarded-For": {"6.6.6.6", "198.51.100.7, 172.18.0.3"}}, "198.51.100.7"},
 		{"x-real-ip when no forwarded-for", "172.18.0.2:1", http.Header{"X-Real-Ip": {"198.51.100.7"}}, "198.51.100.7"},
 		{"x-real-ip ignored from untrusted", "203.0.113.9:1", http.Header{"X-Real-Ip": {"1.2.3.4"}}, "203.0.113.9"},
+		{"nearest hop is garbage: stop at the peer", "172.18.0.2:1", http.Header{"X-Forwarded-For": {"198.51.100.7, unknown"}}, "172.18.0.2"},
 		{"x-real-ip not an address", "172.18.0.2:1", http.Header{"X-Real-Ip": {"nonsense"}}, "172.18.0.2"},
 		{"nothing forwarded", "172.18.0.2:1", http.Header{}, "172.18.0.2"},
 	} {

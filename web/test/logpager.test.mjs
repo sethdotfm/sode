@@ -19,9 +19,9 @@ function run(p, srv, req) {
   let sent = 0;
   while (req) {
     sent++;
-    const r = P.receive(p, srv(req));
+    const r = p.receive(srv(req));
     assert.ok(r);
-    req = P.next(p, shown(p), false);
+    req = p.next(shown(p));
   }
   return sent;
 }
@@ -29,7 +29,7 @@ function run(p, srv, req) {
 test('open reads on until PAGE rows are shown, not PAGE entries', () => {
   const p = P.newPager();
   const srv = server(5000);
-  run(p, srv, P.open(p));
+  run(p, srv, p.open());
   assert.ok(shown(p) >= P.PAGE, `shown ${shown(p)}`);
   assert.ok(p.list.length > P.PAGE);
 });
@@ -37,9 +37,9 @@ test('open reads on until PAGE rows are shown, not PAGE entries', () => {
 test('Load older with a page of hidden entries still adds rows', () => {
   const p = P.newPager();
   const srv = server(5000);
-  run(p, srv, P.open(p));
+  run(p, srv, p.open());
   const before = shown(p);
-  const req = P.older(p, before);
+  const req = p.older(before);
   assert.equal(req.n, P.PAGE);
   run(p, srv, req);
   assert.ok(shown(p) >= before + P.PAGE);
@@ -49,44 +49,44 @@ test('stops at the page cap while everything is hidden, and at the log start', (
   const p = P.newPager();
   const hidden = server(100_000);
   const srv = (r) => { const m = hidden(r); m.entries.forEach((e) => { e.kind = 'keepalive'; }); return m; };
-  assert.equal(run(p, srv, P.open(p)), P.AUTO_PAGES);
-  assert.ok(P.older(p, 0));
+  assert.equal(run(p, srv, p.open()), P.AUTO_PAGES);
+  assert.ok(p.older(0));
   const q = P.newPager();
-  run(q, server(30), P.open(q));
+  run(q, server(30), q.open());
   assert.equal(q.more, false);
-  assert.equal(P.older(q, 3) && P.next(q, 3, false), null);
+  assert.equal(q.older(3) && q.next(3), null);
 });
 
 test('a reply for another request is ignored and leaves the pending one', () => {
   const p = P.newPager();
   const srv = server(300);
-  P.open(p);
-  assert.equal(P.receive(p, srv({ before: 50, n: 10 })), null);
-  assert.equal(P.loading(p), true);
-  assert.ok(P.receive(p, srv({ before: -1, n: 100 })));
-  assert.equal(P.loading(p), false);
+  p.open();
+  assert.equal(p.receive(srv({ before: 50, n: 10 })), null);
+  assert.equal(p.loading, true);
+  assert.ok(p.receive(srv({ before: -1, n: 100 })));
+  assert.equal(p.loading, false);
 });
 
 test('a new connection drops the old one\'s reply; Load older works after', () => {
   const p = P.newPager();
   const srv = server(300);
-  run(p, srv, P.open(p));
-  const stale = P.older(p, 0);
-  P.close(p);
-  assert.equal(P.receive(p, srv(stale)), null);
-  const req = P.open(p);
-  assert.equal(P.receive(p, srv(stale)), null);
-  assert.ok(P.receive(p, srv(req)));
-  assert.equal(P.loading(p), false);
-  assert.ok(P.older(p, 0));
+  run(p, srv, p.open());
+  const stale = p.older(0);
+  p.close();
+  assert.equal(p.receive(srv(stale)), null);
+  const req = p.open();
+  assert.equal(p.receive(srv(stale)), null);
+  assert.ok(p.receive(srv(req)));
+  assert.equal(p.loading, false);
+  assert.ok(p.older(0));
 });
 
 test('live entries before the newest page are merged, not duplicated', () => {
   const p = P.newPager();
   const srv = server(300);
-  const req = P.open(p);
-  P.live(p, [{ seq: 299, time: '2026-10-29T10:00:00Z', kind: 'connect' }, { seq: 300, time: '2026-10-29T10:00:00Z', kind: 'connect' }]);
-  P.receive(p, srv(req));
+  const req = p.open();
+  p.live({ entries: [{ seq: 299, time: '2026-10-29T10:00:00Z', kind: 'connect' }, { seq: 300, time: '2026-10-29T10:00:00Z', kind: 'connect' }] });
+  p.receive(srv(req));
   assert.deepEqual(p.list.map((e) => e.seq).slice(0, 3), [300, 299, 298]);
   assert.equal(new Set(p.list.map((e) => e.seq)).size, p.list.length);
 });
@@ -94,9 +94,9 @@ test('live entries before the newest page are merged, not duplicated', () => {
 test('a time range keeps reading regardless of the cap', () => {
   const p = P.newPager();
   const srv = server(100_000);
-  P.open(p);
+  p.open();
   let req = null, n = 0;
-  P.receive(p, srv({ before: -1, n: 100 }));
-  while ((req = P.next(p, Infinity, true)) && n < 50) { P.receive(p, srv(req)); n++; }
+  p.receive(srv({ before: -1, n: 100 }));
+  while ((req = p.back()) && n < 50) { p.receive(srv(req)); n++; }
   assert.equal(n, 50);
 });
