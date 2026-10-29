@@ -73,10 +73,19 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	if !isTrusted(host) {
 		return host
 	}
-	hops := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	// Several X-Forwarded-For lines are one list, in order.
+	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
 	for i := len(hops) - 1; i >= 0; i-- {
 		if h := strings.TrimSpace(hops[i]); h != "" && !isTrusted(h) {
 			return h
+		}
+	}
+	// A proxy that sets only X-Real-IP (nginx's usual recipe).
+	if len(hops) == 1 && strings.TrimSpace(hops[0]) == "" {
+		if h := strings.TrimSpace(r.Header.Get("X-Real-IP")); h != "" && !isTrusted(h) {
+			if _, err := netip.ParseAddr(h); err == nil {
+				return h
+			}
 		}
 	}
 	return host

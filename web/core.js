@@ -144,6 +144,9 @@ function handle(m) {
       setStatus(m.status);
       S.hist = m.recent || [];
       S.histMore = m.more;
+      // A page asked for before this snapshot is for a list since replaced
+      // and will be ignored (takePage): don't wait for it.
+      S.histLoading = false;
       emit('helloData'); // filterstore.js: follow a global filter set that changed
       emit('hello');
       emit('conn');
