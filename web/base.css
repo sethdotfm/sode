@@ -380,7 +380,7 @@ code,
     top: 10vh;
     width: 200px;
   }
-  [data-conn="down"] .sode__toc { top: max(10vh, calc(var(--pb-space-10) * 4)); }
+  [data-conn="down"] .sode__toc { top: max(10vh, calc(var(--sode-down-h, 0px) + var(--pb-space-5))); }
   .sode__toc .pb-tab { text-align: left; }
   .sode__settings > .sode__group { scroll-margin-top: var(--pb-space-10); }
 }
