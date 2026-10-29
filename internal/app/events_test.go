@@ -211,7 +211,11 @@ func TestBrowserAndCommandRows(t *testing.T) {
 	send(map[string]any{"t": "sent", "before": -1}) // reads aren't commands
 	rows := waitLogged(t, a, 8)
 	c.Close(websocket.StatusNormalClosure, "")
-	rows = waitLogged(t, a, 9)
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if rows = logged(t, a); results(rows, kindBrowser) == "connected,disconnected" {
+			break
+		}
+	}
 
 	var why, res []string
 	for _, e := range rows {
