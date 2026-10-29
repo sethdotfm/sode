@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
 
-**Version:** Beta 1.3
+**Version:** Beta 1.3.1
 
 Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
 
@@ -109,7 +109,7 @@ or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 `GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:
 
 ```json
-{"server":"up","router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3","uptimeSeconds":86400,"browsers":2}
+{"server":"up","router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
 ```
 
 `router` is `up`, `connecting` or `down`; `err` appears when the router link has a problem. The status code is 200 only while the router is up and 503 otherwise, so a plain HTTP(s) monitor alerts when the router is lost (a dead server shows as no answer). Uptime Kuma counts a 503 as down even for a JSON Query monitor, so to watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `router` as the key and `up` as the expected value. `/healthz` is unchanged.
