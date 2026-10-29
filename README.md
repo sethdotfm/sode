@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
 
-**Version:** Beta 1.2
+**Version:** Beta 1.3
 
 Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
 
