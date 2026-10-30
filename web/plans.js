@@ -328,6 +328,17 @@ export function lastTake() {
   return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
 }
 
+// The last take with its source and every destination one number higher,
+// for the "+1" chips and Ctrl+Shift+S/D: Cam 1 → Rec 1 + Rec 5 then Cam 2 →
+// Rec 2 + Rec 6. Each side is null (src) or empty (dsts) when any of its
+// numbers would run past the router's list. Levels aren't carried.
+export function nextTake() {
+  const t = lastTake();
+  if (!t) return null;
+  const dsts = t.dsts.map((d) => S.dstBy.get(d.n + 1));
+  return { src: S.srcBy.get(t.src.n + 1) || null, dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
+}
+
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 // What the "Last:" chip of each box shows for take t (from lastTake), or
@@ -337,7 +348,7 @@ const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]
 export function lastChip(t, state) {
   if (!t) return { src: false, dst: false, lvl: false };
   return {
-    src: !(state.src && state.src.n === t.src.n) && [labelNode(t.src)],
+    src: t.src && !(state.src && state.src.n === t.src.n) && [labelNode(t.src)],
     dst: !t.dsts.every((d) => state.dsts.some((x) => x.n === d.n)) &&
       [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
     lvl: t.levels.length > 0 && !sameList(state.levels, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],

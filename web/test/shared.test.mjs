@@ -51,6 +51,23 @@ test('lastChip: hides what the box already has', async () => {
   assert.equal(lastChip({ ...t, levels: [] }, empty).lvl, false);
 });
 
+test('nextTake: last take one number higher, per side', async () => {
+  const { S, nextTake } = await import('./all.mjs');
+  const it = (n) => ({ n, num: n + 1, name: `X${n}` });
+  S.srcBy = new Map([1, 2].map((n) => [n, it(n)]));
+  S.dstBy = new Map([5, 6, 7].map((n) => [n, it(n)]));
+  S.hist = [{ id: 1, src: 1, srcName: 'X1', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  let t = nextTake();
+  assert.equal(t.src.n, 2);
+  assert.deepEqual(t.dsts.map((d) => d.n), [6]);
+  S.hist = [{ id: 2, src: 2, srcName: 'X2', dst: 7, dstName: 'X7', levels: [1], ok: true }];
+  t = nextTake();
+  assert.equal(t.src, null, 'past the last source');
+  assert.deepEqual(t.dsts, [], 'past the last destination');
+  S.hist = [];
+  assert.equal(nextTake(), null);
+});
+
 test('protectedLabel names the devices in the badge', async () => {
   const { protectedLabel } = await import('./all.mjs');
   assert.equal(protectedLabel([9]), 'Protected by 9');

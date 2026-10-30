@@ -15,7 +15,7 @@ import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
 import {
   undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
-  sendTakes, lastTake, lastChip,
+  sendTakes, lastTake, nextTake, lastChip,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
@@ -199,14 +199,18 @@ function reset() {
 function renderLast() {
   const slot = $('m-last');
   const k = M.step;
-  const v = S.cfg && lastChip(lastTake(), { src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] })[k];
-  if (!v)return slot.replaceChildren();
-  const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...v));
-  b.type = 'button';
-  b.setAttribute('aria-label', `Use the last take's ${{ src: 'source', dst: 'destinations', lvl: 'levels' }[k]}`);
-  b.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
-  b.addEventListener('click', () => useLast(k));
-  slot.replaceChildren(b);
+  const state = S.cfg && { src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] };
+  const what = { src: 'source', dst: 'destinations', lvl: 'levels' }[k];
+  slot.replaceChildren(...['', '+1'].filter((n) => state && (!n || k !== 'lvl')).map((n) => {
+    const v = lastChip(n ? nextTake() : lastTake(), state)[k];
+    if (!v) return null;
+    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', n || 'Last', ': ', ...v));
+    b.type = 'button';
+    b.setAttribute('aria-label', n ? `Use the last take's ${what}, one number higher` : `Use the last take's ${what}`);
+    b.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
+    b.addEventListener('click', () => useLast(k, n ? nextTake() : lastTake()));
+    return b;
+  }).filter(Boolean));
 }
 
 // A source in a stacked row's changes becomes the source.
@@ -216,14 +220,15 @@ function pickSrc(n) {
   setStep(M.dsts.length ? 'lvl' : 'dst');
 }
 
-function useLast(k) {
-  const t = lastTake();
+function useLast(k, t = lastTake()) {
   if (!t) return;
   if (k === 'src') {
+    if (!t.src) return;
     choose(t.src);
     setStep(M.dsts.length ? 'lvl' : 'dst');
   } else if (k === 'dst') {
     // Adds to the destinations already picked.
+    if (!t.dsts.length) return;
     for (const d of t.dsts) if (!M.dsts.some((x) => x.n === d.n)) M.dsts.push(d);
     inputs.dst.value = '';
     matches.close();

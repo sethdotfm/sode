@@ -591,7 +591,7 @@ code,
   min-height: var(--pb-control-h-sm);
   min-width: 0;
 }
-.sode__box-head > [data-last] { display: flex; min-width: 0; }
+.sode__box-head > [data-last] { display: flex; gap: var(--pb-space-2); min-width: 0; }
 .pb-chip.sode__last {
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-2);

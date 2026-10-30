@@ -13,7 +13,7 @@ import {
 } from './history.js';
 import {
   undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
-  planBlocked, planSummary, sendTakes, lastTake, lastChip,
+  planBlocked, planSummary, sendTakes, lastTake, nextTake, lastChip,
 } from './plans.js';
 import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
@@ -135,34 +135,39 @@ function renderChips() {
 // ---- the last take's source, destinations or levels (Ctrl+S/D/F)
 
 // The last take's value for each box, as a chip by its label that does
-// what Ctrl+S/D/F does. Hidden when the box already has it, and for
-// levels when they're the default.
+// what Ctrl+S/D/F does, and a +1 chip with every number one higher (Ctrl+
+// Shift+S/D). Hidden when the box already has it, and for levels when
+// they're the default.
 function renderLast() {
   if (!S.cfg) return;
-  const now = lastChip(lastTake(), { src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] });
+  const state = { src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] };
+  const now = { '': lastChip(lastTake(), state), '+1': lastChip(nextTake(), state) };
   for (const k of ['src', 'dst', 'lvl']) {
     const slot = document.querySelector(`[data-last="${k}"]`);
-    const v = now[k];
-    if (!v) { slot.replaceChildren(); continue; }
     const key = { src: 's', dst: 'd', lvl: 'f' }[k];
-    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...v), el('kbd', 'sode__key-note', `⌃${key}`));
-    b.type = 'button';
-    b.tabIndex = -1;
-    b.title = `Last take's ${{ src: 'source', dst: 'destination', lvl: 'levels' }[k]} (Ctrl+${key})`;
-    b.addEventListener('mousedown', (e) => e.preventDefault());
-    b.addEventListener('click', () => useLast(k));
-    slot.replaceChildren(b);
+    const what = { src: 'source', dst: 'destination', lvl: 'levels' }[k];
+    slot.replaceChildren(...['', '+1'].filter((n) => now[n][k] && (!n || k !== 'lvl')).map((n) => {
+      const note = n ? `⌃⇧${key}` : `⌃${key}`;
+      const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', n || 'Last', ': ', ...now[n][k]), el('kbd', 'sode__key-note', note));
+      b.type = 'button';
+      b.tabIndex = -1;
+      b.title = n ? `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})` : `Last take's ${what} (Ctrl+${key})`;
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => useLast(k, n ? nextTake() : lastTake()));
+      return b;
+    }));
   }
 }
 on('history', renderLast);
 
 // Fills one box from the last take and moves on: source to destination,
 // destination back to source, but only if that one is empty (no pick, chips
-// or typing); otherwise on to levels. Levels stays.
-function useLast(k) {
-  const t = lastTake();
+// or typing); otherwise on to levels. Levels stays. t is the take to use:
+// the last one, or nextTake() for +1.
+function useLast(k, t = lastTake()) {
   if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
   if (k === 'src') {
+    if (!t.src) return;
     select('src', t.src);
     const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
     focusBox(dstEmpty ? boxes.dst.input : lvlInput);
@@ -171,6 +176,7 @@ function useLast(k) {
     // in the box.
     const have = allDsts();
     const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
+    if (!t.dsts.length) return;
     if (add.length) {
       dsts = [...have, ...add.slice(0, -1)];
       select('dst', add[add.length - 1]);
@@ -840,11 +846,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   // Ctrl+S/D/F: the last take's source, destinations or levels, from
-  // anywhere.
-  const last = e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
-  if (last) {
+  // anywhere. With Shift (S, D): the same with every number one higher.
+  const last = e.ctrlKey && !e.metaKey && !e.altKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
+  if (last && (!e.shiftKey || last !== 'lvl')) {
     e.preventDefault();
-    useLast(last);
+    useLast(last, e.shiftKey ? nextTake() : lastTake());
     return;
   }
   const id = e.target.id;
