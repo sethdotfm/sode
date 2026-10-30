@@ -115,7 +115,7 @@ func BrandNames() []string {
 // locale; Flip is Destination before Source, ScrollTop scrolls to the top
 // when a box is focused, SearchFilters makes quick search respect filters,
 // SetStack is how stacked filter sets combine: and (all must match) | or
-// (any may), NextMode is what the +1 chips and Ctrl+Shift+S/D mean by next:
+// (any may), NextMode is what the Next chips and Ctrl+Shift+S/D mean by next:
 // number (one higher) | fuzzy (the next match of the name's text).
 type DeviceDefaults struct {
 	Theme         string `yaml:"theme" json:"theme"`

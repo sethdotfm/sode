@@ -135,7 +135,7 @@ function renderChips() {
 // ---- the last take's source, destinations or levels (Ctrl+S/D/F)
 
 // The last take's value for each box, as a chip by its label that does
-// what Ctrl+S/D/F does, and beside it a small +1 chip (Ctrl+Shift+S/D) that
+// what Ctrl+S/D/F does, and beside it a small Next chip (Ctrl+Shift+S/D) that
 // opens to the same take with every number one higher on hover, focus or
 // while Shift is held (data-shift on <html>), taking the Last chip's room.
 // Hidden when the box already has it, and for levels when they're the default.
@@ -156,13 +156,13 @@ function renderLast() {
       chips.push(b);
     }
     if (k !== 'lvl' && next[k]) {
-      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__next-tag', '+1'),
+      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__next-tag', 'Next'),
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
-      b.title = `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})`;
+      b.title = `Last take's ${what}, the next one (Ctrl+Shift+${key.toUpperCase()})`;
       b.addEventListener('click', () => useLast(k, nextTake()));
       // The slot holds the closed chip's room; the chip opens over the
       // Last chip, so nothing in the row moves.
-      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', '+1'), b));
+      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';
@@ -173,7 +173,7 @@ function renderLast() {
   }
 }
 on('history', renderLast);
-// Shift held or let go (also when the window loses focus): the +1 chips open.
+// Shift held or let go (also when the window loses focus): the Next chips open.
 const trackShift = (down) => document.documentElement.toggleAttribute('data-shift', down);
 document.addEventListener('keydown', (e) => trackShift(e.shiftKey), true);
 document.addEventListener('keyup', (e) => trackShift(e.shiftKey), true);
@@ -182,7 +182,7 @@ window.addEventListener('blur', () => trackShift(false));
 // Fills one box from the last take and moves on: source to destination,
 // destination back to source, but only if that one is empty (no pick, chips
 // or typing); otherwise on to levels. Levels stays. t is the take to use:
-// the last one, or nextTake() for +1.
+// the last one, or nextTake() for Next.
 function useLast(k, t = lastTake()) {
   if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
   if (k === 'src') {

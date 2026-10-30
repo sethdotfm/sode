@@ -329,7 +329,7 @@ export function lastTake() {
 }
 
 // The last take with its source and every destination one number higher,
-// for the "+1" chips and Ctrl+Shift+S/D: Cam 1 → Rec 1 + Rec 5 then Cam 2 →
+// for the Next chips and Ctrl+Shift+S/D: Cam 1 → Rec 1 + Rec 5 then Cam 2 →
 // Rec 2 + Rec 6. Each side is null (src) or empty (dsts) when any of its
 // numbers would run past the router's list. Levels aren't carried.
 export function nextTake() {

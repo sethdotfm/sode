@@ -201,12 +201,12 @@ function renderLast() {
   const k = M.step;
   const state = S.cfg && { src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] };
   const what = { src: 'source', dst: 'destinations', lvl: 'levels' }[k];
-  slot.replaceChildren(...['', '+1'].filter((n) => state && (!n || k !== 'lvl')).map((n) => {
+  slot.replaceChildren(...['', 'Next'].filter((n) => state && (!n || k !== 'lvl')).map((n) => {
     const v = lastChip(n ? nextTake() : lastTake(), state)[k];
     if (!v) return null;
     const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', n || 'Last', ': ', ...v));
     b.type = 'button';
-    b.setAttribute('aria-label', n ? `Use the last take's ${what}, one number higher` : `Use the last take's ${what}`);
+    b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
     b.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
     b.addEventListener('click', () => useLast(k, n ? nextTake() : lastTake()));
     return b;

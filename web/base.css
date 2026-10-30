@@ -601,7 +601,7 @@ code,
 }
 .sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sode__last > .sode__key-note, .sode__next-in > .sode__key-note { position: static; transform: none; }
-/* +1: just the tag until hovered, focused or Shift is held, then it opens
+/* Next: just the tag until hovered, focused or Shift is held, then it opens
    leftward over the Last chip. The slot keeps the closed chip's room and the
    chip is pinned to its right edge, so the row never shifts. */
 .sode__next-slot { flex: none; position: relative; }
