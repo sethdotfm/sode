@@ -150,13 +150,13 @@ function renderLast() {
     const what = { src: 'source', dst: 'destination', lvl: 'levels' }[k];
     const chips = [];
     if (last[k]) {
-      const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...last[k]), el('kbd', 'sode__key-note', `⌃${key}`));
+      const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', 'Last'), el('span', 'sode__last-text', ...last[k]), el('kbd', 'sode__key-note', `⌃${key}`));
       b.title = `Last take's ${what} (Ctrl+${key})`;
       b.addEventListener('click', () => useLast(k));
       chips.push(b);
     }
     if (k !== 'lvl' && next[k]) {
-      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__next-tag', 'Next'),
+      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__tag', 'Next'),
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
       b.title = `Last take's ${what}, the next one (Ctrl+Shift+${key.toUpperCase()})`;
       b.addEventListener('click', () => useLast(k, nextTake()));

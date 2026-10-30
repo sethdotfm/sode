@@ -204,7 +204,7 @@ function renderLast() {
   slot.replaceChildren(...['', 'Next'].filter((n) => state && (!n || k !== 'lvl')).map((n) => {
     const v = lastChip(n ? nextTake() : lastTake(), state)[k];
     if (!v) return null;
-    const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', n || 'Last', ': ', ...v));
+    const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', n || 'Last'), el('span', 'sode__last-text', ...v));
     b.type = 'button';
     b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
     b.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up

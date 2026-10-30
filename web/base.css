@@ -608,13 +608,13 @@ code,
 .sode__next-size { visibility: hidden; }
 .pb-chip.sode__next { max-width: 18rem; }
 .sode__next { bottom: 0; flex: none; position: absolute; right: 0; top: 0; width: max-content; z-index: 1; }
-.sode__next-tag { color: var(--pb-text-muted); font-weight: var(--pb-weight-bold); }
+.sode__tag { color: var(--pb-text-muted); font-weight: var(--pb-weight-bold); }
 /* Open, it is plainly the other chip: accent edge and tag, and the Last
    chip underneath fades out instead of peeking from behind it. */
 .pb-chip.sode__next:is(:hover, :focus-visible),
 html[data-shift] .pb-chip.sode__next { border-color: var(--pb-accent); }
-.sode__next:is(:hover, :focus-visible) > .sode__next-tag,
-html[data-shift] .sode__next > .sode__next-tag { color: var(--pb-accent); }
+.sode__next:is(:hover, :focus-visible) > .sode__tag,
+html[data-shift] .sode__next > .sode__tag { color: var(--pb-accent); }
 [data-last] > .sode__last:not(.sode__next) { transition: opacity var(--pb-motion-normal) var(--pb-ease); }
 [data-last]:has(.sode__next:is(:hover, :focus-visible)) > .sode__last:not(.sode__next),
 html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) { opacity: 0; }
