@@ -138,6 +138,7 @@ function renderChips() {
 // what Ctrl+S/D/F does, and a +1 chip with every number one higher (Ctrl+
 // Shift+S/D). Hidden when the box already has it, and for levels when
 // they're the default.
+let shiftHeld = false;
 function renderLast() {
   if (!S.cfg) return;
   const state = { src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] };
@@ -147,18 +148,29 @@ function renderLast() {
     const key = { src: 's', dst: 'd', lvl: 'f' }[k];
     const what = { src: 'source', dst: 'destination', lvl: 'levels' }[k];
     slot.replaceChildren(...['', '+1'].filter((n) => now[n][k] && (!n || k !== 'lvl')).map((n) => {
-      const note = n ? `⌃⇧${key}` : `⌃${key}`;
-      const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', n || 'Last', ': ', ...now[n][k]), el('kbd', 'sode__key-note', note));
+      // Holding Shift previews the +1 on the Last chip too: what Ctrl+Shift+key fills.
+      const next = n || (shiftHeld && now['+1'][k] && k !== 'lvl') ? '+1' : '';
+      const note = next ? `⌃⇧${key}` : `⌃${key}`;
+      const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', n || (next ? '+1' : 'Last'), ': ', ...now[next][k]), el('kbd', 'sode__key-note', note));
       b.type = 'button';
       b.tabIndex = -1;
-      b.title = n ? `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})` : `Last take's ${what} (Ctrl+${key})`;
+      b.title = next ? `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})` : `Last take's ${what} (Ctrl+${key})`;
       b.addEventListener('mousedown', (e) => e.preventDefault());
-      b.addEventListener('click', () => useLast(k, n ? nextTake() : lastTake()));
+      b.addEventListener('click', () => useLast(k, next ? nextTake() : lastTake()));
       return b;
     }));
   }
 }
 on('history', renderLast);
+// Shift held or let go (also when the window loses focus): redraw the chips.
+function trackShift(down) {
+  if (down === shiftHeld) return;
+  shiftHeld = down;
+  renderLast();
+}
+document.addEventListener('keydown', (e) => trackShift(e.shiftKey), true);
+document.addEventListener('keyup', (e) => trackShift(e.shiftKey), true);
+window.addEventListener('blur', () => trackShift(false));
 
 // Fills one box from the last take and moves on: source to destination,
 // destination back to source, but only if that one is empty (no pick, chips

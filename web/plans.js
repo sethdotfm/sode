@@ -1,10 +1,10 @@
 // Plans (what a confirm shows and sends), take results and their banners.
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
-import { el, S, on, onMsg, emit, wsSend, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
 import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
-import { fmtClock } from './device.js';
+import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
 
 let takeSeq = 0;
@@ -335,8 +335,22 @@ export function lastTake() {
 export function nextTake() {
   const t = lastTake();
   if (!t) return null;
-  const dsts = t.dsts.map((d) => S.dstBy.get(d.n + 1));
-  return { src: S.srcBy.get(t.src.n + 1) || null, dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
+  const dsts = t.dsts.map((d) => nextOf(d, S.dstBy));
+  return { src: nextOf(t.src, S.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
+}
+
+// The item after it: number + 1, or with pref nextMode fuzzy the next one in
+// router order that the name's text matches ("Cam 3" → search "Cam" → the
+// first higher match). Falls back to the number when the name is only digits.
+function nextOf(it, by) {
+  if (pref('nextMode') === 'fuzzy') {
+    const q = (it.name || '').replace(/[\s\d]+$/, '').trim();
+    if (q) {
+      const all = [...by.values()];
+      return search(all, q, all.length).filter((x) => x.n > it.n).sort((a, b) => a.n - b.n)[0] || null;
+    }
+  }
+  return by.get(it.n + 1) || null;
 }
 
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);

@@ -39,6 +39,7 @@ func TestValidate(t *testing.T) {
 		"bad layout":        func(c *Config) { c.DeviceDefaults.Layout = "tablet" },
 		"bad clock":         func(c *Config) { c.DeviceDefaults.Clock = "13" },
 		"bad set stack":     func(c *Config) { c.DeviceDefaults.SetStack = "xor" },
+		"bad next":          func(c *Config) { c.DeviceDefaults.NextMode = "random" },
 		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
 		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
 	} {
@@ -96,14 +97,14 @@ func TestDeviceDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\n"), 0o644)
 	c, _, err := Load(path)
-	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and"}
+	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"}
 	if err != nil || c.DeviceDefaults != want {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
 	// A partial block keeps the rest, and values are normalized.
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n"), 0o644)
 	c, _, err = Load(path)
-	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and"}
+	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number"}
 	if err != nil || c.DeviceDefaults != want {
 		t.Fatalf("partial block: %+v %v", c.DeviceDefaults, err)
 	}
@@ -115,7 +116,7 @@ func TestDeviceDefaults(t *testing.T) {
 	}
 	// Browsers get it as JSON, with booleans for the on/off ones.
 	b, _ := json.Marshal(Defaults())
-	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and"}`) {
+	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number"}`) {
 		t.Fatalf("json: %s", b)
 	}
 }
