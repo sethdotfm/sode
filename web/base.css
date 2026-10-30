@@ -602,22 +602,26 @@ code,
 .sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sode__last > .sode__key-note, .sode__next-in > .sode__key-note { position: static; transform: none; }
 /* +1: just the tag until hovered, focused or Shift is held, then it opens
-   (a 0fr to 1fr column) to the value and the Last chip gives way. */
-.sode__next { flex: 0 1 auto; }
+   leftward over the Last chip. The slot keeps the closed chip's room and the
+   chip is pinned to its right edge, so the row never shifts. */
+.sode__next-slot { flex: none; position: relative; }
+.sode__next-size { visibility: hidden; }
+.pb-chip.sode__next { max-width: 18rem; }
+.sode__next { bottom: 0; flex: none; position: absolute; right: 0; top: 0; z-index: 1; }
 .sode__next-tag { color: var(--pb-text-muted); }
 .sode__next-open {
   display: grid;
   grid-template-columns: 0fr;
   min-width: 0;
-  transition: grid-template-columns var(--pb-motion-normal) var(--pb-ease);
+  opacity: 0;
+  transition: grid-template-columns var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease);
 }
-.sode__next-in { align-items: center; display: flex; gap: var(--pb-space-2); min-width: 0; overflow: hidden; }
+.sode__next-in { align-items: center; display: flex; gap: var(--pb-space-2); min-width: 0; overflow: hidden; white-space: nowrap; }
 .sode__next:is(:hover, :focus-visible) > .sode__next-open,
-html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; }
+html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; opacity: 1; }
+.sode__next:is(:hover, :focus-visible) > .sode__next-open { transition-delay: var(--pb-motion-fast); }
 .sode__next:is(:hover, :focus-visible) > .sode__next-tag,
 html[data-shift] .sode__next > .sode__next-tag { color: inherit; }
-[data-last]:has(.sode__next:is(:hover, :focus-visible)) > .sode__last:not(.sode__next),
-html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) { display: none; }
 
 /* A source or destination's number, muted and fixed-width before its name. */
 .sode__lbl-n {

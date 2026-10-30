@@ -160,9 +160,11 @@ function renderLast() {
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ': ', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
       b.title = `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})`;
       b.addEventListener('click', () => useLast(k, nextTake()));
-      chips.push(b);
+      // The slot holds the closed chip's room; the chip opens over the
+      // Last chip, so nothing in the row moves.
+      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', '+1'), b));
     }
-    for (const b of chips) {
+    for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';
       b.tabIndex = -1;
       b.addEventListener('mousedown', (e) => e.preventDefault());
