@@ -600,7 +600,24 @@ code,
   padding: 0 var(--pb-space-2);
 }
 .sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sode__last > .sode__key-note { position: static; transform: none; }
+.sode__last > .sode__key-note, .sode__next-in > .sode__key-note { position: static; transform: none; }
+/* +1: just the tag until hovered, focused or Shift is held, then it opens
+   (a 0fr to 1fr column) to the value and the Last chip gives way. */
+.sode__next { flex: 0 1 auto; }
+.sode__next-tag { color: var(--pb-text-muted); }
+.sode__next-open {
+  display: grid;
+  grid-template-columns: 0fr;
+  min-width: 0;
+  transition: grid-template-columns var(--pb-motion-normal) var(--pb-ease);
+}
+.sode__next-in { align-items: center; display: flex; gap: var(--pb-space-2); min-width: 0; overflow: hidden; }
+.sode__next:is(:hover, :focus-visible) > .sode__next-open,
+html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; }
+.sode__next:is(:hover, :focus-visible) > .sode__next-tag,
+html[data-shift] .sode__next > .sode__next-tag { color: inherit; }
+[data-last]:has(.sode__next:is(:hover, :focus-visible)) > .sode__last:not(.sode__next),
+html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) { display: none; }
 
 /* A source or destination's number, muted and fixed-width before its name. */
 .sode__lbl-n {

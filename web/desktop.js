@@ -135,39 +135,44 @@ function renderChips() {
 // ---- the last take's source, destinations or levels (Ctrl+S/D/F)
 
 // The last take's value for each box, as a chip by its label that does
-// what Ctrl+S/D/F does, and a +1 chip with every number one higher (Ctrl+
-// Shift+S/D). Hidden when the box already has it, and for levels when
-// they're the default.
-let shiftHeld = false;
+// what Ctrl+S/D/F does, and beside it a small +1 chip (Ctrl+Shift+S/D) that
+// opens to the same take with every number one higher on hover, focus or
+// while Shift is held (data-shift on <html>), taking the Last chip's room.
+// Hidden when the box already has it, and for levels when they're the default.
 function renderLast() {
   if (!S.cfg) return;
   const state = { src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] };
-  const now = { '': lastChip(lastTake(), state), '+1': lastChip(nextTake(), state) };
+  const last = lastChip(lastTake(), state);
+  const next = lastChip(nextTake(), state);
   for (const k of ['src', 'dst', 'lvl']) {
     const slot = document.querySelector(`[data-last="${k}"]`);
     const key = { src: 's', dst: 'd', lvl: 'f' }[k];
     const what = { src: 'source', dst: 'destination', lvl: 'levels' }[k];
-    slot.replaceChildren(...['', '+1'].filter((n) => now[n][k] && (!n || k !== 'lvl')).map((n) => {
-      // Holding Shift previews the +1 on the Last chip too: what Ctrl+Shift+key fills.
-      const next = n || (shiftHeld && now['+1'][k] && k !== 'lvl') ? '+1' : '';
-      const note = next ? `⌃⇧${key}` : `⌃${key}`;
-      const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', n || (next ? '+1' : 'Last'), ': ', ...now[next][k]), el('kbd', 'sode__key-note', note));
+    const chips = [];
+    if (last[k]) {
+      const b = el('button', 'pb-chip sode__last', el('span', 'sode__last-text', 'Last: ', ...last[k]), el('kbd', 'sode__key-note', `⌃${key}`));
+      b.title = `Last take's ${what} (Ctrl+${key})`;
+      b.addEventListener('click', () => useLast(k));
+      chips.push(b);
+    }
+    if (k !== 'lvl' && next[k]) {
+      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__next-tag', '+1'),
+        el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ': ', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
+      b.title = `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})`;
+      b.addEventListener('click', () => useLast(k, nextTake()));
+      chips.push(b);
+    }
+    for (const b of chips) {
       b.type = 'button';
       b.tabIndex = -1;
-      b.title = next ? `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})` : `Last take's ${what} (Ctrl+${key})`;
       b.addEventListener('mousedown', (e) => e.preventDefault());
-      b.addEventListener('click', () => useLast(k, next ? nextTake() : lastTake()));
-      return b;
-    }));
+    }
+    slot.replaceChildren(...chips);
   }
 }
 on('history', renderLast);
-// Shift held or let go (also when the window loses focus): redraw the chips.
-function trackShift(down) {
-  if (down === shiftHeld) return;
-  shiftHeld = down;
-  renderLast();
-}
+// Shift held or let go (also when the window loses focus): the +1 chips open.
+const trackShift = (down) => document.documentElement.toggleAttribute('data-shift', down);
 document.addEventListener('keydown', (e) => trackShift(e.shiftKey), true);
 document.addEventListener('keyup', (e) => trackShift(e.shiftKey), true);
 window.addEventListener('blur', () => trackShift(false));
