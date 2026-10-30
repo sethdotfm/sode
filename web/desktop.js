@@ -157,7 +157,7 @@ function renderLast() {
     }
     if (k !== 'lvl' && next[k]) {
       const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__next-tag', '+1'),
-        el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ': ', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
+        el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
       b.title = `Last take's ${what}, one number higher (Ctrl+Shift+${key.toUpperCase()})`;
       b.addEventListener('click', () => useLast(k, nextTake()));
       // The slot holds the closed chip's room; the chip opens over the
