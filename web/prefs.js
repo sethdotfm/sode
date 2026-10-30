@@ -14,6 +14,7 @@ export const PREFS = {
   flip: { key: 'sode-flip', def: 'off', bool: true, values: { on: 'On', off: 'Off' } },
   scrollTop: { key: 'sode-scroll-top', def: 'on', bool: true, values: { on: 'On', off: 'Off' } },
   setStack: { key: 'sode-set-stack', def: 'and', values: { and: 'All must match', or: 'Any may match' } },
+  nextMode: { key: 'sode-next-mode', def: 'number', values: { number: 'Next number', fuzzy: 'Next match of the name' } },
   searchFilters: { key: 'sode-search-filters', def: 'off', bool: true, values: { on: 'On', off: 'Off' } },
 };
 

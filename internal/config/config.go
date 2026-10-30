@@ -115,7 +115,8 @@ func BrandNames() []string {
 // locale; Flip is Destination before Source, ScrollTop scrolls to the top
 // when a box is focused, SearchFilters makes quick search respect filters,
 // SetStack is how stacked filter sets combine: and (all must match) | or
-// (any may).
+// (any may), NextMode is what the Next chips and Ctrl+Shift+S/D mean by next:
+// number (one higher) | fuzzy (the next match of the name's text).
 type DeviceDefaults struct {
 	Theme         string `yaml:"theme" json:"theme"`
 	Layout        string `yaml:"layout" json:"layout"`
@@ -124,6 +125,7 @@ type DeviceDefaults struct {
 	ScrollTop     bool   `yaml:"scrollTop" json:"scrollTop"`
 	SearchFilters bool   `yaml:"searchFilters" json:"searchFilters"`
 	SetStack      string `yaml:"setStack" json:"setStack"`
+	NextMode      string `yaml:"nextMode" json:"nextMode"`
 }
 
 // FilterSet is one named Recent filter (see web/filter.js): which kinds of
@@ -153,7 +155,7 @@ func Defaults() Config {
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
-		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and"},
+		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }
 
@@ -246,6 +248,7 @@ func (c *Config) Normalize() {
 	d.Layout = strings.ToLower(strings.TrimSpace(d.Layout))
 	d.Clock = strings.ToLower(strings.TrimSpace(d.Clock))
 	d.SetStack = strings.ToLower(strings.TrimSpace(d.SetStack))
+	d.NextMode = strings.ToLower(strings.TrimSpace(d.NextMode))
 	if d.Theme == "" {
 		d.Theme = "system"
 	}
@@ -257,6 +260,9 @@ func (c *Config) Normalize() {
 	}
 	if d.SetStack == "" {
 		d.SetStack = "and"
+	}
+	if d.NextMode == "" {
+		d.NextMode = "number"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
@@ -378,6 +384,11 @@ func (c Config) Validate() error {
 	case "and", "or":
 	default:
 		bad("default set stacking must be and or or")
+	}
+	switch c.DeviceDefaults.NextMode {
+	case "number", "fuzzy":
+	default:
+		bad("default next must be number or fuzzy")
 	}
 	for i, v := range c.LevelColors {
 		if h, ok := strings.CutPrefix(v, "#"); v != "" && (!ok || len(h) != 6 || strings.Trim(h, "0123456789abcdef") != "") {
