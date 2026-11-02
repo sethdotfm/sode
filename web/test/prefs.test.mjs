@@ -29,5 +29,5 @@ test('on/off prefs take booleans from the config', () => {
 
 test('built-in defaults match the old behaviour', () => {
   const d = Object.fromEntries(Object.keys(PREFS).map((k) => [k, resolve(k, null, null)]));
-  assert.deepEqual(d, { theme: 'system', layout: 'auto', clock: '24', flip: 'off', scrollTop: 'on', searchFilters: 'off', setStack: 'and' });
+  assert.deepEqual(d, { theme: 'system', layout: 'auto', clock: '24', flip: 'off', scrollTop: 'on', searchFilters: 'off', setStack: 'and', nextMode: 'number' });
 });

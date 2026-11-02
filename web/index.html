@@ -193,6 +193,10 @@
           <label for="cfg-set-stack">Stacked filter sets</label>
           <span class="pb-select-wrap"><select id="cfg-set-stack" class="pb-select" data-pref="setStack"></select></span>
         </div>
+        <div class="sode__field">
+          <label for="cfg-next-mode">Next means</label>
+          <span class="pb-select-wrap"><select id="cfg-next-mode" class="pb-select" data-pref="nextMode"></select></span>
+        </div>
       </div>
     </fieldset>
 
@@ -227,6 +231,10 @@
         <div class="sode__field">
           <label for="gcfg-set-stack">Stacked filter sets</label>
           <span class="pb-select-wrap"><select id="gcfg-set-stack" class="pb-select" data-gpref="setStack"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="gcfg-next-mode">Next means</label>
+          <span class="pb-select-wrap"><select id="gcfg-next-mode" class="pb-select" data-gpref="nextMode"></select></span>
         </div>
       </div>
     </fieldset>
@@ -593,6 +601,7 @@
         <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Pick a match</dd>
         <dt><kbd>+</kbd> <kbd data-mac="⌘Enter">Ctrl+Enter</kbd> <kbd data-mac="⌃Enter" hidden></kbd></dt><dd>Add destination</dd>
         <dt><kbd data-mac="⌃s">Ctrl+s</kbd> <kbd data-mac="⌃d">Ctrl+d</kbd> <kbd data-mac="⌃f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
+        <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Last take's source, destination, the next one</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear a box; with all empty, keyboard mode</dd>
