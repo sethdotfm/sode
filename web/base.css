@@ -1,11 +1,13 @@
 /* Sode page layout. Tokens only; components come from patchbay. */
 
-/* Whole-UI scale for reading at a distance. */
+/* Whole-UI scale for reading at a distance: every size is rem, so the root
+   font size scales it all (never zoom). The phone layout stays at 100%. */
+html { font-size: 125%; }
+[data-layout="phone"] { font-size: 100%; }
 :root {
-  --sode-scale: 1.25;
-  --sode-side-w: 5px; /* source and destination color edges */
+  --sode-side-w: 0.3125rem; /* source and destination color edges */
   --sode-motion-enter: 400ms; /* a new history entry arriving */
-  --pb-font-mono: var(--pb-font); /* Plex Sans throughout, numbers too */
+  --pb-font-num: var(--pb-font); /* Plex Sans throughout, numbers too */
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --sode-motion-enter: 0ms; }
@@ -19,52 +21,6 @@
   }
 }
 .sode--enter { animation: sode-enter var(--sode-motion-enter) var(--pb-ease); }
-body { zoom: var(--sode-scale); }
-
-/* Inline code: technical terms, paths and commands in running text. */
-code,
-.pb-code,
-.sode__keys kbd {
-  background: var(--pb-surface-sunken);
-  border: var(--pb-border-w) solid var(--pb-edge-soft);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-  color: var(--pb-text);
-  padding: 0 var(--pb-space-1);
-}
-
-/* Hover tooltip from data-tip. */
-[data-tip] { position: relative; }
-.pb-btn[data-tip] { overflow: visible; } /* pb-btn clips; the tip sits outside */
-[data-tip]:hover::after {
-  background: var(--pb-surface-overlay);
-  box-shadow: var(--pb-shadow-overlay);
-  color: var(--pb-text-strong);
-  content: attr(data-tip);
-  font-size: var(--pb-text-xs);
-  padding: var(--pb-space-2) var(--pb-space-4);
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: calc(100% + var(--pb-space-2));
-  white-space: nowrap;
-  z-index: var(--pb-z-tooltip);
-}
-
-/* Full text of something cut off with an ellipsis, placed by core.js. */
-.sode__cut-tip {
-  background: var(--pb-surface-overlay);
-  box-shadow: var(--pb-shadow-overlay);
-  color: var(--pb-text-strong);
-  font-size: var(--pb-text-xs);
-  max-width: calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2);
-  overflow-wrap: anywhere;
-  padding: var(--pb-space-2) var(--pb-space-4);
-  pointer-events: none;
-  position: fixed;
-  z-index: var(--pb-z-tooltip);
-}
-.sode__cut-tip[hidden] { display: none; }
 
 .sode {
   align-items: center;
@@ -72,7 +28,7 @@ code,
   flex-direction: column;
   gap: var(--pb-space-8);
   margin: 0 auto;
-  max-width: 1200px;
+  max-width: 75rem;
   padding: calc(10vh + var(--sode-down-h, 0px)) var(--pb-space-8) var(--sode-pad-bottom);
   --sode-pad-bottom: var(--pb-space-8);
 }
@@ -92,7 +48,7 @@ code,
   top: var(--pb-space-4);
   z-index: var(--pb-z-sticky);
 }
-.sode__conn-addr { font-family: var(--pb-font-mono); }
+.sode__conn-addr { font-family: var(--pb-font-num); }
 .sode__conn-addr--name { color: var(--pb-text); font-family: inherit; }
 /* Shortcut tip, out of the way in the bottom corner until dismissed. */
 .sode__tip {
@@ -199,7 +155,7 @@ code,
   height: calc(var(--pb-space-10) + var(--pb-space-5));
   width: calc(var(--pb-space-10) + var(--pb-space-5));
 }
-.sode__brand-icon { display: block; height: 48px; width: 48px; }
+.sode__brand-icon { display: block; height: 3rem; width: 3rem; }
 .sode__label {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
@@ -215,7 +171,7 @@ code,
   border: var(--pb-accent-bar-w) solid var(--sode-c);
   color: var(--pb-text);
   display: inline-flex;
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   font-size: var(--pb-text-xs);
   font-weight: var(--pb-weight-bold);
   height: calc(var(--pb-space-8) + var(--pb-space-1));
@@ -262,12 +218,11 @@ code,
   z-index: var(--pb-z-modal);
 }
 .sode__scrim[hidden] { display: none; }
-/* Dialogs size to their content but never past the window. vh/vw are
-   divided by the page zoom, which scales them too. */
+/* Dialogs size to their content but never past the window. */
 .sode__scrim > .pb-modal {
-  max-height: calc(100vh / var(--sode-scale) - var(--pb-space-8) * 2);
-  max-width: calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2);
-  min-width: min(600px, calc(100vw / var(--sode-scale) - var(--pb-space-8) * 2));
+  max-height: calc(100vh - var(--pb-space-8) * 2);
+  max-width: calc(100vw - var(--pb-space-8) * 2);
+  min-width: min(37.5rem, calc(100vw - var(--pb-space-8) * 2));
   width: max-content;
 }
 
@@ -288,7 +243,7 @@ code,
   background: var(--pb-text-strong);
   border: var(--pb-border-w) solid var(--pb-text-strong);
   color: var(--pb-surface-base);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   font-size: calc(var(--pb-text-xl) * 1.5);
   font-weight: var(--pb-weight-bold);
   line-height: 1.2;
@@ -355,7 +310,7 @@ code,
 .sode__settings {
   align-items: stretch;
   gap: calc(var(--pb-space-10) + var(--pb-space-5));
-  max-width: 640px;
+  max-width: 40rem;
 }
 /* The table of contents: a strip across the top, held there as the page
    scrolls, and beside the column where there's room. The phone layout has
@@ -367,15 +322,15 @@ code,
 }
 .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px)); }
 [data-layout="phone"] .sode__toc { display: none; }
-@media (min-width: 1100px) {
+@media (min-width: 68.75rem) {
   .sode__toc {
     border-bottom: 0;
     flex-direction: column;
-    left: calc(50% - 320px - 200px - var(--pb-space-8));
+    left: calc(50% - 20rem - 12.5rem - var(--pb-space-8));
     overflow-x: hidden;
     position: fixed;
     top: calc(10vh + var(--sode-down-h, 0px));
-    width: 200px;
+    width: 12.5rem;
   }
   .sode__toc .pb-tab { text-align: left; }
   .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px)); }
@@ -439,7 +394,7 @@ code,
 .sode__fields {
   display: grid;
   gap: var(--pb-space-5);
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11.25rem, 1fr));
 }
 .sode__field {
   display: flex;
@@ -456,7 +411,7 @@ code,
 .sode__colors {
   display: grid;
   gap: var(--pb-space-3) var(--pb-space-5);
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
 }
 .sode__color {
   align-items: center;
@@ -512,14 +467,6 @@ code,
   gap: var(--pb-space-5);
   justify-content: space-between;
 }
-/* Save, Filters' Done and the PIN Unlock buttons are green (the ok status color), set
-   apart from the red of discarding unsaved changes. */
-.sode__save {
-  background-color: var(--pb-status-ok);
-  color: var(--pb-text-on-accent);
-}
-.sode__save:hover { background-color: color-mix(in srgb, var(--pb-status-ok) 85%, black); }
-
 /* Slide to confirm */
 .sode__slide {
   --slide: 0px;
@@ -633,7 +580,7 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 /* A source or destination's number, muted and fixed-width before its name. */
 .sode__lbl-n {
   color: var(--pb-text-muted);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-normal);
 }
 

@@ -21,6 +21,8 @@ export function applyLayout() {
   const next = p === 'auto' ? (narrowTouch.matches ? 'phone' : 'desktop') : p;
   if (root.dataset.layout === next) return;
   root.dataset.layout = next;
+  if (next === 'phone') root.dataset.pbLayout = 'phone'; // patchbay's own phone reflow
+  else delete root.dataset.pbLayout;
   for (const fn of listeners) fn(next);
 }
 

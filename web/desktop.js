@@ -606,7 +606,7 @@ function onListKey(e) {
 function showFlip() {
   const on = flipped();
   $('flip').setAttribute('aria-pressed', String(on));
-  $('flip').dataset.tip = on ? 'Show Source first' : 'Show Destination first';
+  $('flip').dataset.pbTip = on ? 'Show Source first' : 'Show Destination first';
 }
 $('flip').addEventListener('mousedown', (e) => e.preventDefault());
 $('flip').addEventListener('click', () => setFlip(!flipped()));

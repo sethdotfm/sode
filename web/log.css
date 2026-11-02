@@ -6,7 +6,7 @@
   flex-direction: column;
   gap: var(--pb-space-5);
   margin: 0 auto;
-  max-width: 1600px;
+  max-width: 100rem;
   padding: var(--pb-space-8);
 }
 .sode-log__head {

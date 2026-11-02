@@ -30,10 +30,11 @@
     if (theme !== 'system') root.dataset.theme = theme;
     if (layout === 'auto') layout = matchMedia('(max-width: 700px) and (pointer: coarse)').matches ? 'phone' : 'desktop';
     root.dataset.layout = layout;
+    if (layout === 'phone') root.dataset.pbLayout = 'phone';
     if (pick('sode-flip', 'flip', ['on', 'off'], 'off') === 'on') root.dataset.flip = '';
   })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
@@ -54,7 +55,7 @@
   <div class="sode__down" id="conn-down" role="alert" hidden></div>
   <div class="sode__tip" id="keys-tip" hidden>
     <span id="keys-tip-text"></span>
-    <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="keys-tip-close" aria-label="Dismiss this tip">×</button>
+    <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" id="keys-tip-close" aria-label="Dismiss this tip">×</button>
   </div>
 
   <div class="sode__view" id="patch-view">
@@ -71,7 +72,7 @@
       </div>
       <div class="sode__box sode__box--to">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--ghost sode__to" id="flip" tabindex="-1" aria-label="Show Destination before Source" aria-pressed="false"></button>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--end sode__to" id="flip" tabindex="-1" aria-label="Show Destination before Source" aria-pressed="false"></button>
       </div>
       <div class="sode__box sode__box--dst">
         <div class="sode__box-head"><label class="sode__label" for="dst" id="dst-label">Destination</label><span data-last="dst"></span></div>
@@ -86,7 +87,7 @@
       </div>
       <div class="sode__box sode__box--add">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--outline sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-tip="Add destination (+, Ctrl+Enter, ⌘Enter)">+</button>
+        <button type="button" class="pb-btn pb-btn--outline pb-tip--end sode__add" id="dst-add" tabindex="-1" aria-label="Add another destination" data-pb-tip="Add destination (+, Ctrl+Enter, ⌘Enter)">+</button>
       </div>
       <div class="sode__box sode__box--levels">
         <div class="sode__box-head"><label class="sode__label" for="lvl">Levels</label><span data-last="lvl"></span></div>
@@ -101,7 +102,7 @@
       </div>
       <div class="sode__box">
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
-        <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1" data-tip="Enter">Take</button>
+        <button type="button" class="pb-btn pb-btn--danger pb-tip--end sode__patch" id="patch" tabindex="-1" data-pb-tip="Enter">Take</button>
       </div>
       <!-- On a row of their own, so both start at the same height. -->
       <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
@@ -156,7 +157,7 @@
       <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
       <div class="sode__names">
         <button type="button" class="pb-btn pb-btn--outline" id="lock-help-open">Forgot PIN</button>
-        <button type="submit" class="pb-btn sode__save" id="lock-unlock">Unlock</button>
+        <button type="submit" class="pb-btn pb-btn--ok" id="lock-unlock">Unlock</button>
       </div>
     </div>
 
@@ -436,7 +437,7 @@
       <div class="sode__savebar-row">
         <button type="button" class="pb-btn pb-btn--outline" id="settings-exit">Exit</button>
         <span class="sode__hint" id="settings-path"></span>
-        <button type="submit" class="pb-btn sode__save" id="settings-save">Save</button>
+        <button type="submit" class="pb-btn pb-btn--ok" id="settings-save">Save</button>
       </div>
       <div class="sode__about"><p class="sode__hint" data-version></p><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></div>
     </div>
@@ -543,7 +544,7 @@
         </div>
         <div class="sode__filters-set" id="flt-pin-row" hidden>
           <input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Settings PIN">
-          <button type="button" class="pb-btn sode__save pb-btn--sm" id="flt-pin-ok">Unlock</button>
+          <button type="button" class="pb-btn pb-btn--ok pb-btn--sm" id="flt-pin-ok">Unlock</button>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-pin-cancel">Cancel</button>
         </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
@@ -572,7 +573,7 @@
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
       <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share link</button>
-      <button type="button" class="pb-btn sode__save" id="flt-done">Done</button>
+      <button type="button" class="pb-btn pb-btn--ok" id="flt-done">Done</button>
     </div>
   </div>
 </div>
