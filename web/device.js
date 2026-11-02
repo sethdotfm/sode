@@ -33,27 +33,30 @@ function setGlobals(d) {
 }
 on('helloCfg', (cfg) => setGlobals(cfg.deviceDefaults));
 
+// Crossfade the whole page to the theme ('system' = follow the OS): a View
+// Transition where available, else patchbay's per-property fade class.
+function setTheme(next) {
+  const root = document.documentElement;
+  const apply = () => {
+    if (next === 'system') delete root.dataset.theme;
+    else root.dataset.theme = next;
+  };
+  if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.startViewTransition(apply);
+    return;
+  }
+  const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
+  root.classList.add('pb-theme-transition');
+  apply();
+  setTimeout(() => root.classList.remove('pb-theme-transition'), ms + 50);
+}
+
 function applyPrefs() {
   const was = applied;
   applied = resolveAll();
   const changed = (n) => was[n] !== applied[n];
   const root = document.documentElement;
-  if (changed('theme')) {
-    const next = applied.theme;
-    const apply = () => {
-      if (next === 'system') delete root.dataset.theme;
-      else root.dataset.theme = next;
-    };
-    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      document.startViewTransition(apply);
-    } else {
-      // Per-property fade where View Transitions are missing.
-      const ms = parseFloat(getComputedStyle(root).getPropertyValue('--pb-motion-theme')) || 0;
-      root.classList.add('pb-theme-transition');
-      apply();
-      setTimeout(() => root.classList.remove('pb-theme-transition'), ms + 50);
-    }
-  }
+  if (changed('theme')) setTheme(applied.theme);
   if (changed('flip')) {
     root.toggleAttribute('data-flip', applied.flip === 'on');
     emit('flip');

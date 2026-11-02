@@ -29,13 +29,9 @@ function cutOff(n) {
 
 // Under the element (above it if there's no room), kept on screen.
 function placeCutTip(n) {
-  cutTip.style.left = cutTip.style.top = '0px';
-  const o = cutTip.getBoundingClientRect(), r = n.getBoundingClientRect();
-  const gap = 4;
-  const x = Math.max(gap, Math.min(r.left, innerWidth - o.width - gap));
-  const y = r.bottom + gap + o.height <= innerHeight ? r.bottom + gap : r.top - gap - o.height;
-  cutTip.style.left = `${x - o.left}px`;
-  cutTip.style.top = `${y - o.top}px`;
+  const gap = 4, w = cutTip.offsetWidth, h = cutTip.offsetHeight, r = n.getBoundingClientRect();
+  cutTip.style.left = `${Math.max(gap, Math.min(r.left, innerWidth - w - gap))}px`;
+  cutTip.style.top = `${r.bottom + gap + h <= innerHeight ? r.bottom + gap : r.top - gap - h}px`;
 }
 
 document.addEventListener('mouseover', (e) => {
