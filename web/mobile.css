@@ -2,8 +2,6 @@
 
 /* ---- Phone layout ----------------------------------------------------- */
 
-[data-layout="phone"] { --sode-scale: 1; }
-[data-layout="phone"] body { min-width: 0; }
 [data-layout="phone"] .sode {
   --sode-pad-bottom: var(--pb-space-5);
   gap: var(--pb-space-6);
@@ -184,7 +182,7 @@
   position: absolute;
   right: 0;
   top: 0;
-  width: 96px;
+  width: 6rem;
 }
 .sode-m__undo:disabled,
 .sode-m__undo.disabled {
@@ -264,7 +262,7 @@
   padding: var(--pb-space-3) var(--pb-space-5);
 }
 .sode-m__picker[hidden] { display: none; }
-.sode-m__sum-lvls { font-family: var(--pb-font-mono); }
+.sode-m__sum-lvls { font-family: var(--pb-font-num); }
 /* Two rows like the level bar, the columns sharing the width. */
 .sode-m__picks {
   display: grid;
@@ -394,7 +392,7 @@
 .sode-m__scrim[hidden] { display: none; }
 .sode-m__sheet {
   background: var(--pb-surface-overlay);
-  border-top: 3px solid var(--pb-status-error);
+  border-top: var(--pb-accent-bar-w) solid var(--pb-status-error);
   box-shadow: var(--pb-shadow-overlay);
   display: flex;
   flex-direction: column;

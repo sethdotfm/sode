@@ -35,7 +35,7 @@
 }
 .sode__hist-time {
   color: var(--pb-text-muted);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   justify-self: end;
   white-space: nowrap;
 }
@@ -130,7 +130,7 @@
 }
 .sode__plan-n {
   color: var(--pb-text-muted);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   font-size: var(--pb-text-xs);
 }
 .sode__plan-before {
@@ -160,7 +160,7 @@
    buttons. */
 .sode__step-time {
   color: var(--pb-text-muted);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   white-space: nowrap;
 }
 .sode__hist-before .sode__step-time { align-self: center; grid-column: 2; justify-self: end; }
@@ -179,7 +179,7 @@
 .sode__hist-before .sode__step > .pb-btn { grid-column: -2; justify-self: end; }
 .sode__hist-id {
   color: var(--pb-text-muted);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   min-width: 5ch;
   text-align: right;
   white-space: nowrap;
@@ -306,7 +306,7 @@
 /* Active filters: the button's text turns the info color (its text says how many). */
 .sode__filters-btn--on { color: var(--pb-status-info); font-weight: var(--pb-weight-medium); }
 .sode__code { font-family: var(--pb-font-mono); }
-.sode__scrim > .sode__filters { width: 640px; }
+.sode__scrim > .sode__filters { width: 40rem; }
 .sode__filters .pb-modal__header { gap: var(--pb-space-3); flex-wrap: wrap; }
 .sode__filters-body {
   display: flex;
@@ -492,7 +492,7 @@
   background: none;
   border: 0;
   color: var(--pb-text-muted);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   font-size: var(--pb-text-2xs);
   padding: 0;
   pointer-events: none;

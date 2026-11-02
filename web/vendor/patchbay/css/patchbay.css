@@ -24,6 +24,16 @@
      18  Summary bar
      19  Window state borders
      20  Utilities
+     21  Tooltips
+     22  Fields, sections & hints
+     23  Save bar
+     24  Role bars
+     25  Connection, banners & offline state
+     26  Touch & phone layout
+     27  Toasts & entry animation
+     28  Key/value lists, empty states & skeletons
+     29  Field states & disabled labels
+     30  Breadcrumbs & pagination
    ========================================================================== */
 
 
@@ -48,7 +58,7 @@ body {
   /* Device UIs have a floor below which the matrix cannot usefully shrink.
      Pick the floor once, here, and let pages scroll horizontally instead of
      reflowing a routing grid into something unreadable. */
-  min-width: 680px;
+  min-width: var(--pb-page-min-w);
   overflow-x: auto;
   -webkit-font-smoothing: antialiased;
 }
@@ -65,11 +75,26 @@ body {
   color: var(--pb-text-on-accent);
 }
 
+/* Inline code and key caps: a sunken well, so a term in running text reads
+   as something you type or press. `clone` keeps the rim on every line of a
+   wrapped term. */
 .pb-code,
 code,
 kbd {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  color: var(--pb-text);
   font-family: var(--pb-font-mono);
   font-size: var(--pb-text-xs);
+  padding: 0 var(--pb-space-1);
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
 }
 
 
@@ -157,6 +182,9 @@ textarea::-webkit-scrollbar-thumb:hover {
   border-right: var(--pb-accent-bar-w) solid var(--pb-edge-hard);
 }
 
+/* A handle already draws the rule; don't stack the pane's bar beside it. */
+.pb-pane--divided:has(+ .pb-split-handle) { border-right: 0; }
+
 .pb-split--vertical > .pb-pane--divided {
   border-right: 0;
   border-bottom: var(--pb-accent-bar-w) solid var(--pb-edge-hard);
@@ -166,8 +194,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-split-handle {
   flex: 0 0 var(--pb-split-w);
   background: var(--pb-surface-high);
-  border-left: 1px solid var(--pb-edge-hard);
-  border-right: 1px solid var(--pb-edge-hard);
+  border-left: 1px solid var(--pb-edge);
+  border-right: 1px solid var(--pb-edge);
   cursor: col-resize;
   background-image: repeating-linear-gradient(
     to right,
@@ -430,6 +458,17 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 .pb-btn--commit:hover { background-color: var(--pb-commit-hover); }
 
+/* --- Ok: a positive terminal action ------------------------------------
+   Done, Unlock, or Save once nothing is left unresolved. Commit means "there
+   are unsaved edits and this applies them"; ok means "this finishes the job".
+   Don't use both on one screen for the same action. */
+.pb-btn--ok {
+  background-color: var(--pb-status-ok);
+  color: var(--pb-text-on-accent);
+}
+
+.pb-btn--ok:hover { background-color: var(--pb-status-ok-hover); }
+
 /* --- Danger: irreversible ---------------------------------------------- */
 .pb-btn--danger {
   background-color: var(--pb-status-error);
@@ -437,6 +476,39 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .pb-btn--danger:hover { background-color: var(--pb-danger-hover); }
+
+/* --- Loading: waiting on the device ------------------------------------
+   Keeps the button's width, hides its label and shows a spinner. Pair with
+   aria-busy="true" and leave the button in place so focus is not lost. */
+.pb-btn--loading {
+  --pb-loading-ink: var(--pb-text);
+  color: transparent;
+  pointer-events: none;
+  position: relative;
+}
+
+.pb-btn--selected.pb-btn--loading,
+.pb-btn[aria-pressed="true"].pb-btn--loading,
+.pb-btn--commit.pb-btn--loading,
+.pb-btn--ok.pb-btn--loading,
+.pb-btn--danger.pb-btn--loading { --pb-loading-ink: var(--pb-text-on-accent); }
+
+.pb-btn--loading > * { visibility: hidden; }
+
+.pb-btn--loading::after {
+  animation: pb-spin 0.9s linear infinite;
+  border: 2px solid transparent;
+  border-top-color: var(--pb-loading-ink);
+  border-right-color: var(--pb-loading-ink);
+  border-bottom-color: var(--pb-loading-ink);
+  border-radius: 50%;
+  content: "";
+  height: var(--pb-icon-size-sm);
+  inset: 0;
+  margin: auto;
+  position: absolute;
+  width: var(--pb-icon-size-sm);
+}
 
 /* --- Sizes ------------------------------------------------------------- */
 .pb-btn--sm {
@@ -488,10 +560,6 @@ textarea::-webkit-scrollbar-thumb:hover {
   border-top-right-radius: var(--pb-radius-control);
 }
 
-.pb-btn-group .pb-btn + .pb-btn {
-  border-left: 1px solid var(--pb-edge-hard);
-}
-
 
 /* 06  CHIPS =============================================================== */
 
@@ -509,7 +577,7 @@ textarea::-webkit-scrollbar-thumb:hover {
   font-size: var(--pb-text-sm);
   font-weight: var(--pb-weight-normal);
   gap: var(--pb-space-1);
-  line-height: 14px;
+  line-height: 0.875rem;
   padding: var(--pb-space-1) var(--pb-space-4);
 }
 
@@ -660,14 +728,6 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 .pb-textarea--fixed { resize: none; }
 
-/* Width helpers — dense forms need explicit widths far more than fluid ones. */
-.pb-w-xs { width: 50px; }
-.pb-w-sm { width: 80px; }
-.pb-w-md { width: 140px; }
-.pb-w-lg { width: 200px; }
-.pb-w-xl { width: 320px; }
-.pb-w-auto { width: auto; }
-
 /* --- Select ------------------------------------------------------------
    Native <select> with the arrow drawn by the wrapper, because the native
    arrow cannot be themed and looks like a different product. */
@@ -685,9 +745,9 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .pb-select-wrap::after {
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--pb-text-muted);
+  border-left: 0.25rem solid transparent;
+  border-right: 0.25rem solid transparent;
+  border-top: 0.3125rem solid var(--pb-text-muted);
   content: "";
   pointer-events: none;
   position: absolute;
@@ -716,16 +776,33 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 .pb-number-wrap .pb-input {
   padding-right: var(--pb-space-8);
+  position: relative;
 }
 
 .pb-number-wrap input[type="number"] {
   -moz-appearance: textfield;
 }
 
-.pb-number-wrap input::-webkit-outer-spin-button,
+/* The native spin buttons stay live but invisible, laid over the drawn
+   glyphs, so clicks, hold-to-repeat and the wheel all keep working. */
+.pb-number-wrap input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .pb-number-wrap input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+  bottom: 0;
+  cursor: pointer;
+  height: auto;
   margin: 0;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 1.375rem;
+}
+
+/* Firefox cannot restyle its spinner: show the native one, not the glyphs. */
+@supports (-moz-appearance: none) {
+  .pb-number-wrap input[type="number"] { -moz-appearance: number-input; }
+  .pb-number-wrap::before,
+  .pb-number-wrap::after { display: none; }
 }
 
 .pb-number-wrap::before,
@@ -735,13 +812,13 @@ textarea::-webkit-scrollbar-thumb:hover {
   color: var(--pb-text-muted);
   display: inline-flex;
   font-size: var(--pb-text-2xs);
-  height: 13px;
+  height: 0.8125rem;
   justify-content: center;
   line-height: 1;
   pointer-events: none;
   position: absolute;
   right: var(--pb-border-w);
-  width: 18px;
+  width: 1.125rem;
 }
 
 .pb-number-wrap::after {
@@ -779,8 +856,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 /* --- Colour swatch input --------------------------------------------- */
 .pb-input[type="color"] {
   cursor: pointer;
-  padding: 2px;
-  width: 44px;
+  padding: var(--pb-space-1);
+  width: 2.75rem;
 }
 
 /* --- Range / fader --------------------------------------------------- */
@@ -796,7 +873,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-range::-webkit-slider-runnable-track {
   background: var(--pb-surface-sunken);
   border: 1px solid var(--pb-edge);
-  height: 6px;
+  height: 0.375rem;
 }
 
 .pb-range::-webkit-slider-thumb {
@@ -804,23 +881,23 @@ textarea::-webkit-scrollbar-thumb:hover {
   background: var(--pb-surface-hover);
   border: 1px solid var(--pb-edge-hard);
   border-radius: 0;
-  height: 18px;
-  margin-top: -7px;
-  width: 11px;
+  height: 1.125rem;
+  margin-top: -0.4375rem;
+  width: 0.6875rem;
 }
 
 .pb-range::-moz-range-track {
   background: var(--pb-surface-sunken);
   border: 1px solid var(--pb-edge);
-  height: 6px;
+  height: 0.375rem;
 }
 
 .pb-range::-moz-range-thumb {
   background: var(--pb-surface-hover);
   border: 1px solid var(--pb-edge-hard);
   border-radius: 0;
-  height: 18px;
-  width: 11px;
+  height: 1.125rem;
+  width: 0.6875rem;
 }
 
 
@@ -840,14 +917,14 @@ textarea::-webkit-scrollbar-thumb:hover {
   background-color: var(--pb-surface-sunken);
   background-position: center;
   background-repeat: no-repeat;
-  background-size: 14px;
+  background-size: 0.875rem;
   border: var(--pb-border-w) solid var(--pb-edge);
   cursor: pointer;
   flex: 0 0 auto;
-  height: 18px;
+  height: 1.125rem;
   margin: 0;
   transition: background-color var(--pb-motion-fast) var(--pb-ease);
-  width: 18px;
+  width: 1.125rem;
 }
 
 .pb-check__input[type="checkbox"] { border-radius: var(--pb-radius-control); }
@@ -906,24 +983,24 @@ textarea::-webkit-scrollbar-thumb:hover {
   border-radius: 0;
   cursor: pointer;
   flex: 0 0 auto;
-  height: 18px;
+  height: 1.125rem;
   margin: 0;
   position: relative;
   transition: background-color var(--pb-motion-normal) var(--pb-ease);
-  width: 32px;
+  width: 2rem;
 }
 
 .pb-switch__input::after {
   background: var(--pb-text-muted);
   border-radius: 0;
   content: "";
-  height: 12px;
-  left: 2px;
+  height: 0.75rem;
+  left: var(--pb-space-1);
   position: absolute;
-  top: 2px;
+  top: var(--pb-space-1);
   transition: transform var(--pb-motion-normal) var(--pb-ease),
               background-color var(--pb-motion-normal) var(--pb-ease);
-  width: 12px;
+  width: 0.75rem;
 }
 
 .pb-switch__input:checked {
@@ -933,7 +1010,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 .pb-switch__input:checked::after {
   background: var(--pb-text-on-accent);
-  transform: translateX(14px);
+  transform: translateX(0.875rem);
 }
 
 .pb-switch__input:disabled { cursor: not-allowed; opacity: 0.6; }
@@ -947,7 +1024,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-form {
   display: grid;
   gap: var(--pb-space-1) var(--pb-space-3);
-  grid-template-columns: var(--pb-label-w, 120px) 1fr;
+  grid-template-columns: var(--pb-label-w, 7.5rem) 1fr;
   align-items: center;
 }
 
@@ -982,8 +1059,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-form__gap { grid-column: 1 / -1; height: var(--pb-space-7); }
 
 /* Wider label column variants. */
-.pb-form--label-sm  { --pb-label-w: 80px; }
-.pb-form--label-lg  { --pb-label-w: 180px; }
+.pb-form--label-sm  { --pb-label-w: 5rem; }
+.pb-form--label-lg  { --pb-label-w: 11.25rem; }
 
 /* Indent for dependent rows ("only applies when the box above is ticked"). */
 .pb-form__label--indent { padding-left: var(--pb-space-9); }
@@ -1069,7 +1146,7 @@ textarea::-webkit-scrollbar-thumb:hover {
   flex: 0 0 auto;
   overflow-x: hidden;
   overflow-y: auto;
-  width: 200px;
+  width: 12.5rem;
 }
 
 .pb-tabs--vertical .pb-tab {
@@ -1099,7 +1176,7 @@ textarea::-webkit-scrollbar-thumb:hover {
   border-radius: var(--pb-radius-overlay);
   box-shadow: var(--pb-shadow-overlay);
   margin: 0;
-  min-width: 200px;
+  min-width: 12.5rem;
   padding: var(--pb-space-2);
   width: max-content;
   z-index: var(--pb-z-dropdown);
@@ -1117,7 +1194,7 @@ textarea::-webkit-scrollbar-thumb:hover {
   font-size: var(--pb-text-sm);
   border-radius: var(--pb-radius-control);
   gap: var(--pb-space-3);
-  min-height: 30px;
+  min-height: var(--pb-control-h);
   padding: 0 var(--pb-space-4);
   text-align: left;
   white-space: nowrap;
@@ -1175,7 +1252,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 /* Long menus scroll rather than run off the viewport. */
 .pb-menu--scroll {
-  max-height: min(70vh, calc(100dvh - 40px));
+  max-height: min(70vh, calc(100dvh - 2.5rem));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1267,10 +1344,10 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-modal__header--ok    { border-top-color: var(--pb-status-ok);    color: var(--pb-status-ok); }
 
 /* Size presets. */
-.pb-modal--xs { width: 320px; }
-.pb-modal--sm { width: 460px; }
-.pb-modal--md { width: 600px; }
-.pb-modal--lg { width: 860px; }
+.pb-modal--xs { width: 20rem; }
+.pb-modal--sm { width: 28.75rem; }
+.pb-modal--md { width: 37.5rem; }
+.pb-modal--lg { width: 53.75rem; }
 .pb-modal--fit { width: max-content; }
 
 /* A resizable dialog, for anything containing a grid. */
@@ -1304,9 +1381,9 @@ textarea::-webkit-scrollbar-thumb:hover {
   z-index: var(--pb-z-drawer);
 }
 
-.pb-drawer--open { width: 265px; }
+.pb-drawer--open { width: 16.5625rem; }
 .pb-drawer--right { border-left: var(--pb-border-w) solid var(--pb-edge-hard); border-right: 0; left: auto; right: 0; }
-.pb-drawer--wide.pb-drawer--open { width: 420px; }
+.pb-drawer--wide.pb-drawer--open { width: 26.25rem; }
 
 .pb-drawer__body {
   flex: 1 1 auto;
@@ -1321,7 +1398,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-progress {
   background-color: var(--pb-surface-sunken);
   border: var(--pb-border-w) solid var(--pb-edge);
-  height: 18px;
+  height: var(--pb-icon-size);
   overflow: hidden;
   width: 100%;
 }
@@ -1351,7 +1428,7 @@ textarea::-webkit-scrollbar-thumb:hover {
     transparent 75%,
     var(--pb-stripe) 75%
   );
-  background-size: 28px 28px;
+  background-size: 1.75rem 1.75rem;
 }
 
 .pb-progress__bar--animated { animation: pb-stripe 0.9s linear infinite; }
@@ -1368,7 +1445,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 @keyframes pb-stripe {
   from { background-position: 0 0; }
-  to   { background-position: 28px 0; }
+  to   { background-position: 1.75rem 0; }
 }
 
 @keyframes pb-indeterminate {
@@ -1388,8 +1465,8 @@ textarea::-webkit-scrollbar-thumb:hover {
   width: var(--pb-icon-size);
 }
 
-.pb-spinner--sm { height: 14px; width: 14px; }
-.pb-spinner--lg { border-width: 3px; height: 48px; width: 48px; }
+.pb-spinner--sm { height: 0.875rem; width: 0.875rem; }
+.pb-spinner--lg { border-width: 3px; height: 3rem; width: 3rem; }
 
 @keyframes pb-spin {
   to { transform: rotate(360deg); }
@@ -1456,11 +1533,13 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 .pb-table--numeric td,
 .pb-table .pb-num {
+  font-family: var(--pb-font-num);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-.pb-table--compact tbody td { height: 22px; padding: 0 var(--pb-space-3); }
+.pb-table--compact thead th { padding: var(--pb-space-3); }
+.pb-table--compact tbody td { height: 1.375rem; padding: 0 var(--pb-space-3); }
 
 .pb-table caption {
   caption-side: top;
@@ -1492,8 +1571,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 .pb-table th[aria-sort="ascending"]::after,
 .pb-table th[aria-sort="descending"]::after {
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
+  border-left: 0.25rem solid transparent;
+  border-right: 0.25rem solid transparent;
   content: "";
   position: absolute;
   right: var(--pb-space-4);
@@ -1501,12 +1580,12 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .pb-table th[aria-sort="ascending"]::after {
-  border-bottom: 5px solid var(--pb-accent);
+  border-bottom: 0.3125rem solid var(--pb-accent);
   transform: translateY(-60%);
 }
 
 .pb-table th[aria-sort="descending"]::after {
-  border-top: 5px solid var(--pb-accent);
+  border-top: 0.3125rem solid var(--pb-accent);
   transform: translateY(-40%);
 }
 
@@ -1518,9 +1597,9 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .pb-cell-select::after {
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--pb-text-muted);
+  border-left: 0.25rem solid transparent;
+  border-right: 0.25rem solid transparent;
+  border-top: 0.3125rem solid var(--pb-text-muted);
   content: "";
   position: absolute;
   right: var(--pb-space-3);
@@ -1537,8 +1616,8 @@ textarea::-webkit-scrollbar-thumb:hover {
   border-radius: 0;
   display: inline-block;
   flex: 0 0 auto;
-  height: 10px;
-  width: 10px;
+  height: 0.625rem;
+  width: 0.625rem;
 }
 
 .pb-dot--ok    { background: var(--pb-status-ok); }
@@ -1576,6 +1655,7 @@ textarea::-webkit-scrollbar-thumb:hover {
   gap: var(--pb-space-3);
   line-height: 1;
   padding: var(--pb-space-2) var(--pb-space-4);
+  vertical-align: middle;
   white-space: nowrap;
 }
 
@@ -1583,8 +1663,8 @@ textarea::-webkit-scrollbar-thumb:hover {
   background: currentColor;
   border-radius: 0;
   content: "";
-  height: 6px;
-  width: 6px;
+  height: 0.375rem;
+  width: 0.375rem;
 }
 
 .pb-badge--ok {
@@ -1663,8 +1743,8 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-level {
   border-radius: 0;
   display: inline-block;
-  height: 12px;
-  width: 12px;
+  height: 0.75rem;
+  width: 0.75rem;
 }
 
 .pb-level--video { background: var(--pb-signal-video); }
@@ -1743,8 +1823,22 @@ textarea::-webkit-scrollbar-thumb:hover {
   z-index: 0;
 }
 
+/* The link to the device is down. Same frame as the other states, pulsing so
+   it cannot be missed from across a room. It goes steady under reduced
+   motion; a pb-conn or pb-banner carries the meaning in words. */
+.pb-state-offline {
+  animation: pb-offline 1.6s ease-in-out infinite;
+  border: var(--pb-state-border-w) solid var(--pb-status-error);
+  position: relative;
+  z-index: 0;
+}
+
+@keyframes pb-offline {
+  50% { border-color: color-mix(in srgb, var(--pb-status-error) 35%, transparent); }
+}
+
 /* Pages read this to keep fixed children clear of the frame. */
-.pb-state-commit, .pb-state-protect { --pb-state-inset: var(--pb-state-border-w); }
+.pb-state-commit, .pb-state-protect, .pb-state-offline { --pb-state-inset: var(--pb-state-border-w); }
 
 
 /* 20  UTILITIES =========================================================== */
@@ -1756,12 +1850,25 @@ textarea::-webkit-scrollbar-thumb:hover {
 .pb-grow   { flex: 1 1 auto; min-width: 0; }
 .pb-push   { margin-left: auto; }
 
+/* Widths. These sit here, after every control, so they beat the
+   width: 100% that selects' and number fields' wrappers, input groups and
+   ranges set for themselves. Put the class on the wrapper. */
+.pb-w-xs   { width: 3.125rem; }
+.pb-w-sm   { width: 5rem; }
+.pb-w-md   { width: 8.75rem; }
+.pb-w-lg   { width: 12.5rem; }
+.pb-w-xl   { width: 20rem; }
+.pb-w-auto { width: auto; }
+
 .pb-text-strong   { color: var(--pb-text-strong); font-weight: var(--pb-weight-bold); }
 .pb-text-muted    { color: var(--pb-text-muted); }
 .pb-text-disabled { color: var(--pb-text-disabled); }
-.pb-text-num      { font-variant-numeric: tabular-nums; }
+.pb-text-num      { font-family: var(--pb-font-num); font-variant-numeric: tabular-nums; }
+.pb-num           { font-family: var(--pb-font-num); font-variant-numeric: tabular-nums; }
 .pb-text-mono     { font-family: var(--pb-font-mono); }
 .pb-truncate      { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-clamp-2       { -webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; line-clamp: 2; overflow: hidden; }
+.pb-clamp-3       { -webkit-box-orient: vertical; -webkit-line-clamp: 3; display: -webkit-box; line-clamp: 3; overflow: hidden; }
 
 /* Visually hidden but available to screen readers — the correct way to give
    an icon-only button a name. */
@@ -1775,6 +1882,484 @@ textarea::-webkit-scrollbar-thumb:hover {
   position: absolute;
   white-space: nowrap;
   width: 1px;
+}
+
+
+/* 21  TOOLTIPS =========================================================== */
+
+/* Put data-pb-tip on a button or wrapper (not on a replaced element such as
+   <input>). It shows on hover and on keyboard focus. The text is decoration:
+   a focusable trigger still needs its own accessible name, or
+   aria-describedby pointing at the same words. */
+[data-pb-tip] { position: relative; }
+
+.pb-btn[data-pb-tip] { overflow: visible; }  /* pb-btn clips; the tip sits outside */
+
+[data-pb-tip]::after {
+  background: var(--pb-surface-overlay);
+  box-shadow: var(--pb-shadow-overlay);
+  color: var(--pb-text-strong);
+  content: attr(data-pb-tip);
+  font-family: var(--pb-font);
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-normal);
+  left: 50%;
+  letter-spacing: normal;
+  opacity: 0;
+  padding: var(--pb-space-2) var(--pb-space-4);
+  pointer-events: none;
+  position: absolute;
+  text-transform: none;
+  top: calc(100% + var(--pb-space-2));
+  transform: translateX(-50%);
+  transition: opacity var(--pb-motion-fast) var(--pb-ease);
+  visibility: hidden;
+  white-space: nowrap;
+  z-index: var(--pb-z-tooltip);
+}
+
+[data-pb-tip]:hover::after,
+[data-pb-tip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.pb-tip--top[data-pb-tip]::after {
+  bottom: calc(100% + var(--pb-space-2));
+  top: auto;
+}
+
+.pb-tip--start[data-pb-tip]::after { left: 0; transform: none; }
+.pb-tip--end[data-pb-tip]::after { left: auto; right: 0; transform: none; }
+
+/* A tip placed by script, for text that was cut off with an ellipsis. */
+.pb-tip {
+  background: var(--pb-surface-overlay);
+  box-shadow: var(--pb-shadow-overlay);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xs);
+  max-width: calc(100vw - var(--pb-space-8) * 2);
+  overflow-wrap: anywhere;
+  padding: var(--pb-space-2) var(--pb-space-4);
+  pointer-events: none;
+  position: fixed;
+  z-index: var(--pb-z-tooltip);
+}
+
+.pb-tip[hidden] { display: none; }
+
+
+/* 22  FIELDS, SECTIONS & HINTS =========================================== */
+
+/* The stacked alternative to the pb-form label column: caption above the
+   control, wrapping into as many columns as fit. Use it for settings pages
+   and narrow panes; keep pb-form for dense one-line rows. */
+.pb-fields {
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(var(--pb-field-min-w, 11.25rem), 1fr));
+}
+
+.pb-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+
+.pb-field > label,
+.pb-field__label {
+  color: var(--pb-text);
+  font-weight: var(--pb-weight-medium);
+}
+
+.pb-field .pb-input,
+.pb-field .pb-select,
+.pb-field .pb-select-wrap,
+.pb-field .pb-number-wrap,
+.pb-field .pb-textarea { width: 100%; }
+
+/* A small muted uppercase caption. */
+.pb-label {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  letter-spacing: var(--pb-tracking-label);
+  text-transform: uppercase;
+}
+
+.pb-hint {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+}
+
+/* A rule across the column with the section's name under it. Works on a
+   <section> with a heading or on a <fieldset> with a <legend>. */
+.pb-section {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.pb-section__title,
+.pb-section > legend {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  float: none;
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  margin: 0 0 var(--pb-space-3);
+  padding: var(--pb-space-5) 0 0;
+  width: 100%;
+}
+
+
+/* 23  SAVE BAR =========================================================== */
+
+/* Sticks to the bottom of a long settings page. Put the primary action in
+   __row with its status text; a second line can carry a pb-hint. */
+.pb-savebar {
+  background: var(--pb-surface-base);
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-5) 0 calc(var(--pb-space-5) + env(safe-area-inset-bottom, 0px));
+  position: sticky;
+  z-index: var(--pb-z-sticky);
+}
+
+.pb-savebar__row {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-5);
+  justify-content: space-between;
+}
+
+
+/* 24  ROLE BARS ========================================================== */
+
+/* A coloured bar down the left edge that says what a row or box is for:
+   a source, a destination, a tie-line, or a failure. */
+.pb-rolebar--source  { border-left: var(--pb-rolebar-w) solid var(--pb-source); }
+.pb-rolebar--dest    { border-left: var(--pb-rolebar-w) solid var(--pb-dest); }
+.pb-rolebar--tieline { border-left: var(--pb-rolebar-w) solid var(--pb-tieline); }
+.pb-rolebar--error   { border-left: var(--pb-rolebar-w) solid var(--pb-status-error); }
+
+
+/* 25  CONNECTION, BANNERS & OFFLINE STATE ================================ */
+
+/* A compact link-status chip for a corner of the page. Always pair the dot
+   with its words. */
+.pb-conn {
+  align-items: center;
+  background: var(--pb-surface-base);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  color: var(--pb-text-muted);
+  display: inline-flex;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+
+.pb-conn--ok    { border-left: var(--pb-accent-bar-w) solid var(--pb-status-ok); }
+.pb-conn--warn  { border-left: var(--pb-accent-bar-w) solid var(--pb-status-warn); }
+.pb-conn--error {
+  border-color: var(--pb-status-error);
+  color: var(--pb-status-error);
+  font-weight: var(--pb-weight-bold);
+}
+
+/* A full-width strip at the top of the page or a panel. */
+.pb-banner {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border-bottom: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-strong);
+  display: flex;
+  font-weight: var(--pb-weight-medium);
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-3) var(--pb-space-5);
+  position: sticky;
+  top: 0;
+  z-index: var(--pb-z-sticky);
+}
+
+.pb-banner--ok    { background: color-mix(in srgb, var(--pb-status-ok) 14%, var(--pb-surface-raised)); border-bottom-color: var(--pb-status-ok); }
+.pb-banner--warn  { background: color-mix(in srgb, var(--pb-status-warn) 14%, var(--pb-surface-raised)); border-bottom-color: var(--pb-status-warn); }
+.pb-banner--error { background: color-mix(in srgb, var(--pb-status-error) 14%, var(--pb-surface-raised)); border-bottom-color: var(--pb-status-error); }
+.pb-banner--info  { background: color-mix(in srgb, var(--pb-status-info) 14%, var(--pb-surface-raised)); border-bottom-color: var(--pb-status-info); }
+
+
+/* 26  TOUCH & PHONE LAYOUT =============================================== */
+
+/* iOS zooms into a focused field under 16px and does not zoom back out.
+   Zero specificity so an app's own sizes still win. */
+@media (pointer: coarse) {
+  :where(.pb-input, .pb-select, .pb-textarea) {
+    font-size: max(var(--pb-touch-text), var(--pb-text-sm));
+  }
+}
+
+/* <html data-pb-layout="phone">: drop the page floor and let the dense
+   layouts reflow. The routing matrix still scrolls inside its own pane. */
+[data-pb-layout="phone"] body { min-width: 0; }
+[data-pb-layout="phone"] .pb-split { flex-direction: column; }
+[data-pb-layout="phone"] .pb-form { grid-template-columns: 1fr; }
+[data-pb-layout="phone"] .pb-form__label {
+  justify-self: start;
+  min-height: 0;
+  text-align: left;
+}
+[data-pb-layout="phone"] .pb-modal { max-width: calc(100vw - var(--pb-space-5) * 2); }
+[data-pb-layout="phone"] .pb-drawer--open { max-width: 100vw; }
+
+
+/* 27  TOASTS & ENTRY ANIMATION =========================================== */
+
+/* A new thing arriving: a toast, a history row. Zero length under reduced
+   motion, because --pb-motion-enter is zeroed there. */
+@keyframes pb-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--pb-space-5));
+  }
+}
+
+.pb-enter { animation: pb-enter var(--pb-motion-enter) var(--pb-ease); }
+
+/* Fixed to the bottom right. Give the stack aria-live="polite"; an error
+   toast sets role="alert" itself. Dismiss with a pb-btn--ghost pb-btn--icon
+   pb-btn--sm in __close, and always have a keyboard way to do it. */
+.pb-toast-stack {
+  align-items: flex-end;
+  bottom: var(--pb-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  pointer-events: none;
+  position: fixed;
+  right: var(--pb-space-5);
+  z-index: var(--pb-z-toast);
+}
+
+.pb-toast {
+  --pb-toast-role: var(--pb-status-info);
+  align-items: flex-start;
+  animation: pb-enter var(--pb-motion-enter) var(--pb-ease);
+  background: var(--pb-surface-overlay);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-left: var(--pb-accent-bar-w) solid var(--pb-toast-role);
+  box-shadow: var(--pb-shadow-overlay);
+  color: var(--pb-text);
+  display: flex;
+  gap: var(--pb-space-4);
+  max-width: min(25rem, calc(100vw - var(--pb-space-5) * 2));
+  min-width: 15rem;
+  padding: var(--pb-space-4) var(--pb-space-5);
+  pointer-events: auto;
+}
+
+.pb-toast--ok    { --pb-toast-role: var(--pb-status-ok); }
+.pb-toast--warn  { --pb-toast-role: var(--pb-status-warn); }
+.pb-toast--error { --pb-toast-role: var(--pb-status-error); }
+.pb-toast--info  { --pb-toast-role: var(--pb-status-info); }
+
+.pb-toast__icon { color: var(--pb-toast-role); flex: 0 0 auto; }
+
+.pb-toast__body { flex: 1 1 auto; min-width: 0; }
+
+.pb-toast__title {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+
+.pb-toast__msg { color: var(--pb-text-muted); }
+
+.pb-toast__close {
+  flex: 0 0 auto;
+  margin: calc(var(--pb-space-2) * -1) calc(var(--pb-space-2) * -1) 0 0;
+}
+
+
+/* 28  KEY/VALUE LISTS, EMPTY STATES & SKELETONS ========================== */
+
+/* Facts about one thing: a <dl> of __item > __key + __val. Stacked by
+   default; --inline puts keys in a column of their own. The vertical
+   counterpart to the pb-summary bar. */
+.pb-kv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  margin: 0;
+}
+
+.pb-kv__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+}
+
+.pb-kv__key {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  letter-spacing: var(--pb-tracking-label);
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.pb-kv__val {
+  color: var(--pb-text-strong);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pb-kv--inline {
+  display: grid;
+  gap: var(--pb-space-2) var(--pb-space-5);
+  grid-template-columns: max-content 1fr;
+}
+
+.pb-kv--inline .pb-kv__item { display: contents; }
+
+/* Nothing here yet. The counterpart to .pb-loading. */
+.pb-empty {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-10);
+  text-align: center;
+}
+
+.pb-empty__title {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+
+.pb-empty__msg { max-width: 40ch; }
+
+.pb-empty__actions {
+  display: flex;
+  gap: var(--pb-space-3);
+  margin-top: var(--pb-space-3);
+}
+
+/* A placeholder block while data loads. Decorative: give the region
+   aria-busy="true" and let the real content replace it. Steady (no sweep)
+   under reduced motion. */
+.pb-skeleton {
+  animation: pb-skeleton 1.5s ease-in-out infinite;
+  background: linear-gradient(90deg,
+    var(--pb-surface-control) 25%,
+    var(--pb-surface-hover) 50%,
+    var(--pb-surface-control) 75%);
+  background-size: 200% 100%;
+  display: block;
+}
+
+@keyframes pb-skeleton {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+.pb-skeleton--text    { height: 1em; width: 100%; }
+.pb-skeleton--heading { height: 1.5em; width: 40%; }
+.pb-skeleton--row     { height: var(--pb-grid-row-h); width: 100%; }
+
+
+/* 29  FIELD STATES & DISABLED LABELS ===================================== */
+
+/* Wrap a control and its pb-hint in .pb-field--error or --ok so the rim and
+   the hint change together. The hint's words are what carry the meaning;
+   colour only backs them up. */
+.pb-field--error .pb-input,
+.pb-field--error .pb-select,
+.pb-field--error .pb-textarea,
+.pb-field--error .pb-chip-input { border-color: var(--pb-status-error); }
+.pb-field--error .pb-hint { color: var(--pb-status-error); }
+
+.pb-field--ok .pb-input,
+.pb-field--ok .pb-select,
+.pb-field--ok .pb-textarea,
+.pb-field--ok .pb-chip-input { border-color: var(--pb-status-ok); }
+.pb-field--ok .pb-hint { color: var(--pb-status-ok); }
+
+.pb-input--valid { border-color: var(--pb-status-ok); }
+
+/* A label dims with the control it names. pb-form lays label and field out
+   as sibling cells, so the label looks ahead to its field. */
+.pb-form__label:has(+ .pb-form__field :disabled),
+.pb-field:has(:disabled) > label,
+.pb-field:has(:disabled) .pb-field__label,
+.pb-field:has(:disabled) .pb-label,
+.pb-check:has(.pb-switch__input:disabled) .pb-check__label {
+  color: var(--pb-text-disabled);
+}
+
+
+/* 30  BREADCRUMBS & PAGINATION =========================================== */
+
+/* <nav aria-label="Breadcrumb"><ol class="pb-breadcrumbs"> with the last
+   item aria-current="page". The separator is decoration, hidden from
+   assistive tech where the alt-text syntax is supported. */
+.pb-breadcrumbs {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pb-breadcrumbs li + li::before {
+  content: "/";
+  content: "/" / "";
+  margin-right: var(--pb-space-3);
+}
+
+.pb-breadcrumbs a {
+  color: var(--pb-text);
+  text-decoration: none;
+}
+
+.pb-breadcrumbs a:hover { text-decoration: underline; }
+
+.pb-breadcrumbs [aria-current="page"] {
+  color: var(--pb-text-strong);
+  font-weight: var(--pb-weight-bold);
+}
+
+/* <nav aria-label="Pages"><ul class="pb-pagination"> of pb-btn pb-btn--sm.
+   The current page is aria-current="page"; an unavailable prev/next is
+   disabled (or class="disabled" aria-disabled="true" on a link). */
+.pb-pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pb-pagination [aria-current="page"] {
+  background-color: var(--pb-accent);
+  color: var(--pb-text-on-accent);
+}
+
+.pb-pagination [aria-current="page"]:hover { background-color: var(--pb-accent-hover); }
+
+.pb-pagination__gap {
+  color: var(--pb-text-muted);
+  padding: 0 var(--pb-space-2);
 }
 
 
@@ -1798,7 +2383,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .pb-icon--sm { height: var(--pb-icon-size-sm); width: var(--pb-icon-size-sm); }
-.pb-icon--lg { height: 24px; width: 24px; }
+.pb-icon--lg { height: 1.5rem; width: 1.5rem; }
 .pb-icon--filled { fill: currentColor; stroke: none; }
 
 :disabled > .pb-icon,
@@ -1822,8 +2407,19 @@ textarea::-webkit-scrollbar-thumb:hover {
   transition: background-color var(--pb-motion-theme) var(--pb-ease),
               border-color var(--pb-motion-theme) var(--pb-ease),
               color var(--pb-motion-theme) var(--pb-ease),
+              fill var(--pb-motion-theme) var(--pb-ease),
+              stroke var(--pb-motion-theme) var(--pb-ease),
+              outline-color var(--pb-motion-theme) var(--pb-ease),
+              text-decoration-color var(--pb-motion-theme) var(--pb-ease),
               box-shadow var(--pb-motion-theme) var(--pb-ease) !important;
 }
+
+/* With document.startViewTransition(), the browser crossfades one snapshot of
+   the page, so nothing steps or drifts out of sync (native controls and the
+   checkbox glyph images included). Use it in preference to the class above. */
+::view-transition-group(root) { animation-duration: var(--pb-motion-theme); animation-timing-function: var(--pb-ease); }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: var(--pb-motion-theme); animation-timing-function: var(--pb-ease); }
 
 /* REDUCED MOTION ==========================================================
    Transition durations are zeroed in the tokens; looping decoration stops
@@ -1833,5 +2429,7 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .pb-dot--pulse,
+  .pb-state-offline,
+  .pb-skeleton,
   .pb-progress__bar--animated { animation: none; }
 }

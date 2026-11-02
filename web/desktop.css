@@ -89,7 +89,7 @@
 }
 .sode__num {
   color: var(--pb-text-muted);
-  font-family: var(--pb-font-mono);
+  font-family: var(--pb-font-num);
   min-width: 4ch;
   text-align: right;
 }
