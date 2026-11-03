@@ -15,9 +15,23 @@ import { showResult } from './plans.js';
 // render(): redraw what depends on busy(). okNote: shown after a save.
 // failTitle: the banner if a save fails after the dialog closed.
 // Returns { change(payload, done), cancel(), close(), busy() }.
+let seq = 0; // shared: ids stay unique across savers of one result type
+
+// One onMsg per result type, shared by every saver of that type (the salvo
+// editor and the Ctrl+G popup both save salvos): each ignores ids not its own.
+const resultHandlers = new Map();
+function onResult(resultT, fn) {
+  let list = resultHandlers.get(resultT);
+  if (!list) {
+    list = [];
+    resultHandlers.set(resultT, list);
+    onMsg(resultT, (m) => { for (const f of list) f(m); });
+  }
+  list.push(fn);
+}
+
 export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, setNote, isOpen, failTitle, render = () => {}, okNote = '' }) {
   let pending = null; // { run, done, id once sent }
-  let seq = 0;
 
   // Sends payload now (the PIN, if needed, is already in); done() runs when
   // the server says ok.
@@ -39,7 +53,7 @@ export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, setNote, isOpen,
     setNote('Saving…');
   }
 
-  onMsg(resultT, (m) => {
+  onResult(resultT, (m) => {
     if (!pending || m.id !== pending.id) return;
     const p = pending;
     const open = isOpen();

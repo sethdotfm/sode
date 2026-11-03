@@ -68,8 +68,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 // same-origin files only (no inline bodies, no on*= handlers: a test over the
 // embedded pages keeps it so); inline style attributes are used, hence
 // 'unsafe-inline' for styles only. The socket is same-origin ws(s).
-const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self'; object-src 'none'; " +
+const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+	"img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
 	"base-uri 'self'; frame-ancestors 'none'"
 
 // secureHeaders sets the browser-hardening headers in one place.

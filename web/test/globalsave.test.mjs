@@ -55,3 +55,21 @@ test('close keeps a sent save, drops one waiting for the PIN', async () => {
   assert.equal(s2.close(), false);
   assert.ok(!s2.busy());
 });
+
+test('two savers of one result type register once and keep their ids apart', async () => {
+  const core = await import('../core.js');
+  const { globalSaver } = await import('../globalsave.js');
+  const sent = [];
+  core.S.ws = { readyState: 1, lastRx: Date.now() + 1e9, send: (m) => sent.push(JSON.parse(m)) };
+  core.S.pinSet = false;
+  const mk = () => ({ addEventListener() {}, focus() {}, select() {}, hidden: true, value: '', disabled: false });
+  const opts = () => ({ t: 'salvos', resultT: 'sharedResult', pinIn: mk(), pinRow: mk(), pinOk: mk(), setNote() {}, isOpen: () => true, failTitle: 'x' });
+  const a = globalSaver(opts());
+  const b = globalSaver(opts()); // used to throw: onMsg('sharedResult') is already handled
+  let doneA = 0, doneB = 0;
+  a.change({ salvos: [] }, () => { doneA++; });
+  b.change({ salvos: [] }, () => { doneB++; });
+  assert.notEqual(sent[0].id, sent[1].id);
+  core.handleMessage?.({ t: 'sharedResult', ok: true, id: sent[1].id });
+  if (core.handleMessage) { assert.equal(doneA, 0); assert.equal(doneB, 1); }
+});
