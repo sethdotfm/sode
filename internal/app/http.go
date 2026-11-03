@@ -271,23 +271,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "hi", "userUnlock", "userLock", "userSetPin", "users", "userSignOutAll":
 			a.serveUsers(c, &m)
 		case "batch":
-			if len(m.Items) > 0 {
-				why, n := "take", len(m.Items)
-				for _, it := range m.Items {
-					if it.Undo != nil {
-						why = "undo"
-					} else if it.Retry != nil && why == "take" {
-						why = "retry"
-					}
-				}
-				a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
-			}
-			if name := cleanPresetName(cmp.Or(m.Preset, m.Salvo)); name != "" {
-				for i := range m.Items {
-					m.Items[i].Preset = name
-				}
-			}
-			go a.batch(c, m.Items)
+			a.serveBatch(c, &m)
 		case "history":
 			go a.history(c, m.Before, m.N)
 		case "sent":
@@ -323,25 +307,62 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				a.replyOp(c, "presets", id, len(presets), "preset", a.SavePresets(c, presets))
 			}(m.Presets, m.ID)
 		case "config":
-			if m.Config == nil {
-				continue
-			}
-			// A page from before deviceDefaults existed sends none, and its
-			// zero values would turn the "on" defaults off for everyone, so
-			// the current ones are kept.
-			var has struct {
-				Config struct {
-					DeviceDefaults json.RawMessage `json:"deviceDefaults"`
-				} `json:"config"`
-			}
-			json.Unmarshal(data, &has)
-			keepDefaults := has.Config.DeviceDefaults == nil
-			go func(cfg config.Config, pin string, clearPin bool) {
-				// Who saved, not what: the settings hold the PIN's hash.
-				a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin, keepDefaults))
-			}(*m.Config, m.Pin, m.ClearPin)
+			a.serveConfig(c, &m)
 		}
 	}
+}
+
+// serveBatch handles a batch of takes: one command-log row for the lot, the
+// preset's name (if any) stamped on every take, then the takes themselves.
+func (a *App) serveBatch(c *client, m *inMsg) {
+	if len(m.Items) > 0 {
+		why, n := "take", len(m.Items)
+		for _, it := range m.Items {
+			if it.Undo != nil {
+				why = "undo"
+			} else if it.Retry != nil && why == "take" {
+				why = "retry"
+			}
+		}
+		a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
+	}
+	if name := cleanPresetName(cmp.Or(m.Preset, m.Salvo)); name != "" {
+		for i := range m.Items {
+			m.Items[i].Preset = name
+		}
+	}
+	go a.batch(c, m.Items)
+}
+
+// serveConfig saves the Settings form in the background and answers when done.
+func (a *App) serveConfig(c *client, m *inMsg) {
+	if m.Config == nil {
+		return
+	}
+	// Who saved, not what: the settings hold the PIN's hash. A page from
+	// before deviceDefaults existed sends none, and its zero values would turn
+	// the "on" defaults off for everyone, so the current ones are kept.
+	go func(cfg configMsg, pin string, clearPin bool) {
+		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg.Config, pin, clearPin, !cfg.hasDefaults))
+	}(*m.Config, m.Pin, m.ClearPin)
+}
+
+// configMsg is the Settings form's config, and whether it carried
+// deviceDefaults at all.
+type configMsg struct {
+	config.Config
+	hasDefaults bool
+}
+
+func (m *configMsg) UnmarshalJSON(b []byte) error {
+	var probe struct {
+		DeviceDefaults json.RawMessage `json:"deviceDefaults"`
+	}
+	if err := json.Unmarshal(b, &probe); err != nil {
+		return err
+	}
+	m.hasDefaults = probe.DeviceDefaults != nil
+	return json.Unmarshal(b, &m.Config)
 }
 
 // outcome is a command's result: ok, locked (a PIN or a lock was why) or error.
@@ -364,7 +385,7 @@ type inMsg struct {
 	From     int64              `json:"from"` // uptime range, unix ms
 	To       int64              `json:"to"`
 	Slot     int64              `json:"slot"` // ...and its slot length, ms
-	Config   *config.Config     `json:"config"`
+	Config   *configMsg         `json:"config"`
 	Pin      string             `json:"pin"`
 	ClearPin bool               `json:"clearPin"`
 	ID       int                `json:"id"` // echoed by unlock and save replies
