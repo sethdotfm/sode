@@ -4,7 +4,7 @@
 // Leaving with unsaved changes warns first. With a settings PIN, the view
 // opens locked and locks again when it closes.
 
-import { $, el, S, on, wsSend, sentence } from './core.js';
+import { $, el, S, on, emit, wsSend, sentence } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime, ownPref, globalPref, setPref } from './device.js';
 import { filterSummary, normFilter } from './filterstore.js';
@@ -219,6 +219,14 @@ function renderPrefs() {
 }
 renderPrefs();
 on('prefs', renderPrefs);
+
+// Account: only while logged in as a user (lock.js says so with 'access').
+on('access', (L) => {
+  $('account').hidden = !L.user;
+  $('account-name').textContent = L.user ? `Logged in as ${L.user}` : '';
+});
+$('account-pin').addEventListener('click', () => emit('changePin'));
+$('account-logout').addEventListener('click', () => emit('logout'));
 
 // ---- table of contents: one button per section, scrolling to it, with the
 // section in view marked. Wide screens pin it beside the column; narrow

@@ -106,5 +106,23 @@ export function brandFrames(dir, fly, t) {
 // The way out takes this many times as long as the way in, so it ends gently.
 export const OUT_FACTOR = 1.5;
 
+export const WRONG_MS = 1000; // "Incorrect" stays this long
+export const WELCOME_MS = 600; // "Welcome, <name>" shows this long before the unlock runs
+
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// What the pad's field says after a refused PIN, from the server's error.
+// A plain wrong PIN is "Incorrect" for WRONG_MS, then the dots come back; a
+// wrong PIN that also starts a wait ("wrong PIN; try again in 30s") is the
+// same with the wait as `note` (shown under the field). Any other reason (a
+// wait, a lockout) is kept whole in the field (ms 0 = it stays until the next
+// key). Always text, never colour alone.
+export function wrongFeedback(err) {
+  const e = String(err || '').trim();
+  const m = /^wrong pin(?:[;.]\s*(.*))?$/i.exec(e);
+  if (!e || m) return { text: 'Incorrect', ms: WRONG_MS, note: m?.[1] ? cap(m[1]) : '' };
+  return { text: cap(e), ms: 0, note: '' };
+}
+
 // Dots for the PIN typed so far.
 export const dots = (pin) => '●'.repeat(pin.length);

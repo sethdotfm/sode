@@ -81,3 +81,11 @@ test('all words of a query must match', () => {
   assert.ok(find(idx(), 'auto lock').some((h) => h.sectionId === 'users'));
   assert.equal(find(idx(), 'dark banana').length, 0);
 });
+
+test('account words reach the Account block inside This device', () => {
+  const secs = [{ id: 'this-device', title: 'This device', settings: [
+    { id: 'account', label: 'Account' }, { id: 'account-pin', label: 'Change my PIN' }, { id: 'account-logout', label: 'Log out' }] }];
+  for (const [q, id] of [['account', 'account'], ['sign out', 'account-logout'], ['logout', 'account-logout'], ['change pin', 'account-pin']]) {
+    assert.ok(find(buildIndex(secs), q).some((h) => h.id === id), q);
+  }
+});

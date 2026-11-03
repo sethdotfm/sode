@@ -1,8 +1,10 @@
-// The "Logged in as" chip of the lock screen (#151) and what hangs off it: a
-// small options menu (change my PIN, log out) and the change-PIN dialog. lock.js owns the state and passes
-// the actions in; this builds the DOM with el() only.
+// The "Logged in as" chip of the lock screen (#151): the name and ONE icon
+// button that locks. Changing the PIN and logging out live in Settings'
+// Account block, which asks for them over the bus ('changePin', 'logout');
+// this module owns the change-PIN dialog. lock.js owns the state and passes
+// the action in; this builds the DOM with el() only.
 
-import { el, S, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, onMsg, icon, wsSend, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 
 const field = (id, label, auto) => {
@@ -15,41 +17,16 @@ const field = (id, label, auto) => {
   return { input, row: el('div', 'sode-lock__field', Object.assign(el('label', null, label), { htmlFor: id }), input) };
 };
 
-// api: { lock(), logout() }.
+// api: { lock() }.
 export function buildChip(api) {
   const name = el('span', 'sode-lock__who-name');
-  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Lock');
+  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('lock'));
   lockBtn.type = 'button';
-  lockBtn.title = 'Lock (Ctrl+L)';
-  const optBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Options');
-  optBtn.type = 'button';
-  optBtn.setAttribute('aria-expanded', 'false');
-  optBtn.setAttribute('aria-controls', 'sode-lock-menu');
-
-  const pinBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Change my PIN');
-  pinBtn.type = 'button';
-  const outBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log out');
-  outBtn.type = 'button';
-  outBtn.title = 'End this session on this browser';
-  const menu = el('div', 'sode-lock__menu', pinBtn, outBtn);
-  menu.id = 'sode-lock-menu';
-  menu.hidden = true;
-
-  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', name, lockBtn, optBtn), menu);
+  lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
+  lockBtn.setAttribute('aria-label', 'Lock');
+  lockBtn.addEventListener('click', () => api.lock());
+  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', name, lockBtn));
   root.hidden = true;
-
-  const setMenu = (open) => {
-    menu.hidden = !open;
-    optBtn.setAttribute('aria-expanded', String(open));
-  };
-  optBtn.addEventListener('click', () => setMenu(menu.hidden));
-  root.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !menu.hidden) { e.stopPropagation(); setMenu(false); optBtn.focus(); }
-  });
-  document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !root.contains(e.target)) setMenu(false); }, true);
-  lockBtn.addEventListener('click', () => { setMenu(false); api.lock(); });
-  outBtn.addEventListener('click', () => { setMenu(false); api.logout(); });
-  pinBtn.addEventListener('click', () => { setMenu(false); openPin(); });
 
   // ---- change my PIN
   const oldF = field('sode-pin-old', 'Current PIN', 'current-password');
@@ -92,6 +69,7 @@ export function buildChip(api) {
     oldF.input.focus({ preventScroll: true });
   }
   trapDialog(back, dialog, closePin);
+  on('changePin', openPin);
   cancel.addEventListener('click', closePin);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -115,8 +93,7 @@ export function buildChip(api) {
   // update: render the chip for lock state L.
   function update(L, chip) {
     root.hidden = !chip;
-    if (!chip) { setMenu(false); return; }
-    name.textContent = `Logged in as ${L.user}`;
+    if (chip) name.textContent = `Logged in as ${L.user}`;
   }
-  return { root, update, menuOpen: () => !menu.hidden };
+  return { root, update };
 }

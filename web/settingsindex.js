@@ -44,6 +44,11 @@ export const DICT = {
   ...both('set-stack', ['stack', 'stacked', 'filter sets', 'sets', 'and', 'or', 'combine', 'all', 'any', 'filter']),
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
 
+  // ---- Account (inside This device; only shown while logged in as a user)
+  'account': ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
+  'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
+  'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
+
   // ---- Names
   'names-refresh': ['refresh', 'reload', 'update', 'reread', 'poll', 'names', 'now', 'fetch'],
   'cfg-namerefresh': ['poll', 'interval', 'seconds', 'refresh', 'how often', 'timer', 'off', 'names'],

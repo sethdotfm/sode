@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -159,4 +159,14 @@ test('guardedEdited: router, trusted proxies and the PIN limit need the PIN', ()
   assert.equal(guardedEdited({ ...cur, pinMaxTries: 0 }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: ['0.0.0.0/0'] }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: undefined }, { ...cur, trustedProxies: [] }), false);
+});
+
+test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text', () => {
+  assert.deepEqual(wrongFeedback('wrong PIN'), { text: 'Incorrect', ms: WRONG_MS, note: '' });
+  assert.deepEqual(wrongFeedback(''), { text: 'Incorrect', ms: WRONG_MS, note: '' });
+  assert.deepEqual(wrongFeedback('wrong PIN; try again in 30s'), { text: 'Incorrect', ms: WRONG_MS, note: 'Try again in 30s' });
+  const w = wrongFeedback('too many wrong PINs; try again in 25s');
+  assert.equal(w.text, 'Too many wrong PINs; try again in 25s');
+  assert.equal(w.ms, 0);
+  assert.equal(wrongFeedback('another PIN is being checked; try again').ms, 0);
 });

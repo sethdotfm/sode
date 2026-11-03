@@ -13,7 +13,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS } from './lockrules.js';
 import { buildChip } from './lockchip.js';
 
 // The session token of a persistent user. localStorage rather than a cookie:
@@ -49,7 +49,7 @@ writeStr('sode-lock-never', null);
 // ---- the overlay, built the first time it is needed
 
 let root = null;
-let brand, dotsEl, msg, state, welcome, chip, checkKey;
+let brand, dotsEl, msg, state, chip, checkKey;
 let pin = '';
 let seq = 0; // the userUnlock whose reply counts
 let timer = 0;
@@ -87,9 +87,7 @@ function build() {
   );
 
   const body = el('div', 'sode-lock__body', state, dotsEl, msg, pad);
-  welcome = el('p', 'sode-lock__welcome');
-  welcome.hidden = true;
-  root = el('div', 'sode-lock', brand, body, welcome);
+  root = el('div', 'sode-lock', brand, body);
   root.hidden = true;
   root.tabIndex = -1;
   root.setAttribute('role', 'dialog');
@@ -97,8 +95,8 @@ function build() {
   root.setAttribute('aria-label', 'Locked');
   document.body.append(root);
 
-  // Who is logged in, with the way to lock and a small options menu.
-  chip = buildChip({ lock: lockNow, logout: lockNow });
+  // Who is logged in, with the one lock button.
+  chip = buildChip({ lock: lockNow });
   document.body.append(chip.root);
 }
 
@@ -111,9 +109,8 @@ function say(text, bad = false) {
 function render() {
   const showChip = L.enforced && !L.locked && L.user;
   if (!root && !L.locked && !showChip) return; // nothing configured: nothing built
-  const welcomeName = L.user;
   if (L.enforced && L.locked) showLock();
-  else hideLock(welcomeName);
+  else hideLock();
   build();
   chip.update(L, showChip);
   if (showChip) placeChip();
@@ -157,15 +154,14 @@ function showLock() {
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
   pin = '';
-  paint();
+  welcoming = false;
+  clearFeedback();
   say('');
   const text = S.cfg?.brandText?.trim() || 'Sode';
   brand.textContent = text;
   const frame = document.querySelector('.sode__brandframe');
   if (frame?.dataset.brand) root.dataset.brand = frame.dataset.brand;
   else delete root.dataset.brand;
-  for (const a of welcome.getAnimations()) a.cancel();
-  welcome.hidden = true;
   // The page keeps its scroll through lock and unlock; focus moves must not
   // scroll it (desktop.js leaves its focus-scroll alone while this is set).
   if (root.hidden) scrolled = { x: window.scrollX, y: window.scrollY };
@@ -211,7 +207,7 @@ function closeModals() {
   }
 }
 
-function hideLock(name = '') {
+function hideLock() {
   if (!root || root.hidden) return;
   watch?.disconnect();
   clearTimeout(timer);
@@ -225,28 +221,53 @@ function hideLock(name = '') {
   // only once the longest of its transitions is over.
   const ms = motionMs();
   const out = ms * OUT_FACTOR;
-  if (wasOn) {
-    moveBrand('out');
-    if (ms && name && welcome.animate) {
-      welcome.textContent = `Welcome, ${name}`;
-      welcome.hidden = false;
-      welcome.animate(
-        [{ opacity: 0, transform: 'translateY(0.5rem)' }, { opacity: 1, transform: 'none', offset: 0.3 }, { opacity: 1, offset: 0.65 }, { opacity: 0, offset: 1 }],
-        { duration: out, easing: 'ease-out', fill: 'forwards' });
-    }
-  }
+  if (wasOn) moveBrand('out');
   clearTimeout(hideTimer);
   hideTimer = setTimeout(() => {
     root.hidden = true;
     for (const a of brand.getAnimations()) a.cancel();
-    for (const a of welcome.getAnimations()) a.cancel();
-    welcome.hidden = true;
     delete document.documentElement.dataset.sodeLock;
   }, out + 100);
   // The element that had focus before locking, if it is still on the page.
   if (before?.isConnected) before.focus?.({ preventScroll: true });
   before = null;
   if (scrolled && (window.scrollX !== scrolled.x || window.scrollY !== scrolled.y)) window.scrollTo({ left: scrolled.x, top: scrolled.y, behavior: 'instant' });
+}
+
+// ---- the field: dots, and "Incorrect" / "Welcome, <name>" in their place
+
+let fbTimer = 0;
+let welcoming = false; // a correct PIN: keys do nothing until the unlock runs
+let settle = null; // the unlock waiting for its welcome to be read
+
+// Puts text in the dots' place, with a short fade (and, for a wrong PIN, a
+// shake that restarts every time). Reduced motion: only the text.
+function feedback(text, kind, ms = 0, shake = false) {
+  clearTimeout(fbTimer);
+  dotsEl.textContent = text;
+  dotsEl.className = `sode-lock__dots is-text is-${kind}`;
+  dotsEl.removeAttribute('aria-hidden');
+  dotsEl.setAttribute('role', 'status');
+  if (motionMs() && dotsEl.animate) {
+    for (const a of dotsEl.getAnimations()) a.cancel();
+    dotsEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+    if (shake) {
+      dotsEl.animate(
+        [{ transform: 'translateX(0)' }, { transform: 'translateX(-0.6rem)' }, { transform: 'translateX(0.6rem)' }, { transform: 'translateX(-0.4rem)' }, { transform: 'translateX(0.4rem)' }, { transform: 'translateX(0)' }],
+        { duration: 400, easing: 'ease-in-out' });
+    }
+  }
+  if (ms) fbTimer = setTimeout(() => { clearFeedback(); paint(); }, ms);
+}
+
+function clearFeedback() {
+  clearTimeout(fbTimer);
+  if (!dotsEl) return;
+  for (const a of dotsEl.getAnimations()) a.cancel();
+  dotsEl.className = 'sode-lock__dots';
+  dotsEl.removeAttribute('role');
+  dotsEl.setAttribute('aria-hidden', 'true');
+  paint();
 }
 
 // ---- entering a PIN
@@ -261,6 +282,8 @@ const lens = () => [...new Set((S.cfg?.users || []).map((u) => u.len))];
 
 function press(k) {
   clearTimeout(timer);
+  if (welcoming) return;
+  if (dotsEl.classList.contains('is-text')) clearFeedback();
   if (k === 'enter') {
     // The check key and Enter send whatever is typed, if a user has that length.
     if (sendable(pin, lens())) sendPin();
@@ -292,11 +315,14 @@ onMsg('userUnlockResult', (m) => {
     return; // lockState follows
   }
   pin = '';
-  paint();
-  say(sentence(m.err), true);
+  const w = wrongFeedback(m.err);
+  clearFeedback();
+  feedback(w.text, 'bad', w.ms, true);
+  say(w.note, !!w.note);
 });
 
 onMsg('lockState', (m) => {
+  if (settle) settle(); // a welcome still showing: finish it first
   const was = L.enforced && L.locked;
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
@@ -309,11 +335,29 @@ onMsg('lockState', (m) => {
     // longer persistent, or revoked elsewhere): forget it.
     if (!L.user && readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
   }
-  render();
-  emit('access', { ...L });
-  // A page that asked for something while locked asks again (log.js).
-  if (was && !(L.enforced && L.locked)) emit('unlocked');
+  const done = () => {
+    settle = null;
+    welcoming = false;
+    render();
+    emit('access', { ...L });
+    // A page that asked for something while locked asks again (log.js).
+    if (was && !(L.enforced && L.locked)) emit('unlocked');
+  };
+  // A correct PIN: the field says who is welcome, then the unlock runs.
+  if (was && !L.locked && L.user && root && !root.hidden && root.classList.contains('is-on') && !welcoming) {
+    welcoming = true;
+    clearTimeout(timer);
+    feedback(`Welcome, ${L.user}`, 'ok');
+    say('');
+    const t = setTimeout(() => done(), WELCOME_MS);
+    settle = () => { clearTimeout(t); done(); };
+    return;
+  }
+  done();
 });
+
+// Settings' Account block: log out and change PIN.
+on('logout', () => lockNow());
 
 // ---- locking again
 
