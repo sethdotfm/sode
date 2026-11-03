@@ -70,7 +70,7 @@ test('salvoProblem', async () => {
 test('salvoPlan: one item per destination, default levels, unresolved left out and said', async () => {
   const { salvoPlan } = await setup();
   const plan = salvoPlan({ name: 'Show', items: [
-    { src: 0, dsts: [0, 1], levels: [] },
+    { src: 0, dsts: [0, 1], levels: [1, 2] },
     { src: 1, dsts: [1], levels: [3] },
     { src: 99, dsts: [2], levels: [] },
     { src: 2, dsts: [77], levels: [1, 9] },
@@ -109,4 +109,32 @@ test('itemsFromTakes and latestFolderTakes', async () => {
   ];
   assert.deepEqual(latestFolderTakes(hist).map((t) => t.dst), [5, 7]);
   assert.deepEqual(latestFolderTakes([{ id: 2, src: 9, dst: 9, levels: [1], ext: true }]), []);
+});
+
+test('conflicts: different sources, one destination, overlapping levels', async () => {
+  const { salvoProblem, salvoPlan } = await setup();
+  const s = (...items) => ({ name: "x", items });
+  const it = (src, dsts, levels = []) => ({ src, dsts, levels });
+  const bad = s(it(0, [1]), it(2, [1], [1]));
+  assert.match(salvoProblem(bad), /Destination 2 is taken from both source 1 and source 3/);
+  assert.ok(salvoProblem(s(it(0, [1], [1, 2]), it(2, [1], [2, 3]))));
+  // Disjoint levels, other destinations and the same source are fine.
+  assert.equal(salvoProblem(s(it(0, [1], [1, 2]), it(2, [1], [3, 4]))), "");
+  assert.equal(salvoProblem(s(it(0, [1]), it(2, [3]))), "");
+  assert.equal(salvoProblem(s(it(0, [1]), it(0, [1]))), "");
+  // An old salvo saved before the check: the plan carries the error and no takes.
+  const p = salvoPlan(bad, [1, 2]);
+  assert.ok(p.error);
+  assert.equal(p.items.length, 0);
+  assert.equal(salvoPlan(s(it(0, [1], [1, 2]), it(2, [1], [3])), [1, 2]).error, "");
+});
+
+test('total destinations are capped at 200', async () => {
+  const { salvoProblem, salvoPlan } = await setup();
+  const dsts = (a, n) => Array.from({ length: n }, (_, i) => a + i);
+  const ok = { name: "x", items: [{ src: 0, dsts: dsts(0, 100), levels: [] }, { src: 0, dsts: dsts(100, 100), levels: [] }] };
+  assert.equal(salvoProblem(ok), "");
+  const big = { name: "x", items: [...ok.items, { src: 0, dsts: [500], levels: [] }] };
+  assert.match(salvoProblem(big), /at most 200 destinations in total/);
+  assert.ok(salvoPlan(big, [1]).error);
 });

@@ -21,6 +21,7 @@ export function fire(scope, name) {
   if (!s) return;
   if (!S.srcBy.size) return showResult('warn', 'Salvo not sent', 'The router’s names have not loaded yet.');
   const plan = salvoPlan(s, defaults());
+  if (plan.error) return showResult('error', `Salvo ${s.name} not sent`, plan.error);
   if (!plan.items.length) {
     return showResult('error', `Salvo ${s.name} not sent`, plan.missing.length ? plan.missing.join('; ') + '.' : 'It has no takes.');
   }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -13,6 +14,12 @@ const (
 	MaxSalvoItems    = 100
 	MaxSalvoDsts     = 100
 	MaxSalvoLevelNum = 64
+	// MaxSalvoTotal caps the destinations over all of a salvo's items (its
+	// takes), so one batch stays well under the 64 KiB WebSocket read limit.
+	MaxSalvoTotal = 200
+	// MaxSalvosBytes caps all salvos as JSON, so a "salvos" message (which
+	// carries the whole list) fits the 64 KiB read limit with room to spare.
+	MaxSalvosBytes = 48 << 10
 )
 
 // Salvo is a named set of takes sent together as one confirm: each item
@@ -98,6 +105,16 @@ func (c Config) validateSalvos() []error {
 		if len(s.Items) > MaxSalvoItems {
 			bad("salvo %q: at most %d sources", s.Name, MaxSalvoItems)
 		}
+		total := 0
+		for _, it := range s.Items {
+			total += len(it.Dsts)
+		}
+		if total > MaxSalvoTotal {
+			bad("salvo %q: a salvo can take at most %d destinations in total", s.Name, MaxSalvoTotal)
+		}
+		if err := salvoConflict(s); err != nil {
+			errs = append(errs, err)
+		}
 		for _, it := range s.Items {
 			if it.Src < 0 || it.Src > 0xFFFE {
 				bad("salvo %q: source %d is out of range", s.Name, it.Src)
@@ -120,5 +137,40 @@ func (c Config) validateSalvos() []error {
 			}
 		}
 	}
+	if b, err := json.Marshal(c.Salvos); err == nil && len(b) > MaxSalvosBytes {
+		bad("salvos are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxSalvosBytes>>10)
+	}
 	return errs
+}
+
+// salvoConflict reports two items that take different sources to the same
+// destination on overlapping levels (empty levels = the default levels,
+// which overlap with everything): they would race. The same source twice is
+// fine; it merges.
+func salvoConflict(s Salvo) error {
+	for i, a := range s.Items {
+		for _, b := range s.Items[i+1:] {
+			if a.Src == b.Src || !levelsOverlap(a.Levels, b.Levels) {
+				continue
+			}
+			for _, d := range a.Dsts {
+				if slices.Contains(b.Dsts, d) {
+					return fmt.Errorf("salvo %q: destination %d is taken from both source %d and source %d on the same levels", s.Name, d, a.Src, b.Src)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func levelsOverlap(a, b []int) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return true
+	}
+	for _, l := range a {
+		if slices.Contains(b, l) {
+			return true
+		}
+	}
+	return false
 }

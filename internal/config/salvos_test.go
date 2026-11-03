@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -69,5 +70,84 @@ func TestSalvoRoundTrip(t *testing.T) {
 	d.Salvos[0].Items[0].Dsts[0] = 77
 	if c.Salvos[0].Items[0].Dsts[0] == 77 {
 		t.Fatal("clone shares dsts")
+	}
+}
+
+func TestSalvoTotalAndConflict(t *testing.T) {
+	item := func(src int, levels []int, dsts ...int) SalvoItem {
+		return SalvoItem{Src: src, Dsts: dsts, Levels: levels}
+	}
+	check := func(s Salvo) error {
+		c := Defaults()
+		c.Salvos = []Salvo{s}
+		c.Normalize()
+		return c.Validate()
+	}
+	many := func(n int) []int {
+		d := make([]int, n)
+		for i := range d {
+			d[i] = i
+		}
+		return d
+	}
+	// 200 in total across items is fine, 201 is not.
+	if err := check(Salvo{Name: "a", Items: []SalvoItem{item(1, nil, many(100)...), item(1, nil, many(100)...)}}); err != nil {
+		t.Errorf("200 total: %v", err)
+	}
+	if err := check(Salvo{Name: "a", Items: []SalvoItem{item(1, nil, many(100)...), item(1, nil, many(100)...), item(1, nil, 5)}}); err == nil || !strings.Contains(err.Error(), "200 destinations in total") {
+		t.Errorf("201 total: %v", err)
+	}
+	// Different sources, same destination: overlapping (or default) levels conflict.
+	if err := check(Salvo{Name: "a", Items: []SalvoItem{item(1, nil, 7), item(2, []int{1}, 7)}}); err == nil || !strings.Contains(err.Error(), "destination 7") {
+		t.Errorf("default vs level: %v", err)
+	}
+	if err := check(Salvo{Name: "a", Items: []SalvoItem{item(1, []int{1, 2}, 7), item(2, []int{2, 3}, 7)}}); err == nil {
+		t.Error("overlap on level 2 accepted")
+	}
+	// Disjoint levels, a different destination, or the same source are fine.
+	for _, s := range []Salvo{
+		{Name: "a", Items: []SalvoItem{item(1, []int{1, 2}, 7), item(2, []int{3, 4}, 7)}},
+		{Name: "a", Items: []SalvoItem{item(1, nil, 7), item(2, nil, 8)}},
+		{Name: "a", Items: []SalvoItem{item(1, nil, 7), item(1, nil, 7)}},
+	} {
+		if err := check(s); err != nil {
+			t.Errorf("%+v: %v", s, err)
+		}
+	}
+}
+
+func TestSalvosMessageFits(t *testing.T) {
+	// 30 salvos of 200 five-digit destinations each is a "salvos" message
+	// that must still fit the 64 KiB WebSocket read limit.
+	c := Defaults()
+	for i := 0; i < MaxSalvos; i++ {
+		d := make([]int, MaxSalvoTotal)
+		for j := range d {
+			d[j] = 60000 + j
+		}
+		c.Salvos = append(c.Salvos, Salvo{Name: strings.Repeat("n", 31) + string(rune('a'+i)),
+			Items: []SalvoItem{{Src: 65000, Dsts: d[:100]}, {Src: 65001, Dsts: d[100:]}}})
+	}
+	c.Normalize()
+	if err := c.Validate(); err != nil {
+		t.Fatalf("max-size salvos rejected: %v", err)
+	}
+	b, _ := json.Marshal(map[string]any{"t": "salvos", "id": 99999, "salvos": c.Salvos})
+	if len(b) >= 64<<10 {
+		t.Fatalf("message is %d bytes", len(b))
+	}
+	// Heavy levels go past the byte cap: refused with a message, not a dropped socket.
+	for i := range c.Salvos {
+		c.Salvos[i].Items = nil
+		for j := 0; j < MaxSalvoItems; j++ {
+			lv := make([]int, 64)
+			for k := range lv {
+				lv[k] = k + 1
+			}
+			c.Salvos[i].Items = append(c.Salvos[i].Items, SalvoItem{Src: j, Dsts: []int{j}, Levels: lv})
+		}
+	}
+	if err := c.Validate(); err == nil {
+		t.Fatal("oversized salvos accepted")
 	}
 }

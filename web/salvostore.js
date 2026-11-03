@@ -35,7 +35,7 @@ export const findSalvo = (scope, name) =>
 export function nameProblem(list, name, old = '') {
   const n = name.trim();
   if (!n) return 'Give the salvo a name.';
-  if (n.length > 32) return 'Names are at most 32 characters.';
+  if ([...n].length > 32) return 'Names are at most 32 characters.';
   if (list.some((s) => s.name.toLowerCase() === n.toLowerCase() && s.name.toLowerCase() !== old.toLowerCase())) {
     return `There is already a salvo named “${n}”.`;
   }
@@ -52,8 +52,30 @@ export const salvoProblem = (s) => {
     if (!it.dsts.length) return 'Every row needs a destination.';
     if (it.dsts.length > MAX_DSTS) return `At most ${MAX_DSTS} destinations per source.`;
   }
-  return '';
+  return salvoTotalProblem(s) || salvoConflict(s);
 };
+
+export const MAX_TOTAL = 200;
+export const salvoTotalProblem = (s) =>
+  (s.items.reduce((a, it) => a + it.dsts.length, 0) > MAX_TOTAL ? `A salvo can take at most ${MAX_TOTAL} destinations in total.` : '');
+
+// Two items taking different sources to one destination on overlapping
+// levels (blank = the default levels, which overlap with everything) would
+// race. The same source twice merges, so it is fine. '' or a message.
+export function salvoConflict(s) {
+  const clash = (a, b) => !a.length || !b.length || a.some((l) => b.includes(l));
+  for (let i = 0; i < s.items.length; i++) {
+    for (const b of s.items.slice(i + 1)) {
+      const a = s.items[i];
+      if (a.src === b.src || !clash(a.levels, b.levels)) continue;
+      const d = a.dsts.find((x) => b.dsts.includes(x));
+      if (d != null) {
+        return `Destination ${d + off()} is taken from both source ${a.src + off()} and source ${b.src + off()} on the same levels.`;
+      }
+    }
+  }
+  return '';
+}
 
 // Replaces this browser's salvo `old` (or adds, when old is '') with s.
 export function saveLocalSalvo(s, old = '') {
@@ -132,9 +154,12 @@ export function salvoPlan(salvo, defaults) {
   }, defaults);
   const num = (n) => String(n + off());
   const lines = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${num(m.n)} does not exist`) + ' on the router now');
+  // plan.error: a salvo saved before these checks existed; nothing is sent.
+  const takes = r.takes.reduce((a, t) => a + t.groups.length, 0);
+  const error = salvoConflict(salvo) || (takes > MAX_TOTAL ? salvoTotalProblem({ items: [{ dsts: new Array(takes) }] }) : salvoTotalProblem(salvo));
   return {
-    verb: 'salvo', salvo: salvo.name, missing: lines,
-    items: r.takes.map((t) => ({
+    verb: 'salvo', salvo: salvo.name, missing: lines, error,
+    items: error ? [] : r.takes.map((t) => ({
       dst: dstItem(t.dst), skipped: [], untouched: [], undo: null, retry: null,
       groups: t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })),
     })),
