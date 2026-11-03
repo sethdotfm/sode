@@ -27,6 +27,7 @@ const FILTER_KEY = 'sode-log-filter';
 const KIND_LABEL = {
   connect: 'Connect', interrogate: 'Interrogate', keepalive: 'Keepalive', tallyDump: 'Tally dump',
   protectDump: 'Protect dump', srcNames: 'Source names', dstNames: 'Destination names', other: 'Other',
+  salvoStage: 'Salvo stage', salvoGo: 'Salvo go',
   browser: 'Browser', command: 'Command', link: 'Router link', server: 'Sode',
 };
 const WHY_LABEL = {
@@ -34,7 +35,7 @@ const WHY_LABEL = {
   resync: 'Resync', names: 'Name refresh', keepalive: 'Link check',
   connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
   clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved', salvos: 'Salvos saved', grids: 'Grids saved',
-  unlock: 'Settings PIN', lock: 'Settings locked',
+  unlock: 'Settings PIN', lock: 'Settings locked', salvo: 'Native salvo',
   userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password', users: 'Users saved',
 };
 // Events, not messages to the router: no command byte, no bytes.
@@ -62,7 +63,7 @@ function saveFilter() {
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const EVENT_PROBLEM = { command: ['refused', 'locked', 'error'], link: ['down'] };
+const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], link: ['down'] };
 const problem = (e) => (isEvent(e) ? !!EVENT_PROBLEM[e.kind]?.includes(e.result) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
