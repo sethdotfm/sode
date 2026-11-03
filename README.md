@@ -104,6 +104,16 @@ docker compose exec sode /sode -reset-pin && docker compose restart sode
 
 or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
+### Users and locks (optional)
+
+Off by default: with no users and no locks Sode behaves as before. Settings → Users adds people (a name and a 4-12 digit PIN each; PINs must differ, since the PIN alone says who) and turns on locks per page type: the main screen, Grid pages and the Communication Log. A locked page opens behind a lock screen with a number pad; it unlocks the moment the typed PIN matches, no Enter. The server enforces it per WebSocket connection: until a connection unlocks as a user it is refused takes, name refreshes, clearing history, settings and filter sets, and (on the log) the sent log and uptime graph. `/healthz` and `/api/health` stay open. The user's name replaces the IP in history and in the log.
+
+- **Lock again:** Ctrl+L, the Lock button in the corner, or after the idle minutes set in Settings (0 = never). A dropped connection also locks, since unlocking belongs to the connection.
+- **Admin password:** the settings PIN, entered from the lock screen, gives that browser a random token (kept in its localStorage, and, hashed, in `tokens.json` next to the config file) that skips the locks. Changing or removing the settings PIN revokes every token. The corner button on such a browser ("Forget") drops its token.
+- **Wrong PINs** from users, the admin password and the settings PIN share one count and one backoff (see above), so switching between them gains a guesser nothing. A PIN with a length no user has isn't counted; with users of different lengths a PIN is sent half a second after the last digit.
+- **Locked yourself out?** Stop Sode and set `locks:` to all `false` in `/data/config.yaml` (or remove `users:`), then start it. Users are `users: [{name, pin (hash), len}]`; set PINs in Settings, not by hand.
+- **Limits:** the browser declares its page type, which can only add the Grid lock to takes, never skip the main lock (so with the main lock on, a Grid page needs an unlock too). Idle auto-lock runs in the page. Reading the state Sode sends on connect (names, routes, recent history) is not locked.
+
 ## Monitoring (Uptime Kuma)
 
 `GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:
