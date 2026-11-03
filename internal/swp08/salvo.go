@@ -4,8 +4,10 @@ package swp08
 // 8.2.5 (122), 8.2.6 (123). They use the standard (non-extended) layout: a
 // 4-bit matrix and level, 10-bit destination and source numbers, a salvo
 // group 0-127. Verified on a Ross Ultrix (2026-11-02): 120 is answered by
-// 122 echoing its data, 121 by 123, both in about 5-7 ms; a Go sends no
-// Connected, and every staged crosspoint changes on the same frame.
+// 122 echoing its data, 121 by 123, both in about 5-7 ms. A Go's
+// crosspoints are sometimes announced with ordinary Connecteds (about 4 ms
+// apart, from ~100 ms after the Go) and sometimes not. The extended stage
+// 248 (answered by 250) also works and is fired by the same Go; not used yet.
 const (
 	CmdConnectOnGo    = 120 // stage a crosspoint in a salvo group
 	CmdGoSalvo        = 121 // set (fire) or clear a group's staged crosspoints

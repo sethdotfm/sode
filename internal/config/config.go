@@ -39,7 +39,7 @@ type Config struct {
 	NameRequests    string `yaml:"nameRequests" json:"nameRequests"` // std | ext
 	// FireMode is how a confirm of several takes is sent: "sequential" (one
 	// extended connect after another) or "native" (a SW-P-08 group salvo,
-	// so they land on the same frame; app/fire.go). SalvoGroup is the group
+	// set with one Go, so they land much closer together; app/fire.go). SalvoGroup is the group
 	// (0-127) native salvos stage in: the router's list is shared by every
 	// client, so it must be one only Sode uses.
 	FireMode           string   `yaml:"fireMode" json:"fireMode"`
