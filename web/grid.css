@@ -72,6 +72,9 @@
 .sode-grid__cell--src { border-left: var(--sode-side-w) solid var(--pb-source); }
 .sode-grid__cell--dst { border-left: var(--sode-side-w) solid var(--pb-dest); }
 .sode-grid__cell--salvo { border-left: var(--sode-side-w) solid var(--pb-accent); }
+.sode-grid__cell--confirm { border-left: var(--sode-side-w) solid var(--pb-status-ok); justify-content: center; }
+/* A spacer: an empty slot that only holds its place. */
+.sode-grid__spacer-cell { min-height: 5.5rem; min-width: 0; }
 .sode-grid__cell[aria-pressed="true"] {
   background: var(--pb-accent-wash);
   border-color: var(--pb-accent);
@@ -151,6 +154,8 @@
 .sode-ged__sq--src { border: var(--pb-border-w) solid var(--pb-edge); border-left: var(--sode-side-w) solid var(--pb-source); }
 .sode-ged__sq--dst { border: var(--pb-border-w) solid var(--pb-edge); border-left: var(--sode-side-w) solid var(--pb-dest); }
 .sode-ged__sq--salvo { border: var(--pb-border-w) solid var(--pb-edge); border-left: var(--sode-side-w) solid var(--pb-accent); }
+.sode-ged__sq--confirm { border: var(--pb-border-w) solid var(--pb-edge); border-left: var(--sode-side-w) solid var(--pb-status-ok); }
+.sode-ged__sq--spacer { border-style: solid; color: var(--pb-text-muted); }
 .sode-ged__sq--joined { background: var(--pb-surface-raised); border-style: solid; }
 .sode-ged__sq--sel {
   background: var(--pb-accent-wash);

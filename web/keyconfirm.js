@@ -67,6 +67,7 @@ export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
     key(e) {
       e.preventDefault();
       e.stopPropagation();
+      if (!cur) return;
       if (e.key === 'Escape') return api.close(true);
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       // Space ticks the box that adds an undo's follows.
