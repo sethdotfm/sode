@@ -36,7 +36,7 @@ const WHY_LABEL = {
   connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
   clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved', salvos: 'Salvos saved',
   unlock: 'Settings PIN', lock: 'Settings locked', salvo: 'Native salvo',
-  userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password', users: 'Users saved',
+  userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password (old rows)', users: 'Users saved',
 };
 // Events, not messages to the router: no command byte, no bytes.
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
