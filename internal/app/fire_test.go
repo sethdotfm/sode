@@ -1,9 +1,12 @@
 package app
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -17,10 +20,17 @@ type fakeSalvo struct {
 	loseStage bool // stages, but never answers with 122
 	noGoAck   bool // carries out a Go set, but never answers it
 	wipe      bool // the group is emptied (someone else's clear) just before each Go set
-	staged    map[int][]swp08.Staged
-	goes      int    // Go sets carried out
-	mixed     bool   // a Go set crosspoints of more than one source
-	seq       []byte // c clear, s stage, g go, in order
+	// announce: after a Go set, a Connected for each staged crosspoint that
+	// changed (0 = none, as the Ultrix sometimes; 1 = all; 2 = every other
+	// one), in destination and level order, 4 ms apart, from announceAfter
+	// on (the Ultrix's: ~100 ms). pending is those still to come.
+	announce      int
+	announceAfter time.Duration
+	pending       sync.WaitGroup
+	staged        map[int][]swp08.Staged
+	goes          int    // Go sets carried out
+	mixed         bool   // a Go set crosspoints of more than one source
+	seq           []byte // c clear, s stage, g go, in order
 }
 
 // salvoMsg handles 120 and 121. Caller holds f.mu.
@@ -56,19 +66,81 @@ func (f *fakeRouter) salvoMsg(m []byte) {
 		delete(s.staged, g)
 	}
 	st := swp08.GoNothing
+	var tell []swp08.Staged
 	if xs := s.staged[g]; len(xs) > 0 {
 		st = swp08.GoSet
 		s.goes++
 		for _, x := range xs {
-			f.tally[[2]int{x.Dst, x.Level}] = x.Src // all at once, announced to nobody
+			k := [2]int{x.Dst, x.Level}
+			if old, ok := f.tally[k]; !ok || old != x.Src {
+				tell = append(tell, x)
+			}
+			f.tally[k] = x.Src // all at once
 			if x.Src != xs[0].Src {
 				s.mixed = true
 			}
 		}
 	}
+	f.announceGo(tell)
 	delete(s.staged, g)
 	if !s.noGoAck {
 		f.out <- swp08.GoDoneAck(st, g)
+	}
+}
+
+// announceGo sends the Connecteds of a Go set, per announce. Caller holds f.mu.
+func (f *fakeRouter) announceGo(xs []swp08.Staged) {
+	s := &f.salvo
+	if s.announce == 0 || len(xs) == 0 {
+		return
+	}
+	slices.SortFunc(xs, func(a, b swp08.Staged) int { return cmp.Or(a.Dst-b.Dst, a.Level-b.Level) })
+	var tell []swp08.Staged
+	for i, x := range xs {
+		if s.announce == 1 || i%2 == 0 {
+			tell = append(tell, x)
+		}
+	}
+	after := s.announceAfter
+	s.pending.Add(1)
+	go func() {
+		defer s.pending.Done()
+		time.Sleep(after)
+		for _, x := range tell {
+			f.out <- swp08.ExtConnected(x.Matrix, x.Level, x.Dst, x.Src)
+			time.Sleep(4 * time.Millisecond)
+		}
+	}()
+}
+
+// settle waits for the Go's Connecteds to have been sent and handled.
+func (f *fakeRouter) settle() {
+	f.salvo.pending.Wait()
+	for len(f.out) > 0 {
+		time.Sleep(time.Millisecond)
+	}
+	time.Sleep(20 * time.Millisecond) // the last one handled
+}
+
+// fireLeftovers fails if a fired batch left a waiter behind, or own keys
+// other than those of staged levels a tally confirmed, which last only
+// salvoAnnounceFor from the Go and then expire with nothing logged.
+func fireLeftovers(t *testing.T, a *App) {
+	t.Helper()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(a.waiters) != 0 {
+		t.Fatalf("left behind: %d waiters", len(a.waiters))
+	}
+	later := time.Now().Add(salvoAnnounceFor + 50*time.Millisecond)
+	for k, until := range a.ext.own {
+		if until.After(later) {
+			t.Fatalf("own key %v lasts until %v, past the Go's Connecteds", k, until)
+		}
+	}
+	a.ext.ownership.expire(later)
+	if len(a.ext.own) != 0 {
+		t.Fatalf("own keys left after expiry: %v", a.ext.own)
 	}
 }
 
@@ -122,9 +194,30 @@ func (f *fakeRouter) salvoSeq() string {
 	return string(f.salvo.seq)
 }
 
+// The Ultrix sometimes announces a Go's crosspoints and sometimes not: the
+// takes come out the same either way.
 func TestNativeFire(t *testing.T) {
 	t.Parallel()
+	for _, c := range []struct {
+		name     string
+		announce int
+		after    time.Duration
+	}{
+		{"no Connected", 0, 0},
+		{"all late", 1, 100 * time.Millisecond},
+		{"some late", 2, 100 * time.Millisecond},
+		{"all at once", 1, 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testNativeFire(t, c.announce, c.after)
+		})
+	}
+}
+
+func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	a, f := nativeApp(t, 3)
+	f.salvo.announce, f.salvo.announceAfter = announce, after
 	f.seed(5, 1, 0, 1, 2)
 	f.seed(6, 1, 0, 1, 2)
 	f.seed(7, 1, 0, 1)
@@ -155,15 +248,36 @@ func TestNativeFire(t *testing.T) {
 			t.Fatalf("dst %d prev %v, want %v", e.Dst, e.Prev, want)
 		}
 	}
-	leftovers(t, a)
+	f.settle()
+	if announce == 1 {
+		// Every key was used up by its Connected.
+		leftovers(t, a)
+	}
+	fireLeftovers(t, a)
 	a.mu.Lock()
 	for _, c := range a.ext.causes {
 		if c.first.IsZero() || c.sent.IsZero() {
 			t.Errorf("cause not marked at the Go: %+v", c)
 		}
+		// A late Connected is one of the take's changes: what follows the
+		// destination then still follows the take.
+		if announce != 0 && after > 0 && c.last.Sub(c.first) < after/2 {
+			t.Errorf("late Connected not seen as the take's change: %+v", c)
+		}
 	}
 	a.mu.Unlock()
-	// The confirming tallies are ours: nothing logged as made elsewhere.
+	// The batch's timing is logged.
+	timed := false
+	for len(a.evq) > 0 {
+		if e := <-a.evq; e.Why == "salvo" && strings.Contains(e.Note, "9 of 9 crosspoints confirmed, the last") {
+			timed = true
+		}
+	}
+	if !timed {
+		t.Error("no salvo timing event")
+	}
+	// The confirming tallies and Connecteds are ours: nothing logged as
+	// made elsewhere, nor found.
 	endBurst(a)
 	if n := a.hist.Len(); n != 3 {
 		t.Fatalf("%d entries, want the 3 takes", n)
@@ -198,7 +312,7 @@ func TestNativeFits(t *testing.T) {
 	if n := f.cmds(swp08.CmdExtConnect); n != 3 {
 		t.Fatalf("%d connects for level 17, want 3", n)
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 	endBurst(a)
 	if n := a.hist.Len(); n != 3 {
 		t.Fatalf("entries %d", n)
@@ -223,7 +337,7 @@ func TestNativeFits(t *testing.T) {
 			t.Fatalf("take %+v", e)
 		}
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 
 	// Only level 17: nothing to stage, all sequential.
 	n := f.cmds(swp08.CmdGoSalvo)
@@ -286,7 +400,7 @@ func TestNativeNoStageAck(t *testing.T) {
 	if n := f.cmds(swp08.CmdExtConnect); n != 6 {
 		t.Fatalf("%d connects, want 6", n)
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 	endBurst(a)
 	if n := a.hist.Len(); n != 2 {
 		t.Fatalf("entries %d", n)
@@ -313,7 +427,7 @@ func TestNativeUnsupported(t *testing.T) {
 	if n := f.cmds(swp08.CmdExtConnect); n != 2 {
 		t.Fatalf("%d connects", n)
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 }
 
 // A protected destination is refused as ever and left out of the salvo.
@@ -347,7 +461,7 @@ func TestNativeProtected(t *testing.T) {
 	if on != 1 {
 		t.Fatalf("protected dst 6 switched to %d", on)
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 }
 
 // One take is sent as today, even in native mode; so is a batch whose
@@ -373,7 +487,7 @@ func TestNativeSingleTake(t *testing.T) {
 			t.Fatalf("take %+v", e)
 		}
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 }
 
 // Two batches at once: their salvos never mix in the router's group.
@@ -412,7 +526,7 @@ func TestNativeFireLock(t *testing.T) {
 			t.Fatalf("take %+v", e)
 		}
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 }
 
 // No 123 for the Go: it is never sent again, nor followed by connects; the
@@ -435,7 +549,7 @@ func TestNativeNoGoAck(t *testing.T) {
 	if n := f.cmds(swp08.CmdExtConnect); n != 0 {
 		t.Fatalf("%d connects after a Go", n)
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 }
 
 // Someone else clears the group before the Go: 123 says nothing was set.
@@ -455,5 +569,5 @@ func TestNativeGoNothing(t *testing.T) {
 	if n := f.cmds(swp08.CmdExtConnect); n != 0 || f.salvoSeq() != "cssgc" {
 		t.Fatalf("%d connects, salvo %q", n, f.salvoSeq())
 	}
-	leftovers(t, a)
+	fireLeftovers(t, a)
 }

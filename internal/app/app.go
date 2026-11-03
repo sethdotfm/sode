@@ -379,9 +379,17 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
 		// A changed route the router didn't announce shows up in a
 		// dump or an interrogate: noted too, unless it's ours.
-		if a.classify(xp, l.UI, known) == verdictExt {
+		switch a.classify(xp, l.UI, known) {
+		case verdictExt:
 			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
+		case verdictOurs:
+			a.sawOwn(xp)
 		}
+	} else if xp.Changed() && a.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
+		// Our route, already in the cache from a tally: a native salvo's
+		// Connected that came after the interrogate's answer (fire.go). It
+		// uses its key up, and the take's changes run until now.
+		a.sawOwn(xp)
 	}
 	for w := range a.waiters {
 		if w.see(xp) && xp.Changed() {
