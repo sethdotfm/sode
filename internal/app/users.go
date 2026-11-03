@@ -90,6 +90,14 @@ type lockStateMsg struct {
 	Enforced bool   `json:"enforced"` // this page type has a lock on
 	Locked   bool   `json:"locked"`
 	User     string `json:"user,omitempty"`
+	// Lens: the PIN lengths some user has, so the lock pad knows when a PIN
+	// can be complete. It rides every lock state (a PIN change sends one to
+	// everyone) so a pad never works from a stale list.
+	Lens []int `json:"lens,omitempty"`
+	// Hi: this is the answer to the page's own `hi`. Only that one says
+	// whether its session token was honored; an unsolicited state (a config
+	// save by someone else) may arrive first and says nothing about it.
+	Hi bool `json:"hi,omitempty"`
 	// Trusted: the user may save low-risk settings without the settings PIN;
 	// the page only hides its PIN prompt for it, the server decides.
 	Trusted bool `json:"trusted,omitempty"`
@@ -111,17 +119,23 @@ func (a *App) lockStateLocked(c *client) lockStateMsg {
 		m.User, m.Trusted, m.Persistent = u.Name, u.Trusted, u.Persistent
 	}
 	m.Locked = m.Enforced && m.User == ""
+	m.Lens = cfg.PinLens()
 	return m
 }
 
 // syncAccessLocked brings c up to date after anything that can change what it
 // may do (a lock, an unlock, a config change): it queues c's lock state and
 // stops the sent-log feed if c may no longer read it. Caller holds mu.
-func (a *App) syncAccessLocked(c *client) {
+func (a *App) syncAccessLocked(c *client) { a.pushAccessLocked(c, false) }
+
+// pushAccessLocked is syncAccessLocked; hi marks the answer to a `hi`.
+func (a *App) pushAccessLocked(c *client, hi bool) {
 	if !a.pageAllowedLocked(c, gateLog) {
 		c.sent = false
 	}
-	b, _ := json.Marshal(a.lockStateLocked(c))
+	m := a.lockStateLocked(c)
+	m.Hi = hi
+	b, _ := json.Marshal(m)
 	a.deliver(c, b)
 }
 
@@ -145,7 +159,7 @@ func (a *App) Hi(c *client, page, token string) {
 		c.u.user.Store(&u)
 		c.u.token = token
 	}
-	a.syncAccessLocked(c)
+	a.pushAccessLocked(c, true)
 	a.mu.Unlock()
 }
 

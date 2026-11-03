@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -122,4 +123,16 @@ func (c Config) validateUsers() []error {
 		bad("auto-lock must be 0 (never) or 1-%d minutes", MaxAutoLockMin)
 	}
 	return errs
+}
+
+// PinLens is the distinct PIN lengths of the users that have a PIN, sorted.
+func (c Config) PinLens() []int {
+	var out []int
+	for _, u := range c.Users {
+		if u.Len > 0 && !slices.Contains(out, u.Len) {
+			out = append(out, u.Len)
+		}
+	}
+	slices.Sort(out)
+	return out
 }

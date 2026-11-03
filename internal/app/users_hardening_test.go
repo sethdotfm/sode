@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -372,5 +373,64 @@ func TestHardeningOverWebSocket(t *testing.T) {
 	}
 	if resp != nil && resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status %d", resp.StatusCode)
+	}
+}
+
+// register adds a client with a buffered queue and returns a reader of the
+// lockState messages sent to it.
+func register(a *App, c *client) func() []map[string]any {
+	a.mu.Lock()
+	c.send = make(chan []byte, 16)
+	a.clients[c] = struct{}{}
+	a.mu.Unlock()
+	return func() []map[string]any {
+		var out []map[string]any
+		for {
+			select {
+			case b := <-c.send:
+				var m map[string]any
+				json.Unmarshal(b, &m)
+				if m["t"] == "lockState" {
+					out = append(out, m)
+				}
+			default:
+				return out
+			}
+		}
+	}
+}
+
+// The pad's lengths come with every lock state, so a PIN change reaches every
+// open page (the lock screen of a wall panel included).
+func TestLockStateCarriesPinLengthsAfterPinChange(t *testing.T) {
+	a := userApp(t, true)
+	c, other := &client{ip: "10.0.0.1"}, &client{ip: "10.0.0.2"}
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatal(err)
+	}
+	read := register(a, other)
+	a.syncAccess(other)
+	if got := read(); len(got) != 1 || !reflect.DeepEqual(got[0]["lens"], []any{float64(4), float64(6)}) {
+		t.Fatalf("lens before: %v", got)
+	}
+	if err := a.UserSetPin(c, "1234", "12345678"); err != nil {
+		t.Fatal(err)
+	}
+	got := read()
+	if len(got) == 0 || !reflect.DeepEqual(got[len(got)-1]["lens"], []any{float64(6), float64(8)}) {
+		t.Fatalf("lens after the change: %v", got)
+	}
+}
+
+// Only the answer to a page's own hi says whether its token was honored.
+func TestOnlyTheAnswerToHiIsMarkedHi(t *testing.T) {
+	a := userApp(t, true)
+	c := &client{ip: "10.0.0.1"}
+	read := register(a, c)
+	a.syncAccess(c) // someone else's config save reaches it first
+	a.Hi(c, "main", "no such token")
+	got := read()
+	if len(got) != 2 || got[0]["hi"] != nil || got[1]["hi"] != true {
+		t.Fatalf("lockStates: %v", got)
 	}
 }

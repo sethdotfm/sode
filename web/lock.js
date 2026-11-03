@@ -38,15 +38,13 @@ const page = pageType(location.pathname);
 }
 
 // What the server last said about this connection.
-const L = { enforced: false, locked: false, user: '', trusted: false, persistent: false };
+const L = { enforced: false, locked: false, user: '', trusted: false, persistent: false, lens: [] };
 export const lockState = () => ({ ...L });
 
 let hiFor = null; // the socket `hi` was sent on
-let hiPending = false;
 on('conn', () => {
   if (S.wsState !== 'up' || S.ws === hiFor) return;
   hiFor = S.ws;
-  hiPending = true;
   wsSend({ t: 'hi', page, token: readStr(TOKEN_KEY) || '' });
 });
 
@@ -304,7 +302,7 @@ function paint() {
   checkKey.disabled = !sendable(pin, lens());
 }
 
-const lens = () => [...new Set((S.cfg?.users || []).map((u) => u.len))];
+const lens = () => L.lens;
 
 function press(k) {
   clearTimeout(timer);
@@ -362,16 +360,16 @@ onMsg('lockState', (m) => {
   L.user = m.user || '';
   L.trusted = !!m.trusted;
   L.persistent = !!m.persistent;
+  L.lens = m.lens || [];
   if (L.enforced && soft) { // a lock that is enforced now: the PIN replaces the hand lock
     soft.lock.cancel();
     soft = null;
   }
-  if (hiPending) {
-    hiPending = false;
-    // A token the server no longer honors (PIN changed, user removed or no
-    // longer persistent, or revoked elsewhere): forget it.
-    if (!L.user && readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
-  }
+  // The answer to our `hi` says whether the token was honored; a state sent
+  // for another reason (someone else saved settings) says nothing about it.
+  // A token the server no longer honors (PIN changed, user removed or no
+  // longer persistent, or revoked elsewhere) is forgotten.
+  if (m.hi && !L.user && readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
   const done = () => {
     settle = null;
     welcoming = false;
