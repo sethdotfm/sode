@@ -374,12 +374,24 @@ export function nextTake() {
   return { src: nextOf(t.src, S.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
 }
 
+// A name without its counter: trailing digits and single letters set apart
+// by a space ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon").
+export function nameStem(name) {
+  let s = name.trim();
+  for (let prev = ''; s !== prev;) {
+    prev = s;
+    s = s.replace(/\s+[A-Za-z]$/, '').replace(/[\s\d]+$/, '');
+  }
+  return s;
+}
+
 // The item after it: number + 1, or with pref nextMode fuzzy the next one in
 // router order that the name's text matches ("Cam 3" → search "Cam" → the
-// first higher match). Falls back to the number when the name is only digits.
+// first higher match; "Prmpt A" → "Prmpt B"). Falls back to the number when
+// the name is only a counter.
 function nextOf(it, by) {
   if (pref('nextMode') === 'fuzzy') {
-    const q = (it.name || '').replace(/[\s\d]+$/, '').trim();
+    const q = nameStem(it.name || '');
     if (q) {
       const all = [...by.values()];
       return search(all, q, all.length).filter((x) => x.n > it.n).sort((a, b) => a.n - b.n)[0] || null;
