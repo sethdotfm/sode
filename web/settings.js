@@ -606,10 +606,6 @@ on('locked', () => {
 });
 on('configResult', configResult);
 
-// The lock screen is coming down (lock.js): leave Settings. An unsaved form
-// keeps its warning and stays, covered.
-on('locking', () => { if (isOpen()) exitSettings(); });
-
 // ---- settings search: the box above the table of contents. Hits are the
 // sections and the individual settings (settingsindex.js); picking one
 // scrolls to it, focuses a control and outlines it with a "Found" tag for a
@@ -650,15 +646,12 @@ function unflash() {
   clearTimeout(flashTimer);
   if (!flashed) return;
   flashed.node.classList.remove('sode__is-found');
-  flashed.tag.remove();
   flashed = null;
 }
 function flash(node) {
   unflash();
-  const tag = el('span', 'sode__found-tag', 'Found');
-  (node.matches('fieldset') ? node.querySelector('legend') : node).prepend(tag);
   node.classList.add('sode__is-found');
-  flashed = { node, tag };
+  flashed = { node };
   flashTimer = setTimeout(unflash, 2500);
 }
 

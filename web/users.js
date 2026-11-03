@@ -126,7 +126,7 @@ function addRow(u = { name: '', len: 0 }) {
   const row = el('div', 'sode__users-row',
     el('div', 'sode__field', el('span', 'sode__label', 'Name'), name),
     el('div', 'sode__field', el('span', 'sode__label', 'PIN'), pin),
-    el('div', 'sode__fields', trust.label, never.label),
+    el('div', 'sode__checks', trust.label, never.label),
     badges,
     ...(u.len ? [signOut(u.name)] : []),
     rm);

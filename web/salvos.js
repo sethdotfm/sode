@@ -62,14 +62,14 @@ function renderStrips() {
       return b;
     });
     // The popup (salvopopup.js) lists every salvo, pinned or not.
-    const more = all.length ? el('button', `pb-btn pb-btn--ghost pb-btn--sm sode__salvos-all`, phone() ? 'Salvos' : list.length ? 'All…' : 'Salvos… (Ctrl+G)') : null;
+    const more = all.length ? el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__salvos-all', 'Salvos') : null;
     if (more) {
       more.type = 'button';
+      more.title = phone() ? 'All salvos' : 'All salvos (Ctrl+G)';
       more.setAttribute('aria-haspopup', 'dialog');
       more.addEventListener('click', askPopup);
     }
-    const label = list.length ? el('span', 'sode__label', 'Salvos') : null;
-    box.replaceChildren(...[label, ...chips, more, edit].filter(Boolean));
+    box.replaceChildren(...[more, ...chips, edit].filter(Boolean));
   }
 }
 // Keyboard mode `p` (desktop): the first chip, then ←/→ between buttons;
@@ -123,7 +123,7 @@ scopeIn.append(new Option('This browser', 'local'), new Option('Everyone', 'glob
 const pinnedIn = el('input', 'pb-check__input');
 pinnedIn.type = 'checkbox';
 pinnedIn.checked = true;
-const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned (shown above Recent)'));
+const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned (show above Recent)'));
 const rowsBox = el('div', 'sode__salvo-rows');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
@@ -150,7 +150,7 @@ dialog.append(
       btn('pb-btn--outline pb-btn--sm', 'Add take', () => { cur.items.push(blankRow()); renderRows(); focusLast(); }),
       btn('pb-btn--outline pb-btn--sm', 'Fill from patch boxes', fillFromBoxes),
       btn('pb-btn--outline pb-btn--sm', 'Fill from latest folder in Recent', fillFromHistory)),
-    el('span', 'sode__hint', 'Sources and destinations: numbers (12, 20-24) or names, separated by commas. Levels blank = the default levels. Salvos are stored as numbers, so a renamed port stays in.')),
+    el('span', 'sode__hint', 'Numbers (12, 20-24) or names, separated by commas.')),
   el('div', 'pb-modal__footer', btn('pb-btn--ok', 'Done', () => closeSalvos())),
 );
 root.append(dialog);
@@ -170,7 +170,7 @@ const saver = globalSaver({
 
 let open = false, back = null;
 // cur: the salvo being edited: { scope, old, name, items: [{ src, dsts, levels }] } as typed text.
-let cur = null, dirty = false, deleting = false;
+let cur = null, dirty = false, deleting = false, discard = false;
 const blankRow = () => ({ src: '', dsts: '', levels: '' });
 
 const display = (n) => String(n + off());
@@ -180,6 +180,7 @@ function rowFromItem(it) {
 function load(s) {
   deleting = false;
   dirty = false;
+  discard = false;
   cur = s
     ? { scope: s.scope, old: s.name, name: s.name, pinned: s.pinned !== false, items: s.items.map(rowFromItem) }
     : { scope: 'local', old: '', name: '', pinned: true, items: [blankRow()] };
@@ -228,7 +229,7 @@ function renderRows() {
     return el('div', 'sode__salvo-row',
       field('src', 'Source', `Take ${i + 1} source`),
       field('dsts', 'Destinations', `Take ${i + 1} destinations`),
-      field('levels', 'Levels', `Take ${i + 1} levels`),
+      field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`),
       btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { cur.items.splice(i, 1); dirty = true; renderRows(); }),
       hint);
   }));
@@ -352,6 +353,7 @@ export function openSalvos(scope = '', name = '') {
 }
 
 function closeSalvos() {
+  if (open && dirty && !discard) { discard = true; return setNote('Unsaved changes. Close again to discard them, or Save.', true); }
   open = false;
   root.hidden = true;
   saver.close(); // a save already sent finishes first (its answer locks up after it)

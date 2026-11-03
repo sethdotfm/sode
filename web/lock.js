@@ -113,6 +113,7 @@ function render() {
   else hideLock();
   build();
   chip.update(L, showChip);
+  document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
 
@@ -138,7 +139,7 @@ function moveBrand(dir) {
   const ms = motionMs();
   if (!ms || !brand.animate) return;
   const from = logo()?.getBoundingClientRect();
-  const fly = shouldFly(from, window.scrollY, window.innerHeight);
+  const fly = !logo()?.classList.contains('sode-log__title') && shouldFly(from, window.scrollY, window.innerHeight); // /log's heading is text: it fades, not scales
   const t = fly ? liftFrom(from, brand.getBoundingClientRect()) : { x: 0, y: 0, scale: 1 };
   brand.animate(brandFrames(dir, fly, t), {
     duration: dir === 'in' ? ms : ms * OUT_FACTOR,

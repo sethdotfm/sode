@@ -339,9 +339,12 @@ html { font-size: 125%; }
 .sode__found li { cursor: pointer; display: flex; flex-direction: column; padding: var(--pb-space-2) var(--pb-space-3); }
 .sode__found li[aria-selected="true"] { border-inline-start: var(--pb-accent-bar-w) solid var(--pb-accent); color: var(--pb-accent); }
 .sode__found .sode__hint { display: block; }
-/* The found section or setting: an outline plus a "Found" tag, which fades with the outline. */
-.sode__is-found { outline: var(--pb-accent-bar-w) solid var(--pb-accent); outline-offset: var(--pb-space-1); }
-.sode__found-tag { color: var(--pb-accent); font-size: var(--pb-text-xs); font-weight: var(--pb-weight-medium); margin-inline-end: var(--pb-space-2); }
+/* The found section or setting: an accent outline and tint; both go when the flash ends. */
+.sode__is-found {
+  background: color-mix(in srgb, var(--pb-accent) 14%, transparent);
+  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+  outline-offset: var(--pb-space-1);
+}
 .sode__open-log { display: none; }
 .sode__settings[data-locked] > .sode__open-log { display: block; }
 .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px)); }

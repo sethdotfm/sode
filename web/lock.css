@@ -131,10 +131,12 @@
 .sode-lock__who-bar {
   align-items: center;
   display: flex;
-  gap: var(--pb-space-4);
-  padding: var(--pb-space-2) var(--pb-space-4);
+  gap: var(--pb-space-2);
+  padding: 0 var(--pb-space-1) 0 var(--pb-space-3);
 }
-.sode-lock__who-name { color: var(--pb-text); font-size: var(--pb-text-sm); }
+.sode-lock__who-name { color: var(--pb-text); font-size: var(--pb-text-xs); }
+/* /log: the chip owns the top left, so the heading moves down. */
+[data-sode-chip] .sode-log__head { padding-top: var(--pb-space-8); }
 .sode-lock__pin[hidden] { display: none; }
 .sode-lock__pin-form { display: flex; flex-direction: column; gap: var(--pb-space-5); }
 .sode-lock__field { display: flex; flex-direction: column; gap: var(--pb-space-2); }
@@ -148,3 +150,4 @@
   gap: var(--pb-space-5);
 }
 .sode__users-row .sode__field { flex: 1 1 10rem; }
+.sode__users-row .sode__checks { display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-5); }
