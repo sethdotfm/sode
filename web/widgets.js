@@ -255,32 +255,22 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
   return b;
 }
 
-// Retry for a row with failed takes. With none, null, or with placeholder
-// an invisible one, so every row's columns line up.
-export function retryButton(failed, label, onClick, { placeholder = false } = {}) {
-  if (!failed && !placeholder) return null;
-  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (failed ? '' : ' sode__placeholder'), 'Retry');
+// Retry (failed takes) or Redo (any other), by plan.verb: one button, one
+// slot. With nothing to offer an invisible placeholder keeps columns lined up
+// (null with placeholder false).
+export function againButton(plan, label, onClick, { placeholder = true } = {}) {
+  const none = !plan.items.length;
+  if (none && !placeholder) return null;
+  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (none ? ' sode__placeholder' : ''), plan.verb === 'retry' ? 'Retry' : 'Redo');
   b.type = 'button';
-  if (!failed) {
+  if (none) {
     b.tabIndex = -1;
     b.setAttribute('aria-hidden', 'true');
     return b;
   }
   needsLink(b);
   b.setAttribute('aria-label', label);
-  b.addEventListener('click', onClick);
-  return b;
-}
-
-// Redo for a take or folder that worked. Shares Retry's slot: a row has one
-// or the other (failed takes retry), so columns line up. Null if neither.
-export function redoButton(can, label, onClick) {
-  if (!can) return null;
-  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Redo');
-  b.type = 'button';
-  needsLink(b);
-  b.setAttribute('aria-label', label);
-  b.addEventListener('click', onClick);
+  b.addEventListener('click', () => onClick(plan));
   return b;
 }
 
