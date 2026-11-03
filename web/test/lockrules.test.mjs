@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor, wrongFeedback, WRONG_MS,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -169,4 +169,30 @@ test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text'
   assert.equal(w.text, 'Too many wrong PINs; try again in 25s');
   assert.equal(w.ms, 0);
   assert.equal(wrongFeedback('another PIN is being checked; try again').ms, 0);
+});
+
+test('churnKey: a letter, never the one before, never one that is easy to confuse', () => {
+  let last = '';
+  const seen = new Set();
+  for (let i = 0; i < 2000; i++) {
+    const k = churnKey(last);
+    assert.match(k, /^[a-z]$/);
+    assert.notEqual(k, last);
+    assert.ok(!'ilo'.includes(k), k);
+    seen.add(k);
+    last = k;
+  }
+  assert.equal(seen.size, 23);
+  // Even if the dice keep landing on the last key, it moves on.
+  const rolls = [0, 0, 0.5];
+  assert.notEqual(churnKey('a', () => rolls.shift()), 'a');
+});
+
+test('softIdleLock: idle past the auto-lock minutes, only where no PIN lock is on and not already locked', () => {
+  const idle = 5 * 60_000;
+  assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 5), true);
+  assert.equal(softIdleLock({ enforced: false }, false, 0, idle - 1, 5), false);
+  assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 0), false);
+  assert.equal(softIdleLock({ enforced: false }, true, 0, idle, 5), false);
+  assert.equal(softIdleLock({ enforced: true }, false, 0, idle, 5), false);
 });

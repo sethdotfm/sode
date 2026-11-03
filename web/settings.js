@@ -224,7 +224,9 @@ on('prefs', renderPrefs);
 on('access', (L) => {
   $('account').hidden = !L.user;
   $('account-name').textContent = L.user ? `Logged in as ${L.user}` : '';
+  $('soft-lock').hidden = L.enforced; // a PIN lock has its own Lock and Log out
 });
+$('soft-lock-btn').addEventListener('click', () => emit('softLock'));
 $('account-pin').addEventListener('click', () => emit('changePin'));
 $('account-logout').addEventListener('click', () => emit('logout'));
 

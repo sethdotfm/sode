@@ -169,6 +169,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		}
 	}
 	a.mu.Unlock()
+	a.catchUpSessions() // Never log out may have just been ticked
 	if reconnect {
 		a.sw.SetTarget(c.Router, nr.probe())
 	}

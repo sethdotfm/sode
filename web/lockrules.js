@@ -53,6 +53,11 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 export const idleLock = (s, lastActive, now, minutes) =>
   !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
 
+// Whether the idle timer should put up the hand lock (no PIN lock on): the
+// same auto-lock minutes as for users, nobody to skip.
+export const softIdleLock = (s, handLocked, lastActive, now, minutes) =>
+  !s.enforced && !handLocked && idleDue(lastActive, now, minutes);
+
 // Whether the form edits what only the settings PIN may change (the server
 // refuses a trusted user these): router, trusted proxies, PIN attempt limit.
 export const guardedEdited = (next, cur) => !!cur && (
@@ -126,3 +131,13 @@ export function wrongFeedback(err) {
 
 // Dots for the PIN typed so far.
 export const dots = (pin) => '●'.repeat(pin.length);
+
+// The churning letter of a confirm (a take, and the screen lock without a
+// PIN): a random key that is never the one before it, so the answer can't be
+// a habit. No i or l (easy to confuse), no o.
+const CHURN_KEYS = 'abcdefghjkmnpqrstuvwxyz';
+export function churnKey(last = '', rnd = Math.random) {
+  let key;
+  do key = CHURN_KEYS[Math.floor(rnd() * CHURN_KEYS.length)]; while (key === last);
+  return key;
+}

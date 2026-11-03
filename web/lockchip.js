@@ -93,10 +93,7 @@ export function buildChip(api) {
   // update: render the chip for lock state L.
   function update(L, chip) {
     root.hidden = !chip;
-    const can = !!(L.enforced && L.user);
-    name.textContent = can ? `Logged in as ${L.user}` : '';
-    lockBtn.setAttribute('aria-disabled', can ? 'false' : 'true');
-    lockBtn.dataset.pbTip = can ? 'Lock (Ctrl+L)' : 'No lock is turned on for this page';
+    name.textContent = L.enforced && L.user ? `Logged in as ${L.user}` : '';
   }
   return { root, update };
 }

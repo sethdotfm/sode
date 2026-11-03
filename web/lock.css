@@ -93,6 +93,10 @@
   min-height: calc(var(--pb-text-xl) * 1.6);
 }
 .sode-lock__msg { margin: 0; min-height: 1.5em; }
+.sode-lock__body[hidden] { display: none; }
+/* The hand lock (no PIN): "Press J to unlock". */
+.sode-lock__soft-line { color: var(--pb-text-strong); font-size: var(--pb-text-md); margin: 0; }
+.sode-lock__soft-line .sode__key { font-size: var(--pb-text-lg); padding: 0 var(--pb-space-3); }
 .sode-lock__pad {
   display: grid;
   gap: var(--pb-space-5);
@@ -151,4 +155,3 @@
 }
 .sode__users-row .sode__field { flex: 1 1 10rem; }
 .sode__users-row .sode__checks { display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-5); }
-.sode-lock__who .pb-btn[aria-disabled="true"] { cursor: default; opacity: 0.5; }

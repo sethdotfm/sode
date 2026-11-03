@@ -5,9 +5,8 @@
 
 import { $, el, S } from './core.js';
 import { planSummary, planVerb } from './plans.js';
-import { lockout } from './widgets.js';
-
-const KEYS = 'abcdefghjkmnpqrstuvwxyz';
+import { lockout } from './lockout.js';
+import { churnKey } from './lockrules.js';
 
 // prompt(keyNode): the nodes of the line under the summary. spaceHint:
 // the undo's follows box says Space ticks it. onTake(plan, viaKeys, prot):
@@ -31,8 +30,7 @@ export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
 
     open(plan, prot) {
       cur?.lock.cancel(); // one replaced: its lockout mustn't unlock this one
-      let key;
-      do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
+      const key = churnKey(lastKey);
       lastKey = key;
       const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
       const verb = planVerb(plan);

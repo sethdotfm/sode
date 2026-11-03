@@ -193,6 +193,13 @@
         </div>
         <span class="sode__hint">Only while you are logged in as a user. Log out ends this browser's session and shows the lock pad.</span>
       </div>
+      <div class="sode__field" id="soft-lock" data-find="soft-lock" data-label="Lock screen">
+        <span class="sode__label">Lock screen</span>
+        <div class="sode__names">
+          <button type="button" class="pb-btn pb-btn--outline" id="soft-lock-btn" data-find="soft-lock-btn" data-label="Lock screen">Lock screen</button>
+        </div>
+        <span class="sode__hint">Covers this page until you press the letter it shows (or tap Unlock). It guards against keyboard mashing and is not a PIN; a reload clears it. Ctrl+L does the same, and the auto-lock minutes (Users) lock it when idle. Not shown where a PIN lock is on.</span>
+      </div>
     </fieldset>
 
     <fieldset class="sode__group">
@@ -619,6 +626,7 @@
         <dt><kbd>Esc</kbd></dt><dd>Clear a box; with all empty, keyboard mode</dd>
         <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Presets: search, pin, fire (opens the usual confirm)</dd>
         <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings, from anywhere</dd>
+        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen; press the letter it shows to unlock</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list, from anywhere</dd>
       </dl>
       <div class="sode__label">Keyboard mode</div>
