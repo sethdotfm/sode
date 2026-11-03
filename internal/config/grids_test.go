@@ -26,6 +26,12 @@ func TestGridValid(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	// Levels past the router's count are kept, unused.
+	past := okGrid()
+	past.Levels = []int{1, 99}
+	if err := gridCfg(past).Validate(); err != nil {
+		t.Errorf("level past the count: %v", err)
+	}
 	if !Defaults().GridConfirm {
 		t.Error("grids confirm by default")
 	}
@@ -52,7 +58,6 @@ func TestGridInvalid(t *testing.T) {
 		"huge rows":       func(g *Grid) { g.Rows = 25 },
 		"bad confirm":     func(g *Grid) { g.Confirm = "maybe" },
 		"bad level":       func(g *Grid) { g.Levels = []int{0} },
-		"level past":      func(g *Grid) { g.Levels = []int{18} },
 		"overlap":         func(g *Grid) { g.Cells[1].X = 1 },
 		"inside a span":   func(g *Grid) { g.Cells = append(g.Cells, GridCell{X: 1, Y: 0, W: 1, H: 1, Kind: "src", Ref: "1"}) },
 		"x out of bounds": func(g *Grid) { g.Cells[1].X = 4 },

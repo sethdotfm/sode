@@ -128,9 +128,11 @@ func (c Config) validateGrids() []error {
 		default:
 			bad("%s: confirm must be default, on or off", who)
 		}
+		// Levels past the router's count are kept but unused (as with
+		// LevelColors), so lowering the level count in Settings still saves.
 		for _, l := range g.Levels {
-			if l < 1 || l > c.Levels {
-				bad("%s: level %d is outside 1 to %d", who, l, c.Levels)
+			if l < 1 {
+				bad("%s: level %d is not a level", who, l)
 			}
 		}
 		taken := make([]bool, g.Cols*g.Rows)

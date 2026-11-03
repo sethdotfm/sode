@@ -43,10 +43,17 @@ func (a *App) SaveGrids(c *client, grids []config.Grid, confirm bool) error {
 	return nil
 }
 
-// servePrefixed serves page at prefix+name (prefix is "/grid/" or
-// "/settings/"; name "" or any slug when any is true), and under prefix the
-// embedded files and the WebSocket the page asks for relative to itself.
-func (a *App) servePrefixed(mux *http.ServeMux, static fs.FS, prefix, page, only string) {
+// settingsPages are the pages under /settings/ by their name there. A mux
+// takes a prefix once (a second handler for "/settings/" panics at startup),
+// so another settings page is one more entry here, not another
+// servePrefixed call.
+var settingsPages = map[string]string{"grids": "settings-grids.html"}
+
+// servePrefixed serves the pages under prefix ("/grid/" or "/settings/"):
+// pages[name] for each name in pages and, if any is set, that file for every
+// other single-segment name (and for none). It also serves the embedded
+// files, the icon and the WebSocket the pages ask for relative to themselves.
+func (a *App) servePrefixed(mux *http.ServeMux, static fs.FS, prefix string, pages map[string]string, any string) {
 	files := http.FileServerFS(static)
 	mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(r.URL.Path, prefix)
@@ -63,8 +70,10 @@ func (a *App) servePrefixed(mux *http.ServeMux, static fs.FS, prefix, page, only
 			r2 := r.Clone(r.Context())
 			r2.URL.Path = "/" + rest
 			files.ServeHTTP(w, r2)
-		case only == "" && !strings.Contains(rest, "/"), rest == only:
-			http.ServeFileFS(w, r, static, page)
+		case pages[rest] != "":
+			http.ServeFileFS(w, r, static, pages[rest])
+		case any != "" && !strings.Contains(rest, "/"):
+			http.ServeFileFS(w, r, static, any)
 		default:
 			http.NotFound(w, r)
 		}

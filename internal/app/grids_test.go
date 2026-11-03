@@ -61,6 +61,26 @@ func TestGridRoutes(t *testing.T) {
 	}
 }
 
+// The pages and their relative files, from the real embedded UI.
+func TestGridRoutesEmbedded(t *testing.T) {
+	a := newTestApp(t)
+	for path, want := range map[string]string{
+		"/grid/x":                                    "grid.js",
+		"/settings/grids":                            "gridedit.js",
+		"/grid/grid.js":                              "gridgeom.js",
+		"/grid/gridgeom.js":                          "rectBetween",
+		"/grid/grid.css":                             "sode-grid",
+		"/grid/vendor/patchbay/css/patchbay.css":     ".pb-btn",
+		"/settings/gridedit.js":                      "gridsResult",
+		"/settings/vendor/patchbay/css/patchbay.css": ".pb-btn",
+	} {
+		rec := get(t, a, path)
+		if rec.Code != 200 || !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("%s: %d, want a body with %q", path, rec.Code, want)
+		}
+	}
+}
+
 func TestSaveGrids(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}

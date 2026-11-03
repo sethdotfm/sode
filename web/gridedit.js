@@ -25,6 +25,7 @@ function load() {
   confirmDefault = S.cfg?.gridConfirm !== false;
   cur = Math.min(Math.max(cur, 0), draft.length - 1);
   sel = null;
+  linkAuto = false;
   setDirty(false);
 }
 
@@ -63,7 +64,7 @@ function drawList() {
     const b = el('button', 'pb-btn pb-btn--outline sode-ged__item', `${g.name || g.link || 'Untitled'}`);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(i === cur));
-    b.addEventListener('click', () => { cur = i; sel = null; draw(); });
+    b.addEventListener('click', () => { cur = i; sel = null; linkAuto = false; draw(); });
     return b;
   }));
   $('ged-confirm-default').checked = confirmDefault;
@@ -132,6 +133,7 @@ $('ged-delete').addEventListener('click', () => {
   draft.splice(cur, 1);
   cur = Math.min(cur, draft.length - 1);
   sel = null;
+  linkAuto = false;
   touch();
   draw();
 });
