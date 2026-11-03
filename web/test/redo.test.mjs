@@ -56,3 +56,12 @@ test('redoNoop: destination already has the source everywhere', async () => {
   assert.equal(redoNoop(item()), false);
   assert.equal(redoNoop({ ...item(), redo: null }), false);
 });
+
+test('canRedo: needs a level that still exists', async () => {
+  const { canRedo, redoPlan, folderRedoPlan } = await setup();
+  assert.equal(canRedo(take({ levels: [1, 9] })), true); // some levels gone: the rest go
+  assert.deepEqual(redoPlan(take({ levels: [1, 9] })).items[0].groups[0].levels, [1]);
+  assert.equal(canRedo(take({ levels: [9, 10] })), false); // all gone: nothing to send
+  assert.equal(redoPlan(take({ levels: [9] })).items.length, 0);
+  assert.equal(folderRedoPlan({ entries: [take({ levels: [9] })] }).items.length, 0);
+});

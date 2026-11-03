@@ -349,7 +349,7 @@ function folderRow(f) {
     { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all' });
   const redoable = !failed && f.entries.some(canRedo);
   const retry = redoable
-    ? redoButton(true, `Redo all ${f.entries.length} takes of ${folderIds(f)}`, () => openConfirm(folderRedoPlan(f)))
+    ? redoButton(true, `Redo all ${f.entries.filter(canRedo).length} takes of ${folderIds(f)}`, () => openConfirm(folderRedoPlan(f)))
     : retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`,
       () => openConfirm(folderRetryPlan(f)), { placeholder: true });
 

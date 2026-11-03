@@ -390,7 +390,7 @@ function folderRows(f) {
   const undo = undoBtn(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   const failed = f.entries.filter((e) => !e.ok).length;
   const retry = !failed && f.entries.some(canRedo)
-    ? redoButton(true, `Redo all ${f.entries.length} takes of ${folderIds(f)}`, () => sheetFor(folderRedoPlan(f)))
+    ? redoButton(true, `Redo all ${f.entries.filter(canRedo).length} takes of ${folderIds(f)}`, () => sheetFor(folderRedoPlan(f)))
     : retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`, () => sheetFor(folderRetryPlan(f)));
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);

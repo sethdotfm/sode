@@ -56,7 +56,9 @@ const redoItem = (e) => ({ ...retryItem(e), retry: null, redo: e });
 
 // Redo is for takes made in Sode that the router confirmed: not routes made
 // elsewhere (ext/found), follows, undos or failed takes (those have Retry).
-export const canRedo = (e) => !!e && e.ok && !e.ext && !e.found && e.follow == null && e.undo == null;
+// It also needs a level that still exists, or the take would have nothing to send.
+export const canRedo = (e) => !!e && e.ok && !e.ext && !e.found && e.follow == null && e.undo == null &&
+  e.levels.some((u) => S.levelBy.has(u));
 
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
