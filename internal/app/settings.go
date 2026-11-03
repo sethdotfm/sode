@@ -31,8 +31,10 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 		// Recent's Filters, not the settings form, so a browser's copy may
 		// be stale: keep the current ones.
 		keepSets, keepPin, keepDev := cur.FilterSets, cur.SettingsPin, cur.DeviceDefaults
+		keepGrids, keepGridConfirm := cur.Grids, cur.GridConfirm // saved by the grid editor
 		*cur = cfg
 		cur.FilterSets, cur.SettingsPin = keepSets, keepPin
+		cur.Grids, cur.GridConfirm = keepGrids, keepGridConfirm
 		if keepDefaults {
 			cur.DeviceDefaults = keepDev
 		}
