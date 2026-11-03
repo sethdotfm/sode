@@ -20,7 +20,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
@@ -107,7 +107,7 @@ function build() {
   softNote = el('p', 'sode-lock__msg');
   softNote.setAttribute('role', 'status');
   softNote.setAttribute('aria-live', 'polite');
-  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__state', 'Locked.'), el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
+  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
   softBody.hidden = true;
   root = el('div', 'sode-lock', brand, padBody, softBody);
   root.hidden = true;
@@ -411,7 +411,7 @@ function softLock() {
   soft = { key, lock: lockout(() => {
     softKey.classList.remove('sode__key--locked');
     softBtn.disabled = false;
-    softNote.textContent = 'Ready.';
+    softNote.textContent = '';
   }) };
   render();
 }
@@ -486,5 +486,7 @@ const touch = () => { lastActive = Date.now(); };
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
 setInterval(() => {
-  if (idleLock(L, lastActive, Date.now(), S.cfg?.autoLockMinutes || 0)) lockNow();
+  const minutes = S.cfg?.autoLockMinutes || 0;
+  if (idleLock(L, lastActive, Date.now(), minutes)) lockNow();
+  else if (S.cfg && softIdleLock(L, !!soft, lastActive, Date.now(), minutes)) softLock();
 }, 5000);

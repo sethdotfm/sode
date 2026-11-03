@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -186,4 +186,13 @@ test('churnKey: a letter, never the one before, never one that is easy to confus
   // Even if the dice keep landing on the last key, it moves on.
   const rolls = [0, 0, 0.5];
   assert.notEqual(churnKey('a', () => rolls.shift()), 'a');
+});
+
+test('softIdleLock: idle past the auto-lock minutes, only where no PIN lock is on and not already locked', () => {
+  const idle = 5 * 60_000;
+  assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 5), true);
+  assert.equal(softIdleLock({ enforced: false }, false, 0, idle - 1, 5), false);
+  assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 0), false);
+  assert.equal(softIdleLock({ enforced: false }, true, 0, idle, 5), false);
+  assert.equal(softIdleLock({ enforced: true }, false, 0, idle, 5), false);
 });

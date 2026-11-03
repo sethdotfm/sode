@@ -53,6 +53,11 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 export const idleLock = (s, lastActive, now, minutes) =>
   !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
 
+// Whether the idle timer should put up the hand lock (no PIN lock on): the
+// same auto-lock minutes as for users, nobody to skip.
+export const softIdleLock = (s, handLocked, lastActive, now, minutes) =>
+  !s.enforced && !handLocked && idleDue(lastActive, now, minutes);
+
 // Whether the form edits what only the settings PIN may change (the server
 // refuses a trusted user these): router, trusted proxies, PIN attempt limit.
 export const guardedEdited = (next, cur) => !!cur && (
