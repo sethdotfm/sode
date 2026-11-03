@@ -11,10 +11,16 @@ import (
 
 // Native fire mode (#154): the takes of one confirm are staged in a SW-P-08
 // group salvo (120, each answered by 122) and set with one Go (121, answered
-// by 123), so every crosspoint lands on the same frame. A Go announces
-// nothing (no Connected), so each take then interrogates its levels and the
-// tallies confirm it, through the same waiter, failure and late-answer
-// handling as a sequential take.
+// by 123), so the router sets them in one go. On the Ultrix (2026-11-02) a
+// Go's crosspoints are announced about 4 ms apart against ~16 ms apiece
+// for ordinary connects; whether the switch itself is simultaneous is
+// unproven. The router sometimes announces a Go's crosspoints with 0x84
+// and sometimes not, so a staged level has an own key like any connect and
+// is confirmed by its Connected if one comes, else by the tally of the
+// interrogate each take sends after the Go, through the same waiter,
+// failure and late-answer handling as a sequential take. A key whose level
+// a tally confirmed stays for salvoAnnounceFor after the Go, for a
+// Connected still on its way.
 //
 // Only crosspoints the standard layout can carry are staged: matrix and wire
 // level 0-15, destination and source 0-1023 (markStages). A take's other
@@ -34,6 +40,11 @@ import (
 // salvoReply is how long a salvo command's acknowledge (122 or 123) may take
 // once the command has been written and ACKed. The Ultrix answers in 5-7 ms.
 const salvoReply = time.Second
+
+// salvoAnnounceFor is how long after the Go a Connected for a staged level
+// still counts as ours once a tally has confirmed it. The Ultrix's came
+// 100-340 ms after the Go for ~50 crosspoints.
+const salvoAnnounceFor = 2 * time.Second
 
 // stageChunk caps how many stage messages are queued at once, so a big
 // salvo doesn't fill the router link's send queue.
@@ -156,6 +167,52 @@ func (a *App) batchNative(r *runtime, c *client, items []takeReq) {
 		}
 	}
 	runLimited(takeLimit, len(live), func(i int) { a.complete(r, live[i], a.sendTake(r, live[i].w)) })
+	a.logSalvoTiming(c, staged)
+}
+
+// logSalvoTiming logs, for a batch whose Go was sent, how long after the Go
+// its staged levels were confirmed, and how: by Connected or interrogate.
+func (a *App) logSalvoTiming(c *client, staged []*takeRun) {
+	a.mu.Lock()
+	var goAt, last time.Time
+	n, byConn, byTally := 0, 0, 0
+	for _, t := range staged {
+		if !t.w.goAt.IsZero() {
+			goAt = t.w.goAt
+		}
+		for _, l := range t.w.levels {
+			if !l.native {
+				continue
+			}
+			n++
+			if !l.confirmed {
+				continue
+			}
+			if l.tallied {
+				byTally++
+			} else {
+				byConn++
+			}
+			if l.at.After(last) {
+				last = l.at
+			}
+		}
+	}
+	a.mu.Unlock()
+	if goAt.IsZero() {
+		return // not fired, or a single take: sequential
+	}
+	note := fmt.Sprintf("%d of %d crosspoints confirmed", byConn+byTally, n)
+	if !last.IsZero() {
+		note += fmt.Sprintf(", the last %d ms after the Go", max(last.Sub(goAt), 0).Milliseconds())
+	}
+	note += fmt.Sprintf(" (%d by Connected, %d by interrogate)", byConn, byTally)
+	result := "ok"
+	if byConn+byTally < n {
+		result = "error"
+	}
+	log.Printf("salvo: %s", note)
+	a.command(c, "salvo", result, note, nil)
 }
 
 // hasNative reports whether any level is staged. Only the batch goroutine
@@ -170,7 +227,7 @@ func (w *waiter) hasNative() bool {
 }
 
 // unNative turns a take's staged levels back into ordinary connects, with
-// the own keys their Connecteds will use up.
+// their own keys renewed.
 func (a *App) unNative(w *waiter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -270,11 +327,13 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 	}
 	// From here the routes may have changed: never again as connects.
 	leftQueue(done)
+	wrote := time.Now() // the Go is written and ACKed
 	x, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool { return x.Cmd == swp08.CmdGoDoneAck && x.Group == g })
 	at := time.Now()
 	a.mu.Lock()
 	for _, t := range staged {
 		w := t.w
+		w.goAt = wrote
 		w.cause.sent = at
 		changed := false
 		for _, l := range w.levels {
@@ -337,5 +396,18 @@ func (a *App) clearStaleSalvo() {
 	}()
 	if err := a.clearSalvo(ext, fs, r.cfg.SalvoGroup, swp08.Why{Reason: swp08.ReasonResync}); err != nil {
 		log.Printf("salvo: clearing group %d on connect: %v", r.cfg.SalvoGroup, err)
+	}
+}
+
+// sawOwn notes one of our takes' Connecteds as a change of that take's,
+// for the follows that may come with it: a native salvo's arrive after the
+// Go, sometimes after the take has finished. The latest take of the route
+// gets it. Caller holds mu.
+func (a *App) sawOwn(xp swp08.Crosspoint) {
+	for i := len(a.ext.causes) - 1; i >= 0; i-- {
+		if c := a.ext.causes[i]; c.src == xp.Src && c.dst == xp.Dst {
+			c.saw(time.Now())
+			return
+		}
 	}
 }

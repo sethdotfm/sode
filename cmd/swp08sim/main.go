@@ -8,17 +8,21 @@
 // Group salvos (120-123) work as on the Ultrix: one staged list per group
 // shared by every client, 122 echoing each staged crosspoint, 123 for each
 // Go (00 set, 01 cleared, 02 nothing to do), replies after about 6 ms, and
-// no Connected after a Go set. Only the standard layout's range is
-// accepted (level 0-15, numbers 0-1023). SIM_NO_SALVO=1 ignores 120 and 121,
-// like a router without group salvos.
+// no Connected after a Go set unless SIM_SALVO_ANNOUNCE=1 (then one per
+// changed crosspoint, ~110 ms on, 4 ms apart: the Ultrix does either).
+// Only the standard layout's range is accepted (level 0-15, numbers
+// 0-1023). SIM_NO_SALVO=1 ignores 120 and 121, like a router without group
+// salvos.
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"log"
 	"math/rand/v2"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +43,8 @@ type sim struct {
 	follows map[int][]int          // dst → dsts that follow it, like a multiviewer PiP
 	staged  map[int][]swp08.Staged // salvo group → crosspoints staged by any client
 	noSalvo bool                   // SIM_NO_SALVO: ignore 120 and 121
+	// SIM_SALVO_ANNOUNCE: a Go set's changes are announced, late
+	announceGo bool
 }
 
 // salvoDelay is how long the Ultrix takes to answer 120 and 121.
@@ -55,7 +61,7 @@ func main() {
 	addr := ":" + strconv.Itoa(envInt("SIM_PORT", 8910))
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
-	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}, noSalvo: os.Getenv("SIM_NO_SALVO") == "1"}
+	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}, noSalvo: os.Getenv("SIM_NO_SALVO") == "1", announceGo: os.Getenv("SIM_SALVO_ANNOUNCE") == "1"}
 	// SIM_IGNORE_DSTS=5,7 makes connects to those (0-based) destinations
 	// silently fail, so Sode's timeout and retry paths can be exercised.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
@@ -408,11 +414,34 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 		s.later(c, swp08.GoDoneAck(swp08.GoNothing, g))
 		return
 	}
-	// All at once, and announced to nobody: the Ultrix sends no Connected
-	// after a Go. Followers still follow, silently.
+	// All at once. The Ultrix sometimes announces a Go's crosspoints and
+	// sometimes not: by default nobody is told (followers still follow,
+	// silently); with SIM_SALVO_ANNOUNCE=1 each changed one gets a Connected,
+	// in destination and level order, 4 ms apart from ~110 ms after the Go,
+	// as measured on the Ultrix.
+	var changed []swp08.Staged
+	s.mu.Lock()
+	for _, x := range xs {
+		if t := s.tally[x.Level]; x.Dst < len(t) && t[x.Dst] != x.Src {
+			changed = append(changed, x)
+		}
+	}
+	s.mu.Unlock()
 	for _, x := range xs {
 		s.route(x.Matrix, x.Level, x.Dst, x.Src, false)
 	}
-	log.Printf("salvo %d: Go set %d crosspoints (no Connected)", g, len(xs))
+	if s.announceGo && len(changed) > 0 {
+		slices.SortFunc(changed, func(a, b swp08.Staged) int { return cmp.Or(a.Dst-b.Dst, a.Level-b.Level) })
+		go func() {
+			time.Sleep(110 * time.Millisecond)
+			for _, x := range changed {
+				s.announce(x.Matrix, x.Level, x.Dst, x.Src)
+				time.Sleep(4 * time.Millisecond)
+			}
+		}()
+		log.Printf("salvo %d: Go set %d crosspoints (%d Connected to follow, SIM_SALVO_ANNOUNCE)", g, len(xs), len(changed))
+	} else {
+		log.Printf("salvo %d: Go set %d crosspoints (no Connected)", g, len(xs))
+	}
 	s.later(c, swp08.GoDoneAck(swp08.GoSet, g))
 }

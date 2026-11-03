@@ -91,10 +91,12 @@ type takeLevel struct {
 	same      bool // the cache said it was already on src
 	unsent    bool // the router link refused it
 	confirmed bool
-	already   bool // confirmed by a tally, not by a change
-	native    bool // staged in the batch's group salvo (fire.go): confirmed by a tally, owns no key
-	seen      bool // the router reported some other route for the level...
-	now       int  // ...this src (-1 = nothing routed), the latest report
+	already   bool      // confirmed by a tally, not by a change
+	native    bool      // staged in the batch's group salvo (fire.go): confirmed by a Connected or a tally
+	tallied   bool      // confirmed by a tally, not a Connected
+	at        time.Time // when it was confirmed
+	seen      bool      // the router reported some other route for the level...
+	now       int       // ...this src (-1 = nothing routed), the latest report
 }
 
 type waiter struct {
@@ -106,8 +108,9 @@ type waiter struct {
 	cause    *cause // for changes that follow this take
 	// ext is the tracker of the router the take started on. The router
 	// changing replaces a.ext, so a different one means the take is stale.
-	ext *extTracker
-	cut bool // the router changed under the take
+	ext  *extTracker
+	cut  bool      // the router changed under the take
+	goAt time.Time // when a native salvo's Go set its staged levels (fire.go); zero if none
 }
 
 // errRouterChanged refuses a take's message once the router has changed.
@@ -145,9 +148,11 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 			l.seen, l.now = true, xp.Src
 			return false
 		}
-		// A Go announces nothing, so a staged level is confirmed by a tally
-		// but was only already there if the cache said so.
-		l.confirmed, l.already = true, !xp.Changed() && (!l.native || l.same)
+		// A Go may or may not be announced (#154), so a staged level is
+		// confirmed by a Connected or a tally, and was only already there if
+		// the cache said so.
+		l.confirmed, l.tallied, l.at = true, !xp.Changed(), time.Now()
+		l.already = l.tallied && (!l.native || l.same)
 		w.finishIfDone()
 		return true
 	}
@@ -188,8 +193,9 @@ func (w *waiter) finish() {
 // waiter sees them, changes elsewhere may follow its cause, and own keeps
 // them out of the changes made elsewhere. Only levels the router will
 // answer with a Connected get an own key: one already on src gets none,
-// and its key would linger and swallow a real change back to it. Nor does
-// a level staged in a native salvo (fire.go): a Go sends no Connected.
+// and its key would linger and swallow a real change back to it. A level
+// staged in a native salvo gets one too: the Ultrix sometimes announces a
+// Go's crosspoints and sometimes not (fire.go).
 // Nothing is registered for a take of a router that has been replaced.
 // Caller holds mu.
 func (w *waiter) register(a *App) {
@@ -208,7 +214,7 @@ func (w *waiter) register(a *App) {
 func (w *waiter) ownKeys(a *App) {
 	until := time.Now().Add(queueMax + ownFor)
 	for _, l := range w.levels {
-		if !l.same && !l.native {
+		if !l.same {
 			a.ext.own[ownKey{w.dst, l.wire, w.src}] = until
 		}
 	}
@@ -230,6 +236,11 @@ func (w *waiter) unregister(a *App, id int) {
 		k := ownKey{w.dst, l.wire, w.src}
 		if !l.confirmed || l.unsent || l.already {
 			delete(a.ext.own, k)
+		} else if until, ok := a.ext.own[k]; ok && l.native && l.tallied && !w.goAt.IsZero() && w.goAt.Add(salvoAnnounceFor).Before(until) {
+			// Set by a Go and confirmed by a tally: a Connected may still
+			// follow (the Ultrix's come up to ~340 ms after the Go), or may
+			// never come. The key waits that long, not ownFor.
+			a.ext.own[k] = w.goAt.Add(salvoAnnounceFor)
 		}
 		// The answer to the last interrogate, or a slow Connected, may
 		// still be on its way: it's ours, and the entry gets amended.
