@@ -362,6 +362,14 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 // clearSalvo clears group g and waits for the router to say so. Caller
 // holds fireMu, with fs as a.fire.
 func (a *App) clearSalvo(ext *extTracker, fs *fireState, g int, why swp08.Why) error {
+	// A late answer to an earlier step must not pass for this clear's.
+	for drained := false; !drained; {
+		select {
+		case <-fs.acks:
+		default:
+			drained = true
+		}
+	}
 	done, err := a.sendTracked(ext, swp08.GoSalvo(true, g), why)
 	if err != nil {
 		return fmt.Errorf("clear: %w", err)

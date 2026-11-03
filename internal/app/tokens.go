@@ -25,7 +25,9 @@ type tokenStore struct {
 	mu     sync.Mutex
 	toks   map[string]tokenRec // sha256 of the token, hex
 	path   string              // "" = memory only
-	fileMu sync.Mutex          // one writer of the file at a time, in order
+	fileMu sync.Mutex          // one writer of the file at a time
+	seq    uint64              // bumped under mu per save; fileMu holders skip stale ones
+	wrote  uint64              // last seq written (under fileMu)
 }
 
 type tokenRec struct {
@@ -85,9 +87,15 @@ func (s *tokenStore) save() {
 		return
 	}
 	b, _ := json.Marshal(s.toks)
-	s.fileMu.Lock() // taken before mu goes, so writes land in order
-	s.mu.Unlock()
+	s.seq++
+	n := s.seq
+	s.mu.Unlock() // never wait for the file with mu held
+	s.fileMu.Lock()
 	defer s.fileMu.Unlock()
+	if n < s.wrote {
+		return // a newer state has already been written
+	}
+	s.wrote = n
 	if err := config.AtomicWrite(s.path, b); err != nil {
 		log.Printf("users: tokens not saved to %s: %v", s.path, err)
 	}
@@ -190,7 +198,7 @@ func (s *tokenStore) issue(u config.User, cfg config.Config) string {
 	for {
 		n, oldest := 0, ""
 		for k, r := range s.toks {
-			if r.User != u.Name {
+			if !strings.EqualFold(r.User, u.Name) {
 				continue
 			}
 			n++

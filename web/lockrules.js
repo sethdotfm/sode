@@ -59,9 +59,12 @@ export const softIdleLock = (s, handLocked, lastActive, now, minutes) =>
   !s.enforced && !handLocked && idleDue(lastActive, now, minutes);
 
 // Whether the form edits what only the settings PIN may change (the server
-// refuses a trusted user these): router, trusted proxies, PIN attempt limit.
+// refuses a trusted user these). Mirrors the Go `guard:"router"` and
+// `guard:"pin"` tags in internal/config/config.go: keep them in step.
+const GUARDED = ['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests',
+  'fireMode', 'salvoGroup', 'pinMaxTries'];
 export const guardedEdited = (next, cur) => !!cur && (
-  next.router !== cur.router || next.pinMaxTries !== cur.pinMaxTries ||
+  GUARDED.some((k) => next[k] !== cur[k]) ||
   (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
 
 // Whether a low-risk settings save (the Settings form, filter sets, presets)

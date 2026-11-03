@@ -62,9 +62,16 @@ func (a *App) batch(c *client, items []takeReq) {
 			items[i].Group, items[i].GroupN = g, len(items)
 		}
 	}
-	if r := a.r(); r.cfg.FireMode == "native" && len(items) > 1 && markStages(r, items) >= 2 {
-		a.batchNative(r, c, items)
-		return
+	if r := a.r(); r.cfg.FireMode == "native" && len(items) > 1 {
+		if markStages(r, items) >= 2 {
+			a.batchNative(r, c, items)
+			return
+		}
+		// Fewer than two can be staged: a lone staged take would skip its
+		// connect and wait for a Go that never comes. Take them all in turn.
+		for i := range items {
+			items[i].Stage = nil
+		}
 	}
 	runLimited(takeLimit, len(items), func(i int) { a.take(c, items[i]) })
 }

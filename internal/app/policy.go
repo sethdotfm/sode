@@ -26,7 +26,7 @@ import "errors"
 //	needMain+Admin: clearHistory
 //	needLog:        sent uptime
 //	needTrusted:    config (needAdmin when it sets or clears the settings
-//	                PIN), filterSets, salvos
+//	                PIN), filterSets, presets
 //	needAdmin:      users userSignOutAll
 type need uint8
 

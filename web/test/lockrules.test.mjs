@@ -157,6 +157,8 @@ test('guardedEdited: router, trusted proxies and the PIN limit need the PIN', ()
   assert.equal(guardedEdited({ ...cur }, cur), false);
   assert.equal(guardedEdited({ ...cur, router: 'b:1' }, cur), true);
   assert.equal(guardedEdited({ ...cur, pinMaxTries: 0 }, cur), true);
+  assert.equal(guardedEdited({ ...cur, fireMode: 'native' }, cur), true);
+  assert.equal(guardedEdited({ ...cur, matrix: 2 }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: ['0.0.0.0/0'] }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: undefined }, { ...cur, trustedProxies: [] }), false);
 });

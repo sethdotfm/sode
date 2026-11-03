@@ -571,3 +571,28 @@ func TestNativeGoNothing(t *testing.T) {
 	}
 	fireLeftovers(t, a)
 }
+
+// Two takes in a native batch, only one of which fits a salvo: the lone
+// stageable take must still be connected (in turn), not left staged.
+func TestNativeOneStageable(t *testing.T) {
+	t.Parallel()
+	a, f := nativeApp(t, 17)
+	f.seed(8, 1, 15)
+	f.seed(9, 1, 15)
+	items := []takeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{16}}, {ID: 2, Src: 1500, Dst: 9, Levels: []int{16}}}
+	stages, conns := f.cmds(swp08.CmdConnectOnGo), f.cmds(swp08.CmdExtConnect)
+	a.batch(&client{ip: "10.0.0.1"}, items)
+	if n := f.cmds(swp08.CmdConnectOnGo) - stages; n != 0 {
+		t.Fatalf("%d staged, want 0", n)
+	}
+	if n := f.cmds(swp08.CmdExtConnect) - conns; n != 2 {
+		t.Fatalf("%d connects, want 2", n)
+	}
+	got, _ := a.hist.Page(-1, 2)
+	for _, e := range got {
+		if !e.OK {
+			t.Fatalf("take %+v", e)
+		}
+	}
+	fireLeftovers(t, a)
+}
