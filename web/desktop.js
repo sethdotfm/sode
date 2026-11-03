@@ -3,7 +3,7 @@
 // and its match list stay for the next one.
 
 import {
-  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
+  $, el, S, on, emit, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
 } from './core.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
@@ -582,6 +582,7 @@ function onListKey(e) {
   if (k === '/') { openFilters(); return true; }
   if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
   if (k === '?') { openKeys(); return true; }
+  if (k === 'p') { emit('salvoStrip'); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {
     j: () => step(1), ArrowDown: () => (e.shiftKey ? nextGroup() : step(1)),
