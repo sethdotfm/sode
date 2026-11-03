@@ -30,7 +30,6 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 // Which kind of page this is, by its path.
 export function pageType(pathname) {
   if (/\/log(\.html)?\/?$/.test(pathname)) return 'log';
-  if (/\/grid(\.html|\/[^/]+)?\/?$/.test(pathname)) return 'grid'; // /grid/<link> too
   return 'main';
 }
 

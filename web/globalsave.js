@@ -1,4 +1,4 @@
-// Saving something for everyone (filter sets, salvos, grids): a change to a
+// Saving something for everyone (filter sets, salvos): a change to a
 // server-side setting, so with a settings PIN it asks for it first. One
 // saver per dialog does the whole flow: the PIN row, the request and its
 // answer, locking up again afterwards. The dialog supplies its PIN controls

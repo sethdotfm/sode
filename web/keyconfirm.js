@@ -1,4 +1,4 @@
-// The churning-letter confirm of the desktop page and the grid page: a
+// The churning-letter confirm of the desktop page: a
 // random key, a lockout before it works, Esc to cancel. It fills the page's
 // #confirm dialog; the page wires its keys (so it decides when a keystroke
 // belongs to the confirm) and says what happens when it closes or sends.

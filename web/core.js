@@ -113,8 +113,8 @@ function drop(ws) {
 }
 
 export function connect() {
-  // /ws next to the pages' base: the root (or a proxy's prefix), for the main
-  // page, /log and the grid pages (whose <base> points back up).
+  // /ws next to the page: the root (or a proxy's prefix), for the main page
+  // and /log.
   const url = new URL('ws', document.baseURI);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(url);

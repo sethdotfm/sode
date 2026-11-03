@@ -17,7 +17,7 @@ const make = async () => {
   const mk = () => ({ addEventListener() {}, focus() {}, select() {}, hidden: true, value: '', disabled: false });
   let renders = 0;
   const saver = globalSaver({
-    t: 'gridSave', resultT: `r${Math.random()}`, pinIn: mk(), pinRow: mk(), pinOk: mk(),
+    t: 'salvos', resultT: `r${Math.random()}`, pinIn: mk(), pinRow: mk(), pinOk: mk(),
     setNote: (t, e) => notes.push([t, !!e]), isOpen: () => true, failTitle: 'x', okNote: 'Saved.', render: () => { renders++; },
   });
   return { core, saver, sent, notes, renders: () => renders };
@@ -26,13 +26,13 @@ const make = async () => {
 test('a change is sent with its id and t; payload t wins; done runs on ok', async () => {
   const { saver, sent, notes } = await make();
   let done = 0;
-  saver.change({ grid: { link: 'a' } }, () => { done++; });
+  saver.change({ salvos: [] }, () => { done++; });
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].t, 'gridSave');
+  assert.equal(sent[0].t, 'salvos');
   assert.ok(saver.busy());
   assert.deepEqual(notes.at(-1), ['Saving…', false]);
-  saver.change({ t: 'gridDelete', link: 'a' }, () => {});
-  assert.equal(sent[1].t, 'gridDelete');
+  saver.change({ t: 'filterSets', sets: [] }, () => {});
+  assert.equal(sent[1].t, 'filterSets');
   assert.equal(done, 0);
 });
 

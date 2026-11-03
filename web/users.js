@@ -20,7 +20,6 @@ const check = (id, label) => {
   return { input, label: el('label', 'pb-check', input, el('span', 'pb-check__label', label)) };
 };
 const lockMain = check('usr-lock-main', 'Lock the main screen');
-const lockGrid = check('usr-lock-grid', 'Lock Grid pages');
 const lockLog = check('usr-lock-log', 'Lock the Communication Log');
 const autoInput = el('input', 'pb-input');
 autoInput.type = 'number';
@@ -35,7 +34,7 @@ const group = el('fieldset', 'sode__group sode__users',
   el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. Entering the settings PIN (the admin password) on the lock screen lets that browser skip the locks. Changing or removing the settings PIN ends that for every browser.'),
   rows,
   add,
-  el('div', 'sode__fields', lockMain.label, lockGrid.label, lockLog.label),
+  el('div', 'sode__fields', lockMain.label, lockLog.label),
   el('div', 'sode__field',
     Object.assign(el('label', null, 'Lock after idle (minutes)'), { htmlFor: 'usr-auto' }),
     el('span', 'pb-number-wrap', autoInput),
@@ -88,7 +87,6 @@ function fill() {
   rows.replaceChildren();
   for (const u of S.cfg?.users || []) addRow(u);
   lockMain.input.checked = !!S.cfg?.locks?.main;
-  lockGrid.input.checked = !!S.cfg?.locks?.grid;
   lockLog.input.checked = !!S.cfg?.locks?.log;
   autoInput.value = String(S.cfg?.autoLockMinutes || 0);
   edited = false;
@@ -97,7 +95,7 @@ function fill() {
 }
 
 add.addEventListener('click', () => { addRow().focus(); touched(); });
-for (const c of [lockMain, lockGrid, lockLog]) c.input.addEventListener('change', touched);
+for (const c of [lockMain, lockLog]) c.input.addEventListener('change', touched);
 autoInput.addEventListener('input', touched);
 
 function fail(text) {
@@ -114,7 +112,7 @@ save.addEventListener('click', () => {
   });
   // The server holds the rules (names, PIN length, limits) and says what is wrong.
   const mins = Math.trunc(Number(autoInput.value)) || 0;
-  const locks = { main: lockMain.input.checked, grid: lockGrid.input.checked, log: lockLog.input.checked };
+  const locks = { main: lockMain.input.checked, log: lockLog.input.checked };
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: { users, locks, autoLockMinutes: mins } })) return fail('Not connected to Sode.');
   save.disabled = true;

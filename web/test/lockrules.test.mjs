@@ -38,10 +38,6 @@ test('pageType', () => {
   assert.equal(pageType('/log'), 'log');
   assert.equal(pageType('/sode/log'), 'log');
   assert.equal(pageType('/log.html'), 'log');
-  assert.equal(pageType('/grid'), 'grid');
-  assert.equal(pageType('/grid/camera-1'), 'grid');
-  assert.equal(pageType('/sode/grid/camera-1'), 'grid');
-  assert.equal(pageType('/settings/grids'), 'main');
   assert.equal(pageType('/catalog'), 'main');
 });
 

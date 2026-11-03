@@ -38,10 +38,6 @@ export const allSalvos = () => [...globalSalvos(), ...localSalvos()];
 export const findSalvo = (scope, name) =>
   allSalvos().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
-// A salvo by name alone (a grid button's reference): everyone's first, then
-// this browser's.
-export const salvoNamed = (name) => allSalvos().find((s) => s.name.toLowerCase() === String(name).toLowerCase()) || null;
-
 // Why a salvo (normalised) can't be saved, or ''. The name is checked with
 // nameProblem (core.js) and the list as a whole with salvosProblem.
 export function salvoProblem(s) {
