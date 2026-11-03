@@ -154,13 +154,18 @@ func (a *App) Hi(c *client, page, token string) {
 		page = "main"
 	}
 	a.mu.Lock()
+	cfg := a.r().cfg
 	c.u.page = page
-	if u, ok := a.tokens.user(token, a.r().cfg); ok && c.u.user.Load() == nil {
+	u, ok := a.tokens.user(token, cfg)
+	if ok && c.u.user.Load() == nil {
 		c.u.user.Store(&u)
 		c.u.token = token
 	}
 	a.pushAccessLocked(c, true)
 	a.mu.Unlock()
+	if ok {
+		a.tokens.touch(cfg, token) // a used token's age starts over
+	}
 }
 
 // UserUnlock unlocks c as the user whose PIN is pin. PINs are unique across
@@ -266,6 +271,22 @@ func (a *App) sessionGoodLocked(c *client) bool {
 type sessionMsg struct {
 	T     string `json:"t"`
 	Token string `json:"token"`
+}
+
+// touchSessions renews the tokens of the connections that are open now, so a
+// persistent user whose page never reloads keeps their session past
+// tokenMaxAge. Run from periodic, off mu.
+func (a *App) touchSessions() {
+	a.mu.Lock()
+	cfg := a.r().cfg
+	var held []string
+	for cl := range a.clients {
+		if cl.u.token != "" && a.userOKLocked(cl, cfg) {
+			held = append(held, cl.u.token)
+		}
+	}
+	a.mu.Unlock()
+	a.tokens.touch(cfg, held...)
 }
 
 // catchUpSessions gives a session token to every connection unlocked as a

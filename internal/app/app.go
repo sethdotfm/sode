@@ -97,9 +97,12 @@ type App struct {
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
 	nameReqAt time.Time // when the last name refresh was asked for
-	nameRxAt  time.Time // last name reply
-	namesDirt bool      // unsolicited names changed outside a refresh
-	dumpAt    time.Time // last dump request
+	// sessionsAt: when the open connections last had their session tokens
+	// renewed (users.go touchSessions).
+	sessionsAt time.Time
+	nameRxAt   time.Time // last name reply
+	namesDirt  bool      // unsolicited names changed outside a refresh
+	dumpAt     time.Time // last dump request
 
 	pin     pinPool     // wrong settings PINs (pin.go)
 	userPin pinPool     // wrong user PINs
@@ -238,10 +241,17 @@ func (a *App) Run(ctx context.Context) {
 func (a *App) periodic() {
 	r := a.r()
 	a.mu.Lock()
+	sessions := time.Since(a.sessionsAt) > time.Hour
+	if sessions {
+		a.sessionsAt = time.Now()
+	}
 	up := a.status.Router == string(swp08.StateUp)
 	names := r.cfg.NameRefreshSeconds > 0 && time.Since(a.nameReqAt) > time.Duration(r.cfg.NameRefreshSeconds)*time.Second
 	dump := r.cfg.TallyResyncSeconds > 0 && time.Since(a.dumpAt) > time.Duration(r.cfg.TallyResyncSeconds)*time.Second
 	a.mu.Unlock()
+	if sessions {
+		a.touchSessions()
+	}
 	if !up {
 		return
 	}

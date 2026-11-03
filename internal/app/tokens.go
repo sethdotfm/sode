@@ -38,9 +38,15 @@ type tokenRec struct {
 // grow without bound; the oldest goes.
 const perUserTokens = 8
 
-// tokenMaxAge: a session token older than this is dead and pruned, so a
-// forgotten browser doesn't stay signed in for ever.
-const tokenMaxAge = 90 * 24 * time.Hour
+// tokenMaxAge: a session token not used for this long is dead and pruned, so
+// a forgotten browser doesn't stay signed in for ever. Use is a `hi` with the
+// token, or the token's connection still being open (touch): a wall panel
+// that never reloads stays signed in. A token is only rewritten when its
+// time is over tokenTouchAfter old, so this is about one write a day.
+const (
+	tokenMaxAge     = 90 * 24 * time.Hour
+	tokenTouchAfter = 24 * time.Hour
+)
 
 func tokenKey(t string) string {
 	h := sha256.Sum256([]byte(t))
@@ -126,6 +132,29 @@ func (s *tokenStore) dropUser(name string) {
 		}
 	}
 	if len(s.toks) == n {
+		s.mu.Unlock()
+		return
+	}
+	s.save()
+}
+
+// touch moves the time of each of tokens that is still good against cfg and
+// over tokenTouchAfter old to now, and saves once if any moved. Never call it
+// with App.mu held (it writes the file).
+func (s *tokenStore) touch(cfg config.Config, tokens ...string) {
+	s.mu.Lock()
+	now, moved := time.Now(), false
+	for _, t := range tokens {
+		k := tokenKey(t)
+		if r, ok := s.toks[k]; ok && time.Since(r.At) > tokenTouchAfter {
+			if _, good := valid(r, cfg); good {
+				r.At = now
+				s.toks[k] = r
+				moved = true
+			}
+		}
+	}
+	if !moved {
 		s.mu.Unlock()
 		return
 	}
