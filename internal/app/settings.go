@@ -26,13 +26,20 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 	if a.locked(c) {
 		return errLocked
 	}
+	if a.refused(c, gateMain) {
+		a.sendLockState(c)
+		return errNeedUser
+	}
 	return a.applyConfig(func(cur *config.Config) error {
 		// cur is a copy of the live config. Filter sets are saved from
 		// Recent's Filters, not the settings form, so a browser's copy may
-		// be stale: keep the current ones.
+		// be stale: keep the current ones. Users, locks and auto-lock are
+		// saved apart (SaveUsers), never from this form.
 		keepSets, keepPin, keepDev, keepSalvos := cur.FilterSets, cur.SettingsPin, cur.DeviceDefaults, cur.Salvos
 		keepGrids, keepGridConfirm := cur.Grids, cur.GridConfirm // saved by the grid editor
+		keepUsers, keepLocks, keepAuto := cur.Users, cur.Locks, cur.AutoLockMinutes
 		*cur = cfg
+		cur.Users, cur.Locks, cur.AutoLockMinutes = keepUsers, keepLocks, keepAuto
 		cur.FilterSets, cur.SettingsPin, cur.Salvos = keepSets, keepPin, keepSalvos
 		cur.Grids, cur.GridConfirm = keepGrids, keepGridConfirm
 		if keepDefaults {
@@ -62,6 +69,10 @@ func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	defer a.cfgMu.Unlock()
 	if a.locked(c) {
 		return errLocked
+	}
+	if a.refused(c, gateMain) {
+		a.sendLockState(c)
+		return errNeedUser
 	}
 	_, nr, err := a.update(func(cur *config.Config) error {
 		cur.FilterSets = sets
@@ -163,6 +174,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	locked, _ := json.Marshal(simpleMsg{T: "locked"})
 	for cl := range a.clients {
 		a.deliver(cl, hello)
+		a.deliverLock(cl) // locks, users or the settings PIN may have changed
 		// An unlock is for the PIN it was entered against.
 		if cl.pin != "" && cl.pin != c.SettingsPin {
 			cl.pin = ""
@@ -175,6 +187,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	if reconnect {
 		a.sw.SetTarget(c.Router, nr.probe())
 	}
+	a.pruneTokens() // a changed or removed settings PIN revokes every admin token
 	log.Printf("config: applied (reconnect=%v)", reconnect)
 	return nil
 }

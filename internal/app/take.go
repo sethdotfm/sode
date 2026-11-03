@@ -358,13 +358,13 @@ func (a *App) planPhase(r *runtime, c *client, req takeReq) (*waiter, *Entry, er
 	if err != nil {
 		return nil, nil, err
 	}
-	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.ip}
+	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.who()}
 	if req.Undo != nil {
 		w.why.Reason = swp08.ReasonUndo
 	} else if req.Retry != nil {
 		w.why.Reason = swp08.ReasonRetry
 	}
-	e := &Entry{Time: time.Now(), Client: c.ip, Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
+	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Prev: [][2]int{}}
 	return w, e, nil
 }
 

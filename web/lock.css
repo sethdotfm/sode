@@ -1,0 +1,118 @@
+/* The lock screen (#151, lock.js). The page behind blurs, the logo flies to
+   the centre and the brand border grows, all by one class (is-on) so the
+   same transitions run backwards on unlock. Tokens only. */
+
+:root { --sode-lock-motion: 700ms; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --sode-lock-motion: 0ms; }
+}
+
+.sode-lock {
+  align-items: center;
+  -webkit-backdrop-filter: blur(0);
+  backdrop-filter: blur(0);
+  background: transparent;
+  border: 0 solid var(--brand-color, var(--pb-accent));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-7);
+  inset: 0;
+  justify-content: center;
+  overflow-y: auto;
+  padding: var(--pb-space-9);
+  position: fixed;
+  transition:
+    background var(--sode-lock-motion) var(--pb-ease),
+    backdrop-filter var(--sode-lock-motion) var(--pb-ease),
+    -webkit-backdrop-filter var(--sode-lock-motion) var(--pb-ease),
+    border-width var(--sode-lock-motion) var(--pb-ease);
+  z-index: var(--pb-z-toast);
+}
+.sode-lock[hidden] { display: none; }
+.sode-lock.is-on {
+  -webkit-backdrop-filter: blur(var(--pb-space-5));
+  backdrop-filter: blur(var(--pb-space-5));
+  background: color-mix(in srgb, var(--pb-surface-base) 78%, transparent);
+  border-width: var(--pb-space-5);
+}
+
+/* Everything but the logo arrives once the logo is most of the way there. */
+.sode-lock__body {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-7);
+  opacity: 0;
+  transition: opacity var(--sode-lock-motion) var(--pb-ease);
+}
+.sode-lock.is-on .sode-lock__body { opacity: 1; }
+
+.sode-lock__brand {
+  color: var(--pb-text-strong);
+  font-size: calc(var(--pb-text-xl) * 3);
+  font-weight: var(--pb-weight-bold);
+  letter-spacing: var(--pb-tracking-label);
+  margin: 0;
+  transform: translate(var(--lx, 0), var(--ly, 0)) scale(var(--ls, 1));
+  transition: transform var(--sode-lock-motion) var(--pb-ease);
+  white-space: nowrap;
+}
+.sode-lock.is-on .sode-lock__brand { transform: none; }
+
+.sode-lock__state {
+  color: var(--pb-text-muted);
+  margin: 0;
+}
+.sode-lock__dots {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  letter-spacing: var(--pb-space-4);
+  min-height: calc(var(--pb-text-xl) * 1.6);
+}
+.sode-lock__msg { margin: 0; min-height: 1.5em; }
+.sode-lock__pad {
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: repeat(3, 1fr);
+  width: min(100%, calc(var(--pb-control-h-lg) * 6.5));
+}
+.pb-btn.sode-lock__key {
+  font-size: var(--pb-text-xl);
+  font-variant-numeric: tabular-nums;
+  height: calc(var(--pb-control-h-lg) * 1.6);
+}
+.pb-btn.sode-lock__key--word { font-size: var(--pb-text-md); }
+.sode-lock__admin {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+  justify-content: center;
+}
+.sode-lock__admin[hidden] { display: none; }
+
+/* Who is unlocked, in a corner, with the way to lock. */
+.sode-lock__who {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  bottom: var(--pb-space-5);
+  display: flex;
+  gap: var(--pb-space-4);
+  left: var(--pb-space-5);
+  padding: var(--pb-space-2) var(--pb-space-4);
+  position: fixed;
+  z-index: var(--pb-z-sticky);
+}
+.sode-lock__who[hidden] { display: none; }
+.sode-lock__who-name { color: var(--pb-text); font-size: var(--pb-text-sm); }
+
+/* Users section of the settings. */
+.sode__users-row {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-5);
+}
+.sode__users-row .sode__field { flex: 1 1 10rem; }

@@ -9,6 +9,7 @@ import { lockout } from './widgets.js';
 import { confirmFor } from './gridgeom.js';
 import './device.js';
 import './brand.js';
+import './lock.js'; // locks (#151): the page type comes from the path
 
 // The link is the segment after /grid/ (the page may sit behind a proxy's prefix).
 const link = (() => {

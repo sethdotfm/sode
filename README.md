@@ -110,6 +110,16 @@ A grid is a panel of big source, destination and (later) salvo buttons, made for
 
 On a grid, tap destinations to light them (tap again to unlight; each lit one shows where it is routed now), then tap a source to take it to all of them on the grid's levels. Protected destinations are named, not skipped silently. Each grid sets **Confirm takes** to the global default (on: the usual churning-letter confirm), always, or never (sent at once); the global default is a box at the left of the editor. A grid's levels default to the default levels. Salvo buttons show "needs Salvos" and do nothing until Salvos exist. The theme and layout follow this device's Settings.
 
+### Users and locks (optional)
+
+Off by default: with no users and no locks Sode behaves as before. Settings → Users adds people (a name and a 4-12 digit PIN each; PINs must differ, since the PIN alone says who) and turns on locks per page type: the main screen, Grid pages and the Communication Log. A locked page opens behind a lock screen with a number pad; it unlocks the moment the typed PIN matches, no Enter. The server enforces it per WebSocket connection: until a connection unlocks as a user it is refused takes, name refreshes, clearing history, settings and filter sets, and (on the log) the sent log and uptime graph. `/healthz` and `/api/health` stay open. The user's name replaces the IP in history and in the log.
+
+- **Lock again:** Ctrl+L, the Lock button in the corner, or after the idle minutes set in Settings (0 = never). A dropped connection also locks, since unlocking belongs to the connection.
+- **Admin password:** the settings PIN, entered from the lock screen, gives that browser a random token (kept in its localStorage, and, hashed, in `tokens.json` next to the config file) that skips the locks. Changing or removing the settings PIN revokes every token. The corner button on such a browser ("Forget") drops its token.
+- **Wrong PINs** are counted in two separate classes, each for everyone. The settings PIN and the admin password are one class, with the settings PIN rules above (waits from the 5th, permanent lock after `pinMaxTries`). User PINs are the other: waits from the 5th that double up to 5 minutes, never a permanent lock, so strangers' guesses can't shut the operators out. A success or lockout in one class never changes the other. A PIN with a length no user has isn't counted; with users of different lengths a PIN is sent half a second after the last digit.
+- **Settings PIN required:** users and locks are administered with the settings PIN, so it must be set first, and a lock can't be on without one. `sode -reset-pin` therefore turns the page locks off too. If everyone is locked out otherwise, stop Sode and set `locks:` to all `false` in `/data/config.yaml`. Users are `users: [{name, pin (hash), len}]`; set PINs in Settings, not by hand.
+- **Limits:** the lock gates actions and the sent log and uptime graph, not reads: names, routes, recent history, user names and PIN lengths still reach a locked browser. The browser declares its page type, which can only add the Grid lock to takes, never skip the main lock. Idle auto-lock is a client-side convenience in the page, not enforced by the server.
+
 ## Monitoring (Uptime Kuma)
 
 `GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:

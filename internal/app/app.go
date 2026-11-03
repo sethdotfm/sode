@@ -101,6 +101,7 @@ type App struct {
 	dumpAt    time.Time // last dump request
 
 	pin   pinState   // wrong settings PINs
+	usr   userState  // admin tokens (users.go)
 	cfgMu sync.Mutex // serializes settings saves
 
 	gapHook func() // test seam: runs between a take's finish and unregister
@@ -191,6 +192,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		}
 		return err
 	}
+	a.pruneTokens() // loads the admin token file, so no request reads it under mu
 	return a, nil
 }
 

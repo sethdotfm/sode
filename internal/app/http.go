@@ -30,6 +30,8 @@ type client struct {
 
 	// sent: this is a /log page, sent new sent log entries. Guarded by App.mu.
 	sent bool
+
+	u connUser // page type, unlocked user, admin token (users.go)
 }
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -246,12 +248,22 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			Salvos   []config.Salvo     `json:"salvos"`
 			Grids    []config.Grid      `json:"grids"`
 			Confirm  *bool              `json:"gridConfirm"` // nil: keep the current
+			Page     string             `json:"page"`        // hi: main | grid | log
+			Token    string             `json:"token"`       // hi: admin token
+			Forget   bool               `json:"forget"`
+			UsersReq *usersReq          `json:"usersReq"`
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
 		}
 		switch m.T {
+		case "hi", "userUnlock", "userLock", "adminUnlock", "users":
+			a.serveUsers(c, m.T, m.Page, m.Token, m.Pin, m.ID, m.Forget, m.UsersReq)
 		case "batch":
+			if a.batchRefused(c) {
+				a.deny(c, "take")
+				continue
+			}
 			if len(m.Items) > 0 {
 				why, n := "take", len(m.Items)
 				for _, it := range m.Items {
@@ -267,10 +279,22 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "history":
 			go a.history(c, m.Before, m.N)
 		case "sent":
+			if a.refused(c, gateLog) {
+				a.deny(c, "sent")
+				continue
+			}
 			go a.sentHistory(c, int64(m.Before), m.N)
 		case "uptime":
+			if a.refused(c, gateLog) {
+				a.deny(c, "uptime")
+				continue
+			}
 			a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
 		case "refreshNames":
+			if a.refused(c, gateMain) {
+				a.deny(c, "refreshNames")
+				continue
+			}
 			a.command(c, "refreshNames", "sent", "", nil)
 			go a.RefreshNames()
 		case "unlock":
@@ -288,6 +312,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			a.Lock(c)
 			a.command(c, "lock", "ok", "", nil)
 		case "clearHistory":
+			if a.refused(c, gateMain) {
+				a.deny(c, "clearHistory")
+				continue
+			}
 			if a.locked(c) {
 				a.command(c, "clearHistory", "locked", "", nil)
 				a.reply(c, simpleMsg{T: "locked"})

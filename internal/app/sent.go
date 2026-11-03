@@ -38,7 +38,7 @@ func (a *App) logEvent(e Sent) {
 
 // command logs something a browser asked for.
 func (a *App) command(c *client, why, result, note string, err error) {
-	e := event(kindCommand, why, c.ip, result)
+	e := event(kindCommand, why, c.who(), result)
 	e.Note = note
 	if err != nil {
 		e.Err = err.Error()
@@ -157,6 +157,11 @@ func (a *App) sentHistory(c *client, before int64, n int) {
 	// Subscribe first: an entry logged between the read and the subscribe
 	// would be missed, one in both is dropped by the page (by seq).
 	a.mu.Lock()
+	if a.refusedLocked(c, gateLog) { // locked since the request was read
+		a.deliverLock(c)
+		a.mu.Unlock()
+		return
+	}
 	c.sent = true
 	a.mu.Unlock()
 	page, more, err := a.sent.Page(before, n)
