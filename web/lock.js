@@ -107,8 +107,7 @@ function say(text, bad = false) {
 }
 
 function render() {
-  const showChip = L.enforced && !L.locked && L.user;
-  if (!root && !L.locked && !showChip) return; // nothing configured: nothing built
+  const showChip = !L.locked; // always there, even where no lock is on
   if (L.enforced && L.locked) showLock();
   else hideLock();
   build();

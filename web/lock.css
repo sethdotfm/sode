@@ -151,3 +151,4 @@
 }
 .sode__users-row .sode__field { flex: 1 1 10rem; }
 .sode__users-row .sode__checks { display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-5); }
+.sode-lock__who .pb-btn[aria-disabled="true"] { cursor: default; opacity: 0.5; }
