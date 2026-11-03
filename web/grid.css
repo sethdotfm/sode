@@ -1,0 +1,190 @@
+/* Grid panels: /grid/<link> and the editor at /settings/grids (#150).
+   Load after base.css and history.css. */
+
+.sode-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  margin: 0 auto;
+  max-width: 100rem;
+  min-height: 100vh;
+  padding: var(--pb-space-6);
+}
+.sode-grid__head {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-4);
+}
+.sode-grid__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+  margin: 0 var(--pb-space-4) 0 0;
+}
+.sode-grid__spacer { flex: 1 1 auto; }
+.sode-grid__bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+  justify-content: space-between;
+}
+.sode-grid__bar[hidden] { display: none; }
+.sode-grid__result:empty { display: none; }
+.sode-grid__result > .pb-alert { margin: 0; }
+
+/* The board: cols x rows squares, joined cells span several. Squares are
+   at least a finger tall; the board fills the window's width. */
+.sode-grid__board {
+  --sode-grid-gap: var(--pb-space-3);
+  display: grid;
+  flex: 1 1 auto;
+  gap: var(--sode-grid-gap);
+  grid-auto-rows: minmax(5.5rem, 1fr);
+  grid-template-columns: repeat(var(--sode-grid-cols, 1), minmax(0, 1fr));
+}
+.sode-grid__cell {
+  align-items: flex-start;
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: var(--pb-space-2);
+  justify-content: space-between;
+  min-height: 5.5rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--pb-space-3) var(--pb-space-4);
+  text-align: left;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.sode-grid__cell:hover, .sode-grid__cell:active { background: var(--pb-surface-hover); }
+.sode-grid__cell--src { border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode-grid__cell--dst { border-left: var(--sode-side-w) solid var(--pb-dest); }
+.sode-grid__cell--salvo { border-left: var(--sode-side-w) solid var(--pb-accent); }
+.sode-grid__cell[aria-pressed="true"] {
+  background: var(--pb-accent-wash);
+  border-color: var(--pb-accent);
+  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+  outline-offset: calc(-1 * var(--pb-accent-bar-w));
+}
+.sode-grid__cell:disabled {
+  background: transparent;
+  color: var(--pb-text-disabled);
+  cursor: not-allowed;
+}
+.sode-grid__name {
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.sode-grid__num {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-xs);
+}
+.sode-grid__now {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  overflow-wrap: anywhere;
+}
+.sode-grid__tags { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
+.sode-grid__tags:empty { display: none; }
+
+/* ---- the editor (settings-grids.html) */
+
+.sode-ged {
+  display: grid;
+  gap: var(--pb-space-6);
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+}
+.sode-ged__list, .sode-ged__main, .sode-ged__form, .sode-ged__cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode-ged__row { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-3); }
+.sode-ged__fields {
+  display: grid;
+  gap: var(--pb-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+}
+.sode-ged__field { display: flex; flex-direction: column; gap: var(--pb-space-2); min-width: 0; position: relative; }
+.sode-ged__item { justify-content: flex-start; text-align: left; width: 100%; }
+.sode-ged__item[aria-pressed="true"] { background: var(--pb-accent-wash); border-color: var(--pb-accent); }
+.sode-ged__canvas {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: grid;
+  gap: var(--pb-space-1);
+  grid-auto-rows: 4rem;
+  grid-template-columns: repeat(var(--sode-grid-cols, 1), minmax(3rem, 1fr));
+  overflow: auto;
+  padding: var(--pb-space-2);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sode-ged__sq {
+  align-items: flex-start;
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) dashed var(--pb-edge-soft);
+  color: var(--pb-text);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-xs);
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode-ged__sq--src { border: var(--pb-border-w) solid var(--pb-edge); border-left: var(--sode-side-w) solid var(--pb-source); }
+.sode-ged__sq--dst { border: var(--pb-border-w) solid var(--pb-edge); border-left: var(--sode-side-w) solid var(--pb-dest); }
+.sode-ged__sq--salvo { border: var(--pb-border-w) solid var(--pb-edge); border-left: var(--sode-side-w) solid var(--pb-accent); }
+.sode-ged__sq--joined { background: var(--pb-surface-raised); border-style: solid; }
+.sode-ged__sq--sel {
+  background: var(--pb-accent-wash);
+  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+  outline-offset: calc(-1 * var(--pb-accent-bar-w));
+}
+.sode-ged__sq b { font-weight: var(--pb-weight-bold); overflow-wrap: anywhere; }
+.sode-ged__lock { max-width: 24rem; }
+
+.sode-ged .sode__picker { align-items: flex-start; display: flex; gap: var(--pb-space-2); }
+.sode-ged .sode__levels {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(var(--sode-bar-cols), auto);
+}
+.sode-ged .pb-btn.sode__all {
+  align-self: start;
+  flex-direction: column;
+  gap: 0;
+  height: calc(2 * (var(--pb-space-8) + var(--pb-space-1)) + var(--pb-space-1));
+  line-height: 1.1;
+  padding: 0 var(--pb-space-3);
+}
+.sode-ged .sode__menu {
+  left: 0;
+  max-height: 18rem;
+  overflow-y: auto;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: var(--pb-z-modal);
+}
+.sode-ged .sode__num { color: var(--pb-text-muted); font-family: var(--pb-font-num); min-width: 4ch; text-align: right; }
+
+@media (max-width: 52rem) {
+  .sode-ged { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 40rem) {
+  .sode-grid { padding: var(--pb-space-4); }
+}

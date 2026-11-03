@@ -104,6 +104,12 @@ docker compose exec sode /sode -reset-pin && docker compose restart sode
 
 or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
+## Grid (#150)
+
+A grid is a panel of big source, destination and (later) salvo buttons, made for a tablet. Each one has its own link, `/grid/<link>` (for example `/grid/studio-a`). Make them at `/settings/grids` (**Grids** link in Settings), a full page behind the settings PIN: pick a size, click or drag over squares, **Join** them into one larger button (**Split** undoes it), then choose what each button is (a source or destination, found by number or name) and give it a label if you want one.
+
+On a grid, tap destinations to light them (tap again to unlight; each lit one shows where it is routed now), then tap a source to take it to all of them on the grid's levels. Protected destinations are named, not skipped silently. Each grid sets **Confirm takes** to the global default (on: the usual churning-letter confirm), always, or never (sent at once); the global default is a box at the left of the editor. A grid's levels default to the default levels. Salvo buttons show "needs Salvos" and do nothing until Salvos exist. The theme and layout follow this device's Settings.
+
 ## Monitoring (Uptime Kuma)
 
 `GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:
