@@ -70,6 +70,10 @@ type Config struct {
 	// that haven't chosen their own. Browser-side only: changing them never
 	// touches the router link.
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults"`
+	// Users, Locks and AutoLockMinutes: optional access control (users.go).
+	Users           []User `yaml:"users,omitempty" json:"users"`
+	Locks           Locks  `yaml:"locks" json:"locks"`
+	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes"`
 }
 
 // BrandColor is one accepted BrandBorder name. Hex is the dark-mode value of
@@ -216,6 +220,7 @@ func (c Config) Clone() Config {
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.HideDsts = slices.Clone(c.HideDsts)
+	c.Users = cloneUsers(c.Users)
 	return c
 }
 
@@ -224,6 +229,7 @@ func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
 	c.RouterName = strings.TrimSpace(c.RouterName)
 	c.BrandText = strings.TrimSpace(c.BrandText)
+	c.normalizeUsers()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
 	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
 	if c.RouterShow == "" {
@@ -420,6 +426,7 @@ func (c Config) Validate() error {
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}
+	errs = append(errs, c.validateUsers()...)
 	return errors.Join(errs...)
 }
 

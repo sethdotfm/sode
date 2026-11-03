@@ -38,7 +38,7 @@ func (a *App) logEvent(e Sent) {
 
 // command logs something a browser asked for.
 func (a *App) command(c *client, why, result, note string, err error) {
-	e := event(kindCommand, why, c.ip, result)
+	e := event(kindCommand, why, c.who(), result)
 	e.Note = note
 	if err != nil {
 		e.Err = err.Error()
