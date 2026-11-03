@@ -112,6 +112,14 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	if len(ev.Msg) > 0 {
 		e.Cmd = int(ev.Msg[0])
 	}
+	switch {
+	case q.Kind == "salvoStage":
+		e.Note = fmt.Sprintf("salvo %d", q.Group)
+	case q.Kind == "salvoGo" && q.Clear:
+		e.Note = fmt.Sprintf("salvo %d: clear", q.Group)
+	case q.Kind == "salvoGo":
+		e.Note = fmt.Sprintf("salvo %d: set", q.Group)
+	}
 	if ev.Why.Reason == swp08.ReasonKeepalive {
 		// A link check, not a question about a route: whatever it asks
 		// about is beside the point.
