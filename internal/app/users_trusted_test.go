@@ -403,3 +403,113 @@ func TestSessionOverWebSocket(t *testing.T) {
 		t.Fatalf("revoked token worked: %v", m)
 	}
 }
+
+// watched: a connection the app can deliver to, unlocked as the user whose PIN is pin.
+func watched(t *testing.T, a *App, ip, pin string) *client {
+	t.Helper()
+	c := &client{ip: ip, send: make(chan []byte, 16)}
+	a.mu.Lock()
+	a.clients[c] = struct{}{}
+	a.mu.Unlock()
+	if pin != "" {
+		if err := a.UserUnlock(c, pin); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return c
+}
+
+// sessionSent: the token of a queued `session` message, "" if none.
+func sessionSent(c *client) string {
+	for {
+		select {
+		case b := <-c.send:
+			var m sessionMsg
+			if json.Unmarshal(b, &m) == nil && m.T == "session" {
+				return m.Token
+			}
+		default:
+			return ""
+		}
+	}
+}
+
+// Ticking Never log out for someone already logged in gives their open
+// connection a token at once (only the PIN did before), so a reload keeps
+// them in; a connection that is not logged in gets nothing.
+func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
+	a := userApp(t, true)
+	ana := watched(t, a, "10.0.0.1", "1234")
+	bo := watched(t, a, "10.0.0.2", "567890") // not persistent
+	idle := watched(t, a, "10.0.0.3", "")
+	admin := &client{ip: "10.0.0.9"}
+	if err := a.Unlock(admin, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SaveUsers(admin, usersReq{Locks: config.Locks{Main: true, Log: true}, Users: []userEdit{
+		{Name: "Ana", Persistent: true}, {Name: "Bo"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	tok := sessionSent(ana)
+	if tok == "" {
+		t.Fatal("Ana was not given a token")
+	}
+	if sessionSent(bo) != "" || sessionSent(idle) != "" {
+		t.Fatal("a token went to someone who is not persistent or not logged in")
+	}
+	fresh := &client{ip: "10.0.0.4"}
+	a.Hi(fresh, "main", tok)
+	if !a.pageAllowed(fresh, gateMain) || fresh.who() != "Ana" {
+		t.Fatal("the pushed token does not log in")
+	}
+	// Another save while she holds a good token issues nothing more.
+	if err := a.SaveUsers(admin, usersReq{Locks: config.Locks{Main: true, Log: true}, Users: []userEdit{
+		{Name: "Ana", Persistent: true}, {Name: "Bo"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if sessionSent(ana) != "" || len(a.tokens.toks) != 1 {
+		t.Fatalf("a second token was issued (%d on file)", len(a.tokens.toks))
+	}
+}
+
+// Changing your own PIN ends your old tokens; the connection that changed it
+// is given a new one, or the next reload would ask for the new PIN.
+func TestChangedPinKeepsSessionLoggedIn(t *testing.T) {
+	a := userApp(t, true)
+	setFlags(t, a, "Ana", false, true)
+	c := watched(t, a, "10.0.0.1", "1234")
+	old := a.issueSession(c)
+	if old == "" {
+		t.Fatal("no token")
+	}
+	if err := a.UserSetPin(c, "1234", "4321"); err != nil {
+		t.Fatal(err)
+	}
+	tok := sessionSent(c)
+	if tok == "" || tok == old {
+		t.Fatalf("no new token after the PIN change (%q)", tok)
+	}
+	fresh := &client{ip: "10.0.0.2"}
+	a.Hi(fresh, "main", old)
+	if a.pageAllowed(fresh, gateMain) {
+		t.Fatal("the old token survived the PIN change")
+	}
+	again := &client{ip: "10.0.0.3"}
+	a.Hi(again, "main", tok)
+	if !a.pageAllowed(again, gateMain) {
+		t.Fatal("the new token does not log in")
+	}
+}
+
+// A lock that lands while a token is being issued wins: nothing is kept.
+func TestSessionIssuedToLockedConnectionIsDropped(t *testing.T) {
+	a := userApp(t, true)
+	setFlags(t, a, "Ana", false, true)
+	c := watched(t, a, "10.0.0.1", "1234")
+	a.UserLock(c)
+	if tok := a.issueSession(c); tok != "" || len(a.tokens.toks) != 0 {
+		t.Fatalf("token for a locked connection: %q (%d on file)", tok, len(a.tokens.toks))
+	}
+}

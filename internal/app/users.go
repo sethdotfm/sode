@@ -223,9 +223,60 @@ func (a *App) issueSession(c *client) string {
 	}
 	t := a.tokens.issue(u, cfg)
 	a.mu.Lock()
-	c.u.token = t
+	// Locked while the file was written, or already given a good token by a
+	// racing call (an unlock and a settings save can overlap): this one is
+	// not wanted. Forgotten after mu goes, since that writes the file.
+	stale := c.u.user.Load() != who || a.sessionGoodLocked(c)
+	if !stale {
+		c.u.token = t
+	}
 	a.mu.Unlock()
+	if stale {
+		a.tokens.forget(t)
+		return ""
+	}
 	return t
+}
+
+// sessionGoodLocked: c holds a session token that is still honored. Caller
+// holds mu.
+func (a *App) sessionGoodLocked(c *client) bool {
+	if c.u.token == "" {
+		return false
+	}
+	_, ok := a.tokens.user(c.u.token, a.r().cfg)
+	return ok
+}
+
+// sessionMsg hands a browser a session token outside an unlock's reply.
+type sessionMsg struct {
+	T     string `json:"t"`
+	Token string `json:"token"`
+}
+
+// catchUpSessions gives a session token to every connection unlocked as a
+// persistent user that holds none (or holds a dead one). A token is otherwise
+// issued only when the PIN is typed, so a user who was already logged in when
+// Never log out was ticked, or who just changed their own PIN (which ends
+// their old tokens), would be asked for it again at the next reload. Run
+// after config changes, off mu: issuing writes the token file.
+func (a *App) catchUpSessions() {
+	a.mu.Lock()
+	cfg := a.r().cfg
+	var todo []*client
+	for cl := range a.clients {
+		if who := cl.u.user.Load(); who != nil && a.userOKLocked(cl, cfg) && !a.sessionGoodLocked(cl) {
+			if u, ok := cfg.FindUser(who.Name); ok && u.Persistent {
+				todo = append(todo, cl)
+			}
+		}
+	}
+	a.mu.Unlock()
+	for _, cl := range todo {
+		if t := a.issueSession(cl); t != "" {
+			a.reply(cl, sessionMsg{T: "session", Token: t})
+		}
+	}
 }
 
 // UserLock forgets c's unlock and revokes its session token, so a reload
@@ -464,5 +515,6 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 		a.syncAccessLocked(cl) // the user's other connections relock
 	}
 	a.mu.Unlock()
+	a.catchUpSessions() // c's old tokens died with the old hash
 	return nil
 }
