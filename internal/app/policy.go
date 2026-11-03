@@ -54,6 +54,10 @@ var policy = map[string]rule{
 	"userUnlock":  {}, // the way out of the lock; counted in the user PIN pool
 	"adminUnlock": {}, // same, with the settings PIN; counted in the settings pool
 	"userLock":    {}, // locking is never refused
+	// userSetPin: open, but the handler wants this connection unlocked as a
+	// user and the old PIN (counted in the user pool). The settings PIN is
+	// not involved: it is the user's own credential.
+	"userSetPin": {},
 	// Open: the settings PIN dialog's own messages, checked by the PIN.
 	"unlock": {}, // counted in the settings pool
 	"lock":   {}, // forgetting an unlock is never refused

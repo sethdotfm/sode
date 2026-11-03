@@ -88,7 +88,7 @@ func TestUsersConfigValidation(t *testing.T) {
 
 func TestUserPinRules(t *testing.T) {
 	for pin, ok := range map[string]bool{"1234": true, "123456789012": true, "123": false, "1234567890123": false, "12a4": false, "": false} {
-		if (config.CheckUserPinRules(pin) == nil) != ok {
+		if (config.CheckUserPinRules(pin, 12) == nil) != ok {
 			t.Errorf("CheckUserPinRules(%q) ok=%v, want %v", pin, !ok, ok)
 		}
 	}
@@ -159,7 +159,7 @@ func TestUserUnlock(t *testing.T) {
 	if a.pageAllowed(&client{ip: "10.0.0.2"}, gateMain) {
 		t.Fatal("unlock leaked to another connection")
 	}
-	a.UserLock(c, false)
+	a.UserLock(c, false, false)
 	if a.pageAllowed(c, gateMain) || c.who() != "10.0.0.1" {
 		t.Fatal("lock didn't lock")
 	}
@@ -211,7 +211,7 @@ func TestAdminTokenAndRevoke(t *testing.T) {
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
-	a.UserLock(c, false)
+	a.UserLock(c, false, false)
 	other := &client{ip: "10.0.0.5"}
 	if _, err := a.AdminUnlock(other, "0000"); err == nil || a.pageAllowed(other, gateMain) {
 		t.Fatalf("wrong admin password: %v", err)

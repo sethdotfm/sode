@@ -87,6 +87,8 @@ type Config struct {
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
 	Locks           Locks  `yaml:"locks" json:"locks" owned:"true"`
 	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" owned:"true"`
+	// MaxPinLen is the longest user PIN (4-12); the lock pad stops there.
+	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
 }
 
 // MaxFilterSetsBytes caps all filter sets as JSON, so a "filterSets"
@@ -176,6 +178,7 @@ func Defaults() Config {
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
+		MaxPinLen:          DefaultMaxPinLen,
 		GridConfirm:        true,
 		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
@@ -213,6 +216,7 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
 	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)
+	num("SODE_MAX_PIN_LEN", &c.MaxPinLen)
 	if v := os.Getenv("SODE_CONFIRM_ENTER"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {

@@ -45,9 +45,12 @@ var pageGates = map[string]gate{"main": gateMain, "grid": gateGrid, "log": gateL
 // connUser is a connection's access state: page and token are guarded by
 // App.mu; user is atomic so who can be read anywhere.
 type connUser struct {
-	page  string                      // "main" (default), "grid" or "log", as the page declared
-	token string                      // the admin token it presented
-	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
+	page  string // "main" (default), "grid" or "log", as the page declared
+	token string // the admin token it presented
+	// suspended: this connection lets its token rest (it locked itself).
+	// Per connection, under mu; the token stays valid and AdminUnlock ends it.
+	suspended bool
+	user      atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
 }
 
 // who names the connection for history and logs: the user, else the address.
@@ -77,7 +80,13 @@ func (a *App) pageAllowedLocked(c *client, g gate) bool {
 	if !g.on(cfg.Locks) {
 		return true
 	}
-	return a.userOKLocked(c, cfg) || a.tokens.ok(c.u.token, cfg.SettingsPin)
+	return a.userOKLocked(c, cfg) || a.tokenOKLocked(c, cfg)
+}
+
+// tokenOKLocked: c holds a valid admin token and hasn't suspended it. Caller
+// holds mu.
+func (a *App) tokenOKLocked(c *client, cfg config.Config) bool {
+	return !c.u.suspended && a.tokens.ok(c.u.token, cfg.SettingsPin)
 }
 
 func (a *App) pageAllowed(c *client, g gate) bool {
@@ -94,6 +103,8 @@ type lockStateMsg struct {
 	Locked   bool   `json:"locked"`
 	User     string `json:"user,omitempty"`
 	Exempt   bool   `json:"exempt,omitempty"` // an admin token lifts the lock
+	// Token: the connection holds a valid admin token, even a suspended one.
+	Token bool `json:"token,omitempty"`
 }
 
 // lockStateLocked is c's lock state, as its page declared itself. Caller
@@ -105,7 +116,8 @@ func (a *App) lockStateLocked(c *client) lockStateMsg {
 		page = "main"
 	}
 	m := lockStateMsg{T: "lockState", Page: page, Enforced: pageGates[page].on(cfg.Locks)}
-	m.Exempt = a.tokens.ok(c.u.token, cfg.SettingsPin)
+	m.Exempt = a.tokenOKLocked(c, cfg)
+	m.Token = a.tokens.ok(c.u.token, cfg.SettingsPin)
 	if a.userOKLocked(c, cfg) {
 		m.User = c.u.user.Load().Name
 	}
@@ -173,12 +185,18 @@ func (a *App) UserUnlock(c *client, pin string) error {
 }
 
 // UserLock forgets c's unlock; forget also drops its admin token for good.
-func (a *App) UserLock(c *client, forget bool) {
+// suspend only lets this connection's token rest, so an admin browser can lock
+// itself: the token stays valid, and a user PIN or the admin password (which
+// ends the suspension) opens it again.
+func (a *App) UserLock(c *client, forget, suspend bool) {
 	a.mu.Lock()
 	tok := c.u.token
 	c.u.user.Store(nil)
 	if forget {
 		c.u.token = ""
+	}
+	if suspend && !forget {
+		c.u.suspended = true
 	}
 	a.syncAccessLocked(c)
 	a.mu.Unlock()
@@ -200,7 +218,7 @@ func (a *App) AdminUnlock(c *client, pin string) (string, error) {
 	}
 	t := a.tokens.issue(hash)
 	a.mu.Lock()
-	c.u.token = t
+	c.u.token, c.u.suspended = t, false
 	a.syncAccessLocked(c)
 	a.mu.Unlock()
 	return t, nil
@@ -218,6 +236,7 @@ type usersReq struct {
 	Users    []userEdit   `json:"users"`
 	Locks    config.Locks `json:"locks"`
 	AutoLock int          `json:"autoLockMinutes"`
+	MaxPin   int          `json:"maxPinLen"` // 0 keeps the current one
 }
 
 // SaveUsers replaces the user directory, locks and auto-lock time. It is a
@@ -234,6 +253,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		return err
 	}
 	return a.applyConfig(func(cur *config.Config) error {
+		if req.MaxPin != 0 {
+			cur.MaxPinLen = req.MaxPin
+		}
+		maxLen := cur.MaxPinLen
 		old := map[string]config.User{}
 		for _, u := range cur.Users {
 			old[strings.ToLower(u.Name)] = u
@@ -247,7 +270,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				return errors.New("every user needs a name")
 			}
 			if e.Pin != "" {
-				if err := config.CheckUserPinRules(e.Pin); err != nil {
+				if err := config.CheckUserPinRules(e.Pin, maxLen); err != nil {
 					return err
 				}
 				h, err := config.HashPin(e.Pin)
@@ -317,7 +340,7 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 		}
 		a.reply(c, res)
 	case "userLock":
-		a.UserLock(c, m.Forget)
+		a.UserLock(c, m.Forget, m.Suspend)
 		a.command(c, "userLock", "ok", "", nil)
 	case "adminUnlock":
 		res := userResult{T: "adminUnlockResult", OK: true, ID: m.ID}
@@ -327,6 +350,15 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 		}
 		res.Token = tok
 		a.command(c, "adminUnlock", outcome(err), "", err)
+		a.reply(c, res)
+	case "userSetPin":
+		res := opResult{T: "userSetPinResult", OK: true, ID: &m.ID}
+		if err := a.UserSetPin(c, m.Old, m.New); err != nil {
+			res.OK, res.Err = false, err.Error()
+			a.command(c, "userSetPin", "refused", "", err)
+		} else {
+			a.command(c, "userSetPin", "ok", "", nil)
+		}
 		a.reply(c, res)
 	case "users":
 		if m.UsersReq == nil {
@@ -338,4 +370,70 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 			a.replyOp(c, "users", id, 0, "", err)
 		}(*m.UsersReq, m.ID)
 	}
+}
+
+// UserSetPin changes the PIN of the user c is unlocked as, after checking
+// old. It needs no settings PIN: the user's own PIN is the credential. The
+// old PIN is a try like an unlock (same pool, backed off). Other connections
+// of that user relock, as for any changed PIN; c stays unlocked.
+func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
+	who := c.u.user.Load()
+	if who == nil {
+		return errors.New("unlock with your PIN first")
+	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	a.mu.Lock()
+	cur := a.r().cfg
+	ok := a.userOKLocked(c, cur)
+	a.mu.Unlock()
+	if !ok {
+		return errors.New("unlock with your PIN first")
+	}
+	u, _ := cur.FindUser(who.Name)
+	if err := config.CheckUserPinRules(newPin, cur.MaxPinLen); err != nil {
+		return err
+	}
+	if err := a.tryPin(&a.userPin, c.ip, func() bool { return config.CheckPin(u.Pin, oldPin) }); err != nil {
+		return err
+	}
+	if oldPin == newPin {
+		return errors.New("the new PIN is the same as the old one")
+	}
+	h, err := config.HashPin(newPin)
+	if err != nil {
+		return err
+	}
+	_, nr, err := a.update(func(cfg *config.Config) error {
+		for i := range cfg.Users {
+			if !strings.EqualFold(cfg.Users[i].Name, who.Name) {
+				continue
+			}
+			if cfg.Users[i].Pin != u.Pin {
+				return errors.New("your PIN changed; unlock again")
+			}
+			// Unique: no other user may have this PIN (same length only).
+			for j, o := range cfg.Users {
+				if j != i && o.Len == len(newPin) && config.CheckPin(o.Pin, newPin) {
+					return errors.New("that PIN can't be used")
+				}
+			}
+			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)
+			return nil
+		}
+		return errors.New("unlock with your PIN first")
+	})
+	if err != nil {
+		return err
+	}
+	a.mu.Lock()
+	a.rt.Store(nr)
+	if nu, ok := nr.cfg.FindUser(who.Name); ok {
+		c.u.user.Store(&nu)
+	}
+	for cl := range a.clients {
+		a.syncAccessLocked(cl) // the user's other connections relock
+	}
+	a.mu.Unlock()
+	return nil
 }
