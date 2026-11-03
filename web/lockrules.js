@@ -126,3 +126,13 @@ export function wrongFeedback(err) {
 
 // Dots for the PIN typed so far.
 export const dots = (pin) => '●'.repeat(pin.length);
+
+// The churning letter of a confirm (a take, and the screen lock without a
+// PIN): a random key that is never the one before it, so the answer can't be
+// a habit. No i or l (easy to confuse), no o.
+const CHURN_KEYS = 'abcdefghjkmnpqrstuvwxyz';
+export function churnKey(last = '', rnd = Math.random) {
+  let key;
+  do key = CHURN_KEYS[Math.floor(rnd() * CHURN_KEYS.length)]; while (key === last);
+  return key;
+}

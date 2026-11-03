@@ -47,6 +47,8 @@ export const DICT = {
   // ---- Account (inside This device; only shown while logged in as a user)
   'account': ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
+  'soft-lock': ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
+  'soft-lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
   'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
 
   // ---- Names

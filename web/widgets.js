@@ -420,16 +420,8 @@ export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty
   return out;
 }
 
-// ---- confirm lockout
-
-// ready() once the lockout (S.cfg.confirmLockoutMs) has passed; onReady
-// then, unless cancelled first (the confirm closed).
-export function lockout(onReady) {
-  const ms = S.cfg.confirmLockoutMs;
-  const at = performance.now() + ms;
-  const t = setTimeout(onReady, ms);
-  return { ready: () => performance.now() >= at, cancel: () => clearTimeout(t) };
-}
+// ---- confirm lockout (lockout.js, so the lock screen can use it without this module)
+export { lockout } from './lockout.js';
 
 // ---- dialog keys (dialogkeys.js, so the lock chip can use it without this module)
 export { trapDialog } from './dialogkeys.js';

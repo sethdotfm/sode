@@ -10,10 +10,18 @@
 //
 // Off unless the server says this page type is locked: with no users and no
 // locks nothing here shows or is bound but a few idle listeners.
+//
+// Where no PIN lock is on (#158) the same screen can still be put up by hand
+// (Ctrl+L, or Settings > This device) as a guard against keyboard mashing: it
+// opens with a churning letter, like a take's confirm, and the confirm lockout
+// has to pass before that letter (or the Unlock button, for a touch screen)
+// works. It is this page's own state, not the server's: no PIN, nothing
+// enforced, and a reload clears it.
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey } from './lockrules.js';
+import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
 // The session token of a persistent user. localStorage rather than a cookie:
@@ -50,6 +58,9 @@ writeStr('sode-lock-never', null);
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
+let padBody, softBody, softKey, softBtn, softNote;
+let soft = null; // { key, lock } while the screen is locked by hand (no PIN lock on)
+let lastSoftKey = '';
 let pin = '';
 let seq = 0; // the userUnlock whose reply counts
 let timer = 0;
@@ -86,8 +97,19 @@ function build() {
     checkKey,
   );
 
-  const body = el('div', 'sode-lock__body', state, dotsEl, msg, pad);
-  root = el('div', 'sode-lock', brand, body);
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad);
+
+  // The hand lock's body: the churning letter and, for a touch screen, a button.
+  softKey = el('kbd', 'sode__key sode__key--locked');
+  softBtn = el('button', 'pb-btn pb-btn--ok', 'Unlock');
+  softBtn.type = 'button';
+  softBtn.addEventListener('click', softUnlock);
+  softNote = el('p', 'sode-lock__msg');
+  softNote.setAttribute('role', 'status');
+  softNote.setAttribute('aria-live', 'polite');
+  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__state', 'Locked.'), el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
+  softBody.hidden = true;
+  root = el('div', 'sode-lock', brand, padBody, softBody);
   root.hidden = true;
   root.tabIndex = -1;
   root.setAttribute('role', 'dialog');
@@ -108,8 +130,9 @@ function say(text, bad = false) {
 
 function render() {
   const showChip = L.enforced && !L.locked && L.user;
-  if (!root && !L.locked && !showChip) return; // nothing configured: nothing built
-  if (L.enforced && L.locked) showLock();
+  const covered = (L.enforced && L.locked) || !!soft;
+  if (!root && !covered && !showChip) return; // nothing configured: nothing built
+  if (covered) showLock();
   else hideLock();
   build();
   chip.update(L, showChip);
@@ -152,6 +175,9 @@ let scrolled = null; // where the page was when the lock came down
 
 function showLock() {
   build();
+  padBody.hidden = !!soft; // the PIN pad, or the hand lock's letter
+  softBody.hidden = !soft;
+  root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
   pin = '';
@@ -322,6 +348,13 @@ onMsg('userUnlockResult', (m) => {
   say(w.note, !!w.note);
 });
 
+// A token sent outside an unlock: this user was already logged in when Never
+// log out was ticked, or just changed their own PIN. Kept only while this page
+// is logged in (a token arriving after Log out was revoked with it).
+onMsg('session', (m) => {
+  if (m.token && L.user) writeStr(TOKEN_KEY, m.token);
+});
+
 onMsg('lockState', (m) => {
   if (settle) settle(); // a welcome still showing: finish it first
   const was = L.enforced && L.locked;
@@ -330,6 +363,10 @@ onMsg('lockState', (m) => {
   L.user = m.user || '';
   L.trusted = !!m.trusted;
   L.persistent = !!m.persistent;
+  if (L.enforced && soft) { // a lock that is enforced now: the PIN replaces the hand lock
+    soft.lock.cancel();
+    soft = null;
+  }
   if (hiPending) {
     hiPending = false;
     // A token the server no longer honors (PIN changed, user removed or no
@@ -360,6 +397,35 @@ onMsg('lockState', (m) => {
 // Settings' Account block: log out and change PIN.
 on('logout', () => lockNow());
 
+// ---- the hand lock (no PIN lock on this page)
+
+function softLock() {
+  if (soft || L.enforced || !S.cfg) return;
+  build();
+  const key = churnKey(lastSoftKey);
+  lastSoftKey = key;
+  softKey.textContent = key.toUpperCase();
+  softKey.classList.add('sode__key--locked');
+  softBtn.disabled = true;
+  softNote.textContent = 'Wait a moment…';
+  soft = { key, lock: lockout(() => {
+    softKey.classList.remove('sode__key--locked');
+    softBtn.disabled = false;
+    softNote.textContent = 'Ready.';
+  }) };
+  render();
+}
+
+// Only once the lockout has passed.
+function softUnlock() {
+  if (!soft?.lock.ready()) return;
+  soft.lock.cancel();
+  soft = null;
+  render();
+}
+
+on('softLock', softLock);
+
 // ---- locking again
 
 // Lock and Log out both end the session: the server forgets the unlock and
@@ -379,6 +445,16 @@ function lockNow() {
 // Ctrl+L, in the capture phase so nothing underneath sees it. Only where it
 // does something: a page whose lock is on, unlocked as a user.
 document.addEventListener('keydown', (e) => {
+  if (soft) {
+    // The page behind must not see a key: not a take, not Ctrl+Z. A shortcut
+    // chord is kept from the page but left to the browser (reload, copy).
+    e.stopImmediatePropagation();
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    if (e.key === 'Tab' || e.key === 'Enter' && e.target.closest?.('button')) return; // a focused button presses itself
+    e.preventDefault();
+    if (e.key.toLowerCase() === soft.key || (S.cfg?.confirmEnter && e.key === 'Enter')) softUnlock();
+    return;
+  }
   if (root && !root.hidden && root.classList.contains('is-on')) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
@@ -390,10 +466,16 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat && L.enforced && L.user) {
-    e.preventDefault();
-    e.stopPropagation();
-    lockNow();
+  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat) {
+    if (L.enforced && L.user) {
+      e.preventDefault();
+      e.stopPropagation();
+      lockNow();
+    } else if (!L.enforced && S.cfg) {
+      e.preventDefault();
+      e.stopPropagation();
+      softLock();
+    }
   }
 }, true);
 
