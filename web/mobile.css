@@ -184,6 +184,7 @@
   top: 0;
   width: 6rem;
 }
+.sode-m__undo .pb-icon { display: none; } /* the swipe-reveal button is text only */
 .sode-m__undo:disabled,
 .sode-m__undo.disabled {
   background: var(--pb-surface-high);

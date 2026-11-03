@@ -6,7 +6,7 @@
 // filter in a URL that applies it in another browser; the URL is cleaned
 // once read.
 
-import { $, el, S, on, off, wsSend, sentence, search, item, labelNode } from './core.js';
+import { $, el, S, on, off, search, item, labelNode, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
 import {
   filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter, allSets, activeSet, activeRef, adoptFilter, pickSet,
@@ -17,8 +17,8 @@ import { PREFS } from './prefs.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
 import { showResult } from './plans.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
-import { unlock, relock, unlocked } from './pin.js';
-import { combobox } from './widgets.js';
+import { globalSaver } from './globalsave.js';
+import { combobox, trapDialog } from './widgets.js';
 
 const root = $('filters');
 const dialog = $('filters-dialog');
@@ -324,12 +324,9 @@ function closeFilters() {
   eds.src.flush();
   eds.dst.flush();
   root.hidden = true;
-  $('flt-pin-row').hidden = true;
   // A save already sent finishes first (its answer locks up after it);
   // one still waiting for the PIN is dropped.
-  if (pending?.id) return void (back?.isConnected && back.focus());
-  pending = null;
-  relock();
+  saver.close();
   if (back?.isConnected) back.focus();
 }
 
@@ -365,8 +362,6 @@ $('flt-clear').addEventListener('click', () => {
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false; // Delete was pressed once; the next press deletes
 let naming = null;    // 'saveas' | 'rename' while the name row is open
-let pending = null;   // a change to sets for everyone: { id, run, done }
-let opSeq = 0;
 
 function renderSetBar() {
   const a = activeSet();
@@ -395,7 +390,7 @@ function renderSetBar() {
   select.replaceChildren(...opts);
   select.value = a ? setKey(a) : '';
   const named = a && a.scope !== 'all';
-  const busy = !!pending;
+  const busy = saver.busy();
   $('flt-set-save').disabled = busy || !(named && a.edited);
   $('flt-set-saveas').disabled = busy || stack.length > 0;
   $('flt-share-btn').disabled = stack.length > 0;
@@ -415,75 +410,17 @@ const setNote = (text, error = false) => {
   $('flt-set-note').classList.toggle('sode__error-text', error);
 };
 
-// ---- sets for everyone: send the whole list, after the PIN if needed
+// ---- sets for everyone: send the whole list, after the PIN if needed. An
+// unlock for them lasts while the dialog is open (or until a save sent before
+// it closed is answered).
 
-function changeGlobal(list, done) {
-  pending = { run: () => send(list), done };
-  if (S.pinSet && !unlocked()) return askPin();
-  pending.run();
-}
-function send(list) {
-  pending.id = ++opSeq;
-  if (!wsSend({ t: 'filterSets', id: pending.id, sets: list.map((s) => ({ name: s.name, ...s.f })) })) {
-    pending = null;
-    renderSetBar();
-    setNote('Not connected to Sode.', true);
-    return;
-  }
-  renderSetBar();
-  setNote('Saving…');
-}
+const saver = globalSaver({
+  t: 'filterSets', resultT: 'filterSetsResult', pinIn: $('flt-pin'), pinRow: $('flt-pin-row'), pinOk: $('flt-pin-ok'),
+  setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar,
+});
+$('flt-pin-cancel').addEventListener('click', saver.cancel);
+const changeGlobal = (list, done) => saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done);
 const globalsWith = (fn) => fn(globalSets().map((s) => ({ name: s.name, f: s.f })));
-
-// An unlock for sets for everyone lasts while the dialog is open (or
-// until a save sent before it closed is answered).
-on('filterSetsResult', (m) => {
-  if (!pending || m.id !== pending.id) return;
-  const p = pending;
-  const open = filtersOpen();
-  if (m.locked) {
-    relock();
-    if (open) return askPin('Enter the PIN again.');
-  }
-  pending = null;
-  if (m.ok) p.done();
-  if (open) {
-    renderSetBar();
-    if (!m.ok) setNote(sentence(m.err), true);
-    return;
-  }
-  // Closed while it was saving: say if it didn't, then lock up.
-  if (!m.ok) showResult('error', 'Filter set not saved', sentence(m.err) || 'Settings are locked.');
-  relock();
-});
-
-function askPin(err = '') {
-  $('flt-pin-row').hidden = false;
-  $('flt-pin').value = '';
-  setNote(err || 'Enter the settings PIN.', !!err);
-  $('flt-pin').focus();
-}
-function cancelPin() {
-  $('flt-pin-row').hidden = true;
-  pending = null;
-  renderSetBar();
-}
-async function sendPin() {
-  $('flt-pin-ok').disabled = true;
-  const r = await unlock($('flt-pin').value);
-  if (r.superseded) return;
-  $('flt-pin-ok').disabled = false;
-  if (r.stale) return;
-  if (!r.ok) { setNote(r.err, true); $('flt-pin').select(); return; }
-  $('flt-pin-row').hidden = true;
-  pending?.run();
-}
-$('flt-pin-ok').addEventListener('click', sendPin);
-$('flt-pin-cancel').addEventListener('click', cancelPin);
-$('flt-pin').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); sendPin(); }
-  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelPin(); }
-});
 
 // ---- the buttons
 
@@ -545,11 +482,10 @@ function saveName() {
   const a = activeSet();
   const scope = naming === 'rename' ? a.scope : $('flt-set-scope').value;
   const bad = (msg) => { f.classList.add('pb-input--invalid'); setNote(msg, true); f.focus(); };
-  if (!name) return bad('Name required.');
-  if (name.toLowerCase() === 'all') return bad('“All” is taken.');
-  const clash = allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase());
-  const self = naming === 'rename' && clash && setKey(clash) === setKey(a);
-  if (clash && !self && naming === 'rename') return bad(`“${clash.name}” already exists.`);
+  // Save as replaces a name that is taken; rename may not.
+  const taken = naming === 'rename' ? allSets().filter((x) => x.scope === scope).map((x) => x.name) : [];
+  const err = nameProblem(name, taken, { noun: 'filter set', old: naming === 'rename' ? a.name : '', reserved: 'all' });
+  if (err) return bad(err);
   flushEds();
   const mode = naming;
   closeName();
@@ -574,17 +510,8 @@ $('flt-set-name').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeName(); }
 });
 
-// Keys stay in the dialog: Esc closes, Tab wraps. Stopped here so the
-// layouts' own keys don't act behind it.
-root.addEventListener('keydown', (e) => {
-  e.stopPropagation();
-  if (e.key === 'Escape') { e.preventDefault(); closeFilters(); return; }
-  if (e.key !== 'Tab') return;
-  const all = [...dialog.querySelectorAll('button, input, select')].filter((x) => !x.disabled && x.offsetParent);
-  const first = all[0], last = all[all.length - 1];
-  if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { e.preventDefault(); last.focus(); }
-  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-});
+// Keys stay in the dialog (so the layouts' own keys don't act behind it).
+trapDialog(root, dialog, closeFilters);
 
 // ---- share links: ?f=<base64url of the filter's non-default parts>
 

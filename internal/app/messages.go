@@ -74,6 +74,11 @@ type filterSetsMsg struct {
 	Sets []config.FilterSet `json:"sets"`
 }
 
+type salvosMsg struct {
+	T      string         `json:"t"` // "salvos"
+	Salvos []config.Salvo `json:"salvos"`
+}
+
 // simpleMsg has no fields but its kind: "locked", "historyCleared".
 type simpleMsg struct {
 	T string `json:"t"`

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -23,18 +24,27 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, keepDefaults bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if a.locked(c) {
-		return errLocked
+	if err := a.guardSave(c, pin == "" && !clearPin); err != nil {
+		return err
 	}
+	// A trusted user (not the settings PIN) may not weaken what the admin
+	// guards through this form's plain fields.
+	admin := a.settingsUnlocked(c)
 	return a.applyConfig(func(cur *config.Config) error {
-		// cur is a copy of the live config. Filter sets are saved from
-		// Recent's Filters, not the settings form, so a browser's copy may
-		// be stale: keep the current ones.
-		keepSets, keepPin, keepDev := cur.FilterSets, cur.SettingsPin, cur.DeviceDefaults
+		// cur is a copy of the live config. Whatever is saved apart from
+		// this form (Config's owned fields: filter sets, salvos, the
+		// PIN, users and locks...) stays as it is, so a browser's stale
+		// copy can't undo it.
+		live := *cur
+		if !admin {
+			if err := trustedMayNotChange(live, cfg); err != nil {
+				return err
+			}
+		}
 		*cur = cfg
-		cur.FilterSets, cur.SettingsPin = keepSets, keepPin
-		if keepDefaults {
-			cur.DeviceDefaults = keepDev
+		cur.KeepOwned(live)
+		if !keepDefaults {
+			cur.DeviceDefaults = cfg.DeviceDefaults // the form edits these
 		}
 		switch {
 		case clearPin:
@@ -56,25 +66,10 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 // SaveFilterSets replaces the filter sets for everyone, from c (Recent's
 // Filters dialog). They're settings, so a settings PIN guards them too.
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	if a.locked(c) {
-		return errLocked
-	}
-	_, nr, err := a.update(func(cur *config.Config) error {
+	return a.saveShared(c, func(cur *config.Config) error {
 		cur.FilterSets = sets
 		return nil
-	})
-	if err != nil {
-		return err
-	}
-	// Only the sets changed: browsers get them alone, not a full snapshot
-	// that would reset their Recent.
-	a.mu.Lock()
-	a.rt.Store(nr)
-	a.broadcast(filterSetsMsg{T: "filterSets", Sets: nr.cfg.FilterSets})
-	a.mu.Unlock()
-	return nil
+	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })
 }
 
 // update is the one way settings change: mutate edits a copy of the live
@@ -101,6 +96,9 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
 	}
+	// Revocation is durable: tokens the new config invalidates are deleted
+	// now, not just ignored, so undoing the change can't revive them.
+	a.tokens.prune(cfg)
 	return old, nw, nil
 }
 
@@ -161,6 +159,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	locked, _ := json.Marshal(simpleMsg{T: "locked"})
 	for cl := range a.clients {
 		a.deliver(cl, hello)
+		a.syncAccessLocked(cl) // locks, users or the settings PIN may have changed
 		// An unlock is for the PIN it was entered against.
 		if cl.pin != "" && cl.pin != c.SettingsPin {
 			cl.pin = ""
@@ -174,5 +173,27 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		a.sw.SetTarget(c.Router, nr.probe())
 	}
 	log.Printf("config: applied (reconnect=%v)", reconnect)
+	return nil
+}
+
+// guardedErr is the refusal for a trusted save that touches what only the
+// settings PIN may change. It counts as errLocked, so the page asks for the
+// PIN (and the command is logged as locked).
+type guardedErr struct{}
+
+func (guardedErr) Error() string {
+	return "changing the router, trusted proxies or PIN attempt limit needs the settings PIN"
+}
+func (guardedErr) Is(target error) bool { return target == errLocked }
+
+// trustedMayNotChange: the Settings form's fields a trusted user can't change
+// because they weaken the admin's guards: the router (point Sode elsewhere),
+// trustedProxies (forge who()/addresses in history and logs) and pinMaxTries
+// (turn the permanent PIN lockout off).
+func trustedMayNotChange(live, next config.Config) error {
+	if live.Router != next.Router || live.PinMaxTries != next.PinMaxTries ||
+		!slices.Equal(live.TrustedProxies, next.TrustedProxies) {
+		return guardedErr{}
+	}
 	return nil
 }

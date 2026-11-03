@@ -44,6 +44,7 @@ type fakeRouter struct {
 	n      int
 	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
+	salvo  fakeSalvo // group salvos (fire_test.go)
 }
 
 type sentWhy struct {
@@ -127,6 +128,8 @@ func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
 			src = 0xFFFF
 		}
 		f.out <- swp08.ExtTally(int(m[1]), l, dst, src)
+	case swp08.CmdConnectOnGo, swp08.CmdGoSalvo:
+		f.salvoMsg(m)
 	}
 	return nil
 }

@@ -3,7 +3,8 @@
 // row and the confirm's lockout. Each layout passes its own elements and
 // the few things it does differently.
 
-import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron } from './core.js';
+import { actorUser, folderActor } from './lockrules.js';
+import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import {
   levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels,
 } from './levelview.js';
@@ -105,14 +106,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
   let last = null; // the box last drawn for, while it can change
 
   function addButton(it) {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'pb-icon');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('aria-hidden', 'true');
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttribute('href', 'vendor/patchbay/icons/lucide.svg#plus');
-    svg.append(use);
-    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', svg);
+    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', icon('plus', false));
     b.type = 'button';
     b.tabIndex = -1;
     b.title = 'Add and keep searching';
@@ -244,7 +238,7 @@ export function clickToToggle(row, toggle, skip) {
 
 // Undo for a take or a folder; disabled when there's nothing to restore.
 export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {
-  const b = el('button', cls, text);
+  const b = el('button', cls, icon('undo-2'), text);
   b.type = 'button';
   if (planEmpty(plan)) {
     b.disabled = true;
@@ -255,20 +249,26 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
   return b;
 }
 
-// Retry for a row with failed takes. With none, null, or with placeholder
-// an invisible one, so every row's columns line up.
-export function retryButton(failed, label, onClick, { placeholder = false } = {}) {
-  if (!failed && !placeholder) return null;
-  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (failed ? '' : ' sode__placeholder'), 'Retry');
+// Retry (failed takes) or Redo (any other), by plan.verb: one button, one
+// slot. All three are outlined small buttons; Undo and Redo carry the mirrored
+// undo-2 / redo-2 icons as a pair, Retry is text only. With nothing to offer
+// an invisible placeholder keeps columns lined up (null with placeholder
+// false).
+export function againButton(plan, label, onClick, { placeholder = true } = {}) {
+  const none = !plan.items.length;
+  if (none && !placeholder) return null;
+  const redo = plan.verb !== 'retry';
+  const b = el('button', `pb-btn pb-btn--outline pb-btn--sm${none ? ' sode__placeholder' : ''}`,
+    redo ? icon('redo-2') : null, redo ? 'Redo' : 'Retry');
   b.type = 'button';
-  if (!failed) {
+  if (none) {
     b.tabIndex = -1;
     b.setAttribute('aria-hidden', 'true');
     return b;
   }
   needsLink(b);
   b.setAttribute('aria-label', label);
-  b.addEventListener('click', onClick);
+  b.addEventListener('click', () => onClick(plan));
   return b;
 }
 
@@ -429,4 +429,16 @@ export function lockout(onReady) {
   const at = performance.now() + ms;
   const t = setTimeout(onReady, ms);
   return { ready: () => performance.now() >= at, cancel: () => clearTimeout(t) };
+}
+
+// ---- dialog keys (dialogkeys.js, so the lock chip can use it without this module)
+export { trapDialog } from './dialogkeys.js';
+
+// "by Ana" on a Sode take made by a configured user (never an address; ext
+// and found entries have none). A folder shows it when all its takes share
+// one. Its own small span, not part of entryNote.
+export function byLabel(x) {
+  const users = S.cfg?.users;
+  const name = x.entries ? folderActor(x.entries, users) : actorUser(x.client, users);
+  return name ? el('span', 'sode__hist-by', `by ${name}`) : null;
 }

@@ -14,12 +14,13 @@ import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
 import {
-  undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
-  sendTakes, lastTake, nextTake, lastChip,
+  undoPlan, againPlan, planVerb, folderUndoPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
+  sendTakes, lastTake, nextTake, lastChip, VERBS,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { salvoHost } from './salvos.js';
+import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -354,7 +355,8 @@ function recentRow(e) {
     ? undoBtn(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, `Undo ${e.chain.length}`)
     : undoBtn(undoPlan(e), `Undo ${src.label} to ${dst.label}`);
   const status = statusNode({ e });
-  const retry = retryButton(!e.ok, `Retry ${src.label} to ${dst.label}`, () => sheetFor(retryPlan(e)));
+  const again = againPlan({ e });
+  const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`, sheetFor, { placeholder: false });
   // A stacked row's changes, behind a toggle as on desktop.
   const open = !!e.chain && openChanges.has(e.id);
   const changesId = `m-changes-${e.id}`;
@@ -370,7 +372,7 @@ function recentRow(e) {
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
       el('span', 'sode-m__recent-status', status, retry, disc)),
-    el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e)),
+    el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e), byLabel(e)),
     changes,
     e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
@@ -386,8 +388,8 @@ function folderRows(f) {
   const open = openFolders.has(f.group);
   const kidsId = `m-folder-${f.group}`;
   const undo = undoBtn(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
-  const failed = f.entries.filter((e) => !e.ok).length;
-  const retry = retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`, () => sheetFor(folderRetryPlan(f)));
+  const again = againPlan({ f });
+  const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`, sheetFor, { placeholder: false });
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
     renderRecent();
@@ -397,7 +399,7 @@ function folderRows(f) {
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
       el('span', 'sode-m__recent-status', statusNode({ f }), retry, disc)),
-    el('div', 'sode-m__recent-route', ...folderTitle(f)),
+    el('div', 'sode-m__recent-route', ...folderTitle(f), byLabel(f)),
     levelBar(folderLevels(f)));
   clickToToggle(face, disc);
   const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : ''), undo, face);
@@ -509,7 +511,7 @@ function closeSheet() {
 function confirmSheet() {
   const p = pending;
   closeSheet();
-  if (sendTakes(p) && p.verb !== 'undo') reset();
+  if (sendTakes(p) && VERBS[p.verb].resets) reset();
 }
 
 const handle = $('m-slide-handle');
@@ -725,3 +727,11 @@ onLayout((l) => {
 // The first step from the start, so a Destination-first browser doesn't
 // show the Source box until hello.
 setStep(order()[0], false);
+
+// Salvos (salvos.js): a pressed button opens the usual confirm sheet; the
+// patch so far can fill a salvo.
+salvoHost({
+  active,
+  confirm: sheetFor,
+  patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
+});

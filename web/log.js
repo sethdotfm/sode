@@ -10,6 +10,7 @@ import { newPager } from './logpager.js';
 import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, slots, summary, slotText } from './uptime.js';
 import './brand.js';
+import './lock.js';
 
 on('brand', ({ text }) => {
   document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
@@ -26,14 +27,16 @@ const FILTER_KEY = 'sode-log-filter';
 const KIND_LABEL = {
   connect: 'Connect', interrogate: 'Interrogate', keepalive: 'Keepalive', tallyDump: 'Tally dump',
   protectDump: 'Protect dump', srcNames: 'Source names', dstNames: 'Destination names', other: 'Other',
+  salvoStage: 'Salvo stage', salvoGo: 'Salvo go',
   browser: 'Browser', command: 'Command', link: 'Router link', server: 'Sode',
 };
 const WHY_LABEL = {
   take: 'Take', undo: 'Undo', retry: 'Retry', check: 'Check before take', confirm: 'Confirm take',
   resync: 'Resync', names: 'Name refresh', keepalive: 'Link check',
   connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
-  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved',
-  unlock: 'Settings PIN', lock: 'Settings locked',
+  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved', salvos: 'Salvos saved',
+  unlock: 'Settings PIN', lock: 'Settings locked', salvo: 'Native salvo',
+  userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password (old rows)', users: 'Users saved',
 };
 // Events, not messages to the router: no command byte, no bytes.
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
@@ -60,7 +63,7 @@ function saveFilter() {
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const EVENT_PROBLEM = { command: ['refused', 'locked', 'error'], link: ['down'] };
+const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], link: ['down'] };
 const problem = (e) => (isEvent(e) ? !!EVENT_PROBLEM[e.kind]?.includes(e.result) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
@@ -190,6 +193,13 @@ const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNee
 
 // Reads back until the range is covered. One request at a time.
 const fill = () => rangeNeedsMore() && send(pager.back());
+
+// Unlocked after asking while locked: ask again.
+on('unlocked', () => {
+  send(pager.open());
+  render();
+  refreshUptime();
+});
 
 on('hello', () => {
   // Fresh after a reconnect: entries may have been missed while away.

@@ -84,6 +84,26 @@ test('nextTake: fuzzy takes the next match of the name text, in router order', a
   setPref('nextMode', '');
 });
 
+test('nextTake: fuzzy steps through letters too (#149)', async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  const { S, nextTake, setPref, nameStem } = await import('./all.mjs');
+  assert.equal(nameStem('Prmpt A'), 'Prmpt');
+  assert.equal(nameStem('Cam 3'), 'Cam');
+  assert.equal(nameStem('Cam3'), 'Cam');
+  assert.equal(nameStem('Mon 2 B'), 'Mon');
+  assert.equal(nameStem('Bars'), 'Bars');
+  assert.equal(nameStem('A'), 'A');
+  const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
+  const srcs = [it(1, 'Prmpt A'), it(2, 'Bars'), it(7, 'Prmpt B'), it(9, 'Prmpt C')];
+  S.srcBy = new Map(srcs.map((s) => [s.n, s]));
+  S.dstBy = new Map();
+  S.hist = [{ id: 1, src: 1, srcName: 'Prmpt A', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  setPref('nextMode', 'fuzzy');
+  assert.equal(nextTake().src.name, 'Prmpt B');
+  setPref('nextMode', '');
+});
+
 test('protectedLabel names the devices in the badge', async () => {
   const { protectedLabel } = await import('./all.mjs');
   assert.equal(protectedLabel([9]), 'Protected by 9');

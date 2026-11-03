@@ -61,7 +61,7 @@ func (r *runtime) probe() []byte {
 //   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
 //
 // Everything else is KEPT:
-//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, cfgMu, gapHook, xffWarn,
+//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu, gapHook, xffWarn, fireMu, fire,
 //     lateQ: plumbing, history, config and PIN, none of it router state;
 //   - clients: the browsers stay connected and get a fresh hello;
 //   - pendSent: sent log entries for /log pages (what we wrote);
@@ -92,6 +92,7 @@ type App struct {
 	pendSent []Sent                   // sent log entries awaiting broadcast to /log pages
 	linkSeen string                   // the router link state last logged: up, down or ""
 	linkErr  string                   // ...and the error logged with down
+	fire     *fireState               // the native salvo being fired, if any (fire.go)
 
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
@@ -100,10 +101,14 @@ type App struct {
 	namesDirt bool      // unsolicited names changed outside a refresh
 	dumpAt    time.Time // last dump request
 
-	pin   pinState   // wrong settings PINs
-	cfgMu sync.Mutex // serializes settings saves
+	pin     pinPool     // wrong settings PINs (pin.go)
+	userPin pinPool     // wrong user PINs
+	tokens  *tokenStore // persistent users' session tokens (tokens.go)
+	cfgMu   sync.Mutex  // serializes settings saves
 
 	gapHook func() // test seam: runs between a take's finish and unregister
+
+	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }
@@ -173,6 +178,9 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		checks:  map[*tallyCheck]struct{}{},
 		status:  statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
+	a.pin, a.userPin = settingsPool(), userPool()
+	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
+	a.tokens.prune(cfg)            // dead ones don't wait for the next change
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())
@@ -248,6 +256,7 @@ func (a *App) periodic() {
 func (a *App) onRouterUp() {
 	a.RefreshNames()
 	a.requestDumps()
+	go a.clearStaleSalvo()
 }
 
 // RefreshNames re-reads all source and destination names.
@@ -341,6 +350,9 @@ func (a *App) onRouterMsg(msg []byte) {
 	if nb := ev.Names; nb != nil {
 		a.applyNames(nb)
 	}
+	if ev.Salvo != nil {
+		a.onSalvoAck(*ev.Salvo)
+	}
 }
 
 // applyTally takes one crosspoint (a Connected or a tally) from the router
@@ -368,9 +380,17 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
 		// A changed route the router didn't announce shows up in a
 		// dump or an interrogate: noted too, unless it's ours.
-		if a.classify(xp, l.UI, known) == verdictExt {
+		switch a.classify(xp, l.UI, known) {
+		case verdictExt:
 			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
+		case verdictOurs:
+			a.sawOwn(xp)
 		}
+	} else if xp.Changed() && a.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
+		// Our route, already in the cache from a tally: a native salvo's
+		// Connected that came after the interrogate's answer (fire.go). It
+		// uses its key up, and the take's changes run until now.
+		a.sawOwn(xp)
 	}
 	for w := range a.waiters {
 		if w.see(xp) && xp.Changed() {

@@ -3,7 +3,7 @@
 // and its match list stay for the next one.
 
 import {
-  $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
+  $, el, S, on, emit, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
 } from './core.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
@@ -12,13 +12,15 @@ import {
   historyPager, beforeGroups, attachFollows, entryNote, statusNode, folderTitle, folderPartial, folderLevels, folderIds,
 } from './history.js';
 import {
-  undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
-  planBlocked, planSummary, sendTakes, lastTake, nextTake, lastChip,
+  undoPlan, againPlan, folderUndoPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
+  planBlocked, sendTakes, lastTake, nextTake, lastChip, VERBS,
 } from './plans.js';
 import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, lockout, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
+import { salvoHost } from './salvos.js';
+import { keyConfirm } from './keyconfirm.js';
+import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -275,7 +277,8 @@ function histRow(e) {
   const btn = e.chain
     ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, { text: `Undo ${e.chain.length}` })
     : undoButton(undoPlan(e), `Undo ${src.label} to ${dst.label}`, openConfirm);
-  const retry = retryButton(!e.ok, `Retry ${src.label} to ${dst.label}`, () => openConfirm(retryPlan(e)), { placeholder: true });
+  const again = againPlan({ e });
+  const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`, openConfirm);
 
   // Before: what the destination had on these levels just before the take.
   const open = expanded.has(e.id);
@@ -289,7 +292,7 @@ function histRow(e) {
     el('span', 'sode__hist-id', `#${e.id}`),
     histTime(e.time),
     levelBar(known),
-    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(src, dst), entryNote(e)),
+    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(src, dst), entryNote(e), byLabel(e)),
     statusNode({ e }),
     disc,
     el('span', 'sode__hist-actions', retry, btn));
@@ -334,19 +337,18 @@ function useEnd(k, it) {
 function useRowSrc(n) { useEnd('src', srcItem(n)); }
 
 // A folder: one confirm's takes under a summary row with the master status,
-// Undo all and (if any failed) Retry for the failed ones.
+// Undo all and Redo all (Retry for the failed ones if any failed).
 function folderRow(f) {
   const open = openFolders.has(f.group);
   const kidsId = `hist-folder-${f.group}`;
   const title = folderTitle(f);
-  const failed = f.entries.filter((e) => !e.ok).length;
   // The folder's one source (or destination) as an item, if it has one.
   const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
 
   const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, openConfirm,
     { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all' });
-  const retry = retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`,
-    () => openConfirm(folderRetryPlan(f)), { placeholder: true });
+  const again = againPlan({ f });
+  const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`, openConfirm);
 
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
@@ -359,7 +361,7 @@ function folderRow(f) {
     el('span', 'sode__hist-id', folderIds(f)),
     histTime(f.entries[0].time),
     levelBar(folderLevels(f)),
-    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild), ...title.slice(3)),
+    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild), ...title.slice(3), byLabel(f)),
     statusNode({ f }),
     disc,
     el('span', 'sode__hist-actions', retry, undo));
@@ -552,11 +554,10 @@ function open(on) {
 function retryCur() {
   const s = curStop();
   if (!s) return;
-  if (s.f && s.f.entries.some((e) => !e.ok)) openConfirm(folderRetryPlan(s.f));
-  else if (s.e && !s.e.ok) openConfirm(retryPlan(s.e));
-  else showResult('info', 'Nothing to retry', 'Only failed takes can be retried.');
+  const plan = againPlan(s.f ? { f: s.f } : { e: s.e });
+  if (plan.items.length) openConfirm(plan);
+  else showResult('info', 'Nothing to redo', 'This row has no source or level to take again.');
 }
-
 // key: put the cursor on that row (Esc from one of its buttons).
 function enterKeys(key) {
   // Works on an empty list too: s/d/f, `,`, `/`, `?` and Esc still apply.
@@ -581,6 +582,7 @@ function onListKey(e) {
   if (k === '/') { openFilters(); return true; }
   if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
   if (k === '?') { openKeys(); return true; }
+  if (k === 'p') { emit('salvoStrip'); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {
     j: () => step(1), ArrowDown: () => (e.shiftKey ? nextGroup() : step(1)),
@@ -657,12 +659,17 @@ $('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
 
-const KEYS = 'abcdefghjkmnpqrstuvwxyz';
-let lastKey = '';
-let pending = null; // plan + key + lock (a shallow copy: planBlocked's prot is keyed by its items)
 let confirmBack = null; // focus to return to when the confirm closes
 let confirmKeys = false; // keyboard mode was on when it opened
 let confirmFromHist = false; // opened from Recent (decided then: rows get redrawn)
+
+// Only a patch came from the boxes; an undo or retry leaves them be.
+const confirm = keyConfirm({
+  spaceHint: true,
+  prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'],
+  onTake: (p, viaKeys) => { if (sendTakes(p) && VERBS[p.verb].resets) clearAll(); else focusBack(viaKeys); },
+  onClose: (p, viaKeys) => { if (p?.verb === 'patch') lvlInput.focus(); else focusBack(viaKeys); },
+});
 
 // Patch button and Enter: take any half-typed box's best match, then confirm.
 function patchNow() {
@@ -717,32 +724,10 @@ function tryConfirm() {
 function openConfirm(plan) {
   const { block, prot } = planBlocked(plan);
   if (block) return showResult(block.kind, block.title, block.text);
-  pending?.lock.cancel(); // one replaced: its lockout mustn't unlock this one
-  let key;
-  do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
-  lastKey = key;
-  pending = { ...plan, key };
   confirmBack = document.activeElement;
   confirmKeys = keyMode();
   confirmFromHist = confirmBack === histList || histArea(confirmBack);
-
-  const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
-  const verb = planVerb(plan);
-  const Verb = verb[0].toUpperCase() + verb.slice(1);
-  $('confirm-title').textContent = `Confirm ${verb}`;
-  $('confirm-body').replaceChildren(
-    ...planSummary(plan, { prot, spaceHint: true }),
-    el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
-  );
-  $('confirm-ok').textContent = `${Verb} (${key.toUpperCase()})`;
-  $('confirm-ok').disabled = true;
-  $('confirm').hidden = false;
-  $('confirm-dialog').focus();
-
-  pending.lock = lockout(() => {
-    keyEl.classList.remove('sode__key--locked');
-    $('confirm-ok').disabled = false;
-  });
+  confirm.open(plan, prot);
 }
 
 // Focus goes back where the confirm was opened from. Keyboard mode only if
@@ -757,39 +742,6 @@ function focusBack(viaKeys) {
 }
 function histArea(n) {
   return !!n && (histList.contains(n) || $('history-more').contains(n));
-}
-
-function closeConfirm(viaKeys = false) {
-  const patch = pending?.verb === 'patch';
-  pending?.lock.cancel();
-  pending = null;
-  $('confirm').hidden = true;
-  if (patch) lvlInput.focus();
-  else focusBack(viaKeys);
-}
-
-function doTake(viaKeys = false) {
-  const p = pending;
-  p.lock.cancel();
-  pending = null;
-  $('confirm').hidden = true;
-  // Only a patch came from the boxes; an undo or retry leaves them be.
-  if (sendTakes(p) && p.verb === 'patch') clearAll();
-  else focusBack(viaKeys);
-}
-
-function onConfirmKey(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  if (e.key === 'Escape') return closeConfirm(true);
-  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  // Space ticks the box that adds an undo's follows.
-  if (e.key === ' ' && pending.extra) {
-    $('confirm-body').querySelector('.sode__plan-extra input')?.click();
-    return;
-  }
-  if (!pending.lock.ready()) return;
-  if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake(true);
 }
 
 // ---- keyboard & input wiring
@@ -825,7 +777,8 @@ function focusBox(input) {
 for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   input.addEventListener('focus', () => {
     input.select();
-    if (active() && scrollTopPref() && window.scrollY > 0) {
+    // Not while the lock screen goes up or away: the page keeps its scroll.
+    if (active() && scrollTopPref() && window.scrollY > 0 && !document.documentElement.dataset.sodeLock) {
       window.scrollTo({ top: 0, behavior: calm.matches ? 'auto' : 'smooth' });
     }
   });
@@ -837,7 +790,7 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
 // ⌘Z and ⌘J/K, which work as Ctrl+Z and Ctrl+J/K do. Each check excludes the other two
 // modifiers. Key labels are lowercase, with ⇧ where Shift is needed.
 document.addEventListener('keydown', (e) => {
-  if (pending) return onConfirmKey(e);
+  if (confirm.isOpen()) return confirm.key(e);
   if (layout() !== 'desktop') return;
   // Ctrl+? opens or closes the shortcut list from anywhere on desktop,
   // Settings included, even mid-typing. By character, so any keyboard
@@ -961,10 +914,6 @@ $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
-$('confirm-cancel').addEventListener('click', () => closeConfirm());
-$('confirm-ok').addEventListener('click', () => {
-  if (pending && pending.lock.ready()) doTake();
-});
 
 // ---- subscriptions
 
@@ -982,3 +931,10 @@ on('tally', renderTally);
 on('conn', renderConn);
 on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
+
+// Salvos (salvos.js): a button opens the usual confirm; the patch boxes can fill one.
+salvoHost({
+  active,
+  confirm: openConfirm,
+  patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
+});

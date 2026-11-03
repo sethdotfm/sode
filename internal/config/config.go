@@ -3,6 +3,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,14 +29,21 @@ type Config struct {
 	BrandBorder string `yaml:"brandBorder,omitempty" json:"brandBorder"`
 	// RouterName is a friendly name for the status card; RouterShow picks
 	// what the card shows: "address" (default), "name" or "none".
-	RouterName         string   `yaml:"routerName" json:"routerName"`
-	RouterShow         string   `yaml:"routerShow" json:"routerShow"`
-	Matrix             int      `yaml:"matrix" json:"matrix"`
-	Levels             int      `yaml:"levels" json:"levels"`
-	LevelWireOffset    int      `yaml:"levelWireOffset" json:"levelWireOffset"`
-	DefaultLevels      string   `yaml:"defaultLevels" json:"defaultLevels"`
-	NameLength         int      `yaml:"nameLength" json:"nameLength"`
-	NameRequests       string   `yaml:"nameRequests" json:"nameRequests"` // std | ext
+	RouterName      string `yaml:"routerName" json:"routerName"`
+	RouterShow      string `yaml:"routerShow" json:"routerShow"`
+	Matrix          int    `yaml:"matrix" json:"matrix"`
+	Levels          int    `yaml:"levels" json:"levels"`
+	LevelWireOffset int    `yaml:"levelWireOffset" json:"levelWireOffset"`
+	DefaultLevels   string `yaml:"defaultLevels" json:"defaultLevels"`
+	NameLength      int    `yaml:"nameLength" json:"nameLength"`
+	NameRequests    string `yaml:"nameRequests" json:"nameRequests"` // std | ext
+	// FireMode is how a confirm of several takes is sent: "sequential" (one
+	// extended connect after another) or "native" (a SW-P-08 group salvo,
+	// set with one Go, so they land much closer together; app/fire.go). SalvoGroup is the group
+	// (0-127) native salvos stage in: the router's list is shared by every
+	// client, so it must be one only Sode uses.
+	FireMode           string   `yaml:"fireMode" json:"fireMode"`
+	SalvoGroup         int      `yaml:"salvoGroup" json:"salvoGroup"`
 	NumberOffset       int      `yaml:"numberOffset" json:"numberOffset"`
 	ConfirmLockoutMs   int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs"`
 	ConfirmEnter       bool     `yaml:"confirmEnter" json:"confirmEnter"`
@@ -48,7 +56,14 @@ type Config struct {
 	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
 	// FilterSets are named Recent filters offered to every browser as
 	// quick buttons; browsers can add their own.
-	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
+	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
+	// Salvos are named sets of takes offered to every browser as buttons
+	// above Recent (salvos.go).
+	Salvos []Salvo `yaml:"salvos,omitempty" json:"salvos" owned:"true"`
+	// Grid was parked (#150); ignored. Kept so a file that has them loads,
+	// and dropped on the next save.
+	LegacyGrids       any `yaml:"grids,omitempty" json:"-"`
+	LegacyGridConfirm any `yaml:"gridConfirm,omitempty" json:"-"`
 	// HideDsts is no longer used; kept so files that have it load.
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
@@ -62,15 +77,25 @@ type Config struct {
 	LevelTypedBase int `yaml:"levelTypedBase,omitempty" json:"-"`
 	// SettingsPin is a HashPin hash guarding the settings view; "" = none.
 	// Never sent to browsers.
-	SettingsPin string `yaml:"settingsPin,omitempty" json:"-"`
+	SettingsPin string `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
 	// PinMaxTries wrong PINs in a row lock settings until the PIN is reset
 	// (sode -reset-pin) or Sode restarts; 0 = never.
 	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries"`
 	// DeviceDefaults are what the "This device" settings are for browsers
 	// that haven't chosen their own. Browser-side only: changing them never
 	// touches the router link.
-	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults"`
+	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
+	// Users, Locks and AutoLockMinutes: optional access control (users.go).
+	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
+	Locks           Locks  `yaml:"locks" json:"locks" owned:"true"`
+	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" owned:"true"`
+	// MaxPinLen is the longest user PIN (4-12); the lock pad stops there.
+	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
 }
+
+// MaxFilterSetsBytes caps all filter sets as JSON, so a "filterSets"
+// message fits the 64 KiB read limit with room to spare.
+const MaxFilterSetsBytes = 48 << 10
 
 // BrandColor is one accepted BrandBorder name. Hex is the dark-mode value of
 // the signal token web/base.css maps the name to (`[data-brand="name"]`); the
@@ -147,6 +172,8 @@ func Defaults() Config {
 		LevelWireOffset:    -1,
 		NameLength:         12,
 		NameRequests:       "std",
+		FireMode:           "sequential",
+		SalvoGroup:         127,
 		NumberOffset:       1,
 		ConfirmLockoutMs:   500,
 		NameRefreshSeconds: 60,
@@ -155,6 +182,7 @@ func Defaults() Config {
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
+		MaxPinLen:          DefaultMaxPinLen,
 		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }
@@ -185,12 +213,15 @@ func FromEnv(c Config) (Config, error) {
 	str("SODE_DEFAULT_LEVELS", &c.DefaultLevels)
 	num("SODE_NAME_LEN", &c.NameLength)
 	str("SODE_NAMES", &c.NameRequests)
+	str("SODE_FIRE_MODE", &c.FireMode)
+	num("SODE_SALVO_GROUP", &c.SalvoGroup)
 	num("SODE_NUM_OFFSET", &c.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
 	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)
+	num("SODE_MAX_PIN_LEN", &c.MaxPinLen)
 	if v := os.Getenv("SODE_CONFIRM_ENTER"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
@@ -215,7 +246,9 @@ func (c Config) Clone() Config {
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
+	c.Salvos = CloneSalvos(c.Salvos)
 	c.HideDsts = slices.Clone(c.HideDsts)
+	c.Users = slices.Clone(c.Users)
 	return c
 }
 
@@ -224,12 +257,17 @@ func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
 	c.RouterName = strings.TrimSpace(c.RouterName)
 	c.BrandText = strings.TrimSpace(c.BrandText)
+	c.normalizeUsers()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
 	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
 	if c.RouterShow == "" {
 		c.RouterShow = "address"
 	}
 	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
+	c.FireMode = strings.ToLower(strings.TrimSpace(c.FireMode))
+	if c.FireMode == "" {
+		c.FireMode = "sequential"
+	}
 	c.LevelNumbering = strings.ToLower(strings.TrimSpace(c.LevelNumbering))
 	if c.LevelNumbering == "" {
 		c.LevelNumbering = "1"
@@ -265,6 +303,7 @@ func (c *Config) Normalize() {
 		d.NextMode = "number"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
+	c.LegacyGrids, c.LegacyGridConfirm, c.Locks.LegacyGrid = nil, nil, nil
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
 	if c.FilterSets == nil {
 		c.FilterSets = []FilterSet{}
@@ -273,6 +312,7 @@ func (c *Config) Normalize() {
 		f := &c.FilterSets[i]
 		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
 	}
+	c.normalizeSalvos()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}
@@ -318,6 +358,19 @@ func (c Config) Validate() error {
 		}
 	default:
 		bad("name requests must be std or ext")
+	}
+	switch c.FireMode {
+	case "sequential":
+	case "native":
+		// Group salvos carry the matrix in a 4-bit field.
+		if c.Matrix < 0 || c.Matrix > 15 {
+			bad("native salvos need matrix 0-15")
+		}
+	default:
+		bad("fire mode must be sequential or native")
+	}
+	if c.SalvoGroup < 0 || c.SalvoGroup > 127 {
+		bad("salvo group must be 0-127")
 	}
 	if c.Levels < 1 || c.Levels > 256 {
 		bad("levels must be 1-256")
@@ -398,28 +451,23 @@ func (c Config) Validate() error {
 	if n := len([]rune(c.HiddenDsts)); n > 500 {
 		bad("globally hidden destinations must be at most 500 characters")
 	}
-	if len(c.FilterSets) > 30 {
-		bad("at most 30 filter sets")
-	}
-	names := map[string]bool{}
-	for _, f := range c.FilterSets {
-		key := strings.ToLower(f.Name)
-		switch n := len([]rune(f.Name)); {
-		case n == 0:
-			bad("every filter set needs a name")
-		case n > 32:
-			bad("filter set name %q must be at most 32 characters", f.Name)
-		case names[key]:
-			bad("two filter sets are named %q", f.Name)
-		}
-		names[key] = true
+	fnames := make([]string, len(c.FilterSets))
+	for i, f := range c.FilterSets {
+		fnames[i] = f.Name
 		if len([]rune(f.Src)) > 500 || len([]rune(f.Dst)) > 500 {
 			bad("filter set %q: expressions must be at most 500 characters", f.Name)
 		}
 	}
+	errs = append(errs, validateNames("filter set", fnames, 30)...)
+	// Like salvos, all of them in one message under the read limit.
+	if b, err := json.Marshal(c.FilterSets); err == nil && len(b) > MaxFilterSetsBytes {
+		bad("filter sets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxFilterSetsBytes>>10)
+	}
+	errs = append(errs, c.validateSalvos()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}
+	errs = append(errs, c.validateUsers()...)
 	return errors.Join(errs...)
 }
 
@@ -556,13 +604,21 @@ func Save(path string, c Config) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".config-*.yaml")
+	return atomicWrite(path, []byte(header), b)
+}
+
+// atomicWrite writes the parts to path through a temp file in the same
+// directory (fsync, then rename), so a crash leaves the old file or the new.
+func atomicWrite(path string, parts ...[]byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".sode-*.tmp")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	if _, err := tmp.WriteString(header); err == nil {
-		_, err = tmp.Write(b)
+	for _, p := range parts {
+		if _, err = tmp.Write(p); err != nil {
+			break
+		}
 	}
 	if err == nil {
 		err = tmp.Sync()

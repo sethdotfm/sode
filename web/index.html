@@ -9,31 +9,7 @@
 <link rel="apple-touch-icon" href="icon.png?s=180">
 <meta name="theme-color" content="#080808">
 <meta name="apple-mobile-web-app-title" content="Sode">
-<script>
-  // Apply the theme, the layout and the flip before first paint so there's
-  // no flash: this browser's own choice, else the global default last cached
-  // from the server (as resolve() in prefs.js). device.js keeps them up to date
-  // afterwards.
-  (() => {
-    const root = document.documentElement;
-    let g = {};
-    const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-    try { g = JSON.parse(get('sode-device-defaults')) || {}; } catch (e) {}
-    const pick = (key, name, ok, def) => {
-      const own = get(key);
-      if (ok.includes(own)) return own;
-      const v = typeof g[name] === 'boolean' ? (g[name] ? 'on' : 'off') : g[name];
-      return ok.includes(v) ? v : def;
-    };
-    const theme = pick('sode-theme', 'theme', ['system', 'light', 'dark'], 'system');
-    let layout = pick('sode-layout', 'layout', ['auto', 'phone', 'desktop'], 'auto');
-    if (theme !== 'system') root.dataset.theme = theme;
-    if (layout === 'auto') layout = matchMedia('(max-width: 700px) and (pointer: coarse)').matches ? 'phone' : 'desktop';
-    root.dataset.layout = layout;
-    if (layout === 'phone') root.dataset.pbLayout = 'phone';
-    if (pick('sode-flip', 'flip', ['on', 'off'], 'off') === 'on') root.dataset.flip = '';
-  })();
-</script>
+<script src="prepaint.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
@@ -61,7 +37,7 @@
   <div class="sode__view" id="patch-view">
     <h1 class="sode__mark">Sode</h1>
 
-    <form class="sode__boxes" autocomplete="off" onsubmit="return false">
+    <form class="sode__boxes" autocomplete="off">
       <div class="sode__box sode__box--src">
         <div class="sode__box-head"><label class="sode__label" for="src">Source</label><span data-last="src"></span></div>
         <span class="sode__keyed">
@@ -111,6 +87,8 @@
 
     <div class="sode__result" id="result" aria-live="polite"></div>
 
+    <div class="sode__salvos" data-salvos role="group" aria-label="Salvos"></div>
+
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__recent-head" id="history-bar" hidden>
         <span class="sode__label" id="history-head">Recent</span>
@@ -146,7 +124,15 @@
       <h2 class="sode__settings-title" id="settings-title">Settings</h2>
     </div>
 
-    <nav class="pb-tabs sode__toc" id="settings-toc" aria-label="Settings sections"></nav>
+    <div class="sode__toc">
+      <div class="sode__find">
+        <label class="pb-sr-only" for="settings-find">Search settings</label>
+        <input type="search" id="settings-find" class="pb-input pb-input--sm" placeholder="Search settings" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="settings-found" aria-autocomplete="list">
+        <ul class="sode__found" id="settings-found" role="listbox" aria-label="Matching settings" hidden></ul>
+        <p class="sode__hint" id="settings-find-none" role="status" hidden>No match</p>
+      </div>
+      <nav class="pb-tabs" id="settings-toc" aria-label="Settings sections"></nav>
+    </div>
 
     <div class="sode__group sode__lock" id="settings-lock">
       <div class="sode__field">
@@ -198,6 +184,14 @@
           <label for="cfg-next-mode">Next means</label>
           <span class="pb-select-wrap"><select id="cfg-next-mode" class="pb-select" data-pref="nextMode"></select></span>
         </div>
+      </div>
+      <div class="sode__field" id="account" data-find="account" data-label="Account" hidden>
+        <span class="sode__label" id="account-name"></span>
+        <div class="sode__names">
+          <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Log out">Log out</button>
+        </div>
+        <span class="sode__hint">Only while you are logged in as a user. Log out ends this browser's session and shows the lock pad.</span>
       </div>
     </fieldset>
 
@@ -264,7 +258,7 @@
     </fieldset>
 
     <div class="sode__open-log">
-      <a class="pb-btn pb-btn--outline" href="log" target="_blank" rel="noopener">Open Log</a>
+      <a class="pb-btn pb-btn--outline" href="log">Open the Communication Log</a>
     </div>
 
     <div class="sode__lock-exit">
@@ -297,6 +291,18 @@
           <label for="cfg-resync">Re-read routes every (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
           <span class="sode__hint">0 = off</span>
+        </div>
+      </div>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-firemode">Fire confirms of several takes</label>
+          <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">One after another</option><option value="native">Native salvo</option></select></span>
+          <span class="sode__hint">Native salvos: a confirm's takes are staged and set with one Go, so they land much closer together (on the Ultrix ~4 ms apart instead of ~16 ms; whether they switch at once is unproven); needs a router that supports group salvos (Ross Ultrix verified). Levels past 16 and numbers past 1024 still go one after another.</span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-salvogroup">Salvo group (advanced)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
+          <span class="sode__hint">0-127, one no other controller uses</span>
         </div>
       </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms</span></label>
@@ -406,8 +412,12 @@
 
     <fieldset class="sode__group">
       <legend>History</legend>
+      <div class="sode__field" data-find="open-log" data-label="Open the Communication Log">
+        <a class="pb-btn pb-btn--outline" href="log" id="open-log">Open the Communication Log</a>
+        <span class="sode__hint">Every message Sode sent to the router, live, with the uptime graph. Read-only.</span>
+      </div>
       <div class="sode__field">
-        <span class="sode__field-label">Filter sets for everyone</span>
+        <span class="sode__field-label" id="cfg-sets-label">Filter sets for everyone</span>
         <ul class="sode__gsets" id="cfg-sets"></ul>
         <span class="sode__hint">Edit these in Recent → Filters.</span>
       </div>
@@ -417,7 +427,7 @@
         <span class="sode__hint" id="cfg-hidden-note"></span>
         <span class="sode__hint">Other panels' changes here are hidden from Recent for everyone, but still logged.</span>
       </div>
-      <div class="sode__field">
+      <div class="sode__field" data-find="clear-history" data-label="Clear history">
         <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone.</span>
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear history…</button>
@@ -459,6 +469,7 @@
     <div class="sode-m__stage">
     <div class="sode-m__thread" id="m-thread">
       <div class="sode-m__fill"></div>
+      <div class="sode__salvos" data-salvos role="group" aria-label="Salvos"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head" hidden>
         <div class="sode__recent-head">
           <span class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo)</span></span>
@@ -606,6 +617,7 @@
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear a box; with all empty, keyboard mode</dd>
+        <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Salvos: search, pin, fire (opens the usual confirm)</dd>
         <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings, from anywhere</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list, from anywhere</dd>
       </dl>
@@ -619,9 +631,10 @@
         <dt><kbd>l</kbd> <kbd>→</kbd> <kbd>Enter</kbd></dt><dd>Open</dd>
         <dt><kbd>h</kbd> <kbd>←</kbd> <kbd>⇧Enter</kbd></dt><dd>Close</dd>
         <dt><kbd>u</kbd></dt><dd>Undo</dd>
-        <dt><kbd>r</kbd></dt><dd>Retry</dd>
+        <dt><kbd>r</kbd></dt><dd>Retry (failed takes) or Redo (any other)</dd>
         <dt><kbd>/</kbd></dt><dd>Filters</dd>
         <dt><kbd>⇧s</kbd> <kbd>⇧d</kbd></dt><dd>Filter by Source, Destination</dd>
+        <dt><kbd>p</kbd></dt><dd>Pinned salvos (← → to move, Enter fires, Esc back)</dd>
         <dt><kbd>,</kbd></dt><dd>Settings</dd>
         <dt><kbd>?</kbd></dt><dd>This list</dd>
         <dt><kbd>Esc</kbd></dt><dd>Back to Source</dd>

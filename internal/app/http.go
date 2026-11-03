@@ -30,7 +30,13 @@ type client struct {
 
 	// sent: this is a /log page, sent new sent log entries. Guarded by App.mu.
 	sent bool
+
+	u connUser // page type, unlocked user, session token (users.go)
 }
+
+// wsReadLimit is the most one browser message may be. The largest ones are
+// a Settings save and a salvos save; see TestMessageSizes.
+const wsReadLimit = 64 << 10
 
 // Handler serves the embedded UI, the WebSocket and a health check.
 func (a *App) Handler(static fs.FS) http.Handler {
@@ -55,7 +61,26 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
-	return mux
+	return secureHeaders(mux)
+}
+
+// csp is the one Content-Security-Policy for every response. Scripts are
+// same-origin files only (no inline bodies, no on*= handlers: a test over the
+// embedded pages keeps it so); inline style attributes are used, hence
+// 'unsafe-inline' for styles only. The socket is same-origin ws(s).
+const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+	"img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
+	"base-uri 'self'; frame-ancestors 'none'"
+
+// secureHeaders sets the browser-hardening headers in one place.
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", csp)
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // healthMsg is the /api/health body.
@@ -140,7 +165,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
-	conn.SetReadLimit(64 << 10)
+	conn.SetReadLimit(wsReadLimit)
 
 	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
@@ -228,24 +253,22 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			gone = err
 			return
 		}
-		var m struct {
-			T        string             `json:"t"`
-			Before   int                `json:"before"`
-			N        int                `json:"n"`    // history page size; 0 = the default
-			From     int64              `json:"from"` // uptime range, unix ms
-			To       int64              `json:"to"`
-			Slot     int64              `json:"slot"` // ...and its slot length, ms
-			Config   *config.Config     `json:"config"`
-			Pin      string             `json:"pin"`
-			ClearPin bool               `json:"clearPin"`
-			ID       int                `json:"id"` // echoed by unlock and filterSets replies
-			Items    []takeReq          `json:"items"`
-			Sets     []config.FilterSet `json:"sets"`
-		}
+		var m inMsg
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
 		}
+		rl, known := policy[m.T]
+		if !known {
+			continue // closed: an unlisted type is never dispatched
+		}
+		rl = rl.forMsg(&m)
+		if err := a.admit(c, rl); err != nil {
+			a.refuse(c, m.T, rl, &m, err)
+			continue
+		}
 		switch m.T {
+		case "hi", "userUnlock", "userLock", "userSetPin", "users", "userSignOutAll":
+			a.serveUsers(c, &m)
 		case "batch":
 			if len(m.Items) > 0 {
 				why, n := "take", len(m.Items)
@@ -257,6 +280,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
+			}
+			if name := cleanSalvoName(m.Salvo); name != "" {
+				for i := range m.Items {
+					m.Items[i].Salvo = name
+				}
 			}
 			go a.batch(c, m.Items)
 		case "history":
@@ -283,26 +311,16 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			a.Lock(c)
 			a.command(c, "lock", "ok", "", nil)
 		case "clearHistory":
-			if a.locked(c) {
-				a.command(c, "clearHistory", "locked", "", nil)
-				a.reply(c, simpleMsg{T: "locked"})
-				continue
-			}
 			a.command(c, "clearHistory", "ok", "", nil)
-			go a.ClearHistory(c.ip)
+			go a.ClearHistory(c.who())
 		case "filterSets":
 			go func(sets []config.FilterSet, id int) {
-				res := opResult{T: "filterSetsResult", OK: true, ID: &id}
-				err := a.SaveFilterSets(c, sets)
-				a.command(c, "filterSets", outcome(err), fmt.Sprintf("%d %s", len(sets), plural(len(sets), "set", "sets")), err)
-				if err != nil {
-					res.OK, res.Err = false, err.Error()
-					res.Locked = locked(err)
-				} else {
-					log.Printf("config: filter sets saved by %s", c.ip)
-				}
-				a.reply(c, res)
+				a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 			}(m.Sets, m.ID)
+		case "salvos":
+			go func(salvos []config.Salvo, id int) {
+				a.replyOp(c, "salvos", id, len(salvos), "salvo", a.SaveSalvos(c, salvos))
+			}(m.Salvos, m.ID)
 		case "config":
 			if m.Config == nil {
 				continue
@@ -318,31 +336,47 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			json.Unmarshal(data, &has)
 			keepDefaults := has.Config.DeviceDefaults == nil
 			go func(cfg config.Config, pin string, clearPin bool) {
-				res := opResult{T: "configResult", OK: true}
-				err := a.saveSettings(c, cfg, pin, clearPin, keepDefaults)
 				// Who saved, not what: the settings hold the PIN's hash.
-				a.command(c, "config", outcome(err), "", err)
-				if err != nil {
-					res.OK, res.Err = false, err.Error()
-					res.Locked = locked(err)
-				} else {
-					log.Printf("config: saved by %s", c.ip)
-				}
-				a.reply(c, res)
+				a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin, keepDefaults))
 			}(*m.Config, m.Pin, m.ClearPin)
 		}
 	}
 }
 
-// outcome is a command's result: ok, locked (the PIN was why) or error.
+// outcome is a command's result: ok, locked (a PIN or a lock was why) or error.
 func outcome(err error) string {
 	switch {
 	case err == nil:
 		return "ok"
-	case errors.Is(err, errLocked):
+	case errors.Is(err, errLocked), errors.Is(err, errPageLocked):
 		return "locked"
 	}
 	return "error"
+}
+
+// inMsg is any browser-to-server message; T says which fields are used. Every
+// type read here must be in policy (policy.go).
+type inMsg struct {
+	T        string             `json:"t"`
+	Before   int                `json:"before"`
+	N        int                `json:"n"`    // history page size; 0 = the default
+	From     int64              `json:"from"` // uptime range, unix ms
+	To       int64              `json:"to"`
+	Slot     int64              `json:"slot"` // ...and its slot length, ms
+	Config   *config.Config     `json:"config"`
+	Pin      string             `json:"pin"`
+	ClearPin bool               `json:"clearPin"`
+	ID       int                `json:"id"` // echoed by unlock and save replies
+	Items    []takeReq          `json:"items"`
+	Salvo    string             `json:"salvo"` // batch: the salvo that was fired, if any
+	Sets     []config.FilterSet `json:"sets"`
+	Salvos   []config.Salvo     `json:"salvos"`
+	Page     string             `json:"page"`  // hi: main | log
+	Token    string             `json:"token"` // hi: session token of a persistent user
+	Name     string             `json:"name"`  // userSignOutAll
+	Old      string             `json:"old"`
+	New      string             `json:"new"`
+	UsersReq *usersReq          `json:"usersReq"`
 }
 
 func plural(n int, one, many string) string {

@@ -42,12 +42,35 @@ func TestValidate(t *testing.T) {
 		"bad next":          func(c *Config) { c.DeviceDefaults.NextMode = "random" },
 		"unnamed set":       func(c *Config) { c.FilterSets = []FilterSet{{Sode: true}} },
 		"same set names":    func(c *Config) { c.FilterSets = []FilterSet{{Name: "A"}, {Name: "a"}} },
+		"bad fire mode":     func(c *Config) { c.FireMode = "parallel" },
+		"salvo group < 0":   func(c *Config) { c.SalvoGroup = -1 },
+		"salvo group > 127": func(c *Config) { c.SalvoGroup = 128 },
+		"native matrix 16":  func(c *Config) { c.FireMode, c.NameRequests, c.Matrix = "native", "ext", 16 },
 	} {
 		c := ok
 		mut(&c)
 		if c.Validate() == nil {
 			t.Errorf("%s: want error", name)
 		}
+	}
+	native := ok
+	native.FireMode, native.SalvoGroup = "native", 0
+	if err := native.Validate(); err != nil {
+		t.Errorf("native, group 0: %v", err)
+	}
+	if ok.FireMode != "sequential" || ok.SalvoGroup != 127 {
+		t.Errorf("fire defaults %q %d", ok.FireMode, ok.SalvoGroup)
+	}
+	blank := ok
+	blank.FireMode = " Native "
+	blank.Normalize()
+	if blank.FireMode != "native" {
+		t.Errorf("normalized fire mode %q", blank.FireMode)
+	}
+	blank.FireMode = ""
+	blank.Normalize()
+	if blank.FireMode != "sequential" {
+		t.Errorf("empty fire mode %q", blank.FireMode)
 	}
 	ext := ok
 	ext.NameRequests, ext.Matrix = "ext", 200
@@ -187,5 +210,53 @@ func TestPin(t *testing.T) {
 	b, _ := json.Marshal(c)
 	if strings.Contains(string(b), "pbkdf2") {
 		t.Fatal("PIN hash leaks into JSON")
+	}
+}
+
+// Grid was parked (#150): a file that still has its keys loads, and the next
+// save drops them.
+func TestLegacyGridKeysLoad(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\ngridConfirm: true\ngrids:\n  - link: a\n    cells: []\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, ok, err := Load(p)
+	if err != nil || !ok {
+		t.Fatalf("load: %v %v", ok, err)
+	}
+	if err := Save(p, c); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	if strings.Contains(string(b), "grid") {
+		t.Fatalf("saved file still has grid keys:\n%s", b)
+	}
+}
+
+// A config saved while Grid existed has `locks: grid:`; it must still load.
+func TestLegacyGridLockKeyLoads(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\nlocks:\n  main: false\n  grid: false\n  log: false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, ok, err := Load(p)
+	if err != nil || !ok {
+		t.Fatalf("load: %v %v", ok, err)
+	}
+	if err := Save(p, c); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	if strings.Contains(string(b), "grid") {
+		t.Fatalf("saved file still has the grid lock key:\n%s", b)
+	}
+}
+
+func TestFireModeFromEnv(t *testing.T) {
+	t.Setenv("SODE_FIRE_MODE", "native")
+	t.Setenv("SODE_SALVO_GROUP", "12")
+	c, err := FromEnv(Defaults())
+	if err != nil || c.FireMode != "native" || c.SalvoGroup != 12 {
+		t.Fatalf("%q %d %v", c.FireMode, c.SalvoGroup, err)
 	}
 }

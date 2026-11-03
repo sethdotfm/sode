@@ -1,11 +1,12 @@
 // Plans (what a confirm shows and sends), take results and their banners.
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
-import { el, S, search, on, onMsg, emit, wsSend, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
 import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
+import { resolveSalvo } from './salvostore.js';
 
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
@@ -13,6 +14,11 @@ const takes = new Map(); // take id → batch
 // ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 // One item per destination. undo/retry are the history entries an item
 // undoes or retries. Protection isn't kept here: planBlocked returns it.
+// A plan may also carry title (a heading line for the confirm) and warnings
+// (lines about what was left out), which planSummary shows as they are.
+
+// A plan item for new routes: dst takes groups ([{src, levels}]).
+export const takeItem = (dst, groups, retry = null) => ({ dst, groups, skipped: [], untouched: [], undo: null, retry });
 
 // Levels of a failed take that the router answered for, so it is known the
 // take didn't change them: still on their old route, or on someone else's.
@@ -43,17 +49,31 @@ function undoItem(e) {
   };
 }
 
-// A failed take, tried again as a fresh patch of the same route.
-const retryItem = (e) => ({
-  dst: dstItem(e.dst, e.dstName),
-  groups: [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
-  skipped: [], untouched: [], undo: null, retry: e,
-});
+// "Take this line again": the entry's route as a fresh patch. A failed take
+// is a retry (linked to its entry); any other is a redo, sent as a plain new
+// take with no link. Needs a real source and a level that still exists.
+export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
+const againItem = (e) => takeItem(dstItem(e.dst, e.dstName),
+  [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }], e.ok ? null : e);
 
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
-  items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], untouched: [], undo: null, retry: null })),
+  items: dsts.map((dst) => takeItem(dst, [{ src, levels }])),
 });
+
+// A salvo (salvostore.js) as a plan: its takes grouped per destination.
+// What the router doesn't have is left out and listed in warnings. A salvo
+// is validated when it is saved (salvoProblem), not again here.
+export function salvoPlan(salvo, defaults) {
+  const r = resolveSalvo(salvo, {
+    src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u),
+  }, defaults);
+  const warnings = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) + ' on the router now');
+  return {
+    verb: 'salvo', salvo: salvo.name, title: `Salvo: ${salvo.name}`, warnings,
+    items: r.takes.map((t) => takeItem(dstItem(t.dst), t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })))),
+  };
+}
 // Follows (changes the router made after a take, see histRows) are left
 // out of an undo unless the confirm's box is ticked: extra.on. extra is
 // shared by copies of the plan, so the box works on whichever is sent.
@@ -68,14 +88,30 @@ function withFollows(plan, follows) {
 // at: by undoing the change that came after it, then.
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
-export const retryPlan = (e) => ({ verb: 'retry', items: [retryItem(e)] });
 export const folderUndoPlan = (f) => withFollows({ verb: 'undo', items: f.entries.map(undoItem) }, f.entries.flatMap((e) => e.follows || []));
-export const folderRetryPlan = (f) => ({ verb: 'retry', items: f.entries.filter((e) => !e.ok).map(retryItem) });
+// The Retry / Redo of a history row, { e } or { f }. A folder with failed
+// takes retries just those; otherwise it redoes every redoable take.
+// Empty items = nothing to offer.
+export function againPlan(row) {
+  const es = row.f ? row.f.entries : [row.e];
+  const failed = es.filter((e) => !e.ok);
+  const use = (failed.length ? failed : es).filter(canRedo);
+  return { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
+}
 // Undo for a history row: a single entry or a whole folder.
 export const rowUndoPlan = (row) => (row.f ? folderUndoPlan(row.f) : undoPlan(row.e));
 
-// 'undo', 'retry' or 'take' (a 'patch' plan), for wording confirms.
-export const planVerb = (plan) => (plan.verb === 'patch' ? 'take' : plan.verb);
+// The one table of verb wording. word: the confirm's title and slider; ask:
+// "Are you sure you want to ___"; busy: the banner while sending; resets:
+// whether sending clears the patch boxes (only a new patch does).
+export const VERBS = {
+  patch: { word: 'take', ask: 'take', busy: 'Taking…', resets: true },
+  undo: { word: 'undo', ask: 'undo', busy: 'Undoing…', resets: false },
+  retry: { word: 'retry', ask: 'retry taking', busy: 'Retrying…', resets: false },
+  redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
+  salvo: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
+};
+export const planVerb = (plan) => VERBS[plan.verb].word;
 // True when a plan has nothing to send (an undo with nothing routed before).
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
 // ---- results
@@ -237,7 +273,8 @@ function planQuestion(plan) {
       ' to ', ...to, '?');
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
-  return el('div', null, `Are you sure you want to ${plan.verb === 'retry' ? 'retry taking' : 'take'} `,
+  const what = VERBS[plan.verb].ask;
+  return el('div', null, `Are you sure you want to ${what} `,
     ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
@@ -256,6 +293,14 @@ export function changedSince(item) {
   return bySource(e.dst, levels.sort((a, b) => a - b));
 }
 
+// True when a (non-undo) item would change nothing: dst already has the
+// source on every one of its levels (the router then sends no reply).
+export function alreadyThere(item) {
+  if (item.undo) return false;
+  const t = S.tally.get(item.dst.n);
+  return !!t && item.groups.length > 0 && item.groups.every((g) => g.levels.length > 0 && g.levels.every((u) => t.get(u) === g.src.n));
+}
+
 // One destination's part of a confirm: new routes, then what they replace.
 // since: warn about changes made after the take being undone.
 function itemSummary(item, boxed, prot, since) {
@@ -265,6 +310,9 @@ function itemSummary(item, boxed, prot, since) {
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
     ...(since ? changedSince(item) : []).map((r) => el('div', 'sode__route', levelBar(r.levels),
       el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`)),
+    alreadyThere(item)
+      ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there'), 'the destination already has this source on every level; this changes nothing.')
+      : null,
     prot
       ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)),
         'will be refused')
@@ -288,8 +336,15 @@ function itemSummary(item, boxed, prot, since) {
 export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
   // Restore goes back past newer changes on purpose; other undos warn.
   const since = plan.verb === 'undo' && !plan.at;
-  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
+  const head = [
+    plan.title ? el('div', 'sode__label', plan.title) : null,
+    plan.warnings?.length
+      ? el('div', 'pb-alert pb-alert--warn', el('div', null, el('div', 'pb-alert__title', `${plan.warnings.length} left out`), ...plan.warnings.map((l) => el('div', null, l))))
+      : null,
+  ];
+  if (plan.items.length === 1) return [...head, planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
   return [
+    ...head,
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
       el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
@@ -339,12 +394,24 @@ export function nextTake() {
   return { src: nextOf(t.src, S.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
 }
 
+// A name without its counter: trailing digits and single letters set apart
+// by a space ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon").
+export function nameStem(name) {
+  let s = name.trim();
+  for (let prev = ''; s !== prev;) {
+    prev = s;
+    s = s.replace(/\s+[A-Za-z]$/, '').replace(/[\s\d]+$/, '');
+  }
+  return s;
+}
+
 // The item after it: number + 1, or with pref nextMode fuzzy the next one in
 // router order that the name's text matches ("Cam 3" → search "Cam" → the
-// first higher match). Falls back to the number when the name is only digits.
+// first higher match; "Prmpt A" → "Prmpt B"). Falls back to the number when
+// the name is only a counter.
 function nextOf(it, by) {
   if (pref('nextMode') === 'fuzzy') {
-    const q = (it.name || '').replace(/[\s\d]+$/, '').trim();
+    const q = nameStem(it.name || '');
     if (q) {
       const all = [...by.values()];
       return search(all, q, all.length).filter((x) => x.n > it.n).sort((a, b) => a.n - b.n)[0] || null;
@@ -383,7 +450,9 @@ export function sendTakes(p) {
       batch.byId.set(id, { dst: it.dst, g });
     }
   }
-  if (!wsSend({ t: 'batch', items })) {
+  const out = { t: 'batch', items };
+  if (p.verb === 'salvo' && p.salvo) out.salvo = p.salvo;
+  if (!wsSend(out)) {
     showResult('error', 'Not sent', 'The patch was NOT sent: the connection to the Sode server was lost. It is reconnecting; try again in a moment.');
     return false;
   }
@@ -397,7 +466,7 @@ export function sendTakes(p) {
   const text = dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
     ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
     : capped(list.map((t) => takeText(t)));
-  showResult('info', p.verb === 'undo' ? 'Undoing…' : 'Taking…', text);
+  showResult('info', VERBS[p.verb].busy, text);
   return true;
 }
 
