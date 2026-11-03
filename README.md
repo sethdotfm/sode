@@ -104,6 +104,12 @@ docker compose exec sode /sode -reset-pin && docker compose restart sode
 
 or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
+## Grid (#150)
+
+A grid is a panel of big source, destination and (later) salvo buttons, made for a tablet. Each one has its own link, `/grid/<link>` (for example `/grid/studio-a`). Make them at `/settings/grids` (**Grids** link in Settings), a full page behind the settings PIN: pick a size, click or drag over squares, **Join** them into one larger button (**Split** undoes it), then choose what each button is (a source or destination, found by number or name) and give it a label if you want one.
+
+On a grid, tap destinations to light them (tap again to unlight; each lit one shows where it is routed now), then tap a source to take it to all of them on the grid's levels. Protected destinations are named, not skipped silently. Each grid sets **Confirm takes** to the global default (on: the usual churning-letter confirm), always, or never (sent at once); the global default is a box at the left of the editor. A grid's levels default to the default levels. Salvo buttons show "needs Salvos" and do nothing until Salvos exist. The theme and layout follow this device's Settings.
+
 ## Monitoring (Uptime Kuma)
 
 `GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:
@@ -118,7 +124,7 @@ or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
 `/log` (**Open Log** in Settings, available even while Settings are locked) lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. It's read-only. Kept in `SODE_SENTLOG` up to `SODE_SENTLOG_MB`; without it the last 20,000 messages stay in memory.
 
-Besides messages to the router the log has event rows (#139), which show in the default view and have their own filter chips: **Browsers** (a browser's WebSocket connecting or dropping, with its address), **Commands** (what people fire that changes something: takes, undos and retries, refreshing names, clearing history, saving settings or filter sets, unlocking and locking the settings PIN: whether the PIN was right, never the PIN itself), and **Router link** (the router link going down once per outage, coming up, being changed in Settings, and Sode starting and stopping). ACKed messages also show how long the router took.
+Besides messages to the router the log has event rows (#139), which show in the default view and have their own filter chips: **Browsers** (a browser's WebSocket connecting or dropping, with its address), **Commands** (what people fire that changes something: takes, undos and retries, refreshing names, clearing history, saving settings, filter sets or grids, unlocking and locking the settings PIN: whether the PIN was right, never the PIN itself), and **Router link** (the router link going down once per outage, coming up, being changed in Settings, and Sode starting and stopping). ACKed messages also show how long the router took.
 
 The **Router uptime** graph at the top is one strip with toggles for 1 hour, 24 hours (the default view), 7 days and 30 days, each showing its bar length, e.g. "24 hours (15 min)". A toggle also sets the log's From time to that long ago, so the table shows the same period; Clear times undoes it. Setting From or To by hand shows that range instead. Click a bar to see just that slot: the log's times become the bar's, the table is sorted newest first, and a banner says so; **Back** restores the times and sort you had. Each bar is a slot (a minute for an hour, 15 minutes for a day, an hour for a week; hover for the details): green when the router link was up the whole slot, yellow when it was down for part of it or messages failed, needed a retry or took over 300 ms to ACK, red when it was down or Sode wasn't running, grey with nothing recorded. The record is kept for 400 days in `SODE_UPTIME`; Sode not running is found from a stamp it rewrites every minute, so a crash shows as down from the last minute it was alive.
 

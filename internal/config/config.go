@@ -52,6 +52,10 @@ type Config struct {
 	// Salvos are named sets of takes offered to every browser as buttons
 	// above Recent (salvos.go).
 	Salvos []Salvo `yaml:"salvos,omitempty" json:"salvos"`
+	// Grids are the /grid/<link> panels (grids.go); GridConfirm is whether
+	// panels set to "default" confirm their takes.
+	Grids       []Grid `yaml:"grids,omitempty" json:"grids"`
+	GridConfirm bool   `yaml:"gridConfirm" json:"gridConfirm"`
 	// HideDsts is no longer used; kept so files that have it load.
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
@@ -158,6 +162,7 @@ func Defaults() Config {
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
+		GridConfirm:        true,
 		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }
@@ -219,6 +224,7 @@ func (c Config) Clone() Config {
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Salvos = CloneSalvos(c.Salvos)
+	c.Grids = cloneGrids(c.Grids)
 	c.HideDsts = slices.Clone(c.HideDsts)
 	return c
 }
@@ -269,6 +275,7 @@ func (c *Config) Normalize() {
 		d.NextMode = "number"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
+	c.normalizeGrids()
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
 	if c.FilterSets == nil {
 		c.FilterSets = []FilterSet{}
@@ -423,6 +430,7 @@ func (c Config) Validate() error {
 		}
 	}
 	errs = append(errs, c.validateSalvos()...)
+	errs = append(errs, c.validateGrids()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}

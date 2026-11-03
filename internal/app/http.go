@@ -44,6 +44,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, static, "log.html")
 	})
+	a.servePrefixed(mux, static, "/grid/", nil, "grid.html")
+	a.servePrefixed(mux, static, "/settings/", settingsPages, "")
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
@@ -242,6 +244,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			Items    []takeReq          `json:"items"`
 			Sets     []config.FilterSet `json:"sets"`
 			Salvos   []config.Salvo     `json:"salvos"`
+			Grids    []config.Grid      `json:"grids"`
+			Confirm  *bool              `json:"gridConfirm"` // nil: keep the current
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
@@ -306,6 +310,19 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}(m.Sets, m.ID)
 		case "salvos":
 			go a.handleSalvos(c, m.Salvos, m.ID)
+		case "grids":
+			go func(grids []config.Grid, confirm *bool, id int) {
+				res := opResult{T: "gridsResult", OK: true, ID: &id}
+				err := a.SaveGrids(c, grids, confirm)
+				a.command(c, "grids", outcome(err), fmt.Sprintf("%d %s", len(grids), plural(len(grids), "grid", "grids")), err)
+				if err != nil {
+					res.OK, res.Err = false, err.Error()
+					res.Locked = locked(err)
+				} else {
+					log.Printf("config: grids saved by %s", c.ip)
+				}
+				a.reply(c, res)
+			}(m.Grids, m.Confirm, m.ID)
 		case "config":
 			if m.Config == nil {
 				continue
