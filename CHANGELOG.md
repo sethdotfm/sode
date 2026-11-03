@@ -1,6 +1,6 @@
 # Changelog
 
-Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Bump this file together with `Version` when you release (see README, Releasing).
+Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
 ## Beta 1.5 (unreleased)
 
@@ -11,9 +11,11 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - **Settings search**, and the **Grid** feature removed (#150).
 - Fuzzy **Next** steps through letters as well as digits ("Prmpt A" → "Prmpt B") (#149).
 - Small UI tweaks (#157), lock chip as plain text (#164), number stepper down arrow visible (#166), Presets popup keeps focus (#155, #156).
+- Security and sessions (found in review): a right user PIN no longer resets the shared wrong-PIN count (it is forgotten after an hour without a wrong one); a persistent user's session is renewed each time it is used or its page is still open, instead of expiring 90 days after login; the lock pad follows a PIN-length change at once; another browser's settings save can no longer wipe a valid session token.
+- **Trusted users** now also need the settings PIN to change the matrix, levels, level offset, name settings, fire mode and salvo group (and still the router, trusted proxies and PIN attempt limit).
 - Docs: this changelog (#147) and an AI disclosure in the README (#121).
 
-**Upgrading:** an existing `config.yaml` loads as is. A file saved while Grid existed still loads.
+**Upgrading:** an existing `config.yaml` loads as is: a `salvos:` list is read as `presets:` and written under the new name on the next save, and Grid settings are still ignored. Old history lines, and presets a browser saved under the old `sode-salvos` keys, load as before. Pull and restart with the same `/data` volume.
 
 ## Beta 1.4.1
 
@@ -33,9 +35,9 @@ Next chips for patching a run in order.
 
 Existing `config.yaml` loads as is (`nextMode` defaults to `number`).
 
-## Beta 1.3.1
+## Beta 1.3.1 (includes 1.3)
 
-Monitoring, a fuller /log, and stackable filter sets (1.3.1 is 1.3 with a fixed flaky test and a faster image build; no code changes in Sode).
+Monitoring, a fuller /log, and stackable filter sets. Beta 1.3 was never published as a release of its own: 1.3.1 is 1.3 with a fixed flaky test and a faster image build, no code changes in Sode.
 
 - `GET /api/health` for uptime monitors: 200 only while the router is up, else 503 (#140).
 - /log: event rows, ACK times and a Router uptime graph kept 400 days (#139); Load older keeps reading until it finds shown rows (#141).
