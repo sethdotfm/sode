@@ -27,7 +27,7 @@ import "errors"
 //	needLog:        sent uptime
 //	needTrusted:    config (needAdmin when it sets or clears the settings
 //	                PIN), filterSets, salvos
-//	needAdmin:      users
+//	needAdmin:      users userSignOutAll
 type need uint8
 
 const (
@@ -98,7 +98,8 @@ var policy = map[string]rule{
 	"filterSets": {need: needTrusted, op: "filterSets"},
 	"salvos":     {need: needTrusted, op: "salvos"},
 	// Users, locks and the settings PIN's own users: the PIN only.
-	"users": {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
+	"userSignOutAll": {need: needAdmin, op: "userSignOutAll"},
+	"users":          {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
 }
 
 // forMsg is r as it applies to m (strict raises the need to the PIN).

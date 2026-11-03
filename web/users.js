@@ -68,6 +68,32 @@ let edited = false;
 let seq = 0;
 const touched = () => { edited = true; ok.textContent = ''; };
 
+// Admin action: ends every session of this user (their saved logins on every
+// browser) and relocks their open pages. Needs the settings PIN.
+let outSeq = 0;
+function signOut(name) {
+  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Sign out all sessions');
+  b.type = 'button';
+  b.addEventListener('click', () => {
+    err.hidden = true;
+    ok.textContent = '';
+    const id = ++outSeq;
+    if (!wsSend({ t: 'userSignOutAll', name, id })) return fail('Not connected to Sode.');
+    b.disabled = true;
+    signing.set(id, { b, name });
+  });
+  return b;
+}
+const signing = new Map();
+onMsg('userSignOutAllResult', (m) => {
+  const w = signing.get(m.id);
+  signing.delete(m.id);
+  if (w) w.b.disabled = false;
+  if (m.ok) { ok.textContent = `Signed ${w?.name || 'the user'} out everywhere.`; return; }
+  if (m.locked) { demandPin(); emit('locked'); }
+  fail(m.err);
+});
+
 function addRow(u = { name: '', len: 0 }) {
   const name = el('input', 'pb-input');
   name.value = u.name;
@@ -102,6 +128,7 @@ function addRow(u = { name: '', len: 0 }) {
     el('div', 'sode__field', el('span', 'sode__label', 'PIN'), pin),
     el('div', 'sode__fields', trust.label, never.label),
     badges,
+    ...(u.len ? [signOut(u.name)] : []),
     rm);
   row.dataset.was = u.len ? u.name : '';
   rm.addEventListener('click', () => { row.remove(); touched(); });

@@ -444,3 +444,11 @@ export function icon(name, sm = true) {
 
 // A chevron for disclosure toggles: down when open, right when closed.
 export const chevron = (open) => icon(open ? 'chevron-down' : 'chevron-right');
+
+// These forms only group inputs; Enter never submits the page. (An inline
+// onsubmit would break the Content-Security-Policy, see http.go.)
+if (typeof document !== 'undefined') {
+  document.addEventListener('submit', (e) => {
+    if (e.target.matches?.('.sode__boxes, .sode-log__filters')) e.preventDefault();
+  });
+}

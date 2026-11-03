@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, pageType, liftFrom, shouldFly, brandFrames,
+  padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
   dots, actorUser, folderActor,
 } from '../lockrules.js';
 
@@ -150,4 +150,13 @@ test('folderActor: one name only when every take shares it', () => {
 test('dots', () => {
   assert.equal(dots(''), '');
   assert.equal(dots('123').length, 3);
+});
+
+test('guardedEdited: router, trusted proxies and the PIN limit need the PIN', () => {
+  const cur = { router: 'a:1', pinMaxTries: 10, trustedProxies: ['10.0.0.2'] };
+  assert.equal(guardedEdited({ ...cur }, cur), false);
+  assert.equal(guardedEdited({ ...cur, router: 'b:1' }, cur), true);
+  assert.equal(guardedEdited({ ...cur, pinMaxTries: 0 }, cur), true);
+  assert.equal(guardedEdited({ ...cur, trustedProxies: ['0.0.0.0/0'] }, cur), true);
+  assert.equal(guardedEdited({ ...cur, trustedProxies: undefined }, { ...cur, trustedProxies: [] }), false);
 });

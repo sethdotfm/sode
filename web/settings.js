@@ -15,6 +15,7 @@ import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
+import { guardedEdited } from './lockrules.js';
 import { omitOwned } from './owned.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
@@ -519,6 +520,12 @@ form.addEventListener('submit', (e) => {
     return;
   }
   const c = readSettings();
+  // Also not the guards the admin keeps: router, trusted proxies, PIN tries.
+  if (S.pinSet && trusted() && !unlocked() && guardedEdited(c, S.cfg)) {
+    demandPin();
+    renderLock();
+    return;
+  }
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) {

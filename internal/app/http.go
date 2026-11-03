@@ -61,7 +61,26 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
-	return mux
+	return secureHeaders(mux)
+}
+
+// csp is the one Content-Security-Policy for every response. Scripts are
+// same-origin files only (no inline bodies, no on*= handlers: a test over the
+// embedded pages keeps it so); inline style attributes are used, hence
+// 'unsafe-inline' for styles only. The socket is same-origin ws(s).
+const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self'; object-src 'none'; " +
+	"base-uri 'self'; frame-ancestors 'none'"
+
+// secureHeaders sets the browser-hardening headers in one place.
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", csp)
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // healthMsg is the /api/health body.
@@ -248,7 +267,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		switch m.T {
-		case "hi", "userUnlock", "userLock", "userSetPin", "users":
+		case "hi", "userUnlock", "userLock", "userSetPin", "users", "userSignOutAll":
 			a.serveUsers(c, &m)
 		case "batch":
 			if len(m.Items) > 0 {
@@ -354,6 +373,7 @@ type inMsg struct {
 	Salvos   []config.Salvo     `json:"salvos"`
 	Page     string             `json:"page"`  // hi: main | log
 	Token    string             `json:"token"` // hi: session token of a persistent user
+	Name     string             `json:"name"`  // userSignOutAll
 	Old      string             `json:"old"`
 	New      string             `json:"new"`
 	UsersReq *usersReq          `json:"usersReq"`

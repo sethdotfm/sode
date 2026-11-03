@@ -53,6 +53,12 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 export const idleLock = (s, lastActive, now, minutes) =>
   !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
 
+// Whether the form edits what only the settings PIN may change (the server
+// refuses a trusted user these): router, trusted proxies, PIN attempt limit.
+export const guardedEdited = (next, cur) => !!cur && (
+  next.router !== cur.router || next.pinMaxTries !== cur.pinMaxTries ||
+  (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
+
 // Whether a low-risk settings save (the Settings form, filter sets, salvos)
 // must ask for the settings PIN first. A trusted user's connection needs none
 // unless the server just refused one (forced: it wanted the PIN after all).

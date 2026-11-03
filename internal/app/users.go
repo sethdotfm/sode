@@ -175,8 +175,36 @@ func (a *App) UserUnlock(c *client, pin string) error {
 	if u, ok := a.r().cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
 		return errors.New("that PIN changed; try again")
 	}
+	// A connection that came up by token as X and unlocks as Y must not keep
+	// X's token: Y's later lock would revoke X's and relock X's tabs.
+	c.u.token = ""
 	c.u.user.Store(hit)
 	a.syncAccessLocked(c)
+	return nil
+}
+
+// SignOutAll ends every session of the named user: their tokens are
+// deleted and their connections relock. The settings PIN guards it (a
+// trusted user is not enough).
+func (a *App) SignOutAll(c *client, name string) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if err := a.guardSave(c, false); err != nil {
+		return err
+	}
+	if _, ok := a.r().cfg.FindUser(name); !ok {
+		return errors.New("no such user")
+	}
+	a.tokens.dropUser(name)
+	a.mu.Lock()
+	for cl := range a.clients {
+		if u := cl.u.user.Load(); u != nil && strings.EqualFold(u.Name, name) {
+			cl.u.user.Store(nil)
+			cl.u.token = ""
+			a.syncAccessLocked(cl)
+		}
+	}
+	a.mu.Unlock()
 	return nil
 }
 
@@ -348,6 +376,10 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 	case "userLock":
 		a.UserLock(c)
 		a.command(c, "userLock", "ok", "", nil)
+	case "userSignOutAll":
+		go func(name string, id int) {
+			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
+		}(m.Name, m.ID)
 	case "userSetPin":
 		res := opResult{T: "userSetPinResult", OK: true, ID: &m.ID}
 		if err := a.UserSetPin(c, m.Old, m.New); err != nil {
