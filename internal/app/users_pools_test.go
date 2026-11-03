@@ -15,7 +15,7 @@ import (
 func clearWaits(a *App) {
 	a.mu.Lock()
 	a.pin.until = time.Time{}
-	a.usr.pin.until = time.Time{}
+	a.userPin.until = time.Time{}
 	a.mu.Unlock()
 }
 
@@ -37,51 +37,52 @@ func TestPinClassesSeparate(t *testing.T) {
 		}
 	}
 	// The admin password is the settings PIN's class: one count.
-	if a.pin.n != 6 || a.usr.pin.n != 0 {
-		t.Fatalf("counts settings %d, users %d", a.pin.n, a.usr.pin.n)
+	if a.pin.n != 6 || a.userPin.n != 0 {
+		t.Fatalf("counts settings %d, users %d", a.pin.n, a.userPin.n)
 	}
 	clearWaits(a)
-	if _, err := a.UserUnlock(c, "1234"); err != nil {
+	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
 	if a.pin.n != 6 {
 		t.Fatalf("a user's success reset the settings count to %d", a.pin.n)
 	}
 	// And a settings success doesn't reset the user count.
-	if _, err := a.UserUnlock(c, "0000"); err == nil {
+	if err := a.UserUnlock(c, "0000"); err == nil {
 		t.Fatal("wrong user PIN accepted")
 	}
 	clearWaits(a)
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if a.usr.pin.n != 1 || a.pin.n != 0 {
-		t.Fatalf("after a settings success: settings %d, users %d", a.pin.n, a.usr.pin.n)
+	if a.userPin.n != 1 || a.pin.n != 0 {
+		t.Fatalf("after a settings success: settings %d, users %d", a.pin.n, a.userPin.n)
 	}
 }
 
 // Wrong user PINs wait longer and longer, to five minutes, and never lock
 // anyone out for good or touch the settings PIN.
 func TestUserPinBackoffCapped(t *testing.T) {
-	if got := userPinWait(pinFreeTries); got != 0 {
+	waitFor := userPool().wait
+	if got := waitFor(pinFreeTries); got != 0 {
 		t.Fatalf("free try waits %v", got)
 	}
-	if got := userPinWait(pinFreeTries + 1); got != pinFirstWait {
+	if got := waitFor(pinFreeTries + 1); got != pinFirstWait {
 		t.Fatalf("first wait %v", got)
 	}
-	if got := userPinWait(1000); got != userPinMaxWait || userPinMaxWait != 5*time.Minute {
+	if got := waitFor(1000); got != userPinMaxWait || userPinMaxWait != 5*time.Minute {
 		t.Fatalf("capped wait %v", got)
 	}
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	for range 30 { // far past pinMaxTries (10)
 		clearWaits(a)
-		if _, err := a.UserUnlock(c, "0000"); err == nil {
+		if err := a.UserUnlock(c, "0000"); err == nil {
 			t.Fatal("wrong PIN accepted")
 		}
 	}
 	a.mu.Lock()
-	wait := time.Until(a.usr.pin.until)
+	wait := time.Until(a.userPin.until)
 	a.mu.Unlock()
 	if wait <= 0 || wait > userPinMaxWait {
 		t.Fatalf("wait %v", wait)
@@ -95,7 +96,7 @@ func TestUserPinBackoffCapped(t *testing.T) {
 	}
 	// And the right user PIN works once the wait is over.
 	clearWaits(a)
-	if _, err := a.UserUnlock(c, "1234"); err != nil {
+	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatalf("locked out for good: %v", err)
 	}
 }
@@ -113,7 +114,7 @@ func TestSettingsLockoutLeavesUsers(t *testing.T) {
 	if err := a.Unlock(c, "2468"); err == nil || !strings.Contains(err.Error(), "-reset-pin") {
 		t.Fatalf("settings not locked out: %v", err)
 	}
-	if _, err := a.UserUnlock(c, "1234"); err != nil {
+	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatalf("users locked out by settings failures: %v", err)
 	}
 }

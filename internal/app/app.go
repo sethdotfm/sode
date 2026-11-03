@@ -61,7 +61,7 @@ func (r *runtime) probe() []byte {
 //   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
 //
 // Everything else is KEPT:
-//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, cfgMu, gapHook, xffWarn,
+//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu, gapHook, xffWarn,
 //     lateQ: plumbing, history, config and PIN, none of it router state;
 //   - clients: the browsers stay connected and get a fresh hello;
 //   - pendSent: sent log entries for /log pages (what we wrote);
@@ -100,9 +100,10 @@ type App struct {
 	namesDirt bool      // unsolicited names changed outside a refresh
 	dumpAt    time.Time // last dump request
 
-	pin   pinState   // wrong settings PINs
-	usr   userState  // admin tokens (users.go)
-	cfgMu sync.Mutex // serializes settings saves
+	pin     pinPool     // wrong settings PINs and admin passwords (pin.go)
+	userPin pinPool     // wrong user PINs
+	tokens  *tokenStore // admin tokens (tokens.go)
+	cfgMu   sync.Mutex  // serializes settings saves
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
@@ -174,6 +175,8 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		checks:  map[*tallyCheck]struct{}{},
 		status:  statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
+	a.pin, a.userPin = settingsPool(), userPool()
+	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())
@@ -192,7 +195,6 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		}
 		return err
 	}
-	a.pruneTokens() // loads the admin token file, so no request reads it under mu
 	return a, nil
 }
 

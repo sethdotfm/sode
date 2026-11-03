@@ -580,3 +580,7 @@ on('locked', () => {
   if (isOpen() && !saving()) showLockErr('Settings are locked; enter the PIN again.');
 });
 on('configResult', configResult);
+
+// The lock screen is coming down (lock.js): leave Settings. An unsaved form
+// keeps its warning and stays, covered.
+on('locking', () => { if (isOpen()) exitSettings(); });

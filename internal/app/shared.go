@@ -11,22 +11,20 @@ import (
 // sets, salvos, grid panels) all save the same way, through saveShared, and
 // answer through replyOp.
 
-// guardSave refuses c a settings change: the settings PIN not unlocked, or a
-// lock on the main page. Caller holds cfgMu, so the PIN can't change between
-// the check and the save.
+// guardSave refuses c a settings change unless its settings PIN is unlocked.
+// The policy table (policy.go) already checked this on arrival; the check is
+// repeated here because a PIN can change before cfgMu is ours. It is the only
+// guard: the main lock does not cover settings, the settings PIN does. Caller
+// holds cfgMu, so the PIN can't change between this check and the save.
 func (a *App) guardSave(c *client) error {
-	if a.locked(c) {
+	if !a.settingsUnlocked(c) {
 		return errLocked
-	}
-	if a.refused(c, gateMain) {
-		a.sendLockState(c)
-		return errNeedUser
 	}
 	return nil
 }
 
 // saveShared saves a change to the live config for everyone, from c: one at
-// a time (cfgMu), after the lock check, mutate edits a copy, which is then
+// a time (cfgMu), after the PIN check, mutate edits a copy, which is then
 // normalized, validated and saved (update). Browsers are told by broadcast,
 // which builds one message from the new config (nil: no message) and is not a
 // full snapshot, so it doesn't reset their Recent.
@@ -67,7 +65,7 @@ func (a *App) replyOp(c *client, kind string, id, n int, noun string, err error)
 		res.Err = err.Error()
 		res.Locked = locked(err)
 	} else {
-		log.Printf("config: %s saved by %s", kind, c.ip)
+		log.Printf("config: %s saved by %s", kind, c.who())
 	}
 	a.reply(c, res)
 }

@@ -241,7 +241,7 @@ func (c Config) Clone() Config {
 	c.Grids = cloneGrids(c.Grids)
 	c.LegacyGrids = cloneGrids(c.LegacyGrids)
 	c.HideDsts = slices.Clone(c.HideDsts)
-	c.Users = cloneUsers(c.Users)
+	c.Users = slices.Clone(c.Users)
 	return c
 }
 

@@ -1,16 +1,15 @@
 // The lock screen's pure rules (#151): PIN entry, when to ask the server,
 // idle time and where the logo flies from. No imports, so Node tests them.
 
-export const PIN_MIN = 4;
-export const PIN_MAX = 12;
 // Typed after the last key before a PIN that could still grow is sent.
 export const MORE_DIGITS_WAIT = 500;
 
-// The PIN after a pad or keyboard key: a digit, 'back' or 'clear'.
-export function padKey(pin, key) {
+// The PIN after a pad or keyboard key: a digit, 'back' or 'clear'. lens are
+// the users' PIN lengths; nothing longer than the longest can be right.
+export function padKey(pin, key, lens) {
   if (key === 'clear') return '';
   if (key === 'back') return pin.slice(0, -1);
-  if (/^[0-9]$/.test(key) && pin.length < PIN_MAX) return pin + key;
+  if (/^[0-9]$/.test(key) && pin.length < Math.max(...lens)) return pin + key;
   return pin;
 }
 
@@ -21,7 +20,7 @@ export function padKey(pin, key) {
 // digits aren't counted as a wrong try. The longest is sent at once.
 export function sendDelay(pin, lens) {
   const n = pin.length;
-  if (n < PIN_MIN || !lens.includes(n)) return null;
+  if (!lens.includes(n)) return null;
   return Math.max(...lens) > n ? MORE_DIGITS_WAIT : 0;
 }
 

@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -62,8 +61,6 @@ func (c *Config) normalizeUsers() {
 		c.Users[i].Name = strings.TrimSpace(c.Users[i].Name)
 	}
 }
-
-func cloneUsers(u []User) []User { return slices.Clone(u) }
 
 // validateUsers reports problems with the user directory, locks and
 // auto-lock time.
