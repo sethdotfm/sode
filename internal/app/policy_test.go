@@ -100,8 +100,8 @@ func TestRefusalReplies(t *testing.T) {
 	if m := until("takeResult"); m["ok"] == true || m["id"] != float64(7) || m["err"] == "" {
 		t.Fatalf("refused batch: %v", m)
 	}
-	send(map[string]any{"t": "salvos", "id": 3})
-	if m := until("salvosResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(3) {
+	send(map[string]any{"t": "presets", "id": 3})
+	if m := until("presetsResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(3) {
 		t.Fatalf("refused salvos: %v", m)
 	}
 	send(map[string]any{"t": "users", "id": 5, "usersReq": map[string]any{}})
@@ -114,8 +114,8 @@ func TestRefusalReplies(t *testing.T) {
 	if m := until("unlockResult"); m["ok"] != true {
 		t.Fatalf("unlock: %v", m)
 	}
-	send(map[string]any{"t": "salvos", "id": 6, "salvos": []any{}})
-	if m := until("salvosResult"); m["ok"] != true {
+	send(map[string]any{"t": "presets", "id": 6, "presets": []any{}})
+	if m := until("presetsResult"); m["ok"] != true {
 		t.Fatalf("salvos with the settings PIN: %v", m)
 	}
 	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 8}}})

@@ -50,21 +50,21 @@ func maxOwned(t *testing.T) config.Config {
 	n := 0
 	grow(func(c *config.Config) bool {
 		n++
-		si := (n - 1) / config.MaxSalvoItems
-		if si >= config.MaxSalvos {
+		si := (n - 1) / config.MaxPresetItems
+		if si >= config.MaxPresets {
 			return false
 		}
-		if len(c.Salvos) <= si {
-			c.Salvos = append(c.Salvos, config.Salvo{Name: fmt.Sprintf("%02d", si) + strings.Repeat("<", 30)})
+		if len(c.Presets) <= si {
+			c.Presets = append(c.Presets, config.Preset{Name: fmt.Sprintf("%02d", si) + strings.Repeat("<", 30)})
 		}
 		lv := make([]int, 0, 64)
 		for l := 1; l <= 64; l++ {
 			lv = append(lv, l)
 		}
-		c.Salvos[si].Items = append(c.Salvos[si].Items, config.SalvoItem{Src: 60000 + n%5000, Dsts: []int{n}, Levels: lv})
+		c.Presets[si].Items = append(c.Presets[si].Items, config.PresetItem{Src: 60000 + n%5000, Dsts: []int{n}, Levels: lv})
 		return true
 	})
-	if len(cfg.FilterSets) == 0 || len(cfg.Salvos) == 0 {
+	if len(cfg.FilterSets) == 0 || len(cfg.Presets) == 0 {
 		t.Fatal("test config not filled")
 	}
 	return cfg
@@ -78,7 +78,7 @@ func TestMessageSizes(t *testing.T) {
 	size := func(v any) int { b, _ := json.Marshal(v); return len(b) }
 	const envelope = 1024
 	for name, n := range map[string]int{
-		"salvos":     size(map[string]any{"t": "salvos", "salvos": cfg.Salvos, "id": 1<<31 - 1}),
+		"presets":    size(map[string]any{"t": "presets", "presets": cfg.Presets, "id": 1<<31 - 1}),
 		"filterSets": size(map[string]any{"t": "filterSets", "sets": cfg.FilterSets, "id": 1<<31 - 1}),
 	} {
 		t.Logf("%s: %d bytes", name, n)
@@ -86,8 +86,8 @@ func TestMessageSizes(t *testing.T) {
 			t.Errorf("%s message is %d bytes, over the %d read limit", name, n, wsReadLimit)
 		}
 	}
-	if n := size(cfg.Salvos); n > config.MaxSalvosBytes || n < config.MaxSalvosBytes/2 {
-		t.Errorf("max salvos are %d bytes, cap %d", n, config.MaxSalvosBytes)
+	if n := size(cfg.Presets); n > config.MaxPresetsBytes || n < config.MaxPresetsBytes/2 {
+		t.Errorf("max presets are %d bytes, cap %d", n, config.MaxPresetsBytes)
 	}
 	// hello carries the config (no limit on what the server sends). It and
 	// what a Settings save would echo back are over the limit with the owned
@@ -98,7 +98,7 @@ func TestMessageSizes(t *testing.T) {
 		t.Errorf("a full config is %d bytes: the owned lists were meant to be able to exceed the %d limit", full, wsReadLimit)
 	}
 	form := cfg
-	form.FilterSets, form.Salvos, form.Users = nil, nil, nil
+	form.FilterSets, form.Presets, form.Users = nil, nil, nil
 	if n := size(map[string]any{"t": "config", "config": form, "pin": strings.Repeat("9", 64)}); n+envelope >= wsReadLimit/4 {
 		t.Errorf("a Settings message without owned lists is %d bytes", n)
 	}
@@ -120,7 +120,7 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "keep"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveSalvos(c, []config.Salvo{{Name: "keep", Items: []config.SalvoItem{{Src: 1, Dsts: []int{2}}}}}); err != nil {
+	if err := a.SavePresets(c, []config.Preset{{Name: "keep", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}}}); err != nil {
 		t.Fatal(err)
 	}
 	live := a.r().cfg
@@ -131,7 +131,7 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 	in.Users = []config.User{{Name: "intruder"}}
 	in.Locks = config.Locks{Main: true}
 	in.AutoLockMinutes = 5
-	in.Salvos[0].Name = "" // would fail validation if it were applied
+	in.Presets[0].Name = "" // would fail validation if it were applied
 	if err := a.SaveSettings(c, in, "", false); err != nil {
 		t.Fatalf("owned fields were validated or applied: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 	if got.Router != "9.9.9.9:9" {
 		t.Error("form field not applied")
 	}
-	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "keep" || len(got.Salvos) != 1 ||
+	if len(got.FilterSets) != 1 || got.FilterSets[0].Name != "keep" || len(got.Presets) != 1 ||
 		got.SettingsPin != live.SettingsPin || len(got.Users) != 0 ||
 		got.Locks.Any() || got.AutoLockMinutes != live.AutoLockMinutes {
 		t.Fatalf("owned fields changed: %+v", got)
@@ -183,7 +183,7 @@ func TestSocketConfig(t *testing.T) {
 	// A config message with big owned lists, under the read limit.
 	big := maxOwned(t)
 	cfg := a.r().cfg
-	cfg.Salvos = big.Salvos[:1]
+	cfg.Presets = big.Presets[:1]
 	cfg.FilterSets = big.FilterSets[:2]
 	b, _ := json.Marshal(map[string]any{"t": "config", "config": cfg})
 	if len(b) >= wsReadLimit {
@@ -194,7 +194,7 @@ func TestSocketConfig(t *testing.T) {
 		t.Fatalf("%v", m)
 	}
 	got := a.r().cfg
-	if len(got.Salvos) != 0 || len(got.FilterSets) != 0 {
+	if len(got.Presets) != 0 || len(got.FilterSets) != 0 {
 		t.Fatalf("owned fields applied from a config message: %+v", got)
 	}
 }

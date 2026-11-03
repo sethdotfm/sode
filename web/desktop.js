@@ -18,7 +18,7 @@ import {
 import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { salvoHost } from './salvos.js';
+import { presetHost } from './presets.js';
 import { keyConfirm } from './keyconfirm.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
@@ -582,7 +582,7 @@ function onListKey(e) {
   if (k === '/') { openFilters(); return true; }
   if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
   if (k === '?') { openKeys(); return true; }
-  if (k === 'p') { emit('salvoStrip'); return true; }
+  if (k === 'p') { emit('presetStrip'); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   const act = {
     j: () => step(1), ArrowDown: () => (e.shiftKey ? nextGroup() : step(1)),
@@ -932,8 +932,8 @@ on('conn', renderConn);
 on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
 
-// Salvos (salvos.js): a button opens the usual confirm; the patch boxes can fill one.
-salvoHost({
+// Presets (presets.js): a button opens the usual confirm; the patch boxes can fill one.
+presetHost({
   active,
   confirm: openConfirm,
   patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),

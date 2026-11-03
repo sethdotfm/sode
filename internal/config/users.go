@@ -18,7 +18,7 @@ type User struct {
 	Pin  string `yaml:"pin" json:"-"`
 	Len  int    `yaml:"len" json:"len"`
 	// Trusted: while unlocked as this user, low-risk saves (Settings form,
-	// filter sets, salvos) need no settings PIN. Never PIN changes, users,
+	// filter sets, presets) need no settings PIN. Never PIN changes, users,
 	// or clearing history (see app/policy.go).
 	Trusted bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
 	// Persistent: unlocking as this user issues a session token the browser

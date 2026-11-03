@@ -6,9 +6,9 @@ import (
 )
 
 // validateNames checks the names of a list of things the config holds by
-// name (kind is singular, e.g. "salvo"): at most max of them, each named, at
+// name (kind is singular, e.g. "preset"): at most max of them, each named, at
 // most 32 characters, no two alike ignoring case. The one place for these
-// rules, for filter sets and salvos.
+// rules, for filter sets and presets.
 func validateNames(kind string, names []string, max int) []error {
 	var errs []error
 	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }

@@ -1,51 +1,63 @@
-// Salvos: named sets of takes, sent together as one confirm and one batch.
-// Global ones live in the config (cfg.salvos, edited with the settings PIN,
+// Presets: named sets of takes, sent together as one confirm and one batch.
+// Global ones live in the config (cfg.presets, edited with the settings PIN,
 // like filter sets); this browser's own in localStorage. Stored as numbers
 // only (internal source/destination numbers, UI levels, [] = default
 // levels), never names, because names are re-polled from the router.
-// A salvo: { name, items: [{ src, dsts: [n], levels: [ui] }] }.
+// A preset: { name, items: [{ src, dsts: [n], levels: [ui] }] }.
 
 import { S, on, onMsg, emit, off, search } from './core.js';
-import { readJSON, writeJSON } from './store.js';
+import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 
-// The limits the server enforces too (internal/config/salvos.go); the
-// shared cases in test/salvo_cases.json keep the two from drifting.
-export const MAX_SALVOS = 30;
+// The limits the server enforces too (internal/config/presets.go); the
+// shared cases in test/preset_cases.json keep the two from drifting.
+export const MAX_PRESETS = 30;
 export const MAX_ITEMS = 100;
 export const MAX_DSTS = 100;
 export const MAX_TOTAL = 200;
 export const MAX_NUM = 0xFFFE;   // a source or destination number
 export const MAX_LEVEL = 64;     // a UI level
-export const MAX_BYTES = 48 * 1024; // all salvos as JSON
-const KEY = 'sode-salvos';
-const PINS = 'sode-salvo-pins'; // this browser's pin overrides of everyone's salvos { lowercase name: bool }
+export const MAX_BYTES = 48 * 1024; // all presets as JSON
+const KEY = 'sode-presets';
+const PINS = 'sode-preset-pins'; // this browser's pin overrides of everyone's presets { lowercase name: bool }
+
+// Before Beta 1.5 was released these were called salvos: move what a browser
+// already holds to the new keys, once (a new key already there wins).
+export function migrateLegacyKeys() {
+  for (const [from, to] of [['sode-salvos', KEY], ['sode-salvo-pins', PINS]]) {
+    const v = readStr(from);
+    if (v == null) continue;
+    if (readStr(to) == null) writeStr(to, v);
+    writeStr(from, null);
+  }
+}
+migrateLegacyKeys();
 
 // Numbers only, duplicates dropped; out-of-range values stay so that
-// salvoProblem can name them rather than quietly changing the salvo.
+// presetProblem can name them rather than quietly changing the preset.
 const ints = (a) => [].concat(a ?? []).map(Number).filter((n) => Number.isInteger(n));
 export const normItem = (it) => ({
   src: Number.isInteger(+it?.src) ? +it.src : -1,
   dsts: [...new Set(ints(it?.dsts))],
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
-export const normSalvo = (s) => ({
+export const normPreset = (s) => ({
   name: String(s?.name ?? '').trim(),
   items: [].concat(s?.items ?? []).map(normItem),
 });
 
-// pinned: shown in the strip above Recent; a salvo saved before the flag existed is pinned.
-// A salvo as it is stored and sent: no scope.
+// pinned: shown in the strip above Recent; a preset saved before the flag existed is pinned.
+// A preset as it is stored and sent: no scope.
 export const saved = ({ name, items, pinned }) => ({ name, items, pinned: pinned !== false });
 
-export const globalSalvos = () => (S.cfg?.salvos || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normSalvo(s), pinned: s.pinned !== false }));
-export const localSalvos = () => [].concat(readJSON(KEY, [])).filter((s) => s?.name).map((s) => ({ scope: 'local', ...normSalvo(s), pinned: s.pinned !== false }));
-export const allSalvos = () => [...globalSalvos(), ...localSalvos()];
-export const findSalvo = (scope, name) =>
-  allSalvos().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
+export const globalPresets = () => (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normPreset(s), pinned: s.pinned !== false }));
+export const localPresets = () => [].concat(readJSON(KEY, [])).filter((s) => s?.name).map((s) => ({ scope: 'local', ...normPreset(s), pinned: s.pinned !== false }));
+export const allPresets = () => [...globalPresets(), ...localPresets()];
+export const findPreset = (scope, name) =>
+  allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
-// Why a salvo (normalised) can't be saved, or ''. The name is checked with
-// nameProblem (core.js) and the list as a whole with salvosProblem.
-export function salvoProblem(s) {
+// Why a preset (normalised) can't be saved, or ''. The name is checked with
+// nameProblem (core.js) and the list as a whole with presetsProblem.
+export function presetProblem(s) {
   if (!s.items.length) return 'Add at least one take.';
   if (s.items.length > MAX_ITEMS) return `At most ${MAX_ITEMS} sources.`;
   let total = 0;
@@ -61,12 +73,12 @@ export function salvoProblem(s) {
     total += it.dsts.length;
   }
   if (total > MAX_TOTAL) return `A preset can take at most ${MAX_TOTAL} destinations in total.`;
-  return salvoConflict(s);
+  return presetConflict(s);
 }
 
-// Why this list of salvos (as it would be saved) is too much, or ''.
-export function salvosProblem(list) {
-  if (list.length > MAX_SALVOS) return `At most ${MAX_SALVOS} presets.`;
+// Why this list of presets (as it would be saved) is too much, or ''.
+export function presetsProblem(list) {
+  if (list.length > MAX_PRESETS) return `At most ${MAX_PRESETS} presets.`;
   const bytes = JSON.stringify(list.map(saved)).length;
   return bytes > MAX_BYTES ? `The presets are too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB).` : '';
 }
@@ -74,7 +86,7 @@ export function salvosProblem(list) {
 // Two items taking different sources to one destination on overlapping
 // levels (blank = the default levels, which overlap with everything) would
 // race. The same source twice merges, so it is fine. '' or a message.
-export function salvoConflict(s) {
+export function presetConflict(s) {
   const clash = (a, b) => !a.length || !b.length || a.some((l) => b.includes(l));
   for (let i = 0; i < s.items.length; i++) {
     for (const b of s.items.slice(i + 1)) {
@@ -89,9 +101,9 @@ export function salvoConflict(s) {
   return '';
 }
 
-// list ({ name, items } each) with s replacing the salvo named `old`, or
+// list ({ name, items } each) with s replacing the preset named `old`, or
 // added when old is '' (or no longer there).
-export function replaceSalvo(list, s, old = '') {
+export function replacePreset(list, s, old = '') {
   const next = list.map(saved);
   const at = next.findIndex((x) => x.name.toLowerCase() === old.toLowerCase());
   const entry = saved(s);
@@ -100,25 +112,25 @@ export function replaceSalvo(list, s, old = '') {
   return next;
 }
 
-// Replaces this browser's salvo `old` (or adds, when old is '') with s.
-export function saveLocalSalvo(s, old = '') {
-  writeJSON(KEY, replaceSalvo(localSalvos(), s, old));
-  emit('salvos');
+// Replaces this browser's preset `old` (or adds, when old is '') with s.
+export function saveLocalPreset(s, old = '') {
+  writeJSON(KEY, replacePreset(localPresets(), s, old));
+  emit('presets');
 }
-export function deleteLocalSalvo(name) {
-  const list = localSalvos().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
+export function deleteLocalPreset(name) {
+  const list = localPresets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   writeJSON(KEY, list.length ? list : null);
-  emit('salvos');
+  emit('presets');
 }
 
-// ---- pinning: the strip above Recent shows pinned salvos only. A salvo
+// ---- pinning: the strip above Recent shows pinned presets only. A preset
 // carries its own flag (everyone's in the config, this browser's own in its
-// storage); a browser may override it for everyone's salvos, by name.
+// storage); a browser may override it for everyone's presets, by name.
 
 const pinKey = (name) => String(name).toLowerCase();
 // This browser's overrides, names it still has only (an unknown name, or a
-// value that isn't true/false, is ignored). list: salvos with scope.
-export function pinOverrides(list = globalSalvos()) {
+// value that isn't true/false, is ignored). list: presets with scope.
+export function pinOverrides(list = globalPresets()) {
   const raw = readJSON(PINS, {});
   const out = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
@@ -130,7 +142,7 @@ export function pinOverrides(list = globalSalvos()) {
   return out;
 }
 // Whether s shows in the strip: this browser's override of an everyone
-// salvo, else the salvo's own flag.
+// preset, else the preset's own flag.
 export function effectivePin(s, overrides = pinOverrides()) {
   if (s.scope === 'global') {
     const v = overrides[pinKey(s.name)];
@@ -138,12 +150,12 @@ export function effectivePin(s, overrides = pinOverrides()) {
   }
   return s.pinned !== false;
 }
-export function pinnedSalvos(list = allSalvos()) {
+export function pinnedPresets(list = allPresets()) {
   const o = pinOverrides(list);
   return list.filter((s) => effectivePin(s, o));
 }
-// Pins or unpins s for this browser only. A global salvo gets an override
-// (dropped again when it equals the salvo's own flag); a local one changes
+// Pins or unpins s for this browser only. A global preset gets an override
+// (dropped again when it equals the preset's own flag); a local one changes
 // its flag.
 export function setLocalPin(s, on) {
   if (s.scope === 'global') {
@@ -153,26 +165,26 @@ export function setLocalPin(s, on) {
     else o[pinKey(s.name)] = on;
     writeJSON(PINS, Object.keys(o).length ? o : null);
   } else {
-    writeJSON(KEY, localSalvos().map((x) => saved(x.name.toLowerCase() === s.name.toLowerCase() ? { ...x, pinned: on } : x)));
+    writeJSON(KEY, localPresets().map((x) => saved(x.name.toLowerCase() === s.name.toLowerCase() ? { ...x, pinned: on } : x)));
   }
-  emit('salvos');
+  emit('presets');
 }
-// After a salvo is pinned or unpinned for everyone this browser follows it.
+// After a preset is pinned or unpinned for everyone this browser follows it.
 export function clearPinOverride(name) {
   const raw = readJSON(PINS, {});
   if (!raw || typeof raw !== 'object' || !(pinKey(name) in raw)) return;
   const o = { ...raw };
   delete o[pinKey(name)];
   writeJSON(PINS, Object.keys(o).length ? o : null);
-  emit('salvos');
+  emit('presets');
 }
-// Everyone's list with salvo `name` pinned or not, to send.
+// Everyone's list with preset `name` pinned or not, to send.
 export const withGlobalPin = (name, on) =>
-  globalSalvos().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
+  globalPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
 
-// ---- the popup's list: all salvos, or the best matches for what is typed
+// ---- the popup's list: all presets, or the best matches for what is typed
 // (names, by core.js search). Matches keep their order among equal scores.
-export function rankSalvos(list, q) {
+export function rankPresets(list, q) {
   if (!String(q).trim()) return list;
   const items = list.map((s, n) => ({ num: '', lname: s.name.toLowerCase(), n }));
   return search(items, q, list.length).map((it) => list[it.n]);
@@ -202,17 +214,17 @@ export function parseRefs(text, offset, lookup) {
   return { ns, bad };
 }
 
-// ---- turning a salvo into takes
+// ---- turning a preset into takes
 
-// Which of a salvo's takes can go now. has: { src(n), dst(n), level(u) },
+// Which of a preset's takes can go now. has: { src(n), dst(n), level(u) },
 // defaults: the default levels (UI). Returns the takes grouped per
 // destination, [{ dst, groups: [{ src, levels }] }], and what was left out:
 // missing = [{ kind: 'source' | 'destination' | 'level', n }].
-export function resolveSalvo(salvo, has, defaults) {
+export function resolvePreset(preset, has, defaults) {
   const byDst = new Map();
   const missing = [];
   const miss = (kind, n) => { if (!missing.some((m) => m.kind === kind && m.n === n)) missing.push({ kind, n }); };
-  for (const it of salvo.items) {
+  for (const it of preset.items) {
     if (!has.src(it.src)) { miss('source', it.src); continue; }
     const want = it.levels.length ? it.levels : defaults;
     const levels = want.filter((u) => has.level(u));
@@ -230,7 +242,7 @@ export function resolveSalvo(salvo, has, defaults) {
   return { takes: [...byDst].map(([dst, groups]) => ({ dst, groups })), missing };
 }
 
-// ---- making a salvo from a patch or from history
+// ---- making a preset from a patch or from history
 
 // One item per source from takes [{ src, dst, levels }] (history entries or
 // the patch boxes), in first-seen order, destinations in first-seen order.
@@ -255,9 +267,9 @@ export function latestFolderTakes(hist) {
   return es.slice().reverse().map((x) => ({ src: x.src, dst: x.dst, levels: x.levels }));
 }
 
-// Global salvos changed for everyone.
-onMsg('salvos', (m) => {
-  S.cfg = { ...S.cfg, salvos: m.salvos };
-  emit('salvos');
+// Global presets changed for everyone.
+onMsg('presets', (m) => {
+  S.cfg = { ...S.cfg, presets: m.presets };
+  emit('presets');
 });
-on('helloData', () => emit('salvos'));
+on('helloData', () => emit('presets'));

@@ -6,7 +6,7 @@ import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
-import { resolveSalvo } from './salvostore.js';
+import { resolvePreset } from './presetstore.js';
 
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
@@ -61,16 +61,16 @@ export const patchPlan = (src, dsts, levels) => ({
   items: dsts.map((dst) => takeItem(dst, [{ src, levels }])),
 });
 
-// A salvo (salvostore.js) as a plan: its takes grouped per destination.
-// What the router doesn't have is left out and listed in warnings. A salvo
-// is validated when it is saved (salvoProblem), not again here.
-export function salvoPlan(salvo, defaults) {
-  const r = resolveSalvo(salvo, {
+// A preset (presetstore.js) as a plan: its takes grouped per destination.
+// What the router doesn't have is left out and listed in warnings. A preset
+// is validated when it is saved (presetProblem), not again here.
+export function presetPlan(preset, defaults) {
+  const r = resolvePreset(preset, {
     src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u),
   }, defaults);
   const warnings = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) + ' on the router now');
   return {
-    verb: 'salvo', salvo: salvo.name, title: `Preset: ${salvo.name}`, warnings,
+    verb: 'preset', preset: preset.name, title: `Preset: ${preset.name}`, warnings,
     items: r.takes.map((t) => takeItem(dstItem(t.dst), t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })))),
   };
 }
@@ -109,7 +109,7 @@ export const VERBS = {
   undo: { word: 'undo', ask: 'undo', busy: 'Undoing…', resets: false },
   retry: { word: 'retry', ask: 'retry taking', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
-  salvo: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
+  preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
 // True when a plan has nothing to send (an undo with nothing routed before).
@@ -451,7 +451,7 @@ export function sendTakes(p) {
     }
   }
   const out = { t: 'batch', items };
-  if (p.verb === 'salvo' && p.salvo) out.salvo = p.salvo;
+  if (p.verb === 'preset' && p.preset) out.preset = p.preset;
   if (!wsSend(out)) {
     showResult('error', 'Not sent', 'The patch was NOT sent: the connection to the Sode server was lost. It is reconnecting; try again in a moment.');
     return false;

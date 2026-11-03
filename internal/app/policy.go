@@ -96,7 +96,7 @@ var policy = map[string]rule{
 	"config": {need: needTrusted, op: "config", noID: true,
 		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin }},
 	"filterSets": {need: needTrusted, op: "filterSets"},
-	"salvos":     {need: needTrusted, op: "salvos"},
+	"presets":    {need: needTrusted, op: "presets"},
 	// Users, locks and the settings PIN's own users: the PIN only.
 	"userSignOutAll": {need: needAdmin, op: "userSignOutAll"},
 	"users":          {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist

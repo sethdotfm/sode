@@ -54,10 +54,10 @@ function found(e) {
   const either = (fn, n, now, then) => fn(n + off(), now) || (!!then && then !== now && fn(n + off(), then));
   const hit = (x) => either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName) &&
     either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
-  // A salvo's name counts too: every box with text must find it in the name.
-  const bySalvo = !!e.salvo && searchActive() &&
-    (!query.src.trim() || searchSrc(-1, e.salvo)) && (!query.dst.trim() || searchDst(-1, e.salvo));
-  return hit(e) || bySalvo || !!e.follows?.some(hit);
+  // A preset's name counts too: every box with text must find it in the name.
+  const byPreset = !!e.preset && searchActive() &&
+    (!query.src.trim() || searchSrc(-1, e.preset)) && (!query.dst.trim() || searchDst(-1, e.preset));
+  return hit(e) || byPreset || !!e.follows?.some(hit);
 }
 
 function passes(e) {
@@ -224,8 +224,8 @@ export function folderTitle(f) {
   const dst = dsts.length === 1 ? labelNode(dstItem(dsts[0], f.entries[0].dstName)) : `${dsts.length} destinations`;
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
   const follows = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
-  const salvo = f.entries.find((e) => e.salvo)?.salvo;
-  const notes = [salvo && `Preset: ${salvo}`, kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+  const preset = f.entries.find((e) => e.preset)?.preset;
+  const notes = [preset && `Preset: ${preset}`, kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
     follows && `+${follows} follow${follows === 1 ? '' : 's'}`].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
@@ -368,7 +368,7 @@ export function putEntry(e, hist = S, update = false) {
 // " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
   const parts = [];
-  if (e.salvo && !(e.group && e.groupN > 1)) parts.push(`Preset: ${e.salvo}`);
+  if (e.preset && !(e.group && e.groupN > 1)) parts.push(`Preset: ${e.preset}`);
   if (e.merged > 1) parts.push(`${e.merged} changes`);
   if (e.follows?.length) parts.push(`+${e.follows.length} follow${e.follows.length === 1 ? '' : 's'}`);
   if (e.follow != null) parts.push(`follow of #${e.follow}`);

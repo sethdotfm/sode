@@ -7,75 +7,75 @@ import (
 	"strings"
 )
 
-// Salvo caps. A salvo is sent as one batch, so these keep one button press
+// Preset caps. A preset is sent as one batch, so these keep one button press
 // to a sane number of takes.
 const (
-	MaxSalvos        = 30
-	MaxSalvoItems    = 100
-	MaxSalvoDsts     = 100
-	MaxSalvoLevelNum = 64
-	// MaxSalvoTotal caps the destinations over all of a salvo's items (its
+	MaxPresets        = 30
+	MaxPresetItems    = 100
+	MaxPresetDsts     = 100
+	MaxPresetLevelNum = 64
+	// MaxPresetTotal caps the destinations over all of a preset's items (its
 	// takes), so one batch stays well under the 64 KiB WebSocket read limit.
-	MaxSalvoTotal = 200
-	// MaxSalvosBytes caps all salvos as JSON, so a "salvos" message (which
+	MaxPresetTotal = 200
+	// MaxPresetsBytes caps all presets as JSON, so a "presets" message (which
 	// carries the whole list) fits the 64 KiB read limit with room to spare.
-	MaxSalvosBytes = 48 << 10
+	MaxPresetsBytes = 48 << 10
 )
 
-// Salvo is a named set of takes sent together as one confirm: each item
+// Preset is a named set of takes sent together as one confirm: each item
 // takes one source to its destinations. Everything is a number (internal
 // source/destination numbers, UI levels 1..N), never a name, because names
 // are re-polled from the router. Empty Levels means the default levels.
-type Salvo struct {
-	Name  string      `yaml:"name" json:"name"`
-	Items []SalvoItem `yaml:"items" json:"items"`
+type Preset struct {
+	Name  string       `yaml:"name" json:"name"`
+	Items []PresetItem `yaml:"items" json:"items"`
 	// Pinned: shown in the strip above Recent. nil (an older file) = true;
-	// normalizeSalvos always fills it. A browser may override it for itself.
+	// normalizePresets always fills it. A browser may override it for itself.
 	Pinned *bool `yaml:"pinned,omitempty" json:"pinned,omitempty"`
 }
 
-// SalvoItem is one source going to one or more destinations.
-type SalvoItem struct {
+// PresetItem is one source going to one or more destinations.
+type PresetItem struct {
 	Src    int   `yaml:"src" json:"src"`
 	Dsts   []int `yaml:"dsts" json:"dsts"`
 	Levels []int `yaml:"levels,omitempty" json:"levels"`
 }
 
-// CloneSalvos copies salvos so the copy shares no slices.
-func CloneSalvos(in []Salvo) []Salvo {
+// ClonePresets copies presets so the copy shares no slices.
+func ClonePresets(in []Preset) []Preset {
 	if in == nil {
 		return nil
 	}
-	out := make([]Salvo, len(in))
+	out := make([]Preset, len(in))
 	for i, s := range in {
-		out[i] = Salvo{Name: s.Name, Items: make([]SalvoItem, len(s.Items))}
+		out[i] = Preset{Name: s.Name, Items: make([]PresetItem, len(s.Items))}
 		if s.Pinned != nil {
 			p := *s.Pinned
 			out[i].Pinned = &p
 		}
 		for j, it := range s.Items {
-			out[i].Items[j] = SalvoItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels)}
+			out[i].Items[j] = PresetItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels)}
 		}
 	}
 	return out
 }
 
-// normalizeSalvos trims names, sorts and de-duplicates levels, and makes
+// normalizePresets trims names, sorts and de-duplicates levels, and makes
 // every list non-nil so JSON sends [] rather than null. It edits in place:
 // callers pass a Clone.
-func (c *Config) normalizeSalvos() {
-	if c.Salvos == nil {
-		c.Salvos = []Salvo{}
+func (c *Config) normalizePresets() {
+	if c.Presets == nil {
+		c.Presets = []Preset{}
 	}
-	for i := range c.Salvos {
-		s := &c.Salvos[i]
+	for i := range c.Presets {
+		s := &c.Presets[i]
 		s.Name = strings.TrimSpace(s.Name)
 		if s.Pinned == nil {
 			t := true
 			s.Pinned = &t
 		}
 		if s.Items == nil {
-			s.Items = []SalvoItem{}
+			s.Items = []PresetItem{}
 		}
 		for j := range s.Items {
 			it := &s.Items[j]
@@ -91,30 +91,30 @@ func (c *Config) normalizeSalvos() {
 	}
 }
 
-// validateSalvos returns what is wrong with the salvos, if anything.
-func (c Config) validateSalvos() []error {
+// validatePresets returns what is wrong with the presets, if anything.
+func (c Config) validatePresets() []error {
 	var errs []error
 	bad := func(f string, a ...any) { errs = append(errs, fmt.Errorf(f, a...)) }
-	snames := make([]string, len(c.Salvos))
-	for i, s := range c.Salvos {
+	snames := make([]string, len(c.Presets))
+	for i, s := range c.Presets {
 		snames[i] = s.Name
 	}
-	errs = append(errs, validateNames("preset", snames, MaxSalvos)...)
-	for _, s := range c.Salvos {
+	errs = append(errs, validateNames("preset", snames, MaxPresets)...)
+	for _, s := range c.Presets {
 		if len(s.Items) == 0 {
 			bad("preset %q has no takes", s.Name)
 		}
-		if len(s.Items) > MaxSalvoItems {
-			bad("preset %q: at most %d sources", s.Name, MaxSalvoItems)
+		if len(s.Items) > MaxPresetItems {
+			bad("preset %q: at most %d sources", s.Name, MaxPresetItems)
 		}
 		total := 0
 		for _, it := range s.Items {
 			total += len(it.Dsts)
 		}
-		if total > MaxSalvoTotal {
-			bad("preset %q: a preset can take at most %d destinations in total", s.Name, MaxSalvoTotal)
+		if total > MaxPresetTotal {
+			bad("preset %q: a preset can take at most %d destinations in total", s.Name, MaxPresetTotal)
 		}
-		if err := salvoConflict(s); err != nil {
+		if err := presetConflict(s); err != nil {
 			errs = append(errs, err)
 		}
 		for _, it := range s.Items {
@@ -124,8 +124,8 @@ func (c Config) validateSalvos() []error {
 			if len(it.Dsts) == 0 {
 				bad("preset %q: a source has no destinations", s.Name)
 			}
-			if len(it.Dsts) > MaxSalvoDsts {
-				bad("preset %q: at most %d destinations per source", s.Name, MaxSalvoDsts)
+			if len(it.Dsts) > MaxPresetDsts {
+				bad("preset %q: at most %d destinations per source", s.Name, MaxPresetDsts)
 			}
 			for _, d := range it.Dsts {
 				if d < 0 || d > 0xFFFE {
@@ -133,23 +133,23 @@ func (c Config) validateSalvos() []error {
 				}
 			}
 			for _, l := range it.Levels {
-				if l < 1 || l > MaxSalvoLevelNum {
-					bad("preset %q: level %d must be 1-%d", s.Name, l, MaxSalvoLevelNum)
+				if l < 1 || l > MaxPresetLevelNum {
+					bad("preset %q: level %d must be 1-%d", s.Name, l, MaxPresetLevelNum)
 				}
 			}
 		}
 	}
-	if b, err := json.Marshal(c.Salvos); err == nil && len(b) > MaxSalvosBytes {
-		bad("presets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxSalvosBytes>>10)
+	if b, err := json.Marshal(c.Presets); err == nil && len(b) > MaxPresetsBytes {
+		bad("presets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxPresetsBytes>>10)
 	}
 	return errs
 }
 
-// salvoConflict reports two items that take different sources to the same
+// presetConflict reports two items that take different sources to the same
 // destination on overlapping levels (empty levels = the default levels,
 // which overlap with everything): they would race. The same source twice is
 // fine; it merges.
-func salvoConflict(s Salvo) error {
+func presetConflict(s Preset) error {
 	for i, a := range s.Items {
 		for _, b := range s.Items[i+1:] {
 			if a.Src == b.Src || !levelsOverlap(a.Levels, b.Levels) {

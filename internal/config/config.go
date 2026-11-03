@@ -57,9 +57,13 @@ type Config struct {
 	// FilterSets are named Recent filters offered to every browser as
 	// quick buttons; browsers can add their own.
 	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
-	// Salvos are named sets of takes offered to every browser as buttons
-	// above Recent (salvos.go).
-	Salvos []Salvo `yaml:"salvos,omitempty" json:"salvos" owned:"true"`
+	// Presets are named sets of takes offered to every browser as buttons
+	// above Recent (presets.go).
+	Presets []Preset `yaml:"presets,omitempty" json:"presets" owned:"true"`
+	// LegacyPresets reads the key presets had before Beta 1.5 was released
+	// ("salvos"); Normalize moves them to Presets, so the next save writes
+	// the new key.
+	LegacySalvos []Preset `yaml:"salvos,omitempty" json:"-"`
 	// Grid was parked (#150); ignored. Kept so a file that has them loads,
 	// and dropped on the next save.
 	LegacyGrids       any `yaml:"grids,omitempty" json:"-"`
@@ -246,7 +250,7 @@ func (c Config) Clone() Config {
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
-	c.Salvos = CloneSalvos(c.Salvos)
+	c.Presets = ClonePresets(c.Presets)
 	c.HideDsts = slices.Clone(c.HideDsts)
 	c.Users = slices.Clone(c.Users)
 	return c
@@ -304,6 +308,10 @@ func (c *Config) Normalize() {
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.LegacyGrids, c.LegacyGridConfirm, c.Locks.LegacyGrid = nil, nil, nil
+	if len(c.Presets) == 0 && len(c.LegacySalvos) > 0 {
+		c.Presets = c.LegacySalvos // saved under the old key; the next save writes presets:
+	}
+	c.LegacySalvos = nil
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
 	if c.FilterSets == nil {
 		c.FilterSets = []FilterSet{}
@@ -312,7 +320,7 @@ func (c *Config) Normalize() {
 		f := &c.FilterSets[i]
 		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
 	}
-	c.normalizeSalvos()
+	c.normalizePresets()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}
@@ -459,11 +467,11 @@ func (c Config) Validate() error {
 		}
 	}
 	errs = append(errs, validateNames("filter set", fnames, 30)...)
-	// Like salvos, all of them in one message under the read limit.
+	// Like presets, all of them in one message under the read limit.
 	if b, err := json.Marshal(c.FilterSets); err == nil && len(b) > MaxFilterSetsBytes {
 		bad("filter sets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxFilterSetsBytes>>10)
 	}
-	errs = append(errs, c.validateSalvos()...)
+	errs = append(errs, c.validatePresets()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}

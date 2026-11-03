@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -35,7 +36,7 @@ type client struct {
 }
 
 // wsReadLimit is the most one browser message may be. The largest ones are
-// a Settings save and a salvos save; see TestMessageSizes.
+// a Settings save and a presets save; see TestMessageSizes.
 const wsReadLimit = 64 << 10
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -281,9 +282,9 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				}
 				a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
 			}
-			if name := cleanSalvoName(m.Salvo); name != "" {
+			if name := cleanPresetName(cmp.Or(m.Preset, m.Salvo)); name != "" {
 				for i := range m.Items {
-					m.Items[i].Salvo = name
+					m.Items[i].Preset = name
 				}
 			}
 			go a.batch(c, m.Items)
@@ -317,10 +318,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go func(sets []config.FilterSet, id int) {
 				a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 			}(m.Sets, m.ID)
-		case "salvos":
-			go func(salvos []config.Salvo, id int) {
-				a.replyOp(c, "salvos", id, len(salvos), "salvo", a.SaveSalvos(c, salvos))
-			}(m.Salvos, m.ID)
+		case "presets":
+			go func(presets []config.Preset, id int) {
+				a.replyOp(c, "presets", id, len(presets), "preset", a.SavePresets(c, presets))
+			}(m.Presets, m.ID)
 		case "config":
 			if m.Config == nil {
 				continue
@@ -368,9 +369,10 @@ type inMsg struct {
 	ClearPin bool               `json:"clearPin"`
 	ID       int                `json:"id"` // echoed by unlock and save replies
 	Items    []takeReq          `json:"items"`
-	Salvo    string             `json:"salvo"` // batch: the salvo that was fired, if any
+	Preset   string             `json:"preset"` // batch: the preset that was fired, if any
+	Salvo    string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
 	Sets     []config.FilterSet `json:"sets"`
-	Salvos   []config.Salvo     `json:"salvos"`
+	Presets  []config.Preset    `json:"presets"`
 	Page     string             `json:"page"`  // hi: main | log
 	Token    string             `json:"token"` // hi: session token of a persistent user
 	Name     string             `json:"name"`  // userSignOutAll

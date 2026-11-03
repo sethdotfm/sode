@@ -53,7 +53,7 @@ func TestTrustedSavesWithoutPin(t *testing.T) {
 	}
 	cfg := a.r().cfg
 	cfg.LevelColors = []string{"#aabbcc"}
-	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "salvos"}} {
+	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}} {
 		if err := admitMsg(a, c, m); err != nil {
 			t.Fatalf("%s refused a trusted user: %v", m.T, err)
 		}
@@ -64,10 +64,10 @@ func TestTrustedSavesWithoutPin(t *testing.T) {
 	if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "X", Sode: true, Ext: true}}); err != nil {
 		t.Fatalf("filter sets: %v", err)
 	}
-	if err := a.SaveSalvos(c, []config.Salvo{{Name: "S", Items: []config.SalvoItem{{Src: 1, Dsts: []int{1}, Levels: []int{1}}}}}); err != nil {
+	if err := a.SavePresets(c, []config.Preset{{Name: "S", Items: []config.PresetItem{{Src: 1, Dsts: []int{1}, Levels: []int{1}}}}}); err != nil {
 		t.Fatalf("salvos: %v", err)
 	}
-	if len(a.r().cfg.FilterSets) != 1 || len(a.r().cfg.Salvos) != 1 {
+	if len(a.r().cfg.FilterSets) != 1 || len(a.r().cfg.Presets) != 1 {
 		t.Fatal("saves did not land")
 	}
 }
@@ -116,7 +116,7 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
-	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "salvos"}} {
+	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}} {
 		if err := admitMsg(a, c, m); !errors.Is(err, errLocked) {
 			t.Errorf("%s: locked connection admitted: %v", m.T, err)
 		}
@@ -124,7 +124,7 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	if err := a.UserUnlock(c, "1234"); err != nil { // Ana, not trusted
 		t.Fatal(err)
 	}
-	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "salvos"}} {
+	for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}} {
 		if err := admitMsg(a, c, m); !errors.Is(err, errLocked) {
 			t.Errorf("%s: untrusted user admitted: %v", m.T, err)
 		}
@@ -134,11 +134,11 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	}
 	// Untrusting takes effect on a connection already unlocked.
 	setFlags(t, a, "Ana", true, false)
-	if err := admitMsg(a, c, inMsg{T: "salvos"}); err != nil {
+	if err := admitMsg(a, c, inMsg{T: "presets"}); err != nil {
 		t.Fatal(err)
 	}
 	setFlags(t, a, "Ana", false, false)
-	if err := admitMsg(a, c, inMsg{T: "salvos"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, c, inMsg{T: "presets"}); !errors.Is(err, errLocked) {
 		t.Errorf("after unticking Trusted: %v", err)
 	}
 	// And trust belongs to the PIN it was unlocked under: a changed PIN relocks.
@@ -152,7 +152,7 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	a.mu.Lock()
 	a.rt.Store(nr)
 	a.mu.Unlock()
-	if err := admitMsg(a, c, inMsg{T: "salvos"}); !errors.Is(err, errLocked) {
+	if err := admitMsg(a, c, inMsg{T: "presets"}); !errors.Is(err, errLocked) {
 		t.Errorf("after the user's PIN changed: %v", err)
 	}
 }

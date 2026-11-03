@@ -74,9 +74,9 @@ type filterSetsMsg struct {
 	Sets []config.FilterSet `json:"sets"`
 }
 
-type salvosMsg struct {
-	T      string         `json:"t"` // "salvos"
-	Salvos []config.Salvo `json:"salvos"`
+type presetsMsg struct {
+	T       string          `json:"t"` // "presets"
+	Presets []config.Preset `json:"presets"`
 }
 
 // simpleMsg has no fields but its kind: "locked", "historyCleared".

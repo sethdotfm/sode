@@ -1,4 +1,4 @@
-// Saving something for everyone (filter sets, salvos): a change to a
+// Saving something for everyone (filter sets, presets): a change to a
 // server-side setting, so with a settings PIN it asks for it first. One
 // saver per dialog does the whole flow: the PIN row, the request and its
 // answer, locking up again afterwards. The dialog supplies its PIN controls
@@ -17,8 +17,8 @@ import { showResult } from './plans.js';
 // Returns { change(payload, done), cancel(), close(), busy() }.
 let seq = 0; // shared: ids stay unique across savers of one result type
 
-// One onMsg per result type, shared by every saver of that type (the salvo
-// editor and the Ctrl+G popup both save salvos): each ignores ids not its own.
+// One onMsg per result type, shared by every saver of that type (the preset
+// editor and the Ctrl+G popup both save presets): each ignores ids not its own.
 const resultHandlers = new Map();
 function onResult(resultT, fn) {
   let list = resultHandlers.get(resultT);

@@ -19,7 +19,7 @@ import {
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
-import { salvoHost } from './salvos.js';
+import { presetHost } from './presets.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
@@ -728,9 +728,9 @@ onLayout((l) => {
 // show the Source box until hello.
 setStep(order()[0], false);
 
-// Salvos (salvos.js): a pressed button opens the usual confirm sheet; the
-// patch so far can fill a salvo.
-salvoHost({
+// Presets (presets.js): a pressed button opens the usual confirm sheet; the
+// patch so far can fill a preset.
+presetHost({
   active,
   confirm: sheetFor,
   patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),

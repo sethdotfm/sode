@@ -8,4 +8,4 @@ export * from '../device.js';
 export * from '../filterstore.js';
 export * from '../history.js';
 export * from '../plans.js';
-export * from '../salvostore.js';
+export * from '../presetstore.js';

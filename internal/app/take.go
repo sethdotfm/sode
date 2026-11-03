@@ -28,7 +28,7 @@ type takeReq struct {
 
 	Group  string `json:"-"` // set by batch for confirms of more than one take
 	GroupN int    `json:"-"`
-	Salvo  string `json:"-"` // set by the batch handler: the salvo this take came from (cleanSalvoName)
+	Preset string `json:"-"` // set by the batch handler: the preset this take came from (cleanPresetName)
 	// NoCheck skips reading dst's routes from the router first (set by
 	// batch for big batches): the cache is used for Prev.
 	NoCheck bool `json:"-"`
@@ -393,7 +393,7 @@ func (a *App) planPhase(r *runtime, c *client, req takeReq) (*waiter, *Entry, er
 	} else if req.Retry != nil {
 		w.why.Reason = swp08.ReasonRetry
 	}
-	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Salvo: req.Salvo, Prev: [][2]int{}}
+	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, Prev: [][2]int{}}
 	return w, e, nil
 }
 
