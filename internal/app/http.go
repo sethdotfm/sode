@@ -34,6 +34,10 @@ type client struct {
 	u connUser // page type, unlocked user, admin token (users.go)
 }
 
+// wsReadLimit is the most one browser message may be. The largest ones are
+// a Settings save and a gridSave; see TestMessageSizes.
+const wsReadLimit = 64 << 10
+
 // Handler serves the embedded UI, the WebSocket and a health check.
 func (a *App) Handler(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
@@ -46,8 +50,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, static, "log.html")
 	})
-	a.servePrefixed(mux, static, "/grid/", nil, "grid.html")
-	a.servePrefixed(mux, static, "/settings/", settingsPages, "")
+	serveGridPages(mux, static)
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
@@ -144,7 +147,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
-	conn.SetReadLimit(64 << 10)
+	conn.SetReadLimit(wsReadLimit)
 
 	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
@@ -246,10 +249,12 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			Items    []takeReq          `json:"items"`
 			Sets     []config.FilterSet `json:"sets"`
 			Salvos   []config.Salvo     `json:"salvos"`
-			Grids    []config.Grid      `json:"grids"`
-			Confirm  *bool              `json:"gridConfirm"` // nil: keep the current
-			Page     string             `json:"page"`        // hi: main | grid | log
-			Token    string             `json:"token"`       // hi: admin token
+			Grid     *config.Grid       `json:"grid"`  // gridSave
+			Was      string             `json:"was"`   // gridSave: the link before a rename
+			Link     string             `json:"link"`  // gridDelete
+			On       bool               `json:"on"`    // gridConfirm
+			Page     string             `json:"page"`  // hi: main | grid | log
+			Token    string             `json:"token"` // hi: admin token
 			Forget   bool               `json:"forget"`
 			UsersReq *usersReq          `json:"usersReq"`
 		}
@@ -325,32 +330,28 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go a.ClearHistory(c.ip)
 		case "filterSets":
 			go func(sets []config.FilterSet, id int) {
-				res := opResult{T: "filterSetsResult", OK: true, ID: &id}
-				err := a.SaveFilterSets(c, sets)
-				a.command(c, "filterSets", outcome(err), fmt.Sprintf("%d %s", len(sets), plural(len(sets), "set", "sets")), err)
-				if err != nil {
-					res.OK, res.Err = false, err.Error()
-					res.Locked = locked(err)
-				} else {
-					log.Printf("config: filter sets saved by %s", c.ip)
-				}
-				a.reply(c, res)
+				a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 			}(m.Sets, m.ID)
 		case "salvos":
-			go a.handleSalvos(c, m.Salvos, m.ID)
-		case "grids":
-			go func(grids []config.Grid, confirm *bool, id int) {
-				res := opResult{T: "gridsResult", OK: true, ID: &id}
-				err := a.SaveGrids(c, grids, confirm)
-				a.command(c, "grids", outcome(err), fmt.Sprintf("%d %s", len(grids), plural(len(grids), "grid", "grids")), err)
-				if err != nil {
-					res.OK, res.Err = false, err.Error()
-					res.Locked = locked(err)
-				} else {
-					log.Printf("config: grids saved by %s", c.ip)
+			go func(salvos []config.Salvo, id int) {
+				a.replyOp(c, "salvos", id, len(salvos), "salvo", a.SaveSalvos(c, salvos))
+			}(m.Salvos, m.ID)
+		case "gridSave":
+			go func(g *config.Grid, was string, id int) {
+				err := errNoGrid
+				if g != nil {
+					err = a.SaveGrid(c, *g, was)
 				}
-				a.reply(c, res)
-			}(m.Grids, m.Confirm, m.ID)
+				a.replyOp(c, "grids", id, 1, "grid", err)
+			}(m.Grid, m.Was, m.ID)
+		case "gridDelete":
+			go func(link string, id int) {
+				a.replyOp(c, "grids", id, 1, "grid", a.DeleteGrid(c, link))
+			}(m.Link, m.ID)
+		case "gridConfirm":
+			go func(on bool, id int) {
+				a.replyOp(c, "grids", id, 0, "", a.SetGridConfirm(c, on))
+			}(m.On, m.ID)
 		case "config":
 			if m.Config == nil {
 				continue
@@ -366,17 +367,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			json.Unmarshal(data, &has)
 			keepDefaults := has.Config.DeviceDefaults == nil
 			go func(cfg config.Config, pin string, clearPin bool) {
-				res := opResult{T: "configResult", OK: true}
-				err := a.saveSettings(c, cfg, pin, clearPin, keepDefaults)
 				// Who saved, not what: the settings hold the PIN's hash.
-				a.command(c, "config", outcome(err), "", err)
-				if err != nil {
-					res.OK, res.Err = false, err.Error()
-					res.Locked = locked(err)
-				} else {
-					log.Printf("config: saved by %s", c.ip)
-				}
-				a.reply(c, res)
+				a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin, keepDefaults))
 			}(*m.Config, m.Pin, m.ClearPin)
 		}
 	}

@@ -23,27 +23,19 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, keepDefaults bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if a.locked(c) {
-		return errLocked
-	}
-	if a.refused(c, gateMain) {
-		a.sendLockState(c)
-		return errNeedUser
+	if err := a.guardSave(c); err != nil {
+		return err
 	}
 	return a.applyConfig(func(cur *config.Config) error {
-		// cur is a copy of the live config. Filter sets are saved from
-		// Recent's Filters, not the settings form, so a browser's copy may
-		// be stale: keep the current ones. Users, locks and auto-lock are
-		// saved apart (SaveUsers), never from this form.
-		keepSets, keepPin, keepDev, keepSalvos := cur.FilterSets, cur.SettingsPin, cur.DeviceDefaults, cur.Salvos
-		keepGrids, keepGridConfirm := cur.Grids, cur.GridConfirm // saved by the grid editor
-		keepUsers, keepLocks, keepAuto := cur.Users, cur.Locks, cur.AutoLockMinutes
+		// cur is a copy of the live config. Whatever is saved apart from
+		// this form (Config's owned fields: filter sets, salvos, grids, the
+		// PIN, users and locks...) stays as it is, so a browser's stale
+		// copy can't undo it.
+		live := *cur
 		*cur = cfg
-		cur.Users, cur.Locks, cur.AutoLockMinutes = keepUsers, keepLocks, keepAuto
-		cur.FilterSets, cur.SettingsPin, cur.Salvos = keepSets, keepPin, keepSalvos
-		cur.Grids, cur.GridConfirm = keepGrids, keepGridConfirm
-		if keepDefaults {
-			cur.DeviceDefaults = keepDev
+		cur.KeepOwned(live)
+		if !keepDefaults {
+			cur.DeviceDefaults = cfg.DeviceDefaults // the form edits these
 		}
 		switch {
 		case clearPin:
@@ -65,29 +57,10 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 // SaveFilterSets replaces the filter sets for everyone, from c (Recent's
 // Filters dialog). They're settings, so a settings PIN guards them too.
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	if a.locked(c) {
-		return errLocked
-	}
-	if a.refused(c, gateMain) {
-		a.sendLockState(c)
-		return errNeedUser
-	}
-	_, nr, err := a.update(func(cur *config.Config) error {
+	return a.saveShared(c, func(cur *config.Config) error {
 		cur.FilterSets = sets
 		return nil
-	})
-	if err != nil {
-		return err
-	}
-	// Only the sets changed: browsers get them alone, not a full snapshot
-	// that would reset their Recent.
-	a.mu.Lock()
-	a.rt.Store(nr)
-	a.broadcast(filterSetsMsg{T: "filterSets", Sets: nr.cfg.FilterSets})
-	a.mu.Unlock()
-	return nil
+	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })
 }
 
 // update is the one way settings change: mutate edits a copy of the live
@@ -110,6 +83,11 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 		return nil, nil, err
 	}
 	if a.cfgPath != "" {
+		// Panels are files of their own, written before the config so a
+		// failure leaves the live config as it was.
+		if err := config.SyncGrids(config.GridsDir(a.cfgPath), old.cfg.Grids, cfg.Grids); err != nil {
+			return nil, nil, err
+		}
 		if err := config.Save(a.cfgPath, cfg); err != nil {
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
