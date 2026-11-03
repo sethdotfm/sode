@@ -30,10 +30,10 @@ export function fire(scope, name) {
   const s = findSalvo(scope, name);
   const host = shown();
   if (!s || !host) return;
-  if (!S.srcBy.size) return showResult('warn', 'Salvo not sent', 'The router’s names have not loaded yet.');
+  if (!S.srcBy.size) return showResult('warn', 'Preset not sent', 'The router’s names have not loaded yet.');
   const plan = salvoPlan(s, parseLevels('') || []);
   if (!plan.items.length) {
-    return showResult('error', `Salvo ${s.name} not sent`, plan.warnings.length ? plan.warnings.join('; ') + '.' : 'It has no takes.');
+    return showResult('error', `Preset ${s.name} not sent`, plan.warnings.length ? plan.warnings.join('; ') + '.' : 'It has no takes.');
   }
   host.confirm(plan);
 }
@@ -50,7 +50,7 @@ function renderStrips() {
   const all = allSalvos();
   const list = pinnedSalvos(all);
   for (const box of document.querySelectorAll('[data-salvos]')) {
-    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', all.length ? 'Edit' : 'Salvos…');
+    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', all.length ? 'Edit' : 'Presets…');
     edit.type = 'button';
     edit.setAttribute('aria-haspopup', 'dialog');
     edit.addEventListener('click', () => openSalvos());
@@ -62,10 +62,10 @@ function renderStrips() {
       return b;
     });
     // The popup (salvopopup.js) lists every salvo, pinned or not.
-    const more = all.length ? el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__salvos-all', 'Salvos') : null;
+    const more = all.length ? el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__salvos-all', 'Presets') : null;
     if (more) {
       more.type = 'button';
-      more.title = phone() ? 'All salvos' : 'All salvos (Ctrl+G)';
+      more.title = phone() ? 'All presets' : 'All presets (Ctrl+G)';
       more.setAttribute('aria-haspopup', 'dialog');
       more.addEventListener('click', askPopup);
     }
@@ -105,7 +105,7 @@ dialog.setAttribute('aria-labelledby', 'salvos-title');
 dialog.tabIndex = -1;
 
 const pick = el('select', 'pb-select');
-pick.setAttribute('aria-label', 'Salvo');
+pick.setAttribute('aria-label', 'Preset');
 const btn = (cls, text, fn = () => {}) => {
   const b = el('button', `pb-btn ${cls}`, text);
   b.type = 'button';
@@ -115,7 +115,7 @@ const btn = (cls, text, fn = () => {}) => {
 const nameIn = el('input', 'pb-input');
 nameIn.maxLength = 32;
 nameIn.placeholder = 'Name';
-nameIn.setAttribute('aria-label', 'Salvo name');
+nameIn.setAttribute('aria-label', 'Preset name');
 nameIn.autocomplete = 'off';
 const scopeIn = el('select', 'pb-select');
 scopeIn.setAttribute('aria-label', 'Save for');
@@ -139,7 +139,7 @@ const delBtn = btn('pb-btn--outline pb-btn--sm', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit pb-btn--sm', 'Save', () => save());
 
 dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Salvos'), { id: 'salvos-title' })),
+  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'salvos-title' })),
   el('div', 'pb-modal__body sode__filters-body',
     el('div', 'sode__filters-sets',
       el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null))),
@@ -164,7 +164,7 @@ function setNote(text, error = false) {
 // Salvos for everyone: the whole list is sent, after the PIN if one is set.
 const saver = globalSaver({
   t: 'salvos', resultT: 'salvosResult', pinIn, pinRow, pinOk, setNote,
-  isOpen: () => open, failTitle: 'Salvos not saved', okNote: 'Saved for everyone.',
+  isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved for everyone.',
   render: () => renderHead(true),
 });
 
@@ -242,7 +242,7 @@ function focusLast() {
 // The salvo picker and the buttons around the name. keep: what is being
 // typed (the name) stays as it is.
 function renderHead(keep = false) {
-  pick.replaceChildren(new Option('New salvo…', ''), ...allSalvos().map((s) => new Option(`${s.name} (${s.scope === 'global' ? 'Everyone' : 'This browser'})`, `${s.scope}:${s.name}`)));
+  pick.replaceChildren(new Option('New preset…', ''), ...allSalvos().map((s) => new Option(`${s.name} (${s.scope === 'global' ? 'Everyone' : 'This browser'})`, `${s.scope}:${s.name}`)));
   pick.value = cur.old ? `${cur.scope}:${cur.old}` : '';
   if (!keep) nameIn.value = cur.name;
   scopeIn.value = cur.scope;
@@ -303,7 +303,7 @@ function built() {
   }
   const s = { ...normSalvo({ name: cur.name, items }), pinned: cur.pinned };
   const list = cur.scope === 'global' ? globalSalvos() : localSalvos();
-  const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'salvo', old: cur.old }) || salvoProblem(s);
+  const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'preset', old: cur.old }) || salvoProblem(s);
   if (err) return { err };
   const next = replaceSalvo(list, s, cur.old);
   const tooMuch = salvosProblem(next);

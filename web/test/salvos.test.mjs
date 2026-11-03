@@ -106,7 +106,7 @@ test('salvoPlan: one item per destination, default levels, unresolved left out a
     { src: 2, dsts: [77], levels: [1, 9] },
   ] }, [1, 2]);
   assert.equal(plan.verb, 'salvo');
-  assert.equal(plan.title, 'Salvo: Show');
+  assert.equal(plan.title, 'Preset: Show');
   assert.equal(plan.salvo, 'Show'); // the bare name, sent with the batch
   assert.deepEqual(plan.items.map((i) => [i.dst.n, i.groups.map((g) => [g.src.n, g.levels])]), [
     [0, [[0, [1, 2]]]],

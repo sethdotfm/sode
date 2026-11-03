@@ -116,8 +116,8 @@
    covered. On the phone it sits under the fixed header instead, at
    --sode-head-h (measured by lock.js from .sode-m__head). */
 .sode-lock__who {
-  background: var(--pb-surface-raised);
-  border: var(--pb-border-w) solid var(--pb-edge);
+  background: var(--pb-surface-base);
+  color: var(--pb-text-muted);
   left: var(--pb-space-5);
   max-width: calc(100% - var(--pb-space-5) * 2);
   position: fixed;
@@ -132,9 +132,9 @@
   align-items: center;
   display: flex;
   gap: var(--pb-space-2);
-  padding: 0 var(--pb-space-1) 0 var(--pb-space-3);
+  padding: var(--pb-space-1) var(--pb-space-3);
 }
-.sode-lock__who-name { color: var(--pb-text); font-size: var(--pb-text-xs); }
+.sode-lock__who-name { font-size: var(--pb-text-xs); }
 /* /log: the chip owns the top left, so the heading moves down. */
 [data-sode-chip] .sode-log__head { padding-top: var(--pb-space-8); }
 .sode-lock__pin[hidden] { display: none; }

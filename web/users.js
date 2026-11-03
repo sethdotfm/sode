@@ -37,7 +37,7 @@ save.type = 'button';
 
 const group = el('fieldset', 'sode__group sode__users',
   el('legend', null, 'Users'),
-  el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. A trusted user can save Settings, filter sets and salvos without the settings PIN once logged in; users, clearing history and the settings PIN itself still need it. A user who never logs out stays logged in on the browser (a wall panel logs in once).'),
+  el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN once logged in; users, clearing history and the settings PIN itself still need it. A user who never logs out stays logged in on the browser (a wall panel logs in once).'),
   rows,
   add,
   el('div', 'sode__field',

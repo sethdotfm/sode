@@ -83,13 +83,13 @@ test('salvo trigger: plan carries the name, history shows it, search finds it', 
   assert.equal(plan.salvo, 'Morning');
   const text = (n) => (n ? n.text : '');
   const e = (o) => ({ levels: [1], prev: [], ok: true, time: '2026-10-23T14:00:00Z', ...o });
-  assert.match(text(m.entryNote(e({ id: 1, src: 0, dst: 1, salvo: 'Morning' }))), /Salvo: Morning/);
+  assert.match(text(m.entryNote(e({ id: 1, src: 0, dst: 1, salvo: 'Morning' }))), /Preset: Morning/);
   assert.equal(text(m.entryNote(e({ id: 1, src: 0, dst: 1, group: 'g', groupN: 2, salvo: 'Morning' }))), '');
   assert.equal(text(m.entryNote(e({ id: 4, src: 0, dst: 1 }))), '');
   const f = { entries: [e({ id: 2, src: 0, dst: 1, group: 'g', groupN: 2, salvo: 'Morning' }), e({ id: 3, src: 0, dst: 2, group: 'g', groupN: 2, salvo: 'Morning' })] };
   f.shown = f.entries;
   const title = m.folderTitle(f).map((n) => (typeof n === 'string' ? n : text(n))).join('');
-  assert.match(title, /Salvo: Morning/);
+  assert.match(title, /Preset: Morning/);
   // Quick search by the salvo name.
   const hist = [e({ id: 5, src: 0, dst: 1, srcName: 'Cam 1', dstName: 'Rec 2', salvo: 'Morning' }), e({ id: 6, src: 1, dst: 2, srcName: 'Cam 2', dstName: 'Rec 3' })];
   m.S.hist = hist;

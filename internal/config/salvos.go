@@ -99,48 +99,48 @@ func (c Config) validateSalvos() []error {
 	for i, s := range c.Salvos {
 		snames[i] = s.Name
 	}
-	errs = append(errs, validateNames("salvo", snames, MaxSalvos)...)
+	errs = append(errs, validateNames("preset", snames, MaxSalvos)...)
 	for _, s := range c.Salvos {
 		if len(s.Items) == 0 {
-			bad("salvo %q has no takes", s.Name)
+			bad("preset %q has no takes", s.Name)
 		}
 		if len(s.Items) > MaxSalvoItems {
-			bad("salvo %q: at most %d sources", s.Name, MaxSalvoItems)
+			bad("preset %q: at most %d sources", s.Name, MaxSalvoItems)
 		}
 		total := 0
 		for _, it := range s.Items {
 			total += len(it.Dsts)
 		}
 		if total > MaxSalvoTotal {
-			bad("salvo %q: a salvo can take at most %d destinations in total", s.Name, MaxSalvoTotal)
+			bad("preset %q: a preset can take at most %d destinations in total", s.Name, MaxSalvoTotal)
 		}
 		if err := salvoConflict(s); err != nil {
 			errs = append(errs, err)
 		}
 		for _, it := range s.Items {
 			if it.Src < 0 || it.Src > 0xFFFE {
-				bad("salvo %q: source %d is out of range", s.Name, it.Src)
+				bad("preset %q: source %d is out of range", s.Name, it.Src)
 			}
 			if len(it.Dsts) == 0 {
-				bad("salvo %q: a source has no destinations", s.Name)
+				bad("preset %q: a source has no destinations", s.Name)
 			}
 			if len(it.Dsts) > MaxSalvoDsts {
-				bad("salvo %q: at most %d destinations per source", s.Name, MaxSalvoDsts)
+				bad("preset %q: at most %d destinations per source", s.Name, MaxSalvoDsts)
 			}
 			for _, d := range it.Dsts {
 				if d < 0 || d > 0xFFFE {
-					bad("salvo %q: destination %d is out of range", s.Name, d)
+					bad("preset %q: destination %d is out of range", s.Name, d)
 				}
 			}
 			for _, l := range it.Levels {
 				if l < 1 || l > MaxSalvoLevelNum {
-					bad("salvo %q: level %d must be 1-%d", s.Name, l, MaxSalvoLevelNum)
+					bad("preset %q: level %d must be 1-%d", s.Name, l, MaxSalvoLevelNum)
 				}
 			}
 		}
 	}
 	if b, err := json.Marshal(c.Salvos); err == nil && len(b) > MaxSalvosBytes {
-		bad("salvos are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxSalvosBytes>>10)
+		bad("presets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxSalvosBytes>>10)
 	}
 	return errs
 }
@@ -157,7 +157,7 @@ func salvoConflict(s Salvo) error {
 			}
 			for _, d := range a.Dsts {
 				if slices.Contains(b.Dsts, d) {
-					return fmt.Errorf("salvo %q: destination %d is taken from both source %d and source %d on the same levels", s.Name, d, a.Src, b.Src)
+					return fmt.Errorf("preset %q: destination %d is taken from both source %d and source %d on the same levels", s.Name, d, a.Src, b.Src)
 				}
 			}
 		}

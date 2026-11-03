@@ -60,15 +60,15 @@ export function salvoProblem(s) {
     if (l != null) return `Level ${l} must be 1-${MAX_LEVEL}.`;
     total += it.dsts.length;
   }
-  if (total > MAX_TOTAL) return `A salvo can take at most ${MAX_TOTAL} destinations in total.`;
+  if (total > MAX_TOTAL) return `A preset can take at most ${MAX_TOTAL} destinations in total.`;
   return salvoConflict(s);
 }
 
 // Why this list of salvos (as it would be saved) is too much, or ''.
 export function salvosProblem(list) {
-  if (list.length > MAX_SALVOS) return `At most ${MAX_SALVOS} salvos.`;
+  if (list.length > MAX_SALVOS) return `At most ${MAX_SALVOS} presets.`;
   const bytes = JSON.stringify(list.map(saved)).length;
-  return bytes > MAX_BYTES ? `The salvos are too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB).` : '';
+  return bytes > MAX_BYTES ? `The presets are too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB).` : '';
 }
 
 // Two items taking different sources to one destination on overlapping

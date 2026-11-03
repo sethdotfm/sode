@@ -225,7 +225,7 @@ export function folderTitle(f) {
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
   const follows = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
   const salvo = f.entries.find((e) => e.salvo)?.salvo;
-  const notes = [salvo && `Salvo: ${salvo}`, kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+  const notes = [salvo && `Preset: ${salvo}`, kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
     follows && `+${follows} follow${follows === 1 ? '' : 's'}`].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
@@ -368,7 +368,7 @@ export function putEntry(e, hist = S, update = false) {
 // " (undo of #3; 4–17 already)" for a history entry, or null.
 export function entryNote(e) {
   const parts = [];
-  if (e.salvo && !(e.group && e.groupN > 1)) parts.push(`Salvo: ${e.salvo}`);
+  if (e.salvo && !(e.group && e.groupN > 1)) parts.push(`Preset: ${e.salvo}`);
   if (e.merged > 1) parts.push(`${e.merged} changes`);
   if (e.follows?.length) parts.push(`+${e.follows.length} follow${e.follows.length === 1 ? '' : 's'}`);
   if (e.follow != null) parts.push(`follow of #${e.follow}`);

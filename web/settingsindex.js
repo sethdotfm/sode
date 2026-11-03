@@ -30,7 +30,7 @@ export const DICT = {
   'history': ['recent', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
   'users': ['user', 'users', 'people', 'operators', 'names', 'pin', 'password', 'passwords', 'lock', 'lock screen', 'auto lock', 'auto-lock', 'timeout', 'idle', 'inactivity', 'logout', 'access', 'who', 'accounts', 'permissions'],
   // Sections other branches may add; ignored until they exist.
-  'salvos': ['salvo', 'salvos', 'preset', 'presets', 'scene', 'batch', 'multi take', 'macro', 'group'],
+  'salvos': ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
   'grids': ['grid', 'grids', 'panel', 'panels', 'tablet', 'buttons'],
 

@@ -22,17 +22,17 @@ dialog.tabIndex = -1;
 
 const input = el('input', 'pb-input');
 input.type = 'search';
-input.placeholder = 'Search salvos';
+input.placeholder = 'Search presets';
 input.autocomplete = 'off';
 input.spellcheck = false;
-input.setAttribute('aria-label', 'Search salvos');
+input.setAttribute('aria-label', 'Search presets');
 input.setAttribute('role', 'combobox');
 input.setAttribute('aria-controls', 'salvo-pop-list');
 input.setAttribute('aria-expanded', 'true');
 const list = el('div', 'sode__salvo-list');
 list.id = 'salvo-pop-list';
 list.setAttribute('role', 'listbox');
-list.setAttribute('aria-label', 'Salvos');
+list.setAttribute('aria-label', 'Presets');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
 const pinIn = el('input', 'pb-input');
@@ -51,9 +51,9 @@ done.type = 'button';
 done.addEventListener('click', () => close());
 
 dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Salvos'), { id: 'salvo-pop-title' })),
+  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'salvo-pop-title' })),
   el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl,
-    el('span', 'sode__hint', `↑/↓ or ${mac ? '⌘' : 'Ctrl+'}j/k to move, Enter to fire, Esc to close. Pinned salvos are the buttons above Recent.`)),
+    el('span', 'sode__hint', `↑/↓ or ${mac ? '⌘' : 'Ctrl+'}j/k to move, Enter to fire, Esc to close. Pinned presets are the buttons above Recent.`)),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
 document.body.append(root);
@@ -65,7 +65,7 @@ const setNote = (t, error = false) => {
 };
 const saver = globalSaver({
   t: 'salvos', resultT: 'salvosResult', pinIn, pinRow, pinOk, setNote,
-  isOpen: () => open, failTitle: 'Salvos not saved', okNote: 'Saved for everyone.',
+  isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved for everyone.',
   render: () => draw(),
 });
 pinCancel.addEventListener('click', () => saver.cancel());
@@ -99,7 +99,7 @@ function draw() {
       s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin', () => { setLocalPin(s, !pinned); })];
     if (s.scope === 'global') {
       const flag = s.pinned !== false;
-      tools.push(btn(flag ? 'Unpin for everyone' : 'Pin for everyone', 'users', 'Changes the salvo for every browser (settings PIN)', () => {
+      tools.push(btn(flag ? 'Unpin for everyone' : 'Pin for everyone', 'users', 'Changes the preset for every browser (settings PIN)', () => {
         saver.change({ salvos: withGlobalPin(s.name, !flag) }, () => clearPinOverride(s.name));
       }));
     }

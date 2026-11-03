@@ -70,7 +70,7 @@ export function salvoPlan(salvo, defaults) {
   }, defaults);
   const warnings = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) + ' on the router now');
   return {
-    verb: 'salvo', salvo: salvo.name, title: `Salvo: ${salvo.name}`, warnings,
+    verb: 'salvo', salvo: salvo.name, title: `Preset: ${salvo.name}`, warnings,
     items: r.takes.map((t) => takeItem(dstItem(t.dst), t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })))),
   };
 }

@@ -34,7 +34,7 @@ const WHY_LABEL = {
   take: 'Take', undo: 'Undo', retry: 'Retry', check: 'Check before take', confirm: 'Confirm take',
   resync: 'Resync', names: 'Name refresh', keepalive: 'Link check',
   connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
-  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved', salvos: 'Salvos saved',
+  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved', salvos: 'Presets saved',
   unlock: 'Settings PIN', lock: 'Settings locked', salvo: 'Native salvo',
   userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password (old rows)', users: 'Users saved',
 };
