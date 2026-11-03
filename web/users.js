@@ -24,6 +24,11 @@ const lockLog = check('usr-lock-log', 'Lock the Communication Log');
 const autoInput = el('input', 'pb-input');
 autoInput.type = 'number';
 autoInput.id = 'usr-auto';
+const maxInput = el('input', 'pb-input');
+maxInput.type = 'number';
+maxInput.id = 'usr-maxpin';
+maxInput.min = '4';
+maxInput.max = '12';
 const add = el('button', 'pb-btn pb-btn--outline', 'Add user');
 add.type = 'button';
 const save = el('button', 'pb-btn pb-btn--ok', 'Save users');
@@ -34,6 +39,10 @@ const group = el('fieldset', 'sode__group sode__users',
   el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. Entering the settings PIN (the admin password) on the lock screen lets that browser skip the locks. Changing or removing the settings PIN ends that for every browser.'),
   rows,
   add,
+  el('div', 'sode__field',
+    Object.assign(el('label', null, 'Longest PIN (digits)'), { htmlFor: 'usr-maxpin' }),
+    el('span', 'pb-number-wrap', maxInput),
+    el('span', 'sode__hint', '4-12. The lock pad stops there and sends a PIN by itself only at the longest length in use; shorter PINs are sent with the check key or Enter. Users can change their own PIN from the chip after logging in.')),
   el('div', 'sode__fields', lockMain.label, lockLog.label),
   el('div', 'sode__field',
     Object.assign(el('label', null, 'Lock after idle (minutes)'), { htmlFor: 'usr-auto' }),
@@ -70,6 +79,7 @@ function addRow(u = { name: '', len: 0 }) {
   pin.autocomplete = 'new-password';
   pin.setAttribute('aria-label', 'PIN');
   pin.placeholder = u.len ? 'unchanged' : 'new PIN';
+  pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
   const rm = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
   rm.type = 'button';
   const row = el('div', 'sode__users-row',
@@ -84,11 +94,13 @@ function addRow(u = { name: '', len: 0 }) {
 }
 
 function fill() {
+  maxInput.value = String(S.cfg?.maxPinLen || 8);
   rows.replaceChildren();
   for (const u of S.cfg?.users || []) addRow(u);
   lockMain.input.checked = !!S.cfg?.locks?.main;
   lockLog.input.checked = !!S.cfg?.locks?.log;
   autoInput.value = String(S.cfg?.autoLockMinutes || 0);
+  maxInput.value = String(S.cfg?.maxPinLen || 8);
   edited = false;
   err.hidden = true;
   save.disabled = false;
@@ -97,6 +109,10 @@ function fill() {
 add.addEventListener('click', () => { addRow().focus(); touched(); });
 for (const c of [lockMain, lockLog]) c.input.addEventListener('change', touched);
 autoInput.addEventListener('input', touched);
+maxInput.addEventListener('input', () => {
+  touched();
+  for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
+});
 
 function fail(text) {
   err.textContent = sentence(text);
@@ -114,7 +130,7 @@ save.addEventListener('click', () => {
   const mins = Math.trunc(Number(autoInput.value)) || 0;
   const locks = { main: lockMain.input.checked, log: lockLog.input.checked };
   const id = ++seq;
-  if (!wsSend({ t: 'users', id, usersReq: { users, locks, autoLockMinutes: mins } })) return fail('Not connected to Sode.');
+  if (!wsSend({ t: 'users', id, usersReq: { users, locks, autoLockMinutes: mins, maxPinLen: Math.trunc(Number(maxInput.value)) || 0 } })) return fail('Not connected to Sode.');
   save.disabled = true;
 });
 

@@ -1,18 +1,23 @@
 // The lock screen (#151). The server decides everything: it tells this page
 // whether the page type is locked and who (if anyone) unlocked it
 // (`lockState`), and refuses what a locked connection asks for. This module
-// shows a full-viewport pad that sends the PIN as it is typed (no Enter),
-// locks again when idle or on Ctrl+L, and lets the admin password (the
-// settings PIN) make this browser exempt via a server-issued token.
+// shows a full-viewport pad that sends the PIN on its own at the longest
+// length in use (shorter ones with the check key or Enter), locks again when
+// idle or on Ctrl+L, and lets the admin password (the settings PIN) make this
+// browser exempt via a server-issued token. An exempt browser can still lock
+// itself: the server then lets its token rest on that connection.
 //
 // Off unless the server says this page type is locked: with no users and no
 // locks nothing here shows or is bound but a few idle listeners.
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr } from './store.js';
-import { padKey, sendDelay, idleDue, pageType, liftFrom, dots } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots } from './lockrules.js';
+import { buildChip } from './lockchip.js';
 
 const TOKEN_KEY = 'sode-lock-token';
+// Per browser, set by an admin: skip the idle timer (never a manual lock).
+const NEVER_KEY = 'sode-lock-never';
 const page = pageType(location.pathname);
 
 {
@@ -23,7 +28,7 @@ const page = pageType(location.pathname);
 }
 
 // What the server last said about this connection.
-const L = { enforced: false, locked: false, user: '', exempt: false };
+const L = { enforced: false, locked: false, user: '', exempt: false, token: false };
 export const lockState = () => ({ ...L });
 
 let hiFor = null; // the socket `hi` was sent on
@@ -38,7 +43,7 @@ on('conn', () => {
 // ---- the overlay, built the first time it is needed
 
 let root = null;
-let brand, dotsEl, msg, state, adminForm, adminInput, adminToggle;
+let brand, dotsEl, msg, state, adminForm, adminInput, adminToggle, welcome, chip, checkKey;
 let pin = '';
 let seq = 0; // the userUnlock whose reply counts
 let timer = 0;
@@ -63,11 +68,16 @@ function build() {
     b.addEventListener('click', () => press(k));
     return b;
   };
+  // Submits what is typed: shorter PINs than the longest don't go on their own.
+  checkKey = key('✓', 'enter', 'sode-lock__key--go');
+  checkKey.setAttribute('aria-label', 'Submit PIN');
+  checkKey.disabled = true;
   pad.append(
     ...['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => key(d, d)),
     key('Clear', 'clear', 'sode-lock__key--word'),
     key('0', '0'),
     key('Del', 'back', 'sode-lock__key--word'),
+    checkKey,
   );
 
   adminToggle = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Admin password');
@@ -97,7 +107,9 @@ function build() {
   });
 
   const body = el('div', 'sode-lock__body', state, dotsEl, msg, pad, adminToggle, adminForm);
-  root = el('div', 'sode-lock', brand, body);
+  welcome = el('p', 'sode-lock__welcome');
+  welcome.hidden = true;
+  root = el('div', 'sode-lock', brand, body, welcome);
   root.hidden = true;
   root.tabIndex = -1;
   root.setAttribute('role', 'dialog');
@@ -105,17 +117,15 @@ function build() {
   root.setAttribute('aria-label', 'Locked');
   document.body.append(root);
 
-  // A who-is-unlocked chip with the way to lock.
-  who = el('div', 'sode-lock__who');
-  whoName = el('span', 'sode-lock__who-name');
-  whoBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm');
-  whoBtn.type = 'button';
-  whoBtn.addEventListener('click', () => (L.exempt && !L.user ? forgetBrowser() : lockNow()));
-  who.append(whoName, whoBtn);
-  who.hidden = true;
-  document.body.append(who);
+  // Who is logged in, with the way to lock and a small options menu.
+  chip = buildChip({
+    lock: lockNow,
+    forget: forgetBrowser,
+    never: () => !!readStr(NEVER_KEY),
+    setNever: (on) => writeStr(NEVER_KEY, on ? 'on' : null),
+  });
+  document.body.append(chip.root);
 }
-let who, whoName, whoBtn;
 
 function say(text, bad = false) {
   if (!root) return;
@@ -124,20 +134,48 @@ function say(text, bad = false) {
 }
 
 function render() {
-  const chip = L.enforced && !L.locked && (L.user || L.exempt);
-  if (!root && !L.locked && !chip) return; // nothing configured: nothing built
+  const showChip = L.enforced && !L.locked && (L.user || L.exempt);
+  if (!root && !L.locked && !showChip) return; // nothing configured: nothing built
+  const welcomeName = L.user || (L.exempt ? 'admin' : '');
   if (L.enforced && L.locked) showLock();
-  else hideLock();
+  else hideLock(welcomeName);
   build();
-  who.hidden = !chip;
-  if (chip) {
-    whoName.textContent = L.user ? `Unlocked as ${L.user}` : 'Admin browser';
-    whoBtn.textContent = L.user ? 'Lock' : 'Forget';
-    whoBtn.title = L.user ? 'Lock (Ctrl+L)' : 'Stop skipping the lock on this browser';
-  }
+  chip.update(L, showChip);
+  if (showChip) placeChip();
 }
 
+// On the phone the chip sits under the fixed header; say where that ends.
+function placeChip() {
+  const head = document.querySelector('.sode-m__head');
+  const b = head?.getBoundingClientRect();
+  if (b?.width) document.documentElement.style.setProperty('--sode-head-h', `${b.bottom}px`);
+}
+addEventListener('resize', () => { if (chip && !chip.root.hidden) placeChip(); });
+
 const logo = () => [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-log__title')].find((e) => e.getBoundingClientRect().width > 0);
+const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const motionMs = () => (calmMotion.matches ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0);
+
+// One run of the logo's move (lock = 'in', unlock = 'out'). Every run starts
+// from the brand at rest with its own keyframes, so it restarts reliably
+// however soon after the last one it is (a CSS transition measured while the
+// last was still running did not). Flies only when shouldFly; otherwise the
+// logo fades with the overlay and the page stays where it is.
+function moveBrand(dir) {
+  for (const a of brand.getAnimations()) a.cancel();
+  const ms = motionMs();
+  if (!ms || !brand.animate) return;
+  const from = logo()?.getBoundingClientRect();
+  const fly = shouldFly(from, window.scrollY, window.innerHeight);
+  const t = fly ? liftFrom(from, brand.getBoundingClientRect()) : { x: 0, y: 0, scale: 1 };
+  brand.animate(brandFrames(dir, fly, t), {
+    duration: dir === 'in' ? ms : ms * OUT_FACTOR,
+    easing: dir === 'in' ? 'cubic-bezier(0.2, 0, 0, 1)' : 'cubic-bezier(0.4, 0, 0.2, 1)',
+    fill: dir === 'out' ? 'forwards' : 'none',
+  });
+}
+
+let scrolled = null; // where the page was when the lock came down
 
 function showLock() {
   build();
@@ -151,16 +189,14 @@ function showLock() {
   const frame = document.querySelector('.sode__brandframe');
   if (frame?.dataset.brand) root.dataset.brand = frame.dataset.brand;
   else delete root.dataset.brand;
+  for (const a of welcome.getAnimations()) a.cancel();
+  welcome.hidden = true;
+  // The page keeps its scroll through lock and unlock; focus moves must not
+  // scroll it (desktop.js leaves its focus-scroll alone while this is set).
+  if (root.hidden) scrolled = { x: window.scrollX, y: window.scrollY };
+  document.documentElement.dataset.sodeLock = 'on';
   root.hidden = false;
-  // Start the logo over the page's own, then let it fly to the middle.
-  const from = logo()?.getBoundingClientRect();
-  root.style.setProperty('--lx', '0px');
-  root.style.setProperty('--ly', '0px');
-  root.style.setProperty('--ls', '1');
-  const t = liftFrom(from, brand.getBoundingClientRect());
-  root.style.setProperty('--lx', `${t.x}px`);
-  root.style.setProperty('--ly', `${t.y}px`);
-  root.style.setProperty('--ls', String(t.scale));
+  moveBrand('in');
   void root.offsetWidth; // commit the start before the class changes it
   root.classList.add('is-on');
   closeModals();
@@ -173,13 +209,13 @@ function showLock() {
   const had = document.activeElement;
   if (had && had !== document.body && !root.contains(had)) before = had;
   had?.blur?.();
-  root.focus();
+  root.focus({ preventScroll: true });
 }
 
 let watch = null;
 let before = null; // what had focus when the lock came down
 function inert(c) {
-  if (c.nodeType !== 1 || c === root || c === who || ['SCRIPT', 'LINK', 'STYLE'].includes(c.tagName) || c.inert) return;
+  if (c.nodeType !== 1 || c === root || c === chip?.root || ['SCRIPT', 'LINK', 'STYLE'].includes(c.tagName) || c.inert) return;
   c.inert = true;
   inerted.push(c);
 }
@@ -200,22 +236,45 @@ function closeModals() {
   }
 }
 
-function hideLock() {
+function hideLock(name = '') {
   if (!root || root.hidden) return;
   watch?.disconnect();
   clearTimeout(timer);
   for (const c of inerted) c.inert = false;
   inerted = [];
+  const wasOn = root.classList.contains('is-on');
   root.classList.remove('is-on');
   adminForm.hidden = true;
   adminInput.value = '';
   adminToggle.textContent = 'Admin password';
   pin = '';
-  const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0;
-  hideTimer = setTimeout(() => { root.hidden = true; }, ms + 50);
+  // The way out is slower than the way in (--sode-lock-out in lock.css is
+  // the same OUT_FACTOR), so the last of it fades gently; the root is hidden
+  // only once the longest of its transitions is over.
+  const ms = motionMs();
+  const out = ms * OUT_FACTOR;
+  if (wasOn) {
+    moveBrand('out');
+    if (ms && name && welcome.animate) {
+      welcome.textContent = `Welcome, ${name}`;
+      welcome.hidden = false;
+      welcome.animate(
+        [{ opacity: 0, transform: 'translateY(0.5rem)' }, { opacity: 1, transform: 'none', offset: 0.3 }, { opacity: 1, offset: 0.65 }, { opacity: 0, offset: 1 }],
+        { duration: out, easing: 'ease-out', fill: 'forwards' });
+    }
+  }
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    root.hidden = true;
+    for (const a of brand.getAnimations()) a.cancel();
+    for (const a of welcome.getAnimations()) a.cancel();
+    welcome.hidden = true;
+    delete document.documentElement.dataset.sodeLock;
+  }, out + 100);
   // The element that had focus before locking, if it is still on the page.
-  if (before?.isConnected) before.focus?.();
+  if (before?.isConnected) before.focus?.({ preventScroll: true });
   before = null;
+  if (scrolled && (window.scrollX !== scrolled.x || window.scrollY !== scrolled.y)) window.scrollTo({ left: scrolled.x, top: scrolled.y, behavior: 'instant' });
 }
 
 // ---- entering a PIN
@@ -223,15 +282,24 @@ function hideLock() {
 function paint() {
   dotsEl.textContent = dots(pin);
   state.textContent = pin ? `${pin.length} ${pin.length === 1 ? 'digit' : 'digits'} entered` : 'Locked. Enter your PIN.';
+  checkKey.disabled = !sendable(pin, lens());
 }
 
 const lens = () => [...new Set((S.cfg?.users || []).map((u) => u.len))];
 
 function press(k) {
-  pin = padKey(pin, k, lens());
+  clearTimeout(timer);
+  if (k === 'enter') {
+    // The check key and Enter send whatever is typed, if a user has that length.
+    if (sendable(pin, lens())) sendPin();
+    else say(pin ? 'No PIN has that many digits.' : 'Enter your PIN.', true);
+    return;
+  }
+  pin = padKey(pin, k, lens(), S.cfg?.maxPinLen || 0);
   paint();
   if (k !== 'clear' && k !== 'back') say('');
-  clearTimeout(timer);
+  // Only the longest length goes on its own; a pause after a shorter PIN
+  // never sends it (it may be the start of a longer one).
   const wait = sendDelay(pin, lens());
   if (wait == null) return;
   timer = setTimeout(sendPin, wait);
@@ -272,10 +340,14 @@ onMsg('lockState', (m) => {
   L.locked = !!m.locked;
   L.user = m.user || '';
   L.exempt = !!m.exempt;
+  L.token = !!m.token || L.exempt;
   if (hiPending) {
     hiPending = false;
     // A token the server no longer honors (the settings PIN changed).
-    if (!L.exempt && readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
+    if (!L.token && readStr(TOKEN_KEY)) {
+      writeStr(TOKEN_KEY, null);
+      writeStr(NEVER_KEY, null);
+    }
   }
   render();
   // A page that asked for something while locked asks again (log.js).
@@ -284,18 +356,24 @@ onMsg('lockState', (m) => {
 
 // ---- locking again
 
+// An admin browser (token) locks too: `suspend` has the server let its token
+// rest on this connection, and the admin password brings it back.
 function lockNow() {
-  if (!L.enforced || !L.user || L.exempt) return;
-  wsSend({ t: 'userLock' });
+  if (!L.enforced || !(L.user || L.exempt)) return;
+  wsSend({ t: 'userLock', suspend: L.exempt });
   L.locked = true;
   L.user = '';
+  L.exempt = false;
   render();
 }
 
 function forgetBrowser() {
   writeStr(TOKEN_KEY, null);
+  writeStr(NEVER_KEY, null);
   wsSend({ t: 'userLock', forget: true });
   L.exempt = false;
+  L.token = false;
+  L.user = '';
   L.locked = L.enforced;
   render();
 }
@@ -309,7 +387,8 @@ document.addEventListener('keydown', (e) => {
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : null;
+    const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
+    if (k === 'enter' && e.target.closest?.('button')) return; // a focused key presses itself
     if (k) {
       e.preventDefault();
       e.stopPropagation();
@@ -317,7 +396,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat && L.enforced && L.user && !L.exempt) {
+  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat && L.enforced && (L.user || L.exempt)) {
     e.preventDefault();
     e.stopPropagation();
     lockNow();
@@ -331,5 +410,7 @@ const touch = () => { lastActive = Date.now(); };
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
 setInterval(() => {
-  if (L.enforced && !L.locked && L.user && !L.exempt && idleDue(lastActive, Date.now(), S.cfg?.autoLockMinutes || 0)) lockNow();
+  // The browser's own "never auto-lock" counts only while it holds a token.
+  const never = L.token && !!readStr(NEVER_KEY);
+  if (idleLock(L, never, lastActive, Date.now(), S.cfg?.autoLockMinutes || 0)) lockNow();
 }, 5000);

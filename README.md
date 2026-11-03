@@ -89,6 +89,7 @@ Edited from the **Settings** button at the bottom of the page, stored in `/data/
 | `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and protects this often (0 = off) |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your proxy) |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row before settings lock until reset or restart. `0` = never |
+| `SODE_MAX_PIN_LEN` | `maxPinLen` | `8` | Longest user PIN (4-12 digits). The lock pad stops there and submits on its own only at the longest length in use; shorter PINs are sent with the check key or Enter. Also set in Settings > Users |
 
 Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` (theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`): what a browser follows until it chooses its own under Settings → This device) and `settingsPin`.
 

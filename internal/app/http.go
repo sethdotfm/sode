@@ -247,7 +247,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		switch m.T {
-		case "hi", "userUnlock", "userLock", "adminUnlock", "users":
+		case "hi", "userUnlock", "userLock", "adminUnlock", "userSetPin", "users":
 			a.serveUsers(c, &m)
 		case "batch":
 			if len(m.Items) > 0 {
@@ -354,6 +354,9 @@ type inMsg struct {
 	Page     string             `json:"page"`  // hi: main | log
 	Token    string             `json:"token"` // hi: admin token
 	Forget   bool               `json:"forget"`
+	Suspend  bool               `json:"suspend"`
+	Old      string             `json:"old"`
+	New      string             `json:"new"`
 	UsersReq *usersReq          `json:"usersReq"`
 }
 

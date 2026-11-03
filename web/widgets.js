@@ -3,6 +3,7 @@
 // row and the confirm's lockout. Each layout passes its own elements and
 // the few things it does differently.
 
+import { actorUser, folderActor } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import {
   levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels,
@@ -237,7 +238,7 @@ export function clickToToggle(row, toggle, skip) {
 
 // Undo for a take or a folder; disabled when there's nothing to restore.
 export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {
-  const b = el('button', cls, text);
+  const b = el('button', cls, icon('undo-2'), text);
   b.type = 'button';
   if (planEmpty(plan)) {
     b.disabled = true;
@@ -249,15 +250,15 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
 }
 
 // Retry (failed takes) or Redo (any other), by plan.verb: one button, one
-// slot. Retry is an outlined text button; Redo is quieter, a ghost button
-// with a repeat icon, so the two don't read as Undo's twin. With nothing to
-// offer an invisible placeholder keeps columns lined up (null with
-// placeholder false).
+// slot. All three are outlined small buttons; Undo and Redo carry the mirrored
+// undo-2 / redo-2 icons as a pair, Retry is text only. With nothing to offer
+// an invisible placeholder keeps columns lined up (null with placeholder
+// false).
 export function againButton(plan, label, onClick, { placeholder = true } = {}) {
   const none = !plan.items.length;
   if (none && !placeholder) return null;
   const redo = plan.verb !== 'retry';
-  const b = el('button', `pb-btn ${redo ? 'pb-btn--ghost' : 'pb-btn--outline'} pb-btn--sm${none ? ' sode__placeholder' : ''}`,
+  const b = el('button', `pb-btn pb-btn--outline pb-btn--sm${none ? ' sode__placeholder' : ''}`,
     redo ? icon('redo-2') : null, redo ? 'Redo' : 'Retry');
   b.type = 'button';
   if (none) {
@@ -430,18 +431,14 @@ export function lockout(onReady) {
   return { ready: () => performance.now() >= at, cancel: () => clearTimeout(t) };
 }
 
-// ---- dialog keys
+// ---- dialog keys (dialogkeys.js, so the lock chip can use it without this module)
+export { trapDialog } from './dialogkeys.js';
 
-// Keys stay in a dialog: Esc calls onEsc, Tab wraps round its controls. They
-// are stopped at root so the layouts' own keys don't act behind it.
-export function trapDialog(root, dialog, onEsc) {
-  root.addEventListener('keydown', (e) => {
-    e.stopPropagation();
-    if (e.key === 'Escape') { e.preventDefault(); onEsc(); return; }
-    if (e.key !== 'Tab') return;
-    const all = [...dialog.querySelectorAll('button, input, select')].filter((x) => !x.disabled && x.offsetParent);
-    const first = all[0], last = all[all.length - 1];
-    if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  });
+// "by Ana" on a Sode take made by a configured user (never an address; ext
+// and found entries have none). A folder shows it when all its takes share
+// one. Its own small span, not part of entryNote.
+export function byLabel(x) {
+  const users = S.cfg?.users;
+  const name = x.entries ? folderActor(x.entries, users) : actorUser(x.client, users);
+  return name ? el('span', 'sode__hist-by', `by ${name}`) : null;
 }
