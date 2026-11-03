@@ -31,6 +31,9 @@ type takeReq struct {
 	// NoCheck skips reading dst's routes from the router first (set by
 	// batch for big batches): the cache is used for Prev.
 	NoCheck bool `json:"-"`
+	// Stage is the wire levels batch puts in a native group salvo (fire.go);
+	// the take's other levels are sent as ordinary connects.
+	Stage map[int]bool `json:"-"`
 }
 
 // takeLimit caps how many takes of one batch run at once. The router link
@@ -58,6 +61,10 @@ func (a *App) batch(c *client, items []takeReq) {
 			items[i].Group, items[i].GroupN = g, len(items)
 		}
 	}
+	if r := a.r(); r.cfg.FireMode == "native" && len(items) > 1 && markStages(r, items) >= 2 {
+		a.batchNative(r, c, items)
+		return
+	}
 	runLimited(takeLimit, len(items), func(i int) { a.take(c, items[i]) })
 }
 
@@ -84,6 +91,7 @@ type takeLevel struct {
 	unsent    bool // the router link refused it
 	confirmed bool
 	already   bool // confirmed by a tally, not by a change
+	native    bool // staged in the batch's group salvo (fire.go): confirmed by a tally, owns no key
 	seen      bool // the router reported some other route for the level...
 	now       int  // ...this src (-1 = nothing routed), the latest report
 }
@@ -136,7 +144,9 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 			l.seen, l.now = true, xp.Src
 			return false
 		}
-		l.confirmed, l.already = true, !xp.Changed()
+		// A Go announces nothing, so a staged level is confirmed by a tally
+		// but was only already there if the cache said so.
+		l.confirmed, l.already = true, !xp.Changed() && (!l.native || l.same)
 		w.finishIfDone()
 		return true
 	}
@@ -177,7 +187,8 @@ func (w *waiter) finish() {
 // waiter sees them, changes elsewhere may follow its cause, and own keeps
 // them out of the changes made elsewhere. Only levels the router will
 // answer with a Connected get an own key: one already on src gets none,
-// and its key would linger and swallow a real change back to it.
+// and its key would linger and swallow a real change back to it. Nor does
+// a level staged in a native salvo (fire.go): a Go sends no Connected.
 // Nothing is registered for a take of a router that has been replaced.
 // Caller holds mu.
 func (w *waiter) register(a *App) {
@@ -188,9 +199,15 @@ func (w *waiter) register(a *App) {
 	a.ext.causes = append(a.ext.causes, w.cause)
 	// The connects may wait behind other takes' messages for up to queueMax;
 	// sendTake shortens the keys to ownFor once they have gone out.
+	w.ownKeys(a)
+}
+
+// ownKeys gives the levels that will be answered with a Connected an own
+// key. Caller holds mu and has checked a.ext == w.ext.
+func (w *waiter) ownKeys(a *App) {
 	until := time.Now().Add(queueMax + ownFor)
 	for _, l := range w.levels {
-		if !l.same {
+		if !l.same && !l.native {
 			a.ext.own[ownKey{w.dst, l.wire, w.src}] = until
 		}
 	}
@@ -436,23 +453,49 @@ func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*takeLevel
 // confirmed.
 func (a *App) take(c *client, req takeReq) {
 	r := a.r()
+	if t := a.prepare(r, c, req); t != nil {
+		a.complete(r, t, a.sendTake(r, t.w))
+	}
+}
+
+// takeRun is one take between its phases.
+type takeRun struct {
+	c   *client
+	res *takeResult
+	w   *waiter
+	e   *Entry
+}
+
+// prepare is a take up to sending: plan, protects, read what dst has now,
+// register. nil means it is over: a bad request or a protected destination,
+// answered and (if it got that far) recorded. Levels in req.Stage are
+// marked native, for fire.go.
+func (a *App) prepare(r *runtime, c *client, req takeReq) *takeRun {
 	res := &takeResult{T: "takeResult", ID: req.ID}
 	w, e, err := a.planPhase(r, c, req)
 	if err != nil {
 		res.Err = err.Error()
 		a.reply(c, res)
-		return
+		return nil
+	}
+	for _, l := range w.levels {
+		l.native = req.Stage[l.wire]
 	}
 	if protected := a.guardPhase(w, e); len(protected) > 0 {
 		a.finish(c, res, e, fmt.Errorf("destination is protected on levels %s", levelList(r, protected)))
-		return
+		return nil
 	}
-
 	a.checkPhase(r, w, e, req.NoCheck)
-	sendErr := a.sendTake(r, w)
+	return &takeRun{c: c, res: res, w: w, e: e}
+}
+
+// complete is a take from its messages having been sent (sendErr: the
+// link refused some): wait for the router, then record what it confirmed.
+func (a *App) complete(r *runtime, t *takeRun, sendErr error) {
+	w, e, res, c := t.w, t.e, t.res, t.c
 	missing := a.awaitTake(r, w)
 
-	err = a.outcomePhase(r, w, e, missing, sendErr)
+	err := a.outcomePhase(r, w, e, missing, sendErr)
 	if len(e.Already) > 0 {
 		res.Already = e.Already
 	}
@@ -684,16 +727,18 @@ func planTake(r *runtime, req takeReq) (*waiter, error) {
 // levels already queued will still switch, so the rest are marked unsent
 // and the take waits for the others. Levels already on src won't be
 // announced, so they're interrogated, after the connects so the answers
-// reflect them.
+// reflect them. Levels a native salvo has set (fire.go) get no connect,
+// only the interrogate.
 func (a *App) sendTake(r *runtime, w *waiter) error {
 	var sendErr error
 	var last <-chan struct{}
-	for i, l := range w.levels {
+	connects := w.filter(func(l *takeLevel) bool { return !l.native })
+	for i, l := range connects {
 		done, err := a.sendTracked(w.ext, l.connect, w.why)
 		if err != nil {
 			sendErr = err
 			a.mu.Lock()
-			for _, u := range w.levels[i:] {
+			for _, u := range connects[i:] {
 				u.unsent = true
 			}
 			w.finishIfDone()
@@ -702,8 +747,9 @@ func (a *App) sendTake(r *runtime, w *waiter) error {
 		}
 		last = done
 	}
-	// Only this goroutine sets same and unsent.
-	if done, _ := a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return l.same && !l.unsent }), swp08.ReasonConfirm); done != nil {
+	// Only this goroutine sets same, native and unsent (fire.go's batch
+	// goroutine sets native before any take is sent).
+	if done, _ := a.interrogate(r, w, w.filter(func(l *takeLevel) bool { return (l.same || l.native) && !l.unsent }), swp08.ReasonConfirm); done != nil {
 		last = done
 	}
 	// The router can't answer what is still queued behind other takes'

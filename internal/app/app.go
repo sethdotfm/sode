@@ -61,7 +61,7 @@ func (r *runtime) probe() []byte {
 //   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
 //
 // Everything else is KEPT:
-//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu, gapHook, xffWarn,
+//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu, gapHook, xffWarn, fireMu, fire,
 //     lateQ: plumbing, history, config and PIN, none of it router state;
 //   - clients: the browsers stay connected and get a fresh hello;
 //   - pendSent: sent log entries for /log pages (what we wrote);
@@ -92,6 +92,7 @@ type App struct {
 	pendSent []Sent                   // sent log entries awaiting broadcast to /log pages
 	linkSeen string                   // the router link state last logged: up, down or ""
 	linkErr  string                   // ...and the error logged with down
+	fire     *fireState               // the native salvo being fired, if any (fire.go)
 
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
@@ -106,6 +107,8 @@ type App struct {
 	cfgMu   sync.Mutex  // serializes settings saves
 
 	gapHook func() // test seam: runs between a take's finish and unregister
+
+	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }
@@ -252,6 +255,7 @@ func (a *App) periodic() {
 func (a *App) onRouterUp() {
 	a.RefreshNames()
 	a.requestDumps()
+	go a.clearStaleSalvo()
 }
 
 // RefreshNames re-reads all source and destination names.
@@ -344,6 +348,9 @@ func (a *App) onRouterMsg(msg []byte) {
 	}
 	if nb := ev.Names; nb != nil {
 		a.applyNames(nb)
+	}
+	if ev.Salvo != nil {
+		a.onSalvoAck(*ev.Salvo)
 	}
 }
 

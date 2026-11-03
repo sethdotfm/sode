@@ -155,7 +155,7 @@ SODE_ROUTER=127.0.0.1:8910 go run ./cmd/sode         # server on :8080
 node --test 'web/test/*.test.mjs'                    # browser-side tests
 ```
 
-The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_FOLLOWS`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT`); see `cmd/swp08sim`. The web UI is embedded, so restart after frontend edits.
+The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_FOLLOWS`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT`, and `SIM_NO_SALVO=1` for a router without group salvos); see `cmd/swp08sim`. The web UI is embedded, so restart after frontend edits.
 
 ## Releasing
 
