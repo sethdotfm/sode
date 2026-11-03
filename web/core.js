@@ -348,7 +348,7 @@ export const sentence = (t) => {
 
 // Why a name can't be used, or ''. names: the names already taken (any
 // case); old: the name being edited, which may be kept or change case;
-// noun: "salvo", "filter set"; reserved: a name nothing may take.
+// noun: "preset", "filter set"; reserved: a name nothing may take.
 export function nameProblem(name, names, { noun = 'item', old = '', max = 32, reserved = '' } = {}) {
   const n = name.trim();
   if (!n) return 'Name required.';

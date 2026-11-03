@@ -435,6 +435,10 @@ html { font-size: 125%; }
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,
 .sode__field .pb-select-wrap { width: 100%; }
+/* Number stepper (#166): the down arrow is ::before, so the relatively
+   positioned input painted over it. Lift both glyphs above the input. */
+.pb-number-wrap::before,
+.pb-number-wrap::after { z-index: 1; }
 /* Level colors: one row per level, its slot as a live preview. */
 .sode__colors {
   display: grid;

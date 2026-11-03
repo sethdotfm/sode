@@ -109,7 +109,7 @@ function draw() {
     row.setAttribute('aria-selected', String(i === hi));
     return row;
   }));
-  if (!shownList.length) list.append(el('span', 'sode__hint', allSalvos().length ? 'No salvo matches.' : 'No salvos yet. Make one with Edit above Recent.'));
+  if (!shownList.length) list.append(el('span', 'sode__hint', allSalvos().length ? 'No preset matches.' : 'No presets yet. Make one with Edit above Recent.'));
   if (shownList.length) input.setAttribute('aria-activedescendant', `salvo-pop-${hi}`);
   else input.removeAttribute('aria-activedescendant');
   list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
@@ -129,12 +129,22 @@ function pressSalvo(s) {
 }
 
 input.addEventListener('input', () => { hi = 0; setNote(''); draw(); });
+// A click on empty space inside the popup (#155, #156) must not take focus
+// away from the search box; buttons and the box itself behave as usual.
+dialog.addEventListener('mousedown', (e) => {
+  if (e.target.closest('button, input')) return;
+  e.preventDefault();
+  input.focus();
+});
 dialog.addEventListener('keydown', (e) => {
-  if (e.target !== input) return;
+  // A focused button keeps its own Enter/Space; anywhere else the keys drive the list.
+  const onButton = !!e.target.closest?.('button');
   const jk = (e.ctrlKey !== e.metaKey) && !e.altKey && !e.shiftKey ? { j: 1, k: -1 }[e.key.toLowerCase()] : 0;
   if (e.key === 'ArrowDown' || jk === 1) { e.preventDefault(); move(1); }
   else if (e.key === 'ArrowUp' || jk === -1) { e.preventDefault(); move(-1); }
-  else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); pressSalvo(shownList[hi]); }
+  else if (e.key === 'Enter' && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); pressSalvo(shownList[hi]); }
+  else return;
+  if (!onButton) input.focus();
 });
 
 export const popupOpen = () => open;
