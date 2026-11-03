@@ -13,16 +13,14 @@ import "errors"
 // alive (hello, names, tally, recent history, history reads) keeps streaming
 // to a locked browser by design: the lock screen covers the page, it is not a
 // secret. Settings changes are guarded by the settings PIN alone (needAdmin):
-// it is the admin credential, and a locked-out wall panel or the grid editor
-// page (which has no lock screen) must still be able to save with it. Locks
+// it is the admin credential, and a locked-out wall panel
+// (which has no lock screen) must still be able to save with it. Locks
 // can't be turned on without a settings PIN (Validate), so everything an
 // admin message changes stays guarded.
 type need uint8
 
 const (
-	// needTake: the main lock, and from a page that declared itself "grid"
-	// the grid lock too. The page type is the browser's word, so claiming
-	// "grid" can only add a lock, never skip the main one.
+	// needTake: the main lock.
 	needTake need = 1 << iota
 	needMain
 	needLog
@@ -73,13 +71,10 @@ var policy = map[string]rule{
 	"uptime": {need: needLog},
 
 	// Saves behind the settings PIN alone.
-	"config":      {need: needAdmin, op: "config", noID: true},
-	"filterSets":  {need: needAdmin, op: "filterSets"},
-	"salvos":      {need: needAdmin, op: "salvos"},
-	"gridSave":    {need: needAdmin, op: "grids"},
-	"gridDelete":  {need: needAdmin, op: "grids"},
-	"gridConfirm": {need: needAdmin, op: "grids"},
-	"users":       {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
+	"config":     {need: needAdmin, op: "config", noID: true},
+	"filterSets": {need: needAdmin, op: "filterSets"},
+	"salvos":     {need: needAdmin, op: "salvos"},
+	"users":      {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
 }
 
 // admit checks c against r, once, and runs r.admitted if it passes. The page
@@ -89,7 +84,7 @@ func (a *App) admit(c *client, r rule) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	switch {
-	case r.need&needTake != 0 && (!a.pageAllowedLocked(c, gateMain) || c.u.page == "grid" && !a.pageAllowedLocked(c, gateGrid)),
+	case r.need&needTake != 0 && (!a.pageAllowedLocked(c, gateMain)),
 		r.need&needMain != 0 && !a.pageAllowedLocked(c, gateMain),
 		r.need&needLog != 0 && !a.pageAllowedLocked(c, gateLog):
 		return errPageLocked

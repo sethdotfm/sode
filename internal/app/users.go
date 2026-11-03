@@ -25,14 +25,11 @@ type gate int
 
 const (
 	gateMain gate = iota
-	gateGrid
 	gateLog
 )
 
 func (l gate) on(k config.Locks) bool {
 	switch l {
-	case gateGrid:
-		return k.Grid
 	case gateLog:
 		return k.Log
 	}
@@ -40,12 +37,12 @@ func (l gate) on(k config.Locks) bool {
 }
 
 // pageGates is the lock that guards each page type the browser can declare.
-var pageGates = map[string]gate{"main": gateMain, "grid": gateGrid, "log": gateLog}
+var pageGates = map[string]gate{"main": gateMain, "log": gateLog}
 
 // connUser is a connection's access state: page and token are guarded by
 // App.mu; user is atomic so who can be read anywhere.
 type connUser struct {
-	page  string                      // "main" (default), "grid" or "log", as the page declared
+	page  string                      // "main" (default) or "log", as the page declared
 	token string                      // the admin token it presented
 	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
 }

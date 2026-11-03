@@ -104,10 +104,6 @@ func TestRefusalReplies(t *testing.T) {
 	if m := until("salvosResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(3) {
 		t.Fatalf("refused salvos: %v", m)
 	}
-	send(map[string]any{"t": "gridDelete", "id": 4, "link": "x"})
-	if m := until("gridsResult"); m["locked"] != true || m["id"] != float64(4) {
-		t.Fatalf("refused gridDelete: %v", m)
-	}
 	send(map[string]any{"t": "users", "id": 5, "usersReq": map[string]any{}})
 	if m := until("usersResult"); m["locked"] != true || m["id"] != float64(5) {
 		t.Fatalf("refused users: %v", m)

@@ -17,7 +17,7 @@ var formFields = map[string]bool{
 	"NameRefreshSeconds": true, "TallyResyncSeconds": true, "TrustedProxies": true, "HiddenDsts": true,
 	"LevelColors": true, "LevelNumbering": true, "PinMaxTries": true,
 	// Read so old files load, never sent or acted on.
-	"HideDsts": true, "LevelTypedBase": true, "LegacyGrids": true,
+	"HideDsts": true, "LevelTypedBase": true, "LegacyGrids": true, "LegacyGridConfirm": true,
 }
 
 func TestOwnedOrForm(t *testing.T) {
@@ -43,8 +43,6 @@ func TestKeepOwned(t *testing.T) {
 	live := Defaults()
 	live.FilterSets = []FilterSet{{Name: "a"}}
 	live.Salvos = []Salvo{{Name: "s"}}
-	live.Grids = []Grid{okGrid()}
-	live.GridConfirm = false
 	live.SettingsPin = "hash"
 	live.DeviceDefaults.Theme = "dark"
 	live.Users = []User{{Name: "u"}}
@@ -54,9 +52,7 @@ func TestKeepOwned(t *testing.T) {
 
 	in := Defaults()
 	in.Router = "2.2.2.2:2"
-	in.GridConfirm = true
 	in.DeviceDefaults.Theme = "light"
-	in.Grids = make([]Grid, 1000)
 	in.FilterSets = make([]FilterSet, 1000)
 	in.Salvos = make([]Salvo, 1000)
 	in.Users = make([]User, 100)
@@ -66,7 +62,7 @@ func TestKeepOwned(t *testing.T) {
 		t.Error("a form field was overwritten")
 	}
 	if !reflect.DeepEqual(in.FilterSets, live.FilterSets) || !reflect.DeepEqual(in.Salvos, live.Salvos) ||
-		!reflect.DeepEqual(in.Grids, live.Grids) || in.GridConfirm || in.SettingsPin != "hash" ||
+		in.SettingsPin != "hash" ||
 		in.DeviceDefaults.Theme != "dark" || !reflect.DeepEqual(in.Users, live.Users) || !in.Locks.Main || in.AutoLockMinutes != 7 {
 		t.Errorf("owned fields not kept: %+v", in)
 	}

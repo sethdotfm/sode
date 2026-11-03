@@ -53,15 +53,10 @@ type Config struct {
 	// Salvos are named sets of takes offered to every browser as buttons
 	// above Recent (salvos.go).
 	Salvos []Salvo `yaml:"salvos,omitempty" json:"salvos" owned:"true"`
-	// Grids are the /grid/<link> panels. They live one per file in the
-	// grids directory beside the config file (gridfiles.go), not in the
-	// config: a runtime field, filled at startup and after each save.
-	// LegacyGrids is only read, so a config.yaml from before that loads and
-	// its panels can be moved to files. GridConfirm is whether panels set to
-	// "default" confirm their takes.
-	Grids       []Grid `yaml:"-" json:"grids" owned:"true"`
-	LegacyGrids []Grid `yaml:"grids,omitempty" json:"-"`
-	GridConfirm bool   `yaml:"gridConfirm" json:"gridConfirm" owned:"true"`
+	// Grid was parked (#150); ignored. Kept so a file that has them loads,
+	// and dropped on the next save.
+	LegacyGrids       any `yaml:"grids,omitempty" json:"-"`
+	LegacyGridConfirm any `yaml:"gridConfirm,omitempty" json:"-"`
 	// HideDsts is no longer used; kept so files that have it load.
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
@@ -176,7 +171,6 @@ func Defaults() Config {
 		LevelColors:        []string{},
 		LevelNumbering:     "1",
 		PinMaxTries:        10,
-		GridConfirm:        true,
 		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }
@@ -238,8 +232,6 @@ func (c Config) Clone() Config {
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Salvos = CloneSalvos(c.Salvos)
-	c.Grids = cloneGrids(c.Grids)
-	c.LegacyGrids = cloneGrids(c.LegacyGrids)
 	c.HideDsts = slices.Clone(c.HideDsts)
 	c.Users = slices.Clone(c.Users)
 	return c
@@ -292,7 +284,7 @@ func (c *Config) Normalize() {
 		d.NextMode = "number"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
-	c.normalizeGrids()
+	c.LegacyGrids, c.LegacyGridConfirm = nil, nil
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
 	if c.FilterSets == nil {
 		c.FilterSets = []FilterSet{}
@@ -435,12 +427,11 @@ func (c Config) Validate() error {
 		}
 	}
 	errs = append(errs, validateNames("filter set", fnames, 30)...)
-	// Like salvos and grids, all of them in one message under the read limit.
+	// Like salvos, all of them in one message under the read limit.
 	if b, err := json.Marshal(c.FilterSets); err == nil && len(b) > MaxFilterSetsBytes {
 		bad("filter sets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxFilterSetsBytes>>10)
 	}
 	errs = append(errs, c.validateSalvos()...)
-	errs = append(errs, c.validateGrids()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}

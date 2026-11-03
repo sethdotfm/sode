@@ -39,7 +39,6 @@ func loadConfig(path string) config.Config {
 		}
 		if exists {
 			log.Printf("config: loaded %s (SODE_* seed variables are ignored once it exists)", path)
-			loadGrids(&c, path)
 			return c
 		}
 	}
@@ -59,20 +58,7 @@ func loadConfig(path string) config.Config {
 		log.Fatalf("config: writing %s: %v", path, err)
 	}
 	log.Printf("config: created %s from environment", path)
-	loadGrids(&c, path)
 	return c
-}
-
-// loadGrids reads the panel files beside the config file (moving any panels
-// still listed in an older config file there first). Like a bad config file,
-// a bad panel file stops startup, and the message names it.
-func loadGrids(c *config.Config, path string) {
-	if err := c.LoadGrids(path); err != nil {
-		log.Fatalf("config: %v", err)
-	}
-	if n := len(c.Grids); n > 0 {
-		log.Printf("config: loaded %d grid panels from %s", n, config.GridsDir(path))
-	}
 }
 
 // resetSettingsPin clears the PIN in the config file. A running server

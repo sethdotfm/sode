@@ -189,3 +189,23 @@ func TestPin(t *testing.T) {
 		t.Fatal("PIN hash leaks into JSON")
 	}
 }
+
+// Grid was parked (#150): a file that still has its keys loads, and the next
+// save drops them.
+func TestLegacyGridKeysLoad(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\ngridConfirm: true\ngrids:\n  - link: a\n    cells: []\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, ok, err := Load(p)
+	if err != nil || !ok {
+		t.Fatalf("load: %v %v", ok, err)
+	}
+	if err := Save(p, c); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	if strings.Contains(string(b), "grid") {
+		t.Fatalf("saved file still has grid keys:\n%s", b)
+	}
+}

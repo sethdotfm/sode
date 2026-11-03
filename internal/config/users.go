@@ -19,16 +19,14 @@ type User struct {
 	Len  int    `yaml:"len" json:"len"`
 }
 
-// Locks says which page types need an unlocked user: the main screen, /grid
-// pages and /log.
+// Locks says which page types need an unlocked user: the main screen and /log.
 type Locks struct {
 	Main bool `yaml:"main" json:"main"`
-	Grid bool `yaml:"grid" json:"grid"`
 	Log  bool `yaml:"log" json:"log"`
 }
 
 // Any reports whether any page type is locked.
-func (l Locks) Any() bool { return l.Main || l.Grid || l.Log }
+func (l Locks) Any() bool { return l.Main || l.Log }
 
 const (
 	MaxUsers       = 12 // a PIN is checked against each user of its length

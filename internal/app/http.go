@@ -35,7 +35,7 @@ type client struct {
 }
 
 // wsReadLimit is the most one browser message may be. The largest ones are
-// a Settings save and a gridSave; see TestMessageSizes.
+// a Settings save and a salvos save; see TestMessageSizes.
 const wsReadLimit = 64 << 10
 
 // Handler serves the embedded UI, the WebSocket and a health check.
@@ -50,7 +50,6 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, static, "log.html")
 	})
-	serveGridPages(mux, static)
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
@@ -297,22 +296,6 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go func(salvos []config.Salvo, id int) {
 				a.replyOp(c, "salvos", id, len(salvos), "salvo", a.SaveSalvos(c, salvos))
 			}(m.Salvos, m.ID)
-		case "gridSave":
-			go func(g *config.Grid, was string, id int) {
-				err := errNoGrid
-				if g != nil {
-					err = a.SaveGrid(c, *g, was)
-				}
-				a.replyOp(c, "grids", id, 1, "grid", err)
-			}(m.Grid, m.Was, m.ID)
-		case "gridDelete":
-			go func(link string, id int) {
-				a.replyOp(c, "grids", id, 1, "grid", a.DeleteGrid(c, link))
-			}(m.Link, m.ID)
-		case "gridConfirm":
-			go func(on bool, id int) {
-				a.replyOp(c, "grids", id, 0, "", a.SetGridConfirm(c, on))
-			}(m.On, m.ID)
 		case "config":
 			if m.Config == nil {
 				continue
@@ -362,11 +345,7 @@ type inMsg struct {
 	Items    []takeReq          `json:"items"`
 	Sets     []config.FilterSet `json:"sets"`
 	Salvos   []config.Salvo     `json:"salvos"`
-	Grid     *config.Grid       `json:"grid"`  // gridSave
-	Was      string             `json:"was"`   // gridSave: the link before a rename
-	Link     string             `json:"link"`  // gridDelete
-	On       bool               `json:"on"`    // gridConfirm
-	Page     string             `json:"page"`  // hi: main | grid | log
+	Page     string             `json:"page"`  // hi: main | log
 	Token    string             `json:"token"` // hi: admin token
 	Forget   bool               `json:"forget"`
 	UsersReq *usersReq          `json:"usersReq"`

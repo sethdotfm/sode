@@ -8,7 +8,7 @@ import (
 )
 
 // Settings that several browsers edit apart from the Settings form (filter
-// sets, salvos, grid panels) all save the same way, through saveShared, and
+// sets, salvos) all save the same way, through saveShared, and
 // answer through replyOp.
 
 // guardSave refuses c a settings change unless its settings PIN is unlocked.

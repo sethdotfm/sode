@@ -28,7 +28,7 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 	}
 	return a.applyConfig(func(cur *config.Config) error {
 		// cur is a copy of the live config. Whatever is saved apart from
-		// this form (Config's owned fields: filter sets, salvos, grids, the
+		// this form (Config's owned fields: filter sets, salvos, the
 		// PIN, users and locks...) stays as it is, so a browser's stale
 		// copy can't undo it.
 		live := *cur
@@ -83,11 +83,6 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 		return nil, nil, err
 	}
 	if a.cfgPath != "" {
-		// Panels are files of their own, written before the config so a
-		// failure leaves the live config as it was.
-		if err := config.SyncGrids(config.GridsDir(a.cfgPath), old.cfg.Grids, cfg.Grids); err != nil {
-			return nil, nil, err
-		}
 		if err := config.Save(a.cfgPath, cfg); err != nil {
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}

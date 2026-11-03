@@ -98,7 +98,7 @@ func TestUserPinRules(t *testing.T) {
 func TestLocksOffByDefault(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
-	for _, g := range []gate{gateMain, gateGrid, gateLog} {
+	for _, g := range []gate{gateMain, gateLog} {
 		if !a.pageAllowed(c, g) {
 			t.Errorf("gate %d refused with no locks", g)
 		}
@@ -122,8 +122,8 @@ func TestLocksOffByDefault(t *testing.T) {
 func TestUserUnlock(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
-	if a.pageAllowed(c, gateMain) || a.pageAllowed(c, gateLog) || !a.pageAllowed(c, gateGrid) {
-		t.Fatal("main and log should be locked, grid not")
+	if a.pageAllowed(c, gateMain) || a.pageAllowed(c, gateLog) {
+		t.Fatal("main and log should be locked")
 	}
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatal(err)
