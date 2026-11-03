@@ -1,8 +1,6 @@
 package config
 
 import (
-	"encoding/json"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -48,12 +46,19 @@ func TestGridValid(t *testing.T) {
 
 func TestGridInvalid(t *testing.T) {
 	for name, mut := range map[string]func(*Grid){
-		"empty link":      func(g *Grid) { g.Link = "" },
-		"bad chars link":  func(g *Grid) { g.Link = "a_b c" },
-		"slash link":      func(g *Grid) { g.Link = "a/b" },
-		"double dash":     func(g *Grid) { g.Link = "a--b" },
-		"leading dash":    func(g *Grid) { g.Link = "-a" },
-		"reserved link":   func(g *Grid) { g.Link = "ws" },
+		"empty link":     func(g *Grid) { g.Link = "" },
+		"bad chars link": func(g *Grid) { g.Link = "a_b c" },
+		"slash link":     func(g *Grid) { g.Link = "a/b" },
+		"double dash":    func(g *Grid) { g.Link = "a--b" },
+		"leading dash":   func(g *Grid) { g.Link = "-a" },
+		"dot link":       func(g *Grid) { g.Link = "a.b" },
+		"dotdot link":    func(g *Grid) { g.Link = ".." },
+		"confirm ref":    func(g *Grid) { g.Cells = append(g.Cells, GridCell{X: 0, Y: 1, W: 1, H: 1, Kind: "confirm", Ref: "1"}) },
+		"two confirms": func(g *Grid) {
+			g.Cells = append(g.Cells, GridCell{X: 0, Y: 1, W: 1, H: 1, Kind: "confirm"}, GridCell{X: 1, Y: 1, W: 1, H: 1, Kind: "confirm"})
+		},
+		"spacer ref":      func(g *Grid) { g.Cells = append(g.Cells, GridCell{X: 0, Y: 1, W: 1, H: 1, Kind: "", Ref: "3"}) },
+		"spacer overlaps": func(g *Grid) { g.Cells = append(g.Cells, GridCell{X: 0, Y: 0, W: 1, H: 1}) },
 		"long link":       func(g *Grid) { g.Link = strings.Repeat("a", 41) },
 		"zero cols":       func(g *Grid) { g.Cols = 0 },
 		"huge rows":       func(g *Grid) { g.Rows = 25 },
@@ -113,84 +118,13 @@ func TestGridOverflow(t *testing.T) {
 	}
 }
 
-// The largest grids that validate still make a message under the server's
-// read limit (64 KiB), with the envelope: worst-case characters (each
-// escaped to six bytes) in every label and salvo name.
-func TestGridsMessageFits(t *testing.T) {
-	c := Defaults()
-	cell := func(i int) GridCell {
-		return GridCell{X: i % 24, Y: i / 24, W: 1, H: 1, Kind: "salvo", Ref: strings.Repeat("<", 64), Label: strings.Repeat("<", 24)}
-	}
-	n := 0
-	for ; ; n++ {
-		c.Grids = nil
-		for gi := 0; gi < maxGrids; gi++ {
-			g := Grid{Link: "g" + strings.Repeat("a", gi), Name: strings.Repeat("<", 40), Cols: 24, Rows: 24, Confirm: "default"}
-			for i := 0; i < n && i < 24*24; i++ {
-				g.Cells = append(g.Cells, cell(i))
-			}
-			c.Grids = append(c.Grids, g)
-		}
-		c.Normalize()
-		if c.Validate() != nil {
-			break
-		}
-		if n > 24*24 {
-			t.Fatal("no size limit")
-		}
-	}
-	if n == 0 {
-		t.Fatal("even empty grids are refused")
-	}
-	// The last size that passed.
-	c.Grids = c.Grids[:0]
-	for gi := 0; gi < maxGrids; gi++ {
-		g := Grid{Link: "g" + strings.Repeat("a", gi), Name: strings.Repeat("<", 40), Cols: 24, Rows: 24, Confirm: "default"}
-		for i := 0; i < n-1; i++ {
-			g.Cells = append(g.Cells, cell(i))
-		}
-		c.Grids = append(c.Grids, g)
-	}
-	c.Normalize()
-	if err := c.Validate(); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := json.Marshal(map[string]any{"t": "grids", "grids": c.Grids, "gridConfirm": true, "id": 1<<31 - 1})
-	if len(b) >= 64<<10 || len(b) > MaxGridsJSON+1024 {
-		t.Fatalf("message %d bytes", len(b))
-	}
-}
-
-func TestGridSaveLoadClone(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	c := gridCfg(okGrid())
-	c.GridConfirm = false
-	if err := Save(path, c); err != nil {
-		t.Fatal(err)
-	}
-	got, _, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.GridConfirm || len(got.Grids) != 1 || got.Grids[0].Cells[0].Label != "PGM" || got.Grids[0].Cells[0].W != 2 {
-		t.Fatalf("%+v", got)
-	}
-	// A file without grids loads with the confirm default on.
-	empty := filepath.Join(t.TempDir(), "c.yaml")
-	if err := Save(empty, Defaults()); err != nil {
-		t.Fatal(err)
-	}
-	if g, _, err := Load(empty); err != nil || !g.GridConfirm || len(g.Grids) != 0 {
-		t.Fatalf("%v %+v", err, g.Grids)
-	}
-	// Clone shares no cells.
-	cl := c.Clone()
-	cl.Grids[0].Cells[0].Ref = "99"
-	cl.Grids[0].Levels = append(cl.Grids[0].Levels, 1)
-	if c.Grids[0].Cells[0].Ref != "4" || len(c.Grids[0].Levels) != 0 {
-		t.Fatal("clone shares grid slices")
-	}
-	if _, ok := c.GridByLink("studio-a"); !ok {
-		t.Fatal("GridByLink")
+func TestGridCellKinds(t *testing.T) {
+	g := okGrid()
+	g.Cells = append(g.Cells,
+		GridCell{X: 0, Y: 1, W: 1, H: 1, Kind: "confirm", Label: "Take"},
+		GridCell{X: 1, Y: 1, W: 1, H: 1}, // a spacer
+	)
+	if err := gridCfg(g).Validate(); err != nil {
+		t.Fatalf("confirm and spacer cells: %v", err)
 	}
 }

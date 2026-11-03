@@ -3,6 +3,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -48,14 +49,19 @@ type Config struct {
 	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
 	// FilterSets are named Recent filters offered to every browser as
 	// quick buttons; browsers can add their own.
-	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
+	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
 	// Salvos are named sets of takes offered to every browser as buttons
 	// above Recent (salvos.go).
-	Salvos []Salvo `yaml:"salvos,omitempty" json:"salvos"`
-	// Grids are the /grid/<link> panels (grids.go); GridConfirm is whether
-	// panels set to "default" confirm their takes.
-	Grids       []Grid `yaml:"grids,omitempty" json:"grids"`
-	GridConfirm bool   `yaml:"gridConfirm" json:"gridConfirm"`
+	Salvos []Salvo `yaml:"salvos,omitempty" json:"salvos" owned:"true"`
+	// Grids are the /grid/<link> panels. They live one per file in the
+	// grids directory beside the config file (gridfiles.go), not in the
+	// config: a runtime field, filled at startup and after each save.
+	// LegacyGrids is only read, so a config.yaml from before that loads and
+	// its panels can be moved to files. GridConfirm is whether panels set to
+	// "default" confirm their takes.
+	Grids       []Grid `yaml:"-" json:"grids" owned:"true"`
+	LegacyGrids []Grid `yaml:"grids,omitempty" json:"-"`
+	GridConfirm bool   `yaml:"gridConfirm" json:"gridConfirm" owned:"true"`
 	// HideDsts is no longer used; kept so files that have it load.
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
@@ -69,19 +75,23 @@ type Config struct {
 	LevelTypedBase int `yaml:"levelTypedBase,omitempty" json:"-"`
 	// SettingsPin is a HashPin hash guarding the settings view; "" = none.
 	// Never sent to browsers.
-	SettingsPin string `yaml:"settingsPin,omitempty" json:"-"`
+	SettingsPin string `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
 	// PinMaxTries wrong PINs in a row lock settings until the PIN is reset
 	// (sode -reset-pin) or Sode restarts; 0 = never.
 	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries"`
 	// DeviceDefaults are what the "This device" settings are for browsers
 	// that haven't chosen their own. Browser-side only: changing them never
 	// touches the router link.
-	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults"`
+	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
 	// Users, Locks and AutoLockMinutes: optional access control (users.go).
-	Users           []User `yaml:"users,omitempty" json:"users"`
-	Locks           Locks  `yaml:"locks" json:"locks"`
-	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes"`
+	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
+	Locks           Locks  `yaml:"locks" json:"locks" owned:"true"`
+	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" owned:"true"`
 }
+
+// MaxFilterSetsBytes caps all filter sets as JSON, so a "filterSets"
+// message fits the 64 KiB read limit with room to spare.
+const MaxFilterSetsBytes = 48 << 10
 
 // BrandColor is one accepted BrandBorder name. Hex is the dark-mode value of
 // the signal token web/base.css maps the name to (`[data-brand="name"]`); the
@@ -229,6 +239,7 @@ func (c Config) Clone() Config {
 	c.FilterSets = slices.Clone(c.FilterSets)
 	c.Salvos = CloneSalvos(c.Salvos)
 	c.Grids = cloneGrids(c.Grids)
+	c.LegacyGrids = cloneGrids(c.LegacyGrids)
 	c.HideDsts = slices.Clone(c.HideDsts)
 	c.Users = cloneUsers(c.Users)
 	return c
@@ -416,24 +427,17 @@ func (c Config) Validate() error {
 	if n := len([]rune(c.HiddenDsts)); n > 500 {
 		bad("globally hidden destinations must be at most 500 characters")
 	}
-	if len(c.FilterSets) > 30 {
-		bad("at most 30 filter sets")
-	}
-	names := map[string]bool{}
-	for _, f := range c.FilterSets {
-		key := strings.ToLower(f.Name)
-		switch n := len([]rune(f.Name)); {
-		case n == 0:
-			bad("every filter set needs a name")
-		case n > 32:
-			bad("filter set name %q must be at most 32 characters", f.Name)
-		case names[key]:
-			bad("two filter sets are named %q", f.Name)
-		}
-		names[key] = true
+	fnames := make([]string, len(c.FilterSets))
+	for i, f := range c.FilterSets {
+		fnames[i] = f.Name
 		if len([]rune(f.Src)) > 500 || len([]rune(f.Dst)) > 500 {
 			bad("filter set %q: expressions must be at most 500 characters", f.Name)
 		}
+	}
+	errs = append(errs, validateNames("filter set", fnames, 30)...)
+	// Like salvos and grids, all of them in one message under the read limit.
+	if b, err := json.Marshal(c.FilterSets); err == nil && len(b) > MaxFilterSetsBytes {
+		bad("filter sets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxFilterSetsBytes>>10)
 	}
 	errs = append(errs, c.validateSalvos()...)
 	errs = append(errs, c.validateGrids()...)
@@ -577,13 +581,21 @@ func Save(path string, c Config) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".config-*.yaml")
+	return atomicWrite(path, []byte(header), b)
+}
+
+// atomicWrite writes the parts to path through a temp file in the same
+// directory (fsync, then rename), so a crash leaves the old file or the new.
+func atomicWrite(path string, parts ...[]byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".sode-*.tmp")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	if _, err := tmp.WriteString(header); err == nil {
-		_, err = tmp.Write(b)
+	for _, p := range parts {
+		if _, err = tmp.Write(p); err != nil {
+			break
+		}
 	}
 	if err == nil {
 		err = tmp.Sync()

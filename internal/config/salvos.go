@@ -84,21 +84,12 @@ func (c *Config) normalizeSalvos() {
 func (c Config) validateSalvos() []error {
 	var errs []error
 	bad := func(f string, a ...any) { errs = append(errs, fmt.Errorf(f, a...)) }
-	if len(c.Salvos) > MaxSalvos {
-		bad("at most %d salvos", MaxSalvos)
+	snames := make([]string, len(c.Salvos))
+	for i, s := range c.Salvos {
+		snames[i] = s.Name
 	}
-	names := map[string]bool{}
+	errs = append(errs, validateNames("salvo", snames, MaxSalvos)...)
 	for _, s := range c.Salvos {
-		key := strings.ToLower(s.Name)
-		switch n := len([]rune(s.Name)); {
-		case n == 0:
-			bad("every salvo needs a name")
-		case n > 32:
-			bad("salvo name %q must be at most 32 characters", s.Name)
-		case names[key]:
-			bad("two salvos are named %q", s.Name)
-		}
-		names[key] = true
 		if len(s.Items) == 0 {
 			bad("salvo %q has no takes", s.Name)
 		}
