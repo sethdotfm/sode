@@ -3,7 +3,7 @@
 // row and the confirm's lockout. Each layout passes its own elements and
 // the few things it does differently.
 
-import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron } from './core.js';
+import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import {
   levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels,
 } from './levelview.js';
@@ -105,14 +105,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
   let last = null; // the box last drawn for, while it can change
 
   function addButton(it) {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'pb-icon');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('aria-hidden', 'true');
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttribute('href', 'vendor/patchbay/icons/lucide.svg#plus');
-    svg.append(use);
-    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', svg);
+    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', icon('plus', false));
     b.type = 'button';
     b.tabIndex = -1;
     b.title = 'Add and keep searching';
@@ -256,12 +249,16 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
 }
 
 // Retry (failed takes) or Redo (any other), by plan.verb: one button, one
-// slot. With nothing to offer an invisible placeholder keeps columns lined up
-// (null with placeholder false).
+// slot. Retry is an outlined text button; Redo is quieter, a ghost button
+// with a repeat icon, so the two don't read as Undo's twin. With nothing to
+// offer an invisible placeholder keeps columns lined up (null with
+// placeholder false).
 export function againButton(plan, label, onClick, { placeholder = true } = {}) {
   const none = !plan.items.length;
   if (none && !placeholder) return null;
-  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm' + (none ? ' sode__placeholder' : ''), plan.verb === 'retry' ? 'Retry' : 'Redo');
+  const redo = plan.verb !== 'retry';
+  const b = el('button', `pb-btn ${redo ? 'pb-btn--ghost' : 'pb-btn--outline'} pb-btn--sm${none ? ' sode__placeholder' : ''}`,
+    redo ? icon('redo-2') : null, redo ? 'Redo' : 'Retry');
   b.type = 'button';
   if (none) {
     b.tabIndex = -1;
@@ -431,4 +428,20 @@ export function lockout(onReady) {
   const at = performance.now() + ms;
   const t = setTimeout(onReady, ms);
   return { ready: () => performance.now() >= at, cancel: () => clearTimeout(t) };
+}
+
+// ---- dialog keys
+
+// Keys stay in a dialog: Esc calls onEsc, Tab wraps round its controls. They
+// are stopped at root so the layouts' own keys don't act behind it.
+export function trapDialog(root, dialog, onEsc) {
+  root.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); onEsc(); return; }
+    if (e.key !== 'Tab') return;
+    const all = [...dialog.querySelectorAll('button, input, select')].filter((x) => !x.disabled && x.offsetParent);
+    const first = all[0], last = all[all.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 }

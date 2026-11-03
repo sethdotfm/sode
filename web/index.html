@@ -9,31 +9,7 @@
 <link rel="apple-touch-icon" href="icon.png?s=180">
 <meta name="theme-color" content="#080808">
 <meta name="apple-mobile-web-app-title" content="Sode">
-<script>
-  // Apply the theme, the layout and the flip before first paint so there's
-  // no flash: this browser's own choice, else the global default last cached
-  // from the server (as resolve() in prefs.js). device.js keeps them up to date
-  // afterwards.
-  (() => {
-    const root = document.documentElement;
-    let g = {};
-    const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-    try { g = JSON.parse(get('sode-device-defaults')) || {}; } catch (e) {}
-    const pick = (key, name, ok, def) => {
-      const own = get(key);
-      if (ok.includes(own)) return own;
-      const v = typeof g[name] === 'boolean' ? (g[name] ? 'on' : 'off') : g[name];
-      return ok.includes(v) ? v : def;
-    };
-    const theme = pick('sode-theme', 'theme', ['system', 'light', 'dark'], 'system');
-    let layout = pick('sode-layout', 'layout', ['auto', 'phone', 'desktop'], 'auto');
-    if (theme !== 'system') root.dataset.theme = theme;
-    if (layout === 'auto') layout = matchMedia('(max-width: 700px) and (pointer: coarse)').matches ? 'phone' : 'desktop';
-    root.dataset.layout = layout;
-    if (layout === 'phone') root.dataset.pbLayout = 'phone';
-    if (pick('sode-flip', 'flip', ['on', 'off'], 'off') === 'on') root.dataset.flip = '';
-  })();
-</script>
+<script src="prepaint.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">

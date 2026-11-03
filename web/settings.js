@@ -15,6 +15,7 @@ import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
+import { omitOwned } from './owned.js';
 import './users.js'; // adds its section before the table of contents is built
 
 const root = document.documentElement;
@@ -170,8 +171,9 @@ function closeSettings() {
   if (layout() === 'desktop') $('src').focus();
 }
 
+// The config as the form now stands, without what the server owns (owned.js).
 function readSettings() {
-  const c = { ...S.cfg };
+  const c = omitOwned(S.cfg);
   for (const f of fields()) {
     const k = f.dataset.key;
     if (f.dataset.type === 'bool') c[k] = f.checked;

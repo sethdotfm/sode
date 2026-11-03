@@ -1,29 +1,29 @@
-// The /grid/<link> page (#150): a panel of source, destination and salvo
-// buttons. Tap destinations to light them, then tap a source to take it to
-// all of them on the panel's levels, with the usual confirm unless the
-// panel is set to send at once.
+// The /grid/<link> page (#150): a panel of source, destination, salvo and
+// Confirm buttons. Without a Confirm button, tap destinations to light them,
+// then tap a source to take it to all of them on the panel's levels (with
+// the churning-letter confirm unless the panel sends at once). With one, a
+// source tap only selects it and Confirm sends the route, at once.
 import { $, el, S, on, onMsg, connect, connState, setDot, labelNode, srcItem, dstItem, tallyText, protectedOn, protectedLabel } from './core.js';
 import { levelText, parseLevels } from './levelview.js';
-import { patchPlan, planBlocked, planSummary, planVerb, sendTakes, showResult, resultNode } from './plans.js';
-import { lockout } from './widgets.js';
+import { patchPlan, salvoPlan, planBlocked, sendTakes, showResult, resultNode } from './plans.js';
+import { keyConfirm } from './keyconfirm.js';
+import { salvoNamed } from './salvostore.js';
 import { confirmFor } from './gridgeom.js';
+import * as G from './gridstate.js';
 import './device.js';
 import './brand.js';
 import './lock.js'; // locks (#151): the page type comes from the path
 
-// The link is the segment after /grid/ (the page may sit behind a proxy's prefix).
-const link = (() => {
-  const p = location.pathname;
-  const i = p.lastIndexOf('/grid/');
-  return decodeURIComponent((i < 0 ? '' : p.slice(i + 6)).split('/')[0]);
-})();
+// The link is the last segment of the path (/grid/<link>).
+const link = decodeURIComponent(location.pathname.split('/').pop());
 
 const board = $('grid-board');
-const lit = new Set(); // destination numbers
+let st = G.newState();
 let grid = null;
-let cells = []; // [{ cell, node, now }] for the current grid
+let cells = []; // [{ cell, node, ... }] for the current grid
 
 const currentGrid = () => (S.cfg?.grids || []).find((g) => g.link === link) || null;
+const text = (t) => el('span', 'sode-grid__now', t);
 
 // The panel's levels: its own that this router has, else the default levels.
 const levelsOf = (g) => {
@@ -42,8 +42,8 @@ function title() {
 // ---- drawing
 
 // The structure: one button per cell, placed by its span. Dynamic bits (lit,
-// current source, protection) are updated in place by refresh, so a tally
-// message never replaces a button under a finger.
+// selected, protection) are updated in place by refresh, so a tally message
+// never replaces a button under a finger.
 function build() {
   grid = currentGrid();
   title();
@@ -55,55 +55,69 @@ function build() {
   if (!grid) {
     missing.replaceChildren(el('strong', null, 'No such grid. '), link ? `There is no grid with the link "${link}".` : 'Add a link after /grid/ to open a grid.',
       ' ', el('a', null, 'Grids are set up in Settings.'));
-    missing.lastChild.href = '../settings/grids';
+    missing.lastChild.href = 'settings/grids';
     return;
   }
+  if (!G.hasConfirm(grid)) st = { ...st, src: null };
   board.style.setProperty('--sode-grid-cols', grid.cols);
   board.style.gridTemplateRows = `repeat(${grid.rows}, minmax(5.5rem, 1fr))`;
-  if (!grid.cells.length) {
-    board.append(el('p', 'sode__hint', 'This grid has no buttons yet.'));
-  }
+  if (!grid.cells.length) board.append(el('p', 'sode__hint', 'This grid has no buttons yet.'));
   for (const cell of grid.cells) {
-    const b = el('button', `sode-grid__cell sode-grid__cell--${cell.kind}`);
+    const place = (n) => {
+      n.style.gridColumn = `${cell.x + 1} / span ${cell.w}`;
+      n.style.gridRow = `${cell.y + 1} / span ${cell.h}`;
+      return n;
+    };
+    if (!cell.kind) { // a spacer: an empty slot
+      const gap = place(el('div', 'sode-grid__spacer-cell'));
+      gap.setAttribute('aria-hidden', 'true');
+      board.append(gap);
+      continue;
+    }
+    const b = place(el('button', `sode-grid__cell sode-grid__cell--${cell.kind}`));
     b.type = 'button';
-    b.style.gridColumn = `${cell.x + 1} / span ${cell.w}`;
-    b.style.gridRow = `${cell.y + 1} / span ${cell.h}`;
-    const entry = { cell, node: b, now: null, tags: null, nameEl: null, numEl: null };
-    if (cell.kind === 'salvo') {
-      b.disabled = true;
-      b.append(el('span', 'sode-grid__name', cell.label || cell.ref), el('span', 'sode-grid__now', 'needs Salvos'));
+    const entry = { cell, node: b, now: null, tags: el('span', 'sode-grid__tags'), nameEl: el('span', 'sode-grid__name'), numEl: null };
+    b.append(entry.nameEl);
+    if (cell.kind === 'confirm') {
+      entry.now = text('');
+      b.append(entry.now);
+      b.addEventListener('click', confirmPressed);
+    } else if (cell.kind === 'salvo') {
+      entry.now = text('');
+      b.append(entry.now);
+      b.addEventListener('click', () => fireSalvo(cell));
     } else {
       const n = Number(cell.ref);
-      entry.nameEl = el('span', 'sode-grid__name');
       entry.numEl = el('span', 'sode-grid__num');
-      b.append(entry.nameEl, entry.numEl);
-      relabelEntry(entry);
+      b.append(entry.numEl);
       if (cell.kind === 'dst') {
-        entry.now = el('span', 'sode-grid__now');
-        entry.tags = el('span', 'sode-grid__tags');
+        entry.now = text('');
+        b.append(entry.now);
         b.setAttribute('aria-pressed', 'false');
-        b.append(entry.now, entry.tags);
       }
-      b.addEventListener('click', () => (cell.kind === 'src' ? takeSource(n) : toggleDst(n)));
+      b.append(entry.tags);
+      b.addEventListener('click', () => (cell.kind === 'src' ? tapSource(n) : tapDestination(n)));
     }
     board.append(b);
     cells.push(entry);
   }
-  if (busy) setBusy(true);
+  relabel();
+  applyBusy();
   refresh();
 }
 
-// The cell's texts from the names now known.
-function relabelEntry(e) {
-  const { cell } = e;
-  const it = cell.kind === 'src' ? srcItem(Number(cell.ref)) : dstItem(Number(cell.ref));
-  e.nameEl.textContent = cell.label || it.name || it.num;
-  e.numEl.textContent = `${cell.kind === 'src' ? 'Source' : 'Destination'} ${it.num}`;
-}
-
-// New names change the texts in place: the buttons stay, so a tap is not lost.
+// The cells' texts from the names now known.
 function relabel() {
-  for (const e of cells) if (e.nameEl) relabelEntry(e);
+  for (const e of cells) {
+    const { cell } = e;
+    if (cell.kind === 'confirm') e.nameEl.textContent = cell.label || 'Confirm';
+    else if (cell.kind === 'salvo') e.nameEl.textContent = cell.label || cell.ref;
+    else {
+      const it = cell.kind === 'src' ? srcItem(Number(cell.ref)) : dstItem(Number(cell.ref));
+      e.nameEl.textContent = cell.label || it.name || it.num;
+      e.numEl.textContent = `${cell.kind === 'src' ? 'Source' : 'Destination'} ${it.num}`;
+    }
+  }
 }
 
 // Where a destination is routed now on the panel's levels, in words.
@@ -115,125 +129,147 @@ function nowText(dst, levels) {
   return `Now: mixed (${[...new Set(seen.map((s) => tallyText(s)))].join(', ')})`;
 }
 
+const badge = (kind, t) => el('span', `pb-badge pb-badge--${kind}`, t);
+
 function refresh() {
   if (!grid) return;
   const levels = levelsOf(grid);
+  const withConfirm = G.hasConfirm(grid);
+  const status = G.confirmStatus(st);
   for (const e of cells) {
-    if (e.cell.kind !== 'dst') continue;
-    const n = Number(e.cell.ref);
-    const on = lit.has(n);
-    e.node.setAttribute('aria-pressed', String(on));
-    e.now.textContent = on ? nowText(n, levels) : '';
-    const tags = [];
-    if (on) tags.push(el('span', 'pb-badge pb-badge--info', 'Lit'));
-    const p = protectedOn(n, levels);
-    if (p.levels.length) tags.push(el('span', 'pb-badge pb-badge--warn', protectedLabel(p.devices)));
-    e.tags.replaceChildren(...tags);
+    const { cell } = e;
+    if (cell.kind === 'dst') {
+      const n = Number(cell.ref);
+      const on = st.lit.has(n);
+      e.node.setAttribute('aria-pressed', String(on));
+      e.now.textContent = on ? nowText(n, levels) : '';
+      const tags = [];
+      if (on) tags.push(badge('info', 'Lit'));
+      const p = protectedOn(n, levels);
+      if (p.levels.length) tags.push(badge('warn', protectedLabel(p.devices)));
+      e.tags.replaceChildren(...tags);
+    } else if (cell.kind === 'src') {
+      const on = withConfirm && st.src === Number(cell.ref);
+      if (withConfirm) e.node.setAttribute('aria-pressed', String(on));
+      else e.node.removeAttribute('aria-pressed');
+      e.tags.replaceChildren(...(on ? [badge('info', 'Selected')] : []));
+    } else if (cell.kind === 'confirm') {
+      e.node.disabled = !status.ready;
+      e.now.textContent = status.ready ? `${srcItem(st.src).label} to ${st.lit.size} destination${st.lit.size === 1 ? '' : 's'}` : status.text;
+    } else if (cell.kind === 'salvo') {
+      const found = !!salvoNamed(cell.ref);
+      e.node.disabled = !found;
+      e.now.textContent = found ? '' : 'Salvo not found';
+    }
   }
-  $('grid-clear').disabled = !lit.size;
-  $('grid-hint').textContent = lit.size
-    ? `${lit.size} destination${lit.size === 1 ? '' : 's'} lit. Tap a source to take it to ${lit.size === 1 ? 'it' : 'them'} on level${levelsOf(grid).length === 1 ? '' : 's'} ${levelText(levels)}.`
-    : 'Tap one or more destinations to light them, then tap a source.';
+  $('grid-clear').disabled = !st.lit.size && st.src == null;
+  const lv = `level${levels.length === 1 ? '' : 's'} ${levelText(levels)}`;
+  $('grid-hint').textContent = withConfirm
+    ? `Tap a source to select it and destinations to light them, then press Confirm to take on ${lv}.`
+    : st.lit.size
+      ? `${st.lit.size} destination${st.lit.size === 1 ? '' : 's'} lit. Tap a source to take it to ${st.lit.size === 1 ? 'it' : 'them'} on ${lv}.`
+      : 'Tap one or more destinations to light them, then tap a source.';
 }
 
-function toggleDst(n) {
-  if (lit.has(n)) lit.delete(n);
-  else lit.add(n);
+function tapDestination(n) {
+  st = G.tapDst(st, n);
   refresh();
 }
 
-$('grid-clear').addEventListener('click', () => { lit.clear(); refresh(); });
+$('grid-clear').addEventListener('click', () => { st = G.clearAll(st); refresh(); });
 
 // ---- taking
 
-// A take is in flight: source buttons wait, so a double tap sends one batch.
-let busy = null;
+// A take is in flight: buttons that send wait, so a double tap sends one batch.
+let busy = false;
+let busyTimer = 0;
+function applyBusy() {
+  for (const e of cells) if (e.cell.kind !== 'dst') e.node.setAttribute('aria-disabled', String(busy));
+}
 function setBusy(on) {
-  clearTimeout(busy);
-  busy = on ? setTimeout(() => setBusy(false), 5000) : null;
-  for (const e of cells) {
-    if (e.cell.kind !== 'src') continue;
-    e.node.setAttribute('aria-disabled', String(on));
-  }
+  clearTimeout(busyTimer);
+  busy = on;
+  if (on) busyTimer = setTimeout(() => setBusy(false), 5000);
+  applyBusy();
 }
 
-function takeSource(n) {
-  if (busy) return;
+// A plan is sent at once (Confirm, or a panel that sends at once) or after
+// the churning-letter confirm. Protected destinations are refused by the
+// router and said so; an all-protected plan is blocked with a message.
+// False if it was not sent or opened.
+function dispatch(plan, viaDialog) {
   $('grid-prot').hidden = true;
-  if (!lit.size) return showResult('warn', 'No destination lit', 'Tap one or more destinations to light them first, then tap a source.');
-  const levels = levelsOf(grid);
-  if (!levels.length) return showResult('error', 'No levels', 'This grid has no levels that exist on the router.');
-  const dsts = [...lit].sort((a, b) => a - b).map((d) => dstItem(d));
-  const plan = patchPlan(srcItem(n), dsts, levels);
   const { block, prot } = planBlocked(plan);
-  if (block) return showResult(block.kind, block.title, block.text);
-  if (confirmFor(grid, S.cfg.gridConfirm)) return openConfirm(plan, prot);
-  // Sent at once. Protected destinations are refused by the router, and said so.
-  if (sendTakes(plan)) setBusy(true);
-  noteProtected(prot);
+  if (block) { showResult(block.kind, block.title, block.text); return false; }
+  if (viaDialog) { confirm.open(plan, prot); return true; }
+  return send(plan, prot);
 }
 
-// Names the destinations that are protected, left on the page after the
-// result banner moves on.
-function noteProtected(prot) {
+function send(plan, prot) {
+  const ok = sendTakes(plan);
+  if (ok) setBusy(true);
+  notes(prot, plan.warnings || []);
+  return ok;
+}
+
+// Without a Confirm button: a source tap takes it to the lit destinations.
+function tapSource(n) {
+  if (busy) return;
+  if (G.hasConfirm(grid)) {
+    st = G.tapSrc(st, n);
+    return refresh();
+  }
+  if (!st.lit.size) return showResult('warn', 'No destination lit', 'Tap one or more destinations to light them first, then tap a source.');
+  const plan = routePlan(n);
+  if (plan) dispatch(plan, confirmFor(grid, S.cfg.gridConfirm));
+}
+
+function routePlan(n) {
+  const levels = levelsOf(grid);
+  if (!levels.length) { showResult('error', 'No levels', 'This grid has no levels that exist on the router.'); return null; }
+  return patchPlan(srcItem(n), [...st.lit].sort((a, b) => a - b).map((d) => dstItem(d)), levels);
+}
+
+// The Confirm button is the confirmation: it sends at once.
+function confirmPressed() {
+  if (busy || !G.confirmStatus(st).ready) return;
+  const plan = routePlan(st.src);
+  if (plan && dispatch(plan, false)) { st = G.afterConfirm(st); refresh(); }
+}
+
+function fireSalvo(cell) {
+  if (busy) return;
+  const s = salvoNamed(cell.ref);
+  if (!s) return;
+  const plan = salvoPlan(s, levelsOf(grid));
+  if (!plan.items.length) {
+    return showResult('error', `Salvo ${s.name} not sent`, plan.warnings.length ? `${plan.warnings.join('; ')}.` : 'It has no takes.');
+  }
+  dispatch(plan, confirmFor(grid, S.cfg.gridConfirm));
+}
+
+// Names the destinations that are protected and what a plan left out, kept
+// on the page after the result banner moves on.
+function notes(prot, warnings) {
   const box = $('grid-prot');
-  if (!prot.size) { box.hidden = true; return; }
-  box.replaceChildren(el('strong', null, 'Protected, not changed on the protected levels: '),
-    ...[...prot].flatMap(([item, p], i) => [i ? '; ' : '', labelNode(item.dst), ` (levels ${levelText(p.levels)}, ${protectedLabel(p.devices).toLowerCase()})`]));
-  box.hidden = false;
+  const kids = [];
+  if (prot.size) {
+    kids.push(el('div', null, el('strong', null, 'Protected, not changed on the protected levels: '),
+      ...[...prot].flatMap(([item, p], i) => [i ? '; ' : '', labelNode(item.dst), ` (levels ${levelText(p.levels)}, ${protectedLabel(p.devices).toLowerCase()})`])));
+  }
+  if (warnings.length) kids.push(el('div', null, el('strong', null, 'Left out: '), warnings.join('; ')));
+  box.replaceChildren(...kids);
+  box.hidden = !kids.length;
 }
 
 // ---- confirm: the same churning letter and lockout as the main page
 
-const KEYS = 'abcdefghjkmnpqrstuvwxyz';
-let lastKey = '';
-let pending = null;
-
-function openConfirm(plan, prot) {
-  pending?.lock.cancel();
-  let key;
-  do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
-  lastKey = key;
-  pending = { plan, prot, key };
-  const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
-  const verb = planVerb(plan);
-  $('confirm-title').textContent = `Confirm ${verb}`;
-  $('confirm-body').replaceChildren(
-    ...planSummary(plan, { prot }),
-    el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or tap Take once it is ready.'),
-  );
-  $('confirm-ok').textContent = `Take (${key.toUpperCase()})`;
-  $('confirm-ok').disabled = true;
-  $('confirm').hidden = false;
-  $('confirm-dialog').focus();
-  pending.lock = lockout(() => {
-    keyEl.classList.remove('sode__key--locked');
-    $('confirm-ok').disabled = false;
-  });
-}
-
-function closeConfirm() {
-  pending?.lock.cancel();
-  pending = null;
-  $('confirm').hidden = true;
-}
-
-function doTake() {
-  const p = pending;
-  closeConfirm();
-  if (sendTakes(p.plan)) setBusy(true);
-  noteProtected(p.prot);
-}
-
-$('confirm-cancel').addEventListener('click', closeConfirm);
-$('confirm-ok').addEventListener('click', () => { if (pending?.lock.ready()) doTake(); });
-$('confirm-dialog').addEventListener('keydown', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  if (e.key === 'Escape') return closeConfirm();
-  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || !pending?.lock.ready()) return;
-  if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake();
+const confirm = keyConfirm({
+  prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or tap Take once it is ready.'],
+  onTake: (plan, _viaKeys, prot) => { send(plan, prot); },
+  onClose: () => {},
 });
+$('confirm-dialog').addEventListener('keydown', confirm.key);
 
 // ---- wiring
 
@@ -243,12 +279,11 @@ on('result', (r) => {
 });
 on('wsclose', () => setBusy(false));
 on('hello', () => {
-  // A dst that no longer exists can't stay lit.
-  for (const n of [...lit]) if (!S.dstBy.has(n)) lit.delete(n);
-  closeConfirm();
+  st = G.prune(st, (n) => S.srcBy.has(n), (n) => S.dstBy.has(n));
+  confirm.close();
   build();
 });
-on('names', relabel);
+on('names', () => { relabel(); refresh(); });
 on('tally', refresh);
 onMsg('grids', (m) => {
   if (!S.cfg) return;
@@ -256,6 +291,7 @@ onMsg('grids', (m) => {
   S.cfg.gridConfirm = m.gridConfirm;
   build();
 });
+on('salvos', refresh);
 on('conn', () => {
   const c = connState();
   setDot($('grid-ws-dot'), $('grid-ws-text'), [c.ws[0], 'Server']);

@@ -1,11 +1,12 @@
 // Plans (what a confirm shows and sends), take results and their banners.
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
-import { el, S, search, on, onMsg, emit, wsSend, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
 import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
+import { resolveSalvo } from './salvostore.js';
 
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
@@ -13,6 +14,11 @@ const takes = new Map(); // take id → batch
 // ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 // One item per destination. undo/retry are the history entries an item
 // undoes or retries. Protection isn't kept here: planBlocked returns it.
+// A plan may also carry title (a heading line for the confirm) and warnings
+// (lines about what was left out), which planSummary shows as they are.
+
+// A plan item for new routes: dst takes groups ([{src, levels}]).
+export const takeItem = (dst, groups, retry = null) => ({ dst, groups, skipped: [], untouched: [], undo: null, retry });
 
 // Levels of a failed take that the router answered for, so it is known the
 // take didn't change them: still on their old route, or on someone else's.
@@ -47,16 +53,27 @@ function undoItem(e) {
 // is a retry (linked to its entry); any other is a redo, sent as a plain new
 // take with no link. Needs a real source and a level that still exists.
 export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
-const againItem = (e) => ({
-  dst: dstItem(e.dst, e.dstName),
-  groups: [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
-  skipped: [], untouched: [], undo: null, retry: e.ok ? null : e,
-});
+const againItem = (e) => takeItem(dstItem(e.dst, e.dstName),
+  [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }], e.ok ? null : e);
 
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
-  items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], untouched: [], undo: null, retry: null })),
+  items: dsts.map((dst) => takeItem(dst, [{ src, levels }])),
 });
+
+// A salvo (salvostore.js) as a plan: its takes grouped per destination.
+// What the router doesn't have is left out and listed in warnings. A salvo
+// is validated when it is saved (salvoProblem), not again here.
+export function salvoPlan(salvo, defaults) {
+  const r = resolveSalvo(salvo, {
+    src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u),
+  }, defaults);
+  const warnings = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) + ' on the router now');
+  return {
+    verb: 'salvo', title: `Salvo: ${salvo.name}`, warnings,
+    items: r.takes.map((t) => takeItem(dstItem(t.dst), t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })))),
+  };
+}
 // Follows (changes the router made after a take, see histRows) are left
 // out of an undo unless the confirm's box is ticked: extra.on. extra is
 // shared by copies of the plan, so the box works on whichever is sent.
@@ -92,6 +109,7 @@ export const VERBS = {
   undo: { word: 'undo', ask: 'undo', busy: 'Undoing…', resets: false },
   retry: { word: 'retry', ask: 'retry taking', busy: 'Retrying…', resets: false },
   redo: { word: 'redo', ask: 'redo the take of', busy: 'Redoing…', resets: false },
+  salvo: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
 // True when a plan has nothing to send (an undo with nothing routed before).
@@ -315,21 +333,18 @@ function itemSummary(item, boxed, prot, since) {
 // and what they replace. With several destinations each gets its own
 // block, headed by its name, so the groups are easy to tell apart.
 // prot: from planBlocked. spaceHint: the follows box says Space ticks it.
-export function planSummary(plan, opts = {}) {
-  const parts = planParts(plan, opts);
-  if (!plan.salvo) return parts;
-  // A salvo names itself and says what it could not resolve.
-  const miss = plan.missing?.length
-    ? [el('div', 'pb-alert pb-alert--warn', el('div', null, el('div', 'pb-alert__title', `${plan.missing.length} left out`), ...plan.missing.map((l) => el('div', null, l))))]
-    : [];
-  return [el('div', 'sode__label', `Salvo: ${plan.salvo}`), ...miss, ...parts];
-}
-
-function planParts(plan, { prot = new Map(), spaceHint = false } = {}) {
+export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
   // Restore goes back past newer changes on purpose; other undos warn.
   const since = plan.verb === 'undo' && !plan.at;
-  if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
+  const head = [
+    plan.title ? el('div', 'sode__label', plan.title) : null,
+    plan.warnings?.length
+      ? el('div', 'pb-alert pb-alert--warn', el('div', null, el('div', 'pb-alert__title', `${plan.warnings.length} left out`), ...plan.warnings.map((l) => el('div', null, l))))
+      : null,
+  ];
+  if (plan.items.length === 1) return [...head, planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
   return [
+    ...head,
     planQuestion(plan),
     ...plan.items.map((i, n) => el('section', 'sode__plan-item',
       el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),

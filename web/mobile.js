@@ -15,11 +15,11 @@ import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
 import {
   undoPlan, againPlan, planVerb, folderUndoPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
-  sendTakes, lastTake, nextTake, lastChip,
+  sendTakes, lastTake, nextTake, lastChip, VERBS,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
-import { patchProvider } from './salvos.js';
+import { salvoHost } from './salvos.js';
 import { levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
@@ -511,7 +511,7 @@ function closeSheet() {
 function confirmSheet() {
   const p = pending;
   closeSheet();
-  if (sendTakes(p) && p.verb === 'patch') reset();
+  if (sendTakes(p) && VERBS[p.verb].resets) reset();
 }
 
 const handle = $('m-slide-handle');
@@ -730,6 +730,8 @@ setStep(order()[0], false);
 
 // Salvos (salvos.js): a pressed button opens the usual confirm sheet; the
 // patch so far can fill a salvo.
-on('salvoFire', (plan) => { if (active()) sheetFor(plan); });
-patchProvider(() => (active() && M.sel.src && M.dsts.length
-  ? { src: M.sel.src, dsts: [...M.dsts], levelsText: inputs.lvl.value } : null));
+salvoHost({
+  active,
+  confirm: sheetFor,
+  patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
+});

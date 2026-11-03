@@ -113,8 +113,11 @@ function drop(ws) {
 }
 
 export function connect() {
-  const base = location.pathname.replace(/[^/]*$/, '');
-  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + base + 'ws');
+  // /ws next to the pages' base: the root (or a proxy's prefix), for the main
+  // page, /log and the grid pages (whose <base> points back up).
+  const url = new URL('ws', document.baseURI);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(url);
   S.ws = ws;
   S.wsState = 'connecting';
   emit('conn');
@@ -202,9 +205,6 @@ function handle(m) {
     case 'unlockResult':
       emit('unlockResult', m);
       break;
-    case 'filterSetsResult':
-      emit('filterSetsResult', m);
-      break;
     case 'locked':
       emit('locked');
       break;
@@ -219,7 +219,7 @@ function handle(m) {
     case 'sentAdd':
       emit(m.t, m);
       break;
-    default: // takeResult (plans.js); recent, historyCleared, history (history.js); filterSets (filterstore.js)
+    default: // takeResult (plans.js); recent, historyCleared, history (history.js); filterSets (filterstore.js); the answers to saves for everyone (globalsave.js)
       handlers[m.t]?.(m);
   }
 }
@@ -346,6 +346,20 @@ export const sentence = (t) => {
   return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
 };
 
+// Why a name can't be used, or ''. names: the names already taken (any
+// case); old: the name being edited, which may be kept or change case;
+// noun: "salvo", "filter set"; reserved: a name nothing may take.
+export function nameProblem(name, names, { noun = 'item', old = '', max = 32, reserved = '' } = {}) {
+  const n = name.trim();
+  if (!n) return 'Name required.';
+  if ([...n].length > max) return `Names are at most ${max} characters.`;
+  if (reserved && n.toLowerCase() === reserved.toLowerCase()) return `“${n}” is taken.`;
+  if (names.some((x) => x.toLowerCase() === n.toLowerCase() && x.toLowerCase() !== old.toLowerCase())) {
+    return `There is already a ${noun} named “${n}”.`;
+  }
+  return '';
+}
+
 // Patches can go out: Sode is reachable and connected to the router.
 export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 
@@ -416,14 +430,17 @@ export function search(list, q, n = 8) {
   best.total = out.length; // how many matched before the cut
   return best;
 }
-// A chevron for disclosure toggles: down when open, right when closed.
-export function chevron(open) {
-  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  icon.setAttribute('class', 'pb-icon pb-icon--sm');
-  icon.setAttribute('viewBox', '0 0 24 24');
-  icon.setAttribute('aria-hidden', 'true');
+// A vendored patchbay icon as an svg node; sm = the small size.
+export function icon(name, sm = true) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', sm ? 'pb-icon pb-icon--sm' : 'pb-icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
   const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', `vendor/patchbay/icons/lucide.svg#${open ? 'chevron-down' : 'chevron-right'}`);
-  icon.append(use);
-  return icon;
+  use.setAttribute('href', `vendor/patchbay/icons/lucide.svg#${name}`);
+  svg.append(use);
+  return svg;
 }
+
+// A chevron for disclosure toggles: down when open, right when closed.
+export const chevron = (open) => icon(open ? 'chevron-down' : 'chevron-right');

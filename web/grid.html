@@ -2,22 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<base href="../">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Grid · Sode</title>
 <link rel="icon" type="image/png" href="icon.png?s=192">
-<script>
-  // Apply the saved theme before first paint, as index.html does.
-  (() => {
-    let theme = null;
-    try {
-      theme = localStorage.getItem('sode-theme');
-      if (theme !== 'dark' && theme !== 'light' && theme !== 'system') theme = JSON.parse(localStorage.getItem('sode-device-defaults')).theme;
-    } catch (e) {}
-    if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
-  })();
-</script>
+<script src="prepaint.js" data-only="theme"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
@@ -35,7 +26,7 @@
     <span class="pb-status"><span class="pb-dot pb-dot--warn" id="grid-ws-dot" aria-hidden="true"></span><span id="grid-ws-text">Server</span></span>
     <span class="pb-status"><span class="pb-dot pb-dot--idle" id="grid-rt-dot" aria-hidden="true"></span><span id="grid-rt-text">Router</span></span>
     <span class="sode-grid__spacer"></span>
-    <a class="pb-btn pb-btn--outline pb-btn--sm" href="../">Back to Sode</a>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" href="./">Back to Sode</a>
   </header>
 
   <div class="pb-note pb-note--error" id="grid-missing" role="alert" hidden></div>
@@ -45,7 +36,7 @@
 
   <div class="sode-grid__bar" id="grid-bar" hidden>
     <span class="sode__hint" id="grid-hint" aria-live="polite"></span>
-    <button type="button" class="pb-btn pb-btn--outline" id="grid-clear">Clear lit</button>
+    <button type="button" class="pb-btn pb-btn--outline" id="grid-clear">Clear</button>
   </div>
   <div class="sode-grid__board" id="grid-board" role="group" aria-label="Grid"></div>
 </main>

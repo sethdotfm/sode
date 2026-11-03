@@ -2,20 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<base href="../">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Grids · Sode</title>
 <link rel="icon" type="image/png" href="icon.png?s=192">
-<script>
-  // Apply the saved theme before first paint, as index.html does.
-  (() => {
-    let theme = null;
-    try {
-      theme = localStorage.getItem('sode-theme');
-      if (theme !== 'dark' && theme !== 'light' && theme !== 'system') theme = JSON.parse(localStorage.getItem('sode-device-defaults')).theme;
-    } catch (e) {}
-    if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
-  })();
-</script>
+<script src="prepaint.js" data-only="theme"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
@@ -32,7 +23,7 @@
     <h1 class="sode-grid__title">Grids</h1>
     <span class="pb-status"><span class="pb-dot pb-dot--warn" id="ged-ws-dot" aria-hidden="true"></span><span id="ged-ws-text">Server</span></span>
     <span class="sode-grid__spacer"></span>
-    <a class="pb-btn pb-btn--outline pb-btn--sm" href="../">Back to Sode</a>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" href="./">Back to Sode</a>
   </header>
 
   <form class="sode-ged__lock sode-ged__form" id="ged-lock" autocomplete="off" hidden>
@@ -84,7 +75,7 @@
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="ged-clear">Clear</button>
           <span class="sode__hint" id="ged-sel" aria-live="polite"></span>
         </div>
-        <p class="sode__hint">Click a square, or drag over several, then Join them into one button, Split them again, or pick what the button is.</p>
+        <p class="sode__hint">Click a square, or drag over several, then Join them into one button, Split them again, or pick what the button is. A Confirm button makes source taps only select: pick a source, light destinations, press Confirm. Empty buttons just hold their place.</p>
         <div class="sode-ged__canvas" id="ged-canvas" role="grid" aria-label="Grid squares"></div>
 
         <fieldset class="sode-ged__cell" id="ged-cell" hidden>
@@ -97,6 +88,7 @@
             <div class="sode-ged__field" id="ged-ref-box">
               <label class="sode__label" for="ged-ref" id="ged-ref-label">Source</label>
               <input id="ged-ref" class="pb-input" role="combobox" aria-expanded="false" aria-controls="ged-menu" aria-autocomplete="list" spellcheck="false" autocomplete="off">
+              <span class="pb-select-wrap" id="ged-salvo-wrap" hidden><select id="ged-salvo" class="pb-select" aria-label="Salvo"></select></span>
               <ul id="ged-menu" class="pb-menu sode__menu" role="listbox" aria-label="Matches" hidden></ul>
               <span class="sode__hint" id="ged-ref-now"></span>
             </div>
@@ -112,6 +104,11 @@
         </div>
       </div>
 
+      <div class="sode-ged__row" id="ged-pin-row" hidden>
+        <input type="password" id="ged-spin" class="pb-input" placeholder="PIN" autocomplete="current-password" aria-label="Settings PIN">
+        <button type="button" class="pb-btn pb-btn--ok pb-btn--sm" id="ged-spin-ok">Unlock</button>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="ged-spin-cancel">Cancel</button>
+      </div>
       <div class="pb-note pb-note--warn" id="ged-warn" role="status" hidden></div>
       <div class="pb-note pb-note--error" id="ged-err" role="alert" hidden></div>
       <div class="pb-note" id="ged-saved" role="status" hidden></div>

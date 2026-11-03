@@ -5,19 +5,27 @@
 // levels), never names, because names are re-polled from the router.
 // A salvo: { name, items: [{ src, dsts: [n], levels: [ui] }] }.
 
-import { S, on, onMsg, emit, off, srcItem, dstItem } from './core.js';
+import { S, on, onMsg, emit, off } from './core.js';
 import { readJSON, writeJSON } from './store.js';
 
+// The limits the server enforces too (internal/config/salvos.go); the
+// shared cases in test/salvo_cases.json keep the two from drifting.
 export const MAX_SALVOS = 30;
 export const MAX_ITEMS = 100;
 export const MAX_DSTS = 100;
+export const MAX_TOTAL = 200;
+export const MAX_NUM = 0xFFFE;   // a source or destination number
+export const MAX_LEVEL = 64;     // a UI level
+export const MAX_BYTES = 48 * 1024; // all salvos as JSON
 const KEY = 'sode-salvos';
 
+// Numbers only, duplicates dropped; out-of-range values stay so that
+// salvoProblem can name them rather than quietly changing the salvo.
 const ints = (a) => [].concat(a ?? []).map(Number).filter((n) => Number.isInteger(n));
 export const normItem = (it) => ({
   src: Number.isInteger(+it?.src) ? +it.src : -1,
-  dsts: [...new Set(ints(it?.dsts).filter((n) => n >= 0))],
-  levels: [...new Set(ints(it?.levels).filter((n) => n >= 1))].sort((a, b) => a - b),
+  dsts: [...new Set(ints(it?.dsts))],
+  levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
 export const normSalvo = (s) => ({
   name: String(s?.name ?? '').trim(),
@@ -30,34 +38,37 @@ export const allSalvos = () => [...globalSalvos(), ...localSalvos()];
 export const findSalvo = (scope, name) =>
   allSalvos().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
-// Why a salvo can't be saved under this name in this scope, or ''. `old` is
-// the name being edited (it may be kept, or only change case).
-export function nameProblem(list, name, old = '') {
-  const n = name.trim();
-  if (!n) return 'Give the salvo a name.';
-  if ([...n].length > 32) return 'Names are at most 32 characters.';
-  if (list.some((s) => s.name.toLowerCase() === n.toLowerCase() && s.name.toLowerCase() !== old.toLowerCase())) {
-    return `There is already a salvo named “${n}”.`;
-  }
-  if (!old && list.length >= MAX_SALVOS) return `At most ${MAX_SALVOS} salvos.`;
-  return '';
-}
+// A salvo by name alone (a grid button's reference): everyone's first, then
+// this browser's.
+export const salvoNamed = (name) => allSalvos().find((s) => s.name.toLowerCase() === String(name).toLowerCase()) || null;
 
-// A salvo that can be saved: every item has a source and a destination.
-export const salvoProblem = (s) => {
+// Why a salvo (normalised) can't be saved, or ''. The name is checked with
+// nameProblem (core.js) and the list as a whole with salvosProblem.
+export function salvoProblem(s) {
   if (!s.items.length) return 'Add at least one take.';
   if (s.items.length > MAX_ITEMS) return `At most ${MAX_ITEMS} sources.`;
+  let total = 0;
   for (const it of s.items) {
     if (it.src < 0) return 'Every row needs a source.';
+    if (it.src > MAX_NUM) return `Source ${it.src + off()} is out of range.`;
     if (!it.dsts.length) return 'Every row needs a destination.';
     if (it.dsts.length > MAX_DSTS) return `At most ${MAX_DSTS} destinations per source.`;
+    const d = it.dsts.find((n) => n < 0 || n > MAX_NUM);
+    if (d != null) return `Destination ${d + off()} is out of range.`;
+    const l = it.levels.find((u) => u < 1 || u > MAX_LEVEL);
+    if (l != null) return `Level ${l} must be 1-${MAX_LEVEL}.`;
+    total += it.dsts.length;
   }
-  return salvoTotalProblem(s) || salvoConflict(s);
-};
+  if (total > MAX_TOTAL) return `A salvo can take at most ${MAX_TOTAL} destinations in total.`;
+  return salvoConflict(s);
+}
 
-export const MAX_TOTAL = 200;
-export const salvoTotalProblem = (s) =>
-  (s.items.reduce((a, it) => a + it.dsts.length, 0) > MAX_TOTAL ? `A salvo can take at most ${MAX_TOTAL} destinations in total.` : '');
+// Why this list of salvos (as it would be saved) is too much, or ''.
+export function salvosProblem(list) {
+  if (list.length > MAX_SALVOS) return `At most ${MAX_SALVOS} salvos.`;
+  const bytes = JSON.stringify(list.map(({ name, items }) => ({ name, items }))).length;
+  return bytes > MAX_BYTES ? `The salvos are too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB).` : '';
+}
 
 // Two items taking different sources to one destination on overlapping
 // levels (blank = the default levels, which overlap with everything) would
@@ -77,15 +88,20 @@ export function salvoConflict(s) {
   return '';
 }
 
+// list ({ name, items } each) with s replacing the salvo named `old`, or
+// added when old is '' (or no longer there).
+export function replaceSalvo(list, s, old = '') {
+  const next = list.map(({ name, items }) => ({ name, items }));
+  const at = next.findIndex((x) => x.name.toLowerCase() === old.toLowerCase());
+  const entry = { name: s.name, items: s.items };
+  if (old && at >= 0) next[at] = entry;
+  else next.push(entry);
+  return next;
+}
+
 // Replaces this browser's salvo `old` (or adds, when old is '') with s.
 export function saveLocalSalvo(s, old = '') {
-  const o = old.toLowerCase();
-  const list = localSalvos().map(({ name, items }) => ({ name, items }));
-  const at = list.findIndex((x) => x.name.toLowerCase() === o);
-  const next = { name: s.name, items: s.items };
-  if (old && at >= 0) list[at] = next;
-  else list.push(next);
-  writeJSON(KEY, list);
+  writeJSON(KEY, replaceSalvo(localSalvos(), s, old));
   emit('salvos');
 }
 export function deleteLocalSalvo(name) {
@@ -146,26 +162,6 @@ export function resolveSalvo(salvo, has, defaults) {
   return { takes: [...byDst].map(([dst, groups]) => ({ dst, groups })), missing };
 }
 
-// A plan for plans.js (verb 'salvo': leaves the patch boxes alone), with
-// plan.missing = text lines for what could not be resolved.
-export function salvoPlan(salvo, defaults) {
-  const r = resolveSalvo(salvo, {
-    src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u),
-  }, defaults);
-  const num = (n) => String(n + off());
-  const lines = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${num(m.n)} does not exist`) + ' on the router now');
-  // plan.error: a salvo saved before these checks existed; nothing is sent.
-  const takes = r.takes.reduce((a, t) => a + t.groups.length, 0);
-  const error = salvoConflict(salvo) || (takes > MAX_TOTAL ? salvoTotalProblem({ items: [{ dsts: new Array(takes) }] }) : salvoTotalProblem(salvo));
-  return {
-    verb: 'salvo', salvo: salvo.name, missing: lines, error,
-    items: error ? [] : r.takes.map((t) => ({
-      dst: dstItem(t.dst), skipped: [], untouched: [], undo: null, retry: null,
-      groups: t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })),
-    })),
-  };
-}
-
 // ---- making a salvo from a patch or from history
 
 // One item per source from takes [{ src, dst, levels }] (history entries or
@@ -184,9 +180,10 @@ export function itemsFromTakes(takes) {
 // The newest take made in Sode with the rest of its folder (same group),
 // from history newest first.
 export function latestFolderTakes(hist) {
-  const e = hist.find((x) => !x.ext && x.undo == null && x.retry == null);
+  const take = (x) => !x.ext && x.undo == null && x.retry == null;
+  const e = hist.find(take);
   if (!e) return [];
-  const es = e.group && e.groupN > 1 ? hist.filter((x) => x.group === e.group && !x.ext && x.undo == null) : [e];
+  const es = e.group && e.groupN > 1 ? hist.filter((x) => x.group === e.group && take(x)) : [e];
   return es.slice().reverse().map((x) => ({ src: x.src, dst: x.dst, levels: x.levels }));
 }
 

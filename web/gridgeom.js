@@ -1,9 +1,8 @@
 // Grid panels (#150): the pure parts. No imports, so Node tests load it.
 // A cell is { x, y, w, h, kind, ref, label }: zero-based, spans w x h, kind
-// 'src' | 'dst' | 'salvo' ('' while the editor has it joined but unassigned).
-// A rect is { x, y, w, h }.
-
-export const MAX_SIZE = 24;
+// 'src' | 'dst' | 'salvo' | 'confirm' (no ref) | '' (a spacer: an empty slot
+// that is saved like any other cell). Cells are the only truth; a square no
+// cell covers is empty too. A rect is { x, y, w, h }.
 
 // The rect between two squares, whichever corner each is.
 export function rectBetween(a, b) {
@@ -12,7 +11,7 @@ export function rectBetween(a, b) {
   return { x, y, w: Math.max(a.x, b.x) - x + 1, h: Math.max(a.y, b.y) - y + 1 };
 }
 
-export const meets =(a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+export const meets = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const inside = (c, r) => c.x >= r.x && c.y >= r.y && c.x + c.w <= r.x + r.w && c.y + c.h <= r.y + r.h;
 
 function union(a, b) {
@@ -39,15 +38,15 @@ export function expandRect(cells, r) {
 
 export const cellAt = (cells, x, y) => cells.find((c) => meets(c, { x, y, w: 1, h: 1 })) || null;
 export const cellsIn = (cells, r) => cells.filter((c) => meets(c, r));
-const blank = (c) => !c.kind || c.ref === '';
+const assigned = (c) => c.kind !== '';
 
 // Joins everything in (the expansion of) r into one cell. It keeps the first
-// assigned cell's kind, ref and label (top-left first), else is unassigned.
+// assigned cell's kind, ref and label (top-left first), else is a spacer.
 export function join(cells, r) {
   const rect = expandRect(cells, r);
   const inRect = cells.filter((c) => inside(c, rect)).sort((a, b) => a.y - b.y || a.x - b.x);
   if (rect.w * rect.h < 2) return { cells, rect };
-  const from = inRect.find((c) => !blank(c));
+  const from = inRect.find(assigned);
   const merged = { ...rect, kind: from?.kind || '', ref: from?.ref || '', label: from?.label || '' };
   return { cells: [...cells.filter((c) => !inside(c, rect)), merged], rect };
 }
@@ -55,16 +54,16 @@ export function join(cells, r) {
 // Assigned cells a join of r would lose: all but the one it keeps.
 export function lostByJoin(cells, r) {
   const rect = expandRect(cells, r);
-  const n = cells.filter((c) => inside(c, rect) && !blank(c)).length;
+  const n = cells.filter((c) => inside(c, rect) && assigned(c)).length;
   return rect.w * rect.h < 2 ? 0 : Math.max(0, n - 1);
 }
 
 // Assigned cells that resize to cols x rows would drop (those starting
 // past the new edge; ones across it are only shortened).
-export const lostByResize = (cells, cols, rows) => cells.filter((c) => (c.x >= cols || c.y >= rows) && !blank(c)).length;
+export const lostByResize = (cells, cols, rows) => cells.filter((c) => (c.x >= cols || c.y >= rows) && assigned(c)).length;
 
 // Splits every joined cell touching r back into single squares. The first
-// square keeps the assignment; the rest are left empty (not stored).
+// square keeps the cell; the rest are left empty (no cell).
 export function split(cells, r) {
   const out = [];
   for (const c of cells) {
@@ -109,9 +108,6 @@ export function resize(cells, cols, rows) {
   return out;
 }
 
-// What is saved: assigned cells only.
-export const savable = (cells) => cells.filter((c) => !blank(c));
-
 // Every square of the grid as the editor draws it: the cells, and an empty
 // 1x1 for each square no cell covers.
 export function squares(cells, cols, rows) {
@@ -136,8 +132,8 @@ export function slugify(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
 }
 
-export const RESERVED = ['ws', 'vendor', 'icon', 'manifest'];
-export const validLink = (s) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s) && s.length <= 40 && !RESERVED.includes(s);
+// Only for the live outline; the server has the last word on a link.
+export const validLink = (s) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s) && s.length <= 40;
 
 // A link not used by another grid: base, base-2, base-3, …
 export function freeLink(base, taken) {
