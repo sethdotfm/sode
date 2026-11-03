@@ -151,7 +151,9 @@ func TestUserUnlock(t *testing.T) {
 	if err := a.UserUnlock(c, "567890"); err != nil {
 		t.Fatalf("right PIN: %v", err)
 	}
-	if a.userPin.n != 0 || c.who() != "Bo" || !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
+	// A right PIN does not reset the count: it says who typed it, so it
+	// would hand its holder fresh guesses at the other users' PINs.
+	if a.userPin.n != 2 || c.who() != "Bo" || !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatalf("not unlocked as Bo: %q", c.who())
 	}
 	// A different connection stays locked.
