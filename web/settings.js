@@ -14,7 +14,7 @@ import { PREFS, resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
-import { unlock, relock, unlocked } from './pin.js';
+import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
 import { omitOwned } from './owned.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
@@ -155,7 +155,7 @@ export function openSettings() {
 // on open), not on every status update.
 function renderLock(opening = false) {
   if (!isOpen()) return;
-  const locked = S.pinSet && !unlocked();
+  const locked = needsPin();
   const flipped = locked !== ('locked' in form.dataset);
   if (locked) form.dataset.locked = '';
   else { delete form.dataset.locked; $('lock-help').hidden = true; }
@@ -404,6 +404,7 @@ function configResult(m) {
   }
   if (m.locked) {
     relock();
+    demandPin();
     showLockErr(m.err);
     return;
   }
@@ -510,6 +511,13 @@ $('names-refresh').addEventListener('click', () => {
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   if ('locked' in form.dataset) return void sendUnlock(); // Enter or Unlock in the PIN prompt
+  // A trusted user saves the rest without the PIN, but not a change to the
+  // PIN itself: ask now instead of after a refusal.
+  if (S.pinSet && trusted() && !unlocked() && ($('cfg-pin').value || $('cfg-pin-clear').checked)) {
+    demandPin();
+    renderLock();
+    return;
+  }
   const c = readSettings();
   const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
@@ -577,6 +585,7 @@ on('filters', renderGlobalSets);
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => { renderNamesStatus(); syncLock(); });
+on('access', () => { if (isOpen() && !saving()) renderLock(); });
 on('locked', () => {
   if (isOpen() && !saving()) showLockErr('Settings are locked; enter the PIN again.');
 });

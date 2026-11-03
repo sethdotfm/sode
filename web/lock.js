@@ -2,10 +2,11 @@
 // whether the page type is locked and who (if anyone) unlocked it
 // (`lockState`), and refuses what a locked connection asks for. This module
 // shows a full-viewport pad that sends the PIN on its own at the longest
-// length in use (shorter ones with the check key or Enter), locks again when
-// idle or on Ctrl+L, and lets the admin password (the settings PIN) make this
-// browser exempt via a server-issued token. An exempt browser can still lock
-// itself: the server then lets its token rest on that connection.
+// length in use (shorter ones with the check key or Enter), and locks again
+// when idle or on Ctrl+L. A user the server calls persistent ("never log
+// out") is given a session token when they unlock; this page keeps it and
+// presents it in `hi`, so a reload or a dropped link does not log them out,
+// and the idle timer skips them. Locking (Lock, Log out, Ctrl+L) revokes it.
 //
 // Off unless the server says this page type is locked: with no users and no
 // locks nothing here shows or is bound but a few idle listeners.
@@ -15,9 +16,10 @@ import { readStr, writeStr } from './store.js';
 import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots } from './lockrules.js';
 import { buildChip } from './lockchip.js';
 
-const TOKEN_KEY = 'sode-lock-token';
-// Per browser, set by an admin: skip the idle timer (never a manual lock).
-const NEVER_KEY = 'sode-lock-never';
+// The session token of a persistent user. localStorage rather than a cookie:
+// the socket's `hi` carries it, no HTTP endpoint is needed, and a cookie
+// would be JS-readable just the same unless HttpOnly (see AGENTS.md).
+const TOKEN_KEY = 'sode-session';
 const page = pageType(location.pathname);
 
 {
@@ -28,7 +30,7 @@ const page = pageType(location.pathname);
 }
 
 // What the server last said about this connection.
-const L = { enforced: false, locked: false, user: '', exempt: false, token: false };
+const L = { enforced: false, locked: false, user: '', trusted: false, persistent: false };
 export const lockState = () => ({ ...L });
 
 let hiFor = null; // the socket `hi` was sent on
@@ -40,10 +42,14 @@ on('conn', () => {
   wsSend({ t: 'hi', page, token: readStr(TOKEN_KEY) || '' });
 });
 
+// Keys of the removed admin-browser sign-in: drop what an older page left.
+writeStr('sode-lock-token', null);
+writeStr('sode-lock-never', null);
+
 // ---- the overlay, built the first time it is needed
 
 let root = null;
-let brand, dotsEl, msg, state, adminForm, adminInput, adminToggle, welcome, chip, checkKey;
+let brand, dotsEl, msg, state, welcome, chip, checkKey;
 let pin = '';
 let seq = 0; // the userUnlock whose reply counts
 let timer = 0;
@@ -80,33 +86,7 @@ function build() {
     checkKey,
   );
 
-  adminToggle = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Admin password');
-  adminToggle.type = 'button';
-  adminInput = el('input', 'pb-input');
-  adminInput.type = 'password';
-  adminInput.autocomplete = 'off';
-  adminInput.spellcheck = false;
-  adminInput.setAttribute('aria-label', 'Admin password');
-  const go = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Unlock this browser');
-  go.type = 'submit';
-  adminForm = el('form', 'sode-lock__admin', adminInput, go);
-  adminForm.hidden = true;
-  adminToggle.addEventListener('click', () => {
-    adminForm.hidden = !adminForm.hidden;
-    adminToggle.textContent = adminForm.hidden ? 'Admin password' : 'Use a PIN';
-    if (!adminForm.hidden) adminInput.focus();
-    else root.focus();
-    say('');
-  });
-  adminForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!adminInput.value) return;
-    const id = ++seq;
-    if (!wsSend({ t: 'adminUnlock', pin: adminInput.value, id })) return say('Not connected to Sode.', true);
-    say('Checking…');
-  });
-
-  const body = el('div', 'sode-lock__body', state, dotsEl, msg, pad, adminToggle, adminForm);
+  const body = el('div', 'sode-lock__body', state, dotsEl, msg, pad);
   welcome = el('p', 'sode-lock__welcome');
   welcome.hidden = true;
   root = el('div', 'sode-lock', brand, body, welcome);
@@ -118,12 +98,7 @@ function build() {
   document.body.append(root);
 
   // Who is logged in, with the way to lock and a small options menu.
-  chip = buildChip({
-    lock: lockNow,
-    forget: forgetBrowser,
-    never: () => !!readStr(NEVER_KEY),
-    setNever: (on) => writeStr(NEVER_KEY, on ? 'on' : null),
-  });
+  chip = buildChip({ lock: lockNow, logout: lockNow });
   document.body.append(chip.root);
 }
 
@@ -134,9 +109,9 @@ function say(text, bad = false) {
 }
 
 function render() {
-  const showChip = L.enforced && !L.locked && (L.user || L.exempt);
+  const showChip = L.enforced && !L.locked && L.user;
   if (!root && !L.locked && !showChip) return; // nothing configured: nothing built
-  const welcomeName = L.user || (L.exempt ? 'admin' : '');
+  const welcomeName = L.user;
   if (L.enforced && L.locked) showLock();
   else hideLock(welcomeName);
   build();
@@ -244,9 +219,6 @@ function hideLock(name = '') {
   inerted = [];
   const wasOn = root.classList.contains('is-on');
   root.classList.remove('is-on');
-  adminForm.hidden = true;
-  adminInput.value = '';
-  adminToggle.textContent = 'Admin password';
   pin = '';
   // The way out is slower than the way in (--sode-lock-out in lock.css is
   // the same OUT_FACTOR), so the last of it fades gently; the root is hidden
@@ -316,6 +288,7 @@ onMsg('userUnlockResult', (m) => {
   if (m.ok) {
     pin = '';
     say('');
+    if (m.token) writeStr(TOKEN_KEY, m.token); // a persistent user: keep the session
     return; // lockState follows
   }
   pin = '';
@@ -323,69 +296,45 @@ onMsg('userUnlockResult', (m) => {
   say(sentence(m.err), true);
 });
 
-onMsg('adminUnlockResult', (m) => {
-  if (m.id !== seq) return;
-  if (m.ok && m.token) {
-    writeStr(TOKEN_KEY, m.token);
-    say('');
-    return;
-  }
-  adminInput.select();
-  say(sentence(m.err || 'Wrong password.'), true);
-});
-
 onMsg('lockState', (m) => {
   const was = L.enforced && L.locked;
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.user = m.user || '';
-  L.exempt = !!m.exempt;
-  L.token = !!m.token || L.exempt;
+  L.trusted = !!m.trusted;
+  L.persistent = !!m.persistent;
   if (hiPending) {
     hiPending = false;
-    // A token the server no longer honors (the settings PIN changed).
-    if (!L.token && readStr(TOKEN_KEY)) {
-      writeStr(TOKEN_KEY, null);
-      writeStr(NEVER_KEY, null);
-    }
+    // A token the server no longer honors (PIN changed, user removed or no
+    // longer persistent, or revoked elsewhere): forget it.
+    if (!L.user && readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
   }
   render();
+  emit('access', { ...L });
   // A page that asked for something while locked asks again (log.js).
   if (was && !(L.enforced && L.locked)) emit('unlocked');
 });
 
 // ---- locking again
 
-// An admin browser (token) locks too: `suspend` has the server let its token
-// rest on this connection, and the admin password brings it back.
+// Lock and Log out both end the session: the server forgets the unlock and
+// revokes the token (so a reload cannot undo it), and this page forgets it.
 function lockNow() {
-  if (!L.enforced || !(L.user || L.exempt)) return;
-  wsSend({ t: 'userLock', suspend: L.exempt });
+  if (!L.enforced || !L.user) return;
+  writeStr(TOKEN_KEY, null);
+  wsSend({ t: 'userLock' });
   L.locked = true;
   L.user = '';
-  L.exempt = false;
+  L.trusted = false;
+  L.persistent = false;
   render();
-}
-
-function forgetBrowser() {
-  writeStr(TOKEN_KEY, null);
-  writeStr(NEVER_KEY, null);
-  wsSend({ t: 'userLock', forget: true });
-  L.exempt = false;
-  L.token = false;
-  L.user = '';
-  L.locked = L.enforced;
-  render();
+  emit('access', { ...L });
 }
 
 // Ctrl+L, in the capture phase so nothing underneath sees it. Only where it
 // does something: a page whose lock is on, unlocked as a user.
 document.addEventListener('keydown', (e) => {
   if (root && !root.hidden && root.classList.contains('is-on')) {
-    if (e.target === adminInput) {
-      if (e.key === 'Escape') { e.preventDefault(); adminToggle.click(); }
-      return;
-    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
     if (k === 'enter' && e.target.closest?.('button')) return; // a focused key presses itself
@@ -396,7 +345,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat && L.enforced && (L.user || L.exempt)) {
+  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat && L.enforced && L.user) {
     e.preventDefault();
     e.stopPropagation();
     lockNow();
@@ -410,7 +359,5 @@ const touch = () => { lastActive = Date.now(); };
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
 setInterval(() => {
-  // The browser's own "never auto-lock" counts only while it holds a token.
-  const never = L.token && !!readStr(NEVER_KEY);
-  if (idleLock(L, never, lastActive, Date.now(), S.cfg?.autoLockMinutes || 0)) lockNow();
+  if (idleLock(L, lastActive, Date.now(), S.cfg?.autoLockMinutes || 0)) lockNow();
 }, 5000);

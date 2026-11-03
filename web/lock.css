@@ -117,14 +117,6 @@
   grid-column: 1 / -1;
   height: var(--pb-control-h-lg);
 }
-.sode-lock__admin {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-4);
-  justify-content: center;
-}
-.sode-lock__admin[hidden] { display: none; }
 
 /* Who is logged in: the top left corner, below the lost-link banner when it
    is up (--sode-down-h). The shortcut tip owns the bottom left and is never

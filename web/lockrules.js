@@ -47,11 +47,18 @@ export function folderActor(entries, users) {
 export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastActive >= minutes * 60_000;
 
 // Whether the idle timer should lock this browser now. s is the lock state
-// ({enforced, locked, user, exempt}); neverAuto is this browser's own "never
-// auto-lock" flag, honored only while it holds an admin token. It skips the
-// timer only: Ctrl+L and the Lock button always work.
-export const idleLock = (s, neverAuto, lastActive, now, minutes) =>
-  !!(s.enforced && !s.locked && (s.user || s.exempt)) && !neverAuto && idleDue(lastActive, now, minutes);
+// ({enforced, locked, user, persistent}). A persistent ("never log out") user
+// is skipped: the server says so, and it skips ONLY the timer (Ctrl+L and the
+// Lock button always work).
+export const idleLock = (s, lastActive, now, minutes) =>
+  !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
+
+// Whether a low-risk settings save (the Settings form, filter sets, salvos)
+// must ask for the settings PIN first. A trusted user's connection needs none
+// unless the server just refused one (forced: it wanted the PIN after all).
+// The server decides; this only hides the prompt.
+export const needsPin = (pinSet, unlocked, trusted, forced) =>
+  !!pinSet && !unlocked && !(trusted && !forced);
 
 // Which kind of page this is, by its path.
 export function pageType(pathname) {

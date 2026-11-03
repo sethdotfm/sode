@@ -4,6 +4,7 @@
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
+import { demandPin } from './pin.js';
 
 const form = $('settings-view');
 const rows = el('div', 'sode__fields');
@@ -16,7 +17,7 @@ ok.setAttribute('role', 'status');
 const check = (id, label) => {
   const input = el('input', 'pb-check__input');
   input.type = 'checkbox';
-  input.id = id;
+  if (id) input.id = id;
   return { input, label: el('label', 'pb-check', input, el('span', 'pb-check__label', label)) };
 };
 const lockMain = check('usr-lock-main', 'Lock the main screen');
@@ -36,7 +37,7 @@ save.type = 'button';
 
 const group = el('fieldset', 'sode__group sode__users',
   el('legend', null, 'Users'),
-  el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. Entering the settings PIN (the admin password) on the lock screen lets that browser skip the locks. Changing or removing the settings PIN ends that for every browser.'),
+  el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. A trusted user can save Settings, filter sets and salvos without the settings PIN once logged in; users, clearing history and the settings PIN itself still need it. A user who never logs out stays logged in on the browser (a wall panel logs in once).'),
   rows,
   add,
   el('div', 'sode__field',
@@ -47,7 +48,7 @@ const group = el('fieldset', 'sode__group sode__users',
   el('div', 'sode__field',
     Object.assign(el('label', null, 'Lock after idle (minutes)'), { htmlFor: 'usr-auto' }),
     el('span', 'pb-number-wrap', autoInput),
-    el('span', 'sode__hint', '0 = never. A browser that skips the locks is not locked.')),
+    el('span', 'sode__hint', '0 = never. Users who never log out are not locked when idle.')),
   err,
   el('div', 'sode__names', ok, save));
 // Enter in a field here saves the users, not the whole settings form.
@@ -82,9 +83,25 @@ function addRow(u = { name: '', len: 0 }) {
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
   const rm = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
   rm.type = 'button';
+  const trust = check('', 'Trusted');
+  trust.input.checked = !!u.trusted;
+  trust.input.dataset.flag = 'trusted';
+  const never = check('', 'Never log out');
+  never.input.checked = !!u.persistent;
+  never.input.dataset.flag = 'persistent';
+  // Status as text, never colour alone: it follows the boxes.
+  const badges = el('span', 'sode__hint');
+  badges.setAttribute('role', 'status');
+  const paint = () => {
+    badges.textContent = [trust.input.checked && 'trusted', never.input.checked && 'never logs out'].filter(Boolean).join(', ');
+  };
+  paint();
+  for (const c of [trust, never]) c.input.addEventListener('change', () => { paint(); touched(); });
   const row = el('div', 'sode__users-row',
     el('div', 'sode__field', el('span', 'sode__label', 'Name'), name),
     el('div', 'sode__field', el('span', 'sode__label', 'PIN'), pin),
+    el('div', 'sode__fields', trust.label, never.label),
+    badges,
     rm);
   row.dataset.was = u.len ? u.name : '';
   rm.addEventListener('click', () => { row.remove(); touched(); });
@@ -124,7 +141,8 @@ save.addEventListener('click', () => {
   ok.textContent = '';
   const users = [...rows.children].map((row) => {
     const [name, pin] = row.querySelectorAll('input');
-    return { name: name.value.trim(), was: row.dataset.was, pin: pin.value };
+    const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
+    return { name: name.value.trim(), was: row.dataset.was, pin: pin.value, trusted: flag('trusted'), persistent: flag('persistent') };
   });
   // The server holds the rules (names, PIN length, limits) and says what is wrong.
   const mins = Math.trunc(Number(autoInput.value)) || 0;
@@ -142,7 +160,7 @@ onMsg('usersResult', (m) => {
     ok.textContent = 'Saved.';
     return;
   }
-  if (m.locked) emit('locked'); // the settings PIN is wanted again
+  if (m.locked) { demandPin(); emit('locked'); } // the settings PIN is wanted again
   fail(m.err);
 });
 

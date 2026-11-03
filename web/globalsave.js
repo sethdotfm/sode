@@ -5,7 +5,7 @@
 // and how it shows a note.
 
 import { S, on, onMsg, wsSend, sentence } from './core.js';
-import { unlock, relock, unlocked } from './pin.js';
+import { unlock, relock, needsPin, demandPin } from './pin.js';
 import { showResult } from './plans.js';
 
 // t: the message sent ({ t, ...payload, id }; a payload's own t wins) and
@@ -23,7 +23,7 @@ export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, setNote, isOpen,
   // the server says ok.
   function change(payload, done) {
     pending = { run: () => send(payload), done };
-    if (S.pinSet && !unlocked()) return askPin();
+    if (needsPin()) return askPin();
     pending.run();
   }
 
@@ -45,6 +45,7 @@ export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, setNote, isOpen,
     const open = isOpen();
     if (m.locked) {
       relock();
+      demandPin();
       if (open) {
         pending = { run: p.run, done: p.done };
         return askPin('Enter the PIN again.');

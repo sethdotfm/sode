@@ -1,6 +1,5 @@
 // The "Logged in as" chip of the lock screen (#151) and what hangs off it: a
-// small options menu (change my PIN, never auto-lock this browser, forget
-// this browser) and the change-PIN dialog. lock.js owns the state and passes
+// small options menu (change my PIN, log out) and the change-PIN dialog. lock.js owns the state and passes
 // the actions in; this builds the DOM with el() only.
 
 import { el, S, onMsg, wsSend, sentence } from './core.js';
@@ -16,7 +15,7 @@ const field = (id, label, auto) => {
   return { input, row: el('div', 'sode-lock__field', Object.assign(el('label', null, label), { htmlFor: id }), input) };
 };
 
-// api: { lock(), forget(), never() -> bool, setNever(bool) }.
+// api: { lock(), logout() }.
 export function buildChip(api) {
   const name = el('span', 'sode-lock__who-name');
   const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Lock');
@@ -29,14 +28,10 @@ export function buildChip(api) {
 
   const pinBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Change my PIN');
   pinBtn.type = 'button';
-  const neverBox = el('input', 'pb-check__input');
-  neverBox.type = 'checkbox';
-  neverBox.id = 'sode-lock-never';
-  const neverRow = el('label', 'pb-check', neverBox, el('span', 'pb-check__label', 'Never auto-lock this browser'));
-  const forgetBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Forget this browser');
-  forgetBtn.type = 'button';
-  forgetBtn.title = 'Stop skipping the lock on this browser';
-  const menu = el('div', 'sode-lock__menu', pinBtn, neverRow, forgetBtn);
+  const outBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log out');
+  outBtn.type = 'button';
+  outBtn.title = 'End this session on this browser';
+  const menu = el('div', 'sode-lock__menu', pinBtn, outBtn);
   menu.id = 'sode-lock-menu';
   menu.hidden = true;
 
@@ -53,8 +48,7 @@ export function buildChip(api) {
   });
   document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !root.contains(e.target)) setMenu(false); }, true);
   lockBtn.addEventListener('click', () => { setMenu(false); api.lock(); });
-  neverBox.addEventListener('change', () => api.setNever(neverBox.checked));
-  forgetBtn.addEventListener('click', () => { setMenu(false); api.forget(); });
+  outBtn.addEventListener('click', () => { setMenu(false); api.logout(); });
   pinBtn.addEventListener('click', () => { setMenu(false); openPin(); });
 
   // ---- change my PIN
@@ -122,12 +116,7 @@ export function buildChip(api) {
   function update(L, chip) {
     root.hidden = !chip;
     if (!chip) { setMenu(false); return; }
-    name.textContent = `Logged in as ${L.user || 'admin'}`;
-    optBtn.hidden = !(L.user || L.token);
-    pinBtn.hidden = !L.user;
-    neverRow.hidden = !L.token;
-    forgetBtn.hidden = !L.token;
-    neverBox.checked = !!api.never();
+    name.textContent = `Logged in as ${L.user}`;
   }
   return { root, update, menuOpen: () => !menu.hidden };
 }

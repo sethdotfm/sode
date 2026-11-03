@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  padKey, padCap, sendDelay, sendable, idleDue, idleLock, pageType, liftFrom, shouldFly, brandFrames,
+  padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, pageType, liftFrom, shouldFly, brandFrames,
   dots, actorUser, folderActor,
 } from '../lockrules.js';
 
@@ -61,19 +61,25 @@ test('idleDue', () => {
   assert.equal(idleDue(1000, 5 * 60_000, 5), false);
 });
 
-test('idleLock: users and admin browsers lock when idle, the never flag skips only the timer', () => {
+test('idleLock: a logged-in user locks when idle; a persistent one never does', () => {
   const t = 5 * 60_000;
-  const user = { enforced: true, locked: false, user: 'Ana', exempt: false };
-  const admin = { enforced: true, locked: false, user: '', exempt: true };
-  assert.equal(idleLock(user, false, 0, t, 5), true);
-  assert.equal(idleLock(admin, false, 0, t, 5), true);
-  assert.equal(idleLock(admin, true, 0, t, 5), false);
-  assert.equal(idleLock(user, true, 0, t, 5), false);
-  assert.equal(idleLock({ ...user, locked: true }, false, 0, t, 5), false);
-  assert.equal(idleLock({ ...user, enforced: false }, false, 0, t, 5), false);
-  assert.equal(idleLock({ enforced: true, locked: false, user: '', exempt: false }, false, 0, t, 5), false);
-  assert.equal(idleLock(user, false, 0, t, 0), false);
-  assert.equal(idleLock(user, false, 1000, t, 5), false);
+  const user = { enforced: true, locked: false, user: 'Ana', persistent: false };
+  assert.equal(idleLock(user, 0, t, 5), true);
+  assert.equal(idleLock({ ...user, persistent: true }, 0, t, 5), false);
+  assert.equal(idleLock({ ...user, locked: true }, 0, t, 5), false);
+  assert.equal(idleLock({ ...user, enforced: false }, 0, t, 5), false);
+  assert.equal(idleLock({ enforced: true, locked: false, user: '' }, 0, t, 5), false);
+  assert.equal(idleLock(user, 0, t, 0), false);
+  assert.equal(idleLock(user, 1000, t, 5), false);
+});
+
+test('needsPin: a trusted user skips the prompt until the server demands the PIN', () => {
+  assert.equal(needsPin(false, false, false, false), false); // no PIN set
+  assert.equal(needsPin(true, false, false, false), true);
+  assert.equal(needsPin(true, true, false, false), false); // PIN entered
+  assert.equal(needsPin(true, false, true, false), false); // trusted user
+  assert.equal(needsPin(true, false, true, true), true); // the server refused: PIN after all
+  assert.equal(needsPin(true, true, true, true), false);
 });
 
 test('pageType', () => {
