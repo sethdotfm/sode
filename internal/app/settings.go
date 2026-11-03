@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"slices"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/internal/swp08"
@@ -133,8 +132,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		return err
 	}
 	old, c := oldRt.cfg, nr.cfg
-	reconnect := old.Router != c.Router || old.Matrix != c.Matrix || old.Levels != c.Levels ||
-		old.LevelWireOffset != c.LevelWireOffset || old.NameLength != c.NameLength || old.NameRequests != c.NameRequests
+	reconnect := config.Changed(old, c, "router")
 
 	page := a.readHello()
 	a.mu.Lock()
@@ -183,17 +181,20 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "changing the router, trusted proxies or PIN attempt limit needs the settings PIN"
+	return "changing the router, levels, name settings, fire mode, trusted proxies or PIN attempt limit needs the settings PIN"
 }
 func (guardedErr) Is(target error) bool { return target == errLocked }
 
 // trustedMayNotChange: the Settings form's fields a trusted user can't change
-// because they weaken the admin's guards: the router (point Sode elsewhere),
-// trustedProxies (forge who()/addresses in history and logs) and pinMaxTries
-// (turn the permanent PIN lockout off).
+// (the guard roles "router" and "pin" on config.Config): the router and how
+// it is read (changing them reconnects and cuts takes in flight), and what
+// would weaken the admin's guards: trustedProxies (forge who()/addresses in
+// history and logs), pinMaxTries (turn the permanent PIN lockout off) and
+// how confirms are fired. next is compared as it will be saved, normalized.
 func trustedMayNotChange(live, next config.Config) error {
-	if live.Router != next.Router || live.PinMaxTries != next.PinMaxTries ||
-		!slices.Equal(live.TrustedProxies, next.TrustedProxies) {
+	n := next.Clone()
+	n.Normalize()
+	if config.Changed(live, n, "router", "pin") {
 		return guardedErr{}
 	}
 	return nil

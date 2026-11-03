@@ -121,9 +121,15 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes := map[string]func(*config.Config){
-		"router":         func(x *config.Config) { x.Router = "10.9.9.9:8910" },
-		"pinMaxTries":    func(x *config.Config) { x.PinMaxTries = 0 },
-		"trustedProxies": func(x *config.Config) { x.TrustedProxies = []string{"0.0.0.0/0"} },
+		"router":          func(x *config.Config) { x.Router = "10.9.9.9:8910" },
+		"pinMaxTries":     func(x *config.Config) { x.PinMaxTries = 0 },
+		"trustedProxies":  func(x *config.Config) { x.TrustedProxies = []string{"0.0.0.0/0"} },
+		"matrix":          func(x *config.Config) { x.Matrix = 5 },
+		"levels":          func(x *config.Config) { x.Levels = 4 },
+		"levelWireOffset": func(x *config.Config) { x.LevelWireOffset = 3 },
+		"nameRequests":    func(x *config.Config) { x.NameRequests = "ext" },
+		"fireMode":        func(x *config.Config) { x.FireMode = "native" },
+		"salvoGroup":      func(x *config.Config) { x.SalvoGroup = 5 },
 	}
 	before := a.r().cfg
 	for name, ch := range changes {
@@ -136,6 +142,12 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	}
 	if a.r().cfg.Router != before.Router || a.r().cfg.PinMaxTries != before.PinMaxTries || len(a.r().cfg.TrustedProxies) != 0 {
 		t.Fatal("a refused save changed the config")
+	}
+	// The same router with stray spaces is not a change.
+	pad := a.r().cfg.Clone()
+	pad.Router = " " + pad.Router + " "
+	if err := a.SaveSettings(c, pad, "", false); err != nil {
+		t.Fatalf("padded but unchanged router refused: %v", err)
 	}
 	// An ordinary field still saves, and the same values resubmitted are fine.
 	cfg := a.r().cfg.Clone()

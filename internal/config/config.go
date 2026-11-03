@@ -21,39 +21,39 @@ import (
 // Config is everything editable from the settings dialog. Process-level
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
-	Router string `yaml:"router" json:"router"`
+	Router string `yaml:"router" json:"router" guard:"router"`
 	// BrandText replaces "Sode" in the header and page titles ("" = Sode);
 	// BrandBorder is a colour name from BrandColors for a border round the
 	// window ("" = none). Display only: never touches the router link.
-	BrandText   string `yaml:"brandText,omitempty" json:"brandText"`
-	BrandBorder string `yaml:"brandBorder,omitempty" json:"brandBorder"`
+	BrandText   string `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
+	BrandBorder string `yaml:"brandBorder,omitempty" json:"brandBorder" guard:"open"`
 	// RouterName is a friendly name for the status card; RouterShow picks
 	// what the card shows: "address" (default), "name" or "none".
-	RouterName      string `yaml:"routerName" json:"routerName"`
-	RouterShow      string `yaml:"routerShow" json:"routerShow"`
-	Matrix          int    `yaml:"matrix" json:"matrix"`
-	Levels          int    `yaml:"levels" json:"levels"`
-	LevelWireOffset int    `yaml:"levelWireOffset" json:"levelWireOffset"`
-	DefaultLevels   string `yaml:"defaultLevels" json:"defaultLevels"`
-	NameLength      int    `yaml:"nameLength" json:"nameLength"`
-	NameRequests    string `yaml:"nameRequests" json:"nameRequests"` // std | ext
+	RouterName      string `yaml:"routerName" json:"routerName" guard:"open"`
+	RouterShow      string `yaml:"routerShow" json:"routerShow" guard:"open"`
+	Matrix          int    `yaml:"matrix" json:"matrix" guard:"router"`
+	Levels          int    `yaml:"levels" json:"levels" guard:"router"`
+	LevelWireOffset int    `yaml:"levelWireOffset" json:"levelWireOffset" guard:"router"`
+	DefaultLevels   string `yaml:"defaultLevels" json:"defaultLevels" guard:"open"`
+	NameLength      int    `yaml:"nameLength" json:"nameLength" guard:"router"`
+	NameRequests    string `yaml:"nameRequests" json:"nameRequests" guard:"router"` // std | ext
 	// FireMode is how a confirm of several takes is sent: "sequential" (one
 	// extended connect after another) or "native" (a SW-P-08 group salvo,
 	// set with one Go, so they land much closer together; app/fire.go). SalvoGroup is the group
 	// (0-127) native salvos stage in: the router's list is shared by every
 	// client, so it must be one only Sode uses.
-	FireMode           string   `yaml:"fireMode" json:"fireMode"`
-	SalvoGroup         int      `yaml:"salvoGroup" json:"salvoGroup"`
-	NumberOffset       int      `yaml:"numberOffset" json:"numberOffset"`
-	ConfirmLockoutMs   int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs"`
-	ConfirmEnter       bool     `yaml:"confirmEnter" json:"confirmEnter"`
-	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds"`
-	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds"`
-	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies"`
+	FireMode           string   `yaml:"fireMode" json:"fireMode" guard:"pin"`
+	SalvoGroup         int      `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
+	NumberOffset       int      `yaml:"numberOffset" json:"numberOffset" guard:"open"`
+	ConfirmLockoutMs   int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs" guard:"open"`
+	ConfirmEnter       bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
+	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
+	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
+	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
 	// HiddenDsts is a Recent filter expression (web/filter.js) for
 	// destinations whose changes from other panels every browser hides
 	// unless its Filters show them; still recorded. E.g. a shader's monitor.
-	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts"`
+	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
 	// FilterSets are named Recent filters offered to every browser as
 	// quick buttons; browsers can add their own.
 	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
@@ -63,28 +63,28 @@ type Config struct {
 	// LegacyPresets reads the key presets had before Beta 1.5 was released
 	// ("salvos"); Normalize moves them to Presets, so the next save writes
 	// the new key.
-	LegacySalvos []Preset `yaml:"salvos,omitempty" json:"-"`
+	LegacySalvos []Preset `yaml:"salvos,omitempty" json:"-" guard:"open"`
 	// Grid was parked (#150); ignored. Kept so a file that has them loads,
 	// and dropped on the next save.
-	LegacyGrids       any `yaml:"grids,omitempty" json:"-"`
-	LegacyGridConfirm any `yaml:"gridConfirm,omitempty" json:"-"`
+	LegacyGrids       any `yaml:"grids,omitempty" json:"-" guard:"open"`
+	LegacyGridConfirm any `yaml:"gridConfirm,omitempty" json:"-" guard:"open"`
 	// HideDsts is no longer used; kept so files that have it load.
-	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
+	HideDsts []int `yaml:"hideDsts,omitempty" json:"-" guard:"open"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
 	// the default (DefaultLevelColors, then the patchbay swatch). Entries
 	// past Levels are kept but unused.
-	LevelColors []string `yaml:"levelColors" json:"levelColors"`
+	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
 	// LevelNumbering is how levels are shown and typed: "1" (1-17), "0"
 	// (0-16) or "va" (V, 1-16: "0" with level 0 shown as V).
-	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering"`
+	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering" guard:"open"`
 	// LevelTypedBase is no longer used; kept so files that have it load.
-	LevelTypedBase int `yaml:"levelTypedBase,omitempty" json:"-"`
+	LevelTypedBase int `yaml:"levelTypedBase,omitempty" json:"-" guard:"open"`
 	// SettingsPin is a HashPin hash guarding the settings view; "" = none.
 	// Never sent to browsers.
 	SettingsPin string `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
 	// PinMaxTries wrong PINs in a row lock settings until the PIN is reset
 	// (sode -reset-pin) or Sode restarts; 0 = never.
-	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries"`
+	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
 	// DeviceDefaults are what the "This device" settings are for browsers
 	// that haven't chosen their own. Browser-side only: changing them never
 	// touches the router link.
