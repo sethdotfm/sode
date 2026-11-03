@@ -46,7 +46,7 @@ To try it without a router, run the bundled simulator from a checkout: `docker c
 
 **Several destinations:** press `+` (or Ctrl+Enter) after each destination instead of Tab. The takes land in history as one folder with **Undo all**.
 
-**Presets:** Ctrl+g (⌘g on a Mac) opens the Presets popup from anywhere.
+**Presets.** Buttons above Recent that take a saved set of sources to destinations in one confirm. **Edit** (or **Presets…** when there are none) opens the editor: each take is a source, destinations and levels (numbers or names; blank levels = the default levels), and **Fill from patch boxes** or **Fill from latest folder in Recent** adds takes for you. Save for **This browser** or **Everyone** (Settings PIN needed, like filter sets). They are stored as numbers, so a rename on the router changes nothing, and a number the router no longer has is left out and listed in the confirm. A preset is one batch, so it is one folder in Recent and Undo all undoes it, marked "Preset: name" (quick search finds it by that name too). Only **pinned** presets are buttons above Recent; **Ctrl+g** (**⌘g** on a Mac; the **Presets** button on a phone) opens a popup that lists all of them with a search box: arrows or Ctrl+j/k to move, Enter fires through the usual confirm, Esc closes. Each row has **Pin/Unpin** for this browser and, for everyone's presets, **Pin for everyone** (Settings PIN); the editor has a Pinned checkbox. In keyboard mode (Esc with the boxes empty) **p** jumps to the pinned presets. With **Fire confirms of several takes** set to **Native salvo** (Settings → Takes, `fireMode: native`), a preset, like any confirm of several takes, is sent as one SW-P-08 group salvo, so its routes land much closer together (about 4 ms apart on the Ultrix instead of ~16 ms); if the router doesn't acknowledge it, Sode clears the salvo group and sends the takes one after another as before.
 
 **Last take:** Ctrl+s, Ctrl+d and Ctrl+f fill Source, Destination or Levels from your last take; each box shows it as a small chip you can click. Ctrl+Shift+s and Ctrl+Shift+d do the same with the next source and destinations (every destination shifted), for patching a run in order: Cam 1 → Rec 1 + Rec 5, then Cam 2 → Rec 2 + Rec 6. Each box also has a small "Next" chip that opens to show the value when you hover it or hold Shift. Settings → This device → "Next means" picks the next number or the next match of the name's text.
 
@@ -156,12 +156,18 @@ The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_D
 
 ## Releasing
 
-Bump `Version` in `internal/app/version.go` and the `**Version:**` line above, then run `go test ./internal/app -run TestVersionNoted` (with `SODE_RELEASE_TAG=v<version>` it also checks the tag).
+Bump `Version` in `internal/app/version.go` and the `**Version:**` line above, move the top of `CHANGELOG.md` to the new version, then run `go test ./internal/app -run TestVersionNoted` (with `SODE_RELEASE_TAG=v<version>` it also checks the tag).
 
 Pushing a `v<version>` tag makes CI check it and publish the multi-arch image to ghcr as `latest` and the tag name; then make a GitHub release from the tag.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+
+## AI disclosure
+
+Sode is written with AI assistance: much of the code, tests and documentation is produced by Claude (Anthropic) through Claude Code, working from issues and direction written by the maintainer, who reviews it and tests it against a real router. Commits made this way carry a `Co-Authored-By: Claude` trailer. Treat it like any software that has not been audited: read it, and try it on a non-critical router first.
 
 ## License
 
 Public domain ([Unlicense](LICENSE)). The vendored Lucide icons keep their own license in `web/vendor/patchbay/icons/`.
-
-**Presets.** Buttons above Recent that take a saved set of sources to destinations in one confirm. **Edit** (or **Presets…** when there are none) opens the editor: each take is a source, destinations and levels (numbers or names; blank levels = the default levels), and **Fill from patch boxes** or **Fill from latest folder in Recent** adds takes for you. Save for **This browser** or **Everyone** (Settings PIN needed, like filter sets). They are stored as numbers, so a rename on the router changes nothing, and a number the router no longer has is left out and listed in the confirm. A preset is one batch, so it is one folder in Recent and Undo all undoes it, marked "Preset: name" (quick search finds it by that name too). Only **pinned** presets are buttons above Recent; **Ctrl+g** (**⌘g** on a Mac; the **Presets** button on a phone) opens a popup that lists all of them with a search box: arrows or Ctrl+j/k to move, Enter fires through the usual confirm, Esc closes. Each row has **Pin/Unpin** for this browser and, for everyone's presets, **Pin for everyone** (Settings PIN); the editor has a Pinned checkbox. In keyboard mode (Esc with the boxes empty) **p** jumps to the pinned presets. With **Fire confirms of several takes** set to **Native salvo** (Settings → Takes, `fireMode: native`), a preset, like any confirm of several takes, is sent as one SW-P-08 group salvo, so its routes land much closer together (about 4 ms apart on the Ultrix instead of ~16 ms); if the router doesn't acknowledge it, Sode clears the salvo group and sends the takes one after another as before.
