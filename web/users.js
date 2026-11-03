@@ -144,7 +144,6 @@ function fill() {
   lockMain.input.checked = !!S.cfg?.locks?.main;
   lockLog.input.checked = !!S.cfg?.locks?.log;
   autoInput.value = String(S.cfg?.autoLockMinutes || 0);
-  maxInput.value = String(S.cfg?.maxPinLen || 8);
   edited = false;
   err.hidden = true;
   save.disabled = false;

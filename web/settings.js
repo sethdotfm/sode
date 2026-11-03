@@ -50,7 +50,7 @@ function showView() {
 let clean = '';
 let savedAt = null;
 const formState = () => JSON.stringify([...form.querySelectorAll('input, select, textarea')]
-  .filter((f) => !f.closest('.sode__device, .sode__lock, .sode__users'))
+  .filter((f) => !f.closest('.sode__device, .sode__lock, .sode__users') && f.id !== 'settings-find')
   .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)));
 const dirty = () => isOpen() && formState() !== clean;
 const warned = () => !$('settings-unsaved').hidden;

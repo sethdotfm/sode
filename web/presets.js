@@ -171,6 +171,8 @@ const saver = globalSaver({
 let open = false, back = null;
 // cur: the preset being edited: { scope, old, name, items: [{ src, dsts, levels }] } as typed text.
 let cur = null, dirty = false, deleting = false, discard = false;
+// An edit: unsaved, and a close warning given earlier no longer covers it.
+const touch = () => { dirty = true; discard = false; };
 const blankRow = () => ({ src: '', dsts: '', levels: '' });
 
 const display = (n) => String(n + off());
@@ -222,7 +224,7 @@ function renderRows() {
       inp.autocomplete = 'off';
       inp.spellcheck = false;
       inp.setAttribute('aria-label', label);
-      inp.addEventListener('input', () => { r[key] = inp.value; dirty = true; upd(); setNote(''); });
+      inp.addEventListener('input', () => { r[key] = inp.value; touch(); upd(); setNote(''); });
       return inp;
     };
     upd();
@@ -230,7 +232,7 @@ function renderRows() {
       field('src', 'Source', `Take ${i + 1} source`),
       field('dsts', 'Destinations', `Take ${i + 1} destinations`),
       field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`),
-      btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { cur.items.splice(i, 1); dirty = true; renderRows(); }),
+      btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { cur.items.splice(i, 1); touch(); renderRows(); }),
       hint);
   }));
 }
@@ -268,8 +270,8 @@ pick.addEventListener('change', () => {
   const i = v.indexOf(':');
   load(findPreset(v.slice(0, i), v.slice(i + 1)));
 });
-nameIn.addEventListener('input', () => { cur.name = nameIn.value; dirty = true; setNote(''); });
-pinnedIn.addEventListener('change', () => { cur.pinned = pinnedIn.checked; dirty = true; });
+nameIn.addEventListener('input', () => { cur.name = nameIn.value; touch(); setNote(''); });
+pinnedIn.addEventListener('change', () => { cur.pinned = pinnedIn.checked; touch(); });
 scopeIn.addEventListener('change', () => { cur.scope = scopeIn.value; });
 
 function fillFromBoxes() {
@@ -285,7 +287,7 @@ function fillFromHistory() {
 function addRows(items, note) {
   if (cur.items.length === 1 && !cur.items[0].src && !cur.items[0].dsts) cur.items = [];
   cur.items.push(...items.map(rowFromItem));
-  dirty = true;
+  touch();
   renderRows();
   setNote(note);
 }
