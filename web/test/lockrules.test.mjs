@@ -1,17 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { padKey, sendDelay, idleDue, pageType, liftFrom, dots, PIN_MAX, MORE_DIGITS_WAIT } from '../lockrules.js';
+import { padKey, sendDelay, idleDue, pageType, liftFrom, dots, MORE_DIGITS_WAIT } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
-  assert.equal(padKey('', '1'), '1');
-  assert.equal(padKey('12', '3'), '123');
-  assert.equal(padKey('123', 'back'), '12');
-  assert.equal(padKey('', 'back'), '');
-  assert.equal(padKey('123', 'clear'), '');
-  assert.equal(padKey('1', 'x'), '1');
-  assert.equal(padKey('1', 'Enter'), '1');
-  const full = '1'.repeat(PIN_MAX);
-  assert.equal(padKey(full, '2'), full);
+  assert.equal(padKey('', '1', [4]), '1');
+  assert.equal(padKey('12', '3', [4]), '123');
+  assert.equal(padKey('123', 'back', [4]), '12');
+  assert.equal(padKey('', 'back', [4]), '');
+  assert.equal(padKey('123', 'clear', [4]), '');
+  assert.equal(padKey('1', 'x', [4]), '1');
+  assert.equal(padKey('1', 'Enter', [4]), '1');
+  assert.equal(padKey('1234', '5', [4]), '1234');
+  assert.equal(padKey('1234', '5', [4, 6]), '12345');
+  assert.equal(padKey('123456', '7', [4, 6]), '123456');
 });
 
 test('sendDelay: only lengths some user has, and waits if a longer PIN exists', () => {

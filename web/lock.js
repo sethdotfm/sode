@@ -8,7 +8,7 @@
 // Off unless the server says this page type is locked: with no users and no
 // locks nothing here shows or is bound but a few idle listeners.
 
-import { $, el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr } from './store.js';
 import { padKey, sendDelay, idleDue, pageType, liftFrom, dots } from './lockrules.js';
 
@@ -169,28 +169,35 @@ function showLock() {
   // Anything added to the page while locked is covered too.
   watch ||= new MutationObserver((list) => { for (const r of list) for (const n of r.addedNodes) inert(n); });
   watch.observe(document.body, { childList: true });
-  document.activeElement?.blur?.();
+  // Remember where the keyboard was, to give it back on unlock.
+  const had = document.activeElement;
+  if (had && had !== document.body && !root.contains(had)) before = had;
+  had?.blur?.();
   root.focus();
 }
 
 let watch = null;
+let before = null; // what had focus when the lock came down
 function inert(c) {
   if (c.nodeType !== 1 || c === root || c === who || ['SCRIPT', 'LINK', 'STYLE'].includes(c.tagName) || c.inert) return;
   c.inert = true;
   inerted.push(c);
 }
 
-// Open dialogs go first, so nothing is left half-done behind the overlay:
-// native <dialog>s close, the app's modals take their own Cancel/Close, and
-// Settings exits (an unsaved form keeps its warning and stays, covered).
+// Open dialogs go first, so nothing is left half-done behind the overlay.
+// Native <dialog>s close here; a module that owns a dialog or a view listens
+// for 'locking' and puts it away itself (Settings exits; an unsaved form keeps
+// its warning and stays, covered).
 function closeModals() {
   for (const d of document.querySelectorAll('dialog[open]')) d.close();
+  emit('locking');
+  // Fallback for the app's modals, which don't listen yet: take their own
+  // Cancel/Close, else hide them. Goes when each has a 'locking' listener.
   for (const m of document.querySelectorAll('.pb-modal-backdrop:not([hidden])')) {
     const b = [...m.querySelectorAll('button')].find((x) => /cancel|close/i.test(x.id));
     if (b) b.click();
     else m.hidden = true;
   }
-  if (document.documentElement.dataset.view === 'settings') document.getElementById('settings-exit')?.click();
 }
 
 function hideLock() {
@@ -206,7 +213,9 @@ function hideLock() {
   pin = '';
   const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0;
   hideTimer = setTimeout(() => { root.hidden = true; }, ms + 50);
-  $('src')?.focus?.();
+  // The element that had focus before locking, if it is still on the page.
+  if (before?.isConnected) before.focus?.();
+  before = null;
 }
 
 // ---- entering a PIN
@@ -219,7 +228,7 @@ function paint() {
 const lens = () => [...new Set((S.cfg?.users || []).map((u) => u.len))];
 
 function press(k) {
-  pin = padKey(pin, k);
+  pin = padKey(pin, k, lens());
   paint();
   if (k !== 'clear' && k !== 'back') say('');
   clearTimeout(timer);
@@ -235,7 +244,7 @@ function sendPin() {
 }
 
 onMsg('userUnlockResult', (m) => {
-  if (m.id !== seq || m.partial) return;
+  if (m.id !== seq) return;
   if (m.ok) {
     pin = '';
     say('');

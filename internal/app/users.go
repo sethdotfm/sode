@@ -243,6 +243,9 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		fresh := map[string]string{}   // new PINs by user name
 		for _, e := range req.Users {
 			u := config.User{Name: strings.TrimSpace(e.Name)}
+			if u.Name == "" {
+				return errors.New("every user needs a name")
+			}
 			if e.Pin != "" {
 				if err := config.CheckUserPinRules(e.Pin); err != nil {
 					return err

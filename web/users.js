@@ -25,8 +25,6 @@ const lockLog = check('usr-lock-log', 'Lock the Communication Log');
 const autoInput = el('input', 'pb-input');
 autoInput.type = 'number';
 autoInput.id = 'usr-auto';
-autoInput.min = '0';
-autoInput.max = '1440';
 const add = el('button', 'pb-btn pb-btn--outline', 'Add user');
 add.type = 'button';
 const save = el('button', 'pb-btn pb-btn--ok', 'Save users');
@@ -34,7 +32,7 @@ save.type = 'button';
 
 const group = el('fieldset', 'sode__group sode__users',
   el('legend', null, 'Users'),
-  el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are 4–12 digits and must differ. Entering the settings PIN (the admin password) on the lock screen lets that browser skip the locks. Changing or removing the settings PIN ends that for every browser.'),
+  el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. Entering the settings PIN (the admin password) on the lock screen lets that browser skip the locks. Changing or removing the settings PIN ends that for every browser.'),
   rows,
   add,
   el('div', 'sode__fields', lockMain.label, lockGrid.label, lockLog.label),
@@ -64,17 +62,15 @@ const touched = () => { edited = true; ok.textContent = ''; };
 function addRow(u = { name: '', len: 0 }) {
   const name = el('input', 'pb-input');
   name.value = u.name;
-  name.maxLength = 24;
   name.spellcheck = false;
   name.autocomplete = 'off';
   name.setAttribute('aria-label', 'User name');
   const pin = el('input', 'pb-input');
   pin.type = 'password';
   pin.inputMode = 'numeric';
-  pin.maxLength = 12;
   pin.autocomplete = 'new-password';
   pin.setAttribute('aria-label', 'PIN');
-  pin.placeholder = u.len ? 'unchanged' : '4–12 digits';
+  pin.placeholder = u.len ? 'unchanged' : 'new PIN';
   const rm = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
   rm.type = 'button';
   const row = el('div', 'sode__users-row',
@@ -116,13 +112,9 @@ save.addEventListener('click', () => {
     const [name, pin] = row.querySelectorAll('input');
     return { name: name.value.trim(), was: row.dataset.was, pin: pin.value };
   });
-  const mins = Number(autoInput.value);
-  if (!Number.isInteger(mins) || mins < 0 || mins > 1440) return fail('Lock after idle must be 0 (never) to 1440 minutes.');
-  if (users.some((u) => !u.name)) return fail('Every user needs a name.');
-  if (users.some((u) => u.pin && !/^[0-9]{4,12}$/.test(u.pin))) return fail('A PIN is 4–12 digits.');
-  if (users.some((u) => !u.pin && !u.was)) return fail('Give each new user a PIN.');
+  // The server holds the rules (names, PIN length, limits) and says what is wrong.
+  const mins = Math.trunc(Number(autoInput.value)) || 0;
   const locks = { main: lockMain.input.checked, grid: lockGrid.input.checked, log: lockLog.input.checked };
-  if ((locks.main || locks.grid || locks.log) && !users.length) return fail('Add a user before turning a lock on.');
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: { users, locks, autoLockMinutes: mins } })) return fail('Not connected to Sode.');
   save.disabled = true;
