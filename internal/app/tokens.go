@@ -82,44 +82,9 @@ func (s *tokenStore) save() {
 	s.fileMu.Lock() // taken before mu goes, so writes land in order
 	s.mu.Unlock()
 	defer s.fileMu.Unlock()
-	if err := writeFileAtomic(s.path, b); err != nil {
+	if err := config.AtomicWrite(s.path, b); err != nil {
 		log.Printf("users: tokens not saved to %s: %v", s.path, err)
 	}
-}
-
-// writeFileAtomic: a private temp file in the same directory (0600 from
-// the start, so the tokens are never readable by others), synced, then
-// renamed over path, and the directory synced where the OS allows.
-func writeFileAtomic(path string, b []byte) error {
-	dir := filepath.Dir(path)
-	f, err := os.CreateTemp(dir, ".tokens-*.tmp")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name()) // a no-op once renamed
-	if err := f.Chmod(0o600); err != nil {
-		f.Close()
-		return err
-	}
-	if _, err := f.Write(b); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(f.Name(), path); err != nil {
-		return err
-	}
-	if d, err := os.Open(dir); err == nil {
-		d.Sync() // best effort
-		d.Close()
-	}
-	return nil
 }
 
 // valid: r still names a persistent user with the PIN it was issued under,

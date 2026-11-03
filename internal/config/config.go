@@ -612,12 +612,14 @@ func Save(path string, c Config) error {
 	if err != nil {
 		return err
 	}
-	return atomicWrite(path, []byte(header), b)
+	return AtomicWrite(path, []byte(header), b)
 }
 
-// atomicWrite writes the parts to path through a temp file in the same
-// directory (fsync, then rename), so a crash leaves the old file or the new.
-func atomicWrite(path string, parts ...[]byte) error {
+// AtomicWrite writes the parts to path through a temp file in the same
+// directory (private, 0600 from the start; fsync, then rename, then the
+// directory synced where the OS allows), so a crash leaves the old file or
+// the new. Config saves and the session token file both use it.
+func AtomicWrite(path string, parts ...[]byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".sode-*.tmp")
 	if err != nil {
 		return err
@@ -637,5 +639,12 @@ func atomicWrite(path string, parts ...[]byte) error {
 	if err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), path)
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return err
+	}
+	if d, err := os.Open(filepath.Dir(path)); err == nil {
+		d.Sync() // best effort
+		d.Close()
+	}
+	return nil
 }

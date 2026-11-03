@@ -231,7 +231,7 @@ func TestTokenFileWrite(t *testing.T) {
 	if err != nil || fi.Mode().Perm() != 0o600 {
 		t.Fatalf("token file: %v %v", err, fi)
 	}
-	left, _ := filepath.Glob(filepath.Join(filepath.Dir(a.tokens.path), ".tokens-*"))
+	left, _ := filepath.Glob(filepath.Join(filepath.Dir(a.tokens.path), ".sode-*"))
 	if len(left) != 0 {
 		t.Fatalf("temp files left: %v", left)
 	}
