@@ -15,7 +15,7 @@ var formFields = map[string]bool{
 	"Matrix": true, "Levels": true, "LevelWireOffset": true, "DefaultLevels": true, "NameLength": true,
 	"NameRequests": true, "NumberOffset": true, "ConfirmLockoutMs": true, "ConfirmEnter": true,
 	"NameRefreshSeconds": true, "TallyResyncSeconds": true, "TrustedProxies": true, "HiddenDsts": true,
-	"LevelColors": true, "LevelNumbering": true, "PinMaxTries": true,
+	"LevelColors": true, "LevelNumbering": true, "PinMaxTries": true, "FireMode": true, "SalvoGroup": true,
 	// Read so old files load, never sent or acted on.
 	"HideDsts": true, "LevelTypedBase": true, "LegacyGrids": true,
 }

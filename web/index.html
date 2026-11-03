@@ -277,6 +277,18 @@
           <span class="sode__hint">0 = off</span>
         </div>
       </div>
+      <div class="sode__fields">
+        <div class="sode__field">
+          <label for="cfg-firemode">Fire confirms of several takes</label>
+          <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">One after another</option><option value="native">Native salvo</option></select></span>
+          <span class="sode__hint">Native salvos: all takes of a confirm land on the same frame; needs a router that supports group salvos (Ross Ultrix verified). Levels past 16 and numbers past 1024 still go one after another.</span>
+        </div>
+        <div class="sode__field">
+          <label for="cfg-salvogroup">Salvo group (advanced)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
+          <span class="sode__hint">0-127, one no other controller uses</span>
+        </div>
+      </div>
       <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-enter" data-key="confirmEnter" data-type="bool"><span class="pb-check__label">Enter confirms</span></label>
     </fieldset>
 

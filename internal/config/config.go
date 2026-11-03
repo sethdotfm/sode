@@ -29,14 +29,21 @@ type Config struct {
 	BrandBorder string `yaml:"brandBorder,omitempty" json:"brandBorder"`
 	// RouterName is a friendly name for the status card; RouterShow picks
 	// what the card shows: "address" (default), "name" or "none".
-	RouterName         string   `yaml:"routerName" json:"routerName"`
-	RouterShow         string   `yaml:"routerShow" json:"routerShow"`
-	Matrix             int      `yaml:"matrix" json:"matrix"`
-	Levels             int      `yaml:"levels" json:"levels"`
-	LevelWireOffset    int      `yaml:"levelWireOffset" json:"levelWireOffset"`
-	DefaultLevels      string   `yaml:"defaultLevels" json:"defaultLevels"`
-	NameLength         int      `yaml:"nameLength" json:"nameLength"`
-	NameRequests       string   `yaml:"nameRequests" json:"nameRequests"` // std | ext
+	RouterName      string `yaml:"routerName" json:"routerName"`
+	RouterShow      string `yaml:"routerShow" json:"routerShow"`
+	Matrix          int    `yaml:"matrix" json:"matrix"`
+	Levels          int    `yaml:"levels" json:"levels"`
+	LevelWireOffset int    `yaml:"levelWireOffset" json:"levelWireOffset"`
+	DefaultLevels   string `yaml:"defaultLevels" json:"defaultLevels"`
+	NameLength      int    `yaml:"nameLength" json:"nameLength"`
+	NameRequests    string `yaml:"nameRequests" json:"nameRequests"` // std | ext
+	// FireMode is how a confirm of several takes is sent: "sequential" (one
+	// extended connect after another) or "native" (a SW-P-08 group salvo,
+	// so they land on the same frame; app/fire.go). SalvoGroup is the group
+	// (0-127) native salvos stage in: the router's list is shared by every
+	// client, so it must be one only Sode uses.
+	FireMode           string   `yaml:"fireMode" json:"fireMode"`
+	SalvoGroup         int      `yaml:"salvoGroup" json:"salvoGroup"`
 	NumberOffset       int      `yaml:"numberOffset" json:"numberOffset"`
 	ConfirmLockoutMs   int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs"`
 	ConfirmEnter       bool     `yaml:"confirmEnter" json:"confirmEnter"`
@@ -168,6 +175,8 @@ func Defaults() Config {
 		LevelWireOffset:    -1,
 		NameLength:         12,
 		NameRequests:       "std",
+		FireMode:           "sequential",
+		SalvoGroup:         127,
 		NumberOffset:       1,
 		ConfirmLockoutMs:   500,
 		NameRefreshSeconds: 60,
@@ -207,6 +216,8 @@ func FromEnv(c Config) (Config, error) {
 	str("SODE_DEFAULT_LEVELS", &c.DefaultLevels)
 	num("SODE_NAME_LEN", &c.NameLength)
 	str("SODE_NAMES", &c.NameRequests)
+	str("SODE_FIRE_MODE", &c.FireMode)
+	num("SODE_SALVO_GROUP", &c.SalvoGroup)
 	num("SODE_NUM_OFFSET", &c.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
 	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
@@ -257,6 +268,10 @@ func (c *Config) Normalize() {
 		c.RouterShow = "address"
 	}
 	c.DefaultLevels = strings.TrimSpace(c.DefaultLevels)
+	c.FireMode = strings.ToLower(strings.TrimSpace(c.FireMode))
+	if c.FireMode == "" {
+		c.FireMode = "sequential"
+	}
 	c.LevelNumbering = strings.ToLower(strings.TrimSpace(c.LevelNumbering))
 	if c.LevelNumbering == "" {
 		c.LevelNumbering = "1"
@@ -347,6 +362,19 @@ func (c Config) Validate() error {
 		}
 	default:
 		bad("name requests must be std or ext")
+	}
+	switch c.FireMode {
+	case "sequential":
+	case "native":
+		// Group salvos carry the matrix in a 4-bit field.
+		if c.Matrix < 0 || c.Matrix > 15 {
+			bad("native salvos need matrix 0-15")
+		}
+	default:
+		bad("fire mode must be sequential or native")
+	}
+	if c.SalvoGroup < 0 || c.SalvoGroup > 127 {
+		bad("salvo group must be 0-127")
 	}
 	if c.Levels < 1 || c.Levels > 256 {
 		bad("levels must be 1-256")
