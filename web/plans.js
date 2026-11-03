@@ -70,7 +70,7 @@ export function salvoPlan(salvo, defaults) {
   }, defaults);
   const warnings = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) + ' on the router now');
   return {
-    verb: 'salvo', title: `Salvo: ${salvo.name}`, warnings,
+    verb: 'salvo', salvo: salvo.name, title: `Salvo: ${salvo.name}`, warnings,
     items: r.takes.map((t) => takeItem(dstItem(t.dst), t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })))),
   };
 }
@@ -450,7 +450,9 @@ export function sendTakes(p) {
       batch.byId.set(id, { dst: it.dst, g });
     }
   }
-  if (!wsSend({ t: 'batch', items })) {
+  const out = { t: 'batch', items };
+  if (p.verb === 'salvo' && p.salvo) out.salvo = p.salvo;
+  if (!wsSend(out)) {
     showResult('error', 'Not sent', 'The patch was NOT sent: the connection to the Sode server was lost. It is reconnecting; try again in a moment.');
     return false;
   }

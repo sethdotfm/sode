@@ -261,6 +261,11 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				}
 				a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
 			}
+			if name := cleanSalvoName(m.Salvo); name != "" {
+				for i := range m.Items {
+					m.Items[i].Salvo = name
+				}
+			}
 			go a.batch(c, m.Items)
 		case "history":
 			go a.history(c, m.Before, m.N)
@@ -343,6 +348,7 @@ type inMsg struct {
 	ClearPin bool               `json:"clearPin"`
 	ID       int                `json:"id"` // echoed by unlock and save replies
 	Items    []takeReq          `json:"items"`
+	Salvo    string             `json:"salvo"` // batch: the salvo that was fired, if any
 	Sets     []config.FilterSet `json:"sets"`
 	Salvos   []config.Salvo     `json:"salvos"`
 	Page     string             `json:"page"`  // hi: main | log

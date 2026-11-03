@@ -3,13 +3,14 @@
 // its normal confirm; the confirm sends one batch. Storage and the pure
 // parts are salvostore.js, the plan is plans.js.
 
-import { el, S, on, off, search, srcItem, dstItem, nameProblem } from './core.js';
+import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem } from './core.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, salvoPlan } from './plans.js';
 import { globalSaver } from './globalsave.js';
 import { trapDialog } from './widgets.js';
 import {
   allSalvos, globalSalvos, localSalvos, findSalvo, normSalvo, salvoProblem, salvosProblem, replaceSalvo, saveLocalSalvo, deleteLocalSalvo,
+  pinnedSalvos, saved,
   parseRefs, itemsFromTakes, latestFolderTakes,
 } from './salvostore.js';
 
@@ -21,6 +22,7 @@ const hosts = [];
 // default levels), or null while they hold no patch.
 export const salvoHost = (host) => { hosts.push(host); };
 const shown = () => hosts.find((h) => h.active());
+export const salvoShown = () => !!shown();
 
 // ---- the buttons
 
@@ -41,10 +43,14 @@ function summary(s) {
   return `${s.items.length} source${s.items.length === 1 ? '' : 's'}, ${n} destination${n === 1 ? '' : 's'}`;
 }
 
+const phone = () => document.documentElement.dataset.pbLayout === 'phone';
+const askPopup = () => emit('salvoPopup');
+
 function renderStrips() {
-  const list = allSalvos();
+  const all = allSalvos();
+  const list = pinnedSalvos(all);
   for (const box of document.querySelectorAll('[data-salvos]')) {
-    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', list.length ? 'Edit' : 'Salvos…');
+    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', all.length ? 'Edit' : 'Salvos…');
     edit.type = 'button';
     edit.setAttribute('aria-haspopup', 'dialog');
     edit.addEventListener('click', () => openSalvos());
@@ -55,10 +61,36 @@ function renderStrips() {
       b.addEventListener('click', () => fire(s.scope, s.name));
       return b;
     });
+    // The popup (salvopopup.js) lists every salvo, pinned or not.
+    const more = all.length ? el('button', `pb-btn pb-btn--ghost pb-btn--sm sode__salvos-all`, phone() ? 'Salvos' : list.length ? 'All…' : 'Salvos… (Ctrl+G)') : null;
+    if (more) {
+      more.type = 'button';
+      more.setAttribute('aria-haspopup', 'dialog');
+      more.addEventListener('click', askPopup);
+    }
     const label = list.length ? el('span', 'sode__label', 'Salvos') : null;
-    box.replaceChildren(...[label, ...chips, edit].filter(Boolean));
+    box.replaceChildren(...[label, ...chips, more, edit].filter(Boolean));
   }
 }
+// Keyboard mode `p` (desktop): the first chip, then ←/→ between buttons;
+// Enter presses one (the normal confirm), Esc goes back to Source.
+on('salvoStrip', () => {
+  const b = document.querySelector('[data-salvos] .sode__set') || document.querySelector('[data-salvos] button');
+  b?.focus();
+});
+document.addEventListener('keydown', (e) => {
+  const box = e.target instanceof Element && e.target.closest('[data-salvos]');
+  if (!box || e.ctrlKey || e.metaKey || e.altKey) return;
+  const bs = [...box.querySelectorAll('button')];
+  const i = bs.indexOf(e.target);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    e.preventDefault();
+    bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length].focus();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    document.getElementById('src')?.focus();
+  }
+});
 on('salvos', () => { renderStrips(); if (open) renderEditor(true); });
 renderStrips();
 
@@ -88,6 +120,10 @@ nameIn.autocomplete = 'off';
 const scopeIn = el('select', 'pb-select');
 scopeIn.setAttribute('aria-label', 'Save for');
 scopeIn.append(new Option('This browser', 'local'), new Option('Everyone', 'global'));
+const pinnedIn = el('input', 'pb-check__input');
+pinnedIn.type = 'checkbox';
+pinnedIn.checked = true;
+const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned (shown above Recent)'));
 const rowsBox = el('div', 'sode__salvo-rows');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
@@ -108,7 +144,7 @@ dialog.append(
     el('div', 'sode__filters-sets',
       el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null))),
       el('div', 'sode__filters-set', nameIn, el('span', 'pb-select-wrap sode__filters-scope', scopeIn), saveBtn, delBtn),
-      pinRow, noteEl),
+      pinnedBox, pinRow, noteEl),
     rowsBox,
     el('div', 'sode__filters-set',
       btn('pb-btn--outline pb-btn--sm', 'Add take', () => { cur.items.push(blankRow()); renderRows(); focusLast(); }),
@@ -145,8 +181,8 @@ function load(s) {
   deleting = false;
   dirty = false;
   cur = s
-    ? { scope: s.scope, old: s.name, name: s.name, items: s.items.map(rowFromItem) }
-    : { scope: 'local', old: '', name: '', items: [blankRow()] };
+    ? { scope: s.scope, old: s.name, name: s.name, pinned: s.pinned !== false, items: s.items.map(rowFromItem) }
+    : { scope: 'local', old: '', name: '', pinned: true, items: [blankRow()] };
   renderEditor();
 }
 
@@ -209,6 +245,7 @@ function renderHead(keep = false) {
   pick.value = cur.old ? `${cur.scope}:${cur.old}` : '';
   if (!keep) nameIn.value = cur.name;
   scopeIn.value = cur.scope;
+  pinnedIn.checked = cur.pinned;
   scopeIn.disabled = !!cur.old;
   delBtn.hidden = !cur.old;
   delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
@@ -231,6 +268,7 @@ pick.addEventListener('change', () => {
   load(findSalvo(v.slice(0, i), v.slice(i + 1)));
 });
 nameIn.addEventListener('input', () => { cur.name = nameIn.value; dirty = true; setNote(''); });
+pinnedIn.addEventListener('change', () => { cur.pinned = pinnedIn.checked; dirty = true; });
 scopeIn.addEventListener('change', () => { cur.scope = scopeIn.value; });
 
 function fillFromBoxes() {
@@ -262,7 +300,7 @@ function built() {
     if (p.error) return { err: p.text };
     items.push(p.item);
   }
-  const s = normSalvo({ name: cur.name, items });
+  const s = { ...normSalvo({ name: cur.name, items }), pinned: cur.pinned };
   const list = cur.scope === 'global' ? globalSalvos() : localSalvos();
   const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'salvo', old: cur.old }) || salvoProblem(s);
   if (err) return { err };
@@ -295,7 +333,7 @@ function deleteClick() {
     load(null);
     return setNote('Deleted.');
   }
-  const next = globalSalvos().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(({ name: n, items }) => ({ name: n, items }));
+  const next = globalSalvos().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   saver.change({ salvos: next }, () => load(null));
 }
 

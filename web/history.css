@@ -535,5 +535,13 @@
   .sode__scrim > .sode__salvos-dlg { min-width: 0; width: 100%; }
   .sode__salvo-row { grid-template-columns: 1fr 1fr; }
   .sode__salvos { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .sode__salvos > .sode__set { flex: none; }
+  .sode__salvos > .sode__set, .sode__salvos > .pb-btn { flex: none; }
 }
+.sode__salvo-pop { display: flex; flex-direction: column; }
+.sode__salvo-list { display: flex; flex-direction: column; margin-top: var(--pb-space-3); max-height: 50vh; overflow-y: auto; }
+.sode__salvo-item { align-items: center; border-left: var(--sode-side-w) solid transparent; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); justify-content: space-between; padding: var(--pb-space-2); }
+.sode__salvo-item.is-hi { background: var(--pb-surface-sunken); border-left-color: var(--pb-accent); }
+.sode__salvo-main { background: none; border: 0; color: inherit; cursor: pointer; flex: 1; font: inherit; min-width: 0; overflow-wrap: anywhere; padding: 0; text-align: left; }
+.sode__salvo-tools { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
+[data-pb-layout="phone"] .sode__scrim > .sode__salvo-pop { height: 100%; max-height: none; }
+[data-pb-layout="phone"] .sode__salvo-list { max-height: none; }

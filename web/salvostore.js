@@ -5,7 +5,7 @@
 // levels), never names, because names are re-polled from the router.
 // A salvo: { name, items: [{ src, dsts: [n], levels: [ui] }] }.
 
-import { S, on, onMsg, emit, off } from './core.js';
+import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON } from './store.js';
 
 // The limits the server enforces too (internal/config/salvos.go); the
@@ -18,6 +18,7 @@ export const MAX_NUM = 0xFFFE;   // a source or destination number
 export const MAX_LEVEL = 64;     // a UI level
 export const MAX_BYTES = 48 * 1024; // all salvos as JSON
 const KEY = 'sode-salvos';
+const PINS = 'sode-salvo-pins'; // this browser's pin overrides of everyone's salvos { lowercase name: bool }
 
 // Numbers only, duplicates dropped; out-of-range values stay so that
 // salvoProblem can name them rather than quietly changing the salvo.
@@ -32,8 +33,12 @@ export const normSalvo = (s) => ({
   items: [].concat(s?.items ?? []).map(normItem),
 });
 
-export const globalSalvos = () => (S.cfg?.salvos || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normSalvo(s) }));
-export const localSalvos = () => [].concat(readJSON(KEY, [])).filter((s) => s?.name).map((s) => ({ scope: 'local', ...normSalvo(s) }));
+// pinned: shown in the strip above Recent; a salvo saved before the flag existed is pinned.
+// A salvo as it is stored and sent: no scope.
+export const saved = ({ name, items, pinned }) => ({ name, items, pinned: pinned !== false });
+
+export const globalSalvos = () => (S.cfg?.salvos || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normSalvo(s), pinned: s.pinned !== false }));
+export const localSalvos = () => [].concat(readJSON(KEY, [])).filter((s) => s?.name).map((s) => ({ scope: 'local', ...normSalvo(s), pinned: s.pinned !== false }));
 export const allSalvos = () => [...globalSalvos(), ...localSalvos()];
 export const findSalvo = (scope, name) =>
   allSalvos().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
@@ -62,7 +67,7 @@ export function salvoProblem(s) {
 // Why this list of salvos (as it would be saved) is too much, or ''.
 export function salvosProblem(list) {
   if (list.length > MAX_SALVOS) return `At most ${MAX_SALVOS} salvos.`;
-  const bytes = JSON.stringify(list.map(({ name, items }) => ({ name, items }))).length;
+  const bytes = JSON.stringify(list.map(saved)).length;
   return bytes > MAX_BYTES ? `The salvos are too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${MAX_BYTES / 1024} KiB).` : '';
 }
 
@@ -87,9 +92,9 @@ export function salvoConflict(s) {
 // list ({ name, items } each) with s replacing the salvo named `old`, or
 // added when old is '' (or no longer there).
 export function replaceSalvo(list, s, old = '') {
-  const next = list.map(({ name, items }) => ({ name, items }));
+  const next = list.map(saved);
   const at = next.findIndex((x) => x.name.toLowerCase() === old.toLowerCase());
-  const entry = { name: s.name, items: s.items };
+  const entry = saved(s);
   if (old && at >= 0) next[at] = entry;
   else next.push(entry);
   return next;
@@ -101,9 +106,76 @@ export function saveLocalSalvo(s, old = '') {
   emit('salvos');
 }
 export function deleteLocalSalvo(name) {
-  const list = localSalvos().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(({ name: n, items }) => ({ name: n, items }));
+  const list = localSalvos().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   writeJSON(KEY, list.length ? list : null);
   emit('salvos');
+}
+
+// ---- pinning: the strip above Recent shows pinned salvos only. A salvo
+// carries its own flag (everyone's in the config, this browser's own in its
+// storage); a browser may override it for everyone's salvos, by name.
+
+const pinKey = (name) => String(name).toLowerCase();
+// This browser's overrides, names it still has only (an unknown name, or a
+// value that isn't true/false, is ignored). list: salvos with scope.
+export function pinOverrides(list = globalSalvos()) {
+  const raw = readJSON(PINS, {});
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const s of list) {
+    if (s.scope !== 'global') continue;
+    const v = raw[pinKey(s.name)];
+    if (typeof v === 'boolean') out[pinKey(s.name)] = v;
+  }
+  return out;
+}
+// Whether s shows in the strip: this browser's override of an everyone
+// salvo, else the salvo's own flag.
+export function effectivePin(s, overrides = pinOverrides()) {
+  if (s.scope === 'global') {
+    const v = overrides[pinKey(s.name)];
+    if (typeof v === 'boolean') return v;
+  }
+  return s.pinned !== false;
+}
+export function pinnedSalvos(list = allSalvos()) {
+  const o = pinOverrides(list);
+  return list.filter((s) => effectivePin(s, o));
+}
+// Pins or unpins s for this browser only. A global salvo gets an override
+// (dropped again when it equals the salvo's own flag); a local one changes
+// its flag.
+export function setLocalPin(s, on) {
+  if (s.scope === 'global') {
+    const raw = readJSON(PINS, {});
+    const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : {};
+    if (on === (s.pinned !== false)) delete o[pinKey(s.name)];
+    else o[pinKey(s.name)] = on;
+    writeJSON(PINS, Object.keys(o).length ? o : null);
+  } else {
+    writeJSON(KEY, localSalvos().map((x) => saved(x.name.toLowerCase() === s.name.toLowerCase() ? { ...x, pinned: on } : x)));
+  }
+  emit('salvos');
+}
+// After a salvo is pinned or unpinned for everyone this browser follows it.
+export function clearPinOverride(name) {
+  const raw = readJSON(PINS, {});
+  if (!raw || typeof raw !== 'object' || !(pinKey(name) in raw)) return;
+  const o = { ...raw };
+  delete o[pinKey(name)];
+  writeJSON(PINS, Object.keys(o).length ? o : null);
+  emit('salvos');
+}
+// Everyone's list with salvo `name` pinned or not, to send.
+export const withGlobalPin = (name, on) =>
+  globalSalvos().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
+
+// ---- the popup's list: all salvos, or the best matches for what is typed
+// (names, by core.js search). Matches keep their order among equal scores.
+export function rankSalvos(list, q) {
+  if (!String(q).trim()) return list;
+  const items = list.map((s, n) => ({ num: '', lname: s.name.toLowerCase(), n }));
+  return search(items, q, list.length).map((it) => list[it.n]);
 }
 
 // ---- typed references: "12, 20-24, cam 3" → numbers

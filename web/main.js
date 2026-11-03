@@ -8,6 +8,7 @@ import './brand.js';
 import './lock.js';
 import { applySharedLink } from './filters.js';
 import './mobile.js';
+import './salvopopup.js';
 
 on('brand', ({ text }) => { document.title = text; });
 

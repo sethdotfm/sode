@@ -29,6 +29,9 @@ const (
 type Salvo struct {
 	Name  string      `yaml:"name" json:"name"`
 	Items []SalvoItem `yaml:"items" json:"items"`
+	// Pinned: shown in the strip above Recent. nil (an older file) = true;
+	// normalizeSalvos always fills it. A browser may override it for itself.
+	Pinned *bool `yaml:"pinned,omitempty" json:"pinned,omitempty"`
 }
 
 // SalvoItem is one source going to one or more destinations.
@@ -46,6 +49,10 @@ func CloneSalvos(in []Salvo) []Salvo {
 	out := make([]Salvo, len(in))
 	for i, s := range in {
 		out[i] = Salvo{Name: s.Name, Items: make([]SalvoItem, len(s.Items))}
+		if s.Pinned != nil {
+			p := *s.Pinned
+			out[i].Pinned = &p
+		}
 		for j, it := range s.Items {
 			out[i].Items[j] = SalvoItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels)}
 		}
@@ -63,6 +70,10 @@ func (c *Config) normalizeSalvos() {
 	for i := range c.Salvos {
 		s := &c.Salvos[i]
 		s.Name = strings.TrimSpace(s.Name)
+		if s.Pinned == nil {
+			t := true
+			s.Pinned = &t
+		}
 		if s.Items == nil {
 			s.Items = []SalvoItem{}
 		}
