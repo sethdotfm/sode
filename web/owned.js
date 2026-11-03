@@ -4,7 +4,7 @@
 // read limit is 64 KiB, and the server ignores them in a `config` message.
 // Pure, so Node tests load it.
 
-export const OWNED_KEYS = ['filterSets', 'salvos', 'grids', 'gridConfirm', 'users', 'locks', 'autoLockMinutes'];
+export const OWNED_KEYS = ['filterSets', 'salvos', 'grids', 'gridConfirm', 'users', 'locks', 'autoLockMinutes', 'maxPinLen'];
 
 // cfg as a plain copy without the owned keys.
 export function omitOwned(cfg) {

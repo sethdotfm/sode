@@ -20,7 +20,7 @@ import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
 import { salvoHost } from './salvos.js';
 import { keyConfirm } from './keyconfirm.js';
-import { levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
+import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -292,7 +292,7 @@ function histRow(e) {
     el('span', 'sode__hist-id', `#${e.id}`),
     histTime(e.time),
     levelBar(known),
-    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(src, dst), entryNote(e)),
+    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(src, dst), entryNote(e), byLabel(e)),
     statusNode({ e }),
     disc,
     el('span', 'sode__hist-actions', retry, btn));
@@ -361,7 +361,7 @@ function folderRow(f) {
     el('span', 'sode__hist-id', folderIds(f)),
     histTime(f.entries[0].time),
     levelBar(folderLevels(f)),
-    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild), ...title.slice(3)),
+    el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild), ...title.slice(3), byLabel(f)),
     statusNode({ f }),
     disc,
     el('span', 'sode__hist-actions', retry, undo));
@@ -776,7 +776,8 @@ function focusBox(input) {
 for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   input.addEventListener('focus', () => {
     input.select();
-    if (active() && scrollTopPref() && window.scrollY > 0) {
+    // Not while the lock screen goes up or away: the page keeps its scroll.
+    if (active() && scrollTopPref() && window.scrollY > 0 && !document.documentElement.dataset.sodeLock) {
       window.scrollTo({ top: 0, behavior: calm.matches ? 'auto' : 'smooth' });
     }
   });

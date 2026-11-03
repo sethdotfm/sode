@@ -20,7 +20,7 @@ import {
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
 import { salvoHost } from './salvos.js';
-import { levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -372,7 +372,7 @@ function recentRow(e) {
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
       el('span', 'sode-m__recent-status', status, retry, disc)),
-    el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e)),
+    el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e), byLabel(e)),
     changes,
     e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
@@ -399,7 +399,7 @@ function folderRows(f) {
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
       el('span', 'sode-m__recent-status', statusNode({ f }), retry, disc)),
-    el('div', 'sode-m__recent-route', ...folderTitle(f)),
+    el('div', 'sode-m__recent-route', ...folderTitle(f), byLabel(f)),
     levelBar(folderLevels(f)));
   clickToToggle(face, disc);
   const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : ''), undo, face);

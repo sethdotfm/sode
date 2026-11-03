@@ -14,7 +14,7 @@ test('omitOwned drops every owned key and keeps the rest', () => {
 });
 
 test('the owned lists are all there, and a huge config stays small', () => {
-  assert.deepEqual([...OWNED_KEYS].sort(), ['autoLockMinutes', 'filterSets', 'gridConfirm', 'grids', 'locks', 'salvos', 'users']);
+  assert.deepEqual([...OWNED_KEYS].sort(), ['autoLockMinutes', 'filterSets', 'gridConfirm', 'grids', 'locks', 'maxPinLen', 'salvos', 'users']);
   const big = 'x'.repeat(48 * 1024);
   const cfg = { router: 'r', filterSets: [big], salvos: [big], grids: [big], users: [big], locks: { main: true, big }, autoLockMinutes: 5, gridConfirm: true };
   assert.ok(JSON.stringify(omitOwned(cfg)).length < 200);

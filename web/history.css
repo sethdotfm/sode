@@ -222,6 +222,14 @@
   text-overflow: ellipsis;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
+/* Who made a take, when it was a configured user. */
+.sode__hist-by {
+  color: var(--pb-text-muted);
+  flex: none;
+  font-size: var(--pb-text-xs);
+  white-space: nowrap;
+}
+.sode-m__recent-route > .sode__hist-by { display: block; }
 /* Below 1000px from → to always gets the room: a row's status is its
    color alone (the text on hover, and still read out), and its level bar
    moves into the Before panel. A group's takes each have their own. */
