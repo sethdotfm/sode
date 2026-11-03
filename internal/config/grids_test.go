@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -91,6 +92,72 @@ func TestGridInvalid(t *testing.T) {
 	c.Normalize()
 	if c.Validate() == nil {
 		t.Error("21 grids accepted")
+	}
+}
+
+func TestGridOverflow(t *testing.T) {
+	const max = int(^uint(0) >> 1)
+	for name, mut := range map[string]func(*GridCell){
+		"huge w":     func(k *GridCell) { k.W = max },
+		"huge h":     func(k *GridCell) { k.H = max },
+		"huge x":     func(k *GridCell) { k.X = max },
+		"huge x w":   func(k *GridCell) { k.X, k.W = max, max },
+		"wrap x+w":   func(k *GridCell) { k.X, k.W = 2, max },
+		"min values": func(k *GridCell) { k.X, k.W = -max-1, -max-1 },
+	} {
+		g := okGrid()
+		mut(&g.Cells[1])
+		if gridCfg(g).Validate() == nil {
+			t.Errorf("%s: want error", name)
+		}
+	}
+}
+
+// The largest grids that validate still make a message under the server's
+// read limit (64 KiB), with the envelope: worst-case characters (each
+// escaped to six bytes) in every label and salvo name.
+func TestGridsMessageFits(t *testing.T) {
+	c := Defaults()
+	cell := func(i int) GridCell {
+		return GridCell{X: i % 24, Y: i / 24, W: 1, H: 1, Kind: "salvo", Ref: strings.Repeat("<", 64), Label: strings.Repeat("<", 24)}
+	}
+	n := 0
+	for ; ; n++ {
+		c.Grids = nil
+		for gi := 0; gi < maxGrids; gi++ {
+			g := Grid{Link: "g" + strings.Repeat("a", gi), Name: strings.Repeat("<", 40), Cols: 24, Rows: 24, Confirm: "default"}
+			for i := 0; i < n && i < 24*24; i++ {
+				g.Cells = append(g.Cells, cell(i))
+			}
+			c.Grids = append(c.Grids, g)
+		}
+		c.Normalize()
+		if c.Validate() != nil {
+			break
+		}
+		if n > 24*24 {
+			t.Fatal("no size limit")
+		}
+	}
+	if n == 0 {
+		t.Fatal("even empty grids are refused")
+	}
+	// The last size that passed.
+	c.Grids = c.Grids[:0]
+	for gi := 0; gi < maxGrids; gi++ {
+		g := Grid{Link: "g" + strings.Repeat("a", gi), Name: strings.Repeat("<", 40), Cols: 24, Rows: 24, Confirm: "default"}
+		for i := 0; i < n-1; i++ {
+			g.Cells = append(g.Cells, cell(i))
+		}
+		c.Grids = append(c.Grids, g)
+	}
+	c.Normalize()
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(map[string]any{"t": "grids", "grids": c.Grids, "gridConfirm": true, "id": 1<<31 - 1})
+	if len(b) >= 64<<10 || len(b) > MaxGridsJSON+1024 {
+		t.Fatalf("message %d bytes", len(b))
 	}
 }
 

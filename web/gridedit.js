@@ -5,7 +5,7 @@
 import { $, el, S, on, onMsg, connect, connState, setDot, wsSend, search, sentence } from './core.js';
 import { levelBox, combobox } from './widgets.js';
 import { unlock, unlocked } from './pin.js';
-import { MAX_SIZE, rectBetween, expandRect, cellsIn, meets, join, split, assign, remove, resize, savable, squares, validLink, freeLink } from './gridgeom.js';
+import { MAX_SIZE, rectBetween, expandRect, cellsIn, meets, join, split, assign, remove, resize, savable, squares, lostByJoin, lostByResize, validLink, freeLink } from './gridgeom.js';
 import './device.js';
 import './brand.js';
 
@@ -22,6 +22,7 @@ const copy = (g) => ({ ...g, levels: [...g.levels], cells: g.cells.map((c) => ({
 
 function load() {
   draft = (S.cfg?.grids || []).map(copy);
+  warn('');
   confirmDefault = S.cfg?.gridConfirm !== false;
   cur = Math.min(Math.max(cur, 0), draft.length - 1);
   sel = null;
@@ -33,6 +34,12 @@ function setDirty(d) {
   dirty = d;
   $('ged-dirty').textContent = d ? 'Unsaved changes.' : '';
 }
+// A visible note of assignments an edit dropped (joins keep one, resizes cut cells).
+function warn(text) {
+  $('ged-warn').hidden = !text;
+  $('ged-warn').textContent = text || '';
+}
+const lostText = (n, how) => (n ? `${n} assigned button${n === 1 ? ' was' : 's were'} dropped ${how}.` : '');
 const touch = () => { setDirty(true); $('ged-saved').hidden = true; };
 
 // ---- lock
@@ -167,7 +174,9 @@ for (const k of ['cols', 'rows']) {
     const n = Math.min(MAX_SIZE, Math.max(1, Math.round(Number(e.target.value)) || g[k]));
     g[k] = n;
     e.target.value = n;
+    const lost = lostByResize(g.cells, g.cols, g.rows);
     g.cells = resize(g.cells, g.cols, g.rows);
+    warn(lostText(lost, `by making the grid ${g.cols} x ${g.rows}`));
     sel = null;
     touch();
     drawCanvas();
@@ -273,6 +282,7 @@ function drawTools() {
 }
 
 $('ged-join').addEventListener('click', () => {
+  warn(lostText(lostByJoin(grid().cells, sel), 'by joining: a joined button keeps only the first assigned one'));
   const r = join(grid().cells, sel);
   grid().cells = r.cells;
   sel = r.rect;
@@ -388,6 +398,12 @@ $('ged-save').addEventListener('click', () => {
   $('ged-err').textContent = err;
   if (err) return;
   const grids = draft.map((g) => ({ ...g, name: g.name.trim(), cells: savable(g.cells).map((c) => ({ ...c, ref: String(c.ref) })) }));
+  const body = JSON.stringify(grids);
+  if (body.length > 48 * 1024) {
+    $('ged-err').hidden = false;
+    $('ged-err').textContent = `The grids are too big (${Math.ceil(body.length / 1024)} KiB of at most 48 KiB): remove some buttons or grids.`;
+    return;
+  }
   saving = ++seq;
   $('ged-save').disabled = true;
   if (!wsSend({ t: 'grids', grids, gridConfirm: confirmDefault, id: saving })) {
@@ -398,6 +414,16 @@ $('ged-save').addEventListener('click', () => {
   }
 });
 $('ged-revert').addEventListener('click', () => { load(); draw(); $('ged-err').hidden = true; });
+
+// A save whose reply can't come any more: say so and let Save be pressed again.
+function saveLost() {
+  if (!saving) return;
+  saving = 0;
+  $('ged-save').disabled = false;
+  $('ged-err').hidden = false;
+  $('ged-err').textContent = 'Connection lost; your edits are kept, save again.';
+}
+on('wsclose', saveLost);
 
 onMsg('gridsResult', (m) => {
   if (m.id !== saving) return;
@@ -427,6 +453,7 @@ onMsg('grids', (m) => {
 });
 
 on('hello', () => {
+  saveLost();
   showLock();
   if (!dirty) { load(); draw(); } else { lvl.reset(); }
 });

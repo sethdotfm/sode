@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"slices"
@@ -37,6 +38,10 @@ type GridCell struct {
 	Ref   string `yaml:"ref" json:"ref"`
 	Label string `yaml:"label,omitempty" json:"label"`
 }
+
+// MaxGridsJSON is the most JSON the grids may take, so the grids message
+// stays under the server's 64 KiB read limit.
+const MaxGridsJSON = 48 << 10
 
 const (
 	maxGrids    = 20
@@ -106,6 +111,11 @@ func (c Config) validateGrids() []error {
 	if len(c.Grids) > maxGrids {
 		bad("at most %d grids", maxGrids)
 	}
+	// The editor sends every grid in one WebSocket message (read limit
+	// 64 KiB); what is saved must fit it with room for the envelope.
+	if b, err := json.Marshal(c.Grids); err == nil && len(b) > MaxGridsJSON {
+		bad("the grids are too big (%d KiB of at most %d KiB): remove some buttons or grids", len(b)>>10, MaxGridsJSON>>10)
+	}
 	links := map[string]bool{}
 	for _, g := range c.Grids {
 		who := fmt.Sprintf("grid %q", g.Link)
@@ -153,7 +163,8 @@ func (c Config) validateGrids() []error {
 			if len([]rune(k.Label)) > 24 {
 				bad("%s: label must be at most 24 characters", at)
 			}
-			if k.W < 1 || k.H < 1 || k.X < 0 || k.Y < 0 || k.X+k.W > g.Cols || k.Y+k.H > g.Rows {
+			// Subtracting from the (checked, small) size cannot wrap, unlike X+W.
+			if k.W < 1 || k.H < 1 || k.X < 0 || k.Y < 0 || k.X > g.Cols-k.W || k.Y > g.Rows-k.H {
 				bad("%s is outside the %d x %d grid", at, g.Cols, g.Rows)
 				continue
 			}

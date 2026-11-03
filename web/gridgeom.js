@@ -52,6 +52,17 @@ export function join(cells, r) {
   return { cells: [...cells.filter((c) => !inside(c, rect)), merged], rect };
 }
 
+// Assigned cells a join of r would lose: all but the one it keeps.
+export function lostByJoin(cells, r) {
+  const rect = expandRect(cells, r);
+  const n = cells.filter((c) => inside(c, rect) && !blank(c)).length;
+  return rect.w * rect.h < 2 ? 0 : Math.max(0, n - 1);
+}
+
+// Assigned cells that resize to cols x rows would drop (those starting
+// past the new edge; ones across it are only shortened).
+export const lostByResize = (cells, cols, rows) => cells.filter((c) => (c.x >= cols || c.y >= rows) && !blank(c)).length;
+
 // Splits every joined cell touching r back into single squares. The first
 // square keeps the assignment; the rest are left empty (not stored).
 export function split(cells, r) {

@@ -81,10 +81,24 @@ func TestGridRoutesEmbedded(t *testing.T) {
 	}
 }
 
+func ptr(b bool) *bool { return &b }
+
+// A grids message without gridConfirm keeps the current default.
+func TestSaveGridsKeepsConfirm(t *testing.T) {
+	a := pinApp(t)
+	c := &client{ip: "10.0.0.9"}
+	if err := a.SaveGrids(c, nil, ptr(false)); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SaveGrids(c, []config.Grid{testGrid("one")}, nil); err != nil || a.r().cfg.GridConfirm {
+		t.Fatalf("confirm changed by an absent value: %v", err)
+	}
+}
+
 func TestSaveGrids(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}
-	if err := a.SaveGrids(c, []config.Grid{testGrid("one")}, false); err != nil {
+	if err := a.SaveGrids(c, []config.Grid{testGrid("one")}, ptr(false)); err != nil {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg
@@ -99,20 +113,20 @@ func TestSaveGrids(t *testing.T) {
 	}
 	bad := testGrid("two")
 	bad.Cells = append(bad.Cells, config.GridCell{X: 0, Y: 0, W: 1, H: 1, Kind: "src", Ref: "2"})
-	if err := a.SaveGrids(c, []config.Grid{bad}, true); err == nil || len(a.r().cfg.Grids) != 1 {
+	if err := a.SaveGrids(c, []config.Grid{bad}, ptr(true)); err == nil || len(a.r().cfg.Grids) != 1 {
 		t.Fatalf("overlap accepted: %v", err)
 	}
 	// With a PIN, saving needs the unlock.
 	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveGrids(c, nil, true); !errors.Is(err, errLocked) {
+	if err := a.SaveGrids(c, nil, ptr(true)); !errors.Is(err, errLocked) {
 		t.Fatalf("locked save: %v", err)
 	}
 	if a.Unlock(c, "2468") != nil {
 		t.Fatal("unlock")
 	}
-	if err := a.SaveGrids(c, nil, true); err != nil || len(a.r().cfg.Grids) != 0 || !a.r().cfg.GridConfirm {
+	if err := a.SaveGrids(c, nil, ptr(true)); err != nil || len(a.r().cfg.Grids) != 0 || !a.r().cfg.GridConfirm {
 		t.Fatalf("unlocked save: %v", err)
 	}
 }

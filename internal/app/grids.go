@@ -23,14 +23,17 @@ type gridsMsg struct {
 
 // SaveGrids replaces the panels and the confirm default for everyone, from
 // c (the editor). They're settings, so a settings PIN guards them too.
-func (a *App) SaveGrids(c *client, grids []config.Grid, confirm bool) error {
+func (a *App) SaveGrids(c *client, grids []config.Grid, confirm *bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if a.locked(c) {
 		return errLocked
 	}
 	_, nr, err := a.update(func(cur *config.Config) error {
-		cur.Grids, cur.GridConfirm = grids, confirm
+		cur.Grids = grids
+		if confirm != nil {
+			cur.GridConfirm = *confirm
+		}
 		return nil
 	})
 	if err != nil {

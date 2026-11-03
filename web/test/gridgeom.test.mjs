@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rectBetween, expandRect, join, split, assign, remove, overlaps, resize, savable, squares, cellAt, confirmFor, slugify, validLink, freeLink } from '../gridgeom.js';
+import { rectBetween, expandRect, join, split, assign, remove, overlaps, resize, savable, squares, lostByJoin, lostByResize, cellAt, confirmFor, slugify, validLink, freeLink } from '../gridgeom.js';
 
 const c = (x, y, w = 1, h = 1, kind = 'src', ref = '1', label = '') => ({ x, y, w, h, kind, ref, label });
 
@@ -88,4 +88,13 @@ test('links', () => {
   assert.equal(freeLink('Studio A', ['studio-a']), 'studio-a-2');
   assert.equal(freeLink('!!!', []), 'grid');
   assert.equal(freeLink('ws', []), 'ws-2');
+});
+
+test('lost assignments are counted before join and resize', () => {
+  const cells = [c(0, 0, 1, 1, 'dst', '5'), c(1, 0, 1, 1, 'src', '9'), c(2, 0, 1, 1, 'src', '8'), c(5, 5)];
+  assert.equal(lostByJoin(cells, { x: 0, y: 0, w: 3, h: 1 }), 2);
+  assert.equal(lostByJoin(cells, { x: 0, y: 0, w: 1, h: 1 }), 0);
+  assert.equal(lostByJoin([], { x: 0, y: 0, w: 2, h: 2 }), 0);
+  assert.equal(lostByResize(cells, 2, 2), 2); // (2,0) and (5,5)
+  assert.equal(lostByResize([c(1, 0, 3, 1)], 2, 2), 0); // shortened, kept
 });

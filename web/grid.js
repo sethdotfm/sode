@@ -67,14 +67,16 @@ function build() {
     b.type = 'button';
     b.style.gridColumn = `${cell.x + 1} / span ${cell.w}`;
     b.style.gridRow = `${cell.y + 1} / span ${cell.h}`;
-    const entry = { cell, node: b, now: null, tags: null };
+    const entry = { cell, node: b, now: null, tags: null, nameEl: null, numEl: null };
     if (cell.kind === 'salvo') {
       b.disabled = true;
       b.append(el('span', 'sode-grid__name', cell.label || cell.ref), el('span', 'sode-grid__now', 'needs Salvos'));
     } else {
       const n = Number(cell.ref);
-      const it = cell.kind === 'src' ? srcItem(n) : dstItem(n);
-      b.append(el('span', 'sode-grid__name', cell.label || it.name || it.num), el('span', 'sode-grid__num', cell.kind === 'src' ? `Source ${it.num}` : `Destination ${it.num}`));
+      entry.nameEl = el('span', 'sode-grid__name');
+      entry.numEl = el('span', 'sode-grid__num');
+      b.append(entry.nameEl, entry.numEl);
+      relabelEntry(entry);
       if (cell.kind === 'dst') {
         entry.now = el('span', 'sode-grid__now');
         entry.tags = el('span', 'sode-grid__tags');
@@ -86,7 +88,21 @@ function build() {
     board.append(b);
     cells.push(entry);
   }
+  if (busy) setBusy(true);
   refresh();
+}
+
+// The cell's texts from the names now known.
+function relabelEntry(e) {
+  const { cell } = e;
+  const it = cell.kind === 'src' ? srcItem(Number(cell.ref)) : dstItem(Number(cell.ref));
+  e.nameEl.textContent = cell.label || it.name || it.num;
+  e.numEl.textContent = `${cell.kind === 'src' ? 'Source' : 'Destination'} ${it.num}`;
+}
+
+// New names change the texts in place: the buttons stay, so a tap is not lost.
+function relabel() {
+  for (const e of cells) if (e.nameEl) relabelEntry(e);
 }
 
 // Where a destination is routed now on the panel's levels, in words.
@@ -129,7 +145,19 @@ $('grid-clear').addEventListener('click', () => { lit.clear(); refresh(); });
 
 // ---- taking
 
+// A take is in flight: source buttons wait, so a double tap sends one batch.
+let busy = null;
+function setBusy(on) {
+  clearTimeout(busy);
+  busy = on ? setTimeout(() => setBusy(false), 5000) : null;
+  for (const e of cells) {
+    if (e.cell.kind !== 'src') continue;
+    e.node.setAttribute('aria-disabled', String(on));
+  }
+}
+
 function takeSource(n) {
+  if (busy) return;
   $('grid-prot').hidden = true;
   if (!lit.size) return showResult('warn', 'No destination lit', 'Tap one or more destinations to light them first, then tap a source.');
   const levels = levelsOf(grid);
@@ -140,7 +168,7 @@ function takeSource(n) {
   if (block) return showResult(block.kind, block.title, block.text);
   if (confirmFor(grid, S.cfg.gridConfirm)) return openConfirm(plan, prot);
   // Sent at once. Protected destinations are refused by the router, and said so.
-  sendTakes(plan);
+  if (sendTakes(plan)) setBusy(true);
   noteProtected(prot);
 }
 
@@ -192,7 +220,7 @@ function closeConfirm() {
 function doTake() {
   const p = pending;
   closeConfirm();
-  sendTakes(p.plan);
+  if (sendTakes(p.plan)) setBusy(true);
   noteProtected(p.prot);
 }
 
@@ -208,14 +236,18 @@ $('confirm-dialog').addEventListener('keydown', (e) => {
 
 // ---- wiring
 
-on('result', (r) => $('grid-result').replaceChildren(resultNode(r)));
+on('result', (r) => {
+  $('grid-result').replaceChildren(resultNode(r));
+  if (r.kind !== 'info') setBusy(false); // the take has answered
+});
+on('wsclose', () => setBusy(false));
 on('hello', () => {
   // A dst that no longer exists can't stay lit.
   for (const n of [...lit]) if (!S.dstBy.has(n)) lit.delete(n);
   closeConfirm();
   build();
 });
-on('names', build);
+on('names', relabel);
 on('tally', refresh);
 onMsg('grids', (m) => {
   if (!S.cfg) return;

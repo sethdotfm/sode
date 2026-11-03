@@ -244,7 +244,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			Items    []takeReq          `json:"items"`
 			Sets     []config.FilterSet `json:"sets"`
 			Grids    []config.Grid      `json:"grids"`
-			Confirm  bool               `json:"gridConfirm"`
+			Confirm  *bool              `json:"gridConfirm"` // nil: keep the current
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
@@ -308,7 +308,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				a.reply(c, res)
 			}(m.Sets, m.ID)
 		case "grids":
-			go func(grids []config.Grid, confirm bool, id int) {
+			go func(grids []config.Grid, confirm *bool, id int) {
 				res := opResult{T: "gridsResult", OK: true, ID: &id}
 				err := a.SaveGrids(c, grids, confirm)
 				a.command(c, "grids", outcome(err), fmt.Sprintf("%d %s", len(grids), plural(len(grids), "grid", "grids")), err)

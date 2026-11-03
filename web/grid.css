@@ -65,7 +65,10 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.sode-grid__cell:hover, .sode-grid__cell:active { background: var(--pb-surface-hover); }
+.sode-grid__cell:active { background: var(--pb-surface-hover); }
+@media (hover: hover) {
+  .sode-grid__cell:hover { background: var(--pb-surface-hover); }
+}
 .sode-grid__cell--src { border-left: var(--sode-side-w) solid var(--pb-source); }
 .sode-grid__cell--dst { border-left: var(--sode-side-w) solid var(--pb-dest); }
 .sode-grid__cell--salvo { border-left: var(--sode-side-w) solid var(--pb-accent); }
@@ -75,7 +78,7 @@
   outline: var(--pb-accent-bar-w) solid var(--pb-accent);
   outline-offset: calc(-1 * var(--pb-accent-bar-w));
 }
-.sode-grid__cell:disabled {
+.sode-grid__cell:disabled, .sode-grid__cell[aria-disabled="true"] {
   background: transparent;
   color: var(--pb-text-disabled);
   cursor: not-allowed;
