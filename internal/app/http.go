@@ -255,7 +255,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "hi", "userUnlock", "userLock", "adminUnlock", "users":
 			a.serveUsers(c, m.T, m.Page, m.Token, m.Pin, m.ID, m.Forget, m.UsersReq)
 		case "batch":
-			if a.refused(c, a.batchGate(c)) {
+			if a.batchRefused(c) {
 				a.deny(c, "take")
 				continue
 			}

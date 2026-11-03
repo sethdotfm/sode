@@ -25,10 +25,12 @@ import (
 // operations behind a lock, whatever its page does.
 //
 // Which lock guards what: the main lock guards batch, refreshNames,
-// clearHistory, config, filterSets and users; the grid lock guards batch from
-// a page that declared itself "grid"; the log lock guards the sent log (feed
-// and requests) and the uptime graph. The page type is declared by the browser
-// (hi), so it only chooses between the main and grid locks for batch.
+// clearHistory, config, filterSets and users; the grid lock additionally
+// guards batch from a page that declared itself "grid"; the log lock guards
+// the sent log (feed and requests) and the uptime graph. The page type is
+// declared by the browser (hi), so it can only add the grid lock, never skip
+// the main one: until Grid pages exist, a main-locked Sode also refuses takes
+// from "grid".
 
 // errNeedUser is the refusal for an operation behind a lock.
 var errNeedUser = errors.New("locked; unlock with your PIN first")
@@ -238,14 +240,13 @@ func pageGate(page string) gate {
 	return gateMain
 }
 
-// batchGate: a take from a grid page needs the grid lock, any other the main.
-func (a *App) batchGate(c *client) gate {
+// batchRefused: a take needs the main lock's unlock, and from a page that said
+// it is a grid page also the grid lock's. The page type is the browser's word,
+// so claiming "grid" can only add a lock, never skip the main one.
+func (a *App) batchRefused(c *client) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if c.u.page == "grid" {
-		return gateGrid
-	}
-	return gateMain
+	return a.refusedLocked(c, gateMain) || (c.u.page == "grid" && a.refusedLocked(c, gateGrid))
 }
 
 // lockStateMsg is what a page needs to show or hide its lock screen.

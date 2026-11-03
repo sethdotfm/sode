@@ -10,6 +10,7 @@ import { newPager } from './logpager.js';
 import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, slots, summary, slotText } from './uptime.js';
 import './brand.js';
+import './lock.js';
 
 on('brand', ({ text }) => {
   document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
@@ -34,6 +35,7 @@ const WHY_LABEL = {
   connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
   clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved',
   unlock: 'Settings PIN', lock: 'Settings locked',
+  userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password', users: 'Users saved',
 };
 // Events, not messages to the router: no command byte, no bytes.
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
@@ -190,6 +192,13 @@ const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNee
 
 // Reads back until the range is covered. One request at a time.
 const fill = () => rangeNeedsMore() && send(pager.back());
+
+// Unlocked after asking while locked: ask again.
+on('unlocked', () => {
+  send(pager.open());
+  render();
+  refreshUptime();
+});
 
 on('hello', () => {
   // Fresh after a reconnect: entries may have been missed while away.

@@ -15,6 +15,7 @@ import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
+import './users.js'; // adds its section before the table of contents is built
 
 const root = document.documentElement;
 const form = $('settings-view');
@@ -46,7 +47,7 @@ function showView() {
 let clean = '';
 let savedAt = null;
 const formState = () => JSON.stringify([...form.querySelectorAll('input, select, textarea')]
-  .filter((f) => !f.closest('.sode__device, .sode__lock'))
+  .filter((f) => !f.closest('.sode__device, .sode__lock, .sode__users'))
   .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)));
 const dirty = () => isOpen() && formState() !== clean;
 const warned = () => !$('settings-unsaved').hidden;

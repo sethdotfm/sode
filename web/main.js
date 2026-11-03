@@ -5,6 +5,7 @@ import { initTheme } from './device.js';
 import './desktop.js';
 import './settings.js';
 import './brand.js';
+import './lock.js';
 import { applySharedLink } from './filters.js';
 import './mobile.js';
 
