@@ -1,31 +1,39 @@
 // Salvos in the page: the buttons above Recent (both layouts) and the
-// editor dialog. Pressing a button builds a plan and the layout opens its
-// normal confirm ('salvoFire'); the confirm sends one batch. Storage and
-// the pure parts are salvostore.js.
+// editor dialog. Pressing a button builds a plan and the layout showing opens
+// its normal confirm; the confirm sends one batch. Storage and the pure
+// parts are salvostore.js, the plan is plans.js.
 
-import { el, S, on, onMsg, emit, off, wsSend, sentence, search, srcItem, dstItem } from './core.js';
+import { el, S, on, off, search, srcItem, dstItem, nameProblem } from './core.js';
 import { levelInput, parseLevels } from './levelview.js';
-import { showResult } from './plans.js';
-import { unlock, relock, unlocked } from './pin.js';
+import { showResult, salvoPlan } from './plans.js';
+import { globalSaver } from './globalsave.js';
+import { trapDialog } from './widgets.js';
 import {
-  allSalvos, globalSalvos, localSalvos, findSalvo, salvoPlan, normSalvo, nameProblem, salvoProblem, saveLocalSalvo, deleteLocalSalvo,
-  parseRefs, itemsFromTakes, latestFolderTakes, MAX_ITEMS, MAX_DSTS,
+  allSalvos, globalSalvos, localSalvos, findSalvo, normSalvo, salvoProblem, salvosProblem, replaceSalvo, saveLocalSalvo, deleteLocalSalvo,
+  parseRefs, itemsFromTakes, latestFolderTakes,
 } from './salvostore.js';
+
+// ---- the layouts: each registers once what it has
+
+const hosts = [];
+// host: { active(), confirm(plan), patch() }. patch() gives the patch
+// boxes as { src: item, dsts: [item], levels: [ui] } (levels [] = the
+// default levels), or null while they hold no patch.
+export const salvoHost = (host) => { hosts.push(host); };
+const shown = () => hosts.find((h) => h.active());
 
 // ---- the buttons
 
-const defaults = () => parseLevels('') || [];
-
 export function fire(scope, name) {
   const s = findSalvo(scope, name);
-  if (!s) return;
+  const host = shown();
+  if (!s || !host) return;
   if (!S.srcBy.size) return showResult('warn', 'Salvo not sent', 'The router’s names have not loaded yet.');
-  const plan = salvoPlan(s, defaults());
-  if (plan.error) return showResult('error', `Salvo ${s.name} not sent`, plan.error);
+  const plan = salvoPlan(s, parseLevels('') || []);
   if (!plan.items.length) {
-    return showResult('error', `Salvo ${s.name} not sent`, plan.missing.length ? plan.missing.join('; ') + '.' : 'It has no takes.');
+    return showResult('error', `Salvo ${s.name} not sent`, plan.warnings.length ? plan.warnings.join('; ') + '.' : 'It has no takes.');
   }
-  emit('salvoFire', plan); // desktop.js or mobile.js, whichever is showing
+  host.confirm(plan);
 }
 
 function summary(s) {
@@ -54,13 +62,6 @@ function renderStrips() {
 on('salvos', () => { renderStrips(); if (open) renderEditor(true); });
 renderStrips();
 
-// ---- where the patch boxes are: each layout says what it has
-
-const providers = [];
-// fn() -> { src: item, dsts: [item], levelsText: string } or null.
-export const patchProvider = (fn) => { providers.push(fn); };
-const currentPatch = () => { for (const fn of providers) { const p = fn(); if (p) return p; } return null; };
-
 // ---- the dialog
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
@@ -73,7 +74,7 @@ dialog.tabIndex = -1;
 
 const pick = el('select', 'pb-select');
 pick.setAttribute('aria-label', 'Salvo');
-const btn = (cls, text, fn) => {
+const btn = (cls, text, fn = () => {}) => {
   const b = el('button', `pb-btn ${cls}`, text);
   b.type = 'button';
   b.addEventListener('click', fn);
@@ -95,8 +96,8 @@ pinIn.type = 'password';
 pinIn.placeholder = 'PIN';
 pinIn.autocomplete = 'current-password';
 pinIn.setAttribute('aria-label', 'Settings PIN');
-const pinOk = btn('pb-btn--ok pb-btn--sm', 'Unlock', () => sendPin());
-const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', () => cancelPin()));
+const pinOk = btn('pb-btn--ok pb-btn--sm', 'Unlock');
+const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', () => saver.cancel()));
 pinRow.hidden = true;
 const delBtn = btn('pb-btn--outline pb-btn--sm', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit pb-btn--sm', 'Save', () => save());
@@ -119,9 +120,21 @@ dialog.append(
 root.append(dialog);
 document.body.append(root);
 
+function setNote(text, error = false) {
+  noteEl.textContent = text;
+  noteEl.classList.toggle('sode__error-text', error);
+}
+
+// Salvos for everyone: the whole list is sent, after the PIN if one is set.
+const saver = globalSaver({
+  t: 'salvos', resultT: 'salvosResult', pinIn, pinRow, pinOk, setNote,
+  isOpen: () => open, failTitle: 'Salvos not saved', okNote: 'Saved for everyone.',
+  render: () => renderHead(true),
+});
+
 let open = false, back = null;
 // cur: the salvo being edited: { scope, old, name, items: [{ src, dsts, levels }] } as typed text.
-let cur = null, dirty = false, deleting = false, saving = null, opSeq = 0;
+let cur = null, dirty = false, deleting = false;
 const blankRow = () => ({ src: '', dsts: '', levels: '' });
 
 const display = (n) => String(n + off());
@@ -189,25 +202,27 @@ function focusLast() {
   ins[0]?.focus();
 }
 
-function setNote(text, error = false) {
-  noteEl.textContent = text;
-  noteEl.classList.toggle('sode__error-text', error);
-}
-
-// keepEdit: the lists changed under us; keep what is being typed.
-function renderEditor(keepEdit = false) {
-  const list = allSalvos();
-  if (keepEdit && cur?.old && !findSalvo(cur.scope, cur.old) && !dirty) load(null);
-  pick.replaceChildren(new Option('New salvo…', ''), ...list.map((s) => new Option(`${s.name} (${s.scope === 'global' ? 'Everyone' : 'This browser'})`, `${s.scope}:${s.name}`)));
+// The salvo picker and the buttons around the name. keep: what is being
+// typed (the name) stays as it is.
+function renderHead(keep = false) {
+  pick.replaceChildren(new Option('New salvo…', ''), ...allSalvos().map((s) => new Option(`${s.name} (${s.scope === 'global' ? 'Everyone' : 'This browser'})`, `${s.scope}:${s.name}`)));
   pick.value = cur.old ? `${cur.scope}:${cur.old}` : '';
-  nameIn.value = cur.name;
+  if (!keep) nameIn.value = cur.name;
   scopeIn.value = cur.scope;
   scopeIn.disabled = !!cur.old;
   delBtn.hidden = !cur.old;
   delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
-  saveBtn.disabled = !!saving;
+  saveBtn.disabled = saver.busy();
+}
+
+// keepEdit: the lists changed under us (a reconnect, another browser's
+// save); only the picker is refreshed, never the rows or name being typed.
+function renderEditor(keepEdit = false) {
+  if (keepEdit && cur?.old && !findSalvo(cur.scope, cur.old) && !dirty) return load(null);
+  renderHead(keepEdit);
+  if (keepEdit) return;
   renderRows();
-  if (!keepEdit) setNote(cur.old ? (cur.scope === 'global' ? 'Everyone' : 'This browser') : '');
+  setNote(cur.old ? (cur.scope === 'global' ? 'Everyone' : 'This browser') : '');
 }
 pick.addEventListener('change', () => {
   const v = pick.value;
@@ -219,12 +234,9 @@ nameIn.addEventListener('input', () => { cur.name = nameIn.value; dirty = true; 
 scopeIn.addEventListener('change', () => { cur.scope = scopeIn.value; });
 
 function fillFromBoxes() {
-  const p = currentPatch();
+  const p = shown()?.patch();
   if (!p) return setNote('Pick a Source and a Destination in the main boxes first.', true);
-  const it = { src: p.src.n, dsts: p.dsts.map((d) => d.n), levels: [] };
-  const lv = p.levelsText.trim() ? parseLevels(p.levelsText) : [];
-  if (lv) it.levels = lv;
-  addRows([it], 'Added the patch in the boxes.');
+  addRows([{ src: p.src.n, dsts: p.dsts.map((d) => d.n), levels: p.levels }], 'Added the patch in the boxes.');
 }
 function fillFromHistory() {
   const items = itemsFromTakes(latestFolderTakes(S.hist));
@@ -241,7 +253,8 @@ function addRows(items, note) {
 
 // ---- saving
 
-// The typed rows as a salvo, or an error line.
+// The typed rows as a salvo, or an error line. next: the scope's list as
+// it would be saved.
 function built() {
   const items = [];
   for (const r of cur.items) {
@@ -251,10 +264,11 @@ function built() {
   }
   const s = normSalvo({ name: cur.name, items });
   const list = cur.scope === 'global' ? globalSalvos() : localSalvos();
-  const err = nameProblem(list, s.name, cur.old) || salvoProblem(s);
+  const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'salvo', old: cur.old }) || salvoProblem(s);
   if (err) return { err };
-  if (s.items.some((it) => it.dsts.length > MAX_DSTS) || s.items.length > MAX_ITEMS) return { err: 'Too many takes.' };
-  return { s, list };
+  const next = replaceSalvo(list, s, cur.old);
+  const tooMuch = salvosProblem(next);
+  return tooMuch ? { err: tooMuch } : { s, next };
 }
 
 function save() {
@@ -268,11 +282,7 @@ function save() {
     renderEditor();
     return setNote('Saved for this browser.');
   }
-  const next = b.list.map(({ name, items }) => ({ name, items }));
-  const at = next.findIndex((x) => x.name.toLowerCase() === cur.old.toLowerCase());
-  const entry = { name: b.s.name, items: b.s.items };
-  if (cur.old && at >= 0) next[at] = entry; else next.push(entry);
-  changeGlobal(next, () => { cur.old = b.s.name; cur.name = b.s.name; dirty = false; });
+  saver.change({ salvos: b.next }, () => { cur.old = b.s.name; cur.name = b.s.name; nameIn.value = cur.name; dirty = false; });
 }
 
 function deleteClick() {
@@ -286,67 +296,8 @@ function deleteClick() {
     return setNote('Deleted.');
   }
   const next = globalSalvos().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(({ name: n, items }) => ({ name: n, items }));
-  changeGlobal(next, () => load(null));
+  saver.change({ salvos: next }, () => load(null));
 }
-
-// Salvos for everyone: the whole list is sent, after the PIN if one is set.
-function changeGlobal(list, done) {
-  saving = { run: () => send(list), done };
-  if (S.pinSet && !unlocked()) return askPin();
-  saving.run();
-}
-function send(list) {
-  saving.id = ++opSeq;
-  if (!wsSend({ t: 'salvos', id: saving.id, salvos: list })) {
-    saving = null;
-    return setNote('Not connected to Sode.', true);
-  }
-  saveBtn.disabled = true;
-  setNote('Saving…');
-}
-onMsg('salvosResult', (m) => {
-  if (!saving || m.id !== saving.id) return;
-  const s = saving;
-  if (m.locked) {
-    relock();
-    if (open) { saving = { run: s.run, done: s.done }; return askPin('Enter the PIN again.'); }
-  }
-  saving = null;
-  if (m.ok) s.done();
-  if (open) {
-    renderEditor();
-    setNote(m.ok ? 'Saved for everyone.' : sentence(m.err), !m.ok);
-    return;
-  }
-  if (!m.ok) showResult('error', 'Salvos not saved', sentence(m.err) || 'Settings are locked.');
-  relock();
-});
-
-function askPin(err = '') {
-  pinRow.hidden = false;
-  pinIn.value = '';
-  setNote(err || 'Enter the settings PIN.', !!err);
-  pinIn.focus();
-}
-function cancelPin() {
-  pinRow.hidden = true;
-  saving = null;
-  setNote('');
-}
-async function sendPin() {
-  pinOk.disabled = true;
-  const r = await unlock(pinIn.value);
-  if (r.superseded) return;
-  pinOk.disabled = false;
-  if (r.stale) return;
-  if (!r.ok) { setNote(r.err, true); pinIn.select(); return; }
-  pinRow.hidden = true;
-  saving?.run();
-}
-pinIn.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); sendPin(); }
-  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelPin(); }
-});
 
 // ---- open / close
 
@@ -365,19 +316,8 @@ export function openSalvos(scope = '', name = '') {
 function closeSalvos() {
   open = false;
   root.hidden = true;
-  pinRow.hidden = true;
-  // A save already sent finishes first (its answer locks up after it).
-  if (!saving?.id) { saving = null; relock(); }
+  saver.close(); // a save already sent finishes first (its answer locks up after it)
   if (back?.isConnected) back.focus();
 }
 
-// Keys stay in the dialog: Esc closes, Tab wraps.
-root.addEventListener('keydown', (e) => {
-  e.stopPropagation();
-  if (e.key === 'Escape') { e.preventDefault(); closeSalvos(); return; }
-  if (e.key !== 'Tab') return;
-  const all = [...dialog.querySelectorAll('button, input, select')].filter((x) => !x.disabled && x.offsetParent);
-  const first = all[0], last = all[all.length - 1];
-  if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { e.preventDefault(); last.focus(); }
-  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-});
+trapDialog(root, dialog, closeSalvos);

@@ -12,14 +12,15 @@ import {
   historyPager, beforeGroups, attachFollows, entryNote, statusNode, folderTitle, folderPartial, folderLevels, folderIds,
 } from './history.js';
 import {
-  undoPlan, againPlan, planVerb, folderUndoPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
-  planBlocked, planSummary, sendTakes, lastTake, nextTake, lastChip,
+  undoPlan, againPlan, folderUndoPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
+  planBlocked, sendTakes, lastTake, nextTake, lastChip, VERBS,
 } from './plans.js';
 import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { patchProvider } from './salvos.js';
-import { levelBox, combobox, disclosure, undoButton, againButton, arrivals, lockout, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
+import { salvoHost } from './salvos.js';
+import { keyConfirm } from './keyconfirm.js';
+import { levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -657,12 +658,17 @@ $('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
 
-const KEYS = 'abcdefghjkmnpqrstuvwxyz';
-let lastKey = '';
-let pending = null; // plan + key + lock (a shallow copy: planBlocked's prot is keyed by its items)
 let confirmBack = null; // focus to return to when the confirm closes
 let confirmKeys = false; // keyboard mode was on when it opened
 let confirmFromHist = false; // opened from Recent (decided then: rows get redrawn)
+
+// Only a patch came from the boxes; an undo or retry leaves them be.
+const confirm = keyConfirm({
+  spaceHint: true,
+  prompt: (key) => ['Press ', key, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'],
+  onTake: (p, viaKeys) => { if (sendTakes(p) && VERBS[p.verb].resets) clearAll(); else focusBack(viaKeys); },
+  onClose: (p, viaKeys) => { if (p?.verb === 'patch') lvlInput.focus(); else focusBack(viaKeys); },
+});
 
 // Patch button and Enter: take any half-typed box's best match, then confirm.
 function patchNow() {
@@ -717,32 +723,10 @@ function tryConfirm() {
 function openConfirm(plan) {
   const { block, prot } = planBlocked(plan);
   if (block) return showResult(block.kind, block.title, block.text);
-  pending?.lock.cancel(); // one replaced: its lockout mustn't unlock this one
-  let key;
-  do key = KEYS[Math.floor(Math.random() * KEYS.length)]; while (key === lastKey);
-  lastKey = key;
-  pending = { ...plan, key };
   confirmBack = document.activeElement;
   confirmKeys = keyMode();
   confirmFromHist = confirmBack === histList || histArea(confirmBack);
-
-  const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
-  const verb = planVerb(plan);
-  const Verb = verb[0].toUpperCase() + verb.slice(1);
-  $('confirm-title').textContent = `Confirm ${verb}`;
-  $('confirm-body').replaceChildren(
-    ...planSummary(plan, { prot, spaceHint: true }),
-    el('div', 'sode__prompt', 'Press ', keyEl, S.cfg.confirmEnter ? ' or Enter' : '', ' to confirm, or escape to cancel.'),
-  );
-  $('confirm-ok').textContent = `${Verb} (${key.toUpperCase()})`;
-  $('confirm-ok').disabled = true;
-  $('confirm').hidden = false;
-  $('confirm-dialog').focus();
-
-  pending.lock = lockout(() => {
-    keyEl.classList.remove('sode__key--locked');
-    $('confirm-ok').disabled = false;
-  });
+  confirm.open(plan, prot);
 }
 
 // Focus goes back where the confirm was opened from. Keyboard mode only if
@@ -757,39 +741,6 @@ function focusBack(viaKeys) {
 }
 function histArea(n) {
   return !!n && (histList.contains(n) || $('history-more').contains(n));
-}
-
-function closeConfirm(viaKeys = false) {
-  const patch = pending?.verb === 'patch';
-  pending?.lock.cancel();
-  pending = null;
-  $('confirm').hidden = true;
-  if (patch) lvlInput.focus();
-  else focusBack(viaKeys);
-}
-
-function doTake(viaKeys = false) {
-  const p = pending;
-  p.lock.cancel();
-  pending = null;
-  $('confirm').hidden = true;
-  // Only a patch came from the boxes; an undo or retry leaves them be.
-  if (sendTakes(p) && p.verb === 'patch') clearAll();
-  else focusBack(viaKeys);
-}
-
-function onConfirmKey(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  if (e.key === 'Escape') return closeConfirm(true);
-  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  // Space ticks the box that adds an undo's follows.
-  if (e.key === ' ' && pending.extra) {
-    $('confirm-body').querySelector('.sode__plan-extra input')?.click();
-    return;
-  }
-  if (!pending.lock.ready()) return;
-  if (e.key.toLowerCase() === pending.key || (S.cfg.confirmEnter && e.key === 'Enter')) doTake(true);
 }
 
 // ---- keyboard & input wiring
@@ -837,7 +788,7 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
 // ⌘Z and ⌘J/K, which work as Ctrl+Z and Ctrl+J/K do. Each check excludes the other two
 // modifiers. Key labels are lowercase, with ⇧ where Shift is needed.
 document.addEventListener('keydown', (e) => {
-  if (pending) return onConfirmKey(e);
+  if (confirm.isOpen()) return confirm.key(e);
   if (layout() !== 'desktop') return;
   // Ctrl+? opens or closes the shortcut list from anywhere on desktop,
   // Settings included, even mid-typing. By character, so any keyboard
@@ -961,10 +912,6 @@ $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
 $('patch').addEventListener('mousedown', (e) => e.preventDefault()); // keep focus where it was
 $('patch').addEventListener('click', patchNow);
-$('confirm-cancel').addEventListener('click', () => closeConfirm());
-$('confirm-ok').addEventListener('click', () => {
-  if (pending && pending.lock.ready()) doTake();
-});
 
 // ---- subscriptions
 
@@ -984,5 +931,8 @@ on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
 
 // Salvos (salvos.js): a button opens the usual confirm; the patch boxes can fill one.
-on('salvoFire', (plan) => { if (active()) openConfirm(plan); });
-patchProvider(() => (active() && sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levelsText: lvlInput.value } : null));
+salvoHost({
+  active,
+  confirm: openConfirm,
+  patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
+});

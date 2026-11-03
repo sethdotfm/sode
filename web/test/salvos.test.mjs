@@ -2,6 +2,9 @@
 // Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const cases = JSON.parse(readFileSync(new URL('./salvo_cases.json', import.meta.url), 'utf8'));
 
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 globalThis.document = node();
@@ -30,10 +33,35 @@ test('parseRefs: display numbers, ranges, names, bad tokens', async () => {
   assert.deepEqual(parseRefs('9-5', 0, lookup).bad, ['9-5']);
 });
 
-test('normSalvo cleans numbers', async () => {
+test('normSalvo cleans numbers (shared cases)', async () => {
   const { normSalvo } = await setup();
-  assert.deepEqual(normSalvo({ name: ' A ', items: [{ src: '2', dsts: [1, 1, 'x', -4, 3], levels: [3, 1, 3, 0] }] }),
-    { name: 'A', items: [{ src: 2, dsts: [1, 3], levels: [1, 3] }] });
+  for (const c of cases.norm) assert.deepEqual(normSalvo(c.in), c.out);
+});
+
+// The cases the Go side can share: a salvo as sent, and whether it may be saved.
+const build = (c) => {
+  if (!c.gen) return c;
+  const { items, perItem } = c.gen;
+  return { name: c.name, items: Array.from({ length: items }, (_, i) => ({ src: i, dsts: Array.from({ length: perItem }, (_, j) => i * perItem + j), levels: [1] })) };
+};
+
+test('salvo validation matches the shared cases', async () => {
+  const { normSalvo, salvoProblem, nameProblem } = await setup();
+  for (const c of cases.salvos) {
+    const s = normSalvo(build(c.salvo));
+    const err = nameProblem(s.name, [], { noun: 'salvo' }) || salvoProblem(s);
+    assert.equal(err === '', c.ok, `${c.name}: ${err || 'accepted'}`);
+  }
+});
+
+test('salvo lists match the shared cases (count and 48 KiB)', async () => {
+  const { salvosProblem } = await setup();
+  for (const c of cases.lists) {
+    const list = Array.from({ length: c.fill.salvos }, (_, k) => ({
+      name: `s${k}`, items: Array.from({ length: c.fill.items }, (_, i) => ({ src: i, dsts: [i], levels: [1] })),
+    }));
+    assert.equal(salvosProblem(list) === '', c.ok, c.name);
+  }
 });
 
 test('local salvos: add, replace, rename, delete, names ignoring case', async () => {
@@ -45,9 +73,11 @@ test('local salvos: add, replace, rename, delete, names ignoring case', async ()
   m.saveLocalSalvo({ name: 'Morn', items: a.items }, 'morning');
   assert.deepEqual(m.localSalvos().map((s) => s.name), ['Morn', 'Evening']);
   assert.ok(m.findSalvo('local', 'EVENING'));
-  assert.ok(m.nameProblem(m.localSalvos(), 'evening'));
-  assert.equal(m.nameProblem(m.localSalvos(), 'EVENING', 'Evening'), '');
-  assert.ok(m.nameProblem(m.localSalvos(), '  '));
+  const names = m.localSalvos().map((x) => x.name);
+  assert.ok(m.nameProblem('evening', names, { noun: 'salvo' }));
+  assert.equal(m.nameProblem('EVENING', names, { noun: 'salvo', old: 'Evening' }), '');
+  assert.ok(m.nameProblem('  ', names));
+  assert.ok(m.nameProblem('All', [], { reserved: 'all' }));
   m.deleteLocalSalvo('morn');
   assert.deepEqual(m.localSalvos().map((s) => s.name), ['Evening']);
 });
@@ -76,12 +106,13 @@ test('salvoPlan: one item per destination, default levels, unresolved left out a
     { src: 2, dsts: [77], levels: [1, 9] },
   ] }, [1, 2]);
   assert.equal(plan.verb, 'salvo');
-  assert.equal(plan.salvo, 'Show');
+  assert.equal(plan.title, 'Salvo: Show');
+  assert.equal(plan.salvo, undefined);
   assert.deepEqual(plan.items.map((i) => [i.dst.n, i.groups.map((g) => [g.src.n, g.levels])]), [
     [0, [[0, [1, 2]]]],
     [1, [[0, [1, 2]], [1, [3]]]],
   ]);
-  assert.deepEqual(plan.missing, [
+  assert.deepEqual(plan.warnings, [
     'Source 100 does not exist on the router now',
     'Level 9 does not exist on the router now',
     'Destination 78 does not exist on the router now',
@@ -111,30 +142,43 @@ test('itemsFromTakes and latestFolderTakes', async () => {
   assert.deepEqual(latestFolderTakes([{ id: 2, src: 9, dst: 9, levels: [1], ext: true }]), []);
 });
 
-test('conflicts: different sources, one destination, overlapping levels', async () => {
-  const { salvoProblem, salvoPlan } = await setup();
-  const s = (...items) => ({ name: "x", items });
-  const it = (src, dsts, levels = []) => ({ src, dsts, levels });
-  const bad = s(it(0, [1]), it(2, [1], [1]));
-  assert.match(salvoProblem(bad), /Destination 2 is taken from both source 1 and source 3/);
-  assert.ok(salvoProblem(s(it(0, [1], [1, 2]), it(2, [1], [2, 3]))));
-  // Disjoint levels, other destinations and the same source are fine.
-  assert.equal(salvoProblem(s(it(0, [1], [1, 2]), it(2, [1], [3, 4]))), "");
-  assert.equal(salvoProblem(s(it(0, [1]), it(2, [3]))), "");
-  assert.equal(salvoProblem(s(it(0, [1]), it(0, [1]))), "");
-  // An old salvo saved before the check: the plan carries the error and no takes.
-  const p = salvoPlan(bad, [1, 2]);
-  assert.ok(p.error);
-  assert.equal(p.items.length, 0);
-  assert.equal(salvoPlan(s(it(0, [1], [1, 2]), it(2, [1], [3])), [1, 2]).error, "");
+test('a salvo plan can be confirmed: wording, summary and verb', async () => {
+  const { salvoPlan, planVerb, planSummary, VERBS } = await setup();
+  const plan = salvoPlan({ name: 'Show', items: [{ src: 0, dsts: [0, 1], levels: [1] }, { src: 99, dsts: [2], levels: [] }] }, [1, 2]);
+  assert.equal(planVerb(plan), 'take');
+  assert.equal(VERBS.salvo.resets, false);
+  // Nodes are stand-ins here; what matters is that it builds and the head lines come first.
+  const nodes = planSummary(plan);
+  assert.ok(nodes.length >= 4); // title, warnings, question, the items
+  assert.equal(plan.warnings.length, 1);
 });
 
-test('total destinations are capped at 200', async () => {
-  const { salvoProblem, salvoPlan } = await setup();
-  const dsts = (a, n) => Array.from({ length: n }, (_, i) => a + i);
-  const ok = { name: "x", items: [{ src: 0, dsts: dsts(0, 100), levels: [] }, { src: 0, dsts: dsts(100, 100), levels: [] }] };
-  assert.equal(salvoProblem(ok), "");
-  const big = { name: "x", items: [...ok.items, { src: 0, dsts: [500], levels: [] }] };
-  assert.match(salvoProblem(big), /at most 200 destinations in total/);
-  assert.ok(salvoPlan(big, [1]).error);
+test('replaceSalvo adds, replaces by old name ignoring case, and leaves the rest', async () => {
+  const { replaceSalvo } = await setup();
+  const a = { name: 'A', items: [] }, b = { name: 'B', items: [] };
+  assert.deepEqual(replaceSalvo([a], b).map((x) => x.name), ['A', 'B']);
+  assert.deepEqual(replaceSalvo([a, b], { name: 'C', items: [] }, 'a').map((x) => x.name), ['C', 'B']);
+  assert.deepEqual(replaceSalvo([a], { name: 'C', items: [] }, 'gone').map((x) => x.name), ['A', 'C']);
+});
+
+test('latestFolderTakes leaves out retries like the first find does', async () => {
+  const { latestFolderTakes } = await setup();
+  const hist = [ // newest first
+    { id: 5, src: 1, dst: 5, levels: [1], retry: 3 },
+    { id: 4, src: 2, dst: 7, levels: [3], group: 'g', groupN: 3 },
+    { id: 3, src: 1, dst: 5, levels: [1], group: 'g', groupN: 3 },
+    { id: 2, src: 1, dst: 6, levels: [1], group: 'g', groupN: 3, retry: 1 },
+  ];
+  assert.deepEqual(latestFolderTakes(hist).map((t) => t.dst), [5, 7]);
+});
+
+test('conflicts: different sources, one destination, overlapping levels', async () => {
+  const { salvoProblem } = await setup();
+  const s = (...items) => ({ name: 'x', items });
+  const it = (src, dsts, levels = []) => ({ src, dsts, levels });
+  assert.match(salvoProblem(s(it(0, [1]), it(2, [1], [1]))), /Destination 2 is taken from both source 1 and source 3/);
+  assert.ok(salvoProblem(s(it(0, [1], [1, 2]), it(2, [1], [2, 3]))));
+  assert.equal(salvoProblem(s(it(0, [1], [1, 2]), it(2, [1], [3, 4]))), '');
+  assert.equal(salvoProblem(s(it(0, [1]), it(2, [3]))), '');
+  assert.equal(salvoProblem(s(it(0, [1]), it(0, [1]))), '');
 });
