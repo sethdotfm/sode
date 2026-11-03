@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -84,12 +85,18 @@ func (c Config) validateUsers() []error {
 			bad("two users are named %q", u.Name)
 		}
 		seen[key] = true
+		if strings.IndexFunc(u.Name, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0 {
+			bad("user name %q must use printable characters only", u.Name)
+		}
 		if !ValidPinHash(u.Pin) || u.Len < UserPinMin || u.Len > UserPinMax {
 			bad("user %q has no valid PIN", u.Name)
 		}
 	}
 	if c.Locks.Any() && len(c.Users) == 0 {
 		bad("add a user before turning a lock on")
+	}
+	if c.Locks.Any() && c.SettingsPin == "" {
+		bad("set a settings PIN before turning a lock on: users and locks are administered with it")
 	}
 	if c.AutoLockMinutes < 0 || c.AutoLockMinutes > MaxAutoLockMin {
 		bad("auto-lock must be 0 (never) or 1-%d minutes", MaxAutoLockMin)

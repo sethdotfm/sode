@@ -35,6 +35,9 @@ import (
 // errNeedUser is the refusal for an operation behind a lock.
 var errNeedUser = errors.New("locked; unlock with your PIN first")
 
+// errNeedAdminPin: users and locks are administered with the settings PIN.
+var errNeedAdminPin = errors.New("Set a settings PIN first: users and locks are administered with it")
+
 type gate int
 
 const (
@@ -73,6 +76,7 @@ func (c *client) who() string {
 // userState is the admin tokens (in memory, and in a file next to the
 // config when there is one).
 type userState struct {
+	pin    pinState // wrong user PINs, apart from the settings PIN's count (guarded by App.mu)
 	mu     sync.Mutex
 	loaded bool
 	toks   map[string]tokenRec // sha256 of the token, hex
@@ -140,7 +144,8 @@ func (a *App) tokenOK(t, settingsPin string) bool {
 	}
 	a.usr.mu.Lock()
 	defer a.usr.mu.Unlock()
-	a.loadTokens()
+	// Loaded by pruneTokens at startup and on every config apply: no file
+	// I/O here, since callers hold App.mu.
 	r, ok := a.usr.toks[tokenKey(t)]
 	return ok && r.Pin == settingsPin
 }
@@ -319,7 +324,7 @@ func (a *App) UserUnlock(c *client, pin string) (partial bool, err error) {
 	if len(cands) == 0 {
 		return true, nil
 	}
-	if err := a.pinStart(); err != nil {
+	if err := a.pinStart(true); err != nil {
 		return false, err
 	}
 	var hit *config.User
@@ -331,7 +336,7 @@ func (a *App) UserUnlock(c *client, pin string) (partial bool, err error) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if err := a.pinEnd(hit != nil, c.ip); err != nil {
+	if err := a.pinEnd(true, hit != nil, c.ip); err != nil {
 		return false, err
 	}
 	// Still the same user with the same PIN?
@@ -369,12 +374,12 @@ func (a *App) AdminUnlock(c *client, pin string) (string, error) {
 	if hash == "" {
 		return "", errors.New("no admin password is set; set a settings PIN first")
 	}
-	if err := a.pinStart(); err != nil {
+	if err := a.pinStart(false); err != nil {
 		return "", err
 	}
 	ok := config.CheckPin(hash, pin)
 	a.mu.Lock()
-	err := a.pinEnd(ok, c.ip)
+	err := a.pinEnd(false, ok, c.ip)
 	cur := a.r().cfg.SettingsPin
 	a.mu.Unlock()
 	if err != nil {
@@ -411,6 +416,9 @@ type usersReq struct {
 func (a *App) SaveUsers(c *client, req usersReq) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
+	if a.r().cfg.SettingsPin == "" {
+		return errNeedAdminPin
+	}
 	if a.locked(c) {
 		return errLocked
 	}
@@ -424,6 +432,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			old[strings.ToLower(u.Name)] = u
 		}
 		var out []config.User
+		inherited := map[string]bool{} // rows keep a hash only from their own, one row each
 		fresh := map[string]string{} // new PINs by user name
 		for _, e := range req.Users {
 			u := config.User{Name: strings.TrimSpace(e.Name)}
@@ -442,10 +451,15 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				if was == "" {
 					was = e.Name
 				}
-				o, ok := old[strings.ToLower(strings.TrimSpace(was))]
+				key := strings.ToLower(strings.TrimSpace(was))
+				o, ok := old[key]
 				if !ok {
 					return errors.New("give " + u.Name + " a PIN")
 				}
+				if inherited[key] {
+					return errors.New("two rows keep the same user's PIN; give one of them a new PIN")
+				}
+				inherited[key] = true
 				u.Pin, u.Len = o.Pin, o.Len
 			}
 			out = append(out, u)
@@ -457,7 +471,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 					continue
 				}
 				if p2, isNew := fresh[u.Name]; isNew && p2 == pin || !isNew && config.CheckPin(u.Pin, pin) {
-					return errors.New("two users can't share a PIN; pick another for " + name)
+					return errors.New("that PIN can't be used")
 				}
 			}
 		}

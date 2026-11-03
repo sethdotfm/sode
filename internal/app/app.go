@@ -192,6 +192,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		}
 		return err
 	}
+	a.pruneTokens() // loads the admin token file, so no request reads it under mu
 	return a, nil
 }
 

@@ -157,6 +157,11 @@ func (a *App) sentHistory(c *client, before int64, n int) {
 	// Subscribe first: an entry logged between the read and the subscribe
 	// would be missed, one in both is dropped by the page (by seq).
 	a.mu.Lock()
+	if a.refusedLocked(c, gateLog) { // locked since the request was read
+		a.deliverLock(c)
+		a.mu.Unlock()
+		return
+	}
 	c.sent = true
 	a.mu.Unlock()
 	page, more, err := a.sent.Page(before, n)

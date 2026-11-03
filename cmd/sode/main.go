@@ -76,10 +76,12 @@ func resetSettingsPin(path string) {
 		return
 	}
 	c.SettingsPin = ""
+	// Locks need a settings PIN (the admin password), so they go with it.
+	c.Locks = config.Locks{}
 	if err := config.Save(path, c); err != nil {
 		log.Fatalf("reset-pin: %v", err)
 	}
-	log.Printf("reset-pin: removed the settings PIN from %s; restart sode to apply", path)
+	log.Printf("reset-pin: removed the settings PIN (and turned the page locks off) from %s; restart sode to apply", path)
 }
 
 func main() {

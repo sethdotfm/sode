@@ -163,14 +163,39 @@ function showLock() {
   root.style.setProperty('--ls', String(t.scale));
   void root.offsetWidth; // commit the start before the class changes it
   root.classList.add('is-on');
-  inerted = [...document.body.children].filter((c) => c !== root && c !== who && c.tagName !== 'SCRIPT' && c.tagName !== 'LINK' && !c.inert);
-  for (const c of inerted) c.inert = true;
+  closeModals();
+  inerted = [];
+  for (const c of document.body.children) inert(c);
+  // Anything added to the page while locked is covered too.
+  watch ||= new MutationObserver((list) => { for (const r of list) for (const n of r.addedNodes) inert(n); });
+  watch.observe(document.body, { childList: true });
   document.activeElement?.blur?.();
   root.focus();
 }
 
+let watch = null;
+function inert(c) {
+  if (c.nodeType !== 1 || c === root || c === who || ['SCRIPT', 'LINK', 'STYLE'].includes(c.tagName) || c.inert) return;
+  c.inert = true;
+  inerted.push(c);
+}
+
+// Open dialogs go first, so nothing is left half-done behind the overlay:
+// native <dialog>s close, the app's modals take their own Cancel/Close, and
+// Settings exits (an unsaved form keeps its warning and stays, covered).
+function closeModals() {
+  for (const d of document.querySelectorAll('dialog[open]')) d.close();
+  for (const m of document.querySelectorAll('.pb-modal-backdrop:not([hidden])')) {
+    const b = [...m.querySelectorAll('button')].find((x) => /cancel|close/i.test(x.id));
+    if (b) b.click();
+    else m.hidden = true;
+  }
+  if (document.documentElement.dataset.view === 'settings') document.getElementById('settings-exit')?.click();
+}
+
 function hideLock() {
   if (!root || root.hidden) return;
+  watch?.disconnect();
   clearTimeout(timer);
   for (const c of inerted) c.inert = false;
   inerted = [];
