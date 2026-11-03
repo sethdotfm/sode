@@ -144,3 +144,56 @@ func TestLockGatesMoreOverWebSocket(t *testing.T) {
 		}
 	}
 }
+
+// A valid user PIN must not hand out fresh guesses at everyone else's: the
+// count survives it, so the waits still arrive.
+func TestUserPinSuccessDoesNotResetCount(t *testing.T) {
+	a := userApp(t, true)
+	c := &client{ip: "10.0.0.1"}
+	for range pinFreeTries { // all the free tries
+		if err := a.UserUnlock(c, "0000"); err == nil {
+			t.Fatal("wrong PIN accepted")
+		}
+	}
+	if err := a.UserUnlock(c, "1234"); err != nil { // a valid PIN, not blocked yet
+		t.Fatalf("valid PIN: %v", err)
+	}
+	err := a.UserUnlock(c, "0000")
+	if err == nil || !strings.Contains(err.Error(), "try again in") {
+		t.Fatalf("the fifth wrong PIN should start the wait, got: %v", err)
+	}
+}
+
+// ...but a pool that has been quiet long enough starts over.
+func TestUserPinForgetsAfterQuiet(t *testing.T) {
+	a := userApp(t, true)
+	c := &client{ip: "10.0.0.1"}
+	for range pinFreeTries + 1 {
+		a.UserUnlock(c, "0000")
+	}
+	a.mu.Lock()
+	a.userPin.until = time.Time{}
+	a.userPin.last = time.Now().Add(-pinMaxWait - time.Minute)
+	a.mu.Unlock()
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatalf("still counting after a quiet hour: %v", err)
+	}
+}
+
+// The settings PIN still starts over on a right one.
+func TestSettingsPinSuccessResetsCount(t *testing.T) {
+	a := userApp(t, true)
+	c := &client{ip: "10.0.0.1"}
+	for range pinFreeTries {
+		a.Unlock(c, "0000")
+	}
+	if err := a.Unlock(c, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	a.mu.Lock()
+	n := a.pin.n
+	a.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("count after a right settings PIN: %d", n)
+	}
+}

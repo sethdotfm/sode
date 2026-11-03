@@ -15,6 +15,7 @@ import (
 type pinState struct {
 	n     int
 	until time.Time // no tries before this
+	last  time.Time // the last wrong PIN
 	busy  bool      // a PIN is being checked
 }
 
@@ -24,9 +25,15 @@ type pinState struct {
 // touches the other. tryPin is the only thing that changes it.
 type pinPool struct {
 	pinState
-	wait     func(tries int) time.Duration // the wait after this many wrong PINs in a row
-	maxTries func(config.Config) int       // wrong PINs that lock for good; nil or 0 = never
-	what     string                        // names the class in the log
+	wait func(tries int) time.Duration // the wait after this many wrong PINs in a row
+	// resetOnOK: a right PIN starts the count over. Not for the users' pool: a
+	// PIN there says who typed it, so a stranger who holds one valid PIN would
+	// reset the count at will and guess the others without end. That pool
+	// forgets wrong PINs after forget of quiet instead.
+	resetOnOK bool
+	forget    time.Duration           // 0 = never
+	maxTries  func(config.Config) int // wrong PINs that lock for good; nil or 0 = never
+	what      string                  // names the class in the log
 }
 
 const (
@@ -54,13 +61,13 @@ func pinWait(n int) time.Duration {
 // settingsPool: the settings PIN. PinMaxTries wrong
 // ones in a row lock it until -reset-pin or a restart.
 func settingsPool() pinPool {
-	return pinPool{what: "settings", wait: pinWait, maxTries: func(c config.Config) int { return c.PinMaxTries }}
+	return pinPool{what: "settings", wait: pinWait, resetOnOK: true, maxTries: func(c config.Config) int { return c.PinMaxTries }}
 }
 
 // userPool: user PINs. The waits stop growing at userPinMaxWait and there is
 // no permanent lock: a stranger's guesses must not shut out the operators.
 func userPool() pinPool {
-	return pinPool{what: "users", wait: func(n int) time.Duration { return min(pinWait(n), userPinMaxWait) }}
+	return pinPool{what: "users", wait: func(n int) time.Duration { return min(pinWait(n), userPinMaxWait) }, forget: pinMaxWait}
 }
 
 const resetHint = "On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode"
@@ -72,6 +79,9 @@ const resetHint = "On the Docker host run: docker compose exec sode /sode -reset
 // afterwards re-checks under its own lock.
 func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	a.mu.Lock()
+	if p.forget > 0 && p.n > 0 && time.Since(p.last) > p.forget {
+		p.n, p.until = 0, time.Time{}
+	}
 	max := 0
 	if p.maxTries != nil {
 		max = p.maxTries(a.r().cfg)
@@ -96,10 +106,13 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	defer a.mu.Unlock()
 	p.busy = false
 	if ok {
-		p.pinState = pinState{}
+		if p.resetOnOK {
+			p.pinState = pinState{}
+		}
 		return nil
 	}
 	p.n++
+	p.last = time.Now()
 	log.Printf("%s: wrong PIN from %s (%d in a row)", p.what, from, p.n)
 	if max > 0 && p.n >= max {
 		log.Printf("%s: locked after %d wrong PINs; run sode -reset-pin or restart to unlock", p.what, p.n)
