@@ -25,7 +25,7 @@ export function buildChip(api) {
   lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
   lockBtn.setAttribute('aria-label', 'Lock');
   lockBtn.addEventListener('click', () => api.lock());
-  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', name, lockBtn));
+  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', lockBtn, name));
   root.hidden = true;
 
   // ---- change my PIN
