@@ -35,6 +35,7 @@ type Entry struct {
 	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
+	Salvo   string    `json:"salvo,omitempty"`   // name of the salvo this take was fired from (browser-supplied, cleaned)
 	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
 	// ext only: group ID of the multi-take confirm this seems to follow; never one of its takes in particular
 	FollowGroup string `json:"followGroup,omitempty"`
