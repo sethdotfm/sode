@@ -233,6 +233,25 @@ func TestLegacyGridKeysLoad(t *testing.T) {
 	}
 }
 
+// A config saved while Grid existed has `locks: grid:`; it must still load.
+func TestLegacyGridLockKeyLoads(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\nlocks:\n  main: false\n  grid: false\n  log: false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, ok, err := Load(p)
+	if err != nil || !ok {
+		t.Fatalf("load: %v %v", ok, err)
+	}
+	if err := Save(p, c); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	if strings.Contains(string(b), "grid") {
+		t.Fatalf("saved file still has the grid lock key:\n%s", b)
+	}
+}
+
 func TestFireModeFromEnv(t *testing.T) {
 	t.Setenv("SODE_FIRE_MODE", "native")
 	t.Setenv("SODE_SALVO_GROUP", "12")

@@ -303,7 +303,7 @@ func (c *Config) Normalize() {
 		d.NextMode = "number"
 	}
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
-	c.LegacyGrids, c.LegacyGridConfirm = nil, nil
+	c.LegacyGrids, c.LegacyGridConfirm, c.Locks.LegacyGrid = nil, nil, nil
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
 	if c.FilterSets == nil {
 		c.FilterSets = []FilterSet{}

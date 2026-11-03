@@ -23,6 +23,9 @@ type User struct {
 type Locks struct {
 	Main bool `yaml:"main" json:"main"`
 	Log  bool `yaml:"log" json:"log"`
+	// Grid was parked (#150); ignored. Kept so a file saved while Grid existed
+	// still loads, and dropped on the next save (Normalize clears it).
+	LegacyGrid any `yaml:"grid,omitempty" json:"-"`
 }
 
 // Any reports whether any page type is locked.
