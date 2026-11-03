@@ -285,7 +285,17 @@ function itemSummary(item, boxed, prot, since) {
 // and what they replace. With several destinations each gets its own
 // block, headed by its name, so the groups are easy to tell apart.
 // prot: from planBlocked. spaceHint: the follows box says Space ticks it.
-export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
+export function planSummary(plan, opts = {}) {
+  const parts = planParts(plan, opts);
+  if (!plan.salvo) return parts;
+  // A salvo names itself and says what it could not resolve.
+  const miss = plan.missing?.length
+    ? [el('div', 'pb-alert pb-alert--warn', el('div', null, el('div', 'pb-alert__title', `${plan.missing.length} left out`), ...plan.missing.map((l) => el('div', null, l))))]
+    : [];
+  return [el('div', 'sode__label', `Salvo: ${plan.salvo}`), ...miss, ...parts];
+}
+
+function planParts(plan, { prot = new Map(), spaceHint = false } = {}) {
   // Restore goes back past newer changes on purpose; other undos warn.
   const since = plan.verb === 'undo' && !plan.at;
   if (plan.items.length === 1) return [planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);

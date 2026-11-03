@@ -19,6 +19,7 @@ import {
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
+import { patchProvider } from './salvos.js';
 import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
@@ -509,7 +510,7 @@ function closeSheet() {
 function confirmSheet() {
   const p = pending;
   closeSheet();
-  if (sendTakes(p) && p.verb !== 'undo') reset();
+  if (sendTakes(p) && p.verb !== 'undo' && !p.salvo) reset();
 }
 
 const handle = $('m-slide-handle');
@@ -725,3 +726,9 @@ onLayout((l) => {
 // The first step from the start, so a Destination-first browser doesn't
 // show the Source box until hello.
 setStep(order()[0], false);
+
+// Salvos (salvos.js): a pressed button opens the usual confirm sheet; the
+// patch so far can fill a salvo.
+on('salvoFire', (plan) => { if (active()) sheetFor(plan); });
+patchProvider(() => (active() && M.sel.src && M.dsts.length
+  ? { src: M.sel.src, dsts: [...M.dsts], levelsText: inputs.lvl.value } : null));

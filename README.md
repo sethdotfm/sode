@@ -146,3 +146,5 @@ Pushing a `v<version>` tag makes CI check it and publish the multi-arch image to
 ## License
 
 Public domain ([Unlicense](LICENSE)). The vendored Lucide icons keep their own license in `web/vendor/patchbay/icons/`.
+
+**Salvos.** Buttons above Recent that take a saved set of sources to destinations in one confirm. **Edit** (or **Salvos…** when there are none) opens the editor: each take is a source, destinations and levels (numbers or names; blank levels = the default levels), and **Fill from patch boxes** or **Fill from latest folder in Recent** adds takes for you. Save for **This browser** or **Everyone** (Settings PIN needed, like filter sets). They are stored as numbers, so a rename on the router changes nothing, and a number the router no longer has is left out and listed in the confirm. A salvo is one batch, so it is one folder in Recent and Undo all undoes it.

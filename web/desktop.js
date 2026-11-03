@@ -18,6 +18,7 @@ import {
 import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
+import { patchProvider } from './salvos.js';
 import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, lockout, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
@@ -982,3 +983,9 @@ on('tally', renderTally);
 on('conn', renderConn);
 on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
+
+// Salvos (salvos.js): a pressed button opens the usual confirm; the patch
+// boxes can fill a salvo.
+on('salvoFire', (plan) => { if (active()) openConfirm(plan); });
+patchProvider(() => (active() && sel.src && allDsts().length
+  ? { src: sel.src, dsts: allDsts(), levelsText: lvlInput.value } : null));

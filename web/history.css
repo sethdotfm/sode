@@ -523,3 +523,18 @@
   margin: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) 0;
   padding: 0 var(--pb-space-1) 0 var(--pb-space-2);
 }
+
+/* Salvos: buttons above Recent, and the editor dialog. */
+.sode__salvos { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); margin: var(--pb-space-3) 0; }
+.sode__salvos:empty { display: none; }
+.sode__scrim > .sode__salvos-dlg { width: 44rem; }
+.sode__salvo-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
+.sode__salvo-row { align-items: center; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
+.sode__salvo-row > .pb-input { min-width: 0; }
+.sode__salvo-hint { grid-column: 1 / -1; overflow-wrap: anywhere; }
+@media (max-width: 599.98px) {
+  .sode__scrim > .sode__salvos-dlg { min-width: 0; width: 100%; }
+  .sode__salvo-row { grid-template-columns: 1fr 1fr; }
+  .sode__salvos { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sode__salvos > .sode__set { flex: none; }
+}
