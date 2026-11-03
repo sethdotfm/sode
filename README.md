@@ -136,7 +136,7 @@ Off by default: with no users and no locks Sode behaves as before. Settings → 
 
 ## Communication log
 
-`/log` (**Open Log** in Settings, available even while Settings are locked) lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. It's read-only. Kept in `SODE_SENTLOG` up to `SODE_SENTLOG_MB`; without it the last 20,000 messages stay in memory.
+`/log` (**Open the Communication Log** in Settings > History, also shown while Settings are locked) lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. It's read-only. Settings has a search box above its section list that finds sections and single settings by name or by common words ("password", "dark", "proxy"). Kept in `SODE_SENTLOG` up to `SODE_SENTLOG_MB`; without it the last 20,000 messages stay in memory.
 
 Besides messages to the router the log has event rows (#139), which show in the default view and have their own filter chips: **Browsers** (a browser's WebSocket connecting or dropping, with its address), **Commands** (what people fire that changes something: takes, undos and retries, refreshing names, clearing history, saving settings, filter sets or grids, unlocking and locking the settings PIN: whether the PIN was right, never the PIN itself), and **Router link** (the router link going down once per outage, coming up, being changed in Settings, and Sode starting and stopping). ACKed messages also show how long the router took.
 
