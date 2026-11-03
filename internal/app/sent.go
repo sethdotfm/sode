@@ -149,21 +149,12 @@ func (a *App) broadcastSent(es []Sent) {
 }
 
 // sentHistory answers a /log page's request for entries older than seq
-// before (-1: the newest) and from then on sends it new ones.
+// before (-1: the newest). The read loop has subscribed c to new ones already,
+// in the step that checked the log lock (policy.go).
 func (a *App) sentHistory(c *client, before int64, n int) {
 	if n <= 0 || n > sentPage {
 		n = sentPage
 	}
-	// Subscribe first: an entry logged between the read and the subscribe
-	// would be missed, one in both is dropped by the page (by seq).
-	a.mu.Lock()
-	if a.refusedLocked(c, gateLog) { // locked since the request was read
-		a.deliverLock(c)
-		a.mu.Unlock()
-		return
-	}
-	c.sent = true
-	a.mu.Unlock()
 	page, more, err := a.sent.Page(before, n)
 	if err != nil {
 		log.Printf("sent log: %v", err)

@@ -152,7 +152,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	locked, _ := json.Marshal(simpleMsg{T: "locked"})
 	for cl := range a.clients {
 		a.deliver(cl, hello)
-		a.deliverLock(cl) // locks, users or the settings PIN may have changed
+		a.syncAccessLocked(cl) // locks, users or the settings PIN may have changed
 		// An unlock is for the PIN it was entered against.
 		if cl.pin != "" && cl.pin != c.SettingsPin {
 			cl.pin = ""
@@ -165,7 +165,6 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	if reconnect {
 		a.sw.SetTarget(c.Router, nr.probe())
 	}
-	a.pruneTokens() // a changed or removed settings PIN revokes every admin token
 	log.Printf("config: applied (reconnect=%v)", reconnect)
 	return nil
 }

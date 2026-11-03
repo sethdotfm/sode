@@ -235,40 +235,22 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			gone = err
 			return
 		}
-		var m struct {
-			T        string             `json:"t"`
-			Before   int                `json:"before"`
-			N        int                `json:"n"`    // history page size; 0 = the default
-			From     int64              `json:"from"` // uptime range, unix ms
-			To       int64              `json:"to"`
-			Slot     int64              `json:"slot"` // ...and its slot length, ms
-			Config   *config.Config     `json:"config"`
-			Pin      string             `json:"pin"`
-			ClearPin bool               `json:"clearPin"`
-			ID       int                `json:"id"` // echoed by unlock and filterSets replies
-			Items    []takeReq          `json:"items"`
-			Sets     []config.FilterSet `json:"sets"`
-			Salvos   []config.Salvo     `json:"salvos"`
-			Grid     *config.Grid       `json:"grid"`  // gridSave
-			Was      string             `json:"was"`   // gridSave: the link before a rename
-			Link     string             `json:"link"`  // gridDelete
-			On       bool               `json:"on"`    // gridConfirm
-			Page     string             `json:"page"`  // hi: main | grid | log
-			Token    string             `json:"token"` // hi: admin token
-			Forget   bool               `json:"forget"`
-			UsersReq *usersReq          `json:"usersReq"`
-		}
+		var m inMsg
 		if err := json.Unmarshal(data, &m); err != nil {
+			continue
+		}
+		rl, known := policy[m.T]
+		if !known {
+			continue // closed: an unlisted type is never dispatched
+		}
+		if err := a.admit(c, rl); err != nil {
+			a.refuse(c, m.T, rl, &m, err)
 			continue
 		}
 		switch m.T {
 		case "hi", "userUnlock", "userLock", "adminUnlock", "users":
-			a.serveUsers(c, m.T, m.Page, m.Token, m.Pin, m.ID, m.Forget, m.UsersReq)
+			a.serveUsers(c, &m)
 		case "batch":
-			if a.batchRefused(c) {
-				a.deny(c, "take")
-				continue
-			}
 			if len(m.Items) > 0 {
 				why, n := "take", len(m.Items)
 				for _, it := range m.Items {
@@ -284,22 +266,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "history":
 			go a.history(c, m.Before, m.N)
 		case "sent":
-			if a.refused(c, gateLog) {
-				a.deny(c, "sent")
-				continue
-			}
 			go a.sentHistory(c, int64(m.Before), m.N)
 		case "uptime":
-			if a.refused(c, gateLog) {
-				a.deny(c, "uptime")
-				continue
-			}
 			a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
 		case "refreshNames":
-			if a.refused(c, gateMain) {
-				a.deny(c, "refreshNames")
-				continue
-			}
 			a.command(c, "refreshNames", "sent", "", nil)
 			go a.RefreshNames()
 		case "unlock":
@@ -317,17 +287,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			a.Lock(c)
 			a.command(c, "lock", "ok", "", nil)
 		case "clearHistory":
-			if a.refused(c, gateMain) {
-				a.deny(c, "clearHistory")
-				continue
-			}
-			if a.locked(c) {
-				a.command(c, "clearHistory", "locked", "", nil)
-				a.reply(c, simpleMsg{T: "locked"})
-				continue
-			}
 			a.command(c, "clearHistory", "ok", "", nil)
-			go a.ClearHistory(c.ip)
+			go a.ClearHistory(c.who())
 		case "filterSets":
 			go func(sets []config.FilterSet, id int) {
 				a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
@@ -374,15 +335,41 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// outcome is a command's result: ok, locked (the PIN was why) or error.
+// outcome is a command's result: ok, locked (a PIN or a lock was why) or error.
 func outcome(err error) string {
 	switch {
 	case err == nil:
 		return "ok"
-	case errors.Is(err, errLocked):
+	case errors.Is(err, errLocked), errors.Is(err, errPageLocked):
 		return "locked"
 	}
 	return "error"
+}
+
+// inMsg is any browser-to-server message; T says which fields are used. Every
+// type read here must be in policy (policy.go).
+type inMsg struct {
+	T        string             `json:"t"`
+	Before   int                `json:"before"`
+	N        int                `json:"n"`    // history page size; 0 = the default
+	From     int64              `json:"from"` // uptime range, unix ms
+	To       int64              `json:"to"`
+	Slot     int64              `json:"slot"` // ...and its slot length, ms
+	Config   *config.Config     `json:"config"`
+	Pin      string             `json:"pin"`
+	ClearPin bool               `json:"clearPin"`
+	ID       int                `json:"id"` // echoed by unlock and save replies
+	Items    []takeReq          `json:"items"`
+	Sets     []config.FilterSet `json:"sets"`
+	Salvos   []config.Salvo     `json:"salvos"`
+	Grid     *config.Grid       `json:"grid"`  // gridSave
+	Was      string             `json:"was"`   // gridSave: the link before a rename
+	Link     string             `json:"link"`  // gridDelete
+	On       bool               `json:"on"`    // gridConfirm
+	Page     string             `json:"page"`  // hi: main | grid | log
+	Token    string             `json:"token"` // hi: admin token
+	Forget   bool               `json:"forget"`
+	UsersReq *usersReq          `json:"usersReq"`
 }
 
 func plural(n int, one, many string) string {

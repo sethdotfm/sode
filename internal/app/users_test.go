@@ -99,7 +99,7 @@ func TestLocksOffByDefault(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
 	for _, g := range []gate{gateMain, gateGrid, gateLog} {
-		if a.refused(c, g) {
+		if !a.pageAllowed(c, g) {
 			t.Errorf("gate %d refused with no locks", g)
 		}
 	}
@@ -108,7 +108,7 @@ func TestLocksOffByDefault(t *testing.T) {
 	}
 	// Users without locks still don't gate anything.
 	a = userApp(t, false)
-	if a.refused(c, gateMain) || a.refused(c, gateLog) {
+	if !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatal("users alone locked something")
 	}
 	if err := a.Unlock(c, "2468"); err != nil {
@@ -122,44 +122,49 @@ func TestLocksOffByDefault(t *testing.T) {
 func TestUserUnlock(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
-	if !a.refused(c, gateMain) || !a.refused(c, gateLog) || a.refused(c, gateGrid) {
+	if a.pageAllowed(c, gateMain) || a.pageAllowed(c, gateLog) || !a.pageAllowed(c, gateGrid) {
 		t.Fatal("main and log should be locked, grid not")
 	}
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "", false); !errors.Is(err, errNeedUser) {
-		t.Fatalf("save while locked: %v", err)
+	// The settings PIN is the admin credential: with it unlocked, saving
+	// needs no user, but the main lock still stops actions.
+	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
+		t.Fatalf("save with the settings PIN, locked as a user: %v", err)
 	}
-	if err := a.SaveFilterSets(c, nil); !errors.Is(err, errNeedUser) {
-		t.Fatalf("filter sets while locked: %v", err)
+	if err := a.SaveFilterSets(c, nil); err != nil {
+		t.Fatalf("filter sets with the settings PIN: %v", err)
 	}
-	// A PIN length no user has isn't a try.
-	if partial, err := a.UserUnlock(c, "12345"); !partial || err != nil {
-		t.Fatalf("partial = %v, err = %v", partial, err)
+	if err := a.admit(c, policy["batch"]); !errors.Is(err, errPageLocked) {
+		t.Fatalf("batch while locked: %v", err)
 	}
-	if a.usr.pin.n != 0 {
-		t.Fatal("a partial PIN was counted")
+	if err := a.admit(c, policy["config"]); err != nil {
+		t.Fatalf("config with the settings PIN: %v", err)
 	}
-	if _, err := a.UserUnlock(c, "4321"); err == nil || a.usr.pin.n != 1 {
-		t.Fatalf("wrong PIN: %v, n=%d", err, a.usr.pin.n)
+	// A PIN of a length no user has is an ordinary wrong try.
+	if err := a.UserUnlock(c, "12345"); err == nil || a.userPin.n != 1 {
+		t.Fatalf("wrong-length PIN: %v, n=%d", err, a.userPin.n)
 	}
-	if partial, err := a.UserUnlock(c, "567890"); partial || err != nil {
-		t.Fatalf("right PIN: %v %v", partial, err)
+	if err := a.UserUnlock(c, "4321"); err == nil || a.userPin.n != 2 {
+		t.Fatalf("wrong PIN: %v, n=%d", err, a.userPin.n)
 	}
-	if a.usr.pin.n != 0 || c.who() != "Bo" || a.refused(c, gateMain) || a.refused(c, gateLog) {
+	if err := a.UserUnlock(c, "567890"); err != nil {
+		t.Fatalf("right PIN: %v", err)
+	}
+	if a.userPin.n != 0 || c.who() != "Bo" || !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatalf("not unlocked as Bo: %q", c.who())
 	}
 	// A different connection stays locked.
-	if !a.refused(&client{ip: "10.0.0.2"}, gateMain) {
+	if a.pageAllowed(&client{ip: "10.0.0.2"}, gateMain) {
 		t.Fatal("unlock leaked to another connection")
 	}
 	a.UserLock(c, false)
-	if !a.refused(c, gateMain) || c.who() != "10.0.0.1" {
+	if a.pageAllowed(c, gateMain) || c.who() != "10.0.0.1" {
 		t.Fatal("lock didn't lock")
 	}
 	// A user removed or given a new PIN relocks the connection.
-	if _, err := a.UserUnlock(c, "1234"); err != nil {
+	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg.Clone()
@@ -167,7 +172,7 @@ func TestUserUnlock(t *testing.T) {
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if !a.refused(c, gateMain) {
+	if a.pageAllowed(c, gateMain) {
 		t.Fatal("removed user still unlocked")
 	}
 }
@@ -177,11 +182,11 @@ func TestUserUnlockBackoff(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	for range pinFreeTries {
-		if _, err := a.UserUnlock(c, "0000"); err == nil || strings.Contains(err.Error(), "try again in") {
+		if err := a.UserUnlock(c, "0000"); err == nil || strings.Contains(err.Error(), "try again in") {
 			t.Fatalf("free try: %v", err)
 		}
 	}
-	_, err := a.UserUnlock(c, "0000")
+	err := a.UserUnlock(c, "0000")
 	if err == nil || !strings.Contains(err.Error(), "try again in") {
 		t.Fatalf("5th wrong: %v", err)
 	}
@@ -192,23 +197,23 @@ func TestUserUnlockBackoff(t *testing.T) {
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatalf("settings PIN blocked by user PIN failures: %v", err)
 	}
-	if _, err := a.UserUnlock(c, "1234"); err == nil || !a.refused(c, gateMain) {
+	if err := a.UserUnlock(c, "1234"); err == nil || a.pageAllowed(c, gateMain) {
 		t.Fatalf("right PIN during the wait: %v", err)
 	}
-	if a.usr.pin.n != pinFreeTries+1 {
-		t.Fatalf("count %d", a.usr.pin.n)
+	if a.userPin.n != pinFreeTries+1 {
+		t.Fatalf("count %d", a.userPin.n)
 	}
 }
 
 func TestAdminTokenAndRevoke(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
-	if _, err := a.UserUnlock(c, "1234"); err != nil {
+	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
 	a.UserLock(c, false)
 	other := &client{ip: "10.0.0.5"}
-	if _, err := a.AdminUnlock(other, "0000"); err == nil || a.refused(other, gateMain) == false {
+	if _, err := a.AdminUnlock(other, "0000"); err == nil || a.pageAllowed(other, gateMain) {
 		t.Fatalf("wrong admin password: %v", err)
 	}
 	a.mu.Lock()
@@ -218,26 +223,25 @@ func TestAdminTokenAndRevoke(t *testing.T) {
 	if err != nil || tok == "" {
 		t.Fatalf("admin unlock: %v", err)
 	}
-	if a.refused(other, gateMain) || a.refused(other, gateLog) {
+	if !a.pageAllowed(other, gateMain) || !a.pageAllowed(other, gateLog) {
 		t.Fatal("token didn't lift the locks")
 	}
 	// Another connection of the same browser presents the token with hi.
 	again := &client{ip: "10.0.0.5"}
 	a.Hi(again, "log", tok)
-	if a.refused(again, gateLog) {
+	if !a.pageAllowed(again, gateLog) {
 		t.Fatal("token not honored on a new connection")
 	}
-	if a.refused(&client{ip: "10.0.0.5", u: connUser{token: "bogus"}}, gateMain) == false {
+	if a.pageAllowed(&client{ip: "10.0.0.5", u: connUser{token: "bogus"}}, gateMain) {
 		t.Fatal("a made-up token worked")
 	}
 	// The token is on disk (hashed), and survives a restart of the state.
-	b, err := os.ReadFile(a.tokenPath())
+	b, err := os.ReadFile(a.tokens.path)
 	if err != nil || strings.Contains(string(b), tok) {
 		t.Fatalf("token file: %v / plaintext token: %v", err, strings.Contains(string(b), tok))
 	}
-	a.usr = userState{}
-	a.pruneTokens() // the load at startup
-	if !a.tokenOK(tok, a.r().cfg.SettingsPin) {
+	a.tokens = loadTokens(a.cfgPath) // the load at startup
+	if !a.tokens.ok(tok, a.r().cfg.SettingsPin) {
 		t.Fatal("token lost with the in-memory state")
 	}
 	// Changing the settings PIN revokes every token.
@@ -245,25 +249,26 @@ func TestAdminTokenAndRevoke(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.UserUnlock(admin, "1234"); err != nil {
+	if err := a.UserUnlock(admin, "1234"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.SaveSettings(admin, a.r().cfg, "1357", false); err != nil {
 		t.Fatal(err)
 	}
-	if !a.refused(other, gateMain) || !a.refused(again, gateLog) {
+	if a.pageAllowed(other, gateMain) || a.pageAllowed(again, gateLog) {
 		t.Fatal("old token still works after the PIN changed")
 	}
-	if a.tokenOK(tok, a.r().cfg.SettingsPin) {
+	if a.tokens.ok(tok, a.r().cfg.SettingsPin) {
 		t.Fatal("token valid for the new PIN")
-	}
-	if b, _ := os.ReadFile(a.tokenPath()); strings.Contains(string(b), "pbkdf2") {
-		t.Fatalf("revoked tokens still in the file: %s", b)
 	}
 	// And so does removing it.
 	tok2, err := a.AdminUnlock(other, "1357")
-	if err != nil || a.refused(other, gateMain) {
+	if err != nil || !a.pageAllowed(other, gateMain) {
 		t.Fatalf("new PIN admin unlock: %v", err)
+	}
+	// Issuing a token drops the ones the old PIN made.
+	if len(a.tokens.toks) != 1 {
+		t.Fatalf("%d tokens after the PIN changed and one was issued", len(a.tokens.toks))
 	}
 	if err := a.Unlock(admin, "1357"); err != nil {
 		t.Fatal(err)
@@ -275,7 +280,7 @@ func TestAdminTokenAndRevoke(t *testing.T) {
 	if err := a.SaveSettings(admin, a.r().cfg, "", true); err != nil {
 		t.Fatal(err)
 	}
-	if a.tokenOK(tok2, "") || a.tokenOK(tok2, a.r().cfg.SettingsPin) {
+	if a.tokens.ok(tok2, "") || a.tokens.ok(tok2, a.r().cfg.SettingsPin) {
 		t.Fatal("token survives removing the PIN")
 	}
 }
@@ -408,10 +413,10 @@ func TestLockOverWebSocket(t *testing.T) {
 	if m := until("lockState"); m["locked"] != true {
 		t.Fatalf("clearHistory not refused: %v", m)
 	}
-	// A PIN of a length nobody has: partial, then the real one.
+	// A PIN of a length nobody has is just wrong; then the real one.
 	send(map[string]any{"t": "userUnlock", "pin": "123", "id": 1})
-	if m := until("userUnlockResult"); m["partial"] != true || m["ok"] == true {
-		t.Fatalf("partial: %v", m)
+	if m := until("userUnlockResult"); m["ok"] == true {
+		t.Fatalf("short PIN: %v", m)
 	}
 	send(map[string]any{"t": "userUnlock", "pin": "1234", "id": 2})
 	// The new lock state is queued ahead of the result.
