@@ -1,46 +1,55 @@
 // The /settings/grids page (#150): make and change grid panels. Pick a
 // grid, click or drag over squares, Join or Split them, and pick what each
-// button is. Save sends all grids at once; with a settings PIN the page
-// opens locked, like the Settings dialog.
-import { $, el, S, on, onMsg, connect, connState, setDot, wsSend, search, sentence } from './core.js';
+// button is. Save sends the one panel being edited; with a settings PIN the
+// page opens locked, like the Settings dialog. The server checks everything
+// and its error text is shown as it is.
+import { $, el, S, on, onMsg, connect, connState, setDot, search } from './core.js';
 import { levelBox, combobox } from './widgets.js';
 import { unlock, unlocked } from './pin.js';
-import { MAX_SIZE, rectBetween, expandRect, cellsIn, meets, join, split, assign, remove, resize, savable, squares, lostByJoin, lostByResize, validLink, freeLink } from './gridgeom.js';
+import { globalSaver } from './globalsave.js';
+import { allSalvos, salvoNamed } from './salvostore.js';
+import { rectBetween, expandRect, cellsIn, meets, join, split, assign, remove, resize, squares, lostByJoin, lostByResize, validLink, freeLink } from './gridgeom.js';
 import './device.js';
 import './brand.js';
 
-let draft = []; // grids being edited; cells include unassigned joined ones
-let confirmDefault = true;
+// Each draft grid is a server grid plus: was (its link as last saved, '' if
+// never saved) and edited (changes not saved yet).
+let draft = [];
 let cur = -1; // index in draft
 let sel = null; // selected rect
-let dirty = false;
 let linkAuto = false; // the link still follows the name (a new grid)
-let saving = 0; // id of the save in flight
 
 const grid = () => draft[cur];
-const copy = (g) => ({ ...g, levels: [...g.levels], cells: g.cells.map((c) => ({ ...c })) });
+const copy = (g) => ({ ...g, levels: [...g.levels], cells: g.cells.map((c) => ({ ...c })), was: g.link, edited: false });
+let stale = false; // the grids changed while a save was in flight
+const anyEdited = () => draft.some((g) => g.edited);
 
-function load() {
-  draft = (S.cfg?.grids || []).map(copy);
-  warn('');
-  confirmDefault = S.cfg?.gridConfirm !== false;
-  cur = Math.min(Math.max(cur, 0), draft.length - 1);
+// Reads the grids from the server's list; edits not saved yet stay.
+function load(keepEdits = true) {
+  const now = grid();
+  const kept = keepEdits ? draft.filter((g) => g.edited) : [];
+  draft = (S.cfg?.grids || []).map((g) => kept.find((k) => k.was === g.link) || copy(g));
+  for (const k of kept) if (!draft.includes(k)) draft.push(k);
+  cur = draft.includes(now) ? draft.indexOf(now) : Math.min(Math.max(cur, 0), draft.length - 1);
   sel = null;
   linkAuto = false;
-  setDirty(false);
+  warn('');
 }
 
-function setDirty(d) {
-  dirty = d;
-  $('ged-dirty').textContent = d ? 'Unsaved changes.' : '';
-}
 // A visible note of assignments an edit dropped (joins keep one, resizes cut cells).
 function warn(text) {
   $('ged-warn').hidden = !text;
   $('ged-warn').textContent = text || '';
 }
 const lostText = (n, how) => (n ? `${n} assigned button${n === 1 ? ' was' : 's were'} dropped ${how}.` : '');
-const touch = () => { setDirty(true); $('ged-saved').hidden = true; };
+function touch() {
+  grid().edited = true;
+  $('ged-saved').hidden = true;
+  showDirty();
+}
+function showDirty() {
+  $('ged-dirty').textContent = grid()?.edited ? 'Unsaved changes.' : '';
+}
 
 // ---- lock
 
@@ -64,22 +73,95 @@ $('ged-lock').addEventListener('submit', async (e) => {
   if (r.ok) showLock();
 });
 
+// ---- saving: one panel at a time, a delete, and the confirm default
+
+// Errors and notes from saves, in the page's two note boxes.
+function setNote(text, error = false) {
+  $('ged-err').hidden = !text || !error;
+  $('ged-err').textContent = error ? text : '';
+  $('ged-saved').hidden = !text || error;
+  $('ged-saved').textContent = error ? '' : text;
+}
+
+const saver = globalSaver({
+  t: 'gridSave', resultT: 'gridsResult', pinIn: $('ged-spin'), pinRow: $('ged-pin-row'), pinOk: $('ged-spin-ok'),
+  setNote, isOpen: () => true, failTitle: 'Grid not saved', okNote: 'Saved.',
+  render: () => {
+    $('ged-save').disabled = saver.busy();
+    $('ged-delete').disabled = saver.busy();
+    $('ged-confirm-default').checked = S.cfg?.gridConfirm !== false;
+  },
+});
+$('ged-spin-cancel').addEventListener('click', saver.cancel);
+
+// What is sent: the grid without the editor's own bookkeeping.
+const wire = (g) => ({
+  link: g.link, name: g.name.trim(), cols: g.cols, rows: g.rows, confirm: g.confirm, levels: g.levels,
+  cells: g.cells.map((c) => ({ x: c.x, y: c.y, w: c.w, h: c.h, kind: c.kind, ref: String(c.ref), label: c.label || '' })),
+});
+
+$('ged-save').addEventListener('click', () => {
+  const g = grid();
+  if (!g) return;
+  const payload = { grid: wire(g) };
+  if (g.was && g.was !== g.link) payload.was = g.was;
+  const sent = JSON.stringify(payload.grid);
+  saver.change(payload, () => {
+    g.was = payload.grid.link;
+    if (JSON.stringify(wire(g)) === sent) g.edited = false;
+    if (stale) load(); // others' changes that came while this one was saving
+    stale = false;
+    draw();
+  });
+});
+
+$('ged-revert').addEventListener('click', () => { load(false); draw(); setNote(''); });
+
+let deleteArmed = false;
+$('ged-delete').addEventListener('click', () => {
+  if (!grid()) return;
+  if (!deleteArmed) {
+    deleteArmed = true;
+    $('ged-delete').textContent = 'Really delete this grid?';
+    setTimeout(() => { deleteArmed = false; $('ged-delete').textContent = 'Delete grid'; }, 4000);
+    return;
+  }
+  deleteArmed = false;
+  $('ged-delete').textContent = 'Delete grid';
+  const g = grid();
+  const gone = () => {
+    draft.splice(draft.indexOf(g), 1);
+    cur = Math.min(cur, draft.length - 1);
+    sel = null;
+    linkAuto = false;
+    draw();
+  };
+  if (!g.was) return gone(); // never saved: nothing on the server
+  saver.change({ t: 'gridDelete', link: g.was }, gone);
+});
+
+$('ged-confirm-default').addEventListener('change', (e) => {
+  const on = e.target.checked;
+  saver.change({ t: 'gridConfirm', on }, () => { if (S.cfg) S.cfg.gridConfirm = on; });
+});
+
 // ---- grid list and form
 
 function drawList() {
   $('ged-items').replaceChildren(...draft.map((g, i) => {
-    const b = el('button', 'pb-btn pb-btn--outline sode-ged__item', `${g.name || g.link || 'Untitled'}`);
+    const b = el('button', 'pb-btn pb-btn--outline sode-ged__item', `${g.name || g.link || 'Untitled'}${g.edited ? ' (unsaved)' : ''}`);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(i === cur));
     b.addEventListener('click', () => { cur = i; sel = null; linkAuto = false; draw(); });
     return b;
   }));
-  $('ged-confirm-default').checked = confirmDefault;
+  $('ged-confirm-default').checked = S.cfg?.gridConfirm !== false;
 }
 
-const modes = [['default', 'Follow the global default'], ['on', 'Confirm (churning letter)'], ['off', 'Send at once']];
-$('ged-gconfirm').replaceChildren(...modes.map(([v, t]) => { const o = el('option', null, t); o.value = v; return o; }));
-$('ged-kind').replaceChildren(...[['', 'Empty'], ['src', 'Source'], ['dst', 'Destination'], ['salvo', 'Salvo']].map(([v, t]) => { const o = el('option', null, t); o.value = v; return o; }));
+const option = ([v, t]) => Object.assign(el('option', null, t), { value: v });
+$('ged-gconfirm').replaceChildren(...[['default', 'Follow the global default'], ['on', 'Confirm (churning letter)'], ['off', 'Send at once']].map(option));
+const KINDS = [['', 'Empty'], ['src', 'Source'], ['dst', 'Destination'], ['salvo', 'Salvo'], ['confirm', 'Confirm']];
+$('ged-kind').replaceChildren(...KINDS.map(option));
 
 let loading = false; // filling the form: its events aren't edits
 const lvl = levelBox($('ged-lvl'), $('ged-lvl-pick'), $('ged-lvl-all'), {
@@ -96,10 +178,12 @@ function drawForm() {
   const g = grid();
   $('ged-none').hidden = !!g;
   $('ged-form').hidden = !g;
+  showDirty();
   if (!g) return;
   loading = true;
   $('ged-name').value = g.name;
   $('ged-link').value = g.link;
+  $('ged-link').classList.toggle('pb-input--invalid', !validLink(g.link));
   $('ged-cols').value = g.cols;
   $('ged-rows').value = g.rows;
   $('ged-gconfirm').value = g.confirm;
@@ -118,35 +202,15 @@ function draw() {
 
 $('ged-new').addEventListener('click', () => {
   const link = freeLink('grid', draft.map((g) => g.link));
-  draft.push({ link, name: 'New grid', cols: 6, rows: 4, confirm: 'default', levels: [], cells: [] });
+  draft.push({ link, name: 'New grid', cols: 6, rows: 4, confirm: 'default', levels: [], cells: [], was: '', edited: true });
   cur = draft.length - 1;
   sel = null;
   linkAuto = true;
-  touch();
   draw();
   $('ged-name').select();
 });
 
-let deleteArmed = false;
-$('ged-delete').addEventListener('click', () => {
-  if (!deleteArmed) {
-    deleteArmed = true;
-    $('ged-delete').textContent = 'Really delete this grid?';
-    setTimeout(() => { deleteArmed = false; $('ged-delete').textContent = 'Delete grid'; }, 4000);
-    return;
-  }
-  deleteArmed = false;
-  $('ged-delete').textContent = 'Delete grid';
-  draft.splice(cur, 1);
-  cur = Math.min(cur, draft.length - 1);
-  sel = null;
-  linkAuto = false;
-  touch();
-  draw();
-});
-
-$('ged-confirm-default').addEventListener('change', (e) => { confirmDefault = e.target.checked; touch(); });
-$('ged-gconfirm').addEventListener('change', (e) => { grid().confirm = e.target.value; touch(); });
+$('ged-gconfirm').addEventListener('change', (e) => { grid().confirm = e.target.value; touch(); drawList(); });
 
 $('ged-name').addEventListener('input', (e) => {
   grid().name = e.target.value;
@@ -166,12 +230,12 @@ $('ged-link').addEventListener('input', (e) => {
   drawUrl();
 });
 function drawUrl() {
-  $('ged-url').replaceChildren('Opens at ', el('code', null, new URL(`../grid/${grid().link}`, location.href).pathname));
+  $('ged-url').replaceChildren('Opens at ', el('code', null, new URL(`grid/${grid().link}`, document.baseURI).pathname));
 }
 for (const k of ['cols', 'rows']) {
   $(`ged-${k}`).addEventListener('change', (e) => {
     const g = grid();
-    const n = Math.min(MAX_SIZE, Math.max(1, Math.round(Number(e.target.value)) || g[k]));
+    const n = Math.max(1, Math.round(Number(e.target.value)) || g[k]);
     g[k] = n;
     e.target.value = n;
     const lost = lostByResize(g.cells, g.cols, g.rows);
@@ -207,7 +271,7 @@ function drawCanvas() {
   canvas.style.gridTemplateRows = `repeat(${g.rows}, 4rem)`;
   const nodes = squares(g.cells, g.cols, g.rows).map((s) => {
     const c = s.cell;
-    const kind = c?.kind || '';
+    const kind = c ? c.kind || 'spacer' : '';
     const n = el('div', `sode-ged__sq${kind ? ` sode-ged__sq--${kind}` : ''}${c && (c.w > 1 || c.h > 1) ? ' sode-ged__sq--joined' : ''}`);
     n.dataset.x = s.x;
     n.dataset.y = s.y;
@@ -216,7 +280,8 @@ function drawCanvas() {
     n.style.gridColumn = `${s.x + 1} / span ${s.w}`;
     n.style.gridRow = `${s.y + 1} / span ${s.h}`;
     n.setAttribute('role', 'gridcell');
-    n.append(...cellText(c));
+    const t = cellText(c);
+    if (t) n.append(el('b', null, t.name), el('span', null, t.sub));
     return n;
   });
   canvas.append(...nodes);
@@ -224,15 +289,17 @@ function drawCanvas() {
   drawTools();
 }
 
-const KIND_WORD = { src: 'Source', dst: 'Destination', salvo: 'Salvo' };
+const KIND_WORD = { src: 'Source', dst: 'Destination', salvo: 'Salvo', confirm: 'Confirm button' };
 
+// A cell's two lines of text: { name, sub }, or null for an uncovered square.
 function cellText(c) {
-  if (!c) return [];
-  if (!c.kind || c.ref === '') return [el('span', null, c.w * c.h > 1 ? 'Unassigned' : '')];
-  if (c.kind === 'salvo') return [el('b', null, c.label || c.ref), el('span', null, 'Salvo')];
-  const it = c.kind === 'src' ? S.srcBy.get(+c.ref) : S.dstBy.get(+c.ref);
+  if (!c) return null;
+  if (!c.kind) return { name: c.w * c.h > 1 ? 'Empty' : '', sub: '' };
+  if (c.kind === 'confirm') return { name: c.label || 'Confirm', sub: KIND_WORD.confirm };
+  if (c.kind === 'salvo') return { name: c.label || c.ref || 'No salvo', sub: c.ref && !salvoNamed(c.ref) ? 'Salvo (not found here)' : 'Salvo' };
+  const it = (c.kind === 'src' ? S.srcBy : S.dstBy).get(+c.ref);
   const num = String(+c.ref + (S.cfg?.numberOffset || 0));
-  return [el('b', null, c.label || it?.name || num), el('span', null, `${KIND_WORD[c.kind]} ${num}`)];
+  return { name: c.label || it?.name || num, sub: `${KIND_WORD[c.kind]} ${num}`, picked: c.ref !== '', itemName: it?.name || '' };
 }
 
 canvas.addEventListener('pointerdown', (e) => {
@@ -301,11 +368,10 @@ $('ged-clear').addEventListener('click', () => {
   drawCanvas();
 });
 
-const items = () => (single_kind === 'src' ? S.srcs : S.dsts);
-let single_kind = '';
+let singleKind = '';
 const refBox = $('ged-ref');
 const cb = combobox(refBox, $('ged-menu'), {
-  source: (q) => search(items(), q, 8),
+  source: (q) => search(singleKind === 'src' ? S.srcs : S.dsts, q, 8),
   onPick: (it) => {
     const t = single();
     if (!t) return;
@@ -321,24 +387,40 @@ refBox.addEventListener('keydown', (e) => {
   if (cb.nav(e)) return;
   if (e.key === 'Enter') { e.preventDefault(); cb.accept(); } else if (e.key === 'Escape' && cb.open) { e.preventDefault(); cb.close(); }
 });
+refBox.addEventListener('input', () => cb.refresh());
 
 // Not rewritten when it already says so, so a caret in it stays put.
 const setVal = (box, v) => { if (box.value !== v) box.value = v; };
+
+// The salvo picker: every salvo this browser knows, then the one the button
+// names if it isn't among them. Salvos kept in this browser only exist here.
+function drawSalvoPick(ref) {
+  const pick = $('ged-salvo');
+  const list = allSalvos();
+  const opts = [['', 'Pick a salvo…'], ...list.map((s) => [s.name, `${s.name} (${s.scope === 'global' ? 'Everyone' : 'This browser only'})`])];
+  if (ref && !list.some((s) => s.name.toLowerCase() === ref.toLowerCase())) opts.push([ref, `${ref} (not found)`]);
+  pick.replaceChildren(...opts.map(option));
+  pick.value = ref || '';
+}
 
 function drawCell(one) {
   $('ged-cell').hidden = !one;
   if (!one) return;
   const c = one.cell;
-  single_kind = c?.kind || '';
-  $('ged-kind').value = single_kind;
-  const salvo = single_kind === 'salvo';
-  $('ged-ref-box').hidden = !single_kind;
-  $('ged-ref-label').textContent = salvo ? 'Salvo name' : single_kind === 'src' ? 'Source' : 'Destination';
-  refBox.placeholder = salvo ? 'Salvos arrive in a later version' : 'Search by number or name';
-  setVal(refBox, salvo ? (c?.ref || '') : '');
-  $('ged-ref-now').textContent = !single_kind || salvo ? '' : c?.ref !== undefined && c.ref !== ''
-    ? `Now: ${cellText(c)[1].textContent}${S.cfg ? ` ${(c.kind === 'src' ? S.srcBy : S.dstBy).get(+c.ref)?.name || ''}` : ''}`
-    : 'Nothing picked yet.';
+  singleKind = c?.kind || '';
+  $('ged-kind').value = singleKind;
+  const salvo = singleKind === 'salvo';
+  const refKind = singleKind === 'src' || singleKind === 'dst';
+  $('ged-ref-box').hidden = !(refKind || salvo);
+  $('ged-ref-label').textContent = salvo ? 'Salvo' : singleKind === 'src' ? 'Source' : 'Destination';
+  refBox.hidden = salvo;
+  $('ged-salvo-wrap').hidden = !salvo;
+  refBox.placeholder = 'Search by number or name';
+  setVal(refBox, '');
+  if (salvo) drawSalvoPick(c?.ref || '');
+  const t = refKind ? cellText(c) : null;
+  $('ged-ref-now').textContent = salvo ? 'Salvos kept for this browser only are not found on other devices.'
+    : !refKind ? '' : t?.picked ? `Now: ${t.sub}${t.itemName ? ` ${t.itemName}` : ''}` : 'Nothing picked yet.';
   setVal($('ged-label'), c?.label || '');
   $('ged-cell-title').textContent = `Button at column ${one.x + 1}, row ${one.y + 1}${c && (c.w > 1 || c.h > 1) ? ` (${c.w} x ${c.h})` : ''}`;
 }
@@ -346,12 +428,16 @@ function drawCell(one) {
 $('ged-kind').addEventListener('change', (e) => {
   const t = single();
   if (!t) return;
-  const kind = e.target.value;
-  grid().cells = assign(grid().cells, t.x, t.y, { kind, ref: '' });
-  // Unassigned single squares aren't kept.
-  grid().cells = grid().cells.filter((c) => c.kind || c.w * c.h > 1);
+  grid().cells = assign(grid().cells, t.x, t.y, { kind: e.target.value, ref: '' });
   touch();
   drawCanvas();
+});
+$('ged-salvo').addEventListener('change', (e) => {
+  const t = single();
+  if (!t) return;
+  grid().cells = assign(grid().cells, t.x, t.y, { ref: e.target.value });
+  touch();
+  drawCanvasKeep();
 });
 $('ged-label').addEventListener('input', (e) => {
   const t = single();
@@ -361,16 +447,6 @@ $('ged-label').addEventListener('input', (e) => {
   // In place: the text box keeps focus.
   drawCanvasKeep();
 });
-// Salvo names are typed, not searched.
-refBox.addEventListener('input', () => {
-  if (single_kind !== 'salvo') return cb.refresh();
-  const t = single();
-  if (!t?.cell) return;
-  cb.close();
-  grid().cells = assign(grid().cells, t.x, t.y, { ref: refBox.value });
-  touch();
-  drawCanvasKeep();
-});
 function drawCanvasKeep() {
   const keep = sel;
   drawCanvas();
@@ -378,91 +454,30 @@ function drawCanvasKeep() {
   paintSel();
 }
 
-// ---- save
+// ---- following the server
 
-function problem() {
-  const links = new Set();
-  for (const g of draft) {
-    if (!validLink(g.link)) return `The link "${g.link}" (grid "${g.name}") may only have lowercase letters, digits and single dashes, and can't be one of ws, vendor, icon, manifest.`;
-    if (links.has(g.link)) return `Two grids have the link "${g.link}".`;
-    links.add(g.link);
-    if (!g.name.trim()) return 'Every grid needs a name.';
-  }
-  return '';
-}
-
-let seq = 0;
-$('ged-save').addEventListener('click', () => {
-  const err = problem();
-  $('ged-err').hidden = !err;
-  $('ged-err').textContent = err;
-  if (err) return;
-  const grids = draft.map((g) => ({ ...g, name: g.name.trim(), cells: savable(g.cells).map((c) => ({ ...c, ref: String(c.ref) })) }));
-  const body = JSON.stringify(grids);
-  if (body.length > 48 * 1024) {
-    $('ged-err').hidden = false;
-    $('ged-err').textContent = `The grids are too big (${Math.ceil(body.length / 1024)} KiB of at most 48 KiB): remove some buttons or grids.`;
-    return;
-  }
-  saving = ++seq;
-  $('ged-save').disabled = true;
-  if (!wsSend({ t: 'grids', grids, gridConfirm: confirmDefault, id: saving })) {
-    saving = 0;
-    $('ged-save').disabled = false;
-    $('ged-err').hidden = false;
-    $('ged-err').textContent = 'Not saved: the connection to Sode was lost. Try again in a moment.';
-  }
-});
-$('ged-revert').addEventListener('click', () => { load(); draw(); $('ged-err').hidden = true; });
-
-// A save whose reply can't come any more: say so and let Save be pressed again.
-function saveLost() {
-  if (!saving) return;
-  saving = 0;
-  $('ged-save').disabled = false;
-  $('ged-err').hidden = false;
-  $('ged-err').textContent = 'Connection lost; your edits are kept, save again.';
-}
-on('wsclose', saveLost);
-
-onMsg('gridsResult', (m) => {
-  if (m.id !== saving) return;
-  saving = 0;
-  $('ged-save').disabled = false;
-  if (m.ok) {
-    $('ged-err').hidden = true;
-    const dropped = draft.reduce((n, g) => n + g.cells.length, 0) - draft.reduce((n, g) => n + savable(g.cells).length, 0);
-    $('ged-saved').hidden = false;
-    $('ged-saved').textContent = `Saved.${dropped ? ` ${dropped} unassigned joined button${dropped === 1 ? ' was' : 's were'} not kept.` : ''}`;
-    setDirty(false);
-    return;
-  }
-  $('ged-err').hidden = false;
-  $('ged-err').textContent = m.locked ? 'Settings are locked; enter the PIN again.' : sentence(m.err);
-  if (m.locked) showLock();
-});
-
-// The grids changed (another browser's save, or ours, which arrives while
-// the edits still count as unsaved and so is left alone): follow unless there
-// are unsaved edits here.
+// The grids changed (another browser's save, or ours): follow, keeping
+// edits not saved yet. Our own save's list is taken when its answer comes.
 onMsg('grids', (m) => {
   if (!S.cfg) return;
   S.cfg.grids = m.grids;
   S.cfg.gridConfirm = m.gridConfirm;
-  if (!dirty) { load(); draw(); }
+  if (saver.busy()) stale = true;
+  else { load(); draw(); }
 });
 
 on('hello', () => {
-  saveLost();
   showLock();
-  if (!dirty) { load(); draw(); } else { lvl.reset(); }
+  load();
+  draw();
 });
 on('locked', showLock);
+on('salvos', () => { if (grid()) drawCell(single()); });
 on('conn', () => {
   const c = connState();
   setDot($('ged-ws-dot'), $('ged-ws-text'), c.ws);
   if (S.wsState !== 'up') showLock();
 });
-window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
+window.addEventListener('beforeunload', (e) => { if (anyEdited()) e.preventDefault(); });
 
 connect();

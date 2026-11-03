@@ -75,7 +75,7 @@
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="ged-clear">Clear</button>
           <span class="sode__hint" id="ged-sel" aria-live="polite"></span>
         </div>
-        <p class="sode__hint">Click a square, or drag over several, then Join them into one button, Split them again, or pick what the button is.</p>
+        <p class="sode__hint">Click a square, or drag over several, then Join them into one button, Split them again, or pick what the button is. A Confirm button makes source taps only select: pick a source, light destinations, press Confirm. Empty buttons just hold their place.</p>
         <div class="sode-ged__canvas" id="ged-canvas" role="grid" aria-label="Grid squares"></div>
 
         <fieldset class="sode-ged__cell" id="ged-cell" hidden>
@@ -88,6 +88,7 @@
             <div class="sode-ged__field" id="ged-ref-box">
               <label class="sode__label" for="ged-ref" id="ged-ref-label">Source</label>
               <input id="ged-ref" class="pb-input" role="combobox" aria-expanded="false" aria-controls="ged-menu" aria-autocomplete="list" spellcheck="false" autocomplete="off">
+              <span class="pb-select-wrap" id="ged-salvo-wrap" hidden><select id="ged-salvo" class="pb-select" aria-label="Salvo"></select></span>
               <ul id="ged-menu" class="pb-menu sode__menu" role="listbox" aria-label="Matches" hidden></ul>
               <span class="sode__hint" id="ged-ref-now"></span>
             </div>
@@ -103,6 +104,11 @@
         </div>
       </div>
 
+      <div class="sode-ged__row" id="ged-pin-row" hidden>
+        <input type="password" id="ged-spin" class="pb-input" placeholder="PIN" autocomplete="current-password" aria-label="Settings PIN">
+        <button type="button" class="pb-btn pb-btn--ok pb-btn--sm" id="ged-spin-ok">Unlock</button>
+        <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="ged-spin-cancel">Cancel</button>
+      </div>
       <div class="pb-note pb-note--warn" id="ged-warn" role="status" hidden></div>
       <div class="pb-note pb-note--error" id="ged-err" role="alert" hidden></div>
       <div class="pb-note" id="ged-saved" role="status" hidden></div>
