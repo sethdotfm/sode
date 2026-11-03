@@ -124,7 +124,15 @@
       <h2 class="sode__settings-title" id="settings-title">Settings</h2>
     </div>
 
-    <nav class="pb-tabs sode__toc" id="settings-toc" aria-label="Settings sections"></nav>
+    <div class="sode__toc">
+      <div class="sode__find">
+        <label class="pb-sr-only" for="settings-find">Search settings</label>
+        <input type="search" id="settings-find" class="pb-input pb-input--sm" placeholder="Search settings" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="settings-found" aria-autocomplete="list">
+        <ul class="sode__found" id="settings-found" role="listbox" aria-label="Matching settings" hidden></ul>
+        <p class="sode__hint" id="settings-find-none" role="status" hidden>No match</p>
+      </div>
+      <nav class="pb-tabs" id="settings-toc" aria-label="Settings sections"></nav>
+    </div>
 
     <div class="sode__group sode__lock" id="settings-lock">
       <div class="sode__field">
@@ -242,7 +250,7 @@
     </fieldset>
 
     <div class="sode__open-log">
-      <a class="pb-btn pb-btn--outline" href="log" target="_blank" rel="noopener">Open Log</a>
+      <a class="pb-btn pb-btn--outline" href="log">Open the Communication Log</a>
     </div>
 
     <div class="sode__lock-exit">
@@ -384,8 +392,12 @@
 
     <fieldset class="sode__group">
       <legend>History</legend>
+      <div class="sode__field" data-find="open-log" data-label="Open the Communication Log">
+        <a class="pb-btn pb-btn--outline" href="log" id="open-log">Open the Communication Log</a>
+        <span class="sode__hint">Every message Sode sent to the router, live, with the uptime graph. Read-only.</span>
+      </div>
       <div class="sode__field">
-        <span class="sode__field-label">Filter sets for everyone</span>
+        <span class="sode__field-label" id="cfg-sets-label">Filter sets for everyone</span>
         <ul class="sode__gsets" id="cfg-sets"></ul>
         <span class="sode__hint">Edit these in Recent → Filters.</span>
       </div>
@@ -395,7 +407,7 @@
         <span class="sode__hint" id="cfg-hidden-note"></span>
         <span class="sode__hint">Other panels' changes here are hidden from Recent for everyone, but still logged.</span>
       </div>
-      <div class="sode__field">
+      <div class="sode__field" data-find="clear-history" data-label="Clear history">
         <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone.</span>
         <div class="sode__names" id="clear-step1">
           <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear history…</button>

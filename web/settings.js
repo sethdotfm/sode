@@ -16,6 +16,7 @@ import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked } from './pin.js';
 import { omitOwned } from './owned.js';
+import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
 
 const root = document.documentElement;
@@ -584,3 +585,115 @@ on('configResult', configResult);
 // The lock screen is coming down (lock.js): leave Settings. An unsaved form
 // keeps its warning and stays, covered.
 on('locking', () => { if (isOpen()) exitSettings(); });
+
+// ---- settings search: the box above the table of contents. Hits are the
+// sections and the individual settings (settingsindex.js); picking one
+// scrolls to it, focuses a control and outlines it with a "Found" tag for a
+// moment. Esc clears the box first; a second Esc leaves Settings as ever.
+
+const findBox = $('settings-find');
+const foundList = $('settings-found');
+const secIds = sections.map((sec) => slug(sec.querySelector('legend').textContent));
+const targets = new Map(); // `${section}/${setting}` -> the element to scroll to
+
+function settingsOf(sec, secId) {
+  const out = new Map();
+  const add = (id, label, node) => {
+    label = (label || '').trim();
+    if (id && label && !out.has(id)) {
+      out.set(id, { id, label });
+      targets.set(`${secId}/${id}`, node);
+    }
+  };
+  for (const lab of sec.querySelectorAll('label[for]')) {
+    if (!lab.closest('.pb-btn-group')) add(lab.htmlFor, lab.textContent, lab.closest('.sode__field') || lab);
+  }
+  for (const lab of sec.querySelectorAll('.sode__field-label[id]')) add(lab.id.replace(/-label$/, ''), lab.textContent, lab.closest('.sode__field') || lab);
+  for (const chk of sec.querySelectorAll('.pb-check')) add(chk.querySelector('input')?.id, chk.querySelector('.pb-check__label')?.textContent, chk);
+  for (const f of sec.querySelectorAll('[data-find]')) add(f.dataset.find, f.dataset.label || f.textContent, f);
+  return [...out.values()];
+}
+const settingsIndex = buildIndex(sections.map((sec, i) => ({
+  id: secIds[i], title: sec.querySelector('legend').textContent, settings: settingsOf(sec, secIds[i]),
+})));
+
+let hits = [];
+let cur = 0;
+let flashTimer = 0;
+let flashed = null;
+
+function unflash() {
+  clearTimeout(flashTimer);
+  if (!flashed) return;
+  flashed.node.classList.remove('sode__is-found');
+  flashed.tag.remove();
+  flashed = null;
+}
+function flash(node) {
+  unflash();
+  const tag = el('span', 'sode__found-tag', 'Found');
+  (node.matches('fieldset') ? node.querySelector('legend') : node).prepend(tag);
+  node.classList.add('sode__is-found');
+  flashed = { node, tag };
+  flashTimer = setTimeout(unflash, 2500);
+}
+
+function showHits() {
+  const q = findBox.value.trim();
+  hits = q ? find(settingsIndex, q) : [];
+  cur = 0;
+  foundList.replaceChildren(...hits.map((h, i) => {
+    const li = el('li', null, el('span', null, h.label), el('span', 'sode__hint', h.kind === 'section' ? 'Section' : 'in ' + h.section));
+    li.id = `settings-found-${i}`;
+    li.setAttribute('role', 'option');
+    li.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus in the box
+    li.addEventListener('click', () => pickHit(h));
+    return li;
+  }));
+  foundList.hidden = !hits.length;
+  $('settings-find-none').hidden = !q || hits.length > 0;
+  findBox.setAttribute('aria-expanded', String(hits.length > 0));
+  markHit();
+}
+function markHit() {
+  [...foundList.children].forEach((li, i) => li.setAttribute('aria-selected', String(i === cur)));
+  if (hits.length) findBox.setAttribute('aria-activedescendant', `settings-found-${cur}`);
+  else findBox.removeAttribute('aria-activedescendant');
+  foundList.children[cur]?.scrollIntoView({ block: 'nearest' });
+}
+function pickHit(h) {
+  const i = secIds.indexOf(h.sectionId);
+  const node = h.kind === 'section' ? sections[i] : targets.get(`${h.sectionId}/${h.id}`);
+  if (!node) return;
+  findBox.value = '';
+  showHits();
+  picked = i;
+  mark(i);
+  node.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: h.kind === 'section' ? 'start' : 'center' });
+  flash(node);
+  if (h.kind === 'setting') document.getElementById(h.id)?.focus({ preventScroll: true });
+  else findBox.blur();
+}
+
+// Typing here isn't editing the settings: the form must not see it (it would
+// dismiss the unsaved-changes warning).
+for (const ev of ['input', 'change']) findBox.addEventListener(ev, (e) => { e.stopPropagation(); if (ev === 'input') showHits(); });
+findBox.addEventListener('blur', () => { foundList.hidden = true; findBox.setAttribute('aria-expanded', 'false'); });
+findBox.addEventListener('focus', () => { if (hits.length) { foundList.hidden = false; findBox.setAttribute('aria-expanded', 'true'); } });
+findBox.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // Sode's shortcuts stay theirs
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!hits.length) return;
+    e.preventDefault();
+    cur = (cur + (e.key === 'ArrowDown' ? 1 : hits.length - 1)) % hits.length;
+    markHit();
+  } else if (e.key === 'Enter') {
+    e.preventDefault(); // not a form submit (Save)
+    if (hits[cur]) pickHit(hits[cur]);
+  } else if (e.key === 'Escape' && findBox.value) {
+    e.preventDefault();
+    e.stopPropagation(); // the first Esc only clears; the next leaves Settings
+    findBox.value = '';
+    showHits();
+  }
+});
