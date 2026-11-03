@@ -272,6 +272,18 @@ export function retryButton(failed, label, onClick, { placeholder = false } = {}
   return b;
 }
 
+// Redo for a take or folder that worked. Shares Retry's slot: a row has one
+// or the other (failed takes retry), so columns line up. Null if neither.
+export function redoButton(can, label, onClick) {
+  if (!can) return null;
+  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Redo');
+  b.type = 'button';
+  needsLink(b);
+  b.setAttribute('aria-label', label);
+  b.addEventListener('click', onClick);
+  return b;
+}
+
 // A live entry (S.newId) animates in the first time it's drawn; nothing
 // else does. One per layout, since each draws its own rows.
 export function arrivals() {

@@ -12,13 +12,13 @@ import {
   historyPager, beforeGroups, attachFollows, entryNote, statusNode, folderTitle, folderPartial, folderLevels, folderIds,
 } from './history.js';
 import {
-  undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
+  undoPlan, retryPlan, redoPlan, folderRedoPlan, canRedo, planVerb, folderUndoPlan, folderRetryPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
   planBlocked, planSummary, sendTakes, lastTake, nextTake, lastChip,
 } from './plans.js';
 import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, lockout, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, redoButton, arrivals, lockout, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -275,7 +275,9 @@ function histRow(e) {
   const btn = e.chain
     ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, { text: `Undo ${e.chain.length}` })
     : undoButton(undoPlan(e), `Undo ${src.label} to ${dst.label}`, openConfirm);
-  const retry = retryButton(!e.ok, `Retry ${src.label} to ${dst.label}`, () => openConfirm(retryPlan(e)), { placeholder: true });
+  const retry = canRedo(e)
+    ? redoButton(true, `Redo ${src.label} to ${dst.label}`, () => openConfirm(redoPlan(e)))
+    : retryButton(!e.ok, `Retry ${src.label} to ${dst.label}`, () => openConfirm(retryPlan(e)), { placeholder: true });
 
   // Before: what the destination had on these levels just before the take.
   const open = expanded.has(e.id);
@@ -345,8 +347,11 @@ function folderRow(f) {
 
   const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, openConfirm,
     { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all' });
-  const retry = retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`,
-    () => openConfirm(folderRetryPlan(f)), { placeholder: true });
+  const redoable = !failed && f.entries.some(canRedo);
+  const retry = redoable
+    ? redoButton(true, `Redo all ${f.entries.length} takes of ${folderIds(f)}`, () => openConfirm(folderRedoPlan(f)))
+    : retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`,
+      () => openConfirm(folderRetryPlan(f)), { placeholder: true });
 
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
@@ -557,6 +562,14 @@ function retryCur() {
   else showResult('info', 'Nothing to retry', 'Only failed takes can be retried.');
 }
 
+function redoCur() {
+  const s = curStop();
+  if (!s) return;
+  const plan = s.f ? (s.f.entries.some((e) => !e.ok) ? null : folderRedoPlan(s.f)) : s.e && canRedo(s.e) ? redoPlan(s.e) : null;
+  if (plan?.items.length) openConfirm(plan);
+  else showResult('info', 'Nothing to redo', 'Only takes made in Sode that the router confirmed can be redone.');
+}
+
 // key: put the cursor on that row (Esc from one of its buttons).
 function enterKeys(key) {
   // Works on an empty list too: s/d/f, `,`, `/`, `?` and Esc still apply.
@@ -590,6 +603,7 @@ function onListKey(e) {
     h: () => open(false), ArrowLeft: () => open(false),
     u: () => { const s = curStop(); if (s && (s.f || s.e)) undoRow(s.f ? { f: s.f } : { e: s.e }); },
     r: retryCur,
+    o: redoCur,
   }[k];
   if (!act) return false;
   // From the page itself, arrows keep scrolling it; only letters start

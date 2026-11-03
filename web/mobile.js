@@ -14,12 +14,12 @@ import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
 import {
-  undoPlan, retryPlan, planVerb, folderUndoPlan, folderRetryPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
+  undoPlan, retryPlan, redoPlan, folderRedoPlan, canRedo, planVerb, folderUndoPlan, folderRetryPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
   sendTakes, lastTake, nextTake, lastChip,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
-import { levelBox, combobox, disclosure, undoButton, retryButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
+import { levelBox, combobox, disclosure, undoButton, retryButton, redoButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -354,7 +354,9 @@ function recentRow(e) {
     ? undoBtn(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, `Undo ${e.chain.length}`)
     : undoBtn(undoPlan(e), `Undo ${src.label} to ${dst.label}`);
   const status = statusNode({ e });
-  const retry = retryButton(!e.ok, `Retry ${src.label} to ${dst.label}`, () => sheetFor(retryPlan(e)));
+  const retry = canRedo(e)
+    ? redoButton(true, `Redo ${src.label} to ${dst.label}`, () => sheetFor(redoPlan(e)))
+    : retryButton(!e.ok, `Retry ${src.label} to ${dst.label}`, () => sheetFor(retryPlan(e)));
   // A stacked row's changes, behind a toggle as on desktop.
   const open = !!e.chain && openChanges.has(e.id);
   const changesId = `m-changes-${e.id}`;
@@ -387,7 +389,9 @@ function folderRows(f) {
   const kidsId = `m-folder-${f.group}`;
   const undo = undoBtn(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   const failed = f.entries.filter((e) => !e.ok).length;
-  const retry = retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`, () => sheetFor(folderRetryPlan(f)));
+  const retry = !failed && f.entries.some(canRedo)
+    ? redoButton(true, `Redo all ${f.entries.length} takes of ${folderIds(f)}`, () => sheetFor(folderRedoPlan(f)))
+    : retryButton(failed, `Retry the ${failed} failed take${failed === 1 ? '' : 's'} of ${folderIds(f)}`, () => sheetFor(folderRetryPlan(f)));
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
     renderRecent();
@@ -509,7 +513,7 @@ function closeSheet() {
 function confirmSheet() {
   const p = pending;
   closeSheet();
-  if (sendTakes(p) && p.verb !== 'undo') reset();
+  if (sendTakes(p) && p.verb !== 'undo' && p.verb !== 'redo') reset();
 }
 
 const handle = $('m-slide-handle');
