@@ -433,7 +433,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		var out []config.User
 		inherited := map[string]bool{} // rows keep a hash only from their own, one row each
-		fresh := map[string]string{} // new PINs by user name
+		fresh := map[string]string{}   // new PINs by user name
 		for _, e := range req.Users {
 			u := config.User{Name: strings.TrimSpace(e.Name)}
 			if e.Pin != "" {

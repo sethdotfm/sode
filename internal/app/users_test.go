@@ -66,7 +66,7 @@ func TestUsersConfigValidation(t *testing.T) {
 			}
 		},
 		"control character": func(c *config.Config) { c.Users = []config.User{{Name: "A\nB", Pin: good.Pin, Len: 4}} },
-		"auto-lock range": func(c *config.Config) { c.Users = []config.User{good}; c.AutoLockMinutes = 5000 },
+		"auto-lock range":   func(c *config.Config) { c.Users = []config.User{good}; c.AutoLockMinutes = 5000 },
 	} {
 		c := cfg.Clone()
 		mut(&c)
