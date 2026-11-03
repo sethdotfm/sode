@@ -50,6 +50,16 @@ const retryItem = (e) => ({
   skipped: [], untouched: [], undo: null, retry: e,
 });
 
+// A take that worked, done again as a fresh patch of the same route (Redo).
+// Sent as a plain take: no retry/undo link, the server logs it as a new take.
+const redoItem = (e) => ({ ...retryItem(e), retry: null, redo: e });
+
+// Redo is for takes made in Sode that the router confirmed: not routes made
+// elsewhere (ext/found), follows, undos or failed takes (those have Retry).
+// It also needs a level that still exists, or the take would have nothing to send.
+export const canRedo = (e) => !!e && e.ok && !e.ext && !e.found && e.follow == null && e.undo == null &&
+  e.levels.some((u) => S.levelBy.has(u));
+
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
   items: dsts.map((dst) => ({ dst, groups: [{ src, levels }], skipped: [], untouched: [], undo: null, retry: null })),
@@ -71,10 +81,12 @@ export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] 
 export const retryPlan = (e) => ({ verb: 'retry', items: [retryItem(e)] });
 export const folderUndoPlan = (f) => withFollows({ verb: 'undo', items: f.entries.map(undoItem) }, f.entries.flatMap((e) => e.follows || []));
 export const folderRetryPlan = (f) => ({ verb: 'retry', items: f.entries.filter((e) => !e.ok).map(retryItem) });
+export const redoPlan = (e) => ({ verb: 'redo', items: canRedo(e) ? [redoItem(e)] : [] });
+export const folderRedoPlan = (f) => ({ verb: 'redo', items: f.entries.filter(canRedo).map(redoItem) });
 // Undo for a history row: a single entry or a whole folder.
 export const rowUndoPlan = (row) => (row.f ? folderUndoPlan(row.f) : undoPlan(row.e));
 
-// 'undo', 'retry' or 'take' (a 'patch' plan), for wording confirms.
+// 'undo', 'retry', 'redo' or 'take' (a 'patch' plan), for wording confirms.
 export const planVerb = (plan) => (plan.verb === 'patch' ? 'take' : plan.verb);
 // True when a plan has nothing to send (an undo with nothing routed before).
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
@@ -237,7 +249,8 @@ function planQuestion(plan) {
       ' to ', ...to, '?');
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
-  return el('div', null, `Are you sure you want to ${plan.verb === 'retry' ? 'retry taking' : 'take'} `,
+  const what = { retry: 'retry taking', redo: 'redo the take of' }[plan.verb] || 'take';
+  return el('div', null, `Are you sure you want to ${what} `,
     ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
@@ -256,6 +269,15 @@ export function changedSince(item) {
   return bySource(e.dst, levels.sort((a, b) => a - b));
 }
 
+// True when a redo item would change nothing: dst already has the take's
+// source on every one of its levels (the router then sends no reply).
+export function redoNoop(item) {
+  if (!item.redo) return false;
+  const t = S.tally.get(item.dst.n);
+  const levels = item.groups.flatMap((g) => g.levels);
+  return levels.length > 0 && !!t && item.groups.every((g) => g.levels.every((u) => t.get(u) === g.src.n));
+}
+
 // One destination's part of a confirm: new routes, then what they replace.
 // since: warn about changes made after the take being undone.
 function itemSummary(item, boxed, prot, since) {
@@ -265,6 +287,9 @@ function itemSummary(item, boxed, prot, since) {
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
     ...(since ? changedSince(item) : []).map((r) => el('div', 'sode__route', levelBar(r.levels),
       el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`)),
+    redoNoop(item)
+      ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there'), 'the destination already has this source on every level; redo changes nothing.')
+      : null,
     prot
       ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)),
         'will be refused')
@@ -407,7 +432,7 @@ export function sendTakes(p) {
   const text = dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
     ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
     : capped(list.map((t) => takeText(t)));
-  showResult('info', p.verb === 'undo' ? 'Undoing…' : 'Taking…', text);
+  showResult('info', { undo: 'Undoing…', redo: 'Redoing…' }[p.verb] || 'Taking…', text);
   return true;
 }
 
