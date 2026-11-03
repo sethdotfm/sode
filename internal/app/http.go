@@ -241,6 +241,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			ID       int                `json:"id"` // echoed by unlock and filterSets replies
 			Items    []takeReq          `json:"items"`
 			Sets     []config.FilterSet `json:"sets"`
+			Salvos   []config.Salvo     `json:"salvos"`
 		}
 		if err := json.Unmarshal(data, &m); err != nil {
 			continue
@@ -303,6 +304,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 				}
 				a.reply(c, res)
 			}(m.Sets, m.ID)
+		case "salvos":
+			go a.handleSalvos(c, m.Salvos, m.ID)
 		case "config":
 			if m.Config == nil {
 				continue

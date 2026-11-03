@@ -49,6 +49,9 @@ type Config struct {
 	// FilterSets are named Recent filters offered to every browser as
 	// quick buttons; browsers can add their own.
 	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets"`
+	// Salvos are named sets of takes offered to every browser as buttons
+	// above Recent (salvos.go).
+	Salvos []Salvo `yaml:"salvos,omitempty" json:"salvos"`
 	// HideDsts is no longer used; kept so files that have it load.
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-"`
 	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
@@ -215,6 +218,7 @@ func (c Config) Clone() Config {
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
 	c.FilterSets = slices.Clone(c.FilterSets)
+	c.Salvos = CloneSalvos(c.Salvos)
 	c.HideDsts = slices.Clone(c.HideDsts)
 	return c
 }
@@ -273,6 +277,7 @@ func (c *Config) Normalize() {
 		f := &c.FilterSets[i]
 		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
 	}
+	c.normalizeSalvos()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}
@@ -417,6 +422,7 @@ func (c Config) Validate() error {
 			bad("filter set %q: expressions must be at most 500 characters", f.Name)
 		}
 	}
+	errs = append(errs, c.validateSalvos()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}

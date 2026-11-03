@@ -30,9 +30,9 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 		// cur is a copy of the live config. Filter sets are saved from
 		// Recent's Filters, not the settings form, so a browser's copy may
 		// be stale: keep the current ones.
-		keepSets, keepPin, keepDev := cur.FilterSets, cur.SettingsPin, cur.DeviceDefaults
+		keepSets, keepPin, keepDev, keepSalvos := cur.FilterSets, cur.SettingsPin, cur.DeviceDefaults, cur.Salvos
 		*cur = cfg
-		cur.FilterSets, cur.SettingsPin = keepSets, keepPin
+		cur.FilterSets, cur.SettingsPin, cur.Salvos = keepSets, keepPin, keepSalvos
 		if keepDefaults {
 			cur.DeviceDefaults = keepDev
 		}
