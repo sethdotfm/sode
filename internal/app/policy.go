@@ -12,11 +12,22 @@ import "errors"
 // reading the communication log (sent, uptime). Data the page needs to look
 // alive (hello, names, tally, recent history, history reads) keeps streaming
 // to a locked browser by design: the lock screen covers the page, it is not a
-// secret. Settings changes are guarded by the settings PIN alone (needAdmin):
-// it is the admin credential, and a locked-out wall panel
-// (which has no lock screen) must still be able to save with it. Locks
-// can't be turned on without a settings PIN (Validate), so everything an
-// admin message changes stays guarded.
+// secret. Settings changes are guarded by the settings PIN (needAdmin) or,
+// for the low-risk ones, a trusted user (needTrusted); never by the main
+// lock: a locked-out wall panel (which has no lock screen) must still be able
+// to save with the PIN. Locks can't be turned on without a settings PIN
+// (Validate), so everything an admin message changes stays guarded.
+//
+// The table, one line per type:
+//
+//	open:           hi userUnlock userLock userSetPin unlock lock history
+//	needTake:       batch
+//	needMain:       refreshNames
+//	needMain+Admin: clearHistory
+//	needLog:        sent uptime
+//	needTrusted:    config (needAdmin when it sets or clears the settings
+//	                PIN), filterSets, salvos
+//	needAdmin:      users
 type need uint8
 
 const (
@@ -28,6 +39,10 @@ const (
 	// set). Re-checked under cfgMu by guardSave, since a PIN can change
 	// between this check and the save.
 	needAdmin
+	// needTrusted: the settings PIN, or this connection unlocked as a user
+	// marked Trusted (still existing, same PIN). Weaker than needAdmin; a
+	// rule holding both means the PIN.
+	needTrusted
 )
 
 // rule is what one message type needs, and how a refusal is answered.
@@ -40,6 +55,9 @@ type rule struct {
 	noID bool
 	// why is the command logged on a refusal, when not the message type.
 	why string
+	// strict, when it says yes for a message, raises needTrusted to
+	// needAdmin: a Settings save that sets or clears the settings PIN.
+	strict func(m *inMsg) bool
 	// admitted runs under mu when the message is let through, so the check and
 	// what depends on it can't be pulled apart by a lock in between.
 	admitted func(c *client)
@@ -48,10 +66,9 @@ type rule struct {
 var policy = map[string]rule{
 	// Open: the lock screen itself. Without these a locked browser could
 	// never say what page it is or unlock.
-	"hi":          {}, // declares the page type and admin token; answered with the lock state
-	"userUnlock":  {}, // the way out of the lock; counted in the user PIN pool
-	"adminUnlock": {}, // same, with the settings PIN; counted in the settings pool
-	"userLock":    {}, // locking is never refused
+	"hi":         {}, // declares the page type and session token; answered with the lock state
+	"userUnlock": {}, // the way out of the lock; counted in the user PIN pool
+	"userLock":   {}, // locking is never refused
 	// userSetPin: open, but the handler wants this connection unlocked as a
 	// user and the old PIN (counted in the user pool). The settings PIN is
 	// not involved: it is the user's own credential.
@@ -74,11 +91,22 @@ var policy = map[string]rule{
 	"sent":   {need: needLog, admitted: func(c *client) { c.sent = true }},
 	"uptime": {need: needLog},
 
-	// Saves behind the settings PIN alone.
-	"config":     {need: needAdmin, op: "config", noID: true},
-	"filterSets": {need: needAdmin, op: "filterSets"},
-	"salvos":     {need: needAdmin, op: "salvos"},
-	"users":      {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
+	// Low-risk saves: the settings PIN or a trusted user. A Settings save
+	// that carries a PIN change needs the PIN itself.
+	"config": {need: needTrusted, op: "config", noID: true,
+		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin }},
+	"filterSets": {need: needTrusted, op: "filterSets"},
+	"salvos":     {need: needTrusted, op: "salvos"},
+	// Users, locks and the settings PIN's own users: the PIN only.
+	"users": {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
+}
+
+// forMsg is r as it applies to m (strict raises the need to the PIN).
+func (r rule) forMsg(m *inMsg) rule {
+	if r.strict != nil && r.strict(m) && r.need&needTrusted != 0 {
+		r.need = r.need&^needTrusted | needAdmin
+	}
+	return r
 }
 
 // admit checks c against r, once, and runs r.admitted if it passes. The page
@@ -93,6 +121,8 @@ func (a *App) admit(c *client, r rule) error {
 		r.need&needLog != 0 && !a.pageAllowedLocked(c, gateLog):
 		return errPageLocked
 	case r.need&needAdmin != 0 && !a.settingsUnlockedLocked(c):
+		return errLocked
+	case r.need&needTrusted != 0 && !a.trustedLocked(c):
 		return errLocked
 	}
 	if r.admitted != nil {

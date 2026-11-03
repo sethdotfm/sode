@@ -11,13 +11,20 @@ import (
 // sets, salvos) all save the same way, through saveShared, and
 // answer through replyOp.
 
-// guardSave refuses c a settings change unless its settings PIN is unlocked.
+// guardSave refuses c a settings change unless its settings PIN is unlocked,
+// or, when trusted is true (a low-risk save), c is a trusted user.
 // The policy table (policy.go) already checked this on arrival; the check is
 // repeated here because a PIN can change before cfgMu is ours. It is the only
 // guard: the main lock does not cover settings, the settings PIN does. Caller
 // holds cfgMu, so the PIN can't change between this check and the save.
-func (a *App) guardSave(c *client) error {
-	if !a.settingsUnlocked(c) {
+func (a *App) guardSave(c *client, trusted bool) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ok := a.settingsUnlockedLocked(c)
+	if trusted {
+		ok = a.trustedLocked(c)
+	}
+	if !ok {
 		return errLocked
 	}
 	return nil
@@ -31,7 +38,7 @@ func (a *App) guardSave(c *client) error {
 func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast func(config.Config) any) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c); err != nil {
+	if err := a.guardSave(c, true); err != nil {
 		return err
 	}
 	_, nr, err := a.update(mutate)

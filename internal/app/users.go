@@ -42,12 +42,12 @@ var pageGates = map[string]gate{"main": gateMain, "log": gateLog}
 // connUser is a connection's access state: page and token are guarded by
 // App.mu; user is atomic so who can be read anywhere.
 type connUser struct {
-	page  string // "main" (default) or "log", as the page declared
-	token string // the admin token it presented
-	// suspended: this connection lets its token rest (it locked itself).
-	// Per connection, under mu; the token stays valid and AdminUnlock ends it.
-	suspended bool
-	user      atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
+	page string // "main" (default) or "log", as the page declared
+	// token: the session token this connection holds (presented in hi, or
+	// issued when a persistent user unlocked it). Only ever set for a
+	// persistent user; a lock revokes it.
+	token string
+	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
 }
 
 // who names the connection for history and logs: the user, else the address.
@@ -70,20 +70,11 @@ func (a *App) userOKLocked(c *client, cfg config.Config) bool {
 }
 
 // pageAllowedLocked reports whether c may do what lock g guards: the lock is
-// off, or c unlocked as a user, or c carries a valid admin token. Caller
-// holds mu.
+// off, or c unlocked as a user (a session token only ever brings a connection
+// up as that user, see Hi). Caller holds mu.
 func (a *App) pageAllowedLocked(c *client, g gate) bool {
 	cfg := a.r().cfg
-	if !g.on(cfg.Locks) {
-		return true
-	}
-	return a.userOKLocked(c, cfg) || a.tokenOKLocked(c, cfg)
-}
-
-// tokenOKLocked: c holds a valid admin token and hasn't suspended it. Caller
-// holds mu.
-func (a *App) tokenOKLocked(c *client, cfg config.Config) bool {
-	return !c.u.suspended && a.tokens.ok(c.u.token, cfg.SettingsPin)
+	return !g.on(cfg.Locks) || a.userOKLocked(c, cfg)
 }
 
 func (a *App) pageAllowed(c *client, g gate) bool {
@@ -99,9 +90,11 @@ type lockStateMsg struct {
 	Enforced bool   `json:"enforced"` // this page type has a lock on
 	Locked   bool   `json:"locked"`
 	User     string `json:"user,omitempty"`
-	Exempt   bool   `json:"exempt,omitempty"` // an admin token lifts the lock
-	// Token: the connection holds a valid admin token, even a suspended one.
-	Token bool `json:"token,omitempty"`
+	// Trusted: the user may save low-risk settings without the settings PIN;
+	// the page only hides its PIN prompt for it, the server decides.
+	Trusted bool `json:"trusted,omitempty"`
+	// Persistent: the user never logs out (no idle lock in the browser).
+	Persistent bool `json:"persistent,omitempty"`
 }
 
 // lockStateLocked is c's lock state, as its page declared itself. Caller
@@ -113,12 +106,11 @@ func (a *App) lockStateLocked(c *client) lockStateMsg {
 		page = "main"
 	}
 	m := lockStateMsg{T: "lockState", Page: page, Enforced: pageGates[page].on(cfg.Locks)}
-	m.Exempt = a.tokenOKLocked(c, cfg)
-	m.Token = a.tokens.ok(c.u.token, cfg.SettingsPin)
 	if a.userOKLocked(c, cfg) {
-		m.User = c.u.user.Load().Name
+		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the unlock-time copy
+		m.User, m.Trusted, m.Persistent = u.Name, u.Trusted, u.Persistent
 	}
-	m.Locked = m.Enforced && m.User == "" && !m.Exempt
+	m.Locked = m.Enforced && m.User == ""
 	return m
 }
 
@@ -139,13 +131,20 @@ func (a *App) syncAccess(c *client) {
 	a.mu.Unlock()
 }
 
-// Hi records what a page says about itself: its type and its admin token.
+// Hi records what a page says about itself: its type and, for a persistent
+// user's browser, its session token. A valid token brings the connection up
+// unlocked as that user without a PIN; a wrong or dead one is ignored (the
+// normal lock pad follows). A connection already unlocked is left as it is.
 func (a *App) Hi(c *client, page, token string) {
 	if _, ok := pageGates[page]; !ok {
 		page = "main"
 	}
 	a.mu.Lock()
-	c.u.page, c.u.token = page, token
+	c.u.page = page
+	if u, ok := a.tokens.user(token, a.r().cfg); ok && c.u.user.Load() == nil {
+		c.u.user.Store(&u)
+		c.u.token = token
+	}
 	a.syncAccessLocked(c)
 	a.mu.Unlock()
 }
@@ -181,44 +180,46 @@ func (a *App) UserUnlock(c *client, pin string) error {
 	return nil
 }
 
-// UserLock forgets c's unlock; forget also drops its admin token for good.
-// suspend only lets this connection's token rest, so an admin browser can lock
-// itself: the token stays valid, and a user PIN or the admin password (which
-// ends the suspension) opens it again.
-func (a *App) UserLock(c *client, forget, suspend bool) {
+// issueSession gives c's persistent user a session token (the page keeps it
+// and presents it in hi). Disk I/O, so never under mu. It returns "" for a
+// user who is not persistent.
+func (a *App) issueSession(c *client) string {
+	who := c.u.user.Load()
+	cfg := a.r().cfg
+	if who == nil {
+		return ""
+	}
+	u, ok := cfg.FindUser(who.Name)
+	if !ok || !u.Persistent || u.Pin != who.Pin {
+		return ""
+	}
+	t := a.tokens.issue(u, cfg)
+	a.mu.Lock()
+	c.u.token = t
+	a.mu.Unlock()
+	return t
+}
+
+// UserLock forgets c's unlock and revokes its session token, so a reload
+// does not undo a lock. Other connections of the same browser (same token)
+// lock too; other browsers' tokens are theirs.
+func (a *App) UserLock(c *client) {
 	a.mu.Lock()
 	tok := c.u.token
 	c.u.user.Store(nil)
-	if forget {
-		c.u.token = ""
-	}
-	if suspend && !forget {
-		c.u.suspended = true
+	c.u.token = ""
+	if tok != "" {
+		for cl := range a.clients {
+			if cl != c && cl.u.token == tok {
+				cl.u.user.Store(nil)
+				cl.u.token = ""
+				a.syncAccessLocked(cl)
+			}
+		}
 	}
 	a.syncAccessLocked(c)
 	a.mu.Unlock()
-	if forget {
-		a.tokens.forget(tok)
-	}
-}
-
-// AdminUnlock checks the settings PIN (the admin password) from the lock
-// screen and, if right, issues a token that lifts the page-type locks for the
-// browser holding it, until the settings PIN changes or is removed.
-func (a *App) AdminUnlock(c *client, pin string) (string, error) {
-	hash, err := a.checkAdmin(c, pin)
-	if err != nil {
-		return "", err
-	}
-	if hash == "" {
-		return "", errors.New("no admin password is set; set a settings PIN first")
-	}
-	t := a.tokens.issue(hash)
-	a.mu.Lock()
-	c.u.token, c.u.suspended = t, false
-	a.syncAccessLocked(c)
-	a.mu.Unlock()
-	return t, nil
+	a.tokens.forget(tok)
 }
 
 // userEdit is one row of the users form: Was is the name it had (for a
@@ -227,6 +228,9 @@ type userEdit struct {
 	Name string `json:"name"`
 	Was  string `json:"was"`
 	Pin  string `json:"pin"`
+	// Trusted and Persistent are this row's flags (see config.User).
+	Trusted    bool `json:"trusted"`
+	Persistent bool `json:"persistent"`
 }
 
 type usersReq struct {
@@ -246,7 +250,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	if a.r().cfg.SettingsPin == "" {
 		return errNeedAdminPin
 	}
-	if err := a.guardSave(c); err != nil {
+	if err := a.guardSave(c, false); err != nil {
 		return err
 	}
 	return a.applyConfig(func(cur *config.Config) error {
@@ -262,7 +266,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		inherited := map[string]bool{} // rows keep a hash only from their own, one row each
 		fresh := map[string]string{}   // new PINs by user name
 		for _, e := range req.Users {
-			u := config.User{Name: strings.TrimSpace(e.Name)}
+			u := config.User{Name: strings.TrimSpace(e.Name), Trusted: e.Trusted, Persistent: e.Persistent}
 			if u.Name == "" {
 				return errors.New("every user needs a name")
 			}
@@ -310,7 +314,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	})
 }
 
-// userResult answers userUnlock and adminUnlock.
+// userResult answers userUnlock. Token is set for a persistent user.
 type userResult struct {
 	T     string `json:"t"`
 	OK    bool   `json:"ok"`
@@ -334,20 +338,16 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 			a.command(c, "userUnlock", "refused", "", err)
 		} else {
 			a.command(c, "userUnlock", "ok", "", nil)
+			if res.Token = a.issueSession(c); res.Token != "" {
+				a.mu.Lock()
+				a.syncAccessLocked(c) // after the token, so the page's state is final
+				a.mu.Unlock()
+			}
 		}
 		a.reply(c, res)
 	case "userLock":
-		a.UserLock(c, m.Forget, m.Suspend)
+		a.UserLock(c)
 		a.command(c, "userLock", "ok", "", nil)
-	case "adminUnlock":
-		res := userResult{T: "adminUnlockResult", OK: true, ID: m.ID}
-		tok, err := a.AdminUnlock(c, m.Pin)
-		if err != nil {
-			res.OK, res.Err = false, err.Error()
-		}
-		res.Token = tok
-		a.command(c, "adminUnlock", outcome(err), "", err)
-		a.reply(c, res)
 	case "userSetPin":
 		res := opResult{T: "userSetPinResult", OK: true, ID: &m.ID}
 		if err := a.UserSetPin(c, m.Old, m.New); err != nil {

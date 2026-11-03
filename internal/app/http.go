@@ -31,7 +31,7 @@ type client struct {
 	// sent: this is a /log page, sent new sent log entries. Guarded by App.mu.
 	sent bool
 
-	u connUser // page type, unlocked user, admin token (users.go)
+	u connUser // page type, unlocked user, session token (users.go)
 }
 
 // wsReadLimit is the most one browser message may be. The largest ones are
@@ -242,12 +242,13 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		if !known {
 			continue // closed: an unlisted type is never dispatched
 		}
+		rl = rl.forMsg(&m)
 		if err := a.admit(c, rl); err != nil {
 			a.refuse(c, m.T, rl, &m, err)
 			continue
 		}
 		switch m.T {
-		case "hi", "userUnlock", "userLock", "adminUnlock", "userSetPin", "users":
+		case "hi", "userUnlock", "userLock", "userSetPin", "users":
 			a.serveUsers(c, &m)
 		case "batch":
 			if len(m.Items) > 0 {
@@ -352,9 +353,7 @@ type inMsg struct {
 	Sets     []config.FilterSet `json:"sets"`
 	Salvos   []config.Salvo     `json:"salvos"`
 	Page     string             `json:"page"`  // hi: main | log
-	Token    string             `json:"token"` // hi: admin token
-	Forget   bool               `json:"forget"`
-	Suspend  bool               `json:"suspend"`
+	Token    string             `json:"token"` // hi: session token of a persistent user
 	Old      string             `json:"old"`
 	New      string             `json:"new"`
 	UsersReq *usersReq          `json:"usersReq"`

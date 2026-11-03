@@ -101,9 +101,9 @@ type App struct {
 	namesDirt bool      // unsolicited names changed outside a refresh
 	dumpAt    time.Time // last dump request
 
-	pin     pinPool     // wrong settings PINs and admin passwords (pin.go)
+	pin     pinPool     // wrong settings PINs (pin.go)
 	userPin pinPool     // wrong user PINs
-	tokens  *tokenStore // admin tokens (tokens.go)
+	tokens  *tokenStore // persistent users' session tokens (tokens.go)
 	cfgMu   sync.Mutex  // serializes settings saves
 
 	gapHook func() // test seam: runs between a take's finish and unregister

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -159,7 +158,7 @@ func TestUserUnlock(t *testing.T) {
 	if a.pageAllowed(&client{ip: "10.0.0.2"}, gateMain) {
 		t.Fatal("unlock leaked to another connection")
 	}
-	a.UserLock(c, false, false)
+	a.UserLock(c)
 	if a.pageAllowed(c, gateMain) || c.who() != "10.0.0.1" {
 		t.Fatal("lock didn't lock")
 	}
@@ -202,86 +201,6 @@ func TestUserUnlockBackoff(t *testing.T) {
 	}
 	if a.userPin.n != pinFreeTries+1 {
 		t.Fatalf("count %d", a.userPin.n)
-	}
-}
-
-func TestAdminTokenAndRevoke(t *testing.T) {
-	a := userApp(t, true)
-	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlock(c, "1234"); err != nil {
-		t.Fatal(err)
-	}
-	a.UserLock(c, false, false)
-	other := &client{ip: "10.0.0.5"}
-	if _, err := a.AdminUnlock(other, "0000"); err == nil || a.pageAllowed(other, gateMain) {
-		t.Fatalf("wrong admin password: %v", err)
-	}
-	a.mu.Lock()
-	a.pin.until = time.Time{}
-	a.mu.Unlock()
-	tok, err := a.AdminUnlock(other, "2468")
-	if err != nil || tok == "" {
-		t.Fatalf("admin unlock: %v", err)
-	}
-	if !a.pageAllowed(other, gateMain) || !a.pageAllowed(other, gateLog) {
-		t.Fatal("token didn't lift the locks")
-	}
-	// Another connection of the same browser presents the token with hi.
-	again := &client{ip: "10.0.0.5"}
-	a.Hi(again, "log", tok)
-	if !a.pageAllowed(again, gateLog) {
-		t.Fatal("token not honored on a new connection")
-	}
-	if a.pageAllowed(&client{ip: "10.0.0.5", u: connUser{token: "bogus"}}, gateMain) {
-		t.Fatal("a made-up token worked")
-	}
-	// The token is on disk (hashed), and survives a restart of the state.
-	b, err := os.ReadFile(a.tokens.path)
-	if err != nil || strings.Contains(string(b), tok) {
-		t.Fatalf("token file: %v / plaintext token: %v", err, strings.Contains(string(b), tok))
-	}
-	a.tokens = loadTokens(a.cfgPath) // the load at startup
-	if !a.tokens.ok(tok, a.r().cfg.SettingsPin) {
-		t.Fatal("token lost with the in-memory state")
-	}
-	// Changing the settings PIN revokes every token.
-	admin := &client{ip: "10.0.0.9"}
-	if err := a.Unlock(admin, "2468"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.UserUnlock(admin, "1234"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.SaveSettings(admin, a.r().cfg, "1357", false); err != nil {
-		t.Fatal(err)
-	}
-	if a.pageAllowed(other, gateMain) || a.pageAllowed(again, gateLog) {
-		t.Fatal("old token still works after the PIN changed")
-	}
-	if a.tokens.ok(tok, a.r().cfg.SettingsPin) {
-		t.Fatal("token valid for the new PIN")
-	}
-	// And so does removing it.
-	tok2, err := a.AdminUnlock(other, "1357")
-	if err != nil || !a.pageAllowed(other, gateMain) {
-		t.Fatalf("new PIN admin unlock: %v", err)
-	}
-	// Issuing a token drops the ones the old PIN made.
-	if len(a.tokens.toks) != 1 {
-		t.Fatalf("%d tokens after the PIN changed and one was issued", len(a.tokens.toks))
-	}
-	if err := a.Unlock(admin, "1357"); err != nil {
-		t.Fatal(err)
-	}
-	// Locks need the PIN, so they go first.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.SaveSettings(admin, a.r().cfg, "", true); err != nil {
-		t.Fatal(err)
-	}
-	if a.tokens.ok(tok2, "") || a.tokens.ok(tok2, a.r().cfg.SettingsPin) {
-		t.Fatal("token survives removing the PIN")
 	}
 }
 

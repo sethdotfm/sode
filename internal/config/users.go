@@ -17,6 +17,13 @@ type User struct {
 	Name string `yaml:"name" json:"name"`
 	Pin  string `yaml:"pin" json:"-"`
 	Len  int    `yaml:"len" json:"len"`
+	// Trusted: while unlocked as this user, low-risk saves (Settings form,
+	// filter sets, salvos) need no settings PIN. Never PIN changes, users,
+	// or clearing history (see app/policy.go).
+	Trusted bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
+	// Persistent: unlocking as this user issues a session token the browser
+	// keeps, so a reload or dropped link does not log them out (no idle lock).
+	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
 }
 
 // Locks says which page types need an unlocked user: the main screen and /log.

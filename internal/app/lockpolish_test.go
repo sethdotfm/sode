@@ -7,55 +7,6 @@ import (
 	"time"
 )
 
-// An admin browser can lock itself: its token rests on that connection only.
-func TestSuspendToken(t *testing.T) {
-	a := userApp(t, true)
-	c := &client{ip: "10.0.0.5"}
-	tok, err := a.AdminUnlock(c, "2468")
-	if err != nil || !a.pageAllowed(c, gateMain) {
-		t.Fatalf("admin unlock: %v", err)
-	}
-	other := &client{ip: "10.0.0.5"}
-	a.Hi(other, "main", tok)
-	a.UserLock(c, false, true)
-	if a.pageAllowed(c, gateMain) || a.pageAllowed(c, gateLog) {
-		t.Fatal("suspended connection still open")
-	}
-	a.mu.Lock()
-	st := a.lockStateLocked(c)
-	a.mu.Unlock()
-	if !st.Locked || st.Exempt || !st.Token {
-		t.Fatalf("state %+v", st)
-	}
-	if !a.pageAllowed(other, gateMain) {
-		t.Fatal("suspending leaked to another connection")
-	}
-	if !a.tokens.ok(tok, a.r().cfg.SettingsPin) {
-		t.Fatal("suspend revoked the token")
-	}
-	// A user PIN opens it, and locking again leaves it suspended.
-	if err := a.UserUnlock(c, "1234"); err != nil || !a.pageAllowed(c, gateMain) {
-		t.Fatalf("user unlock after suspend: %v", err)
-	}
-	a.UserLock(c, false, false)
-	if a.pageAllowed(c, gateMain) {
-		t.Fatal("token came back on a plain lock")
-	}
-	// The admin password restores the exemption.
-	a.mu.Lock()
-	a.pin.until = time.Time{}
-	a.mu.Unlock()
-	tok, err = a.AdminUnlock(c, "2468")
-	if err != nil || !a.pageAllowed(c, gateMain) {
-		t.Fatalf("admin unlock after suspend: %v", err)
-	}
-	// Forget revokes it for good, suspended or not.
-	a.UserLock(c, true, true)
-	if a.tokens.ok(tok, a.r().cfg.SettingsPin) {
-		t.Fatal("forget kept the token")
-	}
-}
-
 func TestUserSetPin(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}

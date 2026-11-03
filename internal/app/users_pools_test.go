@@ -30,21 +30,14 @@ func TestPinClassesSeparate(t *testing.T) {
 			t.Fatal("wrong settings PIN accepted")
 		}
 	}
-	for range 3 {
-		clearWaits(a)
-		if _, err := a.AdminUnlock(c, "0000"); err == nil {
-			t.Fatal("wrong admin password accepted")
-		}
-	}
-	// The admin password is the settings PIN's class: one count.
-	if a.pin.n != 6 || a.userPin.n != 0 {
+	if a.pin.n != 3 || a.userPin.n != 0 {
 		t.Fatalf("counts settings %d, users %d", a.pin.n, a.userPin.n)
 	}
 	clearWaits(a)
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
-	if a.pin.n != 6 {
+	if a.pin.n != 3 {
 		t.Fatalf("a user's success reset the settings count to %d", a.pin.n)
 	}
 	// And a settings success doesn't reset the user count.
@@ -87,12 +80,9 @@ func TestUserPinBackoffCapped(t *testing.T) {
 	if wait <= 0 || wait > userPinMaxWait {
 		t.Fatalf("wait %v", wait)
 	}
-	// Mid-wait the settings and admin class still work.
+	// Mid-wait the settings class still works.
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatalf("settings PIN blocked by user failures: %v", err)
-	}
-	if _, err := a.AdminUnlock(c, "2468"); err != nil {
-		t.Fatalf("admin password blocked by user failures: %v", err)
 	}
 	// And the right user PIN works once the wait is over.
 	clearWaits(a)

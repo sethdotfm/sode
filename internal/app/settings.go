@@ -23,7 +23,7 @@ func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bo
 func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, keepDefaults bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	if err := a.guardSave(c); err != nil {
+	if err := a.guardSave(c, pin == "" && !clearPin); err != nil {
 		return err
 	}
 	return a.applyConfig(func(cur *config.Config) error {

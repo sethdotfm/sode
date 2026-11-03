@@ -19,7 +19,7 @@ type pinState struct {
 }
 
 // pinPool is the wrong-PIN count one class of secret uses, and the rules for
-// it. The settings PIN and the admin password (the same secret) share one
+// it. The settings PIN has one
 // pool; user PINs have their own, so a success or a lockout in one never
 // touches the other. tryPin is the only thing that changes it.
 type pinPool struct {
@@ -51,7 +51,7 @@ func pinWait(n int) time.Duration {
 	return min(w, pinMaxWait)
 }
 
-// settingsPool: the settings PIN and the admin password. PinMaxTries wrong
+// settingsPool: the settings PIN. PinMaxTries wrong
 // ones in a row lock it until -reset-pin or a restart.
 func settingsPool() pinPool {
 	return pinPool{what: "settings", wait: pinWait, maxTries: func(c config.Config) int { return c.PinMaxTries }}
@@ -114,8 +114,7 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 
 // checkAdmin checks pin against the settings PIN and returns that PIN's hash
 // (empty when none is set, in which case nothing was asked). Wrong PINs count
-// for everyone, since IPs behind a proxy or rotated are no guard. Unlock and
-// AdminUnlock both come through here.
+// for everyone, since IPs behind a proxy or rotated are no guard.
 func (a *App) checkAdmin(c *client, pin string) (string, error) {
 	hash := a.r().cfg.SettingsPin
 	if hash == "" {
@@ -165,4 +164,20 @@ func (a *App) settingsUnlocked(c *client) bool {
 func (a *App) settingsUnlockedLocked(c *client) bool {
 	hash := a.r().cfg.SettingsPin
 	return hash == "" || c.pin == hash
+}
+
+// trustedLocked: c may make a low-risk save: the settings PIN rules, or c is
+// unlocked as a user who still exists, with the same PIN, and is marked
+// Trusted now (read live, so unticking it takes effect at once). Caller holds
+// mu.
+func (a *App) trustedLocked(c *client) bool {
+	if a.settingsUnlockedLocked(c) {
+		return true
+	}
+	cfg := a.r().cfg
+	if !a.userOKLocked(c, cfg) {
+		return false
+	}
+	u, _ := cfg.FindUser(c.u.user.Load().Name)
+	return u.Trusted
 }
