@@ -185,10 +185,10 @@ func (a *App) logSalvoTiming(c *client, staged []*takeRun) {
 				continue
 			}
 			n++
-			if !l.confirmed {
+			if !l.confirmed() {
 				continue
 			}
-			if l.tallied {
+			if l.tallied() {
 				byTally++
 			} else {
 				byConn++

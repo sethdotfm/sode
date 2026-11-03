@@ -85,18 +85,32 @@ func runLimited(limit, n int, fn func(i int)) {
 }
 
 // takeLevel is one level of a take, from plan to result.
+// confirmedBy is how the router answered for a level. It is decided once,
+// when the answer arrives (waiter.see); later changes to native or same do
+// not move it.
+type confirmedBy uint8
+
+const (
+	pending        confirmedBy = iota // no answer yet
+	byConnected                       // a Connected: the route changed
+	byTally                           // a tally for a staged level that was elsewhere before the Go
+	byTallyAlready                    // a tally: it was on src before the take
+)
+
+func (l *takeLevel) confirmed() bool { return l.by != pending }
+func (l *takeLevel) tallied() bool   { return l.by == byTally || l.by == byTallyAlready }
+func (l *takeLevel) already() bool   { return l.by == byTallyAlready }
+
 type takeLevel struct {
-	ui, wire  int
-	connect   []byte
-	same      bool // the cache said it was already on src
-	unsent    bool // the router link refused it
-	confirmed bool
-	already   bool      // confirmed by a tally, not by a change
-	native    bool      // staged in the batch's group salvo (fire.go): confirmed by a Connected or a tally
-	tallied   bool      // confirmed by a tally, not a Connected
-	at        time.Time // when it was confirmed
-	seen      bool      // the router reported some other route for the level...
-	now       int       // ...this src (-1 = nothing routed), the latest report
+	ui, wire int
+	connect  []byte
+	same     bool        // the cache said it was already on src
+	unsent   bool        // the router link refused it
+	by       confirmedBy // how the router confirmed it (decided once, in see)
+	at       time.Time   // when it was confirmed
+	native   bool        // staged in the batch's group salvo (fire.go): confirmed by a Connected or a tally
+	seen     bool        // the router reported some other route for the level...
+	now      int         // ...this src (-1 = nothing routed), the latest report
 }
 
 type waiter struct {
@@ -117,7 +131,7 @@ type waiter struct {
 var errRouterChanged = errors.New("the router changed")
 
 // wanted: still waiting for the router to confirm l.
-func wanted(l *takeLevel) bool { return !l.confirmed && !l.unsent }
+func wanted(l *takeLevel) bool { return !l.confirmed() && !l.unsent }
 
 // filter is the take's levels for which keep is true. Caller holds mu.
 func (w *waiter) filter(keep func(*takeLevel) bool) []*takeLevel {
@@ -151,8 +165,13 @@ func (w *waiter) see(xp swp08.Crosspoint) bool {
 		// A Go may or may not be announced (#154), so a staged level is
 		// confirmed by a Connected or a tally, and was only already there if
 		// the cache said so.
-		l.confirmed, l.tallied, l.at = true, !xp.Changed(), time.Now()
-		l.already = l.tallied && (!l.native || l.same)
+		l.by, l.at = byConnected, time.Now()
+		if !xp.Changed() {
+			l.by = byTally
+			if !l.native || l.same {
+				l.by = byTallyAlready
+			}
+		}
 		w.finishIfDone()
 		return true
 	}
@@ -234,9 +253,9 @@ func (w *waiter) unregister(a *App, id int) {
 	}
 	for _, l := range w.levels {
 		k := ownKey{w.dst, l.wire, w.src}
-		if !l.confirmed || l.unsent || l.already {
+		if !l.confirmed() || l.unsent || l.already() {
 			delete(a.ext.own, k)
-		} else if until, ok := a.ext.own[k]; ok && l.native && l.tallied && !w.goAt.IsZero() && w.goAt.Add(salvoAnnounceFor).Before(until) {
+		} else if until, ok := a.ext.own[k]; ok && l.native && l.tallied() && !w.goAt.IsZero() && w.goAt.Add(salvoAnnounceFor).Before(until) {
 			// Set by a Go and confirmed by a tally: a Connected may still
 			// follow (the Ultrix's come up to ~340 ms after the Go), or may
 			// never come. The key waits that long, not ownFor.
@@ -244,7 +263,7 @@ func (w *waiter) unregister(a *App, id int) {
 		}
 		// The answer to the last interrogate, or a slow Connected, may
 		// still be on its way: it's ours, and the entry gets amended.
-		if !l.confirmed && !l.unsent {
+		if !l.confirmed() && !l.unsent {
 			until := time.Now().Add(lateFor)
 			a.ext.late[k] = until
 			// Only a level the router said nothing about may be answered late;
@@ -441,7 +460,7 @@ func (a *App) outcomePhase(r *runtime, w *waiter, e *Entry, missing []*takeLevel
 	if len(missing) > 0 {
 		a.whyMissing(e, missing)
 	}
-	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already }))
+	e.Already = uis(w.filter(func(l *takeLevel) bool { return l.already() }))
 	if unsent := w.filter(func(l *takeLevel) bool { return l.unsent }); len(unsent) > 0 {
 		e.Unsent = uis(unsent)
 		sort.Ints(e.Unsent)
@@ -525,7 +544,7 @@ func (a *App) complete(r *runtime, t *takeRun, sendErr error) {
 // finish and unregister, which the entry just recorded as failed.
 func (a *App) gapPhase(w *waiter, e *Entry) {
 	a.mu.Lock()
-	gap := w.filter(func(l *takeLevel) bool { return l.confirmed && slices.Contains(e.Failed, l.ui) })
+	gap := w.filter(func(l *takeLevel) bool { return l.confirmed() && slices.Contains(e.Failed, l.ui) })
 	a.mu.Unlock()
 	if len(gap) > 0 {
 		a.lateConfirm(e.ID, uis(gap))
