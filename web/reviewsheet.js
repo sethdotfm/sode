@@ -399,10 +399,25 @@ function apply() {
   const sc = scope();
   const done = () => finish(p);
   if (!Object.keys(p.parts).length) return done();
+  // Settings that go to my profile while the lists go elsewhere (This
+  // browser / Everyone) are their own save, after the lists.
+  const withPrefs = (next) => {
+    if (!p.parts.prefs || sc === 'user') return next();
+    busy = true;
+    refresh();
+    setNote('Saving…');
+    saveProfile({ prefs: p.parts.prefs }).then((r) => {
+      busy = false;
+      if (!open) return;
+      if (r.ok) return next();
+      refresh();
+      setNote(sentence(r.err) || 'Settings not saved to your profile.', true);
+    });
+  };
   if (sc === 'local') {
     if (p.parts.filterSets) putLocalSets(p.res.filter.list);
     if (p.parts.presets) putLocalPresets(p.res.preset.list);
-    return done();
+    return withPrefs(done);
   }
   if (sc === 'user') {
     if (forUser()) {
@@ -421,7 +436,8 @@ function apply() {
     return psave.change(p.parts, done);
   }
   // Everyone: filter sets, then presets (two messages, one PIN).
-  const sendPresets = () => (p.parts.presets ? gsavePresets.change({ presets: p.parts.presets }, done) : done());
+  const afterLists = () => withPrefs(done);
+  const sendPresets = () => (p.parts.presets ? gsavePresets.change({ presets: p.parts.presets }, afterLists) : afterLists());
   if (p.parts.filterSets) gsave.change({ sets: p.parts.filterSets }, sendPresets);
   else sendPresets();
 }

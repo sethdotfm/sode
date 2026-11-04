@@ -6,7 +6,6 @@
 
 import { $, el, on, emit } from './core.js';
 import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile } from './prefs.js';
-import { profile } from './profile.js';
 import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
 
 let globals = readJSON(CACHE_KEY);

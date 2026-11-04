@@ -219,6 +219,9 @@ const originText = (name, v) => {
 };
 
 // Per-row "Set as my default" / "Clear my default" (only with a profile).
+// They are built on the first profile, after the search index was made, so
+// creating one rebuilds the index (indexNow, set where the index is built).
+let indexNow = () => {};
 const myButtons = new Map();
 function myButton(select) {
   const name = select.dataset.pref;
@@ -245,6 +248,7 @@ function myButton(select) {
   });
   select.closest('.sode__field').append(b, note);
   myButtons.set(name, { b, note });
+  indexNow();
   return myButtons.get(name);
 }
 
@@ -696,9 +700,11 @@ function settingsOf(sec, secId) {
   for (const f of sec.querySelectorAll('[data-find]')) add(f.dataset.find, f.dataset.label || f.textContent, f);
   return [...out.values()];
 }
-const settingsIndex = buildIndex(sections.map((sec, i) => ({
+const makeIndex = () => buildIndex(sections.map((sec, i) => ({
   id: secIds[i], title: sec.querySelector('legend').textContent, settings: settingsOf(sec, secIds[i]),
 })));
+let settingsIndex = makeIndex();
+indexNow = () => { settingsIndex = makeIndex(); };
 
 let hits = [];
 let cur = 0;

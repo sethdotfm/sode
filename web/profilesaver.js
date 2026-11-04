@@ -14,7 +14,10 @@ export const PROFILE_MAX_BYTES = 48 * 1024;
 // to save, or ''. Parts replace the same-named part of p.
 export function profileProblem(p, parts) {
   const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, ...parts };
-  const bytes = JSON.stringify(next).length;
+  // UTF-8 bytes as the server counts them: Go's json.Marshal also writes
+  // < > & as \u003c, \u003e, \u0026 (5 more bytes each).
+  const json = JSON.stringify(next);
+  const bytes = new TextEncoder().encode(json).length + 5 * (json.match(/[<>&]/g) || []).length;
   return bytes > PROFILE_MAX_BYTES
     ? `Your profile is too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${PROFILE_MAX_BYTES / 1024} KiB). Delete something first.`
     : '';

@@ -141,10 +141,35 @@ test('profileProblem refuses an oversized profile; saves send the whole list', a
   let done = false;
   saver.change({ presets: [{ name: 'P', items: [], pinned: true }] }, () => { done = true; });
   assert.equal(saver.busy(), true);
+  await new Promise((r) => setImmediate(r)); // saves go through the queue
   const out = sent.at(-1);
   assert.deepEqual([out.t, out.name, out.presets.length], ['profileSave', 'Ana', 1]);
   deliver({ t: 'profileSaveResult', id: out.id, ok: true });
   await new Promise((r) => setImmediate(r));
   assert.equal(done, true);
   assert.equal(saver.busy(), false);
+});
+
+test('saveProfile: one at a time, the second built on the first; a lost socket settles them', async () => {
+  const { saveProfile, profile } = await import('../profile.js');
+  reset();
+  login('Ana');
+  sent.length = 0;
+  const a = saveProfile({ prefs: { theme: 'dark' } });
+  const b = saveProfile({ prefs: { ...profile().prefs, clock: '12' } });
+  // The own copy takes each save at call time, so the second was built on the first.
+  assert.deepEqual(profile().prefs, { theme: 'dark', clock: '12' });
+  await new Promise((r) => setImmediate(r));
+  assert.equal(sent.length, 1); // the second waits for the first's answer
+  deliver({ t: 'profileSaveResult', id: sent[0].id, ok: true });
+  assert.equal((await a).ok, true);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(sent.length, 2);
+  // The socket drops before the second is answered: it settles, not hangs,
+  // and the local copy goes back to what it was.
+  m.emit('wsclose');
+  const r = await b;
+  assert.equal(r.ok, false);
+  assert.match(r.err, /lost/i);
+  assert.deepEqual(profile().prefs, { theme: 'dark' });
 });
