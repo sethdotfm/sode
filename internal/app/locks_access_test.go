@@ -151,3 +151,31 @@ func TestRemoveLastUserWhileLockedSaysWhy(t *testing.T) {
 		t.Fatalf("want a message pointing at Settings > Access, got %v", err)
 	}
 }
+
+// The guard leaves the users alone when it refuses, and does not fire when no
+// lock is on (the last user may go then).
+func TestRemoveLastUserGuardScope(t *testing.T) {
+	a := userApp(t, true)
+	admin := &client{ip: "10.0.0.9"}
+	if err := a.Unlock(admin, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	before := len(a.r().cfg.Users)
+	if err := a.SaveUsers(admin, usersReq{Users: nil}); err == nil {
+		t.Fatal("last user removed while a lock is on")
+	}
+	if got := len(a.r().cfg.Users); got != before || before == 0 {
+		t.Fatalf("users changed by a refused save: %d -> %d", before, got)
+	}
+	b := userApp(t, false)
+	adm := &client{ip: "10.0.0.9"}
+	if err := b.Unlock(adm, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.SaveUsers(adm, usersReq{Users: nil}); err != nil {
+		t.Fatalf("removing every user with no lock on: %v", err)
+	}
+	if len(b.r().cfg.Users) != 0 {
+		t.Fatal("users not removed")
+	}
+}

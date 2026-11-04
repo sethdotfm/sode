@@ -453,12 +453,10 @@ function closePresets() {
 
 trapDialog(root, dialog, closePresets);
 
-// A lock hides the editor without closing it (lock.js's fallback): reset its
-// state so the next open starts clean and no save answer lands in a hidden one.
+// A lock closes the editor like the other dialogs do, without the
+// unsaved-changes warning (the page is covered; the edits can't be reached).
 on('locking', () => {
   if (!open) return;
-  open = false;
-  discard = false;
-  profSaver.close();
-  saver.close();
+  discard = true;
+  closePresets();
 });
