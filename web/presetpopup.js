@@ -7,8 +7,9 @@
 import { el, S, on, icon } from './core.js';
 import { trapDialog } from './widgets.js';
 import { globalSaver } from './globalsave.js';
+import { profileSaver } from './profilesaver.js';
 import { fire, presetShown } from './presets.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, clearPinOverride, rankPresets } from './presetstore.js';
+import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, PRESET_SCOPES } from './presetstore.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -70,7 +71,12 @@ const saver = globalSaver({
 });
 pinCancel.addEventListener('click', () => saver.cancel());
 
-const scopeText = (s) => (s.scope === 'global' ? 'everyone' : 'this browser');
+const scopeText = (s) => PRESET_SCOPES[s.scope].toLowerCase();
+// Me presets save to the user's profile: no PIN row.
+const profSaver = profileSaver({
+  setNote, isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved.',
+  render: () => draw(),
+});
 
 function btn(text, ic, tip, fn) {
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', icon(ic), text);
@@ -96,7 +102,8 @@ function draw() {
     main.tabIndex = -1;
     main.addEventListener('click', () => pressPreset(s));
     const tools = [btn(pinned ? 'Unpin' : 'Pin', pinned ? 'pin-off' : 'pin',
-      s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin', () => { setLocalPin(s, !pinned); })];
+      s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin',
+      () => (s.scope === 'user' ? profSaver.change({ presets: withUserPin(s.name, !pinned) }, () => {}) : setLocalPin(s, !pinned)))];
     if (s.scope === 'global') {
       const flag = s.pinned !== false;
       tools.push(btn(flag ? 'Unpin for everyone' : 'Pin for everyone', 'users', 'Changes the preset for every browser (settings PIN)', () => {
@@ -167,6 +174,7 @@ function close() {
   open = false;
   root.hidden = true;
   saver.close();
+  profSaver.close();
   if (back?.isConnected) back.focus();
 }
 

@@ -7,6 +7,7 @@
 
 import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
+import { profile, profileName } from './profile.js';
 
 // The limits the server enforces too (internal/config/presets.go); the
 // shared cases in test/preset_cases.json keep the two from drifting.
@@ -51,7 +52,12 @@ export const saved = ({ name, items, pinned }) => ({ name, items, pinned: pinned
 
 export const globalPresets = () => (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normPreset(s), pinned: s.pinned !== false }));
 export const localPresets = () => [].concat(readJSON(KEY, [])).filter((s) => s?.name).map((s) => ({ scope: 'local', ...normPreset(s), pinned: s.pinned !== false }));
-export const allPresets = () => [...globalPresets(), ...localPresets()];
+// The logged-in user's own presets (their profile; [] with nobody logged in).
+// Like a local one, each carries its own pinned flag.
+export const userPresets = () => (profileName() ? profile().presets : []).filter((s) => s?.name)
+  .map((s) => ({ scope: 'user', ...normPreset(s), pinned: s.pinned !== false }));
+export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
+export const PRESET_SCOPES = { global: 'Everyone', user: 'Me', local: 'This browser' };
 export const findPreset = (scope, name) =>
   allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
@@ -156,8 +162,10 @@ export function pinnedPresets(list = allPresets()) {
 }
 // Pins or unpins s for this browser only. A global preset gets an override
 // (dropped again when it equals the preset's own flag); a local one changes
-// its flag.
+// its flag. A preset of the user's own (scope 'user') is saved to the profile
+// instead, with withUserPin: the popup does that.
 export function setLocalPin(s, on) {
+  if (s.scope === 'user') return;
   if (s.scope === 'global') {
     const raw = readJSON(PINS, {});
     const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : {};
@@ -181,6 +189,10 @@ export function clearPinOverride(name) {
 // Everyone's list with preset `name` pinned or not, to send.
 export const withGlobalPin = (name, on) =>
   globalPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
+
+// The user's own list with preset `name` pinned or not, to send.
+export const withUserPin = (name, on) =>
+  userPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
 
 // ---- the popup's list: all presets, or the best matches for what is typed
 // (names, by core.js search). Matches keep their order among equal scores.
@@ -273,3 +285,4 @@ onMsg('presets', (m) => {
   emit('presets');
 });
 on('helloData', () => emit('presets'));
+on('profile', () => emit('presets'));

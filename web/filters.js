@@ -10,7 +10,7 @@ import { $, el, S, on, off, search, item, labelNode, nameProblem } from './core.
 import { readStr, writeStr } from './store.js';
 import {
   filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter, allSets, activeSet, activeRef, adoptFilter, pickSet,
-  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary, toggleSet, activeStack, isActive, snapshot, restore,
+  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, userSets, setRef, SCOPE_LABEL, filterSummary, toggleSet, activeStack, isActive, snapshot, restore,
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
@@ -18,6 +18,8 @@ import { histRows, setSearch, searchActive, searchRespectsFilters } from './hist
 import { showResult } from './plans.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { globalSaver } from './globalsave.js';
+import { profileSaver } from './profilesaver.js';
+import { profileName } from './profile.js';
 import { combobox, trapDialog } from './widgets.js';
 
 const root = $('filters');
@@ -276,7 +278,7 @@ function renderButtons() {
   };
   // All | for everyone | this browser's own, each group labelled for
   // screen readers.
-  const groups = [['all', 'Default'], ['global', 'Everyone'], ['local', 'This browser']]
+  const groups = Object.entries(SCOPE_LABEL)
     .map(([scope, label]) => [label, sets.filter((s) => s.scope === scope)]).filter(([, g]) => g.length);
   for (const box of document.querySelectorAll('[data-sets]')) {
     const kids = [];
@@ -367,7 +369,7 @@ function renderSetBar() {
   const a = activeSet();
   const stack = activeStack();
   const select = $('flt-set');
-  const groups = [['all', 'Default'], ['global', 'Everyone'], ['local', 'This browser']];
+  const groups = Object.entries(SCOPE_LABEL);
   const sets = allSets();
   const opts = [];
   if (!a) {
@@ -390,7 +392,7 @@ function renderSetBar() {
   select.replaceChildren(...opts);
   select.value = a ? setKey(a) : '';
   const named = a && a.scope !== 'all';
-  const busy = saver.busy();
+  const busy = saver.busy() || profSaver.busy();
   $('flt-set-save').disabled = busy || !(named && a.edited);
   $('flt-set-saveas').disabled = busy || stack.length > 0;
   $('flt-share-btn').disabled = stack.length > 0;
@@ -403,7 +405,7 @@ function renderSetBar() {
     return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. `
       + 'Changing a filter leaves the stack, and the share link is off.');
   }
-  setNote(a && a.scope !== 'all' ? `${a.scope === 'global' ? 'Everyone' : 'This browser'}${a.edited ? ' · edited' : ''}` : '');
+  setNote(a && a.scope !== 'all' ? `${SCOPE_LABEL[a.scope]}${a.edited ? ' · edited' : ''}` : '');
 }
 const setNote = (text, error = false) => {
   $('flt-set-note').textContent = text;
@@ -419,8 +421,14 @@ const saver = globalSaver({
   setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar,
 });
 $('flt-pin-cancel').addEventListener('click', saver.cancel);
-const changeGlobal = (list, done) => saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done);
-const globalsWith = (fn) => fn(globalSets().map((s) => ({ name: s.name, f: s.f })));
+// Sets of the logged-in user ('Me') save to their profile: no PIN row.
+const profSaver = profileSaver({ setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar });
+// Saves the whole list of one shared scope ('global' or 'user').
+const changeShared = (scope, list, done) => (scope === 'user'
+  ? profSaver.change({ filterSets: list.map((s) => ({ name: s.name, ...s.f })) }, done)
+  : saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done));
+const sharedWith = (scope, fn) => fn((scope === 'user' ? userSets() : globalSets()).map((s) => ({ name: s.name, f: s.f })));
+const refTo = (scope, name, base) => ({ ...setRef(scope, name), base });
 
 // ---- the buttons
 
@@ -438,8 +446,8 @@ $('flt-set-save').addEventListener('click', () => {
   flushEds();
   if (a.scope === 'local') return saveLocalSet(a.name);
   const f = filterState();
-  changeGlobal(globalsWith((l) => l.map((s) => (s.name === a.name ? { ...s, f } : s))),
-    () => adoptFilter(f, { scope: 'global', name: a.name, base: f }));
+  changeShared(a.scope, sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, f } : s))),
+    () => adoptFilter(f, refTo(a.scope, a.name, f)));
 });
 
 $('flt-set-del').addEventListener('click', () => {
@@ -452,7 +460,7 @@ $('flt-set-del').addEventListener('click', () => {
     $('flt-set').focus();
     return;
   }
-  changeGlobal(globalsWith((l) => l.filter((s) => s.name !== a.name)), () => {
+  changeShared(a.scope, sharedWith(a.scope, (l) => l.filter((s) => s.name !== a.name)), () => {
     adoptFilter(filterState());
     $('flt-set').focus();
   });
@@ -466,7 +474,11 @@ function askName(mode) {
   f.value = mode === 'rename' ? a.name : !named ? '' : a.scope === 'global' ? `${a.name} (mine)` : `${a.name} 2`;
   f.classList.remove('pb-input--invalid');
   $('flt-set-scope-wrap').hidden = mode === 'rename';
-  $('flt-set-scope').value = 'local';
+  // 'Me' is offered only while someone is logged in.
+  const sel = $('flt-set-scope');
+  sel.replaceChildren(new Option('This browser', 'local'), new Option('Everyone', 'global'),
+    ...(profileName() ? [new Option('Me', 'user')] : []));
+  sel.value = 'local';
   $('flt-set-name-ok').textContent = mode === 'rename' ? 'Rename' : 'Save set';
   $('flt-set-name-row').hidden = false;
   f.select();
@@ -491,14 +503,15 @@ function saveName() {
   closeName();
   if (mode === 'rename') {
     if (scope === 'local') return renameLocalSet(a.name, name);
-    return changeGlobal(globalsWith((l) => l.map((s) => (s.name === a.name ? { ...s, name } : s))),
+    return changeShared(scope, sharedWith(scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name } : s))),
       () => adoptFilter(filterState(), { ...activeRef(), name }));
   }
   // Save as: a name that's taken (in that scope) is replaced.
   if (scope === 'local') return saveLocalSet(name);
   const fNow = filterState();
-  changeGlobal(globalsWith((l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
-    () => adoptFilter(fNow, { scope: 'global', name, base: fNow }));
+  if (scope === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
+  changeShared(scope, sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
+    () => adoptFilter(fNow, refTo(scope, name, fNow)));
 }
 const flushEds = () => { eds.src.flush(); eds.dst.flush(); };
 $('flt-set-saveas').addEventListener('click', () => askName('saveas'));
