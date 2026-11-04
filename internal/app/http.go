@@ -62,6 +62,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
+	mux.HandleFunc("/api/yaml", a.serveYAML)
 	return secureHeaders(mux)
 }
 

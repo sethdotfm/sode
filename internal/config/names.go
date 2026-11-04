@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+// ValidateNames is validateNames for callers outside the package (the export
+// document's lists); same rules, same messages.
+func ValidateNames(kind string, names []string, max int) []error {
+	return validateNames(kind, names, max)
+}
+
 // validateNames checks the names of a list of things the config holds by
 // name (kind is singular, e.g. "preset"): at most max of them, each named, at
 // most 32 characters, no two alike ignoring case. The one place for these
