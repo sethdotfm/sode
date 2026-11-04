@@ -1,6 +1,10 @@
 package app
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/sethdotfm/sode/internal/config"
+)
 
 // A login with no lock on (userUnlock with tab) gets a tab token.
 func TestTabSession(t *testing.T) {
@@ -52,5 +56,37 @@ func TestTabSessionRefusedWhenLocked(t *testing.T) {
 	}
 	if a.issueSessionTab(c, true) != "" {
 		t.Fatal("tab token issued for a locked page")
+	}
+}
+
+// A lock switched on after a no-lock login: the tab token no longer brings a
+// reload back in, so the PIN pad (and the idle lock) apply.
+func TestTabTokenIgnoredOnceLocked(t *testing.T) {
+	a := userApp(t, false)
+	c := &client{ip: "10.0.0.1"}
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatal(err)
+	}
+	tok := a.issueSessionTab(c, true)
+	if tok == "" {
+		t.Fatal("no tab token")
+	}
+	a.cfgMu.Lock()
+	_, nr, err := a.update(func(cfg *config.Config) error {
+		cfg.Locks.Main = true
+		return nil
+	})
+	if err != nil {
+		a.cfgMu.Unlock()
+		t.Fatal(err)
+	}
+	a.mu.Lock()
+	a.rt.Store(nr)
+	a.mu.Unlock()
+	a.cfgMu.Unlock()
+	fresh := &client{ip: "10.0.0.2"}
+	a.Hi(fresh, "main", tok)
+	if fresh.u.user.Load() != nil {
+		t.Fatal("tab token honored for a locked page")
 	}
 }

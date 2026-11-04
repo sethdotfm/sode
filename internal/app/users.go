@@ -164,6 +164,9 @@ func (a *App) Hi(c *client, page, token string) {
 	cfg := a.r().cfg
 	c.u.page = page
 	u, ok := a.tokens.user(token, cfg)
+	if ok && !u.Persistent && pageGates[page].on(cfg.Locks) {
+		ok = false // a no-lock login's tab token means nothing once the page is locked
+	}
 	if ok && c.u.user.Load() == nil {
 		c.u.user.Store(&u)
 		c.u.token = token
