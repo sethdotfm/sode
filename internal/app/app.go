@@ -597,7 +597,7 @@ func (a *App) hello(p helloPage) []byte {
 		Tally: routeChanges(a.router.tally), Protect: routeChanges(a.router.protect),
 		Status: a.status, Recent: p.recent, More: p.more,
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg,
-		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: VersionLabel(),
+		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: BuildLabel(),
 		BrandColors: config.BrandColors,
 	}
 	b, err := json.Marshal(m)

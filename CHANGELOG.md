@@ -2,7 +2,7 @@
 
 Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
-## Beta 1.5 (unreleased)
+## Beta 1.5.0 (unreleased)
 
 - **Presets** (#152, renamed from "salvos" in #162): saved multi-source/multi-destination takes as buttons above Recent, per browser or for everyone (Settings PIN). Ctrl+G / ⌘G opens a searchable popup; pinning, an editor, and one history folder per fire.
 - **Native fire mode** (#154): *Settings → Takes → Fire confirms of several takes* can send a multi-take confirm as one SW-P-08 group salvo (commands 120/121), about 4 ms apart on the Ultrix instead of ~16 ms. Falls back to one after another if the router doesn't acknowledge. New `fireMode` and `salvoGroup` settings.
@@ -18,6 +18,7 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - The user directory (names, PIN lengths, trusted and never-log-out flags) is no longer sent to every browser in the hello. A locked page learns only the PIN lengths in use; an unlocked page gets the names (for "by Ana" in history); the Users editor asks for its list with the settings PIN.
 - **Trusted users** now also need the settings PIN to change the matrix, levels, level offset, name settings, fire mode and salvo group (and still the router, trusted proxies and PIN attempt limit).
 - Docs: this changelog (#147) and an AI disclosure in the README (#121).
+- **Releases**: versions are now `MAJOR.MINOR.PATCH` (this one is 1.5.0). Pushing a `-rc.N` tag builds a signed release candidate (`rc` image tag); a manual *promote* run turns it into the release without rebuilding. `latest` and `X.Y` only ever move forward and only by a promotion; every push to `main` publishes an unsigned `edge` image. Settings shows the build's short commit. See RELEASING.md.
 
 **Upgrading:** an existing `config.yaml` loads as is: a `salvos:` list is read as `presets:` and written under the new name on the next save, and Grid settings are still ignored. Old history lines, and presets a browser saved under the old `sode-salvos` keys, load as before. Pull and restart with the same `/data` volume.
 

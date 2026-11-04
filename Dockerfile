@@ -1,11 +1,12 @@
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
 ARG TARGETOS TARGETARCH
+ARG COMMIT=
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN go test ./... \
- && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/sode ./cmd/sode \
+ && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X github.com/sethdotfm/sode/internal/app.Commit=$COMMIT" -o /out/sode ./cmd/sode \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/swp08sim ./cmd/swp08sim \
  && mkdir -p /out/data
 

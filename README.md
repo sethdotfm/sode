@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
 
-**Version:** Beta 1.5
+**Version:** Beta 1.5.0
 
 Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
 
@@ -156,9 +156,18 @@ The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_D
 
 ## Releasing
 
-Bump `Version` in `internal/app/version.go` and the `**Version:**` line above, and give [CHANGELOG.md](CHANGELOG.md) a `## Beta <version>` section (drop "(unreleased)" from the top one), then run `go test ./internal/app -run TestVersionNoted` (it checks the README line and the changelog heading; with `SODE_RELEASE_TAG=v<version>` it also checks the tag and refuses an "(unreleased)" heading).
+Releases are cut by tag and promoted without a rebuild; see [RELEASING.md](RELEASING.md) for the steps and the rules. In short: bump `Version` in `internal/app/version.go`, the `**Version:**` line above and the `## Beta <version>` heading in [CHANGELOG.md](CHANGELOG.md) (`TestVersionNoted` checks them), merge to `main`, push a `vX.Y.Z-rc.N` tag to build a signed candidate, then run the *promote* workflow to make it `X.Y.Z` and `latest`.
 
-Pushing a `v<version>` tag makes CI check it and publish the multi-arch image to ghcr as `latest` and the tag name; then make a GitHub release from the tag.
+### Image tags
+
+| Tag | Follow it if you want |
+| --- | --- |
+| `latest`, or `1.5` for one minor line | tested releases only (use this with automatic updates) |
+| `rc` | the next release before it ships |
+| `edge` | whatever is merged on `main`, unsigned and possibly broken |
+| `1.5.0`, or `@sha256:...` | to stay put |
+
+Only the first row is touched by releases, so automatic updaters on `latest` never receive a candidate or an `edge` build.
 
 ## AI disclosure
 

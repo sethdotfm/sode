@@ -1,0 +1,166 @@
+# Promote a signed release candidate to a release: NO rebuild. The rc's image
+# digest gets the tags X.Y.Z, X.Y, X and (only if it is the highest) latest.
+# Run it from main. See RELEASING.md.
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      rc_tag:
+        description: "The rc git tag to promote, e.g. v1.5.0-rc.2"
+        required: true
+      dry_run:
+        description: "Check everything and print what would happen; change nothing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/sethdotfm/sode
+
+jobs:
+  promote:
+    # The release signature's identity names this workflow AT this ref, so it
+    # must only ever run from main (a branch copy could sign anything).
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write # the tag and the release
+      packages: write
+      id-token: write
+    env:
+      # An input is data: it reaches the shell only through the environment.
+      RC_TAG: ${{ inputs.rc_tag }}
+      DRY: ${{ inputs.dry_run }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Work out the release
+        id: v
+        run: |
+          set -euo pipefail
+          [[ "$RC_TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-rc\.[0-9]+$ ]] || { echo "::error::not an rc tag: $RC_TAG"; exit 1; }
+          MA=${BASH_REMATCH[1]}; MI=${BASH_REMATCH[2]}; PA=${BASH_REMATCH[3]}
+          REL="$MA.$MI.$PA"
+          SHA=$(git rev-list -n1 "refs/tags/$RC_TAG")
+          git branch -r --contains "$SHA" | grep -Eq '^\s*origin/(main|release/[0-9]+\.[0-9]+)$' \
+            || { echo "::error::$RC_TAG is not on main or a release/X.Y branch"; exit 1; }
+          # A moving tag only moves forward within its own line: a 1.4.9 patch
+          # cut after 1.5.0 must not take latest, 1.4.x's tag from 1.4.10, ...
+          stable=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' || true)
+          top() { # top <extended-regex> -> true if REL is the highest of the matching stable releases (counting itself)
+            [[ "$(printf '%s\n%s\n' "$stable" "$REL" | grep -E "$1" | sort -V | tail -1)" == "$REL" ]]
+          }
+          LATEST=false; MINOR=false; MAJOR=false
+          top '^[0-9]' && LATEST=true
+          top "^$MA\\.$MI\\." && MINOR=true
+          top "^$MA\\." && MAJOR=true
+          {
+            echo "rc=${RC_TAG#v}"; echo "rel=$REL"; echo "minor=$MA.$MI"; echo "major=$MA"
+            echo "latest=$LATEST"; echo "moveminor=$MINOR"; echo "movemajor=$MAJOR"; echo "sha=$SHA"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: The rc commit still says this version (version.go, README, CHANGELOG)
+        env:
+          SHA: ${{ steps.v.outputs.sha }}
+          REL: ${{ steps.v.outputs.rel }}
+        run: |
+          set -euo pipefail
+          git checkout --detach "$SHA"
+          SODE_RELEASE_TAG="v$REL" go test ./internal/app -run TestVersionNoted -count=1
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      - name: Find and verify the rc image
+        id: d
+        env:
+          RC: ${{ steps.v.outputs.rc }}
+          REL: ${{ steps.v.outputs.rel }}
+          SHA: ${{ steps.v.outputs.sha }}
+        run: |
+          set -euo pipefail
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE:$RC" --format '{{json .Manifest}}' | jq -r .digest)
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no image for $RC"; exit 1; }
+          # Signed by rc.yml, for THIS tag, at THIS commit: the image was
+          # built from exactly what the tag points at and passed rc.yml in full.
+          cosign verify "$IMAGE@$DIGEST" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/rc.yml@refs/tags/${RC_TAG}" \
+            --certificate-github-workflow-sha "$SHA" >/dev/null
+          # A release tag is never moved to another image.
+          if OLD=$(docker buildx imagetools inspect "$IMAGE:$REL" --format '{{json .Manifest}}' 2>/dev/null | jq -r .digest) && [[ -n "$OLD" && "$OLD" != "$DIGEST" ]]; then
+            echo "::error::$IMAGE:$REL already points at another image ($OLD)"; exit 1
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+      - name: Plan
+        env:
+          V: ${{ toJSON(steps.v.outputs) }}
+          DIGEST: ${{ steps.d.outputs.digest }}
+        run: |
+          echo "Promote $RC_TAG ($DIGEST)"; echo "$V" | jq -r 'to_entries[] | "  \(.key)=\(.value)"'
+      - name: Git tag
+        if: env.DRY != 'true'
+        env:
+          REL: ${{ steps.v.outputs.rel }}
+          SHA: ${{ steps.v.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/v$REL" >/dev/null; then
+            [[ "$(git rev-list -n1 "v$REL")" == "$SHA" ]] || { echo "::error::v$REL exists on another commit"; exit 1; }
+          else
+            git tag -a "v$REL" "$SHA" -m "Beta $REL"
+            git push origin "refs/tags/v$REL"
+          fi
+      - name: Retag the digest (no rebuild)
+        if: env.DRY != 'true'
+        env:
+          DIGEST: ${{ steps.d.outputs.digest }}
+          REL: ${{ steps.v.outputs.rel }}
+          MINOR: ${{ steps.v.outputs.minor }}
+          MAJOR: ${{ steps.v.outputs.major }}
+          MOVE_MINOR: ${{ steps.v.outputs.moveminor }}
+          MOVE_MAJOR: ${{ steps.v.outputs.movemajor }}
+          LATEST: ${{ steps.v.outputs.latest }}
+        run: |
+          set -euo pipefail
+          tags=(-t "$IMAGE:$REL")
+          [[ "$MOVE_MINOR" == true ]] && tags+=(-t "$IMAGE:$MINOR")
+          [[ "$MOVE_MAJOR" == true ]] && tags+=(-t "$IMAGE:$MAJOR")
+          [[ "$LATEST" == true ]] && tags+=(-t "$IMAGE:latest")
+          docker buildx imagetools create "${tags[@]}" "$IMAGE@$DIGEST"
+      - name: Sign as a release
+        if: env.DRY != 'true'
+        env:
+          DIGEST: ${{ steps.d.outputs.digest }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"
+      - name: GitHub release
+        if: env.DRY != 'true'
+        env:
+          DIGEST: ${{ steps.d.outputs.digest }}
+          REL: ${{ steps.v.outputs.rel }}
+          LATEST: ${{ steps.v.outputs.latest }}
+        run: |
+          set -euo pipefail
+          awk -v h="## Beta $REL" 'index($0,h)==1{p=1;next} p&&/^## /{exit} p' CHANGELOG.md > notes.md
+          printf '\nImage: `%s:%s`\nDigest: `%s`\nPromoted from `%s`.\n' "$IMAGE" "$REL" "$DIGEST" "$RC_TAG" >> notes.md
+          if gh release view "v$REL" >/dev/null 2>&1; then
+            gh release edit "v$REL" --prerelease=false --latest="$LATEST" --notes-file notes.md --title "Beta $REL"
+          else
+            gh release create "v$REL" --verify-tag --latest="$LATEST" --title "Beta $REL" --notes-file notes.md
+          fi
