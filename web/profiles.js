@@ -161,7 +161,7 @@ function openDialog(name) {
   if (!name) return;
   if (!isOpen) back = document.activeElement;
   isOpen = true;
-  root.hidden = false;
+  dlg.show();
   load(name);
   dialog.focus();
 }
@@ -172,13 +172,13 @@ function closeDialog() {
   who = '';
   prof = null;
   removing = null;
-  root.hidden = true;
+  dlg.hide();
   if (back?.isConnected) back.focus();
 }
 
 on('openProfile', (m) => openDialog(String(m?.name || '')));
 // A pending Remove goes first on Esc, then the dialog.
-trapDialog(root, dialog, () => { if (removing) { removing = null; paint(); } else closeDialog(); });
+const dlg = trapDialog(root, dialog, () => { if (removing) { removing = null; paint(); } else closeDialog(); });
 // The page locking takes the dialog with it.
 on('locking', () => { if (isOpen) closeDialog(); });
 // My own profile changes under the dialog (a save here, or elsewhere).

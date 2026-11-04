@@ -377,18 +377,18 @@ function openTransfer({ scope = '', user = '', what = '' } = {}) {
   }
   renderExport();
   renderImport();
-  root.hidden = false;
+  dlg.show();
   dialog.focus();
 }
 
 function close() {
   if (!open) return;
   open = false;
-  root.hidden = true;
+  dlg.hide();
   if (back?.isConnected) back.focus();
 }
 
-trapDialog(root, dialog, close);
+const dlg = trapDialog(root, dialog, close);
 on('openTransfer', openTransfer);
 on('locking', close);
 on('profile', () => { if (open) renderExport(); });

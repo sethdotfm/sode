@@ -168,7 +168,7 @@ export function openPopup() {
   shareUI.box.hidden = true;
   setNote('');
   draw();
-  root.hidden = false;
+  dlg.show();
   input.focus();
 }
 
@@ -176,14 +176,14 @@ export function openPopup() {
 function close() {
   if (!open) return;
   open = false;
-  root.hidden = true;
+  dlg.hide();
   saver.close();
   profSaver.close();
   if (back?.isConnected) back.focus();
 }
 
 // Esc: the typed text first, then the popup.
-trapDialog(root, dialog, () => {
+const dlg = trapDialog(root, dialog, () => {
   if (input.value) { input.value = ''; hi = 0; draw(); input.focus(); } else close();
 });
 

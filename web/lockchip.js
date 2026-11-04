@@ -58,7 +58,7 @@ export function buildChip(api) {
     note.className = `sode-lock__pin-note${bad ? ' pb-note pb-note--error' : ''}`;
   };
   function closePin() {
-    back.hidden = true;
+    dlg.hide();
     seq++; // a late answer no longer counts
     for (const f of [oldF, newF, againF]) f.input.value = '';
     save.disabled = false;
@@ -67,10 +67,10 @@ export function buildChip(api) {
   function openPin() {
     focusBack = document.activeElement;
     say('');
-    back.hidden = false;
+    dlg.show();
     oldF.input.focus({ preventScroll: true });
   }
-  trapDialog(back, dialog, closePin);
+  const dlg = trapDialog(back, dialog, closePin);
   on('changePin', openPin);
   cancel.addEventListener('click', closePin);
   form.addEventListener('submit', (e) => {

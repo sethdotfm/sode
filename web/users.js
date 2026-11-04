@@ -249,7 +249,7 @@ function openUsers() {
   setNote('');
   fill();
   load();
-  root.hidden = false;
+  dlg.show();
   dialog.focus();
 }
 
@@ -260,13 +260,13 @@ function closeUsers() {
   }
   isOpen = false;
   edited = false;
-  root.hidden = true;
+  dlg.hide();
   if (back?.isConnected) back.focus();
 }
 manage.addEventListener('click', openUsers);
 // Esc goes to the top dialog of the stack (dialogkeys.js), so a Profile
 // opened from here closes first.
-trapDialog(root, dialog, closeUsers);
+const dlg = trapDialog(root, dialog, closeUsers);
 // The page locking takes the dialog with it, edits and all.
 on('locking', () => { if (isOpen) { edited = false; closeUsers(); } });
 

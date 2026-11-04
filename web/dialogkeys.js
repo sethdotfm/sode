@@ -1,12 +1,24 @@
 // Keys inside a dialog. No imports, shared by widgets.js and the lock chip.
 
 // Dialogs can stack (the users editor, a Profile on top of it, Export / import
-// on top of that). They are kept in the order they were shown, and only the
-// most recent one handles Esc, wherever focus is. A dialog joins the stack by
-// showing its root (`root.hidden = false`) and leaves it by hiding it again,
-// which trapDialog watches, so no dialog needs to know about the others.
-const open = []; // { root, onEsc }, oldest first
+// on top of that). Each is registered by trapDialog, which hands back
+// { show, hide }; show() opens it and marks it the newest. Only the newest
+// open one handles Esc, wherever focus is. Open-ness is read from the root's
+// `hidden` at Esc time, so a dialog something else hid (lock.js closeModals)
+// is simply skipped.
+const stack = []; // { root, onEsc, order }
+let shows = 0;
 let listening = false;
+
+// The top dialog of entries: open ones only, the most recently shown wins.
+export function topDialog(entries) {
+  let top = null;
+  for (const e of entries) {
+    if (e.root.hidden || !e.root.isConnected) continue;
+    if (!top || e.order > top.order) top = e;
+  }
+  return top;
+}
 
 function listen() {
   if (listening) return;
@@ -17,9 +29,9 @@ function listen() {
   // the top dialog the key goes the usual way, so a field's own Esc (clearing
   // a box first) still comes before the dialog's.
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !open.length) return;
-    const top = open[open.length - 1];
-    if (top.root.contains(e.target)) return;
+    if (e.key !== 'Escape') return;
+    const top = topDialog(stack);
+    if (!top || top.root.contains(e.target)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     top.onEsc();
@@ -27,17 +39,11 @@ function listen() {
 }
 
 // Keys stay in a dialog: Esc calls onEsc, Tab wraps round its controls. They
-// are stopped at root so the layouts' own keys don't act behind it.
+// are stopped at root so the layouts' own keys don't act behind it. Returns
+// { show(), hide() }: a dialog opens and closes through it.
 export function trapDialog(root, dialog, onEsc) {
-  const entry = { root, onEsc };
-  const sync = () => {
-    const at = open.indexOf(entry);
-    const shown = !root.hidden && root.isConnected;
-    if (shown && at < 0) open.push(entry);
-    else if (!shown && at >= 0) open.splice(at, 1);
-  };
-  new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['hidden'] });
-  sync();
+  const entry = { root, onEsc, order: 0 };
+  stack.push(entry);
   listen();
   root.addEventListener('keydown', (e) => {
     e.stopPropagation();
@@ -48,4 +54,8 @@ export function trapDialog(root, dialog, onEsc) {
     if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
+  return {
+    show() { root.hidden = false; entry.order = ++shows; },
+    hide() { root.hidden = true; },
+  };
 }

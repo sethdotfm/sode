@@ -435,20 +435,20 @@ export function openPresets(scope = '', name = '') {
   open = true;
   pinRow.hidden = true;
   load(s || null);
-  root.hidden = false;
+  dlg.show();
   dialog.focus();
 }
 
 function closePresets() {
   if (open && dirty && !discard) { discard = true; return setNote('Unsaved changes. Close again to discard them, or Save.', true); }
   open = false;
-  root.hidden = true;
+  dlg.hide();
   profSaver.close();
   saver.close(); // a save already sent finishes first (its answer locks up after it)
   if (back?.isConnected) back.focus();
 }
 
-trapDialog(root, dialog, closePresets);
+const dlg = trapDialog(root, dialog, closePresets);
 
 // A lock closes the editor like the other dialogs do, without the
 // unsaved-changes warning (the page is covered; the edits can't be reached).

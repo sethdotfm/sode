@@ -319,14 +319,14 @@ export function openFilters() {
   naming = null;
   deleting = false;
   renderSetBar();
-  root.hidden = false;
+  dlg.show();
   dialog.focus();
 }
 
 function closeFilters() {
   eds.src.flush();
   eds.dst.flush();
-  root.hidden = true;
+  dlg.hide();
   // A save already sent finishes first (its answer locks up after it);
   // one still waiting for the PIN is dropped.
   saver.close();
@@ -524,7 +524,7 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 });
 
 // Keys stay in the dialog (so the layouts' own keys don't act behind it).
-trapDialog(root, dialog, closeFilters);
+const dlg = trapDialog(root, dialog, closeFilters);
 
 // ---- share links: the filter as one item in a #share= link (exportfmt.js);
 // opening it shows the review sheet (transfer.js). The old ?f= link still opens.

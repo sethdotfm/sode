@@ -483,7 +483,7 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
   pinA.pinRow.hidden = true;
   pinB.pinRow.hidden = true;
   setNote('');
-  root.hidden = false;
+  dlg.show();
   render();
   dialog.focus();
   if (user && user !== profileName()) {
@@ -502,7 +502,7 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
 function close() {
   if (!open) return;
   open = false;
-  root.hidden = true;
+  dlg.hide();
   psave.close();
   gsave.close();
   gsavePresets.close();
@@ -510,7 +510,7 @@ function close() {
   if (back?.isConnected) back.focus();
 }
 
-trapDialog(root, dialog, () => {
+const dlg = trapDialog(root, dialog, () => {
   if (!pinA.pinRow.hidden || !pinB.pinRow.hidden) { gsave.cancel(); gsavePresets.cancel(); return; }
   close();
 });
