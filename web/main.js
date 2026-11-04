@@ -6,6 +6,7 @@ import './desktop.js';
 import './settings.js';
 import './brand.js';
 import './lock.js';
+import './profile.js';
 import { applySharedLink } from './filters.js';
 import './mobile.js';
 import './presetpopup.js';
