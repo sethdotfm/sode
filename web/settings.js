@@ -20,6 +20,7 @@ import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
+import './profiles.js'; // its button sits beside Manage users
 
 const root = document.documentElement;
 const form = $('settings-view');

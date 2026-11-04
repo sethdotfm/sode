@@ -48,6 +48,7 @@ export const DICT = {
   ...Object.fromEntries(['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].map((n) => ['my-default-' + n, ['my default', 'set as my default', 'clear my default', 'profile', 'personal', 'follow me', 'account']])),
 
   // ---- Account (inside This device; only shown while logged in as a user)
+  'profiles-open': ['profile', 'profiles', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'export', 'import'],
   'users-manage': ['manage users', 'add user', 'remove user', 'edit users', 'users', 'pin', 'trusted', 'never log out', 'persistent', 'sign out everywhere', 'lock main screen', 'lock log', 'auto lock', 'idle', 'longest pin'],
   'account': ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],

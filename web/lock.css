@@ -164,3 +164,10 @@
   margin-top: var(--pb-space-5);
 }
 .sode__users-opts .sode__checks { display: flex; flex-direction: column; gap: var(--pb-space-2); }
+
+/* Profiles dialog (profiles.js) */
+.sode__profiles-users { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); margin-bottom: var(--pb-space-5); }
+.sode__profiles-h { font-size: 1rem; margin: var(--pb-space-4) 0 var(--pb-space-2); }
+.sode__profiles-list { list-style: none; margin: 0; padding: 0; }
+.sode__profiles-row { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-2) 0; }
+.sode__profiles-item { display: flex; flex: 1 1 12rem; flex-direction: column; min-width: 0; }
