@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles } from '../profilesrules.js';
+import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles, profileButtonOff } from '../profilesrules.js';
 
 test('prefRows: labels values, skips unknown ones', () => {
   const r = prefRows({ theme: 'dark', flip: true, clock: 'bogus', nope: 'x' });
@@ -33,4 +33,12 @@ test('canSeeProfiles', () => {
   assert.equal(canSeeProfiles(['Ana'], false, false), false);
   assert.equal(canSeeProfiles(['Ana'], true, false), true);
   assert.equal(canSeeProfiles(['Ana'], false, true), true);
+});
+
+test('profileButtonOff: only a saved, unrenamed user has a profile to open', () => {
+  assert.equal(profileButtonOff('Ana', 'Ana'), false);
+  assert.equal(profileButtonOff('Ana', ' Ana '), false);
+  assert.equal(profileButtonOff('', 'Ana'), true); // a new row
+  assert.equal(profileButtonOff('Ana', 'Ann'), true); // renamed, not saved
+  assert.equal(profileButtonOff(undefined, ''), true);
 });

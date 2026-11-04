@@ -47,6 +47,10 @@ export function presetSummary(p) {
 // The list without entry i (what a Remove saves).
 export const without = (list, i) => (Array.isArray(list) ? list.filter((_, j) => j !== i) : []);
 
+// Whether a users-editor row's Profile… button is off: a new row (no saved
+// name) or one whose name was edited has no profile to open yet.
+export const profileButtonOff = (was, typed) => !was || String(typed).trim() !== was;
+
 // Whether the Profiles button is offered: users exist and the viewer is a
 // trusted user or holds the settings PIN.
 export const canSeeProfiles = (names, trusted, unlocked) => (names?.length || 0) > 0 && !!(trusted || unlocked);

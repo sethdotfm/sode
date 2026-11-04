@@ -60,9 +60,10 @@ export const softIdleLock = (s, handLocked, lastActive, now, minutes) =>
 // refuses a trusted user these). Mirrors the Go `guard:"router"` and
 // `guard:"pin"` tags in internal/config/config.go: keep them in step.
 const GUARDED = ['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests',
-  'fireMode', 'salvoGroup', 'pinMaxTries'];
+  'fireMode', 'salvoGroup', 'pinMaxTries', 'autoLockMinutes'];
 export const guardedEdited = (next, cur) => !!cur && (
   GUARDED.some((k) => next[k] !== cur[k]) ||
+  !!next.locks?.main !== !!cur.locks?.main || !!next.locks?.log !== !!cur.locks?.log ||
   (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
 
 // Whether a low-risk settings save (the Settings form, filter sets, presets)

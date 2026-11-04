@@ -13,9 +13,11 @@ import (
 
 // saveSettings applies cfg from c. Browsers never see the PIN hash, so the
 // current one is kept unless pin sets a new one or clearPin drops it. Saves
-// run one at a time, so one can't drop a PIN another just set. keepDefaults keeps the current
-// deviceDefaults, for a page that sent none (read under cfgMu with the rest).
-func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, keepDefaults bool) error {
+// run one at a time, so one can't drop a PIN another just set. What the
+// message did not carry (deviceDefaults, locks, autoLockMinutes) keeps the
+// current value, read under cfgMu with the rest.
+func (a *App) saveSettings(c *client, m configMsg, pin string, clearPin bool) error {
+	cfg := m.Config
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardSave(c, pin == "" && !clearPin); err != nil {
@@ -30,6 +32,13 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 		// PIN, users and locks...) stays as it is, so a browser's stale
 		// copy can't undo it.
 		live := *cur
+		// A message without the keys is not "turn every lock off".
+		if !m.hasLocks {
+			cfg.Locks = live.Locks
+		}
+		if !m.hasAuto {
+			cfg.AutoLockMinutes = live.AutoLockMinutes
+		}
 		if !admin {
 			if err := trustedMayNotChange(live, cfg); err != nil {
 				return err
@@ -37,7 +46,7 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 		}
 		*cur = cfg
 		cur.KeepOwned(live)
-		if !keepDefaults {
+		if m.hasDefaults {
 			cur.DeviceDefaults = cfg.DeviceDefaults // the form edits these
 		}
 		switch {
@@ -168,7 +177,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "changing the router, levels, name settings, fire mode, trusted proxies or PIN attempt limit needs the settings PIN"
+	return "changing the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit or the locks needs the settings PIN"
 }
 func (guardedErr) Is(target error) bool { return target == errLocked }
 

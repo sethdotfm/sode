@@ -348,25 +348,33 @@ func (a *App) serveConfig(c *client, m *inMsg) {
 	// before deviceDefaults existed sends none, and its zero values would turn
 	// the "on" defaults off for everyone, so the current ones are kept.
 	go func(cfg configMsg, pin string, clearPin bool) {
-		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg.Config, pin, clearPin, !cfg.hasDefaults))
+		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin))
 	}(*m.Config, m.Pin, m.ClearPin)
 }
 
 // configMsg is the Settings form's config, and whether it carried
-// deviceDefaults at all.
+// deviceDefaults, locks and autoLockMinutes at all. A page from before those
+// existed (or any message without the keys) must not decode to "every lock
+// off", so saveSettings keeps the live values of whatever is missing.
 type configMsg struct {
 	config.Config
-	hasDefaults bool
+	hasDefaults, hasLocks, hasAuto bool
 }
+
+// present is whether a probed JSON key was in the message (and not null).
+func present(r json.RawMessage) bool { return r != nil && string(r) != "null" }
 
 func (m *configMsg) UnmarshalJSON(b []byte) error {
 	var probe struct {
 		DeviceDefaults json.RawMessage `json:"deviceDefaults"`
+		Locks          json.RawMessage `json:"locks"`
+		AutoLock       json.RawMessage `json:"autoLockMinutes"`
 	}
 	if err := json.Unmarshal(b, &probe); err != nil {
 		return err
 	}
 	m.hasDefaults = probe.DeviceDefaults != nil
+	m.hasLocks, m.hasAuto = present(probe.Locks), present(probe.AutoLock)
 	return json.Unmarshal(b, &m.Config)
 }
 

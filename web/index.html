@@ -190,6 +190,8 @@
         <div class="sode__names">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Log in" hidden>Log in</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-profile" data-find="account-profile" data-label="My profile" aria-haspopup="dialog">My profile…</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Export / import…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Log out">Log out</button>
         </div>
         <span class="sode__hint">Log in as a user to put your name on takes and use your saved settings. Without a lock, it lasts for this tab only. Log out ends the session.</span>
@@ -199,7 +201,7 @@
         <div class="sode__names">
           <button type="button" class="pb-btn pb-btn--outline" id="soft-lock-btn" data-find="soft-lock-btn" data-label="Lock screen">Lock screen</button>
         </div>
-        <span class="sode__hint">Covers this page until you press the letter it shows (or tap Unlock). It guards against keyboard mashing and is not a PIN; a reload clears it. Ctrl+L does the same, and the auto-lock minutes (Users) lock it when idle. Not shown where a PIN lock is on.</span>
+        <span class="sode__hint">Covers this page until you press the letter it shows (or tap Unlock). It guards against keyboard mashing and is not a PIN; a reload clears it. Ctrl+L does the same, and the idle minutes (Access) lock it when idle. Not shown where a PIN lock is on.</span>
       </div>
     </fieldset>
 
@@ -406,6 +408,19 @@
         <label for="cfg-pin-tries">Lock after wrong PINs</label>
         <span class="pb-number-wrap"><input type="number" id="cfg-pin-tries" class="pb-input" data-key="pinMaxTries" data-type="int" min="0" max="1000"></span>
         <span class="sode__hint">In a row, from anyone. 0 = never. From the 5th, waits double from 30 s.</span>
+      </div>
+      <div class="sode__field" data-find="lock-pages" data-label="Page locks">
+        <span class="sode__label" id="cfg-locks-label">Page locks</span>
+        <div role="group" aria-labelledby="cfg-locks-label">
+          <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Lock main screen</span></label>
+          <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Lock Communication Log</span></label>
+        </div>
+        <span class="sode__hint">A locked page asks for a user's PIN before it changes anything. Needs a user (Settings &gt; Users) and a settings PIN. Only the settings PIN can change these.</span>
+      </div>
+      <div class="sode__field">
+        <label for="cfg-auto-lock">Lock after idle (minutes)</label>
+        <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
+        <span class="sode__hint">0 = never. Where no PIN lock is on, this puts up the hand lock. Never-log-out users stay in.</span>
       </div>
     </fieldset>
 

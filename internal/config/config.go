@@ -89,9 +89,12 @@ type Config struct {
 	// touches the router link.
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
 	// Users, Locks and AutoLockMinutes: optional access control (users.go).
+	// The users are saved by their own dialog; the locks and the idle time
+	// are Settings > Access fields only the settings PIN may change (a
+	// Settings save without them keeps the live values: configMsg).
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
-	Locks           Locks  `yaml:"locks" json:"locks" owned:"true"`
-	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" owned:"true"`
+	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
+	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
 	// MaxPinLen is the longest user PIN (4-12); the lock pad stops there.
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
 }

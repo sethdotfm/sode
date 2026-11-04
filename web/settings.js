@@ -20,7 +20,7 @@ import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
-import './profiles.js'; // its button sits beside Manage users
+import './profiles.js'; // the Profile dialog (openProfile)
 
 const root = document.documentElement;
 const form = $('settings-view');
@@ -130,6 +130,8 @@ export function openSettings() {
   renderNumbering();
   renderBrandPreview();
   renderColors(S.cfg.levelColors || []);
+  $('cfg-lock-main').checked = !!S.cfg.locks?.main;
+  $('cfg-lock-log').checked = !!S.cfg.locks?.log;
   $('cfg-pin').value = '';
   $('cfg-pin2').value = '';
   $('cfg-pin-clear').checked = false;
@@ -185,6 +187,7 @@ function readSettings() {
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
+  c.locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked };
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
   c.deviceDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
@@ -283,15 +286,19 @@ on('prefs', renderPrefs);
 on('profile', renderPrefs);
 
 // Account: only while logged in as a user (lock.js says so with 'access').
+let acctUser = '';
 on('access', (L) => {
+  acctUser = L.user || '';
   $('account').hidden = !L.user && !loginOffered(L);
   $('account-name').textContent = L.user ? `Logged in as ${L.user}` : 'Not logged in';
-  for (const id of ['account-pin', 'account-logout']) $(id).hidden = !L.user;
+  for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
   $('account-login').hidden = !!L.user;
   $('soft-lock').hidden = L.enforced; // a PIN lock has its own Lock and Log out
 });
 $('soft-lock-btn').addEventListener('click', () => emit('softLock'));
 $('account-pin').addEventListener('click', () => emit('changePin'));
+$('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
+$('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));
 $('account-logout').addEventListener('click', () => emit('logout'));
 $('account-login').addEventListener('click', () => emit('login'));
 

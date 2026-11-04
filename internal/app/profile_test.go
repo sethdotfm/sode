@@ -361,7 +361,7 @@ func TestProfileNeverInHello(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}, AutoLock: 5}); err != nil {
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	for who, c := range map[string]*client{"Bo": bo, "anonymous": anon} {

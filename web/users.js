@@ -1,12 +1,17 @@
 // Users (#151, #165): Settings shows a one-line summary and a button; the
-// directory is edited in its own dialog, which saves on its own (the `users`
-// message, guarded by the settings PIN like the rest), never with the main
-// Save. The server holds every rule and says what is wrong.
+// directory (users and the longest PIN) is edited in its own dialog, which
+// saves on its own (the `users` message, guarded by the settings PIN like the
+// rest), never with the main Save. The locks and the idle time are Settings >
+// Access fields. Each saved user has a Profile… button (bus 'openProfile'),
+// in the editor and, for a trusted user without the settings PIN (who cannot
+// open the editor), in a list in the Settings section. The server holds every
+// rule and says what is wrong.
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
-import { demandPin } from './pin.js';
+import { demandPin, trusted, unlocked } from './pin.js';
 import { trapDialog } from './widgets.js';
+import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 
 const form = $('settings-view');
 
@@ -21,9 +26,17 @@ manage.dataset.find = 'users-manage';
 manage.dataset.label = 'Manage users';
 manage.setAttribute('aria-haspopup', 'dialog');
 
+// A trusted user without the settings PIN: each user's name and a Profile…
+// button (the profile dialog reads and saves through the server, which decides).
+const people = el('div', 'sode__field');
+people.hidden = true;
+people.setAttribute('role', 'group');
+people.setAttribute('aria-label', 'Profiles');
+
 const group = el('fieldset', 'sode__group sode__users',
   el('legend', null, 'Users'),
-  el('div', 'sode__field', summary, manage));
+  el('div', 'sode__field', summary, manage),
+  people);
 
 // Next to Access, where the PIN is; at the end if that isn't found.
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
@@ -55,9 +68,6 @@ const number = (id) => {
 };
 
 const rows = el('div', 'sode__users-list');
-const lockMain = check('Lock main screen');
-const lockLog = check('Lock Communication Log');
-const autoInput = number('usr-auto');
 const maxInput = number('usr-maxpin');
 maxInput.min = '4';
 maxInput.max = '12';
@@ -82,12 +92,10 @@ dialog.tabIndex = -1;
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Users'), { id: 'users-title' })),
   el('div', 'pb-modal__body',
-    el('p', 'sode__hint', 'With users and a lock on, a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.'),
+    el('p', 'sode__hint', 'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.'),
     rows,
     addBtn,
     el('div', 'sode__users-opts',
-      el('div', 'sode__checks', lockMain.label, lockLog.label),
-      field('usr-auto', 'Lock after idle (minutes)', autoInput, '0 = never. Never-log-out users stay in.'),
       field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
     err),
   el('div', 'pb-modal__footer', note, cancelBtn, saveBtn));
@@ -156,11 +164,20 @@ function addRow(u = { name: '', len: 0 }) {
     out.disabled = true;
     signing.set(id, { out, name: u.name });
   }) : null;
+  // Only a saved user has a profile: not a new row, not one being renamed.
+  const prof = btn('pb-btn--outline pb-btn--sm', 'Profile…', () => emit('openProfile', { name: row.dataset.was }));
+  prof.setAttribute('aria-haspopup', 'dialog');
+  const paintProf = () => {
+    prof.disabled = profileButtonOff(row.dataset.was, name.value);
+    prof.title = prof.disabled ? 'Save the user first' : '';
+  };
   const row = el('div', 'sode__users-row',
     el('div', 'sode__users-in', name),
     el('div', 'sode__users-in', pin),
-    trust.label, never.label, ...(out ? [out] : []), rm);
+    trust.label, never.label, prof, ...(out ? [out] : []), rm);
   row.dataset.was = u.len ? u.name : '';
+  paintProf();
+  name.addEventListener('input', paintProf);
   for (const f of [name, pin]) f.addEventListener('input', touched);
   for (const f of [trust.input, never.input]) f.addEventListener('change', touched);
   rows.append(row);
@@ -180,16 +197,28 @@ function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
   rows.replaceChildren();
   for (const u of listed) addRow(u);
-  lockMain.input.checked = !!S.cfg?.locks?.main;
-  lockLog.input.checked = !!S.cfg?.locks?.log;
-  autoInput.value = String(S.cfg?.autoLockMinutes || 0);
   edited = false;
   discard = false;
   err.hidden = true;
   saveBtn.disabled = false;
 }
 
+// The Settings list of profiles, for a trusted user who can't open the editor.
+function paintPeople() {
+  const names = S.userNames || [];
+  const show = trusted() && !unlocked() && canSeeProfiles(names, true, false);
+  people.hidden = !show;
+  if (!show) return people.replaceChildren();
+  people.replaceChildren(...names.map((n) => {
+    const b = btn('pb-btn--outline pb-btn--sm', 'Profile…', () => emit('openProfile', { name: n }));
+    b.setAttribute('aria-haspopup', 'dialog');
+    b.setAttribute('aria-label', `Profile of ${n}`);
+    return el('div', 'sode__names', el('span', 'sode__label', n), b);
+  }));
+}
+
 function paintSummary() {
+  paintPeople();
   const n = loaded ? listed.length : (S.userNames || []).length;
   const locks = [S.cfg?.locks?.main && 'main screen', S.cfg?.locks?.log && 'Communication Log'].filter(Boolean);
   const who = n ? `${n} user${n === 1 ? '' : 's'}` : 'No users';
@@ -209,6 +238,7 @@ onMsg('usersListResult', (m) => {
 on('unlockResult', (m) => { if (m.ok) load(); }); // the PIN just entered
 on('locked', () => { listed = []; loaded = false; paintSummary(); });
 on('access', paintSummary);
+for (const ev of ['unlockResult', 'conn']) on(ev, paintPeople);
 on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
 
 // ---- open / close / save
@@ -234,15 +264,9 @@ function closeUsers() {
   if (back?.isConnected) back.focus();
 }
 manage.addEventListener('click', openUsers);
+// Esc goes to the top dialog of the stack (dialogkeys.js), so a Profile
+// opened from here closes first.
 trapDialog(root, dialog, closeUsers);
-// Esc closes the dialog wherever focus is (the trap only hears keys from
-// inside it), and never reaches Settings behind it.
-document.addEventListener('keydown', (e) => {
-  if (!isOpen || e.key !== 'Escape') return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  closeUsers();
-}, true);
 // The page locking takes the dialog with it, edits and all.
 on('locking', () => { if (isOpen) { edited = false; closeUsers(); } });
 
@@ -254,10 +278,8 @@ function doSave() {
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
     return { name: name.value.trim(), was: row.dataset.was, pin: pin.value, trusted: flag('trusted'), persistent: flag('persistent') };
   });
-  const locks = { main: lockMain.input.checked, log: lockLog.input.checked };
-  const mins = Math.trunc(Number(autoInput.value)) || 0;
   const id = ++seq;
-  if (!wsSend({ t: 'users', id, usersReq: { users, locks, autoLockMinutes: mins, maxPinLen: Math.trunc(Number(maxInput.value)) || 0 } })) return fail('Not connected to Sode.');
+  if (!wsSend({ t: 'users', id, usersReq: { users, maxPinLen: Math.trunc(Number(maxInput.value)) || 0 } })) return fail('Not connected to Sode.');
   saveBtn.disabled = true;
 }
 
@@ -278,7 +300,5 @@ maxInput.addEventListener('input', () => {
   touched();
   for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
 });
-for (const c of [lockMain, lockLog]) c.input.addEventListener('change', touched);
-autoInput.addEventListener('input', touched);
 
 paintSummary();

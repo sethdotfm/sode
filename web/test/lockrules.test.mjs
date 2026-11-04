@@ -216,3 +216,12 @@ test('tab login: tokens', () => {
   assert.equal(tokenHome({ tab: true }), 'tab');
   assert.equal(tokenHome({}), 'browser');
 });
+
+test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")', () => {
+  const cur = { router: 'a:1', pinMaxTries: 10, autoLockMinutes: 0, locks: { main: true, log: false } };
+  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: false } }, cur), false);
+  assert.equal(guardedEdited({ ...cur, locks: { main: false, log: false } }, cur), true);
+  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: true } }, cur), true);
+  assert.equal(guardedEdited({ ...cur, autoLockMinutes: 5 }, cur), true);
+  assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
+});

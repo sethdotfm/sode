@@ -246,16 +246,31 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "12ab"}}}); err == nil {
 		t.Fatal("non-digit PIN accepted")
 	}
-	if err := a.SaveUsers(c, usersReq{Locks: config.Locks{Main: true}}); err == nil {
-		t.Fatal("lock with no users accepted")
+	// A lock with no users is refused (Settings > Access), and says so.
+	withLock := a.r().cfg
+	withLock.Locks.Main = true
+	if err := a.SaveSettings(c, withLock, "", false); err == nil || !strings.Contains(err.Error(), "user") {
+		t.Fatalf("lock with no users: %v", err)
 	}
-	req := usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "5678"}}, Locks: config.Locks{Log: true}, AutoLock: 10}
+	req := usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "5678"}}}
 	if err := a.SaveUsers(c, req); err != nil {
 		t.Fatal(err)
 	}
 	cfg := a.r().cfg
-	if len(cfg.Users) != 2 || !cfg.Locks.Log || cfg.AutoLockMinutes != 10 || cfg.Users[0].Len != 4 {
-		t.Fatalf("saved %+v", cfg)
+	if len(cfg.Users) != 2 || cfg.Locks.Any() || cfg.Users[0].Len != 4 {
+		t.Fatalf("saved %+v (SaveUsers must not touch the locks)", cfg)
+	}
+	withLock = a.r().cfg
+	withLock.Locks.Log, withLock.AutoLockMinutes = true, 10
+	if err := a.SaveSettings(c, withLock, "", false); err != nil {
+		t.Fatal(err)
+	}
+	// Saving users leaves the locks and the idle time as they are.
+	if err := a.SaveUsers(c, req); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.r().cfg; !got.Locks.Log || got.AutoLockMinutes != 10 {
+		t.Fatalf("SaveUsers changed the locks: %+v", got)
 	}
 	// Hashes never reach browsers.
 	if b, _ := json.Marshal(cfg); strings.Contains(string(b), "pbkdf2") {
@@ -269,7 +284,7 @@ func TestSaveUsers(t *testing.T) {
 		t.Fatal("new PIN equal to a kept user's")
 	}
 	// Keeping, renaming and a name differing only in case.
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Was: "Bo"}}, Locks: req.Locks, AutoLock: 10}); err != nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if u, ok := a.r().cfg.FindUser("robert"); !ok || !config.ValidPinHash(u.Pin) {
@@ -279,19 +294,20 @@ func TestSaveUsers(t *testing.T) {
 		t.Fatal("names differing in case accepted")
 	}
 	// Renaming X to inherit Y's hash while Y stays, or two rows keeping one.
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana2", Was: "Ana"}, {Name: "Ana"}, {Name: "Robert"}}, Locks: req.Locks, AutoLock: 10}); err == nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana2", Was: "Ana"}, {Name: "Ana"}, {Name: "Robert"}}}); err == nil {
 		t.Fatal("two rows inherited one user's PIN")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Robert", Was: "Ana"}, {Name: "Ana", Was: "Ana"}}, Locks: req.Locks, AutoLock: 10}); err == nil {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Robert", Was: "Ana"}, {Name: "Ana", Was: "Ana"}}}); err == nil {
 		t.Fatal("duplicate was accepted")
 	}
-	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Pin: "1234"}}, Locks: req.Locks, AutoLock: 10}); err == nil || strings.Contains(err.Error(), "Ana") {
+	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("colliding PIN: %v (must not name the other user)", err)
 	}
-	// A settings save from a browser keeps users, locks and auto-lock.
+	// A settings save from a browser keeps the users, and (a message with no
+	// locks / autoLockMinutes key) the locks and auto-lock too.
 	stale := a.r().cfg
 	stale.Users, stale.Locks, stale.AutoLockMinutes = nil, config.Locks{}, 0
-	if err := a.SaveSettings(c, stale, "", false); err != nil {
+	if err := a.saveSettings(c, configMsg{Config: stale, hasDefaults: true}, "", false); err != nil {
 		t.Fatal(err)
 	}
 	if got := a.r().cfg; len(got.Users) != 2 || !got.Locks.Log || got.AutoLockMinutes != 10 {

@@ -259,7 +259,7 @@ func TestSessionTokenDies(t *testing.T) {
 			if err := a.Unlock(admin, "2468"); err != nil {
 				t.Fatal(err)
 			}
-			if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo"}}, Locks: config.Locks{Main: true, Log: true}}); err != nil {
+			if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo"}}}); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -446,7 +446,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.SaveUsers(admin, usersReq{Locks: config.Locks{Main: true, Log: true}, Users: []userEdit{
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
 		{Name: "Ana", Persistent: true}, {Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)
@@ -464,7 +464,7 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 		t.Fatal("the pushed token does not log in")
 	}
 	// Another save while she holds a good token issues nothing more.
-	if err := a.SaveUsers(admin, usersReq{Locks: config.Locks{Main: true, Log: true}, Users: []userEdit{
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
 		{Name: "Ana", Persistent: true}, {Name: "Bo"},
 	}}); err != nil {
 		t.Fatal(err)

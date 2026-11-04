@@ -373,13 +373,12 @@ type userEdit struct {
 }
 
 type usersReq struct {
-	Users    []userEdit   `json:"users"`
-	Locks    config.Locks `json:"locks"`
-	AutoLock int          `json:"autoLockMinutes"`
-	MaxPin   int          `json:"maxPinLen"` // 0 keeps the current one
+	Users  []userEdit `json:"users"`
+	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
 }
 
-// SaveUsers replaces the user directory, locks and auto-lock time. It is a
+// SaveUsers replaces the user directory and the longest PIN (the locks and
+// the idle time are Settings > Access fields). It is a
 // setting like any other, so the settings PIN guards it (and nothing else:
 // the main lock does not, see policy.go). PINs must be unique across users
 // (that is how a PIN alone says who).
@@ -455,7 +454,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				}
 			}
 		}
-		cur.Users, cur.Locks, cur.AutoLockMinutes = out, req.Locks, req.AutoLock
+		cur.Users = out
 		return nil
 	})
 }
