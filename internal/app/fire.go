@@ -22,11 +22,11 @@ import (
 // a tally confirmed stays for salvoAnnounceFor after the Go, for a
 // Connected still on its way.
 //
-// Only crosspoints the standard layout can carry are staged: matrix and wire
-// level 0-15, destination and source 0-1023 (markStages). A take's other
-// levels (level 17 with the usual offset) are sent as ordinary connects right
-// after the Go; a take with a number past 1023 is sent as today. A batch with
-// fewer than two takes to stage is sequential throughout.
+// Every crosspoint is staged: those the standard layout carries (matrix and
+// wire level 0-15, numbers 0-1023) with 120, the rest (level 17, numbers
+// past 1023) with the extended 248. Only a destination level taken twice in
+// the batch is left out of the stage (it is sent as an ordinary connect). A
+// batch with fewer than two takes to stage is sequential throughout.
 //
 // The router's staged list is shared by every client, so a fire holds
 // fireMu from the first clear to the last, sends one salvo command at a time
@@ -85,8 +85,8 @@ func (fs *fireState) await(d time.Duration, ok func(swp08.SalvoAck) bool) (swp08
 	}
 }
 
-// markStages sets each item's Stage: the wire levels that can go in a group
-// salvo. A destination level taken twice in the batch is staged in neither
+// markStages sets each item's Stage: the wire levels that go in a group
+// salvo (120 or 248). A destination level taken twice in the batch is staged in neither
 // (which lands last would be up to the router). It returns how many items
 // have something to stage.
 func markStages(r *runtime, items []takeReq) int {
@@ -107,7 +107,7 @@ func markStages(r *runtime, items []takeReq) int {
 		it.Stage = nil
 		for _, ui := range it.Levels {
 			l, ok := r.byUI[ui]
-			if !ok || !swp08.SalvoFits(r.cfg.Matrix, l.Wire, it.Dst, it.Src) || uses[dl{it.Dst, l.Wire}] != 1 {
+			if !ok || !swp08.ExtSalvoFits(r.cfg.Matrix, l.Wire, it.Dst, it.Src) || uses[dl{it.Dst, l.Wire}] != 1 {
 				continue
 			}
 			if it.Stage == nil {
@@ -241,7 +241,7 @@ func (a *App) unNative(w *waiter) {
 
 var (
 	errNoClear = errors.New("the router did not acknowledge clearing the salvo group (no 123)")
-	errNoStage = errors.New("the router did not acknowledge every staged crosspoint (no 122)")
+	errNoStage = errors.New("the router did not acknowledge every staged crosspoint (no 122 or 250)")
 	errNoGo    = errors.New("the router did not acknowledge the Go (no 123)")
 )
 
@@ -292,6 +292,9 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 				continue
 			}
 			m := swp08.ConnectOnGo(mx, l.wire, t.w.dst, t.w.src, g)
+			if !swp08.SalvoFits(mx, l.wire, t.w.dst, t.w.src) {
+				m = swp08.ExtConnectOnGo(mx, l.wire, t.w.dst, t.w.src, g)
+			}
 			done, err := a.sendTracked(ext, m, t.w.why)
 			if err != nil {
 				return false, fmt.Errorf("staging: %w", err)
@@ -310,7 +313,7 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 	// would be left out of the salvo.
 	if missing > 0 {
 		if _, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool {
-			if x.Cmd != swp08.CmdConnectOnGoAck || want[x.Staged()] == 0 {
+			if (x.Cmd != swp08.CmdConnectOnGoAck && x.Cmd != swp08.CmdExtConnectOnGoAck) || want[x.Staged()] == 0 {
 				return false
 			}
 			want[x.Staged()]--

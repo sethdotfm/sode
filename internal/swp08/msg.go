@@ -96,7 +96,7 @@ type Event struct {
 	Crosspoints []Crosspoint
 	Protects    []Protect
 	Names       *NameBlock
-	Salvo       *SalvoAck // 122 or 123
+	Salvo       *SalvoAck // 122, 123 or 250
 }
 
 func ExtInterrogate(matrix, level, dst int) []byte {
@@ -156,7 +156,7 @@ func NamesReq(dest, ext bool, matrix, level int, lenCode byte) []byte {
 // Request describes an outgoing message for the sent log. Fields it
 // doesn't carry are -1.
 type Request struct {
-	Kind          string // connect, interrogate, tallyDump, protectDump, srcNames, dstNames, salvoStage, salvoGo, other
+	Kind          string // connect, interrogate, tallyDump, protectDump, srcNames, dstNames, salvoStage, salvoStageExt, salvoGo, other
 	Matrix, Level int
 	Dst, Src      int
 	Group         int  // salvoStage, salvoGo: the salvo group; else -1
@@ -178,6 +178,9 @@ func DescribeTx(m []byte) Request {
 	case m[0] == CmdConnectOnGo && len(d) >= 5:
 		x := stagedOf(d)
 		r = Request{Kind: "salvoStage", Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group}
+	case m[0] == CmdExtConnectOnGo && len(d) >= 7:
+		x := extStagedOf(d)
+		r = Request{Kind: "salvoStageExt", Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group}
 	case m[0] == CmdGoSalvo && len(d) >= 2:
 		r = Request{Kind: "salvoGo", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: int(d[1] & 0x7f), Clear: d[0] == 1}
 	case m[0] == CmdExtInterrogate && len(d) >= 4:
@@ -347,6 +350,13 @@ func Parse(msg []byte) (Event, error) {
 		}
 		x := stagedOf(d)
 		ev.Salvo = &SalvoAck{Cmd: msg[0], Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group, Status: -1}
+
+	case CmdExtConnectOnGoAck:
+		if err := short(7); err != nil {
+			return ev, err
+		}
+		x := extStagedOf(d)
+		ev.Salvo = &SalvoAck{Cmd: msg[0], Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group, Status: -1, Ext: true}
 
 	case CmdGoDoneAck:
 		if err := short(2); err != nil {

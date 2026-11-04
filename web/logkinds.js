@@ -4,8 +4,8 @@
 
 // Filter groups, in the order shown.
 export const KINDS = [
-  // Native salvo messages (120 stage, 121 go/clear) route too, so they show with connects.
-  { id: 'connect', label: 'Connects', kinds: ['connect', 'salvoStage', 'salvoGo'] },
+  // Native salvo messages (120/248 stage, 121 go/clear) route too, so they show with connects.
+  { id: 'connect', label: 'Connects', kinds: ['connect', 'salvoStage', 'salvoStageExt', 'salvoGo'] },
   { id: 'interrogate', label: 'Interrogates', kinds: ['interrogate'] },
   { id: 'keepalive', label: 'Keepalives', kinds: ['keepalive'] },
   { id: 'dump', label: 'Dumps', kinds: ['tallyDump', 'protectDump'] },

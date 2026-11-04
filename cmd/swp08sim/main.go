@@ -10,8 +10,8 @@
 // Go (00 set, 01 cleared, 02 nothing to do), replies after about 6 ms, and
 // no Connected after a Go set unless SIM_SALVO_ANNOUNCE=1 (then one per
 // changed crosspoint, ~110 ms on, 4 ms apart: the Ultrix does either).
-// Only the standard layout's range is accepted (level 0-15, numbers
-// 0-1023). SIM_NO_SALVO=1 ignores 120 and 121, like a router without group
+// Both stage commands work: 120 (standard layout) and 248 (extended, level
+// and numbers of any size, answered by 250). SIM_NO_SALVO=1 ignores 120, 248 and 121, like a router without group
 // salvos.
 package main
 
@@ -42,7 +42,7 @@ type sim struct {
 	slow    map[int]time.Duration  // dsts whose connects are carried out but announced late
 	follows map[int][]int          // dst → dsts that follow it, like a multiviewer PiP
 	staged  map[int][]swp08.Staged // salvo group → crosspoints staged by any client
-	noSalvo bool                   // SIM_NO_SALVO: ignore 120 and 121
+	noSalvo bool                   // SIM_NO_SALVO: ignore 120, 248 and 121
 	// SIM_SALVO_ANNOUNCE: a Go set's changes are announced, late
 	announceGo bool
 }
@@ -353,7 +353,7 @@ func (s *sim) handle(c net.Conn, m []byte) {
 			reply(swp08.NamesResp(dest, ext, 0, 0, code, i, list[i:min(i+per, len(list))]))
 		}
 
-	case swp08.CmdConnectOnGo, swp08.CmdGoSalvo:
+	case swp08.CmdConnectOnGo, swp08.CmdExtConnectOnGo, swp08.CmdGoSalvo:
 		s.salvo(c, m)
 
 	default:
@@ -369,7 +369,7 @@ func (s *sim) later(c net.Conn, msg []byte) {
 	s.write(c, swp08.Encode(msg))
 }
 
-// salvo handles Connect On Go (120) and Go (121).
+// salvo handles Connect On Go (120, extended 248) and Go (121).
 func (s *sim) salvo(c net.Conn, m []byte) {
 	if s.noSalvo {
 		log.Printf("ignored salvo cmd %d (SIM_NO_SALVO)", m[0])
@@ -388,7 +388,7 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 			return
 		}
 		log.Printf("salvo %d: staged level %d dst %d ← src %d (%d staged)", x.Group, x.Level, x.Dst, x.Src, n)
-		s.later(c, swp08.ConnectOnGoAck(x.Matrix, x.Level, x.Dst, x.Src, x.Group))
+		s.later(c, swp08.StageAck(x))
 		return
 	}
 	if len(m) < 3 || m[1] > 1 {

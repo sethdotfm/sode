@@ -14,12 +14,12 @@ func TestConnectOnGoLayout(t *testing.T) {
 		t.Fatalf("got % X want % X", got, want)
 	}
 	x, ok := StagedOf(got)
-	if !ok || x != (Staged{1, 2, 389, 263, 127}) {
+	if !ok || x != (Staged{1, 2, 389, 263, 127, false}) {
 		t.Fatalf("staged %+v %v", x, ok)
 	}
 	// Largest numbers.
 	x, _ = StagedOf(ConnectOnGo(15, 15, 1023, 1023, 0))
-	if x != (Staged{15, 15, 1023, 1023, 0}) {
+	if x != (Staged{15, 15, 1023, 1023, 0, false}) {
 		t.Fatalf("max %+v", x)
 	}
 }
@@ -49,7 +49,7 @@ func TestSalvoFits(t *testing.T) {
 
 func TestParseSalvoAcks(t *testing.T) {
 	ev, err := Parse(ConnectOnGoAck(0, 3, 700, 1000, 127))
-	if err != nil || ev.Salvo == nil || ev.Salvo.Cmd != CmdConnectOnGoAck || ev.Salvo.Staged() != (Staged{0, 3, 700, 1000, 127}) || ev.Salvo.Status != -1 {
+	if err != nil || ev.Salvo == nil || ev.Salvo.Cmd != CmdConnectOnGoAck || ev.Salvo.Staged() != (Staged{0, 3, 700, 1000, 127, false}) || ev.Salvo.Status != -1 {
 		t.Fatalf("122 %+v %v", ev.Salvo, err)
 	}
 	if len(ev.Crosspoints) != 0 {
@@ -81,5 +81,34 @@ func TestDescribeSalvo(t *testing.T) {
 	}
 	if r = DescribeTx(ExtConnect(0, 1, 2, 3)); r.Group != -1 {
 		t.Fatalf("connect group %+v", r)
+	}
+}
+
+func TestExtConnectOnGo(t *testing.T) {
+	got := ExtConnectOnGo(1, 16, 1500, 2600, 127)
+	want := []byte{0xF8, 1, 16, 0x05, 0xDC, 0x0A, 0x28, 127}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("got % X want % X", got, want)
+	}
+	x, ok := StagedOf(got)
+	if !ok || x != (Staged{1, 16, 1500, 2600, 127, true}) {
+		t.Fatalf("staged %+v %v", x, ok)
+	}
+	ack := StageAck(x)
+	if ack[0] != 0xFA || !bytes.Equal(ack[1:], got[1:]) {
+		t.Fatalf("ack % X", ack)
+	}
+	ev, err := Parse(ack)
+	if err != nil || ev.Salvo == nil || ev.Salvo.Staged() != x || ev.Salvo.Status != -1 || len(ev.Crosspoints) != 0 {
+		t.Fatalf("250 %+v %v", ev.Salvo, err)
+	}
+	if _, err := Parse([]byte{CmdExtConnectOnGoAck, 0, 0, 0}); err == nil {
+		t.Fatal("short 250 parsed")
+	}
+	if r := DescribeTx(got); r.Kind != "salvoStageExt" || r.Level != 16 || r.Dst != 1500 || r.Src != 2600 || r.Group != 127 {
+		t.Fatalf("describe %+v", r)
+	}
+	if !ExtSalvoFits(0, 16, 65535, 65535) || ExtSalvoFits(0, 256, 0, 0) || ExtSalvoFits(0, 0, 65536, 0) {
+		t.Fatal("ExtSalvoFits")
 	}
 }
