@@ -142,6 +142,11 @@
 /* /log: the chip owns the top left, so the heading moves down. */
 [data-sode-chip] .sode-log__head { padding-top: var(--pb-space-8); }
 .sode-lock__pin[hidden] { display: none; }
+/* Change my PIN is a small dialog: the scrim's 37.5rem minimum is too wide. */
+.sode__scrim > .sode-lock__pin-dlg { min-width: 0; width: min(24rem, calc(100vw - var(--pb-space-8) * 2)); }
+/* The chip stays above the lock overlay: the hand lock shows who is in. */
+[data-sode-lock] .sode-lock__who { z-index: calc(var(--pb-z-toast) + 1); }
+.sode-lock__login-as { margin-top: var(--pb-space-5); }
 .sode-lock__pin-form { display: flex; flex-direction: column; gap: var(--pb-space-5); }
 .sode-lock__field { display: flex; flex-direction: column; gap: var(--pb-space-2); }
 .sode-lock__pin-note { margin: 0; min-height: 1.5em; }

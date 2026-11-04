@@ -20,7 +20,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, wantsTab, hiToken, tokenHome } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, cancelLoginTo, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
@@ -59,7 +59,8 @@ writeStr('sode-lock-never', null);
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
-let padBody, softBody, softKey, softBtn, softNote;
+let padBody, softBody, softKey, softBtn, softNote, loginAsBtn;
+let loginFromSoft = false; // the pad was opened from the hand lock: Cancel goes back to it
 let login = false; // the pad is up by request (no lock on), dismissable
 let cancelBtn;
 let soft = null; // { key, lock } while the screen is locked by hand (no PIN lock on)
@@ -114,7 +115,11 @@ function build() {
   softNote = el('p', 'sode-lock__msg');
   softNote.setAttribute('role', 'status');
   softNote.setAttribute('aria-live', 'polite');
-  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
+  loginAsBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode-lock__login-as', 'Log in as…');
+  loginAsBtn.type = 'button';
+  loginAsBtn.hidden = true;
+  loginAsBtn.addEventListener('click', loginFromHandLock);
+  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote, loginAsBtn);
   softBody.hidden = true;
   root = el('div', 'sode-lock', brand, padBody, softBody);
   root.hidden = true;
@@ -137,11 +142,11 @@ function say(text, bad = false) {
 
 function render() {
   const covered = (L.enforced && L.locked) || !!soft || login;
-  const showChip = !covered; // always there, even where no lock is on
+  const showChip = chipShown({ covered, soft: !!soft, user: L.user }); // there even where no lock is on, and under the hand lock when someone is in
   if (covered) showLock();
   else hideLock();
   build();
-  chip.update(L, showChip);
+  chip.update(L, showChip, !!soft);
   document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
@@ -184,6 +189,7 @@ function showLock() {
   padBody.hidden = !!soft; // the PIN pad, or the hand lock's letter
   cancelBtn.hidden = !login;
   softBody.hidden = !soft;
+  loginAsBtn.hidden = !loginAsOffered(L);
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
@@ -390,7 +396,7 @@ onMsg('lockState', (m) => {
   const done = () => {
     settle = null;
     welcoming = false;
-    if (L.user || L.enforced) login = false;
+    if (L.user || L.enforced) { login = false; loginFromSoft = false; } // a login that worked ends the hand lock for good
     render();
     emit('access', { ...L });
     // A page that asked for something while locked asks again (log.js).
@@ -421,9 +427,13 @@ on('login', () => {
 
 function cancelLogin() {
   if (!login) return;
+  const back = cancelLoginTo(loginFromSoft) === 'soft';
   login = false;
+  loginFromSoft = false;
   clearTimeout(timer);
-  render();
+  clearFeedback();
+  if (back && !L.enforced) softLock(); // fresh letter and lockout, as a new hand lock
+  else render();
 }
 
 // ---- the hand lock (no PIN lock on this page)
@@ -431,6 +441,8 @@ function cancelLogin() {
 function softLock() {
   if (soft || L.enforced || !S.cfg) return;
   build();
+  login = false; // an idle lock over a login pad: the hand lock wins
+  loginFromSoft = false;
   const key = churnKey(lastSoftKey);
   lastSoftKey = key;
   softKey.textContent = key.toUpperCase();
@@ -450,6 +462,22 @@ function softUnlock() {
   if (!soft?.lock.ready()) return;
   soft.lock.cancel();
   soft = null;
+  render();
+}
+
+// "Log in as...": ends the hand lock and begins a login in one step. Cancel
+// returns to the hand lock; a successful login ends it for good. The hand lock
+// never sends userLock, so a tab login stays in until this one succeeds.
+function loginFromHandLock() {
+  if (!soft || !loginAsOffered(L)) return;
+  soft.lock.cancel();
+  soft = null;
+  login = true;
+  loginFromSoft = true;
+  pin = '';
+  clearTimeout(timer);
+  clearFeedback();
+  say('');
   render();
 }
 
@@ -480,7 +508,7 @@ document.addEventListener('keydown', (e) => {
     // chord is kept from the page but left to the browser (reload, copy).
     e.stopImmediatePropagation();
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-    if (e.key === 'Tab' || e.key === 'Enter' && e.target.closest?.('button')) return; // a focused button presses itself
+    if (e.key === 'Tab' || (e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button')) return; // a focused button presses itself
     e.preventDefault();
     if (e.key.toLowerCase() === soft.key || (S.cfg?.confirmEnter && e.key === 'Enter')) softUnlock();
     return;

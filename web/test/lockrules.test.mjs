@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, wantsTab, hiToken, tokenHome,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, lockView, cancelLoginTo, chipShown, wantsTab, hiToken, tokenHome,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -224,4 +224,28 @@ test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")',
   assert.equal(guardedEdited({ ...cur, locks: { main: true, log: true } }, cur), true);
   assert.equal(guardedEdited({ ...cur, autoLockMinutes: 5 }, cur), true);
   assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
+});
+
+test('hand lock: Log in as is offered with users and no lock, logged in or not', () => {
+  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
+  assert.equal(loginAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true); // switching user
+  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [] }), false);
+  assert.equal(loginAsOffered({ enforced: true, user: '', lens: [4] }), false);
+  assert.equal(loginAsOffered({ enforced: false }), false);
+});
+
+test('hand lock: which body shows, and where Cancel goes', () => {
+  assert.equal(lockView({ enforcedLocked: false, soft: true, login: false }), 'soft');
+  assert.equal(lockView({ enforcedLocked: false, soft: false, login: true }), 'pad'); // soft cleared by Log in as
+  assert.equal(lockView({ enforcedLocked: true, soft: false, login: false }), 'pad');
+  assert.equal(lockView({ enforcedLocked: false, soft: false, login: false }), '');
+  assert.equal(cancelLoginTo(true), 'soft');
+  assert.equal(cancelLoginTo(false), 'page');
+});
+
+test('hand lock: the chip shows for a logged-in user under it only', () => {
+  assert.equal(chipShown({ covered: true, soft: true, user: 'Ana' }), true);
+  assert.equal(chipShown({ covered: true, soft: true, user: '' }), false);
+  assert.equal(chipShown({ covered: false, soft: false, user: '' }), true);
+  assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false); // a pad is up
 });
