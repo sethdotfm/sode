@@ -79,15 +79,17 @@ jobs:
             org.opencontainers.image.version=${{ steps.ver.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      # Trivy runs from its container image (pinned by digest), not the
+      # action: the action's installer failed to download the binary here.
+      - name: Scan (no fixable CRITICAL)
         env:
+          DIGEST: ${{ steps.build.outputs.digest }}
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
-          severity: CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD \
+            ghcr.io/aquasecurity/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e \
+            image --severity CRITICAL --exit-code 1 --ignore-unfixed "$IMAGE@$DIGEST"
       - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-name: ${{ env.IMAGE }}
