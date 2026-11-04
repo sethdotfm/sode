@@ -10,6 +10,7 @@ import { globalSaver } from './globalsave.js';
 import { profileSaver } from './profilesaver.js';
 import { profileName } from './profile.js';
 import { trapDialog } from './widgets.js';
+import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import {
   allPresets, globalPresets, userPresets, localPresets, PRESET_SCOPES, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
   pinnedPresets, saved,
@@ -142,14 +143,20 @@ const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost p
 pinRow.hidden = true;
 const delBtn = btn('pb-btn--outline pb-btn--sm', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit pb-btn--sm', 'Save', () => save());
+// A link to the saved preset (names ride along; opening it shows a review).
+const shareUI = shareRow();
+const shareBtn = btn('pb-btn--outline pb-btn--sm', 'Share', () => {
+  const p = cur?.old && findPreset(cur.scope, cur.old);
+  if (p) shareLink(sharePresetDoc(p), shareUI);
+});
 
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'presets-title' })),
   el('div', 'pb-modal__body sode__filters-body',
     el('div', 'sode__filters-sets',
       el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null))),
-      el('div', 'sode__filters-set', nameIn, el('span', 'pb-select-wrap sode__filters-scope', scopeIn), saveBtn, delBtn),
-      pinnedBox, pinRow, noteEl),
+      el('div', 'sode__filters-set', nameIn, el('span', 'pb-select-wrap sode__filters-scope', scopeIn), saveBtn, shareBtn, delBtn),
+      pinnedBox, pinRow, noteEl, shareUI.box),
     rowsBox,
     el('div', 'sode__filters-set',
       btn('pb-btn--outline pb-btn--sm', 'Add take', () => { cur.items.push(blankRow()); renderRows(); focusLast(); }),
@@ -191,6 +198,7 @@ function rowFromItem(it) {
   return { src: display(it.src), dsts: it.dsts.map(display).join(', '), levels: it.levels.length ? levelInput(it.levels) : '' };
 }
 function load(s) {
+  shareUI.box.hidden = true;
   deleting = false;
   dirty = false;
   discard = false;
@@ -265,6 +273,7 @@ function renderHead(keep = false) {
   pinnedIn.checked = cur.pinned;
   scopeIn.disabled = !!cur.old;
   delBtn.hidden = !cur.old;
+  shareBtn.hidden = !cur.old;
   delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
   saveBtn.disabled = saver.busy() || profSaver.busy();
 }

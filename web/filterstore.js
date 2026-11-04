@@ -187,6 +187,12 @@ export function saveLocalSet(name) {
   emit('filters');
 }
 
+// This browser's whole list of sets replaced (an import): [{ name, f }].
+export function putLocalSets(list) {
+  saveLocals(list);
+  emit('filters');
+}
+
 export function renameLocalSet(old, name) {
   saveLocals(localSets().map((s) => (s.name === old ? { ...s, name } : s)));
   const ren = (r) => (r.scope === 'local' && r.name === old ? { ...r, name } : r);

@@ -29,6 +29,8 @@ export const DICT = {
   'audit': ['network', 'proxy', 'proxies', 'trusted', 'x-forwarded-for', 'forwarded', 'ip address', 'client ip', 'reverse proxy', 'log', 'logging', 'who'],
   'history': ['recent', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
   'users': ['user', 'users', 'people', 'operators', 'names', 'pin', 'password', 'passwords', 'lock', 'lock screen', 'auto lock', 'auto-lock', 'timeout', 'idle', 'inactivity', 'logout', 'access', 'who', 'accounts', 'permissions'],
+  'export-import': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share', 'share link', 'move', 'copy', 'transfer', 'another site', 'studio', 'settings file', 'save', 'load', 'presets', 'filter sets'],
+  'transfer-open': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share link', 'review', 'transfer', 'copy to another site'],
   // Sections other branches may add; ignored until they exist.
   'salvos': ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],

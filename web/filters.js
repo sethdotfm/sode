@@ -3,19 +3,19 @@
 // rule rows (Visual) or typed (Code). Everything applies as you type and
 // is kept per browser (filterstore.js). Named sets (global from Settings, or this
 // browser's own) are quick buttons in Recent's header. Share link puts the
-// filter in a URL that applies it in another browser; the URL is cleaned
-// once read.
+// filter in a URL (transfer.js reads it back through a review sheet).
 
 import { $, el, S, on, off, search, item, labelNode, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
 import {
-  filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter, allSets, activeSet, activeRef, adoptFilter, pickSet,
-  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, userSets, setRef, SCOPE_LABEL, filterSummary, toggleSet, activeStack, isActive, snapshot, restore,
+  filterState, setFilter, filterCount, allSets, activeSet, activeRef, adoptFilter, pickSet,
+  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, userSets, setRef, SCOPE_LABEL, filterSummary, toggleSet, activeStack, isActive,
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
-import { showResult } from './plans.js';
+import { shareLink } from './transfer.js';
+import { filterShare } from './exportfmt.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { globalSaver } from './globalsave.js';
 import { profileSaver } from './profilesaver.js';
@@ -526,66 +526,16 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 // Keys stay in the dialog (so the layouts' own keys don't act behind it).
 trapDialog(root, dialog, closeFilters);
 
-// ---- share links: ?f=<base64url of the filter's non-default parts>
+// ---- share links: the filter as one item in a #share= link (exportfmt.js);
+// opening it shows the review sheet (transfer.js). The old ?f= link still opens.
 
-const b64 = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const unb64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
-
-$('flt-share-btn').addEventListener('click', async () => {
-  eds.src.flush();
-  eds.dst.flush();
-  const f = filterState();
-  const out = {};
-  for (const k of Object.keys(FILTER_DEFAULT)) if (f[k] !== FILTER_DEFAULT[k]) out[k] = f[k];
+$('flt-share-btn').addEventListener('click', () => {
+  flushEds();
   const a = activeSet();
-  if (a && a.scope !== 'all') out.name = a.name;
-  const url = `${location.origin}${location.pathname}?f=${b64(JSON.stringify(out))}`;
-  $('flt-share').hidden = false;
-  $('flt-share-url').value = url;
-  $('flt-share-url').select();
-  let ok = false;
-  try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {}
-  const dot = el('span', `pb-dot pb-dot--${ok ? 'ok' : 'info'}`);
-  dot.setAttribute('aria-hidden', 'true');
-  $('flt-share-status').replaceChildren(dot, ok ? 'Copied' : 'Copy it above');
+  shareLink(filterShare(a && a.scope !== 'all' ? a.name : '', filterState()), {
+    box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status'),
+  });
 });
-
-// A shared link: apply its filter in this browser, then clean the URL.
-export function applySharedLink() {
-  const params = new URLSearchParams(location.search);
-  const raw = params.get('f');
-  if (raw == null) return;
-  params.delete('f');
-  const q = params.toString();
-  history.replaceState(null, '', location.pathname + (q ? `?${q}` : '') + location.hash);
-  let next, name;
-  try {
-    const raw2 = JSON.parse(unb64(raw));
-    next = normFilter(raw2);
-    name = typeof raw2.name === 'string' ? raw2.name.trim().slice(0, 32) : '';
-  } catch (e) {
-    showResult('warn', 'Invalid filter link', '');
-    return;
-  }
-  const prev = snapshot();
-  adoptFilter(next);
-  const btn = (text, fn) => {
-    const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', text);
-    b.type = 'button';
-    b.addEventListener('click', fn);
-    return b;
-  };
-  const undo = () => btn('Undo', () => {
-    restore(prev);
-    showResult('ok', 'Filters restored', '');
-  });
-  const keep = () => btn('Save as set', () => {
-    saveLocalSet(name);
-    showResult('ok', `Saved “${name}”`, '');
-  });
-  showResult('info', name ? `Shared filters “${name}” applied` : 'Shared filters applied', () => el('span', 'sode__filters-empty',
-    name && name.toLowerCase() !== 'all' ? keep() : null, undo()));
-}
 
 // ---- when filters hide everything
 

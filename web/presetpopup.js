@@ -9,6 +9,7 @@ import { trapDialog } from './widgets.js';
 import { globalSaver } from './globalsave.js';
 import { profileSaver } from './profilesaver.js';
 import { fire, presetShown } from './presets.js';
+import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, PRESET_SCOPES } from './presetstore.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -36,6 +37,7 @@ list.setAttribute('role', 'listbox');
 list.setAttribute('aria-label', 'Presets');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
+const shareUI = shareRow();
 const pinIn = el('input', 'pb-input');
 pinIn.type = 'password';
 pinIn.placeholder = 'PIN';
@@ -53,7 +55,7 @@ done.addEventListener('click', () => close());
 
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'preset-pop-title' })),
-  el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl,
+  el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl, shareUI.box,
     el('span', 'sode__hint', `↑/↓ or ${mac ? '⌘' : 'Ctrl+'}j/k to move, Enter to fire, Esc to close. Pinned presets are the buttons above Recent.`)),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
@@ -104,6 +106,7 @@ function draw() {
     const tools = [btn(pinned ? 'Unpin' : 'Pin', pinned ? 'pin-off' : 'pin',
       s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin',
       () => (s.scope === 'user' ? profSaver.change({ presets: withUserPin(s.name, !pinned) }, () => {}) : setLocalPin(s, !pinned)))];
+    tools.push(btn('Share', 'share-2', 'Copy a link to this preset', () => shareLink(sharePresetDoc(s), shareUI)));
     if (s.scope === 'global') {
       const flag = s.pinned !== false;
       tools.push(btn(flag ? 'Unpin for everyone' : 'Pin for everyone', 'users', 'Changes the preset for every browser (settings PIN)', () => {
@@ -162,6 +165,7 @@ export function openPopup() {
   input.value = '';
   hi = 0;
   pinRow.hidden = true;
+  shareUI.box.hidden = true;
   setNote('');
   draw();
   root.hidden = false;

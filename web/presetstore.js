@@ -123,6 +123,11 @@ export function saveLocalPreset(s, old = '') {
   writeJSON(KEY, replacePreset(localPresets(), s, old));
   emit('presets');
 }
+// This browser's whole list replaced (an import).
+export function putLocalPresets(list) {
+  writeJSON(KEY, list.length ? list.map(saved) : null);
+  emit('presets');
+}
 export function deleteLocalPreset(name) {
   const list = localPresets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   writeJSON(KEY, list.length ? list : null);
