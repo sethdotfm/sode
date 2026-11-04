@@ -290,6 +290,24 @@ export function readLink(search, hash) {
   return out;
 }
 
+// ---- opening a pending share link
+
+// May the review sheet open now? Only once the router's names are in (the
+// match needs them), the lock state is known (`L`, from lock.js's `access`;
+// null until then) and the page is not covered: not locked by a PIN lock
+// and not by hand. A link waits, in the address, until all of that is true.
+export const mayOpenSheet = (L, handLocked = false, namesLoaded = true) =>
+  !!L && namesLoaded && !(L.enforced && L.locked) && !(handLocked && !L.enforced);
+
+// The suggested name for Save as: "Name 2", or "Name (mine)" for a copy of
+// an Everyone item; '' with nothing to copy. At most 32 characters.
+export function saveAsName(name, fromScope = '') {
+  const base = String(name || '').trim();
+  if (!base) return '';
+  const suffix = fromScope === 'global' ? ' (mine)' : ' 2';
+  return [...base].slice(0, NAME_MAX - suffix.length).join('').trimEnd() + suffix;
+}
+
 // A share document as an export document, so one review sheet takes both.
 export function docOfShare(d) {
   if (d.kind === 'preset') return { sode: 1, presets: [{ name: d.name, items: d.items }] };

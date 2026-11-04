@@ -37,38 +37,48 @@ const dot = (kind) => {
 
 // ---- share links
 
-// A read-only link field with its status line, for a share button to fill.
+// A read-only link field with its Copy link button and status line, for a
+// share button to fill (shareLink). The button copies; sharing itself never
+// touches the clipboard.
 export function shareRow() {
   const input = el('input', 'pb-input sode__code');
   input.readOnly = true;
   input.setAttribute('aria-label', 'Share link');
   const status = el('span', 'pb-status');
-  const box = el('div', 'sode__filters-share', input, status);
-  box.hidden = true;
-  return { box, input, status };
+  const ui = { input, status, copy: btn('pb-btn--outline pb-btn--sm', 'Copy link', () => copyLink(ui)) };
+  ui.box = el('div', 'sode__filters-share', input, ui.copy, status);
+  ui.box.hidden = true;
+  return ui;
 }
 
-// Puts a share link for doc into ui ({ box, input, status }) and copies it.
-// With no clipboard the link is selected in the field, to copy by hand.
-export async function shareLink(doc, ui) {
-  const url = fmt.shareUrl(`${location.origin}${location.pathname}`, doc);
+// Puts a share link for doc into ui ({ box, input, status }) and selects it.
+export function shareLink(doc, ui) {
   ui.box.hidden = false;
-  ui.input.value = url;
+  ui.input.value = fmt.shareUrl(`${location.origin}${location.pathname}`, doc);
   ui.input.select();
+  ui.status.replaceChildren();
+}
+
+// The Copy link button. With no clipboard the link stays selected, to copy by hand.
+export async function copyLink(ui) {
   let ok = false;
-  try { await navigator.clipboard.writeText(url); ok = true; } catch (e) { /* no clipboard */ }
+  try { await navigator.clipboard.writeText(ui.input.value); ok = true; } catch (e) { /* no clipboard */ }
+  if (!ok) ui.input.select();
   ui.status.replaceChildren(dot(ok ? 'ok' : 'info'), ok ? 'Copied' : 'Copy it above');
 }
 
 export const sharePresetDoc = (p) => fmt.presetShare(p, srcName, dstName);
 
 // Opens the review sheet for a share document.
-export function reviewShare(share, source = '') {
+// onLocked: called if a lock closes the sheet (the link then waits to be
+// shown again after unlocking).
+export function reviewShare(share, source = '', onLocked = null) {
   openReview({
     doc: fmt.docOfShare(share),
     source: source || (share.kind === 'preset' ? 'A shared preset' : 'A shared filter'),
     title: share.kind === 'preset' ? 'Review shared preset' : 'Review shared filter',
     applyNow: share.kind === 'filter' ? applyNow : null,
+    onLocked,
   });
 }
 
@@ -83,20 +93,53 @@ function applyNow(f, name) {
   showResult('info', name ? `Shared filter “${name}” applied` : 'Shared filter applied', () => el('span', 'sode__filters-empty', undo));
 }
 
-// A link in the page address (a #share= fragment, or the old ?f=): cleaned
-// from the address at once, then shown in the review sheet once the router's
-// names are in (the match needs them).
-export function applySharedLink() {
+// A link in the page address (a #share= fragment, or the old ?f=) is kept
+// PENDING until the sheet can show: the router's names are in and the page
+// is not covered by a lock (a new browser with the main lock on gets `hello`
+// before the lock screen, so the sheet would open and be closed again). The
+// address is cleaned only once the sheet is up, so a reload while locked
+// keeps the link. A link pasted into a tab already on Sode (hashchange) goes
+// the same way.
+let pending = null; // the share document waiting to be shown
+let access = null; // lock.js's lock state, once it has said
+let namesIn = false;
+
+const handLocked = () => document.documentElement.dataset.sodeLock === 'on';
+const clean = () => {
+  const r = fmt.readLink(location.search, location.hash);
+  if (r.doc || r.error) history.replaceState(null, '', location.pathname + r.search + r.hash);
+};
+
+function tryOpen() {
+  if (!pending || !fmt.mayOpenSheet(access, handLocked(), namesIn)) return;
+  const doc = pending;
+  pending = null;
+  clean();
+  reviewShare(doc, '', () => {
+    // A lock closed it: wait for the page to be uncovered, and keep the link in the address.
+    pending = doc;
+    history.replaceState(null, '', `${location.pathname}${location.search}#share=${fmt.encodeShare(doc)}`);
+  });
+}
+
+function takeLink() {
   const r = fmt.readLink(location.search, location.hash);
   if (!r.doc && !r.error) return;
-  history.replaceState(null, '', location.pathname + r.search + r.hash);
-  if (r.error) return showResult('warn', 'Invalid share link', r.error);
-  let shown = false;
-  on('helloData', () => {
-    if (shown) return;
-    shown = true;
-    reviewShare(r.doc);
-  });
+  if (r.error) {
+    history.replaceState(null, '', location.pathname + r.search + r.hash);
+    return showResult('warn', 'Invalid share link', r.error);
+  }
+  pending = r.doc;
+  tryOpen();
+}
+
+export function applySharedLink() {
+  on('helloData', () => { namesIn = true; tryOpen(); });
+  on('access', (l) => { access = l; tryOpen(); });
+  // A hand lock has no event of its own: its marker on <html> is watched.
+  new MutationObserver(tryOpen).observe(document.documentElement, { attributes: true, attributeFilter: ['data-sode-lock'] });
+  window.addEventListener('hashchange', takeLink);
+  takeLink();
 }
 
 // ---- the dialog
@@ -305,9 +348,12 @@ async function review() {
 
 // ---- open / close
 
-function openTransfer({ scope = '', user = '' } = {}) {
+function openTransfer({ scope = '', user = '', what = '' } = {}) {
   back = document.activeElement;
   ex = newEx();
+  // what: the kind the caller is about is the one exported; the other kinds start as none chosen.
+  if (what === 'presets') { ex.setsMode = 'chosen'; ex.prefs = false; }
+  if (what === 'filters') { ex.presetsMode = 'chosen'; ex.prefs = false; }
   other = null;
   picker.value = '';
   paste.value = '';
@@ -342,6 +388,7 @@ function close() {
 
 trapDialog(root, dialog, close);
 on('openTransfer', openTransfer);
+on('locking', close);
 on('profile', () => { if (open) renderExport(); });
 on('presets', () => { if (open) renderExport(); });
 on('filters', () => { if (open) renderExport(); });

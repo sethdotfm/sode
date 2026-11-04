@@ -14,7 +14,7 @@ import {
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
-import { shareLink } from './transfer.js';
+import { shareLink, copyLink } from './transfer.js';
 import { filterShare } from './exportfmt.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { globalSaver } from './globalsave.js';
@@ -529,13 +529,13 @@ trapDialog(root, dialog, closeFilters);
 // ---- share links: the filter as one item in a #share= link (exportfmt.js);
 // opening it shows the review sheet (transfer.js). The old ?f= link still opens.
 
+const shareUI = { box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status') };
 $('flt-share-btn').addEventListener('click', () => {
   flushEds();
   const a = activeSet();
-  shareLink(filterShare(a && a.scope !== 'all' ? a.name : '', filterState()), {
-    box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status'),
-  });
+  shareLink(filterShare(a && a.scope !== 'all' ? a.name : '', filterState()), shareUI);
 });
+$('flt-share-copy').addEventListener('click', () => copyLink(shareUI));
 
 // ---- when filters hide everything
 

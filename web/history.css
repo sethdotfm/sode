@@ -557,17 +557,22 @@
 .sode__scrim > .sode__tr { width: 38rem; }
 .sode__scrim > .sode__rv { width: 56rem; }
 .sode__tr .sode__filters-sets:last-of-type { border-bottom: 0; }
-.sode__rv-sec { display: flex; flex-direction: column; gap: var(--pb-space-3); }
+.sode__rv-sec { display: flex; flex-direction: column; gap: var(--pb-space-2); }
 .sode__rv-head,
-.sode__rv-row { align-items: start; display: grid; gap: var(--pb-space-3) var(--pb-space-5); grid-template-columns: 1.2fr 1fr 12rem; }
-.sode__rv-head { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); padding-bottom: var(--pb-space-2); }
-.sode__rv-row { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); padding-bottom: var(--pb-space-3); }
+.sode__rv-row { align-items: center; display: grid; gap: var(--pb-space-2) var(--pb-space-4); grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 15rem); }
+.sode__rv-head { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); padding-bottom: var(--pb-space-1); }
+.sode__rv-row { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); padding-bottom: var(--pb-space-2); }
 .sode__rv-row.is-skip { opacity: 0.7; }
 .sode__rv-in,
-.sode__rv-cur,
-.sode__rv-pick { display: flex; flex-direction: column; gap: var(--pb-space-1); min-width: 0; overflow-wrap: anywhere; }
-.sode__rv-pick .pb-select-wrap,
-.sode__rv-pick .pb-input { width: 100%; }
+.sode__rv-cur { display: flex; flex-direction: column; gap: 0; min-width: 0; overflow-wrap: anywhere; }
+.sode__rv-pick { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); min-width: 0; }
+.sode__rv-line { align-items: baseline; display: flex; flex-wrap: wrap; gap: 0 var(--pb-space-2); }
+.sode__rv-more > summary { cursor: pointer; }
+.sode__rv-pick .pb-select-wrap { flex: 0 1 7rem; }
+.sode__rv-pick .pb-input { flex: 1 1 6rem; min-width: 0; }
+.sode__rv-pick .pb-select,
+.sode__rv-pick .pb-input { min-height: var(--pb-control-h-sm); }
+.sode__rv-pick .sode__error-text { flex-basis: 100%; }
 @media (max-width: 599.98px) {
   .sode__scrim:has(> .sode__rv, > .sode__tr) { padding: var(--pb-space-3); }
   .sode__scrim > .sode__rv,

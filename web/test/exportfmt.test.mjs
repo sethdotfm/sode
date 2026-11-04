@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildExport, matchEnd, matchItem, matchPreset, conflict, renameFor, applyChoices, defaultChoice, renameProblem,
   defaultFileName, fileNameFor, sizeProblem, jsonBytes, presetShare, filterShare, shareUrl, decodeShare, decodeLegacy,
-  readLink, docOfShare, itemIn, SOCKET_LIMIT,
+  readLink, docOfShare, itemIn, SOCKET_LIMIT, mayOpenSheet, saveAsName,
 } from '../exportfmt.js';
 
 const live = {
@@ -179,4 +179,24 @@ test('a share link with no takes or no name is refused', () => {
   const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   assert.throws(() => decodeShare(enc({ kind: 'preset', name: 'x', items: [] })), /no takes/);
   assert.throws(() => decodeShare(enc({ kind: 'preset', items: [{ src: 1, dsts: [] }] })), /no name/);
+});
+
+test('mayOpenSheet waits for the lock state, the names, and an uncovered page', () => {
+  const open = { enforced: false, locked: false };
+  assert.equal(mayOpenSheet(null, false, true), false); // the lock state has not come
+  assert.equal(mayOpenSheet(open, false, false), false); // names not in
+  assert.equal(mayOpenSheet(open, false, true), true);
+  assert.equal(mayOpenSheet({ enforced: true, locked: true }, false, true), false); // PIN lock up
+  assert.equal(mayOpenSheet({ enforced: true, locked: false, user: 'ana' }, false, true), true);
+  assert.equal(mayOpenSheet(open, true, true), false); // hand lock
+  // a stale hand-lock marker while a PIN lock is enforced and unlocked does not hold it
+  assert.equal(mayOpenSheet({ enforced: true, locked: false }, true, true), true);
+});
+
+test('saveAsName suggests Name 2, or (mine) for Everyone, within 32 characters', () => {
+  assert.equal(saveAsName('Open', 'local'), 'Open 2');
+  assert.equal(saveAsName('Open', 'global'), 'Open (mine)');
+  assert.equal(saveAsName('  ', 'local'), '');
+  assert.equal(saveAsName('', ''), '');
+  for (const sc of ['local', 'global']) assert.ok([...saveAsName('x'.repeat(40), sc)].length <= 32);
 });

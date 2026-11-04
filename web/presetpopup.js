@@ -106,7 +106,7 @@ function draw() {
     const tools = [btn(pinned ? 'Unpin' : 'Pin', pinned ? 'pin-off' : 'pin',
       s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin',
       () => (s.scope === 'user' ? profSaver.change({ presets: withUserPin(s.name, !pinned) }, () => {}) : setLocalPin(s, !pinned)))];
-    tools.push(btn('Share', 'share-2', 'Copy a link to this preset', () => shareLink(sharePresetDoc(s), shareUI)));
+    tools.push(btn('Share', 'share-2', 'Show a link to share this preset', () => shareLink(sharePresetDoc(s), shareUI)));
     if (s.scope === 'global') {
       const flag = s.pinned !== false;
       tools.push(btn(flag ? 'Unpin for everyone' : 'Pin for everyone', 'users', 'Changes the preset for every browser (settings PIN)', () => {

@@ -263,16 +263,27 @@ function matchLines(r) {
   return lines;
 }
 
+// Status lines, the worst (warn, then info, ok, idle) shown and the others in a disclosure.
+const RANK = { warn: 0, error: 0, info: 1, ok: 2, idle: 3 };
+const rankOf = (n) => RANK[[...n.firstChild.classList].find((c) => c.startsWith('pb-dot--'))?.slice(8)] ?? 3;
+function worstFirst(lines) {
+  const sorted = lines.map((n, i) => [n, i]).sort((a, b) => rankOf(a[0]) - rankOf(b[0]) || a[1] - b[1]).map((x) => x[0]);
+  if (sorted.length < 2) return sorted;
+  const more = el('details', 'sode__rv-more', el('summary', 'sode__hint', `${sorted.length - 1} more`), ...sorted.slice(1).map((n) => el('div', null, n)));
+  return [sorted[0], more];
+}
+
 function rowNode(r, i, choices) {
   const sc = scope();
   const cur = (r.kind === 'filter' ? curSets(sc) : curPresets(sc)).find((x) => fmt.conflict(r.name, [x.name]));
   const m = r.kind === 'preset' ? matched(r) : null;
   const incoming = r.kind === 'filter' ? { f: r.f } : { items: m.saved.items };
-  const inCell = el('div', 'sode__rv-in', el('strong', null, r.name), el('span', 'sode__hint', ` ${r.kind === 'filter' ? 'Filter set' : 'Preset'}`),
-    el('div', 'sode__hint', summaryOf(r.kind, incoming)),
-    ...(r.kind === 'filter' ? [status('info', 'Carried as written')] : matchLines(r)).map((n) => el('div', null, n)));
+  // Name, kind and summary on one line; the worst status below it, the rest behind a disclosure.
+  const inCell = el('div', 'sode__rv-in', el('div', 'sode__rv-line', el('strong', null, r.name), el('span', 'sode__hint', r.kind === 'filter' ? 'Filter set' : 'Preset'),
+    el('span', 'sode__hint', summaryOf(r.kind, incoming))),
+    ...worstFirst(r.kind === 'filter' ? [status('info', 'Carried as written')] : matchLines(r)));
   const curCell = el('div', 'sode__rv-cur', cur
-    ? el('div', null, el('strong', null, cur.name), el('div', 'sode__hint', summaryOf(r.kind, cur)))
+    ? el('div', 'sode__rv-line', el('strong', null, cur.name), el('span', 'sode__hint', summaryOf(r.kind, cur)))
     : status('idle', 'Nothing with this name yet'));
   const choice = choices[i];
   const opts = cur ? [['replace', 'Replace'], ['both', 'Keep both'], ['skip', 'Skip']] : [['import', 'Import'], ['skip', 'Skip']];
@@ -287,7 +298,7 @@ function rowNode(r, i, choices) {
     const prob = el('span', 'sode__hint sode__error-text');
     prob.textContent = r.asProblem || '';
     as.addEventListener('input', () => { r.as = as.value; refresh(); prob.textContent = r.asProblem || ''; });
-    pickCell.append(el('label', 'sode__hint', 'Save as'), as, prob);
+    pickCell.append(as, prob);
   }
   return el('div', `sode__rv-row${choice === 'skip' ? ' is-skip' : ''}`, inCell, curCell, pickCell);
 }
@@ -456,9 +467,9 @@ function applyNowClick() {
 // for that user's profile: scope 'user', read and saved by name), applyNow
 // (f, name): offered for one filter set (a link), source: a line about where
 // it came from.
-export function openReview({ doc, scope: sc = 'local', user = '', applyNow = null, source = '', title = 'Review import' }) {
+export function openReview({ doc, scope: sc = 'local', user = '', applyNow = null, source = '', title = 'Review import', onLocked = null }) {
   back = document.activeElement;
-  st = { doc, scope: sc, user, applyNow, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
+  st = { doc, scope: sc, user, applyNow, onLocked, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
   fetched = null;
   open = true;
   busy = false;
@@ -501,6 +512,13 @@ trapDialog(root, dialog, () => {
   close();
 });
 
+// A lock coming down puts the sheet away whole (state, savers), and a share link asks to be shown again.
+on('locking', () => {
+  if (!open) return;
+  const again = st?.onLocked;
+  close();
+  if (again) again();
+});
 on('profile', () => render());
 on('presets', () => render());
 on('filters', () => render());

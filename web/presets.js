@@ -11,6 +11,7 @@ import { profileSaver } from './profilesaver.js';
 import { profileName } from './profile.js';
 import { trapDialog } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
+import { saveAsName } from './exportfmt.js';
 import {
   allPresets, globalPresets, userPresets, localPresets, PRESET_SCOPES, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
   pinnedPresets, saved,
@@ -145,6 +146,18 @@ const delBtn = btn('pb-btn--outline pb-btn--sm', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit pb-btn--sm', 'Save', () => save());
 // A link to the saved preset (names ride along; opening it shows a review).
 const shareUI = shareRow();
+const saveAsBtn = btn('pb-btn--outline pb-btn--sm', 'Save as…', () => askSaveAs());
+// Save as: the preset as typed, under another name, in the scope chosen here.
+const asName = el('input', 'pb-input');
+asName.maxLength = 32;
+asName.placeholder = 'Name';
+asName.setAttribute('aria-label', 'Name for the copy');
+asName.autocomplete = 'off';
+const asScope = el('select', 'pb-select');
+asScope.setAttribute('aria-label', 'Save the copy for');
+const asRow = el('div', 'sode__filters-set', asName, el('span', 'pb-select-wrap sode__filters-scope', asScope),
+  btn('pb-btn--commit pb-btn--sm', 'Save', () => saveAs()), btn('pb-btn--ghost pb-btn--sm', 'Cancel', () => closeSaveAs()));
+asRow.hidden = true;
 const shareBtn = btn('pb-btn--outline pb-btn--sm', 'Share', () => {
   const p = cur?.old && findPreset(cur.scope, cur.old);
   if (p) shareLink(sharePresetDoc(p), shareUI);
@@ -155,15 +168,17 @@ dialog.append(
   el('div', 'pb-modal__body sode__filters-body',
     el('div', 'sode__filters-sets',
       el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null))),
-      el('div', 'sode__filters-set', nameIn, el('span', 'pb-select-wrap sode__filters-scope', scopeIn), saveBtn, shareBtn, delBtn),
-      pinnedBox, pinRow, noteEl, shareUI.box),
+      el('div', 'sode__filters-set', nameIn, el('span', 'pb-select-wrap sode__filters-scope', scopeIn), saveBtn, saveAsBtn, shareBtn, delBtn),
+      asRow, pinnedBox, pinRow, noteEl, shareUI.box),
     rowsBox,
     el('div', 'sode__filters-set',
       btn('pb-btn--outline pb-btn--sm', 'Add take', () => { cur.items.push(blankRow()); renderRows(); focusLast(); }),
       btn('pb-btn--outline pb-btn--sm', 'Fill from patch boxes', fillFromBoxes),
       btn('pb-btn--outline pb-btn--sm', 'Fill from latest folder in Recent', fillFromHistory)),
     el('span', 'sode__hint', 'Numbers (12, 20-24) or names, separated by commas.')),
-  el('div', 'pb-modal__footer', btn('pb-btn--ok', 'Done', () => closePresets())),
+  el('div', 'pb-modal__footer',
+    btn('pb-btn--outline', 'Export / import…', () => emit('openTransfer', { scope: cur?.old ? cur.scope : 'local', user: profileName() || '', what: 'presets' })),
+    btn('pb-btn--ok', 'Done', () => closePresets())),
 );
 root.append(dialog);
 document.body.append(root);
@@ -199,6 +214,7 @@ function rowFromItem(it) {
 }
 function load(s) {
   shareUI.box.hidden = true;
+  asRow.hidden = true;
   deleting = false;
   dirty = false;
   discard = false;
@@ -349,6 +365,55 @@ function save() {
   const sv = cur.scope === 'user' ? profSaver : saver;
   sv.change({ presets: b.next }, () => { cur.old = b.s.name; cur.name = b.s.name; nameIn.value = cur.name; dirty = false; });
 }
+
+// ---- save as
+
+function askSaveAs() {
+  asScope.replaceChildren(...scopeOpts());
+  asScope.value = 'local';
+  asName.value = saveAsName(cur.name, cur.old ? cur.scope : '');
+  asName.classList.remove('pb-input--invalid');
+  asRow.hidden = false;
+  asName.select();
+}
+function closeSaveAs() {
+  asRow.hidden = true;
+  saveAsBtn.focus();
+}
+// The name is checked against the target scope; a name taken there is replaced.
+function saveAs() {
+  const name = asName.value.trim().slice(0, 32);
+  const target = asScope.value;
+  const bad = (msg) => { asName.classList.add('pb-input--invalid'); setNote(msg, true); asName.focus(); };
+  const items = [];
+  for (const r of cur.items) {
+    const p = parseRow(r);
+    if (p.error) return bad(p.text);
+    items.push(p.item);
+  }
+  const err = nameProblem(name, [], { noun: 'preset' });
+  if (err) return bad(err);
+  const s = { ...normPreset({ name, items }), pinned: cur.pinned };
+  const list = listFor(target);
+  const taken = list.find((x) => x.name.toLowerCase() === name.toLowerCase())?.name || '';
+  const perr = presetProblem(s);
+  if (perr) return bad(perr);
+  const next = replacePreset(list, s, taken);
+  const tooMuch = presetsProblem(next);
+  if (tooMuch) return bad(tooMuch);
+  closeSaveAs();
+  const loaded = () => { cur.scope = target; cur.old = s.name; cur.name = s.name; dirty = false; discard = false; renderHead(); };
+  if (target === 'local') {
+    saveLocalPreset(s, taken);
+    loaded();
+    return setNote('Saved for this browser.');
+  }
+  (target === 'user' ? profSaver : saver).change({ presets: next }, loaded);
+}
+asName.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); saveAs(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSaveAs(); }
+});
 
 function deleteClick() {
   if (!cur.old) return;
