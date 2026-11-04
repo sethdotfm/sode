@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -48,6 +49,9 @@ type connUser struct {
 	// persistent user; a lock revokes it.
 	token string
 	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
+	// profile: the last profile message sent (under mu); "" = none, so a
+	// connection that never had one is never sent a clear.
+	profile string
 }
 
 // who names the connection for history and logs: the user, else the address.
@@ -139,6 +143,7 @@ func (a *App) pushAccessLocked(c *client, hi bool) {
 	m.Hi = hi
 	b, _ := json.Marshal(m)
 	a.deliver(c, b)
+	a.pushProfileLocked(c) // only to the user it belongs to
 }
 
 func (a *App) syncAccess(c *client) {
@@ -381,10 +386,19 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		var out []config.User
 		inherited := map[string]bool{} // rows keep a hash only from their own, one row each
 		fresh := map[string]string{}   // new PINs by user name
+		kept := map[string]bool{}      // profiles carried over, one row each
 		for _, e := range req.Users {
 			u := config.User{Name: strings.TrimSpace(e.Name), Trusted: e.Trusted, Persistent: e.Persistent}
 			if u.Name == "" {
 				return errors.New("every user needs a name")
+			}
+			// The profile follows the row's Was (a rename keeps it, with or
+			// without a new PIN); a user no longer listed loses theirs.
+			was := cmp.Or(e.Was, e.Name)
+			pk := strings.ToLower(strings.TrimSpace(was))
+			if o, ok := old[pk]; ok && !kept[pk] {
+				kept[pk] = true
+				u.Profile = o.Profile.Clone()
 			}
 			if e.Pin != "" {
 				if err := config.CheckUserPinRules(e.Pin, maxLen); err != nil {
@@ -397,11 +411,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				u.Pin, u.Len = h, len(e.Pin)
 				fresh[u.Name] = e.Pin
 			} else {
-				was := e.Was
-				if was == "" {
-					was = e.Name
-				}
-				key := strings.ToLower(strings.TrimSpace(was))
+				key := pk
 				o, ok := old[key]
 				if !ok {
 					return errors.New("give " + u.Name + " a PIN")

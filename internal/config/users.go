@@ -25,6 +25,10 @@ type User struct {
 	// Persistent: unlocking as this user issues a session token the browser
 	// keeps, so a reload or dropped link does not log them out (no idle lock).
 	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
+	// Profile (#161): this user's prefs, filter sets and presets. Never in
+	// JSON: it reaches browsers only as the profile message, and only to
+	// connections unlocked as this user.
+	Profile Profile `yaml:"profile,omitempty" json:"-"`
 }
 
 // Locks says which page types need an unlocked user: the main screen and /log.

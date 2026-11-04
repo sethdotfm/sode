@@ -3,7 +3,6 @@ package config
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -253,6 +252,9 @@ func (c Config) Clone() Config {
 	c.Presets = ClonePresets(c.Presets)
 	c.HideDsts = slices.Clone(c.HideDsts)
 	c.Users = slices.Clone(c.Users)
+	for i := range c.Users {
+		c.Users[i].Profile = c.Users[i].Profile.Clone()
+	}
 	return c
 }
 
@@ -313,14 +315,9 @@ func (c *Config) Normalize() {
 	}
 	c.LegacySalvos = nil
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
-	if c.FilterSets == nil {
-		c.FilterSets = []FilterSet{}
-	}
-	for i := range c.FilterSets {
-		f := &c.FilterSets[i]
-		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
-	}
+	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
+	c.normalizeProfiles()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}
@@ -459,23 +456,13 @@ func (c Config) Validate() error {
 	if n := len([]rune(c.HiddenDsts)); n > 500 {
 		bad("globally hidden destinations must be at most 500 characters")
 	}
-	fnames := make([]string, len(c.FilterSets))
-	for i, f := range c.FilterSets {
-		fnames[i] = f.Name
-		if len([]rune(f.Src)) > 500 || len([]rune(f.Dst)) > 500 {
-			bad("filter set %q: expressions must be at most 500 characters", f.Name)
-		}
-	}
-	errs = append(errs, validateNames("filter set", fnames, 30)...)
-	// Like presets, all of them in one message under the read limit.
-	if b, err := json.Marshal(c.FilterSets); err == nil && len(b) > MaxFilterSetsBytes {
-		bad("filter sets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxFilterSetsBytes>>10)
-	}
+	errs = append(errs, validateFilterSets(c.FilterSets)...)
 	errs = append(errs, c.validatePresets()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}
 	errs = append(errs, c.validateUsers()...)
+	errs = append(errs, c.validateProfiles()...)
 	return errors.Join(errs...)
 }
 

@@ -28,6 +28,9 @@ import "errors"
 //	needTrusted:    config (needAdmin when it sets or clears the settings
 //	                PIN), filterSets, presets
 //	needAdmin:      users userSignOutAll
+//	profile (#161): profileSave needs the user's own unlock (the name in
+//	                the message is the connection's user) or else needTrusted;
+//	                profileGet needTrusted. Both re-checked by guardProfile.
 type need uint8
 
 const (
@@ -58,6 +61,11 @@ type rule struct {
 	// strict, when it says yes for a message, raises needTrusted to
 	// needAdmin: a Settings save that sets or clears the settings PIN.
 	strict func(m *inMsg) bool
+	// selfOf, when set, names the user a message is about; a connection
+	// unlocked as that very user passes a needTrusted rule without being
+	// trusted (a user edits their own profile). forMsg fills self from it.
+	selfOf func(m *inMsg) string
+	self   string
 	// admitted runs under mu when the message is let through, so the check and
 	// what depends on it can't be pulled apart by a lock in between.
 	admitted func(c *client)
@@ -97,6 +105,10 @@ var policy = map[string]rule{
 		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin }},
 	"filterSets": {need: needTrusted, op: "filterSets"},
 	"presets":    {need: needTrusted, op: "presets"},
+	// Profiles (#161): a user saves their own with no PIN; anyone else's
+	// needs a trusted user or the PIN. Reading another's needs the same.
+	"profileSave": {need: needTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name }},
+	"profileGet":  {need: needTrusted, op: "profileGet"},
 	// Users, locks and the settings PIN's own users: the PIN only.
 	"userSignOutAll": {need: needAdmin, op: "userSignOutAll"},
 	"usersList":      {need: needAdmin, op: "usersList"},
@@ -105,6 +117,9 @@ var policy = map[string]rule{
 
 // forMsg is r as it applies to m (strict raises the need to the PIN).
 func (r rule) forMsg(m *inMsg) rule {
+	if r.selfOf != nil {
+		r.self = r.selfOf(m)
+	}
 	if r.strict != nil && r.strict(m) && r.need&needTrusted != 0 {
 		r.need = r.need&^needTrusted | needAdmin
 	}
@@ -124,7 +139,7 @@ func (a *App) admit(c *client, r rule) error {
 		return errPageLocked
 	case r.need&needAdmin != 0 && !a.settingsUnlockedLocked(c):
 		return errLocked
-	case r.need&needTrusted != 0 && !a.trustedLocked(c):
+	case r.need&needTrusted != 0 && !a.trustedLocked(c) && !a.isUserLocked(c, r.self):
 		return errLocked
 	}
 	if r.admitted != nil {

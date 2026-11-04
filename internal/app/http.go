@@ -308,6 +308,10 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}(m.Presets, m.ID)
 		case "config":
 			a.serveConfig(c, &m)
+		case "profileSave":
+			go a.serveProfileSave(c, &m)
+		case "profileGet":
+			a.serveProfileGet(c, &m)
 		}
 	}
 }
@@ -393,13 +397,16 @@ type inMsg struct {
 	Preset   string             `json:"preset"` // batch: the preset that was fired, if any
 	Salvo    string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
 	Sets     []config.FilterSet `json:"sets"`
-	Presets  []config.Preset    `json:"presets"`
-	Page     string             `json:"page"`  // hi: main | log
-	Token    string             `json:"token"` // hi: session token of a persistent user
-	Name     string             `json:"name"`  // userSignOutAll
-	Old      string             `json:"old"`
-	New      string             `json:"new"`
-	UsersReq *usersReq          `json:"usersReq"`
+	// profileSave: the parts to replace; nil = keep (an empty list or {} clears)
+	Prefs      map[string]string  `json:"prefs"`
+	FilterSets []config.FilterSet `json:"filterSets"`
+	Presets    []config.Preset    `json:"presets"`
+	Page       string             `json:"page"`  // hi: main | log
+	Token      string             `json:"token"` // hi: session token of a persistent user
+	Name       string             `json:"name"`  // userSignOutAll, profileSave, profileGet
+	Old        string             `json:"old"`
+	New        string             `json:"new"`
+	UsersReq   *usersReq          `json:"usersReq"`
 }
 
 func plural(n int, one, many string) string {
