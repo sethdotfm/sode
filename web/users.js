@@ -1,104 +1,138 @@
-// The Users section of the settings (#151): the user directory, which page
-// types lock, and the auto-lock time. Saved on its own (the `users` message,
-// guarded by the settings PIN like the rest), never with the main Save.
+// Users (#151, #165): Settings shows a one-line summary and a button; the
+// directory is edited in its own dialog, which saves on its own (the `users`
+// message, guarded by the settings PIN like the rest), never with the main
+// Save. The server holds every rule and says what is wrong.
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
 import { demandPin } from './pin.js';
+import { trapDialog } from './widgets.js';
 
 const form = $('settings-view');
-const rows = el('div', 'sode__fields');
-const err = el('div', 'pb-note pb-note--error');
-err.setAttribute('role', 'alert');
-err.hidden = true;
-const ok = el('span', 'sode__hint');
-ok.setAttribute('role', 'status');
 
-const check = (id, label) => {
-  const input = el('input', 'pb-check__input');
-  input.type = 'checkbox';
-  if (id) input.id = id;
-  return { input, label: el('label', 'pb-check', input, el('span', 'pb-check__label', label)) };
-};
-const lockMain = check('usr-lock-main', 'Lock the main screen');
-const lockLog = check('usr-lock-log', 'Lock the Communication Log');
-const autoInput = el('input', 'pb-input');
-autoInput.type = 'number';
-autoInput.id = 'usr-auto';
-const maxInput = el('input', 'pb-input');
-maxInput.type = 'number';
-maxInput.id = 'usr-maxpin';
-maxInput.min = '4';
-maxInput.max = '12';
-const add = el('button', 'pb-btn pb-btn--outline', 'Add user');
-add.type = 'button';
-const save = el('button', 'pb-btn pb-btn--ok', 'Save users');
-save.type = 'button';
+// ---- the Settings section: a summary and the button
+
+const summary = el('span', 'sode__hint');
+summary.setAttribute('role', 'status');
+const manage = el('button', 'pb-btn pb-btn--outline', 'Manage users…');
+manage.type = 'button';
+manage.id = 'users-manage';
+manage.dataset.find = 'users-manage';
+manage.dataset.label = 'Manage users';
+manage.setAttribute('aria-haspopup', 'dialog');
 
 const group = el('fieldset', 'sode__group sode__users',
   el('legend', null, 'Users'),
-  el('p', 'sode__hint', 'Optional. With users and a lock turned on, a page asks for a PIN before it can change anything; the name goes in history and the log. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN once logged in; users, clearing history and the settings PIN itself still need it. A user who never logs out stays logged in on the browser (a wall panel logs in once).'),
-  rows,
-  add,
-  el('div', 'sode__field',
-    Object.assign(el('label', null, 'Longest PIN (digits)'), { htmlFor: 'usr-maxpin' }),
-    el('span', 'pb-number-wrap', maxInput),
-    el('span', 'sode__hint', '4-12. The lock pad stops there and sends a PIN by itself only at the longest length in use; shorter PINs are sent with the check key or Enter. Users can change their own PIN from the chip after logging in.')),
-  el('div', 'sode__fields', lockMain.label, lockLog.label),
-  el('div', 'sode__field',
-    Object.assign(el('label', null, 'Lock after idle (minutes)'), { htmlFor: 'usr-auto' }),
-    el('span', 'pb-number-wrap', autoInput),
-    el('span', 'sode__hint', '0 = never. Users who never log out are not locked when idle.')),
-  err,
-  el('div', 'sode__names', ok, save));
-// Enter in a field here saves the users, not the whole settings form.
-group.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
-    e.preventDefault();
-    save.click();
-  }
-});
+  el('div', 'sode__field', summary, manage));
 
 // Next to Access, where the PIN is; at the end if that isn't found.
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
 if (access) access.after(group);
 else form.querySelector('#settings-err')?.parentElement?.before(group) ?? form.append(group);
 
-let edited = false;
-let seq = 0;
-const touched = () => { edited = true; ok.textContent = ''; };
+// ---- the dialog
 
-// Admin action: ends every session of this user (their saved logins on every
-// browser) and relocks their open pages. Needs the settings PIN.
-let outSeq = 0;
-function signOut(name) {
-  const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Sign out all sessions');
+const check = (label) => {
+  const input = el('input', 'pb-check__input');
+  input.type = 'checkbox';
+  return { input, label: el('label', 'pb-check', input, el('span', 'pb-check__label', label)) };
+};
+const btn = (cls, text, fn) => {
+  const b = el('button', `pb-btn ${cls}`, text);
   b.type = 'button';
-  b.addEventListener('click', () => {
-    err.hidden = true;
-    ok.textContent = '';
-    const id = ++outSeq;
-    if (!wsSend({ t: 'userSignOutAll', name, id })) return fail('Not connected to Sode.');
-    b.disabled = true;
-    signing.set(id, { b, name });
-  });
+  b.addEventListener('click', fn);
   return b;
-}
-const signing = new Map();
-onMsg('userSignOutAllResult', (m) => {
-  const w = signing.get(m.id);
-  signing.delete(m.id);
-  if (w) w.b.disabled = false;
-  if (m.ok) { ok.textContent = `Signed ${w?.name || 'the user'} out everywhere.`; return; }
-  if (m.locked) { demandPin(); emit('locked'); }
-  fail(m.err);
+};
+const field = (id, label, input, hint) => el('div', 'sode__field',
+  Object.assign(el('label', null, label), { htmlFor: id }),
+  el('span', 'pb-number-wrap', input),
+  el('span', 'sode__hint', hint));
+const number = (id) => {
+  const i = el('input', 'pb-input');
+  i.type = 'number';
+  i.id = id;
+  return i;
+};
+
+const rows = el('div', 'sode__fields');
+const lockMain = check('Lock main screen');
+const lockLog = check('Lock Communication Log');
+const autoInput = number('usr-auto');
+const maxInput = number('usr-maxpin');
+maxInput.min = '4';
+maxInput.max = '12';
+const err = el('div', 'pb-note pb-note--error');
+err.setAttribute('role', 'alert');
+err.hidden = true;
+const note = el('span', 'sode__hint');
+note.setAttribute('role', 'status');
+note.setAttribute('aria-live', 'polite');
+
+const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => { addRow().focus(); touched(); });
+const saveBtn = btn('pb-btn--ok', 'Save', () => doSave());
+const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closeUsers());
+
+const root = el('div', 'pb-modal-backdrop sode__scrim');
+root.hidden = true;
+const dialog = el('div', 'pb-modal sode__filters sode__users-dlg');
+dialog.setAttribute('role', 'dialog');
+dialog.setAttribute('aria-modal', 'true');
+dialog.setAttribute('aria-labelledby', 'users-title');
+dialog.tabIndex = -1;
+dialog.append(
+  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Users'), { id: 'users-title' })),
+  el('div', 'pb-modal__body',
+    el('p', 'sode__hint', 'With users and a lock on, a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.'),
+    rows,
+    addBtn,
+    el('div', 'sode__users-opts',
+      el('div', 'sode__checks', lockMain.label, lockLog.label),
+      field('usr-auto', 'Lock after idle (minutes)', autoInput, '0 = never. Never-log-out users stay in.'),
+      field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
+    err),
+  el('div', 'pb-modal__footer', note, cancelBtn, saveBtn));
+root.append(dialog);
+document.body.append(root);
+
+// Enter in a field saves the users, not the Settings form.
+dialog.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+    e.preventDefault();
+    saveBtn.click();
+  }
 });
+
+let isOpen = false;
+let edited = false; // changed in the dialog since it filled
+let discard = false; // warned once; the next close discards
+let back = null;
+let seq = 0;
+let outSeq = 0;
+let listSeq = 0;
+let listed = []; // the directory the server sent; empty until it does
+let loaded = false;
+const signing = new Map();
+
+const setNote = (text, error = false) => {
+  note.textContent = text;
+  note.classList.toggle('sode__error-text', error);
+};
+function touched() {
+  edited = true;
+  discard = false;
+  setNote('');
+}
+function fail(text) {
+  err.textContent = sentence(text);
+  err.hidden = false;
+}
 
 function addRow(u = { name: '', len: 0 }) {
   const name = el('input', 'pb-input');
   name.value = u.name;
   name.spellcheck = false;
   name.autocomplete = 'off';
+  name.placeholder = 'Name';
   name.setAttribute('aria-label', 'User name');
   const pin = el('input', 'pb-input');
   pin.type = 'password';
@@ -107,52 +141,40 @@ function addRow(u = { name: '', len: 0 }) {
   pin.setAttribute('aria-label', 'PIN');
   pin.placeholder = u.len ? 'unchanged' : 'new PIN';
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
-  const rm = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
-  rm.type = 'button';
-  const trust = check('', 'Trusted');
+  const trust = check('Trusted');
   trust.input.checked = !!u.trusted;
   trust.input.dataset.flag = 'trusted';
-  const never = check('', 'Never log out');
+  const never = check('Never log out');
   never.input.checked = !!u.persistent;
   never.input.dataset.flag = 'persistent';
-  // Status as text, never colour alone: it follows the boxes.
-  const badges = el('span', 'sode__hint');
-  badges.setAttribute('role', 'status');
-  const paint = () => {
-    badges.textContent = [trust.input.checked && 'trusted', never.input.checked && 'never logs out'].filter(Boolean).join(', ');
-  };
-  paint();
-  for (const c of [trust, never]) c.input.addEventListener('change', () => { paint(); touched(); });
+  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { row.remove(); touched(); });
+  const out = u.len ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
+    err.hidden = true;
+    setNote('');
+    const id = ++outSeq;
+    if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail('Not connected to Sode.');
+    out.disabled = true;
+    signing.set(id, { out, name: u.name });
+  }) : null;
   const row = el('div', 'sode__users-row',
-    el('div', 'sode__field', el('span', 'sode__label', 'Name'), name),
-    el('div', 'sode__field', el('span', 'sode__label', 'PIN'), pin),
-    el('div', 'sode__checks', trust.label, never.label),
-    badges,
-    ...(u.len ? [signOut(u.name)] : []),
-    rm);
+    el('div', 'sode__users-in', name),
+    el('div', 'sode__users-in', pin),
+    trust.label, never.label, ...(out ? [out] : []), rm);
   row.dataset.was = u.len ? u.name : '';
-  rm.addEventListener('click', () => { row.remove(); touched(); });
   for (const f of [name, pin]) f.addEventListener('input', touched);
+  for (const f of [trust.input, never.input]) f.addEventListener('change', touched);
   rows.append(row);
   return name;
 }
 
-// The directory is not in the hello (a locked page gets that too): the
-// settings PIN holder asks for it. Until it arrives, or without the PIN, the
-// list is empty.
-let listed = [];
-let listSeq = 0;
-function load() {
-  wsSend({ t: 'usersList', id: ++listSeq });
-}
-onMsg('usersListResult', (m) => {
-  if (m.id !== listSeq || !m.ok || edited) return;
-  listed = m.users || [];
-  fill();
+onMsg('userSignOutAllResult', (m) => {
+  const w = signing.get(m.id);
+  signing.delete(m.id);
+  if (w) w.out.disabled = false;
+  if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
+  if (m.locked) { demandPin(); emit('locked'); }
+  fail(m.err);
 });
-// The PIN just entered, or settings saved elsewhere: ask again.
-on('unlockResult', (m) => { if (m.ok) load(); });
-on('locked', () => { listed = []; });
 
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
@@ -162,52 +184,93 @@ function fill() {
   lockLog.input.checked = !!S.cfg?.locks?.log;
   autoInput.value = String(S.cfg?.autoLockMinutes || 0);
   edited = false;
+  discard = false;
   err.hidden = true;
-  save.disabled = false;
+  saveBtn.disabled = false;
 }
 
-add.addEventListener('click', () => { addRow().focus(); touched(); });
-for (const c of [lockMain, lockLog]) c.input.addEventListener('change', touched);
-autoInput.addEventListener('input', touched);
-maxInput.addEventListener('input', () => {
-  touched();
-  for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
+function paintSummary() {
+  const n = loaded ? listed.length : (S.userNames || []).length;
+  const locks = [S.cfg?.locks?.main && 'main screen', S.cfg?.locks?.log && 'Communication Log'].filter(Boolean);
+  const who = n ? `${n} user${n === 1 ? '' : 's'}` : 'No users';
+  summary.textContent = `${who} · ${locks.length ? locks.join(' and ') + ' locked' : 'no locks'}`;
+}
+
+// The directory is not in the hello (a locked page gets that too): the
+// settings PIN holder asks for it. Without the PIN the list stays empty.
+const load = () => { wsSend({ t: 'usersList', id: ++listSeq }); };
+onMsg('usersListResult', (m) => {
+  if (m.id !== listSeq || !m.ok) return;
+  listed = m.users || [];
+  loaded = true;
+  paintSummary();
+  if (isOpen && !edited) fill();
 });
+on('unlockResult', (m) => { if (m.ok) load(); }); // the PIN just entered
+on('locked', () => { listed = []; loaded = false; paintSummary(); });
+on('access', paintSummary);
+on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
 
-function fail(text) {
-  err.textContent = sentence(text);
-  err.hidden = false;
+// ---- open / close / save
+
+function openUsers() {
+  back = document.activeElement;
+  isOpen = true;
+  setNote('');
+  fill();
+  load();
+  root.hidden = false;
+  dialog.focus();
 }
 
-save.addEventListener('click', () => {
+function closeUsers() {
+  if (isOpen && edited && !discard) {
+    discard = true;
+    return setNote('Unsaved changes. Close again to discard them, or Save.', true);
+  }
+  isOpen = false;
+  edited = false;
+  root.hidden = true;
+  if (back?.isConnected) back.focus();
+}
+manage.addEventListener('click', openUsers);
+trapDialog(root, dialog, closeUsers);
+// The page locking takes the dialog with it, edits and all.
+on('locking', () => { if (isOpen) { edited = false; closeUsers(); } });
+
+function doSave() {
   err.hidden = true;
-  ok.textContent = '';
+  setNote('');
   const users = [...rows.children].map((row) => {
     const [name, pin] = row.querySelectorAll('input');
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
     return { name: name.value.trim(), was: row.dataset.was, pin: pin.value, trusted: flag('trusted'), persistent: flag('persistent') };
   });
-  // The server holds the rules (names, PIN length, limits) and says what is wrong.
-  const mins = Math.trunc(Number(autoInput.value)) || 0;
   const locks = { main: lockMain.input.checked, log: lockLog.input.checked };
+  const mins = Math.trunc(Number(autoInput.value)) || 0;
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: { users, locks, autoLockMinutes: mins, maxPinLen: Math.trunc(Number(maxInput.value)) || 0 } })) return fail('Not connected to Sode.');
-  save.disabled = true;
-});
+  saveBtn.disabled = true;
+}
 
 onMsg('usersResult', (m) => {
-  save.disabled = false;
+  saveBtn.disabled = false;
   if (m.id !== seq) return;
   if (m.ok) {
     edited = false;
     load(); // the hello before this was skipped as an edit
-    ok.textContent = 'Saved.';
+    if (isOpen) closeUsers();
     return;
   }
   if (m.locked) { demandPin(); emit('locked'); } // the settings PIN is wanted again
   fail(m.err);
 });
 
-// A snapshot refills the list unless it is being edited here.
-on('hello', () => { if (!edited) { fill(); load(); } });
-fill();
+maxInput.addEventListener('input', () => {
+  touched();
+  for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
+});
+for (const c of [lockMain, lockLog]) c.input.addEventListener('change', touched);
+autoInput.addEventListener('input', touched);
+
+paintSummary();
