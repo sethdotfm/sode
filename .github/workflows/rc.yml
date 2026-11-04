@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           git branch -r --contains "$GITHUB_SHA" | grep -Eq '^\s*origin/(main|release/[0-9]+\.[0-9]+)$' \
             || { echo "::error::$GITHUB_REF_NAME is not on main or a release/X.Y branch"; exit 1; }
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Tests, and the tag matches version.go, README and CHANGELOG
@@ -45,8 +45,8 @@ jobs:
           go test ./...
           node --test 'web/test/*.test.mjs'
           SODE_RELEASE_TAG="$GITHUB_REF_NAME" go test ./internal/app -run TestVersionNoted -count=1
-      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ghcr.io
@@ -90,7 +90,7 @@ jobs:
           docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD \
             ghcr.io/aquasecurity/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e \
             image --severity CRITICAL --exit-code 1 --ignore-unfixed "$IMAGE@$DIGEST"
-      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
