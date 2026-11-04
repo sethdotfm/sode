@@ -454,6 +454,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				}
 			}
 		}
+		if len(out) == 0 && cur.Locks.Any() {
+			// The locks are Settings > Access fields now, not part of this save.
+			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
+		}
 		cur.Users = out
 		return nil
 	})

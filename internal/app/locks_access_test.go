@@ -137,3 +137,17 @@ func TestLockNeedsUserAndPin(t *testing.T) {
 		t.Fatalf("lock without a settings PIN: %v", err)
 	}
 }
+
+// Removing the last user while a lock is on says what to do (the locks are
+// Settings > Access fields, not part of the users save).
+func TestRemoveLastUserWhileLockedSaysWhy(t *testing.T) {
+	a := userApp(t, true)
+	admin := &client{ip: "10.0.0.9"}
+	if err := a.Unlock(admin, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	err := a.SaveUsers(admin, usersReq{Users: nil})
+	if err == nil || !strings.Contains(err.Error(), "Settings > Access") {
+		t.Fatalf("want a message pointing at Settings > Access, got %v", err)
+	}
+}
