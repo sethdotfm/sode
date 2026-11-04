@@ -1,0 +1,41 @@
+{
+  "about": "Shared by web/test/presets.test.mjs (web/presetstore.js) and, meant for, the Go tests of internal/config/presets.go. A preset is checked as the browser sends it: names trimmed, levels sorted and unique, destinations unique. 'ok' says whether it may be saved. 'gen' builds the items: item i is { src: i, dsts: perItem numbers from i*perItem up, levels: [1] }. In 'lists', 'fill' builds a list of presets named s0, s1, ... whose items are { src: i, dsts: [i], levels: [1] }.",
+  "presets": [
+    { "name": "one take", "preset": { "name": "Show", "items": [{ "src": 1, "dsts": [2], "levels": [] }] }, "ok": true },
+    { "name": "empty name", "preset": { "name": "", "items": [{ "src": 1, "dsts": [2], "levels": [] }] }, "ok": false },
+    { "name": "name of 32", "preset": { "name": "12345678901234567890123456789012", "items": [{ "src": 1, "dsts": [2], "levels": [] }] }, "ok": true },
+    { "name": "name of 33", "preset": { "name": "123456789012345678901234567890123", "items": [{ "src": 1, "dsts": [2], "levels": [] }] }, "ok": false },
+    { "name": "no takes", "preset": { "name": "x", "items": [] }, "ok": false },
+    { "name": "source 0xFFFE", "preset": { "name": "x", "items": [{ "src": 65534, "dsts": [0], "levels": [] }] }, "ok": true },
+    { "name": "source 0xFFFF", "preset": { "name": "x", "items": [{ "src": 65535, "dsts": [0], "levels": [] }] }, "ok": false },
+    { "name": "source -1", "preset": { "name": "x", "items": [{ "src": -1, "dsts": [0], "levels": [] }] }, "ok": false },
+    { "name": "destination 0xFFFE", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [65534], "levels": [] }] }, "ok": true },
+    { "name": "destination 0xFFFF", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [65535], "levels": [] }] }, "ok": false },
+    { "name": "destination -1", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [-1], "levels": [] }] }, "ok": false },
+    { "name": "no destinations", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [], "levels": [] }] }, "ok": false },
+    { "name": "levels 1 and 64", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [0], "levels": [1, 64] }] }, "ok": true },
+    { "name": "level 0", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [0], "levels": [0, 1] }] }, "ok": false },
+    { "name": "level 65", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [0], "levels": [1, 65] }] }, "ok": false },
+    { "name": "100 sources, 2 destinations each", "preset": { "name": "x", "gen": { "items": 100, "perItem": 2 } }, "ok": true },
+    { "name": "101 sources", "preset": { "name": "x", "gen": { "items": 101, "perItem": 1 } }, "ok": false },
+    { "name": "100 destinations for one source", "preset": { "name": "x", "gen": { "items": 1, "perItem": 100 } }, "ok": true },
+    { "name": "101 destinations for one source", "preset": { "name": "x", "gen": { "items": 1, "perItem": 101 } }, "ok": false },
+    { "name": "201 destinations in total", "preset": { "name": "x", "gen": { "items": 3, "perItem": 67 } }, "ok": false },
+    { "name": "two sources to one destination, default levels", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [1], "levels": [] }, { "src": 2, "dsts": [1], "levels": [1] }] }, "ok": false },
+    { "name": "two sources to one destination, overlapping levels", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [1], "levels": [1, 2] }, { "src": 2, "dsts": [1], "levels": [2, 3] }] }, "ok": false },
+    { "name": "two sources to one destination, disjoint levels", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [1], "levels": [1, 2] }, { "src": 2, "dsts": [1], "levels": [3, 4] }] }, "ok": true },
+    { "name": "the same source twice", "preset": { "name": "x", "items": [{ "src": 0, "dsts": [1], "levels": [] }, { "src": 0, "dsts": [1], "levels": [] }] }, "ok": true }
+  ],
+  "lists": [
+    { "name": "30 presets", "fill": { "presets": 30, "items": 3 }, "ok": true },
+    { "name": "31 presets", "fill": { "presets": 31, "items": 1 }, "ok": false },
+    { "name": "5 big presets, under 48 KiB", "fill": { "presets": 5, "items": 100 }, "ok": true },
+    { "name": "30 big presets, over 48 KiB", "fill": { "presets": 30, "items": 100 }, "ok": false }
+  ],
+  "norm": [
+    { "in": { "name": " A ", "items": [{ "src": "2", "dsts": [1, 1, "x", 3], "levels": [3, 1, 3] }] },
+      "out": { "name": "A", "items": [{ "src": 2, "dsts": [1, 3], "levels": [1, 3] }] } },
+    { "in": { "name": "B", "items": [{ "dsts": [-4], "levels": [0] }] },
+      "out": { "name": "B", "items": [{ "src": -1, "dsts": [-4], "levels": [0] }] } }
+  ]
+}

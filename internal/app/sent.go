@@ -38,7 +38,7 @@ func (a *App) logEvent(e Sent) {
 
 // command logs something a browser asked for.
 func (a *App) command(c *client, why, result, note string, err error) {
-	e := event(kindCommand, why, c.ip, result)
+	e := event(kindCommand, why, c.who(), result)
 	e.Note = note
 	if err != nil {
 		e.Err = err.Error()
@@ -112,6 +112,14 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	if len(ev.Msg) > 0 {
 		e.Cmd = int(ev.Msg[0])
 	}
+	switch {
+	case q.Kind == "salvoStage":
+		e.Note = fmt.Sprintf("salvo %d", q.Group)
+	case q.Kind == "salvoGo" && q.Clear:
+		e.Note = fmt.Sprintf("salvo %d: clear", q.Group)
+	case q.Kind == "salvoGo":
+		e.Note = fmt.Sprintf("salvo %d: set", q.Group)
+	}
 	if ev.Why.Reason == swp08.ReasonKeepalive {
 		// A link check, not a question about a route: whatever it asks
 		// about is beside the point.
@@ -149,16 +157,12 @@ func (a *App) broadcastSent(es []Sent) {
 }
 
 // sentHistory answers a /log page's request for entries older than seq
-// before (-1: the newest) and from then on sends it new ones.
+// before (-1: the newest). The read loop has subscribed c to new ones already,
+// in the step that checked the log lock (policy.go).
 func (a *App) sentHistory(c *client, before int64, n int) {
 	if n <= 0 || n > sentPage {
 		n = sentPage
 	}
-	// Subscribe first: an entry logged between the read and the subscribe
-	// would be missed, one in both is dropped by the page (by seq).
-	a.mu.Lock()
-	c.sent = true
-	a.mu.Unlock()
 	page, more, err := a.sent.Page(before, n)
 	if err != nil {
 		log.Printf("sent log: %v", err)

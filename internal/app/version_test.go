@@ -22,6 +22,18 @@ func TestVersionNoted(t *testing.T) {
 	if !regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(want) + `$`).Match(readme) {
 		t.Errorf("README.md needs the line %q (bump it with version.go)", want)
 	}
+	// CHANGELOG.md has a section for this version, and a release is no longer
+	// "(unreleased)".
+	if log, err := os.ReadFile("../../CHANGELOG.md"); err == nil {
+		heading := "## " + VersionLabel()
+		m := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(heading) + `( \(unreleased\))?$`).FindSubmatch(log)
+		switch {
+		case m == nil:
+			t.Errorf("CHANGELOG.md needs a %q section (or %q)", heading, heading+" (unreleased)")
+		case len(m[1]) > 0 && os.Getenv("SODE_RELEASE_TAG") != "":
+			t.Errorf("CHANGELOG.md still says %q: a release is no longer unreleased", heading+" (unreleased)")
+		}
+	}
 	if tag := os.Getenv("SODE_RELEASE_TAG"); tag != "" && tag != "v"+Version {
 		t.Errorf("release tag %q doesn't match version.go (v%s): bump Version first", tag, Version)
 	}

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -145,5 +146,23 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	if cl.pin != got.SettingsPin {
 		t.Fatal("unlock lost")
+	}
+}
+
+// A Settings form from a page that predates deviceDefaults carries none, and
+// must not zero everyone's defaults; one that carries them may change them.
+func TestConfigMsgSaysWhetherDefaultsWereSent(t *testing.T) {
+	var with, without inMsg
+	if err := json.Unmarshal([]byte(`{"t":"config","config":{"router":"1.2.3.4:9","deviceDefaults":{"theme":"dark"}}}`), &with); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(`{"t":"config","config":{"router":"1.2.3.4:9"}}`), &without); err != nil {
+		t.Fatal(err)
+	}
+	if !with.Config.hasDefaults || with.Config.Router != "1.2.3.4:9" || with.Config.DeviceDefaults.Theme != "dark" {
+		t.Errorf("with defaults: %+v", with.Config)
+	}
+	if without.Config.hasDefaults || without.Config.Router != "1.2.3.4:9" {
+		t.Errorf("without defaults: %+v", without.Config)
 	}
 }

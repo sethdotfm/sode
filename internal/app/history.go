@@ -35,6 +35,7 @@ type Entry struct {
 	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
 	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
 	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
+	Preset  string    `json:"preset,omitempty"`  // name of the preset this take was fired from (browser-supplied, cleaned); older files call it "salvo"
 	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
 	// ext only: group ID of the multi-take confirm this seems to follow; never one of its takes in particular
 	FollowGroup string `json:"followGroup,omitempty"`
@@ -260,15 +261,6 @@ func (h *History) Clear() error {
 	return h.f.Truncate(0)
 }
 
-func (h *History) Len() int {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.f == nil {
-		return len(h.mem)
-	}
-	return len(h.offs)
-}
-
 // Page returns up to n entries older than ID before, newest first.
 // before < 0 means from the newest. A page that ends inside a group runs
 // on to the end of it, so a confirm's takes come back together.
@@ -314,4 +306,21 @@ func (h *History) at(id int) (Entry, error) {
 		return Entry{}, fmt.Errorf("history entry %d: %w", id, err)
 	}
 	return e, nil
+}
+
+// UnmarshalJSON reads an entry, taking the preset's name from "salvo" where
+// an older history file wrote it under that key.
+func (e *Entry) UnmarshalJSON(b []byte) error {
+	type plain Entry
+	aux := struct {
+		*plain
+		Salvo string `json:"salvo"`
+	}{plain: (*plain)(e)}
+	if err := json.Unmarshal(b, &aux); err != nil {
+		return err
+	}
+	if e.Preset == "" {
+		e.Preset = aux.Salvo
+	}
+	return nil
 }

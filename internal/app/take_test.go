@@ -24,8 +24,33 @@ func TestWaiterAlreadyRouted(t *testing.T) {
 	if !w.closed {
 		t.Fatal("not finished")
 	}
-	if w.levels[0].already || !w.levels[1].already {
-		t.Fatalf("already = %v, %v, want only level 1", w.levels[0].already, w.levels[1].already)
+	if w.levels[0].already() || !w.levels[1].already() {
+		t.Fatalf("already = %v, %v, want only level 1", w.levels[0].already(), w.levels[1].already())
+	}
+}
+
+// How a level was confirmed is decided once, when the answer arrives.
+func TestConfirmedByIsDecidedOnce(t *testing.T) {
+	w := &waiter{dst: 9, src: 2, done: make(chan struct{}), levels: []*takeLevel{
+		{wire: 0},                           // sequential, announced
+		{wire: 1},                           // sequential, already there
+		{wire: 2, native: true},             // staged, router had it elsewhere
+		{wire: 3, native: true, same: true}, // staged, already there
+	}}
+	w.see(swp08.Crosspoint{Level: 0, Dst: 9, Src: 2, Cmd: swp08.CmdExtConnected})
+	w.see(swp08.Crosspoint{Level: 1, Dst: 9, Src: 2, Cmd: swp08.CmdExtTally})
+	w.see(swp08.Crosspoint{Level: 2, Dst: 9, Src: 2, Cmd: swp08.CmdExtTally})
+	w.see(swp08.Crosspoint{Level: 3, Dst: 9, Src: 2, Cmd: swp08.CmdExtTally})
+	want := []confirmedBy{byConnected, byTallyAlready, byTally, byTallyAlready}
+	for i, l := range w.levels {
+		if l.by != want[i] {
+			t.Errorf("level %d: by = %d, want %d", i, l.by, want[i])
+		}
+	}
+	// Un-staging after the answer (a fallback) must not change what was said.
+	w.levels[2].native = false
+	if w.levels[2].already() || !w.levels[2].tallied() {
+		t.Error("clearing native moved a confirmed level")
 	}
 }
 
@@ -44,6 +69,7 @@ type fakeRouter struct {
 	n      int
 	whys   []sentWhy // every message's reason, in order
 	out    chan []byte
+	salvo  fakeSalvo // group salvos (fire_test.go)
 }
 
 type sentWhy struct {
@@ -127,6 +153,8 @@ func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
 			src = 0xFFFF
 		}
 		f.out <- swp08.ExtTally(int(m[1]), l, dst, src)
+	case swp08.CmdConnectOnGo, swp08.CmdGoSalvo:
+		f.salvoMsg(m)
 	}
 	return nil
 }

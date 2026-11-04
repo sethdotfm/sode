@@ -96,6 +96,7 @@ type Event struct {
 	Crosspoints []Crosspoint
 	Protects    []Protect
 	Names       *NameBlock
+	Salvo       *SalvoAck // 122 or 123
 }
 
 func ExtInterrogate(matrix, level, dst int) []byte {
@@ -155,15 +156,17 @@ func NamesReq(dest, ext bool, matrix, level int, lenCode byte) []byte {
 // Request describes an outgoing message for the sent log. Fields it
 // doesn't carry are -1.
 type Request struct {
-	Kind          string // connect, interrogate, tallyDump, protectDump, srcNames, dstNames, other
+	Kind          string // connect, interrogate, tallyDump, protectDump, srcNames, dstNames, salvoStage, salvoGo, other
 	Matrix, Level int
 	Dst, Src      int
+	Group         int  // salvoStage, salvoGo: the salvo group; else -1
+	Clear         bool // salvoGo: clear the group rather than set it
 }
 
 // DescribeTx decodes a message Sode sends. Unknown or short ones are kind
 // other.
 func DescribeTx(m []byte) Request {
-	r := Request{Kind: "other", Matrix: -1, Level: -1, Dst: -1, Src: -1}
+	r := Request{Kind: "other", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: -1}
 	if len(m) == 0 {
 		return r
 	}
@@ -171,21 +174,26 @@ func DescribeTx(m []byte) Request {
 	word := func(i int) int { return int(d[i])<<8 | int(d[i+1]) }
 	switch {
 	case m[0] == CmdExtConnect && len(d) >= 6:
-		r = Request{Kind: "connect", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: word(4)}
+		r = Request{Kind: "connect", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: word(4), Group: -1}
+	case m[0] == CmdConnectOnGo && len(d) >= 5:
+		x := stagedOf(d)
+		r = Request{Kind: "salvoStage", Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group}
+	case m[0] == CmdGoSalvo && len(d) >= 2:
+		r = Request{Kind: "salvoGo", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: int(d[1] & 0x7f), Clear: d[0] == 1}
 	case m[0] == CmdExtInterrogate && len(d) >= 4:
-		r = Request{Kind: "interrogate", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1}
+		r = Request{Kind: "interrogate", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1}
 	case m[0] == CmdExtTallyDumpReq && len(d) >= 2:
-		r = Request{Kind: "tallyDump", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1}
+		r = Request{Kind: "tallyDump", Matrix: int(d[0]), Level: int(d[1]), Dst: -1, Src: -1, Group: -1}
 	case m[0] == CmdExtProtectDumpReq && len(d) >= 4:
-		r = Request{Kind: "protectDump", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1}
+		r = Request{Kind: "protectDump", Matrix: int(d[0]), Level: int(d[1]), Dst: word(2), Src: -1, Group: -1}
 	// Names aren't per level, whatever the request's level byte says.
 	case (m[0] == CmdExtSrcNamesReq || m[0] == CmdExtDstNamesReq) && len(d) >= 2:
-		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: -1, Dst: -1, Src: -1}
+		r = Request{Kind: "srcNames", Matrix: int(d[0]), Level: -1, Dst: -1, Src: -1, Group: -1}
 		if m[0] == CmdExtDstNamesReq {
 			r.Kind = "dstNames"
 		}
 	case (m[0] == CmdSrcNamesReq || m[0] == CmdDstNamesReq) && len(d) >= 1:
-		r = Request{Kind: "srcNames", Matrix: int(d[0] >> 4), Level: -1, Dst: -1, Src: -1}
+		r = Request{Kind: "srcNames", Matrix: int(d[0] >> 4), Level: -1, Dst: -1, Src: -1, Group: -1}
 		if m[0] == CmdDstNamesReq {
 			r.Kind = "dstNames"
 		}
@@ -332,6 +340,19 @@ func Parse(msg []byte) (Event, error) {
 		nb, err := names(msg[0] == CmdDstNames, int(d[0]>>4), int(d[0]&0x0f), d[1:])
 		ev.Names = nb
 		return ev, err
+
+	case CmdConnectOnGoAck:
+		if err := short(5); err != nil {
+			return ev, err
+		}
+		x := stagedOf(d)
+		ev.Salvo = &SalvoAck{Cmd: msg[0], Matrix: x.Matrix, Level: x.Level, Dst: x.Dst, Src: x.Src, Group: x.Group, Status: -1}
+
+	case CmdGoDoneAck:
+		if err := short(2); err != nil {
+			return ev, err
+		}
+		ev.Salvo = &SalvoAck{Cmd: msg[0], Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: int(d[1] & 0x7f), Status: int(d[0])}
 
 	case CmdExtSrcNames, CmdExtDstNames:
 		if err := short(6); err != nil {

@@ -222,6 +222,14 @@
   text-overflow: ellipsis;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
+/* Who made a take, when it was a configured user. */
+.sode__hist-by {
+  color: var(--pb-text-muted);
+  flex: none;
+  font-size: var(--pb-text-xs);
+  white-space: nowrap;
+}
+.sode-m__recent-route > .sode__hist-by { display: block; }
 /* Below 1000px from → to always gets the room: a row's status is its
    color alone (the text on hover, and still read out), and its level bar
    moves into the Before panel. A group's takes each have their own. */
@@ -523,3 +531,25 @@
   margin: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) 0;
   padding: 0 var(--pb-space-1) 0 var(--pb-space-2);
 }
+
+/* Presets: buttons above Recent, and the editor dialog. */
+.sode__presets { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); margin: var(--pb-space-3) 0; }
+.sode__scrim > .sode__presets-dlg { width: 44rem; }
+.sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
+.sode__preset-row { align-items: center; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
+.sode__preset-row > .pb-input { min-width: 0; }
+.sode__preset-hint { grid-column: 1 / -1; overflow-wrap: anywhere; }
+@media (max-width: 599.98px) {
+  .sode__scrim > .sode__presets-dlg { min-width: 0; width: 100%; }
+  .sode__preset-row { grid-template-columns: 1fr 1fr; }
+  .sode__presets { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sode__presets > .sode__set, .sode__presets > .pb-btn { flex: none; }
+}
+.sode__preset-pop { display: flex; flex-direction: column; }
+.sode__preset-list { display: flex; flex-direction: column; margin-top: var(--pb-space-3); max-height: 50vh; overflow-y: auto; }
+.sode__preset-item { align-items: center; border-left: var(--sode-side-w) solid transparent; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); justify-content: space-between; padding: var(--pb-space-2); }
+.sode__preset-item.is-hi { background: var(--pb-surface-sunken); border-left-color: var(--pb-accent); }
+.sode__preset-main { background: none; border: 0; color: inherit; cursor: pointer; flex: 1; font: inherit; min-width: 0; overflow-wrap: anywhere; padding: 0; text-align: left; }
+.sode__preset-tools { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
+[data-pb-layout="phone"] .sode__scrim > .sode__preset-pop { height: 100%; max-height: none; }
+[data-pb-layout="phone"] .sode__preset-list { max-height: none; }

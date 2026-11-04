@@ -320,6 +320,33 @@ html { font-size: 125%; }
   top: var(--sode-down-h, 0px);
   z-index: 1;
 }
+/* Settings search above the sections: hits list under the box, floating
+   over the sections strip on a narrow screen. */
+.sode__find { background: var(--pb-surface-base); position: relative; }
+.sode__find .pb-input { width: 100%; }
+.sode__found {
+  background: var(--pb-surface-high);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  list-style: none;
+  margin: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0;
+  position: absolute;
+  inset-inline: 0;
+  z-index: 2;
+}
+.sode__found li { cursor: pointer; display: flex; flex-direction: column; padding: var(--pb-space-2) var(--pb-space-3); }
+.sode__found li[aria-selected="true"] { border-inline-start: var(--pb-accent-bar-w) solid var(--pb-accent); color: var(--pb-accent); }
+.sode__found .sode__hint { display: block; }
+/* The found section or setting: an accent outline and tint; both go when the flash ends. */
+.sode__is-found {
+  background: color-mix(in srgb, var(--pb-accent) 14%, transparent);
+  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+  outline-offset: var(--pb-space-1);
+}
+.sode__open-log { display: none; }
+.sode__settings[data-locked] > .sode__open-log { display: block; }
 .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px)); }
 [data-layout="phone"] .sode__toc { display: none; }
 @media (min-width: 68.75rem) {
@@ -333,6 +360,7 @@ html { font-size: 125%; }
     width: 12.5rem;
   }
   .sode__toc .pb-tab { text-align: left; }
+  .sode__toc nav { border-bottom: 0; flex-direction: column; overflow-x: hidden; }
   .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px)); }
 }
 .sode__settings-head {
@@ -407,6 +435,10 @@ html { font-size: 125%; }
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,
 .sode__field .pb-select-wrap { width: 100%; }
+/* Number stepper (#166): the down arrow is ::before, so the relatively
+   positioned input painted over it. Lift both glyphs above the input. */
+.pb-number-wrap::before,
+.pb-number-wrap::after { z-index: 1; }
 /* Level colors: one row per level, its slot as a live preview. */
 .sode__colors {
   display: grid;

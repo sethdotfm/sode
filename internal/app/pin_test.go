@@ -66,7 +66,7 @@ func TestFilterSetsPin(t *testing.T) {
 func TestSettingsPin(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}
-	if a.locked(c) || a.Unlock(c, "") != nil {
+	if !a.settingsUnlocked(c) || a.Unlock(c, "") != nil {
 		t.Fatal("no PIN set: should be open")
 	}
 	if err := a.SaveSettings(c, a.r().cfg, "12", false); err == nil {
@@ -76,21 +76,21 @@ func TestSettingsPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Unlocking (or just being open) before the PIN existed doesn't count.
-	if !a.locked(c) {
+	if a.settingsUnlocked(c) {
 		t.Fatal("PIN set: should be locked")
 	}
 	if err := a.SaveSettings(c, a.r().cfg, "", false); !errors.Is(err, errLocked) {
 		t.Fatalf("locked save: %v", err)
 	}
-	if a.Unlock(c, "2468") != nil || a.locked(c) {
+	if a.Unlock(c, "2468") != nil || !a.settingsUnlocked(c) {
 		t.Fatal("right PIN refused")
 	}
 	// A save from the browser (no hash in its JSON) keeps the PIN.
-	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil || a.r().cfg.SettingsPin == "" || a.locked(c) {
+	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil || a.r().cfg.SettingsPin == "" || !a.settingsUnlocked(c) {
 		t.Fatalf("PIN lost on save: %v", err)
 	}
 	a.Lock(c)
-	if !a.locked(c) {
+	if a.settingsUnlocked(c) {
 		t.Fatal("lock didn't lock")
 	}
 	if a.Unlock(c, "0000") == nil {
@@ -102,7 +102,7 @@ func TestSettingsPin(t *testing.T) {
 	if a.Unlock(c, "2468") != nil {
 		t.Fatal("right PIN refused")
 	}
-	if err := a.SaveSettings(c, a.r().cfg, "", true); err != nil || a.locked(c) {
+	if err := a.SaveSettings(c, a.r().cfg, "", true); err != nil || !a.settingsUnlocked(c) {
 		t.Fatalf("clearing the PIN: %v", err)
 	}
 }
@@ -178,7 +178,7 @@ func TestPinChangeRelocks(t *testing.T) {
 	if err := a.SaveSettings(admin, a.r().cfg, "2222", false); err != nil {
 		t.Fatal(err)
 	}
-	if !a.locked(c) {
+	if a.settingsUnlocked(c) {
 		t.Fatal("unlock under the old PIN survived a change")
 	}
 	// Removing the PIN and setting the same one again still relocks.
@@ -194,7 +194,7 @@ func TestPinChangeRelocks(t *testing.T) {
 	if err := a.SaveSettings(admin, a.r().cfg, "2222", false); err != nil {
 		t.Fatal(err)
 	}
-	if !a.locked(c) {
+	if a.settingsUnlocked(c) {
 		t.Fatal("unlock with no PIN survived a PIN being set")
 	}
 }
