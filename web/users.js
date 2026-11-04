@@ -54,7 +54,7 @@ const number = (id) => {
   return i;
 };
 
-const rows = el('div', 'sode__fields');
+const rows = el('div', 'sode__users-list');
 const lockMain = check('Lock main screen');
 const lockLog = check('Lock Communication Log');
 const autoInput = number('usr-auto');
@@ -235,6 +235,14 @@ function closeUsers() {
 }
 manage.addEventListener('click', openUsers);
 trapDialog(root, dialog, closeUsers);
+// Esc closes the dialog wherever focus is (the trap only hears keys from
+// inside it), and never reaches Settings behind it.
+document.addEventListener('keydown', (e) => {
+  if (!isOpen || e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  closeUsers();
+}, true);
 // The page locking takes the dialog with it, edits and all.
 on('locking', () => { if (isOpen) { edited = false; closeUsers(); } });
 
