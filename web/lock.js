@@ -19,8 +19,8 @@
 // enforced, and a reload clears it.
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
-import { readStr, writeStr } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock } from './lockrules.js';
+import { readStr, writeStr, readTab, writeTab } from './store.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
@@ -28,6 +28,9 @@ import { buildChip } from './lockchip.js';
 // the socket's `hi` carries it, no HTTP endpoint is needed, and a cookie
 // would be JS-readable just the same unless HttpOnly (see AGENTS.md).
 const TOKEN_KEY = 'sode-session';
+// A no-lock login's token: this tab only (sessionStorage), so closing the tab
+// logs out while a reload or reconnect stays in.
+const TAB_KEY = 'sode-tab-session';
 const page = pageType(location.pathname);
 
 {
@@ -45,7 +48,7 @@ let hiFor = null; // the socket `hi` was sent on
 on('conn', () => {
   if (S.wsState !== 'up' || S.ws === hiFor) return;
   hiFor = S.ws;
-  wsSend({ t: 'hi', page, token: readStr(TOKEN_KEY) || '' });
+  wsSend({ t: 'hi', page, token: hiToken(readTab(TAB_KEY), readStr(TOKEN_KEY)) });
 });
 
 // Keys of the removed admin-browser sign-in: drop what an older page left.
@@ -57,6 +60,8 @@ writeStr('sode-lock-never', null);
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
 let padBody, softBody, softKey, softBtn, softNote;
+let login = false; // the pad is up by request (no lock on), dismissable
+let cancelBtn;
 let soft = null; // { key, lock } while the screen is locked by hand (no PIN lock on)
 let lastSoftKey = '';
 let pin = '';
@@ -95,7 +100,11 @@ function build() {
     checkKey,
   );
 
-  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad);
+  cancelBtn = el('button', 'pb-btn pb-btn--outline', 'Cancel');
+  cancelBtn.type = 'button';
+  cancelBtn.hidden = true;
+  cancelBtn.addEventListener('click', cancelLogin);
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn);
 
   // The hand lock's body: the churning letter and, for a touch screen, a button.
   softKey = el('kbd', 'sode__key sode__key--locked');
@@ -127,7 +136,7 @@ function say(text, bad = false) {
 }
 
 function render() {
-  const covered = (L.enforced && L.locked) || !!soft;
+  const covered = (L.enforced && L.locked) || !!soft || login;
   const showChip = !covered; // always there, even where no lock is on
   if (covered) showLock();
   else hideLock();
@@ -173,6 +182,7 @@ let scrolled = null; // where the page was when the lock came down
 function showLock() {
   build();
   padBody.hidden = !!soft; // the PIN pad, or the hand lock's letter
+  cancelBtn.hidden = !login;
   softBody.hidden = !soft;
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
@@ -194,7 +204,7 @@ function showLock() {
   moveBrand('in');
   void root.offsetWidth; // commit the start before the class changes it
   root.classList.add('is-on');
-  closeModals();
+  if (!login) closeModals(); // a requested login keeps Settings open behind it
   inerted = [];
   for (const c of document.body.children) inert(c);
   // Anything added to the page while locked is covered too.
@@ -326,7 +336,7 @@ function press(k) {
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend({ t: 'userUnlock', pin, id })) return say('Not connected to Sode.', true);
+  if (!wsSend({ t: 'userUnlock', pin, id, tab: wantsTab(L) })) return say('Not connected to Sode.', true);
   say('Checking…');
 }
 
@@ -335,7 +345,10 @@ onMsg('userUnlockResult', (m) => {
   if (m.ok) {
     pin = '';
     say('');
-    if (m.token) writeStr(TOKEN_KEY, m.token); // a persistent user: keep the session
+    if (m.token) { // keep the session: a tab login in this tab, a persistent user's in the browser
+      if (tokenHome(m) === 'tab') writeTab(TAB_KEY, m.token);
+      else writeStr(TOKEN_KEY, m.token);
+    }
     return; // lockState follows
   }
   pin = '';
@@ -354,7 +367,7 @@ onMsg('session', (m) => {
 
 onMsg('lockState', (m) => {
   if (settle) settle(); // a welcome still showing: finish it first
-  const was = L.enforced && L.locked;
+  const was = (L.enforced && L.locked) || login;
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.user = m.user || '';
@@ -370,10 +383,14 @@ onMsg('lockState', (m) => {
   // for another reason (someone else saved settings) says nothing about it.
   // A token the server no longer honors (PIN changed, user removed or no
   // longer persistent, or revoked elsewhere) is forgotten.
-  if (m.hi && !L.user && readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
+  if (m.hi && !L.user) {
+    if (readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
+    if (readTab(TAB_KEY)) writeTab(TAB_KEY, null);
+  }
   const done = () => {
     settle = null;
     welcoming = false;
+    if (L.user || L.enforced) login = false;
     render();
     emit('access', { ...L });
     // A page that asked for something while locked asks again (log.js).
@@ -394,6 +411,20 @@ onMsg('lockState', (m) => {
 
 // Settings' Account block: log out and change PIN.
 on('logout', () => lockNow());
+
+// Settings' Log in button (users exist, no lock on): the PIN pad, with Cancel.
+on('login', () => {
+  if (!loginOffered(L) || login || soft) return;
+  login = true;
+  render();
+});
+
+function cancelLogin() {
+  if (!login) return;
+  login = false;
+  clearTimeout(timer);
+  render();
+}
 
 // ---- the hand lock (no PIN lock on this page)
 
@@ -429,10 +460,11 @@ on('softLock', softLock);
 // Lock and Log out both end the session: the server forgets the unlock and
 // revokes the token (so a reload cannot undo it), and this page forgets it.
 function lockNow() {
-  if (!L.enforced || !L.user) return;
+  if (!L.user) return;
   writeStr(TOKEN_KEY, null);
+  writeTab(TAB_KEY, null);
   wsSend({ t: 'userLock' });
-  L.locked = true;
+  L.locked = L.enforced;
   L.user = '';
   L.trusted = false;
   L.persistent = false;
@@ -455,6 +487,12 @@ document.addEventListener('keydown', (e) => {
   }
   if (root && !root.hidden && root.classList.contains('is-on')) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (login && e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelLogin();
+      return;
+    }
     const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
     if (k === 'enter' && e.target.closest?.('button')) return; // a focused key presses itself
     if (k) {

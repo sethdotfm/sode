@@ -34,6 +34,7 @@ type tokenRec struct {
 	User string    `json:"user"` // the user it was issued to
 	Pin  string    `json:"pin"`  // that user's PIN hash then
 	At   time.Time `json:"at"`
+	Tab  bool      `json:"tab,omitempty"` // a no-lock login: for a user who is not persistent, kept by one browser tab
 }
 
 // perUserTokens caps tokens per user (one per browser), so the file can't
@@ -108,7 +109,7 @@ func (s *tokenStore) save() {
 // the old PIN again.
 func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 	u, ok := cfg.FindUser(r.User)
-	return u, ok && u.Persistent && u.Pin == r.Pin && time.Since(r.At) < tokenMaxAge
+	return u, ok && (u.Persistent || r.Tab) && u.Pin == r.Pin && time.Since(r.At) < tokenMaxAge
 }
 
 // prune deletes every record that is invalid against cfg and rewrites the
@@ -185,7 +186,7 @@ func (s *tokenStore) user(t string, cfg config.Config) (config.User, bool) {
 
 // issue makes a token for u. Tokens that are dead against cfg are dropped
 // here, and u's oldest if it would have more than perUserTokens.
-func (s *tokenStore) issue(u config.User, cfg config.Config) string {
+func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	t := base64.RawURLEncoding.EncodeToString(b)
@@ -211,7 +212,7 @@ func (s *tokenStore) issue(u config.User, cfg config.Config) string {
 		}
 		delete(s.toks, oldest)
 	}
-	s.toks[tokenKey(t)] = tokenRec{User: u.Name, Pin: u.Pin, At: time.Now()}
+	s.toks[tokenKey(t)] = tokenRec{User: u.Name, Pin: u.Pin, At: time.Now(), Tab: tab}
 	s.save()
 	return t
 }

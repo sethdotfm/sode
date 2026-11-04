@@ -237,17 +237,32 @@ func (a *App) SignOutAll(c *client, name string) error {
 // issueSession gives c's persistent user a session token (the page keeps it
 // and presents it in hi). Disk I/O, so never under mu. It returns "" for a
 // user who is not persistent.
-func (a *App) issueSession(c *client) string {
+func (a *App) issueSession(c *client) string { return a.issueSessionTab(c, false) }
+
+// issueSessionTab is issueSession; tab asks for a no-lock login's token for a
+// user who is not persistent (only where c's page has no lock on). It is
+// marked tab in the store and the page keeps it in sessionStorage.
+func (a *App) issueSessionTab(c *client, tab bool) string {
 	who := c.u.user.Load()
 	cfg := a.r().cfg
 	if who == nil {
 		return ""
 	}
 	u, ok := cfg.FindUser(who.Name)
-	if !ok || !u.Persistent || u.Pin != who.Pin {
+	if !ok || u.Pin != who.Pin {
 		return ""
 	}
-	t := a.tokens.issue(u, cfg)
+	if !u.Persistent {
+		a.mu.Lock()
+		page := c.u.page
+		a.mu.Unlock()
+		if !tab || pageGates[page].on(cfg.Locks) {
+			return ""
+		}
+	} else {
+		tab = false // a persistent user's token is the ordinary one
+	}
+	t := a.tokens.issue(u, cfg, tab)
 	a.mu.Lock()
 	// Locked while the file was written, or already given a good token by a
 	// racing call (an unlock and a settings save can overlap): this one is
@@ -447,6 +462,7 @@ type userResult struct {
 	ID    int    `json:"id"`
 	Err   string `json:"err,omitempty"`
 	Token string `json:"token,omitempty"`
+	Tab   bool   `json:"tab,omitempty"` // Token is a no-lock login's: for this tab only
 }
 
 // serveUsers handles the access messages from the read loop. Unlocks run in
@@ -464,7 +480,10 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 			a.command(c, "userUnlock", "refused", "", err)
 		} else {
 			a.command(c, "userUnlock", "ok", "", nil)
-			if res.Token = a.issueSession(c); res.Token != "" {
+			if res.Token = a.issueSessionTab(c, m.Tab); res.Token != "" {
+				if us, _ := a.r().cfg.FindUser(c.who()); !us.Persistent {
+					res.Tab = true
+				}
 				a.mu.Lock()
 				a.syncAccessLocked(c) // after the token, so the page's state is final
 				a.mu.Unlock()

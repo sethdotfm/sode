@@ -403,7 +403,8 @@ type inMsg struct {
 	FilterSets []config.FilterSet `json:"filterSets"`
 	Presets    []config.Preset    `json:"presets"`
 	Page       string             `json:"page"`  // hi: main | log
-	Token      string             `json:"token"` // hi: session token of a persistent user
+	Token      string             `json:"token"` // hi: session token of a persistent user or a tab login
+	Tab        bool               `json:"tab"`   // userUnlock: no lock on, wants a tab session token
 	Name       string             `json:"name"`  // userSignOutAll, profileSave, profileGet
 	Old        string             `json:"old"`
 	New        string             `json:"new"`

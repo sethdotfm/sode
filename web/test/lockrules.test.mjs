@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, wantsTab, hiToken, tokenHome,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -197,4 +197,22 @@ test('softIdleLock: idle past the auto-lock minutes, only where no PIN lock is o
   assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 0), false);
   assert.equal(softIdleLock({ enforced: false }, true, 0, idle, 5), false);
   assert.equal(softIdleLock({ enforced: true }, false, 0, idle, 5), false);
+});
+
+test('tab login: offered only with users, no lock and nobody in', () => {
+  assert.equal(loginOffered({ enforced: false, user: '', lens: [4] }), true);
+  assert.equal(loginOffered({ enforced: false, user: '', lens: [] }), false); // no users: nothing new
+  assert.equal(loginOffered({ enforced: true, user: '', lens: [4] }), false);
+  assert.equal(loginOffered({ enforced: false, user: 'Ana', lens: [4] }), false);
+  assert.equal(loginOffered({ enforced: false, user: '' }), false);
+});
+
+test('tab login: tokens', () => {
+  assert.equal(wantsTab({ enforced: false }), true);
+  assert.equal(wantsTab({ enforced: true }), false);
+  assert.equal(hiToken('t', 'p'), 't');
+  assert.equal(hiToken('', 'p'), 'p');
+  assert.equal(hiToken(null, null), '');
+  assert.equal(tokenHome({ tab: true }), 'tab');
+  assert.equal(tokenHome({}), 'browser');
 });

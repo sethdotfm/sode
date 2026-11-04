@@ -142,3 +142,21 @@ export function churnKey(last = '', rnd = Math.random) {
   do key = CHURN_KEYS[Math.floor(rnd() * CHURN_KEYS.length)]; while (key === last);
   return key;
 }
+
+// Log in with no lock on (the 1.6 "tab login"): users exist, this page has no
+// PIN lock, and nobody is logged in here. Settings > This device offers the
+// Log in button then; the pad it opens can be dismissed.
+export const loginOffered = (s) => !s.enforced && !s.user && (s.lens?.length || 0) > 0;
+
+// Whether an unlock sent now asks for a tab token (no lock on this page): the
+// server then keeps the user in for this tab only. A page with a lock on
+// never asks; its idle timer stays in charge.
+export const wantsTab = (s) => !s.enforced;
+
+// The session token a `hi` presents: this tab's own (sessionStorage) wins over
+// the browser's persistent one (localStorage); either may be empty.
+export const hiToken = (tab, persistent) => tab || persistent || '';
+
+// Where a token the server just issued is kept: a tab token in sessionStorage,
+// anything else (a persistent user's) in localStorage.
+export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');

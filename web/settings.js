@@ -15,7 +15,7 @@ import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
-import { guardedEdited } from './lockrules.js';
+import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
@@ -222,13 +222,16 @@ on('prefs', renderPrefs);
 
 // Account: only while logged in as a user (lock.js says so with 'access').
 on('access', (L) => {
-  $('account').hidden = !L.user;
-  $('account-name').textContent = L.user ? `Logged in as ${L.user}` : '';
+  $('account').hidden = !L.user && !loginOffered(L);
+  $('account-name').textContent = L.user ? `Logged in as ${L.user}` : 'Not logged in';
+  for (const id of ['account-pin', 'account-logout']) $(id).hidden = !L.user;
+  $('account-login').hidden = !!L.user;
   $('soft-lock').hidden = L.enforced; // a PIN lock has its own Lock and Log out
 });
 $('soft-lock-btn').addEventListener('click', () => emit('softLock'));
 $('account-pin').addEventListener('click', () => emit('changePin'));
 $('account-logout').addEventListener('click', () => emit('logout'));
+$('account-login').addEventListener('click', () => emit('login'));
 
 // ---- table of contents: one button per section, scrolling to it, with the
 // section in view marked. Wide screens pin it beside the column; narrow
