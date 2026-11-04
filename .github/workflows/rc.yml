@@ -90,7 +90,7 @@ jobs:
           docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD \
             ghcr.io/aquasecurity/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e \
             image --severity CRITICAL --exit-code 1 --ignore-unfixed "$IMAGE@$DIGEST"
-      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
