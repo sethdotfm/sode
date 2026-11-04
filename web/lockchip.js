@@ -20,7 +20,7 @@ const field = (id, label, auto) => {
 // api: { lock() }.
 export function buildChip(api) {
   const name = el('span', 'sode-lock__who-name');
-  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('lock'));
+  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock'));
   lockBtn.type = 'button';
   lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
   lockBtn.setAttribute('aria-label', 'Lock');

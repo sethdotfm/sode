@@ -2,7 +2,7 @@
 
 Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
-## Beta 1.5 (unreleased)
+## Beta 1.5.0 (unreleased)
 
 - **Presets** (#152, renamed from "salvos" in #162): saved multi-source/multi-destination takes as buttons above Recent, per browser or for everyone (Settings PIN). Ctrl+G / ⌘G opens a searchable popup; pinning, an editor, and one history folder per fire.
 - **Native fire mode** (#154): *Settings → Takes → Fire confirms of several takes* can send a multi-take confirm as one SW-P-08 group salvo (commands 120/121), about 4 ms apart on the Ultrix instead of ~16 ms. Falls back to one after another if the router doesn't acknowledge. New `fireMode` and `salvoGroup` settings.
@@ -11,10 +11,14 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - **Settings search**, and the **Grid** feature removed (#150).
 - Fuzzy **Next** steps through letters as well as digits ("Prmpt A" → "Prmpt B") (#149).
 - Small UI tweaks (#157), lock chip as plain text (#164), number stepper down arrow visible (#166), Presets popup keeps focus (#155, #156).
+- **Native fire** now stages level 17 and numbers past 1023 too, with the extended stage command (248/250), so every take of a confirm can ride one group salvo (#154). Not yet seen live through Sode.
+- **Users** moved out of the Settings page into their own dialog (Settings keeps a summary and a *Manage users…* button) and the layout is simpler (#165, #168).
+- The lock button's tooltip no longer runs off the screen (#167).
 - Security and sessions (found in review): a right user PIN no longer resets the shared wrong-PIN count (it is forgotten after an hour without a wrong one); a persistent user's session is renewed each time it is used or its page is still open, instead of expiring 90 days after login; the lock pad follows a PIN-length change at once; another browser's settings save can no longer wipe a valid session token.
 - The user directory (names, PIN lengths, trusted and never-log-out flags) is no longer sent to every browser in the hello. A locked page learns only the PIN lengths in use; an unlocked page gets the names (for "by Ana" in history); the Users editor asks for its list with the settings PIN.
 - **Trusted users** now also need the settings PIN to change the matrix, levels, level offset, name settings, fire mode and salvo group (and still the router, trusted proxies and PIN attempt limit).
 - Docs: this changelog (#147) and an AI disclosure in the README (#121).
+- **Releases**: versions are now `MAJOR.MINOR.PATCH` (this one is 1.5.0). Pushing a `-rc.N` tag builds a signed release candidate (`rc` image tag); a manual *promote* run turns it into the release without rebuilding. `latest` and `X.Y` only ever move forward and only by a promotion; every push to `main` publishes an unsigned `edge` image. Settings shows the build's short commit. See RELEASING.md.
 
 **Upgrading:** an existing `config.yaml` loads as is: a `salvos:` list is read as `presets:` and written under the new name on the next save, and Grid settings are still ignored. Old history lines, and presets a browser saved under the old `sode-salvos` keys, load as before. Pull and restart with the same `/data` volume.
 

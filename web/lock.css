@@ -146,12 +146,21 @@
 .sode-lock__field { display: flex; flex-direction: column; gap: var(--pb-space-2); }
 .sode-lock__pin-note { margin: 0; min-height: 1.5em; }
 
-/* Users section of the settings. */
+/* Users dialog: one compact row per user. */
+.sode__users-dlg { width: min(60rem, calc(100vw - var(--pb-space-8) * 2)); }
+.sode__users-list { display: flex; flex-direction: column; gap: var(--pb-space-4); }
 .sode__users-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+}
+.sode__users-in { flex: 1 1 8rem; min-width: 0; }
+.sode__users-opts {
   align-items: end;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pb-space-5);
+  gap: var(--pb-space-4) var(--pb-space-6);
+  margin-top: var(--pb-space-5);
 }
-.sode__users-row .sode__field { flex: 1 1 10rem; }
-.sode__users-row .sode__checks { display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-5); }
+.sode__users-opts .sode__checks { display: flex; flex-direction: column; gap: var(--pb-space-2); }

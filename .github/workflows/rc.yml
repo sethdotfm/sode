@@ -1,0 +1,111 @@
+# A tag vX.Y.Z-rc.N on main (or a release/X.Y branch) builds the release
+# candidate: tests, image, scan, then provenance and a cosign signature LAST,
+# so a signed image has passed everything. promote.yml only accepts a signed
+# one. See RELEASING.md.
+name: rc
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/sethdotfm/sode
+
+jobs:
+  rc:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the pre-release
+      packages: write
+      id-token: write # cosign keyless and attestations
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Tag must be on main or a release branch
+        run: |
+          set -euo pipefail
+          git branch -r --contains "$GITHUB_SHA" | grep -Eq '^\s*origin/(main|release/[0-9]+\.[0-9]+)$' \
+            || { echo "::error::$GITHUB_REF_NAME is not on main or a release/X.Y branch"; exit 1; }
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Tests, and the tag matches version.go, README and CHANGELOG
+        run: |
+          set -euo pipefail
+          go vet ./...
+          go test ./...
+          node --test 'web/test/*.test.mjs'
+          SODE_RELEASE_TAG="$GITHUB_REF_NAME" go test ./internal/app -run TestVersionNoted -count=1
+      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: ver
+        name: An rc tag is never reused
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if docker buildx imagetools inspect "$IMAGE:$v" >/dev/null 2>&1; then
+            echo "::error::$IMAGE:$v already exists; cut the next rc number instead"
+            exit 1
+          fi
+      - id: build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          target: sode
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          build-args: COMMIT=${{ github.sha }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.ver.outputs.version }}
+            ${{ env.IMAGE }}:rc
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      - name: Sign last, so a signature means every step above passed
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"
+      - name: Pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          base="${GITHUB_REF_NAME%-rc.*}"; base="${base#v}"
+          awk -v h="## Beta $base" 'index($0,h)==1{p=1;next} p&&/^## /{exit} p' CHANGELOG.md > notes.md
+          printf '\nImage: `%s:%s`\nDigest: `%s`\n\nA release candidate: tested, not yet promoted. Pull `%s:rc` to try it.\n' \
+            "$IMAGE" "${GITHUB_REF_NAME#v}" "$DIGEST" "$IMAGE" >> notes.md
+          gh release create "$GITHUB_REF_NAME" --prerelease --verify-tag --title "Beta ${GITHUB_REF_NAME#v}" --notes-file notes.md

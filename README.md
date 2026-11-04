@@ -2,7 +2,7 @@
 
 Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
 
-**Version:** Beta 1.5
+**Version:** Beta 1.5.0
 
 Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
 
@@ -82,7 +82,7 @@ Edited from the **Settings** button at the bottom of the page, stored in `/data/
 | `SODE_LEVEL_NUMBERING` | `levelNumbering` | `1` | How levels are shown and typed: `1` (1-17), `0` (0-16) or `va` (V, 1-16) |
 | `SODE_NAME_LEN` | `nameLength` | `12` | Name length to request: 4, 8, 12 or 16 |
 | `SODE_NAMES` | `nameRequests` | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
-| `SODE_FIRE_MODE` | `fireMode` | `sequential` | How a confirm of several takes is sent: `sequential` (one connect after another, ~16 ms per crosspoint on the Ultrix) or `native` (a SW-P-08 group salvo, cmd 120/121; needs a router with group salvos, Ross Ultrix verified). Measured on the Ultrix 2026-11-02: a group Go announces its crosspoints about 4 ms apart (51 in ~210 ms) against ~16 ms apiece for ordinary connects (51 in ~840 ms); whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1024 still go one after another for now. If the router doesn't acknowledge the salvo, Sode clears the salvo group and sends the takes one after another as before |
+| `SODE_FIRE_MODE` | `fireMode` | `sequential` | How a confirm of several takes is sent: `sequential` (one connect after another, ~16 ms per crosspoint on the Ultrix) or `native` (a SW-P-08 group salvo, cmd 120/248 and 121; needs a router with group salvos, Ross Ultrix verified). Measured on the Ultrix 2026-11-02: a group Go announces its crosspoints about 4 ms apart (51 in ~210 ms) against ~16 ms apiece for ordinary connects (51 in ~840 ms); whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1023 are staged with the extended stage command (248), in the same salvo. If the router doesn't acknowledge the salvo, Sode clears the salvo group and sends the takes one after another as before |
 | `SODE_SALVO_GROUP` | `salvoGroup` | `127` | The router's salvo group (0-127) native salvos use. The router's staged list is shared by every controller, so pick one nothing else uses |
 | `SODE_NUM_OFFSET` | `numberOffset` | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | Confirm key ignored this long after the dialog opens |
@@ -111,7 +111,7 @@ or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
 ### Users and locks (optional)
 
-Off by default: with no users and no locks Sode behaves as before. Settings → Users adds people (a name and a 4-12 digit PIN each; PINs must differ, since the PIN alone says who) and turns on locks per page type: the main screen and the Communication Log. A locked page opens behind a lock screen with a number pad; it unlocks the moment the typed PIN matches, no Enter. The server enforces it per WebSocket connection: until a connection unlocks as a user it is refused takes, name refreshes and clearing history, and (on the log) reading the sent log and uptime graph. Saving settings, filter sets, presets and users needs the settings PIN (or, for settings, filter sets and presets, a trusted user, below), not just any unlocked user, so a locked wall panel can still be set up with the PIN. `/healthz` and `/api/health` stay open. The user's name replaces the IP in history and in the log.
+Off by default: with no users and no locks Sode behaves as before. Settings → Users (a summary and a Manage users… button that opens its own dialog, with its own Save) adds people (a name and a 4-12 digit PIN each; PINs must differ, since the PIN alone says who) and turns on locks per page type: the main screen and the Communication Log. A locked page opens behind a lock screen with a number pad; it unlocks the moment the typed PIN matches, no Enter. The server enforces it per WebSocket connection: until a connection unlocks as a user it is refused takes, name refreshes and clearing history, and (on the log) reading the sent log and uptime graph. Saving settings, filter sets, presets and users needs the settings PIN (or, for settings, filter sets and presets, a trusted user, below), not just any unlocked user, so a locked wall panel can still be set up with the PIN. `/healthz` and `/api/health` stay open. The user's name replaces the IP in history and in the log.
 
 - **Lock again:** Ctrl+L, the Lock button in the corner, or after the idle minutes set in Settings (0 = never). A dropped connection also locks, since unlocking belongs to the connection.
 - **Trusted users:** each user can be marked Trusted (Settings → Users). While unlocked as a trusted user, saving the Settings form, filter sets and presets needs no settings PIN. Clearing history, adding or removing users and locks, and setting or removing the settings PIN still need the settings PIN, and so does changing the router address, matrix, levels or level offset, how names are read, the fire mode and salvo group, trusted proxies or the PIN attempt limit (anything that reconnects or weakens a guard). Unticking Trusted takes effect at once.
@@ -156,9 +156,18 @@ The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_D
 
 ## Releasing
 
-Bump `Version` in `internal/app/version.go` and the `**Version:**` line above, and give [CHANGELOG.md](CHANGELOG.md) a `## Beta <version>` section (drop "(unreleased)" from the top one), then run `go test ./internal/app -run TestVersionNoted` (it checks the README line and the changelog heading; with `SODE_RELEASE_TAG=v<version>` it also checks the tag and refuses an "(unreleased)" heading).
+Releases are cut by tag and promoted without a rebuild; see [RELEASING.md](RELEASING.md) for the steps and the rules. In short: bump `Version` in `internal/app/version.go`, the `**Version:**` line above and the `## Beta <version>` heading in [CHANGELOG.md](CHANGELOG.md) (`TestVersionNoted` checks them), merge to `main`, push a `vX.Y.Z-rc.N` tag to build a signed candidate, then run the *promote* workflow to make it `X.Y.Z` and `latest`.
 
-Pushing a `v<version>` tag makes CI check it and publish the multi-arch image to ghcr as `latest` and the tag name; then make a GitHub release from the tag.
+### Image tags
+
+| Tag | Follow it if you want |
+| --- | --- |
+| `latest`, or `1.5` for one minor line | tested releases only (use this with automatic updates) |
+| `rc` | the next release before it ships |
+| `edge` | whatever is merged on `main`, unsigned and possibly broken |
+| `1.5.0`, or `@sha256:...` | to stay put |
+
+Only the first row is touched by releases, so automatic updaters on `latest` never receive a candidate or an `edge` build.
 
 ## AI disclosure
 

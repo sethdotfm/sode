@@ -18,6 +18,7 @@ import (
 type fakeSalvo struct {
 	off       bool // no group salvos: 120 and 121 are ignored
 	loseStage bool // stages, but never answers with 122
+	loseExt   bool // stages with 248, but never answers with 250
 	noGoAck   bool // carries out a Go set, but never answers it
 	wipe      bool // the group is emptied (someone else's clear) just before each Go set
 	// announce: after a Go set, a Connected for each staged crosspoint that
@@ -45,8 +46,8 @@ func (f *fakeRouter) salvoMsg(m []byte) {
 	if x, ok := swp08.StagedOf(m); ok {
 		s.seq = append(s.seq, 's')
 		s.staged[x.Group] = append(s.staged[x.Group], x)
-		if !s.loseStage {
-			f.out <- swp08.ConnectOnGoAck(x.Matrix, x.Level, x.Dst, x.Src, x.Group)
+		if !(s.loseStage || (s.loseExt && x.Ext)) {
+			f.out <- swp08.StageAck(x)
 		}
 		return
 	}
@@ -292,59 +293,104 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	}
 }
 
-// Level 17 (wire 16) can't go in a group salvo: it is an ordinary connect
-// after the Go. A source past 1023 makes its take sequential.
+// Level 17 (wire 16) and numbers past 1023 ride the salvo too, staged with
+// the extended 248 beside 120's, under one Go, in every announce world.
 func TestNativeFits(t *testing.T) {
 	t.Parallel()
-	a, f := nativeApp(t, 17)
-	for _, d := range []int{5, 6, 7} {
-		f.seed(d, 1, 15, 16)
+	for _, c := range []struct {
+		name     string
+		announce int
+		after    time.Duration
+	}{
+		{"no Connected", 0, 0},
+		{"all late", 1, 100 * time.Millisecond},
+		{"some late", 2, 100 * time.Millisecond},
+		{"all at once", 1, 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testNativeExt(t, c.announce, c.after)
+		})
 	}
-	es := batchOf(t, a, 9, []int{5, 6, 7}, 16, 17)
+}
+
+func testNativeExt(t *testing.T, announce int, after time.Duration) {
+	a, f := nativeApp(t, 17)
+	f.salvo.announce, f.salvo.announceAfter = announce, after
+	for _, d := range []int{5, 1100, 7} {
+		f.seed(d, 1, 0, 15, 16)
+	}
+	items := []takeReq{
+		{ID: 1, Src: 9, Dst: 5, Levels: []int{1, 17}},
+		{ID: 2, Src: 1500, Dst: 1100, Levels: []int{1, 17}}, // all past 1023: 248
+		{ID: 3, Src: 9, Dst: 7, Levels: []int{16, 17}},
+	}
+	a.batch(&client{ip: "10.0.0.1"}, items)
+	es, _ := a.hist.Page(-1, 3)
+	if len(es) != 3 {
+		t.Fatalf("entries %+v", es)
+	}
+	for _, e := range es {
+		if !e.OK || len(e.Already) != 0 || e.Err != "" {
+			t.Fatalf("take %+v", e)
+		}
+	}
+	if got := f.salvoSeq(); got != "csssssssgc"[:1]+"ssssss"+"gc" {
+		t.Fatalf("salvo messages %q, want clear, 6 stages, go, clear", got)
+	}
+	if n := f.cmds(swp08.CmdConnectOnGo); n != 2 {
+		t.Fatalf("%d standard stages, want 2", n)
+	}
+	if n := f.cmds(swp08.CmdExtConnectOnGo); n != 4 {
+		t.Fatalf("%d extended stages, want 4", n)
+	}
+	if n := f.cmds(swp08.CmdExtConnect); n != 0 {
+		t.Fatalf("%d ordinary connects", n)
+	}
+	f.mu.Lock()
+	goes := f.salvo.goes
+	f.mu.Unlock()
+	if goes != 1 || f.cmds(swp08.CmdGoSalvo) != 3 {
+		t.Fatalf("%d Go sets, %d Go commands (want 1 set and 2 clears)", goes, f.cmds(swp08.CmdGoSalvo))
+	}
+	f.settle()
+	fireLeftovers(t, a)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, w := range []struct{ dst, level, src int }{{5, 0, 9}, {5, 16, 9}, {1100, 0, 1500}, {1100, 16, 1500}, {7, 15, 9}, {7, 16, 9}} {
+		if got := f.tally[[2]int{w.dst, w.level}]; got != w.src {
+			t.Errorf("router dst %d wire %d on %d, want %d", w.dst, w.level, got, w.src)
+		}
+	}
+}
+
+// A router that stages with 248 but never answers with 250: the group is
+// cleared and the batch goes as ordinary connects.
+func TestNativeNoExtStageAck(t *testing.T) {
+	t.Parallel()
+	a, f := nativeApp(t, 17)
+	f.salvo.loseExt = true
+	f.seed(5, 1, 16)
+	f.seed(6, 1, 16)
+	es := batchOf(t, a, 9, []int{5, 6}, 17)
 	for _, e := range es {
 		if !e.OK || len(e.Already) != 0 {
 			t.Fatalf("take %+v", e)
 		}
 	}
-	if got := f.salvoSeq(); got != "csssgc" {
-		t.Fatalf("salvo messages %q", got)
+	if got := f.salvoSeq(); got != "cssc" {
+		t.Fatalf("salvo messages %q: want clear, 2 stages, no go, clear", got)
 	}
-	if n := f.cmds(swp08.CmdExtConnect); n != 3 {
-		t.Fatalf("%d connects for level 17, want 3", n)
+	f.mu.Lock()
+	left := len(f.salvo.staged[127])
+	f.mu.Unlock()
+	if left != 0 {
+		t.Fatalf("%d crosspoints left staged", left)
 	}
-	fireLeftovers(t, a)
-	endBurst(a)
-	if n := a.hist.Len(); n != 3 {
-		t.Fatalf("entries %d", n)
-	}
-
-	// Three takes, one with a source past 1023: two staged, one sequential.
-	f.seed(8, 1, 15)
-	f.seed(9, 1, 15)
-	f.seed(10, 1, 15)
-	items := []takeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{16}}, {ID: 2, Src: 1500, Dst: 9, Levels: []int{16}}, {ID: 3, Src: 3, Dst: 10, Levels: []int{16}}}
-	stages, conns := f.cmds(swp08.CmdConnectOnGo), f.cmds(swp08.CmdExtConnect)
-	a.batch(&client{ip: "10.0.0.1"}, items)
-	if n := f.cmds(swp08.CmdConnectOnGo) - stages; n != 2 {
-		t.Fatalf("%d staged, want 2", n)
-	}
-	if n := f.cmds(swp08.CmdExtConnect) - conns; n != 1 {
-		t.Fatalf("%d connects, want 1", n)
-	}
-	got, _ := a.hist.Page(-1, 3)
-	for _, e := range got {
-		if !e.OK {
-			t.Fatalf("take %+v", e)
-		}
+	if n := f.cmds(swp08.CmdExtConnect); n != 2 {
+		t.Fatalf("%d connects, want 2", n)
 	}
 	fireLeftovers(t, a)
-
-	// Only level 17: nothing to stage, all sequential.
-	n := f.cmds(swp08.CmdGoSalvo)
-	batchOf(t, a, 4, []int{5, 6}, 17)
-	if f.cmds(swp08.CmdGoSalvo) != n {
-		t.Fatal("salvo commands for a batch with nothing to stage")
-	}
 }
 
 func TestMarkStages(t *testing.T) {
@@ -358,10 +404,10 @@ func TestMarkStages(t *testing.T) {
 		{Src: 1024, Dst: 7, Levels: []int{1}},
 		{Src: 1, Dst: 1023, Levels: []int{16}},
 	}
-	if n := markStages(r, items); n != 3 {
+	if n := markStages(r, items); n != 4 {
 		t.Fatalf("%d items staged", n)
 	}
-	want := []map[int]bool{{0: true}, nil, {1: true}, nil, {15: true}}
+	want := []map[int]bool{{0: true, 16: true}, nil, {1: true}, {0: true}, {15: true}}
 	for i, it := range items {
 		if len(it.Stage) != len(want[i]) {
 			t.Fatalf("item %d stage %v, want %v", i, it.Stage, want[i])
@@ -572,27 +618,22 @@ func TestNativeGoNothing(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
-// Two takes in a native batch, only one of which fits a salvo: the lone
-// stageable take must still be connected (in turn), not left staged.
+// Three takes in a native batch where two take the same destination level:
+// those two are not staged, and the lone stageable take must still be
+// connected (in turn), not left staged.
 func TestNativeOneStageable(t *testing.T) {
 	t.Parallel()
-	a, f := nativeApp(t, 17)
-	f.seed(8, 1, 15)
-	f.seed(9, 1, 15)
-	items := []takeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{16}}, {ID: 2, Src: 1500, Dst: 9, Levels: []int{16}}}
+	a, f := nativeApp(t, 3)
+	f.seed(8, 1, 0)
+	f.seed(9, 1, 0)
+	items := []takeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{1}}, {ID: 2, Src: 4, Dst: 9, Levels: []int{1}}, {ID: 3, Src: 5, Dst: 9, Levels: []int{1}}}
 	stages, conns := f.cmds(swp08.CmdConnectOnGo), f.cmds(swp08.CmdExtConnect)
 	a.batch(&client{ip: "10.0.0.1"}, items)
 	if n := f.cmds(swp08.CmdConnectOnGo) - stages; n != 0 {
 		t.Fatalf("%d staged, want 0", n)
 	}
-	if n := f.cmds(swp08.CmdExtConnect) - conns; n != 2 {
-		t.Fatalf("%d connects, want 2", n)
-	}
-	got, _ := a.hist.Page(-1, 2)
-	for _, e := range got {
-		if !e.OK {
-			t.Fatalf("take %+v", e)
-		}
+	if n := f.cmds(swp08.CmdExtConnect) - conns; n != 3 {
+		t.Fatalf("%d connects, want 3", n)
 	}
 	fireLeftovers(t, a)
 }
