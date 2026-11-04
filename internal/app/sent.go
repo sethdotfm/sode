@@ -113,7 +113,7 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 		e.Cmd = int(ev.Msg[0])
 	}
 	switch {
-	case q.Kind == "salvoStage":
+	case q.Kind == "salvoStage" || q.Kind == "salvoStageExt":
 		e.Note = fmt.Sprintf("salvo %d", q.Group)
 	case q.Kind == "salvoGo" && q.Clear:
 		e.Note = fmt.Sprintf("salvo %d: clear", q.Group)

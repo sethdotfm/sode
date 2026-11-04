@@ -153,7 +153,7 @@ func (f *fakeRouter) deliver(m []byte, why swp08.Why) error {
 			src = 0xFFFF
 		}
 		f.out <- swp08.ExtTally(int(m[1]), l, dst, src)
-	case swp08.CmdConnectOnGo, swp08.CmdGoSalvo:
+	case swp08.CmdConnectOnGo, swp08.CmdExtConnectOnGo, swp08.CmdGoSalvo:
 		f.salvoMsg(m)
 	}
 	return nil
