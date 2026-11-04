@@ -4,8 +4,9 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 
 ## Beta 1.6.0 (unreleased)
 
-- **User profiles** (#161): a third scope, *Me*, for This device settings, filter sets and presets, kept on the server so they follow a user to any browser. A browser's own choice still wins.
-- **Export, import and share links** (#169): one preset or filter set as a link, everything as a YAML export, with a review sheet before anything is saved.
+- **User profiles** (#161): a third scope, *Me*, beside Everyone and This browser, for This device settings, filter sets and presets, kept on the server so they follow a user to any browser. Order: this browser, then Me, then Everyone. *Set as my default* per setting. The user edits their own; trusted users and the settings PIN can see and edit any (new *Profiles…* button next to *Manage users…*). A profile is capped at 48 KiB. New messages `profile`, `profileSave`, `profileGet`.
+- **Log in without a lock** (#187): with users but no locks, Settings → This device has *Log in*, kept for the tab. A guest gets this browser's and everyone's settings; a previous user's cached settings are no longer applied to a guest.
+- **Share links, export and import** (#169): *Share* on a preset or filter set makes a `#share=` link (a URL fragment, so it never reaches the proxy; old `?f=` links still open); *Settings → Export & import* writes and reads a YAML file. Everything opens a review sheet (Importing → Current, Replace / Keep both / Skip). Exports carry names beside numbers so they can move between studios. New stateless `POST /api/yaml` converter.
 
 ## Beta 1.5.0
 
