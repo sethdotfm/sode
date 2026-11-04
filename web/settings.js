@@ -6,7 +6,8 @@
 
 import { $, el, S, on, emit, wsSend, sentence } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
-import { fmtTime, ownPref, globalPref, setPref } from './device.js';
+import { fmtTime, ownPref, globalPref, defaultPref, myPref, setPref } from './device.js';
+import { profile, profileName, saveProfile } from './profile.js';
 import { filterSummary, normFilter } from './filterstore.js';
 import { showResult } from './plans.js';
 import { parseLevelsAs } from './levels.js';
@@ -137,7 +138,7 @@ export function openSettings() {
   $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
   renderPrefs();
-  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, S.cfg.deviceDefaults);
+  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, null, S.cfg.deviceDefaults);
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
@@ -208,17 +209,73 @@ const prefOptions = (name, globalText) => {
 
 for (const s of form.querySelectorAll('select[data-gpref]')) s.replaceChildren(...prefOptions(s.dataset.gpref));
 
+// Where a value comes from, for its label while a user is logged in.
+const originText = (name, v) => {
+  const text = PREFS[name].values[v];
+  if (myPref(name) === v) return `${text} \u00b7 my default`;
+  if (globalPref(name) === v) return `${text} \u00b7 everyone's default`;
+  return text;
+};
+
+// Per-row "Set as my default" / "Clear my default" (only with a profile).
+const myButtons = new Map();
+function myButton(select) {
+  const name = select.dataset.pref;
+  let b = myButtons.get(name);
+  if (b) return b;
+  b = el('button', 'pb-btn pb-btn--outline pb-btn--sm');
+  b.type = 'button';
+  b.dataset.find = `my-default-${name}`;
+  b.dataset.label = 'Set as my default';
+  const note = el('span', 'sode__hint');
+  note.hidden = true;
+  note.setAttribute('role', 'status');
+  b.addEventListener('click', async () => {
+    const p = profile();
+    if (!p.name) return;
+    const prefs = { ...p.prefs };
+    if (b.dataset.clear) delete prefs[name];
+    else prefs[name] = select.value || defaultPref(name);
+    b.disabled = true;
+    const r = await saveProfile({ prefs });
+    b.disabled = false;
+    note.hidden = r.ok;
+    note.textContent = r.ok ? '' : (r.err || 'Could not save.');
+  });
+  select.closest('.sode__field').append(b, note);
+  myButtons.set(name, { b, note });
+  return myButtons.get(name);
+}
+
 // On any change of the settings in force, so "Global (value)" stays true
 // when the defaults change under an open form, and Alt+Shift+T shows.
 function renderPrefs() {
+  const user = profileName();
   for (const s of form.querySelectorAll('select[data-pref]')) {
     const name = s.dataset.pref;
-    s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
+    if (user) {
+      const opt = (value, text) => Object.assign(el('option', null, text), { value });
+      s.replaceChildren(
+        opt('', `Default (${PREFS[name].values[defaultPref(name)]})`),
+        ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
+      );
+    } else {
+      s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
+    }
     s.value = ownPref(name);
+    const mb = myButtons.get(name) || (user ? myButton(s) : null);
+    if (!mb) continue;
+    const target = s.value || defaultPref(name);
+    const has = !!myPref(name) && target === myPref(name);
+    mb.b.dataset.clear = has ? '1' : '';
+    mb.b.textContent = has ? 'Clear my default' : 'Set as my default';
+    mb.b.hidden = !user;
+    if (!user) mb.note.hidden = true;
   }
 }
 renderPrefs();
 on('prefs', renderPrefs);
+on('profile', renderPrefs);
 
 // Account: only while logged in as a user (lock.js says so with 'access').
 on('access', (L) => {

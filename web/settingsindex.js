@@ -17,7 +17,7 @@ const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
 export const DICT = {
   // ---- sections
-  'this-device': ['this browser', 'local', 'personal', 'preferences', 'prefs', 'appearance', 'display', 'device', 'my settings', 'theme', 'dark', 'light', 'colour', 'color', 'clock', 'time', '24h', 'layout'],
+  'this-device': ['this browser', 'local', 'personal', 'preferences', 'prefs', 'appearance', 'display', 'device', 'my settings', 'theme', 'dark', 'light', 'colour', 'color', 'clock', 'time', '24h', 'layout', 'my default', 'set as my default', 'clear my default', 'profile', 'follow'],
   'defaults-for-every-device': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'appearance', 'preferences'],
   'names': ['source names', 'destination names', 'labels', 'refresh', 'poll', 'reread', 'router names', 'name length', 'characters', 'truncate'],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
@@ -43,6 +43,9 @@ export const DICT = {
   ...both('search-filters', ['quick search', 'search', 'filter', 'filters', 'hidden', 'respect', 'history search']),
   ...both('set-stack', ['stack', 'stacked', 'filter sets', 'sets', 'and', 'or', 'combine', 'all', 'any', 'filter']),
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
+
+  // ---- My defaults (per-row buttons shown while logged in)
+  ...Object.fromEntries(['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].map((n) => ['my-default-' + n, ['my default', 'set as my default', 'clear my default', 'profile', 'personal', 'follow me', 'account']])),
 
   // ---- Account (inside This device; only shown while logged in as a user)
   'users-manage': ['manage users', 'add user', 'remove user', 'edit users', 'users', 'pin', 'trusted', 'never log out', 'persistent', 'sign out everywhere', 'lock main screen', 'lock log', 'auto lock', 'idle', 'longest pin'],

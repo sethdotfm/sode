@@ -5,19 +5,40 @@
 // Also the clock's time formats and the theme key.
 
 import { $, el, on, emit } from './core.js';
-import { PREFS, CACHE_KEY, resolve, own } from './prefs.js';
+import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine } from './prefs.js';
+import { profile } from './profile.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 
 let globals = readJSON(CACHE_KEY);
+// The logged-in user's defaults: {user, prefs} from the cache until the
+// profile arrives. Only ever one user's; cleared when that user is gone.
+const cachedProfile = readJSON(PROFILE_CACHE_KEY);
+let mineUser = typeof cachedProfile?.user === 'string' ? cachedProfile.user : '';
+let mineMap = mineUser && cachedProfile.prefs && typeof cachedProfile.prefs === 'object' ? cachedProfile.prefs : {};
 const stored = (name) => readStr(PREFS[name].key);
-const resolveAll = () => Object.fromEntries(Object.keys(PREFS).map((n) => [n, resolve(n, stored(n), globals)]));
+const resolveAll = () => Object.fromEntries(Object.keys(PREFS).map((n) => [n, resolve(n, stored(n), mineMap, globals)]));
 // What is in force now. index.html applied the same before first paint.
 let applied = resolveAll();
 
 export const pref = (name) => applied[name];
 // This browser's own choice, or '' when it follows the global default.
 export const ownPref = (name) => own(name, stored(name));
-export const globalPref = (name) => resolve(name, null, globals);
+// What it would be without this browser's choice: with a profile, the
+// user's default, else the global one.
+export const globalPref = (name) => resolve(name, null, null, globals);
+export const defaultPref = (name) => resolve(name, null, mineMap, globals);
+// The logged-in user's own default for it, or ''.
+export const myPref = (name) => mine(name, mineMap);
+
+function setProfilePrefs(p) {
+  const user = p?.name || '';
+  mineUser = user;
+  mineMap = user ? { ...p.prefs } : {};
+  writeJSON(PROFILE_CACHE_KEY, user ? { user, prefs: mineMap } : null);
+  applyPrefs();
+}
+on('profile', setProfilePrefs);
+
 
 // v '' (or anything unknown) goes back to the global default.
 export function setPref(name, v) {
