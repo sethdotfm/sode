@@ -6,7 +6,8 @@
 
 import { $, el, S, on, emit, wsSend, sentence } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
-import { fmtTime, ownPref, globalPref, defaultPref, myPref, setPref } from './device.js';
+import { fmtTime, ownPref, globalPref, defaultPref, myPref, setPref, pref } from './device.js';
+import { myDefaultButtons } from './mydefaults.js';
 import { profile, profileName, saveProfile } from './profile.js';
 import { filterSummary, normFilter } from './filterstore.js';
 import { showResult } from './plans.js';
@@ -221,38 +222,49 @@ const originText = (name, v) => {
   return text;
 };
 
-// Per-row "Set as my default" / "Clear my default" (only with a profile).
+// Per-row "Save as my default" / "Clear my default" (only with a profile).
 // They are built on the first profile, after the search index was made, so
 // creating one rebuilds the index (indexNow, set where the index is built).
 let indexNow = () => {};
 const myButtons = new Map();
 function myButton(select) {
   const name = select.dataset.pref;
-  let b = myButtons.get(name);
-  if (b) return b;
-  b = el('button', 'pb-btn pb-btn--outline pb-btn--sm');
-  b.type = 'button';
-  b.dataset.find = `my-default-${name}`;
-  b.dataset.label = 'Set as my default';
+  let mb = myButtons.get(name);
+  if (mb) return mb;
+  const mk = (id, label) => {
+    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__my-default', label);
+    b.type = 'button';
+    b.dataset.find = id;
+    b.dataset.label = label;
+    return b;
+  };
+  const save = mk(`my-default-${name}`, 'Save as my default');
+  const clear = mk(`my-default-clear-${name}`, 'Clear my default');
   const note = el('span', 'sode__hint');
   note.hidden = true;
   note.setAttribute('role', 'status');
-  b.addEventListener('click', async () => {
+  const run = (change, after) => async () => {
     const p = profile();
     if (!p.name) return;
     const prefs = { ...p.prefs };
-    if (b.dataset.clear) delete prefs[name];
-    else prefs[name] = select.value || defaultPref(name);
-    b.disabled = true;
+    change(prefs);
+    save.disabled = clear.disabled = true;
     const r = await saveProfile({ prefs });
-    b.disabled = false;
+    save.disabled = clear.disabled = false;
     note.hidden = r.ok;
     note.textContent = r.ok ? '' : (r.err || 'Could not save.');
-  });
-  select.closest('.sode__field').append(b, note);
-  myButtons.set(name, { b, note });
+    if (r.ok) after();
+  };
+  // Saved: this browser then follows the profile, so no own value shadows it.
+  save.addEventListener('click', run((prefs) => { prefs[name] = pref(name); }, () => setPref(name, '')));
+  clear.addEventListener('click', run((prefs) => { delete prefs[name]; }, () => renderPrefs()));
+  const row = el('div', 'sode__my-defaults');
+  row.append(save, clear, note);
+  select.closest('.sode__field').append(row);
+  mb = { save, clear, note, row };
+  myButtons.set(name, mb);
   indexNow();
-  return myButtons.get(name);
+  return mb;
 }
 
 // On any change of the settings in force, so "Global (value)" stays true
@@ -264,7 +276,7 @@ function renderPrefs() {
     if (user) {
       const opt = (value, text) => Object.assign(el('option', null, text), { value });
       s.replaceChildren(
-        opt('', `Default (${PREFS[name].values[defaultPref(name)]})`),
+        opt('', `${myPref(name) ? 'My' : 'Everyone\'s'} default (${PREFS[name].values[defaultPref(name)]})`),
         ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
       );
     } else {
@@ -273,11 +285,10 @@ function renderPrefs() {
     s.value = ownPref(name);
     const mb = myButtons.get(name) || (user ? myButton(s) : null);
     if (!mb) continue;
-    const target = s.value || defaultPref(name);
-    const has = !!myPref(name) && target === myPref(name);
-    mb.b.dataset.clear = has ? '1' : '';
-    mb.b.textContent = has ? 'Clear my default' : 'Set as my default';
-    mb.b.hidden = !user;
+    const show = myDefaultButtons(pref(name), myPref(name));
+    mb.save.hidden = !user || !show.save;
+    mb.clear.hidden = !user || !show.clear;
+    mb.row.hidden = !user;
     if (!user) mb.note.hidden = true;
   }
 }

@@ -47,7 +47,7 @@ export const DICT = {
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
 
   // ---- My defaults (per-row buttons shown while logged in)
-  ...Object.fromEntries(['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].map((n) => ['my-default-' + n, ['my default', 'set as my default', 'clear my default', 'profile', 'personal', 'follow me', 'account']])),
+  ...Object.fromEntries(['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].flatMap((n) => [['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']], ['my-default-clear-' + n, ['my default', 'clear my default', 'remove', 'profile', 'personal', 'account']]])),
 
   // ---- Account (inside This device; only shown while logged in as a user)
   'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],

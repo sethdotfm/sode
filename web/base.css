@@ -623,3 +623,7 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 .sode--tap .sode__hist-before,
 .sode--tap .sode__hist-folder,
 .sode--tap .sode-m__changes { cursor: auto; }
+
+/* Per-row "Save/Clear my default" buttons: small, side by side, not stretched. */
+.sode__my-defaults { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-space-2); }
+.sode__my-default { align-self: flex-start; }
