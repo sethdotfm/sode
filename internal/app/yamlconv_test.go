@@ -93,3 +93,30 @@ func TestYAMLMethodAndHeaders(t *testing.T) {
 		}
 	}
 }
+
+// A filter set that leaves out sode/ext means "show them" (true), not false:
+// false would hide every take and Recent would look empty.
+func TestYAMLFilterDefaults(t *testing.T) {
+	a := &App{}
+	req := httptest.NewRequest("POST", "/api/yaml?from=yaml", strings.NewReader("sode: 1\nfilterSets:\n  - name: Cams\n    src: 1-8\n  - {name: Off, sode: false, ext: false}\n"))
+	w := httptest.NewRecorder()
+	a.serveYAML(w, req)
+	if w.Code != 200 {
+		t.Fatalf("status %d: %s", w.Code, w.Body)
+	}
+	var got struct {
+		FilterSets []struct {
+			Name      string `json:"name"`
+			Sode, Ext *bool
+		} `json:"filterSets"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if f := got.FilterSets[0]; f.Sode == nil || !*f.Sode || f.Ext == nil || !*f.Ext {
+		t.Errorf("omitted sode/ext should be true: %+v", f)
+	}
+	if f := got.FilterSets[1]; f.Sode == nil || *f.Sode || f.Ext == nil || *f.Ext {
+		t.Errorf("explicit false must stay false: %+v", f)
+	}
+}

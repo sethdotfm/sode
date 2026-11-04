@@ -90,3 +90,21 @@ func TestTabTokenIgnoredOnceLocked(t *testing.T) {
 		t.Fatal("tab token honored for a locked page")
 	}
 }
+
+// A tab token is not a persistent one: ticking Never log out afterwards must
+// not turn it into a token that skips a lock; it is pruned.
+func TestTabTokenDiesWhenUserBecomesPersistent(t *testing.T) {
+	a := userApp(t, false)
+	c := &client{ip: "10.0.0.1"}
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatal(err)
+	}
+	tok := a.issueSessionTab(c, true)
+	if tok == "" || !tokenAlive(a, tok) {
+		t.Fatal("no tab token")
+	}
+	setFlags(t, a, "Ana", false, true)
+	if tokenAlive(a, tok) {
+		t.Fatal("tab token survived the user becoming persistent")
+	}
+}

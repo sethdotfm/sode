@@ -25,13 +25,25 @@ const exportVersion = 1
 // exportDoc is the export/import document (Beta 1.6). Names ride beside the
 // numbers so an import can match by name when numbers differ between sites.
 type exportDoc struct {
-	Sode       int                `yaml:"sode" json:"sode"`
-	Site       string             `yaml:"site,omitempty" json:"site,omitempty"`
-	User       string             `yaml:"user,omitempty" json:"user,omitempty"`
-	Exported   string             `yaml:"exported,omitempty" json:"exported,omitempty"`
-	Prefs      map[string]string  `yaml:"prefs,omitempty" json:"prefs,omitempty"`
-	FilterSets []config.FilterSet `yaml:"filterSets,omitempty" json:"filterSets,omitempty"`
-	Presets    []exportPreset     `yaml:"presets,omitempty" json:"presets,omitempty"`
+	Sode       int               `yaml:"sode" json:"sode"`
+	Site       string            `yaml:"site,omitempty" json:"site,omitempty"`
+	User       string            `yaml:"user,omitempty" json:"user,omitempty"`
+	Exported   string            `yaml:"exported,omitempty" json:"exported,omitempty"`
+	Prefs      map[string]string `yaml:"prefs,omitempty" json:"prefs,omitempty"`
+	FilterSets []exportFilter    `yaml:"filterSets,omitempty" json:"filterSets,omitempty"`
+	Presets    []exportPreset    `yaml:"presets,omitempty" json:"presets,omitempty"`
+}
+
+// exportFilter is a filter set as written in a file. Sode and Ext are
+// pointers so a hand-written set that leaves them out means "show" (true, as
+// in the app's default filter), not false, which would hide everything.
+type exportFilter struct {
+	Name   string `yaml:"name" json:"name"`
+	Src    string `yaml:"src,omitempty" json:"src,omitempty"`
+	Dst    string `yaml:"dst,omitempty" json:"dst,omitempty"`
+	Sode   *bool  `yaml:"sode,omitempty" json:"sode,omitempty"`
+	Ext    *bool  `yaml:"ext,omitempty" json:"ext,omitempty"`
+	Hidden bool   `yaml:"hidden,omitempty" json:"hidden,omitempty"`
 }
 
 type exportPreset struct {
@@ -66,9 +78,17 @@ func (d *exportDoc) check() error {
 		}
 	}
 	var errs []error
+	yes := true
 	names := make([]string, len(d.FilterSets))
-	for i, f := range d.FilterSets {
+	for i := range d.FilterSets {
+		f := &d.FilterSets[i]
 		names[i] = f.Name
+		if f.Sode == nil {
+			f.Sode = &yes
+		}
+		if f.Ext == nil {
+			f.Ext = &yes
+		}
 	}
 	errs = append(errs, config.ValidateNames("filter set", names, 1000)...)
 	names = make([]string, len(d.Presets))

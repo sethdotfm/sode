@@ -412,9 +412,11 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			}
 			// The profile follows the row's Was (a rename keeps it, with or
 			// without a new PIN); a user no longer listed loses theirs.
+			// A new row (no Was, with a PIN) starts empty even if a user of
+			// that name was removed in the same save.
 			was := cmp.Or(e.Was, e.Name)
 			pk := strings.ToLower(strings.TrimSpace(was))
-			if o, ok := old[pk]; ok && !kept[pk] {
+			if o, ok := old[pk]; ok && !kept[pk] && (e.Was != "" || e.Pin == "") {
 				kept[pk] = true
 				u.Profile = o.Profile.Clone()
 			}

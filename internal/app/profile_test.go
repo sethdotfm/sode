@@ -428,3 +428,26 @@ func TestProfileSaveLogsCommand(t *testing.T) {
 		t.Fatal("a value was logged")
 	}
 }
+
+// Removing a user and adding a new one of the same name in one save gives the
+// new one an empty profile: only a row with a Was (or one keeping its PIN)
+// carries a profile over.
+func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
+	a := userApp(t, false)
+	ana := watched(t, a, "10.0.0.1", "1234")
+	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); err != nil {
+		t.Fatal(err)
+	}
+	admin := &client{ip: "10.0.0.9"}
+	if err := a.Unlock(admin, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	// Ana removed and a new Ana (no Was, new PIN) added in the same save.
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "9753"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+		t.Fatal(err)
+	}
+	u, _ := a.r().cfg.FindUser("Ana")
+	if len(u.Profile.Prefs) != 0 {
+		t.Fatalf("new Ana inherited the old profile: %+v", u.Profile)
+	}
+}

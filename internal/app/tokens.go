@@ -49,6 +49,9 @@ const perUserTokens = 8
 const (
 	tokenMaxAge     = 90 * 24 * time.Hour
 	tokenTouchAfter = 24 * time.Hour
+	// A tab token belongs to one browser tab (sessionStorage), which forgets
+	// it on close, so it needn't live for months; an open tab renews it.
+	tabTokenMaxAge = 48 * time.Hour
 )
 
 func tokenKey(t string) string {
@@ -107,9 +110,26 @@ func (s *tokenStore) save() {
 // on that alone: prune deletes what is invalid, so a token can't come back to
 // life when the user is later made persistent again, renamed back, or given
 // the old PIN again.
+//
+// A tab token (a no-lock login, kept by one browser tab) and a persistent
+// token are different kinds: a tab token is valid only while its user is NOT
+// persistent, and for tabTokenMaxAge, so ticking Never log out later can't
+// turn an old tab token into a persistent one that skips a lock.
 func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 	u, ok := cfg.FindUser(r.User)
-	return u, ok && (u.Persistent || r.Tab) && u.Pin == r.Pin && time.Since(r.At) < tokenMaxAge
+	if !ok || u.Pin != r.Pin {
+		return u, false
+	}
+	max := tokenMaxAge
+	if r.Tab {
+		if u.Persistent {
+			return u, false
+		}
+		max = tabTokenMaxAge
+	} else if !u.Persistent {
+		return u, false
+	}
+	return u, time.Since(r.At) < max
 }
 
 // prune deletes every record that is invalid against cfg and rewrites the
@@ -199,8 +219,8 @@ func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
 	for {
 		n, oldest := 0, ""
 		for k, r := range s.toks {
-			if !strings.EqualFold(r.User, u.Name) {
-				continue
+			if !strings.EqualFold(r.User, u.Name) || r.Tab != tab {
+				continue // the cap is per user and per kind
 			}
 			n++
 			if oldest == "" || r.At.Before(s.toks[oldest].At) {

@@ -73,15 +73,25 @@ func (a *App) guardProfile(c *client, name string) error {
 // it holds is not what it was last sent, or clears it if c was sent one and
 // no longer is that user. Caller holds mu.
 func (a *App) pushProfileLocked(c *client) {
-	cfg := a.r().cfg
+	rt := a.r()
+	cfg := rt.cfg
 	var b []byte
 	if a.userOKLocked(c, cfg) {
 		u, _ := cfg.FindUser(c.u.user.Load().Name)
-		b, _ = json.Marshal(profileMsg{T: "profile", Name: u.Name, Profile: u.Profile.Normalized()})
-		if string(b) == c.u.profile {
+		if a.profMemoRT != rt || a.profMemo == nil {
+			a.profMemoRT, a.profMemo = rt, map[string]string{}
+		}
+		msg, ok := a.profMemo[u.Name]
+		if !ok {
+			j, _ := json.Marshal(profileMsg{T: "profile", Name: u.Name, Profile: u.Profile.Normalized()})
+			msg = string(j)
+			a.profMemo[u.Name] = msg
+		}
+		if msg == c.u.profile {
 			return
 		}
-		c.u.profile = string(b)
+		c.u.profile = msg
+		b = []byte(msg)
 	} else {
 		if c.u.profile == "" {
 			return // never sent one, nothing to clear

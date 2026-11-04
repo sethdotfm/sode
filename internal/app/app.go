@@ -70,6 +70,12 @@ func (r *runtime) probe() []byte {
 //
 // The fields from mu down to dumpAt are guarded by mu.
 type App struct {
+	// profMemo caches each user's marshalled `profile` message for one config
+	// snapshot (profMemoRT), so a config apply marshals a profile once, not
+	// once per connection. Guarded by mu.
+	profMemoRT *runtime
+	profMemo   map[string]string
+
 	sw      *swp08.Client
 	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
 	hist    *History
