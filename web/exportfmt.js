@@ -72,6 +72,42 @@ export const itemIn = (it) => ({
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
 
+// ---- checking a document read from a file
+
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const isNum = (v) => Number.isInteger(v) && v >= 0;
+const goodName = (v) => typeof v === 'string' && v.trim() !== '' && runes(v) <= NAME_MAX && !/[\p{Cc}]/u.test(v);
+
+// Why a document read from a file is not one this Sode reads, or ''. Only
+// its shape and version: the saves check the content (config.Validate).
+export function checkDoc(doc) {
+  if (!isObj(doc)) return 'Not a Sode export: the file is not a mapping.';
+  if (doc.sode == null) return 'Not a Sode export: it has no "sode" version.';
+  if (doc.sode !== 1) return `Unsupported export version ${typeof doc.sode === 'object' ? '?' : doc.sode} (this Sode reads version 1).`;
+  if (doc.exported != null && (typeof doc.exported !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:\d\d)$/.test(doc.exported) || isNaN(Date.parse(doc.exported)))) {
+    return '"exported" must be an RFC 3339 time.';
+  }
+  if (doc.prefs != null && !isObj(doc.prefs)) return '"prefs" must be a mapping.';
+  for (const k of ['filterSets', 'presets']) {
+    if (doc[k] != null && !Array.isArray(doc[k])) return `"${k}" must be a list.`;
+  }
+  for (const f of doc.filterSets || []) {
+    if (!isObj(f)) return 'Every filter set must be a mapping.';
+    if (!goodName(f.name)) return `A filter set needs a printable name of at most ${NAME_MAX} characters.`;
+  }
+  for (const p of doc.presets || []) {
+    if (!isObj(p)) return 'Every preset must be a mapping.';
+    if (!goodName(p.name)) return `A preset needs a printable name of at most ${NAME_MAX} characters.`;
+    if (!Array.isArray(p.items)) return `Preset “${p.name}” needs a list of items.`;
+    for (const it of p.items) {
+      if (!isObj(it) || !isNum(it.src)) return `Preset “${p.name}”: every item needs a source number of 0 or more.`;
+      if (!Array.isArray(it.dsts) || !it.dsts.every((d) => isObj(d) && isNum(d.n))) return `Preset “${p.name}”: every destination needs a number of 0 or more.`;
+      if (it.levels != null && !(Array.isArray(it.levels) && it.levels.every((l) => Number.isInteger(l) && l >= 1))) return `Preset “${p.name}”: levels must be whole numbers from 1.`;
+    }
+  }
+  return '';
+}
+
 // ---- file names
 
 const clean = (s) => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '')

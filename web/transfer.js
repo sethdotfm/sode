@@ -341,6 +341,8 @@ async function review() {
   if (!r.ok) return setNote(r.err, true);
   let doc;
   try { doc = JSON.parse(r.text); } catch (e) { return setNote('The file could not be read.', true); }
+  const bad = fmt.checkDoc(doc);
+  if (bad) return setNote(bad, true);
   const user = other && other.name !== profileName() ? other.name : '';
   close();
   openReview({ doc, scope: user || ex?.src === 'user' ? 'user' : 'local', user });

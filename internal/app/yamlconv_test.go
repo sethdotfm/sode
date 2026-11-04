@@ -1,10 +1,8 @@
 package app
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -18,65 +16,61 @@ func postYAML(t *testing.T, method, query, body string) *httptest.ResponseRecord
 	return rec
 }
 
-const sampleDoc = `{"sode":1,"site":"Studio A","user":"Ana","exported":"2026-11-03T12:00:00Z",
-"prefs":{"theme":"dark","clock":"24"},
-"filterSets":[{"name":"Cams","src":"1-8","dst":"","sode":true,"ext":false}],
-"presets":[{"name":"Show open","items":[{"src":12,"srcName":"CAM 1","dsts":[{"n":40,"name":"MV 1"}],"levels":[1,2]}]}]}`
-
-func TestYAMLRoundTrip(t *testing.T) {
-	rec := postYAML(t, "POST", "", sampleDoc)
+func TestYAMLKeepsOrderAndTypes(t *testing.T) {
+	in := `{"sode":1,"site":"Studio A","prefs":{"clock":"24","flip":"on","x":"true"},` +
+		`"presets":[{"name":"Show","items":[{"src":12,"dsts":[{"n":40,"name":"MV 1"}],"levels":[1,2]}]}],"ok":true,"none":null}`
+	rec := postYAML(t, "POST", "", in)
 	if rec.Code != 200 {
 		t.Fatalf("to yaml: %d %s", rec.Code, rec.Body)
 	}
 	y := rec.Body.String()
-	if !strings.Contains(y, "sode: 1") || !strings.Contains(y, "srcName: CAM 1") {
-		t.Fatalf("yaml: %s", y)
+	want := "sode: 1\nsite: Studio A\nprefs:\n    clock: \"24\"\n    flip: \"on\"\n    x: \"true\"\npresets:\n"
+	if !strings.HasPrefix(y, want) {
+		t.Fatalf("yaml:\n%s", y)
+	}
+	for _, s := range []string{"- n: 40\n", "name: MV 1", "ok: true", "none: null"} {
+		if !strings.Contains(y, s) {
+			t.Errorf("missing %q in:\n%s", s, y)
+		}
+	}
+	if strings.Contains(y, `"n"`) || strings.Contains(y, "{") {
+		t.Errorf("keys quoted or flow style:\n%s", y)
 	}
 	back := postYAML(t, "POST", "?from=yaml", y)
 	if back.Code != 200 {
 		t.Fatalf("to json: %d %s", back.Code, back.Body)
 	}
-	var want, got any
-	json.Unmarshal([]byte(sampleDoc), &want)
-	if err := json.Unmarshal(back.Body.Bytes(), &got); err != nil {
-		t.Fatal(err)
-	}
-	// fields with false/empty values may be added by the typed struct; compare typed.
-	var w, g exportDoc
-	json.Unmarshal([]byte(sampleDoc), &w)
-	json.Unmarshal(back.Body.Bytes(), &g)
-	if !reflect.DeepEqual(w, g) {
-		t.Fatalf("round trip differs:\n%+v\n%+v", w, g)
+	for _, s := range []string{`"clock":"24"`, `"flip":"on"`, `"x":"true"`, `"sode":1`, `"ok":true`, `"n":40`, `"levels":[1,2]`} {
+		if !strings.Contains(back.Body.String(), s) {
+			t.Errorf("missing %s in %s", s, back.Body)
+		}
 	}
 }
 
 func TestYAMLSizeCap(t *testing.T) {
-	big := `{"sode":1,"site":"` + strings.Repeat("x", 1<<20) + `"}`
+	big := `{"site":"` + strings.Repeat("x", 1<<20) + `"}`
 	if rec := postYAML(t, "POST", "", big); rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("got %d", rec.Code)
 	}
 }
 
 func TestYAMLRejects(t *testing.T) {
-	cases := []struct {
-		name, query, body string
-		code              int
-	}{
-		{"unknown json field", "", `{"sode":1,"bogus":2}`, 400},
-		{"unknown yaml field", "?from=yaml", "sode: 1\nbogus: 2\n", 400},
-		{"bad yaml", "?from=yaml", "sode: [1\n", 400},
-		{"bad json", "", `{`, 400},
-		{"empty", "?from=yaml", "", 400},
-		{"wrong version", "", `{"sode":2}`, 422},
-		{"missing version", "", `{"site":"x"}`, 422},
-		{"duplicate preset", "", `{"sode":1,"presets":[{"name":"A","items":[]},{"name":"a","items":[]}]}`, 422},
-		{"bad level", "", `{"sode":1,"presets":[{"name":"A","items":[{"src":1,"dsts":[{"n":2}],"levels":[0]}]}]}`, 422},
-		{"bad time", "", `{"sode":1,"exported":"yesterday"}`, 422},
+	cases := []struct{ name, query, body string }{
+		{"bad yaml", "?from=yaml", "a: [1\n"},
+		{"bad json", "", `{`},
+		{"yaml text as json", "", "a: 1\n"},
+		{"empty yaml", "?from=yaml", ""},
+		{"empty json", "", ""},
+		{"json list", "", `[1,2]`},
+		{"json scalar", "", `3`},
+		{"yaml list", "?from=yaml", "- a\n- b\n"},
+		{"yaml scalar", "?from=yaml", "hello\n"},
+		{"yaml number key", "?from=yaml", "1: a\n"},
 	}
 	for _, c := range cases {
 		rec := postYAML(t, "POST", c.query, c.body)
-		if rec.Code != c.code || strings.TrimSpace(rec.Body.String()) == "" {
-			t.Errorf("%s: got %d %q, want %d", c.name, rec.Code, rec.Body, c.code)
+		if rec.Code != 400 || strings.TrimSpace(rec.Body.String()) == "" {
+			t.Errorf("%s: got %d %q, want 400", c.name, rec.Code, rec.Body)
 		}
 	}
 }
@@ -86,37 +80,10 @@ func TestYAMLMethodAndHeaders(t *testing.T) {
 	if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "POST" {
 		t.Fatalf("GET: %d allow=%q", rec.Code, rec.Header().Get("Allow"))
 	}
-	for _, r := range []*httptest.ResponseRecorder{rec, postYAML(t, "POST", "", sampleDoc)} {
+	for _, r := range []*httptest.ResponseRecorder{rec, postYAML(t, "POST", "", `{"a":1}`)} {
 		h := r.Header()
 		if h.Get("Content-Security-Policy") == "" || h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Referrer-Policy") != "same-origin" {
 			t.Fatalf("security headers missing: %v", h)
 		}
-	}
-}
-
-// A filter set that leaves out sode/ext means "show them" (true), not false:
-// false would hide every take and Recent would look empty.
-func TestYAMLFilterDefaults(t *testing.T) {
-	a := &App{}
-	req := httptest.NewRequest("POST", "/api/yaml?from=yaml", strings.NewReader("sode: 1\nfilterSets:\n  - name: Cams\n    src: 1-8\n  - {name: Off, sode: false, ext: false}\n"))
-	w := httptest.NewRecorder()
-	a.serveYAML(w, req)
-	if w.Code != 200 {
-		t.Fatalf("status %d: %s", w.Code, w.Body)
-	}
-	var got struct {
-		FilterSets []struct {
-			Name      string `json:"name"`
-			Sode, Ext *bool
-		} `json:"filterSets"`
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
-		t.Fatal(err)
-	}
-	if f := got.FilterSets[0]; f.Sode == nil || !*f.Sode || f.Ext == nil || !*f.Ext {
-		t.Errorf("omitted sode/ext should be true: %+v", f)
-	}
-	if f := got.FilterSets[1]; f.Sode == nil || *f.Sode || f.Ext == nil || *f.Ext {
-		t.Errorf("explicit false must stay false: %+v", f)
 	}
 }

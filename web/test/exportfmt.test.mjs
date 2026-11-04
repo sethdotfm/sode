@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildExport, matchEnd, matchItem, matchPreset, conflict, renameFor, applyChoices, defaultChoice, renameProblem,
   defaultFileName, fileNameFor, sizeProblem, jsonBytes, presetShare, filterShare, shareUrl, decodeShare, decodeLegacy,
-  readLink, docOfShare, itemIn, SOCKET_LIMIT, mayOpenSheet, saveAsName,
+  readLink, docOfShare, itemIn, SOCKET_LIMIT, mayOpenSheet, saveAsName, checkDoc, filterOf,
 } from '../exportfmt.js';
 
 const live = {
@@ -199,4 +199,37 @@ test('saveAsName suggests Name 2, or (mine) for Everyone, within 32 characters',
   assert.equal(saveAsName('  ', 'local'), '');
   assert.equal(saveAsName('', ''), '');
   for (const sc of ['local', 'global']) assert.ok([...saveAsName('x'.repeat(40), sc)].length <= 32);
+});
+
+test('checkDoc accepts a good document and says what is wrong with others', () => {
+  const good = {
+    sode: 1, exported: '2026-11-03T12:00:00Z', prefs: { clock: '24' },
+    filterSets: [{ name: 'Cams', src: '1-8' }],
+    presets: [{ name: 'Show', items: [{ src: 0, dsts: [{ n: 3, name: 'MV' }], levels: [1, 2] }, { src: 4, dsts: [] }] }],
+  };
+  assert.equal(checkDoc(good), '');
+  assert.equal(checkDoc({ sode: 1 }), '');
+  assert.match(checkDoc(null), /not a mapping/);
+  assert.match(checkDoc([]), /not a mapping/);
+  assert.match(checkDoc({ site: 'x' }), /no "sode" version/);
+  assert.match(checkDoc({ sode: 2 }), /Unsupported export version 2/);
+  assert.match(checkDoc({ sode: '1' }), /Unsupported/);
+  assert.match(checkDoc({ sode: 1, exported: 'yesterday' }), /RFC 3339/);
+  assert.match(checkDoc({ sode: 1, exported: 5 }), /RFC 3339/);
+  assert.match(checkDoc({ sode: 1, prefs: [] }), /"prefs"/);
+  assert.match(checkDoc({ sode: 1, filterSets: {} }), /"filterSets" must be a list/);
+  assert.match(checkDoc({ sode: 1, presets: 'x' }), /"presets" must be a list/);
+  assert.match(checkDoc({ sode: 1, filterSets: ['a'] }), /filter set must be a mapping/);
+  assert.match(checkDoc({ sode: 1, filterSets: [{ src: '1' }] }), /filter set needs a printable name/);
+  assert.match(checkDoc({ sode: 1, presets: [{ name: 'x'.repeat(33), items: [] }] }), /at most 32/);
+  assert.match(checkDoc({ sode: 1, presets: [{ name: 'a\nb', items: [] }] }), /printable/);
+  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A' }] }), /list of items/);
+  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: -1, dsts: [] }] }] }), /source number/);
+  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: 1, dsts: [{ n: -2 }] }] }] }), /destination needs a number/);
+  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: 1, dsts: [{ n: 2 }], levels: [0] }] }] }), /levels/);
+  assert.match(checkDoc({ sode: 1, presets: [{ name: 'A', items: [{ src: 1, dsts: [{ n: 2 }], levels: 'x' }] }] }), /levels/);
+});
+
+test('a filter set that leaves out sode and ext shows them', () => {
+  assert.deepEqual(filterOf({ name: 'Cams', src: '1-8' }), { src: '1-8', dst: '', sode: true, ext: true, hidden: false });
 });
