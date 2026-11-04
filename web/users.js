@@ -137,10 +137,27 @@ function addRow(u = { name: '', len: 0 }) {
   return name;
 }
 
+// The directory is not in the hello (a locked page gets that too): the
+// settings PIN holder asks for it. Until it arrives, or without the PIN, the
+// list is empty.
+let listed = [];
+let listSeq = 0;
+function load() {
+  wsSend({ t: 'usersList', id: ++listSeq });
+}
+onMsg('usersListResult', (m) => {
+  if (m.id !== listSeq || !m.ok || edited) return;
+  listed = m.users || [];
+  fill();
+});
+// The PIN just entered, or settings saved elsewhere: ask again.
+on('unlockResult', (m) => { if (m.ok) load(); });
+on('locked', () => { listed = []; });
+
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
   rows.replaceChildren();
-  for (const u of S.cfg?.users || []) addRow(u);
+  for (const u of listed) addRow(u);
   lockMain.input.checked = !!S.cfg?.locks?.main;
   lockLog.input.checked = !!S.cfg?.locks?.log;
   autoInput.value = String(S.cfg?.autoLockMinutes || 0);
@@ -182,7 +199,8 @@ onMsg('usersResult', (m) => {
   save.disabled = false;
   if (m.id !== seq) return;
   if (m.ok) {
-    fill(); // the hello before this was skipped as an edit
+    edited = false;
+    load(); // the hello before this was skipped as an edit
     ok.textContent = 'Saved.';
     return;
   }
@@ -191,5 +209,5 @@ onMsg('usersResult', (m) => {
 });
 
 // A snapshot refills the list unless it is being edited here.
-on('hello', () => { if (!edited) fill(); });
+on('hello', () => { if (!edited) { fill(); load(); } });
 fill();

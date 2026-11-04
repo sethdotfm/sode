@@ -77,12 +77,6 @@ func (a *App) pageAllowedLocked(c *client, g gate) bool {
 	return !g.on(cfg.Locks) || a.userOKLocked(c, cfg)
 }
 
-func (a *App) pageAllowed(c *client, g gate) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.pageAllowedLocked(c, g)
-}
-
 // lockStateMsg is what a page needs to show or hide its lock screen.
 type lockStateMsg struct {
 	T        string `json:"t"`
@@ -94,6 +88,9 @@ type lockStateMsg struct {
 	// can be complete. It rides every lock state (a PIN change sends one to
 	// everyone) so a pad never works from a stale list.
 	Lens []int `json:"lens,omitempty"`
+	// Names: the users' names, for "by Ana" in history. Only a page that may
+	// see the main screen gets them (not a locked one).
+	Names []string `json:"names,omitempty"`
 	// Hi: this is the answer to the page's own `hi`. Only that one says
 	// whether its session token was honored; an unsolicited state (a config
 	// save by someone else) may arrive first and says nothing about it.
@@ -120,6 +117,11 @@ func (a *App) lockStateLocked(c *client) lockStateMsg {
 	}
 	m.Locked = m.Enforced && m.User == ""
 	m.Lens = cfg.PinLens()
+	if !m.Locked {
+		for _, u := range cfg.Users {
+			m.Names = append(m.Names, u.Name)
+		}
+	}
 	return m
 }
 
@@ -475,6 +477,8 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 			a.command(c, "userSetPin", "ok", "", nil)
 		}
 		a.reply(c, res)
+	case "usersList":
+		a.reply(c, a.usersList(m.ID))
 	case "users":
 		if m.UsersReq == nil {
 			return
@@ -485,6 +489,31 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 			a.replyOp(c, "users", id, 0, "", err)
 		}(*m.UsersReq, m.ID)
 	}
+}
+
+// usersListMsg is the user directory for the Users editor: what the form
+// shows, never a hash. Len is only whether a PIN is set (0 = none).
+type usersListMsg struct {
+	T     string     `json:"t"` // "usersListResult"
+	ID    int        `json:"id"`
+	OK    bool       `json:"ok"`
+	Users []userView `json:"users"`
+}
+
+type userView struct {
+	Name       string `json:"name"`
+	Len        int    `json:"len"`
+	Trusted    bool   `json:"trusted,omitempty"`
+	Persistent bool   `json:"persistent,omitempty"`
+}
+
+// usersList answers the settings PIN holder (policy: needAdmin).
+func (a *App) usersList(id int) usersListMsg {
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}}
+	for _, u := range a.r().cfg.Users {
+		m.Users = append(m.Users, userView{u.Name, u.Len, u.Trusted, u.Persistent})
+	}
+	return m
 }
 
 // UserSetPin changes the PIN of the user c is unlocked as, after checking

@@ -130,7 +130,7 @@ test('brandFrames: fresh frames every run, a fade when not flying, a slow tail o
 });
 
 test('actorUser names configured users only, never an address', () => {
-  const users = [{ name: 'Ana' }, { name: 'Bo' }];
+  const users = ['Ana', 'Bo'];
   assert.equal(actorUser('Ana', users), 'Ana');
   assert.equal(actorUser('10.0.0.1', users), '');
   assert.equal(actorUser('', users), '');
@@ -140,7 +140,7 @@ test('actorUser names configured users only, never an address', () => {
 });
 
 test('folderActor: one name only when every take shares it', () => {
-  const users = [{ name: 'Ana' }, { name: 'Bo' }];
+  const users = ['Ana', 'Bo'];
   assert.equal(folderActor([{ client: 'Ana' }, { client: 'Ana' }], users), 'Ana');
   assert.equal(folderActor([{ client: 'Ana' }, { client: 'Bo' }], users), '');
   assert.equal(folderActor([{ client: 'Ana' }, { client: '10.0.0.1' }], users), '');

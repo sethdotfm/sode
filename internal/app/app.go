@@ -312,7 +312,7 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	a.status.Addr = a.r().cfg.Router
 	// Retrying keeps the last error, so a browser that loads mid-retry still
 	// sees the router as lost. Up clears it; a new router starts clean
-	// (ApplyConfig).
+	// (applyConfig).
 	if s != swp08.StateConnecting {
 		a.status.Err = ""
 	}
@@ -587,11 +587,16 @@ func (a *App) readHello() helloPage {
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
+	// The user directory goes to no one in a hello (every browser, locked
+	// or not, gets this): names ride the lock state of unlocked pages, the
+	// editor asks for its list (usersList).
+	cfg := r.cfg
+	cfg.Users = nil
 	m := helloMsg{
 		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At,
 		Tally: routeChanges(a.router.tally), Protect: routeChanges(a.router.protect),
 		Status: a.status, Recent: p.recent, More: p.more,
-		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: r.cfg,
+		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg,
 		PinSet: r.cfg.SettingsPin != "", ConfigPath: a.cfgPath, Version: VersionLabel(),
 		BrandColors: config.BrandColors,
 	}

@@ -12,6 +12,7 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - Fuzzy **Next** steps through letters as well as digits ("Prmpt A" → "Prmpt B") (#149).
 - Small UI tweaks (#157), lock chip as plain text (#164), number stepper down arrow visible (#166), Presets popup keeps focus (#155, #156).
 - Security and sessions (found in review): a right user PIN no longer resets the shared wrong-PIN count (it is forgotten after an hour without a wrong one); a persistent user's session is renewed each time it is used or its page is still open, instead of expiring 90 days after login; the lock pad follows a PIN-length change at once; another browser's settings save can no longer wipe a valid session token.
+- The user directory (names, PIN lengths, trusted and never-log-out flags) is no longer sent to every browser in the hello. A locked page learns only the PIN lengths in use; an unlocked page gets the names (for "by Ana" in history); the Users editor asks for its list with the settings PIN.
 - **Trusted users** now also need the settings PIN to change the matrix, levels, level offset, name settings, fire mode and salvo group (and still the router, trusted proxies and PIN attempt limit).
 - Docs: this changelog (#147) and an AI disclosure in the README (#121).
 

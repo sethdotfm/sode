@@ -430,7 +430,7 @@ export { trapDialog } from './dialogkeys.js';
 // and found entries have none). A folder shows it when all its takes share
 // one. Its own small span, not part of entryNote.
 export function byLabel(x) {
-  const users = S.cfg?.users;
+  const users = S.userNames;
   const name = x.entries ? folderActor(x.entries, users) : actorUser(x.client, users);
   return name ? el('span', 'sode__hist-by', `by ${name}`) : null;
 }

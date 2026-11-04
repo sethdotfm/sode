@@ -147,7 +147,6 @@ dialog.addEventListener('keydown', (e) => {
   if (!onButton) input.focus();
 });
 
-export const popupOpen = () => open;
 
 export function openPopup() {
   if (open) return;

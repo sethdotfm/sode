@@ -11,14 +11,9 @@ import (
 
 // --- settings
 
-// SaveSettings applies cfg from c. Browsers never see the PIN hash, so the
-// current one is kept unless pin sets a new one or clearPin drops it.
-// Saves run one at a time, so one can't drop a PIN another just set.
-func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bool) error {
-	return a.saveSettings(c, cfg, pin, clearPin, false)
-}
-
-// saveSettings is SaveSettings; keepDefaults keeps the current
+// saveSettings applies cfg from c. Browsers never see the PIN hash, so the
+// current one is kept unless pin sets a new one or clearPin drops it. Saves
+// run one at a time, so one can't drop a PIN another just set. keepDefaults keeps the current
 // deviceDefaults, for a page that sent none (read under cfgMu with the rest).
 func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, keepDefaults bool) error {
 	a.cfgMu.Lock()
@@ -31,7 +26,7 @@ func (a *App) saveSettings(c *client, cfg config.Config, pin string, clearPin, k
 	admin := a.settingsUnlocked(c)
 	return a.applyConfig(func(cur *config.Config) error {
 		// cur is a copy of the live config. Whatever is saved apart from
-		// this form (Config's owned fields: filter sets, salvos, the
+		// this form (Config's owned fields: filter sets, presets, the
 		// PIN, users and locks...) stays as it is, so a browser's stale
 		// copy can't undo it.
 		live := *cur
@@ -99,14 +94,6 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	// now, not just ignored, so undoing the change can't revive them.
 	a.tokens.prune(cfg)
 	return old, nw, nil
-}
-
-// ApplyConfig validates, saves and applies new settings. Router-side changes
-// clear state and reconnect; every browser gets a fresh snapshot.
-func (a *App) ApplyConfig(c config.Config) error {
-	a.cfgMu.Lock()
-	defer a.cfgMu.Unlock()
-	return a.applyConfig(func(cur *config.Config) error { *cur = c; return nil })
 }
 
 // cutTakes ends every take and check in flight, for a router change: their

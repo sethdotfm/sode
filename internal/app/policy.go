@@ -99,6 +99,7 @@ var policy = map[string]rule{
 	"presets":    {need: needTrusted, op: "presets"},
 	// Users, locks and the settings PIN's own users: the PIN only.
 	"userSignOutAll": {need: needAdmin, op: "userSignOutAll"},
+	"usersList":      {need: needAdmin, op: "usersList"},
 	"users":          {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
 }
 

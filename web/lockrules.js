@@ -31,16 +31,14 @@ export function sendDelay(pin, lens) {
 
 // The configured user a history entry's `client` names, or '' (an address,
 // an ext/found entry, or a user since removed). Never returns an address.
-export function actorUser(client, users) {
-  if (!client || !users?.length) return '';
-  const u = users.find((x) => x.name === client);
-  return u ? u.name : '';
+export function actorUser(client, names) {
+  return client && names?.includes(client) ? client : '';
 }
 
 // One name for a folder's entries when they all share it, else ''.
 export function folderActor(entries, users) {
-  const names = new Set(entries.map((e) => actorUser(e.client, users)));
-  return names.size === 1 ? [...names][0] : '';
+  const who = new Set(entries.map((e) => actorUser(e.client, users)));
+  return who.size === 1 ? [...who][0] : '';
 }
 
 // Whether the idle time has run out; 0 minutes = never.

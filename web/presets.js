@@ -342,7 +342,6 @@ function deleteClick() {
 
 // ---- open / close
 
-export const presetsOpen = () => open;
 
 export function openPresets(scope = '', name = '') {
   back = document.activeElement;

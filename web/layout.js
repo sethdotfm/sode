@@ -4,14 +4,13 @@
 // first paint.
 
 import { on } from './core.js';
-import { pref, setPref } from './device.js';
+import { pref } from './device.js';
 
 const root = document.documentElement;
 const narrowTouch = matchMedia('(max-width: 700px) and (pointer: coarse)');
 const listeners = [];
 
 export const layoutPref = () => pref('layout');
-export const setLayoutPref = (v) => setPref('layout', v);
 
 export const layout = () => root.dataset.layout;
 export const onLayout = (fn) => { listeners.push(fn); };

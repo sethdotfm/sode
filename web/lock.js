@@ -361,6 +361,7 @@ onMsg('lockState', (m) => {
   L.trusted = !!m.trusted;
   L.persistent = !!m.persistent;
   L.lens = m.lens || [];
+  S.userNames = m.names || []; // for "by Ana" in history
   if (L.enforced && soft) { // a lock that is enforced now: the PIN replaces the hand lock
     soft.lock.cancel();
     soft = null;

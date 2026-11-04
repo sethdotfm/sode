@@ -261,15 +261,6 @@ func (h *History) Clear() error {
 	return h.f.Truncate(0)
 }
 
-func (h *History) Len() int {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.f == nil {
-		return len(h.mem)
-	}
-	return len(h.offs)
-}
-
 // Page returns up to n entries older than ID before, newest first.
 // before < 0 means from the newest. A page that ends inside a group runs
 // on to the end of it, so a confirm's takes come back together.

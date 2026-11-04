@@ -268,7 +268,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		switch m.T {
-		case "hi", "userUnlock", "userLock", "userSetPin", "users", "userSignOutAll":
+		case "hi", "userUnlock", "userLock", "userSetPin", "users", "usersList", "userSignOutAll":
 			a.serveUsers(c, &m)
 		case "batch":
 			a.serveBatch(c, &m)

@@ -16,7 +16,6 @@ let query = { src: '', dst: '' };
 const anything = () => true;
 let searchSrc = anything, searchDst = anything;
 
-export const searchState = () => ({ ...query });
 export const searchActive = () => !!(query.src.trim() || query.dst.trim());
 // Errors per box for text that doesn't parse (the last good one applies).
 export function setSearch(next) {
