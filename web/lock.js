@@ -20,7 +20,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, cancelLoginTo, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, PAGE_VIEW, viewBody, softLock as softView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
@@ -60,11 +60,11 @@ writeStr('sode-lock-never', null);
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
 let padBody, softBody, softKey, softBtn, softNote, loginAsBtn;
-let loginFromSoft = false; // the pad was opened from the hand lock: Cancel goes back to it
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
-let login = false; // the pad is up by request (no lock on), dismissable
+let V = PAGE_VIEW; // the one view state: page | soft (hand lock) | login (pad by request); see lockrules.js
+let handOn = false; // the overlay's data-sode-lock is set (told to others as 'handlock')
 let cancelBtn;
-let soft = null; // { key, lock } while the screen is locked by hand (no PIN lock on)
+let soft = null; // { key, lock }: the hand lock's letter and lockout, set exactly while V.mode is 'soft'
 let lastSoftKey = '';
 let pin = '';
 let seq = 0; // the userUnlock whose reply counts
@@ -142,12 +142,12 @@ function say(text, bad = false) {
 }
 
 function render() {
-  const covered = (L.enforced && L.locked) || !!soft || login;
-  const showChip = chipShown({ covered, soft: !!soft, user: L.user }); // there even where no lock is on, and under the hand lock when someone is in
+  const covered = viewBody(V, L.enforced && L.locked) !== '';
+  const showChip = chipShown({ covered, soft: V.mode === 'soft', user: L.user }); // there even where no lock is on, and under the hand lock when someone is in
   if (covered) showLock();
   else hideLock();
   build();
-  chip.update(L, showChip, !!soft);
+  chip.update(L, showChip, V.mode === 'soft');
   document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
@@ -187,9 +187,10 @@ let scrolled = null; // where the page was when the lock came down
 
 function showLock() {
   build();
-  padBody.hidden = !!soft; // the PIN pad, or the hand lock's letter
-  cancelBtn.hidden = !login;
-  softBody.hidden = !soft;
+  const body = viewBody(V, L.enforced && L.locked);
+  padBody.hidden = body !== 'pad'; // the PIN pad, or the hand lock's letter
+  cancelBtn.hidden = V.mode !== 'login';
+  softBody.hidden = body !== 'soft';
   loginAsBtn.hidden = !loginAsOffered(L);
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
@@ -207,11 +208,12 @@ function showLock() {
   // scroll it (desktop.js leaves its focus-scroll alone while this is set).
   if (root.hidden) scrolled = { x: window.scrollX, y: window.scrollY };
   document.documentElement.dataset.sodeLock = 'on';
+  setHand(true);
   root.hidden = false;
   moveBrand('in');
   void root.offsetWidth; // commit the start before the class changes it
   root.classList.add('is-on');
-  if (!login) closeModals(); // a requested login keeps Settings open behind it
+  if (V.mode !== 'login') closeModals(); // a requested login keeps Settings open behind it
   inerted = [];
   for (const c of document.body.children) inert(c);
   // Anything added to the page while locked is covered too.
@@ -222,6 +224,14 @@ function showLock() {
   if (had && had !== document.body && !root.contains(had)) before = had;
   had?.blur?.();
   root.focus({ preventScroll: true });
+}
+
+// Tells other modules (transfer.js) when the overlay goes up and, after its
+// fade, down.
+function setHand(on) {
+  if (handOn === on) return;
+  handOn = on;
+  emit('handlock', { on });
 }
 
 let watch = null;
@@ -268,6 +278,7 @@ function hideLock() {
     root.hidden = true;
     for (const a of brand.getAnimations()) a.cancel();
     delete document.documentElement.dataset.sodeLock;
+    setHand(false);
   }, out + 100);
   // The element that had focus before locking, if it is still on the page.
   if (before?.isConnected) before.focus?.({ preventScroll: true });
@@ -375,7 +386,7 @@ onMsg('session', (m) => {
 
 onMsg('lockState', (m) => {
   if (settle) settle(); // a welcome still showing: finish it first
-  const was = (L.enforced && L.locked) || login;
+  const was = (L.enforced && L.locked) || V.mode === 'login';
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.user = m.user || '';
@@ -387,6 +398,7 @@ onMsg('lockState', (m) => {
     soft.lock.cancel();
     soft = null;
   }
+  V = lockArrived(V, L.enforced);
   // The answer to our `hi` says whether the token was honored; a state sent
   // for another reason (someone else saved settings) says nothing about it.
   // A token the server no longer honors (PIN changed, user removed or no
@@ -400,7 +412,7 @@ onMsg('lockState', (m) => {
     welcoming = false;
     // A login that worked ends the hand lock for good. Any other state (someone
     // else saved settings, a token catch-up) says nothing about this pad.
-    if (L.enforced || (unlocked && L.user)) { login = false; loginFromSoft = false; }
+    V = loginWon(V, { enforced: L.enforced, unlocked, user: L.user });
     unlocked = false;
     render();
     emit('access', { ...L });
@@ -425,16 +437,15 @@ on('logout', () => lockNow());
 
 // Settings' Log in button (users exist, no lock on): the PIN pad, with Cancel.
 on('login', () => {
-  if (!loginOffered(L) || login || soft) return;
-  login = true;
+  if (!loginOffered(L) || V.mode !== 'page') return;
+  V = startLogin(V, false);
   render();
 });
 
 function cancelLogin() {
-  if (!login) return;
-  const back = cancelLoginTo(loginFromSoft) === 'soft';
-  login = false;
-  loginFromSoft = false;
+  if (V.mode !== 'login') return;
+  const back = V.back === 'soft';
+  V = cancelView(V);
   clearTimeout(timer);
   clearFeedback();
   if (back && !L.enforced) softLock(); // fresh letter and lockout, as a new hand lock
@@ -446,8 +457,7 @@ function cancelLogin() {
 function softLock() {
   if (soft || L.enforced || !S.cfg) return;
   build();
-  login = false; // an idle lock over a login pad: the hand lock wins
-  loginFromSoft = false;
+  V = softView(V, false); // an idle lock over a login pad: the hand lock wins
   const key = churnKey(lastSoftKey);
   lastSoftKey = key;
   softKey.textContent = key.toUpperCase();
@@ -467,6 +477,7 @@ function softUnlock() {
   if (!soft?.lock.ready()) return;
   soft.lock.cancel();
   soft = null;
+  V = softUnview();
   render();
 }
 
@@ -477,8 +488,7 @@ function loginFromHandLock() {
   if (!soft || !loginAsOffered(L)) return;
   soft.lock.cancel();
   soft = null;
-  login = true;
-  loginFromSoft = true;
+  V = startLogin(V, true);
   pin = '';
   clearTimeout(timer);
   clearFeedback();
@@ -508,7 +518,7 @@ function lockNow() {
 // Ctrl+L, in the capture phase so nothing underneath sees it. Only where it
 // does something: a page whose lock is on, unlocked as a user.
 document.addEventListener('keydown', (e) => {
-  if (soft) {
+  if (V.mode === 'soft') {
     // The page behind must not see a key: not a take, not Ctrl+Z. A shortcut
     // chord is kept from the page but left to the browser (reload, copy).
     e.stopImmediatePropagation();
@@ -520,7 +530,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (root && !root.hidden && root.classList.contains('is-on')) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (login && e.key === 'Escape') {
+    if (V.mode === 'login' && e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       cancelLogin();

@@ -104,7 +104,8 @@ let pending = null; // the share document waiting to be shown
 let access = null; // lock.js's lock state, once it has said
 let namesIn = false;
 
-const handLocked = () => document.documentElement.dataset.sodeLock === 'on';
+let handUp = false; // lock.js's overlay is up (its 'handlock' event)
+const handLocked = () => handUp;
 const clean = () => {
   const r = fmt.readLink(location.search, location.hash);
   if (r.doc || r.error) history.replaceState(null, '', location.pathname + r.search + r.hash);
@@ -136,8 +137,7 @@ function takeLink() {
 export function applySharedLink() {
   on('helloData', () => { namesIn = true; tryOpen(); });
   on('access', (l) => { access = l; tryOpen(); });
-  // A hand lock has no event of its own: its marker on <html> is watched.
-  new MutationObserver(tryOpen).observe(document.documentElement, { attributes: true, attributeFilter: ['data-sode-lock'] });
+  on('handlock', ({ on: up }) => { handUp = up; tryOpen(); });
   window.addEventListener('hashchange', takeLink);
   takeLink();
 }
