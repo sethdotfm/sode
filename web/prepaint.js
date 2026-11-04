@@ -12,8 +12,11 @@
   try { g = JSON.parse(get('sode-device-defaults')) || {}; } catch (e) {}
   let mine = {};
   try {
+    // Only with a session token kept (else this load is a guest): as cachedProfile() in prefs.js.
+    let tab = null;
+    try { tab = sessionStorage.getItem('sode-tab-session'); } catch (e) {}
     const c = JSON.parse(get('sode-profile-prefs'));
-    if (c && typeof c.user === 'string' && c.user && c.prefs && typeof c.prefs === 'object') mine = c.prefs;
+    if ((get('sode-session') || tab) && c && typeof c.user === 'string' && c.user && c.prefs && typeof c.prefs === 'object') mine = c.prefs;
   } catch (e) {}
   const word = (v) => (typeof v === 'boolean' ? (v ? 'on' : 'off') : v);
   const pick = (key, name, ok, def) => {

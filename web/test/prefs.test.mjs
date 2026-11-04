@@ -59,3 +59,13 @@ test('profile bools are on/off strings (booleans tolerated)', () => {
   assert.equal(mine('flip', { flip: 'on' }), 'on');
   assert.equal(mine('flip', null), '');
 });
+
+test('cachedProfile: a guest (no session token) never gets the last user\'s prefs (#187)', async () => {
+  const { cachedProfile } = await import('../prefs.js');
+  const raw = { user: 'Ana', prefs: { theme: 'dark' } };
+  assert.deepEqual(cachedProfile(raw, true), { user: 'Ana', prefs: { theme: 'dark' } });
+  assert.deepEqual(cachedProfile(raw, false), { user: '', prefs: {} });
+  for (const bad of [null, {}, { user: '', prefs: {} }, { user: 'Ana' }, { user: 5, prefs: {} }]) {
+    assert.deepEqual(cachedProfile(bad, true), { user: '', prefs: {} });
+  }
+});

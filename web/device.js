@@ -5,16 +5,18 @@
 // Also the clock's time formats and the theme key.
 
 import { $, el, on, emit } from './core.js';
-import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine } from './prefs.js';
+import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile } from './prefs.js';
 import { profile } from './profile.js';
-import { readJSON, writeJSON, readStr, writeStr } from './store.js';
+import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
 
 let globals = readJSON(CACHE_KEY);
 // The logged-in user's defaults: {user, prefs} from the cache until the
 // profile arrives. Only ever one user's; cleared when that user is gone.
-const cachedProfile = readJSON(PROFILE_CACHE_KEY);
-let mineUser = typeof cachedProfile?.user === 'string' ? cachedProfile.user : '';
-let mineMap = mineUser && cachedProfile.prefs && typeof cachedProfile.prefs === 'object' ? cachedProfile.prefs : {};
+// Used only while a session token is kept (a guest never gets a previous
+// user's prefs, #187): the same keys as lock.js's TOKEN_KEY / TAB_KEY.
+const cached = cachedProfile(readJSON(PROFILE_CACHE_KEY), !!(readStr('sode-session') || readTab('sode-tab-session')));
+let mineUser = cached.user;
+let mineMap = cached.prefs;
 const stored = (name) => readStr(PREFS[name].key);
 const resolveAll = () => Object.fromEntries(Object.keys(PREFS).map((n) => [n, resolve(n, stored(n), mineMap, globals)]));
 // What is in force now. index.html applied the same before first paint.
@@ -38,6 +40,9 @@ function setProfilePrefs(p) {
   applyPrefs();
 }
 on('profile', setProfilePrefs);
+// Nobody (a guest), or somebody else, is in: the cached user's prefs go at
+// once; the server's `profile` brings the right ones (#187).
+on('access', (a) => { if (mineUser && a.user !== mineUser) setProfilePrefs(null); });
 
 
 // v '' (or anything unknown) goes back to the global default.

@@ -35,6 +35,19 @@ export function fromGlobal(name, g) {
 // next load follows them before the profile arrives.
 export const PROFILE_CACHE_KEY = 'sode-profile-prefs';
 
+// The cached profile prefs of the last logged-in user are used only while this
+// browser holds a session token (sode-session in localStorage, or
+// sode-tab-session in sessionStorage): without one the next page load is a
+// guest, who gets browser and everyone's defaults, never a previous user's
+// (#187). Returns {user, prefs}; user '' = none. index.html's prepaint.js
+// repeats this inline: keep them in step.
+export function cachedProfile(raw, hasSession) {
+  if (!hasSession || !raw || typeof raw.user !== 'string' || !raw.user || !raw.prefs || typeof raw.prefs !== 'object') {
+    return { user: '', prefs: {} };
+  }
+  return { user: raw.user, prefs: raw.prefs };
+}
+
 // This browser's stored value if it is one, else ''.
 export const own = (name, stored) => (valid(name, stored) ? stored : '');
 
