@@ -2,6 +2,11 @@
 
 Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
+## Beta 1.6.0 (unreleased)
+
+- **User profiles** (#161): a third scope, *Me*, for This device settings, filter sets and presets, kept on the server so they follow a user to any browser. A browser's own choice still wins.
+- **Export, import and share links** (#169): one preset or filter set as a link, everything as a YAML export, with a review sheet before anything is saved.
+
 ## Beta 1.5.0
 
 - **Presets** (#152, renamed from "salvos" in #162): saved multi-source/multi-destination takes as buttons above Recent, per browser or for everyone (Settings PIN). Ctrl+G / ⌘G opens a searchable popup; pinning, an editor, and one history folder per fire.
