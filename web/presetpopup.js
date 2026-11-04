@@ -6,11 +6,11 @@
 
 import { el, S, on, icon } from './core.js';
 import { trapDialog } from './widgets.js';
-import { globalSaver } from './globalsave.js';
-import { profileSaver } from './profilesaver.js';
+import { globalSaver, profileSaver } from './globalsave.js';
 import { fire, presetShown } from './presets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, PRESET_SCOPES } from './presetstore.js';
+import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets } from './presetstore.js';
+import { scopeLabel } from './scopes.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -73,7 +73,7 @@ const saver = globalSaver({
 });
 pinCancel.addEventListener('click', () => saver.cancel());
 
-const scopeText = (s) => PRESET_SCOPES[s.scope].toLowerCase();
+const scopeText = (s) => scopeLabel(s.scope).toLowerCase();
 // Me presets save to the user's profile: no PIN row.
 const profSaver = profileSaver({
   setNote, isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved.',

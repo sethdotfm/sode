@@ -20,7 +20,7 @@ class FakeWS {
 globalThis.WebSocket = FakeWS;
 
 const m = await import('./all.mjs');
-const { profileSaver, profileProblem, PROFILE_MAX_BYTES } = await import('../profilesaver.js');
+const { profileSaver, profileProblem, PROFILE_MAX_BYTES } = await import('../globalsave.js');
 m.connect();
 const deliver = (msg) => FakeWS.last.onmessage({ data: JSON.stringify(msg) });
 const f = (o) => ({ src: '', dst: '', sode: true, ext: true, hidden: false, ...o });

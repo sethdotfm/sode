@@ -9,19 +9,20 @@ import { $, el, S, on, off, search, item, labelNode, nameProblem } from './core.
 import { readStr, writeStr } from './store.js';
 import {
   filterState, setFilter, filterCount, allSets, activeSet, activeRef, adoptFilter, pickSet,
-  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, userSets, setRef, SCOPE_LABEL, filterSummary, toggleSet, activeStack, isActive,
+  saveLocalSet, deleteLocalSet, renameLocalSet, setsIn, setRef, filterSummary, toggleSet, activeStack, isActive,
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
 import { shareLink, copyLink } from './transfer.js';
-import { filterShare } from './exportfmt.js';
+import { filterShare, saveAsName } from './exportfmt.js';
+import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
-import { globalSaver } from './globalsave.js';
-import { profileSaver } from './profilesaver.js';
+import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName } from './profile.js';
 import { combobox, trapDialog } from './widgets.js';
 
+const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]); // Default | Everyone | Me | This browser
 const root = $('filters');
 const dialog = $('filters-dialog');
 const MODE_KEY = 'sode-filter-mode';
@@ -278,7 +279,7 @@ function renderButtons() {
   };
   // All | for everyone | this browser's own, each group labelled for
   // screen readers.
-  const groups = Object.entries(SCOPE_LABEL)
+  const groups = SCOPE_GROUPS
     .map(([scope, label]) => [label, sets.filter((s) => s.scope === scope)]).filter(([, g]) => g.length);
   for (const box of document.querySelectorAll('[data-sets]')) {
     const kids = [];
@@ -369,7 +370,7 @@ function renderSetBar() {
   const a = activeSet();
   const stack = activeStack();
   const select = $('flt-set');
-  const groups = Object.entries(SCOPE_LABEL);
+  const groups = SCOPE_GROUPS;
   const sets = allSets();
   const opts = [];
   if (!a) {
@@ -405,7 +406,7 @@ function renderSetBar() {
     return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. `
       + 'Changing a filter leaves the stack, and the share link is off.');
   }
-  setNote(a && a.scope !== 'all' ? `${SCOPE_LABEL[a.scope]}${a.edited ? ' · edited' : ''}` : '');
+  setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' · edited' : ''}` : '');
 }
 const setNote = (text, error = false) => {
   $('flt-set-note').textContent = text;
@@ -427,7 +428,7 @@ const profSaver = profileSaver({ setNote, isOpen: filtersOpen, failTitle: 'Filte
 const changeShared = (scope, list, done) => (scope === 'user'
   ? profSaver.change({ filterSets: list.map((s) => ({ name: s.name, ...s.f })) }, done)
   : saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done));
-const sharedWith = (scope, fn) => fn((scope === 'user' ? userSets() : globalSets()).map((s) => ({ name: s.name, f: s.f })));
+const sharedWith = (scope, fn) => fn(setsIn(scope).map((s) => ({ name: s.name, f: s.f })));
 const refTo = (scope, name, base) => ({ ...setRef(scope, name), base });
 
 // ---- the buttons
@@ -471,13 +472,12 @@ function askName(mode) {
   naming = mode;
   const f = $('flt-set-name');
   const named = a && a.scope !== 'all';
-  f.value = mode === 'rename' ? a.name : !named ? '' : a.scope === 'global' ? `${a.name} (mine)` : `${a.name} 2`;
+  f.value = mode === 'rename' ? a.name : !named ? '' : saveAsName(a.name, a.scope);
   f.classList.remove('pb-input--invalid');
   $('flt-set-scope-wrap').hidden = mode === 'rename';
   // 'Me' is offered only while someone is logged in.
   const sel = $('flt-set-scope');
-  sel.replaceChildren(new Option('This browser', 'local'), new Option('Everyone', 'global'),
-    ...(profileName() ? [new Option('Me', 'user')] : []));
+  sel.replaceChildren(...scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id)));
   sel.value = 'local';
   $('flt-set-name-ok').textContent = mode === 'rename' ? 'Rename' : 'Save set';
   $('flt-set-name-row').hidden = false;

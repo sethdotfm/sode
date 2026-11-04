@@ -57,7 +57,8 @@ export const localPresets = () => [].concat(readJSON(KEY, [])).filter((s) => s?.
 export const userPresets = () => (profileName() ? profile().presets : []).filter((s) => s?.name)
   .map((s) => ({ scope: 'user', ...normPreset(s), pinned: s.pinned !== false }));
 export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
-export const PRESET_SCOPES = { global: 'Everyone', user: 'Me', local: 'This browser' };
+const PRESET_LISTS = { global: globalPresets, user: userPresets, local: localPresets };
+export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();
 export const findPreset = (scope, name) =>
   allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 

@@ -76,7 +76,9 @@ export const localSets = () => [].concat(readJSON(SETS_KEY, [])).filter((s) => s
 export const userSets = () => (profileName() ? profile().filterSets : []).filter((s) => s?.name)
   .map((s) => ({ scope: 'user', user: profileName(), name: String(s.name), f: normFilter(s) }));
 export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...userSets(), ...localSets()];
-export const SCOPE_LABEL = { all: 'Default', global: 'Everyone', user: 'Me', local: 'This browser' };
+// The sets of one scope ('all' has none: the Default is built in).
+const SET_LISTS = { global: globalSets, user: userSets, local: localSets };
+export const setsIn = (scope) => (SET_LISTS[scope] || (() => []))();
 // A reference to a set as kept in the active set and stack. A user's set
 // carries the user, so another user logging in on this browser never picks
 // up a same-named set of theirs.

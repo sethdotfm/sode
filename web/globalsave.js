@@ -1,20 +1,33 @@
-// Saving something for everyone (filter sets, presets): a change to a
-// server-side setting, so with a settings PIN it asks for it first. One
-// saver per dialog does the whole flow: the PIN row, the request and its
-// answer, locking up again afterwards. The dialog supplies its PIN controls
-// and how it shows a note.
+// Saving filter sets and presets from a dialog: ONE saver that does the
+// whole flow (the request and its answer, notes, a lost socket), in two
+// flavours that differ only in how a change is sent:
+//   globalSaver  for everyone: a change to a server-side setting, so with a
+//                settings PIN it asks for it first (PIN row, relock after).
+//   profileSaver the logged-in user's own profile: no PIN, since a user may
+//                always change their own.
+// The dialog supplies how it shows a note (and, for the PIN, its controls).
 
-import { S, on, onMsg, wsSend, sentence } from './core.js';
+import { on, onMsg, wsSend, sentence } from './core.js';
 import { unlock, relock, needsPin, demandPin } from './pin.js';
 import { showResult } from './plans.js';
+import { profile, saveProfile } from './profile.js';
 
-// t: the message sent ({ t, ...payload, id }; a payload's own t wins) and
-// resultT: the answer ({ id, ok, err, locked }). pinIn/pinRow/pinOk: the
-// PIN row's input, row and Unlock button. setNote(text, isError). isOpen():
-// the dialog is showing (after it closed, a failure is a result banner).
-// render(): redraw what depends on busy(). okNote: shown after a save.
-// failTitle: the banner if a save fails after the dialog closed.
-// Returns { change(payload, done), cancel(), close(), busy() }.
+// The server caps a whole profile at 48 KiB (the socket read limit is 64).
+export const PROFILE_MAX_BYTES = 48 * 1024;
+
+// Why `parts` ({filterSets}, {presets}) would make the profile `p` too big
+// to save, or ''. Parts replace the same-named part of p.
+export function profileProblem(p, parts) {
+  const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, ...parts };
+  // UTF-8 bytes as the server counts them: Go's json.Marshal also writes
+  // < > & as <, >, & (5 more bytes each).
+  const json = JSON.stringify(next);
+  const bytes = new TextEncoder().encode(json).length + 5 * (json.match(/[<>&]/g) || []).length;
+  return bytes > PROFILE_MAX_BYTES
+    ? `Your profile is too big to save (${Math.ceil(bytes / 1024)} KiB, at most ${PROFILE_MAX_BYTES / 1024} KiB). Delete something first.`
+    : '';
+}
+
 let seq = 0; // shared: ids stay unique across savers of one result type
 
 // One onMsg per result type, shared by every saver of that type (the preset
@@ -30,20 +43,28 @@ function onResult(resultT, fn) {
   list.push(fn);
 }
 
-export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, setNote, isOpen, failTitle, render = () => {}, okNote = '' }) {
-  let pending = null; // { run, done, id once sent }
+// The shared flow. `how` is { pin, check(payload), send(pending, payload,
+// settle) }: pin is { input, row, ok } or null; check returns why a payload
+// can't be saved or ''; send starts the request and returns false if it
+// couldn't go out (otherwise settle(result) is called with { ok, err,
+// locked }). A result is { ok, err, locked }.
+function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote = '' }) {
+  const { pin } = how;
+  let pending = null; // { run, done, sent }
 
-  // Sends payload now (the PIN, if needed, is already in); done() runs when
-  // the server says ok.
   function change(payload, done) {
-    pending = { run: () => send(payload), done };
-    if (needsPin()) return askPin();
+    const big = how.check?.(payload);
+    if (big) return setNote(big, true);
+    pending = { run: () => send(payload), done, sent: false };
+    if (pin && needsPin()) return askPin();
     pending.run();
   }
 
   function send(payload) {
-    pending.id = ++seq;
-    if (!wsSend({ t, ...payload, id: pending.id })) {
+    const p = pending;
+    p.sent = true;
+    const settle = (r) => { if (pending === p) answer(p, r); };
+    if (how.send(p, payload, settle) === false) {
       pending = null;
       render();
       setNote('Not connected to Sode.', true);
@@ -53,83 +74,118 @@ export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, setNote, isOpen,
     setNote('Saving…');
   }
 
-  onResult(resultT, (m) => {
-    if (!pending || m.id !== pending.id) return;
-    const p = pending;
+  function answer(p, r) {
     const open = isOpen();
-    if (m.locked) {
+    if (r.locked && pin) {
       relock();
       demandPin();
       if (open) {
-        pending = { run: p.run, done: p.done };
+        pending = { run: p.run, done: p.done, sent: false };
         return askPin('Enter the PIN again.');
       }
     }
     pending = null;
-    if (m.ok) p.done();
+    if (r.ok) p.done();
     if (open) {
       render();
-      if (!m.ok) setNote(sentence(m.err), true);
+      if (!r.ok) setNote(sentence(r.err) || (pin ? '' : 'Not saved.'), true);
       else if (okNote) setNote(okNote);
       return;
     }
-    // Closed while it was saving: say if it didn't, then lock up.
-    if (!m.ok) showResult('error', failTitle, sentence(m.err) || 'Settings are locked.');
-    relock();
-  });
+    // Closed while it was saving: say if it didn't (and lock up again).
+    if (!r.ok) showResult('error', failTitle, sentence(r.err) || (pin ? 'Settings are locked.' : 'Not saved.'));
+    if (pin) relock();
+  }
+
+  how.listen?.((m) => { if (pending?.sent && m.id === pending.id) answer(pending, m); });
 
   // The answer to a save on a dead socket never comes: let it be tried again.
   on('wsclose', () => {
-    if (!pending?.id) return;
+    if (!pending?.sent) return;
     pending = null;
     render();
     if (isOpen()) setNote('Connection lost; try again.', true);
   });
 
   function askPin(err = '') {
-    pinRow.hidden = false;
-    pinIn.value = '';
+    pin.row.hidden = false;
+    pin.input.value = '';
     setNote(err || 'Enter the settings PIN.', !!err);
-    pinIn.focus();
+    pin.input.focus();
   }
 
   function cancel() {
-    pinRow.hidden = true;
+    if (pin) pin.row.hidden = true;
     pending = null;
     setNote('');
     render();
   }
 
-  async function sendPin() {
-    pinOk.disabled = true;
-    const r = await unlock(pinIn.value);
-    if (r.superseded) return;
-    pinOk.disabled = false;
-    if (r.stale) return;
-    if (!r.ok) { setNote(r.err, true); pinIn.select(); return; }
-    pinRow.hidden = true;
-    pending?.run();
+  if (pin) {
+    const sendPin = async () => {
+      pin.ok.disabled = true;
+      const r = await unlock(pin.input.value);
+      if (r.superseded) return;
+      pin.ok.disabled = false;
+      if (r.stale) return;
+      if (!r.ok) { setNote(r.err, true); pin.input.select(); return; }
+      pin.row.hidden = true;
+      pending?.run();
+    };
+    pin.ok.addEventListener('click', sendPin);
+    pin.input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); sendPin(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+    });
   }
-
-  pinOk.addEventListener('click', sendPin);
-  pinIn.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); sendPin(); }
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
-  });
 
   return {
     change,
     cancel,
     busy: () => pending != null,
     // The dialog closes. True when a save already sent is still to be
-    // answered (its answer locks up after it); otherwise anything waiting
+    // answered (a PIN saver locks up after it); otherwise anything waiting
     // for the PIN is dropped and settings lock again.
     close() {
-      pinRow.hidden = true;
-      if (pending?.id) return true;
+      if (pin) pin.row.hidden = true;
+      if (pending?.sent) return true;
       pending = null;
-      relock();
+      if (pin) relock();
       return false;
     },
   };
+}
+
+// t: the message sent ({ t, ...payload, id }; a payload's own t wins) and
+// resultT: the answer ({ id, ok, err, locked }). pinIn/pinRow/pinOk: the
+// PIN row's input, row and Unlock button. setNote(text, isError). isOpen():
+// the dialog is showing (after it closed, a failure is a result banner).
+// render(): redraw what depends on busy(). okNote: shown after a save.
+// failTitle: the banner if a save fails after the dialog closed.
+// Returns { change(payload, done), cancel(), close(), busy() }.
+export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, ...rest }) {
+  return makeSaver({
+    ...rest,
+    how: {
+      pin: { input: pinIn, row: pinRow, ok: pinOk },
+      listen: (fn) => onResult(resultT, fn),
+      send(p, payload) {
+        p.id = ++seq;
+        return wsSend({ t, ...payload, id: p.id });
+      },
+    },
+  });
+}
+
+// For 'Me': change(parts, done) with parts { filterSets } or { presets },
+// the whole list. Same options as globalSaver without t/resultT/pin*.
+export function profileSaver(opts) {
+  return makeSaver({
+    ...opts,
+    how: {
+      pin: null,
+      check: (parts) => profileProblem(profile(), parts),
+      send(p, parts, settle) { saveProfile(parts).then(settle); },
+    },
+  });
 }

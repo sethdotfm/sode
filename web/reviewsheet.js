@@ -9,16 +9,15 @@
 import { el, S, on, off, sentence } from './core.js';
 import { trapDialog } from './widgets.js';
 import { showResult } from './plans.js';
-import { globalSaver } from './globalsave.js';
-import { profileSaver } from './profilesaver.js';
+import { globalSaver, profileSaver } from './globalsave.js';
 import { profile, profileName, fetchProfile, saveProfile } from './profile.js';
 import { PREFS } from './prefs.js';
 import { ownPref, setPref } from './device.js';
-import { localSets, globalSets, userSets, putLocalSets, filterSummary, normFilter } from './filterstore.js';
-import { localPresets, globalPresets, userPresets, putLocalPresets, normPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
+import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.js';
+import { presetsIn, putLocalPresets, normPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
+import { scopeLabel } from './scopes.js';
 
-const SCOPE_NAME = { local: 'This browser', user: 'Me', global: 'Everyone' };
 
 // ---- the dialog
 
@@ -117,11 +116,11 @@ const scope = () => st.scope;
 // The target scope's current lists, as { name, f } and { name, items, pinned }.
 function curSets(sc) {
   if (sc === 'user' && forUser()) return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ name: String(s.name), f: normFilter(s) }));
-  return (sc === 'global' ? globalSets() : sc === 'user' ? userSets() : localSets()).map((s) => ({ name: s.name, f: s.f }));
+  return setsIn(sc).map((s) => ({ name: s.name, f: s.f }));
 }
 function curPresets(sc) {
   if (sc === 'user' && forUser()) return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...normPreset(s), pinned: s.pinned !== false }));
-  return (sc === 'global' ? globalPresets() : sc === 'user' ? userPresets() : localPresets()).map((s) => ({ name: s.name, items: s.items, pinned: s.pinned !== false }));
+  return presetsIn(sc).map((s) => ({ name: s.name, items: s.items, pinned: s.pinned !== false }));
 }
 const curNames = (kind, sc) => (kind === 'filter' ? curSets(sc) : curPresets(sc)).map((x) => x.name);
 const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs : profile().prefs) || {} : null);
@@ -401,7 +400,7 @@ function summaryText(p) {
 function finish(p) {
   // This browser's own settings, whichever scope the lists went to.
   if (prefTarget() === 'local') for (const [name, v] of Object.entries(p.prefs)) setPref(name, v);
-  const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : SCOPE_NAME[st.scope].toLowerCase();
+  const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope).toLowerCase();
   const text = `${summaryText(p)} imported to ${where}.`;
   close();
   showResult('ok', 'Import done', text);

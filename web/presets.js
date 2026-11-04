@@ -6,14 +6,14 @@
 import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem } from './core.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan } from './plans.js';
-import { globalSaver } from './globalsave.js';
-import { profileSaver } from './profilesaver.js';
+import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName } from './profile.js';
 import { trapDialog } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { saveAsName } from './exportfmt.js';
+import { scopeLabel, scopeOptions } from './scopes.js';
 import {
-  allPresets, globalPresets, userPresets, localPresets, PRESET_SCOPES, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
+  allPresets, presetsIn, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
   pinnedPresets, saved,
   parseRefs, itemsFromTakes, latestFolderTakes,
 } from './presetstore.js';
@@ -61,7 +61,7 @@ function renderStrips() {
     const chips = list.map((s) => {
       const b = el('button', 'pb-chip sode__set', s.name);
       b.type = 'button';
-      b.title = `${summary(s)} · ${PRESET_SCOPES[s.scope]}`;
+      b.title = `${summary(s)} · ${scopeLabel(s.scope)}`;
       b.addEventListener('click', () => fire(s.scope, s.name));
       return b;
     });
@@ -124,8 +124,7 @@ nameIn.autocomplete = 'off';
 const scopeIn = el('select', 'pb-select');
 scopeIn.setAttribute('aria-label', 'Save for');
 // 'Me' is added while someone is logged in (see renderHead).
-const scopeOpts = () => [new Option('This browser', 'local'), new Option('Everyone', 'global'),
-  ...(profileName() ? [new Option('Me', 'user')] : [])];
+const scopeOpts = () => scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id));
 scopeIn.append(...scopeOpts());
 const pinnedIn = el('input', 'pb-check__input');
 pinnedIn.type = 'checkbox';
@@ -199,7 +198,6 @@ const profSaver = profileSaver({
   setNote, isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved to your profile.',
   render: () => renderHead(true),
 });
-const listFor = (scope) => (scope === 'global' ? globalPresets() : scope === 'user' ? userPresets() : localPresets());
 
 let open = false, back = null;
 // cur: the preset being edited: { scope, old, name, items: [{ src, dsts, levels }] } as typed text.
@@ -279,7 +277,7 @@ function focusLast() {
 // The preset picker and the buttons around the name. keep: what is being
 // typed (the name) stays as it is.
 function renderHead(keep = false) {
-  pick.replaceChildren(new Option('New preset…', ''), ...allPresets().map((s) => new Option(`${s.name} (${PRESET_SCOPES[s.scope]})`, `${s.scope}:${s.name}`)));
+  pick.replaceChildren(new Option('New preset…', ''), ...allPresets().map((s) => new Option(`${s.name} (${scopeLabel(s.scope)})`, `${s.scope}:${s.name}`)));
   pick.value = cur.old ? `${cur.scope}:${cur.old}` : '';
   if (!keep) nameIn.value = cur.name;
   // Rebuilt so that 'Me' follows who is logged in; a Me preset of someone else is gone from the list anyway.
@@ -301,7 +299,7 @@ function renderEditor(keepEdit = false) {
   renderHead(keepEdit);
   if (keepEdit) return;
   renderRows();
-  setNote(cur.old ? PRESET_SCOPES[cur.scope] : '');
+  setNote(cur.old ? scopeLabel(cur.scope) : '');
 }
 pick.addEventListener('change', () => {
   const v = pick.value;
@@ -343,7 +341,7 @@ function built() {
     items.push(p.item);
   }
   const s = { ...normPreset({ name: cur.name, items }), pinned: cur.pinned };
-  const list = listFor(cur.scope);
+  const list = presetsIn(cur.scope);
   const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'preset', old: cur.old }) || presetProblem(s);
   if (err) return { err };
   const next = replacePreset(list, s, cur.old);
@@ -394,7 +392,7 @@ function saveAs() {
   const err = nameProblem(name, [], { noun: 'preset' });
   if (err) return bad(err);
   const s = { ...normPreset({ name, items }), pinned: cur.pinned };
-  const list = listFor(target);
+  const list = presetsIn(target);
   const taken = list.find((x) => x.name.toLowerCase() === name.toLowerCase())?.name || '';
   const perr = presetProblem(s);
   if (perr) return bad(perr);
@@ -424,7 +422,7 @@ function deleteClick() {
     load(null);
     return setNote('Deleted.');
   }
-  const next = listFor(cur.scope).filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
+  const next = presetsIn(cur.scope).filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   (cur.scope === 'user' ? profSaver : saver).change({ presets: next }, () => load(null));
 }
 
