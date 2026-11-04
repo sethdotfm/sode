@@ -2,7 +2,7 @@
 
 Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
-## Beta 1.5.0 (unreleased)
+## Beta 1.5.0
 
 - **Presets** (#152, renamed from "salvos" in #162): saved multi-source/multi-destination takes as buttons above Recent, per browser or for everyone (Settings PIN). Ctrl+G / ⌘G opens a searchable popup; pinning, an editor, and one history folder per fire.
 - **Native fire mode** (#154): *Settings → Takes → Fire confirms of several takes* can send a multi-take confirm as one SW-P-08 group salvo (commands 120/121), about 4 ms apart on the Ultrix instead of ~16 ms. Falls back to one after another if the router doesn't acknowledge. New `fireMode` and `salvoGroup` settings.
