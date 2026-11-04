@@ -61,6 +61,7 @@ let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
 let padBody, softBody, softKey, softBtn, softNote, loginAsBtn;
 let loginFromSoft = false; // the pad was opened from the hand lock: Cancel goes back to it
+let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
 let login = false; // the pad is up by request (no lock on), dismissable
 let cancelBtn;
 let soft = null; // { key, lock } while the screen is locked by hand (no PIN lock on)
@@ -350,6 +351,7 @@ onMsg('userUnlockResult', (m) => {
   if (m.id !== seq) return;
   if (m.ok) {
     pin = '';
+    unlocked = true;
     say('');
     if (m.token) { // keep the session: a tab login in this tab, a persistent user's in the browser
       if (tokenHome(m) === 'tab') writeTab(TAB_KEY, m.token);
@@ -396,7 +398,10 @@ onMsg('lockState', (m) => {
   const done = () => {
     settle = null;
     welcoming = false;
-    if (L.user || L.enforced) { login = false; loginFromSoft = false; } // a login that worked ends the hand lock for good
+    // A login that worked ends the hand lock for good. Any other state (someone
+    // else saved settings, a token catch-up) says nothing about this pad.
+    if (L.enforced || (unlocked && L.user)) { login = false; loginFromSoft = false; }
+    unlocked = false;
     render();
     emit('access', { ...L });
     // A page that asked for something while locked asks again (log.js).

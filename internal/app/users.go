@@ -375,6 +375,10 @@ type userEdit struct {
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
+	// Locks and AutoLock are read only to refuse them: they moved to Settings >
+	// Access, and a page loaded before the update must not look saved.
+	Locks    json.RawMessage `json:"locks"`
+	AutoLock json.RawMessage `json:"autoLockMinutes"`
 }
 
 // SaveUsers replaces the user directory and the longest PIN (the locks and
@@ -383,6 +387,9 @@ type usersReq struct {
 // the main lock does not, see policy.go). PINs must be unique across users
 // (that is how a PIN alone says who).
 func (a *App) SaveUsers(c *client, req usersReq) error {
+	if present(req.Locks) || present(req.AutoLock) {
+		return errors.New("the lock settings moved to Settings > Access: reload this page")
+	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if a.r().cfg.SettingsPin == "" {

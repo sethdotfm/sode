@@ -401,8 +401,7 @@ function saveAs() {
   const next = replacePreset(list, s, taken);
   const tooMuch = presetsProblem(next);
   if (tooMuch) return bad(tooMuch);
-  closeSaveAs();
-  const loaded = () => { cur.scope = target; cur.old = s.name; cur.name = s.name; dirty = false; discard = false; renderHead(); };
+  const loaded = () => { closeSaveAs(); cur.scope = target; cur.old = s.name; cur.name = s.name; dirty = false; discard = false; renderHead(); };
   if (target === 'local') {
     saveLocalPreset(s, taken);
     loaded();

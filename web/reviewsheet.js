@@ -268,9 +268,13 @@ const RANK = { warn: 0, error: 0, info: 1, ok: 2, idle: 3 };
 const rankOf = (n) => RANK[[...n.firstChild.classList].find((c) => c.startsWith('pb-dot--'))?.slice(8)] ?? 3;
 function worstFirst(lines) {
   const sorted = lines.map((n, i) => [n, i]).sort((a, b) => rankOf(a[0]) - rankOf(b[0]) || a[1] - b[1]).map((x) => x[0]);
-  if (sorted.length < 2) return sorted;
-  const more = el('details', 'sode__rv-more', el('summary', 'sode__hint', `${sorted.length - 1} more`), ...sorted.slice(1).map((n) => el('div', null, n)));
-  return [sorted[0], more];
+  // Every warning stays visible; only notes (info, ok) fold away, behind the
+  // first one when there is no warning.
+  const loud = sorted.filter((n) => rankOf(n) === 0);
+  const shown = loud.length ? loud : sorted.slice(0, 1);
+  const rest = sorted.filter((n) => !shown.includes(n));
+  if (!rest.length) return shown;
+  return [...shown, el('details', 'sode__rv-more', el('summary', 'sode__hint', `${rest.length} more note${rest.length > 1 ? 's' : ''}`), ...rest.map((n) => el('div', null, n)))];
 }
 
 function rowNode(r, i, choices) {

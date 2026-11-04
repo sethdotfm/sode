@@ -10,10 +10,10 @@
 // Imported by settings.js.
 
 import { el, S, on, emit, sentence } from './core.js';
-import { demandPin } from './pin.js';
+import { demandPin, trusted, unlocked } from './pin.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
-import { prefRows, withoutPref, setSummary, presetSummary, without } from './profilesrules.js';
+import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
 
 // ---- the dialog
 
@@ -184,6 +184,9 @@ on('locking', () => { if (isOpen) closeDialog(); });
 // My own profile changes under the dialog (a save here, or elsewhere).
 on('profile', () => { if (isOpen && own()) { prof = profile(); paint(); } });
 // The user is gone, or the page is no longer allowed to see profiles.
-for (const ev of ['access', 'conn']) {
-  on(ev, () => { if (isOpen && !own() && !S.userNames?.includes(who)) closeDialog(); });
+// Someone else's profile also needs a trusted user or the settings PIN, still.
+for (const ev of ['access', 'conn', 'unlockResult', 'locked', 'hello']) {
+  on(ev, () => {
+    if (isOpen && !own() && (!S.userNames?.includes(who) || !canSeeProfiles(S.userNames, trusted(), unlocked()))) closeDialog();
+  });
 }

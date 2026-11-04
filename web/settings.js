@@ -133,6 +133,9 @@ export function openSettings() {
   renderColors(S.cfg.levelColors || []);
   $('cfg-lock-main').checked = !!S.cfg.locks?.main;
   $('cfg-lock-log').checked = !!S.cfg.locks?.log;
+  // What the form showed: only a change from it is sent (below), so a form
+  // opened before someone else changed the locks can't undo their change.
+  shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, auto: S.cfg.autoLockMinutes ?? 0 };
   $('cfg-pin').value = '';
   $('cfg-pin2').value = '';
   $('cfg-pin-clear').checked = false;
@@ -178,6 +181,8 @@ function closeSettings() {
   if (layout() === 'desktop') $('src').focus();
 }
 
+let shownAccess = null; // { main, log, auto } as filled into the form
+
 // The config as the form now stands, without what the server owns (owned.js).
 function readSettings() {
   const c = omitOwned(S.cfg);
@@ -188,7 +193,13 @@ function readSettings() {
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
-  c.locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked };
+  // The locks and idle time are sent only when edited; a missing key keeps the
+  // live value on the server. A blank idle time means 0 (never).
+  if (Number.isNaN(c.autoLockMinutes)) c.autoLockMinutes = 0;
+  const locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked };
+  if (shownAccess && locks.main === shownAccess.main && locks.log === shownAccess.log) delete c.locks;
+  else c.locks = locks;
+  if (shownAccess && c.autoLockMinutes === shownAccess.auto) delete c.autoLockMinutes;
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
   c.deviceDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));

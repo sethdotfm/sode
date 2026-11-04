@@ -179,3 +179,21 @@ func TestRemoveLastUserGuardScope(t *testing.T) {
 		t.Fatal("users not removed")
 	}
 }
+
+// A users message from a page loaded before the locks moved is refused out
+// loud, not saved with its lock edits quietly dropped.
+func TestSaveUsersRefusesOldLockKeys(t *testing.T) {
+	a := userApp(t, false)
+	admin := &client{ip: "10.0.0.9"}
+	if err := a.Unlock(admin, "2468"); err != nil {
+		t.Fatal(err)
+	}
+	var req usersReq
+	if err := json.Unmarshal([]byte(`{"users":[{"name":"Ana","was":"Ana"}],"locks":{"main":true,"log":false},"autoLockMinutes":3}`), &req); err != nil {
+		t.Fatal(err)
+	}
+	err := a.SaveUsers(admin, req)
+	if err == nil || !strings.Contains(err.Error(), "Settings > Access") {
+		t.Fatalf("want a refusal pointing at Settings > Access, got %v", err)
+	}
+}
