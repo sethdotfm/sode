@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,9 +28,30 @@ func mkUser(t *testing.T, name, pin string) config.User {
 
 // userApp is an app with users ana (1234) and bo (567890) and, if locks, the
 // main and log locks on.
+// settledTempDir is t.TempDir for a directory the app may still be writing to
+// (tokens.json is saved off the lock, so a save can land just as the test
+// ends and make a plain RemoveAll fail with "directory not empty", which
+// failed the release image build once). Removal is retried briefly.
+func settledTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "sode-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for i := 0; i < 50; i++ {
+			if os.RemoveAll(dir) == nil {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
+	return dir
+}
+
 func userApp(t *testing.T, locks bool) *App {
 	t.Helper()
-	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	cfgPath := filepath.Join(settledTempDir(t), "config.yaml")
 	cfg := config.Defaults()
 	cfg.Normalize()
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234"), mkUser(t, "Bo", "567890")}
