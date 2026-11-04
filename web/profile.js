@@ -33,6 +33,15 @@ onMsg('profile', (m) => {
 
 let seq = 0;
 const pending = new Map();
+const reading = new Map();
+onMsg('profileGetResult', (m) => {
+  const done = reading.get(m.id);
+  if (!done) return;
+  reading.delete(m.id);
+  done(m.ok ? { ok: true, err: '', locked: false, profile: toProfile({ ...m.profile, name: m.name }) }
+    : { ok: false, err: m.err || 'Could not read that profile.', locked: !!m.locked, profile: EMPTY });
+});
+
 onMsg('profileSaveResult', (m) => {
   const done = pending.get(m.id);
   if (!done) return;
@@ -53,5 +62,17 @@ export function saveProfile(parts, name = cur.name) {
       return resolve({ ok: false, err: 'Not connected to Sode.', locked: false });
     }
     pending.set(id, resolve);
+  });
+}
+
+// Reads any user's profile (a trusted user or the settings PIN; the server
+// refuses others with locked: true). Resolves { ok, err, locked, profile }.
+export function fetchProfile(name) {
+  return new Promise((resolve) => {
+    const id = ++seq;
+    if (!wsSend({ t: 'profileGet', id, name })) {
+      return resolve({ ok: false, err: 'Not connected to Sode.', locked: false, profile: EMPTY });
+    }
+    reading.set(id, resolve);
   });
 }
