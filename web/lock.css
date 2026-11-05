@@ -133,12 +133,15 @@
 }
 .sode-lock__who[hidden] { display: none; }
 /* The chip slides inside the border as it grows, at the border's own rate
-   (slow on the way out, like the overlay). */
+   (slow on the way out, like the overlay). Its background does not fade in
+   on the way out (a grey box rising under the fading overlay looked wrong
+   behind the lock button): it waits for the overlay to finish, then returns,
+   when it is the same colour as the page behind it. */
 .sode-lock__who {
   transition:
     left var(--sode-lock-out) var(--pb-ease),
     top var(--sode-lock-out) var(--pb-ease),
-    background var(--sode-lock-out) var(--pb-ease);
+    background 0ms linear var(--sode-lock-out);
 }
 .sode-lock__who-bar { transition: padding var(--sode-lock-out) var(--pb-ease); }
 .sode-lock__who-bar {
