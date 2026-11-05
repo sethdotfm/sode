@@ -616,7 +616,7 @@ const dlg = trapDialog(root, dialog, closeFilters);
 // ---- share links: the filter as one item in a #share= link (exportfmt.js);
 // opening it shows the review sheet (transfer.js). The old ?f= link still opens.
 
-const shareUI = { box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status') };
+const shareUI = { box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status'), copy: $('flt-share-copy') };
 $('flt-share-btn').addEventListener('click', () => {
   flushEds();
   const a = activeSet();

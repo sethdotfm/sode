@@ -57,14 +57,32 @@ export function shareLink(doc, ui) {
   ui.input.value = fmt.shareUrl(`${location.origin}${location.pathname}`, doc);
   ui.input.select();
   ui.status.replaceChildren();
+  copiedOff(ui);
 }
 
-// The Copy link button. With no clipboard the link stays selected, to copy by hand.
+// The Copy link button says "Copied" in green for two seconds, in place (no
+// extra element). With no clipboard the link stays selected, to copy by hand.
+const COPIED_MS = 2000;
+function copiedOff(ui) {
+  clearTimeout(ui.timer);
+  if (!ui.copy?.classList.contains('pb-btn--ok')) return;
+  ui.copy.classList.replace('pb-btn--ok', 'pb-btn--outline');
+  ui.copy.textContent = 'Copy link';
+}
 export async function copyLink(ui) {
   let ok = false;
   try { await navigator.clipboard.writeText(ui.input.value); ok = true; } catch (e) { /* no clipboard */ }
-  if (!ok) ui.input.select();
-  ui.status.replaceChildren(dot(ok ? 'ok' : 'info'), ok ? 'Copied' : 'Copy it above');
+  if (!ok) {
+    ui.input.select();
+    copiedOff(ui);
+    return ui.status.replaceChildren(dot('info'), 'Copy it above');
+  }
+  ui.status.replaceChildren();
+  if (!ui.copy) return;
+  clearTimeout(ui.timer);
+  ui.copy.classList.replace('pb-btn--outline', 'pb-btn--ok');
+  ui.copy.textContent = 'Copied';
+  ui.timer = setTimeout(() => copiedOff(ui), COPIED_MS);
 }
 
 export const sharePresetDoc = (p) => fmt.presetShare(p, srcName, dstName);

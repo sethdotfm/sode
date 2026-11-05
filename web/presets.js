@@ -74,10 +74,16 @@ function renderStrips() {
       more.setAttribute('aria-haspopup', 'dialog');
       more.addEventListener('click', askPopup);
     }
+    // A rule after Show all sets it apart from the pinned chips.
+    const sep = () => {
+      const x = el('span', 'sode__sets-sep', '|');
+      x.setAttribute('aria-hidden', 'true');
+      return x;
+    };
     // Laid out like Recent's bar: title, the quick buttons, then the ghost buttons.
     box.replaceChildren(
       el('span', 'sode__label', 'Presets'),
-      el('div', 'sode__sets', ...[more, ...chips].filter(Boolean)),
+      el('div', 'sode__sets', ...[more, more && chips.length ? sep() : null, ...chips].filter(Boolean)),
       edit,
     );
   }

@@ -554,6 +554,7 @@
   .sode__presets .sode__set { flex: none; }
 }
 .sode__preset-pop { display: flex; flex-direction: column; }
+.sode__preset-pop > .pb-modal__footer { justify-content: flex-end; }
 .sode__preset-list { display: flex; flex-direction: column; margin-top: var(--pb-space-3); max-height: 50vh; overflow-y: auto; }
 .sode__preset-item { align-items: center; border-left: var(--sode-side-w) solid transparent; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); justify-content: space-between; padding: var(--pb-space-2); }
 .sode__preset-item.is-hi { background: var(--pb-surface-sunken); border-left-color: var(--pb-accent); }
