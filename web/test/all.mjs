@@ -10,3 +10,4 @@ export * from '../filterstore.js';
 export * from '../history.js';
 export * from '../plans.js';
 export * from '../presetstore.js';
+export * from '../recentpick.js';

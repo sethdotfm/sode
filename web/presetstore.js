@@ -275,16 +275,6 @@ export function itemsFromTakes(takes) {
   return [...by.values()].map(normItem);
 }
 
-// The newest take made in Sode with the rest of its folder (same group),
-// from history newest first.
-export function latestFolderTakes(hist) {
-  const take = (x) => !x.ext && x.undo == null && x.retry == null;
-  const e = hist.find(take);
-  if (!e) return [];
-  const es = e.group && e.groupN > 1 ? hist.filter((x) => x.group === e.group && take(x)) : [e];
-  return es.slice().reverse().map((x) => ({ src: x.src, dst: x.dst, levels: x.levels }));
-}
-
 // Global presets changed for everyone.
 onMsg('presets', (m) => {
   S.cfg = { ...S.cfg, presets: m.presets };

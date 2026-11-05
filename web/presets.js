@@ -5,7 +5,8 @@
 
 import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem } from './core.js';
 import { levelInput, parseLevels } from './levelview.js';
-import { showResult, presetPlan } from './plans.js';
+import { showResult, presetPlan, canRedo } from './plans.js';
+import { startPick, endPick } from './recentpick.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { trapDialog } from './widgets.js';
@@ -15,7 +16,7 @@ import { scopeLabel, scopeOptions } from './scopes.js';
 import {
   allPresets, presetsIn, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
   pinnedPresets, saved, clearPinOverride,
-  parseRefs, itemsFromTakes, latestFolderTakes,
+  parseRefs, itemsFromTakes,
 } from './presetstore.js';
 
 // ---- the layouts: each registers once what it has
@@ -191,7 +192,7 @@ dialog.append(
     el('div', 'sode__filters-set',
       btn('pb-btn--outline pb-btn--sm', 'Add take', () => { cur.items.push(blankRow()); renderRows(); focusLast(); }),
       btn('pb-btn--outline pb-btn--sm', 'Fill from patch boxes', fillFromBoxes),
-      btn('pb-btn--outline pb-btn--sm', 'Fill from latest folder in Recent', fillFromHistory)),
+      btn('pb-btn--outline pb-btn--sm', 'Fill from Recent…', fillFromRecent)),
     el('span', 'sode__hint', 'Numbers (12, 20-24) or names, separated by commas.')),
   el('div', 'pb-modal__footer', transferBtn, doneBtn),
 );
@@ -357,10 +358,29 @@ function fillFromBoxes() {
   if (!p) return setNote('Pick a Source and a Destination in the main boxes first.', true);
   addRows([{ src: p.src.n, dsts: p.dsts.map((d) => d.n), levels: p.levels }], 'Added the patch in the boxes.');
 }
-function fillFromHistory() {
-  const items = itemsFromTakes(latestFolderTakes(S.hist));
-  if (!items.length) return setNote('No takes made in Sode yet.', true);
-  addRows(items, `Added ${items.length === 1 ? 'the latest take' : 'the latest folder'} from Recent.`);
+// The editor steps aside while Recent is in pick mode (recentpick.js); Add or
+// Cancel brings it back. A lock ends the pick first (see 'locking' below).
+let picking = false;
+function fillFromRecent() {
+  if (!S.hist.length) return setNote('No takes made in Sode yet.', true);
+  picking = true;
+  dlg.hide();
+  const back = () => {
+    picking = false;
+    if (!open) return;
+    dlg.show();
+    dialog.focus();
+  };
+  startPick({
+    label: cur.name,
+    ok: canRedo,
+    onCancel: back,
+    onAdd: (takes) => {
+      back();
+      const items = itemsFromTakes(takes);
+      addRows(items, `Added ${takes.length} take${takes.length === 1 ? '' : 's'} from Recent.`);
+    },
+  });
 }
 function addRows(items, note) {
   if (cur.items.length === 1 && !cur.items[0].src && !cur.items[0].dsts) cur.items = [];
@@ -522,6 +542,7 @@ const dlg = trapDialog(root, dialog, closePresets);
 // A lock closes the editor like the other dialogs do, without the
 // unsaved-changes warning (the page is covered; the edits can't be reached).
 on('locking', () => {
+  if (picking) { picking = false; endPick(); }
   if (!open) return;
   discard = true;
   closePresets();

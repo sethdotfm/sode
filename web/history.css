@@ -597,3 +597,30 @@
   margin-top: var(--pb-space-6);
   padding-top: var(--pb-space-6);
 }
+
+/* Choosing takes for a preset (recentpick.js): the bar says what the next
+   click does, the patch boxes and presets wait, picked rows are marked. */
+.sode__pickbar {
+  align-items: center;
+  background: var(--pb-surface-overlay);
+  border-bottom: var(--pb-border-w) solid var(--pb-accent);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  left: 0;
+  padding: var(--pb-space-3) var(--pb-space-5);
+  position: fixed;
+  right: 0;
+  top: var(--sode-down-h, 0px);
+  z-index: var(--pb-z-sticky);
+}
+.sode__pickbar[hidden] { display: none; }
+[data-pb-layout="phone"] .sode__pickbar { top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px)); }
+[data-sode-pick] .sode__box,
+[data-sode-pick] .sode__under,
+[data-sode-pick] [data-presets] { opacity: 0.5; pointer-events: none; }
+[data-sode-pick] .sode__hist-row,
+[data-sode-pick] .sode-m__recent-face { cursor: pointer; }
+.sode__hist-row--picked,
+.sode-m__recent-row--picked .sode-m__recent-face { background: var(--pb-surface-sunken); box-shadow: inset var(--sode-side-w) 0 0 var(--pb-accent); }
+.sode__pickbox { margin: 0; }
