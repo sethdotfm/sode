@@ -258,7 +258,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     // Every item, for a quick scroll: the one numbered `n` (if any) highlighted.
     browse(items, n, { keepMoved = false } = {}) {
       show(items, Math.max(0, items.findIndex((it) => it.n === n)), true, keepMoved && browsed && !browsing);
-      menu.querySelector(`.${hiCls}`)?.scrollIntoView({ block: 'nearest' });
+      rows[hi - win.lo]?.scrollIntoView({ block: 'nearest' }); // (a browse list draws no highlight class until ↓)
     },
     close() {
       show([], 0, false);

@@ -159,3 +159,16 @@ test('onRender says whether the list is showing after every redraw', () => {
   cb.refresh();
   assert.deepEqual(seen, [true, false, true]);
 });
+
+test('browse scrolls the chosen row into view even though no row is highlighted yet', () => {
+  const made = document.createElement;
+  const scrolled = [];
+  document.createElement = (t) => { const n = made(t); n.scrollIntoView = () => scrolled.push(n); return n; };
+  try {
+    const { cb, menu } = make();
+    cb.browse(items(5), 3);
+    assert.ok(scrolled.includes(menu.kids[3]));
+  } finally {
+    document.createElement = made;
+  }
+});

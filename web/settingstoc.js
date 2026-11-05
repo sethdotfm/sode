@@ -6,7 +6,7 @@
 
 import { el } from './core.js';
 import { layout } from './layout.js';
-import { mac } from './keys.js';
+import { mac, chord } from './keys.js';
 
 export function initToc({ form, sections, toc, isOpen }) {
   // A clicked section stays marked while the page scrolls to it, which may
@@ -75,10 +75,10 @@ export function initToc({ form, sections, toc, isOpen }) {
 
   // Ctrl+J/K (⌘J/K on a Mac) step through the sections, like the match lists
   // (from the search box too; not while a dialog is over Settings).
+  const STEP = { 'ctrl+j': 1, 'ctrl+k': -1, ...(mac ? { 'meta+j': 1, 'meta+k': -1 } : {}) };
   document.addEventListener('keydown', (e) => {
-    if (!isOpen() || e.defaultPrevented || e.altKey || e.shiftKey || form.hasAttribute('data-locked')) return;
-    if (!((e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey))) return;
-    const step = { KeyJ: 1, KeyK: -1 }[e.code];
+    if (!isOpen() || e.defaultPrevented || form.hasAttribute('data-locked')) return;
+    const step = STEP[chord(e)];
     if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
     e.preventDefault();
     const at = [...toc.children].findIndex((b) => b.classList.contains('active'));

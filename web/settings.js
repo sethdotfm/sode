@@ -317,18 +317,9 @@ on('profile', renderPrefs);
 
 // Account: only while logged in as a user (lock.js says so with 'access').
 let acctUser = '';
-// The Account section (and its list button on a phone) goes when there is nothing in it.
-function acctSection(on) {
-  const sec = $('account').closest('fieldset');
-  sec.hidden = !on;
-  const i = sections.indexOf(sec);
-  if (toc.children[i]) toc.children[i].hidden = !on;
-}
 on('access', (L) => {
   acctUser = L.user || '';
   const acct = !!L.user || loginOffered(L);
-  $('account').hidden = !acct && L.enforced; // the row also holds Lock
-  acctSection(!$('account').hidden);
   $('account-name').hidden = !acct;
   $('account-name').replaceChildren(...(L.user ? ['Logged in as ', el('strong', null, L.user)] : ['Not logged in']));
   for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
@@ -716,9 +707,16 @@ function settingsOf(sec, secId) {
   for (const f of sec.querySelectorAll('[data-find]')) add(f.dataset.find, f.dataset.label || f.textContent, f);
   return [...out.values()];
 }
-const makeIndex = () => buildIndex(sections.map((sec, i) => ({
-  id: secIds[i], title: sec.querySelector('legend').textContent, settings: settingsOf(sec, secIds[i]),
-})));
+// Not inside any section: the save bar's View Logs, indexed under History.
+const OUTSIDE = [{ secId: 'history', id: 'open-log', label: 'View Logs', node: $('open-log') }];
+const makeIndex = () => buildIndex(sections.map((sec, i) => {
+  const settings = settingsOf(sec, secIds[i]);
+  for (const x of OUTSIDE.filter((o) => o.secId === secIds[i])) {
+    settings.push({ id: x.id, label: x.label });
+    targets.set(`${x.secId}/${x.id}`, x.node);
+  }
+  return { id: secIds[i], title: sec.querySelector('legend').textContent, settings };
+}));
 let settingsIndex = makeIndex();
 indexNow = () => { settingsIndex = makeIndex(); };
 
