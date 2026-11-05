@@ -135,14 +135,15 @@
 /* The chip slides inside the border as it grows, at the border's own rate
    (slow on the way out, like the overlay). Its background does not fade in
    on the way out (a grey box rising under the fading overlay looked wrong
-   behind the lock button): it waits for the overlay to finish, then returns,
-   when it is the same colour as the page behind it. */
+   behind the lock button): it has none at all while any lock overlay is up
+   (data-sode-lock, set before the overlay shows and cleared after it is
+   gone) and returns then, when it is the same colour as the page behind it. */
 .sode-lock__who {
   transition:
     left var(--sode-lock-out) var(--pb-ease),
-    top var(--sode-lock-out) var(--pb-ease),
-    background 0ms linear var(--sode-lock-out);
+    top var(--sode-lock-out) var(--pb-ease);
 }
+[data-sode-lock] .sode-lock__who { background: transparent; }
 .sode-lock__who-bar { transition: padding var(--sode-lock-out) var(--pb-ease); }
 .sode-lock__who-bar {
   align-items: center;
@@ -152,8 +153,17 @@
   min-height: calc(var(--pb-control-h-sm) + var(--pb-space-2) * 2);
   padding: var(--pb-space-2) var(--pb-space-3);
 }
+/* The lock button and the closed-lock icon share one square cell. */
+.sode-lock__who-slot { display: grid; flex: none; }
+.sode-lock__who-slot > * {
+  grid-area: 1 / 1;
+  transition: opacity var(--sode-lock-out) var(--pb-ease);
+}
+[data-sode-lock-on] .sode-lock__who-slot > * { transition-duration: var(--sode-lock-motion); }
+.sode-lock__who:not(.is-hand) .sode-lock__who-ico,
+.sode-lock__who.is-hand .sode-lock__who-slot > .pb-btn { opacity: 0; pointer-events: none; }
 /* The lock button is a square at the chip's corner: equal sides, icon centred. */
-.sode-lock__who-bar > .pb-btn,
+.sode-lock__who-slot > .pb-btn,
 .sode-lock__who-ico {
   align-items: center;
   aspect-ratio: 1;
@@ -194,11 +204,9 @@
    transitions above run at --sode-lock-out); data-sode-lock stays until the
    overlay is hidden and keeps the chip above it. */
 [data-sode-lock-on] .sode-lock__who {
-  background: transparent;
   transition:
     left var(--sode-lock-motion) var(--pb-ease),
-    top var(--sode-lock-motion) var(--pb-ease),
-    background var(--sode-lock-motion) var(--pb-ease);
+    top var(--sode-lock-motion) var(--pb-ease);
   /* Inside the border (--pb-space-5 wide), not on it. */
   left: calc(var(--pb-space-5) + var(--pb-space-4));
   top: calc(var(--pb-space-5) + var(--pb-space-4) + var(--sode-down-h, 0px));
@@ -266,7 +274,6 @@
 .sode__profiles-row { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-2) 0; }
 .sode__profiles-item { display: flex; flex: 1 1 12rem; flex-direction: column; min-width: 0; }
 
-/* Under the hand lock the button is gone; the closed lock is a status icon
+/* Under the hand lock the button gives way to the closed lock, a status icon
    beside the words "Logged in as". */
 .sode-lock__who-ico { color: var(--pb-text-muted); }
-.sode-lock__who-ico[hidden] { display: none; }

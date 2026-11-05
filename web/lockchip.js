@@ -26,9 +26,11 @@ export function buildChip(api) {
   lockBtn.setAttribute('aria-label', 'Lock');
   lockBtn.addEventListener('click', () => api.lock());
   // Shown instead of the button while a lock is up: status, with the words beside it.
+  // Both sit in one cell and cross-fade (the root's is-hand class), so the
+  // icon never snaps in or out with the lock screen's border.
   const ico = el('span', 'sode-lock__who-ico', icon('lock'));
-  ico.hidden = true;
-  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', lockBtn, ico, name));
+  const slot = el('div', 'sode-lock__who-slot', lockBtn, ico);
+  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', slot, name));
   root.hidden = true;
 
   // ---- change my PIN
@@ -99,8 +101,10 @@ export function buildChip(api) {
   // handLocked: the lock button does nothing then, so it goes.
   function update(L, chip, handLocked) {
     root.hidden = !chip;
-    lockBtn.hidden = !!handLocked;
-    ico.hidden = !handLocked;
+    root.classList.toggle('is-hand', !!handLocked);
+    lockBtn.inert = !!handLocked; // out of the tab order and unclickable while faded
+    lockBtn.setAttribute('aria-hidden', String(!!handLocked));
+    ico.setAttribute('aria-hidden', String(!handLocked));
     name.textContent = L.user ? `Logged in as ${L.user}` : '';
   }
   // setLocked: swap the button's icon with the overlay (open lock, closed lock),
