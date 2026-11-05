@@ -90,7 +90,12 @@ function renderStrips() {
         b.setAttribute('aria-keyshortcuts', `Alt+${i + 1}`);
       }
       b.type = 'button';
-      b.dataset.pbTip = presetTip(s, (n) => srcItem(n).label, (n) => dstItem(n).label);
+      // Names come from the router and change (a re-poll, a late load): the tip is
+      // worked out when the pointer or focus arrives, not only when the strip is drawn.
+      const tip = () => { b.dataset.pbTip = presetTip(s, (n) => srcItem(n).label, (n) => dstItem(n).label); };
+      tip();
+      b.addEventListener('pointerenter', tip);
+      b.addEventListener('focus', tip);
       b.addEventListener('click', (e) => (e.shiftKey ? fillBoxes(s.scope, s.name) : fire(s.scope, s.name)));
       return b;
     });

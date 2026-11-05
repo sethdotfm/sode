@@ -200,11 +200,14 @@ function pressPreset(s, fill = false) {
 input.addEventListener('input', () => { hi = 0; setNote(''); draw(); });
 // A click on empty space inside the popup (#155, #156) must not take focus
 // away from the search box; buttons and the box itself behave as usual.
+// A draggable row (a pinned preset) is left alone on mousedown: cancelling it
+// would also cancel a drag that starts on its icon or key.
 dialog.addEventListener('mousedown', (e) => {
-  if (e.target.closest('button, input')) return;
+  if (e.target.closest('button, input, [draggable="true"]')) return;
   e.preventDefault();
   input.focus();
 });
+dialog.addEventListener('click', (e) => { if (!e.target.closest('button, input')) input.focus(); });
 dialog.addEventListener('keydown', (e) => {
   // A focused button keeps its own Enter/Space; anywhere else the keys drive the list.
   const onButton = !!e.target.closest?.('button');
