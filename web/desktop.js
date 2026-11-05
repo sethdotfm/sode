@@ -5,7 +5,7 @@
 import {
   $, el, S, on, emit, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
 } from './core.js';
-import { mac } from './keys.js';
+import { mac, chord } from './keys.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
 import { timeNodes, scrollTopPref, flipped, setFlip } from './device.js';
@@ -855,7 +855,7 @@ document.addEventListener('keydown', (e) => {
   }
 
   // ↓ or ↑ in a box with no list open (empty, confirmed, nothing found) opens the whole list.
-  if (b && !b.cb.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+  if (b && !b.cb.open && (chord(e) === 'down' || chord(e) === 'up')) {
     e.preventDefault();
     b.all.open();
     return;
