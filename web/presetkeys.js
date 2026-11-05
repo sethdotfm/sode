@@ -11,16 +11,20 @@ import { pinnedPresets } from './presetstore.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
-// A modal, Settings or the lock screen over the page (the Presets popup is a
-// modal too): not now.
+// A modal (the desktop confirm and the Presets popup are modals), Settings,
+// the lock screen or the phone sheet over the page, or a pick bar waiting for
+// its Add (html[data-sode-pick]): not now.
 const blocked = () =>
   document.documentElement.dataset.view === 'settings' ||
+  'sodePick' in document.documentElement.dataset ||
   !!document.querySelector('.pb-modal-backdrop:not([hidden]), .sode-lock.is-on, #m-sheet:not([hidden])');
 
 const usable = () => S.cfg && presetShown();
 
 document.addEventListener('keydown', (e) => {
-  if (e.repeat || !usable()) return;
+  // The Presets popup handles its own Alt+1-9 (it closes, so blocked() would
+  // read false here and the preset would fire twice).
+  if (e.repeat || e.defaultPrevented || !usable()) return;
   const c = chord(e);
   const slot = /^alt\+(shift\+)?([1-9])$/.exec(c);
   if (slot) {
