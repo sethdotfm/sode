@@ -15,7 +15,6 @@ import {
   undoPlan, againPlan, folderUndoPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
   planBlocked, sendTakes, lastTake, nextTake, lastChip, VERBS,
 } from './plans.js';
-import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
@@ -628,16 +627,6 @@ $('flip').addEventListener('mousedown', (e) => e.preventDefault());
 $('flip').addEventListener('click', () => setFlip(!flipped()));
 on('flip', showFlip);
 showFlip();
-
-// ---- shortcut tip: a note in the corner until dismissed (per browser)
-
-const TIP_KEY = 'sode-hint-keys';
-$('keys-tip-text').textContent = `${mac ? '⌘z' : 'Ctrl+z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
-$('keys-tip').hidden = readStr(TIP_KEY) === 'hidden';
-$('keys-tip-close').addEventListener('click', () => {
-  $('keys-tip').hidden = true;
-  writeStr(TIP_KEY, 'hidden');
-});
 
 // ---- shortcut list (?)
 

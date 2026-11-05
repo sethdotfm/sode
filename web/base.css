@@ -50,21 +50,6 @@ html { font-size: 125%; }
 }
 .sode__conn-addr { font-family: var(--pb-font-num); }
 .sode__conn-addr--name { color: var(--pb-text); font-family: inherit; }
-/* Shortcut tip, out of the way in the bottom corner until dismissed. */
-.sode__tip {
-  align-items: center;
-  background: var(--pb-surface-base);
-  /* above the Settings chip (desktop.css .sode__footer) */
-  bottom: calc(var(--pb-space-4) + var(--pb-control-h-sm) + var(--pb-space-2) * 2 + var(--pb-space-2));
-  color: var(--pb-text-muted);
-  display: flex;
-  font-size: var(--pb-text-xs);
-  gap: var(--pb-space-3);
-  left: var(--pb-space-5);
-  padding: var(--pb-space-1) var(--pb-space-1) var(--pb-space-1) var(--pb-space-3);
-  position: fixed;
-  z-index: var(--pb-z-sticky);
-}
 /* A lost link: a solid red banner across the whole top of the window that
    says which link is down, the corner status gives way to it, and a thick
    pulsing red outline round the whole window. It is out of the page's flow;
@@ -300,8 +285,6 @@ html { font-size: 125%; }
 [data-view="settings"] .sode-m { display: none; }
 [data-layout="phone"] #patch-view,
 [data-layout="phone"] .sode__conn,
-[data-layout="phone"] .sode__tip,
-[data-view="settings"] .sode__tip,
 [data-layout="phone"]:not([data-view="settings"]) #conn-down { display: none; }
 [data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
 
