@@ -742,4 +742,5 @@ presetHost({
   confirm: sheetFor,
   patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
   clear: reset,
+  focus: () => setStep(order()[0], false),
 });

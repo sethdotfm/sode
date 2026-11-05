@@ -69,7 +69,7 @@
 .sode__menu {
   left: 0;
   max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
-  overflow-y: auto;
+  overflow-y: scroll; /* the styled bar below stays visible */
   overscroll-behavior: contain;
   position: absolute;
   right: 0;
@@ -79,14 +79,17 @@
 .sode__menu-add { margin-left: auto; }
 .sode__menu-count {
   background: var(--pb-surface-overlay);
-  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
-  bottom: calc(var(--pb-space-2) * -1);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-top: 0;
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
-  list-style: none;
+  left: 0;
   padding: var(--pb-space-2) var(--pb-space-4);
-  position: sticky;
+  position: absolute; /* under the list, not in what scrolls (widgets.js placeFoot sets top) */
+  right: 0;
+  z-index: var(--pb-z-dropdown, 10);
 }
+.sode__menu-count[hidden] { display: none; }
 .sode__num {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-num);
@@ -193,15 +196,18 @@
   padding-right: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar,
+.sode__menu::-webkit-scrollbar,
 .sode__bar::-webkit-scrollbar,
 .sode__box--levels .sode__levels::-webkit-scrollbar {
   height: var(--pb-space-2);
   width: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar-track,
+.sode__menu::-webkit-scrollbar-track,
 .sode__bar::-webkit-scrollbar-track,
 .sode__box--levels .sode__levels::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
 .sode__scroll::-webkit-scrollbar-thumb,
+.sode__menu::-webkit-scrollbar-thumb,
 .sode__bar::-webkit-scrollbar-thumb,
 .sode__box--levels .sode__levels::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
 .sode__feed {

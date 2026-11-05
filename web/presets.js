@@ -183,13 +183,13 @@ dialog.append(
     el('div', 'sode__filters-sets',
       pickRow,
       el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveAsBtn, shareBtn, delBtn),
-      asRow, pinnedBox, pinRow, noteEl, shareUI.box),
+      asRow, pinnedBox, pinRow, shareUI.box),
     el('div', 'sode__filters-set',
       btn('pb-btn--outline', 'Add row', () => { cur.items.push(blankRow()); renderRows(); focusLast(); }),
       btn('pb-btn--outline', 'Add from Patch Boxes…', addFromBoxes),
       btn('pb-btn--outline', 'Add from Recent…', fillFromRecent)),
     rowsBox),
-  el('div', 'pb-modal__footer', transferBtn, cancelBtn, saveBtn),
+  el('div', 'pb-modal__footer', transferBtn, noteEl, cancelBtn, saveBtn),
 );
 root.append(dialog);
 document.body.append(root);
@@ -197,6 +197,17 @@ document.body.append(root);
 function setNote(text, error = false) {
   noteEl.textContent = text;
   noteEl.classList.toggle('sode__error-text', error);
+  paintSave();
+}
+
+// Save is green when what is typed can be saved, red when it can't (or the last
+// try said why), plain while nothing has changed.
+function paintSave() {
+  if (!cur) return;
+  let state = 'commit';
+  if (noteEl.classList.contains('sode__error-text')) state = 'danger';
+  else if (dirty) state = built(!!cur.old && !!cur.from && cur.scope !== cur.from).err ? 'danger' : 'ok';
+  for (const s of ['commit', 'danger', 'ok']) saveBtn.classList.toggle(`pb-btn--${s}`, s === state);
 }
 
 // Presets for everyone: the whole list is sent, after the PIN if one is set.
@@ -226,9 +237,10 @@ let open = false, back = null;
 // cur: the preset being edited: { scope, old, name, items: [{ src, dsts, levels }] } as typed text.
 let cur = null, dirty = false, deleting = false, discard = false;
 // An edit: unsaved, and a close warning given earlier no longer covers it.
-const touch = () => { dirty = true; discard = false; };
-// A number, a range, a name.
-const EXAMPLE = '12, 20-24, Cam 1';
+const touch = () => { dirty = true; discard = false; paintSave(); };
+// Examples: a source takes one number or name; destinations take a list.
+const SRC_EXAMPLE = '12 or Cam 1';
+const DST_EXAMPLE = '12, 20-24, Monitor 1';
 const blankRow = () => ({ src: '', dsts: '', levels: '' });
 
 const display = (n) => String(n + off());
@@ -288,8 +300,8 @@ function renderRows() {
     upd();
     // Labels show on the first row only; later rows keep their aria-labels.
     return el('div', `sode__preset-row${i ? ' sode__preset-row--bare' : ''}`,
-      field('src', EXAMPLE, `Take ${i + 1} source`, 'Source'),
-      field('dsts', EXAMPLE, `Take ${i + 1} destinations`, 'Destinations'),
+      field('src', SRC_EXAMPLE, `Take ${i + 1} source`, 'Source'),
+      field('dsts', DST_EXAMPLE, `Take ${i + 1} destinations`, 'Destinations'),
       field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`, 'Levels'),
       btn('pb-btn--ghost', 'Remove', () => { cur.items.splice(i, 1); touch(); renderRows(); }),
       hint);
@@ -322,6 +334,7 @@ function renderHead(keep = false) {
   saveAsBtn.hidden = t;
   transferBtn.hidden = t;
   if (t) { delBtn.hidden = true; shareBtn.hidden = true; asRow.hidden = true; shareUI.box.hidden = true; }
+  paintSave();
   titleEl.textContent = t ? `${tgt.old ? 'Edit' : 'Add'} preset for ${tgt.user}` : 'Presets';
 }
 
@@ -378,6 +391,7 @@ function addFromBoxes() {
       return `Added ${added} row${added === 1 ? '' : 's'}`;
     },
   });
+  shown()?.focus?.(); // start at Source
 }
 // The editor steps aside while Recent is in pick mode (recentpick.js); Add or
 // Cancel brings it back. A lock ends the pick first (see 'locking' below).

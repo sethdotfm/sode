@@ -68,6 +68,7 @@ function copiedOff(ui) {
   if (!ui.copy?.classList.contains('pb-btn--ok')) return;
   ui.copy.classList.replace('pb-btn--ok', 'pb-btn--outline');
   ui.copy.textContent = 'Copy link';
+  ui.copy.style.minWidth = '';
 }
 export async function copyLink(ui) {
   let ok = false;
@@ -81,7 +82,8 @@ export async function copyLink(ui) {
   if (!ui.copy) return;
   clearTimeout(ui.timer);
   ui.copy.classList.replace('pb-btn--outline', 'pb-btn--ok');
-  ui.copy.textContent = 'Copied';
+  ui.copy.style.minWidth = `${ui.copy.offsetWidth}px`; // keeps Copy link's width
+  ui.copy.textContent = 'Copied!';
   ui.timer = setTimeout(() => copiedOff(ui), COPIED_MS);
 }
 

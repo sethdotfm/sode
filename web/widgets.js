@@ -121,6 +121,24 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     return b;
   }
 
+  // The count and keys line sits under the list, outside what scrolls, so a
+  // very long list still shows it.
+  let footEl = null;
+  function placeFoot() {
+    if (!foot) return;
+    if (!footEl) {
+      footEl = el('div', 'sode__menu-count');
+      footEl.setAttribute('aria-hidden', 'true');
+      menu.after(footEl);
+    }
+    const show = !menu.hidden && matches.length > PAGE;
+    footEl.hidden = !show;
+    if (!show) return;
+    const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
+    footEl.textContent = `${total} matches · ↑↓ ${mac ? '⌘j ⌘k' : 'Ctrl+j Ctrl+k'} PgUp PgDn`;
+    footEl.style.top = `${menu.offsetTop + menu.offsetHeight}px`;
+  }
+
   function render() {
     const open = matches.length > 0;
     const input = box();
@@ -132,7 +150,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     last = input;
     menu.hidden = !open;
     input.setAttribute('aria-expanded', String(open));
-    if (!open) { input.removeAttribute('aria-activedescendant'); return; }
+    if (!open) { input.removeAttribute('aria-activedescendant'); placeFoot(); return; }
     menu.replaceChildren(...matches.map((it, i) => {
       const li = el('li', cls + (i === hi ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
       li.id = pre + i;
@@ -147,13 +165,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
       if (add && canAdd()) li.append(addButton(it));
       return li;
     }));
-    // A pinned count makes it clear the list scrolls.
-    if (foot && matches.length > PAGE) {
-      const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-      const f = el('li', 'sode__menu-count', `${total} matches · ↑↓ ${mac ? '⌘j ⌘k' : 'Ctrl+j Ctrl+k'} PgUp PgDn`);
-      f.setAttribute('role', 'presentation');
-      menu.append(f);
-    }
+    placeFoot();
     input.setAttribute('aria-activedescendant', pre + hi);
   }
 
@@ -329,7 +341,7 @@ export function failureRows(e) {
 // had before them all (which Undo restores). Every change but the newest
 // has Restore: back to how it was then. onRestore(plan) confirms. onPickSrc(n),
 // if given, makes each routed source a button.
-export function stackSteps(e, onRestore, onPickSrc) {
+export function stackSteps(e, onRestore, onPickSrc, onPickDst) {
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
   const step = (time, levels, text, btn, follows = null, src = null) => el('div', 'sode__route sode__step',
     el('span', 'sode__step-time', time), levelBar(levels),
@@ -347,7 +359,7 @@ export function stackSteps(e, onRestore, onPickSrc) {
   };
   return [
     ...e.chain.map((c, i) => step(fmtClock(c.time), lv(c.levels), srcItem(c.src, c.srcName).label,
-      i === 0 ? null : restore(e.chain[i - 1], c), followBoxes((e.follows || []).filter((f) => f.follow === c.id), c.levels), c.src)),
+      i === 0 ? null : restore(e.chain[i - 1], c), followBoxes((e.follows || []).filter((f) => f.follow === c.id), c.levels, onPickDst), c.src)),
     ...beforeGroups(e).map((g, i) => step(i === 0 ? 'before' : '', g.levels, tallyText(g.src), null, null, g.src)),
   ];
 }
@@ -355,13 +367,24 @@ export function stackSteps(e, onRestore, onPickSrc) {
 // A change's follows on one line: "Followed by:" and each follow's destination (its
 // source is the change's own), with its levels where they differ from
 // levels. Null if there are none.
-export function followBoxes(follows, levels) {
+// onPickDst(item), if given, makes each a button that fills the Destination box.
+export function followBoxes(follows, levels, onPickDst) {
   if (!follows?.length) return null;
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
   const same = (ls) => lv(ls).join() === lv(levels).join();
   return el('span', 'sode__follows', el('span', 'sode__hist-note', 'Followed by:'),
-    ...follows.map((f) => el('span', 'sode__end sode__end--dst', dstItem(f.dst, f.dstName).label,
-      same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`))));
+    ...follows.map((f) => {
+      const it = dstItem(f.dst, f.dstName);
+      const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`);
+      if (!onPickDst) return el('span', 'sode__end sode__end--dst sode__end--follow', it.label, note);
+      const b = el('button', 'sode__end sode__end--dst sode__end--follow sode__end--pick', it.label, note);
+      b.type = 'button';
+      b.tabIndex = -1;
+      b.title = 'Use as destination';
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => onPickDst(it));
+      return b;
+    }));
 }
 
 // ---- pull to load more

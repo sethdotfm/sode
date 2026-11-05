@@ -303,10 +303,10 @@ function histRow(e) {
   if (open) {
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
-        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, useRowSrc)]
+        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, useRowSrc, useRowDst)]
         : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc))]),
       ...failureRows(e),
-      ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
+      ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst))] : []));
     // Below 1000px the row's level bar moves in here (see history.css).
     detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
@@ -337,6 +337,7 @@ function useEnd(k, it) {
   focusBox(k === 'src' ? boxes.dst.input : boxes.src.input);
 }
 function useRowSrc(n) { useEnd('src', srcItem(n)); }
+const useRowDst = (it) => useEnd('dst', it);
 
 // A folder: one confirm's takes under a summary row with the master status,
 // Undo all and Redo all (Retry for the failed ones if any failed).
@@ -941,6 +942,8 @@ on('names', () => {
   renderTally();
 });
 on('tally', renderTally);
+// Done (or Cancel) in a pick bar: no match list may stay open over the page.
+on('pick', () => { if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close(); });
 on('conn', renderConn);
 on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
@@ -951,4 +954,5 @@ presetHost({
   confirm: openConfirm,
   patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
   clear: clearAll,
+  focus: () => boxes.src.input.focus(),
 });

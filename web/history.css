@@ -222,6 +222,11 @@
   text-overflow: ellipsis;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
+/* Follow chips are as tall as the route's other boxes. */
+.sode__follows > .sode__end--follow { padding-bottom: var(--pb-space-1); padding-top: var(--pb-space-1); }
+/* The preset editor's note (errors, where it saved) sits by Save in the footer. */
+.sode__presets-dlg .pb-modal__footer > .sode__hint { flex: 1; text-align: right; }
+.sode__presets-dlg .pb-modal__footer > .sode__hint.sode__error-text { color: var(--pb-status-error); }
 /* Who made a take, when it was a configured user. */
 .sode__hist-by {
   color: var(--pb-text-muted);
