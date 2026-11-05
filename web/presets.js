@@ -14,7 +14,7 @@ import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
 import {
   allPresets, presetsIn, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
-  pinnedPresets, saved,
+  pinnedPresets, saved, clearPinOverride,
   parseRefs, itemsFromTakes, latestFolderTakes,
 } from './presetstore.js';
 
@@ -171,14 +171,14 @@ const asRow = el('div', 'sode__filters-set', asName, el('span', 'pb-select-wrap 
   btn('pb-btn--commit pb-btn--sm', 'Save', () => saveAs()), btn('pb-btn--ghost pb-btn--sm', 'Cancel', () => closeSaveAs()));
 asRow.hidden = true;
 const shareBtn = btn('pb-btn--outline pb-btn--sm', 'Share', () => {
-  const p = cur?.old && findPreset(cur.scope, cur.old);
+  const p = cur?.old && findPreset(cur.from, cur.old);
   if (p) shareLink(sharePresetDoc(p), shareUI);
 });
 
 const pickRow = el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null)));
 const scopeWrap = el('span', 'pb-select-wrap sode__filters-scope', scopeIn);
 const titleEl = Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'presets-title' });
-const transferBtn = btn('pb-btn--outline', 'Export / import…', () => emit('openTransfer', { scope: cur?.old ? cur.scope : 'local', user: profileName() || '', what: 'presets' }));
+const transferBtn = btn('pb-btn--outline', 'Export / import…', () => emit('openTransfer', { scope: cur?.old ? cur.from : 'local', user: profileName() || '', what: 'presets' }));
 const doneBtn = btn('pb-btn--ok', 'Done', () => closePresets());
 dialog.append(
   el('div', 'pb-modal__header', titleEl),
@@ -244,8 +244,8 @@ function load(s) {
   dirty = false;
   discard = false;
   cur = s
-    ? { scope: s.scope, old: s.name, name: s.name, pinned: s.pinned !== false, items: s.items.map(rowFromItem) }
-    : { scope: 'local', old: '', name: '', pinned: true, items: [blankRow()] };
+    ? { scope: s.scope, from: s.scope, old: s.name, name: s.name, pinned: s.pinned !== false, items: s.items.map(rowFromItem) }
+    : { scope: 'local', from: '', old: '', name: '', pinned: true, items: [blankRow()] };
   renderEditor();
 }
 
@@ -305,14 +305,13 @@ function focusLast() {
 // typed (the name) stays as it is.
 function renderHead(keep = false) {
   pick.replaceChildren(new Option('New preset…', ''), ...allPresets().map((s) => new Option(`${s.name} (${scopeLabel(s.scope)})`, `${s.scope}:${s.name}`)));
-  pick.value = cur.old ? `${cur.scope}:${cur.old}` : '';
+  pick.value = cur.old ? `${cur.from}:${cur.old}` : '';
   if (!keep) nameIn.value = cur.name;
   // Rebuilt so that 'Me' follows who is logged in; a Me preset of someone else is gone from the list anyway.
   scopeIn.replaceChildren(...scopeOpts());
   scopeIn.value = [...scopeIn.options].some((o) => o.value === cur.scope) ? cur.scope : 'local';
   cur.scope = scopeIn.value;
   pinnedIn.checked = cur.pinned;
-  scopeIn.disabled = !!cur.old;
   delBtn.hidden = !cur.old;
   shareBtn.hidden = !cur.old;
   delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
@@ -331,11 +330,11 @@ function renderHead(keep = false) {
 // keepEdit: the lists changed under us (a reconnect, another browser's
 // save); only the picker is refreshed, never the rows or name being typed.
 function renderEditor(keepEdit = false) {
-  if (keepEdit && cur?.old && !findPreset(cur.scope, cur.old) && !dirty) return load(null);
+  if (keepEdit && cur?.old && !findPreset(cur.from, cur.old) && !dirty) return load(null);
   renderHead(keepEdit);
   if (keepEdit) return;
   renderRows();
-  setNote(cur.old && !tgt ? scopeLabel(cur.scope) : '');
+  setNote(cur.old && !tgt ? scopeLabel(cur.from) : '');
 }
 pick.addEventListener('change', () => {
   const v = pick.value;
@@ -345,7 +344,13 @@ pick.addEventListener('change', () => {
 });
 nameIn.addEventListener('input', () => { cur.name = nameIn.value; touch(); setNote(''); });
 pinnedIn.addEventListener('change', () => { cur.pinned = pinnedIn.checked; touch(); });
-scopeIn.addEventListener('change', () => { cur.scope = scopeIn.value; });
+// A saved preset can change scope: Save copies it to the new one, then removes it from the old.
+scopeIn.addEventListener('change', () => {
+  cur.scope = scopeIn.value;
+  if (!cur.old) return;
+  touch();
+  setNote(cur.scope === cur.from ? scopeLabel(cur.from) : `Save moves it from ${scopeLabel(cur.from)} to ${scopeLabel(cur.scope)}.`);
+});
 
 function fillFromBoxes() {
   const p = shown()?.patch();
@@ -369,7 +374,8 @@ function addRows(items, note) {
 
 // The typed rows as a preset, or an error line. next: the scope's list as
 // it would be saved.
-function built() {
+// moving: saved under another scope, so it is a new preset there (a name taken there is refused).
+function built(moving = false) {
   const items = [];
   for (const r of cur.items) {
     const p = parseRow(r);
@@ -378,29 +384,47 @@ function built() {
   }
   const s = { ...normPreset({ name: cur.name, items }), pinned: cur.pinned };
   const list = tgt ? tgt.lists : presetsIn(cur.scope);
-  const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'preset', old: cur.old }) || presetProblem(s);
+  const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'preset', old: moving ? '' : cur.old }) || presetProblem(s);
   if (err) return { err };
-  const next = replacePreset(list, s, cur.old);
+  const next = replacePreset(list, s, moving ? '' : cur.old);
   const tooMuch = presetsProblem(next);
   return tooMuch ? { err: tooMuch } : { s, next };
 }
 
+// Takes preset `name` out of one scope (a move's second step).
+function removeFrom(scope, name, done) {
+  if (scope === 'local') { deleteLocalPreset(name); return done(); }
+  const next = presetsIn(scope).filter((x) => x.name.toLowerCase() !== name.toLowerCase()).map(saved);
+  (scope === 'user' ? profSaver : saver).change({ presets: next }, done);
+}
+
 function save() {
-  const b = built();
+  const moving = !!cur.old && !!cur.from && cur.scope !== cur.from;
+  const b = built(moving);
   if (b.err) return setNote(b.err, true);
   if (tgt) {
     return tgtSaver.change({ presets: b.next }, () => { dirty = false; closePresets(); });
   }
-  if (cur.scope === 'local') {
-    saveLocalPreset(b.s, cur.old);
-    cur.old = b.s.name;
-    cur.name = b.s.name;
-    dirty = false;
+  const from = cur.from, was = cur.old, to = cur.scope;
+  // Copy first, remove after: a refused or lost save never loses the preset.
+  const landed = () => {
+    cur.from = to; cur.old = b.s.name; cur.name = b.s.name; nameIn.value = cur.name; dirty = false;
+    if (!moving) return false;
+    if (from === 'global') clearPinOverride(was);
+    removeFrom(from, was, () => {
+      cur.scope = to;
+      queueMicrotask(() => { renderHead(true); setNote(`Moved to ${scopeLabel(to)}.`); });
+    });
+    return true;
+  };
+  if (to === 'local') {
+    saveLocalPreset(b.s, moving ? '' : cur.old);
+    if (landed()) return;
     renderEditor();
     return setNote('Saved for this browser.');
   }
-  const sv = cur.scope === 'user' ? profSaver : saver;
-  sv.change({ presets: b.next }, () => { cur.old = b.s.name; cur.name = b.s.name; nameIn.value = cur.name; dirty = false; });
+  const sv = to === 'user' ? profSaver : saver;
+  sv.change({ presets: b.next }, landed);
 }
 
 // ---- save as
@@ -408,7 +432,7 @@ function save() {
 function askSaveAs() {
   asScope.replaceChildren(...scopeOpts());
   asScope.value = 'local';
-  asName.value = saveAsName(cur.name, cur.old ? cur.scope : '');
+  asName.value = saveAsName(cur.name, cur.old ? cur.from : '');
   asName.classList.remove('pb-input--invalid');
   asRow.hidden = false;
   asName.select();
@@ -438,7 +462,7 @@ function saveAs() {
   const next = replacePreset(list, s, taken);
   const tooMuch = presetsProblem(next);
   if (tooMuch) return bad(tooMuch);
-  const loaded = () => { closeSaveAs(); cur.scope = target; cur.old = s.name; cur.name = s.name; dirty = false; discard = false; renderHead(); };
+  const loaded = () => { closeSaveAs(); cur.scope = target; cur.from = target; cur.old = s.name; cur.name = s.name; dirty = false; discard = false; renderHead(); };
   if (target === 'local') {
     saveLocalPreset(s, taken);
     loaded();
@@ -456,13 +480,13 @@ function deleteClick() {
   if (!deleting) { deleting = true; delBtn.textContent = 'Really delete?'; return; }
   deleting = false;
   const name = cur.old;
-  if (cur.scope === 'local') {
+  if (cur.from === 'local') {
     deleteLocalPreset(name);
     load(null);
     return setNote('Deleted.');
   }
-  const next = presetsIn(cur.scope).filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
-  (cur.scope === 'user' ? profSaver : saver).change({ presets: next }, () => load(null));
+  const next = presetsIn(cur.from).filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
+  (cur.from === 'user' ? profSaver : saver).change({ presets: next }, () => load(null));
 }
 
 // ---- open / close
