@@ -135,7 +135,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     foot.hidden = !long;
     if (!long) return;
     const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘J/K' : 'Ctrl+J/K'}`));
+    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘j/k' : 'Ctrl+j/k'}`));
   }
 
   function render() {

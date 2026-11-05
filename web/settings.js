@@ -515,11 +515,15 @@ $('clear-history').addEventListener('click', () => {
 $('clear-cancel').addEventListener('click', resetClear);
 // Clearing needs the settings PIN. The banner comes with the server's
 // `historyCleared`, not when the request goes out (it may be refused).
-let clearing = false;
+// `clearing` is when the request went out (0: none); an answer older than the
+// grace below isn't ours (a refusal that never came back, or someone else's clear).
+let clearing = 0;
+const CLEAR_GRACE_MS = 5000;
+const clearPending = () => Date.now() - clearing < CLEAR_GRACE_MS;
 function sendClear() {
-  clearing = true;
+  clearing = Date.now();
   if (!wsSend({ t: 'clearHistory' })) {
-    clearing = false;
+    clearing = 0;
     $('settings-err').textContent = 'Not connected to Sode.';
     $('settings-err').hidden = false;
     return;
@@ -531,11 +535,11 @@ $('clear-confirm').addEventListener('click', async () => {
   sendClear();
 });
 on('historyCleared', () => {
-  if (!clearing) return;
-  clearing = false;
+  if (!clearPending()) return;
+  clearing = 0;
   showResult('ok', 'History cleared', 'Recent is empty for everyone.');
 });
-on('wsclose', () => { clearing = false; });
+on('wsclose', () => { clearing = 0; });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-exit').addEventListener('click', exitSettings);
@@ -673,8 +677,8 @@ on('access', () => { if (isOpen() && !saving()) renderLock(); });
 // the popup; otherwise it only matters to a connection that needs the PIN for
 // Settings at all (not trusted): the form gives way to the PIN prompt.
 on('locked', () => {
-  if (clearing) {
-    clearing = false;
+  if (clearPending()) {
+    clearing = 0;
     reask('Clearing history needs the Advanced Settings PIN.').then((ok) => { if (ok) sendClear(); });
   } else if (isOpen() && !saving() && needsPin()) showLockErr('Settings are locked; enter the PIN again.');
 });

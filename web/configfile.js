@@ -122,6 +122,10 @@ async function runImport() {
   if (!picked) return;
   const id = await start('import');
   if (!id) return;
+  if (!picked) { // a lock or a PIN change reset the block while the PIN popup was open
+    setBusy(null);
+    return;
+  }
   const { bytes, name } = picked;
   confirmBox.hidden = true;
   say(`Importing ${name}…`);

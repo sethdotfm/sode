@@ -4,9 +4,9 @@
 // re-exports showResult/resultNode.
 //
 // Each layout draws its own copy of a result (one is hidden). A copy is tagged
-// with the result's id (data-rid) and owns its own timer; dismissing collapses
-// every copy still on the page, so nothing needs a registry and a replaced
-// copy is simply dropped.
+// with the result's id (data-rid); the result has one timer (setResult), and
+// dismissing collapses every copy still on the page, so nothing needs a
+// registry and a replaced copy is simply dropped.
 
 import { el, S, icon, emit } from './core.js';
 
@@ -15,8 +15,10 @@ let seq = 0;
 // Puts r ({ kind, title, text, track }) up as the current result and tells
 // the layouts. text: a string, or a function building nodes.
 export function setResult(r) {
-  S.result = { ...r, id: ++seq };
-  emit('result', S.result);
+  const res = (S.result = { ...r, id: ++seq });
+  const ms = dismissMs(res.kind, S.cfg?.resultDismissSeconds || 0);
+  if (ms) setTimeout(() => dismiss(res), ms); // one timer per result, whichever layouts draw it
+  emit('result', res);
 }
 
 export const showResult = (kind, title, text, track = null) => setResult({ kind, title, text, track });
@@ -52,7 +54,6 @@ export function resultNode(r) {
     const bar = el('div', 'pb-progress__bar pb-progress__bar--ok sode__banner-bar');
     bar.style.animationDuration = `${ms}ms`;
     inner.append(el('div', 'pb-progress sode__banner-time', bar));
-    setTimeout(() => dismiss(r), ms);
   }
   return wrap;
 }

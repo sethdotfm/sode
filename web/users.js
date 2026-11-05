@@ -189,7 +189,10 @@ onMsg('userSignOutAllResult', (m) => {
   signing.delete(m.id);
   if (w) w.out.disabled = false;
   if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
-  if (m.locked) reask('Managing users needs the Advanced Settings PIN again.').then((ok) => { if (ok) w?.out.click(); }); // and again
+  if (m.locked) { // ask, then send it again; the error shows only if the PIN is not given
+    reask('Managing users needs the Advanced Settings PIN again.').then((ok) => { if (ok) w?.out.click(); else fail(m.err); });
+    return;
+  }
   fail(m.err);
 });
 
