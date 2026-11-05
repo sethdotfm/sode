@@ -12,6 +12,7 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - **My profile is a full editor**: all eight preferences, plus Add / Edit / Remove for filter sets and presets, using the normal editors aimed at that profile.
 - Dialogs close when you click outside them and a dialog opened from another opens in front. Manage users has Name and PIN headers; Settings search is focused after the PIN unlocks; the hand lock screen has *Log in as…* and *Log out* at the bottom; fixed a wrong "must be a whole number" error on save and old errors now clear.
 - Review fixes: one backdrop close in Filters (a profile draft no longer leaks into your own filter), the config import waits for an acknowledgement before sending the file, config export re-checks the settings PIN, quick preference changes in My profile accumulate, Manage users rows align.
+- Design tweaks: the lock chip (even padding, square lock button, open/closed lock icon, slides in at the border's rate), Settings fixed bottom-left on desktop, the Presets bar laid out like Recent with a *Show all* chip, Edit and Filters styled like Settings, a divider above Recent, and the Recent bar and search always shown (*No history yet* when empty).
 
 ## Beta 1.5.0
 
