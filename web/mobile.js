@@ -355,13 +355,8 @@ const openChanges = new Set(); // merged rows (history IDs) listing their change
 // Recent's buttons close any swiped-open row, then confirm.
 const sheetFor = (plan) => { closeSwipes(); openSheet(plan); };
 const undoBtn = (plan, label, text = 'Undo') => undoButton(plan, label, sheetFor, { text, cls: 'sode-m__undo' });
-// Redo / Retry, the swipe-right action: againButton's click and label, drawn as the row's left-hand reveal.
-function redoBtn(plan, label) {
-  const b = againButton(plan, label, sheetFor, { placeholder: false });
-  if (!b) return null;
-  b.className = 'sode-m__redo';
-  return b;
-}
+// Redo / Retry, the swipe-right action: the row's left-hand reveal.
+const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholder: false, cls: 'sode-m__redo' });
 
 function recentRow(e) {
   const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);

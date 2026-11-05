@@ -150,3 +150,12 @@ test('a typed list keeps its cursor on the first match', () => {
   cb.refresh();
   assert.ok(menu.kids[0].className.includes('active'));
 });
+
+test('onRender says whether the list is showing after every redraw', () => {
+  const seen = [];
+  const { cb } = make({ onRender: (open) => seen.push(open) });
+  cb.browse(items(5), 0);
+  cb.close();
+  cb.refresh();
+  assert.deepEqual(seen, [true, false, true]);
+});

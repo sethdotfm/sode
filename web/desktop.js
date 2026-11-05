@@ -42,6 +42,7 @@ for (const k of ['src', 'dst']) {
     // Destinations: a + on each row adds it as a chip and keeps the search.
     add: k === 'dst' ? (it) => addDst(it) : undefined,
     foot: $(`${k}-count`),
+    onRender: () => b.all?.sync(), // the Show all button follows the list
   });
 }
 const lvlInput = $('lvl');
@@ -788,7 +789,7 @@ for (const k of ['src', 'dst']) {
   // Focus lists nothing in an empty or confirmed box: its "Show all" button is
   // there instead (↓ or ↑ opens the whole list too). Unconfirmed text keeps its matches.
   b.input.addEventListener('focus', () => { if (!sel[k] && b.input.value.trim()) b.cb.refresh(); b.all.sync(); });
-  b.all = showAll(b, $(`${k}-menu`), $(`${k}-all`), () => sel[k]);
+  b.all = showAll(b, $(`${k}-all`), () => sel[k]);
 }
 // The list under a box: every item to scroll through when it holds no text or
 // a confirmed choice (at: the row to highlight), else the matches for its text.
