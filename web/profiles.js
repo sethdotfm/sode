@@ -2,8 +2,8 @@
 // device settings are a select each (Not set removes the key); filter sets
 // and presets are lists with Edit, Add and Remove. Edit and Add open the
 // Filters dialog / preset editor aimed at this profile (bus
-// 'openFilterEditor' / 'openPresetEditor' {user, name?, profile}; they answer
-// with 'profileEdited' {user, parts} after saving). One Export / import…
+// 'openFilterEditor' / 'openPresetEditor' {user, name?, profile}; they save
+// through saveProfile, whose 'profileSaved' event refreshes this dialog). One Export / import…
 // button hands over to the transfer dialog (bus 'openTransfer'). It is
 // opened for one user by the bus event 'openProfile' {name}: the Profile…
 // buttons of the users editor and of Settings > Users, and My profile… in the
@@ -65,6 +65,7 @@ let who = ''; // the user shown
 let prof = null; // their profile, as last read
 let token = 0; // answers to an older read are ignored
 let removing = null; // { kind, i } waiting for its confirm
+let saving = 0; // this dialog's own saves in flight
 
 const own = () => !!who && who === profileName();
 const setNote = (t) => { note.textContent = t; };
@@ -175,7 +176,8 @@ async function doSave(parts, done) {
   // it (only the latest answer is shown, so the first must not be lost).
   const name = who;
   prof = withParts(prof, parts);
-  const r = await saveProfile(parts, name);
+  saving++;
+  const r = await saveProfile(parts, name).finally(() => { saving--; });
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
     if (r.locked) refused();
@@ -211,12 +213,13 @@ function closeDialog() {
 
 on('openProfile', (m) => openDialog(String(m?.name || '')));
 // An editor saved a filter set or preset into this profile.
-on('profileEdited', (m) => {
-  if (!isOpen || m?.user !== who || !prof) return;
-  prof = own() ? profile() : { ...prof, ...m.parts };
+// (Own profile: the cached copy; someone else's is read again. This
+// dialog's own saves are skipped, it has the value already.)
+on('profileSaved', (m) => {
+  if (!isOpen || m?.name !== who || saving) return;
   err.hidden = true;
-  setNote('Saved.');
-  paint();
+  if (own()) { prof = profile(); setNote('Saved.'); return paint(); }
+  load(who).then(() => setNote('Saved.'));
 });
 // A pending Remove goes first on Esc, then the dialog.
 const dlg = trapDialog(root, dialog, () => { if (removing) { removing = null; paint(); } else closeDialog(); });

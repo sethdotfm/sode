@@ -19,9 +19,9 @@ import { filterShare, saveAsName } from './exportfmt.js';
 import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { globalSaver, profileSaver } from './globalsave.js';
-import { profileName } from './profile.js';
+import { profileName, editTarget } from './profile.js';
 import { FILTER_DEFAULT, normFilter } from './filterstore.js';
-import { upsertEntry, filterEntry, findByName } from './profilesrules.js';
+import { upsertEntry, filterEntry } from './profilesrules.js';
 import { combobox, trapDialog } from './widgets.js';
 
 const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]); // Default | Everyone | Me | This browser
@@ -43,7 +43,7 @@ const KINDS = [
 // held here (never the browser's own filter or active set), the set bar is
 // replaced by a name and Save, and a save goes to that user's profile.
 
-let tgt = null; // { user, old, lists: the profile's filterSets, f: the draft }
+let tgt = null; // editTarget(...) plus f: the draft
 const curF = () => (tgt ? tgt.f : filterState());
 const putF = (next) => { if (tgt) tgt.f = normFilter(next); else setFilter(next); };
 
@@ -386,7 +386,7 @@ function chrome() {
 }
 
 const tgtSaver = profileSaver({
-  target: () => tgt && { user: tgt.user, profile: { prefs: {}, filterSets: tgt.lists, presets: [], ...tgt.profile } },
+  target: () => tgt,
   setNote: tNoteSet, isOpen: () => filtersOpen() && !!tgt, failTitle: 'Filter set not saved', render: () => { tSave.disabled = tgtSaver.busy(); },
 });
 
@@ -398,12 +398,8 @@ function saveTarget() {
   const bad = nameProblem(name, tgt.lists.map((x) => String(x?.name)), { noun: 'filter set', old: tgt.old, reserved: 'all' });
   if (bad) { tName.classList.add('pb-input--invalid'); tNoteSet(bad, true); tName.focus(); return; }
   tName.classList.remove('pb-input--invalid');
-  const user = tgt.user;
   const list = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old);
-  tgtSaver.change({ filterSets: list }, () => {
-    emit('profileEdited', { user, parts: { filterSets: list } });
-    closeFilters();
-  });
+  tgtSaver.change({ filterSets: list }, closeFilters);
 }
 tSave.addEventListener('click', saveTarget);
 tName.addEventListener('keydown', (e) => {
@@ -411,15 +407,10 @@ tName.addEventListener('keydown', (e) => {
 });
 
 on('openFilterEditor', (m) => {
-  const user = String(m?.user || '');
-  if (!user) return;
-  const lists = Array.isArray(m.profile?.filterSets) ? m.profile.filterSets : [];
-  const found = m.name ? findByName(lists, m.name) : null;
+  const t = editTarget(m, 'filterSets');
+  if (!t) return;
   back = document.activeElement;
-  tgt = {
-    user, old: found ? String(found.name) : '', lists, profile: m.profile,
-    f: normFilter(found || FILTER_DEFAULT),
-  };
+  tgt = { ...t, f: normFilter(t.found || FILTER_DEFAULT) };
   chrome();
   renderMode();
   renderShow();

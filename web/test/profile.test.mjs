@@ -7,7 +7,7 @@ globalThis.document = node();
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
 
-const { toProfile } = await import('../profile.js');
+const { toProfile, editTarget } = await import('../profile.js');
 
 test('toProfile: a clear or junk is the empty profile', () => {
   for (const m of [null, undefined, {}, { name: '' }, { name: 5 }]) {
@@ -18,4 +18,16 @@ test('toProfile: a clear or junk is the empty profile', () => {
 test('toProfile: missing parts become empty ones', () => {
   const p = toProfile({ name: 'Ana', prefs: { theme: 'dark' } });
   assert.deepEqual(p, { name: 'Ana', prefs: { theme: 'dark' }, filterSets: [], presets: [] });
+});
+
+test('editTarget: one shape for both editors, entry found ignoring case', () => {
+  const m = { user: 'Ana', name: 'ONE', profile: { prefs: { theme: 'dark' }, presets: [{ name: 'One', items: [] }] } };
+  const t = editTarget(m, 'presets');
+  assert.equal(t.user, 'Ana');
+  assert.equal(t.old, 'One');
+  assert.equal(t.lists, t.profile.presets);
+  assert.deepEqual(t.profile.filterSets, []);
+  assert.deepEqual(t.profile.prefs, { theme: 'dark' });
+  assert.equal(editTarget({ user: 'Ana', profile: {} }, 'filterSets').found, null);
+  assert.equal(editTarget({ user: '' }, 'presets'), null);
 });

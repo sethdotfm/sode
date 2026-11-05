@@ -7,6 +7,7 @@
 // for a locked or anonymous page.
 
 import { on, onMsg, emit, wsSend } from './core.js';
+import { findByName } from './profilesrules.js';
 
 const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [] });
 let cur = EMPTY;
@@ -24,6 +25,19 @@ export function toProfile(m) {
     filterSets: Array.isArray(m.filterSets) ? m.filterSets : [],
     presets: Array.isArray(m.presets) ? m.presets : [],
   };
+}
+
+// What an editor aimed at one user's profile (bus 'openFilterEditor' /
+// 'openPresetEditor' {user, name?, profile}) works on: the whole profile in
+// its one shape, the list `key` ('filterSets' | 'presets') and the entry
+// being edited, if any. Null without a user.
+export function editTarget(m, key) {
+  const user = String(m?.user || '');
+  if (!user) return null;
+  const profile = toProfile({ ...m.profile, name: user });
+  const lists = profile[key];
+  const found = m.name ? findByName(lists, m.name) || null : null;
+  return { user, profile, lists, found, old: found ? String(found.name) : '' };
 }
 
 onMsg('profile', (m) => {
@@ -84,6 +98,7 @@ export function saveProfile(parts, name = cur.name) {
     const id = ++seq;
     const settle = (r) => {
       if (!r.ok && mine && cur === next) cur = before;
+      if (r.ok) emit('profileSaved', { name });
       resolve(r);
     };
     if (!wsSend({ t: 'profileSave', id, name, ...parts })) {

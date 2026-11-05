@@ -7,12 +7,11 @@ import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem } from './c
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan } from './plans.js';
 import { globalSaver, profileSaver } from './globalsave.js';
-import { profileName } from './profile.js';
+import { profileName, editTarget } from './profile.js';
 import { trapDialog } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
-import { findByName } from './profilesrules.js';
 import {
   allPresets, presetsIn, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
   pinnedPresets, saved,
@@ -206,10 +205,10 @@ const profSaver = profileSaver({
 // Aimed at a profile (bus 'openPresetEditor', from the Profile dialog): the
 // same editor on one preset of that user's profile, with the picker, scope,
 // Save as, Share, Delete and Export hidden; the save goes to that profile.
-// { user, lists: the profile's presets, profile }; null for the usual editor.
+// editTarget(...) from profile.js; null for the usual editor.
 let tgt = null;
 const tgtSaver = profileSaver({
-  target: () => tgt && { user: tgt.user, profile: { prefs: {}, filterSets: [], ...tgt.profile, presets: tgt.lists } },
+  target: () => tgt,
   setNote, isOpen: () => open && !!tgt, failTitle: 'Presets not saved', okNote: 'Saved.',
   render: () => renderHead(true),
 });
@@ -377,12 +376,7 @@ function save() {
   const b = built();
   if (b.err) return setNote(b.err, true);
   if (tgt) {
-    const user = tgt.user;
-    return tgtSaver.change({ presets: b.next }, () => {
-      dirty = false;
-      emit('profileEdited', { user, parts: { presets: b.next } });
-      closePresets();
-    });
+    return tgtSaver.change({ presets: b.next }, () => { dirty = false; closePresets(); });
   }
   if (cur.scope === 'local') {
     saveLocalPreset(b.s, cur.old);
@@ -497,14 +491,12 @@ on('locking', () => {
 });
 
 on('openPresetEditor', (m) => {
-  const user = String(m?.user || '');
-  if (!user) return;
-  const lists = Array.isArray(m.profile?.presets) ? m.profile.presets : [];
-  const found = m.name ? findByName(lists, m.name) : null;
+  tgt = editTarget(m, 'presets');
+  if (!tgt) return;
   back = document.activeElement;
-  tgt = { user, lists, profile: m.profile };
   open = true;
   pinRow.hidden = true;
+  const found = tgt.found;
   load(found ? { scope: 'user', ...normPreset(found), pinned: found.pinned !== false } : null);
   dlg.show();
   dialog.focus();
