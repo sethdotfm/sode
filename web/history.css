@@ -312,6 +312,10 @@
 }
 .sode__recent-head[hidden] { display: none; }
 /* Active filters: the button's text turns the info color (its text says how many). */
+/* Desktop: the bar buttons (Edit, Filters) look like the Settings button
+   (outline, small). The phone keeps its ghost look. */
+:root:not([data-layout="phone"]) .sode__chipbtn { background-color: transparent; border-color: var(--pb-surface-control); }
+:root:not([data-layout="phone"]) .sode__chipbtn:hover { background-color: var(--pb-overlay-hover); border-color: var(--pb-surface-hover); }
 .sode__filters-btn--on { color: var(--pb-status-info); font-weight: var(--pb-weight-medium); }
 .sode__code { font-family: var(--pb-font-mono); }
 .sode__scrim > .sode__filters { width: 40rem; }

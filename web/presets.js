@@ -54,7 +54,7 @@ function renderStrips() {
   const all = allPresets();
   const list = pinnedPresets(all);
   for (const box of document.querySelectorAll('[data-presets]')) {
-    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', all.length ? 'Edit' : 'Presets…');
+    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__chipbtn', all.length ? 'Edit' : 'Presets…');
     edit.type = 'button';
     edit.setAttribute('aria-haspopup', 'dialog');
     edit.addEventListener('click', () => openPresets());
@@ -66,25 +66,27 @@ function renderStrips() {
       return b;
     });
     // The popup (presetpopup.js) lists every preset, pinned or not.
-    const more = all.length ? el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__presets-all', 'All') : null;
+    // An accent chip first in the strip, so it is the first stop for the arrow keys.
+    const more = all.length ? el('button', 'pb-chip pb-chip--selected sode__set sode__presets-all', 'Show all') : null;
     if (more) {
       more.type = 'button';
-      more.title = phone() ? 'All presets' : 'All presets (Ctrl+G)';
+      more.title = phone() ? 'Show all presets' : 'Show all presets (Ctrl+G)';
       more.setAttribute('aria-haspopup', 'dialog');
       more.addEventListener('click', askPopup);
     }
     // Laid out like Recent's bar: title, the quick buttons, then the ghost buttons.
     box.replaceChildren(
       el('span', 'sode__label', 'Presets'),
-      el('div', 'sode__sets', ...chips),
-      ...[more, edit].filter(Boolean),
+      el('div', 'sode__sets', ...[more, ...chips].filter(Boolean)),
+      edit,
     );
   }
 }
-// Keyboard mode `p` (desktop): the first chip, then ←/→ between buttons;
+// Keyboard mode `p` (desktop): the first preset chip (not Show all), then ←/→
+// between buttons in DOM order (Show all, the chips, Edit);
 // Enter presses one (the normal confirm), Esc goes back to Source.
 on('presetStrip', () => {
-  const b = document.querySelector('[data-presets] .sode__set') || document.querySelector('[data-presets] button');
+  const b = document.querySelector('[data-presets] .sode__set:not(.sode__presets-all)') || document.querySelector('[data-presets] .sode__set') || document.querySelector('[data-presets] button');
   b?.focus();
 });
 document.addEventListener('keydown', (e) => {
