@@ -668,18 +668,7 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 }
 @keyframes sode-countdown { to { transform: scaleX(0); } }
 
-/* Number input with a unit after the digits (before the stepper). */
-.sode__suffix {
-  color: var(--pb-text-muted);
-  font-size: var(--pb-text-xs);
-  pointer-events: none;
-  position: absolute;
-  right: var(--pb-space-8);
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-}
-/* A colour sample before an example hex. */
+/* A colour sample inside an example hex's code block. */
 .sode__swatch {
   background: var(--sw);
   border: var(--pb-border-w) solid var(--pb-edge);

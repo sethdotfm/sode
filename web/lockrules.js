@@ -168,14 +168,20 @@ export const loginAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
 // The page's lock view, ONE value: {mode, back}. mode is 'page' (nothing of
 // ours covers it; an enforced lock still does, see viewBody), 'soft' (the
-// hand lock) or 'login' (the PIN pad up by request, dismissable). back is
+// hand lock), 'login' (the PIN pad up by request, dismissable) or 'userlock'
+// (a logged-in user's lock: the pad, not dismissable). back is
 // where Cancel / Esc of a login returns to: 'page' or 'soft'. The transitions
 // are pure; lock.js does the DOM and the lockout around them.
 export const PAGE_VIEW = Object.freeze({ mode: 'page', back: 'page' });
 
-// Which body the overlay shows: 'pad' (an enforced lock, or a login), 'soft'
-// (the hand lock) or '' (none).
-export const viewBody = (v, enforcedLocked) => (v.mode === 'soft' ? 'soft' : enforcedLocked || v.mode === 'login' ? 'pad' : '');
+// Which body the overlay shows: 'pad' (an enforced lock, a login, or a logged-in
+// user's own lock), 'soft' (the hand lock) or '' (none).
+export const viewBody = (v, enforcedLocked) => (v.mode === 'soft' ? 'soft' : enforcedLocked || v.mode === 'login' || v.mode === 'userlock' ? 'pad' : '');
+
+// Locking while logged in (#198), where no PIN lock is on: the PIN pad, with no
+// Cancel, and the session ended on the server meanwhile. The hand lock (a
+// letter) is only for a page nobody is logged in on.
+export const userLock = (v, enforced) => (enforced ? v : { mode: 'userlock', back: 'page' });
 
 // The hand lock goes up (Ctrl+L, idle, Settings): nothing with an enforced
 // lock on, and it wins over a login pad.
@@ -201,12 +207,12 @@ export const logOutOffered = (s) => !s.enforced && !!s.user;
 export const cancelLogin = (v) => (v.mode === 'login' ? PAGE_VIEW : v);
 
 // An enforced lock arriving replaces the hand lock.
-export const lockArrived = (v, enforced) => (enforced && v.mode === 'soft' ? PAGE_VIEW : v);
+export const lockArrived = (v, enforced) => (enforced && (v.mode === 'soft' || v.mode === 'userlock') ? PAGE_VIEW : v);
 
 // A lockState was applied. A login ends only with an enforced lock or a real
 // unlock (a userUnlock that succeeded and left a user in); any other state
 // (someone else saved settings, a token catch-up) says nothing about the pad.
-export const loginWon = (v, { enforced, unlocked, user }) => (v.mode === 'login' && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
+export const loginWon = (v, { enforced, unlocked, user }) => ((v.mode === 'login' || v.mode === 'userlock') && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 
 // The chip shows when a user is logged in even under the hand lock; under it
 // with nobody in there is nothing to show. Its lock button does nothing while

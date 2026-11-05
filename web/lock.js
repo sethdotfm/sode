@@ -20,7 +20,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock as softView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock as softView, userLock as userLockView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
@@ -399,7 +399,7 @@ onMsg('session', (m) => {
 
 onMsg('lockState', (m) => {
   if (settle) settle(); // a welcome still showing: finish it first
-  const was = (L.enforced && L.locked) || V.mode === 'login';
+  const was = (L.enforced && L.locked) || V.mode === 'login' || V.mode === 'userlock';
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.user = m.user || '';
@@ -468,7 +468,8 @@ function cancelLogin() {
 // ---- the hand lock (no PIN lock on this page)
 
 function softLock() {
-  if (soft || L.enforced || !S.cfg) return;
+  if (soft || L.enforced || !S.cfg || V.mode === 'userlock') return;
+  if (L.user) return pinLock(); // logged in: the PIN, not a letter (#198)
   build();
   V = softView(V, false); // an idle lock over a login pad: the hand lock wins
   const key = churnKey(lastSoftKey);
@@ -483,6 +484,18 @@ function softLock() {
     softNote.textContent = '';
   }) };
   render();
+}
+
+// Lock while logged in, where no PIN lock is on: the session ends on the server
+// (as Log out does) and the PIN pad covers the page with no Cancel; the user's
+// PIN logs them in again. A reload shows the page with nobody logged in.
+function pinLock() {
+  build();
+  V = userLockView(V, false);
+  pin = '';
+  clearTimeout(timer);
+  clearFeedback();
+  lockNow();
 }
 
 // Only once the lockout has passed.
