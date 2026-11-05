@@ -1,7 +1,7 @@
 // Plans (what a confirm shows and sends), take results and their banners.
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
-import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
+import { el, S, icon, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
 import { levelText, levelBar, parseLevels } from './levelview.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
@@ -122,8 +122,33 @@ export function showResult(kind, title, text, track = null) {
   emit('result', S.result);
 }
 
+// A success closes itself after S.cfg.resultDismissSeconds (0: stays), with a
+// bar running down; a failure stays until closed by hand. One timer: the
+// newest banner's.
+let dismissTimer = 0;
 export function resultNode(r) {
-  return el('div', `pb-alert pb-alert--${r.kind}`, el('div', null, el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text));
+  clearTimeout(dismissTimer);
+  const wrap = el('div', 'sode__banner');
+  const close = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__banner-x', icon('x'));
+  close.type = 'button';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.dataset.pbTip = 'Dismiss';
+  const dismiss = () => {
+    clearTimeout(dismissTimer);
+    if (S.result === r) S.result = null;
+    wrap.remove();
+  };
+  close.addEventListener('click', dismiss);
+  wrap.append(el('div', `pb-alert pb-alert--${r.kind}`,
+    el('div', 'sode__banner-body', el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text), close));
+  const secs = S.cfg?.resultDismissSeconds || 0;
+  if (r.kind === 'ok' && secs > 0) {
+    const bar = el('div', 'pb-progress__bar pb-progress__bar--ok sode__banner-bar');
+    bar.style.animationDuration = `${secs}s`;
+    wrap.append(el('div', 'pb-progress sode__banner-time', bar));
+    dismissTimer = setTimeout(dismiss, secs * 1000);
+  }
+  return wrap;
 }
 
 // "A → B (levels 1–3; 2 was already on A)" for one take.

@@ -298,6 +298,11 @@
           <span class="pb-number-wrap"><input type="number" id="cfg-lockout" class="pb-input" data-key="confirmLockoutMs" data-type="int" min="0" max="10000"></span>
         </div>
         <div class="sode__field">
+          <label for="cfg-dismiss">Success banner closes after (s)</label>
+          <span class="pb-number-wrap"><input type="number" id="cfg-dismiss" class="pb-input" data-key="resultDismissSeconds" data-type="int" min="0" max="3600"></span>
+          <span class="sode__hint">0 keeps it; failures always stay</span>
+        </div>
+        <div class="sode__field">
           <label for="cfg-resync">Re-read routes every (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-resync" class="pb-input" data-key="tallyResyncSeconds" data-type="int" min="0"></span>
           <span class="sode__hint">0 = off</span>

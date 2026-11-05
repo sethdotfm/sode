@@ -77,6 +77,7 @@ export const DICT = {
 
   // ---- Takes
   'cfg-default': ['default levels', 'levels', 'all levels', 'which levels', 'preselect', 'v a', 'video audio'],
+  'cfg-dismiss': ['banner', 'result', 'success', 'dismiss', 'close', 'auto', 'seconds', 'timeout', 'progress', 'notification'],
   'cfg-lockout': ['confirm', 'lockout', 'letter', 'delay', 'ms', 'milliseconds', 'confirm dialog', 'wait', 'safety', 'accidental'],
   'cfg-resync': ['resync', 'reread', 'poll', 'routes', 'tally', 'interval', 'seconds', 'refresh', 'dump'],
   'cfg-enter': ['enter', 'return', 'confirm', 'keyboard', 'key', 'submit', 'confirm dialog'],

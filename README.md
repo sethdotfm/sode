@@ -86,6 +86,7 @@ Edited from the **Settings** button at the bottom of the page, stored in `/data/
 | `SODE_SALVO_GROUP` | `salvoGroup` | `127` | The router's salvo group (0-127) native salvos use. The router's staged list is shared by every controller, so pick one nothing else uses |
 | `SODE_NUM_OFFSET` | `numberOffset` | `1` | Added to router numbers for display (Ultrix shows 1-based) |
 | `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | Confirm key ignored this long after the dialog opens |
+| `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 = stays); failures always stay until closed |
 | `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
 | `SODE_NAME_REFRESH_S` | `nameRefreshSeconds` | `60` | Re-read names this often (0 = off) |
 | `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and protects this often (0 = off) |

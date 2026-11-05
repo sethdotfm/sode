@@ -153,7 +153,8 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     rows = rowsFor(win.lo, win.hi);
     menu.replaceChildren(...rows);
     placeFoot();
-    input.setAttribute('aria-activedescendant', pre + hi);
+    if (browsing) input.removeAttribute('aria-activedescendant');
+    else input.setAttribute('aria-activedescendant', pre + hi);
   }
 
   // The <li> for matches[from..to-1]. They carry no listeners of their own:
@@ -162,11 +163,12 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     const out = [];
     for (let i = from; i < to; i++) {
       const it = matches[i];
-      const li = el('li', cls + (i === hi ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
+      const on = i === hi && !browsing; // a browse list has no cursor until ↑/↓
+      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
       li.id = pre + i;
       li.dataset.i = String(i);
       li.setAttribute('role', 'option');
-      li.setAttribute('aria-selected', String(i === hi));
+      li.setAttribute('aria-selected', String(on));
       if (add && canAdd()) li.append(addButton(it));
       out.push(li);
     }
@@ -280,7 +282,9 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
       e.preventDefault();
       const n = matches.length;
       const fwd = (key === 'ArrowDown' || key === 'PageDown') !== reverse;
-      if (key === 'ArrowDown' || key === 'ArrowUp') move(fwd ? (hi + 1) % n : (hi + n - 1) % n);
+      const step = key === 'ArrowDown' || key === 'ArrowUp';
+      if (browsing && step && fwd) move(hi); // the first press forward shows the cursor on the row the list stands at
+      else if (step) move(fwd ? (hi + 1) % n : (hi + n - 1) % n);
       else move(fwd ? Math.min(n - 1, hi + PAGE) : Math.max(0, hi - PAGE));
       return true;
     },

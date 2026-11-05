@@ -617,3 +617,15 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 /* Per-row "Save/Clear my default" buttons: small, side by side, not stretched. */
 .sode__my-defaults { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-space-2); }
 .sode__my-default { align-self: flex-start; }
+
+/* Result banner: the alert, its close button and the countdown bar of a success. */
+.sode__banner { width: 100%; }
+.sode__banner-body { flex: 1; min-width: 0; }
+.sode__banner-x { flex: none; }
+.sode__banner-time { height: var(--pb-space-2); }
+.sode__banner-bar {
+  animation: sode-countdown linear forwards;
+  transition: none;
+  width: 100%;
+}
+@keyframes sode-countdown { to { width: 0; } }
