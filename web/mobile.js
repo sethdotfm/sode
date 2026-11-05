@@ -20,7 +20,7 @@ import {
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
-import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch } from './recentpick.js';
+import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './recentpick.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
@@ -497,7 +497,14 @@ const pager = historyPager(5, () => layout() === 'phone');
 pullToLoad($('m-thread'), $('m-recent-more'), pager, () => layout() === 'phone' && !$('m-recent').hidden);
 
 bindPick($('m-recent-list'));
-on('pick', () => renderRecent());
+// The pick bar is a row of the phone view under its header, so it pushes the
+// thread down instead of covering the patch summary; on any other layout it
+// goes back to floating over the page (CSS, history.css).
+function placeBar() {
+  if (layout() !== 'phone') return void (pickBar.parentNode !== document.body && document.body.append(pickBar));
+  if (pickBar.previousElementSibling !== $('m-result')) $('m-result').after(pickBar);
+}
+on('pick', () => { placeBar(); renderRecent(); });
 
 function renderRecent() {
   const rows = pager.list();
@@ -739,6 +746,7 @@ on('flip', () => {
   else renderThread();
 });
 onLayout((l) => {
+  placeBar();
   if (l !== 'phone') closeSheet();
   else { renderThread(); renderRecent(); }
 });

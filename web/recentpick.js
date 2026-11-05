@@ -152,25 +152,16 @@ bar.setAttribute('role', 'region');
 bar.setAttribute('aria-label', 'Choose takes from Recent');
 bar.hidden = true;
 document.body.append(bar);
+// Each layout may place the bar (the phone makes it a row of its view): see mobile.js.
+export const pickBar = bar;
 
 followsIn.addEventListener('change', () => { if (st) { st.follows = followsIn.checked; update(); } });
 addBtn.addEventListener('click', add);
 cancelBtn.addEventListener('click', cancel);
 
-// On the phone the bar is a row of the phone view (under its header), so it
-// pushes the thread down instead of covering the patch summary; elsewhere it
-// floats over the page's top (CSS).
-function place() {
-  const m = document.documentElement.dataset.layout === 'phone' && document.querySelector('.sode-m');
-  const anchor = m?.querySelector('.sode-m__result');
-  if (anchor) { if (bar.previousElementSibling !== anchor) anchor.after(bar); }
-  else if (bar.parentNode !== document.body) document.body.append(bar);
-}
-
 function update() {
   bar.hidden = !st;
   if (st) {
-    place();
     const m = MODES[st.mode];
     const t = m.taken?.(st) || [];
     msg.textContent = m.msg(st.label ? `“${st.label}”` : 'the preset');
