@@ -453,7 +453,15 @@
   .sode-m__recent .sode__sets-group { flex: none; flex-wrap: nowrap; }
 }
 .sode__sets-group { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
-.sode__sets-sep { align-self: center; color: var(--pb-text-muted); padding: 0 var(--pb-space-1); }
+/* All sit on the first row (a group of many chips wraps below it); the
+   divider is as tall as a chip so it lines up with them. */
+.sode__sets-sep {
+  align-self: flex-start;
+  border: var(--pb-border-w) solid transparent;
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  padding: var(--pb-space-1) var(--pb-space-1);
+}
 .sode__gset {
   display: grid;
   gap: var(--pb-space-3);

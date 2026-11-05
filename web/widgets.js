@@ -268,12 +268,15 @@ export function clickToToggle(row, toggle, skip) {
 
 // Undo for a take or a folder; disabled when there's nothing to restore.
 export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {
-  const b = el('button', cls, icon('undo-2'), text);
+  const b = el('button', `${cls} pb-tip--end`, icon('undo-2'), text);
   b.type = 'button';
   if (planEmpty(plan)) {
     b.disabled = true;
-    b.title = 'Nothing to undo';
-  } else needsLink(b);
+    b.dataset.pbTip = 'Nothing to undo';
+  } else {
+    b.dataset.pbTip = 'Set destinations to their source before this change.';
+    needsLink(b);
+  }
   b.setAttribute('aria-label', label);
   b.addEventListener('click', () => onClick(plan));
   return b;
@@ -296,6 +299,8 @@ export function againButton(plan, label, onClick, { placeholder = true } = {}) {
     b.setAttribute('aria-hidden', 'true');
     return b;
   }
+  b.classList.add('pb-tip--end');
+  b.dataset.pbTip = redo ? 'Perform this change again.' : 'Try the takes that failed again.';
   needsLink(b);
   b.setAttribute('aria-label', label);
   b.addEventListener('click', () => onClick(plan));

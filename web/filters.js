@@ -281,7 +281,8 @@ function renderButtons() {
     b.type = 'button';
     b.setAttribute('aria-pressed', String(on));
     if (edited) b.setAttribute('aria-label', `${s.name} (edited)`);
-    b.title = filterSummary(s.f) + (edited ? ' (edited)' : '');
+    b.dataset.pbTip = filterSummary(s.f) + (edited ? ' (edited)' : '');
+    b.classList.add('pb-tip--end');
     b.addEventListener('click', () => {
       toggleSet(s.scope, s.name);
       if (filtersOpen()) reload();
