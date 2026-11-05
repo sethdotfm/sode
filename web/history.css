@@ -400,11 +400,18 @@
 .sode__sets {
   display: flex;
   flex: 1;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* one row; past the width it scrolls sideways */
   gap: var(--pb-space-2);
-  justify-content: flex-end;
   min-width: 0;
+  overflow-x: auto;
+  padding-bottom: var(--pb-space-1);
 }
+.sode__sets > * { flex: none; }
+/* Right-aligned while they fit; auto margin (not flex-end) so an overflowing
+   row still scrolls from its start. */
+.sode__recent-head > .sode__sets > :first-child { margin-left: auto; }
+/* Their tooltips are placed by tooltip.js: this row would clip a CSS one. */
+.sode__sets [data-pb-tip]::after { display: none; }
 .sode__set { font-size: var(--pb-text-xs); padding: var(--pb-space-1) var(--pb-space-3); }
 .sode__filters-sets {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
@@ -448,8 +455,7 @@
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .sode-m__recent .sode__set,
-  .sode-m__recent .sode__sets-sep { flex: none; }
+  .sode-m__recent .sode__sets > :first-child { margin-left: 0; }
 }
 .sode__sets-group { display: contents; } /* chips wrap as one run; the group is only for screen readers */
 /* The divider is as tall as a chip so it lines up with them. */
@@ -578,7 +584,8 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
 /* The strip is a Recent bar (.sode__recent-head): the title, the sets
    (pinned presets), then ghost buttons. Chips fill the middle. */
 .sode__presets { margin: var(--pb-space-3) 0; width: 100%; }
-.sode__presets > .sode__sets { flex: 1; flex-wrap: wrap; justify-content: flex-start; }
+.sode__presets > .sode__sets { flex: 1; }
+.sode__presets > .sode__sets > :first-child { margin-left: 0; }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
 .sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
 .sode__preset-row { align-items: end; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
@@ -591,8 +598,7 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
   .sode__scrim > .sode__presets-dlg { min-width: 0; width: 100%; }
   .sode__preset-row { grid-template-columns: 1fr 1fr; }
   .sode__presets { flex-wrap: wrap; }
-  .sode__presets > .sode__sets { flex: 1 0 100%; flex-wrap: nowrap; order: 3; overflow-x: auto; scrollbar-width: none; }
-  .sode__presets .sode__set { flex: none; }
+  .sode__presets > .sode__sets { flex: 1 0 100%; order: 3; scrollbar-width: none; }
 }
 .sode__preset-pop { display: flex; flex-direction: column; }
 .sode__preset-pop > .pb-modal__footer { justify-content: flex-end; }

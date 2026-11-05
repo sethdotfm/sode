@@ -13,7 +13,13 @@ document.body.append(cutTip);
 let cutFor = null;
 const hideCutTip = () => { cutTip.hidden = true; cutFor = null; };
 
+// Tips in a scrolling row (.sode__sets) can't hang off their element, the row
+// would clip them: the same floating tip shows them (the CSS one is hidden there).
+const rowTip = (n) => n instanceof Element && n.closest('.sode__sets [data-pb-tip]');
+
 function cutOff(n) {
+  const t = rowTip(n);
+  if (t) return { n: t, text: t.dataset.pbTip };
   for (; n instanceof HTMLElement; n = n.parentElement) {
     const cs = getComputedStyle(n);
     if (n.dataset.hint && cs.getPropertyValue('--sode-hint').trim() === 'on') return { n, text: n.dataset.hint };
@@ -44,4 +50,13 @@ document.addEventListener('mouseover', (e) => {
   placeCutTip(c.n);
 });
 document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) hideCutTip(); });
+document.addEventListener('focusin', (e) => {
+  const t = rowTip(e.target);
+  if (!t || !t.matches(':focus-visible')) return;
+  cutFor = t;
+  cutTip.textContent = t.dataset.pbTip;
+  cutTip.hidden = false;
+  placeCutTip(t);
+});
+document.addEventListener('focusout', hideCutTip);
 for (const t of ['scroll', 'pointerdown', 'keydown']) document.addEventListener(t, hideCutTip, true);
