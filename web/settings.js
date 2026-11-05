@@ -180,9 +180,11 @@ function renderLock(opening = false, afterPin = false) {
   if (locked) form.dataset.locked = '';
   else { delete form.dataset.locked; $('lock-help').hidden = true; }
   if (!opening && !flipped) return;
+  // Only a desktop puts the cursor in a box; on a phone that raises the keyboard.
+  if (layout() !== 'desktop') return;
   if (locked) $('lock-pin').focus();
   else if (afterPin) $('settings-find').focus({ preventScroll: true });
-  else if (layout() === 'desktop') $('cfg-namerefresh').focus();
+  else $('cfg-namerefresh').focus();
 }
 
 function closeSettings() {
