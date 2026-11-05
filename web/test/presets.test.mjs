@@ -224,3 +224,42 @@ test('pinOrder: a guest keeps it in this browser, setPinOrder writes it', async 
   setPinOrder([]);
   assert.deepEqual(pinOrder(), []);
 });
+
+test('setPinOrder answers with the save; a guest’s is already kept', async () => {
+  const { setPinOrder } = await setup();
+  assert.deepEqual(await setPinOrder(['local:x']), { ok: true });
+});
+
+test('movePin: before another pin, or by one place; null when it would not move', async () => {
+  const { movePin, pinOrder, saveLocalPreset, presetKey } = await setup();
+  for (const n of ['A', 'B', 'C']) saveLocalPreset({ name: n, items: [{ src: 0, dsts: [1], levels: [] }] }, '');
+  const k = (n) => presetKey({ scope: 'local', name: n });
+  await movePin(k('C'), { before: k('A') });
+  assert.deepEqual(pinOrder(), [k('C'), k('A'), k('B')]);
+  await movePin(k('C'), { by: 1 });
+  assert.deepEqual(pinOrder(), [k('A'), k('C'), k('B')]);
+  assert.equal(movePin(k('A'), { by: -1 }), null);
+  assert.equal(movePin(k('B'), { by: 1 }), null);
+  assert.equal(movePin(k('B'), { before: k('B') }), null);
+  assert.equal(movePin('local:gone', { by: 1 }), null);
+  assert.equal(movePin(k('A'), { before: 'local:gone' }), null);
+});
+
+test('fillFrom: the first take that still exists, with what was left out', async () => {
+  const { fillFrom } = await setup();
+  const has = { src: (n) => n < 3, dst: (n) => n < 3, level: (u) => u <= 3 };
+  const p = (...items) => ({ name: 'P', items });
+  // Whole: one take, nothing missing; its own [] levels stay [].
+  let r = fillFrom(p({ src: 0, dsts: [1, 2], levels: [] }), has, [1, 2]);
+  assert.deepEqual(r, { take: { src: 0, dsts: [1, 2], levels: [] }, partial: false, many: false, missing: [] });
+  // A destination gone: filled without it, and partial.
+  r = fillFrom(p({ src: 0, dsts: [1, 9], levels: [2] }), has, [1, 2]);
+  assert.deepEqual([r.take, r.partial], [{ src: 0, dsts: [1], levels: [2] }, true]);
+  // Every level of the first take gone: it is skipped, not filled with defaults.
+  r = fillFrom(p({ src: 0, dsts: [1], levels: [5] }, { src: 1, dsts: [2], levels: [1] }), has, [1, 2]);
+  assert.deepEqual([r.take, r.many], [{ src: 1, dsts: [2], levels: [1] }, true]);
+  // Nothing fits: no take, and what is missing is listed.
+  r = fillFrom(p({ src: 9, dsts: [1], levels: [] }, { src: 0, dsts: [1], levels: [7] }), has, [1, 2]);
+  assert.equal(r.take, null);
+  assert.deepEqual(r.missing.map((m) => m.kind).sort(), ['level', 'source']);
+});

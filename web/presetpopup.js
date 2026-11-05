@@ -4,12 +4,12 @@
 // or unpin the preset for this browser (or in the user's profile). Pinning for
 // everyone, and sharing, are in the preset editor.
 
-import { el, on, icon } from './core.js';
+import { el, on, emit, icon, sentence } from './core.js';
 import { chord } from './keys.js';
 import { trapDialog } from './widgets.js';
 import { profileSaver } from './globalsave.js';
 import { fire, fillBoxes, openPresets } from './presets.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, setPinOrder, moveKey, pinnedPresets } from './presetstore.js';
+import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, movePin, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -129,11 +129,15 @@ function togglePin(s) {
 
 // ---- reordering the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
 let dragKey = '';
-const pinKeys = () => pinnedPresets().map(presetKey);
-// Dropped on another pinned row: it goes before that one.
-function dropAt(from, to) {
-  if (!from || from === to) return;
-  setPinOrder(moveKey(pinKeys(), from, pinKeys().filter((k) => k !== from).indexOf(to)));
+// The order shows at once; a save that fails (profile too big, link down) puts
+// the real order back and says why.
+function reorder(saved) {
+  saved?.then((r) => {
+    if (r.ok) return;
+    emit('presets'); // the strip and this list, from the order that really is
+    setNote(sentence(r.err) || 'The order was not saved.', true);
+  });
+  return !!saved;
 }
 function dragRow(row, s) {
   const key = presetKey(s);
@@ -142,17 +146,13 @@ function dragRow(row, s) {
   row.addEventListener('dragend', () => { dragKey = ''; row.classList.remove('is-dragging'); for (const r of list.querySelectorAll('.is-over')) r.classList.remove('is-over'); });
   row.addEventListener('dragover', (e) => { if (dragKey && dragKey !== key) { e.preventDefault(); row.classList.add('is-over'); } });
   row.addEventListener('dragleave', () => row.classList.remove('is-over'));
-  row.addEventListener('drop', (e) => { e.preventDefault(); row.classList.remove('is-over'); dropAt(dragKey, key); dragKey = ''; });
+  row.addEventListener('drop', (e) => { e.preventDefault(); row.classList.remove('is-over'); reorder(movePin(dragKey, { before: key })); dragKey = ''; });
 }
 // Moves the highlighted pinned preset one place up or down among the pins.
 function nudge(d) {
   const s = shownList[hi];
   if (!s || input.value.trim() || !effectivePin(s, pinOverrides())) return;
-  const keys = pinKeys();
-  const i = keys.indexOf(presetKey(s));
-  if (i < 0 || i + d < 0 || i + d >= keys.length) return;
-  hi = i + d; // pins are the top rows, so the row index follows
-  setPinOrder(moveKey(keys, keys[i], i + d));
+  if (reorder(movePin(presetKey(s), { by: d }))) hi += d; // pins are the top rows, so the row follows
 }
 
 function move(d) {

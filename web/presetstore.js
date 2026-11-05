@@ -184,14 +184,36 @@ export function moveKey(keys, key, to) {
   return rest;
 }
 // Saves the order of the pinned presets (keys), for the user or this browser.
+// Returns the save's promise ({ ok, err }): a guest's is already kept. The
+// order shows at once; a caller whose save fails redraws from the real one
+// (saveProfile puts the old copy back) and says so.
 export function setPinOrder(keys) {
   if (profileName()) {
-    saveProfile({ pinOrder: keys });
+    const saved = saveProfile({ pinOrder: keys });
     emit('presets'); // saveProfile already holds the new copy
-    return;
+    return saved;
   }
   writeJSON(ORDER, keys.length ? keys : null);
   emit('presets');
+  return Promise.resolve({ ok: true });
+}
+// Moves a pinned preset (its presetKey) to just before another pin
+// (where.before: a key) or by some places among the pins (where.by: +1/-1).
+// The setPinOrder promise, or null when it would not move.
+export function movePin(key, where) {
+  const keys = pinnedPresets().map(presetKey);
+  const i = keys.indexOf(key);
+  if (i < 0) return null;
+  let to;
+  if ('by' in where) {
+    to = i + where.by;
+    if (to < 0 || to >= keys.length) return null;
+  } else {
+    if (where.before === key) return null;
+    to = keys.filter((k) => k !== key).indexOf(where.before);
+    if (to < 0) return null;
+  }
+  return setPinOrder(moveKey(keys, key, to));
 }
 export function pinnedPresets(list = allPresets()) {
   const o = pinOverrides(list);
@@ -303,6 +325,29 @@ export function resolvePreset(preset, has, defaults) {
     }
   }
   return { takes: [...byDst].map(([dst, groups]) => ({ dst, groups })), missing };
+}
+
+// What Shift-click puts in the patch boxes: the first take of a preset that
+// still exists, built on resolvePreset so the rules for what exists are the
+// firing ones. Takes with nothing left (no source, no destination, or none of
+// their levels) are skipped. { take: { src, dsts, levels } | null, partial,
+// many, missing }: levels [] when the take means the default levels; partial:
+// something of that take no longer exists and was left out; many: the preset
+// has more takes than the boxes can hold; missing: what the router lacks,
+// listed when no take fits.
+export function fillFrom(preset, has, defaults) {
+  const missing = [];
+  for (const it of preset.items) {
+    const r = resolvePreset({ items: [it] }, has, defaults);
+    if (r.takes.length) {
+      return {
+        take: { src: it.src, dsts: r.takes.map((t) => t.dst), levels: it.levels.length ? r.takes[0].groups[0].levels : [] },
+        partial: r.missing.length > 0, many: preset.items.length > 1, missing: [],
+      };
+    }
+    missing.push(...r.missing);
+  }
+  return { take: null, partial: false, many: preset.items.length > 1, missing };
 }
 
 // ---- making a preset from a patch or from history

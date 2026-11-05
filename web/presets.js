@@ -16,15 +16,17 @@ import { scopeLabel, scopeOptions } from './scopes.js';
 import {
   allPresets, presetsIn, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
   pinnedPresets, saved, clearPinOverride,
-  parseRefs, itemsFromTakes, presetTip, isBlankRow,
+  parseRefs, itemsFromTakes, presetTip, isBlankRow, fillFrom,
 } from './presetstore.js';
 
 // ---- the layouts: each registers once what it has
 
 const hosts = [];
-// host: { active(), confirm(plan), patch(), clear() }. clear() empties the boxes. patch() gives the patch
-// boxes as { src: item, dsts: [item], levels: [ui] } (levels [] = the
-// default levels), or null while they hold no patch.
+// host: { active(), confirm(plan), patch(), clear(), focus(), fill?(take) }.
+// patch() gives the patch boxes as { src: item, dsts: [item], levels: [ui] }
+// (levels [] = the default levels), or null while they hold no patch. clear()
+// empties the boxes, focus() starts at Source. fill(take), same shape as
+// patch(), puts a patch in the boxes: only the desktop has it.
 export const presetHost = (host) => { hosts.push(host); };
 const shown = () => hosts.find((h) => h.active());
 export const presetShown = () => !!shown();
@@ -49,22 +51,21 @@ const askPopup = () => emit('presetPopup');
 
 // Shift-click (or Shift+Enter in the popup): the preset's patch goes into the
 // patch boxes and nothing is sent. The boxes hold one source, so a preset of
-// several takes fills the first one that still exists, and says so.
+// several takes fills the first one that still exists, and says so; what of
+// that take no longer exists is left out, and said too.
 export function fillBoxes(scope, name) {
   const s = findPreset(scope, name);
   const host = shown();
-  if (!s || !host?.fill) return;
+  if (!s || !host) return;
+  if (!host.fill) return showResult('info', `Preset ${s.name}`, 'Filling the boxes from a preset works on the desktop layout.');
   if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'The router’s names have not loaded yet.');
-  const fit = s.items
-    .map((it) => ({
-      src: S.srcBy.has(it.src) ? srcItem(it.src) : null,
-      dsts: it.dsts.filter((n) => S.dstBy.has(n)).map((n) => dstItem(n)),
-      levels: it.levels.filter((u) => S.levelBy.has(u)),
-    }))
-    .filter((p) => p.src && p.dsts.length);
-  if (!fit.length) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
-  host.fill(fit[0]);
-  if (s.items.length > 1) showResult('info', `Preset ${s.name}`, `The boxes hold one source, so only its first take was filled (it has ${s.items.length}).`);
+  const r = fillFrom(s, { src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u) }, parseLevels('') || []);
+  if (!r.take) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
+  host.fill({ src: srcItem(r.take.src), dsts: r.take.dsts.map((n) => dstItem(n)), levels: r.take.levels });
+  const notes = [];
+  if (r.many) notes.push(`The boxes hold one source, so only one of its ${s.items.length} takes was filled.`);
+  if (r.partial) notes.push('Some of its destinations or levels no longer exist on the router and were left out.');
+  if (notes.length) showResult('info', `Preset ${s.name}`, notes.join(' '));
 }
 
 function renderStrips() {
@@ -427,7 +428,7 @@ function addFromBoxes() {
       return `Added ${added} row${added === 1 ? '' : 's'}`;
     },
   });
-  shown()?.focus?.(); // start at Source
+  shown().focus(); // start at Source
 }
 // The editor steps aside while Recent is in pick mode (recentpick.js); Add or
 // Cancel brings it back. A lock ends the pick first (see 'locking' below).
