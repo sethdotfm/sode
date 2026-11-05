@@ -20,7 +20,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock as softView, userLock as userLockView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock as softView, userLock as userLockView, leaveUserLock, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
@@ -63,7 +63,7 @@ let padBody, softBody, softKey, softBtn, softNote, loginAsBtn, logOutBtn, softFo
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
 let V = PAGE_VIEW; // the one view state: page | soft (hand lock) | login (pad by request); see lockrules.js
 let handOn = false; // the overlay's data-sode-lock is set (told to others as 'handlock')
-let cancelBtn;
+let cancelBtn, leaveBtn;
 let soft = null; // { key, lock }: the hand lock's letter and lockout, set exactly while V.mode is 'soft'
 let lastSoftKey = '';
 let pin = '';
@@ -106,7 +106,12 @@ function build() {
   cancelBtn.type = 'button';
   cancelBtn.hidden = true;
   cancelBtn.addEventListener('click', cancelLogin);
-  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn);
+  // A logged-in user's lock has no Cancel; this ends the session for good.
+  leaveBtn = el('button', 'pb-btn pb-btn--outline', 'Log out');
+  leaveBtn.type = 'button';
+  leaveBtn.hidden = true;
+  leaveBtn.addEventListener('click', leaveFromUserLock);
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn, leaveBtn);
 
   // The hand lock's body: the churning letter and, for a touch screen, a button.
   softKey = el('kbd', 'sode__key sode__key--locked');
@@ -197,6 +202,7 @@ function showLock() {
   const body = viewBody(V, L.enforced && L.locked);
   padBody.hidden = body !== 'pad'; // the PIN pad, or the hand lock's letter
   cancelBtn.hidden = V.mode !== 'login';
+  leaveBtn.hidden = V.mode !== 'userlock';
   softBody.hidden = body !== 'soft';
   logOutBtn.hidden = !logOutOffered(L);
   loginAsBtn.hidden = !loginAsOffered(L);
@@ -496,6 +502,16 @@ function pinLock() {
   clearTimeout(timer);
   clearFeedback();
   lockNow();
+}
+
+// Log out on the logged-in lock: the session ended when it went up, so the
+// pad just goes away and nobody is logged in.
+function leaveFromUserLock() {
+  if (V.mode !== 'userlock') return;
+  V = leaveUserLock(V);
+  clearTimeout(timer);
+  clearFeedback();
+  render();
 }
 
 // Only once the lockout has passed.

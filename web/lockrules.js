@@ -206,6 +206,10 @@ export const logOutOffered = (s) => !s.enforced && !!s.user;
 // caller puts a fresh hand lock up again.
 export const cancelLogin = (v) => (v.mode === 'login' ? PAGE_VIEW : v);
 
+// The logged-in lock's Log out: the session already ended when it went up, so
+// this only takes the pad away, leaving the page with nobody logged in.
+export const leaveUserLock = (v) => (v.mode === 'userlock' ? PAGE_VIEW : v);
+
 // An enforced lock arriving replaces the hand lock.
 export const lockArrived = (v, enforced) => (enforced && (v.mode === 'soft' || v.mode === 'userlock') ? PAGE_VIEW : v);
 
