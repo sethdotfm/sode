@@ -1,8 +1,11 @@
-// Pick mode for Recent: the preset editor's "Fill from Recent…" steps aside,
+// Pick mode for Recent: the preset editor's "Add from Recent…" steps aside,
 // Recent's rows get a check box instead of their buttons, and a bar says what
 // the next click does. Takes and folders are ticked (any number), "Include
 // follows" also adds what followed them (changes made elsewhere right after:
 // likely router automation), Add hands the takes back, Cancel/Esc drops them.
+// A second mode, 'boxes' ("Add from Patch Boxes…"), uses the same bar and state
+// but leaves the patch boxes live: the Take button gives way to Add (the boxes'
+// patch becomes a row, the boxes clear) and Done; Recent is left alone.
 // One state, two layouts: each layout asks picking()/pickBox() while building
 // its rows, redraws on the 'pick' event and calls bindPick(list) once.
 import { el, on, emit, S } from './core.js';
@@ -46,9 +49,11 @@ export function pickedTakes(index, keys, withFollows, ok = () => true) {
 
 // ---- state
 
-// { label, onAdd(takes), onCancel(), picked: Set of keys, follows, ok }
+// { mode, label, onAdd(takes), onAddPatch(): note, onCancel(), picked: Set of keys, follows, ok, note }
 let st = null;
-export const picking = () => !!st;
+// Recent's rows get check boxes only in the Recent mode.
+export const picking = () => !!st && st.mode !== 'boxes';
+export const boxPicking = () => st?.mode === 'boxes';
 export const isPicked = (key) => !!st?.picked.has(key);
 
 const takes = () => (st ? pickedTakes(indexRows(histRows(S.hist)), st.picked, st.follows, st.ok) : []);
@@ -59,12 +64,14 @@ export function togglePick(key) {
   update();
 }
 
-// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() }
+// opts: { label (the preset's name), ok(e), onAdd(takes), onCancel() };
+// mode 'boxes': { label, onAddPatch() (adds the boxes' patch, returns a line
+// to show), onCancel() (Done) }.
 export function startPick(opts) {
   if (st) return;
-  st = { ...opts, picked: new Set(), follows: false };
+  st = { mode: 'recent', ...opts, picked: new Set(), follows: false, note: '' };
   followsIn.checked = false;
-  document.documentElement.dataset.sodePick = '';
+  document.documentElement.dataset.sodePick = st.mode === 'boxes' ? 'boxes' : '';
   update();
 }
 
@@ -78,7 +85,14 @@ function finish(fn) {
 }
 export const endPick = () => finish(null);
 const cancel = () => finish((s) => s.onCancel?.());
+// Add in the boxes mode: the patch in the boxes, again and again until Done.
+export function addPatch() {
+  if (st?.mode !== 'boxes') return;
+  st.note = st.onAddPatch();
+  update();
+}
 const add = () => {
+  if (st?.mode === 'boxes') return addPatch();
   const t = takes();
   if (t.length) finish((s) => s.onAdd(t));
 };
@@ -111,12 +125,18 @@ cancelBtn.addEventListener('click', cancel);
 function update() {
   bar.hidden = !st;
   if (st) {
-    const n = takes().length;
-    msg.textContent = `Choose takes for ${st.label ? `“${st.label}”` : 'the preset'}`;
+    const boxes = st.mode === 'boxes';
+    const n = boxes ? 0 : takes().length;
+    const name = st.label ? `“${st.label}”` : 'the preset';
+    msg.textContent = boxes ? `Add patches to ${name}` : `Choose takes for ${name}`;
+    sub.textContent = boxes ? 'Fill Source, Destination and Levels in the boxes, then Add (Enter).' : 'Click takes or folders in Recent to select them.';
+    bar.setAttribute('aria-label', boxes ? 'Add patches from the patch boxes' : 'Choose takes from Recent');
+    followsBox.hidden = boxes;
+    cancelBtn.textContent = boxes ? 'Done' : 'Cancel';
     clearChip();
-    count.textContent = `${st.picked.size} chosen · ${n} take${n === 1 ? '' : 's'}`;
-    addBtn.textContent = n ? `Add ${n}` : 'Add';
-    addBtn.disabled = !n;
+    count.textContent = boxes ? st.note : `${st.picked.size} chosen · ${n} take${n === 1 ? '' : 's'}`;
+    addBtn.textContent = !boxes && n ? `Add ${n}` : 'Add';
+    addBtn.disabled = !boxes && !n;
   }
   emit('pick');
 }
@@ -132,6 +152,8 @@ globalThis.addEventListener?.('resize', () => { if (st) clearChip(); });
 // Esc cancels, ahead of everything else on the page.
 document.addEventListener('keydown', (e) => {
   if (!st || e.key !== 'Escape') return;
+  // In the boxes mode Esc still clears a box or closes its list first.
+  if (st.mode === 'boxes' && e.target instanceof HTMLInputElement && (e.target.value || e.target.getAttribute('aria-expanded') === 'true')) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   cancel();
@@ -156,7 +178,7 @@ export function pickBox(key) {
 // one by one.
 export function bindPick(list) {
   list.addEventListener('click', (e) => {
-    if (!st) return;
+    if (!picking()) return;
     if (e.target.closest('.sode__hist-toggle')) return;
     const key = e.target.closest('[data-key]')?.dataset.key;
     if (!key || !/^[ef]/.test(key)) return;

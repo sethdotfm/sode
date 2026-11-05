@@ -20,7 +20,7 @@ import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
-import { FILTER_DEFAULT, normFilter } from './filterstore.js';
+import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
 import { upsertEntry, filterEntry } from './profilesrules.js';
 import { combobox, trapDialog, labeled } from './widgets.js';
 
@@ -141,7 +141,7 @@ function editor(key) {
         input(r.b, `Rule ${n} to`, (v) => { r.b = num(v); }, true)]
       : r.kind === 'num' ? [input(r.a, `Rule ${n} number`, (v) => { r.a = num(v); }, true)]
       : [input(r.text, `Rule ${n} ${r.kind === 're' ? 'regex' : 'name'}`, (v) => { r.text = v; delete r.quoted; })];
-    const remove = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
+    const remove = el('button', 'pb-btn pb-btn--ghost', 'Remove');
     remove.type = 'button';
     remove.setAttribute('aria-label', `Remove rule ${n}`);
     remove.addEventListener('click', () => {
@@ -315,11 +315,15 @@ function renderButtons() {
 // ---- open / close
 
 let back = null;
+// The filter and set as they were when the dialog opened: Cancel puts them back
+// (edits apply to Recent as they are made).
+let openSnap = null;
 export const filtersOpen = () => !root.hidden;
 
 export function openFilters() {
   back = document.activeElement;
   tgt = null;
+  openSnap = snapshot();
   chrome();
   const f = filterState();
   renderMode();
@@ -334,6 +338,12 @@ export function openFilters() {
   renderSetBar();
   dlg.show();
   dialog.focus();
+}
+
+// Cancel, Esc and a click outside: drop what was changed here, then close.
+function cancelFilters() {
+  if (!tgt && openSnap) restore(openSnap);
+  closeFilters();
 }
 
 function closeFilters() {
@@ -365,7 +375,7 @@ tSave.type = 'button';
 const tBar = el('div', 'sode__filters-set', labeled('Name', tName), tNote);
 tBar.hidden = true;
 $('flt-set').closest('.sode__filters-sets').before(tBar);
-$('flt-done').before(tSave);
+$('flt-done').after(tSave);
 tSave.hidden = true;
 const tNoteSet = (text, error = false) => {
   tNote.textContent = text;
@@ -378,9 +388,9 @@ function chrome() {
   $('flt-set').closest('.sode__filters-sets').hidden = t;
   tBar.hidden = !t;
   tSave.hidden = !t;
+  $('flt-save').hidden = t;
   $('flt-clear').hidden = t;
   $('flt-share-btn').hidden = t;
-  $('flt-done').textContent = t ? 'Cancel' : 'Done';
   $('filters-title').textContent = t ? `${tgt.old ? 'Edit' : 'Add'} filter set for ${tgt.user}` : 'Filters';
   if (t) { tName.value = tgt.old; tNoteSet(''); tName.classList.remove('pb-input--invalid'); }
 }
@@ -422,7 +432,15 @@ on('openFilterEditor', (m) => {
 });
 
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
-$('flt-done').addEventListener('click', closeFilters);
+$('flt-done').addEventListener('click', cancelFilters);
+// Save writes the active set if it was edited, renamed or moved, then closes
+// (it stays open for a PIN or an error). With nothing to write the filter as
+// shown simply stays.
+$('flt-save').addEventListener('click', () => {
+  saveSet();
+  if (!$('flt-pin-row').hidden || $('flt-set-note').classList.contains('sode__error-text') || saver.busy() || profSaver.busy()) return;
+  closeFilters();
+});
 $('flt-visual').addEventListener('click', () => setMode('visual'));
 $('flt-code').addEventListener('click', () => setMode('code'));
 for (const k of ['sode', 'ext', 'hidden']) {
@@ -494,7 +512,6 @@ function renderSetBar() {
   if (!named) moveTo = null;
   scopeBox.value = moveTo || (named && [...scopeBox.options].some((o) => o.value === a.scope) ? a.scope : 'local');
   scopeBox.disabled = busy || !named;
-  $('flt-set-save').disabled = busy || !(named && (a.edited || nameDirty || moveTo));
   $('flt-set-saveas').disabled = busy || stack.length > 0;
   $('flt-share-btn').disabled = stack.length > 0;
   $('flt-set-del').disabled = busy || !named;
@@ -556,7 +573,7 @@ $('flt-set-cur-scope').addEventListener('change', () => {
   renderSetBar();
 });
 $('flt-set-cur').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); $('flt-set-save').click(); }
+  if (e.key === 'Enter') { e.preventDefault(); $('flt-save').click(); }
 });
 
 // Takes a set out of one scope (a move's second step).
@@ -567,9 +584,10 @@ function removeSet(scope, name) {
 
 // Save writes the filter and, if the name was edited, the new name with it;
 // if another scope was chosen, it copies the set there first, then removes it here.
-$('flt-set-save').addEventListener('click', () => {
+function saveSet() {
   const a = activeSet();
   if (!a || a.scope === 'all') return;
+  if (!(a.edited || nameDirty || moveTo)) return;
   const box = $('flt-set-cur');
   const name = box.value.trim().slice(0, 32) || a.name;
   const renamed = name !== a.name;
@@ -602,7 +620,7 @@ $('flt-set-save').addEventListener('click', () => {
   const f = filterState();
   changeShared(a.scope, sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name, f } : s))),
     () => { nameDirty = false; adoptFilter(f, refTo(a.scope, name, f)); });
-});
+}
 
 $('flt-set-del').addEventListener('click', () => {
   const a = activeSet();
@@ -665,7 +683,7 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 });
 
 // Keys stay in the dialog (so the layouts' own keys don't act behind it).
-const dlg = trapDialog(root, dialog, closeFilters);
+const dlg = trapDialog(root, dialog, cancelFilters);
 
 // ---- share links: the filter as one item in a #share= link (exportfmt.js);
 // opening it shows the review sheet (transfer.js). The old ?f= link still opens.

@@ -20,7 +20,7 @@ import {
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
-import { picking, isPicked, pickBox, bindPick } from './recentpick.js';
+import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
@@ -137,6 +137,7 @@ function advance() {
   const levels = lvl.levels();
   if (!levels) return shake(inputs.lvl);
   inputs.lvl.blur();
+  if (boxPicking()) return addPatch(); // Add from Patch Boxes: the last step adds the patch to the preset
   openSheet(patchPlan(M.sel.src, M.dsts, levels));
 }
 
@@ -740,4 +741,5 @@ presetHost({
   active,
   confirm: sheetFor,
   patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
+  clear: reset,
 });

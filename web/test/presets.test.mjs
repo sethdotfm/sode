@@ -179,3 +179,21 @@ test('presets saved under the old salvo keys move to the new ones, once', async 
   assert.equal(mem.get('sode-presets'), '[{"name":"Old"}]');
   assert.equal(mem.has('sode-salvos'), false);
 });
+
+test('presetTip: one or many sources and destinations', async () => {
+  const { presetTip } = await setup();
+  const s = (items) => ({ items });
+  const sl = (n) => `S${n}`, dl = (n) => `D${n}`;
+  assert.equal(presetTip(s([{ src: 1, dsts: [2], levels: [] }]), sl, dl), 'S1 to D2');
+  assert.equal(presetTip(s([{ src: 1, dsts: [2, 3, 4], levels: [] }]), sl, dl), 'S1 to 3 Destinations');
+  assert.equal(presetTip(s([{ src: 1, dsts: [2], levels: [] }, { src: 1, dsts: [2, 5], levels: [] }]), sl, dl), 'S1 to 2 Destinations');
+  assert.equal(presetTip(s([{ src: 1, dsts: [2], levels: [] }, { src: 4, dsts: [3], levels: [] }]), sl, dl), '2 Sources to 2 Destinations');
+  assert.equal(presetTip(s([]), sl, dl), 'No takes');
+});
+
+test('isBlankRow: only a row with nothing typed', async () => {
+  const { isBlankRow } = await setup();
+  assert.equal(isBlankRow({ src: '', dsts: ' ', levels: '' }), true);
+  assert.equal(isBlankRow({ src: '1', dsts: '', levels: '' }), false);
+  assert.equal(isBlankRow({ src: '', dsts: '', levels: '2' }), false);
+});

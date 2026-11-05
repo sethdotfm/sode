@@ -19,7 +19,7 @@ import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
-import { picking, isPicked, pickBox, togglePick, bindPick } from './recentpick.js';
+import { picking, isPicked, pickBox, togglePick, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
@@ -688,6 +688,7 @@ function patchNow() {
       b.cb.accept();
     }
   }
+  if (boxPicking()) return addPatch(); // Add from Patch Boxes: Enter adds the patch to the preset
   tryConfirm();
 }
 
@@ -771,8 +772,12 @@ for (const k of ['src', 'dst']) {
     renderTally();
   });
   b.input.addEventListener('blur', () => b.cb.close());
-  // Coming back to unconfirmed text reopens its matches.
-  b.input.addEventListener('focus', () => { if (!sel[k]) b.cb.refresh(); });
+  // Focus shows every source or destination to scroll through (the chosen one
+  // highlighted); unconfirmed text keeps its own matches.
+  b.input.addEventListener('focus', () => {
+    if (sel[k] || !b.input.value.trim()) b.cb.browse(b.list(), sel[k]?.n);
+    else b.cb.refresh();
+  });
 }
 // Focusing a box brings the page back to the top (Settings → This device),
 // so it isn't left off-screen after scrolling down Recent.
@@ -945,4 +950,5 @@ presetHost({
   active,
   confirm: openConfirm,
   patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
+  clear: clearAll,
 });

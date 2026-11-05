@@ -232,6 +232,20 @@ export function parseRefs(text, offset, lookup) {
   return { ns, bad };
 }
 
+// An editor row nothing was typed in: ignored when saving.
+export const isBlankRow = (r) => !String(r.src).trim() && !String(r.dsts).trim() && !String(r.levels).trim();
+
+// The strip chip's tooltip: "SRC to DST", "SRC to N Destinations", or with
+// several sources "N Sources to M Destinations". srcLabel/dstLabel: number to name.
+export function presetTip(s, srcLabel, dstLabel) {
+  const srcs = [...new Set(s.items.map((it) => it.src))];
+  const dsts = [...new Set(s.items.flatMap((it) => it.dsts))];
+  if (!srcs.length || !dsts.length) return 'No takes';
+  const from = srcs.length === 1 ? srcLabel(srcs[0]) : `${srcs.length} Sources`;
+  const to = dsts.length === 1 ? dstLabel(dsts[0]) : `${dsts.length} Destinations`;
+  return `${from} to ${to}`;
+}
+
 // ---- turning a preset into takes
 
 // Which of a preset's takes can go now. has: { src(n), dst(n), level(u) },

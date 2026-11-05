@@ -104,6 +104,9 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
   let matches = [];
   let hi = 0;
   let last = null; // the box last drawn for, while it can change
+  // The whole list opened by focus (browse): Enter and Tab must not take its
+  // first row. Cleared by typing, a click on a row, or moving the highlight.
+  let browsing = false;
 
   function addButton(it) {
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', icon('plus', false));
@@ -137,9 +140,9 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
       li.setAttribute('aria-selected', String(i === hi));
       if (press === 'click') {
         li.addEventListener('pointerdown', (e) => e.preventDefault());
-        li.addEventListener('click', () => { hi = i; accept(); });
+        li.addEventListener('click', () => { hi = i; browsing = false; accept(); });
       } else {
-        li.addEventListener('mousedown', (e) => { e.preventDefault(); hi = i; accept(); });
+        li.addEventListener('mousedown', (e) => { e.preventDefault(); hi = i; browsing = false; accept(); });
       }
       if (add && canAdd()) li.append(addButton(it));
       return li;
@@ -156,6 +159,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
 
   // Moves the highlight without redrawing, so the list keeps its scroll.
   function move(to) {
+    browsing = false;
     const items = menu.querySelectorAll('[role="option"]');
     items[hi]?.classList.remove(hiCls);
     items[hi]?.setAttribute('aria-selected', 'false');
@@ -168,7 +172,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
 
   function accept() {
     const it = matches[hi];
-    if (!it) return false;
+    if (!it || browsing) return false;
     onPick(it);
     return true;
   }
@@ -176,12 +180,22 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
   return {
     // Matches for what's typed now, best first and highlighted.
     refresh() {
+      browsing = false;
       matches = source(box().value);
       hi = 0;
       render();
       menu.scrollTop = 0;
     },
+    // Every item, for a quick scroll: the one numbered `n` (if any) highlighted.
+    browse(items, n) {
+      matches = items;
+      browsing = true;
+      hi = Math.max(0, items.findIndex((it) => it.n === n));
+      render();
+      menu.querySelector(`.${hiCls}`)?.scrollIntoView({ block: 'nearest' });
+    },
     close() {
+      browsing = false;
       matches = [];
       render();
     },

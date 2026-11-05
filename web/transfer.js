@@ -45,7 +45,7 @@ export function shareRow() {
   input.readOnly = true;
   input.setAttribute('aria-label', 'Share link');
   const status = el('span', 'pb-status');
-  const ui = { input, status, copy: btn('pb-btn--outline pb-btn--sm', 'Copy link', () => copyLink(ui)) };
+  const ui = { input, status, copy: btn('pb-btn--outline', 'Copy link', () => copyLink(ui)) };
   ui.box = el('div', 'sode__filters-share', labeled('Share link', input), ui.copy, status);
   ui.box.hidden = true;
   return ui;

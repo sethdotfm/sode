@@ -602,26 +602,25 @@
         <div class="sode__filters-set">
           <label class="sode__fld"><span class="sode__label">Name</span><input class="pb-input" id="flt-set-cur" maxlength="32" placeholder="Name" aria-label="Name of the set" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope"><span class="sode__label">Save for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-cur-scope" aria-label="Save for"></select></span></label>
-          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-set-save">Save</button>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-saveas">Save as…</button>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-share-btn">Share</button>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-del">Delete</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="flt-set-saveas">Save as…</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="flt-set-del">Delete</button>
         </div>
         <div class="sode__filters-set" id="flt-set-name-row" hidden>
           <label class="sode__fld"><span class="sode__label">Name of the copy</span><input class="pb-input" id="flt-set-name" maxlength="32" placeholder="Name" aria-label="Set name" autocomplete="off"></label>
           <label class="sode__fld sode__filters-scope" id="flt-set-scope-wrap"><span class="sode__label">Save the copy for</span><span class="pb-select-wrap"><select class="pb-select" id="flt-set-scope" aria-label="Save for"><option value="local">This browser</option><option value="global">Everyone</option></select></span></label>
-          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-set-name-ok">Save</button>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-set-name-cancel">Cancel</button>
+          <button type="button" class="pb-btn pb-btn--commit" id="flt-set-name-ok">Save</button>
+          <button type="button" class="pb-btn pb-btn--ghost" id="flt-set-name-cancel">Cancel</button>
         </div>
         <div class="sode__filters-set" id="flt-pin-row" hidden>
           <label class="sode__fld"><span class="sode__label">Settings PIN</span><input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Settings PIN"></label>
-          <button type="button" class="pb-btn pb-btn--ok pb-btn--sm" id="flt-pin-ok">Unlock</button>
-          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-pin-cancel">Cancel</button>
+          <button type="button" class="pb-btn pb-btn--ok" id="flt-pin-ok">Unlock</button>
+          <button type="button" class="pb-btn pb-btn--ghost" id="flt-pin-cancel">Cancel</button>
         </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
         <div class="sode__filters-share" id="flt-share" hidden>
           <label class="sode__fld"><span class="sode__label">Share link</span><input class="pb-input sode__code" id="flt-share-url" readonly aria-label="Share link"></label>
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-share-copy">Copy link</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="flt-share-copy">Copy link</button>
           <span class="pb-status" id="flt-share-status"></span>
         </div>
       </div>
@@ -644,7 +643,8 @@
     </div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
-      <button type="button" class="pb-btn pb-btn--ok" id="flt-done">Done</button>
+      <button type="button" class="pb-btn pb-btn--outline" id="flt-done">Cancel</button>
+      <button type="button" class="pb-btn pb-btn--commit" id="flt-save">Save</button>
     </div>
   </div>
 </div>

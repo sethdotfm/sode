@@ -368,7 +368,7 @@
 .sode__filters-vals > .pb-input { flex: 1 1 0; min-width: 0; }
 .sode__filters-preview { overflow-wrap: anywhere; }
 .sode__filters-share {
-  align-items: center;
+  align-items: flex-end;
   display: flex;
   gap: var(--pb-space-3);
 }
@@ -552,6 +552,9 @@
 .sode__preset-row { align-items: end; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
 .sode__preset-row > .pb-input { min-width: 0; }
 .sode__preset-hint { grid-column: 1 / -1; overflow-wrap: anywhere; }
+/* Field labels show on a preset's first row only. */
+.sode__preset-row--bare .sode__fld > .sode__label { display: none; }
+.sode__presets-all { align-items: center; display: inline-flex; gap: var(--pb-space-1); }
 @media (max-width: 599.98px) {
   .sode__scrim > .sode__presets-dlg { min-width: 0; width: 100%; }
   .sode__preset-row { grid-template-columns: 1fr 1fr; }
@@ -636,13 +639,15 @@
   padding: var(--pb-space-3) var(--pb-space-4);
 }
 [data-pb-layout="phone"] .sode__pickbar { top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px)); }
-[data-sode-pick] .sode__box,
-[data-sode-pick] .sode__under,
+[data-sode-pick=""] .sode__box,
+[data-sode-pick=""] .sode__under,
 [data-sode-pick] [data-presets] { opacity: 0.35; pointer-events: none; }
-[data-sode-pick] .sode__hist-row,
-[data-sode-pick] .sode-m__recent-face { cursor: pointer; }
-[data-sode-pick] .sode__hist-row:hover,
-[data-sode-pick] .sode-m__recent-face:active { background: var(--pb-accent-wash); }
+/* Add from Patch Boxes: the boxes stay live, the Take button gives way to the bar's Add. */
+[data-sode-pick="boxes"] #patch { display: none; }
+[data-sode-pick=""] .sode__hist-row,
+[data-sode-pick=""] .sode-m__recent-face { cursor: pointer; }
+[data-sode-pick=""] .sode__hist-row:hover,
+[data-sode-pick=""] .sode-m__recent-face:active { background: var(--pb-accent-wash); }
 .sode__hist-row--picked,
 .sode-m__recent-row--picked .sode-m__recent-face { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
 .sode__pickbox { margin: 0; }

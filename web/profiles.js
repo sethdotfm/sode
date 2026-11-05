@@ -3,7 +3,7 @@
 // and presets are lists with Edit, Add and Remove. Edit and Add open the
 // Filters dialog / preset editor aimed at this profile (bus
 // 'openFilterEditor' / 'openPresetEditor' {user, name?, profile}; they save
-// through saveProfile, whose 'profileSaved' event refreshes this dialog). One Export / import…
+// through saveProfile, whose 'profileSaved' event refreshes this dialog). One Import & Export…
 // button hands over to the transfer dialog (bus 'openTransfer'). It is
 // opened for one user by the bus event 'openProfile' {name}: the Profile…
 // buttons of the users editor and of Settings > Users, and My profile… in the
@@ -36,7 +36,7 @@ note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 const body = el('div', 'sode__profiles-body');
 const title = Object.assign(el('span', 'pb-modal__title', 'Profile'), { id: 'profiles-title' });
-const transferBtn = btn('pb-btn--outline', 'Export / import…', () => transfer());
+const transferBtn = btn('pb-btn--outline', 'Import & Export…', () => transfer());
 const closeBtn = btn('pb-btn--outline', 'Close', () => closeDialog());
 transferBtn.disabled = true;
 
