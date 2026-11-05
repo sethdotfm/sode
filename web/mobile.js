@@ -15,7 +15,7 @@ import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
 import {
   undoPlan, againPlan, planVerb, folderUndoPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
-  sendTakes, lastTake, nextTake, lastChip, VERBS,
+  sendTakes, lastTake, nextTake, usedNext, lastChip, VERBS,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
@@ -199,19 +199,21 @@ function reset() {
 // from the last take (destinations are added to any already picked) and
 // move on. Hidden when the step already has it, and for levels when
 // they're the default.
+const boxState = () => ({ src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] });
+
 function renderLast() {
   const slot = $('m-last');
   const k = M.step;
-  const state = S.cfg && { src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] };
+  const state = S.cfg && boxState();
   const what = { src: 'source', dst: 'destinations', lvl: 'levels' }[k];
   slot.replaceChildren(...['', 'Next'].filter((n) => state && (!n || k !== 'lvl')).map((n) => {
-    const v = lastChip(n ? nextTake() : lastTake(), state)[k];
+    const v = lastChip(n ? nextTake(state) : lastTake(), state)[k];
     if (!v) return null;
     const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', n || 'Last'), el('span', 'sode__last-text', ...v));
     b.type = 'button';
     b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
     b.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
-    b.addEventListener('click', () => useLast(k, n ? nextTake() : lastTake()));
+    b.addEventListener('click', () => useLast(k, !!n));
     return b;
   }).filter(Boolean));
 }
@@ -223,15 +225,18 @@ function pickSrc(n) {
   setStep(M.dsts.length ? 'lvl' : 'dst');
 }
 
-function useLast(k, t = lastTake()) {
+function useLast(k, next = false) {
+  const t = next ? nextTake(boxState()) : lastTake();
   if (!t) return;
   if (k === 'src') {
     if (!t.src) return;
+    if (next) usedNext('src', t);
     choose(t.src);
     setStep(M.dsts.length ? 'lvl' : 'dst');
   } else if (k === 'dst') {
     // Adds to the destinations already picked.
     if (!t.dsts.length) return;
+    if (next) usedNext('dst', t);
     for (const d of t.dsts) if (!M.dsts.some((x) => x.n === d.n)) M.dsts.push(d);
     inputs.dst.value = '';
     matches.close();

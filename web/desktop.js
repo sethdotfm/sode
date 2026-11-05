@@ -14,7 +14,7 @@ import {
 } from './history.js';
 import {
   undoPlan, againPlan, folderUndoPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
-  planBlocked, sendTakes, lastTake, nextTake, lastChip, VERBS,
+  planBlocked, sendTakes, lastTake, nextTake, usedNext, lastChip, VERBS,
 } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
@@ -146,11 +146,13 @@ function renderChips() {
 // opens to the same take with every number one higher on hover, focus or
 // while Shift is held (data-shift on <html>), taking the Last chip's room.
 // Hidden when the box already has it, and for levels when they're the default.
+const boxState = () => ({ src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] });
+
 function renderLast() {
   if (!S.cfg) return;
-  const state = { src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] };
+  const state = boxState();
   const last = lastChip(lastTake(), state);
-  const next = lastChip(nextTake(), state);
+  const next = lastChip(nextTake(state), state);
   for (const k of ['src', 'dst', 'lvl']) {
     const slot = document.querySelector(`[data-last="${k}"]`);
     const key = { src: 's', dst: 'd', lvl: 'f' }[k];
@@ -166,7 +168,7 @@ function renderLast() {
       const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__tag', 'Next'), el('kbd', 'sode__key-note sode__tag-key', `⌃⇧${key}`),
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
       b.title = `Last take's ${what}, the next one (Ctrl+Shift+${key.toUpperCase()})`;
-      b.addEventListener('click', () => useLast(k, nextTake()));
+      b.addEventListener('click', () => useLast(k, true));
       // The slot holds the closed chip's room; the chip opens over the
       // Last chip, so nothing in the row moves.
       chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', `⌃⇧${key}`)), b));
@@ -184,12 +186,14 @@ on('history', renderLast);
 
 // Fills one box from the last take and moves on: source to destination,
 // destination back to source, but only if that one is empty (no pick, chips
-// or typing); otherwise on to levels. Levels stays. t is the take to use:
-// the last one, or nextTake() for Next.
-function useLast(k, t = lastTake()) {
+// or typing); otherwise on to levels. Levels stays. next: use nextTake()
+// instead of the last take (and remember it, so a repeat goes on).
+function useLast(k, next = false) {
+  const t = next ? nextTake(boxState()) : lastTake();
   if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
   if (k === 'src') {
     if (!t.src) return;
+    if (next) usedNext('src', t);
     select('src', t.src);
     const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
     focusBox(dstEmpty ? boxes.dst.input : lvlInput);
@@ -199,6 +203,7 @@ function useLast(k, t = lastTake()) {
     const have = allDsts();
     const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
     if (!t.dsts.length) return;
+    if (next) usedNext('dst', t);
     if (add.length) {
       dsts = [...have, ...add.slice(0, -1)];
       select('dst', add[add.length - 1]);
@@ -846,7 +851,7 @@ document.addEventListener('keydown', (e) => {
   const last = e.ctrlKey && !e.metaKey && !e.altKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
   if (last && (!e.shiftKey || last !== 'lvl')) {
     e.preventDefault();
-    useLast(last, e.shiftKey ? nextTake() : lastTake());
+    useLast(last, e.shiftKey);
     return;
   }
   const id = e.target.id;
