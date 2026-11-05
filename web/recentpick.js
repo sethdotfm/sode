@@ -85,7 +85,8 @@ const add = () => {
 
 // ---- the bar
 
-const msg = el('span', 'sode__pickbar-msg');
+const msg = el('strong', 'sode__pickbar-msg');
+const sub = el('span', 'sode__pickbar-sub', 'Click takes or folders in Recent to tick them.');
 const count = el('span', 'sode__hint');
 count.setAttribute('role', 'status');
 const followsIn = el('input', 'pb-check__input');
@@ -96,7 +97,8 @@ const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
 cancelBtn.type = 'button';
-const bar = el('div', 'sode__pickbar', msg, followsBox, count, addBtn, cancelBtn);
+const controls = el('div', 'sode__pickbar-controls', followsBox, count, addBtn, cancelBtn);
+const bar = el('div', 'sode__pickbar', el('div', 'sode__pickbar-title', msg, sub), controls);
 bar.setAttribute('role', 'region');
 bar.setAttribute('aria-label', 'Choose takes from Recent');
 bar.hidden = true;
@@ -110,13 +112,22 @@ function update() {
   bar.hidden = !st;
   if (st) {
     const n = takes().length;
-    msg.textContent = `Click takes or folders in Recent to add to ${st.label ? `“${st.label}”` : 'the preset'}.`;
+    msg.textContent = `Choose takes for ${st.label ? `“${st.label}”` : 'the preset'}`;
+    clearChip();
     count.textContent = `${st.picked.size} chosen · ${n} take${n === 1 ? '' : 's'}`;
     addBtn.textContent = n ? `Add ${n}` : 'Add';
     addBtn.disabled = !n;
   }
   emit('pick');
 }
+
+// The lock chip sits at the top left over the bar: start the bar's content after it.
+function clearChip() {
+  const chip = document.querySelector('.sode-lock__who');
+  const r = chip && !chip.hidden ? chip.getBoundingClientRect() : null;
+  bar.style.paddingLeft = r && r.width ? `${Math.ceil(r.right) + 16}px` : '';
+}
+globalThis.addEventListener?.('resize', () => { if (st) clearChip(); });
 
 // Esc cancels, ahead of everything else on the page.
 document.addEventListener('keydown', (e) => {

@@ -203,6 +203,13 @@
   left: calc(var(--pb-space-5) + var(--pb-space-4));
   top: calc(var(--pb-space-5) + var(--pb-space-4) + var(--sode-down-h, 0px));
 }
+/* The chip slides under a pointer that stays where it was, so its button must
+   not take hover (a grey box flickering on and off) while it moves: through
+   the way in (an animation that only holds pointer-events off) and the whole
+   way out (data-sode-lock is still set, data-sode-lock-on already gone). */
+[data-sode-lock-on] .sode-lock__who { animation: sode-chip-quiet var(--sode-lock-motion) linear; }
+[data-sode-lock]:not([data-sode-lock-on]) .sode-lock__who { pointer-events: none; }
+@keyframes sode-chip-quiet { from, to { pointer-events: none; } }
 [data-sode-lock-on][data-layout="phone"] .sode-lock__who {
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }

@@ -493,6 +493,8 @@ html { font-size: 125%; }
   margin-bottom: calc(-1 * var(--sode-pad-bottom));
   padding: var(--pb-space-5) 0 calc(var(--pb-space-5) + env(safe-area-inset-bottom));
   position: sticky;
+  /* In front of the fields scrolling under it (number boxes are positioned). */
+  z-index: var(--pb-z-sticky);
 }
 .sode__savebar-row {
   align-items: center;
