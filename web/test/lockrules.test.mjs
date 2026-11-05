@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock, userLock, leaveUserLock, softUnlock, startLogin, cancelLogin, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, MODE, PAGE_VIEW, viewBody, softLock, userLock, softUnlock, startLogin, cancelLogin, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -289,12 +289,10 @@ test('hand lock: Log out offered only with a user and no PIN lock; the view stay
 
 test('a logged-in lock is the PIN pad, not dismissable, and ends with a real unlock (#198)', () => {
   const v = userLock(PAGE_VIEW, false);
-  assert.deepEqual(v, { mode: 'userlock', back: 'page' });
+  assert.deepEqual(v, { mode: MODE.OWN, back: 'page' });
   assert.equal(userLock(PAGE_VIEW, true), PAGE_VIEW); // an enforced lock has its own pad
   assert.equal(viewBody(v, false), 'pad');
   assert.equal(cancelLogin(v), v); // no Cancel
-  assert.equal(leaveUserLock(v), PAGE_VIEW); // Log out takes the pad away
-  assert.equal(leaveUserLock(PAGE_VIEW), PAGE_VIEW);
   assert.equal(lockArrived(v, true), PAGE_VIEW);
   assert.equal(lockArrived(v, false), v);
   assert.equal(loginWon(v, { enforced: false, unlocked: false, user: 'Ana' }), v); // someone else's state

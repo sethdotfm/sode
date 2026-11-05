@@ -21,14 +21,13 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-7);
   height: 100vh;
   height: 100dvh; /* the visible height: a phone's address bar doesn't hide the foot */
   inset: 0 0 auto 0;
-  justify-content: center;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--pb-space-9);
+  padding-bottom: calc(var(--pb-space-4) + env(safe-area-inset-bottom, 0px));
   position: fixed;
   /* Going away (no is-on): the slow way out. */
   transition:
@@ -49,6 +48,15 @@
     backdrop-filter var(--sode-lock-motion) var(--pb-ease),
     -webkit-backdrop-filter var(--sode-lock-motion) var(--pb-ease),
     border-width var(--sode-lock-motion) var(--pb-ease);
+}
+
+/* The brand and the bodies, centred in what the foot (last row) leaves. */
+.sode-lock__main {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-7);
+  margin-block: auto;
 }
 
 /* Everything but the logo arrives once the logo is most of the way there
@@ -199,14 +207,12 @@
 /* The chip stays above the lock overlay: the hand lock shows who is in. */
 [data-sode-lock] .sode-lock__who { z-index: calc(var(--pb-z-toast) + 1); }
 .sode-lock__foot {
-  bottom: calc(var(--pb-space-4) + env(safe-area-inset-bottom, 0px));
+  align-self: stretch;
   display: flex;
+  flex: none;
   gap: var(--pb-space-3);
   justify-content: center;
-  left: 0;
   opacity: 0;
-  position: absolute;
-  right: 0;
   transition: opacity calc(var(--sode-lock-motion) * 0.5) var(--pb-ease);
 }
 .sode-lock__foot[hidden] { display: none; }
