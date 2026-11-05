@@ -222,6 +222,8 @@ function showLock() {
   moveBrand('in');
   void root.offsetWidth; // commit the start before the class changes it
   root.classList.add('is-on');
+  document.documentElement.dataset.sodeLockOn = 'on'; // with is-on: the chip slides as the border grows
+  chip?.setLocked(true);
   if (V.mode !== 'login') closeModals(); // a requested login keeps Settings open behind it
   inerted = [];
   for (const c of document.body.children) inert(c);
@@ -275,6 +277,8 @@ function hideLock() {
   inerted = [];
   const wasOn = root.classList.contains('is-on');
   root.classList.remove('is-on');
+  delete document.documentElement.dataset.sodeLockOn; // the chip slides back as the border shrinks
+  chip?.setLocked(false);
   pin = '';
   // The way out is slower than the way in (--sode-lock-out in lock.css is
   // the same OUT_FACTOR), so the last of it fades gently; the root is hidden

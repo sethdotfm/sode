@@ -20,12 +20,15 @@ const field = (id, label, auto) => {
 // api: { lock() }.
 export function buildChip(api) {
   const name = el('span', 'sode-lock__who-name');
-  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock'));
+  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock-open'));
   lockBtn.type = 'button';
   lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
   lockBtn.setAttribute('aria-label', 'Lock');
   lockBtn.addEventListener('click', () => api.lock());
-  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', lockBtn, name));
+  // Shown instead of the button while a lock is up: status, with the words beside it.
+  const ico = el('span', 'sode-lock__who-ico', icon('lock'));
+  ico.hidden = true;
+  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', lockBtn, ico, name));
   root.hidden = true;
 
   // ---- change my PIN
@@ -97,7 +100,13 @@ export function buildChip(api) {
   function update(L, chip, handLocked) {
     root.hidden = !chip;
     lockBtn.hidden = !!handLocked;
+    ico.hidden = !handLocked;
     name.textContent = L.user ? `Logged in as ${L.user}` : '';
   }
-  return { root, update };
+  // setLocked: swap the button's icon with the overlay (open lock, closed lock),
+  // at the moment the overlay's border starts to move.
+  function setLocked(on) {
+    lockBtn.replaceChildren(icon(on ? 'lock' : 'lock-open'));
+  }
+  return { root, update, setLocked };
 }

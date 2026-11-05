@@ -150,7 +150,8 @@
   padding: var(--pb-space-2) var(--pb-space-3);
 }
 /* The lock button is a square at the chip's corner: equal sides, icon centred. */
-.sode-lock__who-bar > .pb-btn {
+.sode-lock__who-bar > .pb-btn,
+.sode-lock__who-ico {
   align-items: center;
   aspect-ratio: 1;
   display: inline-flex;
@@ -185,8 +186,11 @@
   transition-delay: calc(var(--sode-lock-motion) * 0.5);
 }
 /* While a lock is up the chip sits over the overlay's border: no background,
-   so the border stays whole. */
-[data-sode-lock] .sode-lock__who {
+   so the border stays whole. data-sode-lock-on is set and cleared with the
+   overlay's is-on, so the slide starts and ends with the border (the out
+   transitions above run at --sode-lock-out); data-sode-lock stays until the
+   overlay is hidden and keeps the chip above it. */
+[data-sode-lock-on] .sode-lock__who {
   background: transparent;
   transition:
     left var(--sode-lock-motion) var(--pb-ease),
@@ -196,10 +200,10 @@
   left: calc(var(--pb-space-5) + var(--pb-space-4));
   top: calc(var(--pb-space-5) + var(--pb-space-4) + var(--sode-down-h, 0px));
 }
-[data-sode-lock][data-layout="phone"] .sode-lock__who {
+[data-sode-lock-on][data-layout="phone"] .sode-lock__who {
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
-[data-sode-lock] .sode-lock__who-bar {
+[data-sode-lock-on] .sode-lock__who-bar {
   padding: var(--pb-space-2) var(--pb-space-4);
   transition: padding var(--sode-lock-motion) var(--pb-ease);
 }
@@ -251,3 +255,8 @@
 .sode__profiles-list { list-style: none; margin: 0; padding: 0; }
 .sode__profiles-row { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-2) 0; }
 .sode__profiles-item { display: flex; flex: 1 1 12rem; flex-direction: column; min-width: 0; }
+
+/* Under the hand lock the button is gone; the closed lock is a status icon
+   beside the words "Logged in as". */
+.sode-lock__who-ico { color: var(--pb-text-muted); }
+.sode-lock__who-ico[hidden] { display: none; }
