@@ -19,6 +19,7 @@ import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
 import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
+import { intProblem } from './settingsrules.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
 import './profiles.js'; // the Profile dialog (openProfile)
@@ -162,7 +163,7 @@ export function openSettings() {
 
 // Shows the PIN prompt or the form. Focus moves only when that flips (or
 // on open), not on every status update.
-function renderLock(opening = false) {
+function renderLock(opening = false, afterPin = false) {
   if (!isOpen()) return;
   const locked = needsPin();
   const flipped = locked !== ('locked' in form.dataset);
@@ -170,6 +171,7 @@ function renderLock(opening = false) {
   else { delete form.dataset.locked; $('lock-help').hidden = true; }
   if (!opening && !flipped) return;
   if (locked) $('lock-pin').focus();
+  else if (afterPin) $('settings-find').focus({ preventScroll: true });
   else if (layout() === 'desktop') $('cfg-namerefresh').focus();
 }
 
@@ -503,6 +505,7 @@ function configResult(m) {
     $('cfg-pin2').value = '';
     $('cfg-pin-clear').checked = false;
     renderPinStatus();
+    $('settings-err').hidden = true;
     markClean(true);
     renderLock();
     return;
@@ -540,7 +543,7 @@ async function sendUnlock() {
   if (!r.ok) return showLockErr(r.err);
   $('lock-pin').value = '';
   $('lock-err').hidden = true;
-  renderLock();
+  renderLock(false, true);
 }
 
 // After a hello or a connection change (pin.js has dropped any unlock the
@@ -589,7 +592,12 @@ function closeLockHelp() {
 $('lock-help-open').addEventListener('click', openLockHelp);
 $('lock-help-close').addEventListener('click', closeLockHelp);
 // Editing again after the warning takes it back, until the next try to leave.
-for (const ev of ['input', 'change']) form.addEventListener(ev, () => (warned() ? unwarn() : renderSaveState()));
+for (const ev of ['input', 'change']) {
+  form.addEventListener(ev, () => {
+    $('settings-err').hidden = true;
+    return warned() ? unwarn() : renderSaveState();
+  });
+}
 window.addEventListener('beforeunload', (e) => {
   if (dirty()) e.preventDefault();
 });
@@ -630,7 +638,7 @@ form.addEventListener('submit', (e) => {
     renderLock();
     return;
   }
-  const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
+  const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) {
     $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`;

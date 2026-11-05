@@ -179,6 +179,25 @@
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
 }
+.sode__users-head { display: none; }
+/* Wide: a header over the Name and PIN boxes, rows share its columns. */
+@media (min-width: 50rem) {
+  .sode__users-table {
+    column-gap: var(--pb-space-5);
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(5, auto);
+  }
+  .sode__users-head,
+  .sode__users-list,
+  .sode__users-row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+  .sode__users-head { font-size: 0.875rem; margin-bottom: var(--pb-space-2); }
+  .sode__users-list { row-gap: var(--pb-space-4); }
+  .sode__users-row { column-gap: var(--pb-space-5); }
+}
 .sode__users-in { flex: 1 1 8rem; min-width: 0; }
 .sode__users-opts {
   align-items: end;

@@ -93,7 +93,7 @@ dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Users'), { id: 'users-title' })),
   el('div', 'pb-modal__body',
     el('p', 'sode__hint', 'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.'),
-    rows,
+    el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows),
     addBtn,
     el('div', 'sode__users-opts',
       field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
