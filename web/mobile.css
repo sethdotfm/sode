@@ -172,33 +172,21 @@
   overflow: hidden;
   position: relative;
 }
-.sode-m__undo {
-  background: var(--pb-status-error);
-  border: 0;
-  bottom: 0;
-  color: var(--pb-text-on-accent);
-  font-family: inherit;
-  font-weight: var(--pb-weight-bold);
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 6rem;
-}
+.sode-m__undo,
 .sode-m__redo {
-  background: var(--pb-accent);
   border: 0;
   bottom: 0;
   color: var(--pb-text-on-accent);
   font-family: inherit;
   font-weight: var(--pb-weight-bold);
-  left: 0;
   position: absolute;
   top: 0;
   width: 6rem;
 }
-.sode-m__redo .pb-icon { display: none; }
-.sode-m__redo:disabled { background: var(--pb-surface-high); color: var(--pb-text-disabled); }
-.sode-m__undo .pb-icon { display: none; } /* the swipe-reveal button is text only */
+.sode-m__undo { background: var(--pb-status-error); right: 0; }
+.sode-m__redo { background: var(--pb-accent); left: 0; }
+.sode-m__undo .pb-icon,
+.sode-m__redo .pb-icon { display: none; } /* the swipe-reveal buttons are text only */
 .sode-m__undo:disabled,
 .sode-m__undo.disabled {
   background: var(--pb-surface-high);
@@ -431,3 +419,34 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+/* ---- Settings on the phone: sections are pages, This device is tighter */
+/* Phone: the sections are pages. The list (search and section buttons) is the
+   page until one is opened; a locked Settings stays as it is. */
+[data-layout="phone"] .sode__settings:not([data-locked]) > .sode__group { display: none; }
+[data-layout="phone"] .sode__settings:not([data-locked]) > .sode__group.sode__page-on { display: flex; }
+[data-layout="phone"] .sode__settings[data-page] > .sode__toc { display: none; }
+[data-layout="phone"] .sode__settings[data-locked] > .sode__toc { display: none; }
+[data-layout="phone"] .sode__toc { position: static; }
+[data-layout="phone"] .sode__toc .pb-tabs { border-bottom: 0; flex-direction: column; overflow: visible; }
+[data-layout="phone"] .sode__toc .pb-tab { align-items: center; display: flex; justify-content: space-between; text-align: left; white-space: normal; }
+[data-layout="phone"] .sode__toc .pb-tab::after { color: var(--pb-text-muted); content: "\203A"; }
+/* iOS zooms the page in when a field under 16px takes focus, and doesn't zoom
+   back out. On the phone every text field, select and text area is at least 16px. */
+[data-layout="phone"] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="button"], [type="submit"]), select, textarea) {
+  font-size: max(16px, 1rem);
+}
+/* No double-tap zoom on the phone (the PIN pad's digits, the composer's keys):
+   taps press, pinching still zooms. */
+/* Every element, not just the page: a scrolling box (the lock overlay, the thread) cuts the
+   inheritance, and :where() keeps this at zero weight so the swipe rows' pan-y still wins. */
+:where([data-layout="phone"], [data-layout="phone"] *) { touch-action: manipulation; }
+/* "This device" on a phone: tighter, quieter fields. */
+[data-layout="phone"] .sode__device .sode__fields { gap: var(--pb-space-3); }
+[data-layout="phone"] .sode__device .sode__field > label { color: var(--pb-text-muted); font-size: var(--pb-text-xs); font-weight: var(--pb-weight-regular, 400); }
+
+/* ---- Choosing takes for a preset: the bar is a row of the phone view (recentpick.js exports it; mobile.js places it) */
+[data-layout="phone"] .sode-m > .sode__pickbar { flex: 0 0 auto; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-3) var(--pb-space-5); position: static; }
+[data-layout="phone"] .sode__pickbar-msg { font-size: var(--pb-text-lg); }
+[data-layout="phone"] .sode__pickbar-controls { flex: 1 1 100%; margin-left: 0; }
+[data-layout="phone"] .sode__pickbar-controls .sode__hint { flex: 1 1 auto; }

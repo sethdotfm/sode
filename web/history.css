@@ -689,11 +689,6 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
   margin-left: auto;
   padding: var(--pb-space-3) var(--pb-space-4);
 }
-/* Phone: a row of the phone view, not over it (recentpick.js moves it there). */
-[data-pb-layout="phone"] .sode-m > .sode__pickbar { flex: 0 0 auto; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-3) var(--pb-space-5); position: static; }
-[data-pb-layout="phone"] .sode__pickbar-msg { font-size: var(--pb-text-lg); }
-[data-pb-layout="phone"] .sode__pickbar-controls { flex: 1 1 100%; margin-left: 0; }
-[data-pb-layout="phone"] .sode__pickbar-controls .sode__hint { flex: 1 1 auto; }
 /* Choosing from Recent on the phone: the composer waits. */
 [data-sode-pick=""] .sode-m__composer { opacity: 0.35; pointer-events: none; }
 [data-sode-pick=""] .sode__box,

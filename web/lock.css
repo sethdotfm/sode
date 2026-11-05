@@ -141,15 +141,11 @@
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
 .sode-lock__who[hidden] { display: none; }
-/* Phone: no lock button in the chip, and no empty square where it was: the cell
-   is gone until a lock screen shows its closed lock there (is-hand). */
+/* Phone: no lock button in the chip (under a lock screen it shows the closed lock instead). */
 [data-layout="phone"] .sode-lock__who-slot > .pb-btn { display: none; }
-[data-layout="phone"] .sode-lock__who:not(.is-hand) .sode-lock__who-slot { display: none; }
 /* The phone's chip is in the way over the page: it shows only under a lock screen (is-hand),
    and the name is in Settings' Account row the rest of the time. */
 [data-layout="phone"] .sode-lock__who:not(.is-hand) { display: none; }
-/* ...and a chip with no name (nobody logged in) and no lock icon to show would be a bare square. */
-[data-layout="phone"] .sode-lock__who:not(.is-hand):has(> .sode-lock__who-bar > .sode-lock__who-name:empty) { display: none; }
 /* The chip slides inside the border as it grows, at the border's own rate
    (slow on the way out, like the overlay). Its background does not fade in
    on the way out (a grey box rising under the fading overlay looked wrong
