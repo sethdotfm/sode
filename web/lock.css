@@ -139,9 +139,10 @@
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
 .sode-lock__who[hidden] { display: none; }
-/* Phone: no lock button in the chip (the icon cell stays, so the chip does not
-   change size when a lock screen shows its closed lock there). */
+/* Phone: no lock button in the chip, and no empty square where it was: the cell
+   is gone until a lock screen shows its closed lock there (is-hand). */
 [data-layout="phone"] .sode-lock__who-slot > .pb-btn { display: none; }
+[data-layout="phone"] .sode-lock__who:not(.is-hand) .sode-lock__who-slot { display: none; }
 /* The chip slides inside the border as it grows, at the border's own rate
    (slow on the way out, like the overlay). Its background does not fade in
    on the way out (a grey box rising under the fading overlay looked wrong
