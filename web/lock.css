@@ -135,8 +135,19 @@
 .sode-lock__who-bar {
   align-items: center;
   display: flex;
-  gap: var(--pb-space-2);
-  padding: var(--pb-space-1) var(--pb-space-3) var(--pb-space-1) var(--pb-space-1);
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+/* The lock button is a square at the chip's corner: equal sides, icon centred. */
+.sode-lock__who-bar > .pb-btn {
+  align-items: center;
+  aspect-ratio: 1;
+  display: inline-flex;
+  flex: none;
+  height: var(--pb-control-h-sm);
+  justify-content: center;
+  padding: 0;
+  width: var(--pb-control-h-sm);
 }
 .sode-lock__who-name { font-size: var(--pb-text-xs); }
 /* /log: the chip owns the top left, so the heading moves down. */
