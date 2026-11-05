@@ -42,3 +42,47 @@ test('profileButtonOff: only a saved, unrenamed user has a profile to open', () 
   assert.equal(profileButtonOff('Ana', 'Ann'), true); // renamed, not saved
   assert.equal(profileButtonOff(undefined, ''), true);
 });
+
+import { prefFields, prefsWith, nameIssue, upsertEntry, filterEntry, findByName } from '../profilesrules.js';
+
+test('prefFields: all eight, Not set first, saved value chosen', () => {
+  const f = prefFields({ theme: 'dark', flip: true, clock: 'bogus' });
+  assert.equal(f.length, 8);
+  assert.equal(f.find((x) => x.key === 'theme').value, 'dark');
+  assert.equal(f.find((x) => x.key === 'flip').value, 'on');
+  assert.equal(f.find((x) => x.key === 'clock').value, '');
+  assert.deepEqual(f[0].options[0], ['', 'Not set']);
+  assert.ok(f.every((x) => x.options.length > 1));
+});
+
+test('prefsWith sets, removes on Not set, ignores bad values', () => {
+  assert.deepEqual(prefsWith({ clock: '12' }, 'theme', 'dark'), { clock: '12', theme: 'dark' });
+  assert.deepEqual(prefsWith({ clock: '12', theme: 'dark' }, 'theme', ''), { clock: '12' });
+  assert.deepEqual(prefsWith({ clock: '12' }, 'theme', 'purple'), { clock: '12' });
+  assert.deepEqual(prefsWith(null, 'nope', 'x'), {});
+});
+
+test('nameIssue: empty, long, taken ignoring case, own name ok', () => {
+  const l = [{ name: 'Cams' }, { name: 'Mon' }];
+  assert.match(nameIssue(l, '  '), /required/);
+  assert.match(nameIssue(l, 'x'.repeat(33)), /32/);
+  assert.match(nameIssue(l, 'cams', '', 'preset'), /preset named/);
+  assert.equal(nameIssue(l, 'CAMS', 'cams'), '');
+  assert.match(nameIssue(l, 'mon', 'Cams'), /already/);
+  assert.equal(nameIssue(l, 'New'), '');
+});
+
+test('upsertEntry adds, replaces in place, refuses a clash', () => {
+  const l = [{ name: 'A', v: 1 }, { name: 'B', v: 2 }];
+  assert.deepEqual(upsertEntry(l, { name: 'C' }).list.map((x) => x.name), ['A', 'B', 'C']);
+  const r = upsertEntry(l, { name: 'a2', v: 9 }, 'a').list;
+  assert.deepEqual(r.map((x) => x.name), ['a2', 'B']);
+  assert.ok(upsertEntry(l, { name: 'b' }, 'A').err);
+  assert.deepEqual(l.map((x) => x.name), ['A', 'B']); // not mutated
+});
+
+test('filterEntry and findByName', () => {
+  assert.deepEqual(filterEntry(' X ', { src: '1', sode: true }), { name: 'X', src: '1', sode: true });
+  assert.equal(findByName([{ name: 'Cams' }], 'cams').name, 'Cams');
+  assert.equal(findByName(null, 'a'), undefined);
+});

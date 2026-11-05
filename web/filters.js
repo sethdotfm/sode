@@ -5,7 +5,7 @@
 // browser's own) are quick buttons in Recent's header. Share link puts the
 // filter in a URL (transfer.js reads it back through a review sheet).
 
-import { $, el, S, on, off, search, item, labelNode, nameProblem } from './core.js';
+import { $, el, S, on, emit, off, search, item, labelNode, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
 import {
   filterState, setFilter, filterCount, allSets, activeSet, activeRef, adoptFilter, pickSet,
@@ -20,6 +20,8 @@ import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName } from './profile.js';
+import { FILTER_DEFAULT, normFilter } from './filterstore.js';
+import { upsertEntry, filterEntry, findByName } from './profilesrules.js';
 import { combobox, trapDialog } from './widgets.js';
 
 const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]); // Default | Everyone | Me | This browser
@@ -35,6 +37,15 @@ const KINDS = [
   ['range', 'Number between'],
   ['re', 'Name matches regex'],
 ];
+
+// ---- aimed at a profile (bus 'openFilterEditor', from the Profile dialog)
+// The same dialog edits one filter set of a profile: the filter is a draft
+// held here (never the browser's own filter or active set), the set bar is
+// replaced by a name and Save, and a save goes to that user's profile.
+
+let tgt = null; // { user, old, lists: the profile's filterSets, f: the draft }
+const curF = () => (tgt ? tgt.f : filterState());
+const putF = (next) => { if (tgt) tgt.f = normFilter(next); else setFilter(next); };
 
 // Whether a visual row says enough to be a rule.
 function complete(r) {
@@ -60,7 +71,7 @@ function editor(key) {
     ed.error = p.error ? `${p.error}${p.at != null ? ` at “${ed.text.slice(p.at, p.at + 12)}”` : ''}` : null;
     clearTimeout(timer);
     const go = () => {
-      if (!ed.error) setFilter({ ...filterState(), [key]: ed.text });
+      if (!ed.error) putF({ ...curF(), [key]: ed.text });
       preview();
     };
     if (now) go();
@@ -206,7 +217,7 @@ function editor(key) {
     preview,
     flush() {
       clearTimeout(timer);
-      if (!ed.error) setFilter({ ...filterState(), [key]: ed.text });
+      if (!ed.error) putF({ ...curF(), [key]: ed.text });
       preview();
     },
   };
@@ -230,7 +241,7 @@ function setMode(m) {
 }
 
 function renderShow() {
-  const f = filterState();
+  const f = curF();
   $('flt-sode').checked = f.sode;
   $('flt-ext').checked = f.ext;
   $('flt-hidden').checked = f.hidden;
@@ -308,6 +319,8 @@ export const filtersOpen = () => !root.hidden;
 
 export function openFilters() {
   back = document.activeElement;
+  tgt = null;
+  chrome();
   const f = filterState();
   renderMode();
   renderShow();
@@ -327,11 +340,95 @@ function closeFilters() {
   eds.src.flush();
   eds.dst.flush();
   dlg.hide();
+  if (tgt) { // an editor aimed at a profile: nothing global to finish
+    tgt = null;
+    chrome();
+    if (back?.isConnected) back.focus();
+    return;
+  }
   // A save already sent finishes first (its answer locks up after it);
   // one still waiting for the PIN is dropped.
   saver.close();
   if (back?.isConnected) back.focus();
 }
+
+const tName = el('input', 'pb-input');
+tName.maxLength = 32;
+tName.placeholder = 'Name';
+tName.autocomplete = 'off';
+tName.setAttribute('aria-label', 'Set name');
+const tNote = el('span', 'sode__hint');
+tNote.setAttribute('role', 'status');
+tNote.setAttribute('aria-live', 'polite');
+const tSave = el('button', 'pb-btn pb-btn--commit', 'Save');
+tSave.type = 'button';
+const tBar = el('div', 'sode__filters-set', tName, tNote);
+tBar.hidden = true;
+$('flt-set').closest('.sode__filters-sets').before(tBar);
+$('flt-done').before(tSave);
+tSave.hidden = true;
+const tNoteSet = (text, error = false) => {
+  tNote.textContent = text;
+  tNote.classList.toggle('sode__error-text', error);
+};
+
+// The dialog's look for the editor kind: target set or the usual one.
+function chrome() {
+  const t = !!tgt;
+  $('flt-set').closest('.sode__filters-sets').hidden = t;
+  tBar.hidden = !t;
+  tSave.hidden = !t;
+  $('flt-clear').hidden = t;
+  $('flt-share-btn').hidden = t;
+  $('flt-done').textContent = t ? 'Cancel' : 'Done';
+  $('filters-title').textContent = t ? `${tgt.old ? 'Edit' : 'Add'} filter set for ${tgt.user}` : 'Filters';
+  if (t) { tName.value = tgt.old; tNoteSet(''); tName.classList.remove('pb-input--invalid'); }
+}
+
+const tgtSaver = profileSaver({
+  target: () => tgt && { user: tgt.user, profile: { prefs: {}, filterSets: tgt.lists, presets: [], ...tgt.profile } },
+  setNote: tNoteSet, isOpen: () => filtersOpen() && !!tgt, failTitle: 'Filter set not saved', render: () => { tSave.disabled = tgtSaver.busy(); },
+});
+
+function saveTarget() {
+  if (!tgt) return;
+  eds.src.flush();
+  eds.dst.flush();
+  const name = tName.value.trim();
+  const r = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old, 'filter set');
+  const bad = r.err || (name.toLowerCase() === 'all' ? '“all” is taken.' : '');
+  if (bad) { tName.classList.add('pb-input--invalid'); tNoteSet(bad, true); tName.focus(); return; }
+  tName.classList.remove('pb-input--invalid');
+  const user = tgt.user;
+  tgtSaver.change({ filterSets: r.list }, () => {
+    emit('profileEdited', { user, parts: { filterSets: r.list } });
+    closeFilters();
+  });
+}
+tSave.addEventListener('click', saveTarget);
+tName.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); saveTarget(); }
+});
+
+on('openFilterEditor', (m) => {
+  const user = String(m?.user || '');
+  if (!user) return;
+  const lists = Array.isArray(m.profile?.filterSets) ? m.profile.filterSets : [];
+  const found = m.name ? findByName(lists, m.name) : null;
+  back = document.activeElement;
+  tgt = {
+    user, old: found ? String(found.name) : '', lists, profile: m.profile,
+    f: normFilter(found || FILTER_DEFAULT),
+  };
+  chrome();
+  renderMode();
+  renderShow();
+  eds.src.load(tgt.f.src);
+  eds.dst.load(tgt.f.dst);
+  $('flt-share').hidden = true;
+  dlg.show();
+  dialog.focus();
+});
 
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
 $('flt-done').addEventListener('click', closeFilters);
@@ -340,13 +437,13 @@ $('flt-visual').addEventListener('click', () => setMode('visual'));
 $('flt-code').addEventListener('click', () => setMode('code'));
 for (const k of ['sode', 'ext', 'hidden']) {
   $(`flt-${k}`).addEventListener('change', (e) => {
-    setFilter({ ...filterState(), [k]: e.target.checked });
+    putF({ ...curF(), [k]: e.target.checked });
     renderShow();
   });
 }
 // Loads the editors from the filter now (after a set is picked).
 function reload() {
-  const f = filterState();
+  const f = curF();
   renderShow();
   eds.src.load(f.src);
   eds.dst.load(f.dst);

@@ -179,13 +179,18 @@ export function globalSaver({ t, resultT, pinIn, pinRow, pinOk, ...rest }) {
 
 // For 'Me': change(parts, done) with parts { filterSets } or { presets },
 // the whole list. Same options as globalSaver without t/resultT/pin*.
-export function profileSaver(opts) {
+// target (optional): () => { user, profile } | null, for an editor aimed at
+// one profile (the logged-in user's, or another's as a trusted user): the
+// save goes to that user and the size check is made against that profile as
+// last read. Without it (or while it gives null) the own profile is saved.
+export function profileSaver({ target, ...opts }) {
+  const tgt = () => target?.() || null;
   return makeSaver({
     ...opts,
     how: {
       pin: null,
-      check: (parts) => profileProblem(profile(), parts),
-      send(p, parts, settle) { saveProfile(parts).then(settle); },
+      check: (parts) => profileProblem(tgt()?.profile || profile(), parts),
+      send(p, parts, settle) { saveProfile(parts, tgt()?.user || undefined).then(settle); },
     },
   });
 }

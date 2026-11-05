@@ -12,6 +12,7 @@ import { trapDialog } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
+import { findByName } from './profilesrules.js';
 import {
   allPresets, presetsIn, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
   pinnedPresets, saved,
@@ -95,7 +96,7 @@ document.addEventListener('keydown', (e) => {
     document.getElementById('src')?.focus();
   }
 });
-on('presets', () => { renderStrips(); if (open) renderEditor(true); });
+on('presets', () => { renderStrips(); if (open && !tgt) renderEditor(true); });
 renderStrips();
 
 // ---- the dialog
@@ -162,12 +163,17 @@ const shareBtn = btn('pb-btn--outline pb-btn--sm', 'Share', () => {
   if (p) shareLink(sharePresetDoc(p), shareUI);
 });
 
+const pickRow = el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null)));
+const scopeWrap = el('span', 'pb-select-wrap sode__filters-scope', scopeIn);
+const titleEl = Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'presets-title' });
+const transferBtn = btn('pb-btn--outline', 'Export / import…', () => emit('openTransfer', { scope: cur?.old ? cur.scope : 'local', user: profileName() || '', what: 'presets' }));
+const doneBtn = btn('pb-btn--ok', 'Done', () => closePresets());
 dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'presets-title' })),
+  el('div', 'pb-modal__header', titleEl),
   el('div', 'pb-modal__body sode__filters-body',
     el('div', 'sode__filters-sets',
-      el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null))),
-      el('div', 'sode__filters-set', nameIn, el('span', 'pb-select-wrap sode__filters-scope', scopeIn), saveBtn, saveAsBtn, shareBtn, delBtn),
+      pickRow,
+      el('div', 'sode__filters-set', nameIn, scopeWrap, saveBtn, saveAsBtn, shareBtn, delBtn),
       asRow, pinnedBox, pinRow, noteEl, shareUI.box),
     rowsBox,
     el('div', 'sode__filters-set',
@@ -175,9 +181,7 @@ dialog.append(
       btn('pb-btn--outline pb-btn--sm', 'Fill from patch boxes', fillFromBoxes),
       btn('pb-btn--outline pb-btn--sm', 'Fill from latest folder in Recent', fillFromHistory)),
     el('span', 'sode__hint', 'Numbers (12, 20-24) or names, separated by commas.')),
-  el('div', 'pb-modal__footer',
-    btn('pb-btn--outline', 'Export / import…', () => emit('openTransfer', { scope: cur?.old ? cur.scope : 'local', user: profileName() || '', what: 'presets' })),
-    btn('pb-btn--ok', 'Done', () => closePresets())),
+  el('div', 'pb-modal__footer', transferBtn, doneBtn),
 );
 root.append(dialog);
 document.body.append(root);
@@ -196,6 +200,17 @@ const saver = globalSaver({
 // Presets of the logged-in user ('Me'): their profile, no PIN row.
 const profSaver = profileSaver({
   setNote, isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved to your profile.',
+  render: () => renderHead(true),
+});
+
+// Aimed at a profile (bus 'openPresetEditor', from the Profile dialog): the
+// same editor on one preset of that user's profile, with the picker, scope,
+// Save as, Share, Delete and Export hidden; the save goes to that profile.
+// { user, lists: the profile's presets, profile }; null for the usual editor.
+let tgt = null;
+const tgtSaver = profileSaver({
+  target: () => tgt && { user: tgt.user, profile: { prefs: {}, filterSets: [], ...tgt.profile, presets: tgt.lists } },
+  setNote, isOpen: () => open && !!tgt, failTitle: 'Presets not saved', okNote: 'Saved.',
   render: () => renderHead(true),
 });
 
@@ -289,7 +304,16 @@ function renderHead(keep = false) {
   delBtn.hidden = !cur.old;
   shareBtn.hidden = !cur.old;
   delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
-  saveBtn.disabled = saver.busy() || profSaver.busy();
+  saveBtn.disabled = saver.busy() || profSaver.busy() || tgtSaver.busy();
+  const t = !!tgt;
+  pickRow.hidden = t;
+  scopeWrap.hidden = t;
+  pinRow.hidden = pinRow.hidden || t;
+  saveAsBtn.hidden = t;
+  transferBtn.hidden = t;
+  if (t) { delBtn.hidden = true; shareBtn.hidden = true; asRow.hidden = true; shareUI.box.hidden = true; }
+  titleEl.textContent = t ? `${tgt.old ? 'Edit' : 'Add'} preset for ${tgt.user}` : 'Presets';
+  doneBtn.textContent = t ? 'Cancel' : 'Done';
 }
 
 // keepEdit: the lists changed under us (a reconnect, another browser's
@@ -299,7 +323,7 @@ function renderEditor(keepEdit = false) {
   renderHead(keepEdit);
   if (keepEdit) return;
   renderRows();
-  setNote(cur.old ? scopeLabel(cur.scope) : '');
+  setNote(cur.old && !tgt ? scopeLabel(cur.scope) : '');
 }
 pick.addEventListener('change', () => {
   const v = pick.value;
@@ -341,7 +365,7 @@ function built() {
     items.push(p.item);
   }
   const s = { ...normPreset({ name: cur.name, items }), pinned: cur.pinned };
-  const list = presetsIn(cur.scope);
+  const list = tgt ? tgt.lists : presetsIn(cur.scope);
   const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'preset', old: cur.old }) || presetProblem(s);
   if (err) return { err };
   const next = replacePreset(list, s, cur.old);
@@ -352,6 +376,14 @@ function built() {
 function save() {
   const b = built();
   if (b.err) return setNote(b.err, true);
+  if (tgt) {
+    const user = tgt.user;
+    return tgtSaver.change({ presets: b.next }, () => {
+      dirty = false;
+      emit('profileEdited', { user, parts: { presets: b.next } });
+      closePresets();
+    });
+  }
   if (cur.scope === 'local') {
     saveLocalPreset(b.s, cur.old);
     cur.old = b.s.name;
@@ -431,6 +463,7 @@ function deleteClick() {
 
 export function openPresets(scope = '', name = '') {
   back = document.activeElement;
+  tgt = null;
   const s = scope && findPreset(scope, name);
   open = true;
   pinRow.hidden = true;
@@ -443,6 +476,11 @@ function closePresets() {
   if (open && dirty && !discard) { discard = true; return setNote('Unsaved changes. Close again to discard them, or Save.', true); }
   open = false;
   dlg.hide();
+  if (tgt) { // nothing global to finish
+    tgt = null;
+    if (back?.isConnected) back.focus();
+    return;
+  }
   profSaver.close();
   saver.close(); // a save already sent finishes first (its answer locks up after it)
   if (back?.isConnected) back.focus();
@@ -456,4 +494,18 @@ on('locking', () => {
   if (!open) return;
   discard = true;
   closePresets();
+});
+
+on('openPresetEditor', (m) => {
+  const user = String(m?.user || '');
+  if (!user) return;
+  const lists = Array.isArray(m.profile?.presets) ? m.profile.presets : [];
+  const found = m.name ? findByName(lists, m.name) : null;
+  back = document.activeElement;
+  tgt = { user, lists, profile: m.profile };
+  open = true;
+  pinRow.hidden = true;
+  load(found ? { scope: 'user', ...normPreset(found), pinned: found.pinned !== false } : null);
+  dlg.show();
+  dialog.focus();
 });

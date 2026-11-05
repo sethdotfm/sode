@@ -1,6 +1,10 @@
-// Profile dialog (Beta 1.6, #161): one user's saved This device settings,
-// filter sets and presets, each with a Remove, and one Export / import…
-// button that hands over to the transfer dialog (bus 'openTransfer'). It is
+// Profile dialog (Beta 1.6, #161): the editor of one user's profile. This
+// device settings are a select each (Not set removes the key); filter sets
+// and presets are lists with Edit, Add and Remove. Edit and Add open the
+// Filters dialog / preset editor aimed at this profile (bus
+// 'openFilterEditor' / 'openPresetEditor' {user, name?, profile}; they answer
+// with 'profileEdited' {user, parts} after saving). One Export / import…
+// button hands over to the transfer dialog (bus 'openTransfer'). It is
 // opened for one user by the bus event 'openProfile' {name}: the Profile…
 // buttons of the users editor and of Settings > Users, and My profile… in the
 // account block. There is no user list here. The own profile is read from
@@ -13,7 +17,7 @@ import { el, S, on, emit, sentence } from './core.js';
 import { demandPin, trusted, unlocked } from './pin.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
-import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
+import { prefFields, prefsWith, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
 
 // ---- the dialog
 
@@ -78,14 +82,9 @@ function transfer() {
   emit('openTransfer', { scope: 'user', user: who });
 }
 
-function section(heading, rows, empty) {
-  return el('section', 'sode__profiles-sec',
-    el('h3', 'sode__profiles-h', heading),
-    rows.length ? el('ul', 'sode__profiles-list', ...rows) : el('p', 'sode__hint', empty));
-}
-
 // One line: text, a summary, and Remove (which turns into its confirm).
 function line(kind, i, name, summary) {
+  const editEv = kind === 'filterSets' ? 'openFilterEditor' : 'openPresetEditor';
   const text = el('span', 'sode__profiles-item', el('strong', null, name), el('span', 'sode__hint', summary));
   if (removing && removing.kind === kind && removing.i === i) {
     return el('li', 'sode__profiles-row', text,
@@ -95,7 +94,35 @@ function line(kind, i, name, summary) {
   }
   const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { removing = { kind, i }; paint(); });
   rm.setAttribute('aria-label', `Remove ${name}`);
-  return el('li', 'sode__profiles-row', text, rm);
+  const ed = btn('pb-btn--outline pb-btn--sm', 'Edit', () => emit(editEv, { user: who, name, profile: prof }));
+  ed.setAttribute('aria-label', `Edit ${name}`);
+  return el('li', 'sode__profiles-row', text, ed, rm);
+}
+
+// One This device setting: a label and a select (Not set, then the values).
+function prefLine(f) {
+  const id = `profiles-pref-${f.key}`;
+  const sel = el('select', 'pb-select');
+  sel.id = id;
+  for (const [v, t] of f.options) {
+    const o = el('option', null, t);
+    o.value = v;
+    sel.append(o);
+  }
+  sel.value = f.value;
+  sel.addEventListener('change', () => doSave({ prefs: prefsWith(prof.prefs, f.key, sel.value) }, 'Saved.'));
+  const lab = el('label', 'sode__label', f.label);
+  lab.htmlFor = id;
+  return el('li', 'sode__profiles-row', el('span', 'sode__profiles-item', lab), el('span', 'pb-select-wrap', sel));
+}
+
+// A section with its list and an Add button.
+function listSection(heading, rows, empty, addText, ev) {
+  const add = btn('pb-btn--outline pb-btn--sm', addText, () => emit(ev, { user: who, profile: prof }));
+  return el('section', 'sode__profiles-sec',
+    el('h3', 'sode__profiles-h', heading),
+    rows.length ? el('ul', 'sode__profiles-list', ...rows) : el('p', 'sode__hint', empty),
+    el('div', null, add));
 }
 
 function paint() {
@@ -105,11 +132,13 @@ function paint() {
     body.replaceChildren(el('p', 'sode__hint', who ? `Reading ${who}'s profile…` : 'No user chosen.'));
     return;
   }
-  const prefs = prefRows(prof.prefs);
   body.replaceChildren(
-    section('This device settings', prefs.map((p, i) => line('prefs', i, p.label, p.value)), 'None saved. This user follows the global defaults.'),
-    section('Filter sets', prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))), 'None saved.'),
-    section('Presets', prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))), 'None saved.'));
+    el('section', 'sode__profiles-sec',
+      el('h3', 'sode__profiles-h', 'This device settings'),
+      el('p', 'sode__hint', 'Not set follows the global default.'),
+      el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine))),
+    listSection('Filter sets', prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))), 'None saved.', 'Add filter set…', 'openFilterEditor'),
+    listSection('Presets', prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))), 'None saved.', 'Add preset…', 'openPresetEditor'));
 }
 
 async function load(name) {
@@ -135,27 +164,26 @@ async function load(name) {
   paint();
 }
 
-async function doRemove(kind, i) {
+// Saves some parts ({prefs}, {filterSets}, {presets}) and paints the result.
+async function doSave(parts, done) {
   if (!prof) return;
   const mine = ++token;
   removing = null;
   err.hidden = true;
   setNote('');
-  // Prefs are shown only when valid, so the index is into the shown rows.
-  const parts = kind === 'prefs'
-    ? { prefs: withoutPref(prof.prefs, prefRows(prof.prefs)[i].key) }
-    : { [kind]: without(prof[kind], i) };
   const r = await saveProfile(parts, who);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
     if (r.locked) refused();
     fail(r.err || 'Could not save that profile.');
+    prof = own() ? profile() : prof;
     return paint();
   }
   prof = own() ? profile() : { ...prof, ...parts };
-  setNote('Removed.');
+  setNote(done);
   paint();
 }
+const doRemove = (kind, i) => doSave({ [kind]: without(prof[kind], i) }, 'Removed.');
 
 function openDialog(name) {
   if (!name) return;
@@ -177,6 +205,14 @@ function closeDialog() {
 }
 
 on('openProfile', (m) => openDialog(String(m?.name || '')));
+// An editor saved a filter set or preset into this profile.
+on('profileEdited', (m) => {
+  if (!isOpen || m?.user !== who || !prof) return;
+  prof = own() ? profile() : { ...prof, ...m.parts };
+  err.hidden = true;
+  setNote('Saved.');
+  paint();
+});
 // A pending Remove goes first on Esc, then the dialog.
 const dlg = trapDialog(root, dialog, () => { if (removing) { removing = null; paint(); } else closeDialog(); });
 // The page locking takes the dialog with it.

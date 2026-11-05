@@ -54,3 +54,63 @@ export const profileButtonOff = (was, typed) => !was || String(typed).trim() !==
 // Whether the Profiles button is offered: users exist and the viewer is a
 // trusted user or holds the settings PIN.
 export const canSeeProfiles = (names, trusted, unlocked) => (names?.length || 0) > 0 && !!(trusted || unlocked);
+
+// ---- editing a profile
+
+// Every This device setting as a select: [{key, label, value, options}] in
+// PREFS order. value is the saved one ('' = Not set, also for a value that
+// isn't valid); options are [value, text] pairs with Not set first.
+export function prefFields(prefs) {
+  return Object.entries(PREFS).map(([key, def]) => {
+    let v = prefs?.[key];
+    if (typeof v === 'boolean') v = v ? 'on' : 'off';
+    const ok = typeof v === 'string' && Object.hasOwn(def.values, v);
+    return {
+      key,
+      label: LABELS[key] || key,
+      value: ok ? v : '',
+      options: [['', 'Not set'], ...Object.entries(def.values)],
+    };
+  });
+}
+
+// The prefs map with one setting changed: '' (Not set) removes it, a value
+// that isn't allowed for that setting changes nothing. Other keys are kept.
+export function prefsWith(prefs, key, value) {
+  const def = PREFS[key];
+  const next = { ...(prefs || {}) };
+  if (!def) return next;
+  if (value === '' || value == null) delete next[key];
+  else if (Object.hasOwn(def.values, value)) next[key] = value;
+  return next;
+}
+
+// Why a name can't be used in `list` (entries with a name), or ''. `old` is
+// the name being edited (it may keep its own, ignoring case).
+export function nameIssue(list, name, old = '', noun = 'item') {
+  const n = String(name ?? '').trim();
+  if (!n) return 'Name required.';
+  if ([...n].length > 32) return 'Names are at most 32 characters.';
+  const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+  if ((list || []).some((x) => same(x?.name, n) && !(old && same(x?.name, old)))) return `There is already a ${noun} named “${n}”.`;
+  return '';
+}
+
+// The list with `entry` added, or put in place of `old` (matched ignoring
+// case). { list } on success, { err } when the name can't be used.
+export function upsertEntry(list, entry, old = '', noun = 'item') {
+  const err = nameIssue(list, entry?.name, old, noun);
+  if (err) return { err };
+  const items = Array.isArray(list) ? list : [];
+  const at = old ? items.findIndex((x) => String(x?.name).toLowerCase() === old.toLowerCase()) : -1;
+  const next = items.slice();
+  if (at >= 0) next[at] = entry; else next.push(entry);
+  return { list: next };
+}
+
+// A filter set as saved in a profile: its name and the filter's own fields.
+export const filterEntry = (name, f) => ({ name: String(name).trim(), ...f });
+
+// The entry named `name` (ignoring case), or undefined.
+export const findByName = (list, name) => (Array.isArray(list) ? list : [])
+  .find((x) => String(x?.name).toLowerCase() === String(name).toLowerCase());
