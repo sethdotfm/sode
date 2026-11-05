@@ -138,7 +138,9 @@
    behind the lock button): it has none at all while any lock overlay is up
    (data-sode-lock, set before the overlay shows and cleared after it is
    gone) and returns then, when it is the same colour as the page behind it. */
-.sode-lock__who {
+/* Only while a lock overlay is up (data-sode-lock): `top` also follows the
+   lost-link banner (--sode-down-h), and that must jump, not float. */
+[data-sode-lock] .sode-lock__who {
   transition:
     left var(--sode-lock-out) var(--pb-ease),
     top var(--sode-lock-out) var(--pb-ease);
