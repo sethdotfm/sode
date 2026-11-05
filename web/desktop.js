@@ -20,7 +20,7 @@ import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
 import { picking, isPicked, pickBox, togglePick, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
-import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
+import { byLabel, levelBox, combobox, disclosure, undoButton, UNDO_TIP_ALL, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -271,7 +271,7 @@ function histRow(e) {
   const known = e.levels.filter((u) => S.levelBy.has(u));
 
   const btn = e.chain
-    ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, { text: `Undo ${e.chain.length}` })
+    ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, { text: `Undo ${e.chain.length}`, tip: 'Set destination to its source before these changes.' })
     : undoButton(undoPlan(e), `Undo ${src.label} to ${dst.label}`, openConfirm);
   const again = againPlan({ e });
   const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`, openConfirm);
@@ -344,7 +344,7 @@ function folderRow(f) {
   const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
 
   const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, openConfirm,
-    { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all' });
+    { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all', tip: UNDO_TIP_ALL });
   const again = againPlan({ f });
   const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`, openConfirm);
 

@@ -450,13 +450,11 @@
   }
   .sode-m__recent .sode__set,
   .sode-m__recent .sode__sets-sep { flex: none; }
-  .sode-m__recent .sode__sets-group { flex: none; flex-wrap: nowrap; }
 }
-.sode__sets-group { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
-/* All sit on the first row (a group of many chips wraps below it); the
-   divider is as tall as a chip so it lines up with them. */
+.sode__sets-group { display: contents; } /* chips wrap as one run; the group is only for screen readers */
+/* The divider is as tall as a chip so it lines up with them. */
 .sode__sets-sep {
-  align-self: flex-start;
+  align-self: center;
   border: var(--pb-border-w) solid transparent;
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
@@ -695,3 +693,6 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
 [data-sode-pick] .sode-lock__who { background: transparent; color: var(--pb-text-on-accent); }
 [data-sode-pick] .sode-lock__who .pb-btn,
 [data-sode-pick] .sode-lock__who .sode-lock__who-ico { color: inherit; }
+
+/* The Presets popup's key help: one small centred note under the list. */
+.sode__pop-help { font-size: var(--pb-text-xs); text-align: center; }

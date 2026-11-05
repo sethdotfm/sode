@@ -1,16 +1,15 @@
 // The Presets popup (Ctrl+G, or ⌘G on a Mac; a button on the phone): every
 // preset, pinned or not, with a search box. Enter presses the highlighted
 // one, which opens the usual confirm (presets.js `fire`). Each row can pin
-// or unpin the preset for this browser; for everyone's presets there is also
-// "Pin for everyone", which saves through the settings PIN like the editor.
+// or unpin the preset for this browser (or in the user's profile). Pinning for
+// everyone, and sharing, are in the preset editor.
 
 import { el, on, icon } from './core.js';
 import { chord } from './keys.js';
 import { trapDialog } from './widgets.js';
-import { globalSaver, profileSaver } from './globalsave.js';
+import { profileSaver } from './globalsave.js';
 import { fire, fillBoxes } from './presets.js';
-import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, presetKey, setPinOrder, moveKey, pinnedPresets } from './presetstore.js';
+import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, setPinOrder, moveKey, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -38,26 +37,16 @@ list.setAttribute('role', 'listbox');
 list.setAttribute('aria-label', 'Presets');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
-const shareUI = shareRow();
-const pinIn = el('input', 'pb-input');
-pinIn.type = 'password';
-pinIn.placeholder = 'PIN';
-pinIn.autocomplete = 'current-password';
-pinIn.setAttribute('aria-label', 'Settings PIN');
-const pinOk = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Unlock');
-pinOk.type = 'button';
-const pinCancel = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Cancel');
-pinCancel.type = 'button';
-const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, pinCancel);
-pinRow.hidden = true;
 const done = el('button', 'pb-btn pb-btn--ok', 'Close');
 done.type = 'button';
 done.addEventListener('click', () => close());
 
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'preset-pop-title' })),
-  el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl, shareUI.box,
-    el('span', 'sode__hint', mac ? '↑ ↓ or ⌘J/K to move · ⌥↑ ⌥↓ or ⌥⌘J/K to reorder · ⌥P to pin or unpin · ⇧Enter or ⇧click to fill the boxes' : '↑ ↓ or Ctrl+J/K to move · Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder · Alt+P to pin or unpin · Shift+Enter or Shift+click to fill the boxes')),
+  el('div', 'pb-modal__body sode__filters-body', input, list, noteEl,
+    el('span', 'sode__hint sode__pop-help', mac
+      ? 'Navigate with ↑ ↓ or ⌘J/K, use ⌥↑ ⌥↓ or ⌥⌘J/K to reorder, ⌥P to pin, and ⇧Enter or ⇧click to fill the boxes without taking.'
+      : 'Navigate with ↑ ↓ or Ctrl+J/K, use Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder, Alt+P to pin, and Shift+Enter or Shift+click to fill the boxes without taking.')),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
 document.body.append(root);
@@ -67,15 +56,8 @@ const setNote = (t, error = false) => {
   noteEl.textContent = t;
   noteEl.classList.toggle('sode__error-text', error);
 };
-const saver = globalSaver({
-  t: 'presets', resultT: 'presetsResult', pinIn, pinRow, pinOk, setNote,
-  isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved for everyone.',
-  render: () => draw(),
-});
-pinCancel.addEventListener('click', () => saver.cancel());
-
 const scopeText = (s) => scopeLabel(s.scope).toLowerCase();
-// Me presets save to the user's profile: no PIN row.
+// Pins of the user's own (Me) presets save to their profile: no PIN row.
 const profSaver = profileSaver({
   setNote, isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved.',
   render: () => draw(),
@@ -116,13 +98,6 @@ function draw() {
     const tools = [btn(pinned ? 'Unpin' : 'Pin', pinned ? 'pin-off' : 'pin',
       `${s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin'} (${mac ? '⌥' : 'Alt+'}P)`,
       () => togglePin(s))];
-    tools.push(btn('Share', 'share-2', 'Show a link to share this preset', () => shareLink(sharePresetDoc(s), shareUI)));
-    if (s.scope === 'global') {
-      const flag = s.pinned !== false;
-      tools.push(btn(flag ? 'Unpin for everyone' : 'Pin for everyone', 'users', 'Changes the preset for every browser (settings PIN)', () => {
-        saver.change({ presets: withGlobalPin(s.name, !flag) }, () => clearPinOverride(s.name));
-      }));
-    }
     const slot = keySlot.get(presetKey(s));
     const keyCell = el('span', 'sode__preset-key', slot < 9 ? `${mac ? '⌥' : 'Alt+'}${slot + 1}` : '');
     const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;
@@ -223,8 +198,6 @@ export function openPopup() {
   open = true;
   input.value = '';
   hi = 0;
-  pinRow.hidden = true;
-  shareUI.box.hidden = true;
   setNote('');
   draw();
   dlg.show();
@@ -236,7 +209,6 @@ function close() {
   if (!open) return;
   open = false;
   dlg.hide();
-  saver.close();
   profSaver.close();
   if (back?.isConnected) back.focus();
 }

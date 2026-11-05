@@ -266,15 +266,18 @@ export function clickToToggle(row, toggle, skip) {
   row.classList.add('sode--tap');
 }
 
+// Undo's tooltip: one destination, or a folder's several.
+const UNDO_TIP = 'Set destination to its source before this change.';
+export const UNDO_TIP_ALL = 'Set destinations to their sources before these changes.';
 // Undo for a take or a folder; disabled when there's nothing to restore.
-export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {
+export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn pb-btn--outline pb-btn--sm', tip = UNDO_TIP } = {}) {
   const b = el('button', `${cls} pb-tip--end`, icon('undo-2'), text);
   b.type = 'button';
   if (planEmpty(plan)) {
     b.disabled = true;
     b.dataset.pbTip = 'Nothing to undo';
   } else {
-    b.dataset.pbTip = 'Set destinations to their source before this change.';
+    b.dataset.pbTip = tip;
     needsLink(b);
   }
   b.setAttribute('aria-label', label);
@@ -300,7 +303,8 @@ export function againButton(plan, label, onClick, { placeholder = true } = {}) {
     return b;
   }
   b.classList.add('pb-tip--end');
-  b.dataset.pbTip = redo ? 'Perform this change again.' : 'Try the takes that failed again.';
+  const many = plan.items.length > 1;
+  b.dataset.pbTip = redo ? `Perform ${many ? 'these changes' : 'this change'} again.` : `Try the ${many ? 'takes' : 'take'} that failed again.`;
   needsLink(b);
   b.setAttribute('aria-label', label);
   b.addEventListener('click', () => onClick(plan));
