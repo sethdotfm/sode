@@ -4,10 +4,11 @@
 // or unpin the preset for this browser; for everyone's presets there is also
 // "Pin for everyone", which saves through the settings PIN like the editor.
 
-import { el, S, on, icon } from './core.js';
+import { el, on, icon } from './core.js';
+import { chord } from './keys.js';
 import { trapDialog } from './widgets.js';
 import { globalSaver, profileSaver } from './globalsave.js';
-import { fire, fillBoxes, presetShown } from './presets.js';
+import { fire, fillBoxes } from './presets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, orderPins, presetKey, setPinOrder, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
@@ -177,13 +178,6 @@ function nudge(d) {
   setPinOrder(keys);
 }
 
-// Option/Alt+1-9 → 0-8; -1 for any other key.
-function altDigit(e) {
-  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return -1;
-  const m = /^Digit([1-9])$/.exec(e.code);
-  return m ? +m[1] - 1 : -1;
-}
-
 function move(d) {
   if (!shownList.length) return;
   hi = (hi + d + shownList.length) % shownList.length;
@@ -208,36 +202,22 @@ dialog.addEventListener('mousedown', (e) => {
   input.focus();
 });
 dialog.addEventListener('click', (e) => { if (!e.target.closest('button, input')) input.focus(); });
+// Keys while the popup is open, by chord. A focused button keeps its own
+// Enter/Space; anywhere else the keys drive the list.
+const NUDGE = { 'alt+up': -1, 'alt+down': 1, 'alt+meta+k': -1, 'alt+meta+j': 1, 'ctrl+alt+k': -1, 'ctrl+alt+j': 1 };
+const MOVE = { down: 1, up: -1, 'ctrl+j': 1, 'ctrl+k': -1, 'meta+j': 1, 'meta+k': -1 };
 dialog.addEventListener('keydown', (e) => {
-  // A focused button keeps its own Enter/Space; anywhere else the keys drive the list.
   const onButton = !!e.target.closest?.('button');
-  // Reorder: Option/Alt+↑/↓, or Option+⌘+J/K (Ctrl+Alt+J/K elsewhere).
-  const arrows = e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown');
-  const altJK = e.altKey && (e.ctrlKey !== e.metaKey) && !e.shiftKey && (e.code === 'KeyJ' || e.code === 'KeyK');
-  if (arrows || altJK) {
-    e.preventDefault();
-    nudge(e.key === 'ArrowUp' || e.code === 'KeyK' ? -1 : 1);
-    return;
-  }
-  if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.repeat && e.code === 'KeyP') {
-    e.preventDefault();
-    if (shownList[hi]) togglePin(shownList[hi]);
-    return;
-  }
-  const slot = altDigit(e);
-  if (slot >= 0) {
-    e.preventDefault();
-    pressPreset(pinnedPresets()[slot]);
-    return;
-  }
-  const jk = (e.ctrlKey !== e.metaKey) && !e.altKey && !e.shiftKey ? { j: 1, k: -1 }[e.key.toLowerCase()] : 0;
-  if (e.key === 'ArrowDown' || jk === 1) { e.preventDefault(); move(1); }
-  else if (e.key === 'ArrowUp' || jk === -1) { e.preventDefault(); move(-1); }
-  else if (e.key === 'Enter' && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); pressPreset(shownList[hi], e.shiftKey); }
+  const c = chord(e);
+  const slot = /^alt\+([1-9])$/.exec(c);
+  if (c in NUDGE) { e.preventDefault(); nudge(NUDGE[c]); return; }
+  if (c === 'alt+p') { e.preventDefault(); if (!e.repeat && shownList[hi]) togglePin(shownList[hi]); return; }
+  if (slot) { e.preventDefault(); if (!e.repeat) pressPreset(pinnedPresets()[+slot[1] - 1]); return; }
+  if (c in MOVE) { e.preventDefault(); move(MOVE[c]); }
+  else if ((c === 'enter' || c === 'shift+enter') && !onButton) { e.preventDefault(); pressPreset(shownList[hi], e.shiftKey); }
   else return;
   if (!onButton) input.focus();
 });
-
 
 export function openPopup() {
   if (open) return;
@@ -270,28 +250,3 @@ const dlg = trapDialog(root, dialog, () => {
 
 on('presets', () => { if (open) draw(); });
 on('presetPopup', openPopup);
-
-// A modal, Settings or the lock screen over the page: not now.
-const blocked = () =>
-  document.documentElement.dataset.view === 'settings' ||
-  !!document.querySelector('.pb-modal-backdrop:not([hidden]), .sode-lock.is-on, #m-sheet:not([hidden])');
-
-// Option/Alt+1-9 from anywhere on the page: the first nine pinned presets.
-document.addEventListener('keydown', (e) => {
-  const slot = altDigit(e);
-  if (slot < 0 || open || !S.cfg || !presetShown() || blocked()) return;
-  e.preventDefault(); // even with no pin in that slot: Alt+1-9 must not reach the browser (Firefox switches tabs)
-  const s = pinnedPresets()[slot];
-  if (s) fire(s.scope, s.name);
-});
-
-// Ctrl+G on every OS, ⌘G on a Mac (the browser's find-next is stopped).
-// Every check excludes the other modifiers.
-document.addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyG' || e.shiftKey || e.altKey || e.repeat) return;
-  if (!(e.ctrlKey !== e.metaKey) || (e.metaKey && !mac)) return;
-  if (!S.cfg || !presetShown()) return;
-  e.preventDefault();
-  if (blocked()) return;
-  openPopup();
-});

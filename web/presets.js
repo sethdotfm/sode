@@ -44,17 +44,6 @@ export function fire(scope, name) {
 }
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
-// Option/Alt held or let go (also when the window loses focus): the chips show their keys.
-const trackAlt = (down) => document.documentElement.toggleAttribute('data-alt', down);
-document.addEventListener('keydown', (e) => trackAlt(e.altKey), true);
-document.addEventListener('keyup', (e) => {
-  trackAlt(e.altKey);
-  // Windows and Linux: letting go of Alt alone moves focus to the browser's menu bar.
-  // Alt is Sode's key for presets (Alt+1-9 and the reveal), so it is not passed on.
-  if (!mac && e.key === 'Alt' && shown()) e.preventDefault();
-}, true);
-window.addEventListener('blur', () => trackAlt(false));
-
 const phone = () => document.documentElement.dataset.pbLayout === 'phone';
 const askPopup = () => emit('presetPopup');
 

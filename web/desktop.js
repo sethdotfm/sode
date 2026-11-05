@@ -175,11 +175,7 @@ function renderLast() {
   }
 }
 on('history', renderLast);
-// Shift held or let go (also when the window loses focus): the Next chips open.
-const trackShift = (down) => document.documentElement.toggleAttribute('data-shift', down);
-document.addEventListener('keydown', (e) => trackShift(e.shiftKey), true);
-document.addEventListener('keyup', (e) => trackShift(e.shiftKey), true);
-window.addEventListener('blur', () => trackShift(false));
+// (Shift held opens the Next chips: keys.js sets html[data-shift].)
 
 // Fills one box from the last take and moves on: source to destination,
 // destination back to source, but only if that one is empty (no pick, chips
@@ -447,14 +443,17 @@ const histList = $('history');
 bindPick(histList);
 on('pick', () => renderHistory());
 let keysOn = false;
-// html[data-keys-on] while keyboard mode is on: the boxes then show their s/d/f keys.
-const keysFlag = (on) => document.documentElement.toggleAttribute('data-keys-on', on);
-histList.addEventListener('blur', () => keysFlag(false));
+// Keyboard mode on or off: the cursor styling and html[data-keys-on], which
+// makes the boxes show their s/d/f keys.
+function setKeys(on) {
+  keysOn = on;
+  histList.classList.toggle('sode__hist--keys', on);
+  document.documentElement.toggleAttribute('data-keys-on', on);
+}
+histList.addEventListener('blur', () => document.documentElement.removeAttribute('data-keys-on'));
 const keyMode = () => keysOn && document.activeElement === histList;
 document.addEventListener('pointerdown', (e) => {
-  keysOn = false;
-  keysFlag(false);
-  histList.classList.remove('sode__hist--keys');
+  setKeys(false);
   // Clicking a row moves the (hidden) cursor there, so a key from here
   // starts on the row clicked, not one left from earlier.
   const row = histList.contains(e.target) && e.target.closest('[data-key]');
@@ -568,10 +567,8 @@ function retryCur() {
 // key: put the cursor on that row (Esc from one of its buttons).
 function enterKeys(key) {
   // Works on an empty list too: s/d/f, `,`, `/`, `?` and Esc still apply.
-  keysOn = true;
-  histList.classList.add('sode__hist--keys');
+  setKeys(true);
   histList.focus();
-  keysFlag(true);
   const list = stops();
   // moveTo also closes folders opened for a cursor that's since moved.
   const to = (key && list.find((x) => x.key === key)) || list.find((x) => x.key === cursor) || list[0];
