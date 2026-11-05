@@ -450,7 +450,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 					return errors.New("two rows keep the same user's PIN; give one of them a new PIN")
 				}
 				inherited[key] = true
-				u.Pin, u.Len = o.Pin, o.Len
+				u.TakePin(o)
 			}
 			out = append(out, u)
 		}
