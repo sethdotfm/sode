@@ -50,12 +50,13 @@ function showView() {
 }
 
 // ---- unsaved changes: the server settings in the form against the last
-// opened or saved state. This device applies at once, so it isn't counted.
+// opened or saved state. Blocks marked data-apart (This device, the lock, Users,
+// the config file) save apart from the form, so they aren't counted.
 
 let clean = '';
 let savedAt = null;
 const formState = () => JSON.stringify([...form.querySelectorAll('input, select, textarea')]
-  .filter((f) => !f.closest('.sode__device, .sode__lock, .sode__users') && f.id !== 'settings-find')
+  .filter((f) => !f.closest('[data-apart]') && f.id !== 'settings-find')
   .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)));
 const dirty = () => isOpen() && formState() !== clean;
 const warned = () => !$('settings-unsaved').hidden;
@@ -87,6 +88,13 @@ function unwarn() {
 function exitSettings() {
   if (!warnUnsaved()) closeSettings();
 }
+
+// Bus 'settingsClose' {discard}: another module closes Settings (the form
+// would be stale, e.g. after a config import); discard skips the warning.
+on('settingsClose', (m) => {
+  if (!isOpen()) return;
+  if (m?.discard) { unwarn(); closeSettings(); } else exitSettings();
+});
 
 // Next to Save: unsaved changes, or where (and when) it was saved.
 function renderSaveState() {

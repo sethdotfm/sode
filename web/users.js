@@ -33,10 +33,11 @@ people.hidden = true;
 people.setAttribute('role', 'group');
 people.setAttribute('aria-label', 'Profiles');
 
-const group = el('fieldset', 'sode__group sode__users',
+const group = el('fieldset', 'sode__group',
   el('legend', null, 'Users'),
   el('div', 'sode__field', summary, manage),
   people);
+group.dataset.apart = ''; // its inputs save apart from the Settings form
 
 // Next to Access, where the PIN is; at the end if that isn't found.
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');

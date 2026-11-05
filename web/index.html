@@ -134,7 +134,7 @@
       <nav class="pb-tabs" id="settings-toc" aria-label="Settings sections"></nav>
     </div>
 
-    <div class="sode__group sode__lock" id="settings-lock">
+    <div class="sode__group" id="settings-lock" data-apart>
       <div class="sode__field">
         <label for="lock-pin">Settings PIN</label>
         <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false">
@@ -147,7 +147,7 @@
       </div>
     </div>
 
-    <fieldset class="sode__group sode__device">
+    <fieldset class="sode__group" data-apart>
       <legend>This device</legend>
       <span class="sode__hint">Saved in this browser only. Applies now. Global follows the defaults for every device.</span>
       <div class="sode__fields">
@@ -422,8 +422,8 @@
         <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
         <span class="sode__hint">0 = never. Where no PIN lock is on, this puts up the hand lock. Never-log-out users stay in.</span>
       </div>
-      <!-- Server configuration file (configfile.js). Saved apart from the form, so sode__users keeps its inputs out of the unsaved-changes check. -->
-      <div class="sode__field sode__users" id="config-file">
+      <!-- Server configuration file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
+      <div class="sode__field" id="config-file" data-apart>
         <span class="sode__field-label" id="config-file-label">Server configuration file</span>
         <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the settings PIN.</span>
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include PINs (private backup)</span></label>

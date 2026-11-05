@@ -13,7 +13,7 @@ const read = (f) => readFileSync(join(web, f), 'utf8');
 function registered() {
   const html = read('index.html');
   const view = html.slice(html.indexOf('id="settings-view"'));
-  const titles = [...view.matchAll(/<fieldset class="sode__group[^"]*">\s*<legend>([^<]+)<\/legend>/g)].map((m) => m[1]);
+  const titles = [...view.matchAll(/<fieldset class="sode__group[^"]*"[^>]*>\s*<legend>([^<]+)<\/legend>/g)].map((m) => m[1]);
   const lines = read('users.js') + read('settings.js');
   for (const m of lines.matchAll(/el\('legend', null, '([^']+)'\)/g)) titles.push(m[1]);
   return [...new Set(titles)];

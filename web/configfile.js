@@ -5,7 +5,7 @@
 // prompt back). The server makes and reads the file; this only moves it.
 // Imported by settings.js.
 
-import { $, S, on, onMsg, wsSend, sentence } from './core.js';
+import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { demandPin, needsPin } from './pin.js';
 import { showResult } from './plans.js';
 import { fileName, fileProblem, sizeText } from './configfilerules.js';
@@ -146,10 +146,9 @@ onMsg('configImportResult', (m) => {
   setBusy(null);
   say('');
   // The server has sent the new settings (hello). Close Settings so the open
-  // form can't be saved back over them; a second Exit discards an unsaved
-  // form's edits (they are for the old settings).
-  const root = document.documentElement;
-  for (let i = 0; i < 2 && root.dataset.view === 'settings'; i++) $('settings-exit').click();
+  // form can't be saved back over them; its unsaved edits are for the old
+  // settings, so they are discarded.
+  emit('settingsClose', { discard: true });
   showResult('ok', 'Configuration imported', `Everyone now has the settings from ${name}.`);
 });
 
