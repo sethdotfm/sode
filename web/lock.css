@@ -143,6 +143,9 @@
    is gone until a lock screen shows its closed lock there (is-hand). */
 [data-layout="phone"] .sode-lock__who-slot > .pb-btn { display: none; }
 [data-layout="phone"] .sode-lock__who:not(.is-hand) .sode-lock__who-slot { display: none; }
+/* The phone's chip is in the way over the page: it shows only under a lock screen (is-hand),
+   and the name is in Settings' Account row the rest of the time. */
+[data-layout="phone"] .sode-lock__who:not(.is-hand) { display: none; }
 /* ...and a chip with no name (nobody logged in) and no lock icon to show would be a bare square. */
 [data-layout="phone"] .sode-lock__who:not(.is-hand):has(> .sode-lock__who-bar > .sode-lock__who-name:empty) { display: none; }
 /* The chip slides inside the border as it grows, at the border's own rate
@@ -276,6 +279,7 @@
   .sode__users-row { column-gap: var(--pb-space-5); }
 }
 .sode__users-in { flex: 1 1 8rem; min-width: 0; }
+.sode__users-dlg .pb-modal__body > .pb-btn { margin-top: var(--pb-space-4); }
 .sode__users-opts {
   align-items: end;
   display: flex;
