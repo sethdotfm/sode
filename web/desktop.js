@@ -22,6 +22,7 @@ import { presetHost } from './presets.js';
 import { picking, isPicked, pickBox, togglePick, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
 import { showAll } from './showall.js';
+import { shortcutList } from './shortcuts.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, UNDO_TIP_ALL, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
@@ -600,7 +601,7 @@ function onListKey(e) {
   if (k === ',') { $('settings-open').click(); return true; }
   if (k === '/') { openFilters(); return true; }
   if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
-  if (k === '?') { openKeys(); return true; }
+  if (k === '?') { keys.open(); return true; }
   if (k === 'p') { emit('presetStrip'); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   // Choosing takes for a preset: Space or Enter ticks the row, nothing else acts on it.
@@ -641,26 +642,7 @@ showFlip();
 
 // ---- shortcut list (?)
 
-// Closing from the keyboard returns to keyboard mode if it was on when the
-// list opened; closing with the mouse never does (a click leaves it).
-let keysBack = null;
-let keysWere = false;
-let keysFromHist = false; // opened from Recent, whose rows may be redrawn meanwhile
-function openKeys() {
-  keysBack = document.activeElement;
-  keysWere = keyMode();
-  keysFromHist = histArea(keysBack);
-  $('keys').hidden = false;
-  $('keys-dialog').focus();
-}
-function closeKeys(viaKeys = false) {
-  $('keys').hidden = true;
-  if (keysWere && viaKeys) enterKeys();
-  else if (keysBack?.isConnected && !keysFromHist) keysBack.focus();
-  else focusBox(boxes.src.input);
-}
-// Mac labels; a key that only a Mac has (⌃Z beside ⌘Z) is hidden elsewhere.
-if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) { k.textContent = k.dataset.mac; k.hidden = false; }
+const keys = shortcutList({ keyMode, fromHistory: histArea, enterKeys, focusFirst: () => focusBox(boxes.src.input) });
 
 // The Filter by Source / Destination boxes above Recent.
 function focusSearch(k) {
@@ -669,7 +651,6 @@ function focusSearch(k) {
   f.focus();
   f.select();
 }
-$('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
 
@@ -831,13 +812,13 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
     e.preventDefault();
     e.stopImmediatePropagation(); // not Settings' own keys
-    if ($('keys').hidden) openKeys();
-    else closeKeys(true);
+    if (keys.shown()) keys.close(true);
+    else keys.open();
     return;
   }
   if (!$('keys').hidden) {
     e.stopImmediatePropagation(); // Esc here closes the list, not Settings
-    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(true); }
+    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); keys.close(true); }
     // Keep focus in the dialog: Close is its only control.
     if (e.key === 'Tab') { e.preventDefault(); $('keys-close').focus(); }
     return;
