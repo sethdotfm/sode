@@ -15,7 +15,8 @@ import { PREFS, resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
-import { mac } from './keys.js';
+import { initToc } from './settingstoc.js';
+import { renderPinStatus, showPinFields, resetPinFields } from './settingspin.js';
 import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
 import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
@@ -147,11 +148,7 @@ export function openSettings() {
   // What the form showed: only a change from it is sent (below), so a form
   // opened before someone else changed the locks can't undo their change.
   shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, auto: S.cfg.autoLockMinutes ?? 0 };
-  $('cfg-pin').value = '';
-  $('cfg-pin2').value = '';
-  $('cfg-pin-clear').checked = false;
-  showPinFields(false);
-  renderPinStatus();
+  resetPinFields();
   relock(); // opens locked; a reply to an unlock sent before is dropped
   $('lock-pin').value = '';
   $('lock-unlock').disabled = false;
@@ -345,87 +342,12 @@ $('account-transfer').addEventListener('click', () => emit('openTransfer', { sco
 $('account-logout').addEventListener('click', () => emit('logout'));
 $('account-login').addEventListener('click', () => emit('login'));
 
-// ---- table of contents: one button per section, scrolling to it, with the
-// section in view marked. Wide screens pin it beside the column; narrow
-// ones show it as a strip across the top; the phone layout leaves it out.
+// ---- table of contents (settingstoc.js)
 
 const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
 const toc = $('settings-toc');
-// A clicked section stays marked while the page scrolls to it, which may
-// stop short of it near the bottom, until the scroll ends or the user
-// scrolls themselves.
-let picked = -1;
-
-// The phone shows one section at a time: the page is the list of sections
-// (with the search box), a tap opens one, Back returns to the list. Only
-// CSS keyed on data-page does the hiding (base.css), so it ignores desktop.
-const phone = () => layout() === 'phone';
-function showPage(i) {
-  sections.forEach((s, k) => s.classList.toggle('sode__page-on', k === i));
-  if (i < 0) delete form.dataset.page;
-  else form.dataset.page = String(i);
-  if (isOpen()) window.scrollTo(0, 0);
-}
-// Opens the section holding node (phone), so a found or failing field is on screen.
-function reveal(node) {
-  if (!phone()) return;
-  const i = sections.findIndex((s) => s.contains(node));
-  if (i >= 0 && String(i) !== form.dataset.page) showPage(i);
-}
-const focusField = (node) => { reveal(node); node.focus(); };
-toc.replaceChildren(...sections.map((sec, i) => {
-  const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
-  b.type = 'button';
-  b.addEventListener('click', () => {
-    if (phone()) return showPage(i);
-    picked = i;
-    mark(i);
-    sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-  });
-  return b;
-}));
-function mark(cur) {
-  [...toc.children].forEach((b, i) => {
-    b.classList.toggle('active', i === cur);
-    if (i === cur) b.setAttribute('aria-current', 'location');
-    else b.removeAttribute('aria-current');
-  });
-}
-let tocTick = false;
-function markSection() {
-  tocTick = false;
-  if (!isOpen() || picked >= 0) return;
-  // The last section whose top has reached the top of the window (where a
-  // click scrolls it to, its scroll margin down); at the very bottom the
-  // last one, which may be too short to ever reach it.
-  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-  const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
-  mark(Math.max(atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
-}
-window.addEventListener('scroll', () => {
-  if (tocTick) return;
-  tocTick = true;
-  requestAnimationFrame(markSection);
-}, { passive: true });
-for (const ev of ['scrollend', 'wheel', 'touchstart', 'keydown']) {
-  window.addEventListener(ev, () => {
-    if (picked < 0) return;
-    picked = -1;
-    if (ev !== 'scrollend') markSection();
-  }, { passive: true });
-}
-
-// Ctrl+J/K (⌘J/K on a Mac) step through the sections, like the match lists
-// (from the search box too; not while a dialog is over Settings).
-document.addEventListener('keydown', (e) => {
-  if (!isOpen() || e.defaultPrevented || e.altKey || e.shiftKey || form.hasAttribute('data-locked')) return;
-  if (!((e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey))) return;
-  const step = { KeyJ: 1, KeyK: -1 }[e.code];
-  if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
-  e.preventDefault();
-  const at = [...toc.children].findIndex((b) => b.classList.contains('active'));
-  toc.children[Math.min(sections.length - 1, Math.max(0, at + step))].click();
-});
+const tocApi = initToc({ form, sections, toc, isOpen });
+const { phone, showPage, reveal, focusField, markSection } = tocApi;
 
 // ---- level numbering: a three-way switch, labelled for the level count
 
@@ -541,11 +463,7 @@ function configResult(m) {
     if (!isOpen()) return;
     // Stay open. A new or removed PIN was sent once; a changed PIN has
     // relocked everyone, this view included.
-    $('cfg-pin').value = '';
-    $('cfg-pin2').value = '';
-    $('cfg-pin-clear').checked = false;
-    showPinFields(false);
-    renderPinStatus();
+    resetPinFields();
     $('settings-err').hidden = true;
     markClean(true);
     renderLock();
@@ -567,24 +485,6 @@ function showLockErr(text) {
   $('lock-err').hidden = false;
   $('lock-pin').select();
 }
-
-function renderPinStatus() {
-  $('cfg-pin-clear-row').hidden = !S.pinSet;
-  $('cfg-pin-status').textContent = S.pinSet
-    ? 'A PIN is set. Leave both fields blank to keep it.'
-    : 'No PIN is set. Use 4–64 characters.';
-  $('cfg-pin-change').textContent = S.pinSet ? 'Change Advanced PIN' : 'Set Advanced PIN';
-}
-
-// The PIN fields sit behind a button; Save errors and Settings search open them.
-function showPinFields(open) {
-  $('cfg-pin-box').hidden = !open;
-  $('cfg-pin-change').setAttribute('aria-expanded', String(open));
-}
-$('cfg-pin-change').addEventListener('click', () => {
-  showPinFields($('cfg-pin-box').hidden);
-  if (!$('cfg-pin-box').hidden) $('cfg-pin').focus();
-});
 
 async function sendUnlock() {
   $('lock-unlock').disabled = true;
@@ -630,7 +530,7 @@ $('clear-confirm').addEventListener('click', () => {
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-exit').addEventListener('click', exitSettings);
 // Phone: Back leaves a section for the list, then Settings (like Exit).
-$('settings-back').addEventListener('click', () => { if (phone() && form.dataset.page != null) showPage(-1); else exitSettings(); });
+$('settings-back').addEventListener('click', () => { if (!tocApi.back()) exitSettings(); });
 $('lock-cancel').addEventListener('click', exitSettings);
 
 // Forgot PIN: how to clear it, in a dialog like the shortcut list.
@@ -847,8 +747,7 @@ function pickHit(h) {
   if (phone()) showPage(i);
   findBox.value = '';
   showHits();
-  picked = i;
-  mark(i);
+  tocApi.pick(i);
   node.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: h.kind === 'section' ? 'start' : 'center' });
   flash(node);
   if (h.kind === 'setting') document.getElementById(h.id)?.focus({ preventScroll: true });
