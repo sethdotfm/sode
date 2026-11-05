@@ -16,6 +16,7 @@ import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { initToc } from './settingstoc.js';
+import { fillAbout } from './about.js';
 import { renderPinStatus, showPinFields, resetPinFields } from './settingspin.js';
 import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
 import { guardedEdited, loginOffered } from './lockrules.js';
@@ -127,8 +128,6 @@ $('cfg-brandborder').addEventListener('change', renderBrandPreview);
 export function openSettings() {
   if (!S.cfg) return;
   showPage(-1); // a phone starts at the list of sections
-  // Locked or not: the version shows at the bottom of both views.
-  for (const v of form.querySelectorAll('[data-version]')) v.textContent = S.version ? `Sode ${S.version}` : '';
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
   fillBrandColors();
   for (const f of fields()) {
@@ -341,6 +340,9 @@ $('account-profile').addEventListener('click', () => emit('openProfile', { name:
 $('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));
 $('account-logout').addEventListener('click', () => emit('logout'));
 $('account-login').addEventListener('click', () => emit('login'));
+
+fillAbout($('lock-exit')); // the locked view's bottom row, and the save bar's (its View Logs is the searchable one)
+fillAbout($('settings-foot'), { id: 'open-log' });
 
 // ---- table of contents (settingstoc.js)
 
