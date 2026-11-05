@@ -222,7 +222,7 @@
   min-height: 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
-.sode-m--typing .sode-m__composer { padding-bottom: 0; } /* the keyboard covers the home-indicator area: no empty band above it */
+[data-kbd] .sode-m--typing .sode-m__composer { padding-bottom: 0; } /* the keyboard covers the home-indicator area: no empty band above it (keyboard.js says it is up) */
 .sode-m__matches {
   background: var(--pb-surface-raised);
   border-top: var(--pb-border-w) solid var(--pb-edge);
@@ -443,7 +443,7 @@
 :where([data-layout="phone"], [data-layout="phone"] *) { touch-action: manipulation; }
 /* "This device" on a phone: tighter, quieter fields. */
 [data-layout="phone"] .sode__device .sode__fields { gap: var(--pb-space-3); }
-[data-layout="phone"] .sode__device .sode__field > label { color: var(--pb-text-muted); font-size: var(--pb-text-xs); font-weight: var(--pb-weight-regular, 400); }
+[data-layout="phone"] .sode__device .sode__field > label { color: var(--pb-text-muted); font-size: var(--pb-text-xs); font-weight: var(--pb-weight-normal); }
 
 /* ---- Choosing takes for a preset: the bar is a row of the phone view (recentpick.js exports it; mobile.js places it) */
 [data-layout="phone"] .sode-m > .sode__pickbar { flex: 0 0 auto; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-3) var(--pb-space-5); position: static; }

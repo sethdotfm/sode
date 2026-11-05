@@ -698,5 +698,6 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
   padding: var(--pb-space-2) var(--pb-space-3);
 }
 
-/* Account is its own section after This device: its own rule above it. */
-.sode__device + .sode__device > legend { border-top: var(--pb-border-w) solid var(--pb-edge); padding-top: var(--pb-space-5); }
+/* Account is its own section after This device: a rule above it when the two are stacked (not a phone's one-section pages). */
+:root:not([data-layout="phone"]) .sode__device + .sode__device > legend,
+.sode__settings[data-locked] > .sode__device + .sode__device > legend { border-top: var(--pb-border-w) solid var(--pb-edge); padding-top: var(--pb-space-5); }

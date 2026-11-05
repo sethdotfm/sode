@@ -18,6 +18,7 @@ import {
   sendTakes, lastTake, nextTake, usedNext, lastChip, VERBS,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
+import { kbdUp } from './keyboard.js';
 import { emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
 import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './recentpick.js';
@@ -717,6 +718,7 @@ if (vv) {
     const r = document.documentElement.style;
     r.setProperty('--vvh', `${vv.height}px`);
     r.setProperty('--vvt', `${vv.offsetTop}px`);
+    document.documentElement.toggleAttribute('data-kbd', kbdUp(vv, window.innerHeight));
   };
   vv.addEventListener('resize', fit);
   vv.addEventListener('scroll', fit);
