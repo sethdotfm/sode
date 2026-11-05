@@ -8,6 +8,9 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - **Locks and auto-lock** moved from the Users dialog into **Settings → Access**, saved by the main Save and changed only with the settings PIN. A Settings save that leaves them out keeps them.
 - **Log in without a lock** (#187): with users but no locks, Settings → This device has *Log in*, kept for the tab. A guest gets this browser's and everyone's settings; a previous user's cached settings are no longer applied to a guest.
 - **Share links, export and import** (#169): *Share* on a preset or filter set makes a `#share=` link (a URL fragment, so it never reaches the proxy; old `?f=` links still open); *Settings → Export & import* writes and reads a YAML file. Everything opens a review sheet (Importing → Current, Replace / Keep both / Skip). Exports carry names beside numbers so they can move between studios. New stateless `POST /api/yaml` converter.
+- **Server configuration export / import** (Settings → Access, settings PIN only): download `config.yaml` (PINs left out unless *Include PINs (private backup)* is ticked) and restore it from a file. Without PINs, users keep their current PIN by name; a new user in the file needs a PIN and is refused otherwise. New messages `configExport`, `configImportBegin`, `configImport`.
+- **My profile is a full editor**: all eight preferences, plus Add / Edit / Remove for filter sets and presets, using the normal editors aimed at that profile.
+- Dialogs close when you click outside them and a dialog opened from another opens in front. Manage users has Name and PIN headers; Settings search is focused after the PIN unlocks; the hand lock screen has *Log in as…* and *Log out* at the bottom; fixed a wrong "must be a whole number" error on save and old errors now clear.
 
 ## Beta 1.5.0
 

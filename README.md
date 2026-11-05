@@ -127,6 +127,8 @@ With users set up, each user has a **profile**: their own This device settings, 
 
 **Share and export.** A preset's or filter set's **Share** gives a link you can paste in chat; opening it shows what it holds, next to what you have now, and you choose where to save it (it never applies itself unreviewed). Settings → **Export & import** writes any mix of settings, filter sets and presets to a YAML file (named `YYYY-MM-DD-Sode-Export-Site-User.yaml` unless you name it) and reads one back through the same review. Exports carry names beside numbers, so a freelancer's presets can land on another studio's router: a source or destination is matched by number when the name agrees, else by its name, and anything ambiguous or missing is flagged and not applied silently.
 
+**Server configuration backup.** Settings → Access has **Export…** and **Import…** for the whole `config.yaml` (settings PIN needed). PINs are left out unless you tick *Include PINs (private backup)*, which makes a secret file: keep it private. Importing replaces everything; without PINs in the file each user keeps their current PIN by name, and a new user in the file is refused until it carries a PIN.
+
 ## Monitoring (Uptime Kuma)
 
 `GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:
