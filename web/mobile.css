@@ -184,6 +184,20 @@
   top: 0;
   width: 6rem;
 }
+.sode-m__redo {
+  background: var(--pb-accent);
+  border: 0;
+  bottom: 0;
+  color: var(--pb-text-on-accent);
+  font-family: inherit;
+  font-weight: var(--pb-weight-bold);
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 6rem;
+}
+.sode-m__redo .pb-icon { display: none; }
+.sode-m__redo:disabled { background: var(--pb-surface-high); color: var(--pb-text-disabled); }
 .sode-m__undo .pb-icon { display: none; } /* the swipe-reveal button is text only */
 .sode-m__undo:disabled,
 .sode-m__undo.disabled {

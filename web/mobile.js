@@ -343,7 +343,7 @@ function scrollThread() {
   });
 }
 
-// ---- recent: swipe left to reveal Undo
+// ---- recent: swipe left to reveal Undo, right to reveal Redo (Retry for failed takes)
 
 const REVEAL = 96;
 const arrived = arrivals();
@@ -355,6 +355,13 @@ const openChanges = new Set(); // merged rows (history IDs) listing their change
 // Recent's buttons close any swiped-open row, then confirm.
 const sheetFor = (plan) => { closeSwipes(); openSheet(plan); };
 const undoBtn = (plan, label, text = 'Undo') => undoButton(plan, label, sheetFor, { text, cls: 'sode-m__undo' });
+// Redo / Retry, the swipe-right action: againButton's click and label, drawn as the row's left-hand reveal.
+function redoBtn(plan, label) {
+  const b = againButton(plan, label, sheetFor, { placeholder: false });
+  if (!b) return null;
+  b.className = 'sode-m__redo';
+  return b;
+}
 
 function recentRow(e) {
   const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);
@@ -363,7 +370,7 @@ function recentRow(e) {
     : undoBtn(undoPlan(e), `Undo ${src.label} to ${dst.label}`);
   const status = statusNode({ e });
   const again = againPlan({ e });
-  const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`, sheetFor, { placeholder: false });
+  const retry = redoBtn(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`);
   // A stacked row's changes, behind a toggle as on desktop.
   const open = !!e.chain && openChanges.has(e.id);
   const changesId = `m-changes-${e.id}`;
@@ -378,15 +385,15 @@ function recentRow(e) {
   }
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
-      el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : [retry]), disc)),
+      el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : []), disc)),
     el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e), byLabel(e)),
     changes,
     e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
   if (disc) clickToToggle(face, disc, '.sode-m__changes');
-  const row = el('li', 'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : '') + (isPicked(`e${e.id}`) ? ' sode-m__recent-row--picked' : ''), undo, face);
+  const row = el('li', 'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : '') + (isPicked(`e${e.id}`) ? ' sode-m__recent-row--picked' : ''), undo, ...(retry ? [retry] : []), face);
   row.dataset.key = `e${e.id}`;
-  swipeable(row, face);
+  swipeable(row, face, !!retry);
   return row;
 }
 
@@ -397,7 +404,7 @@ function folderRows(f) {
   const kidsId = `m-folder-${f.group}`;
   const undo = undoBtn(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   const again = againPlan({ f });
-  const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`, sheetFor, { placeholder: false });
+  const retry = redoBtn(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`);
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
     renderRecent();
@@ -406,13 +413,13 @@ function folderRows(f) {
 
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
-      el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : [retry]), disc)),
+      el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc)),
     el('div', 'sode-m__recent-route', ...folderTitle(f), byLabel(f)),
     levelBar(folderLevels(f)));
   clickToToggle(face, disc);
-  const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''), undo, face);
+  const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''), undo, ...(retry ? [retry] : []), face);
   row.dataset.key = `f${f.group}`;
-  swipeable(row, face);
+  swipeable(row, face, !!retry);
   if (!open) return [row];
   const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(recentRow), ...followerRows(f)));
   kids.id = kidsId;
@@ -440,14 +447,17 @@ function followerRows(f) {
   return [head, kids];
 }
 
-function swipeable(row, face) {
+const OPEN = 'sode-m__recent-row--open'; // swiped left: Undo showing
+const OPEN_R = 'sode-m__recent-row--open-r'; // swiped right: Redo / Retry showing
+function swipeable(row, face, canRedo = false) {
   let x0 = null, y0 = 0, dx = 0, base = 0, horiz = null;
   const set = (x) => { face.style.transform = `translateX(${x}px)`; };
+  const rest = () => (row.classList.contains(OPEN) ? -REVEAL : row.classList.contains(OPEN_R) ? REVEAL : 0);
   face.addEventListener('pointerdown', (e) => {
     if (picking()) return; // a tap ticks the row; no swiping while choosing
     x0 = e.clientX; y0 = e.clientY; dx = 0; horiz = null;
     delete face.dataset.noTap; // a drag doesn't always end in a click
-    base = row.classList.contains('sode-m__recent-row--open') ? -REVEAL : 0;
+    base = rest();
   });
   face.addEventListener('pointermove', (e) => {
     if (x0 == null) return;
@@ -459,19 +469,21 @@ function swipeable(row, face) {
     if (!horiz) return;
     dx = mx;
     face.classList.add('sode-m__recent-face--drag');
-    set(Math.min(0, Math.max(-REVEAL * 1.3, base + dx)));
+    set(Math.min(canRedo ? REVEAL * 1.3 : 0, Math.max(-REVEAL * 1.3, base + dx)));
   });
   const end = () => {
     if (x0 == null) return;
     face.classList.remove('sode-m__recent-face--drag');
-    const open = horiz ? base + dx < -REVEAL / 2 : false;
+    const at = base + dx;
+    const side = !horiz ? 0 : at < -REVEAL / 2 ? -1 : canRedo && at > REVEAL / 2 ? 1 : 0;
     if (horiz || base) face.dataset.noTap = '1'; // a swipe, or closing one, isn't a tap
     if (!horiz && base) { closeSwipes(); x0 = null; return; } // tap on an open row closes it
     if (horiz) {
       closeSwipes(row);
-      row.classList.toggle('sode-m__recent-row--open', open);
+      row.classList.toggle(OPEN, side < 0);
+      row.classList.toggle(OPEN_R, side > 0);
     }
-    set(row.classList.contains('sode-m__recent-row--open') ? -REVEAL : 0);
+    set(rest());
     x0 = null;
   };
   face.addEventListener('pointerup', end);
@@ -479,9 +491,9 @@ function swipeable(row, face) {
 }
 
 function closeSwipes(except) {
-  for (const r of document.querySelectorAll('.sode-m__recent-row--open')) {
+  for (const r of document.querySelectorAll(`.${OPEN}, .${OPEN_R}`)) {
     if (r === except) continue;
-    r.classList.remove('sode-m__recent-row--open');
+    r.classList.remove(OPEN, OPEN_R);
     r.querySelector('.sode-m__recent-face').style.transform = '';
   }
 }
