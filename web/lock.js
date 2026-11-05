@@ -107,11 +107,11 @@ function build() {
   cancelBtn.hidden = true;
   cancelBtn.addEventListener('click', cancelLogin);
   // A logged-in user's lock has no Cancel; this ends the session for good.
-  leaveBtn = el('button', 'pb-btn pb-btn--outline', 'Log out');
+  leaveBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log out');
   leaveBtn.type = 'button';
   leaveBtn.hidden = true;
   leaveBtn.addEventListener('click', leaveFromUserLock);
-  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn, leaveBtn);
+  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn);
 
   // The hand lock's body: the churning letter and, for a touch screen, a button.
   softKey = el('kbd', 'sode__key sode__key--locked');
@@ -132,7 +132,7 @@ function build() {
   softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
   softBody.hidden = true;
   // The very bottom of the screen: the quiet way to change who is in.
-  softFoot = el('div', 'sode-lock__foot', logOutBtn, loginAsBtn);
+  softFoot = el('div', 'sode-lock__foot', leaveBtn, logOutBtn, loginAsBtn);
   softFoot.hidden = true;
   root = el('div', 'sode-lock', brand, padBody, softBody, softFoot);
   root.hidden = true;
@@ -202,11 +202,12 @@ function showLock() {
   const body = viewBody(V, L.enforced && L.locked);
   padBody.hidden = body !== 'pad'; // the PIN pad, or the hand lock's letter
   cancelBtn.hidden = V.mode !== 'login';
-  leaveBtn.hidden = V.mode !== 'userlock';
+  const ownLock = V.mode === 'userlock'; // a logged-in user's lock: only Log out, down in the foot
+  leaveBtn.hidden = !ownLock;
   softBody.hidden = body !== 'soft';
-  logOutBtn.hidden = !logOutOffered(L);
-  loginAsBtn.hidden = !loginAsOffered(L);
-  softFoot.hidden = body !== 'soft' || (logOutBtn.hidden && loginAsBtn.hidden);
+  logOutBtn.hidden = ownLock || !logOutOffered(L);
+  loginAsBtn.hidden = ownLock || !loginAsOffered(L);
+  softFoot.hidden = !ownLock && (body !== 'soft' || (logOutBtn.hidden && loginAsBtn.hidden));
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
@@ -225,6 +226,7 @@ function showLock() {
   document.documentElement.dataset.sodeLock = 'on';
   setHand(true);
   root.hidden = false;
+  fitBrand();
   moveBrand('in');
   void root.offsetWidth; // commit the start before the class changes it
   root.classList.add('is-on');
@@ -242,6 +244,24 @@ function showLock() {
   had?.blur?.();
   root.focus({ preventScroll: true });
 }
+
+// A site name wider than the screen is scaled down to fit on one line (a name
+// that would need under 1.25rem wraps instead). Phone only: the desktop's is a fixed size.
+function fitBrand() {
+  brand.style.fontSize = '';
+  brand.style.whiteSpace = '';
+  if (document.documentElement.dataset.layout !== 'phone') return;
+  const cs = getComputedStyle(root);
+  const room = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  brand.style.whiteSpace = 'nowrap';
+  const w = brand.scrollWidth;
+  if (w <= room) return;
+  const size = parseFloat(getComputedStyle(brand).fontSize) * room / w;
+  const min = 1.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+  if (size >= min) brand.style.fontSize = `${size}px`;
+  else { brand.style.whiteSpace = ''; brand.style.fontSize = `${min}px`; } // wraps (phone CSS)
+}
+addEventListener('resize', () => { if (root && !root.hidden) fitBrand(); });
 
 // Tells other modules (transfer.js) when the overlay goes up and, after its
 // fade, down.

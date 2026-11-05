@@ -22,7 +22,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-7);
-  inset: 0;
+  height: 100vh;
+  height: 100dvh; /* the visible height: a phone's address bar doesn't hide the foot */
+  inset: 0 0 auto 0;
   justify-content: center;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -72,7 +74,7 @@
   margin: 0;
   white-space: nowrap;
 }
-/* Phone: a long site name wraps, centred, instead of running off the screen. */
+/* Phone: lock.js scales a long site name to one line (fitBrand); one too long even then wraps, centred. */
 [data-layout="phone"] .sode-lock__brand {
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -201,7 +203,7 @@
 /* The chip stays above the lock overlay: the hand lock shows who is in. */
 [data-sode-lock] .sode-lock__who { z-index: calc(var(--pb-z-toast) + 1); }
 .sode-lock__foot {
-  bottom: var(--pb-space-4);
+  bottom: calc(var(--pb-space-4) + env(safe-area-inset-bottom, 0px));
   display: flex;
   gap: var(--pb-space-3);
   justify-content: center;

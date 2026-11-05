@@ -468,7 +468,6 @@ html { font-size: 125%; }
 }
 .sode__links > a:hover { color: var(--pb-accent-hover); text-decoration: none; }
 .sode__names--start { justify-content: flex-start; }
-.sode__ruled { border-top: var(--pb-border-w) solid var(--pb-edge); margin-top: var(--pb-space-7); padding-top: var(--pb-space-5); }
 /* The name in Account: large, the user's name in the accent. */
 .sode__acct { margin-bottom: var(--pb-space-3); color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
 .sode__acct strong { color: var(--pb-accent); }
@@ -723,3 +722,14 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
   :root [data-pb-tip]:hover::after,
   :root [data-pb-tip]:focus-visible::after { display: none; }
 }
+
+/* No double-tap zoom on the phone (the PIN pad's digits, the composer's keys):
+   taps press, pinching still zooms. */
+/* Every element, not just the page: a scrolling box (the lock overlay, the thread) cuts the
+   inheritance, and :where() keeps this at zero weight so the swipe rows' pan-y still wins. */
+:where([data-layout="phone"], [data-layout="phone"] *) { touch-action: manipulation; }
+/* "This device" on a phone: tighter, quieter fields. */
+[data-layout="phone"] .sode__device .sode__fields { gap: var(--pb-space-3); }
+[data-layout="phone"] .sode__device .sode__field > label { color: var(--pb-text-muted); font-size: var(--pb-text-xs); font-weight: var(--pb-weight-regular, 400); }
+/* Account is its own section after This device: its own rule above it. */
+.sode__device + .sode__device > legend { border-top: var(--pb-border-w) solid var(--pb-edge); padding-top: var(--pb-space-5); }

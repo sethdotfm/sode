@@ -234,6 +234,7 @@
   min-height: 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
+.sode-m--typing .sode-m__composer { padding-bottom: 0; } /* the keyboard covers the home-indicator area: no empty band above it */
 .sode-m__matches {
   background: var(--pb-surface-raised);
   border-top: var(--pb-border-w) solid var(--pb-edge);

@@ -18,6 +18,7 @@ const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 export const DICT = {
   // ---- sections
   'this-device': ['this browser', 'local', 'personal', 'preferences', 'prefs', 'appearance', 'display', 'device', 'my settings', 'theme', 'dark', 'light', 'colour', 'color', 'clock', 'time', '24h', 'layout', 'my default', 'set as my default', 'clear my default', 'profile', 'follow'],
+  'your-account': ['account', 'logged in', 'login', 'log in', 'logout', 'log out', 'sign in', 'sign out', 'lock', 'lock the screen', 'profile', 'my profile', 'change pin', 'import', 'export'],
   'global-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'appearance', 'preferences'],
   'router-source-destination-names': ['names', 'source names', 'destination names', 'labels', 'refresh', 'poll', 'reread', 'router names', 'name length', 'characters', 'truncate'],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
