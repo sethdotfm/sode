@@ -535,7 +535,7 @@
 /* Presets: buttons above Recent, and the editor dialog. */
 /* The strip is a Recent bar (.sode__recent-head): the title, the sets
    (pinned presets), then ghost buttons. Chips fill the middle. */
-.sode__presets { margin: var(--pb-space-3) 0; }
+.sode__presets { margin: var(--pb-space-3) 0; width: 100%; }
 .sode__presets > .sode__sets { flex: 1; flex-wrap: wrap; justify-content: flex-start; }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
 .sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
