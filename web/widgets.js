@@ -380,7 +380,7 @@ export function followBoxes(follows, levels, onPickDst) {
       const b = el('button', 'sode__end sode__end--dst sode__end--follow sode__end--pick', it.label, note);
       b.type = 'button';
       b.tabIndex = -1;
-      b.title = 'Use as destination';
+      b.dataset.pbTip = 'Use as destination';
       b.addEventListener('mousedown', (e) => e.preventDefault());
       b.addEventListener('click', () => onPickDst(it));
       return b;

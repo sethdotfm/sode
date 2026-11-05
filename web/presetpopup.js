@@ -10,7 +10,7 @@ import { trapDialog } from './widgets.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { fire, fillBoxes } from './presets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, orderPins, presetKey, setPinOrder, pinnedPresets } from './presetstore.js';
+import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, presetKey, setPinOrder, moveKey, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -99,10 +99,11 @@ function draw() {
   // a search keeps its ranking inside each part.
   const ranked = rankPresets(allPresets(), input.value);
   const isPinned = (s) => effectivePin(s, ov);
-  const pins = orderPins(ranked.filter(isPinned));
-  shownList = [...(input.value.trim() ? ranked.filter(isPinned) : pins), ...ranked.filter((s) => !isPinned(s))];
+  const searching = !!input.value.trim();
+  const pins = searching ? ranked.filter(isPinned) : pinnedPresets();
+  shownList = [...pins, ...ranked.filter((s) => !isPinned(s))];
   hi = Math.max(0, Math.min(hi, shownList.length - 1));
-  const reorder = !input.value.trim() && pins.length > 1;
+  const reorder = !searching && pins.length > 1;
   // Option/Alt+1-9 fire the first nine pinned presets, in the strip's order.
   const keySlot = new Map(pinnedPresets().map((s, i) => [presetKey(s), i]));
   list.replaceChildren(...shownList.map((s, i) => {
@@ -125,9 +126,8 @@ function draw() {
     const slot = keySlot.get(presetKey(s));
     const keyCell = el('span', 'sode__preset-key', slot < 9 ? `${mac ? '⌥' : 'Alt+'}${slot + 1}` : '');
     const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;
-    if (grip) grip.title = 'Drag to reorder (Alt+↑/↓)';
-    const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, ...(grip ? [grip] : []), main, el('span', 'sode__preset-tools', ...tools));
-    row.prepend(keyCell);
+    if (grip) grip.dataset.pbTip = 'Drag to reorder (Alt+↑/↓)';
+    const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, keyCell, ...(grip ? [grip] : []), main, el('span', 'sode__preset-tools', ...tools));
     if (grip) dragRow(row, s);
     row.id = `preset-pop-${i}`;
     row.setAttribute('role', 'option');
@@ -150,12 +150,11 @@ function togglePin(s) {
 
 // ---- reordering the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
 let dragKey = '';
-function pinKeys() { return shownList.filter((s) => effectivePin(s, pinOverrides())).map(presetKey); }
+const pinKeys = () => pinnedPresets().map(presetKey);
+// Dropped on another pinned row: it goes before that one.
 function dropAt(from, to) {
   if (!from || from === to) return;
-  const keys = pinKeys().filter((k) => k !== from);
-  keys.splice(to ? keys.indexOf(to) : keys.length, 0, from);
-  setPinOrder(keys);
+  setPinOrder(moveKey(pinKeys(), from, pinKeys().filter((k) => k !== from).indexOf(to)));
 }
 function dragRow(row, s) {
   const key = presetKey(s);
@@ -171,11 +170,10 @@ function nudge(d) {
   const s = shownList[hi];
   if (!s || input.value.trim() || !effectivePin(s, pinOverrides())) return;
   const keys = pinKeys();
-  const i = keys.indexOf(presetKey(s)), j = i + d;
-  if (i < 0 || j < 0 || j >= keys.length) return;
-  [keys[i], keys[j]] = [keys[j], keys[i]];
-  hi = j; // pins are the top rows, so the row index follows
-  setPinOrder(keys);
+  const i = keys.indexOf(presetKey(s));
+  if (i < 0 || i + d < 0 || i + d >= keys.length) return;
+  hi = i + d; // pins are the top rows, so the row index follows
+  setPinOrder(moveKey(keys, keys[i], i + d));
 }
 
 function move(d) {

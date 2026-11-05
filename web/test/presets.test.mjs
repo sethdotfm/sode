@@ -208,6 +208,14 @@ test('orderPins: saved order first, the rest after in their own order', async ()
   assert.equal(presetKey(mk('user', 'Mon 1')), 'user:mon 1');
 });
 
+test('moveKey: out, then in at an index counted without it, clamped', async () => {
+  const { moveKey } = await setup();
+  assert.deepEqual(moveKey(['a', 'b', 'c', 'd'], 'a', 2), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(moveKey(['a', 'b', 'c', 'd'], 'd', 0), ['d', 'a', 'b', 'c']);
+  assert.deepEqual(moveKey(['a', 'b', 'c'], 'b', 99), ['a', 'c', 'b']);
+  assert.deepEqual(moveKey(['a', 'b', 'c'], 'b', -3), ['b', 'a', 'c']);
+});
+
 test('pinOrder: a guest keeps it in this browser, setPinOrder writes it', async () => {
   const { pinOrder, setPinOrder } = await setup();
   assert.deepEqual(pinOrder(), []);

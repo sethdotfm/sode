@@ -177,6 +177,12 @@ export function orderPins(list, order = pinOrder()) {
   const rank = (s) => at.get(presetKey(s)) ?? Infinity;
   return list.map((s, i) => [s, i]).sort((a, b) => (rank(a[0]) === rank(b[0]) ? a[1] - b[1] : rank(a[0]) - rank(b[0]))).map((x) => x[0]);
 }
+// keys with `key` moved to index `to` (counted once it is taken out), clamped.
+export function moveKey(keys, key, to) {
+  const rest = keys.filter((k) => k !== key);
+  rest.splice(Math.max(0, Math.min(to, rest.length)), 0, key);
+  return rest;
+}
 // Saves the order of the pinned presets (keys), for the user or this browser.
 export function setPinOrder(keys) {
   if (profileName()) {
