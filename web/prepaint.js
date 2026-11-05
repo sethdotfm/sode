@@ -28,6 +28,13 @@
   const theme = pick('sode-theme', 'theme', ['system', 'light', 'dark'], 'system');
   if (theme !== 'system') root.dataset.theme = theme;
   if (themeOnly) return;
+  // TEMPORARY design switch: ?sections=panels|rules|bands (empty clears), kept in sode-sections.
+  try {
+    const q = new URLSearchParams(location.search).get('sections');
+    if (q !== null) localStorage.setItem('sode-sections', q);
+  } catch (e) {}
+  const sec = get('sode-sections');
+  if (['panels', 'rules', 'bands'].includes(sec)) root.dataset.sections = sec;
   let layout = pick('sode-layout', 'layout', ['auto', 'phone', 'desktop'], 'auto');
   if (layout === 'auto') layout = matchMedia('(max-width: 700px) and (pointer: coarse)').matches ? 'phone' : 'desktop';
   root.dataset.layout = layout;
