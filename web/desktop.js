@@ -5,6 +5,7 @@
 import {
   $, el, S, on, emit, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
 } from './core.js';
+import { mac } from './keys.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
 import { timeNodes, scrollTopPref, flipped, setFlip } from './device.js';
@@ -46,7 +47,6 @@ const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { onChange: () => renderTally() });
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
-const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 const expanded = new Set(); // history IDs showing their before state
 const openFolders = new Set(); // history groups showing their takes
 const openFollowers = new Set(); // history groups showing their Followers

@@ -4,6 +4,7 @@
 // parts are presetstore.js, the plan is plans.js.
 
 import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem, icon } from './core.js';
+import { mac } from './keys.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan, canRedo } from './plans.js';
 import { startPick, endPick } from './recentpick.js';
@@ -45,7 +46,6 @@ export function fire(scope, name) {
   host.confirm(plan);
 }
 
-const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 const phone = () => document.documentElement.dataset.pbLayout === 'phone';
 const askPopup = () => emit('presetPopup');
 

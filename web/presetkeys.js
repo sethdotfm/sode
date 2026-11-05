@@ -5,11 +5,9 @@
 // chip key reveal (html[data-alt]) in keys.js.
 
 import { S, emit } from './core.js';
-import { chord } from './keys.js';
+import { chord, mac } from './keys.js';
 import { fire, fillBoxes, presetShown } from './presets.js';
 import { pinnedPresets } from './presetstore.js';
-
-const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 // A modal (the desktop confirm and the Presets popup are modals), Settings,
 // the lock screen or the phone sheet over the page, or a pick bar waiting for

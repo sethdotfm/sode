@@ -5,6 +5,7 @@
 
 import { actorUser, folderActor } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
+import { mac } from './keys.js';
 import {
   levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels,
 } from './levelview.js';
@@ -13,8 +14,6 @@ import { fmtClock } from './device.js';
 import { windowAround, growTo, growEdge } from './listwindow.js';
 import { beforeGroups, failureGroups } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
-
-const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 // ---- level box: typed levels plus a picker of toggles and All/None
 

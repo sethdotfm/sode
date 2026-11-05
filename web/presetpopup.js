@@ -5,14 +5,12 @@
 // everyone, and sharing, are in the preset editor.
 
 import { el, on, emit, icon, sentence } from './core.js';
-import { chord } from './keys.js';
+import { chord, mac } from './keys.js';
 import { trapDialog } from './widgets.js';
 import { profileSaver } from './globalsave.js';
 import { fire, fillBoxes, openPresets } from './presets.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, movePin, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
-
-const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
