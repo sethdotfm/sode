@@ -618,14 +618,30 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 .sode__my-defaults { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-space-2); }
 .sode__my-default { align-self: flex-start; }
 
-/* Result banner: the alert, its close button and the countdown bar of a success. */
-.sode__banner { width: 100%; }
-.sode__banner-body { flex: 1; min-width: 0; }
-.sode__banner-x { flex: none; }
-.sode__banner-time { height: var(--pb-space-2); }
-.sode__banner-bar {
-  animation: sode-countdown linear forwards;
-  transition: none;
+/* Result banner: the alert, its close button and the countdown bar of a success.
+   The bar is scaled, not resized, so it runs on the compositor and doesn't judder.
+   Closing collapses the row (1fr to 0fr) and fades it, so the page below slides up. */
+.sode__banner {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease);
   width: 100%;
 }
-@keyframes sode-countdown { to { width: 0; } }
+.sode__banner--out { grid-template-rows: 0fr; opacity: 0; }
+.sode__banner-in { min-height: 0; overflow: hidden; }
+.sode__banner-body { flex: 1; min-width: 0; }
+.sode__banner-x { flex: none; }
+.sode__banner-time {
+  background: transparent;
+  border: 0;
+  height: var(--pb-space-1);
+}
+.sode__banner-bar {
+  animation: sode-countdown linear forwards;
+  transform-origin: left center;
+  transition: none;
+  width: 100%;
+  will-change: transform;
+}
+@keyframes sode-countdown { to { transform: scaleX(0); } }
