@@ -280,10 +280,9 @@ const blocked = () =>
 document.addEventListener('keydown', (e) => {
   const slot = altDigit(e);
   if (slot < 0 || open || !S.cfg || !presetShown() || blocked()) return;
+  e.preventDefault(); // even with no pin in that slot: Alt+1-9 must not reach the browser (Firefox switches tabs)
   const s = pinnedPresets()[slot];
-  if (!s) return;
-  e.preventDefault();
-  fire(s.scope, s.name);
+  if (s) fire(s.scope, s.name);
 });
 
 // Ctrl+G on every OS, ⌘G on a Mac (the browser's find-next is stopped).
