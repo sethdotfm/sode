@@ -47,16 +47,59 @@ export function pickedTakes(index, keys, withFollows, ok = () => true) {
     .map((e) => ({ src: e.src, dst: e.dst, levels: [...e.levels] }));
 }
 
+// ---- the two modes
+
+const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
+// What each mode says and does. Recent: tick takes and folders, Add hands
+// them back. Boxes: Add turns the patch in the boxes into a row, again and
+// again, until Done. count/addText/canAdd take the state and, in Recent, the
+// takes ticked now (taken), worked out once per redraw.
+export const MODES = {
+  recent: {
+    msg: (name) => `Choose takes for ${name}`,
+    sub: 'Click takes or folders in Recent to select them.',
+    aria: 'Choose takes from Recent',
+    follows: true,
+    cancelText: 'Cancel',
+    taken: (s) => pickedNow(s),
+    count: (s, t) => `${s.picked.size} chosen · ${plural(t.length)}`,
+    addText: (s, t) => (t.length ? `Add ${t.length}` : 'Add'),
+    canAdd: (s, t) => t.length > 0,
+    add(s) {
+      const t = pickedNow(s);
+      if (t.length) finish((x) => x.onAdd(t));
+    },
+    // Esc always cancels.
+    escCancels: () => true,
+  },
+  boxes: {
+    msg: (name) => `Add patches to ${name}`,
+    sub: 'Fill Source, Destination and Levels in the boxes, then Add (Enter).',
+    aria: 'Add patches from the patch boxes',
+    follows: false,
+    cancelText: 'Done',
+    count: (s) => s.note,
+    addText: () => 'Add',
+    canAdd: () => true,
+    add(s) {
+      s.note = s.onAddPatch();
+      update();
+    },
+    // Esc still clears a box or closes its list first.
+    escCancels: (e) => !(e.target instanceof HTMLInputElement && (e.target.value || e.target.getAttribute('aria-expanded') === 'true')),
+  },
+};
+
 // ---- state
 
 // { mode, label, onAdd(takes), onAddPatch(): note, onCancel(), picked: Set of keys, follows, ok, note }
 let st = null;
 // Recent's rows get check boxes only in the Recent mode.
-export const picking = () => !!st && st.mode !== 'boxes';
+export const picking = () => st?.mode === 'recent';
 export const boxPicking = () => st?.mode === 'boxes';
 export const isPicked = (key) => !!st?.picked.has(key);
 
-const takes = () => (st ? pickedTakes(indexRows(histRows(S.hist)), st.picked, st.follows, st.ok) : []);
+const pickedNow = (s) => pickedTakes(indexRows(histRows(S.hist)), s.picked, s.follows, s.ok);
 
 export function togglePick(key) {
   if (!st || !/^[ef]/.test(key)) return;
@@ -85,22 +128,14 @@ function finish(fn) {
 }
 export const endPick = () => finish(null);
 const cancel = () => finish((s) => s.onCancel?.());
-// Add in the boxes mode: the patch in the boxes, again and again until Done.
-export function addPatch() {
-  if (st?.mode !== 'boxes') return;
-  st.note = st.onAddPatch();
-  update();
-}
-const add = () => {
-  if (st?.mode === 'boxes') return addPatch();
-  const t = takes();
-  if (t.length) finish((s) => s.onAdd(t));
-};
+// Add (button or Enter in the boxes): whatever the mode adds.
+export const addPatch = () => st?.mode === 'boxes' && MODES.boxes.add(st);
+const add = () => st && MODES[st.mode].add(st);
 
 // ---- the bar
 
 const msg = el('strong', 'sode__pickbar-msg');
-const sub = el('span', 'sode__pickbar-sub', 'Click takes or folders in Recent to select them.');
+const sub = el('span', 'sode__pickbar-sub');
 const count = el('span', 'sode__hint');
 count.setAttribute('role', 'status');
 const followsIn = el('input', 'pb-check__input');
@@ -125,18 +160,17 @@ cancelBtn.addEventListener('click', cancel);
 function update() {
   bar.hidden = !st;
   if (st) {
-    const boxes = st.mode === 'boxes';
-    const n = boxes ? 0 : takes().length;
-    const name = st.label ? `“${st.label}”` : 'the preset';
-    msg.textContent = boxes ? `Add patches to ${name}` : `Choose takes for ${name}`;
-    sub.textContent = boxes ? 'Fill Source, Destination and Levels in the boxes, then Add (Enter).' : 'Click takes or folders in Recent to select them.';
-    bar.setAttribute('aria-label', boxes ? 'Add patches from the patch boxes' : 'Choose takes from Recent');
-    followsBox.hidden = boxes;
-    cancelBtn.textContent = boxes ? 'Done' : 'Cancel';
+    const m = MODES[st.mode];
+    const t = m.taken?.(st) || [];
+    msg.textContent = m.msg(st.label ? `“${st.label}”` : 'the preset');
+    sub.textContent = m.sub;
+    bar.setAttribute('aria-label', m.aria);
+    followsBox.hidden = !m.follows;
+    cancelBtn.textContent = m.cancelText;
     clearChip();
-    count.textContent = boxes ? st.note : `${st.picked.size} chosen · ${n} take${n === 1 ? '' : 's'}`;
-    addBtn.textContent = !boxes && n ? `Add ${n}` : 'Add';
-    addBtn.disabled = !boxes && !n;
+    count.textContent = m.count(st, t);
+    addBtn.textContent = m.addText(st, t);
+    addBtn.disabled = !m.canAdd(st, t);
   }
   emit('pick');
 }
@@ -152,8 +186,7 @@ globalThis.addEventListener?.('resize', () => { if (st) clearChip(); });
 // Esc cancels, ahead of everything else on the page.
 document.addEventListener('keydown', (e) => {
   if (!st || e.key !== 'Escape') return;
-  // In the boxes mode Esc still clears a box or closes its list first.
-  if (st.mode === 'boxes' && e.target instanceof HTMLInputElement && (e.target.value || e.target.getAttribute('aria-expanded') === 'true')) return;
+  if (!MODES[st.mode].escCancels(e)) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   cancel();

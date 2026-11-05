@@ -7,7 +7,7 @@ const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPr
 globalThis.document = node();
 globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 
-const { indexRows, pickedTakes } = await import('./all.mjs');
+const { indexRows, pickedTakes, MODES } = await import('./all.mjs');
 
 const e = (id, src, dst, extra = {}) => ({ id, src, dst, levels: [1], ...extra });
 const follow = e(11, 1, 8, { ext: true, follow: 3 });
@@ -36,4 +36,19 @@ test('a take adds its own follows when asked; the folder and one of its takes co
 test('entries that cannot be a take are left out; unknown keys are ignored', () => {
   assert.deepEqual(pickedTakes(index, new Set(['fg', 'nope']), false, (x) => x.dst !== 5).map((t) => t.dst), [6]);
   assert.deepEqual(pickedTakes(index, new Set(), true), []);
+});
+
+test('each mode says its own count, Add label and whether Add is on', () => {
+  const taken = [{}, {}];
+  const recent = { picked: new Set(['a']) };
+  assert.equal(MODES.recent.count(recent, taken), '1 chosen · 2 takes');
+  assert.equal(MODES.recent.count(recent, [{}]), '1 chosen · 1 take');
+  assert.equal(MODES.recent.addText(recent, taken), 'Add 2');
+  assert.equal(MODES.recent.addText(recent, []), 'Add');
+  assert.equal(MODES.recent.canAdd(recent, []), false);
+  const boxes = { note: 'Added 1' };
+  assert.equal(MODES.boxes.count(boxes, []), 'Added 1');
+  assert.equal(MODES.boxes.addText(boxes, []), 'Add');
+  assert.equal(MODES.boxes.canAdd(boxes, []), true);
+  assert.equal(MODES.recent.cancelText + MODES.boxes.cancelText, 'CancelDone');
 });
