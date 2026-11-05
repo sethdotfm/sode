@@ -29,6 +29,7 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - **Windows and Linux**: letting go of a bare Alt no longer focuses the browser's menu bar while presets show, and Alt+1–9 no longer reaches the browser (unverified on a real Windows browser).
 - **Phone**: the lock chip has no lock button and is hidden when it has no name; the lock screen's site name wraps.
 - Internal: `keys.js` (`chord`, held Shift/Alt flags) and `presetkeys.js` (page-level preset keys), pin order in one place, a descriptor per pick mode, the match list's footer as its own element. Two flaky tests fixed.
+- Review fixes: Filters *Save* now closes once a set for Everyone or Me has really been saved, and Cancel no longer rolls back a write that landed; Alt+N in the Presets popup fires once; Alt+1–9 waits while a pick bar is open; moving through a source or destination list with the arrows and pressing Enter, Tab or + takes the row; the open list is kept when names update; the full list is drawn a window at a time; Shift-fill leaves out what no longer exists (and never falls back to default levels); a failed pin reorder is put back and reported; the server keeps pin-order keys as the browser wrote them.
 
 ## Beta 1.5.0
 
