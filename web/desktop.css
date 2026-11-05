@@ -83,6 +83,8 @@
   border-top: 0;
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
+  display: flex;
+  justify-content: space-between;
   left: 0;
   padding: var(--pb-space-2) var(--pb-space-4);
   position: absolute; /* under the list, not in what scrolls (widgets.js placeFoot sets top) */
@@ -196,7 +198,6 @@
   padding-right: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar,
-.sode__menu::-webkit-scrollbar,
 .sode__bar::-webkit-scrollbar,
 .sode__box--levels .sode__levels::-webkit-scrollbar {
   height: var(--pb-space-2);
@@ -210,6 +211,8 @@
 .sode__menu::-webkit-scrollbar-thumb,
 .sode__bar::-webkit-scrollbar-thumb,
 .sode__box--levels .sode__levels::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
+/* The match lists' bar is twice as wide: it is the quick way through a long list. */
+.sode__menu::-webkit-scrollbar { width: calc(var(--pb-space-2) * 2); }
 .sode__feed {
   display: flex;
   flex-direction: column;

@@ -576,6 +576,8 @@
 .sode__preset-item.is-dragging { opacity: 0.4; }
 .sode__preset-item.is-over { box-shadow: inset 0 var(--pb-border-w) 0 var(--pb-accent); }
 .sode__preset-grip { color: var(--pb-text-muted); display: inline-flex; }
+.sode__preset-grip svg { pointer-events: none; } /* a drag may start on the icon too */
+.sode__preset-key { color: var(--pb-text-muted); flex: none; font-family: var(--pb-font-num); min-width: 3ch; }
 .sode__preset-main { background: none; border: 0; color: inherit; cursor: pointer; flex: 1; font: inherit; min-width: 0; overflow-wrap: anywhere; padding: 0; text-align: left; }
 .sode__preset-tools { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
 [data-pb-layout="phone"] .sode__scrim > .sode__preset-pop { height: 100%; max-height: none; }

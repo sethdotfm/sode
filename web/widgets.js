@@ -135,7 +135,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     footEl.hidden = !show;
     if (!show) return;
     const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-    footEl.textContent = `${total} matches · ↑↓ ${mac ? '⌘j ⌘k' : 'Ctrl+j Ctrl+k'} PgUp PgDn`;
+    footEl.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ ${mac ? '⌘J/K' : 'Ctrl+J/K'}`));
     footEl.style.top = `${menu.offsetTop + menu.offsetHeight}px`;
   }
 

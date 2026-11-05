@@ -9,7 +9,7 @@ import { trapDialog } from './widgets.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { fire, presetShown } from './presets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, orderPins, presetKey, setPinOrder } from './presetstore.js';
+import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, orderPins, presetKey, setPinOrder, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -56,7 +56,7 @@ done.addEventListener('click', () => close());
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'preset-pop-title' })),
   el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl, shareUI.box,
-    el('span', 'sode__hint', `↑/↓ or ${mac ? '⌘' : 'Ctrl+'}j/k to move, Enter to fire, Esc to close. Pinned presets come first and are the buttons above Recent; drag them, or Alt+↑/↓, to reorder.`)),
+    el('span', 'sode__hint', mac ? '↑ ↓ or ⌘J/K to move · ⌥↑ ⌥↓ or ⌥⌘J/K to reorder' : '↑ ↓ or Ctrl+J/K to move · Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder')),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
 document.body.append(root);
@@ -102,6 +102,8 @@ function draw() {
   shownList = [...(input.value.trim() ? ranked.filter(isPinned) : pins), ...ranked.filter((s) => !isPinned(s))];
   hi = Math.max(0, Math.min(hi, shownList.length - 1));
   const reorder = !input.value.trim() && pins.length > 1;
+  // Option/Alt+1-9 fire the first nine pinned presets, in the strip's order.
+  const keySlot = new Map(pinnedPresets().map((s, i) => [presetKey(s), i]));
   list.replaceChildren(...shownList.map((s, i) => {
     const pinned = isPinned(s);
     const main = el('button', 'sode__preset-main', el('strong', null, s.name),
@@ -119,9 +121,12 @@ function draw() {
         saver.change({ presets: withGlobalPin(s.name, !flag) }, () => clearPinOverride(s.name));
       }));
     }
+    const slot = keySlot.get(presetKey(s));
+    const keyCell = el('span', 'sode__preset-key', slot < 9 ? `${mac ? '⌥' : 'Alt+'}${slot + 1}` : '');
     const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;
     if (grip) grip.title = 'Drag to reorder (Alt+↑/↓)';
     const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, ...(grip ? [grip] : []), main, el('span', 'sode__preset-tools', ...tools));
+    row.prepend(keyCell);
     if (grip) dragRow(row, s);
     row.id = `preset-pop-${i}`;
     row.setAttribute('role', 'option');
@@ -165,6 +170,13 @@ function nudge(d) {
   setPinOrder(keys);
 }
 
+// Option/Alt+1-9 → 0-8; -1 for any other key.
+function altDigit(e) {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return -1;
+  const m = /^Digit([1-9])$/.exec(e.code);
+  return m ? +m[1] - 1 : -1;
+}
+
 function move(d) {
   if (!shownList.length) return;
   hi = (hi + d + shownList.length) % shownList.length;
@@ -188,9 +200,18 @@ dialog.addEventListener('mousedown', (e) => {
 dialog.addEventListener('keydown', (e) => {
   // A focused button keeps its own Enter/Space; anywhere else the keys drive the list.
   const onButton = !!e.target.closest?.('button');
-  if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+  // Reorder: Option/Alt+↑/↓, or Option+⌘+J/K (Ctrl+Alt+J/K elsewhere).
+  const arrows = e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown');
+  const altJK = e.altKey && (e.ctrlKey !== e.metaKey) && !e.shiftKey && (e.code === 'KeyJ' || e.code === 'KeyK');
+  if (arrows || altJK) {
     e.preventDefault();
-    nudge(e.key === 'ArrowUp' ? -1 : 1);
+    nudge(e.key === 'ArrowUp' || e.code === 'KeyK' ? -1 : 1);
+    return;
+  }
+  const slot = altDigit(e);
+  if (slot >= 0) {
+    e.preventDefault();
+    pressPreset(pinnedPresets()[slot]);
     return;
   }
   const jk = (e.ctrlKey !== e.metaKey) && !e.altKey && !e.shiftKey ? { j: 1, k: -1 }[e.key.toLowerCase()] : 0;
@@ -238,6 +259,16 @@ on('presetPopup', openPopup);
 const blocked = () =>
   document.documentElement.dataset.view === 'settings' ||
   !!document.querySelector('.pb-modal-backdrop:not([hidden]), .sode-lock.is-on, #m-sheet:not([hidden])');
+
+// Option/Alt+1-9 from anywhere on the page: the first nine pinned presets.
+document.addEventListener('keydown', (e) => {
+  const slot = altDigit(e);
+  if (slot < 0 || open || !S.cfg || !presetShown() || blocked()) return;
+  const s = pinnedPresets()[slot];
+  if (!s) return;
+  e.preventDefault();
+  fire(s.scope, s.name);
+});
 
 // Ctrl+G on every OS, ⌘G on a Mac (the browser's find-next is stopped).
 // Every check excludes the other modifiers.
