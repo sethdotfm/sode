@@ -580,8 +580,10 @@ const BOXES = { s: 'src', d: 'dst', f: 'lvl' };
 
 // Keys while the history list (or nothing) has focus. True when handled.
 function onListKey(e) {
-  if (e.ctrlKey || e.metaKey || e.altKey) return false;
-  const k = e.key;
+  // Ctrl+J/K (⌘J/K on a Mac) move like j/k: the same keys work in the text boxes' lists.
+  const jk = (e.ctrlKey !== e.metaKey) && (e.ctrlKey || mac) && !e.altKey && !e.shiftKey && /^Key[JK]$/.test(e.code) ? e.code[3].toLowerCase() : '';
+  if (!jk && (e.ctrlKey || e.metaKey || e.altKey)) return false;
+  const k = jk || e.key;
   if (BOXES[k]) { focusBox($(BOXES[k])); return true; }
   if (k === ',') { $('settings-open').click(); return true; }
   if (k === '/') { openFilters(); return true; }
