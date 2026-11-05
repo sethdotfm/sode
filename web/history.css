@@ -321,7 +321,15 @@
    (outline, small). The phone keeps its ghost look. */
 :root:not([data-layout="phone"]) .sode__chipbtn { background-color: transparent; border-color: var(--pb-surface-control); }
 :root:not([data-layout="phone"]) .sode__chipbtn:hover { background-color: var(--pb-overlay-hover); border-color: var(--pb-surface-hover); }
-.sode__filters-btn--on { color: var(--pb-status-info); font-weight: var(--pb-weight-medium); }
+/* Filters on: an accent-washed, accent-edged button, like a selected chip. */
+.sode__filters-btn--on,
+:root:not([data-layout="phone"]) .sode__filters-btn--on,
+:root:not([data-layout="phone"]) .sode__filters-btn--on:hover {
+  background-color: var(--pb-accent-wash);
+  border-color: var(--pb-accent);
+  color: var(--pb-accent);
+  font-weight: var(--pb-weight-medium);
+}
 .sode__code { font-family: var(--pb-font-mono); }
 .sode__scrim > .sode__filters { width: 40rem; }
 .sode__filters .pb-modal__header { gap: var(--pb-space-3); flex-wrap: wrap; }
@@ -493,7 +501,7 @@
   gap: var(--pb-space-1) var(--pb-space-3);
   padding-top: var(--pb-space-3);
 }
-.sode__search > [data-search-clear] { flex: none; }
+.sode__search > [data-search-clear] { flex: none; font-size: var(--pb-text-xs); } /* always there, greyed out until there is something to clear */
 .sode__search > .sode__hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sode__search[hidden] { display: none; }
 .sode__search > .sode__hint:empty { display: none; }

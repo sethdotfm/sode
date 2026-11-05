@@ -836,7 +836,7 @@ for (const b of searchBoxes) {
     });
   }
   // Clear leaves focus alone (no keyboard popping up on a phone); the
-  // button hides itself, so let focus go rather than sit on it.
+  // button greys itself out, so let focus go rather than sit on it.
   b.querySelector('[data-search-clear]').addEventListener('click', (e) => {
     clearSearch();
     e.currentTarget.blur();
@@ -866,7 +866,7 @@ function renderSearch() {
         return el('span', 'pb-chip pb-chip--static sode__search-chip', labelNode(it), x);
       }));
     }
-    b.querySelector('[data-search-clear]').hidden = !on && !['src', 'dst'].some((k) => sb[k].text || sb[k].picks.length);
+    b.querySelector('[data-search-clear]').disabled = !on && !['src', 'dst'].some((k) => sb[k].text || sb[k].picks.length);
     b.querySelector('[data-search-note]').textContent = note;
   }
 }
