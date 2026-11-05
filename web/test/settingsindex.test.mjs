@@ -33,8 +33,8 @@ test('every registered section has dictionary terms', () => {
 
 test('common words reach their section', () => {
   const cases = {
-    dark: 'this-device', clock: 'this-device', ip: 'router', host: 'router', poll: 'names',
-    offset: 'matrix', undo: 'history', audit: 'audit', proxy: 'audit', brand: 'branding',
+    dark: 'this-device', clock: 'this-device', ip: 'router', host: 'router', poll: 'router-source-destination-names',
+    offset: 'matrix', undo: 'history', audit: 'sode-networking', proxy: 'sode-networking', brand: 'branding',
     border: 'branding', salvo: 'salvos',
   };
   for (const [q, sec] of Object.entries(cases)) {

@@ -9,7 +9,6 @@ import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime, ownPref, globalPref, defaultPref, myPref, setPref, pref } from './device.js';
 import { myDefaultButtons } from './mydefaults.js';
 import { profile, profileName, saveProfile } from './profile.js';
-import { filterSummary, normFilter } from './filterstore.js';
 import { showResult } from './plans.js';
 import { parseLevelsAs } from './levels.js';
 import { PREFS, resolve, toGlobal } from './prefs.js';
@@ -150,6 +149,7 @@ export function openSettings() {
   $('cfg-pin').value = '';
   $('cfg-pin2').value = '';
   $('cfg-pin-clear').checked = false;
+  showPinFields(false);
   renderPinStatus();
   relock(); // opens locked; a reply to an unlock sent before is dropped
   $('lock-pin').value = '';
@@ -163,7 +163,6 @@ export function openSettings() {
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderHiddenNote();
-  renderGlobalSets();
   renderNamesStatus();
   window.scrollTo(0, 0);
   markSection();
@@ -223,7 +222,7 @@ function readSettings() {
   return c;
 }
 
-// ---- This device and Defaults for every device: the same six choices
+// ---- This device and Global defaults: the same choices
 // (prefs.js). A device one starts with "Everyone's default (value)" ("My" for a
 // user with their own), which follows the default; it applies at once. A default one is saved with the form.
 
@@ -259,6 +258,7 @@ function myButton(select) {
     b.type = 'button';
     b.dataset.find = id;
     b.dataset.label = label;
+    b.dataset.pbTip = label; // in full, when the column is too narrow for it
     return b;
   };
   const save = mk(`my-default-${name}`, 'Save as my default');
@@ -481,16 +481,6 @@ function renderOffsetNote() {
   $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
 }
 
-// ---- filter sets for everyone: listed here, edited in Recent's Filters
-
-function renderGlobalSets() {
-  if (!isOpen()) return;
-  const sets = S.cfg?.filterSets || [];
-  $('cfg-sets').replaceChildren(...(sets.length
-    ? sets.map((s) => el('li', 'sode__gset', el('strong', null, s.name), el('span', 'sode__hint', filterSummary(normFilter(s)))))
-    : [el('li', 'sode__hint', 'None')]));
-}
-
 // What the globally hidden expression matches, against the router's names.
 function renderHiddenNote() {
   const f = $('cfg-hidden');
@@ -525,6 +515,7 @@ function configResult(m) {
     $('cfg-pin').value = '';
     $('cfg-pin2').value = '';
     $('cfg-pin-clear').checked = false;
+    showPinFields(false);
     renderPinStatus();
     $('settings-err').hidden = true;
     markClean(true);
@@ -551,9 +542,20 @@ function showLockErr(text) {
 function renderPinStatus() {
   $('cfg-pin-clear-row').hidden = !S.pinSet;
   $('cfg-pin-status').textContent = S.pinSet
-    ? 'PIN set. Leave blank to keep it.'
-    : 'No PIN. 4–64 characters.';
+    ? 'A PIN is set. Leave both fields blank to keep it.'
+    : 'No PIN is set. Use 4–64 characters.';
+  $('cfg-pin-change').textContent = S.pinSet ? 'Change Advanced PIN' : 'Set Advanced PIN';
 }
+
+// The PIN fields sit behind a button; Save errors and Settings search open them.
+function showPinFields(open) {
+  $('cfg-pin-box').hidden = !open;
+  $('cfg-pin-change').setAttribute('aria-expanded', String(open));
+}
+$('cfg-pin-change').addEventListener('click', () => {
+  showPinFields($('cfg-pin-box').hidden);
+  if (!$('cfg-pin-box').hidden) $('cfg-pin').focus();
+});
 
 async function sendUnlock() {
   $('lock-unlock').disabled = true;
@@ -690,12 +692,14 @@ form.addEventListener('submit', (e) => {
   if (pin && [...pin].length < 4) {
     $('settings-err').textContent = 'The settings PIN must be at least 4 characters.';
     $('settings-err').hidden = false;
+    showPinFields(true);
     $('cfg-pin').focus();
     return;
   }
   if (pin !== $('cfg-pin2').value) {
     $('settings-err').textContent = 'The two PINs don\'t match.';
     $('settings-err').hidden = false;
+    showPinFields(true);
     $('cfg-pin2').select();
     return;
   }
@@ -720,8 +724,7 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('popstate', showView);
 
-on('hello', () => { showView(); syncLock(); renderGlobalSets(); });
-on('filters', renderGlobalSets);
+on('hello', () => { showView(); syncLock(); });
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => { renderNamesStatus(); syncLock(); });
@@ -809,6 +812,7 @@ function pickHit(h) {
   const i = secIds.indexOf(h.sectionId);
   const node = h.kind === 'section' ? sections[i] : targets.get(`${h.sectionId}/${h.id}`);
   if (!node) return;
+  if (h.kind === 'setting' && /^cfg-pin(2|-clear)?$/.test(h.id)) showPinFields(true); // behind the Change PIN button
   findBox.value = '';
   showHits();
   picked = i;

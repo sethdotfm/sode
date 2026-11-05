@@ -1,5 +1,5 @@
-// Server configuration file (Settings > Access): Export… saves the live
-// config.yaml, Import… replaces the whole configuration with a picked file.
+// Server configuration file (Settings > Server Backup): Export saves the live
+// config.yaml, Import replaces the whole configuration with a picked file.
 // The block is in index.html; this wires it. Both are settings-PIN actions
 // (the server refuses anything else, and then demandPin() brings the PIN
 // prompt back). The server makes and reads the file; this only moves it.

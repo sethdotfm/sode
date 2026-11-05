@@ -13,13 +13,16 @@ const browserClock = () => (/h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'n
 export const PREFS = {
   theme: { key: 'sode-theme', def: 'system', values: { system: 'System', light: 'Light', dark: 'Dark' } },
   layout: { key: 'sode-layout', def: 'auto', values: { auto: 'Automatic', phone: 'Phone', desktop: 'Desktop' } },
-  clock: { key: 'sode-clock', def: '24', values: { 24: '24-hour', 12: '12-hour', get locale() { return `Browser language (${browserClock()})`; } } },
+  clock: { key: 'sode-clock', def: '24', values: { 24: '24-hour', 12: '12-hour', locale: 'Browser language' } },
   flip: { key: 'sode-flip', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
   scrollTop: { key: 'sode-scroll-top', def: 'on', bool: true, values: { on: 'Yes', off: 'No' } },
   setStack: { key: 'sode-set-stack', def: 'and', values: { and: 'All must match', or: 'Any may match' } },
   nextMode: { key: 'sode-next-mode', def: 'number', values: { number: 'Next number', fuzzy: 'Next match of the name' } },
   searchFilters: { key: 'sode-search-filters', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
 };
+
+// The Browser language option says what it gives (still one table entry, as the Go test reads it).
+Object.defineProperty(PREFS.clock.values, 'locale', { get: () => `Browser language (${browserClock()})`, enumerable: true });
 
 // Where the last global defaults are kept, so the next page load follows
 // them before the server's hello arrives.

@@ -459,7 +459,7 @@ html { font-size: 125%; }
 }
 .sode__links > a:hover { color: var(--pb-accent-hover); text-decoration: none; }
 .sode__names--start { justify-content: flex-start; }
-.sode__ruled { border-top: var(--pb-border-w) solid var(--pb-edge); margin-top: var(--pb-space-5); padding-top: var(--pb-space-5); }
+.sode__ruled { border-top: var(--pb-border-w) solid var(--pb-edge); margin-top: var(--pb-space-7); padding-top: var(--pb-space-5); }
 /* The name in Account: large, the user's name in the accent. */
 .sode__acct { color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
 .sode__acct strong { color: var(--pb-accent); }
@@ -632,8 +632,10 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 .sode--tap .sode-m__changes { cursor: auto; }
 
 /* Per-row "Save/Clear my default" buttons: small, side by side, not stretched. */
-.sode__my-defaults { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-space-2); }
-.sode__my-default { align-self: flex-start; }
+.sode__my-defaults { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
+/* Side by side, small enough for a narrow column (the full words are in the tooltip). */
+.sode__my-default { align-self: flex-start; flex: 1 1 0; font-size: var(--pb-text-xs); max-width: max-content; min-width: 0; padding: 0 var(--pb-space-3); }
+.sode__my-defaults > .sode__hint { flex: 1 0 100%; }
 
 /* Result banner: the alert, its close button and the countdown bar of a success.
    The bar is scaled, not resized, so it runs on the compositor and doesn't judder.
@@ -665,3 +667,37 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
   will-change: transform;
 }
 @keyframes sode-countdown { to { transform: scaleX(0); } }
+
+/* Number input with a unit after the digits (before the stepper). */
+.sode__suffix {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  pointer-events: none;
+  position: absolute;
+  right: var(--pb-space-8);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+/* A colour sample before an example hex. */
+.sode__swatch {
+  background: var(--sw);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: inline-block;
+  height: 0.75em;
+  margin-right: var(--pb-space-2);
+  vertical-align: baseline;
+  width: 0.75em;
+}
+/* The bottom row of Settings: the version and links centred, View Logs at the right. */
+.sode__foot { align-items: center; display: grid; gap: var(--pb-space-5); grid-template-columns: 1fr auto 1fr; }
+.sode__foot .sode__about { justify-content: center; }
+.sode__foot > .sode__logs { justify-self: end; }
+@media (max-width: 599.98px) {
+  .sode__foot, .sode__settings[data-locked] > .sode__lock-exit { grid-template-columns: 1fr; justify-items: center; }
+  .sode__foot > :first-child { display: none; }
+  .sode__lock-exit > .sode__logs, .sode__foot > .sode__logs, .sode__lock-exit > :first-child { justify-self: center; }
+}
+/* Two checkboxes in a row (Page locks). */
+.sode__field [role="group"] .pb-check + .pb-check { margin-left: var(--pb-space-5); }
+#settings-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

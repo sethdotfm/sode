@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -391,5 +392,52 @@ func TestConfigExportRechecksPin(t *testing.T) {
 	}
 	if _, text, err := a.ExportConfig(adminClient(t, a), true); err != nil || text == "" {
 		t.Fatalf("unlocked export: %v", err)
+	}
+}
+
+// A blank install (no settings PIN, no users) importing a multiuser file that
+// carries no PINs (an export without PINs): refused with a plain message, the
+// live config untouched, nothing half-applied. A file with no users, or with
+// PIN hashes, goes in.
+func TestConfigImportIntoBlankInstall(t *testing.T) {
+	src := userApp(t, true) // users, locks on, a settings PIN
+	text, _ := exportOf(t, src, false)
+
+	blank := func() *App {
+		cfg := config.Defaults()
+		cfg.Normalize()
+		hist, _ := OpenHistory("")
+		sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := New(cfg, filepath.Join(settledTempDir(t), "config.yaml"), hist, sl, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+
+	a := blank()
+	err := a.ImportConfig(&client{ip: "10.0.0.9"}, text)
+	if err == nil || !strings.Contains(err.Error(), "no PIN") {
+		t.Fatalf("PIN-less multiuser file on a blank install: %v", err)
+	}
+	if len(a.r().cfg.Users) != 0 || a.r().cfg.Locks.Main {
+		t.Fatalf("a refused import changed the config: %+v", a.r().cfg.Users)
+	}
+
+	// With the PIN hashes (an export with PINs) the same file is fine.
+	full, _ := exportOf(t, src, true)
+	if err := blank().ImportConfig(&client{ip: "10.0.0.9"}, full); err != nil {
+		t.Fatalf("export with PINs: %v", err)
+	}
+
+	// No users and no locks: nothing needs a PIN.
+	file, _ := config.Parse([]byte(text))
+	file.Users, file.Locks = nil, config.Locks{}
+	b, _ := yaml.Marshal(file)
+	if err := blank().ImportConfig(&client{ip: "10.0.0.9"}, string(b)); err != nil {
+		t.Fatalf("file without users: %v", err)
 	}
 }
