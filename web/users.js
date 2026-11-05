@@ -237,6 +237,10 @@ on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
 // ---- open / close / save
 
 function openUsers() {
+  // The list and the saving need the settings PIN, which a trusted user may not
+  // have entered: ask for it (Settings shows its PIN prompt) instead of an
+  // editor with no users in it.
+  if (S.pinSet && !unlocked()) { demandPin(); emit('locked'); return; }
   back = document.activeElement;
   isOpen = true;
   setNote('');
