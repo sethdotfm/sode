@@ -63,8 +63,16 @@
 [data-flip] .sode__box--levels ~ .sode__box { order: 5; }
 .sode__chips[hidden] { display: none; }
 /* Source and destination colors on their inputs, as on the phone. */
-.sode__box--src .sode__input { border-left: var(--sode-side-w) solid var(--pb-source); }
-.sode__box--dst .sode__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
+/* The colour edge is a background strip inside the input, so its border (and
+   focus ring) runs unbroken all the way round. */
+.sode__box--src .sode__input,
+.sode__box--dst .sode__input {
+  background-repeat: no-repeat;
+  background-size: var(--sode-side-w) 100%;
+  padding-left: calc(var(--pb-space-3) + var(--sode-side-w) - var(--pb-border-w));
+}
+.sode__box--src .sode__input { background-image: linear-gradient(var(--pb-source), var(--pb-source)); }
+.sode__box--dst .sode__input { background-image: linear-gradient(var(--pb-dest), var(--pb-dest)); }
 /* About eight rows plus the count; the rest scrolls. */
 /* The list and its count line hang under the box together (the count sits
    under what scrolls, so a very long list still shows it). */

@@ -186,10 +186,10 @@ const MOVE = { down: 1, up: -1, 'ctrl+j': 1, 'ctrl+k': -1, 'meta+j': 1, 'meta+k'
 dialog.addEventListener('keydown', (e) => {
   const onButton = !!e.target.closest?.('button');
   const c = chord(e);
-  const slot = /^alt\+([1-9])$/.exec(c);
+  const slot = /^alt\+(shift\+)?([1-9])$/.exec(c);
   if (c in NUDGE) { e.preventDefault(); nudge(NUDGE[c]); return; }
   if (c === 'alt+p') { e.preventDefault(); if (!e.repeat && shownList[hi]) togglePin(shownList[hi]); return; }
-  if (slot) { e.preventDefault(); if (!e.repeat) pressPreset(pinnedPresets()[+slot[1] - 1]); return; }
+  if (slot) { e.preventDefault(); if (!e.repeat) pressPreset(pinnedPresets()[+slot[2] - 1], !!slot[1]); return; }
   if (c in MOVE) { e.preventDefault(); move(MOVE[c]); }
   else if ((c === 'enter' || c === 'shift+enter') && !onButton) { e.preventDefault(); pressPreset(shownList[hi], e.shiftKey); }
   else return;

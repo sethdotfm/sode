@@ -565,7 +565,7 @@ html { font-size: 125%; }
   padding: 0 var(--pb-space-2);
 }
 .sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sode__last > .sode__key-note, .sode__next-in > .sode__key-note { font-size: 0.8em; position: static; transform: none; } /* small next to the chip's own text */
+.sode__last > .sode__key-note, .sode__next-in > .sode__key-note { font-size: 0.7em; position: static; transform: none; } /* small next to the chip's own text */
 /* Next: just the tag until hovered, focused or Shift is held, then it opens
    leftward over the Last chip. The slot keeps the closed chip's room and the
    chip is pinned to its right edge, so the row never shifts. */
@@ -575,7 +575,7 @@ html { font-size: 125%; }
 .sode__next { bottom: 0; flex: none; position: absolute; right: 0; top: 0; width: max-content; z-index: 1; }
 .sode__tag { color: var(--pb-text-muted); font-weight: var(--pb-weight-bold); }
 /* The closed Next chip shows its key after the tag; open, the key sits by the value. */
-.sode__next > .sode__tag-key { margin-left: var(--pb-space-2); }
+.sode__next > .sode__tag-key { margin-left: 0; }
 .sode__next:is(:hover, :focus-visible) > .sode__tag-key,
 html[data-shift] .sode__next > .sode__tag-key { display: none; }
 /* Open, it is plainly the other chip: accent edge and tag, and the Last

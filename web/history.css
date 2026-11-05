@@ -425,8 +425,8 @@
 /* Desktop Recent: the filter boxes and the sets share one row, the sets taking
    what the boxes leave. */
 .sode__recent-tools { align-items: flex-start; display: flex; flex-wrap: wrap; gap: var(--pb-space-1) var(--pb-space-3); }
-.sode__recent-tools > .sode__search { flex: 0 1 auto; }
-.sode__sets-bar { align-items: center; display: flex; flex: 1 1 20rem; gap: var(--pb-space-3); min-width: 0; padding-top: var(--pb-space-3); }
+.sode__recent-tools > .sode__search { flex: none; max-width: 100%; } /* never squeezed: its two boxes stay side by side, the sets wrap below instead */
+.sode__sets-bar { align-items: center; display: flex; flex: 1 1 16rem; gap: var(--pb-space-3); min-width: 0; padding-top: var(--pb-space-3); }
 .sode__set { font-size: var(--pb-text-xs); padding: var(--pb-space-1) var(--pb-space-3); }
 .sode__filters-sets {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
@@ -593,7 +593,7 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
 /* The strip is a Recent bar (.sode__recent-head): the title, the sets
    (pinned presets), then ghost buttons. Chips fill the middle. */
 .sode__presets { margin: var(--pb-space-3) 0; width: 100%; }
-.sode__presets > .sode__sets { flex: 1; justify-content: flex-start; }
+.sode__presets > .sode__sets { flex: 1; justify-content: center; } /* centred while they fit; scrolling when not */
 /* Presets are taller than the filter sets' chips, so the two rows read apart. */
 .sode__presets .sode__set { font-size: var(--pb-text-sm); min-height: var(--pb-control-h); }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
