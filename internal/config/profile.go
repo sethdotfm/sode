@@ -23,7 +23,17 @@ type Profile struct {
 	Prefs      map[string]string `yaml:"prefs,omitempty" json:"prefs"`
 	FilterSets []FilterSet       `yaml:"filterSets,omitempty" json:"filterSets"`
 	Presets    []Preset          `yaml:"presets,omitempty" json:"presets"`
+	// PinOrder is the order of this user's pinned presets in the strip and the
+	// Presets popup: keys "scope:lowercase name" (scope global, local or user).
+	// Keys that match nothing are ignored; pinned presets not listed come after.
+	PinOrder []string `yaml:"pinOrder,omitempty" json:"pinOrder"`
 }
+
+// MaxPinOrder caps PinOrder, and MaxPinKey one key, in runes.
+const (
+	MaxPinOrder = 200
+	MaxPinKey   = 80
+)
 
 // PrefValues is the Go twin of PREFS in web/prefs.js: every per-browser
 // setting and the values it may have. Keep the two in step
@@ -41,15 +51,17 @@ var PrefValues = map[string][]string{
 
 // Empty reports whether the profile holds nothing.
 func (p Profile) Empty() bool {
-	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0
+	return len(p.Prefs) == 0 && len(p.FilterSets) == 0 && len(p.Presets) == 0 && len(p.PinOrder) == 0
 }
 
 // Items counts what the profile holds (prefs, filter sets, presets).
-func (p Profile) Items() int { return len(p.Prefs) + len(p.FilterSets) + len(p.Presets) }
+func (p Profile) Items() int {
+	return len(p.Prefs) + len(p.FilterSets) + len(p.Presets) + len(p.PinOrder)
+}
 
 // Clone copies p so the copy shares no maps or slices.
 func (p Profile) Clone() Profile {
-	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets)}
+	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder)}
 }
 
 // Normalized is p made ready to send: unknown pref names dropped, names
@@ -68,7 +80,24 @@ func (p Profile) Normalized() Profile {
 	tmp := Config{Presets: p.Presets}
 	tmp.normalizePresets()
 	p.Presets = tmp.Presets
+	p.PinOrder = normalizePinOrder(p.PinOrder)
 	return p
+}
+
+// normalizePinOrder trims the keys, lowercases them, drops empty, repeated and
+// over-long ones and cuts the list at MaxPinOrder. Never nil.
+func normalizePinOrder(in []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, k := range in {
+		k = strings.ToLower(strings.TrimSpace(k))
+		if k == "" || seen[k] || len([]rune(k)) > MaxPinKey || len(out) >= MaxPinOrder {
+			continue
+		}
+		seen[k] = true
+		out = append(out, k)
+	}
+	return out
 }
 
 // normalizeProfiles normalizes every user's profile, and keeps an empty one

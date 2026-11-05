@@ -9,10 +9,10 @@
 import { on, onMsg, emit, wsSend } from './core.js';
 import { findByName } from './profilesrules.js';
 
-const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [] });
+const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], pinOrder: [] });
 let cur = EMPTY;
 
-// { name, prefs, filterSets, presets }; name '' means nobody / no users.
+// { name, prefs, filterSets, presets, pinOrder }; name '' means nobody / no users.
 export const profile = () => cur;
 export const profileName = () => cur.name;
 
@@ -24,6 +24,7 @@ export function toProfile(m) {
     prefs: m.prefs && typeof m.prefs === 'object' ? m.prefs : {},
     filterSets: Array.isArray(m.filterSets) ? m.filterSets : [],
     presets: Array.isArray(m.presets) ? m.presets : [],
+    pinOrder: Array.isArray(m.pinOrder) ? m.pinOrder.filter((k) => typeof k === 'string') : [],
   };
 }
 
@@ -79,7 +80,7 @@ on('wsclose', () => {
 // whole parts, so two in flight could lose one.
 let chain = Promise.resolve();
 
-// Saves some parts of a profile ({prefs}, {filterSets}, {presets}; a part
+// Saves some parts of a profile ({prefs}, {filterSets}, {presets}, {pinOrder}; a part
 // left out is kept; a part sent replaces the whole list/map). `name` is the
 // owner: the logged-in user by default; a trusted user may name another.
 // Resolves { ok, err, locked }. No PIN is asked for here: the server decides

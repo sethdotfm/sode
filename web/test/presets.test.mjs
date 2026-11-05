@@ -197,3 +197,22 @@ test('isBlankRow: only a row with nothing typed', async () => {
   assert.equal(isBlankRow({ src: '1', dsts: '', levels: '' }), false);
   assert.equal(isBlankRow({ src: '', dsts: '', levels: '2' }), false);
 });
+
+test('orderPins: saved order first, the rest after in their own order', async () => {
+  const { orderPins, presetKey } = await setup();
+  const mk = (scope, name) => ({ scope, name });
+  const list = [mk('global', 'A'), mk('user', 'B'), mk('local', 'C'), mk('global', 'D')];
+  assert.deepEqual(orderPins(list, []).map((s) => s.name), ['A', 'B', 'C', 'D']);
+  const order = [presetKey(mk('local', 'c')), presetKey(mk('global', 'D')), 'global:gone'];
+  assert.deepEqual(orderPins(list, order).map((s) => s.name), ['C', 'D', 'A', 'B']);
+  assert.equal(presetKey(mk('user', 'Mon 1')), 'user:mon 1');
+});
+
+test('pinOrder: a guest keeps it in this browser, setPinOrder writes it', async () => {
+  const { pinOrder, setPinOrder } = await setup();
+  assert.deepEqual(pinOrder(), []);
+  setPinOrder(['local:x', 'global:y']);
+  assert.deepEqual(pinOrder(), ['local:x', 'global:y']);
+  setPinOrder([]);
+  assert.deepEqual(pinOrder(), []);
+});

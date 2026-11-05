@@ -36,6 +36,7 @@ type profileReq struct {
 	Prefs      map[string]string
 	FilterSets []config.FilterSet
 	Presets    []config.Preset
+	PinOrder   []string
 }
 
 // profileGetResult answers profileGet (failures are an opResult of the
@@ -105,7 +106,7 @@ func (a *App) pushProfileLocked(c *client) {
 // ProfileSave replaces the given parts of the named user's profile, and
 // returns how many items it was given.
 func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
-	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets)
+	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.PinOrder)
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardProfile(c, req.Name); err != nil {
@@ -128,6 +129,9 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 			if req.Presets != nil {
 				u.Profile.Presets = config.ClonePresets(req.Presets)
 			}
+			if req.PinOrder != nil {
+				u.Profile.PinOrder = slices.Clone(req.PinOrder)
+			}
 			return nil
 		}
 		return errNoSuchUser
@@ -149,7 +153,7 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 // serveProfileSave handles a profileSave the policy admitted. The log note
 // says whose profile and how many things; never a value.
 func (a *App) serveProfileSave(c *client, m *inMsg) {
-	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets})
+	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder})
 	note := fmt.Sprintf("%s: %d %s", cleanPresetName(m.Name), n, plural(n, "item", "items"))
 	a.replyOpNote(c, "profileSave", m.ID, note, err)
 }

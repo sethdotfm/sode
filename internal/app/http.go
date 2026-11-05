@@ -424,6 +424,7 @@ type inMsg struct {
 	Prefs      map[string]string  `json:"prefs"`
 	FilterSets []config.FilterSet `json:"filterSets"`
 	Presets    []config.Preset    `json:"presets"`
+	PinOrder   []string           `json:"pinOrder"`
 	Page       string             `json:"page"`  // hi: main | log
 	Token      string             `json:"token"` // hi: session token of a persistent user or a tab login
 	Tab        bool               `json:"tab"`   // userUnlock: no lock on, wants a tab session token

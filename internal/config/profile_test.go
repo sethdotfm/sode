@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -119,5 +120,26 @@ func TestPrefTable(t *testing.T) {
 		if strings.Join(PrefValues[name], ",") != strings.Join(vals, ",") {
 			t.Errorf("%s: prefs.js %v, Go %v", name, vals, PrefValues[name])
 		}
+	}
+}
+
+func TestProfilePinOrderNormalized(t *testing.T) {
+	p := Profile{PinOrder: []string{" Global:Cam ", "global:cam", "", "user:Mon 1", strings.Repeat("x", MaxPinKey+1)}}
+	got := p.Normalized().PinOrder
+	if len(got) != 2 || got[0] != "global:cam" || got[1] != "user:mon 1" {
+		t.Fatalf("pin order %q", got)
+	}
+	if (Profile{PinOrder: []string{"a"}}).Empty() {
+		t.Fatal("a profile with only a pin order is not empty")
+	}
+	if n := (Profile{}).Normalized().PinOrder; n == nil || len(n) != 0 {
+		t.Fatalf("empty pin order must be [] not %v", n)
+	}
+	long := make([]string, MaxPinOrder+50)
+	for i := range long {
+		long[i] = fmt.Sprintf("local:p%d", i)
+	}
+	if n := len((Profile{PinOrder: long}).Normalized().PinOrder); n != MaxPinOrder {
+		t.Fatalf("cut at %d, got %d", MaxPinOrder, n)
 	}
 }

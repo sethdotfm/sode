@@ -7,7 +7,7 @@
 
 import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
-import { profile, profileName } from './profile.js';
+import { profile, profileName, saveProfile } from './profile.js';
 
 // The limits the server enforces too (internal/config/presets.go); the
 // shared cases in test/preset_cases.json keep the two from drifting.
@@ -19,6 +19,7 @@ export const MAX_NUM = 0xFFFE;   // a source or destination number
 export const MAX_LEVEL = 64;     // a UI level
 export const MAX_BYTES = 48 * 1024; // all presets as JSON
 const KEY = 'sode-presets';
+const ORDER = 'sode-preset-order'; // guests: the order of the pinned presets, ["scope:lowercase name"]
 const PINS = 'sode-preset-pins'; // this browser's pin overrides of everyone's presets { lowercase name: bool }
 
 // Before Beta 1.5 was released these were called salvos: move what a browser
@@ -162,9 +163,33 @@ export function effectivePin(s, overrides = pinOverrides()) {
   }
   return s.pinned !== false;
 }
+// ---- the order of the pinned presets: the logged-in user's (their profile,
+// so it follows them), else this browser's. Keys are "scope:lowercase name".
+export const presetKey = (s) => `${s.scope}:${pinKey(s.name)}`;
+export function pinOrder() {
+  const raw = profileName() ? profile().pinOrder : readJSON(ORDER, []);
+  return Array.isArray(raw) ? raw.filter((k) => typeof k === 'string') : [];
+}
+// list in the saved order: the ones the order lists first, the rest after in
+// their own order (a stable sort).
+export function orderPins(list, order = pinOrder()) {
+  const at = new Map(order.map((k, i) => [k, i]));
+  const rank = (s) => at.get(presetKey(s)) ?? Infinity;
+  return list.map((s, i) => [s, i]).sort((a, b) => (rank(a[0]) === rank(b[0]) ? a[1] - b[1] : rank(a[0]) - rank(b[0]))).map((x) => x[0]);
+}
+// Saves the order of the pinned presets (keys), for the user or this browser.
+export function setPinOrder(keys) {
+  if (profileName()) {
+    saveProfile({ pinOrder: keys });
+    emit('presets'); // saveProfile already holds the new copy
+    return;
+  }
+  writeJSON(ORDER, keys.length ? keys : null);
+  emit('presets');
+}
 export function pinnedPresets(list = allPresets()) {
   const o = pinOverrides(list);
-  return list.filter((s) => effectivePin(s, o));
+  return orderPins(list.filter((s) => effectivePin(s, o)));
 }
 // Pins or unpins s for this browser only. A global preset gets an override
 // (dropped again when it equals the preset's own flag); a local one changes

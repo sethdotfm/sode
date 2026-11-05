@@ -9,7 +9,7 @@ import { trapDialog } from './widgets.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { fire, presetShown } from './presets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
-import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets } from './presetstore.js';
+import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, orderPins, presetKey, setPinOrder } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 
 const mac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -56,7 +56,7 @@ done.addEventListener('click', () => close());
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'preset-pop-title' })),
   el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl, shareUI.box,
-    el('span', 'sode__hint', `↑/↓ or ${mac ? '⌘' : 'Ctrl+'}j/k to move, Enter to fire, Esc to close. Pinned presets are the buttons above Recent.`)),
+    el('span', 'sode__hint', `↑/↓ or ${mac ? '⌘' : 'Ctrl+'}j/k to move, Enter to fire, Esc to close. Pinned presets come first and are the buttons above Recent; drag them, or Alt+↑/↓, to reorder.`)),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
 document.body.append(root);
@@ -93,11 +93,17 @@ function draw() {
   const f = document.activeElement;
   const at = list.contains(f) && f.closest('.sode__preset-item')
     ? [f.closest('.sode__preset-item').id, [...f.closest('.sode__preset-item').querySelectorAll('button')].indexOf(f)] : null;
-  shownList = rankPresets(allPresets(), input.value);
-  hi = Math.max(0, Math.min(hi, shownList.length - 1));
   const ov = pinOverrides();
+  // Pinned presets first, in the strip's order (the saved one), then the rest;
+  // a search keeps its ranking inside each part.
+  const ranked = rankPresets(allPresets(), input.value);
+  const isPinned = (s) => effectivePin(s, ov);
+  const pins = orderPins(ranked.filter(isPinned));
+  shownList = [...(input.value.trim() ? ranked.filter(isPinned) : pins), ...ranked.filter((s) => !isPinned(s))];
+  hi = Math.max(0, Math.min(hi, shownList.length - 1));
+  const reorder = !input.value.trim() && pins.length > 1;
   list.replaceChildren(...shownList.map((s, i) => {
-    const pinned = effectivePin(s, ov);
+    const pinned = isPinned(s);
     const main = el('button', 'sode__preset-main', el('strong', null, s.name),
       el('span', 'sode__hint', ` ${scopeText(s)}${pinned ? '' : ' · not pinned'}`));
     main.type = 'button';
@@ -113,7 +119,10 @@ function draw() {
         saver.change({ presets: withGlobalPin(s.name, !flag) }, () => clearPinOverride(s.name));
       }));
     }
-    const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, main, el('span', 'sode__preset-tools', ...tools));
+    const grip = pinned && reorder ? el('span', 'sode__preset-grip', icon('grip-vertical')) : null;
+    if (grip) grip.title = 'Drag to reorder (Alt+↑/↓)';
+    const row = el('div', `sode__preset-item${i === hi ? ' is-hi' : ''}`, ...(grip ? [grip] : []), main, el('span', 'sode__preset-tools', ...tools));
+    if (grip) dragRow(row, s);
     row.id = `preset-pop-${i}`;
     row.setAttribute('role', 'option');
     row.setAttribute('aria-selected', String(i === hi));
@@ -124,6 +133,36 @@ function draw() {
   else input.removeAttribute('aria-activedescendant');
   list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
   if (at) (document.getElementById(at[0])?.querySelectorAll('button')[at[1]] || input).focus();
+}
+
+// ---- reordering the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
+let dragKey = '';
+function pinKeys() { return shownList.filter((s) => effectivePin(s, pinOverrides())).map(presetKey); }
+function dropAt(from, to) {
+  if (!from || from === to) return;
+  const keys = pinKeys().filter((k) => k !== from);
+  keys.splice(to ? keys.indexOf(to) : keys.length, 0, from);
+  setPinOrder(keys);
+}
+function dragRow(row, s) {
+  const key = presetKey(s);
+  row.draggable = true;
+  row.addEventListener('dragstart', (e) => { dragKey = key; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', s.name); row.classList.add('is-dragging'); });
+  row.addEventListener('dragend', () => { dragKey = ''; row.classList.remove('is-dragging'); for (const r of list.querySelectorAll('.is-over')) r.classList.remove('is-over'); });
+  row.addEventListener('dragover', (e) => { if (dragKey && dragKey !== key) { e.preventDefault(); row.classList.add('is-over'); } });
+  row.addEventListener('dragleave', () => row.classList.remove('is-over'));
+  row.addEventListener('drop', (e) => { e.preventDefault(); row.classList.remove('is-over'); dropAt(dragKey, key); dragKey = ''; });
+}
+// Moves the highlighted pinned preset one place up or down among the pins.
+function nudge(d) {
+  const s = shownList[hi];
+  if (!s || input.value.trim() || !effectivePin(s, pinOverrides())) return;
+  const keys = pinKeys();
+  const i = keys.indexOf(presetKey(s)), j = i + d;
+  if (i < 0 || j < 0 || j >= keys.length) return;
+  [keys[i], keys[j]] = [keys[j], keys[i]];
+  hi = j; // pins are the top rows, so the row index follows
+  setPinOrder(keys);
 }
 
 function move(d) {
@@ -149,6 +188,11 @@ dialog.addEventListener('mousedown', (e) => {
 dialog.addEventListener('keydown', (e) => {
   // A focused button keeps its own Enter/Space; anywhere else the keys drive the list.
   const onButton = !!e.target.closest?.('button');
+  if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    nudge(e.key === 'ArrowUp' ? -1 : 1);
+    return;
+  }
   const jk = (e.ctrlKey !== e.metaKey) && !e.altKey && !e.shiftKey ? { j: 1, k: -1 }[e.key.toLowerCase()] : 0;
   if (e.key === 'ArrowDown' || jk === 1) { e.preventDefault(); move(1); }
   else if (e.key === 'ArrowUp' || jk === -1) { e.preventDefault(); move(-1); }
