@@ -22,3 +22,35 @@ test('topDialog: one hidden by someone else is skipped', () => {
   b.root.hidden = false;
   assert.equal(topDialog([a, b]), b);
 });
+
+import { backdropClose, bringToFront } from '../dialogkeys.js';
+
+test('backdropClose: only when press and release were both on the backdrop', () => {
+  const root = {}, inner = {};
+  assert.equal(backdropClose(root, root, root), true);
+  assert.equal(backdropClose(inner, root, root), false);
+  assert.equal(backdropClose(root, inner, root), false);
+  assert.equal(backdropClose(null, root, root), false);
+});
+
+test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => {
+  const kids = [];
+  const parent = {
+    get lastElementChild() { return kids[kids.length - 1]; },
+    appendChild(n) { const i = kids.indexOf(n); if (i >= 0) kids.splice(i, 1); kids.push(n); active = null; },
+  };
+  let active = null;
+  const field = { focus() { active = field; } };
+  const a = { parentNode: parent, contains: (x) => x === field };
+  const b = { parentNode: parent, contains: () => false };
+  kids.push(a, b);
+  globalThis.document = { get activeElement() { return active; } };
+  active = field;
+  bringToFront(a);
+  assert.deepEqual(kids, [b, a]);
+  assert.equal(active, field);
+  bringToFront(a); // already last: nothing moves
+  assert.deepEqual(kids, [b, a]);
+  bringToFront({ parentNode: null }); // detached: no error
+  delete globalThis.document;
+});

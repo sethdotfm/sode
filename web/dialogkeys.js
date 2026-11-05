@@ -20,6 +20,23 @@ export function topDialog(entries) {
   return top;
 }
 
+// A click closes a dialog only when it both started and ended on the backdrop
+// (root itself): a text selection dragged out of the dialog must not.
+export function backdropClose(downTarget, upTarget, root) {
+  return downTarget === root && upTarget === root;
+}
+
+// Stacking: scrims share one z-index, so DOM order decides. Moving root to the
+// end of its parent puts it in front. A no-op when already last (focus and
+// scroll survive), and focus inside it is put back if the move dropped it.
+export function bringToFront(root) {
+  const parent = root.parentNode;
+  if (!parent || parent.lastElementChild === root) return;
+  const had = root.contains(document.activeElement) ? document.activeElement : null;
+  parent.appendChild(root);
+  if (had && document.activeElement !== had) had.focus({ preventScroll: true });
+}
+
 function listen() {
   if (listening) return;
   listening = true;
@@ -45,6 +62,13 @@ export function trapDialog(root, dialog, onEsc) {
   const entry = { root, onEsc, order: 0 };
   stack.push(entry);
   listen();
+  let down = null;
+  root.addEventListener('mousedown', (e) => { down = e.target; });
+  root.addEventListener('click', (e) => {
+    const d = down;
+    down = null;
+    if (backdropClose(d, e.target, root)) onEsc();
+  });
   root.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Escape') { e.preventDefault(); onEsc(); return; }
@@ -55,7 +79,7 @@ export function trapDialog(root, dialog, onEsc) {
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
   return {
-    show() { root.hidden = false; entry.order = ++shows; },
+    show() { root.hidden = false; bringToFront(root); entry.order = ++shows; },
     hide() { root.hidden = true; },
   };
 }
