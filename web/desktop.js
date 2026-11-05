@@ -21,6 +21,7 @@ import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
 import { picking, isPicked, pickBox, togglePick, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
+import { showAll } from './showall.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, UNDO_TIP_ALL, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
@@ -784,9 +785,10 @@ for (const k of ['src', 'dst']) {
     renderTally();
   });
   b.input.addEventListener('blur', () => b.cb.close());
-  // Focus shows every source or destination to scroll through (the chosen one
-  // highlighted); unconfirmed text keeps its own matches.
-  b.input.addEventListener('focus', () => showList(k, sel[k]?.n));
+  // Focus lists nothing in an empty or confirmed box: its "Show all" button is
+  // there instead (↓ or ↑ opens the whole list too). Unconfirmed text keeps its matches.
+  b.input.addEventListener('focus', () => { if (!sel[k] && b.input.value.trim()) b.cb.refresh(); b.all.sync(); });
+  b.all = showAll(b, $(`${k}-menu`), $(`${k}-all`), () => sel[k]);
 }
 // The list under a box: every item to scroll through when it holds no text or
 // a confirmed choice (at: the row to highlight), else the matches for its text.
@@ -870,6 +872,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  // ↓ or ↑ in a box with no list open (empty, confirmed, nothing found) opens the whole list.
+  if (b && !b.cb.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    e.preventDefault();
+    b.all.open();
+    return;
+  }
   // The match list's keys: ↑/↓, PgUp/PgDn, Ctrl+J/K (and ⌘J/K on a Mac).
   if (b && b.cb.nav(e)) return;
   // Ctrl+Enter and ⌘Enter add another destination too.
@@ -954,10 +962,10 @@ on('hello', () => {
 });
 on('names', () => {
   // The focused box's list is drawn again from the new names, on the row it
-  // was on. A confirmed box whose list is closed (Esc) stays closed.
+  // was on. An empty or confirmed box whose list is closed stays closed.
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
-    if (document.activeElement !== b.input || (sel[k] && !b.cb.open)) continue;
+    if (document.activeElement !== b.input || (!b.cb.open && (sel[k] || !b.input.value.trim()))) continue;
     showList(k, b.cb.open ? b.cb.current()?.n : sel[k]?.n, true);
   }
   renderTally();

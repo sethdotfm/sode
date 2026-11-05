@@ -83,7 +83,8 @@
   top: 100%;
   z-index: var(--pb-z-dropdown, 10);
 }
-.sode__menu-pop:has(> .sode__menu:not([hidden])) { box-shadow: var(--pb-shadow-overlay); }
+.sode__menu-pop:has(> .sode__menu:not([hidden])),
+.sode__menu-pop:has(> .sode__menu-all:not([hidden])) { box-shadow: var(--pb-shadow-overlay); }
 .sode__menu-pop > .sode__menu { box-shadow: none; } /* the pop-up carries it, so the count line is inside it */
 .sode__menu {
   max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
@@ -110,6 +111,14 @@
   padding: var(--pb-space-2) var(--pb-space-4);
 }
 .sode__menu-count[hidden] { display: none; }
+/* An empty or unmatched box offers its whole list on a small button instead of opening it. */
+.sode__menu-all {
+  background: var(--pb-surface-overlay);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+.sode__menu-all[hidden] { display: none; }
 .sode__num {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-num);
