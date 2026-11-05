@@ -136,6 +136,8 @@
   align-items: center;
   display: flex;
   gap: var(--pb-space-3);
+  /* Same height with or without the button, so the name stays centred. */
+  min-height: calc(var(--pb-control-h-sm) + var(--pb-space-2) * 2);
   padding: var(--pb-space-2) var(--pb-space-3);
 }
 /* The lock button is a square at the chip's corner: equal sides, icon centred. */
@@ -175,7 +177,16 @@
 }
 /* While a lock is up the chip sits over the overlay's border: no background,
    so the border stays whole. */
-[data-sode-lock] .sode-lock__who { background: transparent; }
+[data-sode-lock] .sode-lock__who {
+  background: transparent;
+  /* Inside the border (--pb-space-5 wide), not on it. */
+  left: calc(var(--pb-space-5) + var(--pb-space-4));
+  top: calc(var(--pb-space-5) + var(--pb-space-4) + var(--sode-down-h, 0px));
+}
+[data-sode-lock][data-layout="phone"] .sode-lock__who {
+  top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
+}
+[data-sode-lock] .sode-lock__who-bar { padding: var(--pb-space-2) var(--pb-space-4); }
 .sode-lock__pin-form { display: flex; flex-direction: column; gap: var(--pb-space-5); }
 .sode-lock__field { display: flex; flex-direction: column; gap: var(--pb-space-2); }
 .sode-lock__pin-note { margin: 0; min-height: 1.5em; }
