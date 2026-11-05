@@ -178,6 +178,16 @@ html { font-size: 125%; }
   gap: var(--pb-space-3);
   width: 100%;
 }
+/* Desktop: the banner floats at the bottom right, over the page, so a match
+   list or the boxes never cover it and nothing moves when it comes and goes.
+   (Settings is bottom left, the connection chip top right.) */
+:root:not([data-layout="phone"]) .sode__result {
+  bottom: var(--pb-space-4);
+  position: fixed;
+  right: var(--pb-space-5);
+  width: min(36rem, calc(100% - 2 * var(--pb-space-5)));
+  z-index: var(--pb-z-dropdown); /* over the match lists, under dialogs */
+}
 .sode__route {
   align-items: center;
   display: flex;
@@ -628,6 +638,9 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
   transition: grid-template-rows var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease);
   width: 100%;
 }
+/* In and out are the same motion: the row opens from 0fr as it fades up. */
+.sode__banner { animation: sode-banner-in var(--pb-motion-normal) var(--pb-ease); }
+@keyframes sode-banner-in { from { grid-template-rows: 0fr; opacity: 0; } }
 .sode__banner--out { grid-template-rows: 0fr; opacity: 0; }
 .sode__banner-in { min-height: 0; overflow: hidden; }
 .sode__banner-body { flex: 1; min-width: 0; }
