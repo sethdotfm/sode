@@ -83,10 +83,10 @@ function renderStrips() {
     edit.addEventListener('click', () => openPresets());
     const chips = list.map((s, i) => {
       const b = el('button', 'pb-chip sode__set', s.name);
-      // Option/Alt+1-9 fire the first nine: the key opens out of the chip while Option is held.
+      // Option/Alt+1-9 fire the first nine: the key slides in over the chip while Option is held.
       if (i < 9) {
         const k = `${mac ? '⌥' : 'Alt+'}${i + 1}`;
-        b.append(el('span', 'sode__chip-key', el('span', null, el('kbd', 'sode__key-note', k))));
+        b.append(el('span', 'sode__chip-key', el('kbd', 'sode__key-note', k)));
         b.setAttribute('aria-keyshortcuts', `Alt+${i + 1}`);
       }
       b.type = 'button';

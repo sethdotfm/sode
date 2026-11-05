@@ -527,11 +527,23 @@
 .sode__keyed > .sode__key-note { font-size: var(--pb-text-xs); right: var(--pb-space-3); }
 /* The boxes' s/d/f keys only show in keyboard mode. */
 html:not([data-keys-on]) :is(.sode__keyed, .sode__search-box) > .sode__key-note { display: none !important; }
-/* A preset chip's Option+number opens out of it while Option is held, as Next opens. */
-.sode__chip-key { display: grid; grid-template-columns: 0fr; margin-left: calc(var(--pb-space-1) * -1); min-width: 0; opacity: 0; transition: grid-template-columns var(--pb-motion-normal) var(--pb-ease), margin var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease); }
-.sode__chip-key > span { align-items: center; display: flex; min-width: 0; overflow: hidden; white-space: nowrap; }
-.sode__chip-key > span > .sode__key-note { padding-left: var(--pb-space-2); position: static; transform: none; }
-html[data-alt] .sode__chip-key { grid-template-columns: 1fr; margin-left: 0; opacity: 1; }
+/* A preset chip's Option+number slides in over its name, in the accent colour, while
+   Option is held. The chip keeps its size, so nothing wraps or moves. */
+.sode__set:has(> .sode__chip-key) { overflow: hidden; position: relative; }
+.sode__chip-key {
+  align-items: center;
+  background: var(--pb-accent);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(100%);
+  transition: transform var(--pb-motion-normal) var(--pb-ease);
+}
+.sode__chip-key > .sode__key-note { color: inherit; font-size: var(--pb-text-xs); position: static; transform: none; }
+html[data-alt] .sode__chip-key { transform: none; }
 :is(.sode__keyed, .sode__search-box):has(> .sode__key-note) > .pb-input { padding-right: 3em; }
 :is(.sode__keyed, .sode__search-box) > .pb-input:focus ~ .sode__key-note,
 :is(.sode__keyed, .sode__search-box) > .pb-input:not(:placeholder-shown) ~ .sode__key-note { display: none; }
