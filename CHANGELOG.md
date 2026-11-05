@@ -21,6 +21,15 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - Lock chip: on unlock its background no longer fades in as a grey box under the lock button; it returns when the lock screen is gone.
 - Presets: a saved preset can change scope (*Save for* is no longer fixed; Save copies it to the new scope, then removes it from the old one, with the settings PIN for Everyone unless trusted). *Fill from Recent…* puts Recent into a pick mode: tick takes or folders (optionally with their follows, which are likely router automation), then Add. The Show all chip has a rule after it, the popup's Close sits on the right, and *Copy link* turns green and says *Copied* in place.
 
+- **Preset keys and order**: Option/Alt+1–9 fire the first nine pinned presets (hold Option/Alt to see ⌥1–9 on the chips), Alt+Shift+1–9 fill the patch boxes from one without taking (like Shift+click), and in the Presets popup Alt+P pins or unpins and Alt+↑/↓ or drag reorder the pins. The order is kept in the user's profile (`pinOrder`), else per browser. The popup lists pinned first, has no Share or Pin-for-everyone (both are in the editor) and links to the editor ("Preset Editor"; the editor links back with "Preset Organizer").
+- **Add from Patch Boxes…** in the preset editor: build each take in the normal boxes and press Add (Enter) until Done, beside *Add from Recent…*; the editor's rows show their labels once and blank rows are ignored.
+- **Source and Destination lists** open on focus with every item, the chosen one highlighted (Enter/Tab take a row only once you've picked or moved); the count and keys line is under the list.
+- **Keyboard mode**: Ctrl+J/K (⌘J/K on a Mac) move like j/k; the shortcuts dialog is in sections.
+- **Recent and Presets bars**: the titles have their own row; the filter boxes and the filter sets share one row, always side by side; sets and presets stay on one row with the first chip (All, Show all) pinned and the rest scrolling; preset chips are taller than filter chips; Sode tooltips on the chips and on Undo, Redo and Retry; the Filters button is accent-washed when filters are on and Clear stays, greyed out; the bottom-left shortcut tip is gone.
+- **Windows and Linux**: letting go of a bare Alt no longer focuses the browser's menu bar while presets show, and Alt+1–9 no longer reaches the browser (unverified on a real Windows browser).
+- **Phone**: the lock chip has no lock button and is hidden when it has no name; the lock screen's site name wraps.
+- Internal: `keys.js` (`chord`, held Shift/Alt flags) and `presetkeys.js` (page-level preset keys), pin order in one place, a descriptor per pick mode, the match list's footer as its own element. Two flaky tests fixed.
+
 ## Beta 1.5.0
 
 - **Presets** (#152, renamed from "salvos" in #162): saved multi-source/multi-destination takes as buttons above Recent, per browser or for everyone (Settings PIN). Ctrl+G / ⌘G opens a searchable popup; pinning, an editor, and one history folder per fire.
