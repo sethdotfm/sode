@@ -20,7 +20,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, PAGE_VIEW, viewBody, softLock as softView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock as softView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 
@@ -59,7 +59,7 @@ writeStr('sode-lock-never', null);
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
-let padBody, softBody, softKey, softBtn, softNote, loginAsBtn;
+let padBody, softBody, softKey, softBtn, softNote, loginAsBtn, logOutBtn, softFoot;
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
 let V = PAGE_VIEW; // the one view state: page | soft (hand lock) | login (pad by request); see lockrules.js
 let handOn = false; // the overlay's data-sode-lock is set (told to others as 'handlock')
@@ -116,13 +116,20 @@ function build() {
   softNote = el('p', 'sode-lock__msg');
   softNote.setAttribute('role', 'status');
   softNote.setAttribute('aria-live', 'polite');
-  loginAsBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode-lock__login-as', 'Log in as…');
+  loginAsBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log in as…');
   loginAsBtn.type = 'button';
   loginAsBtn.hidden = true;
   loginAsBtn.addEventListener('click', loginFromHandLock);
-  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote, loginAsBtn);
+  logOutBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log out');
+  logOutBtn.type = 'button';
+  logOutBtn.hidden = true;
+  logOutBtn.addEventListener('click', logOutFromHandLock);
+  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
   softBody.hidden = true;
-  root = el('div', 'sode-lock', brand, padBody, softBody);
+  // The very bottom of the screen: the quiet way to change who is in.
+  softFoot = el('div', 'sode-lock__foot', logOutBtn, loginAsBtn);
+  softFoot.hidden = true;
+  root = el('div', 'sode-lock', brand, padBody, softBody, softFoot);
   root.hidden = true;
   root.tabIndex = -1;
   root.setAttribute('role', 'dialog');
@@ -191,7 +198,9 @@ function showLock() {
   padBody.hidden = body !== 'pad'; // the PIN pad, or the hand lock's letter
   cancelBtn.hidden = V.mode !== 'login';
   softBody.hidden = body !== 'soft';
+  logOutBtn.hidden = !logOutOffered(L);
   loginAsBtn.hidden = !loginAsOffered(L);
+  softFoot.hidden = body !== 'soft' || (logOutBtn.hidden && loginAsBtn.hidden);
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
@@ -494,6 +503,13 @@ function loginFromHandLock() {
   clearFeedback();
   say('');
   render();
+}
+
+// "Log out" under the hand lock: the session ends (token revoked, nobody is
+// logged in) and the hand lock stays up, so the page stays covered.
+function logOutFromHandLock() {
+  if (V.mode !== 'soft' || !logOutOffered(L)) return;
+  lockNow();
 }
 
 on('softLock', softLock);

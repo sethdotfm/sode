@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, PAGE_VIEW, viewBody, softLock, softUnlock, startLogin, cancelLogin, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock, softUnlock, startLogin, cancelLogin, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -274,4 +274,15 @@ test('hand lock: the chip shows for a logged-in user under it only', () => {
   assert.equal(chipShown({ covered: true, soft: true, user: '' }), false);
   assert.equal(chipShown({ covered: false, soft: false, user: '' }), true);
   assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false); // a pad is up
+});
+
+test('hand lock: Log out offered only with a user and no PIN lock; the view stays soft', () => {
+  assert.equal(logOutOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
+  assert.equal(logOutOffered({ enforced: false, user: '', lens: [4] }), false);
+  assert.equal(logOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
+  const v = softLock(PAGE_VIEW, false);
+  // logging out changes no view: lockArrived(false) and loginWon leave soft alone
+  assert.deepEqual(lockArrived(v, false), v);
+  assert.deepEqual(loginWon(v, { enforced: false, unlocked: false, user: '' }), v);
+  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
 });
