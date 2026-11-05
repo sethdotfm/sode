@@ -138,11 +138,10 @@
       <div class="sode__field">
         <label for="lock-pin">Advanced Settings</label>
         <div class="sode__pinrow">
-          <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false" aria-describedby="lock-pin-help">
-          <button type="submit" class="pb-btn pb-btn--ok" id="lock-unlock">Unlock</button>
+          <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false" placeholder="Please enter the administrator PIN">
+          <button type="submit" class="pb-btn" id="lock-unlock">Open</button>
         </div>
         <div class="sode__pinhelp">
-          <span class="sode__hint" id="lock-pin-help">Please enter the administrator PIN</span>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="lock-help-open">Forgot PIN?</button>
         </div>
       </div>
@@ -187,14 +186,14 @@
         </div>
       </div>
       <div class="sode__field sode__ruled" id="account" data-find="account" data-label="Account">
-        <span class="sode__label" id="account-name"></span>
+        <span class="sode__acct" id="account-name"></span>
         <div class="sode__names sode__names--start">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Log in" hidden>Log in</button>
-          <button type="button" class="pb-btn pb-btn--outline" id="soft-lock-btn" data-find="soft-lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#lock"/></svg>Lock</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-profile" data-find="account-profile" data-label="My profile" aria-haspopup="dialog">My profile…</button>
-          <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Export / import…</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Import &amp; Export</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Log out">Log out</button>
+          <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="soft-lock-btn" data-find="soft-lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#lock"/></svg>Lock the screen</button>
         </div>
       </div>
     </fieldset>
@@ -261,13 +260,10 @@
       </div>
     </fieldset>
 
-    <div class="sode__open-log">
-      <a class="pb-btn pb-btn--outline" href="log"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#external-link"/></svg>View Logs</a>
-    </div>
-
     <div class="sode__lock-exit">
       <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
       <span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer" aria-label="GitHub" data-pb-tip="GitHub"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#github"/></svg></a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></span>
+      <a class="pb-btn pb-btn--outline sode__logs" href="log"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#external-link"/></svg>View Logs</a>
     </div>
 
     <fieldset class="sode__group">

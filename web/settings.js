@@ -224,8 +224,8 @@ function readSettings() {
 }
 
 // ---- This device and Defaults for every device: the same six choices
-// (prefs.js). A device one starts with "Global (value)", which follows the
-// default; it applies at once. A default one is saved with the form.
+// (prefs.js). A device one starts with "Everyone's default (value)" ("My" for a
+// user with their own), which follows the default; it applies at once. A default one is saved with the form.
 
 const prefOptions = (name, globalText) => {
   const opt = (value, text) => Object.assign(el('option', null, text), { value });
@@ -296,15 +296,12 @@ function renderPrefs() {
   const user = profileName();
   for (const s of form.querySelectorAll('select[data-pref]')) {
     const name = s.dataset.pref;
-    if (user) {
-      const opt = (value, text) => Object.assign(el('option', null, text), { value });
-      s.replaceChildren(
-        opt('', `${myPref(name) ? 'My' : 'Everyone\'s'} default (${PREFS[name].values[defaultPref(name)]})`),
-        ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
-      );
-    } else {
-      s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
-    }
+    // The same words logged in or not (myPref is '' without a profile).
+    const opt = (value, text) => Object.assign(el('option', null, text), { value });
+    s.replaceChildren(
+      opt('', `${myPref(name) ? 'My' : 'Everyone\'s'} default (${PREFS[name].values[defaultPref(name)]})`),
+      ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
+    );
     s.value = ownPref(name);
     const mb = myButtons.get(name) || (user ? myButton(s) : null);
     if (!mb) continue;
@@ -326,7 +323,7 @@ on('access', (L) => {
   const acct = !!L.user || loginOffered(L);
   $('account').hidden = !acct && L.enforced; // the row also holds Lock
   $('account-name').hidden = !acct;
-  $('account-name').textContent = L.user ? `Logged in as ${L.user}` : 'Not logged in';
+  $('account-name').replaceChildren(...(L.user ? ['Logged in as ', el('strong', null, L.user)] : ['Not logged in']));
   for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
   $('account-login').hidden = !!L.user || !acct;
   $('soft-lock-btn').hidden = L.enforced; // a PIN lock has its own Lock and Log out
