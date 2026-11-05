@@ -54,7 +54,8 @@ html { font-size: 125%; }
 .sode__tip {
   align-items: center;
   background: var(--pb-surface-base);
-  bottom: var(--pb-space-4);
+  /* above the Settings chip (desktop.css .sode__footer) */
+  bottom: calc(var(--pb-space-4) + var(--pb-control-h-sm) + var(--pb-space-2) * 2 + var(--pb-space-2));
   color: var(--pb-text-muted);
   display: flex;
   font-size: var(--pb-text-xs);
