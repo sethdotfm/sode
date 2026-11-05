@@ -206,6 +206,25 @@ func TestConfigFileNeedsSettingsPin(t *testing.T) {
 	}
 }
 
+func TestReadBudget(t *testing.T) {
+	var limit int64
+	b := newReadBudget(func(n int64) { limit = n })
+	if limit != wsReadLimit {
+		t.Fatalf("start %d", limit)
+	}
+	if b.Grant(0) || b.Grant(maxConfigFile+1) || limit != wsReadLimit {
+		t.Fatal("a bad size changed the limit")
+	}
+	if !b.Grant(1000) || limit != 1000*2+importSlack {
+		t.Fatalf("granted %d", limit)
+	}
+	b.Reset()
+	if limit != wsReadLimit {
+		t.Fatalf("not restored: %d", limit)
+	}
+	b.Reset() // harmless
+}
+
 func TestImportReadLimit(t *testing.T) {
 	for _, n := range []int{0, -1, maxConfigFile + 1} {
 		if _, ok := importReadLimit(n); ok {

@@ -167,7 +167,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
-	conn.SetReadLimit(wsReadLimit)
+	budget := newReadBudget(conn.SetReadLimit)
 
 	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
@@ -249,17 +249,9 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// widened: the read limit was raised for exactly one message, by a
-	// configImportBegin from a connection that holds the settings PIN. It is
-	// put back right after that read, here, whatever the message was (the
-	// library applies the limit as each message starts).
-	widened := false
 	for {
 		_, data, err := conn.Read(ctx)
-		if widened {
-			conn.SetReadLimit(wsReadLimit)
-			widened = false
-		}
+		budget.Reset()
 		if err != nil {
 			gone = err
 			return
@@ -321,9 +313,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		case "configExport":
 			go a.serveConfigExport(c, &m)
 		case "configImportBegin":
-			if n, ok := importReadLimit(m.Size); ok {
-				conn.SetReadLimit(n)
-				widened = true
+			if budget.Grant(m.Size) {
 				// Answered either way, after the limit is raised: the page
 				// sends the file only once it has this answer, so a refusal
 				// is a normal result and never a too-big message.

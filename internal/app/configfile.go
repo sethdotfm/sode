@@ -46,6 +46,39 @@ func importReadLimit(size int) (limit int64, ok bool) {
 	return int64(size)*2 + importSlack, true
 }
 
+// readBudget is the connection's read limit: wsReadLimit, widened for exactly
+// one message by a configImportBegin (the library applies the limit as each
+// message starts). The read loop calls Read after every message, whatever it
+// was, so the limit goes back at once.
+type readBudget struct {
+	set     func(int64)
+	widened bool
+}
+
+func newReadBudget(set func(int64)) *readBudget {
+	set(wsReadLimit)
+	return &readBudget{set: set}
+}
+
+// Grant widens the limit for the next message to suit a file of size bytes;
+// false (nothing changed) for a size that can't be a config file.
+func (b *readBudget) Grant(size int) bool {
+	n, ok := importReadLimit(size)
+	if ok {
+		b.set(n)
+		b.widened = true
+	}
+	return ok
+}
+
+// Reset puts the usual limit back if it was widened; call it after every read.
+func (b *readBudget) Reset() {
+	if b.widened {
+		b.set(wsReadLimit)
+		b.widened = false
+	}
+}
+
 // exportName is the site part of the file name (the page works out the rest).
 func exportName(cfg config.Config) string {
 	if s := strings.TrimSpace(cfg.BrandText); s != "" {
@@ -88,38 +121,6 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 	return exportName(cfg), head + string(b), nil
 }
 
-// mergeImport is the config an imported file makes: the file as it is, except
-// that a PIN hash it doesn't carry is the live one. The settings PIN: the
-// file's hash, else the live one. A user's PIN hash and its length come from
-// the same place: the file's both when it has a hash, else the live user of
-// that name's both (the length in a file without a hash is ignored). A user
-// with neither can't log in, so that is refused. Hashes in a file must look
-// like hashes, so an imported file can't stop the next start.
-func mergeImport(live, file config.Config) (config.Config, error) {
-	if file.SettingsPin == "" {
-		file.SettingsPin = live.SettingsPin
-	} else if !config.ValidPinHash(file.SettingsPin) {
-		return file, errors.New("settingsPin in the file isn't a PIN hash (a PIN can't be typed into a file; set it in Settings)")
-	}
-	users := make([]config.User, len(file.Users))
-	for i, u := range file.Users {
-		if u.Pin != "" {
-			if !config.ValidPinHash(u.Pin) {
-				return file, fmt.Errorf("the PIN of user %q in the file isn't a PIN hash", u.Name)
-			}
-		} else {
-			keep, ok := live.FindUser(u.Name)
-			if !ok || keep.Pin == "" {
-				return file, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep: export with PINs included, or add the user in Settings first", u.Name)
-			}
-			u.Pin, u.Len = keep.Pin, keep.Len
-		}
-		users[i] = u
-	}
-	file.Users = users
-	return file, nil
-}
-
 // ImportConfig replaces the whole live config with the file's, from c. Not
 // KeepOwned: everything comes from the file (profiles, filter sets, presets,
 // users, locks) except the PIN hashes it leaves out. Refused for anything but
@@ -142,7 +143,7 @@ func (a *App) ImportConfig(c *client, text string) error {
 		return err
 	}
 	return a.applyConfig(func(cur *config.Config) error {
-		m, err := mergeImport(*cur, file)
+		m, err := file.KeepPins(*cur)
 		if err != nil {
 			return err
 		}
