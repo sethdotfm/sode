@@ -1,30 +1,33 @@
-// The result banner: what showResult puts up, how each layout draws it, and
-// how it goes away (a success closes itself after cfg.resultDismissSeconds,
-// a failure stays until closed). plans.js re-exports showResult/resultNode.
+// The result banner: what a result puts up, how each layout draws it, and how
+// it goes away. A success closes itself after cfg.resultDismissSeconds (with a
+// bar running down); a failure stays until closed by hand. plans.js
+// re-exports showResult/resultNode.
+//
+// Each layout draws its own copy of a result (one is hidden). A copy is tagged
+// with the result's id (data-rid) and owns its own timer; dismissing collapses
+// every copy still on the page, so nothing needs a registry and a replaced
+// copy is simply dropped.
 
 import { el, S, icon, emit } from './core.js';
 
-// text: a string, or a function building nodes (each layout renders its own).
-export function showResult(kind, title, text, track = null) {
-  S.result = { kind, title, text, track };
-  clearTimeout(dismissTimer);
-  const secs = S.cfg?.resultDismissSeconds || 0;
-  if (kind === 'ok' && secs > 0) { const r = S.result; dismissTimer = setTimeout(() => dismissResult(r), secs * 1000); }
+let seq = 0;
+
+// Puts r ({ kind, title, text, track }) up as the current result and tells
+// the layouts. text: a string, or a function building nodes.
+export function setResult(r) {
+  S.result = { ...r, id: ++seq };
   emit('result', S.result);
 }
 
-// A success closes itself after S.cfg.resultDismissSeconds (0: stays), with a
-// bar running down; a failure stays until closed by hand. The timer belongs to
-// the result, not to a node: each layout draws its own copy (one is hidden),
-// and every copy still on the page closes together.
-let dismissTimer = 0;
-const shown = new Set();
-function dismissResult(r) {
-  clearTimeout(dismissTimer);
+export const showResult = (kind, title, text, track = null) => setResult({ kind, title, text, track });
+
+// How long a result stays up by itself: a success for `secs` (0: until
+// closed), anything else until closed.
+export const dismissMs = (kind, secs) => (kind === 'ok' && secs > 0 ? secs * 1000 : 0);
+
+function dismiss(r) {
   if (S.result === r) S.result = null;
-  for (const wrap of shown) {
-    shown.delete(wrap);
-    if (!wrap.isConnected) continue;
+  for (const wrap of document.querySelectorAll(`.sode__banner[data-rid="${r.id}"]`)) {
     // Collapse (see .sode__banner--out) so what is below slides up, then drop it.
     const done = () => wrap.remove();
     wrap.classList.add('sode__banner--out');
@@ -35,19 +38,21 @@ function dismissResult(r) {
 
 export function resultNode(r) {
   const wrap = el('div', 'sode__banner');
+  wrap.dataset.rid = String(r.id);
   const close = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__banner-x', icon('x'));
   close.type = 'button';
   close.setAttribute('aria-label', 'Dismiss');
   close.dataset.pbTip = 'Dismiss';
-  close.addEventListener('click', () => dismissResult(r));
+  close.addEventListener('click', () => dismiss(r));
   const inner = el('div', 'sode__banner-in', el('div', `pb-alert pb-alert--${r.kind}`,
     el('div', 'sode__banner-body', el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text), close));
   wrap.append(inner);
-  if (r.kind === 'ok' && (S.cfg?.resultDismissSeconds || 0) > 0) {
+  const ms = dismissMs(r.kind, S.cfg?.resultDismissSeconds || 0);
+  if (ms) {
     const bar = el('div', 'pb-progress__bar pb-progress__bar--ok sode__banner-bar');
-    bar.style.animationDuration = `${S.cfg.resultDismissSeconds}s`;
+    bar.style.animationDuration = `${ms}ms`;
     inner.append(el('div', 'pb-progress sode__banner-time', bar));
+    setTimeout(() => dismiss(r), ms);
   }
-  shown.add(wrap);
   return wrap;
 }

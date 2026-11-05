@@ -7,7 +7,7 @@ import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
 import { resolvePreset } from './presetstore.js';
-import { showResult } from './banner.js';
+import { showResult, setResult } from './banner.js';
 export { showResult, resultNode } from './banner.js';
 
 let takeSeq = 0;
@@ -209,8 +209,7 @@ function refreshResult() {
   const next = failureBanner(r.track);
   if (next.key === r.track.key) return;
   r.track.key = next.key;
-  S.result = { kind: next.kind, title: next.title, text: next.text, track: r.track };
-  emit('result', S.result);
+  setResult({ kind: next.kind, title: next.title, text: next.text, track: r.track });
 }
 on('history', refreshResult);
 
