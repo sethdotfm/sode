@@ -163,7 +163,7 @@ function addRow(u = { name: '', len: 0 }) {
     if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail('Not connected to Sode.');
     out.disabled = true;
     signing.set(id, { out, name: u.name });
-  }) : null;
+  }) : el('span'); // a new row has none; the span keeps the columns in line
   // Only a saved user has a profile: not a new row, not one being renamed.
   const prof = btn('pb-btn--outline pb-btn--sm', 'Profile…', () => emit('openProfile', { name: row.dataset.was }));
   prof.setAttribute('aria-haspopup', 'dialog');
@@ -174,7 +174,7 @@ function addRow(u = { name: '', len: 0 }) {
   const row = el('div', 'sode__users-row',
     el('div', 'sode__users-in', name),
     el('div', 'sode__users-in', pin),
-    trust.label, never.label, prof, ...(out ? [out] : []), rm);
+    trust.label, never.label, prof, out, rm);
   row.dataset.was = u.len ? u.name : '';
   paintProf();
   name.addEventListener('input', paintProf);

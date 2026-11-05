@@ -27,7 +27,7 @@ func adminClient(t *testing.T, a *App) *client {
 
 func exportOf(t *testing.T, a *App, pins bool) (string, config.Config) {
 	t.Helper()
-	_, text, err := a.ExportConfig(pins)
+	_, text, err := a.ExportConfig(adminClient(t, a), pins)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,15 +254,19 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	}
 	big := "# " + strings.Repeat("x", 200<<10) + "\nbrandText: Big\n"
 
-	// Not unlocked: begin is refused, and the big message closes the socket.
+	// Not unlocked: begin is answered (refused, locked). A page that waits
+	// for that answer sends nothing more; one that doesn't is cut off.
 	ws, send, until := dial()
 	send(map[string]any{"t": "configImportBegin", "id": 1, "size": len(big)})
-	if m := until("configImportResult"); m["ok"] == true || m["locked"] != true {
+	if m := until("configImportBeginResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(1) {
 		t.Fatalf("begin without the PIN: %v", m)
 	}
+	// The connection is still open after the refusal.
+	send(map[string]any{"t": "unlock", "pin": "2468", "id": 9})
+	until("unlockResult")
 	send(map[string]any{"t": "configImport", "id": 2, "yaml": big})
 	if _, _, err := ws.Read(ctx); websocket.CloseStatus(err) != websocket.StatusMessageTooBig {
-		t.Fatalf("a locked connection sent %d bytes: %v", len(big), err)
+		t.Fatalf("a connection without an accepted begin sent %d bytes: %v", len(big), err)
 	}
 	if a.r().cfg.BrandText == "Big" {
 		t.Fatal("imported without the PIN")
@@ -282,6 +286,9 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	until("unlockResult")
 	send(map[string]any{"t": "configImportBegin", "id": 3, "size": len(big)})
+	if m := until("configImportBeginResult"); m["ok"] != true || m["id"] != float64(3) {
+		t.Fatalf("begin: %v", m)
+	}
 	send(map[string]any{"t": "configImport", "id": 4, "yaml": big})
 	if m := until("configImportResult"); m["ok"] != true || m["id"] != float64(4) {
 		t.Fatalf("import: %v", m)
@@ -300,7 +307,7 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	until("unlockResult")
 	send(map[string]any{"t": "configImportBegin", "id": 6, "size": maxConfigFile + 1})
-	if m := until("configImportResult"); m["ok"] == true || m["id"] != float64(6) {
+	if m := until("configImportBeginResult"); m["ok"] == true || m["id"] != float64(6) {
 		t.Fatalf("oversize begin: %v", m)
 	}
 }
@@ -344,5 +351,23 @@ func TestConfigExportOverWebSocket(t *testing.T) {
 	m := until("configExportResult")
 	if m["ok"] != true || m["id"] != float64(3) || !strings.Contains(m["yaml"].(string), "PRIVATE BACKUP") || m["name"] == "" {
 		t.Fatalf("export: %v", m["ok"])
+	}
+}
+
+// The export re-checks the settings PIN when it runs: a lock (or a changed
+// PIN) between admit and the export refuses it and returns no YAML.
+func TestConfigExportRechecksPin(t *testing.T) {
+	a := userApp(t, false)
+	c := adminClient(t, a)
+	if err := a.admit(c, policy["configExport"]); err != nil {
+		t.Fatal(err)
+	}
+	a.Lock(c)
+	_, text, err := a.ExportConfig(c, true)
+	if !errors.Is(err, errLocked) || text != "" {
+		t.Fatalf("export after lock: %q %v", text, err)
+	}
+	if _, text, err := a.ExportConfig(adminClient(t, a), true); err != nil || text == "" {
+		t.Fatalf("unlocked export: %v", err)
 	}
 }

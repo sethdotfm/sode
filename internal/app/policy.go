@@ -115,7 +115,7 @@ var policy = map[string]rule{
 	// hashes. Begin raises the read limit for the one message after it,
 	// which is why a connection without the PIN must never reach it.
 	"configExport":      {need: needAdmin, op: "configExport"},
-	"configImportBegin": {need: needAdmin, op: "configImport"},
+	"configImportBegin": {need: needAdmin, op: "configImportBegin"},
 	"configImport":      {need: needAdmin, op: "configImport"},
 	// Users, locks and the settings PIN's own users: the PIN only.
 	"userSignOutAll": {need: needAdmin, op: "userSignOutAll"},

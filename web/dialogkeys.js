@@ -20,8 +20,11 @@ export function topDialog(entries) {
   return top;
 }
 
-// A click closes a dialog only when it both started and ended on the backdrop
-// (root itself): a text selection dragged out of the dialog must not.
+// A press closes a dialog only when the mouse went down AND came up on the
+// backdrop (root itself), the targets of mousedown and mouseup. The click's
+// own target is not enough: a press on the backdrop released inside the
+// dialog (or the reverse) fires its click on the common ancestor, root, and a
+// text selection dragged out of the dialog does the same.
 export function backdropClose(downTarget, upTarget, root) {
   return downTarget === root && upTarget === root;
 }
@@ -62,12 +65,13 @@ export function trapDialog(root, dialog, onEsc) {
   const entry = { root, onEsc, order: 0 };
   stack.push(entry);
   listen();
-  let down = null;
-  root.addEventListener('mousedown', (e) => { down = e.target; });
+  let down = null, up = null;
+  root.addEventListener('mousedown', (e) => { down = e.target; up = null; });
+  root.addEventListener('mouseup', (e) => { up = e.target; });
   root.addEventListener('click', (e) => {
-    const d = down;
-    down = null;
-    if (backdropClose(d, e.target, root)) onEsc();
+    const d = down, u = up;
+    down = up = null;
+    if (e.target === root && backdropClose(d, u, root)) onEsc();
   });
   root.addEventListener('keydown', (e) => {
     e.stopPropagation();

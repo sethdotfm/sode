@@ -324,8 +324,12 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			if n, ok := importReadLimit(m.Size); ok {
 				conn.SetReadLimit(n)
 				widened = true
+				// Answered either way, after the limit is raised: the page
+				// sends the file only once it has this answer, so a refusal
+				// is a normal result and never a too-big message.
+				a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
 			} else {
-				a.replyOp(c, "configImport", m.ID, 0, "", errImportTooBig)
+				a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
 			}
 		case "configImport":
 			a.serveConfigImport(c, &m)

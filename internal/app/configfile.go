@@ -60,7 +60,16 @@ func exportName(cfg config.Config) string {
 // ExportConfig is the live config as config.yaml text. Without pins the
 // settings PIN and every user's PIN hash are left out (the rest, users'
 // lengths included, is plain settings).
-func (a *App) ExportConfig(pins bool) (site, text string, err error) {
+//
+// The handler runs in a goroutine, so the settings PIN is checked again here
+// under cfgMu, as ImportConfig does: a lock or PIN change since admit must
+// refuse the export (with PINs it releases the hashes).
+func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if err := a.guardSave(c, false); err != nil {
+		return "", "", err
+	}
 	cfg := a.r().cfg.Clone()
 	head := "# Sode server configuration, exported " + time.Now().Format("2006-01-02 15:04") + ".\n"
 	if pins {
@@ -166,7 +175,7 @@ type configExportResult struct {
 // whether PINs were included, never the contents.
 func (a *App) serveConfigExport(c *client, m *inMsg) {
 	id := m.ID
-	site, text, err := a.ExportConfig(m.Pins)
+	site, text, err := a.ExportConfig(c, m.Pins)
 	if err != nil {
 		a.replyOp(c, "configExport", id, 0, "", err)
 		return

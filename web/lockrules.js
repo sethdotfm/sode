@@ -187,14 +187,14 @@ export const softUnlock = () => PAGE_VIEW;
 // A login pad: from Settings (fromSoft false, only from the page) or the hand
 // lock's Log in as... (true, only from the hand lock: Cancel then goes back to
 // a fresh hand lock).
+export const startLogin = (v, fromSoft) => (fromSoft
+  ? (v.mode === 'soft' ? { mode: 'login', back: 'soft' } : v)
+  : (v.mode === 'page' ? { mode: 'login', back: 'page' } : v));
+
 // The hand lock's "Log out": someone is logged in and no PIN lock is on. The
 // view stays 'soft' (nothing in the transitions moves it), so the page stays
 // covered; "Log in as..." remains when users exist.
 export const logOutOffered = (s) => !s.enforced && !!s.user;
-
-export const startLogin = (v, fromSoft) => (fromSoft
-  ? (v.mode === 'soft' ? { mode: 'login', back: 'soft' } : v)
-  : (v.mode === 'page' ? { mode: 'login', back: 'page' } : v));
 
 // Cancel / Esc of the pad: the page; `back` (read before) says whether the
 // caller puts a fresh hand lock up again.

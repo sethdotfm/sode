@@ -43,7 +43,7 @@ test('profileButtonOff: only a saved, unrenamed user has a profile to open', () 
   assert.equal(profileButtonOff(undefined, ''), true);
 });
 
-import { prefFields, prefsWith, nameIssue, upsertEntry, filterEntry, findByName } from '../profilesrules.js';
+import { prefFields, prefsWith, withParts, upsertEntry, filterEntry, findByName } from '../profilesrules.js';
 
 test('prefFields: all eight, Not set first, saved value chosen', () => {
   const f = prefFields({ theme: 'dark', flip: true, clock: 'bogus' });
@@ -62,23 +62,24 @@ test('prefsWith sets, removes on Not set, ignores bad values', () => {
   assert.deepEqual(prefsWith(null, 'nope', 'x'), {});
 });
 
-test('nameIssue: empty, long, taken ignoring case, own name ok', () => {
-  const l = [{ name: 'Cams' }, { name: 'Mon' }];
-  assert.match(nameIssue(l, '  '), /required/);
-  assert.match(nameIssue(l, 'x'.repeat(33)), /32/);
-  assert.match(nameIssue(l, 'cams', '', 'preset'), /preset named/);
-  assert.equal(nameIssue(l, 'CAMS', 'cams'), '');
-  assert.match(nameIssue(l, 'mon', 'Cams'), /already/);
-  assert.equal(nameIssue(l, 'New'), '');
+test('upsertEntry adds or replaces in place, ignoring case, without mutating', () => {
+  const l = [{ name: 'A', v: 1 }, { name: 'B', v: 2 }];
+  assert.deepEqual(upsertEntry(l, { name: 'C' }).map((x) => x.name), ['A', 'B', 'C']);
+  assert.deepEqual(upsertEntry(l, { name: 'a2', v: 9 }, 'a').map((x) => x.name), ['a2', 'B']);
+  assert.deepEqual(l.map((x) => x.name), ['A', 'B']);
 });
 
-test('upsertEntry adds, replaces in place, refuses a clash', () => {
-  const l = [{ name: 'A', v: 1 }, { name: 'B', v: 2 }];
-  assert.deepEqual(upsertEntry(l, { name: 'C' }).list.map((x) => x.name), ['A', 'B', 'C']);
-  const r = upsertEntry(l, { name: 'a2', v: 9 }, 'a').list;
-  assert.deepEqual(r.map((x) => x.name), ['a2', 'B']);
-  assert.ok(upsertEntry(l, { name: 'b' }, 'A').err);
-  assert.deepEqual(l.map((x) => x.name), ['A', 'B']); // not mutated
+test('withParts: two quick pref changes accumulate (the second builds on the first)', () => {
+  let prof = { prefs: { clock: '12' }, filterSets: [], presets: [] };
+  const sent = [];
+  for (const [k, v] of [['theme', 'dark'], ['layout', 'phone']]) {
+    const parts = { prefs: prefsWith(prof.prefs, k, v) };
+    prof = withParts(prof, parts); // at change time, before any answer
+    sent.push(parts);
+  }
+  assert.deepEqual(sent[1].prefs, { clock: '12', theme: 'dark', layout: 'phone' });
+  assert.deepEqual(prof.prefs, sent[1].prefs);
+  assert.deepEqual(withParts(null, { presets: [] }), { presets: [] });
 });
 
 test('filterEntry and findByName', () => {

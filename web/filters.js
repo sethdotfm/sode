@@ -395,13 +395,13 @@ function saveTarget() {
   eds.src.flush();
   eds.dst.flush();
   const name = tName.value.trim();
-  const r = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old, 'filter set');
-  const bad = r.err || (name.toLowerCase() === 'all' ? '“all” is taken.' : '');
+  const bad = nameProblem(name, tgt.lists.map((x) => String(x?.name)), { noun: 'filter set', old: tgt.old, reserved: 'all' });
   if (bad) { tName.classList.add('pb-input--invalid'); tNoteSet(bad, true); tName.focus(); return; }
   tName.classList.remove('pb-input--invalid');
   const user = tgt.user;
-  tgtSaver.change({ filterSets: r.list }, () => {
-    emit('profileEdited', { user, parts: { filterSets: r.list } });
+  const list = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old);
+  tgtSaver.change({ filterSets: list }, () => {
+    emit('profileEdited', { user, parts: { filterSets: list } });
     closeFilters();
   });
 }
@@ -432,7 +432,6 @@ on('openFilterEditor', (m) => {
 
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
 $('flt-done').addEventListener('click', closeFilters);
-root.addEventListener('click', (e) => { if (e.target === root) closeFilters(); });
 $('flt-visual').addEventListener('click', () => setMode('visual'));
 $('flt-code').addEventListener('click', () => setMode('code'));
 for (const k of ['sode', 'ext', 'hidden']) {

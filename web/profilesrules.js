@@ -85,27 +85,14 @@ export function prefsWith(prefs, key, value) {
   return next;
 }
 
-// Why a name can't be used in `list` (entries with a name), or ''. `old` is
-// the name being edited (it may keep its own, ignoring case).
-export function nameIssue(list, name, old = '', noun = 'item') {
-  const n = String(name ?? '').trim();
-  if (!n) return 'Name required.';
-  if ([...n].length > 32) return 'Names are at most 32 characters.';
-  const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
-  if ((list || []).some((x) => same(x?.name, n) && !(old && same(x?.name, old)))) return `There is already a ${noun} named “${n}”.`;
-  return '';
-}
-
 // The list with `entry` added, or put in place of `old` (matched ignoring
-// case). { list } on success, { err } when the name can't be used.
-export function upsertEntry(list, entry, old = '', noun = 'item') {
-  const err = nameIssue(list, entry?.name, old, noun);
-  if (err) return { err };
+// case). The name is checked by the caller (core.js nameProblem).
+export function upsertEntry(list, entry, old = '') {
   const items = Array.isArray(list) ? list : [];
   const at = old ? items.findIndex((x) => String(x?.name).toLowerCase() === old.toLowerCase()) : -1;
   const next = items.slice();
   if (at >= 0) next[at] = entry; else next.push(entry);
-  return { list: next };
+  return next;
 }
 
 // A filter set as saved in a profile: its name and the filter's own fields.
@@ -114,3 +101,8 @@ export const filterEntry = (name, f) => ({ name: String(name).trim(), ...f });
 // The entry named `name` (ignoring case), or undefined.
 export const findByName = (list, name) => (Array.isArray(list) ? list : [])
   .find((x) => String(x?.name).toLowerCase() === String(name).toLowerCase());
+
+// The profile with `parts` ({prefs}, {filterSets}, {presets}) put in. The
+// dialog applies this when a change is made, not when the save returns, so a
+// second change before the first answer builds on the first.
+export const withParts = (prof, parts) => ({ ...(prof || {}), ...parts });

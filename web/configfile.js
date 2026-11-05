@@ -113,13 +113,25 @@ $('config-replace').addEventListener('click', () => {
   if (!picked) return;
   const id = start('import');
   if (!id) return;
-  const { text, bytes, name } = picked;
+  const { bytes, name } = picked;
   confirmBox.hidden = true;
   say(`Importing ${name}…`);
   // The begin message raises the server's read limit for the one message
-  // after it (only for the settings PIN); send both at once.
-  const ok = wsSend({ t: 'configImportBegin', id, size: bytes }) && wsSend({ t: 'configImport', id, yaml: text });
-  if (!ok) {
+  // after it (only for the settings PIN). The file goes out only once the
+  // server has answered it: a refused begin must never be followed by a big
+  // message, which would close the socket instead of showing the refusal.
+  if (!wsSend({ t: 'configImportBegin', id, size: bytes })) {
+    setBusy(null);
+    say('');
+    fail('Not connected to Sode.');
+  }
+});
+
+onMsg('configImportBeginResult', (m) => {
+  if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
+  if (!m.ok) { reset(); return failed(m); }
+  if (!picked || !wsSend({ t: 'configImport', id: busy.id, yaml: picked.text })) {
+    reset();
     setBusy(null);
     say('');
     fail('Not connected to Sode.');

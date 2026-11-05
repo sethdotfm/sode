@@ -17,7 +17,7 @@ import { el, S, on, emit, sentence } from './core.js';
 import { demandPin, trusted, unlocked } from './pin.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
-import { prefFields, prefsWith, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
+import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
 
 // ---- the dialog
 
@@ -171,15 +171,20 @@ async function doSave(parts, done) {
   removing = null;
   err.hidden = true;
   setNote('');
-  const r = await saveProfile(parts, who);
+  // Put the change in now: a second change before this answer is built on
+  // it (only the latest answer is shown, so the first must not be lost).
+  const name = who;
+  prof = withParts(prof, parts);
+  const r = await saveProfile(parts, name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
     if (r.locked) refused();
     fail(r.err || 'Could not save that profile.');
-    prof = own() ? profile() : prof;
-    return paint();
+    if (own()) { prof = profile(); return paint(); }
+    paint();
+    return load(name).then(() => fail(r.err || 'Could not save that profile.'));
   }
-  prof = own() ? profile() : { ...prof, ...parts };
+  prof = own() ? profile() : prof;
   setNote(done);
   paint();
 }
