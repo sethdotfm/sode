@@ -34,7 +34,6 @@ type tokenRec struct {
 	User string    `json:"user"` // the user it was issued to
 	Pin  string    `json:"pin"`  // that user's PIN hash then
 	At   time.Time `json:"at"`
-	Tab  bool      `json:"tab,omitempty"` // a no-lock login: for a user who is not persistent, kept by one browser tab
 }
 
 // perUserTokens caps tokens per user (one per browser), so the file can't
@@ -49,9 +48,6 @@ const perUserTokens = 8
 const (
 	tokenMaxAge     = 90 * 24 * time.Hour
 	tokenTouchAfter = 24 * time.Hour
-	// A tab token belongs to one browser tab (sessionStorage), which forgets
-	// it on close, so it needn't live for months; an open tab renews it.
-	tabTokenMaxAge = 48 * time.Hour
 )
 
 func tokenKey(t string) string {
@@ -110,26 +106,9 @@ func (s *tokenStore) save() {
 // on that alone: prune deletes what is invalid, so a token can't come back to
 // life when the user is later made persistent again, renamed back, or given
 // the old PIN again.
-//
-// A tab token (a no-lock login, kept by one browser tab) and a persistent
-// token are different kinds: a tab token is valid only while its user is NOT
-// persistent, and for tabTokenMaxAge, so ticking Never log out later can't
-// turn an old tab token into a persistent one that skips a lock.
 func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 	u, ok := cfg.FindUser(r.User)
-	if !ok || u.Pin != r.Pin {
-		return u, false
-	}
-	max := tokenMaxAge
-	if r.Tab {
-		if u.Persistent {
-			return u, false
-		}
-		max = tabTokenMaxAge
-	} else if !u.Persistent {
-		return u, false
-	}
-	return u, time.Since(r.At) < max
+	return u, ok && u.Persistent && u.Pin == r.Pin && time.Since(r.At) < tokenMaxAge
 }
 
 // prune deletes every record that is invalid against cfg and rewrites the
@@ -206,7 +185,7 @@ func (s *tokenStore) user(t string, cfg config.Config) (config.User, bool) {
 
 // issue makes a token for u. Tokens that are dead against cfg are dropped
 // here, and u's oldest if it would have more than perUserTokens.
-func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
+func (s *tokenStore) issue(u config.User, cfg config.Config) string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	t := base64.RawURLEncoding.EncodeToString(b)
@@ -219,8 +198,8 @@ func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
 	for {
 		n, oldest := 0, ""
 		for k, r := range s.toks {
-			if !strings.EqualFold(r.User, u.Name) || r.Tab != tab {
-				continue // the cap is per user and per kind
+			if !strings.EqualFold(r.User, u.Name) {
+				continue
 			}
 			n++
 			if oldest == "" || r.At.Before(s.toks[oldest].At) {
@@ -232,7 +211,7 @@ func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
 		}
 		delete(s.toks, oldest)
 	}
-	s.toks[tokenKey(t)] = tokenRec{User: u.Name, Pin: u.Pin, At: time.Now(), Tab: tab}
+	s.toks[tokenKey(t)] = tokenRec{User: u.Name, Pin: u.Pin, At: time.Now()}
 	s.save()
 	return t
 }

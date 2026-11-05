@@ -5,44 +5,19 @@
 // Also the clock's time formats and the theme key.
 
 import { $, el, on, emit } from './core.js';
-import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile } from './prefs.js';
-import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
+import { PREFS, CACHE_KEY, resolve, own } from './prefs.js';
+import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 
 let globals = readJSON(CACHE_KEY);
-// The logged-in user's defaults: {user, prefs} from the cache until the
-// profile arrives. Only ever one user's; cleared when that user is gone.
-// Used only while a session token is kept (a guest never gets a previous
-// user's prefs, #187): the same keys as lock.js's TOKEN_KEY / TAB_KEY.
-const cached = cachedProfile(readJSON(PROFILE_CACHE_KEY), !!(readStr('sode-session') || readTab('sode-tab-session')));
-let mineUser = cached.user;
-let mineMap = cached.prefs;
 const stored = (name) => readStr(PREFS[name].key);
-const resolveAll = () => Object.fromEntries(Object.keys(PREFS).map((n) => [n, resolve(n, stored(n), mineMap, globals)]));
+const resolveAll = () => Object.fromEntries(Object.keys(PREFS).map((n) => [n, resolve(n, stored(n), globals)]));
 // What is in force now. index.html applied the same before first paint.
 let applied = resolveAll();
 
 export const pref = (name) => applied[name];
 // This browser's own choice, or '' when it follows the global default.
 export const ownPref = (name) => own(name, stored(name));
-// What it would be without this browser's choice: with a profile, the
-// user's default, else the global one.
-export const globalPref = (name) => resolve(name, null, null, globals);
-export const defaultPref = (name) => resolve(name, null, mineMap, globals);
-// The logged-in user's own default for it, or ''.
-export const myPref = (name) => mine(name, mineMap);
-
-function setProfilePrefs(p) {
-  const user = p?.name || '';
-  mineUser = user;
-  mineMap = user ? { ...p.prefs } : {};
-  writeJSON(PROFILE_CACHE_KEY, user ? { user, prefs: mineMap } : null);
-  applyPrefs();
-}
-on('profile', setProfilePrefs);
-// Nobody (a guest), or somebody else, is in: the cached user's prefs go at
-// once; the server's `profile` brings the right ones (#187).
-on('access', (a) => { if (mineUser && a.user !== mineUser) setProfilePrefs(null); });
-
+export const globalPref = (name) => resolve(name, null, globals);
 
 // v '' (or anything unknown) goes back to the global default.
 export function setPref(name, v) {

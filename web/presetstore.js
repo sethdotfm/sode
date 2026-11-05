@@ -7,7 +7,6 @@
 
 import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
-import { profile, profileName } from './profile.js';
 
 // The limits the server enforces too (internal/config/presets.go); the
 // shared cases in test/preset_cases.json keep the two from drifting.
@@ -52,13 +51,7 @@ export const saved = ({ name, items, pinned }) => ({ name, items, pinned: pinned
 
 export const globalPresets = () => (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normPreset(s), pinned: s.pinned !== false }));
 export const localPresets = () => [].concat(readJSON(KEY, [])).filter((s) => s?.name).map((s) => ({ scope: 'local', ...normPreset(s), pinned: s.pinned !== false }));
-// The logged-in user's own presets (their profile; [] with nobody logged in).
-// Like a local one, each carries its own pinned flag.
-export const userPresets = () => (profileName() ? profile().presets : []).filter((s) => s?.name)
-  .map((s) => ({ scope: 'user', ...normPreset(s), pinned: s.pinned !== false }));
-export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
-const PRESET_LISTS = { global: globalPresets, user: userPresets, local: localPresets };
-export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();
+export const allPresets = () => [...globalPresets(), ...localPresets()];
 export const findPreset = (scope, name) =>
   allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
@@ -124,11 +117,6 @@ export function saveLocalPreset(s, old = '') {
   writeJSON(KEY, replacePreset(localPresets(), s, old));
   emit('presets');
 }
-// This browser's whole list replaced (an import).
-export function putLocalPresets(list) {
-  writeJSON(KEY, list.length ? list.map(saved) : null);
-  emit('presets');
-}
 export function deleteLocalPreset(name) {
   const list = localPresets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   writeJSON(KEY, list.length ? list : null);
@@ -168,10 +156,8 @@ export function pinnedPresets(list = allPresets()) {
 }
 // Pins or unpins s for this browser only. A global preset gets an override
 // (dropped again when it equals the preset's own flag); a local one changes
-// its flag. A preset of the user's own (scope 'user') is saved to the profile
-// instead, with withUserPin: the popup does that.
+// its flag.
 export function setLocalPin(s, on) {
-  if (s.scope === 'user') return;
   if (s.scope === 'global') {
     const raw = readJSON(PINS, {});
     const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : {};
@@ -195,10 +181,6 @@ export function clearPinOverride(name) {
 // Everyone's list with preset `name` pinned or not, to send.
 export const withGlobalPin = (name, on) =>
   globalPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
-
-// The user's own list with preset `name` pinned or not, to send.
-export const withUserPin = (name, on) =>
-  userPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
 
 // ---- the popup's list: all presets, or the best matches for what is typed
 // (names, by core.js search). Matches keep their order among equal scores.
@@ -275,10 +257,19 @@ export function itemsFromTakes(takes) {
   return [...by.values()].map(normItem);
 }
 
+// The newest take made in Sode with the rest of its folder (same group),
+// from history newest first.
+export function latestFolderTakes(hist) {
+  const take = (x) => !x.ext && x.undo == null && x.retry == null;
+  const e = hist.find(take);
+  if (!e) return [];
+  const es = e.group && e.groupN > 1 ? hist.filter((x) => x.group === e.group && take(x)) : [e];
+  return es.slice().reverse().map((x) => ({ src: x.src, dst: x.dst, levels: x.levels }));
+}
+
 // Global presets changed for everyone.
 onMsg('presets', (m) => {
   S.cfg = { ...S.cfg, presets: m.presets };
   emit('presets');
 });
 on('helloData', () => emit('presets'));
-on('profile', () => emit('presets'));

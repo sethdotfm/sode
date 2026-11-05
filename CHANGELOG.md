@@ -2,25 +2,6 @@
 
 Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
-## Beta 1.6.0 (unreleased)
-
-- **User profiles** (#161): a third scope, *Me*, beside Everyone and This browser, for This device settings, filter sets and presets, kept on the server so they follow a user to any browser. Order: this browser, then Me, then Everyone. *Set as my default* per setting. The user edits their own (*My profile…*); trusted users and the settings PIN can see and edit any (a *Profile…* button per user). A profile is capped at 48 KiB. New messages `profile`, `profileSave`, `profileGet`.
-- **Locks and auto-lock** moved from the Users dialog into **Settings → Access**, saved by the main Save and changed only with the settings PIN. A Settings save that leaves them out keeps them.
-- **Log in without a lock** (#187): with users but no locks, Settings → This device has *Log in*, kept for the tab. A guest gets this browser's and everyone's settings; a previous user's cached settings are no longer applied to a guest.
-- **Share links, export and import** (#169): *Share* on a preset or filter set makes a `#share=` link (a URL fragment, so it never reaches the proxy; old `?f=` links still open); *Settings → Export & import* writes and reads a YAML file. Everything opens a review sheet (Importing → Current, Replace / Keep both / Skip). Exports carry names beside numbers so they can move between studios. New stateless `POST /api/yaml` converter.
-- **Server configuration export / import** (Settings → Access, settings PIN only): download `config.yaml` (PINs left out unless *Include PINs (private backup)* is ticked) and restore it from a file. Without PINs, users keep their current PIN by name; a new user in the file needs a PIN and is refused otherwise. New messages `configExport`, `configImportBegin`, `configImport`.
-- **My profile is a full editor**: all eight preferences, plus Add / Edit / Remove for filter sets and presets, using the normal editors aimed at that profile.
-- Dialogs close when you click outside them and a dialog opened from another opens in front. Manage users has Name and PIN headers; Settings search is focused after the PIN unlocks; the hand lock screen has *Log in as…* and *Log out* at the bottom; fixed a wrong "must be a whole number" error on save and old errors now clear.
-- Review fixes: one backdrop close in Filters (a profile draft no longer leaks into your own filter), the config import waits for an acknowledgement before sending the file, config export re-checks the settings PIN, quick preference changes in My profile accumulate, Manage users rows align.
-- Design tweaks: the lock chip (even padding, square lock button, open/closed lock icon, slides in at the border's rate), Settings fixed bottom-left on desktop, the Presets bar laid out like Recent with a *Show all* chip, Edit and Filters styled like Settings, a divider above Recent, and the Recent bar and search always shown (*No history yet* when empty).
-- Choose-takes bar is an accent bar with a large title, clears the lock chip and lights up rows under the pointer; the Settings save bar sits in front of fields scrolling under it; the lock chip's button no longer takes hover while it slides in and out.
-- Small labels above every text box and select in the Filters dialog and the preset editor (name, Save for, PIN, the share link, and each take's Source, Destinations and Levels).
-- The Filters dialog is laid out like the preset editor (picker, then name, Save for, Save, Save as…, Share, Delete, with the share link under the note) and a saved filter set can move scope with Save for too.
-- Filters rename like presets: the Filters dialog has an editable name box and Save writes a new name with the rest (the Rename button is gone). The choose-takes bar says "Include follows" and "select", and the lock chip no longer shows as a grey box over it.
-- Lock chip: the lock button and the closed-lock icon cross-fade with the lock screen instead of snapping, and the chip has no background while a lock screen is up.
-- Lock chip: on unlock its background no longer fades in as a grey box under the lock button; it returns when the lock screen is gone.
-- Presets: a saved preset can change scope (*Save for* is no longer fixed; Save copies it to the new scope, then removes it from the old one, with the settings PIN for Everyone unless trusted). *Fill from Recent…* puts Recent into a pick mode: tick takes or folders (optionally with their follows, which are likely router automation), then Add. The Show all chip has a rule after it, the popup's Close sits on the right, and *Copy link* turns green and says *Copied* in place.
-
 ## Beta 1.5.0
 
 - **Presets** (#152, renamed from "salvos" in #162): saved multi-source/multi-destination takes as buttons above Recent, per browser or for everyone (Settings PIN). Ctrl+G / ⌘G opens a searchable popup; pinning, an editor, and one history folder per fire.

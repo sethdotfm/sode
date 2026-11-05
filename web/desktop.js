@@ -19,7 +19,6 @@ import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
-import { picking, isPicked, pickBox, togglePick, bindPick } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
@@ -296,9 +295,8 @@ function histRow(e) {
     el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(src, dst), entryNote(e), byLabel(e)),
     statusNode({ e }),
     disc,
-    el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`e${e.id}`)] : [retry, btn])));
+    el('span', 'sode__hist-actions', retry, btn));
   row.dataset.key = `e${e.id}`;
-  row.classList.toggle('sode__hist-row--picked', isPicked(`e${e.id}`));
   clickToToggle(row, disc, '.sode__hist-before');
   if (open) {
     const detail = el('div', 'sode__hist-before',
@@ -366,9 +364,8 @@ function folderRow(f) {
     el('span', 'sode__hist-route sode__hist-route--boxes', ...routeBoxes(one('src', srcItem) || title[0].firstChild, one('dst', dstItem) || title[2].firstChild), ...title.slice(3), byLabel(f)),
     statusNode({ f }),
     disc,
-    el('span', 'sode__hist-actions', ...(picking() ? [pickBox(`f${f.group}`)] : [retry, undo])));
+    el('span', 'sode__hist-actions', retry, undo));
   row.dataset.key = `f${f.group}`;
-  row.classList.toggle('sode__hist-row--picked', isPicked(`f${f.group}`));
   clickToToggle(row, disc, '.sode__hist-folder');
   if (open) {
     const kids = el('ul', 'sode__hist-folder', ...f.shown.map(histRow), ...followerRows(f));
@@ -422,6 +419,8 @@ pullToLoad(window, $('history-more'), pager, () => active() && !document.querySe
 // scroll: bring the cursor row into view (the cursor just moved). Other
 // redraws (someone else's take, a result) leave the page where it is.
 function renderHistory(scroll = false) {
+  $('history-bar').hidden = !S.hist.length;
+  $('history-search').hidden = !S.hist.length;
   const list = pager.list();
   if (cursor && !stops(list).some((x) => x.key === cursor)) {
     // Its row left the page (newer patches pushed it off): drop the
@@ -444,8 +443,6 @@ function renderHistory(scroll = false) {
 let cursor = null;
 const autoOpen = new Set();
 const histList = $('history');
-bindPick(histList);
-on('pick', () => renderHistory());
 let keysOn = false;
 const keyMode = () => keysOn && document.activeElement === histList;
 document.addEventListener('pointerdown', (e) => {
@@ -587,11 +584,6 @@ function onListKey(e) {
   if (k === '?') { openKeys(); return true; }
   if (k === 'p') { emit('presetStrip'); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
-  // Choosing takes for a preset: Space or Enter ticks the row, nothing else acts on it.
-  if (picking()) {
-    if (keyMode() && (k === ' ' || k === 'Enter')) { if (cursor) togglePick(cursor); return true; }
-    if (k === 'u' || k === 'r') return true;
-  }
   const act = {
     j: () => step(1), ArrowDown: () => (e.shiftKey ? nextGroup() : step(1)),
     k: () => step(-1), ArrowUp: () => (e.shiftKey ? latest() : step(-1)),

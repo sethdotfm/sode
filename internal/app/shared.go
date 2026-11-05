@@ -59,18 +59,13 @@ func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast
 // outcome, echoing id (id < 0: the request has none) and saying whether the
 // PIN was why it failed.
 func (a *App) replyOp(c *client, kind string, id, n int, noun string, err error) {
-	note := ""
-	if noun != "" {
-		note = fmt.Sprintf("%d %s", n, plural(n, noun, noun+"s"))
-	}
-	a.replyOpNote(c, kind, id, note, err)
-}
-
-// replyOpNote is replyOp with the command's note given as is.
-func (a *App) replyOpNote(c *client, kind string, id int, note string, err error) {
 	res := opResult{T: kind + "Result", OK: err == nil}
 	if id >= 0 {
 		res.ID = &id
+	}
+	note := ""
+	if noun != "" {
+		note = fmt.Sprintf("%d %s", n, plural(n, noun, noun+"s"))
 	}
 	a.command(c, kind, outcome(err), note, err)
 	if err != nil {

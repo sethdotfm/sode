@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
-  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock, softUnlock, startLogin, cancelLogin, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -197,92 +197,4 @@ test('softIdleLock: idle past the auto-lock minutes, only where no PIN lock is o
   assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 0), false);
   assert.equal(softIdleLock({ enforced: false }, true, 0, idle, 5), false);
   assert.equal(softIdleLock({ enforced: true }, false, 0, idle, 5), false);
-});
-
-test('tab login: offered only with users, no lock and nobody in', () => {
-  assert.equal(loginOffered({ enforced: false, user: '', lens: [4] }), true);
-  assert.equal(loginOffered({ enforced: false, user: '', lens: [] }), false); // no users: nothing new
-  assert.equal(loginOffered({ enforced: true, user: '', lens: [4] }), false);
-  assert.equal(loginOffered({ enforced: false, user: 'Ana', lens: [4] }), false);
-  assert.equal(loginOffered({ enforced: false, user: '' }), false);
-});
-
-test('tab login: tokens', () => {
-  assert.equal(wantsTab({ enforced: false }), true);
-  assert.equal(wantsTab({ enforced: true }), false);
-  assert.equal(hiToken('t', 'p'), 't');
-  assert.equal(hiToken('', 'p'), 'p');
-  assert.equal(hiToken(null, null), '');
-  assert.equal(tokenHome({ tab: true }), 'tab');
-  assert.equal(tokenHome({}), 'browser');
-});
-
-test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")', () => {
-  const cur = { router: 'a:1', pinMaxTries: 10, autoLockMinutes: 0, locks: { main: true, log: false } };
-  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: false } }, cur), false);
-  assert.equal(guardedEdited({ ...cur, locks: { main: false, log: false } }, cur), true);
-  assert.equal(guardedEdited({ ...cur, locks: { main: true, log: true } }, cur), true);
-  assert.equal(guardedEdited({ ...cur, autoLockMinutes: 5 }, cur), true);
-  assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
-});
-
-test('hand lock: Log in as is offered with users and no lock, logged in or not', () => {
-  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
-  assert.equal(loginAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true); // switching user
-  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [] }), false);
-  assert.equal(loginAsOffered({ enforced: true, user: '', lens: [4] }), false);
-  assert.equal(loginAsOffered({ enforced: false }), false);
-});
-
-test('lock view: which body shows', () => {
-  assert.equal(viewBody({ mode: 'soft', back: 'page' }, false), 'soft');
-  assert.equal(viewBody({ mode: 'login', back: 'soft' }, false), 'pad');
-  assert.equal(viewBody(PAGE_VIEW, true), 'pad');
-  assert.equal(viewBody(PAGE_VIEW, false), '');
-});
-
-test('lock view: transitions', () => {
-  const soft = softLock(PAGE_VIEW, false);
-  assert.deepEqual(soft, { mode: 'soft', back: 'page' });
-  assert.equal(softLock(PAGE_VIEW, true), PAGE_VIEW); // enforced: no hand lock
-  assert.equal(softUnlock(soft), PAGE_VIEW);
-  assert.deepEqual(startLogin(PAGE_VIEW, false), { mode: 'login', back: 'page' });
-  assert.equal(startLogin(soft, false), soft); // Settings' button never over the hand lock
-  assert.deepEqual(startLogin(soft, true), { mode: 'login', back: 'soft' });
-  assert.equal(startLogin(PAGE_VIEW, true), PAGE_VIEW);
-  const fromSoft = startLogin(soft, true);
-  assert.equal(fromSoft.back, 'soft'); // the caller reads this before cancelling
-  assert.equal(cancelLogin(fromSoft), PAGE_VIEW);
-  assert.equal(cancelLogin(soft), soft);
-  assert.deepEqual(softLock(fromSoft, false), { mode: 'soft', back: 'page' }); // idle lock wins over a pad
-  assert.equal(lockArrived(soft, true), PAGE_VIEW);
-  assert.equal(lockArrived(soft, false), soft);
-  assert.equal(lockArrived(fromSoft, true), fromSoft);
-});
-
-test('lock view: a login ends only with a real unlock or an enforced lock', () => {
-  const login = { mode: 'login', back: 'soft' };
-  assert.equal(loginWon(login, { enforced: false, unlocked: false, user: 'Ana' }), login); // someone else's state
-  assert.equal(loginWon(login, { enforced: false, unlocked: true, user: '' }), login);
-  assert.equal(loginWon(login, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
-  assert.equal(loginWon(login, { enforced: true, unlocked: false, user: '' }), PAGE_VIEW);
-  assert.equal(loginWon(PAGE_VIEW, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
-});
-
-test('hand lock: the chip shows for a logged-in user under it only', () => {
-  assert.equal(chipShown({ covered: true, soft: true, user: 'Ana' }), true);
-  assert.equal(chipShown({ covered: true, soft: true, user: '' }), false);
-  assert.equal(chipShown({ covered: false, soft: false, user: '' }), true);
-  assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false); // a pad is up
-});
-
-test('hand lock: Log out offered only with a user and no PIN lock; the view stays soft', () => {
-  assert.equal(logOutOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
-  assert.equal(logOutOffered({ enforced: false, user: '', lens: [4] }), false);
-  assert.equal(logOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
-  const v = softLock(PAGE_VIEW, false);
-  // logging out changes no view: lockArrived(false) and loginWon leave soft alone
-  assert.deepEqual(lockArrived(v, false), v);
-  assert.deepEqual(loginWon(v, { enforced: false, unlocked: false, user: '' }), v);
-  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
 });

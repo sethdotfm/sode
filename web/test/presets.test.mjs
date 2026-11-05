@@ -125,14 +125,21 @@ test('presetPlan: the same source twice on one destination merges levels', async
   assert.deepEqual(plan.items[0].groups.map((g) => g.levels), [[1, 3]]);
 });
 
-test('itemsFromTakes', async () => {
-  const { itemsFromTakes } = await setup();
+test('itemsFromTakes and latestFolderTakes', async () => {
+  const { itemsFromTakes, latestFolderTakes } = await setup();
   const takes = [
     { src: 1, dst: 5, levels: [1, 2] }, { src: 1, dst: 6, levels: [1, 2] }, { src: 2, dst: 7, levels: [3] },
   ];
   assert.deepEqual(itemsFromTakes(takes), [
     { src: 1, dsts: [5, 6], levels: [1, 2] }, { src: 2, dsts: [7], levels: [3] },
   ]);
+  const hist = [ // newest first
+    { id: 4, src: 2, dst: 7, levels: [3], group: 'g', groupN: 2 },
+    { id: 3, src: 1, dst: 5, levels: [1], group: 'g', groupN: 2 },
+    { id: 2, src: 9, dst: 9, levels: [1], ext: true },
+  ];
+  assert.deepEqual(latestFolderTakes(hist).map((t) => t.dst), [5, 7]);
+  assert.deepEqual(latestFolderTakes([{ id: 2, src: 9, dst: 9, levels: [1], ext: true }]), []);
 });
 
 test('a preset plan can be confirmed: wording, summary and verb', async () => {
@@ -152,6 +159,17 @@ test('replacePreset adds, replaces by old name ignoring case, and leaves the res
   assert.deepEqual(replacePreset([a], b).map((x) => x.name), ['A', 'B']);
   assert.deepEqual(replacePreset([a, b], { name: 'C', items: [] }, 'a').map((x) => x.name), ['C', 'B']);
   assert.deepEqual(replacePreset([a], { name: 'C', items: [] }, 'gone').map((x) => x.name), ['A', 'C']);
+});
+
+test('latestFolderTakes leaves out retries like the first find does', async () => {
+  const { latestFolderTakes } = await setup();
+  const hist = [ // newest first
+    { id: 5, src: 1, dst: 5, levels: [1], retry: 3 },
+    { id: 4, src: 2, dst: 7, levels: [3], group: 'g', groupN: 3 },
+    { id: 3, src: 1, dst: 5, levels: [1], group: 'g', groupN: 3 },
+    { id: 2, src: 1, dst: 6, levels: [1], group: 'g', groupN: 3, retry: 1 },
+  ];
+  assert.deepEqual(latestFolderTakes(hist).map((t) => t.dst), [5, 7]);
 });
 
 test('conflicts: different sources, one destination, overlapping levels', async () => {

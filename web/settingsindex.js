@@ -17,7 +17,7 @@ const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
 export const DICT = {
   // ---- sections
-  'this-device': ['this browser', 'local', 'personal', 'preferences', 'prefs', 'appearance', 'display', 'device', 'my settings', 'theme', 'dark', 'light', 'colour', 'color', 'clock', 'time', '24h', 'layout', 'my default', 'set as my default', 'clear my default', 'profile', 'follow'],
+  'this-device': ['this browser', 'local', 'personal', 'preferences', 'prefs', 'appearance', 'display', 'device', 'my settings', 'theme', 'dark', 'light', 'colour', 'color', 'clock', 'time', '24h', 'layout'],
   'defaults-for-every-device': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'appearance', 'preferences'],
   'names': ['source names', 'destination names', 'labels', 'refresh', 'poll', 'reread', 'router names', 'name length', 'characters', 'truncate'],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
@@ -29,8 +29,6 @@ export const DICT = {
   'audit': ['network', 'proxy', 'proxies', 'trusted', 'x-forwarded-for', 'forwarded', 'ip address', 'client ip', 'reverse proxy', 'log', 'logging', 'who'],
   'history': ['recent', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
   'users': ['user', 'users', 'people', 'operators', 'names', 'pin', 'password', 'passwords', 'lock', 'lock screen', 'auto lock', 'auto-lock', 'timeout', 'idle', 'inactivity', 'logout', 'access', 'who', 'accounts', 'permissions'],
-  'export-import': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share', 'share link', 'move', 'copy', 'transfer', 'another site', 'studio', 'settings file', 'save', 'load', 'presets', 'filter sets'],
-  'transfer-open': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share link', 'review', 'transfer', 'copy to another site'],
   // Sections other branches may add; ignored until they exist.
   'salvos': ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
@@ -46,24 +44,12 @@ export const DICT = {
   ...both('set-stack', ['stack', 'stacked', 'filter sets', 'sets', 'and', 'or', 'combine', 'all', 'any', 'filter']),
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
 
-  // ---- My defaults (per-row buttons shown while logged in)
-  ...Object.fromEntries(['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].flatMap((n) => [['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']], ['my-default-clear-' + n, ['my default', 'clear my default', 'remove', 'profile', 'personal', 'account']]])),
-
   // ---- Account (inside This device; only shown while logged in as a user)
-  'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
-  'account-transfer': ['export', 'import', 'backup', 'restore', 'share', 'transfer', 'my settings', 'presets', 'filter sets', 'account'],
-  'lock-pages': ['lock', 'lock main screen', 'lock communication log', 'lock log', 'pin', 'users', 'protect', 'screen lock'],
-  'cfg-auto-lock': ['auto lock', 'auto-lock', 'idle', 'inactivity', 'timeout', 'minutes', 'lock after', 'hand lock'],
-  'config-file': ['server configuration', 'config file', 'config.yaml', 'yaml', 'backup', 'restore', 'export', 'import', 'download', 'upload', 'migrate', 'copy settings'],
-  'config-export': ['export', 'download', 'save', 'backup', 'config file', 'config.yaml', 'yaml', 'server configuration', 'settings file'],
-  'config-import': ['import', 'upload', 'restore', 'load', 'replace', 'config file', 'config.yaml', 'yaml', 'server configuration', 'settings file'],
-  'config-pins': ['include pins', 'private backup', 'secret', 'hashes', 'pin', 'password', 'backup', 'export'],
   'users-manage': ['manage users', 'add user', 'remove user', 'edit users', 'users', 'pin', 'trusted', 'never log out', 'persistent', 'sign out everywhere', 'lock main screen', 'lock log', 'auto lock', 'idle', 'longest pin'],
   'account': ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
   'soft-lock': ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
   'soft-lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
-  'account-login': ['log in', 'login', 'sign in', 'signin', 'user', 'pin', 'account', 'session', 'tab', 'name'],
   'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
 
   // ---- Names

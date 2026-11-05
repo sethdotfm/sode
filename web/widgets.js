@@ -221,10 +221,6 @@ export function disclosure(open, label, controls, onToggle) {
   return b;
 }
 
-// A form field with its small label above it: the label wraps the control, so
-// clicking the words focuses it. cls: extra classes (sode__filters-scope = a fixed-width select).
-export const labeled = (text, control, cls = '') => el('label', `sode__fld ${cls}`.trim(), el('span', 'sode__label', text), control);
-
 // A click anywhere on row (not a control, nor inside skip, nor a
 // different row within it) works toggle, as does one that selected text
 // not. A row that sets data-no-tap (a swipe just ended) skips one click.

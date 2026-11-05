@@ -25,10 +25,6 @@ type User struct {
 	// Persistent: unlocking as this user issues a session token the browser
 	// keeps, so a reload or dropped link does not log them out (no idle lock).
 	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
-	// Profile (#161): this user's prefs, filter sets and presets. Never in
-	// JSON: it reaches browsers only as the profile message, and only to
-	// connections unlocked as this user.
-	Profile Profile `yaml:"profile,omitempty" json:"-"`
 }
 
 // Locks says which page types need an unlocked user: the main screen and /log.
@@ -72,41 +68,6 @@ func (c Config) FindUser(name string) (User, bool) {
 		}
 	}
 	return User{}, false
-}
-
-// TakePin makes u's PIN hash and length those of from: the two always come
-// from the same place.
-func (u *User) TakePin(from User) { u.Pin, u.Len = from.Pin, from.Len }
-
-// KeepPins is c (a config read from a file) with every PIN hash it doesn't
-// carry taken from live: the settings PIN likewise, and a user's hash and
-// length together from the live user of that name (the length in a file
-// without a hash is ignored). A user with neither can't log in, so that is an
-// error. Hashes in c must look like hashes, so a file can't stop the next
-// start. c itself is not changed.
-func (c Config) KeepPins(live Config) (Config, error) {
-	if c.SettingsPin == "" {
-		c.SettingsPin = live.SettingsPin
-	} else if !ValidPinHash(c.SettingsPin) {
-		return c, fmt.Errorf("settingsPin in the file isn't a PIN hash (a PIN can't be typed into a file; set it in Settings)")
-	}
-	users := make([]User, len(c.Users))
-	for i, u := range c.Users {
-		if u.Pin != "" {
-			if !ValidPinHash(u.Pin) {
-				return c, fmt.Errorf("the PIN of user %q in the file isn't a PIN hash", u.Name)
-			}
-		} else {
-			keep, ok := live.FindUser(u.Name)
-			if !ok || keep.Pin == "" {
-				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep: export with PINs included, or add the user in Settings first", u.Name)
-			}
-			u.TakePin(keep)
-		}
-		users[i] = u
-	}
-	c.Users = users
-	return c, nil
 }
 
 func (c *Config) normalizeUsers() {

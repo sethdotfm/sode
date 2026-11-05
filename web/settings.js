@@ -6,9 +6,7 @@
 
 import { $, el, S, on, emit, wsSend, sentence } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
-import { fmtTime, ownPref, globalPref, defaultPref, myPref, setPref, pref } from './device.js';
-import { myDefaultButtons } from './mydefaults.js';
-import { profile, profileName, saveProfile } from './profile.js';
+import { fmtTime, ownPref, globalPref, setPref } from './device.js';
 import { filterSummary, normFilter } from './filterstore.js';
 import { showResult } from './plans.js';
 import { parseLevelsAs } from './levels.js';
@@ -17,13 +15,10 @@ import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
 import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
-import { guardedEdited, loginOffered } from './lockrules.js';
+import { guardedEdited } from './lockrules.js';
 import { omitOwned } from './owned.js';
-import { intProblem } from './settingsrules.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
-import './profiles.js'; // the Profile dialog (openProfile)
-import './configfile.js'; // Access: export / import the server config.yaml
 
 const root = document.documentElement;
 const form = $('settings-view');
@@ -50,13 +45,12 @@ function showView() {
 }
 
 // ---- unsaved changes: the server settings in the form against the last
-// opened or saved state. Blocks marked data-apart (This device, the lock, Users,
-// the config file) save apart from the form, so they aren't counted.
+// opened or saved state. This device applies at once, so it isn't counted.
 
 let clean = '';
 let savedAt = null;
 const formState = () => JSON.stringify([...form.querySelectorAll('input, select, textarea')]
-  .filter((f) => !f.closest('[data-apart]') && f.id !== 'settings-find')
+  .filter((f) => !f.closest('.sode__device, .sode__lock, .sode__users') && f.id !== 'settings-find')
   .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)));
 const dirty = () => isOpen() && formState() !== clean;
 const warned = () => !$('settings-unsaved').hidden;
@@ -88,13 +82,6 @@ function unwarn() {
 function exitSettings() {
   if (!warnUnsaved()) closeSettings();
 }
-
-// Bus 'settingsClose' {discard}: another module closes Settings (the form
-// would be stale, e.g. after a config import); discard skips the warning.
-on('settingsClose', (m) => {
-  if (!isOpen()) return;
-  if (m?.discard) { unwarn(); closeSettings(); } else exitSettings();
-});
 
 // Next to Save: unsaved changes, or where (and when) it was saved.
 function renderSaveState() {
@@ -141,11 +128,6 @@ export function openSettings() {
   renderNumbering();
   renderBrandPreview();
   renderColors(S.cfg.levelColors || []);
-  $('cfg-lock-main').checked = !!S.cfg.locks?.main;
-  $('cfg-lock-log').checked = !!S.cfg.locks?.log;
-  // What the form showed: only a change from it is sent (below), so a form
-  // opened before someone else changed the locks can't undo their change.
-  shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, auto: S.cfg.autoLockMinutes ?? 0 };
   $('cfg-pin').value = '';
   $('cfg-pin2').value = '';
   $('cfg-pin-clear').checked = false;
@@ -155,7 +137,7 @@ export function openSettings() {
   $('lock-unlock').disabled = false;
   $('lock-err').hidden = true;
   renderPrefs();
-  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, null, S.cfg.deviceDefaults);
+  for (const s of form.querySelectorAll('select[data-gpref]')) s.value = resolve(s.dataset.gpref, null, S.cfg.deviceDefaults);
   resetClear();
   $('settings-err').hidden = true;
   $('settings-save').disabled = false;
@@ -172,7 +154,7 @@ export function openSettings() {
 
 // Shows the PIN prompt or the form. Focus moves only when that flips (or
 // on open), not on every status update.
-function renderLock(opening = false, afterPin = false) {
+function renderLock(opening = false) {
   if (!isOpen()) return;
   const locked = needsPin();
   const flipped = locked !== ('locked' in form.dataset);
@@ -180,7 +162,6 @@ function renderLock(opening = false, afterPin = false) {
   else { delete form.dataset.locked; $('lock-help').hidden = true; }
   if (!opening && !flipped) return;
   if (locked) $('lock-pin').focus();
-  else if (afterPin) $('settings-find').focus({ preventScroll: true });
   else if (layout() === 'desktop') $('cfg-namerefresh').focus();
 }
 
@@ -192,8 +173,6 @@ function closeSettings() {
   if (layout() === 'desktop') $('src').focus();
 }
 
-let shownAccess = null; // { main, log, auto } as filled into the form
-
 // The config as the form now stands, without what the server owns (owned.js).
 function readSettings() {
   const c = omitOwned(S.cfg);
@@ -204,13 +183,6 @@ function readSettings() {
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
-  // The locks and idle time are sent only when edited; a missing key keeps the
-  // live value on the server. A blank idle time means 0 (never).
-  if (Number.isNaN(c.autoLockMinutes)) c.autoLockMinutes = 0;
-  const locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked };
-  if (shownAccess && locks.main === shownAccess.main && locks.log === shownAccess.log) delete c.locks;
-  else c.locks = locks;
-  if (shownAccess && c.autoLockMinutes === shownAccess.auto) delete c.autoLockMinutes;
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
   c.levelNumbering = formMode();
   c.deviceDefaults = Object.fromEntries([...form.querySelectorAll('select[data-gpref]')].map((s) => [s.dataset.gpref, toGlobal(s.dataset.gpref, s.value)]));
@@ -236,104 +208,27 @@ const prefOptions = (name, globalText) => {
 
 for (const s of form.querySelectorAll('select[data-gpref]')) s.replaceChildren(...prefOptions(s.dataset.gpref));
 
-// Where a value comes from, for its label while a user is logged in.
-const originText = (name, v) => {
-  const text = PREFS[name].values[v];
-  if (myPref(name) === v) return `${text} \u00b7 my default`;
-  if (globalPref(name) === v) return `${text} \u00b7 everyone's default`;
-  return text;
-};
-
-// Per-row "Save as my default" / "Clear my default" (only with a profile).
-// They are built on the first profile, after the search index was made, so
-// creating one rebuilds the index (indexNow, set where the index is built).
-let indexNow = () => {};
-const myButtons = new Map();
-function myButton(select) {
-  const name = select.dataset.pref;
-  let mb = myButtons.get(name);
-  if (mb) return mb;
-  const mk = (id, label) => {
-    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__my-default', label);
-    b.type = 'button';
-    b.dataset.find = id;
-    b.dataset.label = label;
-    return b;
-  };
-  const save = mk(`my-default-${name}`, 'Save as my default');
-  const clear = mk(`my-default-clear-${name}`, 'Clear my default');
-  const note = el('span', 'sode__hint');
-  note.hidden = true;
-  note.setAttribute('role', 'status');
-  const run = (change, after) => async () => {
-    const p = profile();
-    if (!p.name) return;
-    const prefs = { ...p.prefs };
-    change(prefs);
-    save.disabled = clear.disabled = true;
-    const r = await saveProfile({ prefs });
-    save.disabled = clear.disabled = false;
-    note.hidden = r.ok;
-    note.textContent = r.ok ? '' : (r.err || 'Could not save.');
-    if (r.ok) after();
-  };
-  // Saved: this browser then follows the profile, so no own value shadows it.
-  save.addEventListener('click', run((prefs) => { prefs[name] = pref(name); }, () => setPref(name, '')));
-  clear.addEventListener('click', run((prefs) => { delete prefs[name]; }, () => renderPrefs()));
-  const row = el('div', 'sode__my-defaults');
-  row.append(save, clear, note);
-  select.closest('.sode__field').append(row);
-  mb = { save, clear, note, row };
-  myButtons.set(name, mb);
-  indexNow();
-  return mb;
-}
-
 // On any change of the settings in force, so "Global (value)" stays true
 // when the defaults change under an open form, and Alt+Shift+T shows.
 function renderPrefs() {
-  const user = profileName();
   for (const s of form.querySelectorAll('select[data-pref]')) {
     const name = s.dataset.pref;
-    if (user) {
-      const opt = (value, text) => Object.assign(el('option', null, text), { value });
-      s.replaceChildren(
-        opt('', `${myPref(name) ? 'My' : 'Everyone\'s'} default (${PREFS[name].values[defaultPref(name)]})`),
-        ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
-      );
-    } else {
-      s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
-    }
+    s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
     s.value = ownPref(name);
-    const mb = myButtons.get(name) || (user ? myButton(s) : null);
-    if (!mb) continue;
-    const show = myDefaultButtons(pref(name), myPref(name));
-    mb.save.hidden = !user || !show.save;
-    mb.clear.hidden = !user || !show.clear;
-    mb.row.hidden = !user;
-    if (!user) mb.note.hidden = true;
   }
 }
 renderPrefs();
 on('prefs', renderPrefs);
-on('profile', renderPrefs);
 
 // Account: only while logged in as a user (lock.js says so with 'access').
-let acctUser = '';
 on('access', (L) => {
-  acctUser = L.user || '';
-  $('account').hidden = !L.user && !loginOffered(L);
-  $('account-name').textContent = L.user ? `Logged in as ${L.user}` : 'Not logged in';
-  for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
-  $('account-login').hidden = !!L.user;
+  $('account').hidden = !L.user;
+  $('account-name').textContent = L.user ? `Logged in as ${L.user}` : '';
   $('soft-lock').hidden = L.enforced; // a PIN lock has its own Lock and Log out
 });
 $('soft-lock-btn').addEventListener('click', () => emit('softLock'));
 $('account-pin').addEventListener('click', () => emit('changePin'));
-$('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
-$('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));
 $('account-logout').addEventListener('click', () => emit('logout'));
-$('account-login').addEventListener('click', () => emit('login'));
 
 // ---- table of contents: one button per section, scrolling to it, with the
 // section in view marked. Wide screens pin it beside the column; narrow
@@ -514,7 +409,6 @@ function configResult(m) {
     $('cfg-pin2').value = '';
     $('cfg-pin-clear').checked = false;
     renderPinStatus();
-    $('settings-err').hidden = true;
     markClean(true);
     renderLock();
     return;
@@ -552,7 +446,7 @@ async function sendUnlock() {
   if (!r.ok) return showLockErr(r.err);
   $('lock-pin').value = '';
   $('lock-err').hidden = true;
-  renderLock(false, true);
+  renderLock();
 }
 
 // After a hello or a connection change (pin.js has dropped any unlock the
@@ -601,12 +495,7 @@ function closeLockHelp() {
 $('lock-help-open').addEventListener('click', openLockHelp);
 $('lock-help-close').addEventListener('click', closeLockHelp);
 // Editing again after the warning takes it back, until the next try to leave.
-for (const ev of ['input', 'change']) {
-  form.addEventListener(ev, () => {
-    $('settings-err').hidden = true;
-    return warned() ? unwarn() : renderSaveState();
-  });
-}
+for (const ev of ['input', 'change']) form.addEventListener(ev, () => (warned() ? unwarn() : renderSaveState()));
 window.addEventListener('beforeunload', (e) => {
   if (dirty()) e.preventDefault();
 });
@@ -647,7 +536,7 @@ form.addEventListener('submit', (e) => {
     renderLock();
     return;
   }
-  const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
+  const bad = [...fields()].find((f) => f.dataset.type === 'int' && !Number.isInteger(c[f.dataset.key]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) {
     $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`;
@@ -746,11 +635,9 @@ function settingsOf(sec, secId) {
   for (const f of sec.querySelectorAll('[data-find]')) add(f.dataset.find, f.dataset.label || f.textContent, f);
   return [...out.values()];
 }
-const makeIndex = () => buildIndex(sections.map((sec, i) => ({
+const settingsIndex = buildIndex(sections.map((sec, i) => ({
   id: secIds[i], title: sec.querySelector('legend').textContent, settings: settingsOf(sec, secIds[i]),
 })));
-let settingsIndex = makeIndex();
-indexNow = () => { settingsIndex = makeIndex(); };
 
 let hits = [];
 let cur = 0;

@@ -129,6 +129,8 @@ func TestSettingsIgnoresOwned(t *testing.T) {
 	in.Router = "9.9.9.9:9"
 	in.SettingsPin = "not a hash"
 	in.Users = []config.User{{Name: "intruder"}}
+	in.Locks = config.Locks{Main: true}
+	in.AutoLockMinutes = 5
 	in.Presets[0].Name = "" // would fail validation if it were applied
 	if err := a.SaveSettings(c, in, "", false); err != nil {
 		t.Fatalf("owned fields were validated or applied: %v", err)

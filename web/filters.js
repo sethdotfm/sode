@@ -3,28 +3,23 @@
 // rule rows (Visual) or typed (Code). Everything applies as you type and
 // is kept per browser (filterstore.js). Named sets (global from Settings, or this
 // browser's own) are quick buttons in Recent's header. Share link puts the
-// filter in a URL (transfer.js reads it back through a review sheet).
+// filter in a URL that applies it in another browser; the URL is cleaned
+// once read.
 
-import { $, el, S, on, emit, off, search, item, labelNode, nameProblem } from './core.js';
+import { $, el, S, on, off, search, item, labelNode, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
 import {
-  filterState, setFilter, filterCount, allSets, activeSet, adoptFilter, pickSet,
-  saveLocalSet, deleteLocalSet, renameLocalSet, setsIn, setRef, filterSummary, toggleSet, activeStack, isActive,
+  filterState, setFilter, filterCount, FILTER_DEFAULT, normFilter, allSets, activeSet, activeRef, adoptFilter, pickSet,
+  saveLocalSet, deleteLocalSet, renameLocalSet, globalSets, filterSummary, toggleSet, activeStack, isActive, snapshot, restore,
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
 import { histRows, setSearch, searchActive, searchRespectsFilters } from './history.js';
-import { shareLink, copyLink } from './transfer.js';
-import { filterShare, saveAsName } from './exportfmt.js';
-import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
+import { showResult } from './plans.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
-import { globalSaver, profileSaver } from './globalsave.js';
-import { profileName, editTarget } from './profile.js';
-import { FILTER_DEFAULT, normFilter } from './filterstore.js';
-import { upsertEntry, filterEntry } from './profilesrules.js';
-import { combobox, trapDialog, labeled } from './widgets.js';
+import { globalSaver } from './globalsave.js';
+import { combobox, trapDialog } from './widgets.js';
 
-const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]); // Default | Everyone | Me | This browser
 const root = $('filters');
 const dialog = $('filters-dialog');
 const MODE_KEY = 'sode-filter-mode';
@@ -37,15 +32,6 @@ const KINDS = [
   ['range', 'Number between'],
   ['re', 'Name matches regex'],
 ];
-
-// ---- aimed at a profile (bus 'openFilterEditor', from the Profile dialog)
-// The same dialog edits one filter set of a profile: the filter is a draft
-// held here (never the browser's own filter or active set), the set bar is
-// replaced by a name and Save, and a save goes to that user's profile.
-
-let tgt = null; // editTarget(...) plus f: the draft
-const curF = () => (tgt ? tgt.f : filterState());
-const putF = (next) => { if (tgt) tgt.f = normFilter(next); else setFilter(next); };
 
 // Whether a visual row says enough to be a rule.
 function complete(r) {
@@ -71,7 +57,7 @@ function editor(key) {
     ed.error = p.error ? `${p.error}${p.at != null ? ` at “${ed.text.slice(p.at, p.at + 12)}”` : ''}` : null;
     clearTimeout(timer);
     const go = () => {
-      if (!ed.error) putF({ ...curF(), [key]: ed.text });
+      if (!ed.error) setFilter({ ...filterState(), [key]: ed.text });
       preview();
     };
     if (now) go();
@@ -217,7 +203,7 @@ function editor(key) {
     preview,
     flush() {
       clearTimeout(timer);
-      if (!ed.error) putF({ ...curF(), [key]: ed.text });
+      if (!ed.error) setFilter({ ...filterState(), [key]: ed.text });
       preview();
     },
   };
@@ -241,7 +227,7 @@ function setMode(m) {
 }
 
 function renderShow() {
-  const f = curF();
+  const f = filterState();
   $('flt-sode').checked = f.sode;
   $('flt-ext').checked = f.ext;
   $('flt-hidden').checked = f.hidden;
@@ -290,7 +276,7 @@ function renderButtons() {
   };
   // All | for everyone | this browser's own, each group labelled for
   // screen readers.
-  const groups = SCOPE_GROUPS
+  const groups = [['all', 'Default'], ['global', 'Everyone'], ['local', 'This browser']]
     .map(([scope, label]) => [label, sets.filter((s) => s.scope === scope)]).filter(([, g]) => g.length);
   for (const box of document.querySelectorAll('[data-sets]')) {
     const kids = [];
@@ -319,8 +305,6 @@ export const filtersOpen = () => !root.hidden;
 
 export function openFilters() {
   back = document.activeElement;
-  tgt = null;
-  chrome();
   const f = filterState();
   renderMode();
   renderShow();
@@ -329,111 +313,37 @@ export function openFilters() {
   $('flt-share').hidden = true;
   $('flt-set-name-row').hidden = true;
   $('flt-pin-row').hidden = true;
-  naming = false;
+  naming = null;
   deleting = false;
   renderSetBar();
-  dlg.show();
+  root.hidden = false;
   dialog.focus();
 }
 
 function closeFilters() {
   eds.src.flush();
   eds.dst.flush();
-  dlg.hide();
-  if (tgt) { // an editor aimed at a profile: nothing global to finish
-    tgt = null;
-    chrome();
-    if (back?.isConnected) back.focus();
-    return;
-  }
+  root.hidden = true;
   // A save already sent finishes first (its answer locks up after it);
   // one still waiting for the PIN is dropped.
   saver.close();
   if (back?.isConnected) back.focus();
 }
 
-const tName = el('input', 'pb-input');
-tName.maxLength = 32;
-tName.placeholder = 'Name';
-tName.autocomplete = 'off';
-tName.setAttribute('aria-label', 'Set name');
-const tNote = el('span', 'sode__hint');
-tNote.setAttribute('role', 'status');
-tNote.setAttribute('aria-live', 'polite');
-const tSave = el('button', 'pb-btn pb-btn--commit', 'Save');
-tSave.type = 'button';
-const tBar = el('div', 'sode__filters-set', labeled('Name', tName), tNote);
-tBar.hidden = true;
-$('flt-set').closest('.sode__filters-sets').before(tBar);
-$('flt-done').before(tSave);
-tSave.hidden = true;
-const tNoteSet = (text, error = false) => {
-  tNote.textContent = text;
-  tNote.classList.toggle('sode__error-text', error);
-};
-
-// The dialog's look for the editor kind: target set or the usual one.
-function chrome() {
-  const t = !!tgt;
-  $('flt-set').closest('.sode__filters-sets').hidden = t;
-  tBar.hidden = !t;
-  tSave.hidden = !t;
-  $('flt-clear').hidden = t;
-  $('flt-share-btn').hidden = t;
-  $('flt-done').textContent = t ? 'Cancel' : 'Done';
-  $('filters-title').textContent = t ? `${tgt.old ? 'Edit' : 'Add'} filter set for ${tgt.user}` : 'Filters';
-  if (t) { tName.value = tgt.old; tNoteSet(''); tName.classList.remove('pb-input--invalid'); }
-}
-
-const tgtSaver = profileSaver({
-  target: () => tgt,
-  setNote: tNoteSet, isOpen: () => filtersOpen() && !!tgt, failTitle: 'Filter set not saved', render: () => { tSave.disabled = tgtSaver.busy(); },
-});
-
-function saveTarget() {
-  if (!tgt) return;
-  eds.src.flush();
-  eds.dst.flush();
-  const name = tName.value.trim();
-  const bad = nameProblem(name, tgt.lists.map((x) => String(x?.name)), { noun: 'filter set', old: tgt.old, reserved: 'all' });
-  if (bad) { tName.classList.add('pb-input--invalid'); tNoteSet(bad, true); tName.focus(); return; }
-  tName.classList.remove('pb-input--invalid');
-  const list = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old);
-  tgtSaver.change({ filterSets: list }, closeFilters);
-}
-tSave.addEventListener('click', saveTarget);
-tName.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); saveTarget(); }
-});
-
-on('openFilterEditor', (m) => {
-  const t = editTarget(m, 'filterSets');
-  if (!t) return;
-  back = document.activeElement;
-  tgt = { ...t, f: normFilter(t.found || FILTER_DEFAULT) };
-  chrome();
-  renderMode();
-  renderShow();
-  eds.src.load(tgt.f.src);
-  eds.dst.load(tgt.f.dst);
-  $('flt-share').hidden = true;
-  dlg.show();
-  dialog.focus();
-});
-
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
 $('flt-done').addEventListener('click', closeFilters);
+root.addEventListener('click', (e) => { if (e.target === root) closeFilters(); });
 $('flt-visual').addEventListener('click', () => setMode('visual'));
 $('flt-code').addEventListener('click', () => setMode('code'));
 for (const k of ['sode', 'ext', 'hidden']) {
   $(`flt-${k}`).addEventListener('change', (e) => {
-    putF({ ...curF(), [k]: e.target.checked });
+    setFilter({ ...filterState(), [k]: e.target.checked });
     renderShow();
   });
 }
 // Loads the editors from the filter now (after a set is picked).
 function reload() {
-  const f = curF();
+  const f = filterState();
   renderShow();
   eds.src.load(f.src);
   eds.dst.load(f.dst);
@@ -445,22 +355,19 @@ $('flt-clear').addEventListener('click', () => {
   reload();
 });
 
-// ---- the set bar: pick, name, save, save as, delete. As in the preset
-// editor, a saved set is renamed by editing its name and pressing Save. Works the same on
+// ---- the set bar: pick, save, save as, rename, delete. Works the same on
 // this browser's sets and on sets for everyone; those are settings, saved
 // on the server, so with a settings PIN they ask for it first.
 
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false; // Delete was pressed once; the next press deletes
-let naming = false;   // the Save as name row is open
-let nameDirty = false; // the name box was edited (it keeps what is typed across redraws)
-let moveTo = null;     // the scope chosen for the open set: Save moves it there
+let naming = null;    // 'saveas' | 'rename' while the name row is open
 
 function renderSetBar() {
   const a = activeSet();
   const stack = activeStack();
   const select = $('flt-set');
-  const groups = SCOPE_GROUPS;
+  const groups = [['all', 'Default'], ['global', 'Everyone'], ['local', 'This browser']];
   const sets = allSets();
   const opts = [];
   if (!a) {
@@ -483,20 +390,11 @@ function renderSetBar() {
   select.replaceChildren(...opts);
   select.value = a ? setKey(a) : '';
   const named = a && a.scope !== 'all';
-  const busy = saver.busy() || profSaver.busy();
-  const cur = $('flt-set-cur');
-  if (!named) { nameDirty = false; cur.value = ''; } else if (!nameDirty) cur.value = a.name;
-  cur.disabled = busy || !named;
-  // Where the set lives; another choice is a move, made by Save (copy first, then remove).
-  const scopeBox = $('flt-set-cur-scope');
-  scopeBox.replaceChildren(...scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id)));
-  if (named && ![...scopeBox.options].some((o) => o.value === moveTo)) moveTo = null;
-  if (!named) moveTo = null;
-  scopeBox.value = moveTo || (named && [...scopeBox.options].some((o) => o.value === a.scope) ? a.scope : 'local');
-  scopeBox.disabled = busy || !named;
-  $('flt-set-save').disabled = busy || !(named && (a.edited || nameDirty || moveTo));
+  const busy = saver.busy();
+  $('flt-set-save').disabled = busy || !(named && a.edited);
   $('flt-set-saveas').disabled = busy || stack.length > 0;
   $('flt-share-btn').disabled = stack.length > 0;
+  $('flt-set-rename').disabled = busy || !named;
   $('flt-set-del').disabled = busy || !named;
   $('flt-set-del').textContent = deleting && named ? `Delete “${a.name}”?` : 'Delete';
   $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
@@ -505,8 +403,7 @@ function renderSetBar() {
     return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. `
       + 'Changing a filter leaves the stack, and the share link is off.');
   }
-  if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
-  setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' · edited' : ''}` : '');
+  setNote(a && a.scope !== 'all' ? `${a.scope === 'global' ? 'Everyone' : 'This browser'}${a.edited ? ' · edited' : ''}` : '');
 }
 const setNote = (text, error = false) => {
   $('flt-set-note').textContent = text;
@@ -522,14 +419,8 @@ const saver = globalSaver({
   setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar,
 });
 $('flt-pin-cancel').addEventListener('click', saver.cancel);
-// Sets of the logged-in user ('Me') save to their profile: no PIN row.
-const profSaver = profileSaver({ setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar });
-// Saves the whole list of one shared scope ('global' or 'user').
-const changeShared = (scope, list, done) => (scope === 'user'
-  ? profSaver.change({ filterSets: list.map((s) => ({ name: s.name, ...s.f })) }, done)
-  : saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done));
-const sharedWith = (scope, fn) => fn(setsIn(scope).map((s) => ({ name: s.name, f: s.f })));
-const refTo = (scope, name, base) => ({ ...setRef(scope, name), base });
+const changeGlobal = (list, done) => saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done);
+const globalsWith = (fn) => fn(globalSets().map((s) => ({ name: s.name, f: s.f })));
 
 // ---- the buttons
 
@@ -537,71 +428,18 @@ $('flt-set').addEventListener('change', (e) => {
   const [scope, ...rest] = e.target.value.split(':');
   if (!scope) return;
   deleting = false;
-  nameDirty = false;
-  moveTo = null;
   pickSet(scope, rest.join(':'));
   reload();
 });
 
-$('flt-set-cur').addEventListener('input', () => {
-  const a = activeSet();
-  nameDirty = !!a && $('flt-set-cur').value.trim() !== a.name;
-  $('flt-set-cur').classList.remove('pb-input--invalid');
-  renderSetBar();
-});
-$('flt-set-cur-scope').addEventListener('change', () => {
-  const a = activeSet();
-  const to = $('flt-set-cur-scope').value;
-  moveTo = a && a.scope !== to ? to : null;
-  renderSetBar();
-});
-$('flt-set-cur').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); $('flt-set-save').click(); }
-});
-
-// Takes a set out of one scope (a move's second step).
-function removeSet(scope, name) {
-  if (scope === 'local') return deleteLocalSet(name);
-  changeShared(scope, sharedWith(scope, (l) => l.filter((s) => s.name !== name)), () => {});
-}
-
-// Save writes the filter and, if the name was edited, the new name with it;
-// if another scope was chosen, it copies the set there first, then removes it here.
 $('flt-set-save').addEventListener('click', () => {
   const a = activeSet();
   if (!a || a.scope === 'all') return;
-  const box = $('flt-set-cur');
-  const name = box.value.trim().slice(0, 32) || a.name;
-  const renamed = name !== a.name;
-  const moving = !!moveTo && moveTo !== a.scope;
-  if (renamed || moving) {
-    const into = moving ? moveTo : a.scope;
-    const taken = allSets().filter((x) => x.scope === into).map((x) => x.name);
-    const err = nameProblem(name, taken, { noun: 'filter set', old: moving ? '' : a.name, reserved: 'all' });
-    if (err) { box.classList.add('pb-input--invalid'); setNote(err, true); return box.focus(); }
-  }
   flushEds();
-  if (moving) {
-    const to = moveTo, from = a.scope, was = a.name;
-    if (to === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
-    nameDirty = false;
-    moveTo = null;
-    if (to === 'local') {
-      saveLocalSet(name);
-      return removeSet(from, was);
-    }
-    const f = filterState();
-    return changeShared(to, sharedWith(to, (l) => [...l, { name, f }]),
-      () => { adoptFilter(f, refTo(to, name, f)); removeSet(from, was); });
-  }
-  if (a.scope === 'local') {
-    if (renamed) renameLocalSet(a.name, name);
-    nameDirty = false;
-    return saveLocalSet(name);
-  }
+  if (a.scope === 'local') return saveLocalSet(a.name);
   const f = filterState();
-  changeShared(a.scope, sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name, f } : s))),
-    () => { nameDirty = false; adoptFilter(f, refTo(a.scope, name, f)); });
+  changeGlobal(globalsWith((l) => l.map((s) => (s.name === a.name ? { ...s, f } : s))),
+    () => adoptFilter(f, { scope: 'global', name: a.name, base: f }));
 });
 
 $('flt-set-del').addEventListener('click', () => {
@@ -614,49 +452,57 @@ $('flt-set-del').addEventListener('click', () => {
     $('flt-set').focus();
     return;
   }
-  changeShared(a.scope, sharedWith(a.scope, (l) => l.filter((s) => s.name !== a.name)), () => {
+  changeGlobal(globalsWith((l) => l.filter((s) => s.name !== a.name)), () => {
     adoptFilter(filterState());
     $('flt-set').focus();
   });
 });
 
-function askName() {
+function askName(mode) {
   const a = activeSet();
-  naming = true;
+  naming = mode;
   const f = $('flt-set-name');
   const named = a && a.scope !== 'all';
-  f.value = !named ? '' : saveAsName(a.name, a.scope);
+  f.value = mode === 'rename' ? a.name : !named ? '' : a.scope === 'global' ? `${a.name} (mine)` : `${a.name} 2`;
   f.classList.remove('pb-input--invalid');
-  // 'Me' is offered only while someone is logged in.
-  const sel = $('flt-set-scope');
-  sel.replaceChildren(...scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id)));
-  sel.value = 'local';
+  $('flt-set-scope-wrap').hidden = mode === 'rename';
+  $('flt-set-scope').value = 'local';
+  $('flt-set-name-ok').textContent = mode === 'rename' ? 'Rename' : 'Save set';
   $('flt-set-name-row').hidden = false;
   f.select();
 }
 function closeName() {
   $('flt-set-name-row').hidden = true;
-  $('flt-set-saveas').focus();
-  naming = false;
+  $(naming === 'rename' ? 'flt-set-rename' : 'flt-set-saveas').focus();
+  naming = null;
 }
 function saveName() {
   const f = $('flt-set-name');
   const name = f.value.trim().slice(0, 32);
-  const scope = $('flt-set-scope').value;
+  const a = activeSet();
+  const scope = naming === 'rename' ? a.scope : $('flt-set-scope').value;
   const bad = (msg) => { f.classList.add('pb-input--invalid'); setNote(msg, true); f.focus(); };
-  // Save as replaces a name that is taken in that scope.
-  const err = nameProblem(name, [], { noun: 'filter set', old: '', reserved: 'all' });
+  // Save as replaces a name that is taken; rename may not.
+  const taken = naming === 'rename' ? allSets().filter((x) => x.scope === scope).map((x) => x.name) : [];
+  const err = nameProblem(name, taken, { noun: 'filter set', old: naming === 'rename' ? a.name : '', reserved: 'all' });
   if (err) return bad(err);
   flushEds();
+  const mode = naming;
   closeName();
+  if (mode === 'rename') {
+    if (scope === 'local') return renameLocalSet(a.name, name);
+    return changeGlobal(globalsWith((l) => l.map((s) => (s.name === a.name ? { ...s, name } : s))),
+      () => adoptFilter(filterState(), { ...activeRef(), name }));
+  }
+  // Save as: a name that's taken (in that scope) is replaced.
   if (scope === 'local') return saveLocalSet(name);
   const fNow = filterState();
-  if (scope === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
-  changeShared(scope, sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
-    () => adoptFilter(fNow, refTo(scope, name, fNow)));
+  changeGlobal(globalsWith((l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
+    () => adoptFilter(fNow, { scope: 'global', name, base: fNow }));
 }
 const flushEds = () => { eds.src.flush(); eds.dst.flush(); };
-$('flt-set-saveas').addEventListener('click', askName);
+$('flt-set-saveas').addEventListener('click', () => askName('saveas'));
+$('flt-set-rename').addEventListener('click', () => askName('rename'));
 $('flt-set-name-ok').addEventListener('click', saveName);
 $('flt-set-name-cancel').addEventListener('click', closeName);
 $('flt-set-name').addEventListener('keydown', (e) => {
@@ -665,18 +511,68 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 });
 
 // Keys stay in the dialog (so the layouts' own keys don't act behind it).
-const dlg = trapDialog(root, dialog, closeFilters);
+trapDialog(root, dialog, closeFilters);
 
-// ---- share links: the filter as one item in a #share= link (exportfmt.js);
-// opening it shows the review sheet (transfer.js). The old ?f= link still opens.
+// ---- share links: ?f=<base64url of the filter's non-default parts>
 
-const shareUI = { box: $('flt-share'), input: $('flt-share-url'), status: $('flt-share-status'), copy: $('flt-share-copy') };
-$('flt-share-btn').addEventListener('click', () => {
-  flushEds();
+const b64 = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
+
+$('flt-share-btn').addEventListener('click', async () => {
+  eds.src.flush();
+  eds.dst.flush();
+  const f = filterState();
+  const out = {};
+  for (const k of Object.keys(FILTER_DEFAULT)) if (f[k] !== FILTER_DEFAULT[k]) out[k] = f[k];
   const a = activeSet();
-  shareLink(filterShare(a && a.scope !== 'all' ? a.name : '', filterState()), shareUI);
+  if (a && a.scope !== 'all') out.name = a.name;
+  const url = `${location.origin}${location.pathname}?f=${b64(JSON.stringify(out))}`;
+  $('flt-share').hidden = false;
+  $('flt-share-url').value = url;
+  $('flt-share-url').select();
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {}
+  const dot = el('span', `pb-dot pb-dot--${ok ? 'ok' : 'info'}`);
+  dot.setAttribute('aria-hidden', 'true');
+  $('flt-share-status').replaceChildren(dot, ok ? 'Copied' : 'Copy it above');
 });
-$('flt-share-copy').addEventListener('click', () => copyLink(shareUI));
+
+// A shared link: apply its filter in this browser, then clean the URL.
+export function applySharedLink() {
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('f');
+  if (raw == null) return;
+  params.delete('f');
+  const q = params.toString();
+  history.replaceState(null, '', location.pathname + (q ? `?${q}` : '') + location.hash);
+  let next, name;
+  try {
+    const raw2 = JSON.parse(unb64(raw));
+    next = normFilter(raw2);
+    name = typeof raw2.name === 'string' ? raw2.name.trim().slice(0, 32) : '';
+  } catch (e) {
+    showResult('warn', 'Invalid filter link', '');
+    return;
+  }
+  const prev = snapshot();
+  adoptFilter(next);
+  const btn = (text, fn) => {
+    const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', text);
+    b.type = 'button';
+    b.addEventListener('click', fn);
+    return b;
+  };
+  const undo = () => btn('Undo', () => {
+    restore(prev);
+    showResult('ok', 'Filters restored', '');
+  });
+  const keep = () => btn('Save as set', () => {
+    saveLocalSet(name);
+    showResult('ok', `Saved “${name}”`, '');
+  });
+  showResult('info', name ? `Shared filters “${name}” applied` : 'Shared filters applied', () => el('span', 'sode__filters-empty',
+    name && name.toLowerCase() !== 'all' ? keep() : null, undo()));
+}
 
 // ---- when filters hide everything
 
@@ -684,8 +580,7 @@ $('flt-share-copy').addEventListener('click', () => copyLink(shareUI));
 // While searching it's about the search: still reading back through the
 // log, or nothing found (and the filters may not even apply).
 export function emptyNote(rows, fetching) {
-  if (rows.length) return null;
-  if (!S.hist.length) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No history yet'));
+  if (rows.length || !S.hist.length) return null;
   const searching = searchActive();
   if (searching && fetching) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Searching…'));
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');

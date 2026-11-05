@@ -11,12 +11,3 @@ export const writeStr = (k, v) => {
 };
 export const readJSON = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
 export const writeJSON = (k, v) => writeStr(k, v == null ? null : JSON.stringify(v));
-
-// sessionStorage: for what belongs to one tab only (a no-lock login's token).
-export const readTab = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
-export const writeTab = (k, v) => {
-  try {
-    if (v == null) sessionStorage.removeItem(k);
-    else sessionStorage.setItem(k, v);
-  } catch (e) {}
-};

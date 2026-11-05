@@ -1,7 +1,6 @@
 package app
 
 import (
-	"cmp"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -49,9 +48,6 @@ type connUser struct {
 	// persistent user; a lock revokes it.
 	token string
 	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
-	// profile: the last profile message sent (under mu); "" = none, so a
-	// connection that never had one is never sent a clear.
-	profile string
 }
 
 // who names the connection for history and logs: the user, else the address.
@@ -143,7 +139,6 @@ func (a *App) pushAccessLocked(c *client, hi bool) {
 	m.Hi = hi
 	b, _ := json.Marshal(m)
 	a.deliver(c, b)
-	a.pushProfileLocked(c) // only to the user it belongs to
 }
 
 func (a *App) syncAccess(c *client) {
@@ -164,9 +159,6 @@ func (a *App) Hi(c *client, page, token string) {
 	cfg := a.r().cfg
 	c.u.page = page
 	u, ok := a.tokens.user(token, cfg)
-	if ok && !u.Persistent && pageGates[page].on(cfg.Locks) {
-		ok = false // a no-lock login's tab token means nothing once the page is locked
-	}
 	if ok && c.u.user.Load() == nil {
 		c.u.user.Store(&u)
 		c.u.token = token
@@ -240,32 +232,17 @@ func (a *App) SignOutAll(c *client, name string) error {
 // issueSession gives c's persistent user a session token (the page keeps it
 // and presents it in hi). Disk I/O, so never under mu. It returns "" for a
 // user who is not persistent.
-func (a *App) issueSession(c *client) string { return a.issueSessionTab(c, false) }
-
-// issueSessionTab is issueSession; tab asks for a no-lock login's token for a
-// user who is not persistent (only where c's page has no lock on). It is
-// marked tab in the store and the page keeps it in sessionStorage.
-func (a *App) issueSessionTab(c *client, tab bool) string {
+func (a *App) issueSession(c *client) string {
 	who := c.u.user.Load()
 	cfg := a.r().cfg
 	if who == nil {
 		return ""
 	}
 	u, ok := cfg.FindUser(who.Name)
-	if !ok || u.Pin != who.Pin {
+	if !ok || !u.Persistent || u.Pin != who.Pin {
 		return ""
 	}
-	if !u.Persistent {
-		a.mu.Lock()
-		page := c.u.page
-		a.mu.Unlock()
-		if !tab || pageGates[page].on(cfg.Locks) {
-			return ""
-		}
-	} else {
-		tab = false // a persistent user's token is the ordinary one
-	}
-	t := a.tokens.issue(u, cfg, tab)
+	t := a.tokens.issue(u, cfg)
 	a.mu.Lock()
 	// Locked while the file was written, or already given a good token by a
 	// racing call (an unlock and a settings save can overlap): this one is
@@ -373,23 +350,17 @@ type userEdit struct {
 }
 
 type usersReq struct {
-	Users  []userEdit `json:"users"`
-	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// Locks and AutoLock are read only to refuse them: they moved to Settings >
-	// Access, and a page loaded before the update must not look saved.
-	Locks    json.RawMessage `json:"locks"`
-	AutoLock json.RawMessage `json:"autoLockMinutes"`
+	Users    []userEdit   `json:"users"`
+	Locks    config.Locks `json:"locks"`
+	AutoLock int          `json:"autoLockMinutes"`
+	MaxPin   int          `json:"maxPinLen"` // 0 keeps the current one
 }
 
-// SaveUsers replaces the user directory and the longest PIN (the locks and
-// the idle time are Settings > Access fields). It is a
+// SaveUsers replaces the user directory, locks and auto-lock time. It is a
 // setting like any other, so the settings PIN guards it (and nothing else:
 // the main lock does not, see policy.go). PINs must be unique across users
 // (that is how a PIN alone says who).
 func (a *App) SaveUsers(c *client, req usersReq) error {
-	if present(req.Locks) || present(req.AutoLock) {
-		return errors.New("the lock settings moved to Settings > Access: reload this page")
-	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if a.r().cfg.SettingsPin == "" {
@@ -403,10 +374,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			cur.MaxPinLen = req.MaxPin
 		}
 		maxLen := cur.MaxPinLen
-		if len(req.Users) == 0 && cur.Locks.Any() {
-			// The locks are Settings > Access fields now, not part of this save.
-			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
-		}
 		old := map[string]config.User{}
 		for _, u := range cur.Users {
 			old[strings.ToLower(u.Name)] = u
@@ -414,21 +381,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		var out []config.User
 		inherited := map[string]bool{} // rows keep a hash only from their own, one row each
 		fresh := map[string]string{}   // new PINs by user name
-		kept := map[string]bool{}      // profiles carried over, one row each
 		for _, e := range req.Users {
 			u := config.User{Name: strings.TrimSpace(e.Name), Trusted: e.Trusted, Persistent: e.Persistent}
 			if u.Name == "" {
 				return errors.New("every user needs a name")
-			}
-			// The profile follows the row's Was (a rename keeps it, with or
-			// without a new PIN); a user no longer listed loses theirs.
-			// A new row (no Was, with a PIN) starts empty even if a user of
-			// that name was removed in the same save.
-			was := cmp.Or(e.Was, e.Name)
-			pk := strings.ToLower(strings.TrimSpace(was))
-			if o, ok := old[pk]; ok && !kept[pk] && (e.Was != "" || e.Pin == "") {
-				kept[pk] = true
-				u.Profile = o.Profile.Clone()
 			}
 			if e.Pin != "" {
 				if err := config.CheckUserPinRules(e.Pin, maxLen); err != nil {
@@ -441,7 +397,11 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				u.Pin, u.Len = h, len(e.Pin)
 				fresh[u.Name] = e.Pin
 			} else {
-				key := pk
+				was := e.Was
+				if was == "" {
+					was = e.Name
+				}
+				key := strings.ToLower(strings.TrimSpace(was))
 				o, ok := old[key]
 				if !ok {
 					return errors.New("give " + u.Name + " a PIN")
@@ -450,7 +410,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 					return errors.New("two rows keep the same user's PIN; give one of them a new PIN")
 				}
 				inherited[key] = true
-				u.TakePin(o)
+				u.Pin, u.Len = o.Pin, o.Len
 			}
 			out = append(out, u)
 		}
@@ -465,7 +425,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				}
 			}
 		}
-		cur.Users = out
+		cur.Users, cur.Locks, cur.AutoLockMinutes = out, req.Locks, req.AutoLock
 		return nil
 	})
 }
@@ -477,7 +437,6 @@ type userResult struct {
 	ID    int    `json:"id"`
 	Err   string `json:"err,omitempty"`
 	Token string `json:"token,omitempty"`
-	Tab   bool   `json:"tab,omitempty"` // Token is a no-lock login's: for this tab only
 }
 
 // serveUsers handles the access messages from the read loop. Unlocks run in
@@ -495,10 +454,7 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 			a.command(c, "userUnlock", "refused", "", err)
 		} else {
 			a.command(c, "userUnlock", "ok", "", nil)
-			if res.Token = a.issueSessionTab(c, m.Tab); res.Token != "" {
-				if us, _ := a.r().cfg.FindUser(c.who()); !us.Persistent {
-					res.Tab = true
-				}
+			if res.Token = a.issueSession(c); res.Token != "" {
 				a.mu.Lock()
 				a.syncAccessLocked(c) // after the token, so the page's state is final
 				a.mu.Unlock()

@@ -31,33 +31,12 @@ export function fromGlobal(name, g) {
   return valid(name, g) ? g : null;
 }
 
-// Where the logged-in user's own defaults are cached ({user, prefs}), so the
-// next load follows them before the profile arrives.
-export const PROFILE_CACHE_KEY = 'sode-profile-prefs';
-
-// The cached profile prefs of the last logged-in user are used only while this
-// browser holds a session token (sode-session in localStorage, or
-// sode-tab-session in sessionStorage): without one the next page load is a
-// guest, who gets browser and everyone's defaults, never a previous user's
-// (#187). Returns {user, prefs}; user '' = none. index.html's prepaint.js
-// repeats this inline: keep them in step.
-export function cachedProfile(raw, hasSession) {
-  if (!hasSession || !raw || typeof raw.user !== 'string' || !raw.user || !raw.prefs || typeof raw.prefs !== 'object') {
-    return { user: '', prefs: {} };
-  }
-  return { user: raw.user, prefs: raw.prefs };
-}
-
 // This browser's stored value if it is one, else ''.
 export const own = (name, stored) => (valid(name, stored) ? stored : '');
 
-// The logged-in user's default (profile prefs: name -> value string), or ''.
-export const mine = (name, profilePrefs) => fromGlobal(name, profilePrefs?.[name]) || '';
-
-// The value in force: this browser's own, else the profile's (Me), else the
-// global default, else the built-in.
-export const resolve = (name, stored, profilePrefs, globals) =>
-  own(name, stored) || mine(name, profilePrefs) || fromGlobal(name, globals?.[name]) || PREFS[name].def;
+// The value in force: own, else the global default, else the built-in.
+export const resolve = (name, stored, globals) =>
+  own(name, stored) || fromGlobal(name, globals?.[name]) || PREFS[name].def;
 
 // The config value for a pref value, the reverse of fromGlobal.
 export const toGlobal = (name, v) => (PREFS[name].bool ? v === 'on' : v);

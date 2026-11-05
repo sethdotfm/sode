@@ -312,10 +312,6 @@
 }
 .sode__recent-head[hidden] { display: none; }
 /* Active filters: the button's text turns the info color (its text says how many). */
-/* Desktop: the bar buttons (Edit, Filters) look like the Settings button
-   (outline, small). The phone keeps its ghost look. */
-:root:not([data-layout="phone"]) .sode__chipbtn { background-color: transparent; border-color: var(--pb-surface-control); }
-:root:not([data-layout="phone"]) .sode__chipbtn:hover { background-color: var(--pb-overlay-hover); border-color: var(--pb-surface-hover); }
 .sode__filters-btn--on { color: var(--pb-status-info); font-weight: var(--pb-weight-medium); }
 .sode__code { font-family: var(--pb-font-mono); }
 .sode__scrim > .sode__filters { width: 40rem; }
@@ -409,7 +405,7 @@
   padding-bottom: var(--pb-space-4);
 }
 .sode__filters-set {
-  align-items: flex-end;
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-2);
@@ -418,12 +414,6 @@
 .sode__filters-set > .pb-select-wrap { flex: 1 1 12em; }
 .sode__filters-set > .pb-select-wrap > .pb-select { width: 100%; }
 .sode__filters-set > .pb-input { flex: 1 1 12em; min-width: 0; }
-/* A field with its small label above (widgets.js labeled). */
-.sode__fld { display: flex; flex: 1 1 12em; flex-direction: column; gap: var(--pb-space-1); min-width: 0; }
-.sode__fld[hidden] { display: none; }
-.sode__fld > .pb-input,
-.sode__fld > .pb-select-wrap,
-.sode__fld > .pb-select-wrap > .pb-select { width: 100%; }
 .sode__gsets {
   display: flex;
   flex-direction: column;
@@ -543,24 +533,19 @@
 }
 
 /* Presets: buttons above Recent, and the editor dialog. */
-/* The strip is a Recent bar (.sode__recent-head): the title, the sets
-   (pinned presets), then ghost buttons. Chips fill the middle. */
-.sode__presets { margin: var(--pb-space-3) 0; width: 100%; }
-.sode__presets > .sode__sets { flex: 1; flex-wrap: wrap; justify-content: flex-start; }
+.sode__presets { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); margin: var(--pb-space-3) 0; }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
 .sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
-.sode__preset-row { align-items: end; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
+.sode__preset-row { align-items: center; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
 .sode__preset-row > .pb-input { min-width: 0; }
 .sode__preset-hint { grid-column: 1 / -1; overflow-wrap: anywhere; }
 @media (max-width: 599.98px) {
   .sode__scrim > .sode__presets-dlg { min-width: 0; width: 100%; }
   .sode__preset-row { grid-template-columns: 1fr 1fr; }
-  .sode__presets { flex-wrap: wrap; }
-  .sode__presets > .sode__sets { flex: 1 0 100%; flex-wrap: nowrap; order: 3; overflow-x: auto; scrollbar-width: none; }
-  .sode__presets .sode__set { flex: none; }
+  .sode__presets { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sode__presets > .sode__set, .sode__presets > .pb-btn { flex: none; }
 }
 .sode__preset-pop { display: flex; flex-direction: column; }
-.sode__preset-pop > .pb-modal__footer { justify-content: flex-end; }
 .sode__preset-list { display: flex; flex-direction: column; margin-top: var(--pb-space-3); max-height: 50vh; overflow-y: auto; }
 .sode__preset-item { align-items: center; border-left: var(--sode-side-w) solid transparent; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); justify-content: space-between; padding: var(--pb-space-2); }
 .sode__preset-item.is-hi { background: var(--pb-surface-sunken); border-left-color: var(--pb-accent); }
@@ -568,85 +553,3 @@
 .sode__preset-tools { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
 [data-pb-layout="phone"] .sode__scrim > .sode__preset-pop { height: 100%; max-height: none; }
 [data-pb-layout="phone"] .sode__preset-list { max-height: none; }
-/* Export & import dialog and the review sheet (transfer.js, reviewsheet.js). */
-.sode__scrim > .sode__tr { width: 38rem; }
-.sode__scrim > .sode__rv { width: 56rem; }
-.sode__tr .sode__filters-sets:last-of-type { border-bottom: 0; }
-.sode__rv-sec { display: flex; flex-direction: column; gap: var(--pb-space-2); }
-.sode__rv-head,
-.sode__rv-row { align-items: center; display: grid; gap: var(--pb-space-2) var(--pb-space-4); grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 15rem); }
-.sode__rv-head { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); padding-bottom: var(--pb-space-1); }
-.sode__rv-row { border-bottom: var(--pb-border-w) solid var(--pb-edge-soft); padding-bottom: var(--pb-space-2); }
-.sode__rv-row.is-skip { opacity: 0.7; }
-.sode__rv-in,
-.sode__rv-cur { display: flex; flex-direction: column; gap: 0; min-width: 0; overflow-wrap: anywhere; }
-.sode__rv-pick { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); min-width: 0; }
-.sode__rv-line { align-items: baseline; display: flex; flex-wrap: wrap; gap: 0 var(--pb-space-2); }
-.sode__rv-more > summary { cursor: pointer; }
-.sode__rv-pick .pb-select-wrap { flex: 0 1 7rem; }
-.sode__rv-pick .pb-input { flex: 1 1 6rem; min-width: 0; }
-.sode__rv-pick .pb-select,
-.sode__rv-pick .pb-input { min-height: var(--pb-control-h-sm); }
-.sode__rv-pick .sode__error-text { flex-basis: 100%; }
-@media (max-width: 599.98px) {
-  .sode__scrim:has(> .sode__rv, > .sode__tr) { padding: var(--pb-space-3); }
-  .sode__scrim > .sode__rv,
-  .sode__scrim > .sode__tr { min-width: 0; width: 100%; }
-  .sode__rv-head { display: none; }
-  .sode__rv-row { grid-template-columns: 1fr; }
-}
-
-/* Desktop: a thin divider and more room set Recent apart from the take area
-   (patch boxes and Presets). */
-#patch-view > .sode__history {
-  border-top: var(--pb-border-w) solid var(--pb-edge);
-  margin-top: var(--pb-space-6);
-  padding-top: var(--pb-space-6);
-}
-
-/* Choosing takes for a preset (recentpick.js): an accent bar across the top
-   says what the next click does, the patch boxes and presets wait, rows light
-   up under the pointer and picked rows are marked (the box says it too). */
-.sode__pickbar {
-  align-items: center;
-  background: var(--pb-accent);
-  color: var(--pb-text-on-accent);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-3) var(--pb-space-7);
-  left: 0;
-  padding: var(--pb-space-4) var(--pb-space-6);
-  position: fixed;
-  right: 0;
-  top: var(--sode-down-h, 0px);
-  z-index: var(--pb-z-sticky);
-}
-.sode__pickbar[hidden] { display: none; }
-.sode__pickbar-title { display: flex; flex-direction: column; }
-.sode__pickbar-msg { font-size: var(--pb-text-xl); }
-.sode__pickbar-sub { font-size: var(--pb-text-sm); }
-.sode__pickbar-controls {
-  align-items: center;
-  background: var(--pb-surface-base);
-  color: var(--pb-text);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-3) var(--pb-space-5);
-  margin-left: auto;
-  padding: var(--pb-space-3) var(--pb-space-4);
-}
-[data-pb-layout="phone"] .sode__pickbar { top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px)); }
-[data-sode-pick] .sode__box,
-[data-sode-pick] .sode__under,
-[data-sode-pick] [data-presets] { opacity: 0.35; pointer-events: none; }
-[data-sode-pick] .sode__hist-row,
-[data-sode-pick] .sode-m__recent-face { cursor: pointer; }
-[data-sode-pick] .sode__hist-row:hover,
-[data-sode-pick] .sode-m__recent-face:active { background: var(--pb-accent-wash); }
-.sode__hist-row--picked,
-.sode-m__recent-row--picked .sode-m__recent-face { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
-.sode__pickbox { margin: 0; }
-/* The lock chip over the bar: no grey box on the accent, the lock drawn in the bar's text colour. */
-[data-sode-pick] .sode-lock__who { background: transparent; color: var(--pb-text-on-accent); }
-[data-sode-pick] .sode-lock__who .pb-btn,
-[data-sode-pick] .sode-lock__who .sode-lock__who-ico { color: inherit; }

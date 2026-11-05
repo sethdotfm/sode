@@ -6,7 +6,6 @@
 import { S, on, onMsg, emit, off, srcItem, dstItem } from './core.js';
 import { filterFn, entryAllows, stackAllows } from './filter.js';
 import { pref } from './device.js';
-import { profile, profileName } from './profile.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 
 const FILTER_KEY = 'sode-filter';
@@ -72,21 +71,10 @@ export const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT)
 export const globalSets = () => (S.cfg?.filterSets || []).map((s) => ({ scope: 'global', name: s.name, f: normFilter(s) }));
 export const localSets = () => [].concat(readJSON(SETS_KEY, [])).filter((s) => s?.name)
   .map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
-// The logged-in user's own sets (their profile); [] with nobody logged in.
-export const userSets = () => (profileName() ? profile().filterSets : []).filter((s) => s?.name)
-  .map((s) => ({ scope: 'user', user: profileName(), name: String(s.name), f: normFilter(s) }));
-export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...userSets(), ...localSets()];
-// The sets of one scope ('all' has none: the Default is built in).
-const SET_LISTS = { global: globalSets, user: userSets, local: localSets };
-export const setsIn = (scope) => (SET_LISTS[scope] || (() => []))();
-// A reference to a set as kept in the active set and stack. A user's set
-// carries the user, so another user logging in on this browser never picks
-// up a same-named set of theirs.
-export const setRef = (scope, name) => (scope === 'user' ? { scope, user: profileName(), name } : { scope, name });
+export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...localSets()];
 // Names are unique per scope whatever the case, so a set renamed only in
 // case is still the same set.
-const findSet = (scope, name, user) => allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase()
-  && (scope !== 'user' || s.user === user));
+const findSet = (scope, name) => allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase());
 const saveLocals = (list) => writeJSON(SETS_KEY, list.length ? list.map(({ name, f }) => ({ name, f })) : null);
 
 // The active set { scope, name, base }, or null (the filter is unsaved). Or
@@ -95,16 +83,15 @@ const saveLocals = (list) => writeJSON(SETS_KEY, list.length ? list.map(({ name,
 // stackAllows. The stack lives in its own key, since it can't be edited.
 const STACK_KEY = 'sode-filter-stack';
 const isRef = (r) => r && typeof r.scope === 'string' && typeof r.name === 'string';
-const sameRef = (a, b) => a.scope === b.scope && a.name.toLowerCase() === b.name.toLowerCase() && (a.user ?? '') === (b.user ?? '');
-const copyRef = ({ scope, name, user }) => (scope === 'user' ? { scope, user: String(user ?? ''), name } : { scope, name });
-const loadStack = () => [].concat(readJSON(STACK_KEY, null) ?? []).filter(isRef).map(copyRef);
+const sameRef = (a, b) => a.scope === b.scope && a.name.toLowerCase() === b.name.toLowerCase();
+const loadStack = () => [].concat(readJSON(STACK_KEY, null) ?? []).filter(isRef).map(({ scope, name }) => ({ scope, name }));
 let active = null, stack = [];
 {
   // The first beta kept a list under the active key.
   const stored = [].concat(readJSON(ACTIVE_KEY, null) ?? []).filter(isRef);
-  stack = stored.length > 1 ? stored.map(copyRef) : loadStack();
+  stack = stored.length > 1 ? stored.map(({ scope, name }) => ({ scope, name })) : loadStack();
   if (stack.length < 2) stack = [];
-  if (!stack.length && stored.length) active = { ...copyRef(stored[0]), base: normFilter(stored[0].base) };
+  if (!stack.length && stored.length) active = { scope: stored[0].scope, name: stored[0].name, base: normFilter(stored[0].base) };
 }
 
 // The stack's sets with their compiled matchers, built on first use after
@@ -120,13 +107,13 @@ function setActive(a, refs = []) {
 
 // The active set, with edited = the filter differs from it now; or null.
 export function activeSet() {
-  const s = active && findSet(active.scope, active.name, active.user);
+  const s = active && findSet(active.scope, active.name);
   return s ? { ...s, edited: !sameFilter(filter, s.f) } : null;
 }
 
 // The sets of a stack, or [].
-export const activeStack = () => stack.map((r) => findSet(r.scope, r.name, r.user)).filter(Boolean);
-export const isActive = (scope, name) => [active, ...stack].some((r) => r && sameRef(r, setRef(scope, name)));
+export const activeStack = () => stack.map((r) => findSet(r.scope, r.name)).filter(Boolean);
+export const isActive = (scope, name) => [active, ...stack].some((r) => r && sameRef(r, { scope, name }));
 
 // The active set as stored, and a filter to use with it (null: no set),
 // for putting things back as they were.
@@ -144,29 +131,29 @@ export function restore(snap) {
 }
 
 export function pickSet(scope, name) {
-  const s = findSet(scope, name, profileName());
+  const s = findSet(scope, name);
   if (!s) return;
-  setActive({ ...setRef(scope, name), base: s.f });
+  setActive({ scope, name, base: s.f });
   applyFilter(s.f);
 }
 
 // Where some sets leave the filter: those that still exist, none being All,
 // one being that set, more a stack starting from the first.
 function useSets(refs) {
-  const sets = refs.map((r) => findSet(r.scope, r.name, r.user)).filter(Boolean);
+  const sets = refs.map((r) => findSet(r.scope, r.name)).filter(Boolean);
   if (sets.length < 2) return sets.length ? pickSet(sets[0].scope, sets[0].name) : pickSet('all', 'All');
-  setActive(null, sets.map(({ scope, name, user }) => copyRef({ scope, name, user })));
+  setActive(null, sets.map(({ scope, name }) => ({ scope, name })));
   applyFilter(sets[0].f);
 }
 
 // A chip click: All alone, or a set in or out of those active. Adding to a
 // single set that was edited drops the edit; none left is All.
 export function toggleSet(scope, name) {
-  const s = findSet(scope, name, profileName());
+  const s = findSet(scope, name);
   if (!s) return;
   if (s.scope === 'all') return pickSet('all', 'All');
   const now = stack.length ? stack : active && active.scope !== 'all' ? [active] : [];
-  useSets(isActive(s.scope, s.name) ? now.filter((r) => !sameRef(r, setRef(s.scope, s.name))) : [...now, setRef(s.scope, s.name)]);
+  useSets(isActive(s.scope, s.name) ? now.filter((r) => !sameRef(r, s)) : [...now, s]);
 }
 
 // The stack's matchers, one per set; null unless there are two or more.
@@ -186,12 +173,6 @@ export function saveLocalSet(name) {
   list.push({ scope: 'local', name, f: filterState() });
   saveLocals(list);
   setActive({ scope: 'local', name, base: filterState() });
-  emit('filters');
-}
-
-// This browser's whole list of sets replaced (an import): [{ name, f }].
-export function putLocalSets(list) {
-  saveLocals(list);
   emit('filters');
 }
 
@@ -217,28 +198,6 @@ function followGlobal() {
   const s = active?.scope === 'global' && findSet('global', active.name);
   if (!s || sameFilter(s.f, active.base) || !sameFilter(filter, active.base)) return;
   setActive({ scope: 'global', name: s.name, base: s.f });
-  setFilter(s.f);
-}
-
-// After a profile message: the same for the logged-in user's sets, edited on
-// another device. A set of another user (this one logged out, or someone
-// else logged in) can't be used here: it drops out for good, the way a
-// deleted set does. `was` is who the last profile was, so a page loading
-// before its profile arrives keeps what it stored.
-let was = '';
-function followProfile() {
-  const now = profileName();
-  const left = was !== now && was !== '';
-  was = now;
-  const mine = (r) => r.scope === 'user' && r.user === now;
-  if (left && (stack.some((r) => r.scope === 'user') || active?.scope === 'user')) {
-    if (stack.length) return useSets(stack.filter((r) => r.scope !== 'user' || mine(r)));
-    if (!mine(active)) { pickSet('all', 'All'); return; }
-  }
-  if (stack.length) return useSets(stack);
-  const s = active?.scope === 'user' && mine(active) && findSet('user', active.name, now);
-  if (!s || sameFilter(s.f, active.base) || !sameFilter(filter, active.base)) return;
-  setActive({ ...setRef('user', s.name), base: s.f });
   setFilter(s.f);
 }
 
@@ -275,11 +234,6 @@ export function filterAllows(e) {
 }
 
 on('helloData', followGlobal);
-on('profile', () => {
-  followProfile();
-  emit('filters');
-  emit('history');
-});
 // The sets for everyone changed: just those, not a fresh snapshot.
 onMsg('filterSets', (m) => {
   S.cfg = { ...S.cfg, filterSets: m.sets };

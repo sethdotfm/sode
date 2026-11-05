@@ -65,10 +65,11 @@ func TestRevocationIsDurable(t *testing.T) {
 		if err := a.Unlock(admin, "2468"); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana2", Was: "Ana", Persistent: true}, {Name: "Bo"}}}); err != nil {
+		locks := config.Locks{Main: true, Log: true}
+		if err := a.SaveUsers(admin, usersReq{Locks: locks, Users: []userEdit{{Name: "Ana2", Was: "Ana", Persistent: true}, {Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
-		if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana2", Persistent: true}, {Name: "Bo"}}}); err != nil {
+		if err := a.SaveUsers(admin, usersReq{Locks: locks, Users: []userEdit{{Name: "Ana", Was: "Ana2", Persistent: true}, {Name: "Bo"}}}); err != nil {
 			t.Fatal(err)
 		}
 		if tokenAlive(a, tok) {

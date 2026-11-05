@@ -1,11 +1,10 @@
 // Config the server owns: lists with their own save messages and size caps
-// (filter sets, presets and users; the locks and idle time are Settings >
-// Access fields, saved with the form). The Settings form must not
+// (filter sets, presets, users and locks). The Settings form must not
 // send them back with the rest: they can be tens of KiB each, the server's
 // read limit is 64 KiB, and the server ignores them in a `config` message.
 // Pure, so Node tests load it.
 
-export const OWNED_KEYS = ['filterSets', 'presets', 'users', 'maxPinLen'];
+export const OWNED_KEYS = ['filterSets', 'presets', 'users', 'locks', 'autoLockMinutes', 'maxPinLen'];
 
 // cfg as a plain copy without the owned keys.
 export function omitOwned(cfg) {

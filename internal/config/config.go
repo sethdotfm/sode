@@ -3,6 +3,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -89,12 +90,9 @@ type Config struct {
 	// touches the router link.
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
 	// Users, Locks and AutoLockMinutes: optional access control (users.go).
-	// The users are saved by their own dialog; the locks and the idle time
-	// are Settings > Access fields only the settings PIN may change (a
-	// Settings save without them keeps the live values: configMsg).
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
-	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
-	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
+	Locks           Locks  `yaml:"locks" json:"locks" owned:"true"`
+	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" owned:"true"`
 	// MaxPinLen is the longest user PIN (4-12); the lock pad stops there.
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
 }
@@ -255,9 +253,6 @@ func (c Config) Clone() Config {
 	c.Presets = ClonePresets(c.Presets)
 	c.HideDsts = slices.Clone(c.HideDsts)
 	c.Users = slices.Clone(c.Users)
-	for i := range c.Users {
-		c.Users[i].Profile = c.Users[i].Profile.Clone()
-	}
 	return c
 }
 
@@ -318,9 +313,14 @@ func (c *Config) Normalize() {
 	}
 	c.LegacySalvos = nil
 	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
-	c.FilterSets = normalizeFilterSets(c.FilterSets)
+	if c.FilterSets == nil {
+		c.FilterSets = []FilterSet{}
+	}
+	for i := range c.FilterSets {
+		f := &c.FilterSets[i]
+		f.Name, f.Src, f.Dst = strings.TrimSpace(f.Name), strings.TrimSpace(f.Src), strings.TrimSpace(f.Dst)
+	}
 	c.normalizePresets()
-	c.normalizeProfiles()
 	for i, v := range c.LevelColors {
 		c.LevelColors[i] = normColor(v)
 	}
@@ -459,13 +459,23 @@ func (c Config) Validate() error {
 	if n := len([]rune(c.HiddenDsts)); n > 500 {
 		bad("globally hidden destinations must be at most 500 characters")
 	}
-	errs = append(errs, validateFilterSets(c.FilterSets)...)
+	fnames := make([]string, len(c.FilterSets))
+	for i, f := range c.FilterSets {
+		fnames[i] = f.Name
+		if len([]rune(f.Src)) > 500 || len([]rune(f.Dst)) > 500 {
+			bad("filter set %q: expressions must be at most 500 characters", f.Name)
+		}
+	}
+	errs = append(errs, validateNames("filter set", fnames, 30)...)
+	// Like presets, all of them in one message under the read limit.
+	if b, err := json.Marshal(c.FilterSets); err == nil && len(b) > MaxFilterSetsBytes {
+		bad("filter sets are too large to save (%d KiB, at most %d KiB)", len(b)>>10, MaxFilterSetsBytes>>10)
+	}
 	errs = append(errs, c.validatePresets()...)
 	if _, err := c.Proxies(); err != nil {
 		bad("trusted proxies: %v", err)
 	}
 	errs = append(errs, c.validateUsers()...)
-	errs = append(errs, c.validateProfiles()...)
 	return errors.Join(errs...)
 }
 
@@ -582,30 +592,16 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err != nil {
 		return c, false, err
 	}
-	c, err = Parse(b)
-	if err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	dec.KnownFields(true)
+	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
+	c.Normalize()
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
 	return c, true, nil
-}
-
-// Parse decodes a config.yaml over the defaults, with the same rules as Load
-// (unknown keys are errors, legacy keys still load) and normalizes it, but
-// does not Validate: a caller that merges things in (an import keeping the
-// live PIN hashes) validates after. Load and the server's config import both
-// read files through this one decoder.
-func Parse(b []byte) (Config, error) {
-	c := Defaults()
-	dec := yaml.NewDecoder(bytes.NewReader(b))
-	dec.KnownFields(true)
-	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
-		return c, err
-	}
-	c.Normalize()
-	return c, nil
 }
 
 const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"

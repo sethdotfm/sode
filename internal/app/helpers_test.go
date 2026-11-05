@@ -5,9 +5,9 @@ import "github.com/sethdotfm/sode/internal/config"
 // Wrappers the tests call; the server itself goes through serveConfig and
 // saveSettings.
 
-// SaveSettings applies cfg from c as a message that carried every key.
+// SaveSettings applies cfg from c with no "keep device defaults".
 func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bool) error {
-	return a.saveSettings(c, configMsg{Config: cfg, hasDefaults: true, hasLocks: true, hasAuto: true}, pin, clearPin)
+	return a.saveSettings(c, cfg, pin, clearPin, false)
 }
 
 // ApplyConfig validates, saves and applies new settings, skipping the

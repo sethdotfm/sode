@@ -6,7 +6,7 @@ package app
 // (say v1.0) names another version.
 const (
 	Stage   = "Beta"
-	Version = "1.6.0"
+	Version = "1.5.0"
 )
 
 // Commit is the git commit the binary was built from. The image build sets it

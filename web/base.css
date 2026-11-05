@@ -54,8 +54,7 @@ html { font-size: 125%; }
 .sode__tip {
   align-items: center;
   background: var(--pb-surface-base);
-  /* above the Settings chip (desktop.css .sode__footer) */
-  bottom: calc(var(--pb-space-4) + var(--pb-control-h-sm) + var(--pb-space-2) * 2 + var(--pb-space-2));
+  bottom: var(--pb-space-4);
   color: var(--pb-text-muted);
   display: flex;
   font-size: var(--pb-text-xs);
@@ -493,8 +492,6 @@ html { font-size: 125%; }
   margin-bottom: calc(-1 * var(--sode-pad-bottom));
   padding: var(--pb-space-5) 0 calc(var(--pb-space-5) + env(safe-area-inset-bottom));
   position: sticky;
-  /* In front of the fields scrolling under it (number boxes are positioned). */
-  z-index: var(--pb-z-sticky);
 }
 .sode__savebar-row {
   align-items: center;
@@ -626,7 +623,3 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 .sode--tap .sode__hist-before,
 .sode--tap .sode__hist-folder,
 .sode--tap .sode-m__changes { cursor: auto; }
-
-/* Per-row "Save/Clear my default" buttons: small, side by side, not stretched. */
-.sode__my-defaults { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-space-2); }
-.sode__my-default { align-self: flex-start; }

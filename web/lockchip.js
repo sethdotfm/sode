@@ -20,17 +20,12 @@ const field = (id, label, auto) => {
 // api: { lock() }.
 export function buildChip(api) {
   const name = el('span', 'sode-lock__who-name');
-  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock-open'));
+  const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock'));
   lockBtn.type = 'button';
   lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
   lockBtn.setAttribute('aria-label', 'Lock');
   lockBtn.addEventListener('click', () => api.lock());
-  // Shown instead of the button while a lock is up: status, with the words beside it.
-  // Both sit in one cell and cross-fade (the root's is-hand class), so the
-  // icon never snaps in or out with the lock screen's border.
-  const ico = el('span', 'sode-lock__who-ico', icon('lock'));
-  const slot = el('div', 'sode-lock__who-slot', lockBtn, ico);
-  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', slot, name));
+  const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', lockBtn, name));
   root.hidden = true;
 
   // ---- change my PIN
@@ -43,16 +38,14 @@ export function buildChip(api) {
   cancel.type = 'button';
   const save = el('button', 'pb-btn pb-btn--ok', 'Change PIN');
   save.type = 'submit';
-  const form = el('form', 'pb-modal__body sode-lock__pin-form', oldF.row, newF.row, againF.row, note);
-  form.id = 'sode-pin-form';
-  save.setAttribute('form', form.id); // the footer is the form's sibling
-  const dialog = el('div', 'pb-modal sode-lock__pin-dlg', el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'Change my PIN')), form,
+  const form = el('form', 'pb-modal__body sode-lock__pin-form', oldF.row, newF.row, againF.row, note,
     el('div', 'pb-modal__footer', cancel, save));
+  const dialog = el('div', 'pb-modal', el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'Change my PIN')), form);
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-label', 'Change my PIN');
   dialog.tabIndex = -1;
-  const back = el('div', 'pb-modal-backdrop sode__scrim sode-lock__pin', dialog);
+  const back = el('div', 'pb-modal-backdrop sode-lock__pin', dialog);
   back.hidden = true;
   document.body.append(back);
 
@@ -63,7 +56,7 @@ export function buildChip(api) {
     note.className = `sode-lock__pin-note${bad ? ' pb-note pb-note--error' : ''}`;
   };
   function closePin() {
-    dlg.hide();
+    back.hidden = true;
     seq++; // a late answer no longer counts
     for (const f of [oldF, newF, againF]) f.input.value = '';
     save.disabled = false;
@@ -72,10 +65,10 @@ export function buildChip(api) {
   function openPin() {
     focusBack = document.activeElement;
     say('');
-    dlg.show();
+    back.hidden = false;
     oldF.input.focus({ preventScroll: true });
   }
-  const dlg = trapDialog(back, dialog, closePin);
+  trapDialog(back, dialog, closePin);
   on('changePin', openPin);
   cancel.addEventListener('click', closePin);
   form.addEventListener('submit', (e) => {
@@ -98,19 +91,9 @@ export function buildChip(api) {
   });
 
   // update: render the chip for lock state L.
-  // handLocked: the lock button does nothing then, so it goes.
-  function update(L, chip, handLocked) {
+  function update(L, chip) {
     root.hidden = !chip;
-    root.classList.toggle('is-hand', !!handLocked);
-    lockBtn.inert = !!handLocked; // out of the tab order and unclickable while faded
-    lockBtn.setAttribute('aria-hidden', String(!!handLocked));
-    ico.setAttribute('aria-hidden', String(!handLocked));
-    name.textContent = L.user ? `Logged in as ${L.user}` : '';
+    name.textContent = L.enforced && L.user ? `Logged in as ${L.user}` : '';
   }
-  // setLocked: swap the button's icon with the overlay (open lock, closed lock),
-  // at the moment the overlay's border starts to move.
-  function setLocked(on) {
-    lockBtn.replaceChildren(icon(on ? 'lock' : 'lock-open'));
-  }
-  return { root, update, setLocked };
+  return { root, update };
 }

@@ -62,7 +62,6 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		json.NewEncoder(w).Encode(st)
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
-	mux.HandleFunc("/api/yaml", a.serveYAML)
 	return secureHeaders(mux)
 }
 
@@ -167,7 +166,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
-	budget := newReadBudget(conn.SetReadLimit)
+	conn.SetReadLimit(wsReadLimit)
 
 	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
@@ -251,7 +250,6 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		_, data, err := conn.Read(ctx)
-		budget.Reset()
 		if err != nil {
 			gone = err
 			return
@@ -310,23 +308,6 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}(m.Presets, m.ID)
 		case "config":
 			a.serveConfig(c, &m)
-		case "configExport":
-			go a.serveConfigExport(c, &m)
-		case "configImportBegin":
-			if budget.Grant(m.Size) {
-				// Answered either way, after the limit is raised: the page
-				// sends the file only once it has this answer, so a refusal
-				// is a normal result and never a too-big message.
-				a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
-			} else {
-				a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
-			}
-		case "configImport":
-			a.serveConfigImport(c, &m)
-		case "profileSave":
-			go a.serveProfileSave(c, &m)
-		case "profileGet":
-			a.serveProfileGet(c, &m)
 		}
 	}
 }
@@ -362,33 +343,25 @@ func (a *App) serveConfig(c *client, m *inMsg) {
 	// before deviceDefaults existed sends none, and its zero values would turn
 	// the "on" defaults off for everyone, so the current ones are kept.
 	go func(cfg configMsg, pin string, clearPin bool) {
-		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin))
+		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg.Config, pin, clearPin, !cfg.hasDefaults))
 	}(*m.Config, m.Pin, m.ClearPin)
 }
 
 // configMsg is the Settings form's config, and whether it carried
-// deviceDefaults, locks and autoLockMinutes at all. A page from before those
-// existed (or any message without the keys) must not decode to "every lock
-// off", so saveSettings keeps the live values of whatever is missing.
+// deviceDefaults at all.
 type configMsg struct {
 	config.Config
-	hasDefaults, hasLocks, hasAuto bool
+	hasDefaults bool
 }
-
-// present is whether a probed JSON key was in the message (and not null).
-func present(r json.RawMessage) bool { return r != nil && string(r) != "null" }
 
 func (m *configMsg) UnmarshalJSON(b []byte) error {
 	var probe struct {
 		DeviceDefaults json.RawMessage `json:"deviceDefaults"`
-		Locks          json.RawMessage `json:"locks"`
-		AutoLock       json.RawMessage `json:"autoLockMinutes"`
 	}
 	if err := json.Unmarshal(b, &probe); err != nil {
 		return err
 	}
 	m.hasDefaults = probe.DeviceDefaults != nil
-	m.hasLocks, m.hasAuto = present(probe.Locks), present(probe.AutoLock)
 	return json.Unmarshal(b, &m.Config)
 }
 
@@ -420,20 +393,13 @@ type inMsg struct {
 	Preset   string             `json:"preset"` // batch: the preset that was fired, if any
 	Salvo    string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
 	Sets     []config.FilterSet `json:"sets"`
-	// profileSave: the parts to replace; nil = keep (an empty list or {} clears)
-	Prefs      map[string]string  `json:"prefs"`
-	FilterSets []config.FilterSet `json:"filterSets"`
-	Presets    []config.Preset    `json:"presets"`
-	Page       string             `json:"page"`  // hi: main | log
-	Token      string             `json:"token"` // hi: session token of a persistent user or a tab login
-	Tab        bool               `json:"tab"`   // userUnlock: no lock on, wants a tab session token
-	Name       string             `json:"name"`  // userSignOutAll, profileSave, profileGet
-	Old        string             `json:"old"`
-	New        string             `json:"new"`
-	UsersReq   *usersReq          `json:"usersReq"`
-	Pins       bool               `json:"pins"` // configExport: include the PIN hashes
-	YAML       string             `json:"yaml"` // configImport: the file
-	Size       int                `json:"size"` // configImportBegin: the file's size in bytes
+	Presets  []config.Preset    `json:"presets"`
+	Page     string             `json:"page"`  // hi: main | log
+	Token    string             `json:"token"` // hi: session token of a persistent user
+	Name     string             `json:"name"`  // userSignOutAll
+	Old      string             `json:"old"`
+	New      string             `json:"new"`
+	UsersReq *usersReq          `json:"usersReq"`
 }
 
 func plural(n int, one, many string) string {

@@ -57,6 +57,8 @@ func TestKeepOwned(t *testing.T) {
 	live.SettingsPin = "hash"
 	live.DeviceDefaults.Theme = "dark"
 	live.Users = []User{{Name: "u"}}
+	live.Locks = Locks{Main: true}
+	live.AutoLockMinutes = 7
 	live.Router = "1.1.1.1:1"
 
 	in := Defaults()
@@ -65,13 +67,14 @@ func TestKeepOwned(t *testing.T) {
 	in.FilterSets = make([]FilterSet, 1000)
 	in.Presets = make([]Preset, 1000)
 	in.Users = make([]User, 100)
+	in.AutoLockMinutes = 99
 	in.KeepOwned(live)
 	if in.Router != "2.2.2.2:2" {
 		t.Error("a form field was overwritten")
 	}
 	if !reflect.DeepEqual(in.FilterSets, live.FilterSets) || !reflect.DeepEqual(in.Presets, live.Presets) ||
 		in.SettingsPin != "hash" ||
-		in.DeviceDefaults.Theme != "dark" || !reflect.DeepEqual(in.Users, live.Users) {
+		in.DeviceDefaults.Theme != "dark" || !reflect.DeepEqual(in.Users, live.Users) || !in.Locks.Main || in.AutoLockMinutes != 7 {
 		t.Errorf("owned fields not kept: %+v", in)
 	}
 }
@@ -102,28 +105,5 @@ func TestValidateNames(t *testing.T) {
 	}
 	if !has(validateNames("thing", []string{"Alpha", "alpha"}, 5), "two things are named") {
 		t.Error("duplicate ignoring case")
-	}
-}
-
-// The locks and the idle time are Settings > Access fields: guarded by the
-// settings PIN, not owned, so a Settings save carries them.
-func TestLocksAreGuardedNotOwned(t *testing.T) {
-	typ := reflect.TypeOf(Config{})
-	for _, name := range []string{"Locks", "AutoLockMinutes"} {
-		f, _ := typ.FieldByName(name)
-		if f.Tag.Get("owned") != "" || f.Tag.Get("guard") != "pin" {
-			t.Errorf("Config.%s tags %q", name, f.Tag)
-		}
-	}
-	a := Defaults()
-	b := a.Clone()
-	b.Locks.Main = true
-	if !Changed(a, b, "pin") {
-		t.Error("a lock change is a pin-guarded change")
-	}
-	b = a.Clone()
-	b.AutoLockMinutes = 5
-	if !Changed(a, b, "pin") {
-		t.Error("auto-lock change is a pin-guarded change")
 	}
 }

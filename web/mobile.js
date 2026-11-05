@@ -20,7 +20,6 @@ import {
 import { layout, onLayout } from './layout.js';
 import { emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
-import { picking, isPicked, pickBox, bindPick } from './recentpick.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
@@ -372,14 +371,13 @@ function recentRow(e) {
   }
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
-      el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : [retry]), disc)),
+      el('span', 'sode-m__recent-status', status, retry, disc)),
     el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e), byLabel(e)),
     changes,
     e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
     levelBar(e.levels.filter((u) => S.levelBy.has(u))));
   if (disc) clickToToggle(face, disc, '.sode-m__changes');
-  const row = el('li', 'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : '') + (isPicked(`e${e.id}`) ? ' sode-m__recent-row--picked' : ''), undo, face);
-  row.dataset.key = `e${e.id}`;
+  const row = el('li', 'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   return row;
 }
@@ -400,12 +398,11 @@ function folderRows(f) {
 
   const face = el('div', 'sode-m__recent-face',
     el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
-      el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : [retry]), disc)),
+      el('span', 'sode-m__recent-status', statusNode({ f }), retry, disc)),
     el('div', 'sode-m__recent-route', ...folderTitle(f), byLabel(f)),
     levelBar(folderLevels(f)));
   clickToToggle(face, disc);
-  const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''), undo, face);
-  row.dataset.key = `f${f.group}`;
+  const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : ''), undo, face);
   swipeable(row, face);
   if (!open) return [row];
   const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(recentRow), ...followerRows(f)));
@@ -438,7 +435,6 @@ function swipeable(row, face) {
   let x0 = null, y0 = 0, dx = 0, base = 0, horiz = null;
   const set = (x) => { face.style.transform = `translateX(${x}px)`; };
   face.addEventListener('pointerdown', (e) => {
-    if (picking()) return; // a tap ticks the row; no swiping while choosing
     x0 = e.clientX; y0 = e.clientY; dx = 0; horiz = null;
     delete face.dataset.noTap; // a drag doesn't always end in a click
     base = row.classList.contains('sode-m__recent-row--open') ? -REVEAL : 0;
@@ -483,11 +479,9 @@ function closeSwipes(except) {
 const pager = historyPager(5, () => layout() === 'phone');
 pullToLoad($('m-thread'), $('m-recent-more'), pager, () => layout() === 'phone' && !$('m-recent').hidden);
 
-bindPick($('m-recent-list'));
-on('pick', () => renderRecent());
-
 function renderRecent() {
   const rows = pager.list();
+  $('m-recent').hidden = !S.hist.length;
   $('m-recent-list').replaceChildren(...rows.flatMap((r) => (r.f ? folderRows(r.f) : [recentRow(r.e)])));
   $('m-recent-more').replaceChildren(...[emptyNote(rows, pager.fetching()), pager.button()].filter(Boolean));
 }
