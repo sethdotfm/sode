@@ -10,6 +10,7 @@ import {
 } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
+import { windowAround, growTo, growEdge } from './listwindow.js';
 import { beforeGroups, failureGroups } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
 
@@ -108,6 +109,11 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
   // The whole list opened by focus (browse): Enter and Tab must not take its
   // first row. Cleared by typing, a click on a row, or moving the highlight.
   let browsing = false;
+  // Opened by browse() at all (even once the highlight has moved): such a list
+  // is long, so only a window of it is drawn (listwindow.js).
+  let browsed = false;
+  let win = { lo: 0, hi: 0 }; // rows lo..hi-1 of matches are in the menu
+  let rows = []; // their <li>, rows[i - win.lo]
 
   function addButton(it) {
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm sode__menu-add', icon('plus', false));
@@ -143,35 +149,74 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     last = input;
     menu.hidden = !open;
     input.setAttribute('aria-expanded', String(open));
-    if (!open) { input.removeAttribute('aria-activedescendant'); placeFoot(); return; }
-    menu.replaceChildren(...matches.map((it, i) => {
-      const li = el('li', cls + (i === hi ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
-      li.id = pre + i;
-      li.setAttribute('role', 'option');
-      li.setAttribute('aria-selected', String(i === hi));
-      if (press === 'click') {
-        li.addEventListener('pointerdown', (e) => e.preventDefault());
-        li.addEventListener('click', () => choose(i));
-      } else {
-        li.addEventListener('mousedown', (e) => { e.preventDefault(); choose(i); });
-      }
-      if (add && canAdd()) li.append(addButton(it));
-      return li;
-    }));
+    if (!open) { rows = []; input.removeAttribute('aria-activedescendant'); placeFoot(); return; }
+    if (!browsed) win = { lo: 0, hi: matches.length };
+    rows = rowsFor(win.lo, win.hi);
+    menu.replaceChildren(...rows);
     placeFoot();
     input.setAttribute('aria-activedescendant', pre + hi);
   }
 
-  // Moves the highlight without redrawing, so the list keeps its scroll.
+  // The <li> for matches[from..to-1]. They carry no listeners of their own:
+  // one pair on the menu reads data-i (below), so a window of rows costs little.
+  function rowsFor(from, to) {
+    const out = [];
+    for (let i = from; i < to; i++) {
+      const it = matches[i];
+      const li = el('li', cls + (i === hi ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
+      li.id = pre + i;
+      li.dataset.i = String(i);
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', String(i === hi));
+      if (add && canAdd()) li.append(addButton(it));
+      out.push(li);
+    }
+    return out;
+  }
+
+  // The row an event came from.
+  const rowOf = (e) => {
+    const li = e.target?.closest?.('[role="option"]');
+    return li && menu.contains(li) ? +li.dataset.i : -1;
+  };
+  if (press === 'click') {
+    menu.addEventListener('pointerdown', (e) => { if (rowOf(e) >= 0) e.preventDefault(); });
+    menu.addEventListener('click', (e) => { const i = rowOf(e); if (i >= 0) choose(i); });
+  } else {
+    menu.addEventListener('mousedown', (e) => { const i = rowOf(e); if (i >= 0) { e.preventDefault(); choose(i); } });
+  }
+  // Scrolling a windowed list to its edge draws more rows there.
+  menu.addEventListener('scroll', () => {
+    if (!browsed || !matches.length) return;
+    const below = menu.scrollTop + menu.clientHeight >= menu.scrollHeight - 40;
+    if (!below && menu.scrollTop > 40) return;
+    const next = growEdge(win, matches.length, below);
+    if (next === win) return;
+    const was = menu.scrollHeight;
+    const added = below ? rowsFor(win.hi, next.hi) : rowsFor(next.lo, win.lo);
+    if (below) { menu.append(...added); rows.push(...added); }
+    else { menu.prepend(...added); rows.unshift(...added); menu.scrollTop += menu.scrollHeight - was; }
+    win = next;
+  });
+
+  // Moves the highlight; the rows are not redrawn (the list keeps its scroll)
+  // unless a windowed list has to draw the row first.
   function move(to) {
     browsing = false;
-    const items = menu.querySelectorAll('[role="option"]');
-    items[hi]?.classList.remove(hiCls);
-    items[hi]?.setAttribute('aria-selected', 'false');
+    if (browsed && (to < win.lo || to >= win.hi)) {
+      hi = to;
+      win = growTo(win, matches.length, to);
+      render();
+      rows[hi - win.lo].scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    rows[hi - win.lo]?.classList.remove(hiCls);
+    rows[hi - win.lo]?.setAttribute('aria-selected', 'false');
     hi = to;
-    items[hi].classList.add(hiCls);
-    items[hi].setAttribute('aria-selected', 'true');
-    items[hi].scrollIntoView({ block: 'nearest' });
+    const row = rows[hi - win.lo];
+    row.classList.add(hiCls);
+    row.setAttribute('aria-selected', 'true');
+    row.scrollIntoView({ block: 'nearest' });
     box().setAttribute('aria-activedescendant', pre + hi);
   }
 
@@ -188,12 +233,16 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     onPick(matches[i]);
   }
 
-  // The list shown for items, row `at` highlighted; browse: opened by focus,
-  // not by typing (see accept).
-  function show(items, at, isBrowse) {
+  // The list shown for items, row `at` highlighted. isBrowse: opened by focus,
+  // not by typing (see accept), so only a window of it is drawn. keepMoved: a
+  // browse list replaced by a fresh one (the names changed) that the user has
+  // already moved through stays a list Enter may take from.
+  function show(items, at, isBrowse, keepMoved = false) {
     matches = items;
-    browsing = isBrowse && items.length > 0;
+    browsed = isBrowse && items.length > 0;
+    browsing = browsed && !keepMoved;
     hi = at;
+    if (browsed) win = windowAround(items.length, at);
     render();
   }
 
@@ -204,8 +253,8 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
       menu.scrollTop = 0;
     },
     // Every item, for a quick scroll: the one numbered `n` (if any) highlighted.
-    browse(items, n) {
-      show(items, Math.max(0, items.findIndex((it) => it.n === n)), true);
+    browse(items, n, { keepMoved = false } = {}) {
+      show(items, Math.max(0, items.findIndex((it) => it.n === n)), true, keepMoved && browsed && !browsing);
       menu.querySelector(`.${hiCls}`)?.scrollIntoView({ block: 'nearest' });
     },
     close() {
@@ -214,6 +263,9 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     accept,
     current: () => matches[hi],
     get open() { return matches.length > 0; },
+    // The list is a browse list and its highlight has been moved: Enter, Tab
+    // and + take that row though the box holds no text.
+    get moved() { return browsed && !browsing; },
     // ↑/↓, PgUp/PgDn, and Ctrl+J/K (⌘J/K too on a Mac) like ↓/↑
     // (swallowed with the list closed too, so neither the browser's own
     // J/K shortcuts nor macOS's Ctrl+K, delete to the end of the line,

@@ -98,6 +98,8 @@ const keptText = kept.is;
 function addDst(pick) {
   const b = boxes.dst;
   b.input.focus();
+  // A row moved to in the browse list is taken though the box holds no text.
+  if (!pick && b.cb.moved) pick = b.cb.current();
   // Picking a match writes its label into the box; the search is put back.
   let typed = b.input.value;
   if (pick) sel.dst = pick;
@@ -673,11 +675,19 @@ const confirm = keyConfirm({
   onClose: (p, viaKeys) => { if (p?.verb === 'patch') lvlInput.focus(); else focusBack(viaKeys); },
 });
 
+// Enter, Tab and + take a box's highlighted match: after typing (the best
+// match, unless the destination box only holds the search kept for adding
+// more), or after moving through the browse list of an empty box.
+function wantsMatch(k) {
+  const b = boxes[k];
+  return b.cb.moved || (!sel[k] && !!b.input.value.trim() && !(k === 'dst' && keptText()));
+}
+
 // Patch button and Enter: take any half-typed box's best match, then confirm.
 function patchNow() {
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
-    if (!sel[k] && b.input.value.trim() && !(k === 'dst' && keptText())) {
+    if (wantsMatch(k)) {
       if (!b.cb.open) b.cb.refresh();
       b.cb.accept();
     }
@@ -768,10 +778,14 @@ for (const k of ['src', 'dst']) {
   b.input.addEventListener('blur', () => b.cb.close());
   // Focus shows every source or destination to scroll through (the chosen one
   // highlighted); unconfirmed text keeps its own matches.
-  b.input.addEventListener('focus', () => {
-    if (sel[k] || !b.input.value.trim()) b.cb.browse(b.list(), sel[k]?.n);
-    else b.cb.refresh();
-  });
+  b.input.addEventListener('focus', () => showList(k, sel[k]?.n));
+}
+// The list under a box: every item to scroll through when it holds no text or
+// a confirmed choice (at: the row to highlight), else the matches for its text.
+function showList(k, at, keepMoved = false) {
+  const b = boxes[k];
+  if (sel[k] || !b.input.value.trim()) b.cb.browse(b.list(), at, { keepMoved });
+  else b.cb.refresh();
 }
 // Focusing a box brings the page back to the top (Settings → This device),
 // so it isn't left off-screen after scrolling down Recent.
@@ -870,7 +884,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Tab') {
     // Leaving a box either way takes its best match, like Enter does.
-    if (b && !sel[k] && b.input.value.trim() && !(k === 'dst' && keptText()) && !b.cb.accept()) {
+    if (b && wantsMatch(k) && !b.cb.accept()) {
       e.preventDefault();
       b.input.classList.add('pb-input--invalid');
       return;
@@ -931,7 +945,13 @@ on('hello', () => {
   renderHistory();
 });
 on('names', () => {
-  for (const k of ['src', 'dst']) if (document.activeElement === boxes[k].input && !sel[k]) boxes[k].cb.refresh();
+  // The focused box's list is drawn again from the new names, on the row it
+  // was on. A confirmed box whose list is closed (Esc) stays closed.
+  for (const k of ['src', 'dst']) {
+    const b = boxes[k];
+    if (document.activeElement !== b.input || (sel[k] && !b.cb.open)) continue;
+    showList(k, b.cb.open ? b.cb.current()?.n : sel[k]?.n, true);
+  }
   renderTally();
 });
 on('tally', renderTally);
