@@ -20,6 +20,8 @@ export const unlocked = () => isUnlocked;
 export const trusted = () => trustedUser;
 export const needsPin = () => needsPinRule(S.pinSet, isUnlocked, trustedUser, forced);
 export const demandPin = () => { forced = true; };
+// The server refused for want of the PIN: this page's unlock is gone (the popup in pinprompt.js asks again).
+export const forgetUnlock = () => { isUnlocked = false; };
 
 function settle(r) {
   const w = waiting;

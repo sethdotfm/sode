@@ -247,6 +247,8 @@
 /* Users dialog: one compact row per user. */
 .sode__scrim > .sode__filters.sode__users-dlg { width: min(60rem, calc(100vw - var(--pb-space-8) * 2)); }
 .sode__scrim > .sode__filters.sode__profiles-dlg { width: min(64rem, calc(100vw - var(--pb-space-8) * 2)); }
+.sode__scrim > .sode__filters.sode__pinprompt { width: min(26rem, calc(100vw - var(--pb-space-8) * 2)); }
+.sode__pinprompt .pb-modal__body { display: flex; flex-direction: column; gap: var(--pb-space-4); }
 .sode__users-list { display: flex; flex-direction: column; gap: var(--pb-space-4); }
 .sode__users-row {
   align-items: center;

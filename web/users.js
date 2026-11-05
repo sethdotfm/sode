@@ -9,7 +9,8 @@
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
-import { demandPin, trusted, unlocked } from './pin.js';
+import { trusted, unlocked, forgetUnlock } from './pin.js';
+import { askPin } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 
@@ -188,7 +189,7 @@ onMsg('userSignOutAllResult', (m) => {
   signing.delete(m.id);
   if (w) w.out.disabled = false;
   if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
-  if (m.locked) { demandPin(); emit('locked'); }
+  if (m.locked) { forgetUnlock(); askPin('Managing users needs the Advanced Settings PIN again.'); }
   fail(m.err);
 });
 
@@ -236,12 +237,12 @@ on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
 
 // ---- open / close / save
 
-function openUsers() {
+async function openUsers() {
   // The list and the saving need the settings PIN, which a trusted user may not
-  // have entered: ask for it (Settings shows its PIN prompt) instead of an
-  // editor with no users in it.
-  if (S.pinSet && !unlocked()) { demandPin(); emit('locked'); return; }
-  back = document.activeElement;
+  // have entered: a popup asks for it, instead of an editor with no users in it.
+  const opener = document.activeElement;
+  if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) { opener?.focus?.(); return; }
+  back = opener;
   isOpen = true;
   setNote('');
   fill();
@@ -289,7 +290,7 @@ onMsg('usersResult', (m) => {
     if (isOpen) closeUsers();
     return;
   }
-  if (m.locked) { demandPin(); emit('locked'); } // the settings PIN is wanted again
+  if (m.locked) { forgetUnlock(); askPin('Managing users needs the Advanced Settings PIN again.'); } // the settings PIN is wanted again
   fail(m.err);
 });
 
