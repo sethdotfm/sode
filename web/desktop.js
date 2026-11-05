@@ -108,6 +108,7 @@ function addDst(pick) {
     if (!b.cb.open) b.cb.refresh();
     if (!b.cb.accept()) { b.input.classList.add('pb-input--invalid'); return; }
   } else typed = '';
+  const added = sel.dst.n;
   if (!chosen(sel.dst)) dsts.push(sel.dst);
   sel.dst = null;
   b.input.value = typed;
@@ -115,7 +116,9 @@ function addDst(pick) {
   b.input.classList.remove('pb-input--invalid');
   renderChips();
   renderTally();
-  b.cb.refresh();
+  // The search stays open: matches for what is typed, or, in an empty box, the
+  // whole list again (minus the one just added) on the row that followed it.
+  showList('dst', b.list().find((d) => d.n > added)?.n);
 }
 
 function renderChips() {
