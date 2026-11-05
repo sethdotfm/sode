@@ -4,7 +4,7 @@ import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfil
 
 test('prefRows: labels values, skips unknown ones', () => {
   const r = prefRows({ theme: 'dark', flip: true, clock: 'bogus', nope: 'x' });
-  assert.deepEqual(r.map((x) => [x.key, x.value]), [['theme', 'Dark'], ['flip', 'On']]);
+  assert.deepEqual(r.map((x) => [x.key, x.value]), [['theme', 'Dark'], ['flip', 'Yes']]);
   assert.deepEqual(prefRows(null), []);
 });
 

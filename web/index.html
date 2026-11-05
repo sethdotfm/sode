@@ -136,25 +136,26 @@
 
     <div class="sode__group sode__lock" id="settings-lock" data-apart>
       <div class="sode__field">
-        <label for="lock-pin">Settings PIN</label>
-        <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false">
-        <span class="sode__hint">Settings are locked.</span>
+        <label for="lock-pin">Advanced Settings</label>
+        <div class="sode__pinrow">
+          <input type="password" id="lock-pin" class="pb-input" autocomplete="current-password" spellcheck="false" aria-describedby="lock-pin-help">
+          <button type="submit" class="pb-btn pb-btn--ok" id="lock-unlock">Unlock</button>
+        </div>
+        <div class="sode__pinhelp">
+          <span class="sode__hint" id="lock-pin-help">Please enter the administrator PIN</span>
+          <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="lock-help-open">Forgot PIN?</button>
+        </div>
       </div>
       <div class="pb-note pb-note--error" id="lock-err" role="alert" hidden></div>
-      <div class="sode__names">
-        <button type="button" class="pb-btn pb-btn--outline" id="lock-help-open">Forgot PIN</button>
-        <button type="submit" class="pb-btn pb-btn--ok" id="lock-unlock">Unlock</button>
-      </div>
     </div>
 
     <fieldset class="sode__group sode__device" data-apart>
       <legend>This device</legend>
-      <span class="sode__hint">Saved in this browser only. Applies now. Global follows the defaults for every device.</span>
+      <span class="sode__hint">Saved in this browser only.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-theme">Theme</label>
           <span class="pb-select-wrap"><select id="cfg-theme" class="pb-select" data-pref="theme"></select></span>
-          <span class="sode__hint" id="cfg-theme-hint"><code>Alt+⇧t</code> toggles</span>
         </div>
         <div class="sode__field">
           <label for="cfg-layout">Layout</label>
@@ -173,35 +174,28 @@
           <span class="pb-select-wrap"><select id="cfg-scrolltop" class="pb-select" data-pref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-search-filters">Search respects filters</label>
+          <label for="cfg-search-filters">Searching history respects filters</label>
           <span class="pb-select-wrap"><select id="cfg-search-filters" class="pb-select" data-pref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-set-stack">Stacked filter sets</label>
+          <label for="cfg-set-stack">Stacked filters behavior</label>
           <span class="pb-select-wrap"><select id="cfg-set-stack" class="pb-select" data-pref="setStack"></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-next-mode">Next means</label>
+          <label for="cfg-next-mode">Next match behavior</label>
           <span class="pb-select-wrap"><select id="cfg-next-mode" class="pb-select" data-pref="nextMode"></select></span>
         </div>
       </div>
-      <div class="sode__field" id="account" data-find="account" data-label="Account" hidden>
+      <div class="sode__field sode__ruled" id="account" data-find="account" data-label="Account">
         <span class="sode__label" id="account-name"></span>
-        <div class="sode__names">
+        <div class="sode__names sode__names--start">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Log in" hidden>Log in</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="soft-lock-btn" data-find="soft-lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#lock"/></svg>Lock</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-profile" data-find="account-profile" data-label="My profile" aria-haspopup="dialog">My profile…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Export / import…</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Log out">Log out</button>
         </div>
-        <span class="sode__hint">Log in as a user to put your name on takes and use your saved settings. Without a lock, it lasts for this tab only. Log out ends the session.</span>
-      </div>
-      <div class="sode__field" id="soft-lock" data-find="soft-lock" data-label="Lock screen">
-        <span class="sode__label">Lock screen</span>
-        <div class="sode__names">
-          <button type="button" class="pb-btn pb-btn--outline" id="soft-lock-btn" data-find="soft-lock-btn" data-label="Lock screen">Lock screen</button>
-        </div>
-        <span class="sode__hint">Covers this page until you press the letter it shows (or tap Unlock). It guards against keyboard mashing and is not a PIN; a reload clears it. Ctrl+L does the same, and the idle minutes (Access) lock it when idle. Not shown where a PIN lock is on.</span>
       </div>
     </fieldset>
 
@@ -230,15 +224,15 @@
           <span class="pb-select-wrap"><select id="gcfg-scrolltop" class="pb-select" data-gpref="scrollTop"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-search-filters">Search respects filters</label>
+          <label for="gcfg-search-filters">Searching history respects filters</label>
           <span class="pb-select-wrap"><select id="gcfg-search-filters" class="pb-select" data-gpref="searchFilters"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-set-stack">Stacked filter sets</label>
+          <label for="gcfg-set-stack">Stacked filters behavior</label>
           <span class="pb-select-wrap"><select id="gcfg-set-stack" class="pb-select" data-gpref="setStack"></select></span>
         </div>
         <div class="sode__field">
-          <label for="gcfg-next-mode">Next means</label>
+          <label for="gcfg-next-mode">Next match behavior</label>
           <span class="pb-select-wrap"><select id="gcfg-next-mode" class="pb-select" data-gpref="nextMode"></select></span>
         </div>
       </div>
@@ -268,12 +262,12 @@
     </fieldset>
 
     <div class="sode__open-log">
-      <a class="pb-btn pb-btn--outline" href="log">Open the Communication Log</a>
+      <a class="pb-btn pb-btn--outline" href="log"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#external-link"/></svg>View Logs</a>
     </div>
 
     <div class="sode__lock-exit">
       <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
-      <span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></span>
+      <span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer" aria-label="GitHub" data-pb-tip="GitHub"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#github"/></svg></a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></span>
     </div>
 
     <fieldset class="sode__group">
@@ -511,7 +505,7 @@
         <span class="sode__hint" id="settings-path"></span>
         <button type="submit" class="pb-btn pb-btn--ok" id="settings-save">Save</button>
       </div>
-      <div class="sode__about"><p class="sode__hint" data-version></p><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></div>
+      <div class="sode__about"><p class="sode__hint" data-version></p><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer" aria-label="GitHub" data-pb-tip="GitHub"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#github"/></svg></a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></div>
     </div>
   </form>
 

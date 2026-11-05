@@ -457,6 +457,12 @@ html { font-size: 125%; }
   text-decoration: none;
 }
 .sode__links > a:hover { color: var(--pb-accent-hover); text-decoration: none; }
+.sode__names--start { justify-content: flex-start; }
+.sode__ruled { border-top: var(--pb-border-w) solid var(--pb-edge); padding-top: var(--pb-space-5); }
+/* The locked prompt: the PIN box and Unlock on one row, its help and Forgot PIN? tucked under the box. */
+.sode__pinrow { display: flex; gap: var(--pb-space-4); }
+.sode__pinrow .pb-input { flex: 1; min-width: 0; width: auto; }
+.sode__pinhelp { align-items: center; display: flex; gap: var(--pb-space-3); justify-content: space-between; }
 .sode__names {
   align-items: center;
   display: flex;

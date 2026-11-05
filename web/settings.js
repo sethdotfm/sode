@@ -16,6 +16,7 @@ import { PREFS, resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
+import { mac } from './keys.js';
 import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
 import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
@@ -322,11 +323,13 @@ on('profile', renderPrefs);
 let acctUser = '';
 on('access', (L) => {
   acctUser = L.user || '';
-  $('account').hidden = !L.user && !loginOffered(L);
+  const acct = !!L.user || loginOffered(L);
+  $('account').hidden = !acct && L.enforced; // the row also holds Lock
+  $('account-name').hidden = !acct;
   $('account-name').textContent = L.user ? `Logged in as ${L.user}` : 'Not logged in';
   for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
-  $('account-login').hidden = !!L.user;
-  $('soft-lock').hidden = L.enforced; // a PIN lock has its own Lock and Log out
+  $('account-login').hidden = !!L.user || !acct;
+  $('soft-lock-btn').hidden = L.enforced; // a PIN lock has its own Lock and Log out
 });
 $('soft-lock-btn').addEventListener('click', () => emit('softLock'));
 $('account-pin').addEventListener('click', () => emit('changePin'));
@@ -385,6 +388,18 @@ for (const ev of ['scrollend', 'wheel', 'touchstart', 'keydown']) {
     if (ev !== 'scrollend') markSection();
   }, { passive: true });
 }
+
+// Ctrl+J/K (⌘J/K on a Mac) step through the sections, like the match lists
+// (from the search box too; not while a dialog is over Settings).
+document.addEventListener('keydown', (e) => {
+  if (!isOpen() || e.defaultPrevented || e.altKey || e.shiftKey || form.hasAttribute('data-locked')) return;
+  if (!((e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey))) return;
+  const step = { KeyJ: 1, KeyK: -1 }[e.code];
+  if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
+  e.preventDefault();
+  const at = [...toc.children].findIndex((b) => b.classList.contains('active'));
+  toc.children[Math.min(sections.length - 1, Math.max(0, at + step))].click();
+});
 
 // ---- level numbering: a three-way switch, labelled for the level count
 
