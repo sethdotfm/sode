@@ -368,7 +368,7 @@ function recentRow(e) {
   });
   let changes = null;
   if (open) {
-    changes = el('div', 'sode-m__changes', ...stackSteps(e, sheetFor, pickSrc));
+    changes = el('div', 'sode-m__changes', ...stackSteps(e, { restore: sheetFor, pickSrc }));
     changes.id = changesId;
   }
   const face = el('div', 'sode-m__recent-face',

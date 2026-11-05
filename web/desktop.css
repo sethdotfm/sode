@@ -66,15 +66,27 @@
 .sode__box--src .sode__input { border-left: var(--sode-side-w) solid var(--pb-source); }
 .sode__box--dst .sode__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
 /* About eight rows plus the count; the rest scrolls. */
-.sode__menu {
+/* The list and its count line hang under the box together (the count sits
+   under what scrolls, so a very long list still shows it). */
+.sode__menu-pop {
   left: 0;
-  max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
-  overflow-y: scroll; /* the styled bar below stays visible */
-  overscroll-behavior: contain;
   position: absolute;
   right: 0;
   top: 100%;
+  z-index: var(--pb-z-dropdown, 10);
+}
+.sode__menu {
+  max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
+  overflow-y: scroll; /* the styled bar below stays visible */
+  overscroll-behavior: contain;
   width: auto;
+}
+/* Not in a pop-up (the filter boxes): hang off the box itself. */
+:where(:not(.sode__menu-pop)) > .sode__menu {
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 100%;
 }
 .sode__menu-add { margin-left: auto; }
 .sode__menu-count {
@@ -85,11 +97,7 @@
   font-size: var(--pb-text-xs);
   display: flex;
   justify-content: space-between;
-  left: 0;
   padding: var(--pb-space-2) var(--pb-space-4);
-  position: absolute; /* under the list, not in what scrolls (widgets.js placeFoot sets top) */
-  right: 0;
-  z-index: var(--pb-z-dropdown, 10);
 }
 .sode__menu-count[hidden] { display: none; }
 .sode__num {

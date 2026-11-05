@@ -94,11 +94,12 @@ let boxSeq = 0;
 // press: 'mousedown' picks on mousedown, keeping focus; 'click' stops
 // pointerdown (keeps a phone's keyboard up) and picks on click, so a
 // scroll doesn't pick. reverse: the list is drawn bottom-up, so ↑ moves to
-// the next match. foot: a count pinned at the bottom of a long list.
+// the next match. foot: an element (hidden at first) for the count line
+// under a long list.
 // add: a + button on every row; add(item) when it is pressed (the list and
 // the box's focus stay as they are); canAdd() says whether the list has
 // them now (the phone's source step doesn't).
-export function combobox(input, menu, { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = false }) {
+export function combobox(input, menu, { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null }) {
   const box = typeof input === 'function' ? input : () => input;
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;
   let matches = [];
@@ -121,22 +122,14 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     return b;
   }
 
-  // The count and keys line sits under the list, outside what scrolls, so a
-  // very long list still shows it.
-  let footEl = null;
+  // The count and keys line under a long list (foot: its element).
   function placeFoot() {
     if (!foot) return;
-    if (!footEl) {
-      footEl = el('div', 'sode__menu-count');
-      footEl.setAttribute('aria-hidden', 'true');
-      menu.after(footEl);
-    }
-    const show = !menu.hidden && matches.length > PAGE;
-    footEl.hidden = !show;
-    if (!show) return;
+    const long = !menu.hidden && matches.length > PAGE;
+    foot.hidden = !long;
+    if (!long) return;
     const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-    footEl.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘J/K' : 'Ctrl+J/K'}`));
-    footEl.style.top = `${menu.offsetTop + menu.offsetHeight}px`;
+    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘J/K' : 'Ctrl+J/K'}`));
   }
 
   function render() {
@@ -158,9 +151,9 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
       li.setAttribute('aria-selected', String(i === hi));
       if (press === 'click') {
         li.addEventListener('pointerdown', (e) => e.preventDefault());
-        li.addEventListener('click', () => { hi = i; browsing = false; accept(); });
+        li.addEventListener('click', () => choose(i));
       } else {
-        li.addEventListener('mousedown', (e) => { e.preventDefault(); hi = i; browsing = false; accept(); });
+        li.addEventListener('mousedown', (e) => { e.preventDefault(); choose(i); });
       }
       if (add && canAdd()) li.append(addButton(it));
       return li;
@@ -182,34 +175,41 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     box().setAttribute('aria-activedescendant', pre + hi);
   }
 
+  // Enter or Tab: the highlighted row, unless the whole list is only being browsed.
   function accept() {
     const it = matches[hi];
     if (!it || browsing) return false;
     onPick(it);
     return true;
   }
+  // A click on a row always picks it.
+  function choose(i) {
+    hi = i;
+    onPick(matches[i]);
+  }
+
+  // The list shown for items, row `at` highlighted; browse: opened by focus,
+  // not by typing (see accept).
+  function show(items, at, isBrowse) {
+    matches = items;
+    browsing = isBrowse && items.length > 0;
+    hi = at;
+    render();
+  }
 
   return {
     // Matches for what's typed now, best first and highlighted.
     refresh() {
-      browsing = false;
-      matches = source(box().value);
-      hi = 0;
-      render();
+      show(source(box().value), 0, false);
       menu.scrollTop = 0;
     },
     // Every item, for a quick scroll: the one numbered `n` (if any) highlighted.
     browse(items, n) {
-      matches = items;
-      browsing = true;
-      hi = Math.max(0, items.findIndex((it) => it.n === n));
-      render();
+      show(items, Math.max(0, items.findIndex((it) => it.n === n)), true);
       menu.querySelector(`.${hiCls}`)?.scrollIntoView({ block: 'nearest' });
     },
     close() {
-      browsing = false;
-      matches = [];
-      render();
+      show([], 0, false);
     },
     accept,
     current: () => matches[hi],
@@ -339,9 +339,10 @@ export function failureRows(e) {
 
 // Newest first: each change's time and source, then what the destination
 // had before them all (which Undo restores). Every change but the newest
-// has Restore: back to how it was then. onRestore(plan) confirms. onPickSrc(n),
-// if given, makes each routed source a button.
-export function stackSteps(e, onRestore, onPickSrc, onPickDst) {
+// has Restore: back to how it was then. { restore(plan) confirms, pickSrc(n) and
+// pickDst(item), if given, make each routed source / followed destination a
+// button }.
+export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst: onPickDst }) {
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
   const step = (time, levels, text, btn, follows = null, src = null) => el('div', 'sode__route sode__step',
     el('span', 'sode__step-time', time), levelBar(levels),

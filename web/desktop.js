@@ -39,7 +39,7 @@ for (const k of ['src', 'dst']) {
     onPick: (it) => select(k, it),
     // Destinations: a + on each row adds it as a chip and keeps the search.
     add: k === 'dst' ? (it) => addDst(it) : undefined,
-    foot: true,
+    foot: $(`${k}-count`),
   });
 }
 const lvlInput = $('lvl');
@@ -298,7 +298,7 @@ function histRow(e) {
   if (open) {
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
-        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, useRowSrc, useRowDst)]
+        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, { restore: openConfirm, pickSrc: useRowSrc, pickDst: useRowDst })]
         : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc))]),
       ...failureRows(e),
       ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst))] : []));
