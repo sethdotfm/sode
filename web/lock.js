@@ -26,7 +26,7 @@ import { buildChip } from './lockchip.js';
 
 // The session token of a persistent user. localStorage rather than a cookie:
 // the socket's `hi` carries it, no HTTP endpoint is needed, and a cookie
-// would be JS-readable just the same unless HttpOnly (see AGENTS.md).
+// would be JS-readable just the same unless HttpOnly (see docs/agents/users-locks.md).
 const TOKEN_KEY = 'sode-session';
 // A no-lock login's token: this tab only (sessionStorage), so closing the tab
 // logs out while a reload or reconnect stays in.
