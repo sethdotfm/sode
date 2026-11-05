@@ -425,7 +425,7 @@
 /* Desktop Recent: the filter boxes and the sets share one row, the sets taking
    what the boxes leave. */
 .sode__recent-tools { align-items: flex-start; display: flex; flex-wrap: wrap; gap: var(--pb-space-1) var(--pb-space-3); }
-.sode__recent-tools > .sode__search { flex: none; max-width: 100%; } /* never squeezed: its two boxes stay side by side, the sets wrap below instead */
+.sode__recent-tools > .sode__search { flex: 0 1 auto; max-width: 100%; min-width: 0; } /* the boxes shrink before the sets wrap below */
 .sode__sets-bar { align-items: center; display: flex; flex: 1 1 16rem; gap: var(--pb-space-3); min-width: 0; padding-top: var(--pb-space-3); }
 .sode__set { font-size: var(--pb-text-xs); padding: var(--pb-space-1) var(--pb-space-3); }
 .sode__filters-sets {
@@ -489,10 +489,12 @@
 .sode__search {
   align-items: flex-start; /* boxes stay lined up when one has picks */
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* Source and Destination always sit side by side; the boxes shrink instead */
   gap: var(--pb-space-1) var(--pb-space-3);
   padding-top: var(--pb-space-3);
 }
+.sode__search > [data-search-clear] { flex: none; }
+.sode__search > .sode__hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sode__search[hidden] { display: none; }
 .sode__search > .sode__hint:empty { display: none; }
 .sode__search-box {
