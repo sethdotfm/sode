@@ -591,6 +591,10 @@ html { font-size: 125%; }
 .pb-chip.sode__next { max-width: 18rem; }
 .sode__next { bottom: 0; flex: none; position: absolute; right: 0; top: 0; width: max-content; z-index: 1; }
 .sode__tag { color: var(--pb-text-muted); font-weight: var(--pb-weight-bold); }
+/* The closed Next chip shows its key after the tag; open, the key sits by the value. */
+.sode__next > .sode__tag-key { margin-left: var(--pb-space-2); }
+.sode__next:is(:hover, :focus-visible) > .sode__tag-key,
+html[data-shift] .sode__next > .sode__tag-key { display: none; }
 /* Open, it is plainly the other chip: accent edge and tag, and the Last
    chip underneath fades out instead of peeking from behind it. */
 .pb-chip.sode__next:is(:hover, :focus-visible),

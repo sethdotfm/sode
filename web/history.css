@@ -525,6 +525,13 @@
   transform: translateY(-50%);
 }
 .sode__keyed > .sode__key-note { font-size: var(--pb-text-xs); right: var(--pb-space-3); }
+/* The boxes' s/d/f keys only show in keyboard mode. */
+html:not([data-keys-on]) :is(.sode__keyed, .sode__search-box) > .sode__key-note { display: none !important; }
+/* A preset chip's Option+number opens out of it while Option is held, as Next opens. */
+.sode__chip-key { display: grid; grid-template-columns: 0fr; margin-left: calc(var(--pb-space-1) * -1); min-width: 0; opacity: 0; transition: grid-template-columns var(--pb-motion-normal) var(--pb-ease), margin var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease); }
+.sode__chip-key > span { align-items: center; display: flex; min-width: 0; overflow: hidden; white-space: nowrap; }
+.sode__chip-key > span > .sode__key-note { padding-left: var(--pb-space-2); position: static; transform: none; }
+html[data-alt] .sode__chip-key { grid-template-columns: 1fr; margin-left: 0; opacity: 1; }
 :is(.sode__keyed, .sode__search-box):has(> .sode__key-note) > .pb-input { padding-right: 3em; }
 :is(.sode__keyed, .sode__search-box) > .pb-input:focus ~ .sode__key-note,
 :is(.sode__keyed, .sode__search-box) > .pb-input:not(:placeholder-shown) ~ .sode__key-note { display: none; }

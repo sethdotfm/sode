@@ -159,13 +159,13 @@ function renderLast() {
       chips.push(b);
     }
     if (k !== 'lvl' && next[k]) {
-      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__tag', 'Next'),
+      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__tag', 'Next'), el('kbd', 'sode__key-note sode__tag-key', `⌃⇧${key}`),
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
       b.title = `Last take's ${what}, the next one (Ctrl+Shift+${key.toUpperCase()})`;
       b.addEventListener('click', () => useLast(k, nextTake()));
       // The slot holds the closed chip's room; the chip opens over the
       // Last chip, so nothing in the row moves.
-      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
+      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', `⌃⇧${key}`)), b));
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';
@@ -448,9 +448,13 @@ const histList = $('history');
 bindPick(histList);
 on('pick', () => renderHistory());
 let keysOn = false;
+// html[data-keys-on] while keyboard mode is on: the boxes then show their s/d/f keys.
+const keysFlag = (on) => document.documentElement.toggleAttribute('data-keys-on', on);
+histList.addEventListener('blur', () => keysFlag(false));
 const keyMode = () => keysOn && document.activeElement === histList;
 document.addEventListener('pointerdown', (e) => {
   keysOn = false;
+  keysFlag(false);
   histList.classList.remove('sode__hist--keys');
   // Clicking a row moves the (hidden) cursor there, so a key from here
   // starts on the row clicked, not one left from earlier.
@@ -568,6 +572,7 @@ function enterKeys(key) {
   keysOn = true;
   histList.classList.add('sode__hist--keys');
   histList.focus();
+  keysFlag(true);
   const list = stops();
   // moveTo also closes folders opened for a cursor that's since moved.
   const to = (key && list.find((x) => x.key === key)) || list.find((x) => x.key === cursor) || list[0];

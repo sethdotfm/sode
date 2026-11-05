@@ -667,24 +667,39 @@
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" id="keys-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="keys-title">Keyboard shortcuts</span></div>
     <div class="pb-modal__body sode__keys">
-      <div class="sode__label">Takes</div>
+      <div class="sode__label">Patch boxes</div>
       <dl>
         <dt><kbd>Tab</kbd></dt><dd>Next box</dd>
-        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Pick a match</dd>
         <dt><kbd>+</kbd> <kbd data-mac="⌘Enter">Ctrl+Enter</kbd> <kbd data-mac="⌃Enter" hidden></kbd></dt><dd>Add destination</dd>
         <dt><kbd data-mac="⌃s">Ctrl+s</kbd> <kbd data-mac="⌃d">Ctrl+d</kbd> <kbd data-mac="⌃f">Ctrl+f</kbd></dt><dd>Last take's source, destination, levels</dd>
         <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Last take's source, destination, the next one</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
-        <dt><kbd>Esc</kbd></dt><dd>Clear a box; with all empty, keyboard mode</dd>
-        <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Presets: search, pin, fire (opens the usual confirm)</dd>
-        <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings, from anywhere</dd>
-        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen; press the letter it shows to unlock</dd>
-        <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list, from anywhere</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Close the match list; clear a box; with all empty, keyboard mode</dd>
       </dl>
-      <div class="sode__label">Keyboard mode</div>
-      <p class="sode__keys-note">Drive Recent without the mouse. Press Esc with the boxes empty (or on a button in Recent) and a row gets highlighted; single keys then act on it. A click, or Esc, leaves.</p>
+      <div class="sode__label">Match lists (Source, Destination)</div>
       <dl>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move through the list; it opens with every item when you enter a box</dd>
+        <dt><kbd>Enter</kbd> <kbd>Tab</kbd></dt><dd>Pick the highlighted match (after typing or moving)</dd>
+        <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>A page at a time</dd>
+      </dl>
+      <div class="sode__label">Presets</div>
+      <dl>
+        <dt><kbd data-mac="⌥1–9">Alt+1–9</kbd></dt><dd>Fire the first nine pinned presets (hold Option or Alt to see the keys on the buttons)</dd>
+        <dt><kbd data-mac="⌃g">Ctrl+g</kbd> <kbd data-mac="⌘g" hidden></kbd></dt><dd>Open the Presets popup (every preset, searchable)</dd>
+        <dt><kbd>p</kbd></dt><dd>In keyboard mode: the pinned presets (← → to move, Enter fires, Esc back)</dd>
+      </dl>
+      <div class="sode__label">Presets popup</div>
+      <dl>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> <kbd data-mac="⌃j" hidden></kbd> <kbd data-mac="⌃k" hidden></kbd></dt><dd>Move</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Fire (opens the usual confirm)</dd>
+        <dt><kbd data-mac="⌥P">Alt+p</kbd></dt><dd>Pin or unpin</dd>
+        <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
+      </dl>
+      <div class="sode__label">Keyboard mode (Recent)</div>
+      <dl>
+        <dt><kbd>Esc</kbd></dt><dd>Start it: with the boxes empty (or on a button in Recent); a click leaves</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source, Destination, Levels</dd>
         <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous</dd>
         <dt><kbd>⇧j</kbd> <kbd>⇧↓</kbd></dt><dd>Next group</dd>
@@ -695,10 +710,19 @@
         <dt><kbd>r</kbd></dt><dd>Retry (failed takes) or Redo (any other)</dd>
         <dt><kbd>/</kbd></dt><dd>Filters</dd>
         <dt><kbd>⇧s</kbd> <kbd>⇧d</kbd></dt><dd>Filter by Source, Destination</dd>
-        <dt><kbd>p</kbd></dt><dd>Pinned presets (← → to move, Enter fires, Esc back)</dd>
         <dt><kbd>,</kbd></dt><dd>Settings</dd>
         <dt><kbd>?</kbd></dt><dd>This list</dd>
         <dt><kbd>Esc</kbd></dt><dd>Back to Source</dd>
+      </dl>
+      <div class="sode__label">Add from Patch Boxes (in the preset editor)</div>
+      <dl>
+        <dt><kbd>Enter</kbd></dt><dd>Add the patch in the boxes as a row; Done returns</dd>
+      </dl>
+      <div class="sode__label">Anywhere</div>
+      <dl>
+        <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings</dd>
+        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen; press the letter it shows to unlock</dd>
+        <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
       </dl>
     </div>
     <div class="pb-modal__footer">

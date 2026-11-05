@@ -56,7 +56,7 @@ done.addEventListener('click', () => close());
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'preset-pop-title' })),
   el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl, shareUI.box,
-    el('span', 'sode__hint', mac ? '↑ ↓ or ⌘J/K to move · ⌥↑ ⌥↓ or ⌥⌘J/K to reorder' : '↑ ↓ or Ctrl+J/K to move · Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder')),
+    el('span', 'sode__hint', mac ? '↑ ↓ or ⌘J/K to move · ⌥↑ ⌥↓ or ⌥⌘J/K to reorder · ⌥P to pin or unpin' : '↑ ↓ or Ctrl+J/K to move · Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder · Alt+P to pin or unpin')),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
 document.body.append(root);
@@ -112,8 +112,8 @@ function draw() {
     main.tabIndex = -1;
     main.addEventListener('click', () => pressPreset(s));
     const tools = [btn(pinned ? 'Unpin' : 'Pin', pinned ? 'pin-off' : 'pin',
-      s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin',
-      () => (s.scope === 'user' ? profSaver.change({ presets: withUserPin(s.name, !pinned) }, () => {}) : setLocalPin(s, !pinned)))];
+      `${s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin'} (${mac ? '⌥' : 'Alt+'}P)`,
+      () => togglePin(s))];
     tools.push(btn('Share', 'share-2', 'Show a link to share this preset', () => shareLink(sharePresetDoc(s), shareUI)));
     if (s.scope === 'global') {
       const flag = s.pinned !== false;
@@ -138,6 +138,13 @@ function draw() {
   else input.removeAttribute('aria-activedescendant');
   list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
   if (at) (document.getElementById(at[0])?.querySelectorAll('button')[at[1]] || input).focus();
+}
+
+// Pins or unpins s: a preset of the user's own in their profile, any other for this browser.
+function togglePin(s) {
+  const pinned = effectivePin(s, pinOverrides());
+  if (s.scope === 'user') profSaver.change({ presets: withUserPin(s.name, !pinned) }, () => {});
+  else setLocalPin(s, !pinned);
 }
 
 // ---- reordering the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
@@ -206,6 +213,11 @@ dialog.addEventListener('keydown', (e) => {
   if (arrows || altJK) {
     e.preventDefault();
     nudge(e.key === 'ArrowUp' || e.code === 'KeyK' ? -1 : 1);
+    return;
+  }
+  if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.repeat && e.code === 'KeyP') {
+    e.preventDefault();
+    if (shownList[hi]) togglePin(shownList[hi]);
     return;
   }
   const slot = altDigit(e);

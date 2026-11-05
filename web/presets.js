@@ -43,6 +43,13 @@ export function fire(scope, name) {
   host.confirm(plan);
 }
 
+const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+// Option/Alt held or let go (also when the window loses focus): the chips show their keys.
+const trackAlt = (down) => document.documentElement.toggleAttribute('data-alt', down);
+document.addEventListener('keydown', (e) => trackAlt(e.altKey), true);
+document.addEventListener('keyup', (e) => trackAlt(e.altKey), true);
+window.addEventListener('blur', () => trackAlt(false));
+
 const phone = () => document.documentElement.dataset.pbLayout === 'phone';
 const askPopup = () => emit('presetPopup');
 
@@ -54,8 +61,14 @@ function renderStrips() {
     edit.type = 'button';
     edit.setAttribute('aria-haspopup', 'dialog');
     edit.addEventListener('click', () => openPresets());
-    const chips = list.map((s) => {
+    const chips = list.map((s, i) => {
       const b = el('button', 'pb-chip sode__set', s.name);
+      // Option/Alt+1-9 fire the first nine: the key opens out of the chip while Option is held.
+      if (i < 9) {
+        const k = `${mac ? '⌥' : 'Alt+'}${i + 1}`;
+        b.append(el('span', 'sode__chip-key', el('span', null, el('kbd', 'sode__key-note', k))));
+        b.setAttribute('aria-keyshortcuts', `Alt+${i + 1}`);
+      }
       b.type = 'button';
       b.dataset.pbTip = presetTip(s, (n) => srcItem(n).label, (n) => dstItem(n).label);
       b.addEventListener('click', () => fire(s.scope, s.name));
