@@ -406,7 +406,8 @@
   overflow-x: auto;
   padding-bottom: var(--pb-space-1);
 }
-.sode__sets > * { flex: none; }
+.sode__sets > *,
+.sode__sets .sode__set { flex: none; white-space: nowrap; } /* chips sit in display: contents groups, so not all are direct children */
 /* Right-aligned while they fit; auto margin (not flex-end) so an overflowing
    row still scrolls from its start. */
 .sode__recent-head > .sode__sets > :first-child { margin-left: auto; }
