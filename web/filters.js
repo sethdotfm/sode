@@ -22,7 +22,7 @@ import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { FILTER_DEFAULT, normFilter } from './filterstore.js';
 import { upsertEntry, filterEntry } from './profilesrules.js';
-import { combobox, trapDialog } from './widgets.js';
+import { combobox, trapDialog, labeled } from './widgets.js';
 
 const SCOPE_GROUPS = scopeIds(true).map((id) => [id, scopeLabel(id)]); // Default | Everyone | Me | This browser
 const root = $('filters');
@@ -362,7 +362,7 @@ tNote.setAttribute('role', 'status');
 tNote.setAttribute('aria-live', 'polite');
 const tSave = el('button', 'pb-btn pb-btn--commit', 'Save');
 tSave.type = 'button';
-const tBar = el('div', 'sode__filters-set', tName, tNote);
+const tBar = el('div', 'sode__filters-set', labeled('Name', tName), tNote);
 tBar.hidden = true;
 $('flt-set').closest('.sode__filters-sets').before(tBar);
 $('flt-done').before(tSave);

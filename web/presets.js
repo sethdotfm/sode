@@ -9,7 +9,7 @@ import { showResult, presetPlan, canRedo } from './plans.js';
 import { startPick, endPick } from './recentpick.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
-import { trapDialog } from './widgets.js';
+import { trapDialog, labeled } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
@@ -153,7 +153,7 @@ pinIn.placeholder = 'PIN';
 pinIn.autocomplete = 'current-password';
 pinIn.setAttribute('aria-label', 'Settings PIN');
 const pinOk = btn('pb-btn--ok pb-btn--sm', 'Unlock');
-const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', () => saver.cancel()));
+const pinRow = el('div', 'sode__filters-set', labeled('Settings PIN', pinIn), pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', () => saver.cancel()));
 pinRow.hidden = true;
 const delBtn = btn('pb-btn--outline pb-btn--sm', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit pb-btn--sm', 'Save', () => save());
@@ -168,7 +168,7 @@ asName.setAttribute('aria-label', 'Name for the copy');
 asName.autocomplete = 'off';
 const asScope = el('select', 'pb-select');
 asScope.setAttribute('aria-label', 'Save the copy for');
-const asRow = el('div', 'sode__filters-set', asName, el('span', 'pb-select-wrap sode__filters-scope', asScope),
+const asRow = el('div', 'sode__filters-set', labeled('Name of the copy', asName), labeled('Save the copy for', el('span', 'pb-select-wrap', asScope), 'sode__filters-scope'),
   btn('pb-btn--commit pb-btn--sm', 'Save', () => saveAs()), btn('pb-btn--ghost pb-btn--sm', 'Cancel', () => closeSaveAs()));
 asRow.hidden = true;
 const shareBtn = btn('pb-btn--outline pb-btn--sm', 'Share', () => {
@@ -176,8 +176,8 @@ const shareBtn = btn('pb-btn--outline pb-btn--sm', 'Share', () => {
   if (p) shareLink(sharePresetDoc(p), shareUI);
 });
 
-const pickRow = el('div', 'sode__filters-set', el('span', 'pb-select-wrap', pick), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null)));
-const scopeWrap = el('span', 'pb-select-wrap sode__filters-scope', scopeIn);
+const pickRow = el('div', 'sode__filters-set', labeled('Preset', el('span', 'pb-select-wrap', pick)), btn('pb-btn--outline pb-btn--sm', 'New', () => load(null)));
+const scopeWrap = labeled('Save for', el('span', 'pb-select-wrap', scopeIn), 'sode__filters-scope');
 const titleEl = Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'presets-title' });
 const transferBtn = btn('pb-btn--outline', 'Export / import…', () => emit('openTransfer', { scope: cur?.old ? cur.from : 'local', user: profileName() || '', what: 'presets' }));
 const doneBtn = btn('pb-btn--ok', 'Done', () => closePresets());
@@ -186,7 +186,7 @@ dialog.append(
   el('div', 'pb-modal__body sode__filters-body',
     el('div', 'sode__filters-sets',
       pickRow,
-      el('div', 'sode__filters-set', nameIn, scopeWrap, saveBtn, saveAsBtn, shareBtn, delBtn),
+      el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveBtn, saveAsBtn, shareBtn, delBtn),
       asRow, pinnedBox, pinRow, noteEl, shareUI.box),
     rowsBox,
     el('div', 'sode__filters-set',
@@ -278,7 +278,7 @@ function renderRows() {
       hint.textContent = p.text;
       hint.classList.toggle('sode__error-text', p.error || (!p.known && !!p.text));
     };
-    const field = (key, ph, label) => {
+    const field = (key, ph, label, text) => {
       const inp = el('input', 'pb-input');
       inp.value = r[key];
       inp.placeholder = ph;
@@ -286,13 +286,13 @@ function renderRows() {
       inp.spellcheck = false;
       inp.setAttribute('aria-label', label);
       inp.addEventListener('input', () => { r[key] = inp.value; touch(); upd(); setNote(''); });
-      return inp;
+      return labeled(text, inp);
     };
     upd();
     return el('div', 'sode__preset-row',
-      field('src', 'Source', `Take ${i + 1} source`),
-      field('dsts', 'Destinations', `Take ${i + 1} destinations`),
-      field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`),
+      field('src', 'Source', `Take ${i + 1} source`, 'Source'),
+      field('dsts', 'Destinations', `Take ${i + 1} destinations`, 'Destinations'),
+      field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`, 'Levels'),
       btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { cur.items.splice(i, 1); touch(); renderRows(); }),
       hint);
   }));

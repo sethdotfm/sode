@@ -9,7 +9,7 @@
 // (the Profiles dialog does, preselecting one user's profile).
 
 import { $, el, S, on, sentence } from './core.js';
-import { trapDialog } from './widgets.js';
+import { trapDialog, labeled } from './widgets.js';
 import { showResult } from './plans.js';
 import { PREFS } from './prefs.js';
 import { ownPref } from './device.js';
@@ -46,7 +46,7 @@ export function shareRow() {
   input.setAttribute('aria-label', 'Share link');
   const status = el('span', 'pb-status');
   const ui = { input, status, copy: btn('pb-btn--outline pb-btn--sm', 'Copy link', () => copyLink(ui)) };
-  ui.box = el('div', 'sode__filters-share', input, ui.copy, status);
+  ui.box = el('div', 'sode__filters-share', labeled('Share link', input), ui.copy, status);
   ui.box.hidden = true;
   return ui;
 }

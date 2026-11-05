@@ -409,7 +409,7 @@
   padding-bottom: var(--pb-space-4);
 }
 .sode__filters-set {
-  align-items: center;
+  align-items: flex-end;
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-2);
@@ -418,6 +418,12 @@
 .sode__filters-set > .pb-select-wrap { flex: 1 1 12em; }
 .sode__filters-set > .pb-select-wrap > .pb-select { width: 100%; }
 .sode__filters-set > .pb-input { flex: 1 1 12em; min-width: 0; }
+/* A field with its small label above (widgets.js labeled). */
+.sode__fld { display: flex; flex: 1 1 12em; flex-direction: column; gap: var(--pb-space-1); min-width: 0; }
+.sode__fld[hidden] { display: none; }
+.sode__fld > .pb-input,
+.sode__fld > .pb-select-wrap,
+.sode__fld > .pb-select-wrap > .pb-select { width: 100%; }
 .sode__gsets {
   display: flex;
   flex-direction: column;
@@ -543,7 +549,7 @@
 .sode__presets > .sode__sets { flex: 1; flex-wrap: wrap; justify-content: flex-start; }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
 .sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
-.sode__preset-row { align-items: center; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
+.sode__preset-row { align-items: end; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
 .sode__preset-row > .pb-input { min-width: 0; }
 .sode__preset-hint { grid-column: 1 / -1; overflow-wrap: anywhere; }
 @media (max-width: 599.98px) {
