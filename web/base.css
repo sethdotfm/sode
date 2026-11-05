@@ -715,3 +715,11 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 [data-layout="phone"] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="button"], [type="submit"]), select, textarea) {
   font-size: max(16px, 1rem);
 }
+
+/* A touch screen has no hover: a tap would leave a tooltip popping up over the
+   button it pressed (and iOS spends the first tap on the hover). No tooltips there. */
+@media (hover: none) {
+  :root [data-pb-tip]::after,
+  :root [data-pb-tip]:hover::after,
+  :root [data-pb-tip]:focus-visible::after { display: none; }
+}
