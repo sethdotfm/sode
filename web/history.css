@@ -585,32 +585,10 @@
   .sode__rv-row { grid-template-columns: 1fr; }
 }
 
-/* TEMPORARY design switch (html[data-sections], set by prepaint.js from
-   ?sections=): ways to set the take, Presets and Recent sections apart on the
-   desktop page. Absent = the plain look. Remove once one is chosen. */
-[data-sections="panels"] #patch-view { gap: var(--pb-space-6); }
-[data-sections="panels"] #patch-view > .sode__boxes,
-[data-sections="panels"] #patch-view > .sode__presets,
-[data-sections="panels"] #patch-view > .sode__history {
-  background: var(--pb-surface-raised);
-  border: var(--pb-border-w) solid var(--pb-edge);
-  padding: var(--pb-space-5);
-}
-[data-sections="panels"] #patch-view > .sode__presets { margin: 0; }
-
-[data-sections="rules"] #patch-view { gap: var(--pb-space-10); }
-[data-sections="rules"] #patch-view > .sode__presets,
-[data-sections="rules"] #patch-view > .sode__history {
+/* Desktop: a thin divider and more room set Recent apart from the take area
+   (patch boxes and Presets). */
+#patch-view > .sode__history {
   border-top: var(--pb-border-w) solid var(--pb-edge);
+  margin-top: var(--pb-space-6);
   padding-top: var(--pb-space-6);
 }
-[data-sections="rules"] #patch-view > .sode__presets { margin: 0; }
-
-[data-sections="bands"] #patch-view { gap: 0; }
-[data-sections="bands"] #patch-view > .sode__mark { margin-bottom: var(--pb-space-8); }
-[data-sections="bands"] #patch-view > .sode__boxes,
-[data-sections="bands"] #patch-view > .sode__presets,
-[data-sections="bands"] #patch-view > .sode__history { padding: var(--pb-space-6) var(--pb-space-5); }
-[data-sections="bands"] #patch-view > .sode__boxes { background: var(--pb-surface-high); }
-[data-sections="bands"] #patch-view > .sode__presets { background: var(--pb-surface-raised); margin: 0; }
-[data-sections="bands"] #patch-view > .sode__history { background: var(--pb-surface-high); }

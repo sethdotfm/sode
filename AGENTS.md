@@ -49,7 +49,7 @@ JSONL history plus a shared server-side recent/undo list. Routes made elsewhere 
 
 - **Redo** (#153): every history row and folder has one Retry/Redo button ("take this line again", `againPlan` in `plans.js`; `againButton` in `widgets.js`). Failed takes retry (linked to their entry, a folder with failures retries just those); every other row redoes: src to dst on its levels as a plain new take, including undo, ext/found and follow rows. Skipped only with no real source or no existing level (`canRedo`). Frontend only. Undo, Redo and Retry are all outlined `pb-btn--sm` buttons; Undo carries `undo-2` and Redo `redo-2` as a mirrored pair, Retry is text only. The phone's swipe-reveal Undo (`sode-m__undo`) hides the icon in CSS. Verb wording lives in `VERBS` (`plans.js`); only a `patch` resets the boxes (`VERBS[verb].resets`; `preset` is a verb too). The confirm shows "Already there" (`alreadyThere`, from the tally) when dst already has the source on every level. Desktop keyboard mode: `r` does whatever the button says.
 
-**Temporary design switch (remove once a variant is chosen):** `html[data-sections="panels|rules|bands"]` (end of `web/history.css`, desktop `#patch-view` only) sets the take, Presets and Recent sections apart; absent = the plain look. Try it with `?sections=panels` in the URL; `web/prepaint.js` remembers it in `localStorage['sode-sections']` and `?sections=` clears it.
+Desktop Recent is set apart from the patch boxes and Presets by a thin divider and extra space (`#patch-view > .sode__history`, end of `web/history.css`); the phone has none.
 
 ## Shared saves and owned fields
 
