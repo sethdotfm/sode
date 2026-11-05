@@ -11,7 +11,7 @@ import {
 } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
-import { windowAround, growTo, growEdge } from './listwindow.js';
+import { windowAround, growEdge } from './listwindow.js';
 import { beforeGroups, failureGroups } from './history.js';
 import { restorePlan, planEmpty } from './plans.js';
 
@@ -204,7 +204,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     browsing = false;
     if (browsed && (to < win.lo || to >= win.hi)) {
       hi = to;
-      win = growTo(win, matches.length, to);
+      win = windowAround(matches.length, to); // a jump or a wrap: a fresh window there, not everything between
       render();
       rows[hi - win.lo].scrollIntoView({ block: 'nearest' });
       return;

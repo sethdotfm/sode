@@ -14,14 +14,6 @@ export function windowAround(n, at, size = WINDOW) {
   return { lo, hi: lo + size };
 }
 
-// win grown so that row `to` is inside it (plus STEP rows beyond it), clamped
-// to the list. Returns win itself when `to` is already drawn.
-export function growTo(win, n, to, step = STEP) {
-  if (to >= win.lo && to < win.hi) return win;
-  if (to < win.lo) return { lo: Math.max(0, to - step), hi: win.hi };
-  return { lo: win.lo, hi: Math.min(n, to + 1 + step) };
-}
-
 // win grown by step rows at its end (below) or start (above); the same
 // object when there is nothing more that way.
 export function growEdge(win, n, below, step = STEP) {

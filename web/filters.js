@@ -351,13 +351,17 @@ function landed() {
 
 // Cancel, Esc and a click outside: drop what was changed here, then close.
 function cancelFilters() {
-  if (!tgt && openSnap) restore(openSnap);
-  closeFilters();
+  if (tgt || !openSnap) return closeFilters();
+  // Settle the editors' pending text first (it would otherwise be written
+  // after the restore), put the filter back, then close without flushing.
+  flushEds();
+  restore(openSnap);
+  closeFilters(false);
 }
 
-function closeFilters() {
-  eds.src.flush();
-  eds.dst.flush();
+// flush: write the editors' pending text into the filter first (Done).
+function closeFilters(flush = true) {
+  if (flush) flushEds();
   dlg.hide();
   if (tgt) { // an editor aimed at a profile: nothing global to finish
     tgt = null;
@@ -597,6 +601,7 @@ function removeSet(scope, name, done = () => {}) {
 // done() runs once everything is written, or at once when there is nothing to
 // write; a refusal (a name, a PIN, an error) never calls it.
 function saveSet(done = () => {}) {
+  flushEds(); // edits are applied 150 ms after typing: a.edited must see them
   const a = activeSet();
   if (!a || a.scope === 'all' || !(a.edited || nameDirty || moveTo)) return done();
   const box = $('flt-set-cur');

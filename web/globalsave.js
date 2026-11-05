@@ -18,7 +18,7 @@ export const PROFILE_MAX_BYTES = 48 * 1024;
 // Why `parts` ({filterSets}, {presets}) would make the profile `p` too big
 // to save, or ''. Parts replace the same-named part of p.
 export function profileProblem(p, parts) {
-  const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, ...parts };
+  const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, pinOrder: p.pinOrder, ...parts };
   // UTF-8 bytes as the server counts them: Go's json.Marshal also writes
   // < > & as <, >, & (5 more bytes each).
   const json = JSON.stringify(next);

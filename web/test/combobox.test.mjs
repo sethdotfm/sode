@@ -75,6 +75,18 @@ test('moving past the window draws that row and keeps the active descendant', ()
   assert.equal(cb.current().n, 399 - 8);
 });
 
+test('a wrap or a jump draws a fresh window there, not every row in between', () => {
+  const { cb, menu } = make();
+  cb.browse(items(2690), 0);
+  cb.nav({ key: 'ArrowUp', preventDefault() {} }); // wraps to the last row
+  assert.equal(cb.current().n, 2689);
+  assert.equal(menu.kids.length, WINDOW);
+  assert.ok(ids(menu).includes(2689));
+  cb.nav({ key: 'ArrowDown', preventDefault() {} }); // and back to the first
+  assert.equal(cb.current().n, 0);
+  assert.equal(menu.kids.length, WINDOW);
+});
+
 test('moved: false after browse, true after a move, false after refresh or close', () => {
   const { cb } = make();
   cb.browse(items(50), 0);

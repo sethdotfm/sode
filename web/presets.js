@@ -81,7 +81,9 @@ function renderStrips() {
       // Option/Alt+1-9 fire the first nine: the key slides in over the chip while Option is held.
       if (i < 9) {
         const k = `${mac ? '⌥' : 'Alt+'}${i + 1}`;
-        b.append(el('span', 'sode__chip-key', el('kbd', 'sode__key-note', k)));
+        const hint = el('span', 'sode__chip-key', el('kbd', 'sode__key-note', k));
+        hint.setAttribute('aria-hidden', 'true'); // aria-keyshortcuts says it
+        b.append(hint);
         b.setAttribute('aria-keyshortcuts', `Alt+${i + 1}`);
       }
       b.type = 'button';
