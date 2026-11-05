@@ -11,6 +11,7 @@ Newest first. Each release also has notes on [GitHub](https://github.com/sethdot
 - **Server configuration export / import** (Settings → Access, settings PIN only): download `config.yaml` (PINs left out unless *Include PINs (private backup)* is ticked) and restore it from a file. Without PINs, users keep their current PIN by name; a new user in the file needs a PIN and is refused otherwise. New messages `configExport`, `configImportBegin`, `configImport`.
 - **My profile is a full editor**: all eight preferences, plus Add / Edit / Remove for filter sets and presets, using the normal editors aimed at that profile.
 - Dialogs close when you click outside them and a dialog opened from another opens in front. Manage users has Name and PIN headers; Settings search is focused after the PIN unlocks; the hand lock screen has *Log in as…* and *Log out* at the bottom; fixed a wrong "must be a whole number" error on save and old errors now clear.
+- Review fixes: one backdrop close in Filters (a profile draft no longer leaks into your own filter), the config import waits for an acknowledgement before sending the file, config export re-checks the settings PIN, quick preference changes in My profile accumulate, Manage users rows align.
 
 ## Beta 1.5.0
 
