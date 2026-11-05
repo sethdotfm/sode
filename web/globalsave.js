@@ -8,7 +8,7 @@
 // The dialog supplies how it shows a note (and, for the PIN, its controls).
 
 import { on, onMsg, wsSend, sentence } from './core.js';
-import { unlock, relock, needsPin, demandPin } from './pin.js';
+import { unlock, relock, needsPin } from './pin.js';
 import { showResult } from './plans.js';
 import { profile, saveProfile } from './profile.js';
 
@@ -78,7 +78,6 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     const open = isOpen();
     if (r.locked && pin) {
       relock();
-      demandPin();
       if (open) {
         pending = { run: p.run, done: p.done, sent: false };
         return askPin('Enter the PIN again.');

@@ -9,8 +9,8 @@
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
-import { trusted, unlocked, forgetUnlock } from './pin.js';
-import { askPin } from './pinprompt.js';
+import { trusted, unlocked } from './pin.js';
+import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 
@@ -189,7 +189,7 @@ onMsg('userSignOutAllResult', (m) => {
   signing.delete(m.id);
   if (w) w.out.disabled = false;
   if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
-  if (m.locked) { forgetUnlock(); askPin('Managing users needs the Advanced Settings PIN again.'); }
+  if (m.locked) reask('Managing users needs the Advanced Settings PIN again.').then((ok) => { if (ok) w?.out.click(); }); // and again
   fail(m.err);
 });
 
@@ -223,7 +223,11 @@ const paintSummary = paintPeople;
 // settings PIN holder asks for it. Without the PIN the list stays empty.
 const load = () => { wsSend({ t: 'usersList', id: ++listSeq }); };
 onMsg('usersListResult', (m) => {
-  if (m.id !== listSeq || !m.ok) return;
+  if (m.id !== listSeq) return;
+  if (!m.ok) { // a stale unlock: ask, then read the directory again
+    if (m.locked && isOpen) reask('Managing users needs the Advanced Settings PIN.').then((ok) => (ok ? load() : closeUsers()));
+    return;
+  }
   listed = m.users || [];
   loaded = true;
   paintSummary();
@@ -281,7 +285,7 @@ function doSave() {
   saveBtn.disabled = true;
 }
 
-onMsg('usersResult', (m) => {
+onMsg('usersResult', async (m) => {
   saveBtn.disabled = false;
   if (m.id !== seq) return;
   if (m.ok) {
@@ -290,7 +294,7 @@ onMsg('usersResult', (m) => {
     if (isOpen) closeUsers();
     return;
   }
-  if (m.locked) { forgetUnlock(); askPin('Managing users needs the Advanced Settings PIN again.'); } // the settings PIN is wanted again
+  if (m.locked && await reask('Managing users needs the Advanced Settings PIN again.')) return doSave(); // the PIN was entered: save again
   fail(m.err);
 });
 

@@ -14,7 +14,8 @@
 // Imported by settings.js.
 
 import { el, S, on, emit, sentence } from './core.js';
-import { demandPin, trusted, unlocked } from './pin.js';
+import { trusted, unlocked } from './pin.js';
+import { reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
 import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
@@ -72,8 +73,8 @@ function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
 }
-// The server said the PIN is wanted: show the normal prompt in Settings.
-const refused = () => { demandPin(); emit('locked'); };
+// The server said the PIN is wanted (someone else's profile, trust revoked): ask in the popup.
+const askAgain = () => reask('Another user\'s profile needs the Advanced Settings PIN.');
 
 // Export / import opens on top of this dialog, which stays (Esc closes the
 // newer one first, then this).
@@ -156,7 +157,8 @@ async function load(name) {
   const r = await fetchProfile(name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked) refused();
+    if (r.locked && await askAgain()) return load(name); // the PIN was entered: read it again
+    if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not read that profile.');
     return paint();
   }
@@ -179,7 +181,8 @@ async function doSave(parts, done) {
   const r = await saveProfile(parts, name).finally(() => { saving--; });
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked) refused();
+    if (r.locked && await askAgain()) return doSave(parts, done); // the PIN was entered: save again
+    if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not save that profile.');
     if (own()) { prof = profile(); return paint(); }
     paint();

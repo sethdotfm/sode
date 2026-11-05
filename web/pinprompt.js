@@ -1,10 +1,11 @@
 // A popup for the Advanced Settings (settings) PIN, for what asks for it in
-// the middle of a session (Manage users): it comes up where the person is, not
-// at the top of a long page. askPin() resolves true once the PIN is accepted
-// (pin.js holds the unlock), false if the popup is cancelled or closed.
+// the middle of a session (Manage users, the config file, clearing history, a
+// refused save): it comes up where the person is, not at the top of a long
+// page, and Settings keeps its layout. askPin() resolves true once the PIN is
+// accepted (pin.js holds the unlock), false if the popup is cancelled or closed.
 
-import { el, on } from './core.js';
-import { unlock } from './pin.js';
+import { el, S, on } from './core.js';
+import { unlock, lostUnlock } from './pin.js';
 import { trapDialog } from './dialogkeys.js';
 
 let ui = null;
@@ -94,5 +95,15 @@ export function askPin(text = '') {
   return new Promise((resolve) => { done = resolve; });
 }
 
-// The page locking (or the socket dropping) takes the popup with it.
+// The server refused for want of the PIN: this connection's unlock is gone, so
+// ask again. Resolves true once it is entered, so the caller can retry.
+export function reask(text) {
+  lostUnlock();
+  return askPin(text);
+}
+
+// The page locking or the socket dropping takes the popup with it; the PIN
+// being removed (a hello without one) means whatever asked may go ahead.
 on('locking', () => close(false));
+on('conn', () => { if (S.wsState !== 'up') close(false); });
+on('hello', () => { if (!S.pinSet) close(true); });

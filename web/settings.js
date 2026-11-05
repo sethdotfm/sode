@@ -18,7 +18,8 @@ import { parseFilter, compileFilter } from './filter.js';
 import { initToc } from './settingstoc.js';
 import { fillAbout } from './about.js';
 import { renderPinStatus, showPinFields, resetPinFields } from './settingspin.js';
-import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
+import { unlock, relock, unlocked, trusted, needsPin } from './pin.js';
+import { askPin, reask } from './pinprompt.js';
 import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
 import { intProblem } from './settingsrules.js';
@@ -473,8 +474,10 @@ function configResult(m) {
   }
   if (m.locked) {
     relock();
-    demandPin();
-    showLockErr(m.err);
+    // Not trusted: Settings flips to its own PIN prompt. A trusted user's form
+    // never did, so ask in the popup and save again.
+    if (needsPin()) return showLockErr(m.err);
+    reask('Saving that needs the Advanced Settings PIN.').then((ok) => { if (ok) form.requestSubmit(); });
     return;
   }
   $('settings-err').textContent = sentence(m.err);
@@ -519,15 +522,29 @@ $('clear-history').addEventListener('click', () => {
   $('clear-cancel').focus();
 });
 $('clear-cancel').addEventListener('click', resetClear);
-$('clear-confirm').addEventListener('click', () => {
+// Clearing needs the settings PIN. The banner comes with the server's
+// `historyCleared`, not when the request goes out (it may be refused).
+let clearing = false;
+function sendClear() {
+  clearing = true;
   if (!wsSend({ t: 'clearHistory' })) {
+    clearing = false;
     $('settings-err').textContent = 'Not connected to Sode.';
     $('settings-err').hidden = false;
     return;
   }
   resetClear();
+}
+$('clear-confirm').addEventListener('click', async () => {
+  if (S.pinSet && !unlocked() && !(await askPin('Clearing history needs the Advanced Settings PIN.'))) return;
+  sendClear();
+});
+on('historyCleared', () => {
+  if (!clearing) return;
+  clearing = false;
   showResult('ok', 'History cleared', 'Recent is empty for everyone.');
 });
+on('wsclose', () => { clearing = false; });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-exit').addEventListener('click', exitSettings);
@@ -576,22 +593,20 @@ $('names-refresh').addEventListener('click', () => {
     $('names-refresh').textContent = 'Refreshing…';
   }
 });
+// Ask for the PIN in the popup, then save again (a trusted user's form stays as it is).
+const askThenSave = (why) => askPin(why).then((ok) => { if (ok) form.requestSubmit(); });
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   if ('locked' in form.dataset) return void sendUnlock(); // Enter or Unlock in the PIN prompt
   // A trusted user saves the rest without the PIN, but not a change to the
   // PIN itself: ask now instead of after a refusal.
   if (S.pinSet && trusted() && !unlocked() && ($('cfg-pin').value || $('cfg-pin-clear').checked)) {
-    demandPin();
-    renderLock();
-    return;
+    return void askThenSave('Changing the PIN needs the Advanced Settings PIN.');
   }
   const c = readSettings();
   // Also not the guards the admin keeps: router, trusted proxies, PIN tries.
   if (S.pinSet && trusted() && !unlocked() && guardedEdited(c, S.cfg)) {
-    demandPin();
-    renderLock();
-    return;
+    return void askThenSave('Changing that setting needs the Advanced Settings PIN.');
   }
   const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
@@ -662,8 +677,15 @@ on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => { renderNamesStatus(); syncLock(); });
 on('access', () => { if (isOpen() && !saving()) renderLock(); });
+// A bare `locked`: this connection's unlock is gone (the PIN changed elsewhere,
+// or a clear-history was refused). A request of ours waiting on it asks again in
+// the popup; otherwise it only matters to a connection that needs the PIN for
+// Settings at all (not trusted): the form gives way to the PIN prompt.
 on('locked', () => {
-  if (isOpen() && !saving()) showLockErr('Settings are locked; enter the PIN again.');
+  if (clearing) {
+    clearing = false;
+    reask('Clearing history needs the Advanced Settings PIN.').then((ok) => { if (ok) sendClear(); });
+  } else if (isOpen() && !saving() && needsPin()) showLockErr('Settings are locked; enter the PIN again.');
 });
 on('configResult', configResult);
 

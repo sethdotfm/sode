@@ -73,13 +73,12 @@ test('idleLock: a logged-in user locks when idle; a persistent one never does', 
   assert.equal(idleLock(user, 1000, t, 5), false);
 });
 
-test('needsPin: a trusted user skips the prompt until the server demands the PIN', () => {
-  assert.equal(needsPin(false, false, false, false), false); // no PIN set
-  assert.equal(needsPin(true, false, false, false), true);
-  assert.equal(needsPin(true, true, false, false), false); // PIN entered
-  assert.equal(needsPin(true, false, true, false), false); // trusted user
-  assert.equal(needsPin(true, false, true, true), true); // the server refused: PIN after all
-  assert.equal(needsPin(true, true, true, true), false);
+test('needsPin: a trusted user skips the prompt', () => {
+  assert.equal(needsPin(false, false, false), false); // no PIN set
+  assert.equal(needsPin(true, false, false), true);
+  assert.equal(needsPin(true, true, false), false); // PIN entered
+  assert.equal(needsPin(true, false, true), false); // trusted user
+  assert.equal(needsPin(true, true, true), false);
 });
 
 test('pageType', () => {

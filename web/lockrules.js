@@ -67,11 +67,10 @@ export const guardedEdited = (next, cur) => !!cur && (
   (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
 
 // Whether a low-risk settings save (the Settings form, filter sets, presets)
-// must ask for the settings PIN first. A trusted user's connection needs none
-// unless the server just refused one (forced: it wanted the PIN after all).
+// must ask for the settings PIN first: not for a trusted user's connection.
+// (What only the PIN allows is asked for as it comes up: pinprompt.js.)
 // The server decides; this only hides the prompt.
-export const needsPin = (pinSet, unlocked, trusted, forced) =>
-  !!pinSet && !unlocked && !(trusted && !forced);
+export const needsPin = (pinSet, unlocked, trusted) => !!pinSet && !unlocked && !trusted;
 
 // Which kind of page this is, by its path.
 export function pageType(pathname) {
