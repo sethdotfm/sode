@@ -208,7 +208,7 @@
   padding-right: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar,
-.sode__sets::-webkit-scrollbar,
+.sode__sets-run::-webkit-scrollbar,
 .sode__bar::-webkit-scrollbar,
 .sode__box--levels .sode__levels::-webkit-scrollbar {
   height: var(--pb-space-2);
@@ -216,12 +216,12 @@
 }
 .sode__scroll::-webkit-scrollbar-track,
 .sode__menu::-webkit-scrollbar-track,
-.sode__sets::-webkit-scrollbar-track,
+.sode__sets-run::-webkit-scrollbar-track,
 .sode__bar::-webkit-scrollbar-track,
 .sode__box--levels .sode__levels::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
 .sode__scroll::-webkit-scrollbar-thumb,
 .sode__menu::-webkit-scrollbar-thumb,
-.sode__sets::-webkit-scrollbar-thumb,
+.sode__sets-run::-webkit-scrollbar-thumb,
 .sode__bar::-webkit-scrollbar-thumb,
 .sode__box--levels .sode__levels::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
 /* The match lists' bar is twice as wide: it is the quick way through a long list. */

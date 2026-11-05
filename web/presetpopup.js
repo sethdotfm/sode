@@ -8,7 +8,7 @@ import { el, on, icon } from './core.js';
 import { chord } from './keys.js';
 import { trapDialog } from './widgets.js';
 import { profileSaver } from './globalsave.js';
-import { fire, fillBoxes } from './presets.js';
+import { fire, fillBoxes, openPresets } from './presets.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withUserPin, rankPresets, presetKey, setPinOrder, moveKey, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
 
@@ -37,12 +37,16 @@ list.setAttribute('role', 'listbox');
 list.setAttribute('aria-label', 'Presets');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
+// To the editor (make, change, share, pin for everyone).
+const editorBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__head-link', 'Preset Editor');
+editorBtn.type = 'button';
+editorBtn.addEventListener('click', () => { close(); openPresets(); });
 const done = el('button', 'pb-btn pb-btn--ok', 'Close');
 done.type = 'button';
 done.addEventListener('click', () => close());
 
 dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'preset-pop-title' })),
+  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'All Presets'), { id: 'preset-pop-title' }), editorBtn),
   el('div', 'pb-modal__body sode__filters-body', input, list, noteEl,
     el('span', 'sode__hint sode__pop-help', mac
       ? 'Navigate with ↑ ↓ or ⌘J/K, use ⌥↑ ⌥↓ or ⌥⌘J/K to reorder, ⌥P to pin, and ⇧Enter or ⇧click to fill the boxes without taking.'

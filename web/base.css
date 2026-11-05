@@ -565,7 +565,7 @@ html { font-size: 125%; }
   padding: 0 var(--pb-space-2);
 }
 .sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sode__last > .sode__key-note, .sode__next-in > .sode__key-note { position: static; transform: none; }
+.sode__last > .sode__key-note, .sode__next-in > .sode__key-note { font-size: 0.8em; position: static; transform: none; } /* small next to the chip's own text */
 /* Next: just the tag until hovered, focused or Shift is held, then it opens
    leftward over the Last chip. The slot keeps the closed chip's room and the
    chip is pinned to its right edge, so the row never shifts. */

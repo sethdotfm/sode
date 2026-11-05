@@ -109,11 +109,12 @@ function renderStrips() {
       x.setAttribute('aria-hidden', 'true');
       return x;
     };
-    // Laid out like Recent's bar: the title, then Edit and the quick buttons.
+    // Laid out like Recent's bar: the title, then Edit and the chips (Show all
+    // pinned, the pinned presets scrolling).
     box.replaceChildren(
       el('span', 'sode__label', 'Presets'),
       edit,
-      el('div', 'sode__sets', ...[more, more && chips.length ? sep() : null, ...chips].filter(Boolean)),
+      el('div', 'sode__sets', ...(more ? [more, ...(chips.length ? [sep()] : [])] : []), el('div', 'sode__sets-run', ...chips)),
     );
   }
 }
@@ -206,11 +207,13 @@ const shareBtn = btn('pb-btn--outline', 'Share', () => {
 
 const pickRow = el('div', 'sode__filters-set', labeled('Preset', el('span', 'pb-select-wrap', pick)), btn('pb-btn--outline', 'New', () => load(null)));
 const scopeWrap = labeled('Save for', el('span', 'pb-select-wrap', scopeIn), 'sode__filters-scope');
-const titleEl = Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'presets-title' });
+const titleEl = Object.assign(el('span', 'pb-modal__title', 'Edit Presets'), { id: 'presets-title' });
+// To the organizer (the Presets popup): pin, order, fire. Closing here keeps the unsaved-changes warning.
+const organizerBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Preset Organizer', () => { closePresets(); if (!open) emit('presetPopup'); });
 const transferBtn = btn('pb-btn--outline', 'Import & Export…', () => emit('openTransfer', { scope: cur?.old ? cur.from : 'local', user: profileName() || '', what: 'presets' }));
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closePresets());
 dialog.append(
-  el('div', 'pb-modal__header', titleEl),
+  el('div', 'pb-modal__header', titleEl, organizerBtn),
   el('div', 'pb-modal__body sode__filters-body',
     el('div', 'sode__filters-sets',
       pickRow,
@@ -367,7 +370,8 @@ function renderHead(keep = false) {
   transferBtn.hidden = t;
   if (t) { delBtn.hidden = true; shareBtn.hidden = true; asRow.hidden = true; shareUI.box.hidden = true; }
   paintSave();
-  titleEl.textContent = t ? `${tgt.old ? 'Edit' : 'Add'} preset for ${tgt.user}` : 'Presets';
+  titleEl.textContent = t ? `${tgt.old ? 'Edit' : 'Add'} preset for ${tgt.user}` : 'Edit Presets';
+  organizerBtn.hidden = !!t;
 }
 
 // keepEdit: the lists changed under us (a reconnect, another browser's

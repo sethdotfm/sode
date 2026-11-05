@@ -308,7 +308,9 @@ function renderButtons() {
         kids.push(grp);
       }
     }
-    box.replaceChildren(...kids);
+    // The first group (All) stays put, with its divider; the rest scroll.
+    const [pinned, sep, ...rest] = kids;
+    box.replaceChildren(...(pinned ? [pinned, sep, el('div', 'sode__sets-run', ...rest)] : []));
   }
   if (filtersOpen()) renderSetBar();
 }

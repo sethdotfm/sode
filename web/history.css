@@ -404,19 +404,29 @@
 .sode__sets {
   display: flex;
   flex: 1;
-  flex-wrap: nowrap; /* one row; past the width it scrolls sideways */
+  gap: var(--pb-space-2);
+  justify-content: flex-end;
+  min-width: 0;
+}
+/* The first chip (All, Show all) is pinned; the rest are one row that scrolls
+   sideways past the width. */
+.sode__sets-run {
+  display: flex;
+  flex: 0 1 auto;
   gap: var(--pb-space-2);
   min-width: 0;
   overflow-x: auto;
   padding-bottom: var(--pb-space-1);
 }
-.sode__sets > *,
+.sode__sets > :not(.sode__sets-run),
 .sode__sets .sode__set { flex: none; white-space: nowrap; } /* chips sit in display: contents groups, so not all are direct children */
-/* Right-aligned while they fit; auto margin (not flex-end) so an overflowing
-   row still scrolls from its start. */
-.sode__recent-head > .sode__sets > :first-child { margin-left: auto; }
-/* Their tooltips are placed by tooltip.js: this row would clip a CSS one. */
+/* Their tooltips are placed by tooltip.js: the run would clip a CSS one. */
 .sode__sets [data-pb-tip]::after { display: none; }
+/* Desktop Recent: the filter boxes and the sets share one row, the sets taking
+   what the boxes leave. */
+.sode__recent-tools { align-items: flex-start; display: flex; flex-wrap: wrap; gap: var(--pb-space-1) var(--pb-space-3); }
+.sode__recent-tools > .sode__search { flex: 0 1 auto; }
+.sode__sets-bar { align-items: center; display: flex; flex: 1 1 20rem; gap: var(--pb-space-3); min-width: 0; padding-top: var(--pb-space-3); }
 .sode__set { font-size: var(--pb-text-xs); padding: var(--pb-space-1) var(--pb-space-3); }
 .sode__filters-sets {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
@@ -452,15 +462,8 @@
 /* Phones: the quick buttons scroll sideways in one line under the title. */
 @media (max-width: 599.98px) {
   .sode-m__recent .sode__recent-head { flex-wrap: wrap; }
-  .sode-m__recent .sode__sets {
-    flex: 1 0 100%;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    order: 3;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .sode-m__recent .sode__sets > :first-child { margin-left: 0; }
+  .sode-m__recent .sode__sets { flex: 1 0 100%; justify-content: flex-start; order: 3; }
+  .sode-m__recent .sode__sets-run { scrollbar-width: none; }
 }
 .sode__sets-group { display: contents; } /* chips wrap as one run; the group is only for screen readers */
 /* The divider is as tall as a chip so it lines up with them. */
@@ -590,8 +593,9 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
 /* The strip is a Recent bar (.sode__recent-head): the title, the sets
    (pinned presets), then ghost buttons. Chips fill the middle. */
 .sode__presets { margin: var(--pb-space-3) 0; width: 100%; }
-.sode__presets > .sode__sets { flex: 1; }
-.sode__presets > .sode__sets > :first-child { margin-left: 0; }
+.sode__presets > .sode__sets { flex: 1; justify-content: flex-start; }
+/* Presets are taller than the filter sets' chips, so the two rows read apart. */
+.sode__presets .sode__set { font-size: var(--pb-text-sm); min-height: var(--pb-control-h); }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
 .sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
 .sode__preset-row { align-items: end; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
@@ -604,7 +608,8 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
   .sode__scrim > .sode__presets-dlg { min-width: 0; width: 100%; }
   .sode__preset-row { grid-template-columns: 1fr 1fr; }
   .sode__presets { flex-wrap: wrap; }
-  .sode__presets > .sode__sets { flex: 1 0 100%; order: 3; scrollbar-width: none; }
+  .sode__presets > .sode__sets { flex: 1 0 100%; order: 3; }
+  .sode__presets .sode__sets-run { scrollbar-width: none; }
 }
 .sode__preset-pop { display: flex; flex-direction: column; }
 .sode__preset-pop > .pb-modal__footer { justify-content: flex-end; }
@@ -708,3 +713,7 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
 
 /* The Presets popup's key help: one small centred note under the list. */
 .sode__pop-help { font-size: var(--pb-text-xs); text-align: center; }
+
+/* A link in a dialog's header to its sibling dialog (editor <-> organizer). */
+.sode__head-link { margin-left: auto; }
+[data-layout="phone"] .sode__head-link { display: none; }
