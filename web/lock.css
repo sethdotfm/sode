@@ -72,6 +72,13 @@
   margin: 0;
   white-space: nowrap;
 }
+/* Phone: a long site name wraps, centred, instead of running off the screen. */
+[data-layout="phone"] .sode-lock__brand {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
+}
 /* The pad's field says "Incorrect" or "Welcome, <name>" in place of the dots
    (lock.js); the words carry the status, the colour only backs them. */
 .sode-lock__dots.is-text {
@@ -132,6 +139,9 @@
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
 .sode-lock__who[hidden] { display: none; }
+/* Phone: no lock button in the chip (the icon cell stays, so the chip does not
+   change size when a lock screen shows its closed lock there). */
+[data-layout="phone"] .sode-lock__who-slot > .pb-btn { display: none; }
 /* The chip slides inside the border as it grows, at the border's own rate
    (slow on the way out, like the overlay). Its background does not fade in
    on the way out (a grey box rising under the fading overlay looked wrong
