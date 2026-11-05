@@ -597,11 +597,14 @@
     <div class="pb-modal__body sode__filters-body">
       <div class="sode__filters-sets">
         <div class="sode__filters-set">
-          <label class="sode__label" for="flt-set">Set</label>
-          <span class="pb-select-wrap"><select id="flt-set" class="pb-select"></select></span>
+          <span class="pb-select-wrap"><select id="flt-set" class="pb-select" aria-label="Filter set"></select></span>
+        </div>
+        <div class="sode__filters-set">
           <input class="pb-input" id="flt-set-cur" maxlength="32" placeholder="Name" aria-label="Name of the set" autocomplete="off">
-          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-save">Save</button>
+          <span class="pb-select-wrap sode__filters-scope"><select class="pb-select" id="flt-set-cur-scope" aria-label="Save for"></select></span>
+          <button type="button" class="pb-btn pb-btn--commit pb-btn--sm" id="flt-set-save">Save</button>
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-saveas">Save as…</button>
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-share-btn">Share</button>
           <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-set-del">Delete</button>
         </div>
         <div class="sode__filters-set" id="flt-set-name-row" hidden>
@@ -616,6 +619,11 @@
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm" id="flt-pin-cancel">Cancel</button>
         </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
+        <div class="sode__filters-share" id="flt-share" hidden>
+          <input class="pb-input sode__code" id="flt-share-url" readonly aria-label="Share link">
+          <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-share-copy">Copy link</button>
+          <span class="pb-status" id="flt-share-status"></span>
+        </div>
       </div>
       <fieldset class="sode__filters-show">
         <legend class="sode__label">Show</legend>
@@ -633,15 +641,9 @@
       </div>
       <div class="sode__filters-ed" id="flt-src"></div>
       <div class="sode__filters-ed" id="flt-dst"></div>
-      <div class="sode__filters-share" id="flt-share" hidden>
-        <input class="pb-input sode__code" id="flt-share-url" readonly aria-label="Share link">
-        <button type="button" class="pb-btn pb-btn--outline pb-btn--sm" id="flt-share-copy">Copy link</button>
-        <span class="pb-status" id="flt-share-status"></span>
-      </div>
     </div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="flt-clear">Clear all</button>
-      <button type="button" class="pb-btn pb-btn--outline" id="flt-share-btn">Share link</button>
       <button type="button" class="pb-btn pb-btn--ok" id="flt-done">Done</button>
     </div>
   </div>

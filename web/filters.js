@@ -454,6 +454,7 @@ const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false; // Delete was pressed once; the next press deletes
 let naming = false;   // the Save as name row is open
 let nameDirty = false; // the name box was edited (it keeps what is typed across redraws)
+let moveTo = null;     // the scope chosen for the open set: Save moves it there
 
 function renderSetBar() {
   const a = activeSet();
@@ -486,7 +487,14 @@ function renderSetBar() {
   const cur = $('flt-set-cur');
   if (!named) { nameDirty = false; cur.value = ''; } else if (!nameDirty) cur.value = a.name;
   cur.disabled = busy || !named;
-  $('flt-set-save').disabled = busy || !(named && (a.edited || nameDirty));
+  // Where the set lives; another choice is a move, made by Save (copy first, then remove).
+  const scopeBox = $('flt-set-cur-scope');
+  scopeBox.replaceChildren(...scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id)));
+  if (named && ![...scopeBox.options].some((o) => o.value === moveTo)) moveTo = null;
+  if (!named) moveTo = null;
+  scopeBox.value = moveTo || (named && [...scopeBox.options].some((o) => o.value === a.scope) ? a.scope : 'local');
+  scopeBox.disabled = busy || !named;
+  $('flt-set-save').disabled = busy || !(named && (a.edited || nameDirty || moveTo));
   $('flt-set-saveas').disabled = busy || stack.length > 0;
   $('flt-share-btn').disabled = stack.length > 0;
   $('flt-set-del').disabled = busy || !named;
@@ -497,6 +505,7 @@ function renderSetBar() {
     return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. `
       + 'Changing a filter leaves the stack, and the share link is off.');
   }
+  if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
   setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' · edited' : ''}` : '');
 }
 const setNote = (text, error = false) => {
@@ -529,6 +538,7 @@ $('flt-set').addEventListener('change', (e) => {
   if (!scope) return;
   deleting = false;
   nameDirty = false;
+  moveTo = null;
   pickSet(scope, rest.join(':'));
   reload();
 });
@@ -539,23 +549,51 @@ $('flt-set-cur').addEventListener('input', () => {
   $('flt-set-cur').classList.remove('pb-input--invalid');
   renderSetBar();
 });
+$('flt-set-cur-scope').addEventListener('change', () => {
+  const a = activeSet();
+  const to = $('flt-set-cur-scope').value;
+  moveTo = a && a.scope !== to ? to : null;
+  renderSetBar();
+});
 $('flt-set-cur').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); $('flt-set-save').click(); }
 });
 
-// Save writes the filter and, if the name was edited, the new name with it.
+// Takes a set out of one scope (a move's second step).
+function removeSet(scope, name) {
+  if (scope === 'local') return deleteLocalSet(name);
+  changeShared(scope, sharedWith(scope, (l) => l.filter((s) => s.name !== name)), () => {});
+}
+
+// Save writes the filter and, if the name was edited, the new name with it;
+// if another scope was chosen, it copies the set there first, then removes it here.
 $('flt-set-save').addEventListener('click', () => {
   const a = activeSet();
   if (!a || a.scope === 'all') return;
   const box = $('flt-set-cur');
   const name = box.value.trim().slice(0, 32) || a.name;
   const renamed = name !== a.name;
-  if (renamed) {
-    const taken = allSets().filter((x) => x.scope === a.scope).map((x) => x.name);
-    const err = nameProblem(name, taken, { noun: 'filter set', old: a.name, reserved: 'all' });
+  const moving = !!moveTo && moveTo !== a.scope;
+  if (renamed || moving) {
+    const into = moving ? moveTo : a.scope;
+    const taken = allSets().filter((x) => x.scope === into).map((x) => x.name);
+    const err = nameProblem(name, taken, { noun: 'filter set', old: moving ? '' : a.name, reserved: 'all' });
     if (err) { box.classList.add('pb-input--invalid'); setNote(err, true); return box.focus(); }
   }
   flushEds();
+  if (moving) {
+    const to = moveTo, from = a.scope, was = a.name;
+    if (to === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
+    nameDirty = false;
+    moveTo = null;
+    if (to === 'local') {
+      saveLocalSet(name);
+      return removeSet(from, was);
+    }
+    const f = filterState();
+    return changeShared(to, sharedWith(to, (l) => [...l, { name, f }]),
+      () => { adoptFilter(f, refTo(to, name, f)); removeSet(from, was); });
+  }
   if (a.scope === 'local') {
     if (renamed) renameLocalSet(a.name, name);
     nameDirty = false;
@@ -593,7 +631,6 @@ function askName() {
   const sel = $('flt-set-scope');
   sel.replaceChildren(...scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id)));
   sel.value = 'local';
-  $('flt-set-name-ok').textContent = 'Save set';
   $('flt-set-name-row').hidden = false;
   f.select();
 }
