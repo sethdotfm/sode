@@ -132,6 +132,15 @@
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
 .sode-lock__who[hidden] { display: none; }
+/* The chip slides inside the border as it grows, at the border's own rate
+   (slow on the way out, like the overlay). */
+.sode-lock__who {
+  transition:
+    left var(--sode-lock-out) var(--pb-ease),
+    top var(--sode-lock-out) var(--pb-ease),
+    background var(--sode-lock-out) var(--pb-ease);
+}
+.sode-lock__who-bar { transition: padding var(--sode-lock-out) var(--pb-ease); }
 .sode-lock__who-bar {
   align-items: center;
   display: flex;
@@ -179,6 +188,10 @@
    so the border stays whole. */
 [data-sode-lock] .sode-lock__who {
   background: transparent;
+  transition:
+    left var(--sode-lock-motion) var(--pb-ease),
+    top var(--sode-lock-motion) var(--pb-ease),
+    background var(--sode-lock-motion) var(--pb-ease);
   /* Inside the border (--pb-space-5 wide), not on it. */
   left: calc(var(--pb-space-5) + var(--pb-space-4));
   top: calc(var(--pb-space-5) + var(--pb-space-4) + var(--sode-down-h, 0px));
@@ -186,7 +199,10 @@
 [data-sode-lock][data-layout="phone"] .sode-lock__who {
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
-[data-sode-lock] .sode-lock__who-bar { padding: var(--pb-space-2) var(--pb-space-4); }
+[data-sode-lock] .sode-lock__who-bar {
+  padding: var(--pb-space-2) var(--pb-space-4);
+  transition: padding var(--sode-lock-motion) var(--pb-ease);
+}
 .sode-lock__pin-form { display: flex; flex-direction: column; gap: var(--pb-space-5); }
 .sode-lock__field { display: flex; flex-direction: column; gap: var(--pb-space-2); }
 .sode-lock__pin-note { margin: 0; min-height: 1.5em; }

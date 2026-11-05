@@ -419,8 +419,6 @@ pullToLoad(window, $('history-more'), pager, () => active() && !document.querySe
 // scroll: bring the cursor row into view (the cursor just moved). Other
 // redraws (someone else's take, a result) leave the page where it is.
 function renderHistory(scroll = false) {
-  $('history-bar').hidden = !S.hist.length;
-  $('history-search').hidden = !S.hist.length;
   const list = pager.list();
   if (cursor && !stops(list).some((x) => x.key === cursor)) {
     // Its row left the page (newer patches pushed it off): drop the

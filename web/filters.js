@@ -630,7 +630,8 @@ $('flt-share-copy').addEventListener('click', () => copyLink(shareUI));
 // While searching it's about the search: still reading back through the
 // log, or nothing found (and the filters may not even apply).
 export function emptyNote(rows, fetching) {
-  if (rows.length || !S.hist.length) return null;
+  if (rows.length) return null;
+  if (!S.hist.length) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'No history yet'));
   const searching = searchActive();
   if (searching && fetching) return el('div', 'sode__filters-empty', el('span', 'sode__hint', 'Searching…'));
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');

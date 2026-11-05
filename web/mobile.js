@@ -481,7 +481,6 @@ pullToLoad($('m-thread'), $('m-recent-more'), pager, () => layout() === 'phone' 
 
 function renderRecent() {
   const rows = pager.list();
-  $('m-recent').hidden = !S.hist.length;
   $('m-recent-list').replaceChildren(...rows.flatMap((r) => (r.f ? folderRows(r.f) : [recentRow(r.e)])));
   $('m-recent-more').replaceChildren(...[emptyNote(rows, pager.fetching()), pager.button()].filter(Boolean));
 }
