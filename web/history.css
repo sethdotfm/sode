@@ -689,7 +689,13 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
   margin-left: auto;
   padding: var(--pb-space-3) var(--pb-space-4);
 }
-[data-pb-layout="phone"] .sode__pickbar { top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px)); }
+/* Phone: a row of the phone view, not over it (recentpick.js moves it there). */
+[data-pb-layout="phone"] .sode-m > .sode__pickbar { flex: 0 0 auto; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-3) var(--pb-space-5); position: static; }
+[data-pb-layout="phone"] .sode__pickbar-msg { font-size: var(--pb-text-lg); }
+[data-pb-layout="phone"] .sode__pickbar-controls { flex: 1 1 100%; margin-left: 0; }
+[data-pb-layout="phone"] .sode__pickbar-controls .sode__hint { flex: 1 1 auto; }
+/* Choosing from Recent on the phone: the composer waits. */
+[data-sode-pick=""] .sode-m__composer { opacity: 0.35; pointer-events: none; }
 [data-sode-pick=""] .sode__box,
 [data-sode-pick=""] .sode__under,
 [data-sode-pick] [data-presets] { opacity: 0.35; pointer-events: none; }
@@ -698,9 +704,10 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
 [data-sode-pick=""] .sode__hist-row,
 [data-sode-pick=""] .sode-m__recent-face { cursor: pointer; }
 [data-sode-pick=""] .sode__hist-row:hover,
-[data-sode-pick=""] .sode-m__recent-face:active { background: var(--pb-accent-wash); }
-.sode__hist-row--picked,
-.sode-m__recent-row--picked .sode-m__recent-face { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
+[data-sode-pick=""] .sode-m__recent-face:active { background-image: linear-gradient(var(--pb-accent-wash), var(--pb-accent-wash)); }
+/* The phone's picked face keeps its solid background (the wash is an overlay on it), or the swipe-undo button behind shows through. */
+.sode__hist-row--picked { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
+.sode-m__recent-row--picked .sode-m__recent-face { background-image: linear-gradient(var(--pb-accent-wash), var(--pb-accent-wash)); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
 .sode__pickbox { margin: 0; }
 /* The lock chip over the bar: no grey box on the accent, the lock drawn in the bar's text colour. */
 [data-sode-pick] .sode-lock__who { background: transparent; color: var(--pb-text-on-accent); }

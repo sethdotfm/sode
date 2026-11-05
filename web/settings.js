@@ -125,6 +125,7 @@ $('cfg-brandborder').addEventListener('change', renderBrandPreview);
 
 export function openSettings() {
   if (!S.cfg) return;
+  showPage(-1); // a phone starts at the list of sections
   // Locked or not: the version shows at the bottom of both views.
   for (const v of form.querySelectorAll('[data-version]')) v.textContent = S.version ? `Sode ${S.version}` : '';
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
@@ -344,10 +345,29 @@ const toc = $('settings-toc');
 // stop short of it near the bottom, until the scroll ends or the user
 // scrolls themselves.
 let picked = -1;
+
+// The phone shows one section at a time: the page is the list of sections
+// (with the search box), a tap opens one, Back returns to the list. Only
+// CSS keyed on data-page does the hiding (base.css), so it ignores desktop.
+const phone = () => layout() === 'phone';
+function showPage(i) {
+  sections.forEach((s, k) => s.classList.toggle('sode__page-on', k === i));
+  if (i < 0) delete form.dataset.page;
+  else form.dataset.page = String(i);
+  if (isOpen()) window.scrollTo(0, 0);
+}
+// Opens the section holding node (phone), so a found or failing field is on screen.
+function reveal(node) {
+  if (!phone()) return;
+  const i = sections.findIndex((s) => s.contains(node));
+  if (i >= 0 && String(i) !== form.dataset.page) showPage(i);
+}
+const focusField = (node) => { reveal(node); node.focus(); };
 toc.replaceChildren(...sections.map((sec, i) => {
   const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
   b.type = 'button';
   b.addEventListener('click', () => {
+    if (phone()) return showPage(i);
     picked = i;
     mark(i);
     sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -599,7 +619,8 @@ $('clear-confirm').addEventListener('click', () => {
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-exit').addEventListener('click', exitSettings);
-$('settings-back').addEventListener('click', exitSettings); // phone: like Exit
+// Phone: Back leaves a section for the list, then Settings (like Exit).
+$('settings-back').addEventListener('click', () => { if (phone() && form.dataset.page != null) showPage(-1); else exitSettings(); });
 $('lock-cancel').addEventListener('click', exitSettings);
 
 // Forgot PIN: how to clear it, in a dialog like the shortcut list.
@@ -665,26 +686,26 @@ form.addEventListener('submit', (e) => {
   if (badColor) {
     $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`;
     $('settings-err').hidden = false;
-    badColor.focus();
+    focusField(badColor);
     return;
   }
   if (c.defaultLevels === null) {
     $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" isn't a level or range here.`;
     $('settings-err').hidden = false;
-    $('cfg-default').focus();
+    focusField($('cfg-default'));
     return;
   }
   const hidden = parseFilter(c.hiddenDsts);
   if (hidden.error) {
     $('settings-err').textContent = `Globally hidden destinations: ${hidden.error}.`;
     $('settings-err').hidden = false;
-    $('cfg-hidden').focus();
+    focusField($('cfg-hidden'));
     return;
   }
   if (bad) {
     $('settings-err').textContent = `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`;
     $('settings-err').hidden = false;
-    bad.focus();
+    focusField(bad);
     return;
   }
   const pin = $('cfg-pin').value;
@@ -692,13 +713,14 @@ form.addEventListener('submit', (e) => {
     $('settings-err').textContent = 'The settings PIN must be at least 4 characters.';
     $('settings-err').hidden = false;
     showPinFields(true);
-    $('cfg-pin').focus();
+    focusField($('cfg-pin'));
     return;
   }
   if (pin !== $('cfg-pin2').value) {
     $('settings-err').textContent = 'The two PINs don\'t match.';
     $('settings-err').hidden = false;
     showPinFields(true);
+    reveal($('cfg-pin2'));
     $('cfg-pin2').select();
     return;
   }
@@ -812,6 +834,7 @@ function pickHit(h) {
   const node = h.kind === 'section' ? sections[i] : targets.get(`${h.sectionId}/${h.id}`);
   if (!node) return;
   if (h.kind === 'setting' && /^cfg-pin(2|-clear)?$/.test(h.id)) showPinFields(true); // behind the Change PIN button
+  if (phone()) showPage(i);
   findBox.value = '';
   showHits();
   picked = i;
