@@ -27,7 +27,8 @@ import "errors"
 //	needLog:        sent uptime
 //	needTrusted:    config (needAdmin when it sets or clears the settings
 //	                PIN), filterSets, presets
-//	needAdmin:      users userSignOutAll
+//	needAdmin:      users userSignOutAll configExport configImportBegin
+//	                configImport
 //	profile (#161): profileSave needs the user's own unlock (the name in
 //	                the message is the connection's user) or else needTrusted;
 //	                profileGet needTrusted. Both re-checked by guardProfile.
@@ -109,6 +110,13 @@ var policy = map[string]rule{
 	// needs a trusted user or the PIN. Reading another's needs the same.
 	"profileSave": {need: needTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name }},
 	"profileGet":  {need: needTrusted, op: "profileGet"},
+	// Server configuration file (Settings > Access): the PIN only, trusted
+	// or not. It holds users, locks, router and profiles, and with PINs the
+	// hashes. Begin raises the read limit for the one message after it,
+	// which is why a connection without the PIN must never reach it.
+	"configExport":      {need: needAdmin, op: "configExport"},
+	"configImportBegin": {need: needAdmin, op: "configImport"},
+	"configImport":      {need: needAdmin, op: "configImport"},
 	// Users, locks and the settings PIN's own users: the PIN only.
 	"userSignOutAll": {need: needAdmin, op: "userSignOutAll"},
 	"usersList":      {need: needAdmin, op: "usersList"},

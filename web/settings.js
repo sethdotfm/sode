@@ -23,6 +23,7 @@ import { intProblem } from './settingsrules.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import './users.js'; // adds its section before the table of contents is built
 import './profiles.js'; // the Profile dialog (openProfile)
+import './configfile.js'; // Access: export / import the server config.yaml
 
 const root = document.documentElement;
 const form = $('settings-view');

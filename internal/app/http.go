@@ -249,8 +249,17 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// widened: the read limit was raised for exactly one message, by a
+	// configImportBegin from a connection that holds the settings PIN. It is
+	// put back right after that read, here, whatever the message was (the
+	// library applies the limit as each message starts).
+	widened := false
 	for {
 		_, data, err := conn.Read(ctx)
+		if widened {
+			conn.SetReadLimit(wsReadLimit)
+			widened = false
+		}
 		if err != nil {
 			gone = err
 			return
@@ -309,6 +318,17 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			}(m.Presets, m.ID)
 		case "config":
 			a.serveConfig(c, &m)
+		case "configExport":
+			go a.serveConfigExport(c, &m)
+		case "configImportBegin":
+			if n, ok := importReadLimit(m.Size); ok {
+				conn.SetReadLimit(n)
+				widened = true
+			} else {
+				a.replyOp(c, "configImport", m.ID, 0, "", errImportTooBig)
+			}
+		case "configImport":
+			a.serveConfigImport(c, &m)
 		case "profileSave":
 			go a.serveProfileSave(c, &m)
 		case "profileGet":
@@ -417,6 +437,9 @@ type inMsg struct {
 	Old        string             `json:"old"`
 	New        string             `json:"new"`
 	UsersReq   *usersReq          `json:"usersReq"`
+	Pins       bool               `json:"pins"` // configExport: include the PIN hashes
+	YAML       string             `json:"yaml"` // configImport: the file
+	Size       int                `json:"size"` // configImportBegin: the file's size in bytes
 }
 
 func plural(n int, one, many string) string {

@@ -422,6 +422,29 @@
         <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
         <span class="sode__hint">0 = never. Where no PIN lock is on, this puts up the hand lock. Never-log-out users stay in.</span>
       </div>
+      <!-- Server configuration file (configfile.js). Saved apart from the form, so sode__users keeps its inputs out of the unsaved-changes check. -->
+      <div class="sode__field sode__users" id="config-file">
+        <span class="sode__field-label" id="config-file-label">Server configuration file</span>
+        <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the settings PIN.</span>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include PINs (private backup)</span></label>
+        <span class="sode__hint">Off by default. On, the file holds the settings PIN and every user's PIN hash: keep it secret. Without PINs, an import keeps the current ones.</span>
+        <div class="sode__names">
+          <span>
+            <button type="button" class="pb-btn pb-btn--outline" id="config-export" data-find="config-export" data-label="Export server configuration">Export…</button>
+            <button type="button" class="pb-btn pb-btn--outline" id="config-import" data-find="config-import" data-label="Import server configuration">Import…</button>
+          </span>
+        </div>
+        <input type="file" id="config-pick" accept=".yaml,.yml,text/yaml,text/plain" hidden>
+        <div class="sode__field" id="config-confirm" hidden>
+          <div class="pb-note pb-note--warn" id="config-confirm-text" role="alert"></div>
+          <span>
+            <button type="button" class="pb-btn pb-btn--outline" id="config-keep">Keep it</button>
+            <button type="button" class="pb-btn pb-btn--danger" id="config-replace">Replace everything</button>
+          </span>
+        </div>
+        <div class="pb-note pb-note--error" id="config-err" role="alert" hidden></div>
+        <span class="sode__hint" id="config-status" role="status" aria-live="polite"></span>
+      </div>
     </fieldset>
 
     <fieldset class="sode__group">

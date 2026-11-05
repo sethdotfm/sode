@@ -582,16 +582,30 @@ func Load(path string) (c Config, exists bool, err error) {
 	if err != nil {
 		return c, false, err
 	}
-	dec := yaml.NewDecoder(bytes.NewReader(b))
-	dec.KnownFields(true)
-	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
+	c, err = Parse(b)
+	if err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
-	c.Normalize()
 	if err := c.Validate(); err != nil {
 		return c, true, fmt.Errorf("%s: %w", path, err)
 	}
 	return c, true, nil
+}
+
+// Parse decodes a config.yaml over the defaults, with the same rules as Load
+// (unknown keys are errors, legacy keys still load) and normalizes it, but
+// does not Validate: a caller that merges things in (an import keeping the
+// live PIN hashes) validates after. Load and the server's config import both
+// read files through this one decoder.
+func Parse(b []byte) (Config, error) {
+	c := Defaults()
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	dec.KnownFields(true)
+	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
+		return c, err
+	}
+	c.Normalize()
+	return c, nil
 }
 
 const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
