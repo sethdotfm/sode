@@ -453,11 +453,11 @@ func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 }
 
 // The pinned presets' order is part of the profile: saved by the user, kept
-// when other parts are saved, and cleaned (lowercase, no repeats).
+// when other parts are saved, and cleaned (no repeats; keys kept as sent).
 func TestProfileSavePinOrder(t *testing.T) {
 	a := userApp(t, false)
 	ana := watched(t, a, "10.0.0.1", "1234")
-	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", PinOrder: []string{"Local:B", "global:a", "local:b"}}); err != nil {
+	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", PinOrder: []string{"local:b", "global:a", "local:b"}}); err != nil {
 		t.Fatal(err)
 	}
 	u, _ := a.r().cfg.FindUser("Ana")

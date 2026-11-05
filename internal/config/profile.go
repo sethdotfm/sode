@@ -84,13 +84,18 @@ func (p Profile) Normalized() Profile {
 	return p
 }
 
-// normalizePinOrder trims the keys, lowercases them, drops empty, repeated and
-// over-long ones and cuts the list at MaxPinOrder. Never nil.
+// normalizePinOrder trims the keys, drops empty, repeated and over-long ones
+// and cuts the list at MaxPinOrder. Never nil. A key is opaque here: the
+// browser builds it ("scope:" and the lowercased preset name, presetKey in
+// presetstore.js) and compares it byte for byte, so it is kept as sent. Go's
+// ToLower and JavaScript's toLowerCase disagree for some letters (İ), and
+// lowercasing again here would turn a key the browser wrote into one it can't
+// find.
 func normalizePinOrder(in []string) []string {
 	out := []string{}
 	seen := map[string]bool{}
 	for _, k := range in {
-		k = strings.ToLower(strings.TrimSpace(k))
+		k = strings.TrimSpace(k)
 		if k == "" || seen[k] || len([]rune(k)) > MaxPinKey || len(out) >= MaxPinOrder {
 			continue
 		}
