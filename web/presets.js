@@ -53,6 +53,26 @@ window.addEventListener('blur', () => trackAlt(false));
 const phone = () => document.documentElement.dataset.pbLayout === 'phone';
 const askPopup = () => emit('presetPopup');
 
+// Shift-click (or Shift+Enter in the popup): the preset's patch goes into the
+// patch boxes and nothing is sent. The boxes hold one source, so a preset of
+// several takes fills the first one that still exists, and says so.
+export function fillBoxes(scope, name) {
+  const s = findPreset(scope, name);
+  const host = shown();
+  if (!s || !host?.fill) return;
+  if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'The router’s names have not loaded yet.');
+  const fit = s.items
+    .map((it) => ({
+      src: S.srcBy.has(it.src) ? srcItem(it.src) : null,
+      dsts: it.dsts.filter((n) => S.dstBy.has(n)).map((n) => dstItem(n)),
+      levels: it.levels.filter((u) => S.levelBy.has(u)),
+    }))
+    .filter((p) => p.src && p.dsts.length);
+  if (!fit.length) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
+  host.fill(fit[0]);
+  if (s.items.length > 1) showResult('info', `Preset ${s.name}`, `The boxes hold one source, so only its first take was filled (it has ${s.items.length}).`);
+}
+
 function renderStrips() {
   const all = allPresets();
   const list = pinnedPresets(all);
@@ -71,7 +91,7 @@ function renderStrips() {
       }
       b.type = 'button';
       b.dataset.pbTip = presetTip(s, (n) => srcItem(n).label, (n) => dstItem(n).label);
-      b.addEventListener('click', () => fire(s.scope, s.name));
+      b.addEventListener('click', (e) => (e.shiftKey ? fillBoxes(s.scope, s.name) : fire(s.scope, s.name)));
       return b;
     });
     // The popup (presetpopup.js) lists every preset, pinned or not.

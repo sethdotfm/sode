@@ -960,4 +960,12 @@ presetHost({
   patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
+  // Shift-click on a preset: its patch goes into the boxes, not sent.
+  fill: (p) => {
+    dsts = p.dsts.slice(0, -1);
+    select('src', p.src);
+    select('dst', p.dsts[p.dsts.length - 1]);
+    if (p.levels.length) lvl.set(p.levels); else lvl.clear();
+    focusBox(lvlInput);
+  },
 });

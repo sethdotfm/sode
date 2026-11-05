@@ -7,7 +7,7 @@
 import { el, S, on, icon } from './core.js';
 import { trapDialog } from './widgets.js';
 import { globalSaver, profileSaver } from './globalsave.js';
-import { fire, presetShown } from './presets.js';
+import { fire, fillBoxes, presetShown } from './presets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { allPresets, effectivePin, pinOverrides, setLocalPin, withGlobalPin, withUserPin, clearPinOverride, rankPresets, orderPins, presetKey, setPinOrder, pinnedPresets } from './presetstore.js';
 import { scopeLabel } from './scopes.js';
@@ -56,7 +56,7 @@ done.addEventListener('click', () => close());
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Presets'), { id: 'preset-pop-title' })),
   el('div', 'pb-modal__body sode__filters-body', input, list, pinRow, noteEl, shareUI.box,
-    el('span', 'sode__hint', mac ? '↑ ↓ or ⌘J/K to move · ⌥↑ ⌥↓ or ⌥⌘J/K to reorder · ⌥P to pin or unpin' : '↑ ↓ or Ctrl+J/K to move · Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder · Alt+P to pin or unpin')),
+    el('span', 'sode__hint', mac ? '↑ ↓ or ⌘J/K to move · ⌥↑ ⌥↓ or ⌥⌘J/K to reorder · ⌥P to pin or unpin · ⇧Enter or ⇧click to fill the boxes' : '↑ ↓ or Ctrl+J/K to move · Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder · Alt+P to pin or unpin · Shift+Enter or Shift+click to fill the boxes')),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
 document.body.append(root);
@@ -110,7 +110,7 @@ function draw() {
       el('span', 'sode__hint', ` ${scopeText(s)}${pinned ? '' : ' · not pinned'}`));
     main.type = 'button';
     main.tabIndex = -1;
-    main.addEventListener('click', () => pressPreset(s));
+    main.addEventListener('click', (e) => pressPreset(s, e.shiftKey));
     const tools = [btn(pinned ? 'Unpin' : 'Pin', pinned ? 'pin-off' : 'pin',
       `${s.scope === 'global' ? 'Pin or unpin on this browser only' : 'Pin or unpin'} (${mac ? '⌥' : 'Alt+'}P)`,
       () => togglePin(s))];
@@ -190,10 +190,11 @@ function move(d) {
   draw();
 }
 
-function pressPreset(s) {
+function pressPreset(s, fill = false) {
   if (!s) return;
   close();
-  fire(s.scope, s.name);
+  if (fill) fillBoxes(s.scope, s.name);
+  else fire(s.scope, s.name);
 }
 
 input.addEventListener('input', () => { hi = 0; setNote(''); draw(); });
@@ -229,7 +230,7 @@ dialog.addEventListener('keydown', (e) => {
   const jk = (e.ctrlKey !== e.metaKey) && !e.altKey && !e.shiftKey ? { j: 1, k: -1 }[e.key.toLowerCase()] : 0;
   if (e.key === 'ArrowDown' || jk === 1) { e.preventDefault(); move(1); }
   else if (e.key === 'ArrowUp' || jk === -1) { e.preventDefault(); move(-1); }
-  else if (e.key === 'Enter' && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); pressPreset(shownList[hi]); }
+  else if (e.key === 'Enter' && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); pressPreset(shownList[hi], e.shiftKey); }
   else return;
   if (!onButton) input.focus();
 });
