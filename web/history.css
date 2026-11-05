@@ -640,3 +640,7 @@
 .sode__hist-row--picked,
 .sode-m__recent-row--picked .sode-m__recent-face { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
 .sode__pickbox { margin: 0; }
+/* The lock chip over the bar: no grey box on the accent, the lock drawn in the bar's text colour. */
+[data-sode-pick] .sode-lock__who { background: transparent; color: var(--pb-text-on-accent); }
+[data-sode-pick] .sode-lock__who .pb-btn,
+[data-sode-pick] .sode-lock__who .sode-lock__who-ico { color: inherit; }

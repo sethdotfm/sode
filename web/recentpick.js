@@ -86,13 +86,13 @@ const add = () => {
 // ---- the bar
 
 const msg = el('strong', 'sode__pickbar-msg');
-const sub = el('span', 'sode__pickbar-sub', 'Click takes or folders in Recent to tick them.');
+const sub = el('span', 'sode__pickbar-sub', 'Click takes or folders in Recent to select them.');
 const count = el('span', 'sode__hint');
 count.setAttribute('role', 'status');
 const followsIn = el('input', 'pb-check__input');
 followsIn.type = 'checkbox';
-const followsBox = el('label', 'pb-check', followsIn,
-  el('span', 'pb-check__label', 'Include follows (changes made elsewhere right after a take, likely router automation)'));
+const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include follows'));
+followsBox.title = 'Also add changes made elsewhere right after a chosen take (likely router automation)';
 const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
