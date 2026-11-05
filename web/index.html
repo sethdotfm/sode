@@ -240,7 +240,10 @@
       <legend>Router Source & Destination Names</legend>
       <div class="sode__names">
         <span id="names-status"></span>
-        <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh now</button>
+        <span class="sode__names-refresh">
+          <span class="sode__chipbox" id="names-at"></span>
+          <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh now</button>
+        </span>
       </div>
       <div class="sode__fields">
         <div class="sode__field">
@@ -261,7 +264,7 @@
 
     <div class="sode__lock-exit">
       <button type="button" class="pb-btn pb-btn--outline" id="lock-cancel">Exit</button>
-      <span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer" aria-label="GitHub" data-pb-tip="GitHub"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#github"/></svg></a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></span>
+      <span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer" aria-label="GitHub" data-pb-tip="GitHub"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#github"/></svg></a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer" data-pb-tip="Open an issue to report a bug or suggest a feature!">Report a bug</a></span></span>
       <a class="pb-btn pb-btn--outline sode__logs" href="log"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#external-link"/></svg>View Logs</a>
     </div>
 
@@ -423,9 +426,9 @@
 
     <fieldset class="sode__group">
       <legend>Server Backup</legend>
+      <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the settings PIN.</span>
       <!-- Server configuration file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
       <div class="sode__field" id="config-file" data-apart data-find="config-file" data-label="Server Backup">
-        <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the settings PIN.</span>
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include Secrets (private backup)</span></label>
         <span class="sode__hint">If enabled, the file includes the Advanced Settings PIN and every user's PIN hash. Without them, a new server can't restore the users.</span>
         <div class="sode__names">
@@ -496,7 +499,7 @@
         <span class="sode__hint" id="settings-path"></span>
         <button type="submit" class="pb-btn pb-btn--ok" id="settings-save">Save</button>
       </div>
-      <div class="sode__foot"><span aria-hidden="true"></span><span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer" aria-label="GitHub" data-pb-tip="GitHub"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#github"/></svg></a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer">Report a bug</a></span></span><a class="pb-btn pb-btn--outline sode__logs" href="log" id="open-log" data-find="open-log" data-label="View Logs"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#external-link"/></svg>View Logs</a></div>
+      <div class="sode__foot"><span aria-hidden="true"></span><span class="sode__about"><span class="sode__hint" data-version></span><span class="sode__links"><a href="https://github.com/sethdotfm/sode" target="_blank" rel="noopener noreferrer" aria-label="GitHub" data-pb-tip="GitHub"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#github"/></svg></a><a href="https://github.com/sethdotfm/sode/issues/new" target="_blank" rel="noopener noreferrer" data-pb-tip="Open an issue to report a bug or suggest a feature!">Report a bug</a></span></span><a class="pb-btn pb-btn--outline sode__logs" href="log" id="open-log" data-find="open-log" data-label="View Logs"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#external-link"/></svg>View Logs</a></div>
     </div>
   </form>
 

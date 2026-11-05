@@ -50,7 +50,6 @@ dialog.tabIndex = -1;
 dialog.append(
   el('div', 'pb-modal__header', title),
   el('div', 'pb-modal__body',
-    el('p', 'sode__hint', 'Admins and trusted users can see and edit every profile.'),
     body, err),
   el('div', 'pb-modal__footer', note, transferBtn, closeBtn));
 // A later "Restrictions" section (issue #184: sources and destinations a
@@ -134,12 +133,12 @@ function paint() {
     return;
   }
   body.replaceChildren(
-    el('section', 'sode__profiles-sec',
-      el('h3', 'sode__profiles-h', 'This device settings'),
+    el('section', 'sode__profiles-sec sode__profiles-sec--prefs',
+      el('h3', 'sode__profiles-h', 'User defaults'),
       el('p', 'sode__hint', 'Not set follows the global default.'),
       el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine))),
-    listSection('Filter sets', prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))), 'None saved.', 'Add filter set…', 'openFilterEditor'),
-    listSection('Presets', prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))), 'None saved.', 'Add preset…', 'openPresetEditor'));
+    listSection('Filter sets', prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))), 'None saved.', 'Add filter set', 'openFilterEditor'),
+    listSection('Presets', prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))), 'None saved.', 'Add preset', 'openPresetEditor'));
 }
 
 async function load(name) {

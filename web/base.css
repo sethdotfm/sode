@@ -341,7 +341,7 @@ html { font-size: 125%; }
     top: calc(10vh + var(--sode-down-h, 0px));
     width: 12.5rem;
   }
-  .sode__toc .pb-tab { text-align: left; }
+  .sode__toc .pb-tab { height: auto; line-height: 1.25; overflow-wrap: anywhere; padding-block: var(--pb-space-3); text-align: left; white-space: normal; }
   .sode__toc nav { border-bottom: 0; flex-direction: column; overflow-x: hidden; }
   .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px)); }
 }
@@ -461,7 +461,7 @@ html { font-size: 125%; }
 .sode__names--start { justify-content: flex-start; }
 .sode__ruled { border-top: var(--pb-border-w) solid var(--pb-edge); margin-top: var(--pb-space-7); padding-top: var(--pb-space-5); }
 /* The name in Account: large, the user's name in the accent. */
-.sode__acct { color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
+.sode__acct { margin-bottom: var(--pb-space-3); color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
 .sode__acct strong { color: var(--pb-accent); }
 /* Lock stays at the row's right end, logged in or not. */
 .sode__lock-btn { margin-left: auto; }
@@ -701,3 +701,13 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 /* Two checkboxes in a row (Page locks). */
 .sode__field [role="group"] .pb-check + .pb-check { margin-left: var(--pb-space-5); }
 #settings-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A subtitle sits right under its heading. */
+.sode__group > legend:has(+ .sode__hint) { margin-bottom: var(--pb-space-1); }
+/* Names: the counts, then "Refreshed ..." in its own box beside the button. */
+.sode__names-refresh { align-items: center; display: flex; gap: var(--pb-space-3); }
+.sode__chipbox {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  padding: var(--pb-space-2) var(--pb-space-3);
+}

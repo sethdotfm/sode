@@ -246,7 +246,7 @@
 
 /* Users dialog: one compact row per user. */
 .sode__scrim > .sode__filters.sode__users-dlg { width: min(60rem, calc(100vw - var(--pb-space-8) * 2)); }
-.sode__scrim > .sode__filters.sode__profiles-dlg { width: min(44rem, calc(100vw - var(--pb-space-8) * 2)); }
+.sode__scrim > .sode__filters.sode__profiles-dlg { width: min(64rem, calc(100vw - var(--pb-space-8) * 2)); }
 .sode__users-list { display: flex; flex-direction: column; gap: var(--pb-space-4); }
 .sode__users-row {
   align-items: center;
@@ -285,8 +285,22 @@
 
 /* Profiles dialog (profiles.js) */
 .sode__profiles-h { font-size: 1rem; margin: var(--pb-space-4) 0 var(--pb-space-2); }
-.sode__profiles-list { list-style: none; margin: 0; padding: 0; }
-.sode__profiles-row { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-2) 0; }
+.sode__profiles-list { display: flex; flex-direction: column; gap: var(--pb-space-2); list-style: none; margin: 0; padding: 0; }
+/* Each row is its own bordered strip, so neighbours don't blur together. */
+.sode__profiles-row {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-4);
+  padding: var(--pb-space-3) var(--pb-space-4);
+}
+/* Tiles: User defaults on the left, Filter sets and Presets stacked beside it. */
+.sode__profiles-body { display: grid; gap: var(--pb-space-3) var(--pb-space-7); grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+.sode__profiles-body > .sode__hint { grid-column: 1 / -1; }
+.sode__profiles-sec--prefs { grid-row: span 2; }
+@media (max-width: 49.99rem) { .sode__profiles-sec--prefs { grid-row: auto; } }
 .sode__profiles-item { display: flex; flex: 1 1 12rem; flex-direction: column; min-width: 0; }
 
 /* Under the hand lock the button gives way to the closed lock, a status icon

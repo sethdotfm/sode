@@ -258,7 +258,6 @@ function myButton(select) {
     b.type = 'button';
     b.dataset.find = id;
     b.dataset.label = label;
-    b.dataset.pbTip = label; // in full, when the column is too narrow for it
     return b;
   };
   const save = mk(`my-default-${name}`, 'Save as my default');
@@ -499,8 +498,8 @@ function renderHiddenNote() {
 function renderNamesStatus() {
   if (!isOpen()) return;
   const at = S.namesAt && new Date(S.namesAt);
-  const when = at && at.getFullYear() > 2000 ? `refreshed ${fmtTime(S.namesAt)}` : 'not loaded yet';
-  $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations, ${when}`;
+  $('names-at').textContent = at && at.getFullYear() > 2000 ? `Refreshed ${fmtTime(S.namesAt)}` : 'Not loaded yet';
+  $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations`;
   const btn = $('names-refresh');
   btn.disabled = S.router !== 'up';
   btn.textContent = 'Refresh now';
