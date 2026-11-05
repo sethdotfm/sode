@@ -397,6 +397,10 @@
 /* Filter sets: quick buttons in Recent's header, the set bar in the
    dialog, and the list for everyone in Settings. */
 .sode__recent-head > .sode__label { flex: none; }
+/* Desktop: the title takes a row of its own above the bar (the filter sets
+   and Filters; Edit and the preset chips). */
+#patch-view .sode__recent-head { flex-wrap: wrap; row-gap: var(--pb-space-2); }
+#patch-view .sode__recent-head > .sode__label { flex: 1 0 100%; font-size: var(--pb-text-lg); }
 .sode__sets {
   display: flex;
   flex: 1;
@@ -484,6 +488,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-1) var(--pb-space-3);
+  padding-top: var(--pb-space-3);
 }
 .sode__search[hidden] { display: none; }
 .sode__search > .sode__hint:empty { display: none; }

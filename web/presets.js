@@ -71,7 +71,7 @@ function renderStrips() {
   const all = allPresets();
   const list = pinnedPresets(all);
   for (const box of document.querySelectorAll('[data-presets]')) {
-    const edit = el('button', 'pb-btn pb-btn--ghost sode__chipbtn', all.length ? 'Edit' : 'Presets…');
+    const edit = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__chipbtn', all.length ? 'Edit' : 'Presets…');
     edit.type = 'button';
     edit.setAttribute('aria-haspopup', 'dialog');
     edit.addEventListener('click', () => openPresets());
@@ -109,11 +109,11 @@ function renderStrips() {
       x.setAttribute('aria-hidden', 'true');
       return x;
     };
-    // Laid out like Recent's bar: title, the quick buttons, then the ghost buttons.
+    // Laid out like Recent's bar: the title, then Edit and the quick buttons.
     box.replaceChildren(
       el('span', 'sode__label', 'Presets'),
-      el('div', 'sode__sets', ...[more, more && chips.length ? sep() : null, ...chips].filter(Boolean)),
       edit,
+      el('div', 'sode__sets', ...[more, more && chips.length ? sep() : null, ...chips].filter(Boolean)),
     );
   }
 }

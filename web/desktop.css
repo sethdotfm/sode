@@ -75,6 +75,8 @@
   top: 100%;
   z-index: var(--pb-z-dropdown, 10);
 }
+.sode__menu-pop:has(> .sode__menu:not([hidden])) { box-shadow: var(--pb-shadow-overlay); }
+.sode__menu-pop > .sode__menu { box-shadow: none; } /* the pop-up carries it, so the count line is inside it */
 .sode__menu {
   max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
   overflow-y: scroll; /* the styled bar below stays visible */
