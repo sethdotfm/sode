@@ -66,14 +66,19 @@ function renderStrips() {
       return b;
     });
     // The popup (presetpopup.js) lists every preset, pinned or not.
-    const more = all.length ? el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__presets-all', 'Presets') : null;
+    const more = all.length ? el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__presets-all', 'All') : null;
     if (more) {
       more.type = 'button';
       more.title = phone() ? 'All presets' : 'All presets (Ctrl+G)';
       more.setAttribute('aria-haspopup', 'dialog');
       more.addEventListener('click', askPopup);
     }
-    box.replaceChildren(...[more, ...chips, edit].filter(Boolean));
+    // Laid out like Recent's bar: title, the quick buttons, then the ghost buttons.
+    box.replaceChildren(
+      el('span', 'sode__label', 'Presets'),
+      el('div', 'sode__sets', ...chips),
+      ...[more, edit].filter(Boolean),
+    );
   }
 }
 // Keyboard mode `p` (desktop): the first chip, then ←/→ between buttons;

@@ -533,7 +533,10 @@
 }
 
 /* Presets: buttons above Recent, and the editor dialog. */
-.sode__presets { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); margin: var(--pb-space-3) 0; }
+/* The strip is a Recent bar (.sode__recent-head): the title, the sets
+   (pinned presets), then ghost buttons. Chips fill the middle. */
+.sode__presets { margin: var(--pb-space-3) 0; }
+.sode__presets > .sode__sets { flex: 1; flex-wrap: wrap; justify-content: flex-start; }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
 .sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
 .sode__preset-row { align-items: center; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
@@ -542,8 +545,9 @@
 @media (max-width: 599.98px) {
   .sode__scrim > .sode__presets-dlg { min-width: 0; width: 100%; }
   .sode__preset-row { grid-template-columns: 1fr 1fr; }
-  .sode__presets { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .sode__presets > .sode__set, .sode__presets > .pb-btn { flex: none; }
+  .sode__presets { flex-wrap: wrap; }
+  .sode__presets > .sode__sets { flex: 1 0 100%; flex-wrap: nowrap; order: 3; overflow-x: auto; scrollbar-width: none; }
+  .sode__presets .sode__set { flex: none; }
 }
 .sode__preset-pop { display: flex; flex-direction: column; }
 .sode__preset-list { display: flex; flex-direction: column; margin-top: var(--pb-space-3); max-height: 50vh; overflow-y: auto; }
