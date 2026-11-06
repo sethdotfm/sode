@@ -63,7 +63,7 @@ test('moving past the window draws that row and keeps the active descendant', ()
   const { cb, input, menu } = make();
   cb.browse(items(2690), 0);
   const nav = (key) => cb.nav({ key, preventDefault() {} });
-  for (let i = 0; i < 400; i++) nav('ArrowDown');
+  for (let i = 0; i < 401; i++) nav('ArrowDown'); // the first only shows the cursor on row 0
   assert.equal(cb.current().n, 400);
   assert.ok(ids(menu).includes(400));
   assert.equal(menu.kids.length < 2690, true);
@@ -130,4 +130,45 @@ test('a click on a row picks it, through one listener on the menu', () => {
   const row = { target: { closest: () => li }, preventDefault() {} };
   menu.listeners.mousedown[0](row);
   assert.deepEqual(picked, [3]);
+});
+
+test('a browse list shows no cursor until ↓ (or ↑) is pressed', () => {
+  const { cb, input, menu } = make();
+  cb.browse(items(5), 0);
+  assert.equal(menu.kids.some((li) => li.className.includes('active')), false);
+  assert.equal(input.getAttribute('aria-activedescendant'), null);
+  cb.nav({ key: 'ArrowDown', preventDefault() {} });
+  assert.equal(cb.current().n, 0);
+  assert.ok(menu.kids[0].classList.contains('active') || menu.kids[0].className.includes('active'));
+  assert.equal(input.getAttribute('aria-activedescendant'), 'src-opt-0');
+  cb.nav({ key: 'ArrowDown', preventDefault() {} });
+  assert.equal(cb.current().n, 1);
+});
+
+test('a typed list keeps its cursor on the first match', () => {
+  const { cb, menu } = make();
+  cb.refresh();
+  assert.ok(menu.kids[0].className.includes('active'));
+});
+
+test('onRender says whether the list is showing after every redraw', () => {
+  const seen = [];
+  const { cb } = make({ onRender: (open) => seen.push(open) });
+  cb.browse(items(5), 0);
+  cb.close();
+  cb.refresh();
+  assert.deepEqual(seen, [true, false, true]);
+});
+
+test('browse scrolls the chosen row into view even though no row is highlighted yet', () => {
+  const made = document.createElement;
+  const scrolled = [];
+  document.createElement = (t) => { const n = made(t); n.scrollIntoView = () => scrolled.push(n); return n; };
+  try {
+    const { cb, menu } = make();
+    cb.browse(items(5), 3);
+    assert.ok(scrolled.includes(menu.kids[3]));
+  } finally {
+    document.createElement = made;
+  }
 });

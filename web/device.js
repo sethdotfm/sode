@@ -148,9 +148,6 @@ export function initTheme() {
 
   // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
   // Matched by e.code because Option changes e.key on macOS.
-  if (mac) {
-    $('cfg-theme-hint').replaceChildren(el('code', null, '⌥⇧t'), ' toggles');
-  }
   document.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
     e.preventDefault();

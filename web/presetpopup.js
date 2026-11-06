@@ -47,8 +47,8 @@ dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'All Presets'), { id: 'preset-pop-title' }), editorBtn),
   el('div', 'pb-modal__body sode__filters-body', input, list, noteEl,
     el('span', 'sode__hint sode__pop-help', mac
-      ? 'Navigate with ↑ ↓ or ⌘J/K, use ⌥↑ ⌥↓ or ⌥⌘J/K to reorder, ⌥P to pin, and ⇧Enter or ⇧click to fill the boxes without taking.'
-      : 'Navigate with ↑ ↓ or Ctrl+J/K, use Alt+↑ Alt+↓ or Ctrl+Alt+J/K to reorder, Alt+P to pin, and Shift+Enter or Shift+click to fill the boxes without taking.')),
+      ? 'Navigate with ↑ ↓ or ⌘j/k, use ⌥↑ ⌥↓ or ⌥⌘j/k to reorder, ⌥p to pin, and ⇧Enter or ⇧click to fill the boxes without taking.'
+      : 'Navigate with ↑ ↓ or Ctrl+j/k, use Alt+↑ Alt+↓ or Ctrl+Alt+j/k to reorder, Alt+p to pin, and Shift+Enter or Shift+click to fill the boxes without taking.')),
   el('div', 'pb-modal__footer', done));
 root.append(dialog);
 document.body.append(root);
@@ -150,7 +150,8 @@ function dragRow(row, s) {
 function nudge(d) {
   const s = shownList[hi];
   if (!s || input.value.trim() || !effectivePin(s, pinOverrides())) return;
-  if (reorder(movePin(presetKey(s), { by: d }))) hi += d; // pins are the top rows, so the row follows
+  hi += d; // pins are the top rows, so the row follows; set before the move redraws the list
+  if (!reorder(movePin(presetKey(s), { by: d }))) hi -= d;
 }
 
 function move(d) {

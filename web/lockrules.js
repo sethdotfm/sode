@@ -67,11 +67,10 @@ export const guardedEdited = (next, cur) => !!cur && (
   (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
 
 // Whether a low-risk settings save (the Settings form, filter sets, presets)
-// must ask for the settings PIN first. A trusted user's connection needs none
-// unless the server just refused one (forced: it wanted the PIN after all).
+// must ask for the settings PIN first: not for a trusted user's connection.
+// (What only the PIN allows is asked for as it comes up: pinprompt.js.)
 // The server decides; this only hides the prompt.
-export const needsPin = (pinSet, unlocked, trusted, forced) =>
-  !!pinSet && !unlocked && !(trusted && !forced);
+export const needsPin = (pinSet, unlocked, trusted) => !!pinSet && !unlocked && !trusted;
 
 // Which kind of page this is, by its path.
 export function pageType(pathname) {
@@ -166,20 +165,27 @@ export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 // works logged out, and logged in it means switching user.
 export const loginAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
-// The page's lock view, ONE value: {mode, back}. mode is 'page' (nothing of
-// ours covers it; an enforced lock still does, see viewBody), 'soft' (the
-// hand lock) or 'login' (the PIN pad up by request, dismissable). back is
-// where Cancel / Esc of a login returns to: 'page' or 'soft'. The transitions
-// are pure; lock.js does the DOM and the lockout around them.
-export const PAGE_VIEW = Object.freeze({ mode: 'page', back: 'page' });
+// The page's lock view, ONE value: {mode, back}. mode is one of MODE: PAGE
+// (nothing of ours covers it; an enforced lock still does, see viewBody),
+// SOFT (the hand lock), LOGIN (the PIN pad up by request, dismissable) or OWN
+// (a logged-in user's lock where no PIN lock is on: the pad, not dismissable).
+// back is where Cancel / Esc of a login returns to: 'page' or 'soft'. The
+// transitions are pure; lock.js does the DOM and the lockout around them.
+export const MODE = Object.freeze({ PAGE: 'page', SOFT: 'soft', LOGIN: 'login', OWN: 'userlock' });
+export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
-// Which body the overlay shows: 'pad' (an enforced lock, or a login), 'soft'
-// (the hand lock) or '' (none).
-export const viewBody = (v, enforcedLocked) => (v.mode === 'soft' ? 'soft' : enforcedLocked || v.mode === 'login' ? 'pad' : '');
+// Which body the overlay shows: 'pad' (an enforced lock, a login, or a logged-in
+// user's own lock), 'soft' (the hand lock) or '' (none).
+export const viewBody = (v, enforcedLocked) => (v.mode === MODE.SOFT ? 'soft' : enforcedLocked || v.mode === MODE.LOGIN || v.mode === MODE.OWN ? 'pad' : '');
+
+// Locking while logged in (#198), where no PIN lock is on: the PIN pad, with no
+// Cancel, and the session ended on the server meanwhile. The hand lock (a
+// letter) is only for a page nobody is logged in on.
+export const userLock = (v, enforced) => (enforced ? v : { mode: MODE.OWN, back: 'page' });
 
 // The hand lock goes up (Ctrl+L, idle, Settings): nothing with an enforced
 // lock on, and it wins over a login pad.
-export const softLock = (v, enforced) => (enforced ? v : { mode: 'soft', back: 'page' });
+export const softLock = (v, enforced) => (enforced ? v : { mode: MODE.SOFT, back: 'page' });
 
 // The hand lock's own Unlock.
 export const softUnlock = () => PAGE_VIEW;
@@ -188,25 +194,25 @@ export const softUnlock = () => PAGE_VIEW;
 // lock's Log in as... (true, only from the hand lock: Cancel then goes back to
 // a fresh hand lock).
 export const startLogin = (v, fromSoft) => (fromSoft
-  ? (v.mode === 'soft' ? { mode: 'login', back: 'soft' } : v)
-  : (v.mode === 'page' ? { mode: 'login', back: 'page' } : v));
+  ? (v.mode === MODE.SOFT ? { mode: MODE.LOGIN, back: 'soft' } : v)
+  : (v.mode === MODE.PAGE ? { mode: MODE.LOGIN, back: 'page' } : v));
 
 // The hand lock's "Log out": someone is logged in and no PIN lock is on. The
-// view stays 'soft' (nothing in the transitions moves it), so the page stays
+// view stays SOFT (nothing in the transitions moves it), so the page stays
 // covered; "Log in as..." remains when users exist.
 export const logOutOffered = (s) => !s.enforced && !!s.user;
 
 // Cancel / Esc of the pad: the page; `back` (read before) says whether the
-// caller puts a fresh hand lock up again.
-export const cancelLogin = (v) => (v.mode === 'login' ? PAGE_VIEW : v);
+// caller puts a fresh hand lock up again. An OWN lock has no Cancel.
+export const cancelLogin = (v) => (v.mode === MODE.LOGIN ? PAGE_VIEW : v);
 
-// An enforced lock arriving replaces the hand lock.
-export const lockArrived = (v, enforced) => (enforced && v.mode === 'soft' ? PAGE_VIEW : v);
+// An enforced lock arriving replaces the hand lock and an own lock.
+export const lockArrived = (v, enforced) => (enforced && (v.mode === MODE.SOFT || v.mode === MODE.OWN) ? PAGE_VIEW : v);
 
 // A lockState was applied. A login ends only with an enforced lock or a real
 // unlock (a userUnlock that succeeded and left a user in); any other state
 // (someone else saved settings, a token catch-up) says nothing about the pad.
-export const loginWon = (v, { enforced, unlocked, user }) => (v.mode === 'login' && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
+export const loginWon = (v, { enforced, unlocked, user }) => ((v.mode === MODE.LOGIN || v.mode === MODE.OWN) && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 
 // The chip shows when a user is logged in even under the hand lock; under it
 // with nobody in there is nothing to show. Its lock button does nothing while

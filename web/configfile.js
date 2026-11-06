@@ -1,12 +1,14 @@
-// Server configuration file (Settings > Access): Export… saves the live
-// config.yaml, Import… replaces the whole configuration with a picked file.
-// The block is in index.html; this wires it. Both are settings-PIN actions
-// (the server refuses anything else, and then demandPin() brings the PIN
-// prompt back). The server makes and reads the file; this only moves it.
+// Server configuration file (Settings > Server Backup): Export saves the live
+// config.yaml, Import replaces the whole configuration with a picked file.
+// The block is in index.html; this wires it. Both are settings-PIN actions:
+// the popup (pinprompt.js) asks first when this connection hasn't entered the
+// PIN, and again, with a retry, if the server refuses. The server makes and
+// reads the file; this only moves it.
 // Imported by settings.js.
 
 import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
-import { demandPin, needsPin } from './pin.js';
+import { needsPin, unlocked } from './pin.js';
+import { askPin, reask } from './pinprompt.js';
 import { showResult } from './plans.js';
 import { fileName, fileProblem, sizeText } from './configfilerules.js';
 
@@ -38,26 +40,33 @@ function reset() {
   pick.value = '';
 }
 
-function start(kind) {
-  if (needsPin()) { demandPin(); fail('Enter the settings PIN first.'); return 0; }
+// Claims the one slot for `kind`, asking for the PIN first if need be. 0: not
+// started (the PIN was not given).
+async function start(kind) {
   fail('');
+  const what = kind === 'export' ? 'Exporting' : 'Importing';
+  if (S.pinSet && !unlocked() && !(await askPin(`${what} the configuration needs the Advanced Settings PIN.`))) return 0;
   setBusy({ id: ++seq, kind });
   return seq;
 }
 
-// A refusal for the PIN asks for it again; anything else is shown as it is.
-function failed(m) {
+// A refusal for the PIN asks for it again and goes on with `retry`; anything
+// else is shown as it is.
+function failed(m, retry) {
   setBusy(null);
   say('');
-  if (m.locked) demandPin();
+  if (m.locked) {
+    reask('The Advanced Settings PIN is needed again.').then((ok) => { if (ok) retry(); });
+    return;
+  }
   fail(sentence(m.err) || 'The server refused.');
 }
 
 // ---- export
 
-exportBtn.addEventListener('click', () => {
+async function runExport() {
   reset();
-  const id = start('export');
+  const id = await start('export');
   if (!id) return;
   say('Preparing the file…');
   if (!wsSend({ t: 'configExport', id, pins: pins.checked })) {
@@ -65,11 +74,12 @@ exportBtn.addEventListener('click', () => {
     say('');
     fail('Not connected to Sode.');
   }
-});
+}
+exportBtn.addEventListener('click', runExport);
 
 onMsg('configExportResult', (m) => {
   if (!busy || busy.kind !== 'export' || m.id !== busy.id) return;
-  if (!m.ok) return failed(m);
+  if (!m.ok) return failed(m, runExport);
   setBusy(null);
   const file = fileName({ now: new Date(), site: m.name });
   const a = document.createElement('a');
@@ -88,8 +98,7 @@ importBtn.addEventListener('click', () => {
   reset();
   fail('');
   say('');
-  if (needsPin()) { demandPin(); fail('Enter the settings PIN first.'); return; }
-  pick.click();
+  pick.click(); // the PIN is asked for when the replace is confirmed
 });
 
 pick.addEventListener('change', async () => {
@@ -109,10 +118,14 @@ pick.addEventListener('change', async () => {
 
 $('config-keep').addEventListener('click', () => { reset(); say('Import cancelled.'); importBtn.focus(); });
 
-$('config-replace').addEventListener('click', () => {
+async function runImport() {
   if (!picked) return;
-  const id = start('import');
+  const id = await start('import');
   if (!id) return;
+  if (!picked) { // a lock or a PIN change reset the block while the PIN popup was open
+    setBusy(null);
+    return;
+  }
   const { bytes, name } = picked;
   confirmBox.hidden = true;
   say(`Importing ${name}…`);
@@ -125,11 +138,12 @@ $('config-replace').addEventListener('click', () => {
     say('');
     fail('Not connected to Sode.');
   }
-});
+}
+$('config-replace').addEventListener('click', runImport);
 
 onMsg('configImportBeginResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
-  if (!m.ok) { reset(); return failed(m); }
+  if (!m.ok) { if (!m.locked) reset(); return failed(m, runImport); }
   if (!picked || !wsSend({ t: 'configImport', id: busy.id, yaml: picked.text })) {
     reset();
     setBusy(null);
@@ -140,7 +154,7 @@ onMsg('configImportBeginResult', (m) => {
 
 onMsg('configImportResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
-  if (!m.ok) { reset(); return failed(m); }
+  if (!m.ok) { if (!m.locked) reset(); return failed(m, runImport); }
   const name = picked?.name || 'the file';
   reset();
   setBusy(null);

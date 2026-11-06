@@ -8,6 +8,7 @@
 import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 import { profile, profileName, saveProfile } from './profile.js';
+import { profileProblem } from './profilesrules.js';
 
 // The limits the server enforces too (internal/config/presets.go); the
 // shared cases in test/preset_cases.json keep the two from drifting.
@@ -189,6 +190,9 @@ export function moveKey(keys, key, to) {
 // (saveProfile puts the old copy back) and says so.
 export function setPinOrder(keys) {
   if (profileName()) {
+    // The first reorder adds the key list to a profile that may already be near its cap.
+    const why = profileProblem(profile(), { pinOrder: keys });
+    if (why) return Promise.resolve({ ok: false, err: why });
     const saved = saveProfile({ pinOrder: keys });
     emit('presets'); // saveProfile already holds the new copy
     return saved;

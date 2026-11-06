@@ -329,10 +329,7 @@ html { font-size: 125%; }
   outline: var(--pb-accent-bar-w) solid var(--pb-accent);
   outline-offset: var(--pb-space-1);
 }
-.sode__open-log { display: none; }
-.sode__settings[data-locked] > .sode__open-log { display: block; }
 .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px)); }
-[data-layout="phone"] .sode__toc { display: none; }
 @media (min-width: 68.75rem) {
   .sode__toc {
     border-bottom: 0;
@@ -343,7 +340,7 @@ html { font-size: 125%; }
     top: calc(10vh + var(--sode-down-h, 0px));
     width: 12.5rem;
   }
-  .sode__toc .pb-tab { text-align: left; }
+  .sode__toc .pb-tab { height: auto; line-height: 1.25; overflow-wrap: anywhere; padding-block: var(--pb-space-3); text-align: left; white-space: normal; }
   .sode__toc nav { border-bottom: 0; flex-direction: column; overflow-x: hidden; }
   .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px)); }
 }
@@ -391,12 +388,15 @@ html { font-size: 125%; }
 .sode__lock { display: none; }
 .sode__settings[data-locked] > .sode__lock { display: flex; }
 .sode__lock-exit { display: none; }
-.sode__settings[data-locked] > .sode__lock-exit { align-items: center; display: flex; gap: var(--pb-space-5); justify-content: space-between; }
-.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__open-log, .sode__lock-exit) { display: none; }
+/* Exit left, the version and links centred, View Logs right. */
+.sode__settings[data-locked] > .sode__lock-exit { align-items: center; display: grid; gap: var(--pb-space-5); grid-template-columns: 1fr auto 1fr; }
+.sode__lock-exit .sode__about { justify-content: center; }
+.sode__lock-exit > :first-child { justify-self: start; }
+.sode__lock-exit > .sode__logs { justify-self: end; }
+.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__lock-exit) { display: none; }
 /* This device first, then the prompt: it's the part anyone can change. */
 .sode__settings[data-locked] > .sode__settings-head { order: -2; }
 .sode__settings[data-locked] > .sode__device { order: -1; }
-.sode__settings[data-locked] > .sode__open-log { order: 1; } /* after the lock */
 .sode__settings[data-locked] > .sode__lock-exit { order: 2; } /* last of all */
 .sode__settings[data-locked] > .sode__lock {
   border-top: var(--pb-border-w) solid var(--pb-edge);
@@ -445,7 +445,6 @@ html { font-size: 125%; }
   flex-wrap: wrap;
   gap: var(--pb-space-2) var(--pb-space-5);
 }
-.sode__about > p { margin: 0; }
 .sode__links {
   display: flex;
   font-size: var(--pb-text-xs);
@@ -457,6 +456,21 @@ html { font-size: 125%; }
   text-decoration: none;
 }
 .sode__links > a:hover { color: var(--pb-accent-hover); text-decoration: none; }
+.sode__names--start { justify-content: flex-start; }
+/* The name in Account: large, the user's name in the accent. */
+.sode__acct { margin-bottom: var(--pb-space-3); color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
+.sode__acct strong { color: var(--pb-accent); }
+/* Lock stays at the row's right end, logged in or not. */
+.sode__lock-btn { margin-left: auto; }
+/* This device is the first section: no rule over it. */
+.sode__device > legend { border-top: 0; padding-top: 0; }
+/* The locked prompt: the PIN box and Unlock on one row, its help and Forgot PIN? tucked under the box. */
+.sode__pinrow { display: flex; gap: var(--pb-space-4); }
+.sode__pinrow .pb-input { flex: 1; min-width: 0; width: auto; }
+.sode__pinhelp { display: flex; justify-content: flex-end; }
+/* Open and Forgot PIN? share a width, so they line up under each other. */
+.sode__pinrow .pb-btn,
+.sode__pinhelp .pb-btn { justify-content: center; width: 7rem; }
 .sode__names {
   align-items: center;
   display: flex;
@@ -615,5 +629,75 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
 .sode--tap .sode-m__changes { cursor: auto; }
 
 /* Per-row "Save/Clear my default" buttons: small, side by side, not stretched. */
-.sode__my-defaults { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-space-2); }
-.sode__my-default { align-self: flex-start; }
+.sode__my-defaults { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
+/* Side by side, small enough for a narrow column (the full words are in the tooltip). */
+.sode__my-default { align-self: flex-start; flex: 1 1 0; font-size: var(--pb-text-xs); max-width: max-content; min-width: 0; padding: 0 var(--pb-space-3); }
+.sode__my-defaults > .sode__hint { flex: 1 0 100%; }
+
+/* Result banner: the alert, its close button and the countdown bar of a success.
+   The bar is scaled, not resized, so it runs on the compositor and doesn't judder.
+   Closing collapses the row (1fr to 0fr) and fades it, so the page below slides up. */
+.sode__banner {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease);
+  width: 100%;
+}
+/* In and out are the same motion: the row opens from 0fr as it fades up. */
+.sode__banner { animation: sode-banner-in var(--pb-motion-normal) var(--pb-ease); }
+@keyframes sode-banner-in { from { grid-template-rows: 0fr; opacity: 0; } }
+.sode__banner--out { grid-template-rows: 0fr; opacity: 0; }
+.sode__banner-in { min-height: 0; overflow: hidden; }
+.sode__banner-body { flex: 1; min-width: 0; }
+.sode__banner-x { flex: none; }
+.sode__banner-time {
+  background: transparent;
+  border: 0;
+  height: var(--pb-space-1);
+}
+.sode__banner-bar {
+  animation: sode-countdown linear forwards;
+  transform-origin: left center;
+  transition: none;
+  width: 100%;
+  will-change: transform;
+}
+@keyframes sode-countdown { to { transform: scaleX(0); } }
+
+/* A colour sample inside an example hex's code block. */
+.sode__swatch {
+  background: var(--sw);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: inline-block;
+  height: 0.75em;
+  margin-right: var(--pb-space-2);
+  vertical-align: baseline;
+  width: 0.75em;
+}
+/* The bottom row of Settings: the version and links centred, View Logs at the right. */
+.sode__foot { align-items: center; display: grid; gap: var(--pb-space-5); grid-template-columns: 1fr auto 1fr; }
+.sode__foot .sode__about { justify-content: center; }
+.sode__foot > .sode__logs { justify-self: end; }
+@media (max-width: 599.98px) {
+  .sode__foot, .sode__settings[data-locked] > .sode__lock-exit { grid-template-columns: 1fr; justify-items: center; }
+  .sode__foot > :first-child { display: none; }
+  .sode__lock-exit > .sode__logs, .sode__foot > .sode__logs, .sode__lock-exit > :first-child { justify-self: center; }
+}
+/* Two checkboxes in a row (Page locks). */
+.sode__field [role="group"] .pb-check + .pb-check { margin-left: var(--pb-space-5); }
+#settings-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A subtitle sits right under its heading. */
+.sode__group > legend:has(+ .sode__hint) { margin-bottom: var(--pb-space-1); }
+/* Names: the counts, then "Refreshed ..." in its own box beside the button. */
+.sode__names-refresh { align-items: center; display: flex; gap: var(--pb-space-3); }
+.sode__chipbox {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+
+/* Account is its own section after This device: a rule above it when the two are stacked (not a phone's one-section pages). */
+:root:not([data-layout="phone"]) .sode__device + .sode__device > legend,
+.sode__settings[data-locked] > .sode__device + .sode__device > legend { border-top: var(--pb-border-w) solid var(--pb-edge); padding-top: var(--pb-space-5); }

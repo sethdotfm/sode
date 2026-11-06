@@ -7,6 +7,8 @@ import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
 import { resolvePreset } from './presetstore.js';
+import { showResult, setResult } from './banner.js';
+export { showResult, resultNode } from './banner.js';
 
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
@@ -116,16 +118,6 @@ export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
 // ---- results
 
-// text: a string, or a function building nodes (each layout renders its own).
-export function showResult(kind, title, text, track = null) {
-  S.result = { kind, title, text, track };
-  emit('result', S.result);
-}
-
-export function resultNode(r) {
-  return el('div', `pb-alert pb-alert--${r.kind}`, el('div', null, el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text));
-}
-
 // "A → B (levels 1–3; 2 was already on A)" for one take.
 function takeText(t, already = []) {
   return `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
@@ -217,8 +209,7 @@ function refreshResult() {
   const next = failureBanner(r.track);
   if (next.key === r.track.key) return;
   r.track.key = next.key;
-  S.result = { kind: next.kind, title: next.title, text: next.text, track: r.track };
-  emit('result', S.result);
+  setResult({ kind: next.kind, title: next.title, text: next.text, track: r.track });
 }
 on('history', refreshResult);
 

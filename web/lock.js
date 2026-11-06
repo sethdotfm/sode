@@ -20,9 +20,10 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
-import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, PAGE_VIEW, viewBody, softLock as softView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, MODE, PAGE_VIEW, viewBody, softLock as softView, userLock as userLockView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
+import { layout, onLayout } from './layout.js';
 
 // The session token of a persistent user. localStorage rather than a cookie:
 // the socket's `hi` carries it, no HTTP endpoint is needed, and a cookie
@@ -123,13 +124,14 @@ function build() {
   logOutBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log out');
   logOutBtn.type = 'button';
   logOutBtn.hidden = true;
-  logOutBtn.addEventListener('click', logOutFromHandLock);
+  logOutBtn.addEventListener('click', logOutFromFoot);
   softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
   softBody.hidden = true;
   // The very bottom of the screen: the quiet way to change who is in.
   softFoot = el('div', 'sode-lock__foot', logOutBtn, loginAsBtn);
   softFoot.hidden = true;
-  root = el('div', 'sode-lock', brand, padBody, softBody, softFoot);
+  // The brand and the bodies are centred in what the foot leaves; the foot is the last row, in flow, so it can't land on the pad.
+  root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, softBody), softFoot);
   root.hidden = true;
   root.tabIndex = -1;
   root.setAttribute('role', 'dialog');
@@ -150,11 +152,11 @@ function say(text, bad = false) {
 
 function render() {
   const covered = viewBody(V, L.enforced && L.locked) !== '';
-  const showChip = chipShown({ covered, soft: V.mode === 'soft', user: L.user }); // there even where no lock is on, and under the hand lock when someone is in
+  const showChip = chipShown({ covered, soft: V.mode === MODE.SOFT, user: L.user }); // there even where no lock is on, and under the hand lock when someone is in
   if (covered) showLock();
   else hideLock();
   build();
-  chip.update(L, showChip, V.mode === 'soft');
+  chip.update(L, showChip, V.mode === MODE.SOFT);
   document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
@@ -196,11 +198,12 @@ function showLock() {
   build();
   const body = viewBody(V, L.enforced && L.locked);
   padBody.hidden = body !== 'pad'; // the PIN pad, or the hand lock's letter
-  cancelBtn.hidden = V.mode !== 'login';
+  cancelBtn.hidden = V.mode !== MODE.LOGIN;
+  const ownLock = V.mode === MODE.OWN; // a logged-in user's lock: only Log out, down in the foot
   softBody.hidden = body !== 'soft';
-  logOutBtn.hidden = !logOutOffered(L);
-  loginAsBtn.hidden = !loginAsOffered(L);
-  softFoot.hidden = body !== 'soft' || (logOutBtn.hidden && loginAsBtn.hidden);
+  logOutBtn.hidden = !(ownLock || logOutOffered(L));
+  loginAsBtn.hidden = ownLock || !loginAsOffered(L);
+  softFoot.hidden = !ownLock && (body !== 'soft' || (logOutBtn.hidden && loginAsBtn.hidden));
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
@@ -219,12 +222,13 @@ function showLock() {
   document.documentElement.dataset.sodeLock = 'on';
   setHand(true);
   root.hidden = false;
+  fitBrand();
   moveBrand('in');
   void root.offsetWidth; // commit the start before the class changes it
   root.classList.add('is-on');
   document.documentElement.dataset.sodeLockOn = 'on'; // with is-on: the chip slides as the border grows
   chip?.setLocked(true);
-  if (V.mode !== 'login') closeModals(); // a requested login keeps Settings open behind it
+  if (V.mode !== MODE.LOGIN) closeModals(); // a requested login keeps Settings open behind it
   inerted = [];
   for (const c of document.body.children) inert(c);
   // Anything added to the page while locked is covered too.
@@ -236,6 +240,27 @@ function showLock() {
   had?.blur?.();
   root.focus({ preventScroll: true });
 }
+
+// A site name wider than the screen is scaled down to fit on one line (a name
+// that would need under 1.25rem wraps instead). Phone only: the desktop's is a
+// fixed size. Runs when the overlay goes up, on resize and on a layout switch.
+function fitBrand() {
+  brand.style.fontSize = '';
+  brand.style.whiteSpace = '';
+  if (layout() !== 'phone') return;
+  const cs = getComputedStyle(root);
+  const room = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  brand.style.whiteSpace = 'nowrap';
+  const w = brand.getBoundingClientRect().width; // sub-pixel, unlike scrollWidth
+  if (w <= room) return;
+  const size = parseFloat(getComputedStyle(brand).fontSize) * (room - 1) / w;
+  const min = 1.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+  if (size >= min) brand.style.fontSize = `${size}px`;
+  else { brand.style.whiteSpace = ''; brand.style.fontSize = `${min}px`; } // wraps (phone CSS)
+}
+const refit = () => { if (root && !root.hidden) fitBrand(); };
+addEventListener('resize', refit);
+onLayout(refit);
 
 // Tells other modules (transfer.js) when the overlay goes up and, after its
 // fade, down.
@@ -399,7 +424,7 @@ onMsg('session', (m) => {
 
 onMsg('lockState', (m) => {
   if (settle) settle(); // a welcome still showing: finish it first
-  const was = (L.enforced && L.locked) || V.mode === 'login';
+  const was = (L.enforced && L.locked) || V.mode === MODE.LOGIN || V.mode === MODE.OWN;
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.user = m.user || '';
@@ -450,13 +475,13 @@ on('logout', () => lockNow());
 
 // Settings' Log in button (users exist, no lock on): the PIN pad, with Cancel.
 on('login', () => {
-  if (!loginOffered(L) || V.mode !== 'page') return;
+  if (!loginOffered(L) || V.mode !== MODE.PAGE) return;
   V = startLogin(V, false);
   render();
 });
 
 function cancelLogin() {
-  if (V.mode !== 'login') return;
+  if (V.mode !== MODE.LOGIN) return;
   const back = V.back === 'soft';
   V = cancelView(V);
   clearTimeout(timer);
@@ -468,7 +493,8 @@ function cancelLogin() {
 // ---- the hand lock (no PIN lock on this page)
 
 function softLock() {
-  if (soft || L.enforced || !S.cfg) return;
+  if (soft || L.enforced || !S.cfg || V.mode === MODE.OWN) return;
+  if (L.user) return pinLock(); // logged in: the PIN, not a letter (#198)
   build();
   V = softView(V, false); // an idle lock over a login pad: the hand lock wins
   const key = churnKey(lastSoftKey);
@@ -483,6 +509,18 @@ function softLock() {
     softNote.textContent = '';
   }) };
   render();
+}
+
+// Lock while logged in, where no PIN lock is on: the session ends on the server
+// (as Log out does) and the PIN pad covers the page with no Cancel; the user's
+// PIN logs them in again. A reload shows the page with nobody logged in.
+function pinLock() {
+  build();
+  V = userLockView(V, false);
+  pin = '';
+  clearTimeout(timer);
+  clearFeedback();
+  lockNow();
 }
 
 // Only once the lockout has passed.
@@ -509,11 +547,17 @@ function loginFromHandLock() {
   render();
 }
 
-// "Log out" under the hand lock: the session ends (token revoked, nobody is
-// logged in) and the hand lock stays up, so the page stays covered.
-function logOutFromHandLock() {
-  if (V.mode !== 'soft' || !logOutOffered(L)) return;
-  lockNow();
+// The foot's "Log out". Under the hand lock the session ends (token revoked,
+// nobody is logged in) and the hand lock stays up, so the page stays covered.
+// On a logged-in user's own lock the session already ended when it went up:
+// the pad just goes away and the page has nobody logged in.
+function logOutFromFoot() {
+  if (V.mode === MODE.OWN) {
+    V = PAGE_VIEW;
+    clearTimeout(timer);
+    clearFeedback();
+    render();
+  } else if (V.mode === MODE.SOFT && logOutOffered(L)) lockNow();
 }
 
 on('softLock', softLock);
@@ -538,7 +582,7 @@ function lockNow() {
 // Ctrl+L, in the capture phase so nothing underneath sees it. Only where it
 // does something: a page whose lock is on, unlocked as a user.
 document.addEventListener('keydown', (e) => {
-  if (V.mode === 'soft') {
+  if (V.mode === MODE.SOFT) {
     // The page behind must not see a key: not a take, not Ctrl+Z. A shortcut
     // chord is kept from the page but left to the browser (reload, copy).
     e.stopImmediatePropagation();
@@ -550,7 +594,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (root && !root.hidden && root.classList.contains('is-on')) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (V.mode === 'login' && e.key === 'Escape') {
+    if (V.mode === MODE.LOGIN && e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       cancelLogin();

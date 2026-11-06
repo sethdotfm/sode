@@ -152,6 +152,8 @@ bar.setAttribute('role', 'region');
 bar.setAttribute('aria-label', 'Choose takes from Recent');
 bar.hidden = true;
 document.body.append(bar);
+// Each layout may place the bar (the phone makes it a row of its view): see mobile.js.
+export const pickBar = bar;
 
 followsIn.addEventListener('change', () => { if (st) { st.follows = followsIn.checked; update(); } });
 addBtn.addEventListener('click', add);

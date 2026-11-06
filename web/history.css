@@ -459,14 +459,6 @@
 .sode__fld > .pb-input,
 .sode__fld > .pb-select-wrap,
 .sode__fld > .pb-select-wrap > .pb-select { width: 100%; }
-.sode__gsets {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
 /* Phones: the quick buttons scroll sideways in one line under the title. */
 @media (max-width: 599.98px) {
   .sode-m__recent .sode__recent-head { flex-wrap: wrap; }
@@ -482,12 +474,6 @@
   font-size: var(--pb-text-xs);
   padding: var(--pb-space-1) var(--pb-space-1);
 }
-.sode__gset {
-  display: grid;
-  gap: var(--pb-space-3);
-  grid-template-columns: minmax(8em, auto) 1fr;
-}
-.sode__gset > .sode__hint { overflow-wrap: anywhere; }
 .sode__filters-set > .sode__filters-scope { flex: 0 0 12em; }
 .sode__filters-set > .sode__filters-scope[hidden] { display: none; }
 .sode__filters-sets .sode__error-text { color: var(--pb-status-error); }
@@ -703,7 +689,8 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
   margin-left: auto;
   padding: var(--pb-space-3) var(--pb-space-4);
 }
-[data-pb-layout="phone"] .sode__pickbar { top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px)); }
+/* Choosing from Recent on the phone: the composer waits. */
+[data-sode-pick=""] .sode-m__composer { opacity: 0.35; pointer-events: none; }
 [data-sode-pick=""] .sode__box,
 [data-sode-pick=""] .sode__under,
 [data-sode-pick] [data-presets] { opacity: 0.35; pointer-events: none; }
@@ -712,9 +699,10 @@ html[data-alt] .sode__chip-key { clip-path: inset(0); }
 [data-sode-pick=""] .sode__hist-row,
 [data-sode-pick=""] .sode-m__recent-face { cursor: pointer; }
 [data-sode-pick=""] .sode__hist-row:hover,
-[data-sode-pick=""] .sode-m__recent-face:active { background: var(--pb-accent-wash); }
-.sode__hist-row--picked,
-.sode-m__recent-row--picked .sode-m__recent-face { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
+[data-sode-pick=""] .sode-m__recent-face:active { background-image: linear-gradient(var(--pb-accent-wash), var(--pb-accent-wash)); }
+/* The phone's picked face keeps its solid background (the wash is an overlay on it), or the swipe-undo button behind shows through. */
+.sode__hist-row--picked { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
+.sode-m__recent-row--picked .sode-m__recent-face { background-image: linear-gradient(var(--pb-accent-wash), var(--pb-accent-wash)); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
 .sode__pickbox { margin: 0; }
 /* The lock chip over the bar: no grey box on the accent, the lock drawn in the bar's text colour. */
 [data-sode-pick] .sode-lock__who { background: transparent; color: var(--pb-text-on-accent); }

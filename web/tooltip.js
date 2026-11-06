@@ -40,7 +40,11 @@ function placeCutTip(n) {
   cutTip.style.top = `${r.bottom + gap + h <= innerHeight ? r.bottom + gap : r.top - gap - h}px`;
 }
 
+// No hover on a touch screen: a tap must press, not pop a tip up.
+const touchOnly = globalThis.matchMedia?.('(hover: none)') ?? { matches: false }; // (no matchMedia in the Node tests)
+
 document.addEventListener('mouseover', (e) => {
+  if (touchOnly.matches) return;
   const c = cutOff(e.target);
   if (!c) return hideCutTip();
   if (c.n === cutFor) return;
@@ -52,7 +56,7 @@ document.addEventListener('mouseover', (e) => {
 document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) hideCutTip(); });
 document.addEventListener('focusin', (e) => {
   const t = rowTip(e.target);
-  if (!t || !t.matches(':focus-visible')) return;
+  if (touchOnly.matches || !t || !t.matches(':focus-visible')) return;
   cutFor = t;
   cutTip.textContent = t.dataset.pbTip;
   cutTip.hidden = false;

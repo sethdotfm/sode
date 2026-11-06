@@ -5,7 +5,7 @@
 import {
   $, el, S, on, emit, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
 } from './core.js';
-import { mac } from './keys.js';
+import { mac, chord } from './keys.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
 import { timeNodes, scrollTopPref, flipped, setFlip } from './device.js';
@@ -21,6 +21,8 @@ import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
 import { picking, isPicked, pickBox, togglePick, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
+import { showAll } from './showall.js';
+import { shortcutList } from './shortcuts.js';
 import { byLabel, levelBox, combobox, disclosure, undoButton, UNDO_TIP_ALL, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
@@ -41,6 +43,7 @@ for (const k of ['src', 'dst']) {
     // Destinations: a + on each row adds it as a chip and keeps the search.
     add: k === 'dst' ? (it) => addDst(it) : undefined,
     foot: $(`${k}-count`),
+    onRender: () => b.all?.sync(), // the Show all button follows the list
   });
 }
 const lvlInput = $('lvl');
@@ -598,7 +601,7 @@ function onListKey(e) {
   if (k === ',') { $('settings-open').click(); return true; }
   if (k === '/') { openFilters(); return true; }
   if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
-  if (k === '?') { openKeys(); return true; }
+  if (k === '?') { keys.open(); return true; }
   if (k === 'p') { emit('presetStrip'); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   // Choosing takes for a preset: Space or Enter ticks the row, nothing else acts on it.
@@ -639,26 +642,7 @@ showFlip();
 
 // ---- shortcut list (?)
 
-// Closing from the keyboard returns to keyboard mode if it was on when the
-// list opened; closing with the mouse never does (a click leaves it).
-let keysBack = null;
-let keysWere = false;
-let keysFromHist = false; // opened from Recent, whose rows may be redrawn meanwhile
-function openKeys() {
-  keysBack = document.activeElement;
-  keysWere = keyMode();
-  keysFromHist = histArea(keysBack);
-  $('keys').hidden = false;
-  $('keys-dialog').focus();
-}
-function closeKeys(viaKeys = false) {
-  $('keys').hidden = true;
-  if (keysWere && viaKeys) enterKeys();
-  else if (keysBack?.isConnected && !keysFromHist) keysBack.focus();
-  else focusBox(boxes.src.input);
-}
-// Mac labels; a key that only a Mac has (⌃Z beside ⌘Z) is hidden elsewhere.
-if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) { k.textContent = k.dataset.mac; k.hidden = false; }
+const keys = shortcutList({ keyMode, fromHistory: histArea, enterKeys, focusFirst: () => focusBox(boxes.src.input) });
 
 // The Filter by Source / Destination boxes above Recent.
 function focusSearch(k) {
@@ -667,7 +651,6 @@ function focusSearch(k) {
   f.focus();
   f.select();
 }
-$('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
 
@@ -784,9 +767,10 @@ for (const k of ['src', 'dst']) {
     renderTally();
   });
   b.input.addEventListener('blur', () => b.cb.close());
-  // Focus shows every source or destination to scroll through (the chosen one
-  // highlighted); unconfirmed text keeps its own matches.
-  b.input.addEventListener('focus', () => showList(k, sel[k]?.n));
+  // Focus lists nothing in an empty or confirmed box: its "Show all" button is
+  // there instead (↓ or ↑ opens the whole list too). Unconfirmed text keeps its matches.
+  b.input.addEventListener('focus', () => { if (!sel[k] && b.input.value.trim()) b.cb.refresh(); b.all.sync(); });
+  b.all = showAll(b, $(`${k}-all`), () => sel[k]);
 }
 // The list under a box: every item to scroll through when it holds no text or
 // a confirmed choice (at: the row to highlight), else the matches for its text.
@@ -828,13 +812,13 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
     e.preventDefault();
     e.stopImmediatePropagation(); // not Settings' own keys
-    if ($('keys').hidden) openKeys();
-    else closeKeys(true);
+    if (keys.shown()) keys.close(true);
+    else keys.open();
     return;
   }
   if (!$('keys').hidden) {
     e.stopImmediatePropagation(); // Esc here closes the list, not Settings
-    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(true); }
+    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); keys.close(true); }
     // Keep focus in the dialog: Close is its only control.
     if (e.key === 'Tab') { e.preventDefault(); $('keys-close').focus(); }
     return;
@@ -870,6 +854,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  // ↓ or ↑ in a box with no list open (empty, confirmed, nothing found) opens the whole list.
+  if (b && !b.cb.open && (chord(e) === 'down' || chord(e) === 'up')) {
+    e.preventDefault();
+    b.all.open();
+    return;
+  }
   // The match list's keys: ↑/↓, PgUp/PgDn, Ctrl+J/K (and ⌘J/K on a Mac).
   if (b && b.cb.nav(e)) return;
   // Ctrl+Enter and ⌘Enter add another destination too.
@@ -954,10 +944,10 @@ on('hello', () => {
 });
 on('names', () => {
   // The focused box's list is drawn again from the new names, on the row it
-  // was on. A confirmed box whose list is closed (Esc) stays closed.
+  // was on. An empty or confirmed box whose list is closed stays closed.
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
-    if (document.activeElement !== b.input || (sel[k] && !b.cb.open)) continue;
+    if (document.activeElement !== b.input || (!b.cb.open && (sel[k] || !b.input.value.trim()))) continue;
     showList(k, b.cb.open ? b.cb.current()?.n : sel[k]?.n, true);
   }
   renderTally();

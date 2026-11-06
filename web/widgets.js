@@ -98,8 +98,9 @@ let boxSeq = 0;
 // under a long list.
 // add: a + button on every row; add(item) when it is pressed (the list and
 // the box's focus stay as they are); canAdd() says whether the list has
-// them now (the phone's source step doesn't).
-export function combobox(input, menu, { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null }) {
+// them now (the phone's source step doesn't). onRender(open): after every
+// redraw, with whether the list is showing.
+export function combobox(input, menu, { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null, onRender = null }) {
   const box = typeof input === 'function' ? input : () => input;
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;
   let matches = [];
@@ -134,7 +135,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     foot.hidden = !long;
     if (!long) return;
     const total = matches.total > matches.length ? `${matches.length}+` : matches.length;
-    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘J/K' : 'Ctrl+J/K'}`));
+    foot.replaceChildren(el('span', null, `${total} matches`), el('span', 'sode__menu-keys', `↑ ↓ or ${mac ? '⌘j/k' : 'Ctrl+j/k'}`));
   }
 
   function render() {
@@ -147,13 +148,15 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     }
     last = input;
     menu.hidden = !open;
+    onRender?.(open);
     input.setAttribute('aria-expanded', String(open));
     if (!open) { rows = []; input.removeAttribute('aria-activedescendant'); placeFoot(); return; }
     if (!browsed) win = { lo: 0, hi: matches.length };
     rows = rowsFor(win.lo, win.hi);
     menu.replaceChildren(...rows);
     placeFoot();
-    input.setAttribute('aria-activedescendant', pre + hi);
+    if (browsing) input.removeAttribute('aria-activedescendant');
+    else input.setAttribute('aria-activedescendant', pre + hi);
   }
 
   // The <li> for matches[from..to-1]. They carry no listeners of their own:
@@ -162,11 +165,12 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     const out = [];
     for (let i = from; i < to; i++) {
       const it = matches[i];
-      const li = el('li', cls + (i === hi ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
+      const on = i === hi && !browsing; // a browse list has no cursor until ↑/↓
+      const li = el('li', cls + (on ? ` ${hiCls}` : ''), el('span', 'sode__num', it.num), it.name);
       li.id = pre + i;
       li.dataset.i = String(i);
       li.setAttribute('role', 'option');
-      li.setAttribute('aria-selected', String(i === hi));
+      li.setAttribute('aria-selected', String(on));
       if (add && canAdd()) li.append(addButton(it));
       out.push(li);
     }
@@ -254,7 +258,7 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     // Every item, for a quick scroll: the one numbered `n` (if any) highlighted.
     browse(items, n, { keepMoved = false } = {}) {
       show(items, Math.max(0, items.findIndex((it) => it.n === n)), true, keepMoved && browsed && !browsing);
-      menu.querySelector(`.${hiCls}`)?.scrollIntoView({ block: 'nearest' });
+      rows[hi - win.lo]?.scrollIntoView({ block: 'nearest' }); // (a browse list draws no highlight class until ↓)
     },
     close() {
       show([], 0, false);
@@ -280,7 +284,9 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
       e.preventDefault();
       const n = matches.length;
       const fwd = (key === 'ArrowDown' || key === 'PageDown') !== reverse;
-      if (key === 'ArrowDown' || key === 'ArrowUp') move(fwd ? (hi + 1) % n : (hi + n - 1) % n);
+      const step = key === 'ArrowDown' || key === 'ArrowUp';
+      if (browsing && step && fwd) move(hi); // the first press forward shows the cursor on the row the list stands at
+      else if (step) move(fwd ? (hi + 1) % n : (hi + n - 1) % n);
       else move(fwd ? Math.min(n - 1, hi + PAGE) : Math.max(0, hi - PAGE));
       return true;
     },
@@ -341,11 +347,11 @@ export function undoButton(plan, label, onClick, { text = 'Undo', cls = 'pb-btn 
 // undo-2 / redo-2 icons as a pair, Retry is text only. With nothing to offer
 // an invisible placeholder keeps columns lined up (null with placeholder
 // false).
-export function againButton(plan, label, onClick, { placeholder = true } = {}) {
+export function againButton(plan, label, onClick, { placeholder = true, cls = 'pb-btn pb-btn--outline pb-btn--sm' } = {}) {
   const none = !plan.items.length;
   if (none && !placeholder) return null;
   const redo = plan.verb !== 'retry';
-  const b = el('button', `pb-btn pb-btn--outline pb-btn--sm${none ? ' sode__placeholder' : ''}`,
+  const b = el('button', `${cls}${none ? ' sode__placeholder' : ''}`,
     redo ? icon('redo-2') : null, redo ? 'Redo' : 'Retry');
   b.type = 'button';
   if (none) {

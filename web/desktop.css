@@ -110,6 +110,18 @@
   padding: var(--pb-space-2) var(--pb-space-4);
 }
 .sode__menu-count[hidden] { display: none; }
+/* An empty or unmatched box offers its whole list on a quiet text button
+   under it, not a pop-up: small, muted, no box of its own. */
+.sode__menu-all { display: flex; padding-top: var(--pb-space-1); }
+.sode__menu-all[hidden] { display: none; }
+.sode__menu-all .pb-btn {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  height: auto;
+  min-height: 0;
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode__menu-all .pb-btn:hover { color: var(--pb-text-strong); }
 .sode__num {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-num);
