@@ -84,6 +84,9 @@ html { font-size: 125%; }
   gap: var(--pb-space-3);
 }
 .sode__down-node {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-3);
   border: var(--pb-border-w) solid currentColor;
   padding: var(--pb-space-1) var(--pb-space-4);
 }

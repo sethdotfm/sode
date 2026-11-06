@@ -495,8 +495,8 @@ func (c Config) Proxies() ([]netip.Prefix, error) {
 // DefaultLevelColors are the user's Ultrix level colors, level 1 first.
 // Levels past these fall back to the patchbay swatches.
 var DefaultLevelColors = []string{
-	"#7ae85a", "#3b5bfd", "#e5483b", "#f5e663", "#3f8a8c", "#d946ef",
-	"#3f7f2e", "#67e8f9", "#7e2a86", "#f0963e", "#b5efcb", "#e287e8",
+	"#7ae85a", "#4c69fd", "#e5483b", "#f5e663", "#3f8a8c", "#d946ef",
+	"#4a8639", "#67e8f9", "#a061a5", "#f0963e", "#b5efcb", "#e287e8",
 	"#5b86f0", "#8a8a35", "#a5e3f7", "#4fa03a", "#f29bb0",
 }
 
