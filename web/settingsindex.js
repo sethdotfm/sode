@@ -12,21 +12,23 @@
 
 export const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-// Both the This device and Defaults for every device copy of a setting.
+// Both the This device and Global defaults copy of a setting.
 const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
 export const DICT = {
   // ---- sections
   'this-device': ['this browser', 'local', 'personal', 'preferences', 'prefs', 'appearance', 'display', 'device', 'my settings', 'theme', 'dark', 'light', 'colour', 'color', 'clock', 'time', '24h', 'layout', 'my default', 'set as my default', 'clear my default', 'profile', 'follow'],
-  'defaults-for-every-device': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'appearance', 'preferences'],
-  'names': ['source names', 'destination names', 'labels', 'refresh', 'poll', 'reread', 'router names', 'name length', 'characters', 'truncate'],
+  'your-account': ['account', 'logged in', 'login', 'log in', 'logout', 'log out', 'sign in', 'sign out', 'lock', 'lock the screen', 'profile', 'my profile', 'change pin', 'import', 'export'],
+  'global-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'appearance', 'preferences'],
+  'router-source-destination-names': ['names', 'source names', 'destination names', 'labels', 'refresh', 'poll', 'reread', 'router names', 'name length', 'characters', 'truncate'],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
   'takes': ['take', 'patch', 'route', 'confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'default levels', 'resync', 'reread', 'delay', 'safety'],
   'branding': ['brand', 'logo', 'name', 'title', 'border', 'colour', 'color', 'icon', 'identify', 'favicon', 'tab'],
   'router': ['ip', 'address', 'host', 'hostname', 'port', 'connection', 'connect', 'tcp', 'ultrix', 'swp08', 'sw-p-08', 'status', 'server'],
   'matrix': ['level', 'levels', 'offset', 'number', 'numbering', 'wire', 'matrix', 'zero', 'start at 0', 'start at 1', 'count', 'router levels', 'video', 'audio', 'va'],
+  'server-backup': ['server configuration', 'config file', 'config.yaml', 'backup', 'restore', 'export', 'import', 'secrets', 'pins', 'download', 'upload'],
   'access': ['password', 'pin', 'lock', 'locked', 'unlock', 'security', 'admin', 'passcode', 'protect', 'tries', 'wrong', 'lockout', 'timeout', 'idle', 'auto lock', 'auto-lock', 'permissions', 'login', 'settings pin'],
-  'audit': ['network', 'proxy', 'proxies', 'trusted', 'x-forwarded-for', 'forwarded', 'ip address', 'client ip', 'reverse proxy', 'log', 'logging', 'who'],
+  'sode-networking': ['audit', 'networking', 'network', 'proxy', 'proxies', 'trusted', 'x-forwarded-for', 'forwarded', 'ip address', 'client ip', 'reverse proxy', 'log', 'logging', 'who'],
   'history': ['recent', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
   'users': ['user', 'users', 'people', 'operators', 'names', 'pin', 'password', 'passwords', 'lock', 'lock screen', 'auto lock', 'auto-lock', 'timeout', 'idle', 'inactivity', 'logout', 'access', 'who', 'accounts', 'permissions'],
   'export-import': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share', 'share link', 'move', 'copy', 'transfer', 'another site', 'studio', 'settings file', 'save', 'load', 'presets', 'filter sets'],
@@ -77,6 +79,7 @@ export const DICT = {
 
   // ---- Takes
   'cfg-default': ['default levels', 'levels', 'all levels', 'which levels', 'preselect', 'v a', 'video audio'],
+  'cfg-dismiss': ['banner', 'result', 'success', 'dismiss', 'close', 'auto', 'seconds', 'timeout', 'progress', 'notification'],
   'cfg-lockout': ['confirm', 'lockout', 'letter', 'delay', 'ms', 'milliseconds', 'confirm dialog', 'wait', 'safety', 'accidental'],
   'cfg-resync': ['resync', 'reread', 'poll', 'routes', 'tally', 'interval', 'seconds', 'refresh', 'dump'],
   'cfg-enter': ['enter', 'return', 'confirm', 'keyboard', 'key', 'submit', 'confirm dialog'],
@@ -107,7 +110,6 @@ export const DICT = {
   'cfg-proxies': ['proxy', 'proxies', 'trusted', 'network', 'x-forwarded-for', 'forwarded', 'reverse proxy', 'nginx', 'ip', 'client ip', 'cidr', 'tls', 'https'],
 
   // ---- History
-  'cfg-sets': ['filter sets', 'filters', 'set', 'sets', 'global', 'everyone', 'saved filters', 'recent'],
   'cfg-hidden': ['hidden', 'hide', 'destinations', 'dst', 'filter', 'global filter', 'panel', 'mv', 'multiviewer', 'recent'],
   'clear-history': ['clear', 'delete', 'erase', 'wipe', 'reset', 'undo', 'history', 'recent', 'remove all'],
   'open-log': ['log', 'communication log', 'audit', 'uptime', 'messages', 'sent', 'wire', 'router log', 'events', 'tx', 'ack', 'diagnostics', 'debug', 'graph'],

@@ -57,7 +57,9 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	if err := a.UserUnlock(ana, "1234"); err != nil {
 		t.Fatal(err)
 	}
-	for who, c := range map[string]*client{"admin": admin, "trusted": ana} {
+	// In this order: the admin saves before the PIN unlock is dropped.
+	for _, who := range []string{"admin", "trusted"} {
+		c := map[string]*client{"admin": admin, "trusted": ana}[who]
 		if who == "trusted" {
 			a.Lock(admin) // only the trusted flag from here on
 		}

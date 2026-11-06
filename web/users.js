@@ -1,4 +1,4 @@
-// Users (#151, #165): Settings shows a one-line summary and a button; the
+// Users (#151, #165): Settings shows a button; the
 // directory (users and the longest PIN) is edited in its own dialog, which
 // saves on its own (the `users` message, guarded by the settings PIN like the
 // rest), never with the main Save. The locks and the idle time are Settings >
@@ -9,17 +9,16 @@
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
-import { demandPin, trusted, unlocked } from './pin.js';
+import { trusted, unlocked } from './pin.js';
+import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 
 const form = $('settings-view');
 
-// ---- the Settings section: a summary and the button
+// ---- the Settings section: the button
 
-const summary = el('span', 'sode__hint');
-summary.setAttribute('role', 'status');
-const manage = el('button', 'pb-btn pb-btn--outline', 'Manage users…');
+const manage = el('button', 'pb-btn pb-btn--outline', 'Manage users');
 manage.type = 'button';
 manage.id = 'users-manage';
 manage.dataset.find = 'users-manage';
@@ -35,7 +34,7 @@ people.setAttribute('aria-label', 'Profiles');
 
 const group = el('fieldset', 'sode__group',
   el('legend', null, 'Users'),
-  el('div', 'sode__field', summary, manage),
+  el('div', 'sode__field', manage),
   people);
 group.dataset.apart = ''; // its inputs save apart from the Settings form
 
@@ -166,7 +165,7 @@ function addRow(u = { name: '', len: 0 }) {
     signing.set(id, { out, name: u.name });
   }) : el('span'); // a new row has none; the span keeps the columns in line
   // Only a saved user has a profile: not a new row, not one being renamed.
-  const prof = btn('pb-btn--outline pb-btn--sm', 'Profile…', () => emit('openProfile', { name: row.dataset.was }));
+  const prof = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: row.dataset.was }));
   prof.setAttribute('aria-haspopup', 'dialog');
   const paintProf = () => {
     prof.disabled = profileButtonOff(row.dataset.was, name.value);
@@ -190,7 +189,10 @@ onMsg('userSignOutAllResult', (m) => {
   signing.delete(m.id);
   if (w) w.out.disabled = false;
   if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
-  if (m.locked) { demandPin(); emit('locked'); }
+  if (m.locked) { // ask, then send it again; the error shows only if the PIN is not given
+    reask('Managing users needs the Advanced Settings PIN again.').then((ok) => { if (ok) w?.out.click(); else fail(m.err); });
+    return;
+  }
   fail(m.err);
 });
 
@@ -211,26 +213,24 @@ function paintPeople() {
   people.hidden = !show;
   if (!show) return people.replaceChildren();
   people.replaceChildren(...names.map((n) => {
-    const b = btn('pb-btn--outline pb-btn--sm', 'Profile…', () => emit('openProfile', { name: n }));
+    const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
     b.setAttribute('aria-haspopup', 'dialog');
     b.setAttribute('aria-label', `Profile of ${n}`);
     return el('div', 'sode__names', el('span', 'sode__label', n), b);
   }));
 }
 
-function paintSummary() {
-  paintPeople();
-  const n = loaded ? listed.length : (S.userNames || []).length;
-  const locks = [S.cfg?.locks?.main && 'main screen', S.cfg?.locks?.log && 'Communication Log'].filter(Boolean);
-  const who = n ? `${n} user${n === 1 ? '' : 's'}` : 'No users';
-  summary.textContent = `${who} · ${locks.length ? locks.join(' and ') + ' locked' : 'no locks'}`;
-}
+const paintSummary = paintPeople;
 
 // The directory is not in the hello (a locked page gets that too): the
 // settings PIN holder asks for it. Without the PIN the list stays empty.
 const load = () => { wsSend({ t: 'usersList', id: ++listSeq }); };
 onMsg('usersListResult', (m) => {
-  if (m.id !== listSeq || !m.ok) return;
+  if (m.id !== listSeq) return;
+  if (!m.ok) { // a stale unlock: ask, then read the directory again
+    if (m.locked && isOpen) reask('Managing users needs the Advanced Settings PIN.').then((ok) => (ok ? load() : closeUsers()));
+    return;
+  }
   listed = m.users || [];
   loaded = true;
   paintSummary();
@@ -244,8 +244,12 @@ on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
 
 // ---- open / close / save
 
-function openUsers() {
-  back = document.activeElement;
+async function openUsers() {
+  // The list and the saving need the settings PIN, which a trusted user may not
+  // have entered: a popup asks for it, instead of an editor with no users in it.
+  const opener = document.activeElement;
+  if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) { opener?.focus?.(); return; }
+  back = opener;
   isOpen = true;
   setNote('');
   fill();
@@ -284,7 +288,7 @@ function doSave() {
   saveBtn.disabled = true;
 }
 
-onMsg('usersResult', (m) => {
+onMsg('usersResult', async (m) => {
   saveBtn.disabled = false;
   if (m.id !== seq) return;
   if (m.ok) {
@@ -293,7 +297,7 @@ onMsg('usersResult', (m) => {
     if (isOpen) closeUsers();
     return;
   }
-  if (m.locked) { demandPin(); emit('locked'); } // the settings PIN is wanted again
+  if (m.locked && await reask('Managing users needs the Advanced Settings PIN again.')) return doSave(); // the PIN was entered: save again
   fail(m.err);
 });
 

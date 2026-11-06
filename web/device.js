@@ -5,6 +5,7 @@
 // Also the clock's time formats and the theme key.
 
 import { $, el, on, emit } from './core.js';
+import { mac } from './keys.js';
 import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile } from './prefs.js';
 import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
 
@@ -147,9 +148,6 @@ export function initTheme() {
 
   // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
   // Matched by e.code because Option changes e.key on macOS.
-  if (/Mac|iPhone|iPad/.test(navigator.platform)) {
-    $('cfg-theme-hint').replaceChildren(el('code', null, '⌥⇧t'), ' toggles');
-  }
   document.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
     e.preventDefault();

@@ -3,7 +3,7 @@
 // and presets are lists with Edit, Add and Remove. Edit and Add open the
 // Filters dialog / preset editor aimed at this profile (bus
 // 'openFilterEditor' / 'openPresetEditor' {user, name?, profile}; they save
-// through saveProfile, whose 'profileSaved' event refreshes this dialog). One Export / import…
+// through saveProfile, whose 'profileSaved' event refreshes this dialog). One Import & Export…
 // button hands over to the transfer dialog (bus 'openTransfer'). It is
 // opened for one user by the bus event 'openProfile' {name}: the Profile…
 // buttons of the users editor and of Settings > Users, and My profile… in the
@@ -14,7 +14,8 @@
 // Imported by settings.js.
 
 import { el, S, on, emit, sentence } from './core.js';
-import { demandPin, trusted, unlocked } from './pin.js';
+import { trusted, unlocked } from './pin.js';
+import { reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
 import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
@@ -36,7 +37,7 @@ note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 const body = el('div', 'sode__profiles-body');
 const title = Object.assign(el('span', 'pb-modal__title', 'Profile'), { id: 'profiles-title' });
-const transferBtn = btn('pb-btn--outline', 'Export / import…', () => transfer());
+const transferBtn = btn('pb-btn--outline', 'Import & Export…', () => transfer());
 const closeBtn = btn('pb-btn--outline', 'Close', () => closeDialog());
 transferBtn.disabled = true;
 
@@ -50,7 +51,6 @@ dialog.tabIndex = -1;
 dialog.append(
   el('div', 'pb-modal__header', title),
   el('div', 'pb-modal__body',
-    el('p', 'sode__hint', 'Admins and trusted users can see and edit every profile.'),
     body, err),
   el('div', 'pb-modal__footer', note, transferBtn, closeBtn));
 // A later "Restrictions" section (issue #184: sources and destinations a
@@ -73,8 +73,8 @@ function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
 }
-// The server said the PIN is wanted: show the normal prompt in Settings.
-const refused = () => { demandPin(); emit('locked'); };
+// The server said the PIN is wanted (someone else's profile, trust revoked): ask in the popup.
+const askAgain = () => reask('Another user\'s profile needs the Advanced Settings PIN.');
 
 // Export / import opens on top of this dialog, which stays (Esc closes the
 // newer one first, then this).
@@ -134,12 +134,12 @@ function paint() {
     return;
   }
   body.replaceChildren(
-    el('section', 'sode__profiles-sec',
-      el('h3', 'sode__profiles-h', 'This device settings'),
+    el('section', 'sode__profiles-sec sode__profiles-sec--prefs',
+      el('h3', 'sode__profiles-h', 'User defaults'),
       el('p', 'sode__hint', 'Not set follows the global default.'),
       el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine))),
-    listSection('Filter sets', prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))), 'None saved.', 'Add filter set…', 'openFilterEditor'),
-    listSection('Presets', prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))), 'None saved.', 'Add preset…', 'openPresetEditor'));
+    listSection('Filter sets', prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))), 'None saved.', 'Add filter set', 'openFilterEditor'),
+    listSection('Presets', prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))), 'None saved.', 'Add preset', 'openPresetEditor'));
 }
 
 async function load(name) {
@@ -157,7 +157,8 @@ async function load(name) {
   const r = await fetchProfile(name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked) refused();
+    if (r.locked && await askAgain()) return load(name); // the PIN was entered: read it again
+    if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not read that profile.');
     return paint();
   }
@@ -180,7 +181,8 @@ async function doSave(parts, done) {
   const r = await saveProfile(parts, name).finally(() => { saving--; });
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked) refused();
+    if (r.locked && await askAgain()) return doSave(parts, done); // the PIN was entered: save again
+    if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not save that profile.');
     if (own()) { prof = profile(); return paint(); }
     paint();

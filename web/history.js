@@ -393,5 +393,6 @@ onMsg('historyCleared', () => {
   S.histMore = false;
   S.histLoading = false;
   emit('history');
+  emit('historyCleared'); // Settings shows its banner for a clear it asked for
 });
 onMsg('history', (m) => { if (takePage(m)) emit('history'); });

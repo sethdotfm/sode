@@ -109,3 +109,45 @@ test('protectedLabel names the devices in the badge', async () => {
   assert.equal(protectedLabel([9]), 'Protected by 9');
   assert.equal(protectedLabel([9, 12]), 'Protected by 9, 12');
 });
+
+test('nextTake: repeating keeps going while the boxes hold the last Next (#195)', async () => {
+  const { S, nextTake, usedNext, resetNext } = await import('./all.mjs');
+  resetNext();
+  const it = (n) => ({ n, num: n + 1, name: `X${n}` });
+  S.srcBy = new Map([1, 2, 3, 4].map((n) => [n, it(n)]));
+  S.dstBy = new Map([5, 6, 7, 8, 9].map((n) => [n, it(n)]));
+  S.hist = [
+    { id: 2, group: 'g', groupN: 2, src: 1, srcName: 'X1', dst: 6, dstName: 'X6', levels: [1], ok: true },
+    { id: 1, group: 'g', groupN: 2, src: 1, srcName: 'X1', dst: 5, dstName: 'X5', levels: [1], ok: true },
+  ];
+  const empty = { src: null, dsts: [] };
+  let t = nextTake(empty);
+  assert.equal(t.src.n, 2);
+  assert.deepEqual(t.dsts.map((d) => d.n), [6, 7]);
+  usedNext('src', t);
+  usedNext('dst', t);
+  t = nextTake({ src: it(2), dsts: [it(6), it(7)] });
+  assert.equal(t.src.n, 3);
+  assert.deepEqual(t.dsts.map((d) => d.n), [7, 8]);
+  // The boxes were cleared or changed: back to the last take.
+  t = nextTake({ src: it(4), dsts: [it(9)] });
+  assert.equal(t.src.n, 2);
+  assert.deepEqual(t.dsts.map((d) => d.n), [6, 7]);
+  resetNext();
+});
+
+test('nextTake: fuzzy falls back to the next number when the name runs out (#196)', async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  const { S, nextTake, setPref, resetNext } = await import('./all.mjs');
+  resetNext();
+  const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
+  S.srcBy = new Map([it(1, 'Cam 1'), it(2, 'Cam 2'), it(3, 'Bars')].map((s) => [s.n, s]));
+  S.dstBy = new Map();
+  S.hist = [{ id: 1, src: 2, srcName: 'Cam 2', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  setPref('nextMode', 'fuzzy');
+  assert.equal(nextTake().src.name, 'Bars');
+  S.hist = [{ id: 1, src: 3, srcName: 'Bars', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  assert.equal(nextTake().src, null, 'past the end of the list');
+  setPref('nextMode', '');
+});

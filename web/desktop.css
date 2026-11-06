@@ -63,30 +63,65 @@
 [data-flip] .sode__box--levels ~ .sode__box { order: 5; }
 .sode__chips[hidden] { display: none; }
 /* Source and destination colors on their inputs, as on the phone. */
-.sode__box--src .sode__input { border-left: var(--sode-side-w) solid var(--pb-source); }
-.sode__box--dst .sode__input { border-left: var(--sode-side-w) solid var(--pb-dest); }
+/* The colour edge is a background strip inside the input, so its border (and
+   focus ring) runs unbroken all the way round. */
+.sode__box--src .sode__input,
+.sode__box--dst .sode__input {
+  background-repeat: no-repeat;
+  background-size: var(--sode-side-w) 100%;
+  padding-left: calc(var(--pb-space-3) + var(--sode-side-w) - var(--pb-border-w));
+}
+.sode__box--src .sode__input { background-image: linear-gradient(var(--pb-source), var(--pb-source)); }
+.sode__box--dst .sode__input { background-image: linear-gradient(var(--pb-dest), var(--pb-dest)); }
 /* About eight rows plus the count; the rest scrolls. */
-.sode__menu {
+/* The list and its count line hang under the box together (the count sits
+   under what scrolls, so a very long list still shows it). */
+.sode__menu-pop {
   left: 0;
-  max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
-  overflow-y: auto;
-  overscroll-behavior: contain;
   position: absolute;
   right: 0;
   top: 100%;
+  z-index: var(--pb-z-dropdown, 10);
+}
+.sode__menu-pop:has(> .sode__menu:not([hidden])) { box-shadow: var(--pb-shadow-overlay); }
+.sode__menu-pop > .sode__menu { box-shadow: none; } /* the pop-up carries it, so the count line is inside it */
+.sode__menu {
+  max-height: calc(var(--pb-control-h) * 9 + var(--pb-space-2) * 2);
+  overflow-y: scroll; /* the styled bar below stays visible */
+  overscroll-behavior: contain;
   width: auto;
+}
+/* Not in a pop-up (the filter boxes): hang off the box itself. */
+:where(:not(.sode__menu-pop)) > .sode__menu {
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 100%;
 }
 .sode__menu-add { margin-left: auto; }
 .sode__menu-count {
   background: var(--pb-surface-overlay);
-  border-top: var(--pb-border-w) solid var(--pb-edge-soft);
-  bottom: calc(var(--pb-space-2) * -1);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  border-top: 0;
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
-  list-style: none;
+  display: flex;
+  justify-content: space-between;
   padding: var(--pb-space-2) var(--pb-space-4);
-  position: sticky;
 }
+.sode__menu-count[hidden] { display: none; }
+/* An empty or unmatched box offers its whole list on a quiet text button
+   under it, not a pop-up: small, muted, no box of its own. */
+.sode__menu-all { display: flex; padding-top: var(--pb-space-1); }
+.sode__menu-all[hidden] { display: none; }
+.sode__menu-all .pb-btn {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  height: auto;
+  min-height: 0;
+  padding: var(--pb-space-1) var(--pb-space-2);
+}
+.sode__menu-all .pb-btn:hover { color: var(--pb-text-strong); }
 .sode__num {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-num);
@@ -193,17 +228,24 @@
   padding-right: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar,
+.sode__sets-run::-webkit-scrollbar,
 .sode__bar::-webkit-scrollbar,
 .sode__box--levels .sode__levels::-webkit-scrollbar {
   height: var(--pb-space-2);
   width: var(--pb-space-2);
 }
 .sode__scroll::-webkit-scrollbar-track,
+.sode__menu::-webkit-scrollbar-track,
+.sode__sets-run::-webkit-scrollbar-track,
 .sode__bar::-webkit-scrollbar-track,
 .sode__box--levels .sode__levels::-webkit-scrollbar-track { background: var(--pb-edge-soft); }
 .sode__scroll::-webkit-scrollbar-thumb,
+.sode__menu::-webkit-scrollbar-thumb,
+.sode__sets-run::-webkit-scrollbar-thumb,
 .sode__bar::-webkit-scrollbar-thumb,
 .sode__box--levels .sode__levels::-webkit-scrollbar-thumb { background: var(--pb-text-muted); }
+/* The match lists' bar is twice as wide: it is the quick way through a long list. */
+.sode__menu::-webkit-scrollbar { width: calc(var(--pb-space-2) * 2); }
 .sode__feed {
   display: flex;
   flex-direction: column;

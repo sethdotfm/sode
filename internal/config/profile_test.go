@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -119,5 +120,32 @@ func TestPrefTable(t *testing.T) {
 		if strings.Join(PrefValues[name], ",") != strings.Join(vals, ",") {
 			t.Errorf("%s: prefs.js %v, Go %v", name, vals, PrefValues[name])
 		}
+	}
+}
+
+func TestProfilePinOrderNormalized(t *testing.T) {
+	p := Profile{PinOrder: []string{" global:cam ", "global:cam", "", "user:mon 1", strings.Repeat("x", MaxPinKey+1)}}
+	got := p.Normalized().PinOrder
+	if len(got) != 2 || got[0] != "global:cam" || got[1] != "user:mon 1" {
+		t.Fatalf("pin order %q", got)
+	}
+	// Keys are opaque: kept as the browser wrote them, even where Go's ToLower
+	// would rewrite them (İ lowercases to i + U+0307 in JavaScript, to i in Go).
+	istanbul := "local:i\u0307stanbul"
+	if got := (Profile{PinOrder: []string{istanbul, "local:Mixed"}}).Normalized().PinOrder; len(got) != 2 || got[0] != istanbul || got[1] != "local:Mixed" {
+		t.Fatalf("keys rewritten: %q", got)
+	}
+	if (Profile{PinOrder: []string{"a"}}).Empty() {
+		t.Fatal("a profile with only a pin order is not empty")
+	}
+	if n := (Profile{}).Normalized().PinOrder; n == nil || len(n) != 0 {
+		t.Fatalf("empty pin order must be [] not %v", n)
+	}
+	long := make([]string, MaxPinOrder+50)
+	for i := range long {
+		long[i] = fmt.Sprintf("local:p%d", i)
+	}
+	if n := len((Profile{PinOrder: long}).Normalized().PinOrder); n != MaxPinOrder {
+		t.Fatalf("cut at %d, got %d", MaxPinOrder, n)
 	}
 }

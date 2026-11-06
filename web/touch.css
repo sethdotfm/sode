@@ -1,6 +1,15 @@
 /* Touch screens (pointer: coarse). Last in the cascade on every page; it overrides rules in base.css and history.css.
-   Patchbay already gives fields 16px here so iOS doesn't zoom on focus. */
+   (Patchbay's own 16px rule for fields has zero specificity and loses to .pb-input's size; the phone's real
+   one is in mobile.css.) */
 @media (pointer: coarse) {
   /* Room for the bigger text in Recent's Filter by boxes. */
   .sode__search-box { --sode-search-h: var(--pb-control-h); }
+}
+
+/* A touch screen has no hover: a tap would leave a tooltip popping up over the
+   button it pressed (and iOS spends the first tap on the hover). No tooltips there. */
+@media (hover: none) {
+  :root [data-pb-tip]::after,
+  :root [data-pb-tip]:hover::after,
+  :root [data-pb-tip]:focus-visible::after { display: none; }
 }

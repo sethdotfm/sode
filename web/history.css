@@ -222,6 +222,11 @@
   text-overflow: ellipsis;
 }
 .sode__hist-note { color: var(--pb-text-muted); }
+/* Follow chips are as tall as the route's other boxes. */
+.sode__follows > .sode__end--follow { padding-bottom: var(--pb-space-1); padding-top: var(--pb-space-1); }
+/* The preset editor's note (errors, where it saved) sits by Save in the footer. */
+.sode__presets-dlg .pb-modal__footer > .sode__hint { flex: 1; text-align: right; }
+.sode__presets-dlg .pb-modal__footer > .sode__hint.sode__error-text { color: var(--pb-status-error); }
 /* Who made a take, when it was a configured user. */
 .sode__hist-by {
   color: var(--pb-text-muted);
@@ -316,7 +321,15 @@
    (outline, small). The phone keeps its ghost look. */
 :root:not([data-layout="phone"]) .sode__chipbtn { background-color: transparent; border-color: var(--pb-surface-control); }
 :root:not([data-layout="phone"]) .sode__chipbtn:hover { background-color: var(--pb-overlay-hover); border-color: var(--pb-surface-hover); }
-.sode__filters-btn--on { color: var(--pb-status-info); font-weight: var(--pb-weight-medium); }
+/* Filters on: an accent-washed, accent-edged button, like a selected chip. */
+.sode__filters-btn--on,
+:root:not([data-layout="phone"]) .sode__filters-btn--on,
+:root:not([data-layout="phone"]) .sode__filters-btn--on:hover {
+  background-color: var(--pb-accent-wash);
+  border-color: var(--pb-accent);
+  color: var(--pb-accent);
+  font-weight: var(--pb-weight-medium);
+}
 .sode__code { font-family: var(--pb-font-mono); }
 .sode__scrim > .sode__filters { width: 40rem; }
 .sode__filters .pb-modal__header { gap: var(--pb-space-3); flex-wrap: wrap; }
@@ -368,7 +381,7 @@
 .sode__filters-vals > .pb-input { flex: 1 1 0; min-width: 0; }
 .sode__filters-preview { overflow-wrap: anywhere; }
 .sode__filters-share {
-  align-items: center;
+  align-items: flex-end;
   display: flex;
   gap: var(--pb-space-3);
 }
@@ -392,14 +405,36 @@
 /* Filter sets: quick buttons in Recent's header, the set bar in the
    dialog, and the list for everyone in Settings. */
 .sode__recent-head > .sode__label { flex: none; }
+/* Desktop: the title takes a row of its own above the bar (the filter sets
+   and Filters; Edit and the preset chips). */
+#patch-view .sode__recent-head { flex-wrap: wrap; row-gap: var(--pb-space-2); }
+#patch-view .sode__recent-head > .sode__label { flex: 1 0 100%; font-size: var(--pb-text-lg); }
 .sode__sets {
   display: flex;
   flex: 1;
-  flex-wrap: wrap;
   gap: var(--pb-space-2);
   justify-content: flex-end;
   min-width: 0;
 }
+/* The first chip (All, Show all) is pinned; the rest are one row that scrolls
+   sideways past the width. */
+.sode__sets-run {
+  display: flex;
+  flex: 0 1 auto;
+  gap: var(--pb-space-2);
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: var(--pb-space-1);
+}
+.sode__sets > :not(.sode__sets-run),
+.sode__sets .sode__set { flex: none; white-space: nowrap; } /* chips sit in display: contents groups, so not all are direct children */
+/* Their tooltips are placed by tooltip.js: the run would clip a CSS one. */
+.sode__sets [data-pb-tip]::after { display: none; }
+/* Desktop Recent: the filter boxes and the sets share one row, the sets taking
+   what the boxes leave. */
+.sode__recent-tools { align-items: flex-start; display: flex; flex-wrap: wrap; gap: var(--pb-space-1) var(--pb-space-3); }
+.sode__recent-tools > .sode__search { flex: 0 1 auto; max-width: 100%; min-width: 0; } /* the boxes shrink before the sets wrap below */
+.sode__sets-bar { align-items: center; display: flex; flex: 1 1 16rem; gap: var(--pb-space-3); min-width: 0; padding-top: var(--pb-space-3); }
 .sode__set { font-size: var(--pb-text-xs); padding: var(--pb-space-1) var(--pb-space-3); }
 .sode__filters-sets {
   border-bottom: var(--pb-border-w) solid var(--pb-edge-soft);
@@ -424,37 +459,21 @@
 .sode__fld > .pb-input,
 .sode__fld > .pb-select-wrap,
 .sode__fld > .pb-select-wrap > .pb-select { width: 100%; }
-.sode__gsets {
-  display: flex;
-  flex-direction: column;
-  gap: var(--pb-space-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
 /* Phones: the quick buttons scroll sideways in one line under the title. */
 @media (max-width: 599.98px) {
   .sode-m__recent .sode__recent-head { flex-wrap: wrap; }
-  .sode-m__recent .sode__sets {
-    flex: 1 0 100%;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    order: 3;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .sode-m__recent .sode__set,
-  .sode-m__recent .sode__sets-sep { flex: none; }
-  .sode-m__recent .sode__sets-group { flex: none; flex-wrap: nowrap; }
+  .sode-m__recent .sode__sets { flex: 1 0 100%; justify-content: flex-start; order: 3; }
+  .sode-m__recent .sode__sets-run { scrollbar-width: none; }
 }
-.sode__sets-group { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
-.sode__sets-sep { align-self: center; color: var(--pb-text-muted); padding: 0 var(--pb-space-1); }
-.sode__gset {
-  display: grid;
-  gap: var(--pb-space-3);
-  grid-template-columns: minmax(8em, auto) 1fr;
+.sode__sets-group { display: contents; } /* chips wrap as one run; the group is only for screen readers */
+/* The divider is as tall as a chip so it lines up with them. */
+.sode__sets-sep {
+  align-self: center;
+  border: var(--pb-border-w) solid transparent;
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  padding: var(--pb-space-1) var(--pb-space-1);
 }
-.sode__gset > .sode__hint { overflow-wrap: anywhere; }
 .sode__filters-set > .sode__filters-scope { flex: 0 0 12em; }
 .sode__filters-set > .sode__filters-scope[hidden] { display: none; }
 .sode__filters-sets .sode__error-text { color: var(--pb-status-error); }
@@ -464,9 +483,12 @@
 .sode__search {
   align-items: flex-start; /* boxes stay lined up when one has picks */
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* Source and Destination always sit side by side; the boxes shrink instead */
   gap: var(--pb-space-1) var(--pb-space-3);
+  padding-top: var(--pb-space-3);
 }
+.sode__search > [data-search-clear] { flex: none; font-size: var(--pb-text-xs); } /* always there, greyed out until there is something to clear */
+.sode__search > .sode__hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sode__search[hidden] { display: none; }
 .sode__search > .sode__hint:empty { display: none; }
 .sode__search-box {
@@ -520,6 +542,27 @@
   transform: translateY(-50%);
 }
 .sode__keyed > .sode__key-note { font-size: var(--pb-text-xs); right: var(--pb-space-3); }
+/* The boxes' s/d/f keys only show in keyboard mode. */
+html:not([data-keys-on]) :is(.sode__keyed, .sode__search-box) > .sode__key-note { display: none !important; }
+/* A preset chip's Option+number wipes in from its right edge, in the accent colour, over
+   just enough of the name to show it, while Option is held. The chip keeps its size, and
+   nothing on the chip clips (its tooltip sits outside it); only the key's own box is clipped. */
+.sode__chip-key {
+  align-items: center;
+  background: var(--pb-accent);
+  bottom: 0;
+  clip-path: inset(0 0 0 100%);
+  color: var(--pb-text-on-accent);
+  display: flex;
+  padding: 0 var(--pb-space-3);
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  transition: clip-path var(--pb-motion-normal) var(--pb-ease);
+}
+.sode__chip-key > .sode__key-note { color: inherit; font-size: var(--pb-text-xs); position: static; transform: none; }
+html[data-alt] .sode__chip-key { clip-path: inset(0); }
 :is(.sode__keyed, .sode__search-box):has(> .sode__key-note) > .pb-input { padding-right: 3em; }
 :is(.sode__keyed, .sode__search-box) > .pb-input:focus ~ .sode__key-note,
 :is(.sode__keyed, .sode__search-box) > .pb-input:not(:placeholder-shown) ~ .sode__key-note { display: none; }
@@ -546,24 +589,35 @@
 /* The strip is a Recent bar (.sode__recent-head): the title, the sets
    (pinned presets), then ghost buttons. Chips fill the middle. */
 .sode__presets { margin: var(--pb-space-3) 0; width: 100%; }
-.sode__presets > .sode__sets { flex: 1; flex-wrap: wrap; justify-content: flex-start; }
+.sode__presets > .sode__sets { flex: 1; justify-content: center; } /* centred while they fit; scrolling when not */
+/* Presets are taller than the filter sets' chips, so the two rows read apart. */
+.sode__presets .sode__set { font-size: var(--pb-text-sm); min-height: var(--pb-control-h); }
 .sode__scrim > .sode__presets-dlg { width: 44rem; }
 .sode__preset-rows { display: flex; flex-direction: column; gap: var(--pb-space-3); }
 .sode__preset-row { align-items: end; display: grid; gap: var(--pb-space-2); grid-template-columns: 1fr 1.4fr 0.6fr auto; }
 .sode__preset-row > .pb-input { min-width: 0; }
 .sode__preset-hint { grid-column: 1 / -1; overflow-wrap: anywhere; }
+/* Field labels show on a preset's first row only. */
+.sode__preset-row--bare .sode__fld > .sode__label { display: none; }
+.sode__presets-all { align-items: center; display: inline-flex; gap: var(--pb-space-1); }
 @media (max-width: 599.98px) {
   .sode__scrim > .sode__presets-dlg { min-width: 0; width: 100%; }
   .sode__preset-row { grid-template-columns: 1fr 1fr; }
   .sode__presets { flex-wrap: wrap; }
-  .sode__presets > .sode__sets { flex: 1 0 100%; flex-wrap: nowrap; order: 3; overflow-x: auto; scrollbar-width: none; }
-  .sode__presets .sode__set { flex: none; }
+  .sode__presets > .sode__sets { flex: 1 0 100%; order: 3; }
+  .sode__presets .sode__sets-run { scrollbar-width: none; }
 }
 .sode__preset-pop { display: flex; flex-direction: column; }
 .sode__preset-pop > .pb-modal__footer { justify-content: flex-end; }
 .sode__preset-list { display: flex; flex-direction: column; margin-top: var(--pb-space-3); max-height: 50vh; overflow-y: auto; }
 .sode__preset-item { align-items: center; border-left: var(--sode-side-w) solid transparent; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); justify-content: space-between; padding: var(--pb-space-2); }
 .sode__preset-item.is-hi { background: var(--pb-surface-sunken); border-left-color: var(--pb-accent); }
+.sode__preset-item[draggable="true"] { cursor: grab; }
+.sode__preset-item.is-dragging { opacity: 0.4; }
+.sode__preset-item.is-over { box-shadow: inset 0 var(--pb-border-w) 0 var(--pb-accent); }
+.sode__preset-grip { color: var(--pb-text-muted); display: inline-flex; }
+.sode__preset-grip svg { pointer-events: none; } /* a drag may start on the icon too */
+.sode__preset-key { color: var(--pb-text-muted); flex: none; font-family: var(--pb-font-num); min-width: 3ch; }
 .sode__preset-main { background: none; border: 0; color: inherit; cursor: pointer; flex: 1; font: inherit; min-width: 0; overflow-wrap: anywhere; padding: 0; text-align: left; }
 .sode__preset-tools { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
 [data-pb-layout="phone"] .sode__scrim > .sode__preset-pop { height: 100%; max-height: none; }
@@ -635,18 +689,29 @@
   margin-left: auto;
   padding: var(--pb-space-3) var(--pb-space-4);
 }
-[data-pb-layout="phone"] .sode__pickbar { top: calc(var(--sode-head-h, 3rem) + var(--sode-down-h, 0px)); }
-[data-sode-pick] .sode__box,
-[data-sode-pick] .sode__under,
+/* Choosing from Recent on the phone: the composer waits. */
+[data-sode-pick=""] .sode-m__composer { opacity: 0.35; pointer-events: none; }
+[data-sode-pick=""] .sode__box,
+[data-sode-pick=""] .sode__under,
 [data-sode-pick] [data-presets] { opacity: 0.35; pointer-events: none; }
-[data-sode-pick] .sode__hist-row,
-[data-sode-pick] .sode-m__recent-face { cursor: pointer; }
-[data-sode-pick] .sode__hist-row:hover,
-[data-sode-pick] .sode-m__recent-face:active { background: var(--pb-accent-wash); }
-.sode__hist-row--picked,
-.sode-m__recent-row--picked .sode-m__recent-face { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
+/* Add from Patch Boxes: the boxes stay live, the Take button gives way to the bar's Add. */
+[data-sode-pick="boxes"] #patch { display: none; }
+[data-sode-pick=""] .sode__hist-row,
+[data-sode-pick=""] .sode-m__recent-face { cursor: pointer; }
+[data-sode-pick=""] .sode__hist-row:hover,
+[data-sode-pick=""] .sode-m__recent-face:active { background-image: linear-gradient(var(--pb-accent-wash), var(--pb-accent-wash)); }
+/* The phone's picked face keeps its solid background (the wash is an overlay on it), or the swipe-undo button behind shows through. */
+.sode__hist-row--picked { background: var(--pb-accent-wash); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
+.sode-m__recent-row--picked .sode-m__recent-face { background-image: linear-gradient(var(--pb-accent-wash), var(--pb-accent-wash)); box-shadow: inset calc(var(--sode-side-w) * 2) 0 0 var(--pb-accent); }
 .sode__pickbox { margin: 0; }
 /* The lock chip over the bar: no grey box on the accent, the lock drawn in the bar's text colour. */
 [data-sode-pick] .sode-lock__who { background: transparent; color: var(--pb-text-on-accent); }
 [data-sode-pick] .sode-lock__who .pb-btn,
 [data-sode-pick] .sode-lock__who .sode-lock__who-ico { color: inherit; }
+
+/* The Presets popup's key help: one small centred note under the list. */
+.sode__pop-help { font-size: var(--pb-text-xs); text-align: center; }
+
+/* A link in a dialog's header to its sibling dialog (editor <-> organizer). */
+.sode__head-link { margin-left: auto; }
+[data-layout="phone"] .sode__head-link { display: none; }

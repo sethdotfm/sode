@@ -41,14 +41,15 @@ type Config struct {
 	// set with one Go, so they land much closer together; app/fire.go). SalvoGroup is the group
 	// (0-127) native salvos stage in: the router's list is shared by every
 	// client, so it must be one only Sode uses.
-	FireMode           string   `yaml:"fireMode" json:"fireMode" guard:"pin"`
-	SalvoGroup         int      `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
-	NumberOffset       int      `yaml:"numberOffset" json:"numberOffset" guard:"open"`
-	ConfirmLockoutMs   int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs" guard:"open"`
-	ConfirmEnter       bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
-	NameRefreshSeconds int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
-	TallyResyncSeconds int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
-	TrustedProxies     []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
+	FireMode             string   `yaml:"fireMode" json:"fireMode" guard:"pin"`
+	SalvoGroup           int      `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
+	NumberOffset         int      `yaml:"numberOffset" json:"numberOffset" guard:"open"`
+	ConfirmLockoutMs     int      `yaml:"confirmLockoutMs" json:"confirmLockoutMs" guard:"open"`
+	ResultDismissSeconds int      `yaml:"resultDismissSeconds" json:"resultDismissSeconds" guard:"open"`
+	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
+	NameRefreshSeconds   int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
+	TallyResyncSeconds   int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
+	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
 	// HiddenDsts is a Recent filter expression (web/filter.js) for
 	// destinations whose changes from other panels every browser hides
 	// unless its Filters show them; still recorded. E.g. a shader's monitor.
@@ -172,24 +173,25 @@ type FilterSet struct {
 
 func Defaults() Config {
 	return Config{
-		RouterShow:         "address",
-		Matrix:             0,
-		Levels:             17,
-		LevelWireOffset:    -1,
-		NameLength:         12,
-		NameRequests:       "std",
-		FireMode:           "sequential",
-		SalvoGroup:         127,
-		NumberOffset:       1,
-		ConfirmLockoutMs:   500,
-		NameRefreshSeconds: 60,
-		TallyResyncSeconds: 300,
-		TrustedProxies:     []string{},
-		LevelColors:        []string{},
-		LevelNumbering:     "1",
-		PinMaxTries:        10,
-		MaxPinLen:          DefaultMaxPinLen,
-		DeviceDefaults:     DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
+		RouterShow:           "address",
+		Matrix:               0,
+		Levels:               17,
+		LevelWireOffset:      -1,
+		NameLength:           12,
+		NameRequests:         "std",
+		FireMode:             "sequential",
+		SalvoGroup:           127,
+		NumberOffset:         1,
+		ConfirmLockoutMs:     500,
+		ResultDismissSeconds: 8,
+		NameRefreshSeconds:   60,
+		TallyResyncSeconds:   300,
+		TrustedProxies:       []string{},
+		LevelColors:          []string{},
+		LevelNumbering:       "1",
+		PinMaxTries:          10,
+		MaxPinLen:            DefaultMaxPinLen,
+		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }
 
@@ -223,6 +225,7 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_SALVO_GROUP", &c.SalvoGroup)
 	num("SODE_NUM_OFFSET", &c.NumberOffset)
 	num("SODE_CONFIRM_LOCKOUT_MS", &c.ConfirmLockoutMs)
+	num("SODE_RESULT_DISMISS_S", &c.ResultDismissSeconds)
 	num("SODE_NAME_REFRESH_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
@@ -397,6 +400,9 @@ func (c Config) Validate() error {
 	}
 	if c.ConfirmLockoutMs < 0 || c.ConfirmLockoutMs > 10000 {
 		bad("confirm lockout must be 0-10000 ms")
+	}
+	if c.ResultDismissSeconds < 0 || c.ResultDismissSeconds > 3600 {
+		bad("result dismiss must be 0 (never) or 1-3600 seconds")
 	}
 	if s := c.NameRefreshSeconds; s != 0 && (s < 10 || s > 86400) {
 		bad("name refresh must be 0 (off) or 10-86400 seconds")

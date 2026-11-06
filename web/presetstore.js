@@ -7,7 +7,8 @@
 
 import { S, on, onMsg, emit, off, search } from './core.js';
 import { readJSON, writeJSON, readStr, writeStr } from './store.js';
-import { profile, profileName } from './profile.js';
+import { profile, profileName, saveProfile } from './profile.js';
+import { profileProblem } from './profilesrules.js';
 
 // The limits the server enforces too (internal/config/presets.go); the
 // shared cases in test/preset_cases.json keep the two from drifting.
@@ -19,6 +20,7 @@ export const MAX_NUM = 0xFFFE;   // a source or destination number
 export const MAX_LEVEL = 64;     // a UI level
 export const MAX_BYTES = 48 * 1024; // all presets as JSON
 const KEY = 'sode-presets';
+const ORDER = 'sode-preset-order'; // guests: the order of the pinned presets, ["scope:lowercase name"]
 const PINS = 'sode-preset-pins'; // this browser's pin overrides of everyone's presets { lowercase name: bool }
 
 // Before Beta 1.5 was released these were called salvos: move what a browser
@@ -162,9 +164,64 @@ export function effectivePin(s, overrides = pinOverrides()) {
   }
   return s.pinned !== false;
 }
+// ---- the order of the pinned presets: the logged-in user's (their profile,
+// so it follows them), else this browser's. Keys are "scope:lowercase name".
+export const presetKey = (s) => `${s.scope}:${pinKey(s.name)}`;
+export function pinOrder() {
+  const raw = profileName() ? profile().pinOrder : readJSON(ORDER, []);
+  return Array.isArray(raw) ? raw.filter((k) => typeof k === 'string') : [];
+}
+// list in the saved order: the ones the order lists first, the rest after in
+// their own order (a stable sort).
+export function orderPins(list, order = pinOrder()) {
+  const at = new Map(order.map((k, i) => [k, i]));
+  const rank = (s) => at.get(presetKey(s)) ?? Infinity;
+  return list.map((s, i) => [s, i]).sort((a, b) => (rank(a[0]) === rank(b[0]) ? a[1] - b[1] : rank(a[0]) - rank(b[0]))).map((x) => x[0]);
+}
+// keys with `key` moved to index `to` (counted once it is taken out), clamped.
+export function moveKey(keys, key, to) {
+  const rest = keys.filter((k) => k !== key);
+  rest.splice(Math.max(0, Math.min(to, rest.length)), 0, key);
+  return rest;
+}
+// Saves the order of the pinned presets (keys), for the user or this browser.
+// Returns the save's promise ({ ok, err }): a guest's is already kept. The
+// order shows at once; a caller whose save fails redraws from the real one
+// (saveProfile puts the old copy back) and says so.
+export function setPinOrder(keys) {
+  if (profileName()) {
+    // The first reorder adds the key list to a profile that may already be near its cap.
+    const why = profileProblem(profile(), { pinOrder: keys });
+    if (why) return Promise.resolve({ ok: false, err: why });
+    const saved = saveProfile({ pinOrder: keys });
+    emit('presets'); // saveProfile already holds the new copy
+    return saved;
+  }
+  writeJSON(ORDER, keys.length ? keys : null);
+  emit('presets');
+  return Promise.resolve({ ok: true });
+}
+// Moves a pinned preset (its presetKey) to just before another pin
+// (where.before: a key) or by some places among the pins (where.by: +1/-1).
+// The setPinOrder promise, or null when it would not move.
+export function movePin(key, where) {
+  const keys = pinnedPresets().map(presetKey);
+  const i = keys.indexOf(key);
+  if (i < 0) return null;
+  let to;
+  if ('by' in where) {
+    to = i + where.by;
+    if (to < 0 || to >= keys.length) return null;
+  } else {
+    if (where.before === key) return null;
+    to = keys.filter((k) => k !== key).indexOf(where.before);
+    if (to < 0) return null;
+  }
+  return setPinOrder(moveKey(keys, key, to));
+}
 export function pinnedPresets(list = allPresets()) {
   const o = pinOverrides(list);
-  return list.filter((s) => effectivePin(s, o));
+  return orderPins(list.filter((s) => effectivePin(s, o)));
 }
 // Pins or unpins s for this browser only. A global preset gets an override
 // (dropped again when it equals the preset's own flag); a local one changes
@@ -232,6 +289,20 @@ export function parseRefs(text, offset, lookup) {
   return { ns, bad };
 }
 
+// An editor row nothing was typed in: ignored when saving.
+export const isBlankRow = (r) => !String(r.src).trim() && !String(r.dsts).trim() && !String(r.levels).trim();
+
+// The strip chip's tooltip: "SRC to DST", "SRC to N Destinations", or with
+// several sources "N Sources to M Destinations". srcLabel/dstLabel: number to name.
+export function presetTip(s, srcLabel, dstLabel) {
+  const srcs = [...new Set(s.items.map((it) => it.src))];
+  const dsts = [...new Set(s.items.flatMap((it) => it.dsts))];
+  if (!srcs.length || !dsts.length) return 'No takes';
+  const from = srcs.length === 1 ? srcLabel(srcs[0]) : `${srcs.length} Sources`;
+  const to = dsts.length === 1 ? dstLabel(dsts[0]) : `${dsts.length} Destinations`;
+  return `${from} to ${to}`;
+}
+
 // ---- turning a preset into takes
 
 // Which of a preset's takes can go now. has: { src(n), dst(n), level(u) },
@@ -258,6 +329,29 @@ export function resolvePreset(preset, has, defaults) {
     }
   }
   return { takes: [...byDst].map(([dst, groups]) => ({ dst, groups })), missing };
+}
+
+// What Shift-click puts in the patch boxes: the first take of a preset that
+// still exists, built on resolvePreset so the rules for what exists are the
+// firing ones. Takes with nothing left (no source, no destination, or none of
+// their levels) are skipped. { take: { src, dsts, levels } | null, partial,
+// many, missing }: levels [] when the take means the default levels; partial:
+// something of that take no longer exists and was left out; many: the preset
+// has more takes than the boxes can hold; missing: what the router lacks,
+// listed when no take fits.
+export function fillFrom(preset, has, defaults) {
+  const missing = [];
+  for (const it of preset.items) {
+    const r = resolvePreset({ items: [it] }, has, defaults);
+    if (r.takes.length) {
+      return {
+        take: { src: it.src, dsts: r.takes.map((t) => t.dst), levels: it.levels.length ? r.takes[0].groups[0].levels : [] },
+        partial: r.missing.length > 0, many: preset.items.length > 1, missing: [],
+      };
+    }
+    missing.push(...r.missing);
+  }
+  return { take: null, partial: false, many: preset.items.length > 1, missing };
 }
 
 // ---- making a preset from a patch or from history

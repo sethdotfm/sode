@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -272,6 +273,18 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 		return ws, send, until
 	}
 	big := "# " + strings.Repeat("x", 200<<10) + "\nbrandText: Big\n"
+	// An oversize message is cut off by the server mid-write, so the client
+	// may see the 1009 close or, if the reset wins, a failed write or read.
+	// Either way the connection ends; a completed write must show the 1009.
+	tooBig := func(ws *websocket.Conn, m map[string]any, what string) {
+		t.Helper()
+		b, _ := json.Marshal(m)
+		werr := ws.Write(ctx, websocket.MessageText, b)
+		_, _, rerr := ws.Read(ctx)
+		if rerr == nil || (werr == nil && websocket.CloseStatus(rerr) != websocket.StatusMessageTooBig) {
+			t.Fatalf("%s: write %v, read %v", what, werr, rerr)
+		}
+	}
 
 	// Not unlocked: begin is answered (refused, locked). A page that waits
 	// for that answer sends nothing more; one that doesn't is cut off.
@@ -283,10 +296,7 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	// The connection is still open after the refusal.
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 9})
 	until("unlockResult")
-	send(map[string]any{"t": "configImport", "id": 2, "yaml": big})
-	if _, _, err := ws.Read(ctx); websocket.CloseStatus(err) != websocket.StatusMessageTooBig {
-		t.Fatalf("a connection without an accepted begin sent %d bytes: %v", len(big), err)
-	}
+	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "a connection without an accepted begin")
 	if a.r().cfg.BrandText == "Big" {
 		t.Fatal("imported without the PIN")
 	}
@@ -295,10 +305,7 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	ws, send, until = dial()
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	until("unlockResult")
-	send(map[string]any{"t": "configImport", "id": 2, "yaml": big})
-	if _, _, err := ws.Read(ctx); websocket.CloseStatus(err) != websocket.StatusMessageTooBig {
-		t.Fatalf("no begin, big message: %v", err)
-	}
+	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "no begin, big message")
 
 	// Unlocked, begin then the file: accepted. Then the limit is back.
 	ws, send, until = dial()
@@ -317,10 +324,7 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	}
 	// The PIN hashes were left out, so the connection is still unlocked and a
 	// second big message with no new begin is refused by the limit again.
-	send(map[string]any{"t": "configImport", "id": 5, "yaml": big})
-	if _, _, err := ws.Read(ctx); websocket.CloseStatus(err) != websocket.StatusMessageTooBig {
-		t.Fatalf("limit not restored: %v", err)
-	}
+	tooBig(ws, map[string]any{"t": "configImport", "id": 5, "yaml": big}, "limit not restored")
 	// An oversize claim is answered, and widens nothing.
 	_, send, until = dial()
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
@@ -388,5 +392,52 @@ func TestConfigExportRechecksPin(t *testing.T) {
 	}
 	if _, text, err := a.ExportConfig(adminClient(t, a), true); err != nil || text == "" {
 		t.Fatalf("unlocked export: %v", err)
+	}
+}
+
+// A blank install (no settings PIN, no users) importing a multiuser file that
+// carries no PINs (an export without PINs): refused with a plain message, the
+// live config untouched, nothing half-applied. A file with no users, or with
+// PIN hashes, goes in.
+func TestConfigImportIntoBlankInstall(t *testing.T) {
+	src := userApp(t, true) // users, locks on, a settings PIN
+	text, _ := exportOf(t, src, false)
+
+	blank := func() *App {
+		cfg := config.Defaults()
+		cfg.Normalize()
+		hist, _ := OpenHistory("")
+		sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := New(cfg, filepath.Join(settledTempDir(t), "config.yaml"), hist, sl, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+
+	a := blank()
+	err := a.ImportConfig(&client{ip: "10.0.0.9"}, text)
+	if err == nil || !strings.Contains(err.Error(), "no PIN") {
+		t.Fatalf("PIN-less multiuser file on a blank install: %v", err)
+	}
+	if len(a.r().cfg.Users) != 0 || a.r().cfg.Locks.Main {
+		t.Fatalf("a refused import changed the config: %+v", a.r().cfg.Users)
+	}
+
+	// With the PIN hashes (an export with PINs) the same file is fine.
+	full, _ := exportOf(t, src, true)
+	if err := blank().ImportConfig(&client{ip: "10.0.0.9"}, full); err != nil {
+		t.Fatalf("export with PINs: %v", err)
+	}
+
+	// No users and no locks: nothing needs a PIN.
+	file, _ := config.Parse([]byte(text))
+	file.Users, file.Locks = nil, config.Locks{}
+	b, _ := yaml.Marshal(file)
+	if err := blank().ImportConfig(&client{ip: "10.0.0.9"}, string(b)); err != nil {
+		t.Fatalf("file without users: %v", err)
 	}
 }

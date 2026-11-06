@@ -5,6 +5,7 @@
 import {
   $, el, S, on, emit, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, tallyText, labelNode, toggle, keepSearch,
 } from './core.js';
+import { mac, chord } from './keys.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
 import { timeNodes, scrollTopPref, flipped, setFlip } from './device.js';
@@ -13,15 +14,16 @@ import {
 } from './history.js';
 import {
   undoPlan, againPlan, folderUndoPlan, rowUndoPlan, planEmpty, resultNode, showResult, patchPlan,
-  planBlocked, sendTakes, lastTake, nextTake, lastChip, VERBS,
+  planBlocked, sendTakes, lastTake, nextTake, usedNext, lastChip, VERBS,
 } from './plans.js';
-import { readStr, writeStr } from './store.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
-import { picking, isPicked, pickBox, togglePick, bindPick } from './recentpick.js';
+import { picking, isPicked, pickBox, togglePick, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
-import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
+import { showAll } from './showall.js';
+import { shortcutList } from './shortcuts.js';
+import { byLabel, levelBox, combobox, disclosure, undoButton, UNDO_TIP_ALL, againButton, arrivals, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad } from './widgets.js';
 
 const sel = { src: null, dst: null };
 let dsts = []; // destinations added with +, before the one in the box
@@ -40,14 +42,14 @@ for (const k of ['src', 'dst']) {
     onPick: (it) => select(k, it),
     // Destinations: a + on each row adds it as a chip and keeps the search.
     add: k === 'dst' ? (it) => addDst(it) : undefined,
-    foot: true,
+    foot: $(`${k}-count`),
+    onRender: () => b.all?.sync(), // the Show all button follows the list
   });
 }
 const lvlInput = $('lvl');
 const lvl = levelBox(lvlInput, $('lvl-pick'), $('lvl-all'), { onChange: () => renderTally() });
 
 const active = () => layout() === 'desktop' && document.documentElement.dataset.view !== 'settings';
-const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 const expanded = new Set(); // history IDs showing their before state
 const openFolders = new Set(); // history groups showing their takes
 const openFollowers = new Set(); // history groups showing their Followers
@@ -99,6 +101,8 @@ const keptText = kept.is;
 function addDst(pick) {
   const b = boxes.dst;
   b.input.focus();
+  // A row moved to in the browse list is taken though the box holds no text.
+  if (!pick && b.cb.moved) pick = b.cb.current();
   // Picking a match writes its label into the box; the search is put back.
   let typed = b.input.value;
   if (pick) sel.dst = pick;
@@ -107,6 +111,7 @@ function addDst(pick) {
     if (!b.cb.open) b.cb.refresh();
     if (!b.cb.accept()) { b.input.classList.add('pb-input--invalid'); return; }
   } else typed = '';
+  const added = sel.dst.n;
   if (!chosen(sel.dst)) dsts.push(sel.dst);
   sel.dst = null;
   b.input.value = typed;
@@ -114,7 +119,9 @@ function addDst(pick) {
   b.input.classList.remove('pb-input--invalid');
   renderChips();
   renderTally();
-  b.cb.refresh();
+  // The search stays open: matches for what is typed, or, in an empty box, the
+  // whole list again (minus the one just added) on the row that followed it.
+  showList('dst', b.list().find((d) => d.n > added)?.n);
 }
 
 function renderChips() {
@@ -142,11 +149,13 @@ function renderChips() {
 // opens to the same take with every number one higher on hover, focus or
 // while Shift is held (data-shift on <html>), taking the Last chip's room.
 // Hidden when the box already has it, and for levels when they're the default.
+const boxState = () => ({ src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] });
+
 function renderLast() {
   if (!S.cfg) return;
-  const state = { src: sel.src, dsts: allDsts(), levels: lvl.levels() || [] };
+  const state = boxState();
   const last = lastChip(lastTake(), state);
-  const next = lastChip(nextTake(), state);
+  const next = lastChip(nextTake(state), state);
   for (const k of ['src', 'dst', 'lvl']) {
     const slot = document.querySelector(`[data-last="${k}"]`);
     const key = { src: 's', dst: 'd', lvl: 'f' }[k];
@@ -159,13 +168,13 @@ function renderLast() {
       chips.push(b);
     }
     if (k !== 'lvl' && next[k]) {
-      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__tag', 'Next'),
+      const b = el('button', 'pb-chip sode__last sode__next', el('span', 'sode__tag', 'Next'), el('kbd', 'sode__key-note sode__tag-key', `⌃⇧${key}`),
         el('span', 'sode__next-open', el('span', 'sode__next-in', el('span', 'sode__last-text', ...next[k]), el('kbd', 'sode__key-note', `⌃⇧${key}`))));
       b.title = `Last take's ${what}, the next one (Ctrl+Shift+${key.toUpperCase()})`;
-      b.addEventListener('click', () => useLast(k, nextTake()));
+      b.addEventListener('click', () => useLast(k, true));
       // The slot holds the closed chip's room; the chip opens over the
       // Last chip, so nothing in the row moves.
-      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next'), b));
+      chips.push(el('span', 'sode__next-slot', el('span', 'pb-chip sode__last sode__next-size', 'Next', el('kbd', 'sode__key-note', `⌃⇧${key}`)), b));
     }
     for (const b of chips.flatMap((c) => (c.matches('button') ? [c] : [...c.querySelectorAll('button')]))) {
       b.type = 'button';
@@ -176,20 +185,18 @@ function renderLast() {
   }
 }
 on('history', renderLast);
-// Shift held or let go (also when the window loses focus): the Next chips open.
-const trackShift = (down) => document.documentElement.toggleAttribute('data-shift', down);
-document.addEventListener('keydown', (e) => trackShift(e.shiftKey), true);
-document.addEventListener('keyup', (e) => trackShift(e.shiftKey), true);
-window.addEventListener('blur', () => trackShift(false));
+// (Shift held opens the Next chips: keys.js sets html[data-shift].)
 
 // Fills one box from the last take and moves on: source to destination,
 // destination back to source, but only if that one is empty (no pick, chips
-// or typing); otherwise on to levels. Levels stays. t is the take to use:
-// the last one, or nextTake() for Next.
-function useLast(k, t = lastTake()) {
+// or typing); otherwise on to levels. Levels stays. next: use nextTake()
+// instead of the last take (and remember it, so a repeat goes on).
+function useLast(k, next = false) {
+  const t = next ? nextTake(boxState()) : lastTake();
   if (!t) return showResult('info', 'No take yet', 'There\'s no earlier take to reuse.');
   if (k === 'src') {
     if (!t.src) return;
+    if (next) usedNext('src', t);
     select('src', t.src);
     const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
     focusBox(dstEmpty ? boxes.dst.input : lvlInput);
@@ -199,6 +206,7 @@ function useLast(k, t = lastTake()) {
     const have = allDsts();
     const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
     if (!t.dsts.length) return;
+    if (next) usedNext('dst', t);
     if (add.length) {
       dsts = [...have, ...add.slice(0, -1)];
       select('dst', add[add.length - 1]);
@@ -276,7 +284,7 @@ function histRow(e) {
   const known = e.levels.filter((u) => S.levelBy.has(u));
 
   const btn = e.chain
-    ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, { text: `Undo ${e.chain.length}` })
+    ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, { text: `Undo ${e.chain.length}`, tip: 'Set destination to its source before these changes.' })
     : undoButton(undoPlan(e), `Undo ${src.label} to ${dst.label}`, openConfirm);
   const again = againPlan({ e });
   const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`, openConfirm);
@@ -303,10 +311,10 @@ function histRow(e) {
   if (open) {
     const detail = el('div', 'sode__hist-before',
       ...(e.chain
-        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, openConfirm, useRowSrc)]
+        ? [el('div', 'sode__label', `Changes on ${dst.label}`), ...stackSteps(e, { restore: openConfirm, pickSrc: useRowSrc, pickDst: useRowDst })]
         : [el('div', 'sode__label', `Before #${e.id}, on ${dst.label}`), ...beforeGroups(e).map((g) => srcRow(g.levels, tallyText(g.src), g.src, useRowSrc))]),
       ...failureRows(e),
-      ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels))] : []));
+      ...(e.follows && !e.chain ? [el('div', 'sode__route', followBoxes(e.follows, e.levels, useRowDst))] : []));
     // Below 1000px the row's level bar moves in here (see history.css).
     detail.prepend(el('div', 'sode__hist-levels', el('div', 'sode__label', 'Levels'), levelBar(known)));
     detail.id = detailId;
@@ -337,6 +345,7 @@ function useEnd(k, it) {
   focusBox(k === 'src' ? boxes.dst.input : boxes.src.input);
 }
 function useRowSrc(n) { useEnd('src', srcItem(n)); }
+const useRowDst = (it) => useEnd('dst', it);
 
 // A folder: one confirm's takes under a summary row with the master status,
 // Undo all and Redo all (Retry for the failed ones if any failed).
@@ -348,7 +357,7 @@ function folderRow(f) {
   const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
 
   const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, openConfirm,
-    { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all' });
+    { text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all', tip: UNDO_TIP_ALL });
   const again = againPlan({ f });
   const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`, openConfirm);
 
@@ -447,10 +456,17 @@ const histList = $('history');
 bindPick(histList);
 on('pick', () => renderHistory());
 let keysOn = false;
+// Keyboard mode on or off: the cursor styling and html[data-keys-on], which
+// makes the boxes show their s/d/f keys.
+function setKeys(on) {
+  keysOn = on;
+  histList.classList.toggle('sode__hist--keys', on);
+  document.documentElement.toggleAttribute('data-keys-on', on);
+}
+histList.addEventListener('blur', () => document.documentElement.removeAttribute('data-keys-on'));
 const keyMode = () => keysOn && document.activeElement === histList;
 document.addEventListener('pointerdown', (e) => {
-  keysOn = false;
-  histList.classList.remove('sode__hist--keys');
+  setKeys(false);
   // Clicking a row moves the (hidden) cursor there, so a key from here
   // starts on the row clicked, not one left from earlier.
   const row = histList.contains(e.target) && e.target.closest('[data-key]');
@@ -564,8 +580,7 @@ function retryCur() {
 // key: put the cursor on that row (Esc from one of its buttons).
 function enterKeys(key) {
   // Works on an empty list too: s/d/f, `,`, `/`, `?` and Esc still apply.
-  keysOn = true;
-  histList.classList.add('sode__hist--keys');
+  setKeys(true);
   histList.focus();
   const list = stops();
   // moveTo also closes folders opened for a cursor that's since moved.
@@ -578,13 +593,15 @@ const BOXES = { s: 'src', d: 'dst', f: 'lvl' };
 
 // Keys while the history list (or nothing) has focus. True when handled.
 function onListKey(e) {
-  if (e.ctrlKey || e.metaKey || e.altKey) return false;
-  const k = e.key;
+  // Ctrl+J/K (⌘J/K on a Mac) move like j/k: the same keys work in the text boxes' lists.
+  const jk = (e.ctrlKey !== e.metaKey) && (e.ctrlKey || mac) && !e.altKey && !e.shiftKey && /^Key[JK]$/.test(e.code) ? e.code[3].toLowerCase() : '';
+  if (!jk && (e.ctrlKey || e.metaKey || e.altKey)) return false;
+  const k = jk || e.key;
   if (BOXES[k]) { focusBox($(BOXES[k])); return true; }
   if (k === ',') { $('settings-open').click(); return true; }
   if (k === '/') { openFilters(); return true; }
   if (k === 'S' || k === 'D') { focusSearch(k === 'S' ? 'src' : 'dst'); return true; }
-  if (k === '?') { openKeys(); return true; }
+  if (k === '?') { keys.open(); return true; }
   if (k === 'p') { emit('presetStrip'); return true; }
   if (k === 'Escape') { focusBox(boxes.src.input); return true; }
   // Choosing takes for a preset: Space or Enter ticks the row, nothing else acts on it.
@@ -623,38 +640,9 @@ $('flip').addEventListener('click', () => setFlip(!flipped()));
 on('flip', showFlip);
 showFlip();
 
-// ---- shortcut tip: a note in the corner until dismissed (per browser)
-
-const TIP_KEY = 'sode-hint-keys';
-$('keys-tip-text').textContent = `${mac ? '⌘z' : 'Ctrl+z'} undoes the last Sode take · ${mac ? '⌃?' : 'Ctrl+?'} for shortcuts`;
-$('keys-tip').hidden = readStr(TIP_KEY) === 'hidden';
-$('keys-tip-close').addEventListener('click', () => {
-  $('keys-tip').hidden = true;
-  writeStr(TIP_KEY, 'hidden');
-});
-
 // ---- shortcut list (?)
 
-// Closing from the keyboard returns to keyboard mode if it was on when the
-// list opened; closing with the mouse never does (a click leaves it).
-let keysBack = null;
-let keysWere = false;
-let keysFromHist = false; // opened from Recent, whose rows may be redrawn meanwhile
-function openKeys() {
-  keysBack = document.activeElement;
-  keysWere = keyMode();
-  keysFromHist = histArea(keysBack);
-  $('keys').hidden = false;
-  $('keys-dialog').focus();
-}
-function closeKeys(viaKeys = false) {
-  $('keys').hidden = true;
-  if (keysWere && viaKeys) enterKeys();
-  else if (keysBack?.isConnected && !keysFromHist) keysBack.focus();
-  else focusBox(boxes.src.input);
-}
-// Mac labels; a key that only a Mac has (⌃Z beside ⌘Z) is hidden elsewhere.
-if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) { k.textContent = k.dataset.mac; k.hidden = false; }
+const keys = shortcutList({ keyMode, fromHistory: histArea, enterKeys, focusFirst: () => focusBox(boxes.src.input) });
 
 // The Filter by Source / Destination boxes above Recent.
 function focusSearch(k) {
@@ -663,7 +651,6 @@ function focusSearch(k) {
   f.focus();
   f.select();
 }
-$('keys-close').addEventListener('click', () => closeKeys());
 
 // ---- confirm
 
@@ -679,15 +666,24 @@ const confirm = keyConfirm({
   onClose: (p, viaKeys) => { if (p?.verb === 'patch') lvlInput.focus(); else focusBack(viaKeys); },
 });
 
+// Enter, Tab and + take a box's highlighted match: after typing (the best
+// match, unless the destination box only holds the search kept for adding
+// more), or after moving through the browse list of an empty box.
+function wantsMatch(k) {
+  const b = boxes[k];
+  return b.cb.moved || (!sel[k] && !!b.input.value.trim() && !(k === 'dst' && keptText()));
+}
+
 // Patch button and Enter: take any half-typed box's best match, then confirm.
 function patchNow() {
   for (const k of ['src', 'dst']) {
     const b = boxes[k];
-    if (!sel[k] && b.input.value.trim() && !(k === 'dst' && keptText())) {
+    if (wantsMatch(k)) {
       if (!b.cb.open) b.cb.refresh();
       b.cb.accept();
     }
   }
+  if (boxPicking()) return addPatch(); // Add from Patch Boxes: Enter adds the patch to the preset
   tryConfirm();
 }
 
@@ -771,8 +767,17 @@ for (const k of ['src', 'dst']) {
     renderTally();
   });
   b.input.addEventListener('blur', () => b.cb.close());
-  // Coming back to unconfirmed text reopens its matches.
-  b.input.addEventListener('focus', () => { if (!sel[k]) b.cb.refresh(); });
+  // Focus lists nothing in an empty or confirmed box: its "Show all" button is
+  // there instead (↓ or ↑ opens the whole list too). Unconfirmed text keeps its matches.
+  b.input.addEventListener('focus', () => { if (!sel[k] && b.input.value.trim()) b.cb.refresh(); b.all.sync(); });
+  b.all = showAll(b, $(`${k}-all`), () => sel[k]);
+}
+// The list under a box: every item to scroll through when it holds no text or
+// a confirmed choice (at: the row to highlight), else the matches for its text.
+function showList(k, at, keepMoved = false) {
+  const b = boxes[k];
+  if (sel[k] || !b.input.value.trim()) b.cb.browse(b.list(), at, { keepMoved });
+  else b.cb.refresh();
 }
 // Focusing a box brings the page back to the top (Settings → This device),
 // so it isn't left off-screen after scrolling down Recent.
@@ -807,13 +812,13 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) {
     e.preventDefault();
     e.stopImmediatePropagation(); // not Settings' own keys
-    if ($('keys').hidden) openKeys();
-    else closeKeys(true);
+    if (keys.shown()) keys.close(true);
+    else keys.open();
     return;
   }
   if (!$('keys').hidden) {
     e.stopImmediatePropagation(); // Esc here closes the list, not Settings
-    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeKeys(true); }
+    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); keys.close(true); }
     // Keep focus in the dialog: Close is its only control.
     if (e.key === 'Tab') { e.preventDefault(); $('keys-close').focus(); }
     return;
@@ -830,7 +835,7 @@ document.addEventListener('keydown', (e) => {
   const last = e.ctrlKey && !e.metaKey && !e.altKey && { KeyS: 'src', KeyD: 'dst', KeyF: 'lvl' }[e.code];
   if (last && (!e.shiftKey || last !== 'lvl')) {
     e.preventDefault();
-    useLast(last, e.shiftKey ? nextTake() : lastTake());
+    useLast(last, e.shiftKey);
     return;
   }
   const id = e.target.id;
@@ -849,6 +854,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  // ↓ or ↑ in a box with no list open (empty, confirmed, nothing found) opens the whole list.
+  if (b && !b.cb.open && (chord(e) === 'down' || chord(e) === 'up')) {
+    e.preventDefault();
+    b.all.open();
+    return;
+  }
   // The match list's keys: ↑/↓, PgUp/PgDn, Ctrl+J/K (and ⌘J/K on a Mac).
   if (b && b.cb.nav(e)) return;
   // Ctrl+Enter and ⌘Enter add another destination too.
@@ -871,7 +882,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Tab') {
     // Leaving a box either way takes its best match, like Enter does.
-    if (b && !sel[k] && b.input.value.trim() && !(k === 'dst' && keptText()) && !b.cb.accept()) {
+    if (b && wantsMatch(k) && !b.cb.accept()) {
       e.preventDefault();
       b.input.classList.add('pb-input--invalid');
       return;
@@ -932,10 +943,18 @@ on('hello', () => {
   renderHistory();
 });
 on('names', () => {
-  for (const k of ['src', 'dst']) if (document.activeElement === boxes[k].input && !sel[k]) boxes[k].cb.refresh();
+  // The focused box's list is drawn again from the new names, on the row it
+  // was on. An empty or confirmed box whose list is closed stays closed.
+  for (const k of ['src', 'dst']) {
+    const b = boxes[k];
+    if (document.activeElement !== b.input || (!b.cb.open && (sel[k] || !b.input.value.trim()))) continue;
+    showList(k, b.cb.open ? b.cb.current()?.n : sel[k]?.n, true);
+  }
   renderTally();
 });
 on('tally', renderTally);
+// Done (or Cancel) in a pick bar: no match list may stay open over the page.
+on('pick', () => { if (!boxPicking()) for (const k of ['src', 'dst']) boxes[k].cb.close(); });
 on('conn', renderConn);
 on('history', renderHistory);
 on('result', (r) => $('result').replaceChildren(resultNode(r)));
@@ -945,4 +964,14 @@ presetHost({
   active,
   confirm: openConfirm,
   patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
+  clear: clearAll,
+  focus: () => boxes.src.input.focus(),
+  // Shift-click on a preset: its patch goes into the boxes, not sent.
+  fill: (p) => {
+    dsts = p.dsts.slice(0, -1);
+    select('src', p.src);
+    select('dst', p.dsts[p.dsts.length - 1]);
+    if (p.levels.length) lvl.set(p.levels); else lvl.clear();
+    focusBox(lvlInput);
+  },
 });

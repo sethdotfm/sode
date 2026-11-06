@@ -20,7 +20,7 @@ import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
 import { globalSaver, profileSaver } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
-import { FILTER_DEFAULT, normFilter } from './filterstore.js';
+import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
 import { upsertEntry, filterEntry } from './profilesrules.js';
 import { combobox, trapDialog, labeled } from './widgets.js';
 
@@ -141,7 +141,7 @@ function editor(key) {
         input(r.b, `Rule ${n} to`, (v) => { r.b = num(v); }, true)]
       : r.kind === 'num' ? [input(r.a, `Rule ${n} number`, (v) => { r.a = num(v); }, true)]
       : [input(r.text, `Rule ${n} ${r.kind === 're' ? 'regex' : 'name'}`, (v) => { r.text = v; delete r.quoted; })];
-    const remove = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Remove');
+    const remove = el('button', 'pb-btn pb-btn--ghost', 'Remove');
     remove.type = 'button';
     remove.setAttribute('aria-label', `Remove rule ${n}`);
     remove.addEventListener('click', () => {
@@ -281,7 +281,8 @@ function renderButtons() {
     b.type = 'button';
     b.setAttribute('aria-pressed', String(on));
     if (edited) b.setAttribute('aria-label', `${s.name} (edited)`);
-    b.title = filterSummary(s.f) + (edited ? ' (edited)' : '');
+    b.dataset.pbTip = filterSummary(s.f) + (edited ? ' (edited)' : '');
+    b.classList.add('pb-tip--end');
     b.addEventListener('click', () => {
       toggleSet(s.scope, s.name);
       if (filtersOpen()) reload();
@@ -307,7 +308,9 @@ function renderButtons() {
         kids.push(grp);
       }
     }
-    box.replaceChildren(...kids);
+    // The first group (All) stays put, with its divider; the rest scroll.
+    const [pinned, sep, ...rest] = kids;
+    box.replaceChildren(...(pinned ? [pinned, sep, el('div', 'sode__sets-run', ...rest)] : []));
   }
   if (filtersOpen()) renderSetBar();
 }
@@ -315,11 +318,15 @@ function renderButtons() {
 // ---- open / close
 
 let back = null;
+// The filter and set as they were when the dialog opened: Cancel puts them back
+// (edits apply to Recent as they are made).
+let openSnap = null;
 export const filtersOpen = () => !root.hidden;
 
 export function openFilters() {
   back = document.activeElement;
   tgt = null;
+  openSnap = snapshot();
   chrome();
   const f = filterState();
   renderMode();
@@ -336,9 +343,25 @@ export function openFilters() {
   dialog.focus();
 }
 
-function closeFilters() {
-  eds.src.flush();
-  eds.dst.flush();
+// A set write has landed (the server confirmed it, or it is this browser's):
+// Cancel must not roll the filter back past it.
+function landed() {
+  if (filtersOpen() && !tgt) openSnap = snapshot();
+}
+
+// Cancel, Esc and a click outside: drop what was changed here, then close.
+function cancelFilters() {
+  if (tgt || !openSnap) return closeFilters();
+  // Settle the editors' pending text first (it would otherwise be written
+  // after the restore), put the filter back, then close without flushing.
+  flushEds();
+  restore(openSnap);
+  closeFilters(false);
+}
+
+// flush: write the editors' pending text into the filter first (Done).
+function closeFilters(flush = true) {
+  if (flush) flushEds();
   dlg.hide();
   if (tgt) { // an editor aimed at a profile: nothing global to finish
     tgt = null;
@@ -365,7 +388,7 @@ tSave.type = 'button';
 const tBar = el('div', 'sode__filters-set', labeled('Name', tName), tNote);
 tBar.hidden = true;
 $('flt-set').closest('.sode__filters-sets').before(tBar);
-$('flt-done').before(tSave);
+$('flt-done').after(tSave);
 tSave.hidden = true;
 const tNoteSet = (text, error = false) => {
   tNote.textContent = text;
@@ -378,9 +401,9 @@ function chrome() {
   $('flt-set').closest('.sode__filters-sets').hidden = t;
   tBar.hidden = !t;
   tSave.hidden = !t;
+  $('flt-save').hidden = t;
   $('flt-clear').hidden = t;
   $('flt-share-btn').hidden = t;
-  $('flt-done').textContent = t ? 'Cancel' : 'Done';
   $('filters-title').textContent = t ? `${tgt.old ? 'Edit' : 'Add'} filter set for ${tgt.user}` : 'Filters';
   if (t) { tName.value = tgt.old; tNoteSet(''); tName.classList.remove('pb-input--invalid'); }
 }
@@ -422,7 +445,12 @@ on('openFilterEditor', (m) => {
 });
 
 for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener('click', openFilters);
-$('flt-done').addEventListener('click', closeFilters);
+$('flt-done').addEventListener('click', cancelFilters);
+// Save writes the active set if it was edited, renamed or moved, then closes
+// once the write has landed (for everyone or Me that is the server's answer;
+// it stays open for a PIN or an error). With nothing to write the filter as
+// shown simply stays.
+$('flt-save').addEventListener('click', () => saveSet(() => { if (filtersOpen()) closeFilters(); }));
 $('flt-visual').addEventListener('click', () => setMode('visual'));
 $('flt-code').addEventListener('click', () => setMode('code'));
 for (const k of ['sode', 'ext', 'hidden']) {
@@ -494,7 +522,6 @@ function renderSetBar() {
   if (!named) moveTo = null;
   scopeBox.value = moveTo || (named && [...scopeBox.options].some((o) => o.value === a.scope) ? a.scope : 'local');
   scopeBox.disabled = busy || !named;
-  $('flt-set-save').disabled = busy || !(named && (a.edited || nameDirty || moveTo));
   $('flt-set-saveas').disabled = busy || stack.length > 0;
   $('flt-share-btn').disabled = stack.length > 0;
   $('flt-set-del').disabled = busy || !named;
@@ -556,20 +583,27 @@ $('flt-set-cur-scope').addEventListener('change', () => {
   renderSetBar();
 });
 $('flt-set-cur').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); $('flt-set-save').click(); }
+  if (e.key === 'Enter') { e.preventDefault(); $('flt-save').click(); }
 });
 
 // Takes a set out of one scope (a move's second step).
-function removeSet(scope, name) {
-  if (scope === 'local') return deleteLocalSet(name);
-  changeShared(scope, sharedWith(scope, (l) => l.filter((s) => s.name !== name)), () => {});
+function removeSet(scope, name, done = () => {}) {
+  if (scope === 'local') {
+    deleteLocalSet(name);
+    landed();
+    return done();
+  }
+  changeShared(scope, sharedWith(scope, (l) => l.filter((s) => s.name !== name)), () => { landed(); done(); });
 }
 
 // Save writes the filter and, if the name was edited, the new name with it;
 // if another scope was chosen, it copies the set there first, then removes it here.
-$('flt-set-save').addEventListener('click', () => {
+// done() runs once everything is written, or at once when there is nothing to
+// write; a refusal (a name, a PIN, an error) never calls it.
+function saveSet(done = () => {}) {
+  flushEds(); // edits are applied 150 ms after typing: a.edited must see them
   const a = activeSet();
-  if (!a || a.scope === 'all') return;
+  if (!a || a.scope === 'all' || !(a.edited || nameDirty || moveTo)) return done();
   const box = $('flt-set-cur');
   const name = box.value.trim().slice(0, 32) || a.name;
   const renamed = name !== a.name;
@@ -588,21 +622,23 @@ $('flt-set-save').addEventListener('click', () => {
     moveTo = null;
     if (to === 'local') {
       saveLocalSet(name);
-      return removeSet(from, was);
+      return removeSet(from, was, done);
     }
     const f = filterState();
     return changeShared(to, sharedWith(to, (l) => [...l, { name, f }]),
-      () => { adoptFilter(f, refTo(to, name, f)); removeSet(from, was); });
+      () => { adoptFilter(f, refTo(to, name, f)); removeSet(from, was, done); });
   }
   if (a.scope === 'local') {
     if (renamed) renameLocalSet(a.name, name);
     nameDirty = false;
-    return saveLocalSet(name);
+    saveLocalSet(name);
+    landed();
+    return done();
   }
   const f = filterState();
   changeShared(a.scope, sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name, f } : s))),
-    () => { nameDirty = false; adoptFilter(f, refTo(a.scope, name, f)); });
-});
+    () => { nameDirty = false; adoptFilter(f, refTo(a.scope, name, f)); landed(); done(); });
+}
 
 $('flt-set-del').addEventListener('click', () => {
   const a = activeSet();
@@ -611,11 +647,13 @@ $('flt-set-del').addEventListener('click', () => {
   deleting = false;
   if (a.scope === 'local') {
     deleteLocalSet(a.name);
+    landed();
     $('flt-set').focus();
     return;
   }
   changeShared(a.scope, sharedWith(a.scope, (l) => l.filter((s) => s.name !== a.name)), () => {
     adoptFilter(filterState());
+    landed();
     $('flt-set').focus();
   });
 });
@@ -649,11 +687,14 @@ function saveName() {
   if (err) return bad(err);
   flushEds();
   closeName();
-  if (scope === 'local') return saveLocalSet(name);
+  if (scope === 'local') {
+    saveLocalSet(name);
+    return landed();
+  }
   const fNow = filterState();
   if (scope === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
   changeShared(scope, sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
-    () => adoptFilter(fNow, refTo(scope, name, fNow)));
+    () => { adoptFilter(fNow, refTo(scope, name, fNow)); landed(); });
 }
 const flushEds = () => { eds.src.flush(); eds.dst.flush(); };
 $('flt-set-saveas').addEventListener('click', askName);
@@ -665,7 +706,7 @@ $('flt-set-name').addEventListener('keydown', (e) => {
 });
 
 // Keys stay in the dialog (so the layouts' own keys don't act behind it).
-const dlg = trapDialog(root, dialog, closeFilters);
+const dlg = trapDialog(root, dialog, cancelFilters);
 
 // ---- share links: the filter as one item in a #share= link (exportfmt.js);
 // opening it shows the review sheet (transfer.js). The old ?f= link still opens.
@@ -815,7 +856,7 @@ for (const b of searchBoxes) {
     });
   }
   // Clear leaves focus alone (no keyboard popping up on a phone); the
-  // button hides itself, so let focus go rather than sit on it.
+  // button greys itself out, so let focus go rather than sit on it.
   b.querySelector('[data-search-clear]').addEventListener('click', (e) => {
     clearSearch();
     e.currentTarget.blur();
@@ -845,7 +886,7 @@ function renderSearch() {
         return el('span', 'pb-chip pb-chip--static sode__search-chip', labelNode(it), x);
       }));
     }
-    b.querySelector('[data-search-clear]').hidden = !on && !['src', 'dst'].some((k) => sb[k].text || sb[k].picks.length);
+    b.querySelector('[data-search-clear]').disabled = !on && !['src', 'dst'].some((k) => sb[k].text || sb[k].picks.length);
     b.querySelector('[data-search-note]').textContent = note;
   }
 }

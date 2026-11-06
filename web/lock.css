@@ -21,12 +21,13 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-7);
-  inset: 0;
-  justify-content: center;
+  height: 100vh;
+  height: 100dvh; /* the visible height: a phone's address bar doesn't hide the foot */
+  inset: 0 0 auto 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--pb-space-9);
+  padding-bottom: calc(var(--pb-space-4) + env(safe-area-inset-bottom, 0px));
   position: fixed;
   /* Going away (no is-on): the slow way out. */
   transition:
@@ -47,6 +48,15 @@
     backdrop-filter var(--sode-lock-motion) var(--pb-ease),
     -webkit-backdrop-filter var(--sode-lock-motion) var(--pb-ease),
     border-width var(--sode-lock-motion) var(--pb-ease);
+}
+
+/* The brand and the bodies, centred in what the foot (last row) leaves. */
+.sode-lock__main {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-7);
+  margin-block: auto;
 }
 
 /* Everything but the logo arrives once the logo is most of the way there
@@ -71,6 +81,13 @@
   letter-spacing: var(--pb-tracking-label);
   margin: 0;
   white-space: nowrap;
+}
+/* Phone: lock.js scales a long site name to one line (fitBrand); one too long even then wraps, centred. */
+[data-layout="phone"] .sode-lock__brand {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
 }
 /* The pad's field says "Incorrect" or "Welcome, <name>" in place of the dots
    (lock.js); the words carry the status, the colour only backs them. */
@@ -132,13 +149,20 @@
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
 .sode-lock__who[hidden] { display: none; }
+/* Phone: no lock button in the chip (under a lock screen it shows the closed lock instead). */
+[data-layout="phone"] .sode-lock__who-slot > .pb-btn { display: none; }
+/* The phone's chip is in the way over the page: it shows only under a lock screen (is-hand),
+   and the name is in Settings' Account row the rest of the time. */
+[data-layout="phone"] .sode-lock__who:not(.is-hand) { display: none; }
 /* The chip slides inside the border as it grows, at the border's own rate
    (slow on the way out, like the overlay). Its background does not fade in
    on the way out (a grey box rising under the fading overlay looked wrong
    behind the lock button): it has none at all while any lock overlay is up
    (data-sode-lock, set before the overlay shows and cleared after it is
    gone) and returns then, when it is the same colour as the page behind it. */
-.sode-lock__who {
+/* Only while a lock overlay is up (data-sode-lock): `top` also follows the
+   lost-link banner (--sode-down-h), and that must jump, not float. */
+[data-sode-lock] .sode-lock__who {
   transition:
     left var(--sode-lock-out) var(--pb-ease),
     top var(--sode-lock-out) var(--pb-ease);
@@ -183,14 +207,12 @@
 /* The chip stays above the lock overlay: the hand lock shows who is in. */
 [data-sode-lock] .sode-lock__who { z-index: calc(var(--pb-z-toast) + 1); }
 .sode-lock__foot {
-  bottom: var(--pb-space-4);
+  align-self: stretch;
   display: flex;
+  flex: none;
   gap: var(--pb-space-3);
   justify-content: center;
-  left: 0;
   opacity: 0;
-  position: absolute;
-  right: 0;
   transition: opacity calc(var(--sode-lock-motion) * 0.5) var(--pb-ease);
 }
 .sode-lock__foot[hidden] { display: none; }
@@ -231,7 +253,9 @@
 
 /* Users dialog: one compact row per user. */
 .sode__scrim > .sode__filters.sode__users-dlg { width: min(60rem, calc(100vw - var(--pb-space-8) * 2)); }
-.sode__scrim > .sode__filters.sode__profiles-dlg { width: min(44rem, calc(100vw - var(--pb-space-8) * 2)); }
+.sode__scrim > .sode__filters.sode__profiles-dlg { width: min(64rem, calc(100vw - var(--pb-space-8) * 2)); }
+.sode__scrim > .sode__filters.sode__pinprompt { width: min(26rem, calc(100vw - var(--pb-space-8) * 2)); }
+.sode__pinprompt .pb-modal__body { display: flex; flex-direction: column; gap: var(--pb-space-4); }
 .sode__users-list { display: flex; flex-direction: column; gap: var(--pb-space-4); }
 .sode__users-row {
   align-items: center;
@@ -259,6 +283,7 @@
   .sode__users-row { column-gap: var(--pb-space-5); }
 }
 .sode__users-in { flex: 1 1 8rem; min-width: 0; }
+.sode__users-dlg .pb-modal__body > .pb-btn { margin-top: var(--pb-space-4); }
 .sode__users-opts {
   align-items: end;
   display: flex;
@@ -270,8 +295,22 @@
 
 /* Profiles dialog (profiles.js) */
 .sode__profiles-h { font-size: 1rem; margin: var(--pb-space-4) 0 var(--pb-space-2); }
-.sode__profiles-list { list-style: none; margin: 0; padding: 0; }
-.sode__profiles-row { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2) var(--pb-space-4); padding: var(--pb-space-2) 0; }
+.sode__profiles-list { display: flex; flex-direction: column; gap: var(--pb-space-2); list-style: none; margin: 0; padding: 0; }
+/* Each row is its own bordered strip, so neighbours don't blur together. */
+.sode__profiles-row {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-4);
+  padding: var(--pb-space-3) var(--pb-space-4);
+}
+/* Tiles: User defaults on the left, Filter sets and Presets stacked beside it. */
+.sode__profiles-body { display: grid; gap: var(--pb-space-3) var(--pb-space-7); grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+.sode__profiles-body > .sode__hint { grid-column: 1 / -1; }
+.sode__profiles-sec--prefs { grid-row: span 2; }
+@media (max-width: 49.99rem) { .sode__profiles-sec--prefs { grid-row: auto; } }
 .sode__profiles-item { display: flex; flex: 1 1 12rem; flex-direction: column; min-width: 0; }
 
 /* Under the hand lock the button gives way to the closed lock, a status icon

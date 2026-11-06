@@ -7,6 +7,8 @@ import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
 import { resolvePreset } from './presetstore.js';
+import { showResult, setResult } from './banner.js';
+export { showResult, resultNode } from './banner.js';
 
 let takeSeq = 0;
 const takes = new Map(); // take id → batch
@@ -116,16 +118,6 @@ export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
 // ---- results
 
-// text: a string, or a function building nodes (each layout renders its own).
-export function showResult(kind, title, text, track = null) {
-  S.result = { kind, title, text, track };
-  emit('result', S.result);
-}
-
-export function resultNode(r) {
-  return el('div', `pb-alert pb-alert--${r.kind}`, el('div', null, el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text));
-}
-
 // "A → B (levels 1–3; 2 was already on A)" for one take.
 function takeText(t, already = []) {
   return `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
@@ -217,8 +209,7 @@ function refreshResult() {
   const next = failureBanner(r.track);
   if (next.key === r.track.key) return;
   r.track.key = next.key;
-  S.result = { kind: next.kind, title: next.title, text: next.text, track: r.track };
-  emit('result', S.result);
+  setResult({ kind: next.kind, title: next.title, text: next.text, track: r.track });
 }
 on('history', refreshResult);
 
@@ -387,12 +378,31 @@ export function lastTake() {
 // for the Next chips and Ctrl+Shift+S/D: Cam 1 → Rec 1 + Rec 5 then Cam 2 →
 // Rec 2 + Rec 6. Each side is null (src) or empty (dsts) when any of its
 // numbers would run past the router's list. Levels aren't carried.
-export function nextTake() {
+//
+// Repeating (#195): state is the boxes now ({src, dsts}). While a box still
+// holds what the last Next fill put there (run), the next step starts from
+// that, so Ctrl+Shift+S/D keep going: Cam 2, Cam 3, …; Rec 2 + Rec 6, then
+// Rec 3 + Rec 7. A take, Clear or a hand pick changes the box, so the run
+// stops counting by itself.
+let run = { src: null, dsts: null };
+
+export function nextTake(state) {
   const t = lastTake();
   if (!t) return null;
-  const dsts = t.dsts.map((d) => nextOf(d, S.dstBy));
-  return { src: nextOf(t.src, S.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
+  const src = run.src && state?.src?.n === run.src.n ? run.src : t.src;
+  const base = run.dsts && state && run.dsts.every((d) => state.dsts.some((x) => x.n === d.n)) ? run.dsts : t.dsts;
+  const dsts = base.map((d) => nextOf(d, S.dstBy));
+  return { src: nextOf(src, S.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
 }
+
+// Notes that take t (from nextTake) was just put in box k ('src' or 'dst').
+export function usedNext(k, t) {
+  if (k === 'src') run.src = t.src;
+  else if (k === 'dst') run.dsts = t.dsts;
+}
+
+// For tests.
+export function resetNext() { run = { src: null, dsts: null }; }
 
 // A name without its counter: trailing digits and single letters set apart
 // by a space ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon").
@@ -408,13 +418,14 @@ export function nameStem(name) {
 // The item after it: number + 1, or with pref nextMode fuzzy the next one in
 // router order that the name's text matches ("Cam 3" → search "Cam" → the
 // first higher match; "Prmpt A" → "Prmpt B"). Falls back to the number when
-// the name is only a counter.
+// the name is only a counter or no higher match is left (#196).
 function nextOf(it, by) {
   if (pref('nextMode') === 'fuzzy') {
     const q = nameStem(it.name || '');
     if (q) {
       const all = [...by.values()];
-      return search(all, q, all.length).filter((x) => x.n > it.n).sort((a, b) => a.n - b.n)[0] || null;
+      const hit = search(all, q, all.length).filter((x) => x.n > it.n).sort((a, b) => a.n - b.n)[0];
+      if (hit) return hit;
     }
   }
   return by.get(it.n + 1) || null;

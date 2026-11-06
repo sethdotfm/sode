@@ -45,7 +45,7 @@ export function shareRow() {
   input.readOnly = true;
   input.setAttribute('aria-label', 'Share link');
   const status = el('span', 'pb-status');
-  const ui = { input, status, copy: btn('pb-btn--outline pb-btn--sm', 'Copy link', () => copyLink(ui)) };
+  const ui = { input, status, copy: btn('pb-btn--outline', 'Copy link', () => copyLink(ui)) };
   ui.box = el('div', 'sode__filters-share', labeled('Share link', input), ui.copy, status);
   ui.box.hidden = true;
   return ui;
@@ -68,6 +68,7 @@ function copiedOff(ui) {
   if (!ui.copy?.classList.contains('pb-btn--ok')) return;
   ui.copy.classList.replace('pb-btn--ok', 'pb-btn--outline');
   ui.copy.textContent = 'Copy link';
+  ui.copy.style.minWidth = '';
 }
 export async function copyLink(ui) {
   let ok = false;
@@ -81,7 +82,8 @@ export async function copyLink(ui) {
   if (!ui.copy) return;
   clearTimeout(ui.timer);
   ui.copy.classList.replace('pb-btn--outline', 'pb-btn--ok');
-  ui.copy.textContent = 'Copied';
+  ui.copy.style.minWidth = `${ui.copy.offsetWidth}px`; // keeps Copy link's width
+  ui.copy.textContent = 'Copied!';
   ui.timer = setTimeout(() => copiedOff(ui), COPIED_MS);
 }
 

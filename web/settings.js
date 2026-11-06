@@ -9,14 +9,17 @@ import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime, ownPref, globalPref, defaultPref, myPref, setPref, pref } from './device.js';
 import { myDefaultButtons } from './mydefaults.js';
 import { profile, profileName, saveProfile } from './profile.js';
-import { filterSummary, normFilter } from './filterstore.js';
 import { showResult } from './plans.js';
 import { parseLevelsAs } from './levels.js';
 import { PREFS, resolve, toGlobal } from './prefs.js';
 import { iconURL, setBrand } from './brandicon.js';
 import { layout } from './layout.js';
 import { parseFilter, compileFilter } from './filter.js';
-import { unlock, relock, unlocked, trusted, needsPin, demandPin } from './pin.js';
+import { initToc } from './settingstoc.js';
+import { fillAbout } from './about.js';
+import { renderPinStatus, showPinFields, resetPinFields } from './settingspin.js';
+import { unlock, relock, unlocked, trusted, needsPin } from './pin.js';
+import { askPin, reask } from './pinprompt.js';
 import { guardedEdited, loginOffered } from './lockrules.js';
 import { omitOwned } from './owned.js';
 import { intProblem } from './settingsrules.js';
@@ -125,8 +128,7 @@ $('cfg-brandborder').addEventListener('change', renderBrandPreview);
 
 export function openSettings() {
   if (!S.cfg) return;
-  // Locked or not: the version shows at the bottom of both views.
-  for (const v of form.querySelectorAll('[data-version]')) v.textContent = S.version ? `Sode ${S.version}` : '';
+  showPage(-1); // a phone starts at the list of sections
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
   fillBrandColors();
   for (const f of fields()) {
@@ -146,10 +148,7 @@ export function openSettings() {
   // What the form showed: only a change from it is sent (below), so a form
   // opened before someone else changed the locks can't undo their change.
   shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, auto: S.cfg.autoLockMinutes ?? 0 };
-  $('cfg-pin').value = '';
-  $('cfg-pin2').value = '';
-  $('cfg-pin-clear').checked = false;
-  renderPinStatus();
+  resetPinFields();
   relock(); // opens locked; a reply to an unlock sent before is dropped
   $('lock-pin').value = '';
   $('lock-unlock').disabled = false;
@@ -162,7 +161,6 @@ export function openSettings() {
   root.dataset.view = 'settings'; // before renderNamesStatus, which only draws when open
   renderOffsetNote();
   renderHiddenNote();
-  renderGlobalSets();
   renderNamesStatus();
   window.scrollTo(0, 0);
   markSection();
@@ -179,9 +177,11 @@ function renderLock(opening = false, afterPin = false) {
   if (locked) form.dataset.locked = '';
   else { delete form.dataset.locked; $('lock-help').hidden = true; }
   if (!opening && !flipped) return;
+  // Only a desktop puts the cursor in a box; on a phone that raises the keyboard.
+  if (layout() !== 'desktop') return;
   if (locked) $('lock-pin').focus();
   else if (afterPin) $('settings-find').focus({ preventScroll: true });
-  else if (layout() === 'desktop') $('cfg-namerefresh').focus();
+  else $('cfg-namerefresh').focus();
 }
 
 function closeSettings() {
@@ -222,9 +222,9 @@ function readSettings() {
   return c;
 }
 
-// ---- This device and Defaults for every device: the same six choices
-// (prefs.js). A device one starts with "Global (value)", which follows the
-// default; it applies at once. A default one is saved with the form.
+// ---- This device and Global defaults: the same choices
+// (prefs.js). A device one starts with "Everyone's default (value)" ("My" for a
+// user with their own), which follows the default; it applies at once. A default one is saved with the form.
 
 const prefOptions = (name, globalText) => {
   const opt = (value, text) => Object.assign(el('option', null, text), { value });
@@ -295,15 +295,12 @@ function renderPrefs() {
   const user = profileName();
   for (const s of form.querySelectorAll('select[data-pref]')) {
     const name = s.dataset.pref;
-    if (user) {
-      const opt = (value, text) => Object.assign(el('option', null, text), { value });
-      s.replaceChildren(
-        opt('', `${myPref(name) ? 'My' : 'Everyone\'s'} default (${PREFS[name].values[defaultPref(name)]})`),
-        ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
-      );
-    } else {
-      s.replaceChildren(...prefOptions(name, `Global (${PREFS[name].values[globalPref(name)]})`));
-    }
+    // The same words logged in or not (myPref is '' without a profile).
+    const opt = (value, text) => Object.assign(el('option', null, text), { value });
+    s.replaceChildren(
+      opt('', `${myPref(name) ? 'My' : 'Everyone\'s'} default (${PREFS[name].values[defaultPref(name)]})`),
+      ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
+    );
     s.value = ownPref(name);
     const mb = myButtons.get(name) || (user ? myButton(s) : null);
     if (!mb) continue;
@@ -322,11 +319,12 @@ on('profile', renderPrefs);
 let acctUser = '';
 on('access', (L) => {
   acctUser = L.user || '';
-  $('account').hidden = !L.user && !loginOffered(L);
-  $('account-name').textContent = L.user ? `Logged in as ${L.user}` : 'Not logged in';
+  const acct = !!L.user || loginOffered(L);
+  $('account-name').hidden = !acct;
+  $('account-name').replaceChildren(...(L.user ? ['Logged in as ', el('strong', null, L.user)] : ['Not logged in']));
   for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
-  $('account-login').hidden = !!L.user;
-  $('soft-lock').hidden = L.enforced; // a PIN lock has its own Lock and Log out
+  $('account-login').hidden = !!L.user || !acct;
+  $('soft-lock-btn').hidden = L.enforced; // a PIN lock has its own Lock and Log out
 });
 $('soft-lock-btn').addEventListener('click', () => emit('softLock'));
 $('account-pin').addEventListener('click', () => emit('changePin'));
@@ -335,56 +333,15 @@ $('account-transfer').addEventListener('click', () => emit('openTransfer', { sco
 $('account-logout').addEventListener('click', () => emit('logout'));
 $('account-login').addEventListener('click', () => emit('login'));
 
-// ---- table of contents: one button per section, scrolling to it, with the
-// section in view marked. Wide screens pin it beside the column; narrow
-// ones show it as a strip across the top; the phone layout leaves it out.
+fillAbout($('lock-exit')); // the locked view's bottom row, and the save bar's (its View Logs is the searchable one)
+fillAbout($('settings-foot'), { id: 'open-log' });
+
+// ---- table of contents (settingstoc.js)
 
 const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
 const toc = $('settings-toc');
-// A clicked section stays marked while the page scrolls to it, which may
-// stop short of it near the bottom, until the scroll ends or the user
-// scrolls themselves.
-let picked = -1;
-toc.replaceChildren(...sections.map((sec, i) => {
-  const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
-  b.type = 'button';
-  b.addEventListener('click', () => {
-    picked = i;
-    mark(i);
-    sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-  });
-  return b;
-}));
-function mark(cur) {
-  [...toc.children].forEach((b, i) => {
-    b.classList.toggle('active', i === cur);
-    if (i === cur) b.setAttribute('aria-current', 'location');
-    else b.removeAttribute('aria-current');
-  });
-}
-let tocTick = false;
-function markSection() {
-  tocTick = false;
-  if (!isOpen() || picked >= 0) return;
-  // The last section whose top has reached the top of the window (where a
-  // click scrolls it to, its scroll margin down); at the very bottom the
-  // last one, which may be too short to ever reach it.
-  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-  const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
-  mark(Math.max(atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
-}
-window.addEventListener('scroll', () => {
-  if (tocTick) return;
-  tocTick = true;
-  requestAnimationFrame(markSection);
-}, { passive: true });
-for (const ev of ['scrollend', 'wheel', 'touchstart', 'keydown']) {
-  window.addEventListener(ev, () => {
-    if (picked < 0) return;
-    picked = -1;
-    if (ev !== 'scrollend') markSection();
-  }, { passive: true });
-}
+const tocApi = initToc({ form, sections, toc, isOpen });
+const { phone, showPage, reveal, focusField, markSection } = tocApi;
 
 // ---- level numbering: a three-way switch, labelled for the level count
 
@@ -469,16 +426,6 @@ function renderOffsetNote() {
   $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
 }
 
-// ---- filter sets for everyone: listed here, edited in Recent's Filters
-
-function renderGlobalSets() {
-  if (!isOpen()) return;
-  const sets = S.cfg?.filterSets || [];
-  $('cfg-sets').replaceChildren(...(sets.length
-    ? sets.map((s) => el('li', 'sode__gset', el('strong', null, s.name), el('span', 'sode__hint', filterSummary(normFilter(s)))))
-    : [el('li', 'sode__hint', 'None')]));
-}
-
 // What the globally hidden expression matches, against the router's names.
 function renderHiddenNote() {
   const f = $('cfg-hidden');
@@ -497,8 +444,8 @@ function renderHiddenNote() {
 function renderNamesStatus() {
   if (!isOpen()) return;
   const at = S.namesAt && new Date(S.namesAt);
-  const when = at && at.getFullYear() > 2000 ? `refreshed ${fmtTime(S.namesAt)}` : 'not loaded yet';
-  $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations, ${when}`;
+  $('names-at').textContent = at && at.getFullYear() > 2000 ? `Refreshed ${fmtTime(S.namesAt)}` : 'Not loaded yet';
+  $('names-status').textContent = `${S.srcs.length} sources, ${S.dsts.length} destinations`;
   const btn = $('names-refresh');
   btn.disabled = S.router !== 'up';
   btn.textContent = 'Refresh now';
@@ -510,10 +457,7 @@ function configResult(m) {
     if (!isOpen()) return;
     // Stay open. A new or removed PIN was sent once; a changed PIN has
     // relocked everyone, this view included.
-    $('cfg-pin').value = '';
-    $('cfg-pin2').value = '';
-    $('cfg-pin-clear').checked = false;
-    renderPinStatus();
+    resetPinFields();
     $('settings-err').hidden = true;
     markClean(true);
     renderLock();
@@ -521,8 +465,10 @@ function configResult(m) {
   }
   if (m.locked) {
     relock();
-    demandPin();
-    showLockErr(m.err);
+    // Not trusted: Settings flips to its own PIN prompt. A trusted user's form
+    // never did, so ask in the popup and save again.
+    if (needsPin()) return showLockErr(m.err);
+    reask('Saving that needs the Advanced Settings PIN.').then((ok) => { if (ok) form.requestSubmit(); });
     return;
   }
   $('settings-err').textContent = sentence(m.err);
@@ -534,13 +480,6 @@ function showLockErr(text) {
   $('lock-err').textContent = sentence(text);
   $('lock-err').hidden = false;
   $('lock-pin').select();
-}
-
-function renderPinStatus() {
-  $('cfg-pin-clear-row').hidden = !S.pinSet;
-  $('cfg-pin-status').textContent = S.pinSet
-    ? 'PIN set. Leave blank to keep it.'
-    : 'No PIN. 4–64 characters.';
 }
 
 async function sendUnlock() {
@@ -574,19 +513,38 @@ $('clear-history').addEventListener('click', () => {
   $('clear-cancel').focus();
 });
 $('clear-cancel').addEventListener('click', resetClear);
-$('clear-confirm').addEventListener('click', () => {
+// Clearing needs the settings PIN. The banner comes with the server's
+// `historyCleared`, not when the request goes out (it may be refused).
+// `clearing` is when the request went out (0: none); an answer older than the
+// grace below isn't ours (a refusal that never came back, or someone else's clear).
+let clearing = 0;
+const CLEAR_GRACE_MS = 5000;
+const clearPending = () => Date.now() - clearing < CLEAR_GRACE_MS;
+function sendClear() {
+  clearing = Date.now();
   if (!wsSend({ t: 'clearHistory' })) {
+    clearing = 0;
     $('settings-err').textContent = 'Not connected to Sode.';
     $('settings-err').hidden = false;
     return;
   }
   resetClear();
+}
+$('clear-confirm').addEventListener('click', async () => {
+  if (S.pinSet && !unlocked() && !(await askPin('Clearing history needs the Advanced Settings PIN.'))) return;
+  sendClear();
+});
+on('historyCleared', () => {
+  if (!clearPending()) return;
+  clearing = 0;
   showResult('ok', 'History cleared', 'Recent is empty for everyone.');
 });
+on('wsclose', () => { clearing = 0; });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-exit').addEventListener('click', exitSettings);
-$('settings-back').addEventListener('click', exitSettings); // phone: like Exit
+// Phone: Back leaves a section for the list, then Settings (like Exit).
+$('settings-back').addEventListener('click', () => { if (!tocApi.back()) exitSettings(); });
 $('lock-cancel').addEventListener('click', exitSettings);
 
 // Forgot PIN: how to clear it, in a dialog like the shortcut list.
@@ -630,60 +588,61 @@ $('names-refresh').addEventListener('click', () => {
     $('names-refresh').textContent = 'Refreshing…';
   }
 });
+// Ask for the PIN in the popup, then save again (a trusted user's form stays as it is).
+const askThenSave = (why) => askPin(why).then((ok) => { if (ok) form.requestSubmit(); });
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   if ('locked' in form.dataset) return void sendUnlock(); // Enter or Unlock in the PIN prompt
   // A trusted user saves the rest without the PIN, but not a change to the
   // PIN itself: ask now instead of after a refusal.
   if (S.pinSet && trusted() && !unlocked() && ($('cfg-pin').value || $('cfg-pin-clear').checked)) {
-    demandPin();
-    renderLock();
-    return;
+    return void askThenSave('Changing the PIN needs the Advanced Settings PIN.');
   }
   const c = readSettings();
   // Also not the guards the admin keeps: router, trusted proxies, PIN tries.
   if (S.pinSet && trusted() && !unlocked() && guardedEdited(c, S.cfg)) {
-    demandPin();
-    renderLock();
-    return;
+    return void askThenSave('Changing that setting needs the Advanced Settings PIN.');
   }
   const bad = [...fields()].find((f) => intProblem([{ key: f.dataset.key, type: f.dataset.type, value: f.value }]));
   const badColor = [...$('cfg-colors').querySelectorAll('input')].find((f) => f.value.trim() && !HEX.test(f.value.trim()));
   if (badColor) {
     $('settings-err').textContent = `${badColor.getAttribute('aria-label')} must be hex, like #3a7bd5.`;
     $('settings-err').hidden = false;
-    badColor.focus();
+    focusField(badColor);
     return;
   }
   if (c.defaultLevels === null) {
     $('settings-err').textContent = `Default levels: "${$('cfg-default').value.trim()}" isn't a level or range here.`;
     $('settings-err').hidden = false;
-    $('cfg-default').focus();
+    focusField($('cfg-default'));
     return;
   }
   const hidden = parseFilter(c.hiddenDsts);
   if (hidden.error) {
     $('settings-err').textContent = `Globally hidden destinations: ${hidden.error}.`;
     $('settings-err').hidden = false;
-    $('cfg-hidden').focus();
+    focusField($('cfg-hidden'));
     return;
   }
   if (bad) {
     $('settings-err').textContent = `${form.querySelector(`label[for="${bad.id}"]`)?.textContent || 'A number field'} must be a whole number.`;
     $('settings-err').hidden = false;
-    bad.focus();
+    focusField(bad);
     return;
   }
   const pin = $('cfg-pin').value;
   if (pin && [...pin].length < 4) {
     $('settings-err').textContent = 'The settings PIN must be at least 4 characters.';
     $('settings-err').hidden = false;
-    $('cfg-pin').focus();
+    showPinFields(true);
+    focusField($('cfg-pin'));
     return;
   }
   if (pin !== $('cfg-pin2').value) {
     $('settings-err').textContent = 'The two PINs don\'t match.';
     $('settings-err').hidden = false;
+    showPinFields(true);
+    reveal($('cfg-pin2'));
     $('cfg-pin2').select();
     return;
   }
@@ -708,14 +667,20 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('popstate', showView);
 
-on('hello', () => { showView(); syncLock(); renderGlobalSets(); });
-on('filters', renderGlobalSets);
+on('hello', () => { showView(); syncLock(); });
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
 on('conn', () => { renderNamesStatus(); syncLock(); });
 on('access', () => { if (isOpen() && !saving()) renderLock(); });
+// A bare `locked`: this connection's unlock is gone (the PIN changed elsewhere,
+// or a clear-history was refused). A request of ours waiting on it asks again in
+// the popup; otherwise it only matters to a connection that needs the PIN for
+// Settings at all (not trusted): the form gives way to the PIN prompt.
 on('locked', () => {
-  if (isOpen() && !saving()) showLockErr('Settings are locked; enter the PIN again.');
+  if (clearPending()) {
+    clearing = 0;
+    reask('Clearing history needs the Advanced Settings PIN.').then((ok) => { if (ok) sendClear(); });
+  } else if (isOpen() && !saving() && needsPin()) showLockErr('Settings are locked; enter the PIN again.');
 });
 on('configResult', configResult);
 
@@ -746,9 +711,16 @@ function settingsOf(sec, secId) {
   for (const f of sec.querySelectorAll('[data-find]')) add(f.dataset.find, f.dataset.label || f.textContent, f);
   return [...out.values()];
 }
-const makeIndex = () => buildIndex(sections.map((sec, i) => ({
-  id: secIds[i], title: sec.querySelector('legend').textContent, settings: settingsOf(sec, secIds[i]),
-})));
+// Not inside any section: the save bar's View Logs, indexed under History.
+const OUTSIDE = [{ secId: 'history', id: 'open-log', label: 'View Logs', node: $('open-log') }];
+const makeIndex = () => buildIndex(sections.map((sec, i) => {
+  const settings = settingsOf(sec, secIds[i]);
+  for (const x of OUTSIDE.filter((o) => o.secId === secIds[i])) {
+    settings.push({ id: x.id, label: x.label });
+    targets.set(`${x.secId}/${x.id}`, x.node);
+  }
+  return { id: secIds[i], title: sec.querySelector('legend').textContent, settings };
+}));
 let settingsIndex = makeIndex();
 indexNow = () => { settingsIndex = makeIndex(); };
 
@@ -797,10 +769,11 @@ function pickHit(h) {
   const i = secIds.indexOf(h.sectionId);
   const node = h.kind === 'section' ? sections[i] : targets.get(`${h.sectionId}/${h.id}`);
   if (!node) return;
+  if (h.kind === 'setting' && /^cfg-pin(2|-clear)?$/.test(h.id)) showPinFields(true); // behind the Change PIN button
+  if (phone()) showPage(i);
   findBox.value = '';
   showHits();
-  picked = i;
-  mark(i);
+  tocApi.pick(i);
   node.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: h.kind === 'section' ? 'start' : 'center' });
   flash(node);
   if (h.kind === 'setting') document.getElementById(h.id)?.focus({ preventScroll: true });
