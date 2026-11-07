@@ -244,8 +244,8 @@ export const DICT = {
   'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
 
   // ---- Names
-  'names-refresh': ['refresh', 'reload', 'update', 'reread', 'poll', 'names', 'now', 'fetch'],
-  'cfg-namerefresh': ['poll', 'interval', 'seconds', 'refresh', 'how often', 'timer', 'off', 'names'],
+  'names-refresh': ['refresh', 'reload', 'update', 're-read', 're read', 'reread', 'poll', 'names', 'now', 'fetch'],
+  'cfg-namerefresh': ['poll', 'interval', 'seconds', 'refresh', 're-read', 're read', 'how often', 'timer', 'off', 'names'],
   'cfg-namelen': ['length', 'characters', 'chars', 'width', 'short', 'long', '4', '8', '12', '16', 'truncate'],
   'cfg-namereq': ['standard', 'extended', 'request', 'protocol', 'names', 'sw-p-08', 'swp08', '12 char'],
 
@@ -271,7 +271,7 @@ export const DICT = {
   // ---- Matrix
   'cfg-matrix': ['matrix', 'number', 'id', 'router matrix', 'index', 'zero'],
   'cfg-levels': ['levels', 'count', 'number of levels', 'how many', 'level count', '17'],
-  'cfg-offset': ['offset', 'wire', 'level offset', 'shift', 'level', 'zero based', 'one based'],
+  'cfg-offset': ['offset', 'wire', 'router level', 'level offset', 'shift', 'level', 'zero based', 'one based'],
   'cfg-lvlnum': ['level numbering', 'level', 'numbering', 'number', 'v', 'va', 'video', 'zero', '0', '1', 'start'],
   'cfg-numoff': ['number', 'numbers', 'offset', 'start at 0', 'start at 1', 'zero', 'one', 'sources', 'destinations', 'numbering', 'index'],
 

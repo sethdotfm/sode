@@ -247,14 +247,14 @@
         <span id="names-status"></span>
         <span class="sode__names-refresh">
           <span class="sode__chipbox" id="names-at"></span>
-          <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh now</button>
+          <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Re-read now</button>
         </span>
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-namerefresh">Refresh every (s)</label>
+          <label for="cfg-namerefresh">Re-read every (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRefreshSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">Setting 0s will never auto-refresh.</span>
+          <span class="sode__hint">Setting 0s will never re-read.</span>
         </div>
         <div class="sode__field">
           <label for="cfg-namelen">Name character limit (advanced)</label>
@@ -312,7 +312,7 @@
           <span class="sode__hint">Native stages changes on the router followed by a "Take all" command.<br>Sequential takes each individually in quick succession.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-salvogroup">Salvo group (advanced)</label>
+          <label for="cfg-salvogroup">Router salvo group (advanced)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
         </div>
       </div>
@@ -352,7 +352,7 @@
           <span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input" data-key="levels" data-type="int" min="1" max="256"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-offset">Wire level offset (advanced)</label>
+          <label for="cfg-offset">Level offset (advanced)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input" data-key="levelWireOffset" data-type="int"></span>
           <span class="sode__hint" id="cfg-offset-note"></span>
         </div>
@@ -656,7 +656,7 @@
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="lock-help-title" tabindex="-1" id="lock-help-dialog">
     <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot the Advanced Settings PIN</span></div>
     <div class="pb-modal__body sode__lock-help">
-      <p>On the machine running Sode, in the folder with its <code>docker-compose.yml</code>, remove the PIN:</p>
+      <p>On the machine running Sode, in the directory with its <code>docker-compose.yml</code>, remove the PIN:</p>
       <pre><code>docker compose exec sode /sode -reset-pin</code></pre>
       <p>Then restart Sode to apply it:</p>
       <pre><code>docker compose restart sode</code></pre>

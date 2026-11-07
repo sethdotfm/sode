@@ -427,7 +427,7 @@ function rerenderColors() {
 
 function renderOffsetNote() {
   const off = Number($('cfg-offset').value);
-  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = wire level ${1 + off}` : '';
+  $('cfg-offset-note').textContent = Number.isInteger(off) ? `Level ${levelLabel(1, formMode())} = level ${1 + off} on the router` : '';
 }
 
 function renderHiddenNote() {

@@ -49,7 +49,7 @@ const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
 export const MODES = {
   recent: {
     msg: (name) => `Choose takes for ${name}`,
-    sub: 'Click takes or folders in History to select them.',
+    sub: 'Click takes or Groups in History to select them.',
     aria: 'Choose takes from History',
     follows: true,
     cancelText: 'Cancel',

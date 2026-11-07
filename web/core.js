@@ -275,7 +275,7 @@ export function connState() {
   let down = null;
   if (S.wsLost) {
     down = {
-      title: 'Connection to Sode server interrupted',
+      title: 'Lost link: Server link down',
       text: 'Reconnecting…',
       links: [false, null],
     };
@@ -283,7 +283,7 @@ export function connState() {
     down = { title: 'No router set', text: 'Set the router address in Settings.' };
   } else if (S.wsState === 'up' && (S.router === 'down' || (S.router === 'connecting' && S.routerLastErr))) {
     down = {
-      title: 'Connected to Sode server, router offline',
+      title: 'Lost link: Router link down',
       text: `Reconnecting to ${S.routerAddr}…`,
       err: S.routerLastErr,
       links: [true, false],
