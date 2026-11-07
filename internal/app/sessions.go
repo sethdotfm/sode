@@ -54,19 +54,18 @@ func (a *App) eachOnSessionMu(c *client, fn func(*client)) {
 	fn(c)
 }
 
-// syncSessionMu: lock state to every connection on c's session. Caller holds mu.
 func (a *App) syncSessionMu(c *client) { a.eachOnSessionMu(c, a.syncAccessMu) }
 
-// signOutMu: cl signed in to nothing and sent its new state. Caller holds mu.
+// Caller holds mu.
 func (a *App) signOutMu(cl *client) {
 	cl.u.user.Store(nil)
 	cl.u.sess = nil
 	a.syncAccessMu(cl)
 }
 
-// issueToken gives c's signed-in user a token, "" when none applies. wantTab: a no-lock
-// sign-in's tab token for a non-persistent user. A locked session without a token gets a
-// tab token so a reload still shows the Lock (ADR 0001). Does disk I/O: never under mu.
+// issueToken gives c's signed-in user a token, "" when none applies. wantTab: a tab
+// token for a non-persistent user's sign-in with no page lock. A locked session without a
+// token gets a tab token so a reload still shows the Lock (ADR 0001). Does disk I/O: never under mu.
 func (a *App) issueToken(c *client, wantTab bool) string {
 	a.mu.Lock()
 	who := c.u.user.Load()
@@ -205,14 +204,14 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 	return tok, drop
 }
 
-// finishHold does holdMu's file work. A Lock without a token (non-persistent user) gets a
-// tab token here so a reload still shows it.
+// finishHold: off mu, because it writes the file. A Lock without a token (non-persistent
+// user) gets a tab token here so a reload still shows it.
 func (a *App) finishHold(c *client, on bool, tok string, drop bool) {
 	switch {
 	case drop:
 		a.tokens.forget(tok)
 	case tok != "":
-		a.tokens.persist()
+		a.tokens.save()
 	case on:
 		if t := a.issueToken(c, true); t != "" {
 			a.reply(c, sessionMsg{T: "session", Token: t, Tab: true})

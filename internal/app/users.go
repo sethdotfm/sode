@@ -13,7 +13,7 @@ import (
 )
 
 // Users and page locks. Off until the config has users and a lock on. policy.go holds the
-// message->need table; this file is the access state (who a connection unlocked as) and
+// message->need table; this file is the access state (who a connection signed in as) and
 // the lock screen messages.
 
 var errPageLocked = errors.New("locked; unlock with your PIN first")
@@ -44,7 +44,7 @@ type connUser struct {
 	// on the same token. While locked the user stays set so only their PIN resumes it;
 	// every access check treats a locked connection as signed in to nothing.
 	sess *session
-	user atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
+	user atomic.Pointer[config.User] // who it signed in as, with that user's PIN hash then
 	// profile: last profile message sent (under mu); "" = none, so no clear is sent.
 	profile string
 }
@@ -79,7 +79,8 @@ func (a *App) heldMu(c *client, cfg config.Config) bool {
 
 // endDeadHeldMu: a Lock with nobody left to resume it (the user was removed or changed
 // their PIN) ends, so the connection signs out. Run where a config change applies. Caller
-// holds mu.
+// holds mu. It sends nothing: the callers that change users or PINs (applyConfig,
+// UserSetPin) sync every connection after, and other commits cannot change either.
 func (a *App) endDeadHeldMu() {
 	cfg := a.r().cfg
 	for cl := range a.clients {
@@ -439,7 +440,7 @@ type userResult struct {
 	ID    int    `json:"id"`
 	Err   string `json:"err,omitempty"`
 	Token string `json:"token,omitempty"`
-	Tab   bool   `json:"tab,omitempty"` // Token is a no-lock login's: for this tab only
+	Tab   bool   `json:"tab,omitempty"` // Token is a sign-in without a page lock's: for this tab only
 }
 
 // Unlocks run inline like the settings unlock, so a later lock is handled after.

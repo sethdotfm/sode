@@ -30,7 +30,6 @@ func (a *App) ApplyConfig(c config.Config) error {
 	return a.applyConfig(func(cur *config.Config) error { *cur = c; return nil })
 }
 
-// UserLock is what the userLock handler does.
 func (a *App) UserLock(c *client) { a.setHeld(c, true) }
 
 func (a *App) issueSession(c *client) string { return a.issueToken(c, false) }

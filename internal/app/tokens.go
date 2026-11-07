@@ -33,7 +33,7 @@ type tokenRec struct {
 	User string    `json:"user"` // the user it was issued to
 	Pin  string    `json:"pin"`  // that user's PIN hash then
 	At   time.Time `json:"at"`
-	Tab  bool      `json:"tab,omitempty"` // a no-lock sign-in: for a user who is not persistent, kept by one browser tab
+	Tab  bool      `json:"tab,omitempty"` // a sign-in with no page lock: for a user who is not persistent, kept by one browser tab
 	// Locked: the session's Lock (ADR 0001); a reload with this token comes back locked.
 	Locked bool `json:"locked,omitempty"`
 }
@@ -125,10 +125,19 @@ func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 // prune: after every config change, at startup, before issuing. Never with mu held (writes
 // the file).
 func (s *tokenStore) prune(cfg config.Config) {
+	s.dropWhere(func(r tokenRec) bool {
+		_, ok := valid(r, cfg)
+		return !ok
+	})
+}
+
+// dropWhere deletes every record gone reports and writes the file only if any went. Never
+// with mu held.
+func (s *tokenStore) dropWhere(gone func(tokenRec) bool) {
 	s.mu.Lock()
 	n := len(s.toks)
 	for k, r := range s.toks {
-		if _, ok := valid(r, cfg); !ok {
+		if gone(r) {
 			delete(s.toks, k)
 		}
 	}
@@ -140,24 +149,13 @@ func (s *tokenStore) prune(cfg config.Config) {
 }
 
 // heldOnly: under a PIN lock a non-persistent user's token only carries a held Lock, never
-// a sign-in. Hi refuses it unlocked, issueToken gives none for a sign-in, a resume drops it.
+// a sign-in. Hi refuses it once the Lock has ended, issueToken gives none for a sign-in, a resume drops it.
 func heldOnly(u config.User, page string, locks config.Locks) bool {
 	return !u.Persistent && pageGates[page].on(locks)
 }
 
 func (s *tokenStore) dropUser(name string) {
-	s.mu.Lock()
-	n := len(s.toks)
-	for k, r := range s.toks {
-		if strings.EqualFold(r.User, name) {
-			delete(s.toks, k)
-		}
-	}
-	changed := len(s.toks) != n
-	s.mu.Unlock()
-	if changed {
-		s.save()
-	}
+	s.dropWhere(func(r tokenRec) bool { return strings.EqualFold(r.User, name) })
 }
 
 // Never with App.mu held (writes the file).
@@ -235,8 +233,7 @@ func (s *tokenStore) locked(t string) bool {
 	return s.toks[tokenKey(t)].Locked
 }
 
-// setLocked changes the flag in memory only, cheap enough under App.mu; persist writes
-// it. A token the store does not know is ignored.
+// setLocked changes the flag in memory only, cheap enough under App.mu; save writes it. A token the store does not know is ignored.
 func (s *tokenStore) setLocked(t string, on bool) {
 	if t == "" {
 		return
@@ -249,9 +246,6 @@ func (s *tokenStore) setLocked(t string, on bool) {
 		s.toks[k] = r
 	}
 }
-
-// Never with App.mu held.
-func (s *tokenStore) persist() { s.save() }
 
 func (s *tokenStore) forget(t string) {
 	if t == "" {

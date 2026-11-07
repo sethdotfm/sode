@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"maps"
 	"slices"
 	"testing"
 
@@ -23,9 +24,7 @@ func pageSave(t *testing.T, a *App, c *client, set map[string]any, drop ...strin
 	for _, k := range drop {
 		delete(m, k)
 	}
-	for k, v := range set {
-		m[k] = v
-	}
+	maps.Copy(m, set)
 	b, _ = json.Marshal(m)
 	return decodeAndSave(a, c, b)
 }
@@ -88,6 +87,24 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	}
 	if got := a.r().cfg.DeviceDefaults; got != off {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+// A partial deviceDefaults object merges over the live values, key by key.
+func TestSavePartialDeviceDefaultsMerges(t *testing.T) {
+	a := userApp(t, false)
+	admin := adminClient(t, a)
+	live := config.DeviceDefaults{Theme: "dark", Layout: "phone", Clock: "12", Flip: true, ScrollTop: true, SetStack: "or", NextMode: "fuzzy"}
+	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": live}); err != nil {
+		t.Fatal(err)
+	}
+	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": map[string]any{"theme": "light"}}); err != nil {
+		t.Fatal(err)
+	}
+	want := live
+	want.Theme = "light"
+	if got := a.r().cfg.DeviceDefaults; got != want {
+		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
 
