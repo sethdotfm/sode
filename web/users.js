@@ -74,7 +74,7 @@ const modeField = el(
   el(
     'span',
     'sode__hint',
-    'Username and PIN: each user has a username, and two users may share a PIN. Switching back to PIN only needs a different PIN for each user who shares one.',
+    'Username and PIN: each user has a username, and two users may share a PIN. Switching back to PIN only needs a new, different PIN for every user.',
   ),
 );
 const fillBtn = btn('pb-btn--outline pb-btn--sm', 'Fill empty usernames', () => {
