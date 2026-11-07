@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 )
 
 // sessionToken drains c's queue and returns the token of a `session` message, if any.
@@ -108,5 +109,31 @@ func TestRenameEndsPersistentSession(t *testing.T) {
 	}
 	if err := canTake(a, c); !errors.Is(err, errPageLocked) {
 		t.Fatalf("the open connection stayed signed in as the old name: %v", err)
+	}
+}
+
+// A Lock raised while a token is being issued must end up on that token, or a reload
+// loses it.
+func TestLockRacingTokenIssueReachesTheToken(t *testing.T) {
+	a := userApp(t, true)
+	setFlags(t, a, "Ana", false, true)
+	ana, _ := a.r().cfg.FindUser("Ana")
+	c := &client{ip: "10.0.0.1"}
+	register(a, c)
+	a.mu.Lock()
+	c.u.user.Store(&ana)
+	a.mu.Unlock()
+	a.tokens.mu.Lock() // holds issue() between its checks and the re-lock
+	done := make(chan string)
+	go func() { done <- a.issueSession(c) }()
+	time.Sleep(50 * time.Millisecond)
+	a.UserLock(c)
+	a.tokens.mu.Unlock()
+	tok := <-done
+	a.mu.Lock()
+	held := c.u.token
+	a.mu.Unlock()
+	if held != "" && !a.tokens.locked(held) {
+		t.Fatalf("the Lock is on but token %q (issued %q) is not marked locked", held, tok)
 	}
 }

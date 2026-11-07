@@ -39,13 +39,20 @@ func (a *App) issueSessionTab(c *client, tab bool) string {
 	// Locked meanwhile, or a racing call already issued one: forgotten after mu goes (that
 	// writes the file).
 	stale := c.u.user.Load() != who || a.sessionGoodMu(c)
+	locked := c.u.locked
 	if !stale {
 		c.u.token = t
+		if locked {
+			a.tokens.setLocked(t, true) // raised while the token was being issued
+		}
 	}
 	a.mu.Unlock()
 	if stale {
 		a.tokens.forget(t)
 		return ""
+	}
+	if locked {
+		a.tokens.persist()
 	}
 	return t
 }
