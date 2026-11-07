@@ -28,6 +28,7 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--pb-space-9);
+  padding-top: calc(var(--pb-space-9) + var(--sode-down-h, 0px));
   padding-bottom: calc(var(--pb-space-4) + env(safe-area-inset-bottom, 0px));
   position: fixed;
   transition:

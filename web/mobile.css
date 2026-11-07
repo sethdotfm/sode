@@ -46,6 +46,12 @@
   padding: var(--pb-space-5);
   position: static;
 }
+/* The Lock covers the page, so the banner leaves the flow to stay on top of it. */
+[data-sode-lock] .sode-m__down {
+  left: 0;
+  position: fixed;
+  top: 0;
+}
 .sode-m__down .sode__down-title {
   font-size: var(--pb-text-md);
 }

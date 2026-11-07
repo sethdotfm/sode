@@ -315,6 +315,8 @@ export function renderDown(box, c) {
   box.hidden = !c.down;
   if (typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined' && !banners.has(box)) {
     downObs ??= new ResizeObserver(publishDownHeight);
+    // The phone banner is fixed only while the Lock is up (mobile.css): re-measure when that flips.
+    if (!banners.size) new MutationObserver(publishDownHeight).observe(document.documentElement, { attributes: true, attributeFilter: ['data-sode-lock'] });
     banners.add(box);
     downObs.observe(box);
   }
