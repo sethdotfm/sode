@@ -1,13 +1,25 @@
 package app
 
-import "github.com/sethdotfm/sode/internal/config"
+import (
+	"encoding/json"
+
+	"github.com/sethdotfm/sode/internal/config"
+)
+
+func decodeAndSave(a *App, c *client, b []byte) error {
+	return a.saveSettings(c, b, "", false)
+}
 
 // Wrappers the tests call; the server itself goes through serveConfig and
 // saveSettings.
 
 // SaveSettings applies cfg from c as a message that carried every key.
 func (a *App) SaveSettings(c *client, cfg config.Config, pin string, clearPin bool) error {
-	return a.saveSettings(c, configMsg{Config: cfg, hasDefaults: true, hasLocks: true, hasAuto: true}, pin, clearPin)
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return a.saveSettings(c, b, pin, clearPin)
 }
 
 // ApplyConfig validates, saves and applies new settings, skipping the

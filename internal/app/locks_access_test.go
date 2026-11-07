@@ -9,28 +9,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// decodeConfigMsg reads a Settings form's JSON the way the read loop does.
-func decodeConfigMsg(t *testing.T, a *App, drop ...string) configMsg {
-	t.Helper()
-	b, err := json.Marshal(a.r().cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		t.Fatal(err)
-	}
-	for _, k := range drop {
-		delete(m, k)
-	}
-	b, _ = json.Marshal(m)
-	var cm configMsg
-	if err := json.Unmarshal(b, &cm); err != nil {
-		t.Fatal(err)
-	}
-	return cm
-}
-
 // A Settings save whose message has no locks / autoLockMinutes key (a page
 // from before they were form fields) must keep the live values, not decode to
 // "every lock off".
@@ -45,11 +23,6 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	if err := a.SaveSettings(admin, w, "", false); err != nil {
 		t.Fatal(err)
 	}
-	cm := decodeConfigMsg(t, a, "locks", "autoLockMinutes")
-	if cm.hasLocks || cm.hasAuto {
-		t.Fatal("absent keys read as present")
-	}
-	cm.LevelColors = []string{"#abcdef"}
 	setFlags(t, a, "Ana", true, false)
 	ana := &client{ip: "10.0.0.1"}
 	if err := a.UserUnlock(ana, "1234"); err != nil {
@@ -60,16 +33,12 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 		if who == "trusted" {
 			a.Lock(admin) // only the trusted flag from here on
 		}
-		if err := a.saveSettings(c, cm, "", false); err != nil {
+		if err := pageSave(t, a, c, map[string]any{"levelColors": []string{"#abcdef"}}, "locks", "autoLockMinutes"); err != nil {
 			t.Fatalf("%s: %v", who, err)
 		}
 		if got := a.r().cfg; !got.Locks.Main || !got.Locks.Log || got.AutoLockMinutes != 7 {
 			t.Fatalf("%s: a save without locks turned them off: %+v", who, got.Locks)
 		}
-	}
-	var nul configMsg
-	if err := json.Unmarshal([]byte(`{"locks":null,"autoLockMinutes":null}`), &nul); err != nil || nul.hasLocks || nul.hasAuto {
-		t.Fatalf("null counted as present: %v", err)
 	}
 }
 

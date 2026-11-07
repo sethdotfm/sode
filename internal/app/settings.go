@@ -12,10 +12,10 @@ import (
 // --- settings
 
 // saveSettings: browsers never see the PIN hash, so the current one is kept unless pin
-// sets a new one or clearPin drops it. Saves are serialized. Keys the message lacked
-// (deviceDefaults, locks, autoLockMinutes) keep current values, read under cfgMu.
-func (a *App) saveSettings(c *client, m configMsg, pin string, clearPin bool) error {
-	cfg := m.Config
+// sets a new one or clearPin drops it. Saves are serialized. The message decodes over a
+// copy of the live config, so a key it lacks (an old page) keeps its live value; lists
+// in it replace, and null clears a list.
+func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin bool) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardSave(c, pin == "" && !clearPin); err != nil {
@@ -27,22 +27,19 @@ func (a *App) saveSettings(c *client, m configMsg, pin string, clearPin bool) er
 		// cur is a copy of live; fields saved apart (owned) stay as is, so a stale browser
 		// copy can't undo them.
 		live := *cur
-		if !m.hasLocks {
-			cfg.Locks = live.Locks
-		}
-		if !m.hasAuto {
-			cfg.AutoLockMinutes = live.AutoLockMinutes
+		cfg := live.Clone()
+		if err := json.Unmarshal(msg, &cfg); err != nil {
+			return err
 		}
 		if !admin {
 			if err := trustedMayNotChange(live, cfg); err != nil {
 				return err
 			}
 		}
+		defaults := cfg.DeviceDefaults // owned, but the form edits it
 		*cur = cfg
 		cur.KeepOwned(live)
-		if m.hasDefaults {
-			cur.DeviceDefaults = cfg.DeviceDefaults // the form edits these
-		}
+		cur.DeviceDefaults = defaults
 		switch {
 		case clearPin:
 			cur.SettingsPin = ""

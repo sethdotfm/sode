@@ -281,38 +281,16 @@ func (a *App) serveTake(c *client, m *inMsg) {
 }
 
 func (a *App) serveConfig(c *client, m *inMsg) {
-	if m.Config == nil {
+	if !present(m.Config) {
 		return
 	}
-	// Who saved, not what (settings hold the PIN hash). An old page sends no
-	// deviceDefaults; zero values would turn "on" defaults off, so current ones are kept.
-	go func(cfg configMsg, pin string, clearPin bool) {
+	// Who saved, not what (settings hold the PIN hash).
+	go func(cfg json.RawMessage, pin string, clearPin bool) {
 		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin))
-	}(*m.Config, m.Pin, m.ClearPin)
-}
-
-// configMsg records whether deviceDefaults, locks and autoLockMinutes were present: a
-// missing key must not decode to "every lock off", so saveSettings keeps live values.
-type configMsg struct {
-	config.Config
-	hasDefaults, hasLocks, hasAuto bool
+	}(m.Config, m.Pin, m.ClearPin)
 }
 
 func present(r json.RawMessage) bool { return r != nil && string(r) != "null" }
-
-func (m *configMsg) UnmarshalJSON(b []byte) error {
-	var probe struct {
-		DeviceDefaults json.RawMessage `json:"deviceDefaults"`
-		Locks          json.RawMessage `json:"locks"`
-		AutoLock       json.RawMessage `json:"autoLockMinutes"`
-	}
-	if err := json.Unmarshal(b, &probe); err != nil {
-		return err
-	}
-	m.hasDefaults = probe.DeviceDefaults != nil
-	m.hasLocks, m.hasAuto = present(probe.Locks), present(probe.AutoLock)
-	return json.Unmarshal(b, &m.Config)
-}
 
 func outcome(err error) string {
 	switch {
@@ -331,8 +309,8 @@ type inMsg struct {
 	N          int                `json:"n"`    // history page size; 0 = the default
 	From       int64              `json:"from"` // uptime range, unix ms
 	To         int64              `json:"to"`
-	Slot       int64              `json:"slot"` // ...and its slot length, ms
-	Config     *configMsg         `json:"config"`
+	Slot       int64              `json:"slot"`   // ...and its slot length, ms
+	Config     json.RawMessage    `json:"config"` // decoded in saveSettings, over the live config
 	Pin        string             `json:"pin"`
 	User       string             `json:"user"` // userUnlock: the username (Username and PIN mode)
 	ClearPin   bool               `json:"clearPin"`

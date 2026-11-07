@@ -290,9 +290,7 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("colliding PIN: %v (must not name the other user)", err)
 	}
-	stale := a.r().cfg
-	stale.Users, stale.Locks, stale.AutoLockMinutes = nil, config.Locks{}, 0
-	if err := a.saveSettings(c, configMsg{Config: stale, hasDefaults: true}, "", false); err != nil {
+	if err := pageSave(t, a, c, map[string]any{"users": nil}, "locks", "autoLockMinutes"); err != nil {
 		t.Fatal(err)
 	}
 	if got := a.r().cfg; len(got.Users) != 2 || !got.Locks.Log || got.AutoLockMinutes != 10 {
