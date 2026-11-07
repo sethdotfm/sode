@@ -156,29 +156,32 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 		t.Fatal(err)
 	}
 	back := usersReq{SignInMode: config.SignInPin, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
-	if err := a.SaveUsers(admin, back); err != nil {
-		t.Fatal(err)
+	if err := a.SaveUsers(admin, back); err == nil {
+		t.Fatal("went back to PIN only")
 	}
 	cfg = a.r().cfg
-	if cfg.SignInMode != config.SignInPin || len(cfg.Users) != 2 || cfg.Users[0].Profile.Prefs["theme"] != "dark" || cfg.Users[0].Username != "ana" {
-		t.Fatalf("after the round trip: %+v", cfg)
+	if cfg.SignInMode != config.SignInUsername || len(cfg.Users) != 2 || cfg.Users[0].Profile.Prefs["theme"] != "dark" || cfg.Users[0].Username != "ana" {
+		t.Fatalf("after the refused switch: %+v", cfg)
 	}
 	c := &client{ip: "10.0.0.5"}
-	if err := a.UserUnlock(c, "567890"); err != nil || c.who() != "Bo" {
-		t.Fatalf("PINs after the round trip: %v %q", err, c.who())
+	if err := a.UserUnlockAs(c, "bo", "567890"); err != nil || c.who() != "Bo" {
+		t.Fatalf("PINs after the refused switch: %v %q", err, c.who())
 	}
 }
 
-// Back to PIN only with a PIN two users share: the PIN alone can't say who it is, so it signs nobody in.
-func TestPinOnlyRefusesAnAmbiguousPin(t *testing.T) {
+// Salted hashes can't show a shared PIN, so there is no way back to PIN only.
+func TestUsernameModeCannotGoBackToPinOnly(t *testing.T) {
 	a := usernameApp(t)
 	back := usersReq{SignInMode: config.SignInPin, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
-	if err := a.SaveUsers(adminClient(t, a), back); err != nil {
-		t.Fatal(err)
+	if err := a.SaveUsers(adminClient(t, a), back); err == nil {
+		t.Fatal("went back to PIN only")
 	}
-	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlock(c, "1234"); err == nil || c.who() != "10.0.0.1" {
-		t.Fatalf("an ambiguous PIN signed in as %q", c.who())
+	if a.r().cfg.SignInMode != config.SignInUsername {
+		t.Fatal("the mode changed")
+	}
+	same := usersReq{SignInMode: config.SignInUsername, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
+	if err := a.SaveUsers(adminClient(t, a), same); err != nil {
+		t.Fatalf("re-saving the same mode: %v", err)
 	}
 }
 

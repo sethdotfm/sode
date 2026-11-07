@@ -493,6 +493,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		maxLen := cur.MaxPinLen
 		if req.SignInMode != "" {
+			// Salted hashes can't be checked for shared PINs, so there is no safe way back.
+			if cur.SignInMode == config.SignInUsername && req.SignInMode != config.SignInUsername {
+				return errors.New("Username and PIN mode can't be switched back to PIN only")
+			}
 			cur.SignInMode = req.SignInMode
 		}
 		if len(req.Users) == 0 && cur.Locks.Any() {
