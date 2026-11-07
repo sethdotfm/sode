@@ -2,9 +2,7 @@
 
 Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
-## Beta 1.7.0
-
-This release also carries the 1.6.0 changes below. 1.6.0 never left release candidate stage, so no 1.6.0 release exists.
+## Beta 1.6.0
 
 - **One vocabulary across the UI, docs and code** (GLOSSARY.md). No behavior changed in this part, only words. The renames you will notice:
   - *Recent* is *History* everywhere (the bar, the keyboard mode, *Clear History*, *Hidden destinations in History*). A folder of takes is a *Group*.
