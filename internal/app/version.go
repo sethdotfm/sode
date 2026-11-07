@@ -4,7 +4,7 @@ package app
 // and SODE_RELEASE_TAG.
 const (
 	Stage   = "Beta"
-	Version = "1.6.0"
+	Version = "1.7.0"
 )
 
 // Commit: set by the image build via -ldflags -X; empty for plain go build. An rc and its
