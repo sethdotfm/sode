@@ -86,7 +86,7 @@ test('no module imports a file that imports it back', () => {
   assert.deepEqual(cycles, []);
 });
 
-test('no module is over 1100 lines', () => {
-  const big = files.filter((f) => readFileSync(join(dir, f), 'utf8').split('\n').length > 1100);
+test('no module is over 1000 lines', () => {
+  const big = files.filter((f) => readFileSync(join(dir, f), 'utf8').split('\n').length > 1000);
   assert.deepEqual(big, []);
 });

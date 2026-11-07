@@ -14,7 +14,7 @@ go run ./cmd/swp08sim   (simulator on :8910, SIM_* env in cmd/swp08sim and READM
 SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   (:8080, SODE_DEBUG hex-dumps SW-P-08)
 docker compose --profile sim up --build
 
-Format and lint run as a PostToolUse hook (.claude/settings.json, .claude/hooks/lint.sh): gofmt + go vet on .go; Prettier 3.3.3 via npx (config .prettierrc.json, no package.json) + node --check on web/*.js, web/test/*.mjs, web/*.css. Exit 2 reports back. Don't hand-format; web modules are capped at 1100 lines (imports.test.mjs).
+Format and lint run as a PostToolUse hook (.claude/settings.json, .claude/hooks/lint.sh): gofmt + go vet on .go; Prettier 3.3.3 via npx (config .prettierrc.json, no package.json) + node --check on web/*.js, web/test/*.mjs, web/*.css. Exit 2 reports back. Don't hand-format; web modules are capped at 1000 lines (imports.test.mjs); split before crossing it.
 
 Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web UI is go:embed (web/web.go): restart after frontend edits.
 
