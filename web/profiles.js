@@ -136,18 +136,18 @@ function paint() {
       el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine)),
     ),
     listSection(
-      'Filter sets',
-      prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))),
-      'None saved.',
-      'Add filter set',
-      'openFilterEditor',
-    ),
-    listSection(
       'Presets',
       prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))),
       'None saved.',
       'Add preset',
       'openPresetEditor',
+    ),
+    listSection(
+      'Filter sets',
+      prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))),
+      'None saved.',
+      'Add filter set',
+      'openFilterEditor',
     ),
   );
 }

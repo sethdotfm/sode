@@ -947,3 +947,12 @@ html[data-shift] .sode__next > .sode__next-open {
   border-top: var(--pb-border-w) solid var(--pb-edge);
   padding-top: var(--pb-space-5);
 }
+
+/* An open dialog keeps the page behind it still: wheel and touch over the scrim must not scroll Settings. */
+html:has(.sode__scrim:not([hidden])) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+.sode__scrim .pb-modal__body {
+  overscroll-behavior: contain;
+}
