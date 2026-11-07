@@ -100,6 +100,18 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   color: var(--pb-status-ok);
 }
 
+.sode-lock__namefield {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  width: min(16rem, 100%);
+}
+.sode-lock__namefield[hidden] {
+  display: none;
+}
+.sode-lock__namelabel {
+  color: var(--pb-text-muted);
+}
 .sode-lock__state {
   color: var(--pb-text-muted);
   margin: 0;
@@ -325,6 +337,9 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
     column-gap: var(--pb-space-5);
     display: grid;
     grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(5, auto);
+  }
+  .sode__users-table--named {
+    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(5, auto);
   }
   .sode__users-head,
   .sode__users-list,

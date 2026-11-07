@@ -134,6 +134,23 @@ export const hiToken = (tab, persistent) => tab || persistent || '';
 
 export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
+// Username and PIN mode asks for the username too, except where the held Lock of a signed-in
+// session resumes: the server knows whose it is and a `user` naming someone else is a wrong try.
+export const asksUsername = (s) => s.mode === 'username' && !s.held;
+
+export const canSend = (s, pin, username) => sendable(pin, s.lens || []) && (!asksUsername(s) || username.trim() !== '');
+
+// A pad that auto-sends waits for the username, so a full PIN typed first is not lost as a wrong try.
+export const padDelay = (s, pin, username) => (asksUsername(s) && username.trim() === '' ? null : sendDelay(pin, s.lens || []));
+
+export const signInMsg = (s, { pin, id, username }) => ({
+  t: 'userUnlock',
+  ...(asksUsername(s) ? { user: username.trim() } : {}),
+  pin,
+  id,
+  tab: wantsTab(s),
+});
+
 export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
 // One value {mode, back}. mode is one of MODE: PAGE (a lock from the server may still cover
