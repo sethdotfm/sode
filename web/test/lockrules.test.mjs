@@ -7,8 +7,6 @@ import {
   sendable,
   idleDue,
   idleLock,
-  seenActive,
-  shouldShare,
   needsPin,
   guardedEdited,
   pageType,
@@ -28,15 +26,14 @@ import {
   MODE,
   PAGE_VIEW,
   viewBody,
-  localLock,
+  lockView,
   lockCovers,
   raiseLock,
   signedOut,
   tokenStale,
-  resendLock,
-  dismissLocalLock,
+  lockDismissed,
   startSignIn,
-  cancelSignIn,
+  signInCancelled,
   lockArrived,
   signInWon,
   chipShown,
@@ -275,7 +272,7 @@ test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")',
   assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
 });
 
-test('hand lock: Sign in as is offered with users and no lock, signed in or not', () => {
+test('Lock: Sign in as is offered with users and no lock, signed in or not', () => {
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
   assert.equal(signInAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [] }), false);
@@ -284,33 +281,33 @@ test('hand lock: Sign in as is offered with users and no lock, signed in or not'
 });
 
 test('lock view: which body shows', () => {
-  assert.equal(viewBody({ mode: 'soft', back: 'page' }, false), 'soft');
-  assert.equal(viewBody({ mode: 'login', back: 'soft' }, false), 'pad');
+  assert.equal(viewBody({ mode: 'lock', back: 'page' }, false), 'letter');
+  assert.equal(viewBody({ mode: 'signIn', back: 'lock' }, false), 'pad');
   assert.equal(viewBody(PAGE_VIEW, true), 'pad');
   assert.equal(viewBody(PAGE_VIEW, false), '');
 });
 
 test('lock view: transitions', () => {
-  const soft = localLock(PAGE_VIEW, false);
-  assert.deepEqual(soft, { mode: 'soft', back: 'page' });
-  assert.equal(localLock(PAGE_VIEW, true), PAGE_VIEW);
-  assert.equal(dismissLocalLock(soft), PAGE_VIEW);
-  assert.deepEqual(startSignIn(PAGE_VIEW, false), { mode: 'login', back: 'page' });
-  assert.equal(startSignIn(soft, false), soft); // Settings' button never over the hand lock
-  assert.deepEqual(startSignIn(soft, true), { mode: 'login', back: 'soft' });
+  const lock = lockView(PAGE_VIEW, false);
+  assert.deepEqual(lock, { mode: 'lock', back: 'page' });
+  assert.equal(lockView(PAGE_VIEW, true), PAGE_VIEW);
+  assert.equal(lockDismissed(lock), PAGE_VIEW);
+  assert.deepEqual(startSignIn(PAGE_VIEW, false), { mode: 'signIn', back: 'page' });
+  assert.equal(startSignIn(lock, false), lock); // Settings' button never over the Lock
+  assert.deepEqual(startSignIn(lock, true), { mode: 'signIn', back: 'lock' });
   assert.equal(startSignIn(PAGE_VIEW, true), PAGE_VIEW);
-  const fromSoft = startSignIn(soft, true);
-  assert.equal(fromSoft.back, 'soft'); // the caller reads this before cancelling
-  assert.equal(cancelSignIn(fromSoft), PAGE_VIEW);
-  assert.equal(cancelSignIn(soft), soft);
-  assert.deepEqual(localLock(fromSoft, false), { mode: 'soft', back: 'page' }); // idle lock wins over a pad
-  assert.equal(lockArrived(soft, true), PAGE_VIEW);
-  assert.equal(lockArrived(soft, false), soft);
-  assert.equal(lockArrived(fromSoft, true), fromSoft);
+  const fromLock = startSignIn(lock, true);
+  assert.equal(fromLock.back, 'lock'); // the caller reads this before cancelling
+  assert.equal(signInCancelled(fromLock), PAGE_VIEW);
+  assert.equal(signInCancelled(lock), lock);
+  assert.deepEqual(lockView(fromLock, false), { mode: 'lock', back: 'page' }); // idle lock wins over a pad
+  assert.equal(lockArrived(lock, true), PAGE_VIEW);
+  assert.equal(lockArrived(lock, false), lock);
+  assert.equal(lockArrived(fromLock, true), fromLock);
 });
 
 test('lock view: a signedIn ends only with a real unlock or an enforced lock', () => {
-  const signedIn = { mode: 'login', back: 'soft' };
+  const signedIn = { mode: 'signIn', back: 'lock' };
   assert.equal(signInWon(signedIn, { enforced: false, unlocked: false, user: 'Ana' }), signedIn); // someone else's state
   assert.equal(signInWon(signedIn, { enforced: false, unlocked: true, user: '' }), signedIn);
   assert.equal(signInWon(signedIn, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
@@ -318,21 +315,21 @@ test('lock view: a signedIn ends only with a real unlock or an enforced lock', (
   assert.equal(signInWon(PAGE_VIEW, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
 });
 
-test('hand lock: the chip shows for a logged-in user under it only', () => {
-  assert.equal(chipShown({ covered: true, soft: true, user: 'Ana' }), true);
-  assert.equal(chipShown({ covered: true, soft: true, user: '' }), false);
-  assert.equal(chipShown({ covered: false, soft: false, user: '' }), true);
-  assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false);
-  assert.equal(chipShown({ covered: true, soft: false, user: '', heldUser: 'Ana' }), true); // the held pad says whose it is
-  assert.equal(chipShown({ covered: true, soft: false, user: '', heldUser: '' }), false);
+test('Lock: the chip shows for a logged-in user under it only', () => {
+  assert.equal(chipShown({ covered: true, letter: true, user: 'Ana' }), true);
+  assert.equal(chipShown({ covered: true, letter: true, user: '' }), false);
+  assert.equal(chipShown({ covered: false, letter: false, user: '' }), true);
+  assert.equal(chipShown({ covered: true, letter: false, user: 'Ana' }), false);
+  assert.equal(chipShown({ covered: true, letter: false, user: '', heldUser: 'Ana' }), true); // the held pad says whose it is
+  assert.equal(chipShown({ covered: true, letter: false, user: '', heldUser: '' }), false);
 });
 
-test('hand lock: Sign out offered only with a user and no PIN lock; the view stays soft', () => {
+test('Lock: Sign out offered only with a user and no PIN lock; the view stays Lock', () => {
   assert.equal(signOutOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
   assert.equal(signOutOffered({ enforced: false, user: '', lens: [4] }), false);
   assert.equal(signOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
-  const v = localLock(PAGE_VIEW, false);
-  // logging out changes no view: lockArrived(false) and signInWon leave soft alone
+  const v = lockView(PAGE_VIEW, false);
+  // logging out changes no view: lockArrived(false) and signInWon leave the Lock alone
   assert.deepEqual(lockArrived(v, false), v);
   assert.deepEqual(signInWon(v, { enforced: false, unlocked: false, user: '' }), v);
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
@@ -363,7 +360,7 @@ test('a held Lock keeps the browser session token across a reload', () => {
 });
 
 test('a held Lock cancels the letter Lock', () => {
-  assert.equal(lockArrived({ mode: MODE.SOFT, back: 'page' }, true), PAGE_VIEW);
+  assert.equal(lockArrived({ mode: MODE.LOCK, back: 'page' }, true), PAGE_VIEW);
 });
 
 test('username mode asks for a username, except when resuming a held Lock', async () => {
@@ -391,26 +388,6 @@ test('username mode asks for a username, except when resuming a held Lock', asyn
   const held = { ...named, held: true, user: 'Ann' };
   assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, username: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
   assert.equal(canSend(held, '1234', ''), true);
-});
-
-test('seenActive: activity in another tab only moves the timer forward', () => {
-  assert.equal(seenActive(1000, 5000), 5000);
-  assert.equal(seenActive(5000, 1000), 5000);
-  assert.equal(seenActive(5000, 'x'), 5000);
-  assert.equal(seenActive(5000, undefined), 5000);
-});
-
-test('shouldShare: at most one activity message a second', () => {
-  assert.equal(shouldShare(0, 999), false);
-  assert.equal(shouldShare(0, 1000), true);
-  assert.equal(shouldShare(5000, 5500), false);
-});
-
-test('a Lock the server never got is sent again, not undone, when the session answers unlocked', () => {
-  assert.equal(resendLock(true, { user: 'Ana', held: false }), true);
-  assert.equal(resendLock(true, { user: 'Ana', held: true }), false); // the server holds it now
-  assert.equal(resendLock(true, { user: '', held: false }), false); // session gone: nothing to hold
-  assert.equal(resendLock(false, { user: 'Ana', held: false }), false); // nothing owed
 });
 
 test('heldEnded: a held Lock that ends with nobody signed in was ended elsewhere; one that ends signed in was resumed', () => {

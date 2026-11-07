@@ -243,8 +243,8 @@ export const DICT = {
   ],
   account: ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
-  'soft-lock': ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
-  'soft-lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
+  'lock': ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
+  'lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
   'account-login': ['log in', 'login', 'sign in', 'signin', 'user', 'pin', 'account', 'session', 'tab', 'name'],
   'account-logout': ['logout', 'log out', 'sign out', 'signout', 'session', 'account', 'lock', 'leave'],
 
