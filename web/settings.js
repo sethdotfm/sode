@@ -333,9 +333,9 @@ on('access', (L) => {
   $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : ['Not signed in']));
   for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
   $('account-login').hidden = !!L.user || !acct;
-  $('soft-lock-btn').hidden = L.enforced && !L.user;
+  $('lock-btn').hidden = L.enforced && !L.user;
 });
-$('soft-lock-btn').addEventListener('click', () => emit('localLock'));
+$('lock-btn').addEventListener('click', () => emit('localLock'));
 $('account-pin').addEventListener('click', () => emit('changePin'));
 $('account-profile').addEventListener('click', () => emit('openProfile', { name: acctUser }));
 $('account-transfer').addEventListener('click', () => emit('openTransfer', { scope: 'user', user: acctUser }));

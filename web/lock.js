@@ -10,8 +10,6 @@ import { readStr, writeStr, readTab, writeTab } from './store.js';
 import {
   padKey,
   idleLock,
-  seenActive,
-  shouldShare,
   pageType,
   liftFrom,
   shouldFly,
@@ -32,15 +30,14 @@ import {
   MODE,
   PAGE_VIEW,
   viewBody,
-  localLock as softView,
+  lockView,
   lockCovers,
   raiseLock,
   signedOut,
   tokenStale,
-  resendLock,
-  dismissLocalLock as softUnview,
+  lockDismissed,
   startSignIn,
-  cancelSignIn as cancelView,
+  signInCancelled,
   lockArrived,
   signInWon,
   chipShown,
@@ -54,6 +51,8 @@ import {
   tokenHome,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
+import { createOwed } from './owed.js';
+import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
 import { layout, onLayout } from './layout.js';
 
@@ -94,14 +93,14 @@ writeStr('sode-lock-never', null);
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
 let nameField, nameInput;
-let padBody, softBody, softKey, softBtn, softNote, signInAsBtn, signOutBtn, softFoot;
-let owedLock = false; // the Lock was raised here but the server has not confirmed it
+let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
+const owed = createOwed(wsSend); // a Lock or sign out the server has not got yet
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a sign-in
 let V = PAGE_VIEW;
-let handOn = false;
+let covering = false;
 let cancelBtn;
-let soft = null;
-let lastSoftKey = '';
+let letterLock = null;
+let lastLetter = '';
 let pin = '';
 let seq = 0;
 let timer = 0;
@@ -159,13 +158,13 @@ function build() {
   nameField.hidden = true;
   padBody = el('div', 'sode-lock__body', nameField, state, dotsEl, msg, pad, cancelBtn);
 
-  softKey = el('kbd', 'sode__key sode__key--locked');
-  softBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
-  softBtn.type = 'button';
-  softBtn.addEventListener('click', dismissLocalLock);
-  softNote = el('p', 'sode-lock__msg');
-  softNote.setAttribute('role', 'status');
-  softNote.setAttribute('aria-live', 'polite');
+  letterKey = el('kbd', 'sode__key sode__key--locked');
+  letterBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
+  letterBtn.type = 'button';
+  letterBtn.addEventListener('click', dismissLocalLock);
+  letterNote = el('p', 'sode-lock__msg');
+  letterNote.setAttribute('role', 'status');
+  letterNote.setAttribute('aria-live', 'polite');
   signInAsBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Sign in as…');
   signInAsBtn.type = 'button';
   signInAsBtn.hidden = true;
@@ -174,12 +173,12 @@ function build() {
   signOutBtn.type = 'button';
   signOutBtn.hidden = true;
   signOutBtn.addEventListener('click', signOutFromFoot);
-  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to dismiss'), softBtn, softNote);
-  softBody.hidden = true;
-  softFoot = el('div', 'sode-lock__foot', signOutBtn, signInAsBtn);
-  softFoot.hidden = true;
+  letterBody = el('div', 'sode-lock__body', el('p', 'sode-lock__letter-line', 'Press ', letterKey, ' to dismiss'), letterBtn, letterNote);
+  letterBody.hidden = true;
+  letterFoot = el('div', 'sode-lock__foot', signOutBtn, signInAsBtn);
+  letterFoot.hidden = true;
   // The foot is the last row, in flow, so it can't land on the pad.
-  root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, softBody), softFoot);
+  root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, letterBody), letterFoot);
   root.hidden = true;
   root.tabIndex = -1;
   root.setAttribute('role', 'dialog');
@@ -187,7 +186,7 @@ function build() {
   root.setAttribute('aria-label', 'Locked');
   document.body.append(root);
 
-  chip = buildChip({ lock: () => (L.user ? lockNow() : localLock()) });
+  chip = buildChip({ lock: localLock });
   document.body.append(chip.root);
 }
 
@@ -200,11 +199,11 @@ function say(text, bad = false) {
 function render() {
   const covered = viewBody(V, lockCovers(L)) !== '';
   const who = L.held ? heldUser : '';
-  const showChip = chipShown({ covered, soft: V.mode === MODE.SOFT, user: L.user, heldUser: who });
+  const showChip = chipShown({ covered, letter: V.mode === MODE.LOCK, user: L.user, heldUser: who });
   if (covered) showLock();
   else hideLock();
   build();
-  chip.update(L, showChip, V.mode === MODE.SOFT || L.held, L.user || who);
+  chip.update(L, showChip, V.mode === MODE.LOCK || L.held, L.user || who);
   document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
@@ -247,10 +246,10 @@ function showLock() {
   padBody.hidden = body !== 'pad';
   cancelBtn.hidden = V.mode !== MODE.SIGN_IN;
   nameField.hidden = !asksUsername(L);
-  softBody.hidden = body !== 'soft';
+  letterBody.hidden = body !== 'letter';
   signOutBtn.hidden = !(L.held || signOutOffered(L));
   signInAsBtn.hidden = L.held || !signInAsOffered(L);
-  softFoot.hidden = !L.held && (body !== 'soft' || (signOutBtn.hidden && signInAsBtn.hidden));
+  letterFoot.hidden = !L.held && (body !== 'letter' || (signOutBtn.hidden && signInAsBtn.hidden));
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
@@ -286,7 +285,7 @@ function showLock() {
   const had = document.activeElement;
   if (had && had !== document.body && !root.contains(had)) before = had;
   had?.blur?.();
-  if (focusName(L, nameValue()) && V.mode !== MODE.SOFT) nameInput.focus({ preventScroll: true });
+  if (focusName(L, nameValue()) && V.mode !== MODE.LOCK) nameInput.focus({ preventScroll: true });
   else root.focus({ preventScroll: true });
 }
 
@@ -316,9 +315,9 @@ addEventListener('resize', refit);
 onLayout(refit);
 
 function setHand(on) {
-  if (handOn === on) return;
-  handOn = on;
-  emit('handlock', { on });
+  if (covering === on) return;
+  covering = on;
+  emit('lockcover', { on });
 }
 
 let watch = null;
@@ -480,11 +479,7 @@ onMsg('session', (m) => {
 });
 
 onMsg('lockState', (m) => {
-  if (resendLock(owedLock, m)) {
-    owedLock = !wsSend({ t: 'userLock' });
-    return;
-  }
-  if (m.held || !m.user) owedLock = false;
+  if (owed.arrived(m)) return;
   if (settle) settle();
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
   const ended = heldEnded(L, m);
@@ -500,9 +495,9 @@ onMsg('lockState', (m) => {
   L.lens = m.lens || [];
   L.mode = m.mode === 'username' ? 'username' : 'pin';
   S.userNames = m.names || [];
-  if (lockCovers(L) && soft) {
-    soft.lock.cancel();
-    soft = null;
+  if (lockCovers(L) && letterLock) {
+    letterLock.lock.cancel();
+    letterLock = null;
   }
   V = lockArrived(V, lockCovers(L));
   // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.
@@ -548,8 +543,8 @@ on('login', () => {
 
 function cancelSignIn() {
   if (V.mode !== MODE.SIGN_IN) return;
-  const back = V.back === 'soft';
-  V = cancelView(V);
+  const back = V.back === 'lock';
+  V = signInCancelled(V);
   clearTimeout(timer);
   clearFeedback();
   if (back && !L.enforced) localLock();
@@ -558,40 +553,40 @@ function cancelSignIn() {
 
 function localLock() {
   if (L.user) return lockNow();
-  if (soft || L.enforced || lockCovers(L) || !S.cfg) return;
+  if (letterLock || L.enforced || lockCovers(L) || !S.cfg) return;
   build();
-  V = softView(V, false);
-  const key = churnKey(lastSoftKey);
-  lastSoftKey = key;
-  softKey.textContent = key.toUpperCase();
-  softKey.classList.add('sode__key--locked');
-  softBtn.disabled = true;
-  softNote.textContent = 'Wait a moment…';
-  soft = {
+  V = lockView(V, false);
+  const key = churnKey(lastLetter);
+  lastLetter = key;
+  letterKey.textContent = key.toUpperCase();
+  letterKey.classList.add('sode__key--locked');
+  letterBtn.disabled = true;
+  letterNote.textContent = 'Wait a moment…';
+  letterLock = {
     key,
     lock: lockout(() => {
-      softKey.classList.remove('sode__key--locked');
-      softBtn.disabled = false;
-      softNote.textContent = '';
+      letterKey.classList.remove('sode__key--locked');
+      letterBtn.disabled = false;
+      letterNote.textContent = '';
     }),
   };
   render();
 }
 
 function dismissLocalLock() {
-  if (!soft?.lock.ready()) return;
-  soft.lock.cancel();
-  soft = null;
-  V = softUnview();
+  if (!letterLock?.lock.ready()) return;
+  letterLock.lock.cancel();
+  letterLock = null;
+  V = lockDismissed();
   render();
 }
 
 // "Sign in as…": ends the Lock with nobody signed in and begins a sign-in. Cancel returns to
 // it. That Lock sends nothing to the server, so a tab sign-in stays in until this one succeeds.
 function signInFromLock() {
-  if (!soft || !signInAsOffered(L)) return;
-  soft.lock.cancel();
-  soft = null;
+  if (!letterLock || !signInAsOffered(L)) return;
+  letterLock.lock.cancel();
+  letterLock = null;
   V = startSignIn(V, true);
   nameInput.value ||= prefillName(L, readStr(LAST_KEY));
   pin = '';
@@ -603,7 +598,7 @@ function signInFromLock() {
 
 // From the held Lock, or under the Lock with nobody signed in, with someone signed in: the session ends.
 function signOutFromFoot() {
-  if (L.held || (V.mode === MODE.SOFT && signOutOffered(L))) signOutNow();
+  if (L.held || (V.mode === MODE.LOCK && signOutOffered(L))) signOutNow();
 }
 
 on('localLock', localLock);
@@ -612,7 +607,7 @@ on('localLock', localLock);
 // until this user's PIN resumes it. The token stays for that.
 function lockNow() {
   if (!L.user) return;
-  owedLock = !wsSend({ t: 'userLock' });
+  owed.owe('userLock');
   pin = '';
   clearTimeout(timer);
   heldUser = L.user;
@@ -631,8 +626,7 @@ function signOutNow() {
   writeTab(TAB_KEY, null);
   heldUser = '';
   writeTab(HELD_KEY, null);
-  wsSend({ t: 'userSignOut' });
-  owedLock = false;
+  owed.owe('userSignOut');
   pin = '';
   clearTimeout(timer);
   clearFeedback();
@@ -647,14 +641,14 @@ function signOutNow() {
 document.addEventListener(
   'keydown',
   (e) => {
-    if (V.mode === MODE.SOFT) {
+    if (V.mode === MODE.LOCK) {
       // The page behind must not see a key (not a take, not Ctrl+Z); a shortcut chord is kept
       // from the page but left to the browser.
       e.stopImmediatePropagation();
       if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       if (e.key === 'Tab' || ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button'))) return;
       e.preventDefault();
-      if (e.key.toLowerCase() === soft.key || (S.cfg?.confirmEnter && e.key === 'Enter')) dismissLocalLock();
+      if (e.key.toLowerCase() === letterLock.key || (S.cfg?.confirmEnter && e.key === 'Enter')) dismissLocalLock();
       return;
     }
     if (root && !root.hidden && root.classList.contains('is-on')) {
@@ -699,24 +693,12 @@ document.addEventListener(
   true,
 );
 
-// Idle is per browser: activity in any tab resets every tab's timer, or a background tab would
-// lock the shared session (the server holds the Lock for all of it) under someone who is typing.
-let lastActive = Date.now();
-let lastShared = 0;
-const activity = typeof BroadcastChannel === 'function' ? new BroadcastChannel('sode-activity') : null;
-if (activity) activity.onmessage = (e) => (lastActive = seenActive(lastActive, e.data));
-const touch = () => {
-  const now = Date.now();
-  lastActive = now;
-  if (activity && shouldShare(lastShared, now)) {
-    lastShared = now;
-    activity.postMessage(now);
-  }
-};
+const idle = createIdleShare(typeof BroadcastChannel === 'function' ? new BroadcastChannel('sode-activity') : null);
+const touch = idle.touch;
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
 setInterval(() => {
   const minutes = S.cfg?.autoLockMinutes || 0;
-  if (idleLock(L, lastActive, Date.now(), minutes)) lockNow();
-  else if (S.cfg && localIdleLock(L, !!soft, lastActive, Date.now(), minutes)) localLock();
+  if (idleLock(L, idle.lastActive(), Date.now(), minutes)) lockNow();
+  else if (S.cfg && localIdleLock(L, !!letterLock, idle.lastActive(), Date.now(), minutes)) localLock();
 }, 5000);
