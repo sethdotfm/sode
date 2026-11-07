@@ -135,7 +135,7 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 		cfg := a.r().cfg.Clone()
 		ch(&cfg)
 		err := a.SaveSettings(c, cfg, "", false)
-		if !errors.Is(err, errLocked) || !strings.Contains(err.Error(), "settings PIN") {
+		if !errors.Is(err, errLocked) || !strings.Contains(err.Error(), "Advanced Settings PIN") {
 			t.Errorf("trusted changed %s: %v", name, err)
 		}
 	}
@@ -337,7 +337,7 @@ func TestHardeningOverWebSocket(t *testing.T) {
 		t.Fatalf("odd-case clearPin accepted: %v", m)
 	}
 	if a.r().cfg.SettingsPin != cfg.SettingsPin {
-		t.Fatal("the settings PIN changed")
+		t.Fatal("the Advanced Settings PIN changed")
 	}
 
 	send2(map[string]any{"t": "userUnlock", "pin": "567890", "id": 2})

@@ -52,7 +52,7 @@ func TestUsersListNeedsPin(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	if err := admitMsg(a, c, inMsg{T: "usersList"}); err == nil {
-		t.Fatal("usersList admitted without the settings PIN")
+		t.Fatal("usersList admitted without the Advanced Settings PIN")
 	}
 	r := a.usersList(3)
 	b, _ := json.Marshal(r)

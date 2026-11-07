@@ -105,11 +105,11 @@ func TestRefusalReplies(t *testing.T) {
 	}
 	send(map[string]any{"t": "presets", "id": 6, "presets": []any{}})
 	if m := until("presetsResult"); m["ok"] != true {
-		t.Fatalf("salvos with the settings PIN: %v", m)
+		t.Fatalf("salvos with the Advanced Settings PIN: %v", m)
 	}
 	send(map[string]any{"t": "batch", "items": []map[string]any{{"id": 8}}})
 	if m := until("takeResult"); m["ok"] == true {
-		t.Fatalf("a take got through on the settings PIN: %v", m)
+		t.Fatalf("a take got through on the Advanced Settings PIN: %v", m)
 	}
 }
 

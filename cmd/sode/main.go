@@ -69,21 +69,21 @@ func resetSettingsPin(path string) {
 		log.Fatalf("reset-pin: %v", err)
 	}
 	if !exists || c.SettingsPin == "" {
-		log.Printf("reset-pin: no settings PIN in %s", path)
+		log.Printf("reset-pin: no Advanced Settings PIN in %s", path)
 		return
 	}
 	c.SettingsPin = ""
-	// Locks need a settings PIN (the admin password), so they go with it.
+	// Locks need an Advanced Settings PIN, so they go with it.
 	c.Locks = config.Locks{}
 	if err := config.Save(path, c); err != nil {
 		log.Fatalf("reset-pin: %v", err)
 	}
-	log.Printf("reset-pin: removed the settings PIN (and turned the page locks off) from %s; restart sode to apply", path)
+	log.Printf("reset-pin: removed the Advanced Settings PIN (and turned the page locks off) from %s; restart sode to apply", path)
 }
 
 func main() {
 	health := flag.Bool("healthcheck", false, "probe the local /healthz and exit")
-	resetPin := flag.Bool("reset-pin", false, "remove the settings PIN from SODE_CONFIG and exit (restart sode afterwards)")
+	resetPin := flag.Bool("reset-pin", false, "remove the Advanced Settings PIN from SODE_CONFIG and exit (restart sode afterwards)")
 	flag.Parse()
 	listen := env("SODE_LISTEN", ":8080")
 
@@ -104,7 +104,7 @@ func main() {
 	}
 	cfg := loadConfig(cfgPath)
 	if cfg.SettingsPin != "" {
-		log.Printf("config: settings PIN is set (remove it with sode -reset-pin)")
+		log.Printf("config: Advanced Settings PIN is set (remove it with sode -reset-pin)")
 	}
 
 	hist, err := app.OpenHistory(os.Getenv("SODE_HISTORY"))

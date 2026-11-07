@@ -73,7 +73,7 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 	}
 }
 
-// Changing the locks or the idle time needs the settings PIN; a trusted user
+// Changing the locks or the idle time needs the Advanced Settings PIN; a trusted user
 // is refused with guardedErr (which counts as errLocked), the PIN holder saves.
 func TestLocksNeedSettingsPin(t *testing.T) {
 	a := userApp(t, true)
@@ -130,7 +130,7 @@ func TestLockNeedsUserAndPin(t *testing.T) {
 	cfg = a2.r().cfg
 	cfg.Locks.Main = true
 	if err := a2.SaveSettings(&client{ip: "10.0.0.9"}, cfg, "", true); err == nil || !strings.Contains(err.Error(), "PIN") {
-		t.Fatalf("lock without a settings PIN: %v", err)
+		t.Fatalf("lock without an Advanced Settings PIN: %v", err)
 	}
 }
 

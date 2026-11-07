@@ -160,7 +160,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		for cl := range a.clients {
 			a.deliver(cl, hello)
 		}
-		a.syncAccessAllLocked() // locks, users or the settings PIN may have changed
+		a.syncAccessAllLocked() // locks, users or the Advanced Settings PIN may have changed
 		locked, _ := json.Marshal(simpleMsg{T: "locked"})
 		for cl := range a.clients {
 			if cl.pin != "" && cl.pin != c.SettingsPin {
@@ -187,7 +187,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "changing the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit or the locks needs the settings PIN"
+	return "changing the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit or the locks needs the Advanced Settings PIN"
 }
 func (guardedErr) Is(target error) bool { return target == errLocked }
 

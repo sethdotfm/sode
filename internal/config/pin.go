@@ -16,7 +16,7 @@ const pinIter = 600_000
 
 func CheckPinRules(pin string) error {
 	if n := utf8.RuneCountInString(pin); n < 4 || n > 64 {
-		return fmt.Errorf("settings PIN must be 4-64 characters")
+		return fmt.Errorf("Advanced Settings PIN must be 4-64 characters")
 	}
 	return nil
 }

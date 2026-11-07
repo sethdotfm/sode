@@ -18,7 +18,7 @@ type pinState struct {
 	busy  bool      // a PIN is being checked
 }
 
-// pinPool: wrong-PIN count and rules for one class of secret. The settings PIN and user
+// pinPool: wrong-PIN count and rules for one class of secret. The Advanced Settings PIN and user
 // PINs have separate pools so neither's success or lockout touches the other. tryPin is
 // the only mutator.
 type pinPool struct {

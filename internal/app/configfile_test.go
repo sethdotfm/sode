@@ -87,7 +87,7 @@ func TestConfigImportKeepsLivePins(t *testing.T) {
 		t.Fatal("setting not imported")
 	}
 	if got.SettingsPin != live.SettingsPin {
-		t.Fatal("settings PIN not kept")
+		t.Fatal("Advanced Settings PIN not kept")
 	}
 	if got.Users[0].Pin != live.Users[0].Pin || got.Users[0].Len != 4 {
 		t.Fatalf("Ana: %+v", got.Users[0])
@@ -362,7 +362,7 @@ func TestConfigExportOverWebSocket(t *testing.T) {
 	}
 }
 
-// The export re-checks the settings PIN when it runs: a lock (or a changed
+// The export re-checks the Advanced Settings PIN when it runs: a lock (or a changed
 // PIN) between admit and the export refuses it and returns no YAML.
 func TestConfigExportRechecksPin(t *testing.T) {
 	a := userApp(t, false)
@@ -380,12 +380,12 @@ func TestConfigExportRechecksPin(t *testing.T) {
 	}
 }
 
-// A blank install (no settings PIN, no users) importing a multiuser file that
+// A blank install (no Advanced Settings PIN, no users) importing a multiuser file that
 // carries no PINs (an export without PINs): refused with a plain message, the
 // live config untouched, nothing half-applied. A file with no users, or with
 // PIN hashes, goes in.
 func TestConfigImportIntoBlankInstall(t *testing.T) {
-	src := userApp(t, true) // users, locks on, a settings PIN
+	src := userApp(t, true) // users, locks on, an Advanced Settings PIN
 	text, _ := exportOf(t, src, false)
 
 	blank := func() *App {

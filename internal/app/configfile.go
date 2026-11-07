@@ -16,7 +16,7 @@ import (
 // Server config export/import (Settings > Access). The file is a plain config.yaml built
 // here, since PIN hashes and profiles aren't in the browser's JSON; a private backup is
 // marked only by a top comment and the file name, so any export is a drop-in config.yaml.
-// All three messages need the settings PIN (needAdmin): the file holds everything it
+// All three messages need the Advanced Settings PIN (needAdmin): the file holds everything it
 // guards, and with PINs, the hashes.
 
 // maxConfigFile: a full config is ~300 KiB; leaves room for profiles. Only the read after
@@ -74,7 +74,7 @@ func exportName(cfg config.Config) string {
 	return "Sode"
 }
 
-// ExportConfig: without pins, the settings PIN and users' PIN hashes are left out. The PIN
+// ExportConfig: without pins, the Advanced Settings PIN and users' PIN hashes are left out. The PIN
 // is re-checked here under cfgMu (the handler runs in a goroutine): a lock or PIN change
 // since admit must refuse it.
 func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) {
@@ -86,13 +86,13 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 	cfg := a.r().cfg.Clone()
 	head := "# Sode server configuration, exported " + time.Now().Format("2006-01-02 15:04") + ".\n"
 	if pins {
-		head += "# PRIVATE BACKUP: this file holds the settings PIN and every user's PIN hash. Keep it secret.\n"
+		head += "# PRIVATE BACKUP: this file holds the Advanced Settings PIN and every user's PIN hash. Keep it secret.\n"
 	} else {
 		cfg.SettingsPin = ""
 		for i := range cfg.Users {
 			cfg.Users[i].Pin = ""
 		}
-		head += "# No PINs in this file. Importing it keeps each user's current PIN and the settings PIN.\n"
+		head += "# No PINs in this file. Importing it keeps each user's current PIN and the Advanced Settings PIN.\n"
 	}
 	b, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -102,7 +102,7 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 }
 
 // ImportConfig replaces the whole config (no KeepOwned: everything comes from the file
-// except PIN hashes it omits). Refused without the settings PIN or for a file that doesn't
+// except PIN hashes it omits). Refused without the Advanced Settings PIN or for a file that doesn't
 // parse or validate. Router changes reconnect via applyConfig.
 func (a *App) ImportConfig(c *client, text string) error {
 	if len(text) > maxConfigFile {
