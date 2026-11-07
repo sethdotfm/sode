@@ -3,6 +3,8 @@ package app
 import (
 	"errors"
 	"testing"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 // The Lock of a signed-in user is state of their session: it survives a reload, keeps
@@ -202,6 +204,30 @@ func TestHeldLockBlocksAdvancedSettingsPinPaths(t *testing.T) {
 			if err := admitMsg(a, c, m); !errors.Is(err, errPageLocked) {
 				t.Errorf("enforced=%v: %s from a locked session with the Advanced Settings PIN: %v", enforced, m.T, err)
 			}
+		}
+	}
+}
+
+func TestHeldLockBlocksTrustedSavesEvenWithAdvancedSettingsPin(t *testing.T) {
+	for _, enforced := range []bool{false, true} {
+		a := userApp(t, enforced)
+		setFlags(t, a, "Ana", true, true)
+		c := &client{ip: "10.0.0.1"}
+		register(a, c)
+		if err := a.UserUnlock(c, "1234"); err != nil {
+			t.Fatal(err)
+		}
+		if err := a.Unlock(c, "2468"); err != nil {
+			t.Fatal(err)
+		}
+		a.UserLock(c)
+		for _, m := range []inMsg{{T: "config"}, {T: "filterSets"}, {T: "presets"}, {T: "profileGet", Name: "Ana"}, {T: "profileSave", Name: "Ana"}} {
+			if err := admitMsg(a, c, m); err == nil {
+				t.Errorf("enforced=%v: %s admitted from a locked session with the Advanced Settings PIN", enforced, m.T)
+			}
+		}
+		if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "X", Sode: true, Ext: true}}); err == nil {
+			t.Errorf("enforced=%v: filter sets saved from a locked session", enforced)
 		}
 	}
 }

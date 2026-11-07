@@ -158,8 +158,11 @@ func (a *App) settingsUnlocked(c *client) bool {
 }
 
 func (a *App) settingsUnlockedMu(c *client) bool {
-	hash := a.r().cfg.SettingsPin
-	return hash == "" || c.pin == hash
+	cfg := a.r().cfg
+	if a.heldMu(c, cfg) {
+		return false // a held Lock trusts nothing, with or without the PIN (ADR 0001)
+	}
+	return cfg.SettingsPin == "" || c.pin == cfg.SettingsPin
 }
 
 // Trusted is read live, so unticking takes effect at once. Caller holds mu.
