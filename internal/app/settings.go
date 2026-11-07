@@ -118,9 +118,9 @@ func (a *App) syncAccessAllLocked() {
 	}
 }
 
-// cutTakes: waits stop at once, each take fails as cut. Their sends are already refused
+// cutRoutes: waits stop at once, each take fails as cut. Their sends are already refused
 // (a.ext changed). Caller holds mu.
-func (a *App) cutTakes() {
+func (a *App) cutRoutes() {
 	for w := range a.waiters {
 		w.cut = true
 		w.finish()
@@ -144,7 +144,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		if reconnect {
 			a.router = newRouterState()
 			a.ext = newExtTracker()
-			a.cutTakes()
+			a.cutRoutes()
 			a.status.Router = string(swp08.StateConnecting)
 			a.status.Addr = c.Router
 			a.status.Err = ""

@@ -8,12 +8,12 @@ import (
 type ownKey struct{ dst, wire, src int }
 
 // ownership: connects our takes sent (own) and routes of takes that gave up, which a late
-// answer may claim (late, lateTake, lateHits). Guarded by App.mu.
+// answer may claim (late, lateRoute, lateHits). Guarded by App.mu.
 type ownership struct {
-	own      map[ownKey]time.Time  // our takes' connects → when to stop treating them as ours
-	late     map[ownKey]time.Time  // finished takes' unconfirmed routes → until when a tally of one is ours
-	lateTake map[ownKey][]lateTake // finished takes' unconfirmed routes, with the history entry to amend if one turns up
-	lateHits []lateHit             // late answers awaiting their entry's amendment (flushLate)
+	own       map[ownKey]time.Time   // our takes' connects → when to stop treating them as ours
+	late      map[ownKey]time.Time   // finished takes' unconfirmed routes → until when a tally of one is ours
+	lateRoute map[ownKey][]lateRoute // finished takes' unconfirmed routes, with the history entry to amend if one turns up
+	lateHits  []lateHit              // late answers awaiting their entry's amendment (flushLate)
 }
 
 func (o *ownership) ownAnswer(k ownKey, now time.Time) bool {
@@ -43,12 +43,12 @@ func (a *App) flushExt() {
 }
 
 func (o *ownership) expire(now time.Time) {
-	for k, lts := range o.lateTake {
-		lts = slices.DeleteFunc(lts, func(lt lateTake) bool { return now.After(lt.until) })
+	for k, lts := range o.lateRoute {
+		lts = slices.DeleteFunc(lts, func(lt lateRoute) bool { return now.After(lt.until) })
 		if len(lts) == 0 {
-			delete(o.lateTake, k)
+			delete(o.lateRoute, k)
 		} else {
-			o.lateTake[k] = lts
+			o.lateRoute[k] = lts
 		}
 	}
 	for k, until := range o.own {

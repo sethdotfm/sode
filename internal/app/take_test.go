@@ -11,7 +11,7 @@ import (
 )
 
 func TestWaiterAlreadyRouted(t *testing.T) {
-	w := &waiter{dst: 9, src: 2, levels: []*takeLevel{{ui: 1, wire: 0}, {ui: 2, wire: 1}}, done: make(chan struct{})}
+	w := &waiter{dst: 9, src: 2, levels: []*routeLevel{{ui: 1, wire: 0}, {ui: 2, wire: 1}}, done: make(chan struct{})}
 	w.see(swp08.Crosspoint{Level: 0, Dst: 9, Src: 2, Cmd: swp08.CmdExtConnected})
 	w.see(swp08.Crosspoint{Level: 1, Dst: 9, Src: 3, Cmd: swp08.CmdExtTally})
 	if w.closed {
@@ -27,7 +27,7 @@ func TestWaiterAlreadyRouted(t *testing.T) {
 }
 
 func TestConfirmedByIsDecidedOnce(t *testing.T) {
-	w := &waiter{dst: 9, src: 2, done: make(chan struct{}), levels: []*takeLevel{
+	w := &waiter{dst: 9, src: 2, done: make(chan struct{}), levels: []*routeLevel{
 		{wire: 0},                           // sequential, announced
 		{wire: 1},                           // sequential, already there
 		{wire: 2, native: true},             // staged, router had it elsewhere
@@ -158,9 +158,9 @@ func (f *fakeRouter) sends() int {
 	return f.n
 }
 
-func takeOne(t *testing.T, a *App, src, dst int, levels ...int) Entry {
+func routeOne(t *testing.T, a *App, src, dst int, levels ...int) Entry {
 	t.Helper()
-	a.take(&client{ip: "10.0.0.1"}, takeReq{ID: 1, Src: src, Dst: dst, Levels: levels})
+	a.route(&client{ip: "10.0.0.1"}, routeReq{ID: 1, Src: src, Dst: dst, Levels: levels})
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].Ext {
 		t.Fatalf("no take recorded: %+v", es)
@@ -181,7 +181,7 @@ func TestTakeChanges(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || e.Err != "" || len(e.Already) != 0 {
 		t.Fatalf("take %+v", e)
 	}
@@ -205,7 +205,7 @@ func TestTakeAlready(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 7, 0)
 	f.seed(5, 1, 1, 2)
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Already) != 1 || e.Already[0] != 1 {
 		t.Fatalf("take %+v", e)
 	}
@@ -224,7 +224,7 @@ func TestTakeProtected(t *testing.T) {
 	a.router.protect[5] = map[int]int{2: 9}
 	a.mu.Unlock()
 	n := f.sends()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.Contains(e.Err, "protected on levels 2") {
 		t.Fatalf("take %+v", e)
 	}
@@ -245,7 +245,7 @@ func TestTakeLostConnected(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.lose[5] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Already) != 3 {
 		t.Fatalf("take %+v", e)
 	}
@@ -262,7 +262,7 @@ func TestTakeNoConfirmation(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 no answer; level 2 no answer; level 3 no answer" {
 		t.Fatalf("take %+v", e)
 	}
@@ -312,12 +312,12 @@ func TestTakeLateTooLate(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
-	e := takeOne(t, a, 7, 5, 1)
+	e := routeOne(t, a, 7, 5, 1)
 	a.mu.Lock()
-	if len(a.ext.lateTake) != 1 {
-		t.Fatalf("lateTake %v", a.ext.lateTake)
+	if len(a.ext.lateRoute) != 1 {
+		t.Fatalf("lateRoute %v", a.ext.lateRoute)
 	}
-	for _, lts := range a.ext.lateTake {
+	for _, lts := range a.ext.lateRoute {
 		for i := range lts {
 			lts[i].until = time.Now().Add(-time.Second)
 		}
@@ -340,7 +340,7 @@ func TestTakeAnswerInGap(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
 	a.gapHook = func() { a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7)) }
-	takeOne(t, a, 7, 5, 1, 2, 3)
+	routeOne(t, a, 7, 5, 1, 2, 3)
 	leftovers(t, a)
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 2)
@@ -387,7 +387,7 @@ func TestTakeIgnoredLevel(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.deaf[[2]int{5, 0}] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 still on source 2" {
 		t.Fatalf("take %+v", e)
 	}
@@ -404,7 +404,7 @@ func TestTakeSilentSwitch(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.lose[5] = true
 	f.deaf[[2]int{5, 0}] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 still on source 2" {
 		t.Fatalf("take %+v", e)
 	}
@@ -426,7 +426,7 @@ func TestTakeOtherSource(t *testing.T) {
 		f.tally[[2]int{5, 0}] = 9
 		f.mu.Unlock()
 	}()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 on source 10" || !equalPrev(e.Now, [][2]int{{1, 9}}) {
 		t.Fatalf("take %+v", e)
 	}
@@ -449,7 +449,7 @@ func TestTakeSendFails(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.failAt = f.sends() + 3 + 3 // the third connect, after an interrogate per level
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.HasPrefix(e.Err, "levels 3 not sent:") {
 		t.Fatalf("take %+v", e)
 	}
@@ -475,7 +475,7 @@ func TestTakeFreshPrev(t *testing.T) {
 	f.seed(6, 1, 0, 1)
 	f.seed(6, 8, 0)
 	f.seed(6, 9, 1)
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if want := [][2]int{{1, 4}, {2, 4}, {3, 7}}; !e.OK || !equalPrev(e.Prev, want) {
 		t.Fatalf("take %+v, want prev %v", e, want)
 	}
@@ -499,7 +499,7 @@ func TestTakeCheckUnanswered(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.mute[5] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if want := [][2]int{{1, 1}, {2, 1}, {3, 1}}; !e.OK || !equalPrev(e.Prev, want) {
 		t.Fatalf("take %+v", e)
 	}
@@ -512,7 +512,7 @@ func TestTakeLinkDown(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.failAt = f.sends() + 1
 	start := time.Now()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.HasPrefix(e.Err, "levels 1, 2, 3 not sent:") {
 		t.Fatalf("take %+v", e)
 	}
@@ -526,7 +526,7 @@ func TestTakeDuplicateLevels(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
-	e := takeOne(t, a, 7, 5, 1, 1, 2)
+	e := routeOne(t, a, 7, 5, 1, 1, 2)
 	if !e.OK || len(e.Levels) != 2 || len(e.Prev) != 2 {
 		t.Fatalf("take %+v", e)
 	}
@@ -547,7 +547,7 @@ func equalPrev(a, b [][2]int) bool {
 func TestTakeWhy(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
-	takeOne(t, a, 7, 5, 1, 2)
+	routeOne(t, a, 7, 5, 1, 2)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	check := swp08.Why{Reason: "check", By: "10.0.0.1"}
@@ -601,7 +601,7 @@ func TestTakeLateFollow(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.seed(9, 1, 0, 1, 2)
 	f.ignore[5] = true
-	e := takeOne(t, a, 7, 5, 1)
+	e := routeOne(t, a, 7, 5, 1)
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 7))
 	endBurst(a)
@@ -611,7 +611,7 @@ func TestTakeLateFollow(t *testing.T) {
 	}
 }
 
-func TestBatchFollowGroup(t *testing.T) {
+func TestTakeFollowGroup(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
@@ -619,7 +619,7 @@ func TestBatchFollowGroup(t *testing.T) {
 		f.seed(d, 1, 0, 1, 2)
 	}
 	f.ignore[5] = true
-	a.batch(&client{ip: "10.0.0.1"}, []takeReq{
+	a.take(&client{ip: "10.0.0.1"}, []routeReq{
 		{ID: 1, Src: 7, Dst: 5, Levels: []int{1}},
 		{ID: 2, Src: 7, Dst: 6, Levels: []int{1}},
 	})
@@ -637,7 +637,7 @@ func TestBatchFollowGroup(t *testing.T) {
 		}
 	}
 	if group == "" || follower == nil || follower.Dst != 9 || follower.FollowGroup != group || follower.Follow != nil || follower.Group != "" {
-		t.Fatalf("batch follower: group %q, entries %+v", group, es)
+		t.Fatalf("take follower: group %q, entries %+v", group, es)
 	}
 }
 
@@ -663,45 +663,45 @@ func TestTakeFreshSkipsCheck(t *testing.T) {
 		a.router.seenAt[[2]int{5, l}] = time.Now()
 	}
 	a.mu.Unlock()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || f.sentFor("check") != 0 || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 1}, {3, 1}}) {
 		t.Fatalf("take %+v, checks %d", e, f.sentFor("check"))
 	}
 	a.mu.Lock()
 	a.router.seenAt[[2]int{5, 2}] = time.Now().Add(-time.Minute)
 	a.mu.Unlock()
-	takeOne(t, a, 8, 5, 1, 2, 3)
+	routeOne(t, a, 8, 5, 1, 2, 3)
 	if n := f.sentFor("check"); n != 1 {
 		t.Fatalf("checks %d, want just the stale level", n)
 	}
 }
 
-func TestBatchBigSkipsCheck(t *testing.T) {
+func TestTakeBigSkipsCheck(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
-	var items []takeReq
-	for d := 0; d < bigBatch; d++ {
+	var items []routeReq
+	for d := 0; d < bigTake; d++ {
 		f.seed(d, 1, 0, 1, 2)
-		items = append(items, takeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
+		items = append(items, routeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
 	}
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	if n := f.sentFor("check"); n != 0 {
-		t.Fatalf("%d checks for a big batch", n)
+		t.Fatalf("%d checks for a big take", n)
 	}
-	if es, _ := a.hist.Page(-1, bigBatch); len(es) != bigBatch || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK }) {
+	if es, _ := a.hist.Page(-1, bigTake); len(es) != bigTake || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK }) {
 		t.Fatalf("takes %+v", es)
 	}
 	b := newTestApp(t)
 	g := newFakeRouter(t, b)
 	items = items[:0]
-	for d := 0; d < bigBatch-1; d++ {
+	for d := 0; d < bigTake-1; d++ {
 		g.seed(d, 1, 0, 1, 2)
-		items = append(items, takeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
+		items = append(items, routeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
 	}
-	b.batch(&client{ip: "10.0.0.1"}, items)
-	if n := g.sentFor("check"); n != 3*(bigBatch-1) {
-		t.Fatalf("%d checks for a small batch", n)
+	b.take(&client{ip: "10.0.0.1"}, items)
+	if n := g.sentFor("check"); n != 3*(bigTake-1) {
+		t.Fatalf("%d checks for a small take", n)
 	}
 }
 
@@ -716,8 +716,8 @@ func TestTakeWaitsForQueue(t *testing.T) {
 		a.router.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
 	}
 	a.mu.Unlock()
-	f.hold = takeTimeout + takeGrace + 200*time.Millisecond
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	f.hold = routeTimeout + routeGrace + 200*time.Millisecond
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Failed) != 0 {
 		t.Fatalf("take %+v", e)
 	}
@@ -731,8 +731,8 @@ func TestTakeLateRetryKeepsBoth(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0)
 	f.ignore[5] = true
-	e1 := takeOne(t, a, 7, 5, 1)
-	e2 := takeOne(t, a, 7, 5, 1)
+	e1 := routeOne(t, a, 7, 5, 1)
+	e2 := routeOne(t, a, 7, 5, 1)
 	if e1.OK || e2.OK || e1.ID == e2.ID {
 		t.Fatalf("takes %+v %+v", e1, e2)
 	}
@@ -750,7 +750,7 @@ func TestTakeLateOnlyUnanswered(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0)
 	f.deaf[[2]int{5, 0}] = true // connect ignored, interrogate answers: still on source 1
-	e := takeOne(t, a, 7, 5, 1)
+	e := routeOne(t, a, 7, 5, 1)
 	if e.OK || len(e.Now) != 1 {
 		t.Fatalf("take %+v", e)
 	}
@@ -765,7 +765,7 @@ func TestTakeLateOnlyUnanswered(t *testing.T) {
 func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
-	w, err := planTake(a.r(), takeReq{Src: 7, Dst: 5, Levels: []int{1}})
+	w, err := planRoute(a.r(), routeReq{Src: 7, Dst: 5, Levels: []int{1}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,7 +43,7 @@ func TestTabSession(t *testing.T) {
 	}
 }
 
-// With a lock on, a tab token is refused (the idle lock must stay in force).
+// With a lock on, a tab token is refused (the Auto-lock must stay in force).
 func TestTabSessionRefusedWhenLocked(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
@@ -56,7 +56,7 @@ func TestTabSessionRefusedWhenLocked(t *testing.T) {
 }
 
 // A lock switched on after a no-lock login: the tab token no longer brings a
-// reload back in, so the PIN pad (and the idle lock) apply.
+// reload back in, so the PIN pad (and the Auto-lock) apply.
 func TestTabTokenIgnoredOnceLocked(t *testing.T) {
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.1"}

@@ -23,18 +23,18 @@ const (
 	extMax   = 3 * time.Second        // or this long after it began
 	// ownFor: how long a matching Connected counts as ours: the take's whole wait plus
 	// slack for a late reply.
-	ownFor = takeTimeout + takeGrace + 5*time.Second // counted from when the connects have gone out (sendTake)
+	ownFor = routeTimeout + routeGrace + 5*time.Second // counted from when the connects have gone out (sendRoute)
 
 	followAfter  = 500 * time.Millisecond // a follow comes this soon after its take's last change
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
 	// A burst that may follow an in-flight take waits for it to be recorded, up to this
 	// long after the burst began. A take still queued holds nothing (cause.sent).
-	extHold   = takeTimeout + takeGrace + 2*time.Second
+	extHold   = routeTimeout + routeGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 
 // extTracker: burst, own connects, causes/leaders (takes changes may follow), and
-// late/lateTake/lateHits (takes that gave up). Replaced on a router change; the pointer is
+// late/lateRoute/lateHits (takes that gave up). Replaced on a router change; the pointer is
 // the router's generation, so an older holder is cut. Guarded by App.mu; callers hold it.
 type extTracker struct {
 	burst
@@ -46,9 +46,9 @@ func newExtTracker() *extTracker {
 	return &extTracker{
 		burst: burst{pending: map[int]map[int]*extLevel{}},
 		ownership: ownership{
-			own:      map[ownKey]time.Time{},
-			late:     map[ownKey]time.Time{},
-			lateTake: map[ownKey][]lateTake{},
+			own:       map[ownKey]time.Time{},
+			late:      map[ownKey]time.Time{},
+			lateRoute: map[ownKey][]lateRoute{},
 		},
 		follows: follows{leaders: map[int]int{}},
 	}
@@ -91,7 +91,7 @@ func (a *App) classify(xp swp08.Crosspoint, ui int, known bool) verdict {
 func (x *extTracker) flush(now time.Time) (changes map[int]map[int]*extLevel, first time.Time, ok bool) {
 	x.ownership.expire(now)
 	x.follows.expire(now)
-	return x.burst.flush(now, x.follows.awaitsTake)
+	return x.burst.flush(now, x.follows.awaitsRoute)
 }
 
 func (x *extTracker) entries(name func(dst bool, n int) string, changes map[int]map[int]*extLevel, at time.Time) []*Entry {

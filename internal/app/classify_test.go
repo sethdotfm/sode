@@ -14,7 +14,7 @@ func TestClassify(t *testing.T) {
 	conn := swp08.Crosspoint{Dst: 5, Level: 0, Src: 9, Cmd: swp08.CmdExtConnected}
 	tally := swp08.Crosspoint{Dst: 5, Level: 0, Src: 9, Cmd: swp08.CmdExtTally}
 	lt := func(a *App) {
-		a.ext.lateTake[k] = []lateTake{{id: 3, until: time.Now().Add(time.Minute), cause: &cause{}}}
+		a.ext.lateRoute[k] = []lateRoute{{id: 3, until: time.Now().Add(time.Minute), cause: &cause{}}}
 	}
 	own := func(a *App) { a.ext.own[k] = time.Now().Add(time.Minute) }
 	for _, tc := range []struct {
@@ -38,12 +38,12 @@ func TestClassify(t *testing.T) {
 			}
 		}},
 		{"connected, late take", conn, true, lt, verdictLate, func(t *testing.T, a *App) {
-			if len(a.ext.lateHits) != 1 || len(a.ext.lateTake) != 0 {
-				t.Errorf("hits %v, takes %v", a.ext.lateHits, a.ext.lateTake)
+			if len(a.ext.lateHits) != 1 || len(a.ext.lateRoute) != 0 {
+				t.Errorf("hits %v, takes %v", a.ext.lateHits, a.ext.lateRoute)
 			}
 		}},
 		{"connected, own key beats late take", conn, true, func(a *App) { lt(a); own(a) }, verdictOurs, func(t *testing.T, a *App) {
-			if len(a.ext.lateHits) != 0 || len(a.ext.lateTake) != 1 {
+			if len(a.ext.lateHits) != 0 || len(a.ext.lateRoute) != 1 {
 				t.Error("late take claimed")
 			}
 		}},
@@ -62,7 +62,7 @@ func TestClassify(t *testing.T) {
 			}
 		}},
 		{"tally, take in flight", tally, true, func(a *App) {
-			a.waiters[&waiter{dst: 5, src: 9, levels: []*takeLevel{{wire: 0}}}] = struct{}{}
+			a.waiters[&waiter{dst: 5, src: 9, levels: []*routeLevel{{wire: 0}}}] = struct{}{}
 		}, verdictIgnore, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

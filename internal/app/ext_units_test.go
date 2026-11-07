@@ -116,9 +116,9 @@ func TestOwnershipExpire(t *testing.T) {
 	live, dead := now.Add(time.Minute), now.Add(-time.Second)
 	a, b := ownKey{5, 0, 7}, ownKey{5, 0, 8}
 	o := &ownership{
-		own:      map[ownKey]time.Time{a: live, b: dead},
-		late:     map[ownKey]time.Time{a: dead, b: live},
-		lateTake: map[ownKey][]lateTake{a: {{id: 1, until: dead}, {id: 2, until: live}}, b: {{id: 3, until: dead}}},
+		own:       map[ownKey]time.Time{a: live, b: dead},
+		late:      map[ownKey]time.Time{a: dead, b: live},
+		lateRoute: map[ownKey][]lateRoute{a: {{id: 1, until: dead}, {id: 2, until: live}}, b: {{id: 3, until: dead}}},
 	}
 	o.expire(now)
 	if _, ok := o.own[a]; !ok || len(o.own) != 1 {
@@ -127,8 +127,8 @@ func TestOwnershipExpire(t *testing.T) {
 	if _, ok := o.late[b]; !ok || len(o.late) != 1 {
 		t.Fatalf("late %v", o.late)
 	}
-	if lts := o.lateTake[a]; len(lts) != 1 || lts[0].id != 2 || len(o.lateTake) != 1 {
-		t.Fatalf("lateTake %v", o.lateTake)
+	if lts := o.lateRoute[a]; len(lts) != 1 || lts[0].id != 2 || len(o.lateRoute) != 1 {
+		t.Fatalf("lateRoute %v", o.lateRoute)
 	}
 }
 
@@ -190,19 +190,19 @@ func TestFollowsAwaitsTake(t *testing.T) {
 	t0 := time.Now()
 	pending := map[int]map[int]*extLevel{9: {1: {src: 4, first: t0.Add(10 * time.Millisecond)}}}
 	f := &follows{causes: []*cause{{src: 4, dst: 1, id: -1, sent: t0}}}
-	if !f.awaitsTake(pending) {
+	if !f.awaitsRoute(pending) {
 		t.Fatal("not held for a take in flight")
 	}
 	f.causes[0].sent = time.Time{} // still queued
-	if f.awaitsTake(pending) {
+	if f.awaitsRoute(pending) {
 		t.Fatal("held for a queued take")
 	}
 	f.causes[0].sent = t0.Add(time.Second) // change came before the connects went out
-	if f.awaitsTake(pending) {
+	if f.awaitsRoute(pending) {
 		t.Fatal("held for a change that came first")
 	}
 	f.causes[0].sent, f.causes[0].done = t0, true
-	if f.awaitsTake(pending) {
+	if f.awaitsRoute(pending) {
 		t.Fatal("held for a recorded take")
 	}
 }

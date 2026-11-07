@@ -16,7 +16,7 @@ import (
 // locked wall panel must still save with the PIN. Locks require a settings PIN (Validate).
 //
 //	open: hi userUnlock userLock userSetPin unlock lock history
-//	needMain: batch refreshNames; needMain+Admin: clearHistory; needLog: sent uptime
+//	needMain: take refreshNames; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
 //	needAdmin: users userSignOutAll configExport configImportBegin configImport
 //	profileSave: the user's own unlock or needTrusted; profileGet needTrusted; both re-checked by guardProfile.
@@ -49,7 +49,7 @@ type rule struct {
 	admitted func(c *client)
 	// handle runs after admit passed; connCtx is the read loop's per-connection state.
 	handle func(a *App, c *client, m *inMsg, cc *connCtx)
-	// onRefuse: extra replies after a refusal is logged (a batch fails each take).
+	// onRefuse: extra replies after a refusal is logged (a take fails each route).
 	onRefuse func(a *App, c *client, m *inMsg, err error)
 }
 
@@ -85,10 +85,10 @@ var policy = map[string]rule{
 	"history": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 
 	"batch": {need: needMain, why: "take",
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveBatch(c, m) },
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },
 		onRefuse: func(a *App, c *client, m *inMsg, err error) {
 			for _, it := range m.Items {
-				a.reply(c, takeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
+				a.reply(c, routeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
 			}
 		}},
 	"refreshNames": {need: needMain, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {

@@ -1,8 +1,10 @@
 package app
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -199,5 +201,29 @@ func TestHistoryReadsOldSalvoKey(t *testing.T) {
 	b, _ := os.ReadFile(path)
 	if !strings.Contains(string(b), `"preset":"New"`) || strings.Count(string(b), `"salvo"`) != 1 {
 		t.Fatalf("a new entry should write preset:\n%s", b)
+	}
+}
+
+// Pins every persisted and wire key, so a Go rename cannot change what old files and
+// browsers send.
+func TestOldHistoryAndWireKeysStillLoad(t *testing.T) {
+	line := `{"id":3,"time":"2026-11-02T10:00:00Z","client":"c","src":1,"srcName":"s","dst":2,"dstName":"d","levels":[1],"prev":[[1,4]],"ok":false,"err":"e","undo":1,"retry":2,"failed":[1],"now":[[1,-1]],"already":[2],"group":"g","groupN":2,"preset":"P","ext":true,"followGroup":"f","follow":5,"found":true,"late":[3],"unsent":[4],"sendErr":"x","cut":true}`
+	var e Entry
+	if err := json.Unmarshal([]byte(line), &e); err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got, want map[string]any
+	_ = json.Unmarshal(b, &got)
+	_ = json.Unmarshal([]byte(line), &want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("history entry keys changed:\n got %s\nwant %s", b, line)
+	}
+	var req routeReq
+	if err := json.Unmarshal([]byte(`{"id":1,"src":2,"dst":3,"levels":[1],"undo":4,"retry":5}`), &req); err != nil || req.ID != 1 || req.Src != 2 || req.Dst != 3 || *req.Undo != 4 || *req.Retry != 5 {
+		t.Fatalf("take item keys changed: %+v err %v", req, err)
 	}
 }

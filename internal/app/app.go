@@ -50,7 +50,7 @@ func (r *runtime) probe() []byte {
 // describes the old router:
 // router (*routerState: names, tally, protect, seenAt, pending broadcasts, name refresh
 // buffers); ext (*extTracker: burst, own, causes, leaders, late*; the pointer is the
-// router's generation); waiters and checks (cutTakes fails them with "the router changed";
+// router's generation); waiters and checks (cutRoutes fails them with "the router changed";
 // each keeps the extTracker it started on); status (Router/Addr/Err set to "connecting").
 // KEPT: sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu,
 // gapHook, xffWarn, fireMu, fire, lateQ (plumbing, config, PINs); clients (get a fresh
@@ -622,7 +622,7 @@ func (a *App) ClearHistory(who string) {
 	}
 	log.Printf("history: cleared by %s", who)
 	a.mu.Lock()
-	a.ext.lateTake, a.ext.lateHits = map[ownKey][]lateTake{}, nil // their entries are gone
+	a.ext.lateRoute, a.ext.lateHits = map[ownKey][]lateRoute{}, nil // their entries are gone
 	a.broadcast(simpleMsg{T: "historyCleared"})
 	a.mu.Unlock()
 }

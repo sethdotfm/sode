@@ -32,11 +32,11 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 
 // runTake starts a take in the background; the returned channel closes when
 // it has finished.
-func runTake(a *App, req takeReq) <-chan struct{} {
+func runTake(a *App, req routeReq) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		a.take(&client{ip: "10.0.0.1"}, req)
+		a.route(&client{ip: "10.0.0.1"}, req)
 	}()
 	return done
 }
@@ -57,7 +57,7 @@ func TestRouterChangeCutsTake(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true // the connects go out and nobody answers
-	done := runTake(a, takeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2}, NoCheck: true})
+	done := runTake(a, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2}, NoCheck: true})
 	waitFor(t, "the take to register", func() bool {
 		a.mu.Lock()
 		registered := len(a.waiters) == 1
@@ -66,7 +66,7 @@ func TestRouterChangeCutsTake(t *testing.T) {
 	})
 	sent := f.sends()
 	changeRouter(t, a)
-	waitDone(t, done, takeTimeout/2)
+	waitDone(t, done, routeTimeout/2)
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].OK || !strings.Contains(es[0].Err, "level 1 no answer before the router changed") ||
 		!strings.Contains(es[0].Err, "level 2 no answer before the router changed") || !equalInts(es[0].Failed, []int{1, 2}) {
@@ -76,7 +76,7 @@ func TestRouterChangeCutsTake(t *testing.T) {
 		t.Fatalf("%d messages sent after the router changed", n-sent)
 	}
 	a.mu.Lock()
-	if len(a.waiters) != 0 || len(a.ext.own) != 0 || len(a.ext.late) != 0 || len(a.ext.lateTake) != 0 || len(a.ext.causes) != 0 {
+	if len(a.waiters) != 0 || len(a.ext.own) != 0 || len(a.ext.late) != 0 || len(a.ext.lateRoute) != 0 || len(a.ext.causes) != 0 {
 		t.Fatalf("take left state in the new tracker: %d waiters, %+v", len(a.waiters), a.ext)
 	}
 	a.mu.Unlock()
@@ -93,7 +93,7 @@ func TestRouterChangeDuringCheck(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.mute[5] = true // the check goes unanswered
-	done := runTake(a, takeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2, 3}})
+	done := runTake(a, routeReq{ID: 1, Src: 7, Dst: 5, Levels: []int{1, 2, 3}})
 	waitFor(t, "the check to start", func() bool {
 		a.mu.Lock()
 		defer a.mu.Unlock()
@@ -122,7 +122,7 @@ func TestRouterChangeClearsLate(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
-	takeOne(t, a, 7, 5, 1)
+	routeOne(t, a, 7, 5, 1)
 	a.mu.Lock()
 	if len(a.ext.late) != 1 {
 		t.Fatalf("late %v", a.ext.late)
@@ -130,8 +130,8 @@ func TestRouterChangeClearsLate(t *testing.T) {
 	a.mu.Unlock()
 	changeRouter(t, a)
 	a.mu.Lock()
-	if len(a.ext.late) != 0 || len(a.ext.lateTake) != 0 {
-		t.Fatalf("late kept: %v %v", a.ext.late, a.ext.lateTake)
+	if len(a.ext.late) != 0 || len(a.ext.lateRoute) != 0 {
+		t.Fatalf("late kept: %v %v", a.ext.late, a.ext.lateRoute)
 	}
 	a.mu.Unlock()
 	a.onRouterMsg(swp08.ExtTally(0, 0, 5, 3)) // the new router's cache learns dst 5
