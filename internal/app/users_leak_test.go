@@ -28,7 +28,6 @@ func TestHelloHasNoUsers(t *testing.T) {
 	}
 }
 
-// Names go to a page that may see the main screen, not to a locked one.
 func TestLockStateNames(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
@@ -49,7 +48,6 @@ func TestLockStateNames(t *testing.T) {
 	}
 }
 
-// The editor's list needs the settings PIN, and carries no hash.
 func TestUsersListNeedsPin(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}

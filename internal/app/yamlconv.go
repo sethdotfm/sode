@@ -12,14 +12,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// yamlMaxBody caps a converter request. The route is stateless and open, so
-// the cap is its only guard.
+// yamlMaxBody: the route is stateless and open, so the cap is its only guard.
 const yamlMaxBody = 1 << 20
 
-// serveYAML converts a document between JSON and YAML: JSON body to YAML, or
-// YAML body to JSON with ?from=yaml. It knows no schema (the browser checks
-// the shape, the save paths check the content), reads no config, holds
-// nothing and changes nothing. The top level must be a mapping.
+// serveYAML: JSON to YAML, or YAML to JSON with ?from=yaml. Knows no schema, reads no
+// config; top level must be a mapping.
 func (a *App) serveYAML(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", "POST")
@@ -61,9 +58,8 @@ func (a *App) serveYAML(w http.ResponseWriter, r *http.Request) {
 
 var errNotMapping = errors.New("the top level must be a mapping")
 
-// jsonToYAML keeps key order: JSON is YAML, so the text is read into a node
-// tree and written back in block style. The scalars keep their tags, so the
-// string "24" is quoted again and the number 24 is not.
+// Keeps key order via a node tree; scalars keep their tags ("24" stays quoted, 24
+// doesn't).
 func jsonToYAML(body []byte) ([]byte, error) {
 	if !json.Valid(body) {
 		return nil, errors.New("not valid JSON")
@@ -92,7 +88,6 @@ func jsonToYAML(body []byte) ([]byte, error) {
 	return yaml.Marshal(&doc)
 }
 
-// yamlToJSON makes a mapping with string keys into JSON. Key order is not kept.
 func yamlToJSON(body []byte) ([]byte, error) {
 	var v any
 	if err := yaml.NewDecoder(bytes.NewReader(body)).Decode(&v); err != nil {

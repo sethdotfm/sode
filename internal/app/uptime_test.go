@@ -44,11 +44,9 @@ func TestUptimeRangeSlotsAndCurrentMinute(t *testing.T) {
 	if len(r.Trans) != 2 || r.Trans[0].S != upUp || r.Trans[1].S != upDown {
 		t.Fatalf("trans = %+v", r.Trans)
 	}
-	// 12:11 is in the first 15 minute slot.
 	if len(r.Counts) != 1 || r.Counts[0] != (UptimeSlot{I: 0, Bad: 1, Slow: 1}) {
 		t.Fatalf("counts = %+v", r.Counts)
 	}
-	// Before anything was recorded there is no state.
 	if r := u.Range(ms(start.Add(-time.Hour)), ms(start.Add(-time.Minute)), 60_000); r.Start != "" || len(r.Trans) != 0 {
 		t.Fatalf("before the record: %+v", r)
 	}
@@ -66,7 +64,6 @@ func TestUptimeReopenAfterCrashIsDownFromLastAlive(t *testing.T) {
 	c.add(2 * time.Minute) // 12:04
 	u.flush()
 	u.writeAlive()
-	// Killed: no off line. Sode comes back an hour later.
 	c.add(time.Hour)
 	v := openAt(t, path, c)
 
@@ -114,7 +111,6 @@ func TestUptimePrunesOldLinesKeepingTheStateBefore(t *testing.T) {
 	if len(u.mins) != 0 {
 		t.Fatalf("old minute kept: %+v", u.mins)
 	}
-	// The up from before the cutoff stays: it is the state the oldest range starts in.
 	if len(u.trans) != 3 || u.trans[0].S != upUp {
 		t.Fatalf("trans = %+v", u.trans)
 	}
@@ -131,7 +127,6 @@ func TestUptimeRangeClampedAndSlotsBounded(t *testing.T) {
 		u.Note(Sent{Result: "nak", Tries: 1})
 		c.add(time.Minute)
 	}
-	// A ten year range with 1h slots is cut to what is kept, not 87,600 slots.
 	r := u.Range(ms(c.t.AddDate(-10, 0, 0)), ms(c.t), 3600_000)
 	if len(r.Counts) != 1 {
 		t.Fatalf("counts = %+v", r.Counts)

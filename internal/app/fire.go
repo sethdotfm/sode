@@ -9,55 +9,40 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Native fire mode (#154): the takes of one confirm are staged in a SW-P-08
-// group salvo (120, each answered by 122) and set with one Go (121, answered
-// by 123), so the router sets them in one go. On the Ultrix (2026-11-02) a
-// Go's crosspoints are announced about 4 ms apart against ~16 ms apiece
-// for ordinary connects; whether the switch itself is simultaneous is
-// unproven. The router sometimes announces a Go's crosspoints with 0x84
-// and sometimes not, so a staged level has an own key like any connect and
-// is confirmed by its Connected if one comes, else by the tally of the
-// interrogate each take sends after the Go, through the same waiter,
-// failure and late-answer handling as a sequential take. A key whose level
-// a tally confirmed stays for salvoAnnounceFor after the Go, for a
-// Connected still on its way.
-//
-// Every crosspoint is staged: those the standard layout carries (matrix and
-// wire level 0-15, numbers 0-1023) with 120, the rest (level 17, numbers
-// past 1023) with the extended 248. Only a destination level taken twice in
-// the batch is left out of the stage (it is sent as an ordinary connect). A
-// batch with fewer than two takes to stage is sequential throughout.
-//
-// The router's staged list is shared by every client, so a fire holds
-// fireMu from the first clear to the last, sends one salvo command at a time
-// and clears the group before staging and after every fire, set or not.
-// Anything going wrong before the Go (no 122 for a crosspoint, no 123 for
-// the first clear, the link refusing a message) clears the group and sends
-// the whole batch as ordinary connects. Once the Go has been sent it is
-// never sent again and never followed by the connects: the takes'
-// interrogates say what happened.
+// Native fire mode: a confirm's takes are staged in a SW-P-08 group salvo (120, answered
+// 122) and set with one Go (121, answered 123). On the Ultrix (2026-11-02) a Go's
+// crosspoints are announced ~4 ms apart vs ~16 ms for ordinary connects; true simultaneity
+// is unproven.
+// The Ultrix sometimes announces a Go's crosspoints (0x84), sometimes not: a staged level
+// has an own key and is confirmed by its Connected, else by the tally of the interrogate
+// each take sends after the Go; failure and late handling are the sequential take's. A
+// tally-confirmed key lives salvoAnnounceFor after the Go.
+// Staging: levels the standard layout carries (wire level 0-15, numbers 0-1023) use 120,
+// the rest 248 (extended). A destination level taken twice in a batch is not staged. Fewer
+// than two staged takes: sequential throughout.
+// The staged list is shared by all clients: fire holds fireMu first clear to last, one
+// salvo command at a time, and clears the group before staging and after every fire. A
+// failure before the Go (no 122, no 123 for the first clear, link refusal) clears the
+// group and sends the batch as ordinary connects. After the Go is sent it is never re-sent
+// and never followed by connects; the takes' interrogates say what happened.
 
-// salvoReply is how long a salvo command's acknowledge (122 or 123) may take
-// once the command has been written and ACKed. The Ultrix answers in 5-7 ms.
+// salvoReply: acknowledge wait after the command was ACKed; the Ultrix answers in 5-7 ms.
 const salvoReply = time.Second
 
-// salvoAnnounceFor is how long after the Go a Connected for a staged level
-// still counts as ours once a tally has confirmed it. The Ultrix's came
-// 100-340 ms after the Go for ~50 crosspoints.
+// salvoAnnounceFor: a Connected for a tally-confirmed staged level still counts this long
+// after the Go (Ultrix: 100-340 ms for ~50 crosspoints).
 const salvoAnnounceFor = 2 * time.Second
 
-// stageChunk caps how many stage messages are queued at once, so a big
-// salvo doesn't fill the router link's send queue.
+// stageChunk: caps queued stage messages so a big salvo doesn't fill the send queue.
 const stageChunk = 64
 
-// fireState collects the salvo acknowledges for the fire in progress. It is
-// a.fire while one runs (guarded by mu); acknowledges with no fire running
+// fireState collects acknowledges for the fire in progress (a.fire, guarded by mu); others
 // are dropped.
 type fireState struct {
 	acks chan swp08.SalvoAck
 }
 
-// onSalvoAck hands a 122 or 123 to the fire in progress. Caller holds mu.
+// Caller holds mu.
 func (a *App) onSalvoAck(x swp08.SalvoAck) {
 	if a.fire == nil {
 		return
@@ -69,7 +54,6 @@ func (a *App) onSalvoAck(x swp08.SalvoAck) {
 	}
 }
 
-// await waits up to d for an acknowledge that ok accepts; others are dropped.
 func (fs *fireState) await(d time.Duration, ok func(swp08.SalvoAck) bool) (swp08.SalvoAck, bool) {
 	t := time.NewTimer(d)
 	defer t.Stop()
@@ -85,10 +69,8 @@ func (fs *fireState) await(d time.Duration, ok func(swp08.SalvoAck) bool) (swp08
 	}
 }
 
-// markStages sets each item's Stage: the wire levels that go in a group
-// salvo (120 or 248). A destination level taken twice in the batch is staged in neither
-// (which lands last would be up to the router). It returns how many items
-// have something to stage.
+// markStages sets Stage per item (a destination level taken twice is staged in neither:
+// order would be up to the router) and returns how many items stage something.
 func markStages(r *runtime, items []takeReq) int {
 	type dl struct{ dst, wire int }
 	uses := map[dl]int{}
@@ -122,10 +104,6 @@ func markStages(r *runtime, items []takeReq) int {
 	return n
 }
 
-// batchNative runs a batch with markStages done: every take is prepared
-// (protects, the pre-take check, registered), those with staged levels are
-// fired together, and then each take sends what is left and waits for the
-// router as a sequential take does.
 func (a *App) batchNative(r *runtime, c *client, items []takeReq) {
 	runs := make([]*takeRun, len(items))
 	runLimited(takeLimit, len(items), func(i int) { runs[i] = a.prepare(r, c, items[i]) })
@@ -170,8 +148,6 @@ func (a *App) batchNative(r *runtime, c *client, items []takeReq) {
 	a.logSalvoTiming(c, staged)
 }
 
-// logSalvoTiming logs, for a batch whose Go was sent, how long after the Go
-// its staged levels were confirmed, and how: by Connected or interrogate.
 func (a *App) logSalvoTiming(c *client, staged []*takeRun) {
 	a.mu.Lock()
 	var goAt, last time.Time
@@ -215,8 +191,7 @@ func (a *App) logSalvoTiming(c *client, staged []*takeRun) {
 	a.command(c, "salvo", result, note, nil)
 }
 
-// hasNative reports whether any level is staged. Only the batch goroutine
-// writes native.
+// Only the batch goroutine writes native.
 func (w *waiter) hasNative() bool {
 	for _, l := range w.levels {
 		if l.native {
@@ -226,8 +201,6 @@ func (w *waiter) hasNative() bool {
 	return false
 }
 
-// unNative turns a take's staged levels back into ordinary connects, with
-// their own keys renewed.
 func (a *App) unNative(w *waiter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -245,10 +218,8 @@ var (
 	errNoGo    = errors.New("the router did not acknowledge the Go (no 123)")
 )
 
-// fireSalvo stages the native levels of staged and sets them with one Go.
-// sent reports whether the Go was sent: if not, nothing was set and the
-// takes may go as ordinary connects. err with sent says the Go's
-// acknowledge was missing or odd.
+// fireSalvo: sent reports whether the Go was sent (if not, takes may go as connects); err
+// with sent means the Go's acknowledge was missing or odd.
 func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 	a.fireMu.Lock()
 	defer a.fireMu.Unlock()
@@ -269,13 +240,11 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 	ext := staged[0].w.ext
 	why := staged[0].w.why
 
-	// Whatever is staged in the group now isn't ours: clear it, and know the
-	// router does group salvos before anything is staged.
+	// Clear anything staged that isn't ours; this also proves group salvos work.
 	if err := a.clearSalvo(ext, fs, g, why); err != nil {
 		return false, err
 	}
-	// The group is cleared after every fire, set or not; on the way out of a
-	// failure, the router may still hold some of ours.
+	// Cleared after every fire; on failure the router may still hold some of ours.
 	defer func() {
 		if err := a.clearSalvo(ext, fs, g, why); err != nil {
 			log.Printf("salvo: clearing group %d after the fire: %v", g, err)
@@ -309,8 +278,7 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 		}
 	}
 	leftQueue(last)
-	// Every crosspoint must be staged before the Go: one the link gave up on
-	// would be left out of the salvo.
+	// Every crosspoint must be staged before the Go.
 	if missing > 0 {
 		if _, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool {
 			if (x.Cmd != swp08.CmdConnectOnGoAck && x.Cmd != swp08.CmdExtConnectOnGoAck) || want[x.Staged()] == 0 {
@@ -341,7 +309,6 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 		changed := false
 		for _, l := range w.levels {
 			if l.native {
-				// Reports before the Go were of the old route.
 				l.seen, l.now = false, 0
 				changed = changed || !l.same
 			}
@@ -362,10 +329,8 @@ func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
 	return true, nil
 }
 
-// clearSalvo clears group g and waits for the router to say so. Caller
-// holds fireMu, with fs as a.fire.
+// Caller holds fireMu, with fs as a.fire.
 func (a *App) clearSalvo(ext *extTracker, fs *fireState, g int, why swp08.Why) error {
-	// A late answer to an earlier step must not pass for this clear's.
 	for drained := false; !drained; {
 		select {
 		case <-fs.acks:
@@ -384,10 +349,7 @@ func (a *App) clearSalvo(ext *extTracker, fs *fireState, g int, why swp08.Why) e
 	return nil
 }
 
-// clearStaleSalvo clears Sode's salvo group on a new session: staged
-// crosspoints outlive a dropped link, and a message the old session dropped
-// is never resent. Only in native mode: sequential mode sends no salvo
-// command at all.
+// clearStaleSalvo: staged crosspoints outlive a dropped link. Native mode only.
 func (a *App) clearStaleSalvo() {
 	r := a.r()
 	if r.cfg.FireMode != "native" {
@@ -410,10 +372,8 @@ func (a *App) clearStaleSalvo() {
 	}
 }
 
-// sawOwn notes one of our takes' Connecteds as a change of that take's,
-// for the follows that may come with it: a native salvo's arrive after the
-// Go, sometimes after the take has finished. The latest take of the route
-// gets it. Caller holds mu.
+// sawOwn: a native salvo's Connecteds arrive after the Go, sometimes after the take
+// finished; the latest take of the route gets it. Caller holds mu.
 func (a *App) sawOwn(xp swp08.Crosspoint) {
 	for i := len(a.ext.causes) - 1; i >= 0; i-- {
 		if c := a.ext.causes[i]; c.src == xp.Src && c.dst == xp.Dst {

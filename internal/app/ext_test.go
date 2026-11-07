@@ -31,7 +31,6 @@ func endBurst(a *App) {
 
 func TestExtBurst(t *testing.T) {
 	a := newTestApp(t)
-	// Known state: dst 5 has src 1 on wire levels 0-2 (UI 1-3).
 	for l := 0; l < 3; l++ {
 		a.onRouterMsg(swp08.ExtTally(0, l, 5, 1))
 		a.onRouterMsg(swp08.ExtTally(0, l, 6, 1))
@@ -39,8 +38,6 @@ func TestExtBurst(t *testing.T) {
 	if n := a.hist.Len(); n != 0 {
 		t.Fatalf("tally replies recorded %d entries", n)
 	}
-	// A panel: dst 5 gets src 7 on every level, dst 6 src 8 on level 1;
-	// dst 6 level 2 goes to 9 and back, which is no change.
 	for l := 0; l < 3; l++ {
 		a.onRouterMsg(swp08.ExtConnected(0, l, 5, 7))
 	}
@@ -67,7 +64,6 @@ func TestExtBurst(t *testing.T) {
 		t.Fatalf("groups %q/%d %q/%d", e5.Group, e5.GroupN, e6.Group, e6.GroupN)
 	}
 
-	// A single-destination change is not grouped.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 2))
 	endBurst(a)
 	es, _ = a.hist.Page(-1, 1)
@@ -87,8 +83,6 @@ func TestExtSkipsOwnTakes(t *testing.T) {
 	if n := a.hist.Len(); n != 0 {
 		t.Fatalf("own take recorded as external: %d", n)
 	}
-	// Our route was confirmed, so the same route made again elsewhere,
-	// soon after, is external.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 1))
 	endBurst(a)
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
@@ -97,7 +91,6 @@ func TestExtSkipsOwnTakes(t *testing.T) {
 		t.Fatalf("repeat of our route elsewhere: %+v", es)
 	}
 	a.hist.Clear()
-	// The same route made elsewhere once ours has expired is external.
 	a.mu.Lock()
 	a.ext.own[ownKey{5, 0, 1}] = time.Now().Add(-time.Second)
 	a.mu.Unlock()
@@ -120,8 +113,6 @@ func TestExtFollows(t *testing.T) {
 		return es[0]
 	}
 
-	// Our take of src 7 to dst 5 was recorded as #42; the router then moves
-	// dst 9 (a PiP following dst 5) to src 7 too.
 	a.mu.Lock()
 	now := time.Now()
 	a.ext.causes = append(a.ext.causes, &cause{src: 7, dst: 5, first: now, last: now, id: 42, done: true})
@@ -146,8 +137,6 @@ func TestExtFollows(t *testing.T) {
 		}
 	}
 
-	// A panel's salvo of one source to two destinations: a group, not a
-	// take and a follow (only our takes are followed).
 	a.mu.Lock()
 	a.ext.causes = nil
 	a.mu.Unlock()
@@ -162,8 +151,6 @@ func TestExtFollows(t *testing.T) {
 		t.Fatalf("panel salvo %+v", es)
 	}
 
-	// Our salvo of src 2 to dst 5 then 9: a follow on dst 11 goes with the
-	// later of the two.
 	a.mu.Lock()
 	t0 := time.Now()
 	a.ext.causes = []*cause{
@@ -176,7 +163,6 @@ func TestExtFollows(t *testing.T) {
 	if e := last(); e.Follow == nil || *e.Follow != 61 {
 		t.Fatalf("follow of a salvo %+v", e)
 	}
-	// Once dst 11 has been seen following dst 5 alone, a salvo goes by that.
 	a.mu.Lock()
 	t1 := time.Now()
 	a.ext.causes = []*cause{{src: 4, dst: 5, first: t1, last: t1, id: 70, done: true}}
@@ -196,8 +182,6 @@ func TestExtFollows(t *testing.T) {
 		t.Fatalf("salvo follow by what it followed before: %+v", e)
 	}
 
-	// A cause from a multi-take confirm: the follower is tied to the group,
-	// not to one take, and isn't a panel route. A salvo of them all gets it.
 	a.mu.Lock()
 	t3 := time.Now()
 	a.ext.causes = []*cause{
@@ -214,7 +198,6 @@ func TestExtFollows(t *testing.T) {
 			t.Fatalf("follower of a grouped cause %+v", e)
 		}
 	}
-	// With no group it's a follow of that take, as before.
 	a.mu.Lock()
 	t4 := time.Now()
 	a.ext.causes = []*cause{{src: 13, dst: 5, first: t4, last: t4, id: 92, done: true}}
@@ -229,7 +212,6 @@ func TestExtFollows(t *testing.T) {
 	a.ext.causes = nil
 	a.mu.Unlock()
 
-	// Too long after a take: a take of its own.
 	a.mu.Lock()
 	old := time.Now().Add(-2 * time.Second)
 	a.ext.causes = append(a.ext.causes, &cause{src: 4, dst: 5, first: old, last: old, id: 50, done: true})
@@ -240,7 +222,6 @@ func TestExtFollows(t *testing.T) {
 		t.Fatalf("late change counted as follow: %+v", e)
 	}
 
-	// A change that may follow our take still in flight waits for it.
 	c := &cause{src: 6, dst: 5, id: -1, sent: time.Now().Add(-time.Second)}
 	a.mu.Lock()
 	a.ext.causes = append(a.ext.causes, c)
@@ -278,7 +259,6 @@ func TestExtNotHeldByQueuedTake(t *testing.T) {
 
 func TestExtFound(t *testing.T) {
 	a := newTestApp(t)
-	// The first dump only fills the cache.
 	for l := 0; l < 3; l++ {
 		for _, d := range []int{5, 6, 7} {
 			a.onRouterMsg(swp08.ExtTally(0, l, d, 1))
@@ -288,9 +268,6 @@ func TestExtFound(t *testing.T) {
 	if n := a.hist.Len(); n != 0 {
 		t.Fatalf("first dump recorded %d entries", n)
 	}
-	// The router moved dst 5 and 6 without a Connected; the next dump shows
-	// it. A take of the same source just before doesn't make them follows.
-	// Meanwhile a panel changes dst 7, announced.
 	a.mu.Lock()
 	now := time.Now()
 	a.ext.causes = append(a.ext.causes, &cause{src: 9, dst: 8, first: now, last: now, id: 42, done: true})
@@ -321,7 +298,6 @@ func TestExtFound(t *testing.T) {
 	if len(found[0].Levels)+len(found[1].Levels) != 3 || found[0].Group == "" || found[0].Group != found[1].Group || found[0].GroupN != 2 {
 		t.Fatalf("found entries %+v", found)
 	}
-	// The same again is no change.
 	a.onRouterMsg(swp08.ExtTally(0, 0, 5, 9))
 	endBurst(a)
 	if n := a.hist.Len(); n != 3 {

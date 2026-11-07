@@ -50,14 +50,11 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 		t.Fatal("absent keys read as present")
 	}
 	cm.LevelColors = []string{"#abcdef"}
-	// Both an admin and a trusted user (who may not change the locks, so a
-	// decode to "off" would be refused) save fine and change nothing.
 	setFlags(t, a, "Ana", true, false)
 	ana := &client{ip: "10.0.0.1"}
 	if err := a.UserUnlock(ana, "1234"); err != nil {
 		t.Fatal(err)
 	}
-	// In this order: the admin saves before the PIN unlock is dropped.
 	for _, who := range []string{"admin", "trusted"} {
 		c := map[string]*client{"admin": admin, "trusted": ana}[who]
 		if who == "trusted" {
@@ -70,7 +67,6 @@ func TestSaveWithoutLocksKeepsThem(t *testing.T) {
 			t.Fatalf("%s: a save without locks turned them off: %+v", who, got.Locks)
 		}
 	}
-	// A null is the same as absent.
 	var nul configMsg
 	if err := json.Unmarshal([]byte(`{"locks":null,"autoLockMinutes":null}`), &nul); err != nil || nul.hasLocks || nul.hasAuto {
 		t.Fatalf("null counted as present: %v", err)
@@ -102,7 +98,6 @@ func TestLocksNeedSettingsPin(t *testing.T) {
 	if got := a.r().cfg; !got.Locks.Main || !got.Locks.Log || got.AutoLockMinutes != 0 {
 		t.Fatalf("a refused save changed the locks: %+v", got)
 	}
-	// An unchanged copy is fine for the trusted user.
 	if err := a.SaveSettings(ana, a.r().cfg, "", false); err != nil {
 		t.Fatalf("unchanged locks: %v", err)
 	}
@@ -120,7 +115,6 @@ func TestLocksNeedSettingsPin(t *testing.T) {
 	}
 }
 
-// A lock still needs a user and a settings PIN, and the error says so.
 func TestLockNeedsUserAndPin(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.9"}

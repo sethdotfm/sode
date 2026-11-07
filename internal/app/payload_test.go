@@ -22,7 +22,6 @@ func maxOwned(t *testing.T) config.Config {
 	t.Helper()
 	cfg := config.Defaults()
 	cfg.Normalize()
-	// grow adds to cfg while the result still validates.
 	grow := func(try func(*config.Config) bool) {
 		for i := 0; ; i++ {
 			next := cfg.Clone()
@@ -37,7 +36,6 @@ func maxOwned(t *testing.T) config.Config {
 			cfg = next
 		}
 	}
-	// Filter sets: the longest ones until the cap refuses the next.
 	f := 0
 	grow(func(c *config.Config) bool {
 		c.FilterSets = append(c.FilterSets, config.FilterSet{
@@ -89,9 +87,6 @@ func TestMessageSizes(t *testing.T) {
 	if n := size(cfg.Presets); n > config.MaxPresetsBytes || n < config.MaxPresetsBytes/2 {
 		t.Errorf("max presets are %d bytes, cap %d", n, config.MaxPresetsBytes)
 	}
-	// hello carries the config (no limit on what the server sends). It and
-	// what a Settings save would echo back are over the limit with the owned
-	// lists in; without them (what the form owns) they are tiny.
 	full := size(map[string]any{"t": "config", "config": cfg})
 	t.Logf("config message with every owned list full: %d bytes", full)
 	if full < wsReadLimit {
@@ -178,7 +173,6 @@ func TestSocketConfig(t *testing.T) {
 	}
 	await("hello")
 
-	// A config message with big owned lists, under the read limit.
 	big := maxOwned(t)
 	cfg := a.r().cfg
 	cfg.Presets = big.Presets[:1]

@@ -2,18 +2,17 @@ package app
 
 import "time"
 
-// cause is one of our takes, which changes elsewhere may follow (id -1
-// until it's recorded).
+// cause: one of our takes that changes elsewhere may follow (id -1 until recorded).
 type cause struct {
 	src, dst    int
 	first, last time.Time // its changes as the router reported them; zero = none yet
 	sent        time.Time // when its connects had gone out; zero while they're queued
 	id          int
-	done        bool   // recorded
+	done        bool
 	group       string // history group of the multi-take confirm it belongs to, "" if alone
 }
 
-// saw notes one of the take's changes. Caller holds mu.
+// Caller holds mu.
 func (c *cause) saw(t time.Time) {
 	if c.first.IsZero() {
 		c.first = t
@@ -21,21 +20,18 @@ func (c *cause) saw(t time.Time) {
 	c.last = t
 }
 
-// leads reports whether a change of src to dst at t looks like a follow of c.
 func (c *cause) leads(src, dst int, t time.Time) bool {
 	return c.done && c.id >= 0 && !c.first.IsZero() && c.src == src && c.dst != dst &&
 		!t.Before(c.first.Add(-followBefore)) && !t.After(c.last.Add(followAfter))
 }
 
-// follows is how changes the router makes by itself are tied to our takes:
-// the recent takes (causes) and which destination leads which (leaders).
-// Guarded by App.mu, which its callers hold.
+// follows: recent takes (causes) and which destination leads which (leaders). Guarded by
+// App.mu.
 type follows struct {
-	causes  []*cause    // recent takes that changes elsewhere may follow
-	leaders map[int]int // dst → the dst it was last seen following
+	causes  []*cause
+	leaders map[int]int
 }
 
-// expire forgets takes that can no longer be followed.
 func (f *follows) expire(now time.Time) {
 	keep := f.causes[:0]
 	for _, c := range f.causes {
@@ -47,8 +43,7 @@ func (f *follows) expire(now time.Time) {
 	f.causes = keep
 }
 
-// awaitsTake reports whether a pending change may follow one of our
-// takes still waiting for the router. Caller holds mu.
+// Caller holds mu.
 func (f *follows) awaitsTake(pending map[int]map[int]*extLevel) bool {
 	for _, c := range f.causes {
 		if c.done || c.sent.IsZero() {
@@ -56,7 +51,6 @@ func (f *follows) awaitsTake(pending map[int]map[int]*extLevel) bool {
 		}
 		for dst, ls := range pending {
 			for _, l := range ls {
-				// A change before the connects went out can't follow them.
 				if !l.found && l.src == c.src && dst != c.dst && !l.first.Before(c.sent.Add(-followBefore)) {
 					return true
 				}
@@ -66,12 +60,9 @@ func (f *follows) awaitsTake(pending map[int]map[int]*extLevel) bool {
 	return false
 }
 
-// followed is the take of ours a change of src to dst at t seems to
-// follow, or nil. A salvo of one source leaves several that fit, and
-// timing can't tell them apart; a destination follows the same one each
-// time (a PiP its DSM), so when only one fits it's remembered, and a
-// salvo goes by that. Failing that, the take whose last change came
-// latest. Caller holds mu.
+// followed: a salvo of one source leaves several fits timing can't separate; a destination
+// follows the same take each time (a PiP its DSM), so a lone fit is remembered and a salvo
+// goes by it; else the take whose last change came latest. Caller holds mu.
 func (f *follows) followed(src, dst int, t time.Time) *cause {
 	var fits []*cause
 	for _, c := range f.causes {

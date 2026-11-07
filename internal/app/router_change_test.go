@@ -80,7 +80,6 @@ func TestRouterChangeCutsTake(t *testing.T) {
 		t.Fatalf("take left state in the new tracker: %d waiters, %+v", len(a.waiters), a.ext)
 	}
 	a.mu.Unlock()
-	// The route made on the new router is a change made elsewhere.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	es, _ = a.hist.Page(-1, 2)
@@ -89,7 +88,6 @@ func TestRouterChangeCutsTake(t *testing.T) {
 	}
 }
 
-// A take still reading dst's routes sends no connect once the router changed.
 func TestRouterChangeDuringCheck(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)

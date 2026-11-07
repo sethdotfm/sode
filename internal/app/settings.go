@@ -11,11 +11,9 @@ import (
 
 // --- settings
 
-// saveSettings applies cfg from c. Browsers never see the PIN hash, so the
-// current one is kept unless pin sets a new one or clearPin drops it. Saves
-// run one at a time, so one can't drop a PIN another just set. What the
-// message did not carry (deviceDefaults, locks, autoLockMinutes) keeps the
-// current value, read under cfgMu with the rest.
+// saveSettings: browsers never see the PIN hash, so the current one is kept unless pin
+// sets a new one or clearPin drops it. Saves are serialized. Keys the message lacked
+// (deviceDefaults, locks, autoLockMinutes) keep current values, read under cfgMu.
 func (a *App) saveSettings(c *client, m configMsg, pin string, clearPin bool) error {
 	cfg := m.Config
 	a.cfgMu.Lock()
@@ -23,16 +21,12 @@ func (a *App) saveSettings(c *client, m configMsg, pin string, clearPin bool) er
 	if err := a.guardSave(c, pin == "" && !clearPin); err != nil {
 		return err
 	}
-	// A trusted user (not the settings PIN) may not weaken what the admin
-	// guards through this form's plain fields.
+	// A trusted user may not weaken what the admin guards through plain fields.
 	admin := a.settingsUnlocked(c)
 	return a.applyConfig(func(cur *config.Config) error {
-		// cur is a copy of the live config. Whatever is saved apart from
-		// this form (Config's owned fields: filter sets, presets, the
-		// PIN, users and locks...) stays as it is, so a browser's stale
-		// copy can't undo it.
+		// cur is a copy of live; fields saved apart (owned) stay as is, so a stale browser
+		// copy can't undo them.
 		live := *cur
-		// A message without the keys is not "turn every lock off".
 		if !m.hasLocks {
 			cfg.Locks = live.Locks
 		}
@@ -66,8 +60,6 @@ func (a *App) saveSettings(c *client, m configMsg, pin string, clearPin bool) er
 	})
 }
 
-// SaveFilterSets replaces the filter sets for everyone, from c (Recent's
-// Filters dialog). They're settings, so a settings PIN guards them too.
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	return a.saveShared(c, func(cur *config.Config) error {
 		cur.FilterSets = sets
@@ -75,11 +67,8 @@ func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })
 }
 
-// update is the one way settings change: mutate edits a copy of the live
-// config, which is then normalized, validated, built into a runtime and
-// saved. It stores nothing: the caller swaps in the new runtime (under mu,
-// with whatever else must change at once) and says who hears of it. Caller
-// holds cfgMu.
+// update: mutate edits a copy, then Normalize, Validate, build a runtime, save. Stores
+// nothing; the caller swaps the runtime under mu. Caller holds cfgMu.
 func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err error) {
 	old = a.r()
 	cfg := old.cfg.Clone()
@@ -99,15 +88,14 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 			return nil, nil, fmt.Errorf("saving %s: %w", a.cfgPath, err)
 		}
 	}
-	// Revocation is durable: tokens the new config invalidates are deleted
-	// now, not just ignored, so undoing the change can't revive them.
+	// Revocation is durable: invalidated tokens are deleted so undoing the change can't
+	// revive them.
 	a.tokens.prune(cfg)
 	return old, nw, nil
 }
 
-// cutTakes ends every take and check in flight, for a router change: their
-// waits stop at once, and each take fails as cut. Their sends are already
-// refused (the tracker they started on is no longer a.ext). Caller holds mu.
+// cutTakes: waits stop at once, each take fails as cut. Their sends are already refused
+// (a.ext changed). Caller holds mu.
 func (a *App) cutTakes() {
 	for w := range a.waiters {
 		w.cut = true
@@ -120,8 +108,6 @@ func (a *App) cutTakes() {
 	clear(a.checks)
 }
 
-// applyConfig is update, then the swap and a full snapshot for everyone.
-// Caller holds cfgMu.
 func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	oldRt, nr, err := a.update(mutate)
 	if err != nil {
@@ -137,12 +123,11 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		a.router = newRouterState()
 		a.ext = newExtTracker()
 		a.cutTakes()
-		// A new router starts from scratch: not the old one's state or error.
 		a.status.Router = string(swp08.StateConnecting)
 		a.status.Addr = c.Router
 		a.status.Err = ""
-		// SetTarget doesn't report down, so the link log and the uptime
-		// record are told here; the next up is logged again.
+		// SetTarget doesn't report down: tell the link log and uptime here; the next up is
+		// logged again.
 		a.up.State(false)
 		a.linkSeen, a.linkErr = "", ""
 		ch := event(kindLink, "", "", "changed")
@@ -154,7 +139,6 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	for cl := range a.clients {
 		a.deliver(cl, hello)
 		a.syncAccessLocked(cl) // locks, users or the settings PIN may have changed
-		// An unlock is for the PIN it was entered against.
 		if cl.pin != "" && cl.pin != c.SettingsPin {
 			cl.pin = ""
 			if c.SettingsPin != "" {
@@ -171,9 +155,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	return nil
 }
 
-// guardedErr is the refusal for a trusted save that touches what only the
-// settings PIN may change. It counts as errLocked, so the page asks for the
-// PIN (and the command is logged as locked).
+// guardedErr counts as errLocked, so the page asks for the PIN.
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
@@ -181,12 +163,10 @@ func (guardedErr) Error() string {
 }
 func (guardedErr) Is(target error) bool { return target == errLocked }
 
-// trustedMayNotChange: the Settings form's fields a trusted user can't change
-// (the guard roles "router" and "pin" on config.Config): the router and how
-// it is read (changing them reconnects and cuts takes in flight), and what
-// would weaken the admin's guards: trustedProxies (forge who()/addresses in
-// history and logs), pinMaxTries (turn the permanent PIN lockout off) and
-// how confirms are fired. next is compared as it will be saved, normalized.
+// trustedMayNotChange: fields a trusted user can't change (guard roles "router" and
+// "pin"): the router and how it is read (reconnects, cuts takes), and what would weaken
+// admin guards: trustedProxies (forge addresses in logs), pinMaxTries (disable permanent
+// lockout), how confirms are fired. next is compared normalized.
 func trustedMayNotChange(live, next config.Config) error {
 	n := next.Clone()
 	n.Normalize()

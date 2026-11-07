@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-// Branding is display only (#126): saving it keeps the router state.
+// Branding is display only: saving it keeps the router state.
 func TestBrandNotRouterSide(t *testing.T) {
 	a := pinApp(t)
 	st := a.router

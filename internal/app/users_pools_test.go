@@ -40,7 +40,6 @@ func TestPinClassesSeparate(t *testing.T) {
 	if a.pin.n != 3 {
 		t.Fatalf("a user's success reset the settings count to %d", a.pin.n)
 	}
-	// And a settings success doesn't reset the user count.
 	if err := a.UserUnlock(c, "0000"); err == nil {
 		t.Fatal("wrong user PIN accepted")
 	}
@@ -80,11 +79,9 @@ func TestUserPinBackoffCapped(t *testing.T) {
 	if wait <= 0 || wait > userPinMaxWait {
 		t.Fatalf("wait %v", wait)
 	}
-	// Mid-wait the settings class still works.
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatalf("settings PIN blocked by user failures: %v", err)
 	}
-	// And the right user PIN works once the wait is over.
 	clearWaits(a)
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatalf("locked out for good: %v", err)
@@ -164,7 +161,6 @@ func TestUserPinSuccessDoesNotResetCount(t *testing.T) {
 	}
 }
 
-// ...but a pool that has been quiet long enough starts over.
 func TestUserPinForgetsAfterQuiet(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
@@ -180,7 +176,6 @@ func TestUserPinForgetsAfterQuiet(t *testing.T) {
 	}
 }
 
-// The settings PIN still starts over on a right one.
 func TestSettingsPinSuccessResetsCount(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}

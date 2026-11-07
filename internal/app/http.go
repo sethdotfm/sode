@@ -25,21 +25,19 @@ type client struct {
 	ip   string
 	send chan []byte
 
-	// pin is the settings PIN hash this connection unlocked, guarded by
-	// App.mu; a changed or removed PIN no longer matches it.
+	// pin: settings PIN hash this connection unlocked, guarded by App.mu; a changed or
+	// removed PIN stops matching.
 	pin string
 
-	// sent: this is a /log page, sent new sent log entries. Guarded by App.mu.
+	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
 	sent bool
 
 	u connUser // page type, unlocked user, session token (users.go)
 }
 
-// wsReadLimit is the most one browser message may be. The largest ones are
-// a Settings save and a presets save; see TestMessageSizes.
+// wsReadLimit: see TestMessageSizes (largest are a Settings save and a presets save).
 const wsReadLimit = 64 << 10
 
-// Handler serves the embedded UI, the WebSocket and a health check.
 func (a *App) Handler(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	files := http.FileServerFS(static)
@@ -66,15 +64,12 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	return secureHeaders(mux)
 }
 
-// csp is the one Content-Security-Policy for every response. Scripts are
-// same-origin files only (no inline bodies, no on*= handlers: a test over the
-// embedded pages keeps it so); inline style attributes are used, hence
-// 'unsafe-inline' for styles only. The socket is same-origin ws(s).
+// csp: same-origin scripts only (no inline bodies or on*= handlers; a test keeps it so);
+// 'unsafe-inline' for styles only.
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
 	"img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
 	"base-uri 'self'; frame-ancestors 'none'"
 
-// secureHeaders sets the browser-hardening headers in one place.
 func secureHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
@@ -85,7 +80,6 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// healthMsg is the /api/health body.
 type healthMsg struct {
 	Server        string `json:"server"`
 	Router        string `json:"router"`
@@ -96,8 +90,6 @@ type healthMsg struct {
 	Browsers      int    `json:"browsers"`
 }
 
-// serveHealth reports server and router health apart for uptime monitors:
-// 200 while the router is up, 503 otherwise. No PIN, no config.
 func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -118,10 +110,8 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(healthMsg{"up", st.Router, st.Addr, st.Err, VersionLabel(), int64(time.Since(a.started).Seconds()), browsers})
 }
 
-// clientIP is the peer address, or, when the peer is a trusted proxy, the
-// nearest untrusted hop in X-Forwarded-For (X-Real-IP when there is none).
-// Untrusted peers can't spoof it, and a hop that isn't an address ends the
-// search at the peer rather than trusting what lies beyond it.
+// clientIP: a hop that isn't an address ends the search at the peer rather than trusting
+// what lies beyond.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	parse := func(s string) (netip.Addr, bool) {
@@ -134,7 +124,6 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	if a, ok := parse(host); !ok || !isTrusted(a) {
 		return host
 	}
-	// Several header lines are one list, in order.
 	lines := r.Header.Values("X-Forwarded-For")
 	if len(lines) == 0 {
 		lines = r.Header.Values("X-Real-IP") // nginx's usual recipe
@@ -154,9 +143,8 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	return host
 }
 
-// How often each browser gets a {"t":"ping"} message. Browsers can't see
-// WebSocket ping frames, so without this a socket a proxy or the network
-// dropped silently stays OPEN on the page (#142). A var so a test can shorten it.
+// wsHeartbeat: browsers can't see ping frames, so a silently dropped socket would stay
+// OPEN on the page. A var so tests can shorten it.
 var wsHeartbeat = 5 * time.Second
 
 var pingMsg = []byte(`{"t":"ping"}`)
@@ -178,8 +166,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	// Register and queue the snapshot under one lock so no delta can
-	// arrive ahead of it.
+	// Register and queue the snapshot under one lock so no delta arrives ahead of it.
 	page := a.readHello()
 	a.mu.Lock()
 	a.clients[c] = struct{}{}
@@ -189,7 +176,6 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	connected := time.Now()
 	a.logEvent(event(kindBrowser, "connect", c.ip, "connected"))
 
-	// Why the read loop ended, for the log.
 	var gone error
 	defer func() {
 		a.mu.Lock()
@@ -284,14 +270,13 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			a.command(c, "refreshNames", "sent", "", nil)
 			go a.RefreshNames()
 		case "unlock":
-			// Checked in line, so a lock sent after it is handled after it
-			// and one connection checks one PIN at a time.
+			// In line: a later lock is handled after, and one connection checks one PIN at
+			// a time.
 			res := opResult{T: "unlockResult", OK: true, ID: &m.ID}
 			err := a.Unlock(c, m.Pin)
 			if err != nil {
 				res.OK, res.Err = false, err.Error()
 			}
-			// Never the PIN, only whether it was right.
 			a.command(c, "unlock", map[bool]string{true: "ok", false: "refused"}[err == nil], "", err)
 			a.reply(c, res)
 		case "lock":
@@ -314,9 +299,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			go a.serveConfigExport(c, &m)
 		case "configImportBegin":
 			if budget.Grant(m.Size) {
-				// Answered either way, after the limit is raised: the page
-				// sends the file only once it has this answer, so a refusal
-				// is a normal result and never a too-big message.
+				// Answered either way after the limit is raised: the page sends the file
+				// only after this, so a refusal is a normal result, not a too-big message.
 				a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
 			} else {
 				a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
@@ -331,8 +315,6 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// serveBatch handles a batch of takes: one command-log row for the lot, the
-// preset's name (if any) stamped on every take, then the takes themselves.
 func (a *App) serveBatch(c *client, m *inMsg) {
 	if len(m.Items) > 0 {
 		why, n := "take", len(m.Items)
@@ -353,29 +335,24 @@ func (a *App) serveBatch(c *client, m *inMsg) {
 	go a.batch(c, m.Items)
 }
 
-// serveConfig saves the Settings form in the background and answers when done.
 func (a *App) serveConfig(c *client, m *inMsg) {
 	if m.Config == nil {
 		return
 	}
-	// Who saved, not what: the settings hold the PIN's hash. A page from
-	// before deviceDefaults existed sends none, and its zero values would turn
-	// the "on" defaults off for everyone, so the current ones are kept.
+	// Who saved, not what (settings hold the PIN hash). An old page sends no
+	// deviceDefaults; zero values would turn "on" defaults off, so current ones are kept.
 	go func(cfg configMsg, pin string, clearPin bool) {
 		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin))
 	}(*m.Config, m.Pin, m.ClearPin)
 }
 
-// configMsg is the Settings form's config, and whether it carried
-// deviceDefaults, locks and autoLockMinutes at all. A page from before those
-// existed (or any message without the keys) must not decode to "every lock
-// off", so saveSettings keeps the live values of whatever is missing.
+// configMsg records whether deviceDefaults, locks and autoLockMinutes were present: a
+// missing key must not decode to "every lock off", so saveSettings keeps live values.
 type configMsg struct {
 	config.Config
 	hasDefaults, hasLocks, hasAuto bool
 }
 
-// present is whether a probed JSON key was in the message (and not null).
 func present(r json.RawMessage) bool { return r != nil && string(r) != "null" }
 
 func (m *configMsg) UnmarshalJSON(b []byte) error {
@@ -392,7 +369,6 @@ func (m *configMsg) UnmarshalJSON(b []byte) error {
 	return json.Unmarshal(b, &m.Config)
 }
 
-// outcome is a command's result: ok, locked (a PIN or a lock was why) or error.
 func outcome(err error) string {
 	switch {
 	case err == nil:
@@ -403,24 +379,22 @@ func outcome(err error) string {
 	return "error"
 }
 
-// inMsg is any browser-to-server message; T says which fields are used. Every
-// type read here must be in policy (policy.go).
+// inMsg: every type read here must be in policy.go.
 type inMsg struct {
-	T        string             `json:"t"`
-	Before   int                `json:"before"`
-	N        int                `json:"n"`    // history page size; 0 = the default
-	From     int64              `json:"from"` // uptime range, unix ms
-	To       int64              `json:"to"`
-	Slot     int64              `json:"slot"` // ...and its slot length, ms
-	Config   *configMsg         `json:"config"`
-	Pin      string             `json:"pin"`
-	ClearPin bool               `json:"clearPin"`
-	ID       int                `json:"id"` // echoed by unlock and save replies
-	Items    []takeReq          `json:"items"`
-	Preset   string             `json:"preset"` // batch: the preset that was fired, if any
-	Salvo    string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
-	Sets     []config.FilterSet `json:"sets"`
-	// profileSave: the parts to replace; nil = keep (an empty list or {} clears)
+	T          string             `json:"t"`
+	Before     int                `json:"before"`
+	N          int                `json:"n"`    // history page size; 0 = the default
+	From       int64              `json:"from"` // uptime range, unix ms
+	To         int64              `json:"to"`
+	Slot       int64              `json:"slot"` // ...and its slot length, ms
+	Config     *configMsg         `json:"config"`
+	Pin        string             `json:"pin"`
+	ClearPin   bool               `json:"clearPin"`
+	ID         int                `json:"id"` // echoed by unlock and save replies
+	Items      []takeReq          `json:"items"`
+	Preset     string             `json:"preset"` // batch: the preset that was fired, if any
+	Salvo      string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
+	Sets       []config.FilterSet `json:"sets"`
 	Prefs      map[string]string  `json:"prefs"`
 	FilterSets []config.FilterSet `json:"filterSets"`
 	Presets    []config.Preset    `json:"presets"`
@@ -444,8 +418,7 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// uptimeReply is the link's record for an uptime request. A range with no
-// end runs to now; one with no start, a week back.
+// A range with no end runs to now; no start, a week back.
 func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	now := time.Now().UnixMilli()
 	if to <= 0 || to > now {
@@ -454,8 +427,7 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	if from <= 0 {
 		from = to - 7*24*3600_000
 	}
-	// Cut here, not only in Range, so the slots are counted from the start the
-	// reply says.
+	// Cut here too so slots count from the start the reply says.
 	if oldest := time.UnixMilli(now).Add(-uptimeKeep).UnixMilli(); from < oldest {
 		from = oldest
 	}
@@ -470,7 +442,6 @@ func (a *App) uptimeReply(id int, from, to, slot int64) uptimeMsg {
 	return m
 }
 
-// locked is opResult.Locked for a failed save: whether the PIN was why.
 func locked(err error) *bool {
 	l := errors.Is(err, errLocked)
 	return &l

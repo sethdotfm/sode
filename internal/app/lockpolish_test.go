@@ -31,7 +31,6 @@ func TestUserSetPin(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	// A wrong old PIN counts as a try and changes nothing.
 	n := a.userPin.n
 	if err := a.UserSetPin(c, "0000", "4321"); err == nil || a.userPin.n != n+1 {
 		t.Fatalf("wrong old PIN: %v n=%d", err, a.userPin.n)

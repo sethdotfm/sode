@@ -28,7 +28,6 @@ func TestHistoryPagingAndReopen(t *testing.T) {
 		t.Fatalf("last page %+v", page)
 	}
 
-	// Simulate a torn write, then reopen.
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
 	f.WriteString(`{"id":25,"src":`)
 	f.Close()
@@ -73,7 +72,6 @@ func TestHistoryPageKeepsGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// IDs 0-1 ungrouped, 2-5 one group, 6 ungrouped.
 	for i := 0; i < 7; i++ {
 		e := &Entry{Dst: i}
 		if i >= 2 && i <= 5 {
@@ -81,7 +79,6 @@ func TestHistoryPageKeepsGroups(t *testing.T) {
 		}
 		h.Append(e)
 	}
-	// A page of 2 from the top ends inside the group, so it runs on to ID 2.
 	page, _ := h.Page(-1, 2)
 	if len(page) != 5 || page[4].ID != 2 {
 		t.Fatalf("page %+v", page)
@@ -182,7 +179,6 @@ func TestHistoryUpdateMemoryDoesNotAlias(t *testing.T) {
 	}
 }
 
-// Entries written before presets were renamed carry the name under "salvo".
 func TestHistoryReadsOldSalvoKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "h.jsonl")
 	old := `{"id":0,"time":"2026-11-02T10:00:00Z","src":1,"dst":2,"ok":true,"salvo":"Show"}` + "\n"

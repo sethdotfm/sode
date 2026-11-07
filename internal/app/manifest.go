@@ -28,8 +28,6 @@ type manifest struct {
 	Icons           []manifestIcon `json:"icons"`
 }
 
-// serveManifest: the web app manifest follows the logo text and colour set
-// in Settings, so each instance installs under its own name and icon.
 func (a *App) serveManifest(w http.ResponseWriter, r *http.Request) {
 	cfg := a.r().cfg
 	name := cfg.BrandText

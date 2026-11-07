@@ -6,7 +6,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A login with no lock on (userUnlock with tab) gets a tab token.
 func TestTabSession(t *testing.T) {
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.1"}
@@ -20,18 +19,15 @@ func TestTabSession(t *testing.T) {
 	if tok == "" || !tokenAlive(a, tok) {
 		t.Fatal("no tab token")
 	}
-	// A reload of that tab is logged in again.
 	fresh := &client{ip: "10.0.0.2"}
 	a.Hi(fresh, "main", tok)
 	if fresh.who() != "Ana" {
 		t.Fatal("tab token not honored")
 	}
-	// A lock revokes it.
 	a.UserLock(fresh)
 	if tokenAlive(a, tok) {
 		t.Fatal("lock did not revoke")
 	}
-	// Persistent behaviour is unchanged: tab asked, ordinary token given.
 	setFlags(t, a, "Ana", false, true)
 	d := &client{ip: "10.0.0.3"}
 	if err := a.UserUnlock(d, "1234"); err != nil {

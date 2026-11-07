@@ -26,8 +26,6 @@ func TestVersionNoted(t *testing.T) {
 	if !regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(want) + `$`).Match(readme) {
 		t.Errorf("README.md needs the line %q (bump it with version.go)", want)
 	}
-	// CHANGELOG.md has a section for this version, and a release is no longer
-	// "(unreleased)".
 	if log, err := os.ReadFile("../../CHANGELOG.md"); err == nil {
 		heading := "## " + VersionLabel()
 		m := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(heading) + `( \(unreleased\))?$`).FindSubmatch(log)

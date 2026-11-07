@@ -11,15 +11,12 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Users and page locks (#151). Everything here is off until the config has
-// users and a lock turned on. What each message needs is one table
-// (policy.go), checked before anything runs; this file is the access state
-// itself: who a connection has unlocked as, and the lock screen's messages.
+// Users and page locks. Off until the config has users and a lock on. policy.go holds the
+// message->need table; this file is the access state (who a connection unlocked as) and
+// the lock screen messages.
 
-// errPageLocked is the refusal for an action behind a page lock.
 var errPageLocked = errors.New("locked; unlock with your PIN first")
 
-// errNeedAdminPin: users and locks are administered with the settings PIN.
 var errNeedAdminPin = errors.New("Set a settings PIN first: users and locks are administered with it")
 
 type gate int
@@ -37,24 +34,19 @@ func (l gate) on(k config.Locks) bool {
 	return k.Main
 }
 
-// pageGates is the lock that guards each page type the browser can declare.
 var pageGates = map[string]gate{"main": gateMain, "log": gateLog}
 
-// connUser is a connection's access state: page and token are guarded by
-// App.mu; user is atomic so who can be read anywhere.
+// connUser: page and token guarded by App.mu; user is atomic.
 type connUser struct {
 	page string // "main" (default) or "log", as the page declared
-	// token: the session token this connection holds (presented in hi, or
-	// issued when a persistent user unlocked it). Only ever set for a
-	// persistent user; a lock revokes it.
+	// token: session token held (from hi or issued on unlock); persistent users only; a
+	// lock revokes it.
 	token string
 	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
-	// profile: the last profile message sent (under mu); "" = none, so a
-	// connection that never had one is never sent a clear.
+	// profile: last profile message sent (under mu); "" = none, so no clear is sent.
 	profile string
 }
 
-// who names the connection for history and logs: the user, else the address.
 func (c *client) who() string {
 	if u := c.u.user.Load(); u != nil {
 		return u.Name
@@ -62,8 +54,7 @@ func (c *client) who() string {
 	return c.ip
 }
 
-// userOKLocked: c unlocked as a user who still exists with the same PIN (a
-// changed PIN or a removal relocks). Caller holds mu.
+// userOKLocked: unlocked as a user who still exists with the same PIN. Caller holds mu.
 func (a *App) userOKLocked(c *client, cfg config.Config) bool {
 	was := c.u.user.Load()
 	if was == nil {
@@ -73,41 +64,31 @@ func (a *App) userOKLocked(c *client, cfg config.Config) bool {
 	return ok && u.Pin == was.Pin
 }
 
-// pageAllowedLocked reports whether c may do what lock g guards: the lock is
-// off, or c unlocked as a user (a session token only ever brings a connection
-// up as that user, see Hi). Caller holds mu.
+// Caller holds mu.
 func (a *App) pageAllowedLocked(c *client, g gate) bool {
 	cfg := a.r().cfg
 	return !g.on(cfg.Locks) || a.userOKLocked(c, cfg)
 }
 
-// lockStateMsg is what a page needs to show or hide its lock screen.
 type lockStateMsg struct {
 	T        string `json:"t"`
 	Page     string `json:"page"`
 	Enforced bool   `json:"enforced"` // this page type has a lock on
 	Locked   bool   `json:"locked"`
 	User     string `json:"user,omitempty"`
-	// Lens: the PIN lengths some user has, so the lock pad knows when a PIN
-	// can be complete. It rides every lock state (a PIN change sends one to
-	// everyone) so a pad never works from a stale list.
+	// Lens: PIN lengths in use; rides every lock state so a pad is never stale.
 	Lens []int `json:"lens,omitempty"`
-	// Names: the users' names, for "by Ana" in history. Only a page that may
-	// see the main screen gets them (not a locked one).
+	// Names: for "by Ana" in history; not sent to locked pages.
 	Names []string `json:"names,omitempty"`
-	// Hi: this is the answer to the page's own `hi`. Only that one says
-	// whether its session token was honored; an unsolicited state (a config
-	// save by someone else) may arrive first and says nothing about it.
+	// Hi: answer to the page's own hi; an unsolicited state may arrive first and says
+	// nothing about the token.
 	Hi bool `json:"hi,omitempty"`
-	// Trusted: the user may save low-risk settings without the settings PIN;
-	// the page only hides its PIN prompt for it, the server decides.
-	Trusted bool `json:"trusted,omitempty"`
-	// Persistent: the user never logs out (no idle lock in the browser).
+	// Trusted: low-risk settings without the settings PIN; the server decides.
+	Trusted    bool `json:"trusted,omitempty"`
 	Persistent bool `json:"persistent,omitempty"`
 }
 
-// lockStateLocked is c's lock state, as its page declared itself. Caller
-// holds mu.
+// Caller holds mu.
 func (a *App) lockStateLocked(c *client) lockStateMsg {
 	cfg := a.r().cfg
 	page := c.u.page
@@ -129,12 +110,11 @@ func (a *App) lockStateLocked(c *client) lockStateMsg {
 	return m
 }
 
-// syncAccessLocked brings c up to date after anything that can change what it
-// may do (a lock, an unlock, a config change): it queues c's lock state and
-// stops the sent-log feed if c may no longer read it. Caller holds mu.
+// Queues c's lock state and stops the sent-log feed if c may no longer read it. Caller
+// holds mu.
 func (a *App) syncAccessLocked(c *client) { a.pushAccessLocked(c, false) }
 
-// pushAccessLocked is syncAccessLocked; hi marks the answer to a `hi`.
+// pushAccessLocked: hi marks the answer to a hi.
 func (a *App) pushAccessLocked(c *client, hi bool) {
 	if !a.pageAllowedLocked(c, gateLog) {
 		c.sent = false
@@ -152,10 +132,8 @@ func (a *App) syncAccess(c *client) {
 	a.mu.Unlock()
 }
 
-// Hi records what a page says about itself: its type and, for a persistent
-// user's browser, its session token. A valid token brings the connection up
-// unlocked as that user without a PIN; a wrong or dead one is ignored (the
-// normal lock pad follows). A connection already unlocked is left as it is.
+// Hi: a valid token brings the connection up as that user; a bad one is ignored. An
+// already unlocked connection is left alone.
 func (a *App) Hi(c *client, page, token string) {
 	if _, ok := pageGates[page]; !ok {
 		page = "main"
@@ -178,10 +156,8 @@ func (a *App) Hi(c *client, page, token string) {
 	}
 }
 
-// UserUnlock unlocks c as the user whose PIN is pin. PINs are unique across
-// users, so no name is asked for. Every try counts, like a settings PIN, in
-// the users' own pool; the page only sends lengths some user has, so a
-// shorter or longer one is simply wrong.
+// UserUnlock: PINs are unique across users. Every try counts in the users' pool, like a
+// settings PIN.
 func (a *App) UserUnlock(c *client, pin string) error {
 	users := a.r().cfg.Users
 	n := utf8.RuneCountInString(pin)
@@ -200,21 +176,18 @@ func (a *App) UserUnlock(c *client, pin string) error {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	// Still the same user with the same PIN?
 	if u, ok := a.r().cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
 		return errors.New("that PIN changed; try again")
 	}
-	// A connection that came up by token as X and unlocks as Y must not keep
-	// X's token: Y's later lock would revoke X's and relock X's tabs.
+	// A token-X connection unlocking as Y must drop X's token, or Y's lock would revoke
+	// X's.
 	c.u.token = ""
 	c.u.user.Store(hit)
 	a.syncAccessLocked(c)
 	return nil
 }
 
-// SignOutAll ends every session of the named user: their tokens are
-// deleted and their connections relock. The settings PIN guards it (a
-// trusted user is not enough).
+// SignOutAll needs the settings PIN (a trusted user is not enough).
 func (a *App) SignOutAll(c *client, name string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -237,14 +210,11 @@ func (a *App) SignOutAll(c *client, name string) error {
 	return nil
 }
 
-// issueSession gives c's persistent user a session token (the page keeps it
-// and presents it in hi). Disk I/O, so never under mu. It returns "" for a
-// user who is not persistent.
+// issueSession does disk I/O: never under mu. "" for a non-persistent user.
 func (a *App) issueSession(c *client) string { return a.issueSessionTab(c, false) }
 
-// issueSessionTab is issueSession; tab asks for a no-lock login's token for a
-// user who is not persistent (only where c's page has no lock on). It is
-// marked tab in the store and the page keeps it in sessionStorage.
+// tab: a no-lock login's token for a non-persistent user, marked tab in the store, kept in
+// sessionStorage.
 func (a *App) issueSessionTab(c *client, tab bool) string {
 	who := c.u.user.Load()
 	cfg := a.r().cfg
@@ -267,9 +237,8 @@ func (a *App) issueSessionTab(c *client, tab bool) string {
 	}
 	t := a.tokens.issue(u, cfg, tab)
 	a.mu.Lock()
-	// Locked while the file was written, or already given a good token by a
-	// racing call (an unlock and a settings save can overlap): this one is
-	// not wanted. Forgotten after mu goes, since that writes the file.
+	// Locked meanwhile, or a racing call already issued one: forgotten after mu goes (that
+	// writes the file).
 	stale := c.u.user.Load() != who || a.sessionGoodLocked(c)
 	if !stale {
 		c.u.token = t
@@ -282,8 +251,7 @@ func (a *App) issueSessionTab(c *client, tab bool) string {
 	return t
 }
 
-// sessionGoodLocked: c holds a session token that is still honored. Caller
-// holds mu.
+// Caller holds mu.
 func (a *App) sessionGoodLocked(c *client) bool {
 	if c.u.token == "" {
 		return false
@@ -292,15 +260,12 @@ func (a *App) sessionGoodLocked(c *client) bool {
 	return ok
 }
 
-// sessionMsg hands a browser a session token outside an unlock's reply.
 type sessionMsg struct {
 	T     string `json:"t"`
 	Token string `json:"token"`
 }
 
-// touchSessions renews the tokens of the connections that are open now, so a
-// persistent user whose page never reloads keeps their session past
-// tokenMaxAge. Run from periodic, off mu.
+// Renews open connections' tokens so a never-reloading page outlasts tokenMaxAge. Off mu.
 func (a *App) touchSessions() {
 	a.mu.Lock()
 	cfg := a.r().cfg
@@ -314,12 +279,9 @@ func (a *App) touchSessions() {
 	a.tokens.touch(cfg, held...)
 }
 
-// catchUpSessions gives a session token to every connection unlocked as a
-// persistent user that holds none (or holds a dead one). A token is otherwise
-// issued only when the PIN is typed, so a user who was already logged in when
-// Never log out was ticked, or who just changed their own PIN (which ends
-// their old tokens), would be asked for it again at the next reload. Run
-// after config changes, off mu: issuing writes the token file.
+// Issues tokens to persistent-user connections holding none or a dead one (tokens are
+// otherwise issued only at PIN entry, e.g. after Never log out is ticked or a PIN change).
+// Off mu: writes the token file.
 func (a *App) catchUpSessions() {
 	a.mu.Lock()
 	cfg := a.r().cfg
@@ -339,9 +301,8 @@ func (a *App) catchUpSessions() {
 	}
 }
 
-// UserLock forgets c's unlock and revokes its session token, so a reload
-// does not undo a lock. Other connections of the same browser (same token)
-// lock too; other browsers' tokens are theirs.
+// UserLock revokes c's token so a reload doesn't undo it; other connections sharing the
+// token lock too.
 func (a *App) UserLock(c *client) {
 	a.mu.Lock()
 	tok := c.u.token
@@ -361,31 +322,24 @@ func (a *App) UserLock(c *client) {
 	a.tokens.forget(tok)
 }
 
-// userEdit is one row of the users form: Was is the name it had (for a
-// rename that keeps the PIN), Pin a new PIN ("" keeps the old).
+// userEdit: Was is the old name (rename keeps the PIN), Pin a new PIN ("" keeps).
 type userEdit struct {
-	Name string `json:"name"`
-	Was  string `json:"was"`
-	Pin  string `json:"pin"`
-	// Trusted and Persistent are this row's flags (see config.User).
-	Trusted    bool `json:"trusted"`
-	Persistent bool `json:"persistent"`
+	Name       string `json:"name"`
+	Was        string `json:"was"`
+	Pin        string `json:"pin"`
+	Trusted    bool   `json:"trusted"`
+	Persistent bool   `json:"persistent"`
 }
 
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// Locks and AutoLock are read only to refuse them: they moved to Settings >
-	// Access, and a page loaded before the update must not look saved.
+	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
 	Locks    json.RawMessage `json:"locks"`
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
 }
 
-// SaveUsers replaces the user directory and the longest PIN (the locks and
-// the idle time are Settings > Access fields). It is a
-// setting like any other, so the settings PIN guards it (and nothing else:
-// the main lock does not, see policy.go). PINs must be unique across users
-// (that is how a PIN alone says who).
+// SaveUsers needs the settings PIN only (not the main lock). PINs unique across users.
 func (a *App) SaveUsers(c *client, req usersReq) error {
 	if present(req.Locks) || present(req.AutoLock) {
 		return errors.New("the lock settings moved to Settings > Access: reload this page")
@@ -404,7 +358,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		maxLen := cur.MaxPinLen
 		if len(req.Users) == 0 && cur.Locks.Any() {
-			// The locks are Settings > Access fields now, not part of this save.
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
 		}
 		old := map[string]config.User{}
@@ -420,10 +373,8 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			if u.Name == "" {
 				return errors.New("every user needs a name")
 			}
-			// The profile follows the row's Was (a rename keeps it, with or
-			// without a new PIN); a user no longer listed loses theirs.
-			// A new row (no Was, with a PIN) starts empty even if a user of
-			// that name was removed in the same save.
+			// The profile follows Was (rename keeps it); removed users lose theirs; a new
+			// row starts empty.
 			was := cmp.Or(e.Was, e.Name)
 			pk := strings.ToLower(strings.TrimSpace(was))
 			if o, ok := old[pk]; ok && !kept[pk] && (e.Was != "" || e.Pin == "") {
@@ -454,7 +405,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			}
 			out = append(out, u)
 		}
-		// Unique PINs: a new one against every other user's, same length only.
 		for name, pin := range fresh {
 			for _, u := range out {
 				if u.Name == name || u.Len != len(pin) {
@@ -470,7 +420,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	})
 }
 
-// userResult answers userUnlock. Token is set for a persistent user.
 type userResult struct {
 	T     string `json:"t"`
 	OK    bool   `json:"ok"`
@@ -480,9 +429,7 @@ type userResult struct {
 	Tab   bool   `json:"tab,omitempty"` // Token is a no-lock login's: for this tab only
 }
 
-// serveUsers handles the access messages from the read loop. Unlocks run in
-// line, like the settings unlock, so a lock sent after one is handled after
-// it.
+// Unlocks run inline like the settings unlock, so a later lock is handled after.
 func (a *App) serveUsers(c *client, m *inMsg) {
 	switch m.T {
 	case "hi":
@@ -529,14 +476,12 @@ func (a *App) serveUsers(c *client, m *inMsg) {
 		}
 		go func(r usersReq, id int) {
 			err := a.SaveUsers(c, r)
-			// Names only, never a PIN.
 			a.replyOp(c, "users", id, 0, "", err)
 		}(*m.UsersReq, m.ID)
 	}
 }
 
-// usersListMsg is the user directory for the Users editor: what the form
-// shows, never a hash. Len is only whether a PIN is set (0 = none).
+// Len: whether a PIN is set (0 = none); never a hash.
 type usersListMsg struct {
 	T     string     `json:"t"` // "usersListResult"
 	ID    int        `json:"id"`
@@ -551,7 +496,6 @@ type userView struct {
 	Persistent bool   `json:"persistent,omitempty"`
 }
 
-// usersList answers the settings PIN holder (policy: needAdmin).
 func (a *App) usersList(id int) usersListMsg {
 	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}}
 	for _, u := range a.r().cfg.Users {
@@ -560,10 +504,8 @@ func (a *App) usersList(id int) usersListMsg {
 	return m
 }
 
-// UserSetPin changes the PIN of the user c is unlocked as, after checking
-// old. It needs no settings PIN: the user's own PIN is the credential. The
-// old PIN is a try like an unlock (same pool, backed off). Other connections
-// of that user relock, as for any changed PIN; c stays unlocked.
+// UserSetPin needs the user's own PIN, not the settings PIN; the old PIN counts as a try
+// (same pool). Other connections of the user relock; c stays unlocked.
 func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 	who := c.u.user.Load()
 	if who == nil {
@@ -600,7 +542,6 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 			if cfg.Users[i].Pin != u.Pin {
 				return errors.New("your PIN changed; unlock again")
 			}
-			// Unique: no other user may have this PIN (same length only).
 			for j, o := range cfg.Users {
 				if j != i && o.Len == len(newPin) && config.CheckPin(o.Pin, newPin) {
 					return errors.New("that PIN can't be used")

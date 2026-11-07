@@ -109,7 +109,6 @@ func TestRefusalReplies(t *testing.T) {
 		t.Fatalf("refused users: %v", m)
 	}
 
-	// The settings PIN alone lets saves through, with the main lock on.
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	if m := until("unlockResult"); m["ok"] != true {
 		t.Fatalf("unlock: %v", m)
@@ -124,7 +123,6 @@ func TestRefusalReplies(t *testing.T) {
 	}
 }
 
-// clearHistory needs both: the main lock's user and the settings PIN.
 func TestClearHistoryNeedsBoth(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}

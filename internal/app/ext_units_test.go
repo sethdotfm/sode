@@ -44,7 +44,6 @@ func TestBurstFlushQuietAndMax(t *testing.T) {
 	if _, _, ok := b.flush(t0.Add(extQuiet-time.Millisecond), never); ok {
 		t.Fatal("flushed before it went quiet")
 	}
-	// Changes keep coming: it holds until extMax from the first.
 	b.add(chg(5, 7, 2, t0.Add(extMax-time.Second)))
 	if _, _, ok := b.flush(t0.Add(extMax-time.Second+extQuiet-time.Millisecond), never); ok {
 		t.Fatal("flushed while changes were coming")
@@ -147,7 +146,6 @@ func TestFollowedLatestConfirmWins(t *testing.T) {
 	if len(f.leaders) != 0 {
 		t.Fatalf("leader remembered from a guess: %v", f.leaders)
 	}
-	// Wrong source, or the take's own destination: no follow.
 	if f.followed(5, 9, t0) != nil {
 		t.Fatal("followed another source")
 	}
@@ -163,7 +161,6 @@ func TestFollowedLeaderRemembered(t *testing.T) {
 	if c := f.followed(4, 9, t0); c == nil || c.id != 1 || f.leaders[9] != 1 {
 		t.Fatalf("followed %+v leaders %v", c, f.leaders)
 	}
-	// Later a salvo fits two; dst 9 goes with the one it followed before.
 	f.causes = []*cause{
 		{src: 4, dst: 1, first: t0, last: t0, id: 1, done: true},
 		{src: 4, dst: 2, first: t0, last: t0.Add(100 * time.Millisecond), id: 2, done: true},

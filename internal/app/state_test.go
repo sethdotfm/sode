@@ -49,7 +49,6 @@ func noZeroFields(t *testing.T, v any) {
 
 func TestRouterChangeClearsRouterState(t *testing.T) {
 	a := newTestApp(t)
-	// Kept state.
 	cfg := a.r().cfg
 	cl := &client{ip: "10.0.0.9", send: make(chan []byte, 16)}
 	if err := a.SaveSettings(cl, cfg, "2468", false); err != nil {
@@ -78,7 +77,6 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a.pendSent = []Sent{{}}
 	a.mu.Unlock()
 
-	// Not router-side: nothing is cleared.
 	cur := a.r().cfg
 	cur.DeviceDefaults.Theme = "dark"
 	cur.NameRefreshSeconds++
@@ -97,7 +95,6 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	a.mu.Unlock()
 
-	// Router-side: every router-derived field is back as New made it.
 	cur.Router = "127.0.0.1:1"
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
@@ -113,7 +110,6 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	if a.status.Router != string(swp08.StateConnecting) || a.status.Addr != "127.0.0.1:1" || a.status.Err != "" {
 		t.Fatalf("status %+v", a.status)
 	}
-	// Takes and checks in flight are cut: gone, and their waits released.
 	if len(a.waiters) != 0 || len(a.checks) != 0 || !w.cut || !w.closed || !ck.shut {
 		t.Fatalf("takes not cut: %d waiters, %d checks, cut=%v", len(a.waiters), len(a.checks), w.cut)
 	}
@@ -127,7 +123,6 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	default:
 		t.Fatal("cut check's done still open")
 	}
-	// Kept (see the field comments on App).
 	if a.hist.Len() != 1 {
 		t.Fatalf("history has %d entries", a.hist.Len())
 	}

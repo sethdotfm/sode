@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-// Sent is one message written to the router (or one that never got
-// there), as logged and as shown on the /log page.
 type Sent struct {
 	Seq     int64     `json:"seq"`
 	Time    time.Time `json:"time"`
@@ -37,9 +35,8 @@ type Sent struct {
 	AckMs   float64   `json:"ackMs,omitempty"` // how long the router took to ACK
 }
 
-// Event kinds: what happened around the router link rather than a message
-// written to it (#139). They share the log so they get its seqs, paging and
-// live view; cmd, wire level, dst and src are -1 and hex is empty.
+// Event kinds: link events share the log (seqs, paging, live view); cmd, wire level, dst
+// and src are -1 and hex is empty.
 const (
 	kindBrowser = "browser" // a browser's WebSocket connected or dropped
 	kindCommand = "command" // something a browser asked for that acts
@@ -47,15 +44,14 @@ const (
 	kindServer  = "server"  // Sode started or stopped
 )
 
-// event is a Sent for an event kind. Time is set when it is logged.
 func event(kind, why, by, result string) Sent {
 	return Sent{Kind: kind, Why: why, By: by, Result: result, Cmd: -1, Wire: -1, Dst: -1, Src: -1}
 }
 
-// sentMem is how many entries the log keeps at least with no file.
+// sentMem: entries kept in memory when there is no file.
 const sentMem = 20000
 
-// segment is one file of the sent log: line i holds seq first+i.
+// segment: line i holds seq first+i.
 type segment struct {
 	f     *os.File
 	offs  []int64
@@ -65,10 +61,8 @@ type segment struct {
 
 func (s *segment) end() int64 { return s.first + int64(len(s.offs)) }
 
-// SentLog is the sent log: JSONL in two files, path and its .1, which
-// together stay under a size cap. When path would pass half the cap it
-// replaces the .1 and a new path starts. With no path it keeps the newest
-// sentMem entries in memory.
+// SentLog: JSONL in path and path.1, together under a size cap; when path passes half the
+// cap it replaces .1. With no path, the newest sentMem entries live in memory.
 type SentLog struct {
 	mu       sync.Mutex
 	path     string
@@ -78,17 +72,13 @@ type SentLog struct {
 	mem      []Sent
 }
 
-// rotatedPath is path's older file: sent.jsonl → sent.1.jsonl.
 func rotatedPath(path string) string {
 	ext := filepath.Ext(path)
 	return strings.TrimSuffix(path, ext) + ".1" + ext
 }
 
-// errDamaged marks a file whose lines can't be trusted: it's set aside
-// rather than stopping Sode from starting.
 var errDamaged = errors.New("damaged")
 
-// quarantine renames a damaged file out of the way, keeping it to look at.
 func quarantine(path string, why error) error {
 	bad := path + ".bad-" + time.Now().Format("20060102-150405")
 	log.Printf("sent log: %v; moved to %s and starting afresh", why, bad)
@@ -139,9 +129,8 @@ func OpenSentLog(path string, capBytes int64) (*SentLog, error) {
 	return l, nil
 }
 
-// openSegment indexes one file and returns it with the seq of its last
-// line. Only the current file is created if missing and has a torn last
-// line cut off.
+// openSegment: only the current file is created if missing and has a torn last line cut
+// off.
 func openSegment(path string, current bool) (*segment, int64, error) {
 	flag := os.O_RDWR
 	if current {
@@ -199,8 +188,8 @@ func openSegment(path string, current bool) (*segment, int64, error) {
 	return s, b.Seq, nil
 }
 
-// Append assigns e.Seq and stores it. When the write fails, the seq stays
-// unused (lines' seqs run without gaps) and e must not be shown as logged.
+// Append: on a failed write the seq stays unused (no gaps) and e must not be shown as
+// logged.
 func (l *SentLog) Append(e *Sent) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -208,8 +197,7 @@ func (l *SentLog) Append(e *Sent) error {
 	if l.cur == nil {
 		l.next++
 		l.mem = append(l.mem, *e)
-		// Trimmed at twice the size, so the copy happens once per sentMem
-		// appends rather than on every one.
+		// Trimmed at twice the size so the copy happens once per sentMem appends.
 		if len(l.mem) > 2*sentMem {
 			l.mem = append(l.mem[:0:0], l.mem[len(l.mem)-sentMem:]...)
 		}
@@ -235,7 +223,6 @@ func (l *SentLog) Append(e *Sent) error {
 	return nil
 }
 
-// rotate makes the current file the .1 and starts a new one. Caller holds mu.
 func (l *SentLog) rotate() error {
 	if err := os.Rename(l.path, rotatedPath(l.path)); err != nil {
 		return err
@@ -251,8 +238,6 @@ func (l *SentLog) rotate() error {
 	return nil
 }
 
-// Total is how many entries the log holds now: the next seq less the
-// oldest one still on disk (or in memory). Rotation lowers it.
 func (l *SentLog) Total() int64 {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -265,11 +250,8 @@ func (l *SentLog) Total() int64 {
 	return l.next - l.cur.first
 }
 
-// Page returns up to n entries older than seq before, newest first, and
-// whether there are older ones still. before < 0 means from the newest.
-// A page's lines are read with one ReadAt per file and decoded after the
-// lock is released, so a page doesn't hold up Append. A line that won't
-// decode is logged and left out.
+// Page: n entries older than before (< 0 = newest), newest first. Lines are decoded after
+// the lock is released so Append isn't held up; undecodable lines are logged and skipped.
 func (l *SentLog) Page(before int64, n int) ([]Sent, bool, error) {
 	l.mu.Lock()
 	if before < 0 || before > l.next {

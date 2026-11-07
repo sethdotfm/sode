@@ -16,8 +16,6 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// runtime is an immutable view of the current config plus lookups derived
-// from it. Saving settings swaps in a new one.
 type runtime struct {
 	cfg     config.Config
 	levels  []config.Level
@@ -44,35 +42,24 @@ func newRuntime(c config.Config) (*runtime, error) {
 	return r, nil
 }
 
-// probe is the keepalive message: an interrogate, which always gets a reply.
 func (r *runtime) probe() []byte {
 	return swp08.ExtInterrogate(r.cfg.Matrix, r.levels[0].Wire, 0)
 }
 
-// App is the whole server state. When the router changes (applyConfig with
-// reconnect) these are RESET, because they describe the old router:
-//   - router (*routerState): names, tally, protect, seenAt, pending
-//     broadcasts, name-refresh buffers;
-//   - ext (*extTracker): the burst, own connects, causes, leaders, late,
-//     lateTake, lateHits. The pointer is the router's generation;
-//   - waiters and checks: takes in flight are cut (cutTakes): they fail with
-//     "the router changed" and nothing they do reaches the new router or its
-//     tracker (each waiter keeps the extTracker it started on);
-//   - status: Router/Addr/Err are set by hand to "connecting" on the new address.
-//
-// Everything else is KEPT:
-//   - sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu, gapHook, xffWarn, fireMu, fire,
-//     lateQ: plumbing, history, config and PIN, none of it router state;
-//   - clients: the browsers stay connected and get a fresh hello;
-//   - pendSent: sent log entries for /log pages (what we wrote);
-//   - nameReqAt, nameRxAt, namesDirt, dumpAt: the polling clock. Not cleared
-//     today; onRouterUp asks for names and dumps again when the new router answers.
-//
-// The fields from mu down to dumpAt are guarded by mu.
+// App is all server state. A router change (applyConfig with reconnect) RESETS what
+// describes the old router:
+// router (*routerState: names, tally, protect, seenAt, pending broadcasts, name refresh
+// buffers); ext (*extTracker: burst, own, causes, leaders, late*; the pointer is the
+// router's generation); waiters and checks (cutTakes fails them with "the router changed";
+// each keeps the extTracker it started on); status (Router/Addr/Err set to "connecting").
+// KEPT: sw, hist, sent, txq, evq, txLost, up, cfgPath, rt, pin, userPin, tokens, cfgMu,
+// gapHook, xffWarn, fireMu, fire, lateQ (plumbing, config, PINs); clients (get a fresh
+// hello); pendSent; nameReqAt, nameRxAt, namesDirt, dumpAt (polling clock, not cleared;
+// onRouterUp re-asks).
+// Fields from mu down to dumpAt are guarded by mu.
 type App struct {
-	// profMemo caches each user's marshalled `profile` message for one config
-	// snapshot (profMemoRT), so a config apply marshals a profile once, not
-	// once per connection. Guarded by mu.
+	// profMemo: marshalled profile per user for one config snapshot, so an apply marshals
+	// once. Guarded by mu.
 	profMemoRT *runtime
 	profMemo   map[string]string
 
@@ -80,10 +67,10 @@ type App struct {
 	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
 	hist    *History
 	sent    *SentLog
-	txq     chan swp08.TxEvent // from the writer goroutine to the sent log
-	evq     chan Sent          // event rows (logEvent) to the sent log
-	txLost  atomic.Int64       // events dropped because txq or evq was full, or not saved
-	up      *Uptime            // the router link's history, for the /log graph
+	txq     chan swp08.TxEvent
+	evq     chan Sent
+	txLost  atomic.Int64 // events dropped because txq or evq was full, or not saved
+	up      *Uptime
 	cfgPath string
 	rt      atomic.Pointer[runtime]
 
@@ -91,29 +78,27 @@ type App struct {
 	router   *routerState
 	ext      *extTracker
 	status   statusMsg
-	started  time.Time // process start, for /api/health
+	started  time.Time
 	clients  map[*client]struct{}
-	waiters  map[*waiter]struct{}     // takes in flight
-	checks   map[*tallyCheck]struct{} // pre-take interrogates in flight
-	pendSent []Sent                   // sent log entries awaiting broadcast to /log pages
-	linkSeen string                   // the router link state last logged: up, down or ""
-	linkErr  string                   // ...and the error logged with down
-	fire     *fireState               // the native salvo being fired, if any (fire.go)
+	waiters  map[*waiter]struct{}
+	checks   map[*tallyCheck]struct{}
+	pendSent []Sent
+	linkSeen string
+	linkErr  string
+	fire     *fireState
 
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
-	nameReqAt time.Time // when the last name refresh was asked for
-	// sessionsAt: when the open connections last had their session tokens
-	// renewed (users.go touchSessions).
+	nameReqAt  time.Time
 	sessionsAt time.Time
-	nameRxAt   time.Time // last name reply
-	namesDirt  bool      // unsolicited names changed outside a refresh
-	dumpAt     time.Time // last dump request
+	nameRxAt   time.Time
+	namesDirt  bool
+	dumpAt     time.Time
 
-	pin     pinPool     // wrong settings PINs (pin.go)
-	userPin pinPool     // wrong user PINs
-	tokens  *tokenStore // persistent users' session tokens (tokens.go)
-	cfgMu   sync.Mutex  // serializes settings saves
+	pin     pinPool
+	userPin pinPool
+	tokens  *tokenStore
+	cfgMu   sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
@@ -122,24 +107,21 @@ type App struct {
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 }
 
-// routerState is everything read from the router: replaced as a whole when
-// the router changes, so nothing of the old one's is left. Guarded by App.mu.
+// routerState is replaced as a whole on a router change. Guarded by App.mu.
 type routerState struct {
 	srcNames map[int]string
 	dstNames map[int]string
-	tally    map[int]map[int]int  // dst → UI level → src (-1 = nothing routed)
-	protect  map[int]map[int]int  // dst → UI level → protecting device
+	tally    map[int]map[int]int // dst → UI level → src (-1 = nothing routed)
+	protect  map[int]map[int]int
 	seenAt   map[[2]int]time.Time // dst, UI level → when the router last reported its route
-	pend     []routeChange        // tally changes awaiting broadcast
-	pendProt []routeChange        // protect changes awaiting broadcast (device -1 = cleared)
+	pend     []routeChange
+	pendProt []routeChange
 
-	// Name refresh: replies are collected into fresh maps and swapped in once
-	// they stop arriving, so names deleted on the router disappear here.
-	newSrc, newDst map[int]string // nil when no refresh is in flight
-	namesAt        time.Time      // last completed refresh
+	// Refresh replies fill fresh maps swapped in when they stop, so deleted names disappear.
+	newSrc, newDst map[int]string
+	namesAt        time.Time
 }
 
-// name is the cached name of a source, or of a destination if dst.
 func (rs *routerState) name(dst bool, n int) string {
 	if dst {
 		return rs.dstNames[n]
@@ -164,7 +146,6 @@ type statusMsg struct {
 	Err    string `json:"err,omitempty"`
 }
 
-// New makes the app. A nil sent log keeps it in memory.
 func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug bool) (*App, error) {
 	r, err := newRuntime(cfg)
 	if err != nil {
@@ -189,7 +170,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	}
 	a.pin, a.userPin = settingsPool(), userPool()
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
-	a.tokens.prune(cfg)            // dead ones don't wait for the next change
+	a.tokens.prune(cfg)
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())
@@ -200,9 +181,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.sw.OnTx = a.onTx
 	a.sendMsg = func(m []byte, why swp08.Why) error {
 		err := a.sw.Send(m, why)
-		// Never queued, so the client won't report it. Only a take's are
-		// logged: re-reads refused while the router is down would fill
-		// the log with rows for nothing that was tried.
+		// Only a take's refusals are logged; refused re-reads while down would flood the log.
 		if err != nil && !background[why.Reason] {
 			a.onTx(swp08.TxEvent{Msg: m, Why: why, At: time.Now(), Result: "unsent", Err: err.Error()})
 		}
@@ -211,18 +190,13 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	return a, nil
 }
 
-// background reasons are Sode's own upkeep, not something a browser asked for.
 var background = map[swp08.Reason]bool{swp08.ReasonResync: true, swp08.ReasonNames: true, swp08.ReasonKeepalive: true}
 
 func (a *App) r() *runtime { return a.rt.Load() }
 
-// Run drives the router client, batched broadcasts and periodic refreshes
-// until ctx ends.
 func (a *App) Run(ctx context.Context) {
-	a.logEvent(event(kindServer, "", "", "start")) // queued first, so a quick stop still has it
+	a.logEvent(event(kindServer, "", "", "start"))
 	go a.sw.Run(ctx)
-	// Once ctx ends the sent log writes what is queued and a stop row; then
-	// the uptime notes that Sode is off. Run waits for both.
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() { defer wg.Done(); a.logSent(ctx) }()
@@ -275,7 +249,6 @@ func (a *App) onRouterUp() {
 	go a.clearStaleSalvo()
 }
 
-// RefreshNames re-reads all source and destination names.
 func (a *App) RefreshNames() {
 	r := a.r()
 	a.mu.Lock()
@@ -288,7 +261,6 @@ func (a *App) RefreshNames() {
 	}
 }
 
-// requestDumps re-reads every crosspoint and protect on every level.
 func (a *App) requestDumps() {
 	r := a.r()
 	a.mu.Lock()
@@ -306,7 +278,6 @@ func (a *App) send(m []byte, reason swp08.Reason) {
 	}
 }
 
-// SetUptime replaces the in-memory uptime record. Before Run.
 func (a *App) SetUptime(u *Uptime) { a.up = u }
 
 func (a *App) onRouterState(s swp08.State, err error) {
@@ -316,9 +287,8 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	a.logLink(s, err)
 	a.status.Router = string(s)
 	a.status.Addr = a.r().cfg.Router
-	// Retrying keeps the last error, so a browser that loads mid-retry still
-	// sees the router as lost. Up clears it; a new router starts clean
-	// (applyConfig).
+	// Retrying keeps the last error so a browser loading mid-retry sees the router as
+	// lost; Up clears it.
 	if s != swp08.StateConnecting {
 		a.status.Err = ""
 	}
@@ -328,9 +298,7 @@ func (a *App) onRouterState(s swp08.State, err error) {
 	a.broadcast(a.status)
 }
 
-// logLink logs the router link coming up or going down, once each: retrying
-// (connecting, down, connecting…) while it is down adds nothing, unless the
-// error changes. Caller holds mu.
+// logLink logs up/down once each, not every retry unless the error changes. Caller holds mu.
 func (a *App) logLink(s swp08.State, err error) {
 	why := ""
 	if err != nil {
@@ -371,9 +339,7 @@ func (a *App) onRouterMsg(msg []byte) {
 	}
 }
 
-// applyTally takes one crosspoint (a Connected or a tally) from the router
-// into the cache, notes it if it is a change made elsewhere, and lets the
-// takes in flight see it. Caller holds mu.
+// Caller holds mu.
 func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 	if xp.Matrix != r.cfg.Matrix {
 		return
@@ -394,8 +360,8 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 	if old, known := t[l.UI]; !known || old != xp.Src {
 		t[l.UI] = xp.Src
 		a.router.pend = append(a.router.pend, routeChange{xp.Dst, l.UI, xp.Src})
-		// A changed route the router didn't announce shows up in a
-		// dump or an interrogate: noted too, unless it's ours.
+		// A changed route not announced shows up in a dump or interrogate: noted too,
+		// unless ours.
 		switch a.classify(xp, l.UI, known) {
 		case verdictExt:
 			a.ext.add(extChange{xp: xp, ui: l.UI, old: old, known: known, found: !xp.Changed(), at: time.Now()})
@@ -403,9 +369,8 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 			a.sawOwn(xp)
 		}
 	} else if xp.Changed() && a.ext.ownAnswer(ownKey{xp.Dst, xp.Level, xp.Src}, time.Now()) {
-		// Our route, already in the cache from a tally: a native salvo's
-		// Connected that came after the interrogate's answer (fire.go). It
-		// uses its key up, and the take's changes run until now.
+		// Our route already cached from a tally: a native salvo's Connected after the
+		// interrogate answer (fire.go) uses its key up.
 		a.sawOwn(xp)
 	}
 	for w := range a.waiters {
@@ -418,7 +383,6 @@ func (a *App) applyTally(r *runtime, xp swp08.Crosspoint) {
 	}
 }
 
-// applyProtect takes one protect state from the router into the cache.
 // Caller holds mu.
 func (a *App) applyProtect(r *runtime, p swp08.Protect) {
 	if p.Matrix != r.cfg.Matrix {
@@ -452,8 +416,7 @@ func (a *App) applyProtect(r *runtime, p swp08.Protect) {
 	a.router.pendProt = append(a.router.pendProt, routeChange{p.Dst, l.UI, dev})
 }
 
-// applyNames files a block of names under the refresh being collected, if
-// there is one, else under the current names. Caller holds mu.
+// Caller holds mu.
 func (a *App) applyNames(nb *swp08.NameBlock) {
 	m := a.router.srcNames
 	if a.router.newSrc != nil {
@@ -499,7 +462,7 @@ func (a *App) flush() {
 		got := a.nameRxAt.After(a.nameReqAt)
 		if (got && time.Since(a.nameRxAt) > namesQuiet) || time.Since(a.nameReqAt) > namesTimeout {
 			changed := false
-			// A side that got no replies keeps its old names rather than emptying.
+			// A side with no replies keeps its old names.
 			if next := refreshed(a.router.srcNames, a.router.newSrc); next != nil {
 				a.router.srcNames, changed = next, true
 			}
@@ -524,11 +487,8 @@ func (a *App) flush() {
 	}
 }
 
-// refreshed returns the names to use after a refresh, or nil to keep old. A
-// refresh that ends early (replies stalled for namesQuiet, or the timeout hit
-// with thousands of sources still arriving) holds only part of the list, so one
-// with fewer names than before is laid over the old names rather than replacing
-// them (#32).
+// refreshed returns the names after a refresh, nil to keep old. A refresh cut short holds
+// only part of the list, so a smaller one is laid over the old names.
 func refreshed(old, got map[int]string) map[int]string {
 	if len(got) == 0 {
 		return nil
@@ -574,7 +534,6 @@ func routeChanges(m map[int]map[int]int) []routeChange {
 	return out
 }
 
-// helloPage is read before taking mu: history pages hit the disk.
 type helloPage struct {
 	recent []Entry
 	more   bool
@@ -588,14 +547,12 @@ func (a *App) readHello() helloPage {
 	return helloPage{recent, morePages(recent)}
 }
 
-// hello is the full snapshot a browser gets on connect or config change.
 // Caller holds mu.
 func (a *App) hello(p helloPage) []byte {
 	r := a.r()
 	n := a.namesMsg()
-	// The user directory goes to no one in a hello (every browser, locked
-	// or not, gets this): names ride the lock state of unlocked pages, the
-	// editor asks for its list (usersList).
+	// No user directory in a hello (reaches locked pages): names ride the lock state, the
+	// editor asks usersList.
 	cfg := r.cfg
 	cfg.Users = nil
 	m := helloMsg{
@@ -613,7 +570,7 @@ func (a *App) hello(p helloPage) []byte {
 	return b
 }
 
-// broadcast sends v to every browser. Caller holds mu.
+// Caller holds mu.
 func (a *App) broadcast(v any) {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -625,8 +582,7 @@ func (a *App) broadcast(v any) {
 	}
 }
 
-// deliver queues b for one browser, dropping it if it can't keep up.
-// Caller holds mu.
+// deliver drops b if the browser can't keep up. Caller holds mu.
 func (a *App) deliver(c *client, b []byte) {
 	if _, ok := a.clients[c]; !ok {
 		return
@@ -659,7 +615,6 @@ func (a *App) record(e *Entry) {
 
 const historyPage = 10
 
-// ClearHistory empties the take history for everyone.
 func (a *App) ClearHistory(who string) {
 	if err := a.hist.Clear(); err != nil {
 		log.Printf("history: clear: %v", err)
@@ -672,8 +627,6 @@ func (a *App) ClearHistory(who string) {
 	a.mu.Unlock()
 }
 
-// historyMax caps a page asked for by size (a search reading back through
-// the log).
 const historyMax = 500
 
 func (a *App) history(c *client, before, n int) {
@@ -684,9 +637,7 @@ func (a *App) history(c *client, before, n int) {
 	if err != nil {
 		log.Printf("history: %v", err)
 	}
-	// before as asked, so the browser can tell a page it no longer wants.
 	a.reply(c, historyMsg{T: "history", Before: before, Entries: entries, More: morePages(entries)})
 }
 
-// morePages reports whether entries older than a page remain.
 func morePages(page []Entry) bool { return len(page) > 0 && page[len(page)-1].ID > 0 }

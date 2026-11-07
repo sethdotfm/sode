@@ -13,42 +13,37 @@ import (
 	"time"
 )
 
-// Entry is one take, as logged and as shown in the browser's history list.
-// Ext entries are routes changed elsewhere: Client is empty and a burst of
-// them across several destinations shares a Group like a confirm's takes.
 type Entry struct {
-	ID      int       `json:"id"`
-	Time    time.Time `json:"time"`
-	Client  string    `json:"client"`
-	Src     int       `json:"src"`
-	SrcName string    `json:"srcName"`
-	Dst     int       `json:"dst"`
-	DstName string    `json:"dstName"`
-	Levels  []int     `json:"levels"`
-	Prev    [][2]int  `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
-	OK      bool      `json:"ok"`
-	Err     string    `json:"err,omitempty"`
-	Undo    *int      `json:"undo,omitempty"`    // ID of the entry this take undid
-	Retry   *int      `json:"retry,omitempty"`   // ID of the failed entry this take retried
-	Failed  []int     `json:"failed,omitempty"`  // levels the router never confirmed or that weren't sent
-	Now     [][2]int  `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
-	Already []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
-	Group   string    `json:"group,omitempty"`   // shared by the takes of one multi-take confirm
-	GroupN  int       `json:"groupN,omitempty"`  // how many takes that confirm sent
-	Preset  string    `json:"preset,omitempty"`  // name of the preset this take was fired from (browser-supplied, cleaned); older files call it "salvo"
-	Ext     bool      `json:"ext,omitempty"`     // made elsewhere (a panel, Companion), seen on the router
-	// ext only: group ID of the multi-take confirm this seems to follow; never one of its takes in particular
-	FollowGroup string `json:"followGroup,omitempty"`
-	Follow      *int   `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
-	Found       bool   `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
-	Late        []int  `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
-	Unsent      []int  `json:"unsent,omitempty"` // levels in Failed that the router link refused (SendErr says why)
-	SendErr     string `json:"sendErr,omitempty"`
-	Cut         bool   `json:"cut,omitempty"` // the router changed under the take, so its Failed levels just got no answer
+	ID          int       `json:"id"`
+	Time        time.Time `json:"time"`
+	Client      string    `json:"client"`
+	Src         int       `json:"src"`
+	SrcName     string    `json:"srcName"`
+	Dst         int       `json:"dst"`
+	DstName     string    `json:"dstName"`
+	Levels      []int     `json:"levels"`
+	Prev        [][2]int  `json:"prev"` // [UI level, src] before the take; src -1 = nothing routed
+	OK          bool      `json:"ok"`
+	Err         string    `json:"err,omitempty"`
+	Undo        *int      `json:"undo,omitempty"`
+	Retry       *int      `json:"retry,omitempty"`
+	Failed      []int     `json:"failed,omitempty"`  // levels the router never confirmed or that weren't sent
+	Now         [][2]int  `json:"now,omitempty"`     // [UI level, src] the router reported for Failed levels afterwards (-1 = nothing routed); none = no answer
+	Already     []int     `json:"already,omitempty"` // levels that were already on Src (router confirmed, no change)
+	Group       string    `json:"group,omitempty"`
+	GroupN      int       `json:"groupN,omitempty"`
+	Preset      string    `json:"preset,omitempty"` // name of the preset this take was fired from (browser-supplied, cleaned); older files call it "salvo"
+	Ext         bool      `json:"ext,omitempty"`
+	FollowGroup string    `json:"followGroup,omitempty"`
+	Follow      *int      `json:"follow,omitempty"` // ext only: ID of the take this seems to follow (destination follow, automation)
+	Found       bool      `json:"found,omitempty"`  // ext only: changed without a Connected; seen when Sode re-read the router
+	Late        []int     `json:"late,omitempty"`   // levels that were in Failed until the router confirmed them after the take gave up
+	Unsent      []int     `json:"unsent,omitempty"`
+	SendErr     string    `json:"sendErr,omitempty"`
+	Cut         bool      `json:"cut,omitempty"` // the router changed under the take, so its Failed levels just got no answer
 }
 
-// logLine is the server log's one-line account of e; off turns 0-based
-// source and destination numbers into the router's display numbers.
+// logLine: off turns 0-based numbers into the router's display numbers.
 func (e *Entry) logLine(off int) string {
 	undo := "-"
 	if e.Undo != nil {
@@ -82,9 +77,8 @@ func (e *Entry) logLine(off int) string {
 		e.Client, e.Src+off, e.SrcName, e.Dst+off, e.DstName, e.Levels, undo, retry, group, result)
 }
 
-// History is an append-only JSONL log of takes. Only line offsets are kept
-// in memory; pages are read back from disk on demand. With no path it
-// keeps entries in memory instead.
+// History: append-only JSONL; only line offsets are kept in memory. With no path, entries
+// live in memory.
 type History struct {
 	mu   sync.Mutex
 	path string
@@ -127,7 +121,6 @@ func OpenHistory(path string) (*History, error) {
 	return h, nil
 }
 
-// Append assigns e.ID and stores it.
 func (h *History) Append(e *Entry) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -150,11 +143,8 @@ func (h *History) Append(e *Entry) error {
 	return nil
 }
 
-// Update changes entry id with fn and stores it, keeping its ID and place.
-// It reports the entry as stored, and false if there's no such entry. On
-// disk the file is rewritten (temp file, then rename), since a line's length
-// changes; that is rare (a late confirm), so it isn't made cheap, and callers
-// keep it off their hot path (App.lateWorker).
+// Update rewrites the file (temp file, rename) since a line's length changes; rare (late
+// confirm), so callers keep it off hot paths (App.lateWorker).
 func (h *History) Update(id int, fn func(*Entry)) (Entry, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -162,7 +152,7 @@ func (h *History) Update(id int, fn func(*Entry)) (Entry, bool) {
 		if id < 0 || id >= len(h.mem) {
 			return Entry{}, false
 		}
-		// Work on a copy: entries already handed out share the slices.
+		// Copy: entries already handed out share the slices.
 		e := cloneEntry(h.mem[id])
 		fn(&e)
 		e.ID = id
@@ -196,8 +186,7 @@ func (h *History) Update(id int, fn func(*Entry)) (Entry, bool) {
 	return e, true
 }
 
-// rewrite replaces entry id's line with line, via a temp file renamed over
-// the log, and reopens it. Caller holds mu.
+// Caller holds mu.
 func (h *History) rewrite(id int, line []byte) error {
 	start, end := h.offs[id], h.size
 	if id+1 < len(h.offs) {
@@ -226,8 +215,8 @@ func (h *History) rewrite(id int, line []byte) error {
 		tmp.Close()
 		return err
 	}
-	// tmp is the log now, and already open read-write: no reopen to fail
-	// and leave h.f on the replaced file.
+	// tmp is the log now and already open read-write, so no reopen can fail and leave h.f
+	// on the replaced file.
 	h.f.Close()
 	h.f = tmp
 	delta := int64(len(line)) - (end - start)
@@ -238,7 +227,6 @@ func (h *History) rewrite(id int, line []byte) error {
 	return nil
 }
 
-// cloneEntry copies e with its own slices.
 func cloneEntry(e Entry) Entry {
 	e.Levels = slices.Clone(e.Levels)
 	e.Prev = slices.Clone(e.Prev)
@@ -250,7 +238,6 @@ func cloneEntry(e Entry) Entry {
 	return e
 }
 
-// Clear drops every entry; IDs start again from 0.
 func (h *History) Clear() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -261,9 +248,7 @@ func (h *History) Clear() error {
 	return h.f.Truncate(0)
 }
 
-// Page returns up to n entries older than ID before, newest first.
-// before < 0 means from the newest. A page that ends inside a group runs
-// on to the end of it, so a confirm's takes come back together.
+// A page ending inside a group runs to its end, so a confirm's takes come back together.
 func (h *History) Page(before, n int) ([]Entry, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -288,7 +273,7 @@ func (h *History) Page(before, n int) ([]Entry, error) {
 	return out, nil
 }
 
-// at reads one entry. Caller holds mu.
+// Caller holds mu.
 func (h *History) at(id int) (Entry, error) {
 	if h.f == nil {
 		return h.mem[id], nil
@@ -308,8 +293,7 @@ func (h *History) at(id int) (Entry, error) {
 	return e, nil
 }
 
-// UnmarshalJSON reads an entry, taking the preset's name from "salvo" where
-// an older history file wrote it under that key.
+// Loads the preset name from "salvo" for old history files.
 func (e *Entry) UnmarshalJSON(b []byte) error {
 	type plain Entry
 	aux := struct {

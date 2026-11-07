@@ -19,7 +19,6 @@ func TestSavePresets(t *testing.T) {
 	if len(got) != 1 || got[0].Name != "Morning" || len(got[0].Items[0].Levels) != 2 || got[0].Items[0].Levels[0] != 1 {
 		t.Fatalf("normalized: %+v", got)
 	}
-	// The caller's slice isn't the live one.
 	sv[0].Items[0].Dsts[0] = 99
 	if a.r().cfg.Presets[0].Items[0].Dsts[0] != 1 {
 		t.Fatal("presets share memory with the caller")
@@ -27,13 +26,11 @@ func TestSavePresets(t *testing.T) {
 	if err := a.SavePresets(c, []config.Preset{{Name: "x"}}); err == nil {
 		t.Fatal("preset with no takes accepted")
 	}
-	// A settings save from a stale browser keeps the presets.
 	stale := a.r().cfg
 	stale.Presets = nil
 	if err := a.SaveSettings(c, stale, "", false); err != nil || len(a.r().cfg.Presets) != 1 {
 		t.Fatalf("settings save dropped the presets: %v %v", err, a.r().cfg.Presets)
 	}
-	// PIN guarded like filter sets.
 	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
 		t.Fatal(err)
 	}

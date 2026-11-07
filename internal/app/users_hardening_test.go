@@ -46,7 +46,6 @@ func tokenAlive(a *App, tok string) bool {
 	return ok
 }
 
-// Revocation deletes the record, so undoing the change revives nothing.
 func TestRevocationIsDurable(t *testing.T) {
 	t.Run("untick then re-tick Persistent", func(t *testing.T) {
 		a, _, tok := persistentApp(t)
@@ -143,19 +142,16 @@ func TestTrustedCannotWeakenGuards(t *testing.T) {
 	if a.r().cfg.Router != before.Router || a.r().cfg.PinMaxTries != before.PinMaxTries || len(a.r().cfg.TrustedProxies) != 0 {
 		t.Fatal("a refused save changed the config")
 	}
-	// The same router with stray spaces is not a change.
 	pad := a.r().cfg.Clone()
 	pad.Router = " " + pad.Router + " "
 	if err := a.SaveSettings(c, pad, "", false); err != nil {
 		t.Fatalf("padded but unchanged router refused: %v", err)
 	}
-	// An ordinary field still saves, and the same values resubmitted are fine.
 	cfg := a.r().cfg.Clone()
 	cfg.LevelColors = []string{"#aabbcc"}
 	if err := a.SaveSettings(c, cfg, "", false); err != nil {
 		t.Fatalf("plain trusted save: %v", err)
 	}
-	// With the settings PIN all three change.
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +190,6 @@ func TestSignOutAll(t *testing.T) {
 	if tokenAlive(a, tok) || a.pageAllowed(c, gateMain) {
 		t.Fatal("a session survived")
 	}
-	// The user can log in again with the PIN and get a new token.
 	if err := a.UserUnlock(c, "1234"); err != nil || a.issueSession(c) == "" {
 		t.Fatalf("login after sign out: %v", err)
 	}
@@ -237,7 +232,6 @@ func TestTokenFileWrite(t *testing.T) {
 	}
 }
 
-// The Content-Security-Policy and friends, over the real embedded pages.
 func TestSecurityHeaders(t *testing.T) {
 	a := userApp(t, false)
 	srv := httptest.NewServer(a.Handler(web.FS))
@@ -260,7 +254,6 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 }
 
-// Nothing the CSP would block: no inline script bodies, no on*= handlers.
 func TestNoInlineScript(t *testing.T) {
 	scripts := regexp.MustCompile(`(?is)<script\b([^>]*)>(.*?)</script>`)
 	handler := regexp.MustCompile(`(?i)\son[a-z]+\s*=`)
@@ -320,7 +313,6 @@ func TestHardeningOverWebSocket(t *testing.T) {
 		return send, until
 	}
 
-	// Ana (trusted, persistent) logs in; her token brings up a second socket.
 	send, until := dial(nil)
 	send(map[string]any{"t": "hi", "page": "main"})
 	until("lockState")
@@ -335,8 +327,6 @@ func TestHardeningOverWebSocket(t *testing.T) {
 		t.Fatalf("token hi: %v", m)
 	}
 
-	// "Pin" and "ClearPin" in odd casing are still the PIN fields (Go's json
-	// matches keys case-insensitively), so a trusted user is refused.
 	cfg := a.r().cfg
 	send2(map[string]any{"t": "config", "config": cfg, "Pin": "9999"})
 	if m := until2("configResult"); m["ok"] == true || m["locked"] != true {
@@ -350,7 +340,6 @@ func TestHardeningOverWebSocket(t *testing.T) {
 		t.Fatal("the settings PIN changed")
 	}
 
-	// Then PIN as Bo on the token connection: Bo, and no token left.
 	send2(map[string]any{"t": "userUnlock", "pin": "567890", "id": 2})
 	until2("userUnlockResult")
 	a.mu.Lock()
@@ -365,7 +354,6 @@ func TestHardeningOverWebSocket(t *testing.T) {
 		t.Fatalf("Bo's connection tokens %q", tokens)
 	}
 
-	// Cross-origin upgrade: Origin not matching Host is refused.
 	_, resp, err := websocket.Dial(ctx, url, &websocket.DialOptions{HTTPHeader: http.Header{"Origin": {"https://evil.example"}}})
 	if err == nil {
 		t.Fatal("cross-origin WebSocket accepted")
@@ -421,7 +409,6 @@ func TestLockStateCarriesPinLengthsAfterPinChange(t *testing.T) {
 	}
 }
 
-// Only the answer to a page's own hi says whether its token was honored.
 func TestOnlyTheAnswerToHiIsMarkedHi(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}

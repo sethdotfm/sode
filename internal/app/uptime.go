@@ -12,46 +12,39 @@ import (
 	"time"
 )
 
-// uptimeKeep is how far back the uptime record goes; older lines are dropped
-// when Sode starts, and older ranges show as no data.
+// uptimeKeep: older lines are dropped at start; older ranges show no data.
 const uptimeKeep = 400 * 24 * time.Hour
 
-// slowAckMs is the ACK time above which a message counts as slow (yellow in
-// the uptime graph). Well under the SW-P-08 client's one second ACK timeout.
+// slowAckMs: ACK time above which a message is slow (yellow in the graph); under the
+// client's 1 s ACK timeout.
 const slowAckMs = 300
 
-// Uptime states. "off" is Sode not running; it counts as down.
 const (
 	upUp   = "up"
 	upDown = "down"
 	upOff  = "off"
 )
 
-// UptimeTrans is a change of the router link's state, at T (unix ms).
 type UptimeTrans struct {
 	T int64  `json:"t"`
 	S string `json:"s"`
 }
 
-// UptimeSlot is the problem count in one slot of a range, I slots from its start.
 type UptimeSlot struct {
 	I    int `json:"i"`
 	Bad  int `json:"bad"`  // messages the router didn't ACK, or only after a retry
 	Slow int `json:"slow"` // ACKs slower than slowAckMs
 }
 
-// UptimeRange is what the /log graph draws from. Start is the state at the
-// range's start ("" = nothing recorded yet).
+// UptimeRange: Start is the state at the range's start ("" = nothing recorded).
 type UptimeRange struct {
 	Start  string
 	Trans  []UptimeTrans
 	Counts []UptimeSlot
 }
 
-// minute is the problem count of one minute (M: unix minute).
 type minute struct{ M, Bad, Slow int64 }
 
-// uptimeLine is one line of the file: a transition (t, s) or a minute (m, bad, slow).
 type uptimeLine struct {
 	T    int64  `json:"t,omitempty"`
 	S    string `json:"s,omitempty"`
@@ -60,11 +53,10 @@ type uptimeLine struct {
 	Slow int64  `json:"slow,omitempty"`
 }
 
-// Uptime is the router link's history for the /log graph: state changes and,
-// per minute, how many messages went badly. JSONL at path, plus path.alive,
-// a stamp rewritten every minute so time Sode wasn't running shows as down.
-// With no path it only keeps them in memory. Nothing here waits on disk
-// except Run and Close, so it is safe to call under App.mu.
+// Uptime: router link history for /log: state changes and per-minute bad-message counts.
+// JSONL at path plus path.alive, a stamp rewritten each minute so time Sode wasn't running
+// shows as down. No path = memory only. Nothing waits on disk except Run and Close, so it
+// is safe under App.mu.
 type Uptime struct {
 	mu    sync.Mutex
 	path  string
@@ -75,9 +67,6 @@ type Uptime struct {
 	pend  []byte   // lines not yet in the file
 }
 
-// OpenUptime reads the file (if any), closes off the last run if it didn't
-// end cleanly, drops what is older than uptimeKeep and notes that Sode has
-// started. Damaged lines are skipped, never fatal.
 func OpenUptime(path string) (*Uptime, error) {
 	return openUptime(path, time.Now)
 }
@@ -115,7 +104,6 @@ func openUptime(path string, now func() time.Time) (*Uptime, error) {
 	sort.SliceStable(u.trans, func(i, j int) bool { return u.trans[i].T < u.trans[j].T })
 	sort.SliceStable(u.mins, func(i, j int) bool { return u.mins[i].M < u.mins[j].M })
 
-	// A run that didn't end cleanly: down from its last sign of life.
 	if n := len(u.trans); n > 0 && u.trans[n-1].S != upOff {
 		at := u.trans[n-1].T
 		if b, err := os.ReadFile(alivePath(path)); path != "" && err == nil {
@@ -126,7 +114,6 @@ func openUptime(path string, now func() time.Time) (*Uptime, error) {
 		u.trans = append(u.trans, UptimeTrans{min(at, t.UnixMilli()), upOff})
 	}
 	u.prune(t)
-	// The router isn't known to be up yet.
 	u.trans = append(u.trans, UptimeTrans{t.UnixMilli(), upDown})
 	u.cur = minute{M: t.Unix() / 60}
 	if path != "" {
@@ -140,8 +127,8 @@ func openUptime(path string, now func() time.Time) (*Uptime, error) {
 
 func alivePath(path string) string { return path + ".alive" }
 
-// prune drops what is older than uptimeKeep, but keeps the last transition
-// before the cutoff: it is the state the oldest kept range starts in.
+// prune keeps the last transition before the cutoff: the state the oldest kept range
+// starts in.
 func (u *Uptime) prune(now time.Time) {
 	cut := now.Add(-uptimeKeep).UnixMilli()
 	i := sort.Search(len(u.trans), func(i int) bool { return u.trans[i].T > cut })
@@ -152,7 +139,6 @@ func (u *Uptime) prune(now time.Time) {
 	u.mins = u.mins[j:]
 }
 
-// rewrite replaces the file with what is in memory (tmp + rename).
 func (u *Uptime) rewrite() error {
 	var b []byte
 	for _, t := range u.trans {
@@ -166,8 +152,6 @@ func (u *Uptime) rewrite() error {
 	return replaceFile(u.path, b)
 }
 
-// replaceFile writes b to path through a temporary file, so a crash leaves
-// the old content or the new, never half.
 func replaceFile(path string, b []byte) error {
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o644); err != nil {
@@ -182,8 +166,6 @@ func (u *Uptime) writeAlive() {
 	}
 }
 
-// State notes the router link's state, "up" or anything else: only changes
-// are kept. Memory only; Run writes it out.
 func (u *Uptime) State(up bool) {
 	s := upDown
 	if up {
@@ -205,8 +187,6 @@ func (u *Uptime) setState(s string, at time.Time) {
 	}
 }
 
-// Note counts one message written to the router: bad when it wasn't ACKed
-// or only after a retry, slow when the ACK took over slowAckMs.
 func (u *Uptime) Note(e Sent) {
 	bad := e.Result != "ack" || e.Tries > 1
 	slow := e.AckMs > slowAckMs
@@ -224,8 +204,7 @@ func (u *Uptime) Note(e Sent) {
 	}
 }
 
-// roll files the current minute away once it is over, or now if force (at
-// the end). Caller holds mu.
+// Caller holds mu.
 func (u *Uptime) roll(force bool) {
 	m := u.now().Unix() / 60
 	if u.cur.M == m && !force {
@@ -241,7 +220,6 @@ func (u *Uptime) roll(force bool) {
 	u.cur = minute{M: m}
 }
 
-// flush writes the lines waiting for the file.
 func (u *Uptime) flush(final ...bool) {
 	u.mu.Lock()
 	u.roll(len(final) > 0 && final[0])
@@ -263,15 +241,11 @@ func (u *Uptime) flush(final ...bool) {
 	}
 }
 
-// Stop notes that Sode is off and writes everything out, the minute being
-// counted too. After the last Note.
 func (u *Uptime) Stop() {
 	u.setState(upOff, u.now())
 	u.flush(true)
 }
 
-// Run writes new lines out every few seconds and the alive stamp every
-// minute, until ctx ends.
 func (u *Uptime) Run(ctx context.Context) {
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
@@ -290,8 +264,6 @@ func (u *Uptime) Run(ctx context.Context) {
 	}
 }
 
-// Range is the record from..to (unix ms) cut into slots of slot ms, which
-// are counted from from. A range longer than uptimeKeep is cut to its end.
 func (u *Uptime) Range(from, to, slot int64) UptimeRange {
 	if slot < 60_000 {
 		slot = 60_000
