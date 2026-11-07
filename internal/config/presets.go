@@ -7,41 +7,32 @@ import (
 	"strings"
 )
 
-// Preset caps. A preset is sent as one batch, so these keep one button press
-// to a sane number of takes.
 const (
 	MaxPresets        = 30
 	MaxPresetItems    = 100
 	MaxPresetDsts     = 100
 	MaxPresetLevelNum = 64
-	// MaxPresetTotal caps the destinations over all of a preset's items (its
-	// takes), so one batch stays well under the 64 KiB WebSocket read limit.
+	// MaxPresetTotal keeps one take well under the 64 KiB read limit.
 	MaxPresetTotal = 200
-	// MaxPresetsBytes caps all presets as JSON, so a "presets" message (which
-	// carries the whole list) fits the 64 KiB read limit with room to spare.
+	// MaxPresetsBytes keeps a presets message under the 64 KiB read limit.
 	MaxPresetsBytes = 48 << 10
 )
 
-// Preset is a named set of takes sent together as one confirm: each item
-// takes one source to its destinations. Everything is a number (internal
-// source/destination numbers, UI levels 1..N), never a name, because names
-// are re-polled from the router. Empty Levels means the default levels.
+// Items hold numbers (sources, destinations, UI levels), never names: names are re-polled.
+// Empty Levels means the default levels.
 type Preset struct {
 	Name  string       `yaml:"name" json:"name"`
 	Items []PresetItem `yaml:"items" json:"items"`
-	// Pinned: shown in the strip above Recent. nil (an older file) = true;
-	// normalizePresets always fills it. A browser may override it for itself.
+	// Pinned: nil (older file) = true; normalizePresets always fills it.
 	Pinned *bool `yaml:"pinned,omitempty" json:"pinned,omitempty"`
 }
 
-// PresetItem is one source going to one or more destinations.
 type PresetItem struct {
 	Src    int   `yaml:"src" json:"src"`
 	Dsts   []int `yaml:"dsts" json:"dsts"`
 	Levels []int `yaml:"levels,omitempty" json:"levels"`
 }
 
-// ClonePresets copies presets so the copy shares no slices.
 func ClonePresets(in []Preset) []Preset {
 	if in == nil {
 		return nil
@@ -60,9 +51,7 @@ func ClonePresets(in []Preset) []Preset {
 	return out
 }
 
-// normalizePresets trims names, sorts and de-duplicates levels, and makes
-// every list non-nil so JSON sends [] rather than null. It edits in place:
-// callers pass a Clone.
+// Edits in place: callers pass a Clone.
 func (c *Config) normalizePresets() {
 	if c.Presets == nil {
 		c.Presets = []Preset{}
@@ -91,7 +80,6 @@ func (c *Config) normalizePresets() {
 	}
 }
 
-// validatePresets returns what is wrong with the presets, if anything.
 func (c Config) validatePresets() []error {
 	var errs []error
 	bad := func(f string, a ...any) { errs = append(errs, fmt.Errorf(f, a...)) }
@@ -145,10 +133,8 @@ func (c Config) validatePresets() []error {
 	return errs
 }
 
-// presetConflict reports two items that take different sources to the same
-// destination on overlapping levels (empty levels = the default levels,
-// which overlap with everything): they would race. The same source twice is
-// fine; it merges.
+// presetConflict: different sources to one destination on overlapping levels (empty = all) would
+// race; the same source twice merges.
 func presetConflict(s Preset) error {
 	for i, a := range s.Items {
 		for _, b := range s.Items[i+1:] {

@@ -17,7 +17,6 @@ func TestConnectOnGoLayout(t *testing.T) {
 	if !ok || x != (Staged{1, 2, 389, 263, 127, false}) {
 		t.Fatalf("staged %+v %v", x, ok)
 	}
-	// Largest numbers.
 	x, _ = StagedOf(ConnectOnGo(15, 15, 1023, 1023, 0))
 	if x != (Staged{15, 15, 1023, 1023, 0, false}) {
 		t.Fatalf("max %+v", x)

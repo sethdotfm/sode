@@ -1,20 +1,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildExport, matchEnd, matchItem, matchPreset, conflict, renameFor, applyChoices, defaultChoice, renameProblem,
-  defaultFileName, fileNameFor, sizeProblem, jsonBytes, presetShare, filterShare, shareUrl, decodeShare, decodeLegacy,
-  readLink, docOfShare, itemIn, SOCKET_LIMIT, mayOpenSheet, saveAsName, checkDoc, filterOf,
+  buildExport,
+  matchEnd,
+  matchItem,
+  matchPreset,
+  conflict,
+  renameFor,
+  applyChoices,
+  defaultChoice,
+  renameProblem,
+  defaultFileName,
+  fileNameFor,
+  sizeProblem,
+  jsonBytes,
+  presetShare,
+  filterShare,
+  shareUrl,
+  decodeShare,
+  decodeLegacy,
+  readLink,
+  docOfShare,
+  itemIn,
+  SOCKET_LIMIT,
+  mayOpenSheet,
+  saveAsName,
+  checkDoc,
+  filterOf,
 } from '../exportfmt.js';
 
 const live = {
-  srcs: [{ n: 0, name: 'CAM 1' }, { n: 1, name: 'CAM 2' }, { n: 2, name: 'BARS' }, { n: 3, name: 'DUP' }, { n: 4, name: 'dup' }],
-  dsts: [{ n: 0, name: 'MV 1' }, { n: 1, name: 'MV 2' }, { n: 5, name: 'REC' }],
+  srcs: [
+    { n: 0, name: 'CAM 1' },
+    { n: 1, name: 'CAM 2' },
+    { n: 2, name: 'BARS' },
+    { n: 3, name: 'DUP' },
+    { n: 4, name: 'dup' },
+  ],
+  dsts: [
+    { n: 0, name: 'MV 1' },
+    { n: 1, name: 'MV 2' },
+    { n: 5, name: 'REC' },
+  ],
   levelCount: 3,
 };
 
 test('buildExport carries names, omits blanks', () => {
   const doc = buildExport({
-    prefs: { theme: 'dark' }, site: 'Studio A', user: '', now: Date.UTC(2026, 10, 3, 12),
+    prefs: { theme: 'dark' },
+    site: 'Studio A',
+    user: '',
+    now: Date.UTC(2026, 10, 3, 12),
     filterSets: [{ name: 'MVs', f: { src: '', dst: 'MV', sode: true, ext: false, hidden: false } }],
     presets: [{ name: 'Open', items: [{ src: 1, dsts: [0, 9], levels: [1, 2] }] }],
     srcName: (n) => live.srcs.find((x) => x.n === n)?.name || '',
@@ -58,7 +94,15 @@ test('matching: neither is unmatched; a missing name falls back to the number', 
 });
 
 test('matchItem: worst status, remapped numbers, levels above the count', () => {
-  const it = itemIn({ src: 7, srcName: 'CAM 2', dsts: [{ n: 0, name: 'MV 1' }, { n: 8, name: 'NOPE' }], levels: [1, 5] });
+  const it = itemIn({
+    src: 7,
+    srcName: 'CAM 2',
+    dsts: [
+      { n: 0, name: 'MV 1' },
+      { n: 8, name: 'NOPE' },
+    ],
+    levels: [1, 5],
+  });
   const m = matchItem(it, live);
   assert.equal(m.status, 'unmatched');
   assert.deepEqual(m.saved, { src: 1, dsts: [0, 8], levels: [1, 5] });
@@ -67,10 +111,16 @@ test('matchItem: worst status, remapped numbers, levels above the count', () => 
 });
 
 test('matchPreset summarises its items', () => {
-  const p = matchPreset({ name: 'P', items: [
-    { src: 0, srcName: 'CAM 1', dsts: [{ n: 0, name: 'MV 1' }], levels: [] },
-    { src: 9, srcName: 'dup', dsts: [{ n: 5, name: 'REC' }], levels: [4] },
-  ] }, live);
+  const p = matchPreset(
+    {
+      name: 'P',
+      items: [
+        { src: 0, srcName: 'CAM 1', dsts: [{ n: 0, name: 'MV 1' }], levels: [] },
+        { src: 9, srcName: 'dup', dsts: [{ n: 5, name: 'REC' }], levels: [4] },
+      ],
+    },
+    live,
+  );
   assert.equal(p.status, 'ambiguous');
   assert.equal(p.count.ambiguous, 1);
   assert.deepEqual(p.levelsOver, [4]);
@@ -95,12 +145,28 @@ test('conflicts ignore case; renames are unique and at most 32 runes', () => {
 });
 
 test('applyChoices: replace in place, keep both renamed, skip, unique among rows', () => {
-  const existing = [{ name: 'A', v: 1 }, { name: 'B', v: 2 }];
-  const incoming = [{ name: 'a', v: 10 }, { name: 'B', v: 20 }, { name: 'C', v: 30 }, { name: 'b', v: 40 }, { name: 'D', v: 50 }];
+  const existing = [
+    { name: 'A', v: 1 },
+    { name: 'B', v: 2 },
+  ];
+  const incoming = [
+    { name: 'a', v: 10 },
+    { name: 'B', v: 20 },
+    { name: 'C', v: 30 },
+    { name: 'b', v: 40 },
+    { name: 'D', v: 50 },
+  ];
   const r = applyChoices(existing, incoming, [
-    { choice: 'replace' }, { choice: 'both', as: 'B copy' }, { choice: 'import' }, { choice: 'both' }, { choice: 'skip' },
+    { choice: 'replace' },
+    { choice: 'both', as: 'B copy' },
+    { choice: 'import' },
+    { choice: 'both' },
+    { choice: 'skip' },
   ]);
-  assert.deepEqual(r.list.map((x) => `${x.name}:${x.v}`), ['a:10', 'B:2', 'B copy:20', 'C:30', 'b 2:40']);
+  assert.deepEqual(
+    r.list.map((x) => `${x.name}:${x.v}`),
+    ['a:10', 'B:2', 'B copy:20', 'C:30', 'b 2:40'],
+  );
   assert.equal(r.replaced, 1);
   assert.equal(r.added, 3);
   assert.equal(r.skipped, 1);
@@ -109,7 +175,10 @@ test('applyChoices: replace in place, keep both renamed, skip, unique among rows
 
 test('applyChoices never creates a duplicate even when the choice is import', () => {
   const r = applyChoices([{ name: 'A' }], [{ name: 'A' }], [{ choice: 'import' }]);
-  assert.deepEqual(r.list.map((x) => x.name), ['A', 'A 2']);
+  assert.deepEqual(
+    r.list.map((x) => x.name),
+    ['A', 'A 2'],
+  );
 });
 
 test('default file name is dated and sanitised', () => {
@@ -137,7 +206,11 @@ test('size check refuses what the socket or the profile would', () => {
 });
 
 test('share link: a fragment that round trips', () => {
-  const p = presetShare({ name: 'Open', items: [{ src: 1, dsts: [0], levels: [] }] }, () => 'CAM 2', () => 'MV 1');
+  const p = presetShare(
+    { name: 'Open', items: [{ src: 1, dsts: [0], levels: [] }] },
+    () => 'CAM 2',
+    () => 'MV 1',
+  );
   const url = shareUrl('https://x.test/sode/', p);
   assert.match(url, /^https:\/\/x\.test\/sode\/#share=[A-Za-z0-9_-]+$/);
   const r = readLink('', url.slice(url.indexOf('#')));
@@ -183,12 +256,13 @@ test('a share link with no takes or no name is refused', () => {
 
 test('mayOpenSheet waits for the lock state, the names, and an uncovered page', () => {
   const open = { enforced: false, locked: false };
-  assert.equal(mayOpenSheet(null, false, true), false); // the lock state has not come
-  assert.equal(mayOpenSheet(open, false, false), false); // names not in
+  assert.equal(mayOpenSheet(null, false, true), false);
+  assert.equal(mayOpenSheet(open, false, false), false);
   assert.equal(mayOpenSheet(open, false, true), true);
-  assert.equal(mayOpenSheet({ enforced: true, locked: true }, false, true), false); // PIN lock up
+  assert.equal(mayOpenSheet({ enforced: true, locked: true }, false, true), false);
+  assert.equal(mayOpenSheet({ enforced: false, locked: true, held: true }, false, true), false);
   assert.equal(mayOpenSheet({ enforced: true, locked: false, user: 'ana' }, false, true), true);
-  assert.equal(mayOpenSheet(open, true, true), false); // hand lock
+  assert.equal(mayOpenSheet(open, true, true), false);
   // a stale hand-lock marker while a PIN lock is enforced and unlocked does not hold it
   assert.equal(mayOpenSheet({ enforced: true, locked: false }, true, true), true);
 });
@@ -203,9 +277,19 @@ test('saveAsName suggests Name 2, or (mine) for Everyone, within 32 characters',
 
 test('checkDoc accepts a good document and says what is wrong with others', () => {
   const good = {
-    sode: 1, exported: '2026-11-03T12:00:00Z', prefs: { clock: '24' },
+    sode: 1,
+    exported: '2026-11-03T12:00:00Z',
+    prefs: { clock: '24' },
     filterSets: [{ name: 'Cams', src: '1-8' }],
-    presets: [{ name: 'Show', items: [{ src: 0, dsts: [{ n: 3, name: 'MV' }], levels: [1, 2] }, { src: 4, dsts: [] }] }],
+    presets: [
+      {
+        name: 'Show',
+        items: [
+          { src: 0, dsts: [{ n: 3, name: 'MV' }], levels: [1, 2] },
+          { src: 4, dsts: [] },
+        ],
+      },
+    ],
   };
   assert.equal(checkDoc(good), '');
   assert.equal(checkDoc({ sode: 1 }), '');

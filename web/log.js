@@ -1,7 +1,7 @@
-// The /log page: every message Sode wrote to the router (issue 72), plus
-// browser connects, commands and router link changes (#139), newest first,
-// live, with this browser's filters, and the router uptime graph.
-import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, labelNode } from './core.js';
+// The /log page: every message Sode wrote to the router, plus browser connects, commands and
+// router link changes, newest first, live, with this browser's filters and the router uptime
+// graph.
+import { $, el, S, on, connect, wsSend, connState, routerTitle, setDot, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
@@ -14,39 +14,62 @@ import './lock.js';
 
 on('brand', ({ text }) => {
   document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
-  document.title = `${text} Communication Log \u00b7 ${text}`;
+  document.title = `${text} Communication Log`;
 });
 
-// Entries are kept in the order they finished but stamped with when they
-// were first sent (or queued), so the log isn't strictly in time order: a
-// message that retried can finish after later ones. Reading back for a
-// range goes this much further than its start to catch those.
+// Entries are kept in finish order but stamped with when first sent (or queued), so the log
+// isn't strictly in time order (a retried message can finish after later ones). Reading back
+// for a range goes this much past its start to catch those.
 const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
 
 const KIND_LABEL = {
-  connect: 'Connect', interrogate: 'Interrogate', keepalive: 'Keepalive', tallyDump: 'Tally dump',
-  protectDump: 'Protect dump', srcNames: 'Source names', dstNames: 'Destination names', other: 'Other',
-  salvoStage: 'Salvo stage', salvoGo: 'Salvo go',
-  browser: 'Browser', command: 'Command', link: 'Router link', server: 'Sode',
+  connect: 'Connect',
+  interrogate: 'Interrogate',
+  keepalive: 'Keepalive',
+  tallyDump: 'Tally dump',
+  protectDump: 'Protect dump',
+  srcNames: 'Source names',
+  dstNames: 'Destination names',
+  other: 'Other',
+  salvoStage: 'Router salvo stage',
+  salvoGo: 'Router salvo go',
+  browser: 'Browser',
+  command: 'Command',
+  link: 'Router link',
+  server: 'Sode',
 };
 const WHY_LABEL = {
-  take: 'Take', undo: 'Undo', retry: 'Retry', check: 'Check before take', confirm: 'Confirm take',
-  resync: 'Resync', names: 'Name refresh', keepalive: 'Link check',
-  connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
-  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved', presets: 'Presets saved', salvos: 'Presets saved', // salvos: rows logged before the rename
-  unlock: 'Settings PIN', lock: 'Settings locked', salvo: 'Native salvo',
-  userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password (old rows)', users: 'Users saved',
+  take: 'Take',
+  undo: 'Undo',
+  retry: 'Retry',
+  check: 'Check before take',
+  confirm: 'Confirm take',
+  resync: 'Resync',
+  names: 'Name re-read',
+  keepalive: 'Link check',
+  connect: 'WebSocket connected',
+  disconnect: 'WebSocket dropped',
+  refreshNames: 'Re-read names',
+  clearHistory: 'Clear history',
+  config: 'Settings saved',
+  filterSets: 'Filter sets saved',
+  presets: 'Presets saved',
+  salvos: 'Presets saved', // salvos: rows logged before the rename
+  unlock: 'Advanced Settings PIN',
+  lock: 'Settings locked',
+  salvo: 'Native salvo',
+  userUnlock: 'User PIN',
+  userLock: 'User locked',
+  userSignOut: 'User signed out',
+  adminUnlock: 'Admin password (old rows)',
+  users: 'Users saved',
 };
-// Events, not messages to the router: no command byte, no bytes.
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
-
-// ---- filters
 
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    // The routes, what people did and the link by default.
     kinds: normalizeKinds(f.kinds, ['connect', 'command', 'link']),
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
@@ -67,11 +90,10 @@ const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], lin
 const problem = (e) => (isEvent(e) ? !!EVENT_PROBLEM[e.kind]?.includes(e.result) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
-// The time range, as ms (null: open). Not kept: a range far back means
-// reading the log back to it, which shouldn't happen on every open.
+// Not kept: a range far back means reading the log back to it, which shouldn't happen on every
+// open.
 const range = { from: null, to: null };
 
-// An expression filters out entries without that side.
 function passes(e) {
   if (range.from != null && e.t < range.from) return false;
   if (range.to != null && e.t > range.to) return false;
@@ -85,7 +107,6 @@ function passes(e) {
 function initFilters() {
   const box = $('log-kinds');
   const legend = box.querySelector('legend');
-  // Built once and updated in place, so a pressed chip keeps keyboard focus.
   const chip = (label, press) => {
     const b = el('button', 'pb-chip sode-log__chip', label);
     b.type = 'button';
@@ -97,11 +118,19 @@ function initFilters() {
     });
     return b;
   };
-  // All | each kind | Problems only. Problems is its own dimension, so it
-  // sits after a separator and stays out of the All logic.
-  const allChip = chip('All', () => { filter.kinds = KIND_IDS.slice(); });
-  const kindChips = KINDS.map((g) => ({ id: g.id, b: chip(g.label, () => { filter.kinds = pressKind(filter.kinds, g.id); }) }));
-  const problemsChip = chip('Problems only', () => { filter.problems = !filter.problems; });
+  // Problems is its own dimension: after a separator, outside the All logic.
+  const allChip = chip('All', () => {
+    filter.kinds = KIND_IDS.slice();
+  });
+  const kindChips = KINDS.map((g) => ({
+    id: g.id,
+    b: chip(g.label, () => {
+      filter.kinds = pressKind(filter.kinds, g.id);
+    }),
+  }));
+  const problemsChip = chip('Problems only', () => {
+    filter.problems = !filter.problems;
+  });
   const bar = el('span', 'sode-log__sep', '|');
   bar.setAttribute('aria-hidden', 'true');
   const sync = () => {
@@ -112,9 +141,10 @@ function initFilters() {
   };
   box.replaceChildren(legend, allChip, ...kindChips.map((k) => k.b), bar, problemsChip);
   sync();
-  // datetime-local is local time. To counts to the end of what it shows:
-  // 14:30 is up to 14:30:59.999.
-  const from = $('log-from'), to = $('log-to');
+  // datetime-local is local time. To counts to the end of what it shows: 14:30 is up to
+  // 14:30:59.999.
+  const from = $('log-from'),
+    to = $('log-to');
   const parse = (input, end) => {
     if (!input.value) return null;
     const t = new Date(input.value).getTime();
@@ -122,7 +152,8 @@ function initFilters() {
     return end ? t + (input.value.length <= 16 ? 59999 : 999) : t;
   };
   const applyRange = () => {
-    const f = parse(from, false), t = parse(to, true);
+    const f = parse(from, false),
+      t = parse(to, true);
     const bad = f === undefined || t === undefined || (f != null && t != null && f > t);
     from.classList.toggle('pb-input--invalid', bad);
     to.classList.toggle('pb-input--invalid', bad);
@@ -134,9 +165,11 @@ function initFilters() {
     fill();
     refreshUptime();
   };
-  // Times typed by hand end a toggle's range; its own change event is not trusted.
   const byHand = (e) => {
-    if (e.isTrusted) { chipOn = null; leaveSlot(); }
+    if (e.isTrusted) {
+      chipOn = null;
+      leaveSlot();
+    }
     applyRange();
   };
   from.addEventListener('change', byHand);
@@ -154,7 +187,7 @@ function initFilters() {
     input.addEventListener('input', () => {
       const fn = filterFn(input.value);
       input.classList.toggle('pb-input--invalid', !fn);
-      if (!fn) return; // keeps the last good one
+      if (!fn) return;
       filter[side] = input.value;
       if (side === 'src') srcOk = fn;
       else dstOk = fn;
@@ -164,23 +197,16 @@ function initFilters() {
   }
 }
 
-// ---- entries: newest first
-
 const pager = newPager();
-// The entries in the table, in its order: kept in step with tbody's rows
-// so new ones go in place instead of redrawing everything.
+// Kept in step with tbody's rows so new ones go in place instead of redrawing everything.
 let shown = [];
 
 function send(req) {
   if (!req) return;
-  // Not sent (no connection): nothing to wait for.
   if (!wsSend({ t: 'sent', ...req })) pager.unsent();
   renderMore();
 }
 
-// Whether entries older than those loaded can still fall in the range:
-// the log hasn't been read back past its start (or, with only an end,
-// to its end).
 function rangeNeedsMore() {
   if (!pager.more || !pager.list.length) return false;
   if (range.from != null) return pager.oldest.t >= range.from - TIME_SLACK;
@@ -188,13 +214,10 @@ function rangeNeedsMore() {
   return false;
 }
 
-// Everything in the range is loaded: older pages are all before it.
 const rangeDone = () => range.from != null && pager.list.length > 0 && !rangeNeedsMore();
 
-// Reads back until the range is covered. One request at a time.
 const fill = () => rangeNeedsMore() && send(pager.back());
 
-// Unlocked after asking while locked: ask again.
 on('unlocked', () => {
   send(pager.open());
   render();
@@ -202,7 +225,6 @@ on('unlocked', () => {
 });
 
 on('hello', () => {
-  // Fresh after a reconnect: entries may have been missed while away.
   send(pager.open());
   render();
   refreshUptime();
@@ -210,14 +232,14 @@ on('hello', () => {
 
 on('sentPage', (m) => {
   const r = pager.receive(m);
-  if (!r) return; // not the reply awaited: a connection since replaced
+  if (!r) return;
   showCounts(m);
-  // Older entries go at the end newest first. In any other order the
-  // table is drawn once when reading back stops, not after every page.
+  // Older entries go at the end newest first; in any other order the table is drawn once when
+  // reading back stops, not after every page.
   if (r.newest) render();
   else if (newestFirst()) appendRows(r.fresh.filter(passes));
-  // Read on while a range isn't covered, or the filters leave fewer than a
-  // page shown: opening, or Load older, shouldn't look like nothing happened.
+  // Read on while a range isn't covered or the filters leave fewer than a page: opening or Load
+  // older shouldn't look like nothing happened.
   const req = rangeNeedsMore() ? pager.back() : pager.next(pager.list.filter(passes).length);
   if (req) return send(req);
   if (!r.newest && !newestFirst()) render();
@@ -243,14 +265,13 @@ function showCounts(m) {
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
-  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'wasn’t' : 'weren’t'} saved to this log. The server log has details.` : '';
+  note.textContent = n
+    ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'wasn’t' : 'weren’t'} saved to this log. The server log has details.`
+    : '';
 }
-
-// ---- rendering
 
 const tbody = $('log-rows');
 
-// The time with milliseconds, dated, in this browser's Clock setting.
 let timeFmt = null;
 function fmtStamp(iso) {
   if (!timeFmt) {
@@ -264,12 +285,19 @@ function fmtStamp(iso) {
   return [el('span', 'sode__date', `${date} `), timeFmt.format(d)];
 }
 
-// What the router made of it: status always with text.
 const EVENT_RESULT = {
-  up: ['ok', 'Router up'], down: ['error', 'Router down'], changed: ['warn', 'Router changed'],
-  connected: ['ok', 'Connected'], disconnected: ['idle', 'Disconnected'],
-  sent: ['ok', 'Sent'], ok: ['ok', 'Done'], refused: ['error', 'Refused'], locked: ['warn', 'Locked'], error: ['error', 'Failed'],
-  start: ['ok', 'Started'], stop: ['idle', 'Stopped'],
+  up: ['ok', 'Router up'],
+  down: ['error', 'Router down'],
+  changed: ['warn', 'Router changed'],
+  connected: ['ok', 'Connected'],
+  disconnected: ['idle', 'Disconnected'],
+  sent: ['ok', 'Sent'],
+  ok: ['ok', 'Done'],
+  refused: ['error', 'Refused'],
+  locked: ['warn', 'Locked'],
+  error: ['error', 'Failed'],
+  start: ['ok', 'Started'],
+  stop: ['idle', 'Stopped'],
 };
 
 function outcome(e) {
@@ -281,7 +309,7 @@ function outcome(e) {
   }
   const tries = `${e.tries} ${e.tries === 1 ? 'try' : 'tries'}`;
   const [dot, text] = {
-    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', e.ackMs ? `ACK · ${fmtMs(e.ackMs)}` : 'ACK'],
+    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', e.ackMs ? `ACK in ${fmtMs(e.ackMs)}` : 'ACK'],
     nak: ['error', `NAK, gave up after ${tries}`],
     noack: ['error', `No ACK after ${tries}`],
     write: ['error', 'Write failed'],
@@ -305,13 +333,15 @@ const side = (n, name) => (n >= 0 ? labelNode(item(n, name || '')) : '');
 
 function row(e, fresh = false) {
   const why = WHY_LABEL[e.why] || e.why || '';
-  const tr = el('tr', fresh ? 'sode--enter' : null,
+  const tr = el(
+    'tr',
+    fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
     el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), KIND_LABEL[e.kind] || e.kind),
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
-    el('td', null, why, e.by ? el('span', 'pb-text-muted', ` · ${e.by}`) : '', e.note ? el('span', 'pb-text-muted', ` · ${e.note}`) : ''),
+    el('td', null, why, e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '', e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : ''),
     el('td', null, outcome(e)),
     el('td', 'sode-log__hex', e.hex),
   );
@@ -319,8 +349,7 @@ function row(e, fresh = false) {
   return tr;
 }
 
-// ---- sorting: click a column header. Newest first by default; ties
-// keep newest first, and rows without that column go last either way.
+// ---- sorting: ties keep newest first; rows without that column go last either way.
 
 const SORT_KEY = 'sode-log-sort';
 const resultRank = (e) => (isEvent(e) ? (problem(e) ? 2 : 0) : e.result === 'ack' ? (e.tries > 1 ? 1 : 0) : 2);
@@ -353,20 +382,17 @@ function cmp(a, b) {
   return a - b;
 }
 
-// Sort order of two entries given their sort keys (xv, yv).
 function cmpKeyed(x, xv, y, yv) {
   if (xv == null || yv == null) return xv == null ? (yv == null ? y.seq - x.seq : 1) : -1;
   return (sort.dir === 'asc' ? 1 : -1) * cmp(xv, yv) || y.seq - x.seq;
 }
 
-// Where one entry goes relative to another in the table.
 function order(x, y) {
   if (newestFirst()) return y.seq - x.seq;
   const key = SORTS[sort.col];
   return cmpKeyed(x, key(x), y, key(y));
 }
 
-// The rows shown, in the order shown: also what the CSV holds.
 function shownRows() {
   const rows = pager.list.filter(passes);
   if (newestFirst()) return rows;
@@ -377,15 +403,14 @@ function shownRows() {
     .map((x) => x.e);
 }
 
-// Older entries, after everything shown (newest first only).
 function appendRows(es) {
   tbody.append(...es.map((e) => row(e)));
   shown.push(...es);
 }
 
-// A new entry, in its place in the current order.
 function insertRow(e) {
-  let lo = 0, hi = shown.length;
+  let lo = 0,
+    hi = shown.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
     if (order(shown[mid], e) <= 0) lo = mid + 1;
@@ -401,8 +426,6 @@ function renderSort() {
   }
 }
 
-// The same column flips; a new one starts newest first for time and
-// A→Z / lowest first for the rest.
 function setSort(col) {
   sort = sort.col === col ? { col, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'time' ? 'desc' : 'asc' };
   writeJSON(SORT_KEY, newestFirst() ? null : sort);
@@ -440,11 +463,13 @@ function renderMore() {
   const empty = $('log-empty');
   empty.hidden = shown > 0 || busy;
   empty.textContent = !pager.list.length
-    ? (pager.more ? '' : 'Nothing sent yet.')
-    : rangeDone() || !pager.more ? 'Nothing matches the filters.' : 'Nothing loaded matches the filters.';
+    ? pager.more
+      ? ''
+      : 'Nothing sent yet.'
+    : rangeDone() || !pager.more
+      ? 'Nothing matches the filters.'
+      : 'Nothing loaded matches the filters.';
 }
-
-// ---- CSV: the rows shown, newest first, as logged (numbers as displayed).
 
 const CSV_COLS = [
   ['time', (e) => e.time],
@@ -452,7 +477,7 @@ const CSV_COLS = [
   ['message', (e) => KIND_LABEL[e.kind] || e.kind],
   ['cmd', (e) => (isEvent(e) ? '' : `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')}`)],
   ['level', (e) => S.levelBy.get(e.level)?.label ?? ''],
-  ['wire level', (e) => (e.wire >= 0 ? e.wire : '')],
+  ['router level', (e) => (e.wire >= 0 ? e.wire : '')],
   ['destination', (e) => (e.dst >= 0 ? e.dst + off() : '')],
   ['destination name', (e) => e.dstName || ''],
   ['source', (e) => (e.src >= 0 ? e.src + off() : '')],
@@ -467,8 +492,7 @@ const CSV_COLS = [
   ['bytes', (e) => e.hex],
 ];
 
-// Quoted where needed; a leading = + - @ is defused so a spreadsheet
-// doesn't run a router-supplied name as a formula.
+// A leading = + - @ is defused so a spreadsheet doesn't run a router-supplied name as a formula.
 function csvCell(v) {
   let s = String(v);
   if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
@@ -477,8 +501,7 @@ function csvCell(v) {
 
 $('log-csv').addEventListener('click', () => {
   const rows = shownRows();
-  const text = [CSV_COLS.map(([h]) => h), ...rows.map((e) => CSV_COLS.map(([, f]) => f(e)))]
-    .map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+  const text = [CSV_COLS.map(([h]) => h), ...rows.map((e) => CSV_COLS.map(([, f]) => f(e)))].map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
   const d = new Date();
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
@@ -493,46 +516,42 @@ $('log-older').addEventListener('click', () => {
   send(pager.older(pager.list.filter(passes).length));
 });
 
-// Where a range fill has got to.
 const fmtDay = (t) => {
   const d = new Date(t);
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-// ---- connection
-
 let routerWas = null;
 on('conn', () => {
   const c = connState();
-  // The graph follows the router link: ask again when it changes.
   if (routerWas !== null && c.rt[0] !== routerWas) refreshUptime();
   routerWas = c.rt[0];
   setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
   setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
-  $('log-addr').textContent = routerLabel()[0];
-  if (S.wsState !== 'up') { pager.close(); renderMore(); }
+  $('log-addr').textContent = routerTitle()[0];
+  if (S.wsState !== 'up') {
+    pager.close();
+    renderMore();
+  }
 });
-// ---- uptime graph (#139)
+// ---- uptime graph. One strip whose toggles set the log's time range (From = that long ago, no To)
+// and keep rolling with the clock; with no times set it shows the last 24 hours. Only the
+// newest reply is drawn.
 
-// One strip. Its toggles set the log's time range (From = that long ago,
-// no To), and while one is on the strip keeps rolling with the clock. With
-// no times set it shows the last 24 hours; with times set by hand, those.
-// Only the newest reply to a request is drawn.
-let chipOn = null; // the toggle whose range is set, or null
-// Slot mode: a bar was clicked and the log shows just its slot. The strip
-// keeps the window it had (view) so the bars next to it can be clicked, and
-// what was set before (prev) comes back with Back.
-let slotMode = null; // { from, to, view: {from, to}, prev: {from, to, chip, sort} }
-let upLast = null; // the window of the strip as last drawn
+let chipOn = null;
+// Slot mode: a bar was clicked and the log shows just its slot. The strip keeps its window (view)
+// so neighbouring bars stay clickable; what was set before (prev) comes back with Back.
+let slotMode = null;
+let upLast = null;
 let upId = 0;
 const upBars = $('log-uptime-bars');
 const upSum = $('log-uptime-sum');
 const customTimes = () => range.from != null || range.to != null;
 
-// datetime-local's value, in local time.
 function localStamp(t) {
-  const d = new Date(t), p = (n) => String(n).padStart(2, '0');
+  const d = new Date(t),
+    p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
@@ -576,9 +595,9 @@ function refreshUptime() {
   if (!upBars.childElementCount) upSum.textContent = 'Loading…';
 }
 
-// A bar was clicked: the log's time range becomes that slot, newest first.
 function enterSlot(s) {
-  const from = $('log-from'), to = $('log-to');
+  const from = $('log-from'),
+    to = $('log-to');
   const prev = slotMode ? slotMode.prev : { from: from.value, to: to.value, chip: chipOn, sort: { ...sort } };
   const view = slotMode ? slotMode.view : upLast;
   slotMode = { from: s.from, to: s.to, view, prev };
@@ -592,7 +611,6 @@ function enterSlot(s) {
   showSlot();
 }
 
-// Back: what was set before comes back, sort included.
 function leaveSlotBack() {
   const { prev } = slotMode;
   slotMode = null;
@@ -606,14 +624,12 @@ function leaveSlotBack() {
   showSlot();
 }
 
-// Leaving slot mode by changing the times another way: nothing to restore.
 function leaveSlot() {
   if (!slotMode) return;
   slotMode = null;
   showSlot();
 }
 
-// Slot mode is obvious: a banner above the table says what is shown.
 function showSlot() {
   const note = $('log-slot');
   note.hidden = !slotMode;
@@ -621,31 +637,34 @@ function showSlot() {
   const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
   back.type = 'button';
   back.addEventListener('click', leaveSlotBack);
-  note.replaceChildren(
-    el('strong', null, 'One slot of the graph'),
-    ` · ${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)} · newest first`,
-    back,
-  );
+  note.replaceChildren(el('strong', null, 'One slot of the graph'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, 'newest first', back);
 }
 
 on('uptimeResult', (m) => {
-  if (m.id !== upId) return; // an older request than the latest
+  if (m.id !== upId) return;
   const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
   const text = summary(data);
   upLast = { from: m.from, to: m.to };
-  upBars.replaceChildren(...slots(data).map((s) => {
-    const bar = el('button', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
-    bar.type = 'button';
-    bar.title = slotText(s, fmtDay);
-    bar.setAttribute('aria-label', bar.title);
-    bar.disabled = s.colour === 'future';
-    const sel = !!slotMode && s.from === slotMode.from;
-    if (sel) bar.classList.add('sode-log__up-bar--sel');
-    bar.setAttribute('aria-pressed', String(sel));
-    bar.addEventListener('click', () => enterSlot(s));
-    return bar;
-  }));
-  const label = slotMode || chipOn || !customTimes() ? (slotMode ? `${fmtDay(m.from)} to ${fmtDay(m.to)}` : PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label) : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
+  upBars.replaceChildren(
+    ...slots(data).map((s) => {
+      const bar = el('button', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
+      bar.type = 'button';
+      bar.title = slotText(s, fmtDay);
+      bar.setAttribute('aria-label', bar.title);
+      bar.disabled = s.colour === 'future';
+      const sel = !!slotMode && s.from === slotMode.from;
+      if (sel) bar.classList.add('sode-log__up-bar--sel');
+      bar.setAttribute('aria-pressed', String(sel));
+      bar.addEventListener('click', () => enterSlot(s));
+      return bar;
+    }),
+  );
+  const label =
+    slotMode || chipOn || !customTimes()
+      ? slotMode
+        ? `${fmtDay(m.from)} to ${fmtDay(m.to)}`
+        : PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label
+      : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
   upBars.setAttribute('aria-label', `Router uptime, ${label}: ${text}`);
   upSum.textContent = text;
 });

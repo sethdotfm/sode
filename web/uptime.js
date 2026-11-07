@@ -1,14 +1,11 @@
-// The /log uptime graph (#139): turns the server's record of the router link
-// into coloured slots. Pure, no imports, so Node tests it. The server sends
-// the state at the range's start, the changes in it and, per slot, how many
-// messages went badly; this works out each slot's colour.
+// /log uptime graph: turns the server's link record (state at range start, changes, per-slot bad counts) into coloured slots. Pure, no imports.
 
-const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
-// Slot lengths to choose from, shortest first.
+const MIN = 60_000,
+  HOUR = 60 * MIN,
+  DAY = 24 * HOUR;
 const SLOTS = [MIN, 5 * MIN, 15 * MIN, 30 * MIN, HOUR, 3 * HOUR, 6 * HOUR, 12 * HOUR, DAY, 7 * DAY];
 // The most slots a row has: 24h is 96 × 15 min, 7 days 168 × 1 h.
 export const MAX_SLOTS = 200;
-// The toggles for common ranges, shortest first.
 export const PRESETS = [
   { id: '1h', label: '1 hour', span: HOUR },
   { id: '24h', label: '24 hours', span: DAY },
@@ -18,23 +15,19 @@ export const PRESETS = [
 export const DEFAULT_PRESET = '24h';
 export const presetId = (id) => (PRESETS.some((p) => p.id === id) ? id : DEFAULT_PRESET);
 
-// A slot length as words: "1 min", "15 min", "1 hour", "6 hours".
 export function slotLabel(ms) {
   const [n, unit] = ms % HOUR === 0 ? [ms / HOUR, 'hour'] : ms % MIN === 0 ? [ms / MIN, 'min'] : [ms / 1000, 'sec'];
   return `${n} ${unit}${unit === 'hour' && n !== 1 ? 's' : ''}`;
 }
 
-// A preset's chip text: the range, then how long each bar is.
 export const presetText = (p) => `${p.label} (${slotLabel(slotFor(0, p.span))})`;
 
-// The shortest slot that keeps a range within MAX_SLOTS (ms).
 export function slotFor(from, to) {
   const span = Math.max(to - from, MIN);
   return SLOTS.find((s) => span / s <= MAX_SLOTS) || Math.ceil(span / MAX_SLOTS / DAY) * DAY;
 }
 
-// Slot colours are statuses: ok (green), warn (yellow), error (red);
-// none is no record, future is time that hasn't come.
+// Slot colours are statuses: ok, warn, error; none is no record, future is time not come yet.
 // data: { start, trans: [{t, s}], counts: [{i, bad, slow}], from, to, slot, now }
 export function slots(data) {
   const { trans = [], counts = [], from, to, slot, now } = data;
@@ -51,7 +44,9 @@ export function slots(data) {
     const s = { from: a, to: b, upMs: 0, knownMs: 0, bad: c.bad, slow: c.slow, colour: 'future' };
     if (end > a) {
       while (k < trans.length && trans[k].t <= a) state = trans[k++].s;
-      let at = a, cur = state, j = k;
+      let at = a,
+        cur = state,
+        j = k;
       const span = (until) => {
         if (cur) s.knownMs += until - at;
         if (cur === 'up') s.upMs += until - at;
@@ -69,7 +64,6 @@ export function slots(data) {
   return out;
 }
 
-// How many times the link went from up to not up in the range.
 export function drops(data) {
   let prev = data.start || '';
   let n = 0;
@@ -80,22 +74,22 @@ export function drops(data) {
   return n;
 }
 
-// "99.8% up · 2 drops · 5 failed · 3 slow": status always has text. The
-// percentage rounds down, so it only reads 100% when nothing was down.
+// Percentage rounds down, so it only reads 100% when nothing was down.
 export function summary(data) {
   const ss = slots(data);
   const known = ss.reduce((t, s) => t + s.knownMs, 0);
   if (!known) return 'No record for this time';
   const up = ss.reduce((t, s) => t + s.upMs, 0);
   const pct = up === known ? '100' : (Math.floor((up / known) * 1000) / 10).toFixed(1);
-  const d = drops(data), bad = ss.reduce((t, s) => t + s.bad, 0), slow = ss.reduce((t, s) => t + s.slow, 0);
+  const d = drops(data),
+    bad = ss.reduce((t, s) => t + s.bad, 0),
+    slow = ss.reduce((t, s) => t + s.slow, 0);
   const parts = [`${pct}% up`, `${d} ${d === 1 ? 'drop' : 'drops'}`];
   if (bad) parts.push(`${bad} failed`);
   if (slow) parts.push(`${slow} slow`);
-  return parts.join(' · ');
+  return parts.join(', ');
 }
 
-// What one slot says, for its tooltip and screen readers: when, and why that colour.
 export function slotText(s, fmt) {
   const when = `${fmt(s.from)} – ${fmt(s.to)}`;
   if (s.colour === 'future') return `${when}: not yet`;
@@ -107,9 +101,7 @@ export function slotText(s, fmt) {
   return `${when}: ${bits.join(', ')}`;
 }
 
-// The range to draw: the times chosen with From and To if any (From alone
-// runs to now; To alone starts a week before it), else the preset back from
-// now. null if From is after To.
+// From alone runs to now; To alone starts a week before; else the preset back from now. null if From is after To.
 export function rangeFor(preset, rangeFrom, rangeTo, now) {
   if (rangeFrom == null && rangeTo == null) return { custom: false, from: now - PRESETS.find((p) => p.id === presetId(preset)).span, to: now };
   const to = rangeTo ?? now;

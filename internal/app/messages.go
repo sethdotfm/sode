@@ -7,12 +7,11 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Server -> browser messages. The `t` field names the kind; web/core.js switches on it. Keys
-// and omitempty rules are what the browser reads: change them with web/.
+// Server -> browser messages. t names the kind (web/core.js switches on it); keys and
+// omitempty are what the browser reads: change with web/.
 
-// routeChange is one tally or protect entry: destination, UI level, and the
-// source routed there (or the protecting device, -1 = none). On the wire and
-// in the browser it is the array [dst, level, src].
+// routeChange is [dst, level, src] on the wire; src is the protecting device for protect
+// (-1 = none).
 type routeChange struct {
 	Dst, Level, Src int
 }
@@ -30,14 +29,12 @@ func (c *routeChange) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// deltaMsg is a batch of tally or protect changes. T is "tally" or "protect".
 type deltaMsg struct {
 	T string        `json:"t"`
 	U []routeChange `json:"u"`
 }
 
-// helloMsg is the full snapshot a browser gets on connect or config change.
-// Every key is always sent (none is omitempty).
+// helloMsg: every key always sent (none omitempty).
 type helloMsg struct {
 	T             string              `json:"t"` // "hello"
 	Srcs          [][2]any            `json:"srcs"`
@@ -79,15 +76,12 @@ type presetsMsg struct {
 	Presets []config.Preset `json:"presets"`
 }
 
-// simpleMsg has no fields but its kind: "locked", "historyCleared".
 type simpleMsg struct {
 	T string `json:"t"`
 }
 
-// takeResult answers one take. Entry is the history entry the browser's
-// banner follows (a pointer: entry 0 is real); a take that never got as far
-// as being recorded has none.
-type takeResult struct {
+// routeResult: Entry is a pointer (entry 0 is real); none for a take never recorded.
+type routeResult struct {
 	T       string `json:"t"` // "takeResult"
 	ID      int    `json:"id"`
 	OK      bool   `json:"ok"`
@@ -96,7 +90,6 @@ type takeResult struct {
 	Entry   *int   `json:"entry,omitempty"`
 }
 
-// recentMsg is a new history entry, or with Update an entry that changed.
 type recentMsg struct {
 	T      string `json:"t"` // "recent"
 	E      *Entry `json:"e"`
@@ -110,9 +103,8 @@ type historyMsg struct {
 	More    bool    `json:"more"`
 }
 
-// opResult answers unlock ("unlockResult"), filterSets ("filterSetsResult")
-// and config ("configResult"). ID is echoed by the first two only, Locked
-// is sent by the last two, on failure only.
+// opResult: ID echoed by unlockResult and filterSetsResult only; Locked sent by
+// filterSetsResult and configResult, on failure only.
 type opResult struct {
 	T      string `json:"t"`
 	OK     bool   `json:"ok"`
@@ -137,8 +129,6 @@ type sentPageMsg struct {
 	Lost    int64  `json:"lost"`
 }
 
-// uptimeMsg answers an uptime request: the link's record from..to (unix ms)
-// in slots of slot ms, echoing the request's id. Now is the server's clock.
 type uptimeMsg struct {
 	T      string        `json:"t"` // "uptimeResult"
 	ID     int           `json:"id"`

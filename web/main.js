@@ -1,4 +1,3 @@
-// Entry point: views subscribe to core, then the connection starts.
 import './layout.js';
 import './keys.js';
 import { connect, on } from './core.js';
@@ -9,12 +8,15 @@ import './brand.js';
 import './lock.js';
 import './profile.js';
 import './filters.js';
+import './searchbox.js';
 import { applySharedLink } from './transfer.js';
 import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
 
-on('brand', ({ text }) => { document.title = text; });
+on('brand', ({ text }) => {
+  document.title = text;
+});
 
 initTheme();
 applySharedLink();

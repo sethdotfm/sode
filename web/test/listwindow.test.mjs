@@ -1,4 +1,3 @@
-// Which rows of a long list are drawn.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { windowAround, growEdge, WINDOW, STEP } from '../listwindow.js';

@@ -16,11 +16,9 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// The app icon (home screen, install dialog) is the Lucide "route" glyph on
-// a solid tile. Default: accent glyph on the dark surface. With a brand
-// colour (issue 126) the tile takes the colour and the glyph goes dark, so
-// instances tell apart on a home screen. The colours are config.BrandColors,
-// the dark values of the signal tokens web/base.css maps the names to.
+// App icon: Lucide "route" glyph on a solid tile. Default accent on dark; with a brand
+// colour the tile takes it and the glyph goes dark. Colours are config.BrandColors (dark
+// signal tokens of web/base.css).
 var (
 	iconDark   = color.NRGBA{0x08, 0x08, 0x08, 0xff}
 	iconAccent = color.NRGBA{0x8b, 0x93, 0xff, 0xff}
@@ -34,23 +32,19 @@ type iconKey struct {
 
 var iconCache sync.Map // iconKey → []byte
 
-// The glyph in its own 24-unit space, stroked 2 wide. It mirrors the Lucide
-// "route" icon: path `M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15`
-// (three segments and two half circles) plus circles at (6,19) and (18,5),
-// r=3. Drawn at 56% of the tile, inside the maskable
-// safe zone.
+// Glyph in 24-unit space, stroke 2, mirroring Lucide "route" (M9 19h8.5a3.5 3.5 0 0 0
+// 0-7h-11a3.5 3.5 0 0 1 0-7H15 plus circles at (6,19) and (18,5), r=3). Drawn at 56% of
+// the tile, inside the maskable safe zone.
 type seg struct{ x1, y1, x2, y2 float64 }
 
 var iconLines = []seg{{9, 19, 17.5, 19}, {17.5, 12, 6.5, 12}, {6.5, 5, 15, 5}}
 
-// inGlyph: is the point (24-unit space) within the stroke?
 func inGlyph(x, y float64) bool {
 	for _, l := range iconLines {
 		if distSeg(x, y, l) <= 1 {
 			return true
 		}
 	}
-	// The two half circles of the path, joining the lines (centre, side).
 	if distArc(x, y, 17.5, 15.5, 3.5, true) <= 1 || distArc(x, y, 6.5, 8.5, 3.5, false) <= 1 {
 		return true
 	}
@@ -68,7 +62,6 @@ func distSeg(x, y float64, s seg) float64 {
 	return math.Hypot(x-(s.x1+t*dx), y-(s.y1+t*dy))
 }
 
-// distArc: distance to the right (or left) half of a circle.
 func distArc(x, y, cx, cy, r float64, right bool) float64 {
 	if dx := x - cx; (dx >= 0) == right {
 		return math.Abs(math.Hypot(dx, y-cy) - r)
@@ -76,14 +69,12 @@ func distArc(x, y, cx, cy, r float64, right bool) float64 {
 	return math.Min(math.Hypot(x-cx, y-(cy-r)), math.Hypot(x-cx, y-(cy+r)))
 }
 
-// hexColor parses the table's "#rrggbb".
 func hexColor(h string) color.NRGBA {
 	v, _ := strconv.ParseUint(strings.TrimPrefix(h, "#"), 16, 32)
 	return color.NRGBA{uint8(v >> 16), uint8(v >> 8), uint8(v), 0xff}
 }
 
-// iconURL is the path of the icon the server draws (web/brandicon.js builds
-// the same); brand "" is the default look.
+// iconURL: web/brandicon.js builds the same; brand "" = default look.
 func iconURL(size int, brand string) string {
 	u := "icon.png?s=" + strconv.Itoa(size)
 	if brand != "" {
@@ -123,8 +114,6 @@ func renderIcon(size int, brand string) []byte {
 	return buf.Bytes()
 }
 
-// serveIcon: /icon.png?s=<180|192|512>&c=<brand colour>. Unknown sizes and
-// colours fall back to 192 and the default look.
 func serveIcon(w http.ResponseWriter, r *http.Request) {
 	size, _ := strconv.Atoi(r.URL.Query().Get("s"))
 	if !slices.Contains(iconSizes, size) {

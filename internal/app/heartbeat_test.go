@@ -12,7 +12,7 @@ import (
 )
 
 // A connection gets a {"t":"ping"} message every wsHeartbeat, because the
-// browser can't see WebSocket ping frames (#142).
+// browser can't see WebSocket ping frames.
 func TestWSHeartbeat(t *testing.T) {
 	old := wsHeartbeat
 	wsHeartbeat = 50 * time.Millisecond

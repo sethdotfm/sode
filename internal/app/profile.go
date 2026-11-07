@@ -11,26 +11,21 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// User profiles (#161): a user's This-device prefs, filter sets and presets,
-// kept on the config.User. A profile is never in a hello: the server pushes
-// it as a `profile` message to the connections unlocked as that user (and
-// only those), whenever their access changes (pushAccessLocked) and after a
-// save. What may save one is the policy table (policy.go): the user's own
-// connection, else a trusted user or the settings PIN; guardProfile repeats
-// the check under cfgMu.
+// User profiles: a user's This-device prefs, filter sets and presets, kept on config.User.
+// Never in a hello: pushed as a profile message only to connections unlocked as that user,
+// when access changes (pushAccessMu) and after a save. Who may save is in policy.go;
+// guardProfile repeats it under cfgMu.
 
 var errNoSuchUser = errors.New("no such user")
 
-// profileMsg is the `profile` the server pushes. An empty Name clears what
-// the browser holds (it is no longer logged in as anyone).
+// profileMsg: empty Name clears what the browser holds.
 type profileMsg struct {
 	T    string `json:"t"` // "profile"
 	Name string `json:"name"`
 	config.Profile
 }
 
-// profileReq is a profileSave: the parts to replace. A nil part is kept as
-// it is; an empty list (or {}) clears it.
+// profileReq: a nil part is kept; an empty list or {} clears it.
 type profileReq struct {
 	Name       string
 	Prefs      map[string]string
@@ -39,8 +34,6 @@ type profileReq struct {
 	PinOrder   []string
 }
 
-// profileGetResult answers profileGet (failures are an opResult of the
-// same type).
 type profileGetResult struct {
 	T       string         `json:"t"` // "profileGetResult"
 	ID      int            `json:"id"`
@@ -49,35 +42,30 @@ type profileGetResult struct {
 	Profile config.Profile `json:"profile"`
 }
 
-// isUserLocked: c is unlocked as the user called name (who still exists with
-// the same PIN). Caller holds mu.
-func (a *App) isUserLocked(c *client, name string) bool {
-	if name == "" || !a.userOKLocked(c, a.r().cfg) {
+// Caller holds mu.
+func (a *App) signedInAsMu(c *client, name string) bool {
+	if name == "" || !a.userOKMu(c, a.r().cfg) {
 		return false
 	}
 	return strings.EqualFold(c.u.user.Load().Name, name)
 }
 
-// guardProfile refuses c a save of name's profile unless c is that user or
-// trusted (or has the settings PIN). Caller holds cfgMu, so the users can't
-// change between this check and the save.
+// Caller holds cfgMu, so users can't change between check and save.
 func (a *App) guardProfile(c *client, name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !a.isUserLocked(c, name) && !a.trustedLocked(c) {
+	if !a.signedInAsMu(c, name) && !a.trustedMu(c) {
 		return errLocked
 	}
 	return nil
 }
 
-// pushProfileLocked tells c its profile, if it is unlocked as a user and what
-// it holds is not what it was last sent, or clears it if c was sent one and
-// no longer is that user. Caller holds mu.
-func (a *App) pushProfileLocked(c *client) {
+// Caller holds mu.
+func (a *App) pushProfileMu(c *client) {
 	rt := a.r()
 	cfg := rt.cfg
 	var b []byte
-	if a.userOKLocked(c, cfg) {
+	if a.userOKMu(c, cfg) {
 		u, _ := cfg.FindUser(c.u.user.Load().Name)
 		if a.profMemoRT != rt || a.profMemo == nil {
 			a.profMemoRT, a.profMemo = rt, map[string]string{}
@@ -103,8 +91,6 @@ func (a *App) pushProfileLocked(c *client) {
 	a.deliver(c, b)
 }
 
-// ProfileSave replaces the given parts of the named user's profile, and
-// returns how many items it was given.
 func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 	n := len(req.Prefs) + len(req.FilterSets) + len(req.Presets) + len(req.PinOrder)
 	a.cfgMu.Lock()
@@ -113,7 +99,7 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 		return n, err
 	}
 	var owner string
-	_, nr, err := a.update(func(cfg *config.Config) error {
+	err := a.commit(func(cfg *config.Config) error {
 		for i := range cfg.Users {
 			u := &cfg.Users[i]
 			if !strings.EqualFold(u.Name, strings.TrimSpace(req.Name)) {
@@ -135,31 +121,23 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 			return nil
 		}
 		return errNoSuchUser
-	})
-	if err != nil {
-		return n, err
-	}
-	a.mu.Lock()
-	a.rt.Store(nr)
-	for cl := range a.clients {
-		if a.isUserLocked(cl, owner) {
-			a.pushProfileLocked(cl)
+	}, func(_, _ *runtime) {
+		for cl := range a.clients {
+			if a.signedInAsMu(cl, owner) {
+				a.pushProfileMu(cl)
+			}
 		}
-	}
-	a.mu.Unlock()
-	return n, nil
+	})
+	return n, err
 }
 
-// serveProfileSave handles a profileSave the policy admitted. The log note
-// says whose profile and how many things; never a value.
+// Logs whose profile and how many things, never a value.
 func (a *App) serveProfileSave(c *client, m *inMsg) {
 	n, err := a.ProfileSave(c, profileReq{Name: m.Name, Prefs: m.Prefs, FilterSets: m.FilterSets, Presets: m.Presets, PinOrder: m.PinOrder})
 	note := fmt.Sprintf("%s: %d %s", cleanPresetName(m.Name), n, plural(n, "item", "items"))
 	a.replyOpNote(c, "profileSave", m.ID, note, err)
 }
 
-// serveProfileGet answers profileGet (policy: trusted or the PIN): any
-// user's profile, for the Users editor.
 func (a *App) serveProfileGet(c *client, m *inMsg) {
 	u, ok := a.r().cfg.FindUser(strings.TrimSpace(m.Name))
 	if !ok {

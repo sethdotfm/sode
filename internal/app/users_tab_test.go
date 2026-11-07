@@ -6,7 +6,6 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// A login with no lock on (userUnlock with tab) gets a tab token.
 func TestTabSession(t *testing.T) {
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.1"}
@@ -20,18 +19,15 @@ func TestTabSession(t *testing.T) {
 	if tok == "" || !tokenAlive(a, tok) {
 		t.Fatal("no tab token")
 	}
-	// A reload of that tab is logged in again.
 	fresh := &client{ip: "10.0.0.2"}
 	a.Hi(fresh, "main", tok)
 	if fresh.who() != "Ana" {
 		t.Fatal("tab token not honored")
 	}
-	// A lock revokes it.
-	a.UserLock(fresh)
+	a.SignOut(fresh)
 	if tokenAlive(a, tok) {
-		t.Fatal("lock did not revoke")
+		t.Fatal("sign out did not revoke")
 	}
-	// Persistent behaviour is unchanged: tab asked, ordinary token given.
 	setFlags(t, a, "Ana", false, true)
 	d := &client{ip: "10.0.0.3"}
 	if err := a.UserUnlock(d, "1234"); err != nil {
@@ -47,7 +43,7 @@ func TestTabSession(t *testing.T) {
 	}
 }
 
-// With a lock on, a tab token is refused (the idle lock must stay in force).
+// With a lock on, a tab token is refused (the Auto-lock must stay in force).
 func TestTabSessionRefusedWhenLocked(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
@@ -60,7 +56,7 @@ func TestTabSessionRefusedWhenLocked(t *testing.T) {
 }
 
 // A lock switched on after a no-lock login: the tab token no longer brings a
-// reload back in, so the PIN pad (and the idle lock) apply.
+// reload back in, so the PIN pad (and the Auto-lock) apply.
 func TestTabTokenIgnoredOnceLocked(t *testing.T) {
 	a := userApp(t, false)
 	c := &client{ip: "10.0.0.1"}

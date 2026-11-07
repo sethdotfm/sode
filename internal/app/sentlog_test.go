@@ -42,7 +42,6 @@ func TestSentLogRotateAndReopen(t *testing.T) {
 		t.Fatalf("files hold %d bytes, cap %d", total, capBytes)
 	}
 
-	// Page through everything that's left, newest first, without gaps.
 	var all []Sent
 	before := int64(-1)
 	for {
@@ -67,12 +66,10 @@ func TestSentLogRotateAndReopen(t *testing.T) {
 	if all[len(all)-1].Seq == 0 {
 		t.Fatal("nothing was rotated away")
 	}
-	// The total counts what's left on disk, not everything ever appended.
 	if got := l.Total(); got != int64(len(all)) {
 		t.Fatalf("Total = %d, want %d", got, len(all))
 	}
 
-	// A torn write is dropped on reopen and numbering carries on.
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
 	f.WriteString(`{"seq":100,"kind":`)
 	f.Close()
@@ -108,7 +105,6 @@ func TestSentLogMemoryCap(t *testing.T) {
 	}
 }
 
-// A damaged file is set aside, not fatal; the log starts afresh.
 func TestSentLogDamagedFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sent.jsonl")
@@ -135,14 +131,12 @@ func TestSentLogDamagedFile(t *testing.T) {
 	}
 }
 
-// One unreadable line in the middle doesn't hide the others.
 func TestSentLogBadMiddleLine(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sent.jsonl")
 	l, _ := OpenSentLog(path, 1<<20)
 	for i := 0; i < 3; i++ {
 		l.Append(&Sent{Kind: "connect"})
 	}
-	// Garble the middle line in place, keeping its length.
 	l.mu.Lock()
 	off, end := l.cur.offs[1], l.cur.offs[2]
 	l.mu.Unlock()

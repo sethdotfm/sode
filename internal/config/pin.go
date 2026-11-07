@@ -14,10 +14,9 @@ import (
 
 const pinIter = 600_000
 
-// CheckPinRules says whether pin is acceptable as a new settings PIN.
 func CheckPinRules(pin string) error {
 	if n := utf8.RuneCountInString(pin); n < 4 || n > 64 {
-		return fmt.Errorf("settings PIN must be 4-64 characters")
+		return fmt.Errorf("Advanced Settings PIN must be 4-64 characters")
 	}
 	return nil
 }
@@ -34,7 +33,6 @@ func HashPin(pin string) (string, error) {
 	return fmt.Sprintf("pbkdf2-sha256$%d$%s$%s", pinIter, enc(salt), enc(key)), nil
 }
 
-// parsePinHash splits a HashPin hash; ok is false if it isn't one.
 func parsePinHash(hash string) (iter int, salt, want []byte, ok bool) {
 	parts := strings.Split(hash, "$")
 	if len(parts) != 4 || parts[0] != "pbkdf2-sha256" {
@@ -53,14 +51,12 @@ func parsePinHash(hash string) (iter int, salt, want []byte, ok bool) {
 	return iter, salt, want, true
 }
 
-// ValidPinHash reports whether hash looks like a HashPin hash, so a
-// hand-typed PIN in the config file can be caught at startup.
+// ValidPinHash catches a hand-typed PIN in the config file at startup.
 func ValidPinHash(hash string) bool {
 	_, _, _, ok := parsePinHash(hash)
 	return ok
 }
 
-// CheckPin reports whether pin matches a HashPin hash.
 func CheckPin(hash, pin string) bool {
 	iter, salt, want, ok := parsePinHash(hash)
 	if !ok {

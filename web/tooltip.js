@@ -1,20 +1,18 @@
-// The hover tooltip for text cut off with an ellipsis. Standalone: it only
-// needs the DOM, so core.js (and the /log page) load it for its side effects.
+// Hover tooltip for ellipsis-cut text; core.js and /log load it for its side effects.
 
-// Text cut off with an ellipsis shows in full in a tooltip on hover, as
-// soon as the pointer arrives; so does an element's data-hint wherever the
-// CSS sets --sode-hint: on (its text is hidden there to save room).
-// Cut-off elements with a title of their own keep it.
+// Cut-off text shows in full on hover; so does data-hint where CSS sets --sode-hint: on. Elements with their own title keep it.
 const cutTip = document.createElement('div');
 cutTip.className = 'pb-tip';
 cutTip.hidden = true;
-cutTip.setAttribute('aria-hidden', 'true'); // the full text is already in the DOM
+cutTip.setAttribute('aria-hidden', 'true');
 document.body.append(cutTip);
 let cutFor = null;
-const hideCutTip = () => { cutTip.hidden = true; cutFor = null; };
+const hideCutTip = () => {
+  cutTip.hidden = true;
+  cutFor = null;
+};
 
-// Tips in a scrolling row (.sode__sets) can't hang off their element, the row
-// would clip them: the same floating tip shows them (the CSS one is hidden there).
+// Tips in a scrolling row (.sode__sets) would be clipped, so the floating tip shows them (the CSS one is hidden there).
 const rowTip = (n) => n instanceof Element && n.closest('.sode__sets [data-pb-tip]');
 
 function cutOff(n) {
@@ -24,8 +22,7 @@ function cutOff(n) {
     const cs = getComputedStyle(n);
     if (n.dataset.hint && cs.getPropertyValue('--sode-hint').trim() === 'on') return { n, text: n.dataset.hint };
     if (cs.textOverflow !== 'ellipsis' || cs.overflowX === 'visible') continue;
-    // A pixel's slack: Chrome rounds an input's scrollWidth up past text
-    // that fits.
+    // A pixel's slack: Chrome rounds an input's scrollWidth up past text that fits.
     if (n.title || n.scrollWidth <= n.clientWidth + 1) return null;
     const text = (n instanceof HTMLInputElement ? n.value : n.textContent).replace(/\s+/g, ' ').trim();
     return text ? { n, text } : null;
@@ -33,14 +30,15 @@ function cutOff(n) {
   return null;
 }
 
-// Under the element (above it if there's no room), kept on screen.
 function placeCutTip(n) {
-  const gap = 4, w = cutTip.offsetWidth, h = cutTip.offsetHeight, r = n.getBoundingClientRect();
+  const gap = 4,
+    w = cutTip.offsetWidth,
+    h = cutTip.offsetHeight,
+    r = n.getBoundingClientRect();
   cutTip.style.left = `${Math.max(gap, Math.min(r.left, innerWidth - w - gap))}px`;
   cutTip.style.top = `${r.bottom + gap + h <= innerHeight ? r.bottom + gap : r.top - gap - h}px`;
 }
 
-// No hover on a touch screen: a tap must press, not pop a tip up.
 const touchOnly = globalThis.matchMedia?.('(hover: none)') ?? { matches: false }; // (no matchMedia in the Node tests)
 
 document.addEventListener('mouseover', (e) => {
@@ -53,7 +51,9 @@ document.addEventListener('mouseover', (e) => {
   cutTip.hidden = false;
   placeCutTip(c.n);
 });
-document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) hideCutTip(); });
+document.addEventListener('mouseout', (e) => {
+  if (!e.relatedTarget) hideCutTip();
+});
 document.addEventListener('focusin', (e) => {
   const t = rowTip(e.target);
   if (touchOnly.matches || !t || !t.matches(':focus-visible')) return;

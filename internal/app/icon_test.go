@@ -45,7 +45,6 @@ func TestIconColours(t *testing.T) {
 		if got := [3]uint8{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8)}; got != tc.cornerBG || al != 0xffff {
 			t.Fatalf("%s: corner %v alpha %x", tc.path, got, al)
 		}
-		// The ring of the lower-left circle is glyph-coloured, the tile is not.
 		mid := tc.size / 2
 		if img.At(mid, mid) == img.At(0, 0) && img.At(mid/2, mid+mid/3) == img.At(0, 0) {
 			t.Fatalf("%s: no glyph drawn", tc.path)
@@ -59,7 +58,6 @@ func TestIconURL(t *testing.T) {
 	}
 }
 
-// Every colour in the table needs its CSS rule, and names stay plain.
 func TestBrandColorsMatchCSS(t *testing.T) {
 	css, err := web.FS.ReadFile("base.css")
 	if err != nil {

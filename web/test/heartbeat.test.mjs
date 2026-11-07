@@ -1,4 +1,4 @@
-// A socket that has gone quiet is not sent into (#142). Run: node --test web/test/
+// A socket gone quiet is not sent into.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -7,7 +7,6 @@ globalThis.document = node();
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.WebSocket = { OPEN: 1 };
 
-// A socket stub that has been quiet for `ago` ms.
 function stub(readyState, ago) {
   const calls = { sent: [], closed: 0, lost: 0 };
   return {
@@ -15,8 +14,12 @@ function stub(readyState, ago) {
     readyState,
     lastRx: Date.now() - ago,
     send: (m) => calls.sent.push(m),
-    close: () => { calls.closed++; },
-    onclose: () => { calls.lost++; },
+    close: () => {
+      calls.closed++;
+    },
+    onclose: () => {
+      calls.lost++;
+    },
     onmessage: () => {},
   };
 }

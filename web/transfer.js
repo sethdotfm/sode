@@ -1,12 +1,6 @@
-// Export & import (Beta 1.6, #169): the Settings > Export & import dialog,
-// and share links. Export writes a YAML file (the server only converts:
-// POST api/yaml); import reads one (or pasted text) into the review sheet
-// (reviewsheet.js), which is also what a share link opens. Names ride beside
-// numbers so another router's numbers can still be matched. The pure rules
-// are exportfmt.js.
-//
-// Other modules ask for this dialog with emit('openTransfer', { scope, user })
-// (the Profiles dialog does, preselecting one user's profile).
+// Settings > Export & import dialog, and share links. Export writes YAML (the server only converts: POST api/yaml); import reads a file or
+// pasted text into the review sheet (reviewsheet.js), which a share link also opens. Names ride beside numbers so another router's numbers can still be matched.
+// Pure rules are in exportfmt.js. Other modules open this with emit('openTransfer', { scope, user }).
 
 import { $, el, S, on, sentence } from './core.js';
 import { trapDialog, labeled } from './widgets.js';
@@ -37,9 +31,6 @@ const dot = (kind) => {
 
 // ---- share links
 
-// A read-only link field with its Copy link button and status line, for a
-// share button to fill (shareLink). The button copies; sharing itself never
-// touches the clipboard.
 export function shareRow() {
   const input = el('input', 'pb-input sode__code');
   input.readOnly = true;
@@ -51,7 +42,6 @@ export function shareRow() {
   return ui;
 }
 
-// Puts a share link for doc into ui ({ box, input, status }) and selects it.
 export function shareLink(doc, ui) {
   ui.box.hidden = false;
   ui.input.value = fmt.shareUrl(`${location.origin}${location.pathname}`, doc);
@@ -60,8 +50,7 @@ export function shareLink(doc, ui) {
   copiedOff(ui);
 }
 
-// The Copy link button says "Copied" in green for two seconds, in place (no
-// extra element). With no clipboard the link stays selected, to copy by hand.
+// With no clipboard the link stays selected, to copy by hand.
 const COPIED_MS = 2000;
 function copiedOff(ui) {
   clearTimeout(ui.timer);
@@ -72,7 +61,12 @@ function copiedOff(ui) {
 }
 export async function copyLink(ui) {
   let ok = false;
-  try { await navigator.clipboard.writeText(ui.input.value); ok = true; } catch (e) { /* no clipboard */ }
+  try {
+    await navigator.clipboard.writeText(ui.input.value);
+    ok = true;
+  } catch (e) {
+    /* no clipboard */
+  }
   if (!ok) {
     ui.input.select();
     copiedOff(ui);
@@ -89,9 +83,7 @@ export async function copyLink(ui) {
 
 export const sharePresetDoc = (p) => fmt.presetShare(p, srcName, dstName);
 
-// Opens the review sheet for a share document.
-// onLocked: called if a lock closes the sheet (the link then waits to be
-// shown again after unlocking).
+// onLocked: a lock closed the sheet; the link waits to be shown again after unlocking.
 export function reviewShare(share, source = '', onLocked = null) {
   openReview({
     doc: fmt.docOfShare(share),
@@ -102,7 +94,6 @@ export function reviewShare(share, source = '', onLocked = null) {
   });
 }
 
-// Uses a filter without saving it, with Undo.
 function applyNow(f, name) {
   const prev = snapshot();
   adoptFilter(normFilter(f));
@@ -113,26 +104,22 @@ function applyNow(f, name) {
   showResult('info', name ? `Shared filter “${name}” applied` : 'Shared filter applied', () => el('span', 'sode__filters-empty', undo));
 }
 
-// A link in the page address (a #share= fragment, or the old ?f=) is kept
-// PENDING until the sheet can show: the router's names are in and the page
-// is not covered by a lock (a new browser with the main lock on gets `hello`
-// before the lock screen, so the sheet would open and be closed again). The
-// address is cleaned only once the sheet is up, so a reload while locked
-// keeps the link. A link pasted into a tab already on Sode (hashchange) goes
-// the same way.
+// A link in the address (#share=, or the old ?f=) stays PENDING until the sheet can show: names are in and no lock covers the page
+// (a new browser with the main lock on gets `hello` before the lock screen, so the sheet would open and be closed again).
+// The address is cleaned only once the sheet is up, so a reload while locked keeps the link. A hashchange link goes the same way.
 let pending = null; // the share document waiting to be shown
 let access = null; // lock.js's lock state, once it has said
 let namesIn = false;
 
 let handUp = false; // lock.js's overlay is up (its 'handlock' event)
-const handLocked = () => handUp;
+const pageLocked = () => handUp;
 const clean = () => {
   const r = fmt.readLink(location.search, location.hash);
   if (r.doc || r.error) history.replaceState(null, '', location.pathname + r.search + r.hash);
 };
 
 function tryOpen() {
-  if (!pending || !fmt.mayOpenSheet(access, handLocked(), namesIn)) return;
+  if (!pending || !fmt.mayOpenSheet(access, pageLocked(), namesIn)) return;
   const doc = pending;
   pending = null;
   clean();
@@ -155,9 +142,18 @@ function takeLink() {
 }
 
 export function applySharedLink() {
-  on('helloData', () => { namesIn = true; tryOpen(); });
-  on('access', (l) => { access = l; tryOpen(); });
-  on('handlock', ({ on: up }) => { handUp = up; tryOpen(); });
+  on('helloData', () => {
+    namesIn = true;
+    tryOpen();
+  });
+  on('access', (l) => {
+    access = l;
+    tryOpen();
+  });
+  on('handlock', ({ on: up }) => {
+    handUp = up;
+    tryOpen();
+  });
   window.addEventListener('hashchange', takeLink);
   takeLink();
 }
@@ -179,7 +175,12 @@ noteEl.setAttribute('aria-live', 'polite');
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Export & import'), { id: 'tr-title' })),
   el('div', 'pb-modal__body sode__filters-body', exBox, imBox, noteEl),
-  el('div', 'pb-modal__footer', btn('pb-btn--ok', 'Close', () => close())));
+  el(
+    'div',
+    'pb-modal__footer',
+    btn('pb-btn--ok', 'Close', () => close()),
+  ),
+);
 root.append(dialog);
 document.body.append(root);
 
@@ -188,15 +189,14 @@ const setNote = (t, error = false) => {
   noteEl.classList.toggle('sode__error-text', error);
 };
 
-let open = false, back = null;
-// ex: the export choices. user: a profile named by openTransfer (someone
-// else's, read by name; the logged-in user's own is just 'user').
+let open = false,
+  back = null;
+// user: a profile named by openTransfer (someone else's, read by name; the logged-in user's own is just 'user').
 let ex = null;
 let other = null; // { name, state: 'wait' | 'ok' | 'err', profile, err }
 
 const newEx = () => ({ src: 'local', prefs: true, setsMode: 'all', setsPick: new Set(), presetsMode: 'all', presetsPick: new Set() });
 
-// What a source holds: { prefs, sets: [{ name, f }], presets, user }.
 function dataOf(src) {
   if (src === 'global') return { prefs: {}, sets: globalSets(), presets: globalPresets(), user: '' };
   if (src === 'other') {
@@ -233,7 +233,11 @@ function pickList(kind, items) {
   sel.append(new Option(`All ${label.toLowerCase()} (${items.length})`, 'all'), new Option(`Chosen ${label.toLowerCase()}`, 'chosen'));
   sel.disabled = !items.length;
   sel.value = items.length ? mode : 'all';
-  sel.addEventListener('change', () => { if (kind === 'sets') ex.setsMode = sel.value; else ex.presetsMode = sel.value; renderExport(); });
+  sel.addEventListener('change', () => {
+    if (kind === 'sets') ex.setsMode = sel.value;
+    else ex.presetsMode = sel.value;
+    renderExport();
+  });
   const out = [el('div', 'sode__filters-set', el('span', 'sode__label', label), el('span', 'pb-select-wrap', sel))];
   if (!items.length) out.push(el('span', 'sode__hint', `No ${label.toLowerCase()} here.`));
   else if (mode === 'chosen') {
@@ -241,7 +245,10 @@ function pickList(kind, items) {
       const c = el('input', 'pb-check__input');
       c.type = 'checkbox';
       c.checked = picked.has(it.name);
-      c.addEventListener('change', () => { if (c.checked) picked.add(it.name); else picked.delete(it.name); });
+      c.addEventListener('change', () => {
+        if (c.checked) picked.add(it.name);
+        else picked.delete(it.name);
+      });
       out.push(el('label', 'pb-check sode__filters-indent', c, el('span', 'pb-check__label', it.name)));
     }
   }
@@ -257,35 +264,55 @@ function renderExport() {
   src.setAttribute('aria-label', 'Export from');
   for (const [v, t] of opts) src.append(new Option(t, v));
   src.value = ex.src;
-  src.addEventListener('change', () => { ex.src = src.value; setNote(''); renderExport(); });
+  src.addEventListener('change', () => {
+    ex.src = src.value;
+    setNote('');
+    renderExport();
+  });
   const prefs = validPrefs(d.prefs);
   const pc = el('input', 'pb-check__input');
   pc.type = 'checkbox';
   pc.checked = ex.prefs && Object.keys(prefs).length > 0;
   pc.disabled = !Object.keys(prefs).length;
-  pc.addEventListener('change', () => { ex.prefs = pc.checked; });
-  const prefNote = ex.src === 'global' ? 'Everyone’s defaults are set in Settings.'
-    : !Object.keys(prefs).length ? 'None set here.' : `${Object.keys(prefs).length} set`;
+  pc.addEventListener('change', () => {
+    ex.prefs = pc.checked;
+  });
+  const prefNote =
+    ex.src === 'global' ? 'Everyone’s defaults are set in Settings.' : !Object.keys(prefs).length ? 'None set here.' : `${Object.keys(prefs).length} set`;
   const name = el('input', 'pb-input');
   name.setAttribute('aria-label', 'File name');
   name.autocomplete = 'off';
   name.value = ex.file || '';
   name.placeholder = fmt.defaultFileName({ site: site(), user: d.user });
-  name.addEventListener('input', () => { ex.file = name.value; });
-  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); download(); } });
+  name.addEventListener('input', () => {
+    ex.file = name.value;
+  });
+  name.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      download();
+    }
+  });
   const wait = ex.src === 'other' && other?.state !== 'ok';
   const go = btn('pb-btn--outline', 'Download', () => download());
   go.disabled = wait;
   exBox.replaceChildren(
     el('strong', null, 'Export'),
     el('div', 'sode__filters-set', el('span', 'sode__label', 'From'), el('span', 'pb-select-wrap', src)),
-    ...(wait ? [el('span', 'sode__hint sode__error-text', other?.state === 'err' ? other.err : 'Reading their profile…')] : [
-      el('label', 'pb-check', pc, el('span', 'pb-check__label', 'This device settings'), el('span', 'sode__hint', ` ${prefNote}`)),
-      ...pickList('sets', d.sets),
-      ...pickList('presets', d.presets),
-    ]),
+    ...(wait
+      ? [el('span', 'sode__hint sode__error-text', other?.state === 'err' ? other.err : 'Reading their profile…')]
+      : [
+          el('label', 'pb-check', pc, el('span', 'pb-check__label', 'This browser settings'), el('span', 'sode__hint', ` ${prefNote}`)),
+          ...pickList('sets', d.sets),
+          ...pickList('presets', d.presets),
+        ]),
     el('div', 'sode__filters-set', name, go),
-    el('span', 'sode__hint', 'Blank: the file is named with the date, this site and the profile. Names are saved beside the numbers so another router can match them.'));
+    el(
+      'span',
+      'sode__hint',
+      'Blank: the file is named with the date, this site and the profile. Names are saved beside the numbers so another router can match them.',
+    ),
+  );
 }
 
 function chosen(items, mode, picked) {
@@ -314,7 +341,6 @@ async function download() {
   setNote(`Saved ${file}.`);
 }
 
-// POST to the converter. { ok, text, err }.
 async function convert(url, body, type) {
   try {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': type }, body });
@@ -344,8 +370,13 @@ function renderImport() {
     el('strong', null, 'Import'),
     el('div', 'sode__filters-set', picker),
     paste,
-    el('div', 'sode__filters-set', btn('pb-btn--outline', 'Review import', () => review())),
-    el('span', 'sode__hint', 'Nothing is saved until you have looked at it in the review.'));
+    el(
+      'div',
+      'sode__filters-set',
+      btn('pb-btn--outline', 'Review import', () => review()),
+    ),
+    el('span', 'sode__hint', 'Nothing is saved until you have looked at it in the review.'),
+  );
 }
 
 async function review() {
@@ -353,14 +384,22 @@ async function review() {
   const f = picker.files?.[0];
   if (f) {
     if (f.size > 1 << 20) return setNote('That file is over 1 MiB.', true);
-    try { text = await f.text(); } catch (e) { return setNote('Could not read that file.', true); }
+    try {
+      text = await f.text();
+    } catch (e) {
+      return setNote('Could not read that file.', true);
+    }
   }
   if (!text.trim()) return setNote('Choose a file or paste the export first.', true);
   setNote('Reading…');
   const r = await convert('api/yaml?from=yaml', text, 'text/plain');
   if (!r.ok) return setNote(r.err, true);
   let doc;
-  try { doc = JSON.parse(r.text); } catch (e) { return setNote('The file could not be read.', true); }
+  try {
+    doc = JSON.parse(r.text);
+  } catch (e) {
+    return setNote('The file could not be read.', true);
+  }
   const bad = fmt.checkDoc(doc);
   if (bad) return setNote(bad, true);
   const user = other && other.name !== profileName() ? other.name : '';
@@ -374,8 +413,14 @@ function openTransfer({ scope = '', user = '', what = '' } = {}) {
   back = document.activeElement;
   ex = newEx();
   // what: the kind the caller is about is the one exported; the other kinds start as none chosen.
-  if (what === 'presets') { ex.setsMode = 'chosen'; ex.prefs = false; }
-  if (what === 'filters') { ex.presetsMode = 'chosen'; ex.prefs = false; }
+  if (what === 'presets') {
+    ex.setsMode = 'chosen';
+    ex.prefs = false;
+  }
+  if (what === 'filters') {
+    ex.presetsMode = 'chosen';
+    ex.prefs = false;
+  }
   other = null;
   picker.value = '';
   paste.value = '';
@@ -389,8 +434,9 @@ function openTransfer({ scope = '', user = '', what = '' } = {}) {
       const mine = other;
       fetchProfile(user).then((r) => {
         if (other !== mine) return;
-        other = r.ok ? { name: user, state: 'ok', profile: r.profile }
-          : { name: user, state: 'err', err: r.locked ? 'Only a trusted user or the settings PIN can read another user’s profile.' : sentence(r.err) };
+        other = r.ok
+          ? { name: user, state: 'ok', profile: r.profile }
+          : { name: user, state: 'err', err: r.locked ? 'Only a trusted user or the Advanced Settings PIN can read another user’s profile.' : sentence(r.err) };
         if (open) renderExport();
       });
     }
@@ -411,9 +457,15 @@ function close() {
 const dlg = trapDialog(root, dialog, close);
 on('openTransfer', openTransfer);
 on('locking', close);
-on('profile', () => { if (open) renderExport(); });
-on('presets', () => { if (open) renderExport(); });
-on('filters', () => { if (open) renderExport(); });
+on('profile', () => {
+  if (open) renderExport();
+});
+on('presets', () => {
+  if (open) renderExport();
+});
+on('filters', () => {
+  if (open) renderExport();
+});
 
 const openBtn = $('transfer-open');
 if (openBtn) openBtn.addEventListener('click', () => openTransfer());

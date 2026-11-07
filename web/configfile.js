@@ -1,10 +1,5 @@
-// Server configuration file (Settings > Server Backup): Export saves the live
-// config.yaml, Import replaces the whole configuration with a picked file.
-// The block is in index.html; this wires it. Both are settings-PIN actions:
-// the popup (pinprompt.js) asks first when this connection hasn't entered the
-// PIN, and again, with a retry, if the server refuses. The server makes and
-// reads the file; this only moves it.
-// Imported by settings.js.
+// Settings > Server Backup. Export and Import are settings-PIN actions: pinprompt.js asks first, and again with a retry if the server refuses.
+// The server makes and reads the file; this only moves it.
 
 import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { needsPin, unlocked } from './pin.js';
@@ -26,8 +21,13 @@ let seq = 0;
 let busy = null; // { id, kind: 'export' | 'import' }
 let picked = null; // { name, text, bytes } waiting for the confirm
 
-const say = (text) => { status.textContent = text; };
-const fail = (text) => { err.textContent = text; err.hidden = !text; };
+const say = (text) => {
+  status.textContent = text;
+};
+const fail = (text) => {
+  err.textContent = text;
+  err.hidden = !text;
+};
 
 function setBusy(b) {
   busy = b;
@@ -40,8 +40,6 @@ function reset() {
   pick.value = '';
 }
 
-// Claims the one slot for `kind`, asking for the PIN first if need be. 0: not
-// started (the PIN was not given).
 async function start(kind) {
   fail('');
   const what = kind === 'export' ? 'Exporting' : 'Importing';
@@ -50,13 +48,13 @@ async function start(kind) {
   return seq;
 }
 
-// A refusal for the PIN asks for it again and goes on with `retry`; anything
-// else is shown as it is.
 function failed(m, retry) {
   setBusy(null);
   say('');
   if (m.locked) {
-    reask('The Advanced Settings PIN is needed again.').then((ok) => { if (ok) retry(); });
+    reask('The Advanced Settings PIN is needed again.').then((ok) => {
+      if (ok) retry();
+    });
     return;
   }
   fail(sentence(m.err) || 'The server refused.');
@@ -107,32 +105,39 @@ pick.addEventListener('change', async () => {
   const text = await f.text().catch(() => '');
   const bytes = new TextEncoder().encode(text).length;
   const problem = fileProblem(bytes, text);
-  if (problem) { reset(); return fail(problem); }
+  if (problem) {
+    reset();
+    return fail(problem);
+  }
   picked = { name: f.name, text, bytes };
-  confirmText.textContent = `Replace the whole server configuration with ${f.name} (${sizeText(bytes)})? `
-    + 'Every setting, user, lock, filter set, preset and profile is replaced by the file\'s, for everyone. '
-    + 'A PIN the file leaves out stays as it is. The settings form closes and reloads. This cannot be undone.';
+  confirmText.textContent =
+    `Replace the whole server configuration with ${f.name} (${sizeText(bytes)})? ` +
+    "Every setting, user, lock, filter set, preset and profile is replaced by the file's, for everyone. " +
+    'A PIN the file leaves out stays as it is. The settings form closes and reloads. This cannot be undone.';
   confirmBox.hidden = false;
   $('config-keep').focus();
 });
 
-$('config-keep').addEventListener('click', () => { reset(); say('Import cancelled.'); importBtn.focus(); });
+$('config-keep').addEventListener('click', () => {
+  reset();
+  say('Import cancelled.');
+  importBtn.focus();
+});
 
 async function runImport() {
   if (!picked) return;
   const id = await start('import');
   if (!id) return;
-  if (!picked) { // a lock or a PIN change reset the block while the PIN popup was open
+  if (!picked) {
+    // a lock or a PIN change reset the block while the PIN popup was open
     setBusy(null);
     return;
   }
   const { bytes, name } = picked;
   confirmBox.hidden = true;
   say(`Importing ${name}…`);
-  // The begin message raises the server's read limit for the one message
-  // after it (only for the settings PIN). The file goes out only once the
-  // server has answered it: a refused begin must never be followed by a big
-  // message, which would close the socket instead of showing the refusal.
+  // The begin message raises the server's read limit for the next message. Send the file only after begin is answered:
+  // a refused begin followed by a big message would close the socket instead of showing the refusal.
   if (!wsSend({ t: 'configImportBegin', id, size: bytes })) {
     setBusy(null);
     say('');
@@ -143,7 +148,10 @@ $('config-replace').addEventListener('click', runImport);
 
 onMsg('configImportBeginResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
-  if (!m.ok) { if (!m.locked) reset(); return failed(m, runImport); }
+  if (!m.ok) {
+    if (!m.locked) reset();
+    return failed(m, runImport);
+  }
   if (!picked || !wsSend({ t: 'configImport', id: busy.id, yaml: picked.text })) {
     reset();
     setBusy(null);
@@ -154,14 +162,15 @@ onMsg('configImportBeginResult', (m) => {
 
 onMsg('configImportResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
-  if (!m.ok) { if (!m.locked) reset(); return failed(m, runImport); }
+  if (!m.ok) {
+    if (!m.locked) reset();
+    return failed(m, runImport);
+  }
   const name = picked?.name || 'the file';
   reset();
   setBusy(null);
   say('');
-  // The server has sent the new settings (hello). Close Settings so the open
-  // form can't be saved back over them; its unsaved edits are for the old
-  // settings, so they are discarded.
+  // New settings arrived: close Settings (discarding the form) so it can't be saved back over them.
   emit('settingsClose', { discard: true });
   showResult('ok', 'Configuration imported', `Everyone now has the settings from ${name}.`);
 });
@@ -172,12 +181,11 @@ on('conn', () => {
   const kind = busy.kind;
   setBusy(null);
   say('');
-  fail(kind === 'import'
-    ? 'The connection dropped before the answer: check Settings to see whether the import was applied.'
-    : 'The connection dropped.');
+  fail(kind === 'import' ? 'The connection dropped before the answer: check Settings to see whether the import was applied.' : 'The connection dropped.');
 });
 
-// Settings closing or relocking leaves nothing half-done on screen.
-on('access', () => { if (needsPin()) reset(); });
+on('access', () => {
+  if (needsPin()) reset();
+});
 on('locked', () => reset());
 box.hidden = false;

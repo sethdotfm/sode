@@ -1,11 +1,5 @@
-// Users (#151, #165): Settings shows a button; the
-// directory (users and the longest PIN) is edited in its own dialog, which
-// saves on its own (the `users` message, guarded by the settings PIN like the
-// rest), never with the main Save. The locks and the idle time are Settings >
-// Access fields. Each saved user has a Profile… button (bus 'openProfile'),
-// in the editor and, for a trusted user without the settings PIN (who cannot
-// open the editor), in a list in the Settings section. The server holds every
-// rule and says what is wrong.
+// Users: the directory (users, longest PIN) is edited in its own dialog that saves on its own (`users` message, settings-PIN guarded), never with the main Save.
+// Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a trusted user without the PIN. The server holds every rule.
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
@@ -13,11 +7,11 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
+import { MODES, RENAME_HINT, modeOneWay, renameNotice, switchNeedsWarning, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
 // ---- the Settings section: the button
-
 const manage = el('button', 'pb-btn pb-btn--outline', 'Manage users');
 manage.type = 'button';
 manage.id = 'users-manage';
@@ -25,26 +19,19 @@ manage.dataset.find = 'users-manage';
 manage.dataset.label = 'Manage users';
 manage.setAttribute('aria-haspopup', 'dialog');
 
-// A trusted user without the settings PIN: each user's name and a Profile…
-// button (the profile dialog reads and saves through the server, which decides).
 const people = el('div', 'sode__field');
 people.hidden = true;
 people.setAttribute('role', 'group');
 people.setAttribute('aria-label', 'Profiles');
 
-const group = el('fieldset', 'sode__group',
-  el('legend', null, 'Users'),
-  el('div', 'sode__field', manage),
-  people);
-group.dataset.apart = ''; // its inputs save apart from the Settings form
+const group = el('fieldset', 'sode__group', el('legend', null, 'Users'), el('div', 'sode__field', manage), people);
+group.dataset.apart = '';
 
-// Next to Access, where the PIN is; at the end if that isn't found.
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
 if (access) access.after(group);
 else form.querySelector('#settings-err')?.parentElement?.before(group) ?? form.append(group);
 
 // ---- the dialog
-
 const check = (label) => {
   const input = el('input', 'pb-check__input');
   input.type = 'checkbox';
@@ -56,10 +43,8 @@ const btn = (cls, text, fn) => {
   b.addEventListener('click', fn);
   return b;
 };
-const field = (id, label, input, hint) => el('div', 'sode__field',
-  Object.assign(el('label', null, label), { htmlFor: id }),
-  el('span', 'pb-number-wrap', input),
-  el('span', 'sode__hint', hint));
+const field = (id, label, input, hint) =>
+  el('div', 'sode__field', Object.assign(el('label', null, label), { htmlFor: id }), el('span', 'pb-number-wrap', input), el('span', 'sode__hint', hint));
 const number = (id) => {
   const i = el('input', 'pb-input');
   i.type = 'number';
@@ -78,7 +63,23 @@ const note = el('span', 'sode__hint');
 note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 
-const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => { addRow().focus(); touched(); });
+const modeSelect = el('select', 'pb-select');
+modeSelect.id = 'usr-mode';
+for (const m of MODES) modeSelect.append(Object.assign(el('option', null, m.label), { value: m.value }));
+const modeField = el(
+  'div',
+  'sode__field',
+  Object.assign(el('label', null, 'Sign-in mode'), { htmlFor: 'usr-mode' }),
+  el('span', 'pb-select-wrap', modeSelect),
+  el('span', 'sode__hint', 'Username and PIN: each user has a username, and two users may share a PIN. This cannot be switched back to PIN only for now.'),
+);
+const usernameHead = el('span', null, 'Username');
+const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
+
+const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
+  addRow().focus();
+  touched();
+});
 const saveBtn = btn('pb-btn--ok', 'Save', () => doSave());
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closeUsers());
 
@@ -91,18 +92,25 @@ dialog.setAttribute('aria-labelledby', 'users-title');
 dialog.tabIndex = -1;
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Users'), { id: 'users-title' })),
-  el('div', 'pb-modal__body',
-    el('p', 'sode__hint', 'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.'),
-    el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows),
+  el(
+    'div',
+    'pb-modal__body',
+    el(
+      'p',
+      'sode__hint',
+      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. ' +
+        RENAME_HINT,
+    ),
+    table,
     addBtn,
-    el('div', 'sode__users-opts',
-      field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
-    err),
-  el('div', 'pb-modal__footer', note, cancelBtn, saveBtn));
+    el('div', 'sode__users-opts', modeField, field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
+    err,
+  ),
+  el('div', 'pb-modal__footer', note, cancelBtn, saveBtn),
+);
 root.append(dialog);
 document.body.append(root);
 
-// Enter in a field saves the users, not the Settings form.
 dialog.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
     e.preventDefault();
@@ -112,11 +120,13 @@ dialog.addEventListener('keydown', (e) => {
 
 let isOpen = false;
 let edited = false; // changed in the dialog since it filled
+let warned = false; // the one-way switch was warned about; the next Save sends it
 let discard = false; // warned once; the next close discards
 let back = null;
 let seq = 0;
 let outSeq = 0;
 let listSeq = 0;
+let listedMode = 'pin'; // the saved sign-in mode, what the server keeps when none is sent
 let listed = []; // the directory the server sent; empty until it does
 let loaded = false;
 const signing = new Map();
@@ -128,11 +138,19 @@ const setNote = (text, error = false) => {
 function touched() {
   edited = true;
   discard = false;
-  setNote('');
+  setNote(renameNotice(readRows()));
 }
 function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
+}
+
+const mode = () => (modeSelect.value === 'username' ? 'username' : 'pin');
+function paintMode() {
+  const named = usernameColumn(mode());
+  table.classList.toggle('sode__users-table--named', named);
+  usernameHead.hidden = !named;
+  for (const c of rows.querySelectorAll('.sode__users-name')) c.hidden = !named;
 }
 
 function addRow(u = { name: '', len: 0 }) {
@@ -141,44 +159,88 @@ function addRow(u = { name: '', len: 0 }) {
   name.spellcheck = false;
   name.autocomplete = 'off';
   name.placeholder = 'Name';
-  name.setAttribute('aria-label', 'User name');
+  name.setAttribute('aria-label', 'Name');
+  name.dataset.field = 'name';
+  const uname = el('input', 'pb-input');
+  uname.value = u.username || '';
+  uname.spellcheck = false;
+  uname.autocomplete = 'off';
+  uname.autocapitalize = 'none';
+  uname.maxLength = 24;
+  uname.placeholder = 'Username';
+  uname.setAttribute('aria-label', 'Username');
+  uname.dataset.field = 'username';
   const pin = el('input', 'pb-input');
   pin.type = 'password';
   pin.inputMode = 'numeric';
   pin.autocomplete = 'new-password';
   pin.setAttribute('aria-label', 'PIN');
+  pin.dataset.field = 'pin';
   pin.placeholder = u.len ? 'unchanged' : 'new PIN';
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
   const trust = check('Trusted');
   trust.input.checked = !!u.trusted;
   trust.input.dataset.flag = 'trusted';
-  const never = check('Never log out');
+  const never = check('Never sign out');
   never.input.checked = !!u.persistent;
   never.input.dataset.flag = 'persistent';
-  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { row.remove(); touched(); });
-  const out = u.len ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
-    err.hidden = true;
+  // A saved user takes two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
+  const disarm = () => {
+    rm.dataset.armed = '';
+    rm.textContent = 'Remove';
+    rm.classList.replace('pb-btn--danger', 'pb-btn--ghost');
+  };
+  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', async () => {
+    if (!row.dataset.was) {
+      row.remove();
+      touched();
+      return;
+    }
+    if (!rm.dataset.armed) {
+      rm.dataset.armed = '1';
+      rm.textContent = 'Confirm remove';
+      rm.classList.replace('pb-btn--ghost', 'pb-btn--danger');
+      setNote(`Remove "${row.dataset.was}"? Once saved, this can't be undone: their PIN and profile are deleted.`);
+      return;
+    }
+    if (S.pinSet && !(await askPin('Removing a user needs the Advanced Settings PIN.'))) return disarm();
     setNote('');
-    const id = ++outSeq;
-    if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail('Not connected to Sode.');
-    out.disabled = true;
-    signing.set(id, { out, name: u.name });
-  }) : el('span'); // a new row has none; the span keeps the columns in line
-  // Only a saved user has a profile: not a new row, not one being renamed.
+    row.remove();
+    touched();
+  });
+  rm.addEventListener('blur', disarm);
+  const out = u.len
+    ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
+        err.hidden = true;
+        setNote('');
+        const id = ++outSeq;
+        if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail('Not connected to Sode.');
+        out.disabled = true;
+        signing.set(id, { out, name: u.name });
+      })
+    : el('span'); // a new row has none; the span keeps the columns in line
   const prof = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: row.dataset.was }));
   prof.setAttribute('aria-haspopup', 'dialog');
   const paintProf = () => {
     prof.disabled = profileButtonOff(row.dataset.was, name.value);
     prof.title = prof.disabled ? 'Save the user first' : '';
   };
-  const row = el('div', 'sode__users-row',
+  const row = el(
+    'div',
+    'sode__users-row',
     el('div', 'sode__users-in', name),
+    Object.assign(el('div', 'sode__users-in sode__users-name', uname), { hidden: !usernameColumn(mode()) }),
     el('div', 'sode__users-in', pin),
-    trust.label, never.label, prof, out, rm);
+    trust.label,
+    never.label,
+    prof,
+    out,
+    rm,
+  );
   row.dataset.was = u.len ? u.name : '';
   paintProf();
   name.addEventListener('input', paintProf);
-  for (const f of [name, pin]) f.addEventListener('input', touched);
+  for (const f of [name, uname, pin]) f.addEventListener('input', touched);
   for (const f of [trust.input, never.input]) f.addEventListener('change', touched);
   rows.append(row);
   return name;
@@ -189,8 +251,12 @@ onMsg('userSignOutAllResult', (m) => {
   signing.delete(m.id);
   if (w) w.out.disabled = false;
   if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
-  if (m.locked) { // ask, then send it again; the error shows only if the PIN is not given
-    reask('Managing users needs the Advanced Settings PIN again.').then((ok) => { if (ok) w?.out.click(); else fail(m.err); });
+  if (m.locked) {
+    // ask, then send it again; the error shows only if the PIN is not given
+    reask('Managing users needs the Advanced Settings PIN again.').then((ok) => {
+      if (ok) w?.out.click();
+      else fail(m.err);
+    });
     return;
   }
   fail(m.err);
@@ -198,7 +264,11 @@ onMsg('userSignOutAllResult', (m) => {
 
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
+  modeSelect.value = listedMode;
+  modeSelect.options[0].disabled = modeOneWay(listedMode);
+  warned = false;
   rows.replaceChildren();
+  paintMode();
   for (const u of listed) addRow(u);
   edited = false;
   discard = false;
@@ -206,49 +276,65 @@ function fill() {
   saveBtn.disabled = false;
 }
 
-// The Settings list of profiles, for a trusted user who can't open the editor.
 function paintPeople() {
   const names = S.userNames || [];
   const show = trusted() && !unlocked() && canSeeProfiles(names, true, false);
   people.hidden = !show;
   if (!show) return people.replaceChildren();
-  people.replaceChildren(...names.map((n) => {
-    const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
-    b.setAttribute('aria-haspopup', 'dialog');
-    b.setAttribute('aria-label', `Profile of ${n}`);
-    return el('div', 'sode__names', el('span', 'sode__label', n), b);
-  }));
+  people.replaceChildren(
+    ...names.map((n) => {
+      const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
+      b.setAttribute('aria-haspopup', 'dialog');
+      b.setAttribute('aria-label', `Profile of ${n}`);
+      return el('div', 'sode__names', el('span', 'sode__label', n), b);
+    }),
+  );
 }
 
 const paintSummary = paintPeople;
 
-// The directory is not in the hello (a locked page gets that too): the
-// settings PIN holder asks for it. Without the PIN the list stays empty.
-const load = () => { wsSend({ t: 'usersList', id: ++listSeq }); };
+// The directory is not in the hello (a locked page gets that too): the settings PIN holder asks for it.
+const load = () => {
+  wsSend({ t: 'usersList', id: ++listSeq });
+};
 onMsg('usersListResult', (m) => {
   if (m.id !== listSeq) return;
-  if (!m.ok) { // a stale unlock: ask, then read the directory again
+  if (!m.ok) {
+    // a stale unlock: ask, then read the directory again
     if (m.locked && isOpen) reask('Managing users needs the Advanced Settings PIN.').then((ok) => (ok ? load() : closeUsers()));
     return;
   }
   listed = m.users || [];
+  listedMode = m.signInMode === 'username' ? 'username' : 'pin';
   loaded = true;
   paintSummary();
   if (isOpen && !edited) fill();
 });
-on('unlockResult', (m) => { if (m.ok) load(); }); // the PIN just entered
-on('locked', () => { listed = []; loaded = false; paintSummary(); });
+on('unlockResult', (m) => {
+  if (m.ok) load();
+});
+on('locked', () => {
+  listed = [];
+  listedMode = 'pin';
+  loaded = false;
+  paintSummary();
+});
 on('access', paintSummary);
 for (const ev of ['unlockResult', 'conn']) on(ev, paintPeople);
-on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
+on('hello', () => {
+  paintSummary();
+  load();
+  if (isOpen && !edited) fill();
+});
 
 // ---- open / close / save
-
 async function openUsers() {
-  // The list and the saving need the settings PIN, which a trusted user may not
-  // have entered: a popup asks for it, instead of an editor with no users in it.
+  // A trusted user may not have the PIN entered: a popup asks instead of an editor with no users.
   const opener = document.activeElement;
-  if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) { opener?.focus?.(); return; }
+  if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) {
+    opener?.focus?.();
+    return;
+  }
   back = opener;
   isOpen = true;
   setNote('');
@@ -269,22 +355,33 @@ function closeUsers() {
   if (back?.isConnected) back.focus();
 }
 manage.addEventListener('click', openUsers);
-// Esc goes to the top dialog of the stack (dialogkeys.js), so a Profile
-// opened from here closes first.
 const dlg = trapDialog(root, dialog, closeUsers);
-// The page locking takes the dialog with it, edits and all.
-on('locking', () => { if (isOpen) { edited = false; closeUsers(); } });
+on('locking', () => {
+  if (isOpen) {
+    edited = false;
+    closeUsers();
+  }
+});
+
+function readRows() {
+  return [...rows.children].map((row) => {
+    const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
+    const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
+    return { name: val('name'), was: row.dataset.was, pin: val('pin'), trusted: flag('trusted'), persistent: flag('persistent'), username: val('username') };
+  });
+}
 
 function doSave() {
   err.hidden = true;
   setNote('');
-  const users = [...rows.children].map((row) => {
-    const [name, pin] = row.querySelectorAll('input');
-    const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
-    return { name: name.value.trim(), was: row.dataset.was, pin: pin.value, trusted: flag('trusted'), persistent: flag('persistent') };
-  });
+  if (switchNeedsWarning(mode(), listedMode) && !warned) {
+    warned = true;
+    return setNote('Username and PIN cannot be switched back to PIN only. Save again to switch, or choose PIN only.', true);
+  }
+  const users = readRows();
   const id = ++seq;
-  if (!wsSend({ t: 'users', id, usersReq: { users, maxPinLen: Math.trunc(Number(maxInput.value)) || 0 } })) return fail('Not connected to Sode.');
+  if (!wsSend({ t: 'users', id, usersReq: usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode) }))
+    return fail('Not connected to Sode.');
   saveBtn.disabled = true;
 }
 
@@ -297,10 +394,15 @@ onMsg('usersResult', async (m) => {
     if (isOpen) closeUsers();
     return;
   }
-  if (m.locked && await reask('Managing users needs the Advanced Settings PIN again.')) return doSave(); // the PIN was entered: save again
+  if (m.locked && (await reask('Managing users needs the Advanced Settings PIN again.'))) return doSave(); // the PIN was entered: save again
   fail(m.err);
 });
 
+modeSelect.addEventListener('change', () => {
+  touched();
+  warned = false;
+  paintMode();
+});
 maxInput.addEventListener('input', () => {
   touched();
   for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;

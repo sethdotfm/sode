@@ -16,11 +16,10 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// tokenStore is the session tokens of persistent users: in memory, and in a
-// file next to the config when there is one. A token is bound to a user's name
-// and PIN hash, and lookups re-read the live user, so changing the PIN,
-// removing the user or unticking Persistent kills every token of theirs at
-// once, whatever the file still holds. Only the sha256 of a token is stored.
+// tokenStore: persistent users' session tokens, in memory and in a file beside the config.
+// A token is bound to user name and PIN hash and lookups re-read the live user, so a PIN
+// change, removal or unticking Persistent kills it whatever the file holds. Only sha256 of
+// a token is stored.
 type tokenStore struct {
 	mu     sync.Mutex
 	toks   map[string]tokenRec // sha256 of the token, hex
@@ -34,23 +33,21 @@ type tokenRec struct {
 	User string    `json:"user"` // the user it was issued to
 	Pin  string    `json:"pin"`  // that user's PIN hash then
 	At   time.Time `json:"at"`
-	Tab  bool      `json:"tab,omitempty"` // a no-lock login: for a user who is not persistent, kept by one browser tab
+	Tab  bool      `json:"tab,omitempty"` // a no-lock sign-in: for a user who is not persistent, kept by one browser tab
+	// Locked: the session's Lock (ADR 0001); a reload with this token comes back locked.
+	Locked bool `json:"locked,omitempty"`
 }
 
-// perUserTokens caps tokens per user (one per browser), so the file can't
-// grow without bound; the oldest goes.
+// perUserTokens: one per browser; the oldest goes.
 const perUserTokens = 8
 
-// tokenMaxAge: a session token not used for this long is dead and pruned, so
-// a forgotten browser doesn't stay signed in for ever. Use is a `hi` with the
-// token, or the token's connection still being open (touch): a wall panel
-// that never reloads stays signed in. A token is only rewritten when its
-// time is over tokenTouchAfter old, so this is about one write a day.
+// tokenMaxAge: unused tokens die so a forgotten browser isn't signed in forever. Use is a
+// hi or an open connection (touch). Rewritten only past tokenTouchAfter: about one write a
+// day.
 const (
 	tokenMaxAge     = 90 * 24 * time.Hour
 	tokenTouchAfter = 24 * time.Hour
-	// A tab token belongs to one browser tab (sessionStorage), which forgets
-	// it on close, so it needn't live for months; an open tab renews it.
+	// Tab tokens live in sessionStorage, forgotten on close; an open tab renews it.
 	tabTokenMaxAge = 48 * time.Hour
 )
 
@@ -59,8 +56,8 @@ func tokenKey(t string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// loadTokens reads the token file (once, from New: callers hold App.mu, so
-// nothing else may do file I/O here). A damaged file is forgotten.
+// loadTokens: once, from New (callers hold App.mu: no other file I/O). A damaged file is
+// forgotten.
 func loadTokens(cfgPath string) *tokenStore {
 	s := &tokenStore{toks: map[string]tokenRec{}}
 	if cfgPath == "" {
@@ -72,8 +69,7 @@ func loadTokens(cfgPath string) *tokenStore {
 			log.Printf("users: %s is damaged, tokens forgotten: %v", s.path, err)
 			s.toks = map[string]tokenRec{}
 		}
-		// The first version held admin tokens ({pin, at}, no user): they
-		// are no longer a thing, so drop them.
+		// Old admin tokens ({pin, at}, no user) are dropped.
 		for k, r := range s.toks {
 			if r.User == "" {
 				delete(s.toks, k)
@@ -83,8 +79,7 @@ func loadTokens(cfgPath string) *tokenStore {
 	return s
 }
 
-// save writes the file from the state as it is now. Caller holds mu, which
-// save releases before the write, so a slow disk never holds up a lookup.
+// Caller holds mu; save releases it before the write so a slow disk doesn't block lookups.
 func (s *tokenStore) save() {
 	if s.path == "" {
 		s.mu.Unlock()
@@ -105,16 +100,10 @@ func (s *tokenStore) save() {
 	}
 }
 
-// valid: r still names a persistent user with the PIN it was issued under,
-// and is not too old. Lookups check this too, but revocation must not rest
-// on that alone: prune deletes what is invalid, so a token can't come back to
-// life when the user is later made persistent again, renamed back, or given
-// the old PIN again.
-//
-// A tab token (a no-lock login, kept by one browser tab) and a persistent
-// token are different kinds: a tab token is valid only while its user is NOT
-// persistent, and for tabTokenMaxAge, so ticking Never log out later can't
-// turn an old tab token into a persistent one that skips a lock.
+// valid: prune deletes invalid tokens so one can't revive when the user is made persistent
+// again, renamed back or given the old PIN. A tab token is valid only while its user is
+// NOT persistent, and for tabTokenMaxAge, so ticking Never sign out can't turn it into a
+// persistent one that skips a lock.
 func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 	u, ok := cfg.FindUser(r.User)
 	if !ok || u.Pin != r.Pin {
@@ -132,9 +121,8 @@ func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 	return u, time.Since(r.At) < max
 }
 
-// prune deletes every record that is invalid against cfg and rewrites the
-// file if any went. Run after every config change (update), at startup and
-// before issuing. Never call it with mu held (it writes the file).
+// prune: after every config change, at startup, before issuing. Never with mu held (writes
+// the file).
 func (s *tokenStore) prune(cfg config.Config) {
 	s.mu.Lock()
 	n := len(s.toks)
@@ -150,8 +138,6 @@ func (s *tokenStore) prune(cfg config.Config) {
 	s.save() // releases mu
 }
 
-// dropUser deletes every token of the named user (an admin's "Sign out all
-// sessions").
 func (s *tokenStore) dropUser(name string) {
 	s.mu.Lock()
 	n := len(s.toks)
@@ -167,9 +153,7 @@ func (s *tokenStore) dropUser(name string) {
 	s.save()
 }
 
-// touch moves the time of each of tokens that is still good against cfg and
-// over tokenTouchAfter old to now, and saves once if any moved. Never call it
-// with App.mu held (it writes the file).
+// Never with App.mu held (writes the file).
 func (s *tokenStore) touch(cfg config.Config, tokens ...string) {
 	s.mu.Lock()
 	now, moved := time.Now(), false
@@ -190,7 +174,6 @@ func (s *tokenStore) touch(cfg config.Config, tokens ...string) {
 	s.save()
 }
 
-// user returns the user t was issued to, if it is still good against cfg.
 func (s *tokenStore) user(t string, cfg config.Config) (config.User, bool) {
 	if t == "" {
 		return config.User{}, false
@@ -204,8 +187,6 @@ func (s *tokenStore) user(t string, cfg config.Config) (config.User, bool) {
 	return valid(r, cfg)
 }
 
-// issue makes a token for u. Tokens that are dead against cfg are dropped
-// here, and u's oldest if it would have more than perUserTokens.
 func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
 	b := make([]byte, 32)
 	rand.Read(b)
@@ -235,6 +216,36 @@ func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
 	s.toks[tokenKey(t)] = tokenRec{User: u.Name, Pin: u.Pin, At: time.Now(), Tab: tab}
 	s.save()
 	return t
+}
+
+func (s *tokenStore) locked(t string) bool {
+	if t == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.toks[tokenKey(t)].Locked
+}
+
+// setLocked changes the flag in memory only, cheap enough under App.mu; persist writes
+// it. A token the store does not know is ignored.
+func (s *tokenStore) setLocked(t string, on bool) {
+	if t == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k := tokenKey(t)
+	if r, ok := s.toks[k]; ok {
+		r.Locked = on
+		s.toks[k] = r
+	}
+}
+
+// Never with App.mu held.
+func (s *tokenStore) persist() {
+	s.mu.Lock()
+	s.save()
 }
 
 func (s *tokenStore) forget(t string) {

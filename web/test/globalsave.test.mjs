@@ -1,5 +1,4 @@
 // globalSaver with a fake socket: send, answer, PIN, lock, lost socket.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -17,8 +16,18 @@ const make = async () => {
   const mk = () => ({ addEventListener() {}, focus() {}, select() {}, hidden: true, value: '', disabled: false });
   let renders = 0;
   const saver = globalSaver({
-    t: 'presets', resultT: `r${Math.random()}`, pinIn: mk(), pinRow: mk(), pinOk: mk(),
-    setNote: (t, e) => notes.push([t, !!e]), isOpen: () => true, failTitle: 'x', okNote: 'Saved.', render: () => { renders++; },
+    t: 'presets',
+    resultT: `r${Math.random()}`,
+    pinIn: mk(),
+    pinRow: mk(),
+    pinOk: mk(),
+    setNote: (t, e) => notes.push([t, !!e]),
+    isOpen: () => true,
+    failTitle: 'x',
+    okNote: 'Saved.',
+    render: () => {
+      renders++;
+    },
   });
   return { core, saver, sent, notes, renders: () => renders };
 };
@@ -26,7 +35,9 @@ const make = async () => {
 test('a change is sent with its id and t; payload t wins; done runs on ok', async () => {
   const { saver, sent, notes } = await make();
   let done = 0;
-  saver.change({ presets: [] }, () => { done++; });
+  saver.change({ presets: [] }, () => {
+    done++;
+  });
   assert.equal(sent.length, 1);
   assert.equal(sent[0].t, 'presets');
   assert.ok(saver.busy());
@@ -51,7 +62,7 @@ test('close keeps a sent save, drops one waiting for the PIN', async () => {
   core.S.pinSet = true;
   const { saver: s2 } = await make();
   core.S.pinSet = true;
-  s2.change({}, () => {}); // no unlock: waits for the PIN
+  s2.change({}, () => {});
   assert.equal(s2.close(), false);
   assert.ok(!s2.busy());
 });
@@ -66,10 +77,18 @@ test('two savers of one result type register once and keep their ids apart', asy
   const opts = () => ({ t: 'presets', resultT: 'sharedResult', pinIn: mk(), pinRow: mk(), pinOk: mk(), setNote() {}, isOpen: () => true, failTitle: 'x' });
   const a = globalSaver(opts());
   const b = globalSaver(opts()); // used to throw: onMsg('sharedResult') is already handled
-  let doneA = 0, doneB = 0;
-  a.change({ presets: [] }, () => { doneA++; });
-  b.change({ presets: [] }, () => { doneB++; });
+  let doneA = 0,
+    doneB = 0;
+  a.change({ presets: [] }, () => {
+    doneA++;
+  });
+  b.change({ presets: [] }, () => {
+    doneB++;
+  });
   assert.notEqual(sent[0].id, sent[1].id);
   core.handleMessage?.({ t: 'sharedResult', ok: true, id: sent[1].id });
-  if (core.handleMessage) { assert.equal(doneA, 0); assert.equal(doneB, 1); }
+  if (core.handleMessage) {
+    assert.equal(doneA, 0);
+    assert.equal(doneB, 1);
+  }
 });

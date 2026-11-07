@@ -10,11 +10,10 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// sentPage is how many sent log entries one request gets at most.
 const sentPage = 500
 
-// onTx runs on the router writer goroutine, which waits for ACKs, so it
-// only hands the event on. A full queue loses it, counted.
+// onTx runs on the router writer goroutine (waits for ACKs): it only hands the event on; a
+// full queue loses it, counted.
 func (a *App) onTx(e swp08.TxEvent) {
 	select {
 	case a.txq <- e:
@@ -25,8 +24,7 @@ func (a *App) onTx(e swp08.TxEvent) {
 	}
 }
 
-// logEvent queues an event row (see event). It only pushes, so it is safe
-// anywhere, including under mu. A full queue loses it, counted.
+// Only pushes, so safe under mu; a full queue loses it, counted.
 func (a *App) logEvent(e Sent) {
 	e.Time = time.Now()
 	select {
@@ -36,7 +34,6 @@ func (a *App) logEvent(e Sent) {
 	}
 }
 
-// command logs something a browser asked for.
 func (a *App) command(c *client, why, result, note string, err error) {
 	e := event(kindCommand, why, c.who(), result)
 	e.Note = note
@@ -46,16 +43,14 @@ func (a *App) command(c *client, why, result, note string, err error) {
 	a.logEvent(e)
 }
 
-// logSent writes queued messages and events to the sent log and queues them
-// for /log pages, until ctx ends. It is the only writer, so seqs, the live
-// feed and the file agree on the order. Once ctx ends it writes what is
-// queued and a stop row, then returns.
+// logSent is the only writer, so seqs, live feed and file agree on order. On ctx end it
+// writes what is queued and a stop row.
 func (a *App) logSent(ctx context.Context) {
 	failing := false // logged once per run of failed writes
 	write := func(e Sent) {
 		if err := a.sent.Append(&e); err != nil {
-			// Not saved, so not shown live either: its seq goes to the
-			// next entry. Counted with the ones the queue dropped.
+			// Not saved, so not shown live; its seq goes to the next entry. Counted with
+			// queue drops.
 			a.txLost.Add(1)
 			if !failing {
 				log.Printf("sent log: not saved: %v", err)
@@ -68,8 +63,7 @@ func (a *App) logSent(ctx context.Context) {
 		a.pendSent = append(a.pendSent, e)
 		a.mu.Unlock()
 	}
-	// Counted before the append, so a failing disk doesn't lose the graph's
-	// data too.
+	// Counted before the append so a failing disk doesn't lose the graph's data.
 	tx := func(ev swp08.TxEvent) {
 		e := a.describe(ev)
 		a.up.Note(e)
@@ -102,7 +96,6 @@ func (a *App) logSent(ctx context.Context) {
 	}
 }
 
-// describe decodes an event, with names as they are now.
 func (a *App) describe(ev swp08.TxEvent) Sent {
 	r := a.r()
 	q := swp08.DescribeTx(ev.Msg)
@@ -121,8 +114,7 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 		e.Note = fmt.Sprintf("salvo %d: set", q.Group)
 	}
 	if ev.Why.Reason == swp08.ReasonKeepalive {
-		// A link check, not a question about a route: whatever it asks
-		// about is beside the point.
+		// A link check; whatever it asks about is beside the point.
 		e.Kind = "keepalive"
 		q.Level, q.Dst = -1, -1
 		e.Wire, e.Dst = -1, -1
@@ -141,8 +133,7 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	return e
 }
 
-// broadcastSent sends new entries, oldest first, to the browsers showing
-// the sent log. Caller holds mu.
+// Caller holds mu.
 func (a *App) broadcastSent(es []Sent) {
 	b, err := json.Marshal(sentAddMsg{T: "sentAdd", Entries: es, Total: a.sent.Total(), Lost: a.txLost.Load()})
 	if err != nil {
@@ -156,9 +147,7 @@ func (a *App) broadcastSent(es []Sent) {
 	}
 }
 
-// sentHistory answers a /log page's request for entries older than seq
-// before (-1: the newest). The read loop has subscribed c to new ones already,
-// in the step that checked the log lock (policy.go).
+// before -1 = newest. The read loop subscribed c already, in the policy step.
 func (a *App) sentHistory(c *client, before int64, n int) {
 	if n <= 0 || n > sentPage {
 		n = sentPage

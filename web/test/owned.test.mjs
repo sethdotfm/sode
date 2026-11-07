@@ -1,5 +1,4 @@
 // The Settings form's config message leaves out what the server owns.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OWNED_KEYS, omitOwned } from '../owned.js';
@@ -14,7 +13,7 @@ test('omitOwned drops every owned key and keeps the rest', () => {
 });
 
 test('the owned lists are all there, and a huge config stays small', () => {
-  assert.deepEqual([...OWNED_KEYS].sort(), ['filterSets', 'maxPinLen', 'presets', 'users']);
+  assert.deepEqual([...OWNED_KEYS].sort(), ['filterSets', 'maxPinLen', 'presets', 'signInMode', 'users']);
   const big = 'x'.repeat(48 * 1024);
   const cfg = { router: 'r', filterSets: [big], presets: [big], users: [big] };
   assert.ok(JSON.stringify(omitOwned(cfg)).length < 200);

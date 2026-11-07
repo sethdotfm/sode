@@ -89,7 +89,6 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 			t.Errorf("%s admitted for a trusted user: %v", name, err)
 		}
 	}
-	// The same through the save functions, which re-check under cfgMu.
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}}}); !errors.Is(err, errLocked) {
 		t.Errorf("SaveUsers: %v", err)
 	}
@@ -102,7 +101,6 @@ func TestTrustedStillNeedsPinFor(t *testing.T) {
 	if a.r().cfg.SettingsPin == "" {
 		t.Fatal("PIN gone")
 	}
-	// With the settings PIN as well, all of it works.
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +130,6 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	if err := a.SaveFilterSets(c, nil); !errors.Is(err, errLocked) {
 		t.Errorf("untrusted SaveFilterSets: %v", err)
 	}
-	// Untrusting takes effect on a connection already unlocked.
 	setFlags(t, a, "Ana", true, false)
 	if err := admitMsg(a, c, inMsg{T: "presets"}); err != nil {
 		t.Fatal(err)
@@ -141,7 +138,6 @@ func TestUntrustedAndLockedNeedPin(t *testing.T) {
 	if err := admitMsg(a, c, inMsg{T: "presets"}); !errors.Is(err, errLocked) {
 		t.Errorf("after unticking Trusted: %v", err)
 	}
-	// And trust belongs to the PIN it was unlocked under: a changed PIN relocks.
 	setFlags(t, a, "Ana", true, false)
 	a.cfgMu.Lock()
 	_, nr, _ := a.update(func(cfg *config.Config) error {
@@ -165,7 +161,7 @@ func TestLockStateCarriesFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	st := a.lockStateLocked(c)
+	st := a.lockStateMu(c)
 	a.mu.Unlock()
 	if st.User != "Ana" || !st.Trusted || !st.Persistent || st.Locked {
 		t.Fatalf("state %+v", st)
@@ -227,7 +223,6 @@ func TestSessionTokenSurvivesNewConnection(t *testing.T) {
 	if a.pageAllowed(other, gateMain) {
 		t.Fatal("a made-up token worked")
 	}
-	// Hashed on disk, and loaded again at startup.
 	b, err := os.ReadFile(a.tokens.path)
 	if err != nil || strings.Contains(string(b), tok) {
 		t.Fatalf("token file: %v / plaintext: %v", err, strings.Contains(string(b), tok))
@@ -241,7 +236,6 @@ func TestSessionTokenSurvivesNewConnection(t *testing.T) {
 }
 
 func TestSessionTokenDies(t *testing.T) {
-	// A changed PIN, a removed user and an unticked Persistent each kill it.
 	for name, kill := range map[string]func(*testing.T, *App){
 		"PIN changed": func(t *testing.T, a *App) {
 			a.cfgMu.Lock()
@@ -393,7 +387,7 @@ func TestSessionOverWebSocket(t *testing.T) {
 	if m := until2("lockState"); m["locked"] != false || m["user"] != "Ana" || m["trusted"] != true || m["persistent"] != true {
 		t.Fatalf("token hi: %v", m)
 	}
-	send2(map[string]any{"t": "userLock"})
+	send2(map[string]any{"t": "userSignOut"})
 	if m := until2("lockState"); m["locked"] != true {
 		t.Fatalf("after lock: %v", m)
 	}
@@ -463,7 +457,6 @@ func TestNeverLogOutTickedWhileLoggedIn(t *testing.T) {
 	if !a.pageAllowed(fresh, gateMain) || fresh.who() != "Ana" {
 		t.Fatal("the pushed token does not log in")
 	}
-	// Another save while she holds a good token issues nothing more.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{
 		{Name: "Ana", Persistent: true}, {Name: "Bo"},
 	}}); err != nil {
@@ -503,7 +496,6 @@ func TestChangedPinKeepsSessionLoggedIn(t *testing.T) {
 	}
 }
 
-// A lock that lands while a token is being issued wins: nothing is kept.
 func TestSessionIssuedToLockedConnectionIsDropped(t *testing.T) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", false, true)

@@ -29,7 +29,6 @@ func TestProfileNormalizeDropsUnknownPrefs(t *testing.T) {
 	if len(p.Prefs) != 1 || p.Prefs["theme"] != "dark" || p.FilterSets[0].Name != "Mine" {
 		t.Fatalf("%+v", p)
 	}
-	// An empty profile is stored as nothing.
 	c.Users[0].Profile = Profile{Prefs: map[string]string{"bogus": "x"}}
 	c.Normalize()
 	if c.Users[0].Profile.Prefs != nil || !c.Users[0].Profile.Empty() {
@@ -80,14 +79,12 @@ func TestProfileYAMLRoundTripAndClone(t *testing.T) {
 	if got := back.Users[0].Profile; got.Prefs["theme"] != "dark" || len(got.Presets) != 1 {
 		t.Fatalf("%+v", got)
 	}
-	// Clone shares nothing.
 	d := back.Clone()
 	d.Users[0].Profile.Prefs["theme"] = "light"
 	d.Users[0].Profile.Presets[0].Items[0].Dsts[0] = 99
 	if back.Users[0].Profile.Prefs["theme"] != "dark" || back.Users[0].Profile.Presets[0].Items[0].Dsts[0] != 2 {
 		t.Fatal("Clone shares the profile")
 	}
-	// A user with no profile writes no key.
 	e := profileCfg(t)
 	e.Normalize()
 	if err := Save(path, e); err != nil {
@@ -99,7 +96,6 @@ func TestProfileYAMLRoundTripAndClone(t *testing.T) {
 	}
 }
 
-// The Go pref table lists exactly what web/prefs.js PREFS does.
 func TestPrefTable(t *testing.T) {
 	b, err := os.ReadFile("../../web/prefs.js")
 	if err != nil {
@@ -129,8 +125,7 @@ func TestProfilePinOrderNormalized(t *testing.T) {
 	if len(got) != 2 || got[0] != "global:cam" || got[1] != "user:mon 1" {
 		t.Fatalf("pin order %q", got)
 	}
-	// Keys are opaque: kept as the browser wrote them, even where Go's ToLower
-	// would rewrite them (İ lowercases to i + U+0307 in JavaScript, to i in Go).
+	// Keys are opaque: JS lowercases İ differently from Go.
 	istanbul := "local:i\u0307stanbul"
 	if got := (Profile{PinOrder: []string{istanbul, "local:Mixed"}}).Normalized().PinOrder; len(got) != 2 || got[0] != istanbul || got[1] != "local:Mixed" {
 		t.Fatalf("keys rewritten: %q", got)

@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-// Every Config field is saved either apart from the Settings form (owned) or
-// by the form, in which case it declares who may change it (guard). A new
-// field has to choose one.
 func TestEveryFieldChooses(t *testing.T) {
 	typ := reflect.TypeOf(Config{})
 	for i := range typ.NumField() {
@@ -105,8 +102,7 @@ func TestValidateNames(t *testing.T) {
 	}
 }
 
-// The locks and the idle time are Settings > Access fields: guarded by the
-// settings PIN, not owned, so a Settings save carries them.
+// Locks and idle time are guarded by the Advanced Settings PIN, not owned: a Settings save carries them.
 func TestLocksAreGuardedNotOwned(t *testing.T) {
 	typ := reflect.TypeOf(Config{})
 	for _, name := range []string{"Locks", "AutoLockMinutes"} {

@@ -47,21 +47,17 @@ func TestMessageKeys(t *testing.T) {
 		{"filterSets", filterSetsMsg{T: "filterSets"}, []string{"sets", "t"}},
 		{"locked", simpleMsg{T: "locked"}, []string{"t"}},
 		{"historyCleared", simpleMsg{T: "historyCleared"}, []string{"t"}},
-		// takeResult: id and ok always; err, already, entry when set.
-		{"takeResult bare", takeResult{T: "takeResult"}, []string{"id", "ok", "t"}},
-		{"takeResult planned fail", takeResult{T: "takeResult", Err: "x"}, []string{"err", "id", "ok", "t"}},
-		{"takeResult done", takeResult{T: "takeResult", OK: true, Entry: &zero}, []string{"entry", "id", "ok", "t"}},
-		{"takeResult full", takeResult{T: "takeResult", Err: "x", Already: []int{1}, Entry: &one}, []string{"already", "entry", "err", "id", "ok", "t"}},
+		{"takeResult bare", routeResult{T: "takeResult"}, []string{"id", "ok", "t"}},
+		{"takeResult planned fail", routeResult{T: "takeResult", Err: "x"}, []string{"err", "id", "ok", "t"}},
+		{"takeResult done", routeResult{T: "takeResult", OK: true, Entry: &zero}, []string{"entry", "id", "ok", "t"}},
+		{"takeResult full", routeResult{T: "takeResult", Err: "x", Already: []int{1}, Entry: &one}, []string{"already", "entry", "err", "id", "ok", "t"}},
 		{"recent", recentMsg{T: "recent", E: e}, []string{"e", "t"}},
 		{"recent update", recentMsg{T: "recent", E: e, Update: true}, []string{"e", "t", "update"}},
 		{"history", historyMsg{T: "history"}, []string{"before", "entries", "more", "t"}},
-		// unlockResult: id always; err on failure.
 		{"unlockResult ok", opResult{T: "unlockResult", OK: true, ID: &zero}, []string{"id", "ok", "t"}},
 		{"unlockResult fail", opResult{T: "unlockResult", Err: "x", ID: &one}, []string{"err", "id", "ok", "t"}},
-		// filterSetsResult: id always; err and locked (true or false) on failure.
 		{"filterSetsResult ok", opResult{T: "filterSetsResult", OK: true, ID: &zero}, []string{"id", "ok", "t"}},
 		{"filterSetsResult fail", opResult{T: "filterSetsResult", Err: "x", ID: &zero, Locked: &no}, []string{"err", "id", "locked", "ok", "t"}},
-		// configResult: no id; err and locked on failure.
 		{"configResult ok", opResult{T: "configResult", OK: true}, []string{"ok", "t"}},
 		{"configResult fail", opResult{T: "configResult", Err: "x", Locked: &yes}, []string{"err", "locked", "ok", "t"}},
 		{"sentAdd", sentAddMsg{T: "sentAdd"}, []string{"entries", "lost", "t", "total"}},
@@ -74,7 +70,6 @@ func TestMessageKeys(t *testing.T) {
 	}
 }
 
-// TestMessageValues checks the parts of the shapes that are not just keys.
 func TestMessageValues(t *testing.T) {
 	one := 1
 	no := false
@@ -86,7 +81,7 @@ func TestMessageValues(t *testing.T) {
 	if l := locked(nil); *l {
 		t.Error("locked(nil) = true")
 	}
-	b, _ = json.Marshal(takeResult{T: "takeResult", ID: 4, OK: true, Already: []int{2}, Entry: &one})
+	b, _ = json.Marshal(routeResult{T: "takeResult", ID: 4, OK: true, Already: []int{2}, Entry: &one})
 	if string(b) != `{"t":"takeResult","id":4,"ok":true,"already":[2],"entry":1}` {
 		t.Errorf("take result: %s", b)
 	}

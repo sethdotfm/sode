@@ -1,9 +1,6 @@
 // Pure rules for the Settings form (Node-tested).
 
-// The first whole-number field whose typed value isn't one, or null.
-// `entries` are { key, type, value } read from the form's own inputs, not from
-// the config built from them: readSettings leaves out unchanged keys. A blank
-// idle time means 0 (never); any other blank number is wrong.
+// `entries` are read from the form's own inputs, not the built config (readSettings leaves out unchanged keys). A blank idle time means 0 (never).
 export function intProblem(entries) {
   for (const e of entries) {
     if (e.type !== 'int') continue;

@@ -1,8 +1,5 @@
-// A popup for the Advanced Settings (settings) PIN, for what asks for it in
-// the middle of a session (Manage users, the config file, clearing history, a
-// refused save): it comes up where the person is, not at the top of a long
-// page, and Settings keeps its layout. askPin() resolves true once the PIN is
-// accepted (pin.js holds the unlock), false if the popup is cancelled or closed.
+// Popup for the settings PIN when something asks mid-session (users, config file, clear history, refused save).
+// askPin() resolves true once accepted, false if cancelled or closed.
 
 import { el, S, on } from './core.js';
 import { unlock, lostUnlock } from './pin.js';
@@ -74,7 +71,8 @@ function build() {
   dialog.append(
     el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Advanced Settings'), { id: 'pinprompt-title' })),
     el('div', 'pb-modal__body', why, input, err),
-    el('div', 'pb-modal__footer', cancel, go));
+    el('div', 'pb-modal__footer', cancel, go),
+  );
   input.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -92,18 +90,22 @@ export function askPin(text = '') {
   ui.why.hidden = !text;
   ui.dlg.show();
   ui.input.focus();
-  return new Promise((resolve) => { done = resolve; });
+  return new Promise((resolve) => {
+    done = resolve;
+  });
 }
 
-// The server refused for want of the PIN: this connection's unlock is gone, so
-// ask again. Resolves true once it is entered, so the caller can retry.
+// Refused for want of the PIN: ask again; true once entered so the caller retries.
 export function reask(text) {
   lostUnlock();
   return askPin(text);
 }
 
-// The page locking or the socket dropping takes the popup with it; the PIN
-// being removed (a hello without one) means whatever asked may go ahead.
+// A lock or socket drop closes the popup; the PIN removed (hello without one) lets the asker go ahead.
 on('locking', () => close(false));
-on('conn', () => { if (S.wsState !== 'up') close(false); });
-on('hello', () => { if (!S.pinSet) close(true); });
+on('conn', () => {
+  if (S.wsState !== 'up') close(false);
+});
+on('hello', () => {
+  if (!S.pinSet) close(true);
+});

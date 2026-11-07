@@ -99,7 +99,7 @@ func TestUsersConfigValidation(t *testing.T) {
 	c := cfg.Clone()
 	c.Users, c.Locks, c.AutoLockMinutes = []config.User{good}, config.Locks{Main: true}, 5
 	if c.Validate() == nil {
-		t.Fatal("lock without a settings PIN accepted")
+		t.Fatal("lock without an Advanced Settings PIN accepted")
 	}
 	c.SettingsPin = good.Pin
 	if err := c.Validate(); err != nil {
@@ -127,7 +127,6 @@ func TestLocksOffByDefault(t *testing.T) {
 	if c.who() != "10.0.0.1" {
 		t.Fatalf("who = %q", c.who())
 	}
-	// Users without locks still don't gate anything.
 	a = userApp(t, false)
 	if !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatal("users alone locked something")
@@ -149,21 +148,18 @@ func TestUserUnlock(t *testing.T) {
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	// The settings PIN is the admin credential: with it unlocked, saving
-	// needs no user, but the main lock still stops actions.
 	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
-		t.Fatalf("save with the settings PIN, locked as a user: %v", err)
+		t.Fatalf("save with the Advanced Settings PIN, locked as a user: %v", err)
 	}
 	if err := a.SaveFilterSets(c, nil); err != nil {
-		t.Fatalf("filter sets with the settings PIN: %v", err)
+		t.Fatalf("filter sets with the Advanced Settings PIN: %v", err)
 	}
 	if err := a.admit(c, policy["batch"]); !errors.Is(err, errPageLocked) {
 		t.Fatalf("batch while locked: %v", err)
 	}
 	if err := a.admit(c, policy["config"]); err != nil {
-		t.Fatalf("config with the settings PIN: %v", err)
+		t.Fatalf("config with the Advanced Settings PIN: %v", err)
 	}
-	// A PIN of a length no user has is an ordinary wrong try.
 	if err := a.UserUnlock(c, "12345"); err == nil || a.userPin.n != 1 {
 		t.Fatalf("wrong-length PIN: %v, n=%d", err, a.userPin.n)
 	}
@@ -178,15 +174,13 @@ func TestUserUnlock(t *testing.T) {
 	if a.userPin.n != 2 || c.who() != "Bo" || !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatalf("not unlocked as Bo: %q", c.who())
 	}
-	// A different connection stays locked.
 	if a.pageAllowed(&client{ip: "10.0.0.2"}, gateMain) {
 		t.Fatal("unlock leaked to another connection")
 	}
-	a.UserLock(c)
+	a.SignOut(c)
 	if a.pageAllowed(c, gateMain) || c.who() != "10.0.0.1" {
 		t.Fatal("lock didn't lock")
 	}
-	// A user removed or given a new PIN relocks the connection.
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +194,6 @@ func TestUserUnlock(t *testing.T) {
 	}
 }
 
-// Wrong user PINs share the settings PIN's count and backoff.
 func TestUserUnlockBackoff(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
@@ -213,12 +206,11 @@ func TestUserUnlockBackoff(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "try again in") {
 		t.Fatalf("5th wrong: %v", err)
 	}
-	// Even the right PIN waits, and a wrong settings PIN counts too.
 	if a.pin.n != 0 {
-		t.Fatal("user failures counted against the settings PIN")
+		t.Fatal("user failures counted against the Advanced Settings PIN")
 	}
 	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatalf("settings PIN blocked by user PIN failures: %v", err)
+		t.Fatalf("Advanced Settings PIN blocked by user PIN failures: %v", err)
 	}
 	if err := a.UserUnlock(c, "1234"); err == nil || a.pageAllowed(c, gateMain) {
 		t.Fatalf("right PIN during the wait: %v", err)
@@ -232,7 +224,7 @@ func TestSaveUsers(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}}}); !errors.Is(err, errNeedAdminPin) {
-		t.Fatalf("users saved with no settings PIN: %v", err)
+		t.Fatalf("users saved with no Advanced Settings PIN: %v", err)
 	}
 	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
 		t.Fatal(err)
@@ -246,7 +238,6 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "12ab"}}}); err == nil {
 		t.Fatal("non-digit PIN accepted")
 	}
-	// A lock with no users is refused (Settings > Access), and says so.
 	withLock := a.r().cfg
 	withLock.Locks.Main = true
 	if err := a.SaveSettings(c, withLock, "", false); err == nil || !strings.Contains(err.Error(), "user") {
@@ -265,7 +256,6 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveSettings(c, withLock, "", false); err != nil {
 		t.Fatal(err)
 	}
-	// Saving users leaves the locks and the idle time as they are.
 	if err := a.SaveUsers(c, req); err != nil {
 		t.Fatal(err)
 	}
@@ -276,14 +266,12 @@ func TestSaveUsers(t *testing.T) {
 	if b, _ := json.Marshal(cfg); strings.Contains(string(b), "pbkdf2") {
 		t.Fatalf("a hash in the JSON: %s", b)
 	}
-	// Same PIN twice, new or against a kept user.
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}, {Name: "Bo", Pin: "1234"}}}); err == nil {
 		t.Fatal("two new users with one PIN")
 	}
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Cy", Pin: "1234"}}}); err == nil {
 		t.Fatal("new PIN equal to a kept user's")
 	}
-	// Keeping, renaming and a name differing only in case.
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +281,6 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "ana", Pin: "9999"}}}); err == nil {
 		t.Fatal("names differing in case accepted")
 	}
-	// Renaming X to inherit Y's hash while Y stays, or two rows keeping one.
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana2", Was: "Ana"}, {Name: "Ana"}, {Name: "Robert"}}}); err == nil {
 		t.Fatal("two rows inherited one user's PIN")
 	}
@@ -303,8 +290,6 @@ func TestSaveUsers(t *testing.T) {
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Robert", Pin: "1234"}}}); err == nil || strings.Contains(err.Error(), "Ana") {
 		t.Fatalf("colliding PIN: %v (must not name the other user)", err)
 	}
-	// A settings save from a browser keeps the users, and (a message with no
-	// locks / autoLockMinutes key) the locks and auto-lock too.
 	stale := a.r().cfg
 	stale.Users, stale.Locks, stale.AutoLockMinutes = nil, config.Locks{}, 0
 	if err := a.saveSettings(c, configMsg{Config: stale, hasDefaults: true}, "", false); err != nil {
@@ -313,10 +298,9 @@ func TestSaveUsers(t *testing.T) {
 	if got := a.r().cfg; len(got.Users) != 2 || !got.Locks.Log || got.AutoLockMinutes != 10 {
 		t.Fatalf("settings save dropped users or locks: %+v", got)
 	}
-	// Saving users needs the settings PIN unlocked.
 	a.Lock(c)
 	if err := a.SaveUsers(c, req); !errors.Is(err, errLocked) {
-		t.Fatalf("users saved without the settings PIN: %v", err)
+		t.Fatalf("users saved without the Advanced Settings PIN: %v", err)
 	}
 }
 
@@ -339,7 +323,6 @@ func TestLockOverWebSocket(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// Reads until a message of type t, returning it.
 	until := func(typ string) map[string]any {
 		for {
 			_, b, err := ws.Read(ctx)
@@ -372,13 +355,11 @@ func TestLockOverWebSocket(t *testing.T) {
 	if m := until("lockState"); m["locked"] != true {
 		t.Fatalf("clearHistory not refused: %v", m)
 	}
-	// A PIN of a length nobody has is just wrong; then the real one.
 	send(map[string]any{"t": "userUnlock", "pin": "123", "id": 1})
 	if m := until("userUnlockResult"); m["ok"] == true {
 		t.Fatalf("short PIN: %v", m)
 	}
 	send(map[string]any{"t": "userUnlock", "pin": "1234", "id": 2})
-	// The new lock state is queued ahead of the result.
 	if m := until("lockState"); m["locked"] != false || m["user"] != "Ana" {
 		t.Fatalf("after unlock: %v", m)
 	}

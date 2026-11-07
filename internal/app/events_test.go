@@ -107,7 +107,6 @@ func TestLinkLoggedOncePerOutage(t *testing.T) {
 	if rows[3].Note != "10.9.9.9:8910" {
 		t.Fatalf("changed row = %+v", rows[3])
 	}
-	// The uptime record followed: up, then down at the change, then up.
 	var s []string
 	for _, tr := range a.up.trans {
 		s = append(s, tr.S)
@@ -117,7 +116,6 @@ func TestLinkLoggedOncePerOutage(t *testing.T) {
 	}
 }
 
-// Stopping writes what is queued and a stop row; the uptime ends with off.
 func TestShutdownWritesStopAndOff(t *testing.T) {
 	a := newTestApp(t)
 	dir := t.TempDir()

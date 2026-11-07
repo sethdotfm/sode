@@ -1,20 +1,29 @@
+DISCLOSURE: This was written by an LLM.
+
 # Sode
 
-Hyper-light, keyboard-first web patching for SW-P-08 routers (built and tested on a Ross Ultrix).
+[![CI](https://github.com/sethdotfm/sode/actions/workflows/ci.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/ci.yml) [![rc](https://github.com/sethdotfm/sode/actions/workflows/rc.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/rc.yml) [![Release](https://img.shields.io/github/v/release/sethdotfm/sode?include_prereleases)](https://github.com/sethdotfm/sode/releases) [![Go version](https://img.shields.io/github/go-mod/go-version/sethdotfm/sode)](go.mod) [![License](https://img.shields.io/github/license/sethdotfm/sode)](LICENSE)
 
 **Version:** Beta 1.6.0
 
-Type a **source**, Tab, a **destination**, Tab, **levels**, Enter, then press the churning confirm key. Press `?` in keyboard mode (Esc with every box empty) for the shortcut list.
+Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It is for people who want to make routes fast from any browser on the network, on a desktop keyboard or a phone. You type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key.
 
-- Single static Go binary, small distroless image, plain HTTP on :8080 (put your own TLS proxy in front).
-- Always extended SW-P-08 commands (16-bit source/destination), protects honored, auto-reconnect.
-- Names come from the router and are re-read periodically.
-- Phones get a text-message style layout; the desktop is keyboard-first.
-- Themed with [patchbay](https://github.com/sethdotfm/patchbay), vendored and embedded: no external fetches.
+## Features
 
-## Run
+- Sode is a single static Go binary in a small distroless image, serving plain HTTP on :8080.
+- It always uses extended SW-P-08 commands with 16-bit source and destination numbers, honors protected destinations and reconnects on its own.
+- Names come from the router and are re-read every 60 seconds by default.
+- The desktop layout is keyboard-first, with a shortcut list on `?`, and phones get a text-message style layout.
+- History lists every take for all browsers, including routes made from panels, and undo restores what the router had before.
+- Presets fire a saved set of takes in one confirm, sequentially or as a native fire mode group send.
+- Filters and named filter sets limit what History shows, and you can share them with everyone or as a link.
+- Optional users, PIN locks and per-user profiles cover shared wall panels and several users.
+- A communication log at `/log` shows every message sent to the router and a router uptime graph.
+- `/api/health` reports the server and the router separately for monitors such as Uptime Kuma.
 
-`compose.yaml`:
+## Quickstart
+
+Save this as `compose.yaml`:
 
 ```yaml
 services:
@@ -36,151 +45,44 @@ docker compose up -d     # then open http://localhost:8080
 
 To try it without a router, run the bundled simulator from a checkout: `docker compose --profile sim up --build`.
 
-**Install as an app.** Sode is a web app: use *Install* in Chrome or Edge, or *Add to Home Screen* in Safari on an iPhone or iPad, and it opens in its own window. Chrome and Edge only offer Install over HTTPS (or on localhost), so put your TLS proxy in front first. The app name and icon follow **Logo text** and **Border colour** in Settings, so several instances stay apart on a home screen. Android and desktop Chrome pick up a changed name or icon on their own; on iOS, remove the app and add it again. It still needs the server to run, so there is no offline mode.
-
-**Behind a proxy.** Set `trustedProxies` (`SODE_TRUSTED_PROXIES`) to the proxy's address so history shows real client IPs; the server logs a warning when it sees `X-Forwarded-For` and the setting is empty. The proxy must pass WebSocket connections (`/ws`) and keep them open while idle for at least 15 seconds. The server sends a small heartbeat every 5 seconds and the page treats a connection that has been silent for 15 seconds as dead: it reconnects, and a patch is refused ("NOT sent") if the connection has been quiet for more than about 7 seconds, rather than being lost.
-
-## Using it
-
-**Levels** accept `1`, `1-3`, `1,3,5-8` (or `+`), `!1` (all but 1), `1-8!3`, and words: `thru`/`t` for `-`, `not`/`n` for `!`, `and` for `,`. On a phone's number pad `.` is `,` and `..` is `-`. Blank means the default levels. With V + A numbering, `v,a1-a8` also works.
-
-**Several destinations:** press `+` (or Ctrl+Enter) after each destination instead of Tab. The takes land in history as one folder with **Undo all**.
-
-**Presets.** Buttons above Recent that take a saved set of sources to destinations in one confirm. **Edit** (or **Presets…** when there are none) opens the editor: each take is a source, destinations and levels (numbers or names; blank levels = the default levels), and **Add from Patch Boxes…** or **Add from Recent…** adds takes for you. Save for **This browser** or **Everyone** (Settings PIN needed, like filter sets). They are stored as numbers, so a rename on the router changes nothing, and a number the router no longer has is left out and listed in the confirm. A preset is one batch, so it is one folder in Recent and Undo all undoes it, marked "Preset: name" (quick search finds it by that name too). Only **pinned** presets are buttons above Recent; **Ctrl+g** (**⌘g** on a Mac; the **Presets** button on a phone) opens a popup that lists all of them with a search box: arrows or Ctrl+j/k to move, Enter fires through the usual confirm, Esc closes. Each row has **Pin/Unpin** for this browser; pinning for everyone and sharing are in the editor (Pinned checkbox, Share). In keyboard mode (Esc with the boxes empty) **p** jumps to the pinned presets. A preset is one confirm of several takes, so it is sent the way the **Fire confirms of several takes** setting says (Settings → Takes; see `SODE_FIRE_MODE` above).
-
-**Last take:** Ctrl+s, Ctrl+d and Ctrl+f fill Source, Destination or Levels from your last take; each box shows it as a small chip you can click. Ctrl+Shift+s and Ctrl+Shift+d do the same with the next source and destinations (every destination shifted), for patching a run in order: Cam 1 → Rec 1 + Rec 5, then Cam 2 → Rec 2 + Rec 6. Each box also has a small "Next" chip that opens to show the value when you hover it or hold Shift. Press them again to keep going (Cam 3, then Cam 4; more destinations each time) while the boxes still hold the last one. Settings → This device → "Next match behavior" picks the next number or the next match of the name's text. When no name matches any more, it falls back to the next number.
-
-**Recent** lists every take, shared by all browsers and kept in a log. Undo restores what the router actually had before. In a row's Before panel (and the steps of a stacked row) each source is a button that fills Source with it and moves on to Destination. Routes made elsewhere (panels, Companion) appear too, marked **panel**, and can be undone the same way; every row has **Redo** (or **Retry** if its take failed; **Redo all** on a folder), which takes that line's route again, and the confirm says when the destination already has it (keyboard mode: `r`); changes the router made without announcing them are marked **found**. Destinations that follow another (a multiviewer PiP following a DSM) are shown as **follows** of the take; undo leaves them out unless you tick the box in the confirm. Routes changed while Sode was disconnected aren't logged.
-
-**Search and filters.** Filter by Source / Destination above Recent, and the **Filters** button (`/` in keyboard mode) scope what Recent shows, per browser. Filters can be named sets, shared with everyone from Settings, or shared as a link. Click several set buttons in Recent's header to stack them (click one again to take it off; none left is All). Under Settings → This device, **Stacked filters behavior** says whether an entry must match all of them (the default) or any one. They use one small expression language:
-
-| Typed | Matches |
-|---|---|
-| `65` | number 65 |
-| `1-50`, `1 thru 50`, `1 to 50` | numbers 1 to 50 |
-| `PIP` | names containing PIP (any case) |
-| `'NOT USED'` | names containing that text, taken literally (`''` for a quote inside) |
-| `"CAM 1"` | the name exactly (any case), so not CAM 10 |
-| `/^DSM\d/` | names matching the regex (any case unless flags are given) |
-| `!65`, `!PIP`, `not 'PIP'` | excludes |
-
-Terms are separated by commas. A name matches if it fits any plain term and no `!` term; only `!` terms means everything but those.
-
-**Globally hidden destinations** (Settings → History) uses the same language to hide noisy destinations, such as a shader's monitor, from everyone's Recent. They're still recorded.
-
-## Settings
-
-Edited from the **Settings** button at the bottom of the page, stored in `/data/config.yaml`. Saving applies at once; changes to the router, matrix, levels or name options reconnect and re-read names and routes. When there's no config file yet, it is seeded from these variables, then the file wins:
-
-| Seed var | YAML key | Default | Meaning |
-|---|---|---|---|
-| `SODE_ROUTER` | `router` | | Router `host:port`. Empty = idle until set in Settings |
-| `SODE_MATRIX` | `matrix` | `0` | SW-P-08 matrix (0-15 with standard name requests) |
-| `SODE_LEVEL_COUNT` | `levels` | `17` | Number of levels; 1 gets the video swatch, the rest audio |
-| `SODE_LEVEL_WIRE_OFFSET` | `levelWireOffset` | `-1` | Wire level = level + offset. `-1`: level 1 → wire 0 |
-| `SODE_DEFAULT_LEVELS` | `defaultLevels` | `1-<levels>` | Used when the levels box is blank. Always 1-based in the file |
-| `SODE_LEVEL_NUMBERING` | `levelNumbering` | `1` | How levels are shown and typed: `1` (1-17), `0` (0-16) or `va` (V, 1-16) |
-| `SODE_NAME_LEN` | `nameLength` | `12` | Name length to request: 4, 8, 12 or 16 |
-| `SODE_NAMES` | `nameRequests` | `std` | `std` (cmd 100/102) or `ext` (cmd 228/230) |
-| `SODE_FIRE_MODE` | `fireMode` | `sequential` | How a confirm of several takes is sent: `sequential` (one connect after another, ~16 ms per crosspoint on the Ultrix) or `native` (a SW-P-08 group salvo, cmd 120/248 and 121; needs a router with group salvos, Ross Ultrix verified). Measured on the Ultrix 2026-11-02: a group Go announces its crosspoints about 4 ms apart (51 in ~210 ms) against ~16 ms apiece for ordinary connects (51 in ~840 ms); whether the switch itself is simultaneous is unproven. Level 17 and numbers past 1023 are staged with the extended stage command (248), in the same salvo. If the router doesn't acknowledge the salvo, Sode clears the salvo group and sends the takes one after another as before |
-| `SODE_SALVO_GROUP` | `salvoGroup` | `127` | The router's salvo group (0-127) native salvos use. The router's staged list is shared by every controller, so pick one nothing else uses |
-| `SODE_NUM_OFFSET` | `numberOffset` | `1` | Added to router numbers for display (Ultrix shows 1-based) |
-| `SODE_CONFIRM_LOCKOUT_MS` | `confirmLockoutMs` | `500` | Confirm key ignored this long after the dialog opens |
-| `SODE_RESULT_DISMISS_S` | `resultDismissSeconds` | `8` | A success banner closes itself after this many seconds (0 = stays); failures always stay until closed |
-| `SODE_CONFIRM_ENTER` | `confirmEnter` | `false` | Also allow Enter to confirm |
-| `SODE_NAME_REFRESH_S` | `nameRefreshSeconds` | `60` | Re-read names this often (0 = off) |
-| `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and protects this often (0 = off) |
-| `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` is believed (your proxy) |
-| `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong settings PINs in a row before settings lock until reset or restart. `0` = never |
-| `SODE_MAX_PIN_LEN` | `maxPinLen` | `8` | Longest user PIN (4-12 digits). The lock pad stops there and submits on its own only at the longest length in use; shorter PINs are sent with the check key or Enter. Also set in Settings > Users |
-
-Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` (theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`): what a browser follows until it chooses its own under Settings → This device) and `settingsPin`.
-
-Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`; without it the router uptime is kept in memory only) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
-
-### Settings PIN
-
-Settings → Access can set a PIN (4-64 characters) asked every time Settings opens; patching stays open. Wrong tries count for everyone: from the 5th in a row there's a wait (30 seconds, doubling, up to an hour), and after `pinMaxTries` settings stay locked until the PIN is reset or Sode restarts. Only a salted PBKDF2 hash is stored.
-
-Forgot it?
+To run from source with the simulator:
 
 ```sh
-docker compose exec sode /sode -reset-pin && docker compose restart sode
+go run ./cmd/swp08sim                                # simulator on :8910
+SODE_ROUTER=127.0.0.1:8910 go run ./cmd/sode         # server on :8080
 ```
 
-or delete the `settingsPin:` line from `/data/config.yaml` and restart.
+Sode serves plain HTTP, so put your own TLS proxy in front. Behind a proxy, set `trustedProxies` so history shows real client IPs.
 
-### Users and locks (optional)
+## Configuration
 
-Off by default: with no users and no locks Sode behaves as before. Settings → Users (a Manage users button that opens its own dialog, with its own Save) adds people (a name and a 4-12 digit PIN each; PINs must differ, since the PIN alone says who). Settings → Access turns on locks per page type (the main screen, the Communication Log) and sets the idle auto-lock; those need the settings PIN like the rest of Access. A locked page opens behind a lock screen with a number pad; it unlocks the moment the typed PIN matches, no Enter. The server enforces it per WebSocket connection: until a connection unlocks as a user it is refused takes, name refreshes and clearing history, and (on the log) reading the sent log and uptime graph. Saving settings, filter sets, presets and users needs the settings PIN (or, for settings, filter sets and presets, a trusted user, below), not just any unlocked user, so a locked wall panel can still be set up with the PIN. `/healthz` and `/api/health` stay open. The user's name replaces the IP in history and in the log.
+You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save at once. On first start, with no config file yet, Sode seeds the file from `SODE_*` variables such as `SODE_ROUTER`. After that the file wins.
 
-- **Lock again:** Ctrl+L, the Lock button in the corner, or after the idle minutes set in Settings (0 = never). A dropped connection also locks, since unlocking belongs to the connection.
-- **Trusted users:** each user can be marked Trusted (Settings → Users). While unlocked as a trusted user, saving the Settings form, filter sets and presets needs no settings PIN. Clearing history, adding or removing users and locks, and setting or removing the settings PIN still need the settings PIN, and so does changing the router address, matrix, levels or level offset, how names are read, the fire mode and salvo group, trusted proxies or the PIN attempt limit (anything that reconnects or weakens a guard). Unticking Trusted takes effect at once.
-- **Never log out:** a user marked Never log out gets a random session token when they unlock; the browser keeps it (localStorage) and the server keeps only its hash in `tokens.json` next to the config file (up to 8 per user, the oldest dropped); a token not used for 90 days expires, and a page that stays connected counts as using it. A reload or a dropped connection does not log them out and the idle timer skips them. Ticking the box while they are already logged in, or changing their own PIN, gives their open page a token at once, so the next reload keeps them in. Lock, Log out and Ctrl+L revoke the token. Changing that user's PIN, removing the user or unticking the box ends every one of their sessions. A wall panel logs in once as a trusted user who never logs out.
-- **Lock screen without a PIN:** where no PIN lock is on and nobody is logged in, **Ctrl+L** (or Settings → This device → Lock the screen) covers the page until you press the letter it shows, like a take's confirm ("Press J to unlock"), after the confirm lockout; on a touch screen tap Unlock. It guards against keyboard mashing and is not a PIN: it is only this browser page, and a reload clears it. While someone is logged in, locking (the lock button, Ctrl+L, Lock the screen, or the idle time) ends their session and shows the PIN pad instead, with no Cancel; their PIN logs them back in (#198). The auto-lock minutes (Settings → Users) put the lock up when the page is idle, too.
-- **Wrong PINs** are counted in two separate classes, each for everyone. The settings PIN is one class, with the settings PIN rules above (waits from the 5th, permanent lock after `pinMaxTries`). User PINs are the other: waits from the 5th that double up to 5 minutes, never a permanent lock, so strangers' guesses can't shut the operators out. A right user PIN does not reset the count (so holding one PIN doesn't give free guesses at the others); the count is forgotten after an hour without a wrong PIN. A success or lockout in one class never changes the other. A PIN of a length no user has is just a wrong try, but the page only sends lengths some user has; with users of different lengths a PIN is sent half a second after the last digit.
-- **Settings PIN required:** users and locks are administered with the settings PIN, so it must be set first, and a lock can't be on without one. `sode -reset-pin` therefore turns the page locks off too. If everyone is locked out otherwise, stop Sode and set `locks:` to all `false` in `/data/config.yaml`. Users are `users: [{name, pin (hash), len, trusted, persistent}]`; set PINs in Settings, not by hand.
-- **Limits:** a lock guards actions (and, for the log lock, reading the log), not data: names, routes, recent history, user names and PIN lengths keep streaming to a locked browser, by design. Idle auto-lock is a client-side convenience in the page, not enforced by the server.
+A few process settings stay in the environment: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
-### Profiles, sharing and export (optional)
+If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
 
-With users set up, each user has a **profile**: their own This device settings, filter sets and presets, kept by Sode so they follow them to any browser. Where a setting or a filter set or preset can be saved you get a third choice, **Me**, beside **Everyone** and **This browser**. A browser's own choice wins, then the user's, then everyone's, so setting Light on one tablet doesn't change Ana's other devices unless she presses **Set as my default** (Settings → This device). Someone who isn't logged in (a guest) gets this browser's and everyone's settings and sees no Me options. With no users configured none of this appears. To log in with no locks on, use **Log in** under Settings → This device; that login lasts until the tab closes (or use Never log out). A profile belongs to its user, but admins and trusted users can see and edit every profile: each row of Manage users has an **Edit Profile** button, trusted users get the same buttons in Settings → Users, and everyone logged in has **My profile** and **Import & Export** under Settings → This device. On the hand-lock screen **Log in as…** switches user.
+## More documentation
 
-**Share and export.** A preset's or filter set's **Share** gives a link you can paste in chat; opening it shows what it holds, next to what you have now, and you choose where to save it (it never applies itself unreviewed). Settings → **Export & import** writes any mix of settings, filter sets and presets to a YAML file (named `YYYY-MM-DD-Sode-Export-Site-User.yaml` unless you name it) and reads one back through the same review. Exports carry names beside numbers, so a freelancer's presets can land on another studio's router: a source or destination is matched by number when the name agrees, else by its name, and anything ambiguous or missing is flagged and not applied silently.
-
-**Server configuration backup.** Settings → Server Backup has **Export** and **Import** for the whole `config.yaml` (settings PIN needed). PINs are left out unless you tick *Include Secrets (private backup)*, which makes a secret file: keep it private. Importing replaces everything; without PINs in the file each user keeps their current PIN by name, and a new user in the file is refused until it carries a PIN.
-
-## Monitoring (Uptime Kuma)
-
-`GET /api/health` reports the server and the router apart. It needs no PIN and shows no settings:
-
-```json
-{"server":"up","router":"up","targetAddress":"10.0.0.1:8910","version":"Beta 1.3.1","uptimeSeconds":86400,"browsers":2}
-```
-
-`router` is `up`, `connecting` or `down`; `err` appears when the router link has a problem. The status code is 200 only while the router is up and 503 otherwise, so a plain HTTP(s) monitor alerts when the router is lost (a dead server shows as no answer). Uptime Kuma counts a 503 as down even for a JSON Query monitor, so to watch the server alone, add `503` to that monitor's accepted status codes. For a JSON Query monitor, use `router` as the key and `up` as the expected value. `/healthz` is unchanged.
-
-## Communication log
-
-`/log` (**View Logs** in Settings > History, also shown while Settings are locked) lists every message Sode wrote to the router, newest first and live, with what it was for and whether the router ACKed it. It's read-only. Settings has a search box above its section list that finds sections and single settings by name or by common words ("password", "dark", "proxy"). Kept in `SODE_SENTLOG` up to `SODE_SENTLOG_MB`; without it the last 20,000 messages stay in memory.
-
-Besides messages to the router the log has event rows (#139), which show in the default view and have their own filter chips: **Browsers** (a browser's WebSocket connecting or dropping, with its address), **Commands** (what people fire that changes something: takes, undos and retries, refreshing names, clearing history, saving settings, filter sets or presets, unlocking and locking the settings PIN: whether the PIN was right, never the PIN itself), and **Router link** (the router link going down once per outage, coming up, being changed in Settings, and Sode starting and stopping). ACKed messages also show how long the router took.
-
-The **Router uptime** graph at the top is one strip with toggles for 1 hour, 24 hours (the default view), 7 days and 30 days, each showing its bar length, e.g. "24 hours (15 min)". A toggle also sets the log's From time to that long ago, so the table shows the same period; Clear times undoes it. Setting From or To by hand shows that range instead. Click a bar to see just that slot: the log's times become the bar's, the table is sorted newest first, and a banner says so; **Back** restores the times and sort you had. Each bar is a slot (a minute for an hour, 15 minutes for a day, an hour for a week; hover for the details): green when the router link was up the whole slot, yellow when it was down for part of it or messages failed, needed a retry or took over 300 ms to ACK, red when it was down or Sode wasn't running, grey with nothing recorded. The record is kept for 400 days in `SODE_UPTIME`; Sode not running is found from a stamp it rewrites every minute, so a crash shows as down from the last minute it was alive.
-
-## Protocol notes
-
-Crosspoints use extended commands (0x82 connect, 0x84 connected, 0x95/0x97 tally dump). A take succeeds once the router sends Connected for every requested level (3s timeout); routers send nothing for a connect that changes nothing, so Sode interrogates and counts those as "already". Protects are read with the extended protect dump (0x93 → 0x94) and takes to protected destinations are refused before anything is sent. Messages queued while disconnected are discarded. Names are polled, since the router doesn't announce renames.
+- [docs/reference.md](docs/reference.md) has the full settings table, the SW-P-08 protocol notes, proxy and app-install notes, and details on levels, presets, History, filters, users and locks, profiles, monitoring, the communication log, the simulator and image tags.
+- [RELEASING.md](RELEASING.md) has the release steps, and [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
 
 ## Development
 
 ```sh
 go test ./...                                        # also run by the Dockerfile
-go run ./cmd/swp08sim                                # simulator on :8910
-SODE_ROUTER=127.0.0.1:8910 go run ./cmd/sode         # server on :8080
 node --test 'web/test/*.test.mjs'                    # browser-side tests
 ```
 
-The simulator takes `SIM_*` variables to fake misbehaving routers (`SIM_IGNORE_DSTS`, `SIM_SILENT_DSTS`, `SIM_SLOW_DSTS`, `SIM_FOLLOWS`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT`, `SIM_NO_SALVO=1` for a router without group salvos, and `SIM_SALVO_ANNOUNCE=1` to announce a group Go's routes with Connected, as the Ultrix sometimes does); see `cmd/swp08sim`. The web UI is embedded, so restart after frontend edits.
+The web UI is embedded, so restart after frontend edits. The simulator takes `SIM_*` variables to fake misbehaving routers. See `cmd/swp08sim`.
 
 ## Releasing
 
-Releases are cut by tag and promoted without a rebuild; see [RELEASING.md](RELEASING.md) for the steps and the rules. In short: bump `Version` in `internal/app/version.go`, the `**Version:**` line above and the `## Beta <version>` heading in [CHANGELOG.md](CHANGELOG.md) (`TestVersionNoted` checks them), merge to `main`, push a `vX.Y.Z-rc.N` tag to build a signed candidate, then run the *promote* workflow to make it `X.Y.Z` and `latest`.
-
-### Image tags
-
-| Tag | Follow it if you want |
-| --- | --- |
-| `latest`, or `1.5` for one minor line | tested releases only (use this with automatic updates) |
-| `rc` | the next release before it ships |
-| `edge` | whatever is merged on `main`, unsigned and possibly broken |
-| `1.5.0`, or `@sha256:...` | to stay put |
-
-Only the first row is touched by releases, so automatic updaters on `latest` never receive a candidate or an `edge` build.
+You cut releases by tag and promote them without a rebuild. Bump `Version` in `internal/app/version.go`, the `**Version:**` line above and the `## Beta <version>` heading in CHANGELOG.md, which `TestVersionNoted` checks. RELEASING.md has the rest.
 
 ## AI disclosure
 
-Sode is written with AI assistance: much of the code, tests and documentation is produced by Claude (Anthropic) through Claude Code, working from issues and direction written by the maintainer, who reviews it and tests it against a real router. Commits made this way carry a `Co-Authored-By: Claude` trailer. Treat it like any software that has not been audited: read it, and try it on a non-critical router first.
+Sode is written with AI assistance. Claude (Anthropic), through Claude Code, produces much of the code, tests and documentation, working from issues and direction written by the maintainer. The maintainer reviews it and tests it against a real router. Commits made this way carry a `Co-Authored-By: Claude` trailer. Treat Sode like any software that has not been audited. Read it, and try it on a non-critical router first.
 
 ## License
 

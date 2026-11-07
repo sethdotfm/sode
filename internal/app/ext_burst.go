@@ -8,23 +8,21 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// burst is the routes changed elsewhere being collected: changes pile up in
-// pending until they go quiet. Guarded by App.mu, which its callers hold.
+// burst: routes changed elsewhere pile up in pending until quiet. Guarded by App.mu.
 type burst struct {
-	pending     map[int]map[int]*extLevel // dst → UI level
-	first, last time.Time                 // when the burst began, and its latest change
+	pending     map[int]map[int]*extLevel
+	first, last time.Time
 }
 
 type extLevel struct {
 	prev      int // src before the burst
 	prevKnown bool
 	src       int
-	first, at time.Time // first and last change
-	found     bool      // the last change came as a tally, not a Connected
+	first, at time.Time
+	found     bool // the last change came as a tally, not a Connected
 }
 
-// extChange is one changed crosspoint for the burst: old/known is the cached
-// src before it, found that it came as a tally, not a Connected.
+// extChange: old/known is the cached src before; found = came as a tally, not a Connected.
 type extChange struct {
 	xp           swp08.Crosspoint
 	ui, old      int
@@ -32,7 +30,6 @@ type extChange struct {
 	at           time.Time
 }
 
-// add puts a change in the burst.
 func (b *burst) add(c extChange) {
 	xp, ui, old, known, found, now := c.xp, c.ui, c.old, c.known, c.found, c.at
 	if len(b.pending) == 0 {
@@ -51,9 +48,8 @@ func (b *burst) add(c extChange) {
 	}
 }
 
-// flush takes the burst if it is finished (ok), with when it began: it has
-// been quiet for extQuiet, or going for extMax, and awaits (whether a change
-// in it may follow a take still in flight) doesn't hold it for extHold.
+// flush: finished when quiet for extQuiet or going for extMax; awaits can hold it up to
+// extHold.
 func (b *burst) flush(now time.Time, awaits func(pending map[int]map[int]*extLevel) bool) (changes map[int]map[int]*extLevel, first time.Time, ok bool) {
 	if len(b.pending) == 0 || (now.Sub(b.last) < extQuiet && now.Sub(b.first) < extMax) ||
 		(now.Sub(b.first) < extHold && awaits(b.pending)) {
@@ -64,12 +60,9 @@ func (b *burst) flush(now time.Time, awaits func(pending map[int]map[int]*extLev
 	return changes, first, true
 }
 
-// entries turns the pending burst into history entries, one per
-// destination, source and found, dropping levels that ended where they
-// began, earliest first. Changes that follow one of our takes name it;
-// the rest share a group when there's more than one, found ones apart.
-// Group ids are made from at. followed says which of our takes a change
-// follows, if any. Caller holds mu.
+// entries: one per destination, source and found, levels ending where they began dropped,
+// earliest first. Followers name their take; the rest share a group when more than one,
+// found apart. Group ids come from at. Caller holds mu.
 func (b *burst) entries(name func(dst bool, n int) string, changes map[int]map[int]*extLevel, at time.Time, followed func(src, dst int, t time.Time) *cause) []*Entry {
 	type key struct {
 		dst, src int
@@ -83,7 +76,6 @@ func (b *burst) entries(name func(dst bool, n int) string, changes map[int]map[i
 	var outs []*out
 	for dst, ls := range changes {
 		for ui, l := range ls {
-			// Back where it began, or cleared (nothing to show as a take).
 			if (l.prevKnown && l.prev == l.src) || l.src < 0 {
 				continue
 			}
@@ -126,9 +118,8 @@ func (b *burst) entries(name func(dst bool, n int) string, changes map[int]map[i
 			found = append(found, e)
 		} else if c := followed(e.Src, e.Dst, o.first); c != nil {
 			if c.group != "" {
-				// One take of a multi-take confirm: which one is a guess, so
-				// the entry is tied to the whole confirm, and is neither a
-				// panel route (no Group) nor a follow of one take.
+				// Which take of a multi-take confirm is a guess: tied to the whole
+				// confirm, not an external route (no Group) nor a follow of one take.
 				e.FollowGroup = c.group
 			} else {
 				id := c.id

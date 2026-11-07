@@ -36,11 +36,9 @@ func TestFilterSetsPin(t *testing.T) {
 	if err := a.SaveFilterSets(c, sets); err != nil || len(a.r().cfg.FilterSets) != 1 {
 		t.Fatalf("open save: %v", err)
 	}
-	// The new config has its own slices, not the live one's.
 	if after := a.r().cfg.LevelColors; &after[0] == &before[0] {
 		t.Fatal("level colors shared with the config being replaced")
 	}
-	// A settings save from a browser with an old copy keeps the sets.
 	stale := a.r().cfg
 	stale.FilterSets = nil
 	if err := a.SaveSettings(c, stale, "", false); err != nil || len(a.r().cfg.FilterSets) != 1 {
@@ -75,7 +73,6 @@ func TestSettingsPin(t *testing.T) {
 	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
 		t.Fatal(err)
 	}
-	// Unlocking (or just being open) before the PIN existed doesn't count.
 	if a.settingsUnlocked(c) {
 		t.Fatal("PIN set: should be locked")
 	}
@@ -85,7 +82,6 @@ func TestSettingsPin(t *testing.T) {
 	if a.Unlock(c, "2468") != nil || !a.settingsUnlocked(c) {
 		t.Fatal("right PIN refused")
 	}
-	// A save from the browser (no hash in its JSON) keeps the PIN.
 	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil || a.r().cfg.SettingsPin == "" || !a.settingsUnlocked(c) {
 		t.Fatalf("PIN lost on save: %v", err)
 	}
@@ -136,7 +132,6 @@ func TestPinLockout(t *testing.T) {
 	if err := a.SaveSettings(admin, cfg, "2468", false); err != nil {
 		t.Fatal(err)
 	}
-	// Wrong PINs count for everyone, whatever the address.
 	wrongPins(t, a, &client{ip: "10.0.0.7"}, pinFreeTries)
 	wrongPins(t, a, &client{ip: "10.0.0.8"}, 1)
 	if a.Unlock(admin, "2468") == nil {
@@ -146,7 +141,6 @@ func TestPinLockout(t *testing.T) {
 	if a.Unlock(admin, "2468") != nil || a.pin.n != 0 {
 		t.Fatal("right PIN after the wait should unlock and reset the count")
 	}
-	// PinMaxTries in a row: locked until reset, waits or not.
 	wrongPins(t, a, admin, 6)
 	a.pin.until = time.Time{}
 	if a.Unlock(admin, "2468") == nil {
@@ -181,7 +175,6 @@ func TestPinChangeRelocks(t *testing.T) {
 	if a.settingsUnlocked(c) {
 		t.Fatal("unlock under the old PIN survived a change")
 	}
-	// Removing the PIN and setting the same one again still relocks.
 	if a.Unlock(admin, "2222") != nil {
 		t.Fatal("unlock with the new PIN")
 	}
@@ -222,8 +215,6 @@ func TestParallelWrongPins(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	// One PIN is checked at a time and every checked one counts, however
-	// many arrive at once and from however many addresses.
 	if wrong == 0 || a.pin.n != wrong {
 		t.Fatalf("%d wrong PINs checked, %d counted", wrong, a.pin.n)
 	}

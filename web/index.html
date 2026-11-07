@@ -76,7 +76,6 @@
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
         <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
       </div>
-      <!-- On a row of their own, so both start at the same height. -->
       <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
       <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
@@ -87,7 +86,7 @@
 
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__recent-head" id="history-bar">
-        <span class="sode__label" id="history-head">Recent</span>
+        <span class="sode__label" id="history-head">History</span>
       </div>
       <div class="sode__recent-tools">
         <div class="sode__search" data-search id="history-search">
@@ -109,7 +108,7 @@
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
       </div>
-      <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent takes"></ul>
+      <ul class="sode__hist" id="history" tabindex="-1" aria-label="History"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
 
@@ -149,8 +148,8 @@
     </div>
 
     <fieldset class="sode__group sode__device" data-apart>
-      <legend>This device</legend>
-      <span class="sode__hint">Saved in this browser only.</span>
+      <legend>This browser</legend>
+      <span class="sode__hint">Personal choices, saved in this browser only. Anyone can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-theme">Theme</label>
@@ -188,15 +187,15 @@
     </fieldset>
 
     <fieldset class="sode__group sode__device" data-apart>
-      <legend>Your account</legend>
-      <div class="sode__field" id="account" data-find="account" data-label="Account">
+      <legend>Me</legend>
+      <div class="sode__field" id="account" data-find="account" data-label="Me">
         <span class="sode__acct" id="account-name"></span>
         <div class="sode__names sode__names--start">
-          <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Log in" hidden>Log in</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Sign in" hidden>Sign in</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-profile" data-find="account-profile" data-label="My profile" aria-haspopup="dialog">My profile</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Import &amp; Export</button>
-          <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Log out">Log out</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Sign out">Sign out</button>
           <button type="button" class="pb-btn pb-btn--outline sode__lock-btn" id="soft-lock-btn" data-find="soft-lock-btn" data-label="Lock screen"><svg class="pb-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#lock"/></svg>Lock the screen</button>
         </div>
       </div>
@@ -204,6 +203,7 @@
 
     <fieldset class="sode__group">
       <legend>Global defaults</legend>
+      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="gcfg-theme">Theme</label>
@@ -242,25 +242,26 @@
 
     <fieldset class="sode__group">
       <legend>Router Source & Destination Names</legend>
+      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__names">
         <span id="names-status"></span>
         <span class="sode__names-refresh">
           <span class="sode__chipbox" id="names-at"></span>
-          <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Refresh now</button>
+          <button type="button" class="pb-btn pb-btn--sm" id="names-refresh">Re-read now</button>
         </span>
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-namerefresh">Refresh every (s)</label>
+          <label for="cfg-namerefresh">Re-read every (s)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-namerefresh" class="pb-input" data-key="nameRefreshSeconds" data-type="int" min="0"></span>
-          <span class="sode__hint">Setting 0s will never auto-refresh.</span>
+          <span class="sode__hint">Setting 0s will never re-read.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-namelen">Name character limit</label>
+          <label for="cfg-namelen">Name character limit (advanced)</label>
           <span class="pb-select-wrap"><select id="cfg-namelen" class="pb-select" data-key="nameLength" data-type="int"><option>4</option><option>8</option><option>12</option><option>16</option></select></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-namereq">Name requests</label>
+          <label for="cfg-namereq">Name requests (advanced)</label>
           <span class="pb-select-wrap"><select id="cfg-namereq" class="pb-select" data-key="nameRequests"><option value="std">Standard</option><option value="ext">Extended</option></select></span>
         </div>
       </div>
@@ -272,6 +273,7 @@
 
     <fieldset class="sode__group">
       <legend>Level colors</legend>
+      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <span class="sode__hint">Hex colors like <code><span class="sode__swatch" style="--sw: #3a7bd5" aria-hidden="true"></span>#3a7bd5</code>. Leave blank for default.</span>
       <div class="sode__colors" id="cfg-colors"></div>
       <div class="sode__names">
@@ -281,6 +283,7 @@
 
     <fieldset class="sode__group">
       <legend>Takes</legend>
+      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-default">Default levels</label>
@@ -304,12 +307,12 @@
       </div>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-firemode">Multi destination behavior</label>
+          <label for="cfg-firemode">Multi destination behavior (advanced)</label>
           <span class="pb-select-wrap"><select id="cfg-firemode" class="pb-select" data-key="fireMode"><option value="sequential">Sequential</option><option value="native">Native salvo</option></select></span>
           <span class="sode__hint">Native stages changes on the router followed by a "Take all" command.<br>Sequential takes each individually in quick succession.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-salvogroup">Salvo group (advanced)</label>
+          <label for="cfg-salvogroup">Router salvo group (advanced)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-salvogroup" class="pb-input" data-key="salvoGroup" data-type="int" min="0" max="127"></span>
         </div>
       </div>
@@ -319,8 +322,9 @@
 
     <fieldset class="sode__group">
       <legend>Router</legend>
+      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__field">
-        <label for="cfg-router">Address</label>
+        <label for="cfg-router">Address (advanced)</label>
         <input id="cfg-router" class="pb-input" data-key="router" placeholder="10.0.0.50:8910" spellcheck="false">
       </div>
       <div class="sode__fields">
@@ -337,17 +341,18 @@
 
     <fieldset class="sode__group">
       <legend>Matrix</legend>
+      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__fields">
         <div class="sode__field">
-          <label for="cfg-matrix">Matrix</label>
+          <label for="cfg-matrix">Matrix (advanced)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-matrix" class="pb-input" data-key="matrix" data-type="int" min="0" max="255"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-levels">Levels</label>
+          <label for="cfg-levels">Levels (advanced)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-levels" class="pb-input" data-key="levels" data-type="int" min="1" max="256"></span>
         </div>
         <div class="sode__field">
-          <label for="cfg-offset">Wire level offset</label>
+          <label for="cfg-offset">Level offset (advanced)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-offset" class="pb-input" data-key="levelWireOffset" data-type="int"></span>
           <span class="sode__hint" id="cfg-offset-note"></span>
         </div>
@@ -369,6 +374,7 @@
 
     <fieldset class="sode__group">
       <legend>Branding</legend>
+      <span class="sode__hint">Shared settings. A Trusted user can change them.</span>
       <div class="sode__fields">
         <div class="sode__field">
           <label for="cfg-brandtext">Logo text & Page title</label>
@@ -389,13 +395,14 @@
 
     <fieldset class="sode__group">
       <legend>Access</legend>
+      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
       <div class="sode__names sode__names--start">
         <button type="button" class="pb-btn pb-btn--outline" id="cfg-pin-change" aria-expanded="false" aria-controls="cfg-pin-box">Change Advanced PIN</button>
       </div>
       <div class="sode__field" id="cfg-pin-box" hidden>
         <div class="sode__fields">
           <div class="sode__field">
-            <label for="cfg-pin">Settings PIN</label>
+            <label for="cfg-pin">Advanced Settings PIN</label>
             <input type="password" id="cfg-pin" class="pb-input" autocomplete="new-password" spellcheck="false">
           </div>
           <div class="sode__field">
@@ -417,10 +424,10 @@
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-main"><span class="pb-check__label">Lock main screen</span></label>
             <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-lock-log"><span class="pb-check__label">Lock Communication Log</span></label>
           </div>
-          <span class="sode__hint">A locked page asks for a user's PIN before it changes anything. Needs a user (Settings &gt; Users) and a settings PIN. Only the settings PIN can change these.</span>
+          <span class="sode__hint">A locked page asks for a user's PIN before it changes anything. Needs a user (Settings &gt; Users) and an Advanced Settings PIN. Only the Advanced Settings PIN can change these.</span>
         </div>
         <div class="sode__field">
-          <label for="cfg-auto-lock">Lock after idle (minutes)</label>
+          <label for="cfg-auto-lock">Auto-lock after idle (minutes)</label>
           <span class="pb-number-wrap"><input type="number" id="cfg-auto-lock" class="pb-input" data-key="autoLockMinutes" data-type="int" min="0" max="1440"></span>
         </div>
       </div>
@@ -428,8 +435,9 @@
 
     <fieldset class="sode__group">
       <legend>Server Backup</legend>
-      <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the settings PIN.</span>
-      <!-- Server configuration file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
+      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
+      <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the Advanced Settings PIN.</span>
+      <!-- Server config file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
       <div class="sode__field" id="config-file" data-apart data-find="config-file" data-label="Server Backup">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include Secrets (private backup)</span></label>
         <span class="sode__hint">If enabled, the file includes the Advanced Settings PIN and every user's PIN hash. Without them, a new server can't restore the users.</span>
@@ -454,6 +462,7 @@
 
     <fieldset class="sode__group">
       <legend>Sode Networking</legend>
+      <span class="sode__hint">Advanced settings. Changing them needs the Advanced Settings PIN, even for a Trusted user.</span>
       <div class="sode__field">
         <label for="cfg-proxies">Trusted proxies</label>
         <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="10.0.0.2, 172.18.0.0/16" spellcheck="false">
@@ -463,15 +472,16 @@
 
     <fieldset class="sode__group">
       <legend>History</legend>
+      <span class="sode__hint">Shared settings, except those marked (advanced), which need the Advanced Settings PIN even for a Trusted user.</span>
       <div class="sode__field">
-        <label for="cfg-hidden">Hidden destinations in Recent</label>
+        <label for="cfg-hidden">Hidden destinations in History</label>
         <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
         <span class="sode__hint" id="cfg-hidden-note"></span>
       </div>
-      <div class="sode__field" data-find="clear-history" data-label="Clear Recent">
-        <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect Logs.</span>
+      <div class="sode__field" data-find="clear-history" data-label="Clear History">
+        <span>Advanced setting. Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect Logs.</span>
         <div class="sode__names" id="clear-step1">
-          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear Recent</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
         </div>
         <div class="sode__names" id="clear-step2" hidden>
           <span>
@@ -482,7 +492,6 @@
       </div>
     </fieldset>
 
-    <!-- Export & import (transfer.js) -->
     <fieldset class="sode__group">
       <legend>Export & import</legend>
       <div class="sode__field" data-find="transfer-open" data-label="Export & import">
@@ -524,7 +533,7 @@
       <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head">
         <div class="sode__recent-head">
-          <span class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo, right to redo)</span></span>
+          <span class="sode__label" id="m-recent-head">History <span class="sode__hint">(swipe left to undo, right to redo)</span></span>
           <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
@@ -608,8 +617,8 @@
           <button type="button" class="pb-btn pb-btn--ghost" id="flt-set-name-cancel">Cancel</button>
         </div>
         <div class="sode__filters-set" id="flt-pin-row" hidden>
-          <label class="sode__fld"><span class="sode__label">Settings PIN</span><input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Settings PIN"></label>
-          <button type="button" class="pb-btn pb-btn--ok" id="flt-pin-ok">Unlock</button>
+          <label class="sode__fld"><span class="sode__label">Advanced Settings PIN</span><input class="pb-input" id="flt-pin" type="password" autocomplete="current-password" placeholder="PIN" aria-label="Advanced Settings PIN"></label>
+          <button type="button" class="pb-btn pb-btn--ok" id="flt-pin-ok">Enter</button>
           <button type="button" class="pb-btn pb-btn--ghost" id="flt-pin-cancel">Cancel</button>
         </div>
         <span class="sode__hint" id="flt-set-note" aria-live="polite"></span>
@@ -622,7 +631,7 @@
       <fieldset class="sode__filters-show">
         <legend class="sode__label">Show</legend>
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-sode"><span class="pb-check__label">Sode takes</span></label>
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-ext"><span class="pb-check__label">Other panels</span></label>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-ext"><span class="pb-check__label">External changes</span></label>
         <label class="pb-check sode__filters-indent"><input type="checkbox" class="pb-check__input" id="flt-hidden"><span class="pb-check__label">Hidden destinations</span></label>
         <span class="sode__hint sode__filters-indent" id="flt-hidden-note"></span>
       </fieldset>
@@ -645,13 +654,13 @@
 </div>
 <div class="pb-modal-backdrop sode__scrim" id="lock-help" hidden>
   <div class="pb-modal" role="dialog" aria-modal="true" aria-labelledby="lock-help-title" tabindex="-1" id="lock-help-dialog">
-    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot the settings PIN</span></div>
+    <div class="pb-modal__header"><span class="pb-modal__title" id="lock-help-title">Forgot the Advanced Settings PIN</span></div>
     <div class="pb-modal__body sode__lock-help">
-      <p>On the machine running Sode, in the folder with its <code>docker-compose.yml</code>, remove the PIN:</p>
+      <p>On the machine running Sode, in the directory with its <code>docker-compose.yml</code>, remove the PIN:</p>
       <pre><code>docker compose exec sode /sode -reset-pin</code></pre>
       <p>Then restart Sode to apply it:</p>
       <pre><code>docker compose restart sode</code></pre>
-      <p>Settings then open without a PIN. Set a new one under Settings PIN.</p>
+      <p>Settings then open without a PIN. Set a new one under Access.</p>
     </div>
     <div class="pb-modal__footer">
       <button type="button" class="pb-btn pb-btn--outline" id="lock-help-close">Close</button>
@@ -695,9 +704,9 @@
         <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
       </dl>
-      <div class="sode__label">Keyboard mode (Recent)</div>
+      <div class="sode__label">Keyboard mode (History)</div>
       <dl>
-        <dt><kbd>Esc</kbd></dt><dd>Start it: with the boxes empty (or on a button in Recent); a click leaves</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Start it: with the boxes empty (or on a button in History); a click leaves</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source, Destination, Levels</dd>
         <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous (<kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> work too)</dd>
         <dt><kbd>⇧j</kbd> <kbd>⇧↓</kbd></dt><dd>Next group</dd>
@@ -719,7 +728,7 @@
       <div class="sode__label">Anywhere</div>
       <dl>
         <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings</dd>
-        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen; press the letter it shows to unlock</dd>
+        <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
       </dl>
     </div>

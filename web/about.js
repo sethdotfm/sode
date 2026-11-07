@@ -1,7 +1,4 @@
-// The bottom row of Settings, built once for its two hosts (the locked view's
-// .sode__lock-exit and the save bar's .sode__foot): the Sode version, the
-// GitHub and bug-report links, and View Logs, in that order after whatever the
-// host already holds (Exit, or a spacer).
+// Settings bottom row, shared by the locked view (.sode__lock-exit) and the save bar (.sode__foot).
 
 import { el, S, icon, on } from './core.js';
 
@@ -14,7 +11,7 @@ const link = (href, tip, cls, ...kids) => {
   return a;
 };
 
-// id: View Logs' id (the save bar's copy is the searchable one, #open-log).
+// id: View Logs' id; the save bar's copy is the one settings search finds (#open-log).
 export function fillAbout(host, { id } = {}) {
   const version = el('span', 'sode__hint');
   version.dataset.version = '';

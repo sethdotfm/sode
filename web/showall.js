@@ -1,14 +1,10 @@
-// The "Show all sources / destinations" button under a patch box. An empty or
-// confirmed box lists nothing on focus; this button (or ↓/↑) opens its whole
-// list instead. It shows whenever the focused box has no list open: empty,
-// confirmed, or a search that found nothing.
+// "Show all" button under a patch box: an empty or confirmed box lists nothing on focus; this (or arrows) opens the whole list.
 
-// box: { input, cb, list }; btn: the button's row; chosen(): the confirmed
-// item, if any. Returns { sync, open }: sync() is called by the box's
-// combobox (onRender) and its focus handler, open() by the button and ↓/↑.
+// box: { input, cb, list }; chosen(): the confirmed item. sync() is for the combobox onRender and focus; open() for the button and arrows.
 export function showAll(box, btn, chosen) {
-  const sync = () => { btn.hidden = box.cb.open || document.activeElement !== box.input; };
-  // The whole list, on the chosen row (or the first, its cursor hidden until ↓).
+  const sync = () => {
+    btn.hidden = box.cb.open || document.activeElement !== box.input;
+  };
   const open = () => {
     box.input.focus();
     box.cb.browse(box.list(), chosen()?.n);

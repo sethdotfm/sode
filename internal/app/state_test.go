@@ -30,7 +30,7 @@ func fillRouterDerived(a *App) {
 	c := &cause{src: 7, dst: 5, id: 1, done: true}
 	a.ext.causes = append(a.ext.causes, c)
 	a.ext.leaders[6] = 5
-	a.ext.lateTake[ownKey{5, 0, 8}] = []lateTake{{id: 1, until: until, cause: c}}
+	a.ext.lateRoute[ownKey{5, 0, 8}] = []lateRoute{{id: 1, until: until, cause: c}}
 	a.ext.lateHits = append(a.ext.lateHits, lateHit{1, 1})
 }
 
@@ -49,7 +49,6 @@ func noZeroFields(t *testing.T, v any) {
 
 func TestRouterChangeClearsRouterState(t *testing.T) {
 	a := newTestApp(t)
-	// Kept state.
 	cfg := a.r().cfg
 	cl := &client{ip: "10.0.0.9", send: make(chan []byte, 16)}
 	if err := a.SaveSettings(cl, cfg, "2468", false); err != nil {
@@ -78,7 +77,6 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	a.pendSent = []Sent{{}}
 	a.mu.Unlock()
 
-	// Not router-side: nothing is cleared.
 	cur := a.r().cfg
 	cur.DeviceDefaults.Theme = "dark"
 	cur.NameRefreshSeconds++
@@ -91,13 +89,12 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	a.mu.Lock()
 	if len(a.router.tally) != 1 || len(a.router.srcNames) != 1 || len(a.ext.pending) != 1 || len(a.ext.own) != 1 ||
-		len(a.ext.lateTake) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
+		len(a.ext.lateRoute) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
 		a.mu.Unlock()
 		t.Fatal("a settings change that is not router-side cleared state")
 	}
 	a.mu.Unlock()
 
-	// Router-side: every router-derived field is back as New made it.
 	cur.Router = "127.0.0.1:1"
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
@@ -113,7 +110,6 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	if a.status.Router != string(swp08.StateConnecting) || a.status.Addr != "127.0.0.1:1" || a.status.Err != "" {
 		t.Fatalf("status %+v", a.status)
 	}
-	// Takes and checks in flight are cut: gone, and their waits released.
 	if len(a.waiters) != 0 || len(a.checks) != 0 || !w.cut || !w.closed || !ck.shut {
 		t.Fatalf("takes not cut: %d waiters, %d checks, cut=%v", len(a.waiters), len(a.checks), w.cut)
 	}
@@ -127,7 +123,6 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	default:
 		t.Fatal("cut check's done still open")
 	}
-	// Kept (see the field comments on App).
 	if a.hist.Len() != 1 {
 		t.Fatalf("history has %d entries", a.hist.Len())
 	}

@@ -73,7 +73,6 @@ func TestProfileSelfSave(t *testing.T) {
 	if got := profiles(anon); len(got) != 0 {
 		t.Fatalf("an anonymous connection was sent a profile: %+v", got)
 	}
-	// It is on disk too.
 	cfg, _, err := config.Load(a.cfgPath)
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +89,6 @@ func TestProfileOmittedPartsKept(t *testing.T) {
 		FilterSets: []config.FilterSet{{Name: "Mine"}}, Presets: []config.Preset{testPreset("Open")}}); err != nil {
 		t.Fatal(err)
 	}
-	// Only prefs: filter sets and presets stay.
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Prefs: map[string]string{"clock": "12"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +96,6 @@ func TestProfileOmittedPartsKept(t *testing.T) {
 	if p.Prefs["clock"] != "12" || p.Prefs["theme"] != "" || len(p.FilterSets) != 1 || len(p.Presets) != 1 {
 		t.Fatalf("after a prefs-only save: %+v", p)
 	}
-	// An empty list clears just that part.
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Presets: []config.Preset{}}); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +126,6 @@ func TestProfileValidation(t *testing.T) {
 			t.Errorf("%s: err=%v", name, err)
 		}
 	}
-	// An unknown pref name is dropped, the rest kept.
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Prefs: map[string]string{"bogus": "x", "theme": "light"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -160,12 +156,10 @@ func TestProfileTrustedSavesAnothers(t *testing.T) {
 	if got := profiles(bo); len(got) != 0 {
 		t.Fatalf("the trusted editor was sent Ana's profile: %+v", got)
 	}
-	// Untrusting takes effect at once.
 	setFlags(t, a, "Bo", false, false)
 	if _, err := a.ProfileSave(bo, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !errors.Is(err, errLocked) {
 		t.Fatalf("untrusted again: %v", err)
 	}
-	// The settings PIN works for anyone's.
 	c := &client{ip: "10.0.0.9"}
 	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); !errors.Is(err, errLocked) {
 		t.Fatalf("anonymous: %v", err)
@@ -174,7 +168,7 @@ func TestProfileTrustedSavesAnothers(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := a.ProfileSave(c, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "light"}}); err != nil {
-		t.Fatalf("settings PIN: %v", err)
+		t.Fatalf("Advanced Settings PIN: %v", err)
 	}
 	if anasProfile(t, a).Prefs["theme"] != "light" {
 		t.Fatal("PIN save did not land")
@@ -197,11 +191,9 @@ func TestProfileUntrustedRefused(t *testing.T) {
 			t.Errorf("%s: ProfileSave: %v", who, err)
 		}
 	}
-	// An empty name is nobody's own.
 	if err := admitMsg(a, ana, inMsg{T: "profileSave"}); !errors.Is(err, errLocked) {
 		t.Errorf("empty name admitted: %v", err)
 	}
-	// Ana can't write Bo's either.
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Bo", Prefs: map[string]string{"theme": "dark"}}); !errors.Is(err, errLocked) {
 		t.Errorf("Ana saving Bo's: %v", err)
 	}
@@ -262,7 +254,6 @@ func TestProfileRenameKeepsAndDeleteDrops(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	// Rename, PIN kept.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Anna", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +261,6 @@ func TestProfileRenameKeepsAndDeleteDrops(t *testing.T) {
 	if !ok || u.Profile.Prefs["theme"] != "dark" || len(u.Profile.Presets) != 1 {
 		t.Fatalf("after rename: %+v", u)
 	}
-	// Rename with a new PIN.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ann", Was: "Anna", Pin: "4321"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -278,14 +268,12 @@ func TestProfileRenameKeepsAndDeleteDrops(t *testing.T) {
 	if u.Profile.Prefs["theme"] != "dark" {
 		t.Fatalf("after rename with a new PIN: %+v", u)
 	}
-	// A new user of the old name starts empty; a profile is kept only once.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ann", Was: "Ann"}, {Name: "Ana", Pin: "1357"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if u, _ := a.r().cfg.FindUser("Ana"); !u.Profile.Empty() {
 		t.Fatalf("a new user inherited %+v", u.Profile)
 	}
-	// Removed: gone, and a user added later under the name starts empty.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +302,6 @@ func TestProfilePushOnAccessChange(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	// Removing Ana relocks her: her browser is told to forget the profile.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Bo", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +309,6 @@ func TestProfilePushOnAccessChange(t *testing.T) {
 	if len(got) != 1 || got[0].Name != "" || len(got[0].Prefs) != 0 {
 		t.Fatalf("after removal: %+v", got)
 	}
-	// Logging out clears too, and logging in sends it (hi/unlock paths).
 	bo := watched(t, a, "10.0.0.3", "567890")
 	if got := profiles(bo); len(got) != 1 || got[0].Name != "Bo" {
 		t.Fatalf("login: %+v", got)
@@ -401,7 +387,6 @@ func TestProfileSaveFitsReadLimit(t *testing.T) {
 	if n >= wsReadLimit {
 		t.Fatalf("profileSave is %d bytes, over the %d read limit", n, wsReadLimit)
 	}
-	// Both lists at their global maximum together are over the profile cap.
 	c.Users[0].Profile.Presets = cfg.Presets
 	c.Normalize()
 	if err := c.Validate(); err == nil {
@@ -442,7 +427,6 @@ func TestProfileNotInheritedBySameNameNewRow(t *testing.T) {
 	if err := a.Unlock(admin, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	// Ana removed and a new Ana (no Was, new PIN) added in the same save.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "9753"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +448,6 @@ func TestProfileSavePinOrder(t *testing.T) {
 	if got := u.Profile.Normalized().PinOrder; len(got) != 2 || got[0] != "local:b" || got[1] != "global:a" {
 		t.Fatalf("pin order %v", got)
 	}
-	// A save of another part leaves it alone.
 	if _, err := a.ProfileSave(ana, profileReq{Name: "Ana", Prefs: map[string]string{"theme": "dark"}}); err != nil {
 		t.Fatal(err)
 	}

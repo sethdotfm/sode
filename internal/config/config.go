@@ -21,13 +21,9 @@ import (
 // settings (listen address, file paths, debug) stay in env vars.
 type Config struct {
 	Router string `yaml:"router" json:"router" guard:"router"`
-	// BrandText replaces "Sode" in the header and page titles ("" = Sode);
-	// BrandBorder is a colour name from BrandColors for a border round the
-	// window ("" = none). Display only: never touches the router link.
-	BrandText   string `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
-	BrandBorder string `yaml:"brandBorder,omitempty" json:"brandBorder" guard:"open"`
-	// RouterName is a friendly name for the status card; RouterShow picks
-	// what the card shows: "address" (default), "name" or "none".
+	// Brand fields are display only.
+	BrandText       string `yaml:"brandText,omitempty" json:"brandText" guard:"open"`
+	BrandBorder     string `yaml:"brandBorder,omitempty" json:"brandBorder" guard:"open"`
 	RouterName      string `yaml:"routerName" json:"routerName" guard:"open"`
 	RouterShow      string `yaml:"routerShow" json:"routerShow" guard:"open"`
 	Matrix          int    `yaml:"matrix" json:"matrix" guard:"router"`
@@ -35,12 +31,8 @@ type Config struct {
 	LevelWireOffset int    `yaml:"levelWireOffset" json:"levelWireOffset" guard:"router"`
 	DefaultLevels   string `yaml:"defaultLevels" json:"defaultLevels" guard:"open"`
 	NameLength      int    `yaml:"nameLength" json:"nameLength" guard:"router"`
-	NameRequests    string `yaml:"nameRequests" json:"nameRequests" guard:"router"` // std | ext
-	// FireMode is how a confirm of several takes is sent: "sequential" (one
-	// extended connect after another) or "native" (a SW-P-08 group salvo,
-	// set with one Go, so they land much closer together; app/fire.go). SalvoGroup is the group
-	// (0-127) native salvos stage in: the router's list is shared by every
-	// client, so it must be one only Sode uses.
+	NameRequests    string `yaml:"nameRequests" json:"nameRequests" guard:"router"`
+	// SalvoGroup (0-127): the router's list is shared by every client, so use one only Sode uses.
 	FireMode             string   `yaml:"fireMode" json:"fireMode" guard:"pin"`
 	SalvoGroup           int      `yaml:"salvoGroup" json:"salvoGroup" guard:"pin"`
 	NumberOffset         int      `yaml:"numberOffset" json:"numberOffset" guard:"open"`
@@ -50,71 +42,48 @@ type Config struct {
 	NameRefreshSeconds   int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
 	TallyResyncSeconds   int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
 	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
-	// HiddenDsts is a Recent filter expression (web/filter.js) for
-	// destinations whose changes from other panels every browser hides
-	// unless its Filters show them; still recorded. E.g. a shader's monitor.
-	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
-	// FilterSets are named Recent filters offered to every browser as
-	// quick buttons; browsers can add their own.
+	// HiddenDsts is a History filter expression (web/filter.js) hiding External changes to these destinations; still recorded.
+	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
 	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
-	// Presets are named sets of takes offered to every browser as buttons
-	// above Recent (presets.go).
-	Presets []Preset `yaml:"presets,omitempty" json:"presets" owned:"true"`
-	// LegacyPresets reads the key presets had before Beta 1.5 was released
-	// ("salvos"); Normalize moves them to Presets, so the next save writes
-	// the new key.
+	Presets    []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
+	// LegacyPresets: pre-1.5 key "salvos"; Normalize moves it to Presets.
 	LegacySalvos []Preset `yaml:"salvos,omitempty" json:"-" guard:"open"`
-	// Grid was parked (#150); ignored. Kept so a file that has them loads,
-	// and dropped on the next save.
+	// Grid: ignored; kept so old files load.
 	LegacyGrids       any `yaml:"grids,omitempty" json:"-" guard:"open"`
 	LegacyGridConfirm any `yaml:"gridConfirm,omitempty" json:"-" guard:"open"`
-	// HideDsts is no longer used; kept so files that have it load.
+	// HideDsts: unused; kept so old files load.
 	HideDsts []int `yaml:"hideDsts,omitempty" json:"-" guard:"open"`
-	// LevelColors[i] colors UI level i+1 as #rrggbb; "" or missing keeps
-	// the default (DefaultLevelColors, then the patchbay swatch). Entries
-	// past Levels are kept but unused.
+	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
 	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
-	// LevelNumbering is how levels are shown and typed: "1" (1-17), "0"
-	// (0-16) or "va" (V, 1-16: "0" with level 0 shown as V).
+	// LevelNumbering: "1" (1-17), "0" (0-16) or "va" (V, 1-16).
 	LevelNumbering string `yaml:"levelNumbering" json:"levelNumbering" guard:"open"`
-	// LevelTypedBase is no longer used; kept so files that have it load.
-	LevelTypedBase int `yaml:"levelTypedBase,omitempty" json:"-" guard:"open"`
-	// SettingsPin is a HashPin hash guarding the settings view; "" = none.
-	// Never sent to browsers.
-	SettingsPin string `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
-	// PinMaxTries wrong PINs in a row lock settings until the PIN is reset
-	// (sode -reset-pin) or Sode restarts; 0 = never.
-	PinMaxTries int `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
-	// DeviceDefaults are what the "This device" settings are for browsers
-	// that haven't chosen their own. Browser-side only: changing them never
-	// touches the router link.
+	// LevelTypedBase: unused; kept so old files load.
+	LevelTypedBase int            `yaml:"levelTypedBase,omitempty" json:"-" guard:"open"`
+	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
+	PinMaxTries    int            `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
-	// Users, Locks and AutoLockMinutes: optional access control (users.go).
-	// The users are saved by their own dialog; the locks and the idle time
-	// are Settings > Access fields only the settings PIN may change (a
-	// Settings save without them keeps the live values: configMsg).
+	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (configMsg).
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
 	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
 	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
-	// MaxPinLen is the longest user PIN (4-12); the lock pad stops there.
+	// MaxPinLen is the longest user PIN (4-12).
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
+	// SignInMode: SignInPin or SignInUsername. Saved with the users (SaveUsers), so changing it
+	// needs the Advanced Settings PIN.
+	SignInMode string `yaml:"signInMode" json:"signInMode" owned:"true"`
 }
 
-// MaxFilterSetsBytes caps all filter sets as JSON, so a "filterSets"
-// message fits the 64 KiB read limit with room to spare.
+// MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
 const MaxFilterSetsBytes = 48 << 10
 
-// BrandColor is one accepted BrandBorder name. Hex is the dark-mode value of
-// the signal token web/base.css maps the name to (`[data-brand="name"]`); the
-// server draws the app icon with it. Label is how browsers list it.
+// Hex is the dark-mode value of the signal token web/base.css maps the name to; the server draws the app icon with it.
 type BrandColor struct {
 	Name  string `json:"name"`
 	Label string `json:"label"`
 	Hex   string `json:"-"`
 }
 
-// BrandColors is the one table of colours. Never red: that is the lost-link
-// outline.
+// Never red: that is the lost-link outline.
 var BrandColors = []BrandColor{
 	{"blue", "Blue", "#5fb2e8"},
 	{"teal", "Teal", "#5ccfc9"},
@@ -124,7 +93,6 @@ var BrandColors = []BrandColor{
 	{"pink", "Pink", "#e87bb3"},
 }
 
-// BrandColorByName looks a name up in BrandColors.
 func BrandColorByName(name string) (BrandColor, bool) {
 	i := slices.IndexFunc(BrandColors, func(c BrandColor) bool { return c.Name == name })
 	if i < 0 {
@@ -133,7 +101,6 @@ func BrandColorByName(name string) (BrandColor, bool) {
 	return BrandColors[i], true
 }
 
-// BrandNames lists the names, for messages.
 func BrandNames() []string {
 	out := make([]string, len(BrandColors))
 	for i, c := range BrandColors {
@@ -142,13 +109,7 @@ func BrandNames() []string {
 	return out
 }
 
-// DeviceDefaults mirrors the per-browser settings (web/prefs.js): Theme is
-// system | light | dark, Layout auto | phone | desktop, Clock 24 | 12 |
-// locale; Flip is Destination before Source, ScrollTop scrolls to the top
-// when a box is focused, SearchFilters makes quick search respect filters,
-// SetStack is how stacked filter sets combine: and (all must match) | or
-// (any may), NextMode is what the Next chips and Ctrl+Shift+S/D mean by next:
-// number (one higher) | fuzzy (the next match of the name's text).
+// DeviceDefaults mirrors the per-browser prefs in web/prefs.js.
 type DeviceDefaults struct {
 	Theme         string `yaml:"theme" json:"theme"`
 	Layout        string `yaml:"layout" json:"layout"`
@@ -160,8 +121,6 @@ type DeviceDefaults struct {
 	NextMode      string `yaml:"nextMode" json:"nextMode"`
 }
 
-// FilterSet is one named Recent filter (see web/filter.js): which kinds of
-// entry show, and expressions for sources and destinations.
 type FilterSet struct {
 	Name   string `yaml:"name" json:"name"`
 	Src    string `yaml:"src,omitempty" json:"src"`
@@ -191,12 +150,12 @@ func Defaults() Config {
 		LevelNumbering:       "1",
 		PinMaxTries:          10,
 		MaxPinLen:            DefaultMaxPinLen,
+		SignInMode:           SignInPin,
 		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }
 
-// FromEnv overlays the SODE_* seed variables onto c. They are only used to
-// create the config file on first start.
+// Seed only: used to create the config file on first start.
 func FromEnv(c Config) (Config, error) {
 	var errs []error
 	str := func(k string, dst *string) {
@@ -249,8 +208,7 @@ func FromEnv(c Config) (Config, error) {
 	return c, errors.Join(errs...)
 }
 
-// Clone returns a copy that shares no slices with c, so Normalize and other
-// in-place edits on it can't touch a config others are reading.
+// Clone shares no slices, so Normalize can't touch a config others read.
 func (c Config) Clone() Config {
 	c.TrustedProxies = slices.Clone(c.TrustedProxies)
 	c.LevelColors = slices.Clone(c.LevelColors)
@@ -264,7 +222,6 @@ func (c Config) Clone() Config {
 	return c
 }
 
-// Normalize fills derived defaults; call before Validate.
 func (c *Config) Normalize() {
 	c.Router = strings.TrimSpace(c.Router)
 	c.RouterName = strings.TrimSpace(c.RouterName)
@@ -317,10 +274,10 @@ func (c *Config) Normalize() {
 	c.HiddenDsts = strings.TrimSpace(c.HiddenDsts)
 	c.LegacyGrids, c.LegacyGridConfirm, c.Locks.LegacyGrid = nil, nil, nil
 	if len(c.Presets) == 0 && len(c.LegacySalvos) > 0 {
-		c.Presets = c.LegacySalvos // saved under the old key; the next save writes presets:
+		c.Presets = c.LegacySalvos
 	}
 	c.LegacySalvos = nil
-	c.HideDsts = nil // superseded by HiddenDsts; dropped on the next save
+	c.HideDsts = nil
 	c.FilterSets = normalizeFilterSets(c.FilterSets)
 	c.normalizePresets()
 	c.normalizeProfiles()
@@ -333,8 +290,6 @@ func (c *Config) Normalize() {
 	}
 }
 
-// normColor turns "#ABC", "abc", "AABBCC" into "#aabbcc". Anything else is
-// returned trimmed for Validate to reject.
 func normColor(v string) string {
 	v = strings.ToLower(strings.TrimSpace(v))
 	h := strings.TrimPrefix(v, "#")
@@ -475,7 +430,6 @@ func (c Config) Validate() error {
 	return errors.Join(errs...)
 }
 
-// Proxies parses TrustedProxies as IPs or CIDR prefixes.
 func (c Config) Proxies() ([]netip.Prefix, error) {
 	var out []netip.Prefix
 	for _, s := range c.TrustedProxies {
@@ -492,25 +446,21 @@ func (c Config) Proxies() ([]netip.Prefix, error) {
 	return out, nil
 }
 
-// DefaultLevelColors are the user's Ultrix level colors, level 1 first.
-// Levels past these fall back to the patchbay swatches.
 var DefaultLevelColors = []string{
-	"#7ae85a", "#3b5bfd", "#e5483b", "#f5e663", "#3f8a8c", "#d946ef",
-	"#3f7f2e", "#67e8f9", "#7e2a86", "#f0963e", "#b5efcb", "#e287e8",
+	"#7ae85a", "#4c69fd", "#e5483b", "#f5e663", "#3f8a8c", "#d946ef",
+	"#4a8639", "#67e8f9", "#a061a5", "#f0963e", "#b5efcb", "#e287e8",
 	"#5b86f0", "#8a8a35", "#a5e3f7", "#4fa03a", "#f29bb0",
 }
 
-// Level maps a UI level number to its SW-P-08 wire level.
 type Level struct {
 	UI     int    `json:"ui"`
 	Wire   int    `json:"wire"`
-	Label  string `json:"label"`           // as shown, per LevelNumbering
-	Swatch string `json:"swatch"`          // patchbay pb-level-- suffix
-	Color  string `json:"color,omitempty"` // #rrggbb, configured or default; overrides Swatch
+	Label  string `json:"label"`
+	Swatch string `json:"swatch"`
+	Color  string `json:"color,omitempty"` // overrides Swatch
 }
 
-// LevelMap: wire = UI + offset; UI 1 gets the video swatch, the rest the
-// 16 audio swatches, unless LevelColors or DefaultLevelColors has a color.
+// UI 1 gets the video swatch, the rest the 16 audio swatches.
 func (c Config) LevelMap() []Level {
 	out := make([]Level, c.Levels)
 	for i := range out {
@@ -529,8 +479,6 @@ func (c Config) LevelMap() []Level {
 	return out
 }
 
-// LevelLabel is how UI level ui is shown: "0" → ui-1, "va" → V, 1, 2…,
-// otherwise ui.
 func (c Config) LevelLabel(ui int) string {
 	switch c.LevelNumbering {
 	case "0":
@@ -544,7 +492,6 @@ func (c Config) LevelLabel(ui int) string {
 	return strconv.Itoa(ui)
 }
 
-// ParseLevels parses "1", "1-3", "1,3,5-8" within 1..max.
 func ParseLevels(s string, max int) ([]int, error) {
 	seen := map[int]bool{}
 	var out []int
@@ -598,11 +545,8 @@ func Load(path string) (c Config, exists bool, err error) {
 	return c, true, nil
 }
 
-// Parse decodes a config.yaml over the defaults, with the same rules as Load
-// (unknown keys are errors, legacy keys still load) and normalizes it, but
-// does not Validate: a caller that merges things in (an import keeping the
-// live PIN hashes) validates after. Load and the server's config import both
-// read files through this one decoder.
+// Parse is Load's decoder (also config import): unknown keys error, legacy keys load, no Validate
+// so a caller can merge PIN hashes first.
 func Parse(b []byte) (Config, error) {
 	c := Defaults()
 	dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -616,7 +560,6 @@ func Parse(b []byte) (Config, error) {
 
 const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
 
-// Save writes c atomically: temp file, fsync, rename.
 func Save(path string, c Config) error {
 	b, err := yaml.Marshal(c)
 	if err != nil {
@@ -625,10 +568,7 @@ func Save(path string, c Config) error {
 	return AtomicWrite(path, []byte(header), b)
 }
 
-// AtomicWrite writes the parts to path through a temp file in the same
-// directory (private, 0600 from the start; fsync, then rename, then the
-// directory synced where the OS allows), so a crash leaves the old file or
-// the new. Config saves and the session token file both use it.
+// AtomicWrite: private temp file, fsync, rename, dir sync; used for config and the session token file.
 func AtomicWrite(path string, parts ...[]byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".sode-*.tmp")
 	if err != nil {
@@ -653,7 +593,7 @@ func AtomicWrite(path string, parts ...[]byte) error {
 		return err
 	}
 	if d, err := os.Open(filepath.Dir(path)); err == nil {
-		d.Sync() // best effort
+		d.Sync()
 		d.Close()
 	}
 	return nil

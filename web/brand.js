@@ -1,7 +1,4 @@
-// Per-instance branding (issue 126): the logo text replaces "Sode" in the
-// header, and an optional colour border goes round the window (and colours
-// the tab and app icons). Pages set their own titles from the `brand` event.
-// Display only; the red lost-link outline (.sode__frame) stays on top.
+// Per-instance branding: logo text and optional border colour. Display only; the red lost-link outline (.sode__frame) stays on top.
 import { on, emit } from './core.js';
 import { iconURL, setBrand } from './brandicon.js';
 
@@ -17,8 +14,7 @@ on('helloCfg', (cfg) => {
   const color = cfg.brandBorder || '';
   setBrand(frame, color);
   frame.hidden = !color;
-  // The tab icon and the home-screen icon take the colour too (the server
-  // draws them, see icon.go); the manifest follows the config on its own.
+  // The server draws the tab and home-screen icons in this colour (icon.go).
   const tab = document.querySelector('link[rel="icon"]');
   if (tab) tab.href = iconURL(192, color);
   const touch = document.querySelector('link[rel="apple-touch-icon"]');

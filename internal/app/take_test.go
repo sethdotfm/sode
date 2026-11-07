@@ -11,15 +11,12 @@ import (
 )
 
 func TestWaiterAlreadyRouted(t *testing.T) {
-	w := &waiter{dst: 9, src: 2, levels: []*takeLevel{{ui: 1, wire: 0}, {ui: 2, wire: 1}}, done: make(chan struct{})}
-	// Level 0 changes: announced with Connected.
+	w := &waiter{dst: 9, src: 2, levels: []*routeLevel{{ui: 1, wire: 0}, {ui: 2, wire: 1}}, done: make(chan struct{})}
 	w.see(swp08.Crosspoint{Level: 0, Dst: 9, Src: 2, Cmd: swp08.CmdExtConnected})
-	// Wrong source on level 1 doesn't count.
 	w.see(swp08.Crosspoint{Level: 1, Dst: 9, Src: 3, Cmd: swp08.CmdExtTally})
 	if w.closed {
 		t.Fatal("finished early")
 	}
-	// Level 1 was already on src: confirmed by the interrogate's Tally.
 	w.see(swp08.Crosspoint{Level: 1, Dst: 9, Src: 2, Cmd: swp08.CmdExtTally})
 	if !w.closed {
 		t.Fatal("not finished")
@@ -29,9 +26,8 @@ func TestWaiterAlreadyRouted(t *testing.T) {
 	}
 }
 
-// How a level was confirmed is decided once, when the answer arrives.
 func TestConfirmedByIsDecidedOnce(t *testing.T) {
-	w := &waiter{dst: 9, src: 2, done: make(chan struct{}), levels: []*takeLevel{
+	w := &waiter{dst: 9, src: 2, done: make(chan struct{}), levels: []*routeLevel{
 		{wire: 0},                           // sequential, announced
 		{wire: 1},                           // sequential, already there
 		{wire: 2, native: true},             // staged, router had it elsewhere
@@ -47,15 +43,14 @@ func TestConfirmedByIsDecidedOnce(t *testing.T) {
 			t.Errorf("level %d: by = %d, want %d", i, l.by, want[i])
 		}
 	}
-	// Un-staging after the answer (a fallback) must not change what was said.
 	w.levels[2].native = false
 	if w.levels[2].already() || !w.levels[2].tallied() {
 		t.Error("clearing native moved a confirmed level")
 	}
 }
 
-// fakeRouter answers takes like the Ultrix: Connected only for a connect
-// that changes something, Tally for an interrogate, in order.
+// fakeRouter: Connected only for a connect that changes something, Tally for an
+// interrogate, in order (like the Ultrix).
 type fakeRouter struct {
 	a      *App
 	mu     sync.Mutex
@@ -91,7 +86,6 @@ func newFakeRouter(t *testing.T, a *App) *fakeRouter {
 	return f
 }
 
-// seed puts src on dst's wire levels, in the router and in the app's cache.
 func (f *fakeRouter) seed(dst, src int, wires ...int) {
 	for _, l := range wires {
 		f.mu.Lock()
@@ -99,7 +93,6 @@ func (f *fakeRouter) seed(dst, src int, wires ...int) {
 		f.mu.Unlock()
 		f.a.onRouterMsg(swp08.ExtTally(0, l, dst, src))
 	}
-	// Seeded routes count as not read lately, so takes check them first.
 	f.a.mu.Lock()
 	f.a.router.seenAt = map[[2]int]time.Time{}
 	f.a.mu.Unlock()
@@ -165,10 +158,9 @@ func (f *fakeRouter) sends() int {
 	return f.n
 }
 
-// takeOne runs one take and returns its history entry.
-func takeOne(t *testing.T, a *App, src, dst int, levels ...int) Entry {
+func routeOne(t *testing.T, a *App, src, dst int, levels ...int) Entry {
 	t.Helper()
-	a.take(&client{ip: "10.0.0.1"}, takeReq{ID: 1, Src: src, Dst: dst, Levels: levels})
+	a.route(&client{ip: "10.0.0.1"}, routeReq{ID: 1, Src: src, Dst: dst, Levels: levels})
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].Ext {
 		t.Fatalf("no take recorded: %+v", es)
@@ -176,7 +168,6 @@ func takeOne(t *testing.T, a *App, src, dst int, levels ...int) Entry {
 	return es[0]
 }
 
-// leftovers fails if a finished take left a waiter or own keys behind.
 func leftovers(t *testing.T, a *App) {
 	t.Helper()
 	a.mu.Lock()
@@ -190,7 +181,7 @@ func TestTakeChanges(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || e.Err != "" || len(e.Already) != 0 {
 		t.Fatalf("take %+v", e)
 	}
@@ -214,7 +205,7 @@ func TestTakeAlready(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 7, 0)
 	f.seed(5, 1, 1, 2)
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Already) != 1 || e.Already[0] != 1 {
 		t.Fatalf("take %+v", e)
 	}
@@ -233,7 +224,7 @@ func TestTakeProtected(t *testing.T) {
 	a.router.protect[5] = map[int]int{2: 9}
 	a.mu.Unlock()
 	n := f.sends()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.Contains(e.Err, "protected on levels 2") {
 		t.Fatalf("take %+v", e)
 	}
@@ -254,14 +245,11 @@ func TestTakeLostConnected(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.lose[5] = true
-	// No Connected: the interrogate after the timeout confirms it.
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Already) != 3 {
 		t.Fatalf("take %+v", e)
 	}
-	// No Connected is coming for those levels, so their own keys went.
 	leftovers(t, a)
-	// The interrogate's answer is ours, not a change found.
 	endBurst(a)
 	if n := a.hist.Len(); n != 1 {
 		t.Fatalf("entries %d", n)
@@ -274,7 +262,7 @@ func TestTakeNoConfirmation(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 no answer; level 2 no answer; level 3 no answer" {
 		t.Fatalf("take %+v", e)
 	}
@@ -286,8 +274,6 @@ func TestTakeNoConfirmation(t *testing.T) {
 		es, _ := a.hist.Page(-1, 1)
 		return es[0]
 	}
-	// A late Connected is the take's after all (#91): not an ext entry, and
-	// the take's entry loses that level from Failed.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
 	endBurst(a)
 	if n := a.hist.Len(); n != 1 {
@@ -298,7 +284,6 @@ func TestTakeNoConfirmation(t *testing.T) {
 		e.Err != "no confirmation from router: level 2 no answer; level 3 no answer" {
 		t.Fatalf("partly late %+v", e)
 	}
-	// So is a late answer to the last interrogate.
 	a.onRouterMsg(swp08.ExtTally(0, 1, 5, 7))
 	endBurst(a)
 	e = last()
@@ -306,14 +291,12 @@ func TestTakeNoConfirmation(t *testing.T) {
 		e.Err != "no confirmation from router: level 3 no answer" {
 		t.Fatalf("entries %d, %+v", a.hist.Len(), e)
 	}
-	// The last level: nothing left failing.
 	a.onRouterMsg(swp08.ExtConnected(0, 2, 5, 7))
 	endBurst(a)
 	e = last()
 	if a.hist.Len() != 1 || !e.OK || e.Err != "" || len(e.Failed) != 0 || !equalInts(e.Late, []int{1, 2, 3}) {
 		t.Fatalf("all late %+v", e)
 	}
-	// The claim is used up: the route made again elsewhere is someone else's.
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 8))
 	endBurst(a)
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
@@ -323,19 +306,18 @@ func TestTakeNoConfirmation(t *testing.T) {
 	}
 }
 
-// Past the window, a Connected for the route is a change made elsewhere.
 func TestTakeLateTooLate(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
-	e := takeOne(t, a, 7, 5, 1)
+	e := routeOne(t, a, 7, 5, 1)
 	a.mu.Lock()
-	if len(a.ext.lateTake) != 1 {
-		t.Fatalf("lateTake %v", a.ext.lateTake)
+	if len(a.ext.lateRoute) != 1 {
+		t.Fatalf("lateRoute %v", a.ext.lateRoute)
 	}
-	for _, lts := range a.ext.lateTake {
+	for _, lts := range a.ext.lateRoute {
 		for i := range lts {
 			lts[i].until = time.Now().Add(-time.Second)
 		}
@@ -349,8 +331,8 @@ func TestTakeLateTooLate(t *testing.T) {
 	}
 }
 
-// An answer between the take's entry being recorded and its waiter being
-// removed confirms the level in the waiter; the entry is amended too.
+// Answer between entry recorded and waiter removed: confirms in the waiter and amends the
+// entry.
 func TestTakeAnswerInGap(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -358,7 +340,7 @@ func TestTakeAnswerInGap(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.ignore[5] = true
 	a.gapHook = func() { a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7)) }
-	takeOne(t, a, 7, 5, 1, 2, 3)
+	routeOne(t, a, 7, 5, 1, 2, 3)
 	leftovers(t, a)
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 2)
@@ -368,8 +350,7 @@ func TestTakeAnswerInGap(t *testing.T) {
 	}
 }
 
-// A late amendment re-renders the error from the entry's fields, so source
-// names with "; " and "level " in them can't be mistaken for its parts.
+// Source names containing "; " or "level " must not be mistaken for error parts.
 func TestLateConfirmNames(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -388,8 +369,6 @@ func TestLateConfirmNames(t *testing.T) {
 	}
 }
 
-// A level the link refused that the router confirms after all leaves nothing
-// failing: the entry is OK and says nothing about it.
 func TestLateConfirmUnsent(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -402,15 +381,13 @@ func TestLateConfirmUnsent(t *testing.T) {
 	}
 }
 
-// Level 1's connect is ignored but the router answers the interrogate: it
-// is still on its old src, a real failure. The others switch.
 func TestTakeIgnoredLevel(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.deaf[[2]int{5, 0}] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 still on source 2" {
 		t.Fatalf("take %+v", e)
 	}
@@ -420,9 +397,6 @@ func TestTakeIgnoredLevel(t *testing.T) {
 	leftovers(t, a)
 }
 
-// Every connect switches without a Connected, except level 1's, which is
-// ignored: the interrogate confirms the switched levels (not failures) and
-// shows level 1 unchanged.
 func TestTakeSilentSwitch(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -430,7 +404,7 @@ func TestTakeSilentSwitch(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.lose[5] = true
 	f.deaf[[2]int{5, 0}] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 still on source 2" {
 		t.Fatalf("take %+v", e)
 	}
@@ -440,8 +414,6 @@ func TestTakeSilentSwitch(t *testing.T) {
 	leftovers(t, a)
 }
 
-// Something else routes level 1 to another src meanwhile: a failure that
-// says where it is.
 func TestTakeOtherSource(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -454,7 +426,7 @@ func TestTakeOtherSource(t *testing.T) {
 		f.tally[[2]int{5, 0}] = 9
 		f.mu.Unlock()
 	}()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || e.Err != "no confirmation from router: level 1 on source 10" || !equalPrev(e.Now, [][2]int{{1, 9}}) {
 		t.Fatalf("take %+v", e)
 	}
@@ -477,7 +449,7 @@ func TestTakeSendFails(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.failAt = f.sends() + 3 + 3 // the third connect, after an interrogate per level
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.HasPrefix(e.Err, "levels 3 not sent:") {
 		t.Fatalf("take %+v", e)
 	}
@@ -490,8 +462,6 @@ func TestTakeSendFails(t *testing.T) {
 	leftovers(t, a)
 }
 
-// The router has src 4 on dst 5, which it never announced: Prev comes
-// from the router, and the change is logged as found.
 func TestTakeFreshPrev(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
@@ -502,11 +472,10 @@ func TestTakeFreshPrev(t *testing.T) {
 	}
 	f.tally[[2]int{5, 2}] = 7
 	f.mu.Unlock()
-	// A resync is meanwhile finding changes on dst 6, not yet written.
 	f.seed(6, 1, 0, 1)
 	f.seed(6, 8, 0)
 	f.seed(6, 9, 1)
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if want := [][2]int{{1, 4}, {2, 4}, {3, 7}}; !e.OK || !equalPrev(e.Prev, want) {
 		t.Fatalf("take %+v, want prev %v", e, want)
 	}
@@ -514,40 +483,36 @@ func TestTakeFreshPrev(t *testing.T) {
 		t.Fatalf("already %v", e.Already)
 	}
 	leftovers(t, a)
-	// What the check found is written before the take, not after it.
 	endBurst(a)
 	es, _ := a.hist.Page(-1, 10)
 	if len(es) != 5 || es[2].ID != e.ID || !es[3].Found || !es[4].Found || es[3].Dst != 5 || es[4].Dst != 5 {
 		t.Fatalf("entries %+v", es)
 	}
-	// Each set of found changes is a group of its own.
 	if g5, g6 := es[3].Group, es[0].Group; g5 == "" || g6 == "" || g5 != es[4].Group || g6 != es[1].Group || g5 == g6 {
 		t.Fatalf("groups %+v", es)
 	}
 }
 
-// No answer to the interrogates: the take goes ahead from the cache.
 func TestTakeCheckUnanswered(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.mute[5] = true
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if want := [][2]int{{1, 1}, {2, 1}, {3, 1}}; !e.OK || !equalPrev(e.Prev, want) {
 		t.Fatalf("take %+v", e)
 	}
 	leftovers(t, a)
 }
 
-// With the link down, nothing waits for answers that can't come.
 func TestTakeLinkDown(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.failAt = f.sends() + 1
 	start := time.Now()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if e.OK || !strings.HasPrefix(e.Err, "levels 1, 2, 3 not sent:") {
 		t.Fatalf("take %+v", e)
 	}
@@ -557,12 +522,11 @@ func TestTakeLinkDown(t *testing.T) {
 	leftovers(t, a)
 }
 
-// Duplicate levels in a request are taken and recorded once.
 func TestTakeDuplicateLevels(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
-	e := takeOne(t, a, 7, 5, 1, 1, 2)
+	e := routeOne(t, a, 7, 5, 1, 1, 2)
 	if !e.OK || len(e.Levels) != 2 || len(e.Prev) != 2 {
 		t.Fatalf("take %+v", e)
 	}
@@ -580,12 +544,10 @@ func equalPrev(a, b [][2]int) bool {
 	return true
 }
 
-// A take's messages carry what they're for and whose take it is, for the
-// sent log: the check's interrogates, then the connects.
 func TestTakeWhy(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
-	takeOne(t, a, 7, 5, 1, 2)
+	routeOne(t, a, 7, 5, 1, 2)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	check := swp08.Why{Reason: "check", By: "10.0.0.1"}
@@ -601,7 +563,6 @@ func TestTakeWhy(t *testing.T) {
 	}
 }
 
-// Sent log entries are decoded with UI levels and names.
 func TestDescribeSent(t *testing.T) {
 	a := newTestApp(t)
 	a.mu.Lock()
@@ -618,8 +579,6 @@ func TestDescribeSent(t *testing.T) {
 	}
 }
 
-// With the router down, only refused sends a browser asked for are logged;
-// Sode's own re-reads aren't.
 func TestUnsentOnlyForTakes(t *testing.T) {
 	a := newTestApp(t) // never connected: every Send is refused
 	if err := a.sendMsg(swp08.NamesReq(false, false, 0, 0, 2), swp08.Why{Reason: "names"}); err == nil {
@@ -635,9 +594,6 @@ func TestUnsentOnlyForTakes(t *testing.T) {
 	}
 }
 
-// A take gives up on dst 5, then the router answers late: a PiP (dst 9)
-// that follows it changes with that answer, so it's the take's follow, not
-// a panel change (#91).
 func TestTakeLateFollow(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -645,7 +601,7 @@ func TestTakeLateFollow(t *testing.T) {
 	f.seed(5, 1, 0, 1, 2)
 	f.seed(9, 1, 0, 1, 2)
 	f.ignore[5] = true
-	e := takeOne(t, a, 7, 5, 1)
+	e := routeOne(t, a, 7, 5, 1)
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 7))
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 9, 7))
 	endBurst(a)
@@ -655,9 +611,7 @@ func TestTakeLateFollow(t *testing.T) {
 	}
 }
 
-// A PiP that follows a take of a multi-take confirm is tied to the confirm
-// (FollowGroup), not to that take.
-func TestBatchFollowGroup(t *testing.T) {
+func TestTakeFollowGroup(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
@@ -665,7 +619,7 @@ func TestBatchFollowGroup(t *testing.T) {
 		f.seed(d, 1, 0, 1, 2)
 	}
 	f.ignore[5] = true
-	a.batch(&client{ip: "10.0.0.1"}, []takeReq{
+	a.take(&client{ip: "10.0.0.1"}, []routeReq{
 		{ID: 1, Src: 7, Dst: 5, Levels: []int{1}},
 		{ID: 2, Src: 7, Dst: 6, Levels: []int{1}},
 	})
@@ -683,11 +637,10 @@ func TestBatchFollowGroup(t *testing.T) {
 		}
 	}
 	if group == "" || follower == nil || follower.Dst != 9 || follower.FollowGroup != group || follower.Follow != nil || follower.Group != "" {
-		t.Fatalf("batch follower: group %q, entries %+v", group, es)
+		t.Fatalf("take follower: group %q, entries %+v", group, es)
 	}
 }
 
-// Counts what the router was sent for, by reason.
 func (f *fakeRouter) sentFor(reason swp08.Reason) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -700,8 +653,6 @@ func (f *fakeRouter) sentFor(reason swp08.Reason) int {
 	return n
 }
 
-// Levels the router reported a moment ago aren't read again before a take:
-// an undo comes straight after the Connected that set them.
 func TestTakeFreshSkipsCheck(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -712,53 +663,49 @@ func TestTakeFreshSkipsCheck(t *testing.T) {
 		a.router.seenAt[[2]int{5, l}] = time.Now()
 	}
 	a.mu.Unlock()
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || f.sentFor("check") != 0 || !equalPrev(e.Prev, [][2]int{{1, 1}, {2, 1}, {3, 1}}) {
 		t.Fatalf("take %+v, checks %d", e, f.sentFor("check"))
 	}
-	// Stale ones are read.
 	a.mu.Lock()
 	a.router.seenAt[[2]int{5, 2}] = time.Now().Add(-time.Minute)
 	a.mu.Unlock()
-	takeOne(t, a, 8, 5, 1, 2, 3)
+	routeOne(t, a, 8, 5, 1, 2, 3)
 	if n := f.sentFor("check"); n != 1 {
 		t.Fatalf("checks %d, want just the stale level", n)
 	}
 }
 
-// A big confirm doesn't read every destination's routes first.
-func TestBatchBigSkipsCheck(t *testing.T) {
+func TestTakeBigSkipsCheck(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
-	var items []takeReq
-	for d := 0; d < bigBatch; d++ {
+	var items []routeReq
+	for d := 0; d < bigTake; d++ {
 		f.seed(d, 1, 0, 1, 2)
-		items = append(items, takeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
+		items = append(items, routeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
 	}
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	if n := f.sentFor("check"); n != 0 {
-		t.Fatalf("%d checks for a big batch", n)
+		t.Fatalf("%d checks for a big take", n)
 	}
-	if es, _ := a.hist.Page(-1, bigBatch); len(es) != bigBatch || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK }) {
+	if es, _ := a.hist.Page(-1, bigTake); len(es) != bigTake || slices.ContainsFunc(es, func(e Entry) bool { return !e.OK }) {
 		t.Fatalf("takes %+v", es)
 	}
-	// One fewer reads them.
 	b := newTestApp(t)
 	g := newFakeRouter(t, b)
 	items = items[:0]
-	for d := 0; d < bigBatch-1; d++ {
+	for d := 0; d < bigTake-1; d++ {
 		g.seed(d, 1, 0, 1, 2)
-		items = append(items, takeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
+		items = append(items, routeReq{ID: d, Src: 7, Dst: d, Levels: []int{1, 2, 3}})
 	}
-	b.batch(&client{ip: "10.0.0.1"}, items)
-	if n := g.sentFor("check"); n != 3*(bigBatch-1) {
-		t.Fatalf("%d checks for a small batch", n)
+	b.take(&client{ip: "10.0.0.1"}, items)
+	if n := g.sentFor("check"); n != 3*(bigTake-1) {
+		t.Fatalf("%d checks for a small take", n)
 	}
 }
 
-// The router is only asked about a take once its messages have gone out, so
-// a take waiting in a long queue isn't failed for the queue's delay.
+// A take queued behind a long queue isn't failed for the queue's delay.
 func TestTakeWaitsForQueue(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
@@ -769,24 +716,23 @@ func TestTakeWaitsForQueue(t *testing.T) {
 		a.router.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
 	}
 	a.mu.Unlock()
-	f.hold = takeTimeout + takeGrace + 200*time.Millisecond
-	e := takeOne(t, a, 7, 5, 1, 2, 3)
+	f.hold = routeTimeout + routeGrace + 200*time.Millisecond
+	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Failed) != 0 {
 		t.Fatalf("take %+v", e)
 	}
 	leftovers(t, a)
 }
 
-// A retry that fails too must not take over the first take's claim: when
-// the router answers late, both entries are amended (#91).
+// A failing retry must not take over the first take's claim: both entries are amended.
 func TestTakeLateRetryKeepsBoth(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0)
 	f.ignore[5] = true
-	e1 := takeOne(t, a, 7, 5, 1)
-	e2 := takeOne(t, a, 7, 5, 1)
+	e1 := routeOne(t, a, 7, 5, 1)
+	e2 := routeOne(t, a, 7, 5, 1)
 	if e1.OK || e2.OK || e1.ID == e2.ID {
 		t.Fatalf("takes %+v %+v", e1, e2)
 	}
@@ -798,15 +744,13 @@ func TestTakeLateRetryKeepsBoth(t *testing.T) {
 	}
 }
 
-// A level the router answered for (still on its old route) isn't waiting
-// for the take: a Connected for src soon after is someone else's change.
 func TestTakeLateOnlyUnanswered(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0)
 	f.deaf[[2]int{5, 0}] = true // connect ignored, interrogate answers: still on source 1
-	e := takeOne(t, a, 7, 5, 1)
+	e := routeOne(t, a, 7, 5, 1)
 	if e.OK || len(e.Now) != 1 {
 		t.Fatalf("take %+v", e)
 	}
@@ -818,11 +762,10 @@ func TestTakeLateOnlyUnanswered(t *testing.T) {
 	}
 }
 
-// The connects' own keys last through the longest wait in the send queue.
 func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
 	t.Parallel()
 	a := newTestApp(t)
-	w, err := planTake(a.r(), takeReq{Src: 7, Dst: 5, Levels: []int{1}})
+	w, err := planRoute(a.r(), routeReq{Src: 7, Dst: 5, Levels: []int{1}})
 	if err != nil {
 		t.Fatal(err)
 	}

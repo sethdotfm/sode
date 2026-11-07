@@ -1,4 +1,3 @@
-// The shared profile module: what the server's `profile` message becomes.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

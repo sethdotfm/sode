@@ -31,8 +31,6 @@ const (
 	StateDown       State = "down"
 )
 
-// Reason is why a message was sent, as the sent log records it (it is
-// logged as this string).
 type Reason string
 
 const (
@@ -46,34 +44,28 @@ const (
 	ReasonKeepalive Reason = "keepalive"
 )
 
-// Why says what a message was sent for, for the sent log.
 type Why struct {
 	Reason Reason
-	By     string // the browser's address, for take traffic
-	// Done, if set, is closed once the message's fate is known: ACKed,
-	// given up on, or dropped. Callers use it to count their timeouts from
-	// when the router could have seen the message, not from when it queued.
+	By     string
+	// Done, if set, is closed once the message's fate is known, so callers count timeouts from when the router could have seen it.
 	Done chan struct{}
 }
 
-// Tx results, as reported to OnTx.
 const (
-	TxAck     = "ack"     // the router ACKed it
-	TxNak     = "nak"     // NAKed on the last try; gave up
-	TxNoAck   = "noack"   // written, nothing back; gave up
-	TxWrite   = "write"   // the write itself failed
+	TxAck     = "ack"
+	TxNak     = "nak"
+	TxNoAck   = "noack" // written, nothing back; gave up
+	TxWrite   = "write"
 	TxDropped = "dropped" // queued, but the connection ended before it was written
 )
 
-// TxEvent is one message's fate on the wire: one per message, however
-// many times it was written.
 type TxEvent struct {
 	Msg    []byte
 	Why    Why
 	At     time.Time // first write (when queued, for dropped)
 	Tries  int
 	Result string
-	Err    string        // for TxWrite
+	Err    string
 	Ack    time.Duration // from the last write to its ACK; 0 when there was none
 }
 
@@ -83,31 +75,23 @@ type out struct {
 	at  time.Time
 }
 
-// Client keeps one TCP connection to a router alive and serializes sends,
-// waiting for each ACK before the next message as SW-P-08 requires.
 type Client struct {
 	Debug bool
-	// OnUp runs once per connection, after Send is usable.
-	OnUp func()
+	OnUp  func()
 	// OnMsg runs on the reader goroutine for each valid message; keep it quick.
-	OnMsg func(msg []byte)
-	// OnState reports connection changes; err explains a drop.
+	OnMsg   func(msg []byte)
 	OnState func(s State, err error)
-	// OnTx reports each message written to the router (or dropped from the
-	// queue) once its outcome is known. It runs on the writer goroutine,
-	// which waits for ACKs: it must not block.
+	// OnTx runs on the writer goroutine, which waits for ACKs: it must not block.
 	OnTx func(TxEvent)
 
-	// Timings, from the constants; tests shorten them.
 	ackTimeout, probeIdle time.Duration
-	// dial opens the TCP connection; tests replace it.
-	dial func(ctx context.Context, addr string) (net.Conn, error)
+	dial                  func(ctx context.Context, addr string) (net.Conn, error)
 
 	mu     sync.Mutex
 	addr   string
-	probe  []byte             // sent on connect and when the link is quiet; must provoke a reply
-	q      chan out           // nil until the router has answered
-	cancel context.CancelFunc // ends the current session
+	probe  []byte   // sent on connect and when the link is quiet; must provoke a reply
+	q      chan out // nil until the router has answered
+	cancel context.CancelFunc
 	kick   chan struct{}
 
 	wmu sync.Mutex
@@ -125,7 +109,6 @@ func NewClient(addr string, probe []byte) *Client {
 		dial: func(ctx context.Context, addr string) (net.Conn, error) { return d.DialContext(ctx, "tcp", addr) }}
 }
 
-// SetTarget switches router and reconnects at once. An empty addr idles.
 func (c *Client) SetTarget(addr string, probe []byte) {
 	c.mu.Lock()
 	c.addr, c.probe = addr, probe
@@ -146,11 +129,8 @@ func (c *Client) target() (string, []byte) {
 	return c.addr, c.probe
 }
 
-// Send queues a message. Messages queued on a connection that drops are
-// discarded, never replayed on the next one: a stale take must not fire later.
-//
-// The push happens under mu, so once a session has cleared c.q nothing more
-// lands in its queue and every message there is reported (sent or dropped).
+// Messages queued on a connection that drops are discarded, never replayed: a stale take must not fire later.
+// The push happens under mu, so once a session has cleared c.q nothing more lands in its queue.
 func (c *Client) Send(msg []byte, why Why) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -202,7 +182,7 @@ func (c *Client) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-c.kick: // new target: retry now
+		case <-c.kick:
 			backoff = time.Second
 			continue
 		case <-time.After(backoff):
@@ -217,25 +197,23 @@ func (c *Client) state(s State, err error) {
 	}
 }
 
-// session runs one connection. Ended by SetTarget (new settings) at any
-// point, mid-dial included, it returns errRetarget whatever error that
-// surfaced as: a reconnect, not a failure.
+// A SetTarget at any point (mid-dial too) returns errRetarget whatever error surfaced: a reconnect, not a failure.
 func (c *Client) session(ctx context.Context, addr string) (err error) {
 	sctx, cancel := context.WithCancel(ctx)
 	var q chan out
-	var wdone chan struct{} // closed when the writer returns
+	var wdone chan struct{}
 	defer func() {
 		// A retarget is told by sctx ending first, so before cancel.
 		if ctx.Err() == nil && sctx.Err() != nil {
 			err = errRetarget
 		}
 		c.mu.Lock()
-		c.q = nil // no more Sends into q
+		c.q = nil
 		c.cancel = nil
 		c.mu.Unlock()
 		cancel()
 		if wdone != nil {
-			<-wdone // nothing still taking from q
+			<-wdone
 		}
 		// Whatever the writer didn't get to is never sent.
 		for q != nil {
@@ -274,8 +252,6 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 	wdone = make(chan struct{})
 	go func() { errc <- c.writer(sctx, conn, q, acks, rx); close(wdone) }()
 
-	// wait blocks until ch is closed (nil: forever) or the session ends;
-	// nil means ch closed.
 	wait := func(ch <-chan struct{}) error {
 		select {
 		case <-ch:
@@ -290,9 +266,7 @@ func (c *Client) session(ctx context.Context, addr string) (err error) {
 		}
 	}
 
-	// Up only once the router answers: a hung one still accepts TCP. The
-	// writer's first probe provokes that reply. Until then Send says
-	// ErrDown, so nothing queues behind a probe that may never be answered.
+	// Up only once the router answers (a hung one still accepts TCP); until then Send says ErrDown.
 	if _, probe := c.target(); probe != nil {
 		if err := wait(rx.heard); err != nil {
 			return err
@@ -328,12 +302,11 @@ func (c *Client) write(conn net.Conn, b []byte) error {
 	return err
 }
 
-// lastRx tracks when the router last sent anything, as a monotonic offset
-// from the session's start, so a wall-clock step can't fake or hide a reply.
+// Monotonic offset from the session's start, so a wall-clock step can't fake or hide a reply.
 type lastRx struct {
 	start time.Time
-	at    atomic.Int64  // time.Duration since start of the latest rx
-	heard chan struct{} // closed on the first rx
+	at    atomic.Int64
+	heard chan struct{}
 	once  sync.Once
 }
 
@@ -348,7 +321,6 @@ func (l *lastRx) mark() {
 	l.once.Do(func() { close(l.heard) })
 }
 
-// since reports whether anything arrived after t (from now()).
 func (l *lastRx) since(t time.Duration) bool { return time.Duration(l.at.Load()) > t }
 
 func (l *lastRx) idle() time.Duration { return l.now() - time.Duration(l.at.Load()) }
@@ -392,12 +364,8 @@ func (c *Client) reader(conn net.Conn, acks chan bool, rx *lastRx) error {
 	}
 }
 
-// writer sends queued messages one at a time and keeps the link checked.
-// The router going quiet with the TCP session still open (powered off,
-// cable pulled, hung) shows up as a probe that gets nothing back at all,
-// and drops the connection so it shows as down and reconnects. A message
-// that alone goes unanswered (a command this router ignores) only costs a
-// probe: if that's answered, the router is fine.
+// A probe with no reply at all (router off, cable pulled, hung) drops the connection; one unanswered
+// message only costs a probe.
 func (c *Client) writer(ctx context.Context, conn net.Conn, q chan out, acks chan bool, rx *lastRx) error {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
@@ -444,9 +412,6 @@ func (c *Client) writer(ctx context.Context, conn net.Conn, q chan out, acks cha
 	}
 }
 
-// transmit sends o and waits for its ACK, retrying on NAK or silence.
-// heard reports whether anything at all came back from the router while
-// it tried.
 func (c *Client) transmit(ctx context.Context, conn net.Conn, o out, acks chan bool, rx *lastRx) (heard bool, err error) {
 	m := o.msg
 	frame := Encode(m)
@@ -454,7 +419,7 @@ func (c *Client) transmit(ctx context.Context, conn net.Conn, o out, acks chan b
 	e := TxEvent{Msg: m, Why: o.why, At: time.Now(), Result: TxNoAck}
 	defer func() { c.tx(e) }()
 	for try := 1; try <= sendTries; try++ {
-		select { // discard any stray ACK left from before
+		select {
 		case <-acks:
 		default:
 		}

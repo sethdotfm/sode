@@ -1,4 +1,3 @@
-// chord() names a keystroke the same way everywhere.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chord } from '../keys.js';

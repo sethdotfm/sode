@@ -1,10 +1,5 @@
-// The review sheet (Beta 1.6, #169): what an import file or a share link
-// would change, shown before anything is saved. Two columns, Importing and
-// Current, one row per item, each with its match status (always as text),
-// and a choice per row: Replace / Keep both (with a name) / Skip. One target
-// scope for the whole import. Used by the Export & import dialog (transfer.js)
-// and by share links. Saving goes through the same stores and savers the
-// Filters and Presets dialogs use; the pure rules are exportfmt.js.
+// Review sheet: what an import file or share link would change, shown before anything is saved. Used by transfer.js and share links.
+// Saving goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
 import { trapDialog } from './widgets.js';
@@ -17,7 +12,6 @@ import { setsIn, putLocalSets, filterSummary, normFilter } from './filterstore.j
 import { presetsIn, putLocalPresets, normPreset, presetProblem, presetsProblem, saved } from './presetstore.js';
 import * as fmt from './exportfmt.js';
 import { scopeLabel } from './scopes.js';
-
 
 // ---- the dialog
 
@@ -59,15 +53,14 @@ const sumEl = el('span', 'sode__hint');
 sumEl.setAttribute('aria-live', 'polite');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
-// A PIN row for each saver for everyone (filter sets and presets are two
-// messages, each saver has its own); only one shows at a time.
+// A PIN row per saver for everyone (filter sets and presets are two messages); one shows at a time.
 function pinControls(cancel) {
   const pinIn = el('input', 'pb-input');
   pinIn.type = 'password';
   pinIn.placeholder = 'PIN';
   pinIn.autocomplete = 'current-password';
-  pinIn.setAttribute('aria-label', 'Settings PIN');
-  const pinOk = btn('pb-btn--ok pb-btn--sm', 'Unlock', () => {});
+  pinIn.setAttribute('aria-label', 'Advanced Settings PIN');
+  const pinOk = btn('pb-btn--ok pb-btn--sm', 'Enter', () => {});
   const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', cancel));
   pinRow.hidden = true;
   return { pinIn, pinOk, pinRow };
@@ -81,7 +74,8 @@ const applyBtn = btn('pb-btn--ok', 'Apply', () => apply());
 dialog.append(
   el('div', 'pb-modal__header', titleEl),
   el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, pinA.pinRow, pinB.pinRow, noteTop, prefsBox, rowsBox, sumEl, noteEl),
-  el('div', 'pb-modal__footer', cancelBtn, nowBtn, applyBtn));
+  el('div', 'pb-modal__footer', cancelBtn, nowBtn, applyBtn),
+);
 root.append(dialog);
 document.body.append(root);
 
@@ -92,19 +86,30 @@ const setNote = (t, error = false) => {
 
 // ---- state
 
-let open = false, back = null, busy = false;
+let open = false,
+  back = null,
+  busy = false;
 // doc: the export document; rows: one per filter set / preset in it.
 let st = null;
 let fetched = null; // another user's profile while reviewing for them: { state: 'wait' | 'ok' | 'err', profile, err }
 
 const gsave = globalSaver({
-  t: 'filterSets', resultT: 'filterSetsResult', ...pinA, setNote,
-  isOpen: () => open, failTitle: 'Import not saved', render: () => refresh(),
+  t: 'filterSets',
+  resultT: 'filterSetsResult',
+  ...pinA,
+  setNote,
+  isOpen: () => open,
+  failTitle: 'Import not saved',
+  render: () => refresh(),
 });
-// Presets for everyone ride their own message.
 const gsavePresets = globalSaver({
-  t: 'presets', resultT: 'presetsResult', ...pinB, setNote,
-  isOpen: () => open, failTitle: 'Import not saved', render: () => refresh(),
+  t: 'presets',
+  resultT: 'presetsResult',
+  ...pinB,
+  setNote,
+  isOpen: () => open,
+  failTitle: 'Import not saved',
+  render: () => refresh(),
 });
 const psave = profileSaver({ setNote, isOpen: () => open, failTitle: 'Import not saved', render: () => refresh() });
 const saving = () => busy || gsave.busy() || gsavePresets.busy() || psave.busy();
@@ -113,20 +118,19 @@ const forUser = () => st?.user && st.user !== profileName();
 const live = () => ({ srcs: S.srcs, dsts: S.dsts, levelCount: S.levels.length });
 const scope = () => st.scope;
 
-// The target scope's current lists, as { name, f } and { name, items, pinned }.
 function curSets(sc) {
   if (sc === 'user' && forUser()) return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ name: String(s.name), f: normFilter(s) }));
   return setsIn(sc).map((s) => ({ name: s.name, f: s.f }));
 }
 function curPresets(sc) {
-  if (sc === 'user' && forUser()) return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...normPreset(s), pinned: s.pinned !== false }));
+  if (sc === 'user' && forUser())
+    return (fetched?.profile?.presets || []).filter((s) => s?.name).map((s) => ({ ...normPreset(s), pinned: s.pinned !== false }));
   return presetsIn(sc).map((s) => ({ name: s.name, items: s.items, pinned: s.pinned !== false }));
 }
 const curNames = (kind, sc) => (kind === 'filter' ? curSets(sc) : curPresets(sc)).map((x) => x.name);
 const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs : profile().prefs) || {} : null);
 
-// The doc's rows. A preset row's match is made fresh each time, so names
-// loaded after the sheet opened count.
+// A preset row's match is made fresh each time, so names loaded after the sheet opened count.
 function makeRows(doc) {
   return [
     ...(doc.filterSets || []).map((s) => ({ kind: 'filter', name: String(s.name), f: fmt.filterOf(s), choice: '', as: '' })),
@@ -136,9 +140,7 @@ function makeRows(doc) {
 const matched = (r) => fmt.matchPreset(r.src, live());
 const clashOf = (r) => fmt.conflict(r.name, curNames(r.kind, scope()));
 
-// What a row does now: its own choice if the person made one, else the
-// default (Keep both on a clash, else import; a preset with an ambiguous
-// match waits as Skip until chosen).
+// Own choice, else default (Keep both on a clash, else import; an ambiguous preset match waits as Skip).
 function choiceOf(r) {
   const clash = clashOf(r);
   const c = r.choice || (r.kind === 'preset' && matched(r).count.ambiguous ? 'skip' : fmt.defaultChoice(clash));
@@ -147,7 +149,6 @@ function choiceOf(r) {
   return c === 'replace' ? 'replace' : 'both';
 }
 
-// The valid prefs of the file, as [{ name, value }] and what is wrong with the rest.
 function prefList() {
   const out = [];
   for (const [name, value] of Object.entries(st.doc.prefs || {})) {
@@ -158,8 +159,6 @@ function prefList() {
 }
 const prefTarget = () => (forUser() || (st.prefsTo === 'user' && profileName()) ? 'user' : 'local');
 
-// ---- the plan: what saving would do, and what stops it
-
 function plan() {
   const sc = scope();
   const out = { problems: [], parts: {}, res: {}, prefs: {} };
@@ -167,9 +166,10 @@ function plan() {
     const rs = st.rows.filter((r) => r.kind === kind);
     if (!rs.length) continue;
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
-    const incoming = rs.map((r) => (kind === 'filter' ? { name: r.name, f: r.f } : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: true }));
+    const incoming = rs.map((r) =>
+      kind === 'filter' ? { name: r.name, f: r.f } : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: true },
+    );
     const choices = rs.map(choiceOf);
-    // Names being added or kept, for the rename check.
     const picks = rs.map((r, i) => {
       if (choices[i] !== 'both') return { choice: choices[i] };
       const others = [...existing.map((x) => x.name), ...rs.filter((x, j) => j !== i && choices[j] !== 'skip').map((x) => x.name)];
@@ -180,7 +180,9 @@ function plan() {
       r.asProblem = bad;
       return { choice: 'both', as };
     });
-    rs.forEach((r, i) => { if (choices[i] !== 'both') r.asProblem = ''; });
+    rs.forEach((r, i) => {
+      if (choices[i] !== 'both') r.asProblem = '';
+    });
     const res = fmt.applyChoices(existing, incoming, picks);
     out.res[kind] = res;
     if (kind === 'preset') {
@@ -195,9 +197,7 @@ function plan() {
       }
     }
     if (res.added + res.replaced) {
-      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] = kind === 'filter'
-        ? res.list.map((s) => ({ name: s.name, ...s.f }))
-        : res.list.map(saved);
+      out.parts[kind === 'filter' ? 'filterSets' : 'presets'] = kind === 'filter' ? res.list.map((s) => ({ name: s.name, ...s.f })) : res.list.map(saved);
     }
   }
   const pl = prefList().filter((p) => p.ok && st.prefOn[p.name] !== false && p.value !== currentPref(p.name));
@@ -205,7 +205,6 @@ function plan() {
   if (Object.keys(out.prefs).length && prefTarget() === 'user') {
     out.parts.prefs = { ...curPrefs('user'), ...out.prefs };
   }
-  // The size of what would be sent.
   const sizeParts = { ...out.parts };
   if (sc === 'global') {
     const g = {};
@@ -214,16 +213,19 @@ function plan() {
     const big = fmt.sizeProblem('global', g);
     if (big) out.problems.push(big);
   } else if (sc === 'user') {
-    const base = { prefs: curPrefs('user'), filterSets: forUser() ? fetched?.profile?.filterSets || [] : profile().filterSets, presets: forUser() ? fetched?.profile?.presets || [] : profile().presets };
+    const base = {
+      prefs: curPrefs('user'),
+      filterSets: forUser() ? fetched?.profile?.filterSets || [] : profile().filterSets,
+      presets: forUser() ? fetched?.profile?.presets || [] : profile().presets,
+    };
     const big = fmt.sizeProblem('user', { ...base, ...sizeParts });
     if (big) out.problems.push(big);
   }
   return out;
 }
 
-// What the person has now for a pref, in this browser or in the profile.
 function currentPref(name) {
-  return prefTarget() === 'user' ? (curPrefs('user')[name] || '') : ownPref(name);
+  return prefTarget() === 'user' ? curPrefs('user')[name] || '' : ownPref(name);
 }
 
 // ---- drawing
@@ -237,7 +239,6 @@ function summaryOf(kind, x) {
   return `${pluralize(x.items.length, 'source')}, ${pluralize(n, 'destination')}`;
 }
 
-// The match of a preset, as status lines.
 function matchLines(r) {
   const m = matched(r);
   const lines = [];
@@ -257,23 +258,33 @@ function matchLines(r) {
       lines.push(l);
     }
   }
-  if (m.count.ambiguous) lines.push(status('warn', 'Ambiguous names are not guessed: this preset is skipped until you change the choice, and then keeps those numbers as written'));
+  if (m.count.ambiguous)
+    lines.push(status('warn', 'Ambiguous names are not guessed: this preset is skipped until you change the choice, and then keeps those numbers as written'));
   if (m.levelsOver.length) lines.push(status('warn', `Level ${m.levelsOver.join(', ')} is above this router’s ${S.levels.length}`));
   return lines;
 }
 
-// Status lines, the worst (warn, then info, ok, idle) shown and the others in a disclosure.
 const RANK = { warn: 0, error: 0, info: 1, ok: 2, idle: 3 };
 const rankOf = (n) => RANK[[...n.firstChild.classList].find((c) => c.startsWith('pb-dot--'))?.slice(8)] ?? 3;
 function worstFirst(lines) {
-  const sorted = lines.map((n, i) => [n, i]).sort((a, b) => rankOf(a[0]) - rankOf(b[0]) || a[1] - b[1]).map((x) => x[0]);
-  // Every warning stays visible; only notes (info, ok) fold away, behind the
-  // first one when there is no warning.
+  const sorted = lines
+    .map((n, i) => [n, i])
+    .sort((a, b) => rankOf(a[0]) - rankOf(b[0]) || a[1] - b[1])
+    .map((x) => x[0]);
+  // Every warning stays visible; notes (info, ok) fold away, behind the first one when there is no warning.
   const loud = sorted.filter((n) => rankOf(n) === 0);
   const shown = loud.length ? loud : sorted.slice(0, 1);
   const rest = sorted.filter((n) => !shown.includes(n));
   if (!rest.length) return shown;
-  return [...shown, el('details', 'sode__rv-more', el('summary', 'sode__hint', `${rest.length} more note${rest.length > 1 ? 's' : ''}`), ...rest.map((n) => el('div', null, n)))];
+  return [
+    ...shown,
+    el(
+      'details',
+      'sode__rv-more',
+      el('summary', 'sode__hint', `${rest.length} more note${rest.length > 1 ? 's' : ''}`),
+      ...rest.map((n) => el('div', null, n)),
+    ),
+  ];
 }
 
 function rowNode(r, i, choices) {
@@ -281,16 +292,40 @@ function rowNode(r, i, choices) {
   const cur = (r.kind === 'filter' ? curSets(sc) : curPresets(sc)).find((x) => fmt.conflict(r.name, [x.name]));
   const m = r.kind === 'preset' ? matched(r) : null;
   const incoming = r.kind === 'filter' ? { f: r.f } : { items: m.saved.items };
-  // Name, kind and summary on one line; the worst status below it, the rest behind a disclosure.
-  const inCell = el('div', 'sode__rv-in', el('div', 'sode__rv-line', el('strong', null, r.name), el('span', 'sode__hint', r.kind === 'filter' ? 'Filter set' : 'Preset'),
-    el('span', 'sode__hint', summaryOf(r.kind, incoming))),
-    ...worstFirst(r.kind === 'filter' ? [status('info', 'Carried as written')] : matchLines(r)));
-  const curCell = el('div', 'sode__rv-cur', cur
-    ? el('div', 'sode__rv-line', el('strong', null, cur.name), el('span', 'sode__hint', summaryOf(r.kind, cur)))
-    : status('idle', 'Nothing with this name yet'));
+  const inCell = el(
+    'div',
+    'sode__rv-in',
+    el(
+      'div',
+      'sode__rv-line',
+      el('strong', null, r.name),
+      el('span', 'sode__hint', r.kind === 'filter' ? 'Filter set' : 'Preset'),
+      el('span', 'sode__hint', summaryOf(r.kind, incoming)),
+    ),
+    ...worstFirst(r.kind === 'filter' ? [status('info', 'Carried as written')] : matchLines(r)),
+  );
+  const curCell = el(
+    'div',
+    'sode__rv-cur',
+    cur
+      ? el('div', 'sode__rv-line', el('strong', null, cur.name), el('span', 'sode__hint', summaryOf(r.kind, cur)))
+      : status('idle', 'Nothing with this name yet'),
+  );
   const choice = choices[i];
-  const opts = cur ? [['replace', 'Replace'], ['both', 'Keep both'], ['skip', 'Skip']] : [['import', 'Import'], ['skip', 'Skip']];
-  const pick = select(`What to do with ${r.name}`, opts, choice, (v) => { r.choice = v; render(); });
+  const opts = cur
+    ? [
+        ['replace', 'Replace'],
+        ['both', 'Keep both'],
+        ['skip', 'Skip'],
+      ]
+    : [
+        ['import', 'Import'],
+        ['skip', 'Skip'],
+      ];
+  const pick = select(`What to do with ${r.name}`, opts, choice, (v) => {
+    r.choice = v;
+    render();
+  });
   const pickCell = el('div', 'sode__rv-pick', pick);
   if (choice === 'both' && cur) {
     const as = el('input', 'pb-input');
@@ -300,7 +335,11 @@ function rowNode(r, i, choices) {
     as.setAttribute('aria-label', `Save ${r.name} as`);
     const prob = el('span', 'sode__hint sode__error-text');
     prob.textContent = r.asProblem || '';
-    as.addEventListener('input', () => { r.as = as.value; refresh(); prob.textContent = r.asProblem || ''; });
+    as.addEventListener('input', () => {
+      r.as = as.value;
+      refresh();
+      prob.textContent = r.asProblem || '';
+    });
     pickCell.append(as, prob);
   }
   return el('div', `sode__rv-row${choice === 'skip' ? ' is-skip' : ''}`, inCell, curCell, pickCell);
@@ -315,22 +354,60 @@ function prefsNode() {
   const rows = list.map((p) => {
     const label = fmt.PREF_LABELS[p.name] || p.name;
     if (!p.ok) {
-      return el('div', 'sode__rv-row is-skip', el('div', 'sode__rv-in', el('strong', null, label), status('warn', `“${p.value}” is not a setting this Sode knows, so it is skipped`)), el('div', 'sode__rv-cur'), el('div', 'sode__rv-pick'));
+      return el(
+        'div',
+        'sode__rv-row is-skip',
+        el('div', 'sode__rv-in', el('strong', null, label), status('warn', `“${p.value}” is not a setting this Sode knows, so it is skipped`)),
+        el('div', 'sode__rv-cur'),
+        el('div', 'sode__rv-pick'),
+      );
     }
     const now = currentPref(p.name);
     const same = now === p.value;
     const on = st.prefOn[p.name] !== false && !same;
-    const pick = select(`Import ${label}`, [['on', 'Import'], ['off', 'Skip']], on ? 'on' : 'off', (v) => { st.prefOn[p.name] = v === 'on'; render(); });
+    const pick = select(
+      `Import ${label}`,
+      [
+        ['on', 'Import'],
+        ['off', 'Skip'],
+      ],
+      on ? 'on' : 'off',
+      (v) => {
+        st.prefOn[p.name] = v === 'on';
+        render();
+      },
+    );
     pick.querySelector('select').disabled = same;
     const valText = (v) => PREFS[p.name].values[v];
-    return el('div', `sode__rv-row${on ? '' : ' is-skip'}`,
-      el('div', 'sode__rv-in', el('strong', null, label), el('div', 'sode__hint', valText(p.value)), same ? status('ok', 'Already set to this') : status('info', 'Changes this setting')),
-      el('div', 'sode__rv-cur', now ? el('div', 'sode__hint', valText(now)) : status('idle', sc === 'user' ? 'Not set in the profile' : 'Following the default')),
-      el('div', 'sode__rv-pick', pick));
+    return el(
+      'div',
+      `sode__rv-row${on ? '' : ' is-skip'}`,
+      el(
+        'div',
+        'sode__rv-in',
+        el('strong', null, label),
+        el('div', 'sode__hint', valText(p.value)),
+        same ? status('ok', 'Already set to this') : status('info', 'Changes this setting'),
+      ),
+      el(
+        'div',
+        'sode__rv-cur',
+        now ? el('div', 'sode__hint', valText(now)) : status('idle', sc === 'user' ? 'Not set in the profile' : 'Following the default'),
+      ),
+      el('div', 'sode__rv-pick', pick),
+    );
   });
-  const to = select('Settings go to', opts, sc, (v) => { st.prefsTo = v; render(); });
-  return el('div', 'sode__rv-sec', el('div', 'sode__filters-set', el('strong', null, 'This device settings'), el('span', 'sode__hint', 'go to'), to),
-    el('span', 'sode__hint', 'Everyone’s defaults are set in Settings, not here.'), ...rows);
+  const to = select('Settings go to', opts, sc, (v) => {
+    st.prefsTo = v;
+    render();
+  });
+  return el(
+    'div',
+    'sode__rv-sec',
+    el('div', 'sode__filters-set', el('strong', null, 'This browser settings'), el('span', 'sode__hint', 'go to'), to),
+    el('span', 'sode__hint', 'Everyone’s defaults are set in Settings, not here.'),
+    ...rows,
+  );
 }
 
 function render() {
@@ -345,18 +422,27 @@ function render() {
   if (!opts.some((o) => o[0] === st.scope)) st.scope = opts[0][0];
   const choices = st.rows.map(choiceOf);
   const head = el('div', 'sode__rv-head', el('span', 'sode__label', 'Importing'), el('span', 'sode__label', 'Current'), el('span', 'sode__label', 'Do'));
-  targetBox.replaceChildren(el('span', 'sode__label', 'Save to'), select('Save to', opts, st.scope, (v) => { st.scope = v; gsave.cancel(); render(); }));
+  targetBox.replaceChildren(
+    el('span', 'sode__label', 'Save to'),
+    select('Save to', opts, st.scope, (v) => {
+      st.scope = v;
+      gsave.cancel();
+      render();
+    }),
+  );
   noteTop.textContent = st.rows.some((r) => r.kind === 'filter')
-    ? 'Filter expressions are copied as written. Source and destination numbers in them may differ on this router; check them after.' : '';
+    ? 'Filter expressions are copied as written. Source and destination numbers in them may differ on this router; check them after.'
+    : '';
   const pn = prefsNode();
   prefsBox.replaceChildren(...(pn ? [pn] : []));
   prefsBox.hidden = !pn;
-  rowsBox.replaceChildren(...(st.rows.length ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))] : [el('span', 'sode__hint', 'Nothing to import in this file.')]));
+  rowsBox.replaceChildren(
+    ...(st.rows.length ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))] : [el('span', 'sode__hint', 'Nothing to import in this file.')]),
+  );
   nowBtn.hidden = !(st.applyNow && st.rows.length === 1 && st.rows[0].kind === 'filter');
   refresh();
 }
 
-// The parts that change when something is typed or a save is in flight.
 function refresh() {
   if (!open || !st) return;
   let p;
@@ -367,9 +453,11 @@ function refresh() {
     return;
   }
   p = plan();
-  const n = (k, key) => (p.res[k]?.[key] || 0);
+  const n = (k, key) => p.res[k]?.[key] || 0;
   const parts = [];
-  const add = n('filter', 'added') + n('preset', 'added'), rep = n('filter', 'replaced') + n('preset', 'replaced'), skip = n('filter', 'skipped') + n('preset', 'skipped');
+  const add = n('filter', 'added') + n('preset', 'added'),
+    rep = n('filter', 'replaced') + n('preset', 'replaced'),
+    skip = n('filter', 'skipped') + n('preset', 'skipped');
   if (add) parts.push(`add ${add}`);
   if (rep) parts.push(`replace ${rep}`);
   if (skip) parts.push(`skip ${skip}`);
@@ -389,7 +477,8 @@ function refresh() {
 function summaryText(p) {
   const bits = [];
   const c = (k, key) => p.res[k]?.[key] || 0;
-  const nf = c('filter', 'added') + c('filter', 'replaced'), np = c('preset', 'added') + c('preset', 'replaced');
+  const nf = c('filter', 'added') + c('filter', 'replaced'),
+    np = c('preset', 'added') + c('preset', 'replaced');
   if (nf) bits.push(pluralize(nf, 'filter set'));
   if (np) bits.push(pluralize(np, 'preset'));
   const ns = Object.keys(p.prefs).length;
@@ -398,7 +487,6 @@ function summaryText(p) {
 }
 
 function finish(p) {
-  // This browser's own settings, whichever scope the lists went to.
   if (prefTarget() === 'local') for (const [name, v] of Object.entries(p.prefs)) setPref(name, v);
   const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope).toLowerCase();
   const text = `${summaryText(p)} imported to ${where}.`;
@@ -413,8 +501,7 @@ function apply() {
   const sc = scope();
   const done = () => finish(p);
   if (!Object.keys(p.parts).length) return done();
-  // Settings that go to my profile while the lists go elsewhere (This
-  // browser / Everyone) are their own save, after the lists.
+  // Settings going to my profile while the lists go elsewhere are their own save, after the lists.
   const withPrefs = (next) => {
     if (!p.parts.prefs || sc === 'user') return next();
     busy = true;
@@ -443,13 +530,12 @@ function apply() {
         if (!open) return;
         if (r.ok) return done();
         refresh();
-        setNote(r.locked ? 'Only a trusted user or the settings PIN can change another user’s profile.' : sentence(r.err) || 'Not saved.', true);
+        setNote(r.locked ? 'Only a trusted user or the Advanced Settings PIN can change another user’s profile.' : sentence(r.err) || 'Not saved.', true);
       });
       return;
     }
     return psave.change(p.parts, done);
   }
-  // Everyone: filter sets, then presets (two messages, one PIN).
   const afterLists = () => withPrefs(done);
   const sendPresets = () => (p.parts.presets ? gsavePresets.change({ presets: p.parts.presets }, afterLists) : afterLists());
   if (p.parts.filterSets) gsave.change({ sets: p.parts.filterSets }, sendPresets);
@@ -466,10 +552,7 @@ function applyNowClick() {
 
 // ---- open / close
 
-// doc: an export document. Options: scope (where it goes), user (review it
-// for that user's profile: scope 'user', read and saved by name), applyNow
-// (f, name): offered for one filter set (a link), source: a line about where
-// it came from.
+// Options: scope, user (review for that user's profile, saved by name), applyNow (f, name) for one filter set (a link), source (where it came from).
 export function openReview({ doc, scope: sc = 'local', user = '', applyNow = null, source = '', title = 'Review import', onLocked = null }) {
   back = document.activeElement;
   st = { doc, scope: sc, user, applyNow, onLocked, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
@@ -478,7 +561,7 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
   busy = false;
   titleEl.textContent = title;
   const bits = [doc.site && `From ${doc.site}`, doc.user && `profile of ${doc.user}`, doc.exported && `exported ${doc.exported.slice(0, 10)}`].filter(Boolean);
-  fromEl.textContent = source || bits.join(' · ');
+  fromEl.textContent = source || bits.join(', ');
   fromEl.hidden = !fromEl.textContent;
   pinA.pinRow.hidden = true;
   pinB.pinRow.hidden = true;
@@ -492,7 +575,9 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
     const mine = st;
     fetchProfile(user).then((r) => {
       if (st !== mine || !open) return;
-      fetched = r.ok ? { state: 'ok', profile: r.profile } : { state: 'err', err: r.locked ? 'Only a trusted user or the settings PIN can read another user’s profile.' : sentence(r.err) };
+      fetched = r.ok
+        ? { state: 'ok', profile: r.profile }
+        : { state: 'err', err: r.locked ? 'Only a trusted user or the Advanced Settings PIN can read another user’s profile.' : sentence(r.err) };
       render();
     });
     render();
@@ -511,11 +596,14 @@ function close() {
 }
 
 const dlg = trapDialog(root, dialog, () => {
-  if (!pinA.pinRow.hidden || !pinB.pinRow.hidden) { gsave.cancel(); gsavePresets.cancel(); return; }
+  if (!pinA.pinRow.hidden || !pinB.pinRow.hidden) {
+    gsave.cancel();
+    gsavePresets.cancel();
+    return;
+  }
   close();
 });
 
-// A lock coming down puts the sheet away whole (state, savers), and a share link asks to be shown again.
 on('locking', () => {
   if (!open) return;
   const again = st?.onLocked;

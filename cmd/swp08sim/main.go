@@ -1,18 +1,10 @@
-// Command swp08sim is a minimal fake SW-P-08 router for development.
-// It answers name requests, tally dumps, interrogates and extended connects
-// on any matrix, and broadcasts Connected to every client. With
-// SIM_PANEL_SECONDS it also makes routes of its own, like a control panel;
-// with SIM_PANEL_SILENT=1 those aren't announced, as the Ultrix sometimes
-// doesn't, so they only show in a tally dump or an interrogate.
-//
-// Group salvos (120-123) work as on the Ultrix: one staged list per group
-// shared by every client, 122 echoing each staged crosspoint, 123 for each
-// Go (00 set, 01 cleared, 02 nothing to do), replies after about 6 ms, and
-// no Connected after a Go set unless SIM_SALVO_ANNOUNCE=1 (then one per
-// changed crosspoint, ~110 ms on, 4 ms apart: the Ultrix does either).
-// Both stage commands work: 120 (standard layout) and 248 (extended, level
-// and numbers of any size, answered by 250). SIM_NO_SALVO=1 ignores 120, 248 and 121, like a router without group
-// salvos.
+// Command swp08sim is a fake SW-P-08 router for development: name requests, tally dumps, interrogates,
+// extended connects, Connected broadcast. SIM_PANEL_SECONDS makes routes of its own; SIM_PANEL_SILENT=1
+// leaves them unannounced, as the Ultrix sometimes does.
+// Group salvos (120-123; extended stage 248/250) mimic the Ultrix: one staged list per group shared by
+// every client, 122 echoes each stage, 123 per Go (00 set, 01 cleared, 02 nothing), replies after ~6 ms,
+// no Connected after a Go set unless SIM_SALVO_ANNOUNCE=1 (one per changed crosspoint, ~110 ms on, 4 ms
+// apart). SIM_NO_SALVO=1 ignores 120, 248 and 121.
 package main
 
 import (
@@ -37,17 +29,16 @@ type sim struct {
 	dsts    []string
 	tally   map[int][]int // wire level → dst → src
 	clients map[net.Conn]*sync.Mutex
-	deaf    map[int]bool           // dsts whose connects are ACKed but never carried out
-	silent  map[int]bool           // dsts whose connects are carried out but never announced
-	slow    map[int]time.Duration  // dsts whose connects are carried out but announced late
-	follows map[int][]int          // dst → dsts that follow it, like a multiviewer PiP
-	staged  map[int][]swp08.Staged // salvo group → crosspoints staged by any client
-	noSalvo bool                   // SIM_NO_SALVO: ignore 120, 248 and 121
+	deaf    map[int]bool          // dsts whose connects are ACKed but never carried out
+	silent  map[int]bool          // dsts whose connects are carried out but never announced
+	slow    map[int]time.Duration // dsts whose connects are carried out but announced late
+	follows map[int][]int         // dst → dsts that follow it, like a multiviewer PiP
+	staged  map[int][]swp08.Staged
+	noSalvo bool
 	// SIM_SALVO_ANNOUNCE: a Go set's changes are announced, late
 	announceGo bool
 }
 
-// salvoDelay is how long the Ultrix takes to answer 120 and 121.
 const salvoDelay = 6 * time.Millisecond
 
 func envInt(k string, def int) int {
@@ -62,26 +53,20 @@ func main() {
 	ns, nd, nl := envInt("SIM_SOURCES", 200), envInt("SIM_DESTS", 120), envInt("SIM_LEVELS", 17)
 
 	s := &sim{tally: map[int][]int{}, clients: map[net.Conn]*sync.Mutex{}, deaf: map[int]bool{}, silent: map[int]bool{}, follows: map[int][]int{}, slow: map[int]time.Duration{}, staged: map[int][]swp08.Staged{}, noSalvo: os.Getenv("SIM_NO_SALVO") == "1", announceGo: os.Getenv("SIM_SALVO_ANNOUNCE") == "1"}
-	// SIM_IGNORE_DSTS=5,7 makes connects to those (0-based) destinations
-	// silently fail, so Sode's timeout and retry paths can be exercised.
+	// SIM_IGNORE_DSTS=5,7 (0-based): connects are ACKed but never carried out, to exercise timeout and retry.
 	for _, f := range strings.Split(os.Getenv("SIM_IGNORE_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.deaf[n] = true
 		}
 	}
-	// SIM_SILENT_DSTS=5,7 makes those destinations switch without a
-	// Connected, as the Ultrix sometimes does: Sode only learns of it from
-	// the interrogate it sends when nothing was announced.
+	// SIM_SILENT_DSTS=5,7: switch without a Connected; Sode only learns of it from its interrogate.
 	for _, f := range strings.Split(os.Getenv("SIM_SILENT_DSTS"), ",") {
 		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
 			s.silent[n] = true
 		}
 	}
-	// SIM_SLOW_DSTS=9:6000,11:8000 (0-based dst:milliseconds): the connect
-	// is carried out at once (the tally changes) but its Connected reaches
-	// clients only after the delay, like a laggy router, so a take can give
-	// up and see the Connected arrive late. Interrogate replies stay
-	// immediate; only the announcement is delayed.
+	// SIM_SLOW_DSTS=9:6000,11:8000 (0-based dst:ms): carried out at once, Connected announced after the delay;
+	// interrogate replies stay immediate.
 	for _, f := range strings.Split(os.Getenv("SIM_SLOW_DSTS"), ",") {
 		dst, ms, ok := strings.Cut(strings.TrimSpace(f), ":")
 		n, err1 := strconv.Atoi(dst)
@@ -90,9 +75,7 @@ func main() {
 			s.slow[n] = time.Duration(d) * time.Millisecond
 		}
 	}
-	// SIM_FOLLOWS=2>40,3>41 (0-based): when dst 2 changes, dst 40 follows
-	// it to the same source a moment later, as a router's destination
-	// follow does.
+	// SIM_FOLLOWS=2>40,3>41 (0-based): dst 40 follows dst 2 to the same source a moment later.
 	for _, f := range strings.Split(os.Getenv("SIM_FOLLOWS"), ",") {
 		from, to, ok := strings.Cut(strings.TrimSpace(f), ">")
 		a, err1 := strconv.Atoi(from)
@@ -128,9 +111,7 @@ func main() {
 		s.tally[l] = t
 	}
 
-	// SIM_PANEL_SECONDS=5 routes something every 5s as if from a panel:
-	// one or a few destinations, all levels or a few. SIM_PANEL_DST (0-based,
-	// default 3) gets every other punch, so repeats on a monitor show up.
+	// SIM_PANEL_SECONDS=5 routes every 5s as from a panel; SIM_PANEL_DST (0-based, default 3) gets every other punch.
 	if n := envInt("SIM_PANEL_SECONDS", 0); n > 0 {
 		go s.panel(time.Duration(n)*time.Second, envInt("SIM_PANEL_DST", 3), nl+1, envInt("SIM_PANEL_SILENT", 0) == 1)
 	}
@@ -179,8 +160,6 @@ func (s *sim) panel(every time.Duration, monitor, levels int, silent bool) {
 	}
 }
 
-// route makes a crosspoint and, if it changed and announce is set, tells
-// every client.
 func (s *sim) route(mx, l, dst, src int, announce bool) {
 	s.mu.Lock()
 	t, ok := s.tally[l]
@@ -219,8 +198,7 @@ func (s *sim) route(mx, l, dst, src int, announce bool) {
 	}
 }
 
-// announce sends a Connected for a crosspoint to every client connected
-// now, so a delayed one reaches whoever is listening at the time.
+// announce reaches only clients connected now, so a delayed one goes to whoever is listening then.
 func (s *sim) announce(mx, l, dst, src int) {
 	s.mu.Lock()
 	var all []net.Conn
@@ -361,15 +339,12 @@ func (s *sim) handle(c net.Conn, m []byte) {
 	}
 }
 
-// later writes msg to c after salvoDelay. It waits in line (the ACK has
-// gone already), so the client's next message waits and replies keep their
-// order, as a router busy with the last one would.
+// later writes msg after salvoDelay, queued behind earlier replies so their order holds.
 func (s *sim) later(c net.Conn, msg []byte) {
 	time.Sleep(salvoDelay)
 	s.write(c, swp08.Encode(msg))
 }
 
-// salvo handles Connect On Go (120, extended 248) and Go (121).
 func (s *sim) salvo(c net.Conn, m []byte) {
 	if s.noSalvo {
 		log.Printf("ignored salvo cmd %d (SIM_NO_SALVO)", m[0])
@@ -414,11 +389,9 @@ func (s *sim) salvo(c net.Conn, m []byte) {
 		s.later(c, swp08.GoDoneAck(swp08.GoNothing, g))
 		return
 	}
-	// All at once. The Ultrix sometimes announces a Go's crosspoints and
-	// sometimes not: by default nobody is told (followers still follow,
-	// silently); with SIM_SALVO_ANNOUNCE=1 each changed one gets a Connected,
-	// in destination and level order, 4 ms apart from ~110 ms after the Go,
-	// as measured on the Ultrix.
+	// The Ultrix sometimes announces a Go's crosspoints and sometimes not: by default nobody (followers follow
+	// silently); SIM_SALVO_ANNOUNCE=1 gives each changed one a Connected in dst and level order, 4 ms apart from
+	// ~110 ms after the Go (measured).
 	var changed []swp08.Staged
 	s.mu.Lock()
 	for _, x := range xs {

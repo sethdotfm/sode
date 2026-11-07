@@ -11,7 +11,6 @@ import (
 
 // --- wrong-PIN pools
 
-// pinState counts wrong PINs of one class from anyone, in a row.
 type pinState struct {
 	n     int
 	until time.Time // no tries before this
@@ -19,17 +18,15 @@ type pinState struct {
 	busy  bool      // a PIN is being checked
 }
 
-// pinPool is the wrong-PIN count one class of secret uses, and the rules for
-// it. The settings PIN has one
-// pool; user PINs have their own, so a success or a lockout in one never
-// touches the other. tryPin is the only thing that changes it.
+// pinPool: wrong-PIN count and rules for one class of secret. The Advanced Settings PIN and user
+// PINs have separate pools so neither's success or lockout touches the other. tryPin is
+// the only mutator.
 type pinPool struct {
 	pinState
 	wait func(tries int) time.Duration // the wait after this many wrong PINs in a row
-	// resetOnOK: a right PIN starts the count over. Not for the users' pool: a
-	// PIN there says who typed it, so a stranger who holds one valid PIN would
-	// reset the count at will and guess the others without end. That pool
-	// forgets wrong PINs after forget of quiet instead.
+	// resetOnOK: not for the users' pool: a PIN there identifies the user, so one valid
+	// PIN would let a stranger reset the count and guess the rest. That pool forgets after
+	// quiet instead.
 	resetOnOK bool
 	forget    time.Duration           // 0 = never
 	maxTries  func(config.Config) int // wrong PINs that lock for good; nil or 0 = never
@@ -45,8 +42,6 @@ const (
 
 var errLocked = errors.New("settings are locked; enter the PIN again")
 
-// pinWait is the wait after the nth wrong PIN in a row: none for the first
-// pinFreeTries, then pinFirstWait doubling, up to pinMaxWait.
 func pinWait(n int) time.Duration {
 	if n <= pinFreeTries {
 		return 0
@@ -58,25 +53,22 @@ func pinWait(n int) time.Duration {
 	return min(w, pinMaxWait)
 }
 
-// settingsPool: the settings PIN. PinMaxTries wrong
-// ones in a row lock it until -reset-pin or a restart.
+// settingsPool: PinMaxTries wrong in a row lock it until -reset-pin or restart.
 func settingsPool() pinPool {
 	return pinPool{what: "settings", wait: pinWait, resetOnOK: true, maxTries: func(c config.Config) int { return c.PinMaxTries }}
 }
 
-// userPool: user PINs. The waits stop growing at userPinMaxWait and there is
-// no permanent lock: a stranger's guesses must not shut out the operators.
+// userPool: waits stop growing at userPinMaxWait; no permanent lock, so a stranger can't
+// shut out operators.
 func userPool() pinPool {
 	return pinPool{what: "users", wait: func(n int) time.Duration { return min(pinWait(n), userPinMaxWait) }, forget: pinMaxWait}
 }
 
 const resetHint = "On the Docker host run: docker compose exec sode /sode -reset-pin, then restart Sode"
 
-// tryPin makes one try against pool p: it refuses while the pool is locked
-// out, waiting or busy with another check, else runs check (with mu free,
-// since hashing is slow) and counts the answer. nil means check passed. It
-// takes and releases mu itself; a caller that needs the world to be unchanged
-// afterwards re-checks under its own lock.
+// tryPin refuses while locked out, waiting or busy, else runs check with mu free (hashing
+// is slow). Takes and releases mu itself; callers needing a stable world re-check under
+// their own lock.
 func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	a.mu.Lock()
 	if p.forget > 0 && p.n > 0 && time.Since(p.last) > p.forget {
@@ -125,9 +117,8 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	return errors.New("wrong PIN")
 }
 
-// checkAdmin checks pin against the settings PIN and returns that PIN's hash
-// (empty when none is set, in which case nothing was asked). Wrong PINs count
-// for everyone, since IPs behind a proxy or rotated are no guard.
+// checkAdmin returns the PIN's hash ("" when none set). Wrong PINs count for everyone: IPs
+// behind a proxy are no guard.
 func (a *App) checkAdmin(c *client, pin string) (string, error) {
 	hash := a.r().cfg.SettingsPin
 	if hash == "" {
@@ -136,17 +127,13 @@ func (a *App) checkAdmin(c *client, pin string) (string, error) {
 	if err := a.tryPin(&a.pin, c.ip, func() bool { return config.CheckPin(hash, pin) }); err != nil {
 		return "", err
 	}
-	// Changed while it was being checked?
 	if a.r().cfg.SettingsPin != hash {
 		return "", errLocked
 	}
 	return hash, nil
 }
 
-// Unlock checks a settings PIN from c and, if it's right, unlocks c for the
-// current PIN only: changing or removing the PIN locks it again. One PIN is
-// checked at a time; waits double after pinFreeTries and PinMaxTries in a
-// row lock settings until reset or restart.
+// Unlock covers the current PIN only: changing or removing it relocks.
 func (a *App) Unlock(c *client, pin string) error {
 	hash, err := a.checkAdmin(c, pin)
 	if err != nil || hash == "" {
@@ -158,37 +145,33 @@ func (a *App) Unlock(c *client, pin string) error {
 	return nil
 }
 
-// Lock forgets c's unlock.
 func (a *App) Lock(c *client) {
 	a.mu.Lock()
 	c.pin = ""
 	a.mu.Unlock()
 }
 
-// settingsUnlocked reports whether c may change settings: no settings PIN is
-// set, or c entered the one in force.
 func (a *App) settingsUnlocked(c *client) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.settingsUnlockedLocked(c)
+	return a.settingsUnlockedMu(c)
 }
 
-// settingsUnlockedLocked is settingsUnlocked; caller holds mu.
-func (a *App) settingsUnlockedLocked(c *client) bool {
-	hash := a.r().cfg.SettingsPin
-	return hash == "" || c.pin == hash
+func (a *App) settingsUnlockedMu(c *client) bool {
+	cfg := a.r().cfg
+	if a.heldMu(c, cfg) {
+		return false // a held Lock trusts nothing, with or without the PIN (ADR 0001)
+	}
+	return cfg.SettingsPin == "" || c.pin == cfg.SettingsPin
 }
 
-// trustedLocked: c may make a low-risk save: the settings PIN rules, or c is
-// unlocked as a user who still exists, with the same PIN, and is marked
-// Trusted now (read live, so unticking it takes effect at once). Caller holds
-// mu.
-func (a *App) trustedLocked(c *client) bool {
-	if a.settingsUnlockedLocked(c) {
+// Trusted is read live, so unticking takes effect at once. Caller holds mu.
+func (a *App) trustedMu(c *client) bool {
+	if a.settingsUnlockedMu(c) {
 		return true
 	}
 	cfg := a.r().cfg
-	if !a.userOKLocked(c, cfg) {
+	if !a.userOKMu(c, cfg) {
 		return false
 	}
 	u, _ := cfg.FindUser(c.u.user.Load().Name)

@@ -28,12 +28,11 @@ func TestHelloHasNoUsers(t *testing.T) {
 	}
 }
 
-// Names go to a page that may see the main screen, not to a locked one.
 func TestLockStateNames(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	a.mu.Lock()
-	m := a.lockStateLocked(c)
+	m := a.lockStateMu(c)
 	a.mu.Unlock()
 	if !m.Locked || len(m.Names) != 0 {
 		t.Fatalf("locked page got %+v", m)
@@ -42,23 +41,22 @@ func TestLockStateNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	m = a.lockStateLocked(c)
+	m = a.lockStateMu(c)
 	a.mu.Unlock()
 	if m.Locked || !reflect.DeepEqual(m.Names, []string{"Ana", "Bo"}) {
 		t.Fatalf("unlocked page got %+v", m)
 	}
 }
 
-// The editor's list needs the settings PIN, and carries no hash.
 func TestUsersListNeedsPin(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	if err := admitMsg(a, c, inMsg{T: "usersList"}); err == nil {
-		t.Fatal("usersList admitted without the settings PIN")
+		t.Fatal("usersList admitted without the Advanced Settings PIN")
 	}
 	r := a.usersList(3)
 	b, _ := json.Marshal(r)
-	if !r.OK || r.ID != 3 || len(r.Users) != 2 || r.Users[0].Name != "Ana" || r.Users[0].Len != 4 || strings.Contains(string(b), "pin") {
+	if !r.OK || r.ID != 3 || len(r.Users) != 2 || r.Users[0].Name != "Ana" || r.Users[0].Len != 4 || strings.Contains(string(b), `"pin":`) || strings.Contains(string(b), "pbkdf2") {
 		t.Fatalf("list %s", b)
 	}
 }

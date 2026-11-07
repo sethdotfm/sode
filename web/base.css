@@ -1,26 +1,32 @@
 /* Sode page layout. Tokens only; components come from patchbay. */
 
-/* Whole-UI scale for reading at a distance: every size is rem, so the root
-   font size scales it all (never zoom). The phone layout stays at 100%. */
-html { font-size: 125%; }
-[data-layout="phone"] { font-size: 100%; }
+/* Whole-UI scale: sizes are rem, so the root font size scales everything (never zoom); the phone layout stays at 100%. */
+html {
+  font-size: 125%;
+}
+[data-layout="phone"] {
+  font-size: 100%;
+}
 :root {
-  --sode-side-w: 0.3125rem; /* source and destination color edges */
-  --sode-motion-enter: 400ms; /* a new history entry arriving */
-  --pb-font-num: var(--pb-font); /* Plex Sans throughout, numbers too */
+  --sode-side-w: 0.3125rem;
+  --sode-motion-enter: 400ms;
+  --pb-font-num: var(--pb-font);
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --sode-motion-enter: 0ms; }
+  :root {
+    --sode-motion-enter: 0ms;
+  }
 }
 
-/* New history entries fade and slide in. */
 @keyframes sode-enter {
   from {
     opacity: 0;
     transform: translateY(calc(var(--pb-space-6) * -1));
   }
 }
-.sode--enter { animation: sode-enter var(--sode-motion-enter) var(--pb-ease); }
+.sode--enter {
+  animation: sode-enter var(--sode-motion-enter) var(--pb-ease);
+}
 
 .sode {
   align-items: center;
@@ -33,8 +39,6 @@ html { font-size: 125%; }
   --sode-pad-bottom: var(--pb-space-8);
 }
 
-/* Connection status, out of the way in the top corner and above the
-   page as it scrolls. */
 .sode__conn {
   align-items: center;
   background: var(--pb-surface-base);
@@ -48,12 +52,14 @@ html { font-size: 125%; }
   top: var(--pb-space-4);
   z-index: var(--pb-z-sticky);
 }
-.sode__conn-addr { font-family: var(--pb-font-num); }
-.sode__conn-addr--name { color: var(--pb-text); font-family: inherit; }
-/* A lost link: a solid red banner across the whole top of the window that
-   says which link is down, the corner status gives way to it, and a thick
-   pulsing red outline round the whole window. It is out of the page's flow;
-   the page starts below it by --sode-down-h (measured in core.js). */
+.sode__conn-addr {
+  font-family: var(--pb-font-num);
+}
+.sode__conn-addr--name {
+  color: var(--pb-text);
+  font-family: inherit;
+}
+/* Lost link banner and outline, out of the page's flow; the page starts below it by --sode-down-h (measured in core.js). */
 .sode__down {
   background: var(--pb-status-error);
   color: var(--pb-text-on-accent);
@@ -65,7 +71,7 @@ html { font-size: 125%; }
   position: fixed;
   top: 0;
   width: 100%;
-  z-index: var(--pb-z-sticky);
+  z-index: calc(var(--pb-z-toast) + 2); /* over the Lock (toast) and its chip (toast + 1), menus and dialogs */
 }
 .sode__down-title {
   font-size: var(--pb-text-xl);
@@ -84,6 +90,9 @@ html { font-size: 125%; }
   gap: var(--pb-space-3);
 }
 .sode__down-node {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-3);
   border: var(--pb-border-w) solid currentColor;
   padding: var(--pb-space-1) var(--pb-space-4);
 }
@@ -99,12 +108,17 @@ html { font-size: 125%; }
   content: "";
   width: var(--pb-space-8);
 }
-.sode__down-link--lost { font-weight: var(--pb-weight-bold); }
+.sode__down-link--lost {
+  font-weight: var(--pb-weight-bold);
+}
 .sode__down-link--lost::before,
-.sode__down-link--lost::after { border-top: calc(var(--pb-border-w) * 2) dashed currentColor; }
-[data-conn="down"] .sode__conn { display: none; }
-/* The outline is its own element so it can pulse with patchbay's
-   .pb-dot--pulse (which also stops under reduced motion). */
+.sode__down-link--lost::after {
+  border-top: calc(var(--pb-border-w) * 2) dashed currentColor;
+}
+[data-conn="down"] .sode__conn {
+  display: none;
+}
+/* Its own element so it can pulse with .pb-dot--pulse (which stops under reduced motion). */
 .sode__frame {
   border: var(--pb-space-3) solid var(--pb-status-error);
   display: none;
@@ -113,9 +127,10 @@ html { font-size: 125%; }
   position: fixed;
   z-index: var(--pb-z-tooltip);
 }
-[data-conn="down"] .sode__frame { display: block; }
-/* The optional brand border (brand.js) is a separate, lower element, so the
-   red lost-link outline above always shows over it. */
+[data-conn="down"] .sode__frame {
+  display: block;
+}
+/* Separate and lower than the red lost-link outline, so that always shows over it. */
 .sode__brandframe {
   border: var(--pb-space-2) solid var(--brand-color, transparent);
   inset: 0;
@@ -123,14 +138,27 @@ html { font-size: 125%; }
   position: fixed;
   z-index: var(--pb-z-sticky);
 }
-.sode__brandframe[hidden] { display: none; }
-[data-brand="blue"] { --brand-color: var(--pb-signal-07); }
-[data-brand="teal"] { --brand-color: var(--pb-signal-06); }
-[data-brand="green"] { --brand-color: var(--pb-signal-05); }
-[data-brand="amber"] { --brand-color: var(--pb-signal-02); }
-[data-brand="violet"] { --brand-color: var(--pb-signal-09); }
-[data-brand="pink"] { --brand-color: var(--pb-signal-11); }
-/* Settings: the picked colour as a window-border sample and the app icon. */
+.sode__brandframe[hidden] {
+  display: none;
+}
+[data-brand="blue"] {
+  --brand-color: var(--pb-signal-07);
+}
+[data-brand="teal"] {
+  --brand-color: var(--pb-signal-06);
+}
+[data-brand="green"] {
+  --brand-color: var(--pb-signal-05);
+}
+[data-brand="amber"] {
+  --brand-color: var(--pb-signal-02);
+}
+[data-brand="violet"] {
+  --brand-color: var(--pb-signal-09);
+}
+[data-brand="pink"] {
+  --brand-color: var(--pb-signal-11);
+}
 .sode__brand-preview {
   align-items: center;
   display: flex;
@@ -141,15 +169,17 @@ html { font-size: 125%; }
   height: calc(var(--pb-space-10) + var(--pb-space-5));
   width: calc(var(--pb-space-10) + var(--pb-space-5));
 }
-.sode__brand-icon { display: block; height: 3rem; width: 3rem; }
+.sode__brand-icon {
+  display: block;
+  height: 3rem;
+  width: 3rem;
+}
 .sode__label {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
   letter-spacing: var(--pb-tracking-label);
   text-transform: uppercase;
 }
-/* A level toggle (picker) or slot (level bar): filled when on, outlined in
-   its signal color when off. Shared so both read the same. */
 .sode__pick,
 .sode__slot {
   align-items: center;
@@ -165,7 +195,9 @@ html { font-size: 125%; }
   min-width: calc(var(--pb-space-8) + var(--pb-space-1));
   padding: 0;
 }
-.sode__pick { cursor: pointer; }
+.sode__pick {
+  cursor: pointer;
+}
 .sode__pick[aria-pressed="true"],
 .sode__slot--on {
   background: var(--sode-c);
@@ -190,9 +222,15 @@ html { font-size: 125%; }
   color: var(--pb-text-strong);
   padding: var(--pb-space-2) var(--pb-space-4);
 }
-.sode__end--src { border-left: var(--sode-side-w) solid var(--pb-source); }
-.sode__end--dst { border-left: var(--sode-side-w) solid var(--pb-dest); }
-.sode__arrow { color: var(--pb-text-muted); }
+.sode__end--src {
+  border-left: var(--sode-side-w) solid var(--pb-source);
+}
+.sode__end--dst {
+  border-left: var(--sode-side-w) solid var(--pb-dest);
+}
+.sode__arrow {
+  color: var(--pb-text-muted);
+}
 
 .sode__scrim {
   align-items: center;
@@ -200,11 +238,13 @@ html { font-size: 125%; }
   inset: 0;
   justify-content: center;
   padding: var(--pb-space-8);
+  padding-top: calc(var(--pb-space-8) + var(--sode-down-h, 0px));
   position: fixed;
   z-index: var(--pb-z-modal);
 }
-.sode__scrim[hidden] { display: none; }
-/* Dialogs size to their content but never past the window. */
+.sode__scrim[hidden] {
+  display: none;
+}
 .sode__scrim > .pb-modal {
   max-height: calc(100vh - var(--pb-space-8) * 2);
   max-width: calc(100vw - var(--pb-space-8) * 2);
@@ -224,7 +264,6 @@ html { font-size: 125%; }
   flex-wrap: wrap;
   gap: var(--pb-space-3);
 }
-/* An inverted keycap: maximum contrast in either theme. */
 .sode__key {
   background: var(--pb-text-strong);
   border: var(--pb-border-w) solid var(--pb-text-strong);
@@ -241,12 +280,8 @@ html { font-size: 125%; }
   color: var(--pb-text-disabled);
 }
 
-/* Level bar: every level, filled = in use, in two rows of small slots
-   with an odd first level (0 or V) on its own to their left. A thick
-   outline reads as filled at this size, so every slot gets the thin one;
-   a fixed width keeps two-digit slots from growing when filled. */
-/* However many levels there are, a bar never outgrows its container: past
-   that it scrolls sideways (the scrollbar style is in desktop.css). */
+/* A thick outline reads as filled at this size, so every slot gets the thin one; a fixed width keeps two-digit slots from growing when filled. */
+/* The bar scrolls sideways past its container (scrollbar style in desktop.css). */
 .sode__bar {
   display: grid;
   flex: 0 1 auto;
@@ -268,7 +303,9 @@ html { font-size: 125%; }
   min-width: 0;
   width: var(--pb-space-7);
 }
-.sode__bar > .sode__slot:not(.sode__slot--on) { color: var(--pb-text-muted); }
+.sode__bar > .sode__slot:not(.sode__slot--on) {
+  color: var(--pb-text-muted);
+}
 
 .sode__view {
   align-items: center;
@@ -277,37 +314,43 @@ html { font-size: 125%; }
   gap: var(--pb-space-8);
   width: 100%;
 }
-/* Which view shows: settings over everything; otherwise the layout's own. */
 #settings-view,
-.sode-m { display: none; }
-[data-view="settings"] #settings-view { display: flex; }
+.sode-m {
+  display: none;
+}
+[data-view="settings"] #settings-view {
+  display: flex;
+}
 [data-view="settings"] #patch-view,
-[data-view="settings"] .sode-m { display: none; }
+[data-view="settings"] .sode-m {
+  display: none;
+}
 [data-layout="phone"] #patch-view,
 [data-layout="phone"] .sode__conn,
-[data-layout="phone"]:not([data-view="settings"]) #conn-down { display: none; }
-[data-layout="phone"]:not([data-view="settings"]) .sode-m { display: flex; }
+[data-layout="phone"]:not([data-view="settings"]) #conn-down {
+  display: none;
+}
+[data-layout="phone"]:not([data-view="settings"]) .sode-m {
+  display: flex;
+}
 
-/* Settings: one plain column, labels above fields, the page scrolls.
-   Sections sit well apart from each other, further than the fields inside
-   them. */
 .sode__settings {
   align-items: stretch;
   gap: calc(var(--pb-space-10) + var(--pb-space-5));
   max-width: 40rem;
 }
-/* The table of contents: a strip across the top, held there as the page
-   scrolls, and beside the column where there's room. The phone layout has
-   Back and a short page of its own, so it goes without. */
 .sode__toc {
   position: sticky;
   top: var(--sode-down-h, 0px);
   z-index: 1;
 }
-/* Settings search above the sections: hits list under the box, floating
-   over the sections strip on a narrow screen. */
-.sode__find { background: var(--pb-surface-base); position: relative; }
-.sode__find .pb-input { width: 100%; }
+.sode__find {
+  background: var(--pb-surface-base);
+  position: relative;
+}
+.sode__find .pb-input {
+  width: 100%;
+}
 .sode__found {
   background: var(--pb-surface-high);
   border: var(--pb-border-w) solid var(--pb-edge);
@@ -320,16 +363,27 @@ html { font-size: 125%; }
   inset-inline: 0;
   z-index: 2;
 }
-.sode__found li { cursor: pointer; display: flex; flex-direction: column; padding: var(--pb-space-2) var(--pb-space-3); }
-.sode__found li[aria-selected="true"] { border-inline-start: var(--pb-accent-bar-w) solid var(--pb-accent); color: var(--pb-accent); }
-.sode__found .sode__hint { display: block; }
-/* The found section or setting: an accent outline and tint; both go when the flash ends. */
+.sode__found li {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+.sode__found li[aria-selected="true"] {
+  border-inline-start: var(--pb-accent-bar-w) solid var(--pb-accent);
+  color: var(--pb-accent);
+}
+.sode__found .sode__hint {
+  display: block;
+}
 .sode__is-found {
   background: color-mix(in srgb, var(--pb-accent) 14%, transparent);
   outline: var(--pb-accent-bar-w) solid var(--pb-accent);
   outline-offset: var(--pb-space-1);
 }
-.sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px)); }
+.sode__settings > .sode__group {
+  scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px));
+}
 @media (min-width: 68.75rem) {
   .sode__toc {
     border-bottom: 0;
@@ -340,24 +394,41 @@ html { font-size: 125%; }
     top: calc(10vh + var(--sode-down-h, 0px));
     width: 12.5rem;
   }
-  .sode__toc .pb-tab { height: auto; line-height: 1.25; overflow-wrap: anywhere; padding-block: var(--pb-space-3); text-align: left; white-space: normal; }
-  .sode__toc nav { border-bottom: 0; flex-direction: column; overflow-x: hidden; }
-  .sode__settings > .sode__group { scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px)); }
+  .sode__toc .pb-tab {
+    height: auto;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    padding-block: var(--pb-space-3);
+    text-align: left;
+    white-space: normal;
+  }
+  .sode__toc nav {
+    border-bottom: 0;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  .sode__settings > .sode__group {
+    scroll-margin-top: calc(var(--pb-space-10) + var(--sode-down-h, 0px));
+  }
 }
 .sode__settings-head {
   align-items: center;
   display: flex;
   gap: var(--pb-space-3);
 }
-/* Back to the composer, on a phone (desktop has Cancel in reach). */
-.pb-btn.sode__back { margin-left: calc(var(--pb-space-4) * -1); }
-[data-layout="desktop"] .sode__back { display: none; }
-/* Phone: Back on the left, the title centered on the page. */
+.pb-btn.sode__back {
+  margin-left: calc(var(--pb-space-4) * -1);
+}
+[data-layout="desktop"] .sode__back {
+  display: none;
+}
 [data-layout="phone"] .sode__settings-head {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
 }
-[data-layout="phone"] .sode__back { justify-self: start; }
+[data-layout="phone"] .sode__back {
+  justify-self: start;
+}
 .sode__settings-title {
   color: var(--pb-text-strong);
   font-size: var(--pb-text-xl);
@@ -373,7 +444,6 @@ html { font-size: 125%; }
   min-width: 0;
   padding: 0;
 }
-/* Section header: a rule across the column with the name under it. */
 .sode__group > legend {
   border-top: var(--pb-border-w) solid var(--pb-edge);
   color: var(--pb-text-strong);
@@ -383,26 +453,50 @@ html { font-size: 125%; }
   padding: var(--pb-space-5) 0 0;
   width: 100%;
 }
-/* Locked by a settings PIN: only the prompt and this browser's own
-   options show until it's entered. */
-.sode__lock { display: none; }
-.sode__settings[data-locked] > .sode__lock { display: flex; }
-.sode__lock-exit { display: none; }
-/* Exit left, the version and links centred, View Logs right. */
-.sode__settings[data-locked] > .sode__lock-exit { align-items: center; display: grid; gap: var(--pb-space-5); grid-template-columns: 1fr auto 1fr; }
-.sode__lock-exit .sode__about { justify-content: center; }
-.sode__lock-exit > :first-child { justify-self: start; }
-.sode__lock-exit > .sode__logs { justify-self: end; }
-.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__lock-exit) { display: none; }
-/* This device first, then the prompt: it's the part anyone can change. */
-.sode__settings[data-locked] > .sode__settings-head { order: -2; }
-.sode__settings[data-locked] > .sode__device { order: -1; }
-.sode__settings[data-locked] > .sode__lock-exit { order: 2; } /* last of all */
+.sode__lock {
+  display: none;
+}
+.sode__settings[data-locked] > .sode__lock {
+  display: flex;
+}
+.sode__lock-exit {
+  display: none;
+}
+.sode__settings[data-locked] > .sode__lock-exit {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: 1fr auto 1fr;
+}
+.sode__lock-exit .sode__about {
+  justify-content: center;
+}
+.sode__lock-exit > :first-child {
+  justify-self: start;
+}
+.sode__lock-exit > .sode__logs {
+  justify-self: end;
+}
+.sode__settings[data-locked] > :not(.sode__settings-head, .sode__lock, .sode__device, .sode__lock-exit) {
+  display: none;
+}
+.sode__settings[data-locked] > .sode__settings-head {
+  order: -2;
+}
+.sode__settings[data-locked] > .sode__device {
+  order: -1;
+}
+.sode__settings[data-locked] > .sode__lock-exit {
+  order: 2;
+}
 .sode__settings[data-locked] > .sode__lock {
   border-top: var(--pb-border-w) solid var(--pb-edge);
   padding-top: var(--pb-space-5);
 }
-.sode__field > .pb-btn-group { align-self: flex-start; flex-wrap: wrap; }
+.sode__field > .pb-btn-group {
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
 .sode__fields {
   display: grid;
   gap: var(--pb-space-5);
@@ -414,16 +508,21 @@ html { font-size: 125%; }
   gap: var(--pb-space-2);
 }
 .sode__field > label,
-.sode__field-label { color: var(--pb-text); font-weight: var(--pb-weight-medium); }
+.sode__field-label {
+  color: var(--pb-text);
+  font-weight: var(--pb-weight-medium);
+}
 .sode__field .pb-input,
 .sode__field .pb-select,
 .sode__field .pb-number-wrap,
-.sode__field .pb-select-wrap { width: 100%; }
-/* Number stepper (#166): the down arrow is ::before, so the relatively
-   positioned input painted over it. Lift both glyphs above the input. */
+.sode__field .pb-select-wrap {
+  width: 100%;
+}
+/* The down arrow is ::before, so the positioned input painted over it: lift both glyphs. */
 .pb-number-wrap::before,
-.pb-number-wrap::after { z-index: 1; }
-/* Level colors: one row per level, its slot as a live preview. */
+.pb-number-wrap::after {
+  z-index: 1;
+}
 .sode__colors {
   display: grid;
   gap: var(--pb-space-3) var(--pb-space-5);
@@ -434,7 +533,11 @@ html { font-size: 125%; }
   display: flex;
   gap: var(--pb-space-3);
 }
-.sode__color .pb-input { flex: 1 1 auto; font-family: var(--pb-font-mono); min-width: 0; }
+.sode__color .pb-input {
+  flex: 1 1 auto;
+  font-family: var(--pb-font-mono);
+  min-width: 0;
+}
 .sode__hint {
   color: var(--pb-text-muted);
   font-size: var(--pb-text-xs);
@@ -455,22 +558,47 @@ html { font-size: 125%; }
   font-weight: var(--pb-weight-bold);
   text-decoration: none;
 }
-.sode__links > a:hover { color: var(--pb-accent-hover); text-decoration: none; }
-.sode__names--start { justify-content: flex-start; }
-/* The name in Account: large, the user's name in the accent. */
-.sode__acct { margin-bottom: var(--pb-space-3); color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
-.sode__acct strong { color: var(--pb-accent); }
-/* Lock stays at the row's right end, logged in or not. */
-.sode__lock-btn { margin-left: auto; }
-/* This device is the first section: no rule over it. */
-.sode__device > legend { border-top: 0; padding-top: 0; }
-/* The locked prompt: the PIN box and Unlock on one row, its help and Forgot PIN? tucked under the box. */
-.sode__pinrow { display: flex; gap: var(--pb-space-4); }
-.sode__pinrow .pb-input { flex: 1; min-width: 0; width: auto; }
-.sode__pinhelp { display: flex; justify-content: flex-end; }
-/* Open and Forgot PIN? share a width, so they line up under each other. */
+.sode__links > a:hover {
+  color: var(--pb-accent-hover);
+  text-decoration: none;
+}
+.sode__names--start {
+  justify-content: flex-start;
+}
+.sode__acct {
+  margin-bottom: var(--pb-space-3);
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__acct strong {
+  color: var(--pb-accent);
+}
+.sode__lock-btn {
+  margin-left: auto;
+}
+.sode__device > legend {
+  border-top: 0;
+  padding-top: 0;
+}
+.sode__pinrow {
+  display: flex;
+  gap: var(--pb-space-4);
+}
+.sode__pinrow .pb-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.sode__pinhelp {
+  display: flex;
+  justify-content: flex-end;
+}
 .sode__pinrow .pb-btn,
-.sode__pinhelp .pb-btn { justify-content: center; width: 7rem; }
+.sode__pinhelp .pb-btn {
+  justify-content: center;
+  width: 7rem;
+}
 .sode__names {
   align-items: center;
   display: flex;
@@ -485,8 +613,7 @@ html { font-size: 125%; }
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
-  /* Down over the page's bottom padding, so no gap shows under the bar at
-     the end of the page; the safe area keeps it clear of the iOS home bar. */
+  /* Down over the page's bottom padding so no gap shows under the bar; the safe area clears the iOS home bar. */
   margin-bottom: calc(-1 * var(--sode-pad-bottom));
   padding: var(--pb-space-5) 0 calc(var(--pb-space-5) + env(safe-area-inset-bottom));
   position: sticky;
@@ -499,7 +626,6 @@ html { font-size: 125%; }
   gap: var(--pb-space-5);
   justify-content: space-between;
 }
-/* Slide to confirm */
 .sode__slide {
   --slide: 0px;
   align-items: center;
@@ -512,7 +638,6 @@ html { font-size: 125%; }
   touch-action: none;
   user-select: none;
 }
-/* The trail behind the handle. */
 .sode__slide::before {
   background: color-mix(in srgb, var(--pb-status-error) 30%, transparent);
   bottom: 0;
@@ -547,21 +672,26 @@ html { font-size: 125%; }
   width: calc(var(--pb-control-h-lg) * 1.6);
 }
 .sode__slide--drag .sode__slide-handle,
-.sode__slide--drag::before { transition: none; }
+.sode__slide--drag::before {
+  transition: none;
+}
 .sode__slide--locked .sode__slide-handle {
   background: var(--pb-surface-high);
   color: var(--pb-text-disabled);
   cursor: not-allowed;
 }
 
-/* Shortcut list: key on the left, what it does on the right. One grid
-   for both sections (the lists dissolve into it), so the key column is as
-   wide as the widest key in either. */
-.sode__lock-help { max-width: 60ch; }
-.sode__lock-help > p { margin: 0 0 var(--pb-space-3); }
-.sode__lock-help > pre { margin: 0 0 var(--pb-space-5); user-select: all; }
+.sode__lock-help {
+  max-width: 60ch;
+}
+.sode__lock-help > p {
+  margin: 0 0 var(--pb-space-3);
+}
+.sode__lock-help > pre {
+  margin: 0 0 var(--pb-space-5);
+  user-select: all;
+}
 
-/* A patch box's label, with the last take's value as a chip at its right. */
 .sode__box-head {
   align-items: center;
   display: flex;
@@ -570,7 +700,11 @@ html { font-size: 125%; }
   min-height: var(--pb-control-h-sm);
   min-width: 0;
 }
-.sode__box-head > [data-last] { display: flex; gap: var(--pb-space-5); min-width: 0; }
+.sode__box-head > [data-last] {
+  display: flex;
+  gap: var(--pb-space-5);
+  min-width: 0;
+}
 .pb-chip.sode__last {
   font-size: var(--pb-text-xs);
   gap: var(--pb-space-2);
@@ -578,79 +712,157 @@ html { font-size: 125%; }
   min-width: 0;
   padding: 0 var(--pb-space-2);
 }
-.sode__last-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sode__last > .sode__key-note, .sode__next-in > .sode__key-note { font-size: 0.7em; position: static; transform: none; } /* small next to the chip's own text */
-/* Next: just the tag until hovered, focused or Shift is held, then it opens
-   leftward over the Last chip. The slot keeps the closed chip's room and the
-   chip is pinned to its right edge, so the row never shifts. */
-.sode__next-slot { flex: none; position: relative; }
-.sode__next-size { visibility: hidden; }
-.pb-chip.sode__next { max-width: 18rem; }
-.sode__next { bottom: 0; flex: none; position: absolute; right: 0; top: 0; width: max-content; z-index: 1; }
-.sode__tag { color: var(--pb-text-muted); font-weight: var(--pb-weight-bold); }
-/* The closed Next chip shows its key after the tag; open, the key sits by the value. */
-.sode__next > .sode__tag-key { margin-left: 0; }
+.sode__last-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode__last > .sode__key-note,
+.sode__next-in > .sode__key-note {
+  font-size: 0.7em;
+  position: static;
+  transform: none;
+}
+.sode__next-slot {
+  flex: none;
+  position: relative;
+}
+.sode__next-size {
+  visibility: hidden;
+}
+.pb-chip.sode__next {
+  max-width: 18rem;
+}
+.sode__next {
+  bottom: 0;
+  flex: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: max-content;
+  z-index: 1;
+}
+.sode__tag {
+  color: var(--pb-text-muted);
+  font-weight: var(--pb-weight-bold);
+}
+.sode__next > .sode__tag-key {
+  margin-left: 0;
+}
 .sode__next:is(:hover, :focus-visible) > .sode__tag-key,
-html[data-shift] .sode__next > .sode__tag-key { display: none; }
-/* Open, it is plainly the other chip: accent edge and tag, and the Last
-   chip underneath fades out instead of peeking from behind it. */
+html[data-shift] .sode__next > .sode__tag-key {
+  display: none;
+}
 .pb-chip.sode__next:is(:hover, :focus-visible),
-html[data-shift] .pb-chip.sode__next { border-color: var(--pb-accent); }
+html[data-shift] .pb-chip.sode__next {
+  border-color: var(--pb-accent);
+}
 .sode__next:is(:hover, :focus-visible) > .sode__tag,
-html[data-shift] .sode__next > .sode__tag { color: var(--pb-accent); }
-[data-last] > .sode__last:not(.sode__next) { transition: opacity var(--pb-motion-normal) var(--pb-ease); }
+html[data-shift] .sode__next > .sode__tag {
+  color: var(--pb-accent);
+}
+[data-last] > .sode__last:not(.sode__next) {
+  transition: opacity var(--pb-motion-normal) var(--pb-ease);
+}
 [data-last]:has(.sode__next:is(:hover, :focus-visible)) > .sode__last:not(.sode__next),
-html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) { opacity: 0; }
+html[data-shift] [data-last]:has(.sode__next) > .sode__last:not(.sode__next) {
+  opacity: 0;
+}
 .sode__next-open {
   display: grid;
   grid-template-columns: 0fr;
   min-width: 0;
   opacity: 0;
-  transition: grid-template-columns var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease);
+  transition:
+    grid-template-columns var(--pb-motion-normal) var(--pb-ease),
+    opacity var(--pb-motion-normal) var(--pb-ease);
 }
-.sode__next-in { align-items: center; display: flex; gap: var(--pb-space-2); min-width: 0; overflow: hidden; white-space: nowrap; }
+.sode__next-in {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .sode__next:is(:hover, :focus-visible) > .sode__next-open,
-html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; opacity: 1; }
-.sode__next:is(:hover, :focus-visible) > .sode__next-open { transition-delay: var(--pb-motion-fast); }
+html[data-shift] .sode__next > .sode__next-open {
+  grid-template-columns: 1fr;
+  opacity: 1;
+}
+.sode__next:is(:hover, :focus-visible) > .sode__next-open {
+  transition-delay: var(--pb-motion-fast);
+}
 
-/* A source or destination's number, muted and fixed-width before its name. */
 .sode__lbl-n {
   color: var(--pb-text-muted);
   font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-normal);
 }
 
-
-/* Rows that open and close when clicked anywhere (clickToToggle); their
-   open panels don't. */
-.sode--tap { cursor: pointer; }
+/* Rows that toggle when clicked anywhere (clickToToggle); their open panels don't. */
+.sode--tap {
+  cursor: pointer;
+}
 .sode--tap .sode__hist-before,
 .sode--tap .sode__hist-folder,
-.sode--tap .sode-m__changes { cursor: auto; }
+.sode--tap .sode-m__changes {
+  cursor: auto;
+}
 
-/* Per-row "Save/Clear my default" buttons: small, side by side, not stretched. */
-.sode__my-defaults { align-items: center; display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
-/* Side by side, small enough for a narrow column (the full words are in the tooltip). */
-.sode__my-default { align-self: flex-start; flex: 1 1 0; font-size: var(--pb-text-xs); max-width: max-content; min-width: 0; padding: 0 var(--pb-space-3); }
-.sode__my-defaults > .sode__hint { flex: 1 0 100%; }
+.sode__my-defaults {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+.sode__my-default {
+  align-self: flex-start;
+  flex: 1 1 0;
+  font-size: var(--pb-text-xs);
+  max-width: max-content;
+  min-width: 0;
+  padding: 0 var(--pb-space-3);
+}
+.sode__my-defaults > .sode__hint {
+  flex: 1 0 100%;
+}
 
-/* Result banner: the alert, its close button and the countdown bar of a success.
-   The bar is scaled, not resized, so it runs on the compositor and doesn't judder.
-   Closing collapses the row (1fr to 0fr) and fades it, so the page below slides up. */
+/* The countdown bar is scaled, not resized, so it runs on the compositor. Closing collapses the row (1fr to 0fr) so the page below slides up. */
 .sode__banner {
   display: grid;
   grid-template-rows: 1fr;
   opacity: 1;
-  transition: grid-template-rows var(--pb-motion-normal) var(--pb-ease), opacity var(--pb-motion-normal) var(--pb-ease);
+  transition:
+    grid-template-rows var(--pb-motion-normal) var(--pb-ease),
+    opacity var(--pb-motion-normal) var(--pb-ease);
   width: 100%;
 }
-/* In and out are the same motion: the row opens from 0fr as it fades up. */
-.sode__banner { animation: sode-banner-in var(--pb-motion-normal) var(--pb-ease); }
-@keyframes sode-banner-in { from { grid-template-rows: 0fr; opacity: 0; } }
-.sode__banner--out { grid-template-rows: 0fr; opacity: 0; }
-.sode__banner-in { min-height: 0; overflow: hidden; }
-.sode__banner-body { flex: 1; min-width: 0; }
-.sode__banner-x { flex: none; }
+.sode__banner {
+  animation: sode-banner-in var(--pb-motion-normal) var(--pb-ease);
+}
+@keyframes sode-banner-in {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+.sode__banner--out {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.sode__banner-in {
+  min-height: 0;
+  overflow: hidden;
+}
+.sode__banner-body {
+  flex: 1;
+  min-width: 0;
+}
+.sode__banner-x {
+  flex: none;
+}
 .sode__banner-time {
   background: transparent;
   border: 0;
@@ -663,9 +875,12 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
   width: 100%;
   will-change: transform;
 }
-@keyframes sode-countdown { to { transform: scaleX(0); } }
+@keyframes sode-countdown {
+  to {
+    transform: scaleX(0);
+  }
+}
 
-/* A colour sample inside an example hex's code block. */
 .sode__swatch {
   background: var(--sw);
   border: var(--pb-border-w) solid var(--pb-edge);
@@ -675,22 +890,51 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
   vertical-align: baseline;
   width: 0.75em;
 }
-/* The bottom row of Settings: the version and links centred, View Logs at the right. */
-.sode__foot { align-items: center; display: grid; gap: var(--pb-space-5); grid-template-columns: 1fr auto 1fr; }
-.sode__foot .sode__about { justify-content: center; }
-.sode__foot > .sode__logs { justify-self: end; }
-@media (max-width: 599.98px) {
-  .sode__foot, .sode__settings[data-locked] > .sode__lock-exit { grid-template-columns: 1fr; justify-items: center; }
-  .sode__foot > :first-child { display: none; }
-  .sode__lock-exit > .sode__logs, .sode__foot > .sode__logs, .sode__lock-exit > :first-child { justify-self: center; }
+.sode__foot {
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: 1fr auto 1fr;
 }
-/* Two checkboxes in a row (Page locks). */
-.sode__field [role="group"] .pb-check + .pb-check { margin-left: var(--pb-space-5); }
-#settings-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* A subtitle sits right under its heading. */
-.sode__group > legend:has(+ .sode__hint) { margin-bottom: var(--pb-space-1); }
-/* Names: the counts, then "Refreshed ..." in its own box beside the button. */
-.sode__names-refresh { align-items: center; display: flex; gap: var(--pb-space-3); }
+.sode__foot .sode__about {
+  justify-content: center;
+}
+.sode__foot > .sode__logs {
+  justify-self: end;
+}
+@media (max-width: 599.98px) {
+  .sode__foot,
+  .sode__settings[data-locked] > .sode__lock-exit {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .sode__foot > :first-child {
+    display: none;
+  }
+  .sode__lock-exit > .sode__logs,
+  .sode__foot > .sode__logs,
+  .sode__lock-exit > :first-child {
+    justify-self: center;
+  }
+}
+.sode__field [role="group"] .pb-check + .pb-check {
+  margin-left: var(--pb-space-5);
+}
+#settings-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode__group > legend:has(+ .sode__hint) {
+  margin-bottom: var(--pb-space-1);
+}
+.sode__names-refresh {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
 .sode__chipbox {
   border: var(--pb-border-w) solid var(--pb-edge);
   color: var(--pb-text-muted);
@@ -698,6 +942,17 @@ html[data-shift] .sode__next > .sode__next-open { grid-template-columns: 1fr; op
   padding: var(--pb-space-2) var(--pb-space-3);
 }
 
-/* Account is its own section after This device: a rule above it when the two are stacked (not a phone's one-section pages). */
 :root:not([data-layout="phone"]) .sode__device + .sode__device > legend,
-.sode__settings[data-locked] > .sode__device + .sode__device > legend { border-top: var(--pb-border-w) solid var(--pb-edge); padding-top: var(--pb-space-5); }
+.sode__settings[data-locked] > .sode__device + .sode__device > legend {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  padding-top: var(--pb-space-5);
+}
+
+/* An open dialog keeps the page behind it still: wheel and touch over the scrim must not scroll Settings. */
+html:has(.sode__scrim:not([hidden])) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+.sode__scrim .pb-modal__body {
+  overscroll-behavior: contain;
+}

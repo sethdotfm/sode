@@ -61,7 +61,6 @@ func TestConfigExportPins(t *testing.T) {
 	if !strings.Contains(text, "PRIVATE BACKUP") {
 		t.Fatal("private backup is not marked")
 	}
-	// The live config is untouched by exporting.
 	if a.r().cfg.SettingsPin == "" || a.r().cfg.Users[0].Pin == "" {
 		t.Fatal("export blanked the live config")
 	}
@@ -88,7 +87,7 @@ func TestConfigImportKeepsLivePins(t *testing.T) {
 		t.Fatal("setting not imported")
 	}
 	if got.SettingsPin != live.SettingsPin {
-		t.Fatal("settings PIN not kept")
+		t.Fatal("Advanced Settings PIN not kept")
 	}
 	if got.Users[0].Pin != live.Users[0].Pin || got.Users[0].Len != 4 {
 		t.Fatalf("Ana: %+v", got.Users[0])
@@ -133,7 +132,6 @@ func TestConfigImportProfileRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	text, _ := exportOf(t, a, true)
-	// Wipe the profile, then restore from the file.
 	a.saveShared(adminClient(t, a), func(c *config.Config) error { c.Users[0].Profile = config.Profile{}; return nil }, nil)
 	if err := a.ImportConfig(adminClient(t, a), text); err != nil {
 		t.Fatal(err)
@@ -141,7 +139,6 @@ func TestConfigImportProfileRoundTrip(t *testing.T) {
 	if got := a.r().cfg.Users[0].Profile.Prefs["theme"]; got != "dark" {
 		t.Fatalf("profile after import: %q", got)
 	}
-	// And it was saved to disk as the loadable file.
 	if c, _, err := config.Load(a.cfgPath); err != nil || c.Users[0].Profile.Prefs["theme"] != "dark" {
 		t.Fatalf("saved file: %v %+v", err, c.Users)
 	}
@@ -168,15 +165,12 @@ func TestConfigImportRefused(t *testing.T) {
 	if got := a.r().cfg; got.SettingsPin != live.SettingsPin || len(got.Users) != 2 || got.BrandText != live.BrandText {
 		t.Fatal("a refused import changed the config")
 	}
-	// A lock needs a user and a settings PIN: with the file's PIN-less
-	// users the live PIN is kept, so a lock with users imports fine.
 	file, _ := config.Parse([]byte(text))
 	file.Locks.Main = true
 	b, _ := yaml.Marshal(file)
 	if err := a.ImportConfig(admin, string(b)); err != nil {
 		t.Fatalf("lock with users and PIN: %v", err)
 	}
-	// ...but not with no users.
 	file.Users = nil
 	b, _ = yaml.Marshal(file)
 	if err := a.ImportConfig(admin, string(b)); err == nil || !strings.Contains(err.Error(), "user") {
@@ -184,7 +178,6 @@ func TestConfigImportRefused(t *testing.T) {
 	}
 }
 
-// Only the settings PIN: not a trusted user, not an unlocked user.
 func TestConfigFileNeedsSettingsPin(t *testing.T) {
 	a := userApp(t, false)
 	cfg := a.r().cfg.Clone()
@@ -286,14 +279,11 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 		}
 	}
 
-	// Not unlocked: begin is answered (refused, locked). A page that waits
-	// for that answer sends nothing more; one that doesn't is cut off.
 	ws, send, until := dial()
 	send(map[string]any{"t": "configImportBegin", "id": 1, "size": len(big)})
 	if m := until("configImportBeginResult"); m["ok"] == true || m["locked"] != true || m["id"] != float64(1) {
 		t.Fatalf("begin without the PIN: %v", m)
 	}
-	// The connection is still open after the refusal.
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 9})
 	until("unlockResult")
 	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "a connection without an accepted begin")
@@ -301,13 +291,11 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 		t.Fatal("imported without the PIN")
 	}
 
-	// Unlocked and skipping the begin step: still 64 KiB.
 	ws, send, until = dial()
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	until("unlockResult")
 	tooBig(ws, map[string]any{"t": "configImport", "id": 2, "yaml": big}, "no begin, big message")
 
-	// Unlocked, begin then the file: accepted. Then the limit is back.
 	ws, send, until = dial()
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	until("unlockResult")
@@ -322,10 +310,7 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 	if a.r().cfg.BrandText != "Big" {
 		t.Fatal("not applied")
 	}
-	// The PIN hashes were left out, so the connection is still unlocked and a
-	// second big message with no new begin is refused by the limit again.
 	tooBig(ws, map[string]any{"t": "configImport", "id": 5, "yaml": big}, "limit not restored")
-	// An oversize claim is answered, and widens nothing.
 	_, send, until = dial()
 	send(map[string]any{"t": "unlock", "pin": "2468", "id": 1})
 	until("unlockResult")
@@ -377,7 +362,7 @@ func TestConfigExportOverWebSocket(t *testing.T) {
 	}
 }
 
-// The export re-checks the settings PIN when it runs: a lock (or a changed
+// The export re-checks the Advanced Settings PIN when it runs: a lock (or a changed
 // PIN) between admit and the export refuses it and returns no YAML.
 func TestConfigExportRechecksPin(t *testing.T) {
 	a := userApp(t, false)
@@ -395,12 +380,12 @@ func TestConfigExportRechecksPin(t *testing.T) {
 	}
 }
 
-// A blank install (no settings PIN, no users) importing a multiuser file that
+// A blank install (no Advanced Settings PIN, no users) importing a multiuser file that
 // carries no PINs (an export without PINs): refused with a plain message, the
 // live config untouched, nothing half-applied. A file with no users, or with
 // PIN hashes, goes in.
 func TestConfigImportIntoBlankInstall(t *testing.T) {
-	src := userApp(t, true) // users, locks on, a settings PIN
+	src := userApp(t, true) // users, locks on, an Advanced Settings PIN
 	text, _ := exportOf(t, src, false)
 
 	blank := func() *App {
@@ -427,13 +412,11 @@ func TestConfigImportIntoBlankInstall(t *testing.T) {
 		t.Fatalf("a refused import changed the config: %+v", a.r().cfg.Users)
 	}
 
-	// With the PIN hashes (an export with PINs) the same file is fine.
 	full, _ := exportOf(t, src, true)
 	if err := blank().ImportConfig(&client{ip: "10.0.0.9"}, full); err != nil {
 		t.Fatalf("export with PINs: %v", err)
 	}
 
-	// No users and no locks: nothing needs a PIN.
 	file, _ := config.Parse([]byte(text))
 	file.Users, file.Locks = nil, config.Locks{}
 	b, _ := yaml.Marshal(file)

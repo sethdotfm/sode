@@ -9,8 +9,8 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 test('dismissMs: only a success closes itself, and only with a time set', async () => {
   const { dismissMs } = await import('./all.mjs');
   assert.equal(dismissMs('ok', 8), 8000);
-  assert.equal(dismissMs('ok', 0), 0); // 0 keeps it
-  assert.equal(dismissMs('error', 8), 0); // failures stay
+  assert.equal(dismissMs('ok', 0), 0);
+  assert.equal(dismissMs('error', 8), 0);
   assert.equal(dismissMs('warn', 8), 0);
   assert.equal(dismissMs('info', 8), 0);
 });

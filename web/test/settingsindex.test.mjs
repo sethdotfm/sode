@@ -19,10 +19,29 @@ function registered() {
   return [...new Set(titles)];
 }
 
-const idx = () => buildIndex(registered().map((t) => ({ id: slug(t), title: t, settings: [] })).concat([
-  { id: 'access', title: 'Access', settings: [{ id: 'cfg-pin', label: 'Settings PIN' }, { id: 'cfg-pin-tries', label: 'Lock after wrong PINs' }] },
-  { id: 'history', title: 'History', settings: [{ id: 'open-log', label: 'Open the Communication Log' }, { id: 'clear-history', label: 'Clear history' }] },
-]));
+const idx = () =>
+  buildIndex(
+    registered()
+      .map((t) => ({ id: slug(t), title: t, settings: [] }))
+      .concat([
+        {
+          id: 'access',
+          title: 'Access',
+          settings: [
+            { id: 'cfg-pin', label: 'Advanced Settings PIN' },
+            { id: 'cfg-pin-tries', label: 'Lock after wrong PINs' },
+          ],
+        },
+        {
+          id: 'history',
+          title: 'History',
+          settings: [
+            { id: 'open-log', label: 'Open the Communication Log' },
+            { id: 'clear-history', label: 'Clear history' },
+          ],
+        },
+      ]),
+  );
 const top = (q) => find(idx(), q)[0];
 
 test('every registered section has dictionary terms', () => {
@@ -33,20 +52,35 @@ test('every registered section has dictionary terms', () => {
 
 test('common words reach their section', () => {
   const cases = {
-    dark: 'this-device', clock: 'this-device', ip: 'router', host: 'router', poll: 'router-source-destination-names',
-    offset: 'matrix', undo: 'history', audit: 'sode-networking', proxy: 'sode-networking', brand: 'branding',
-    border: 'branding', salvo: 'salvos',
+    dark: 'this-browser',
+    clock: 'this-browser',
+    ip: 'router',
+    host: 'router',
+    poll: 'router-source-destination-names',
+    offset: 'matrix',
+    undo: 'history',
+    audit: 'sode-networking',
+    proxy: 'sode-networking',
+    brand: 'branding',
+    border: 'branding',
+    salvo: 'salvos',
   };
   for (const [q, sec] of Object.entries(cases)) {
     const hits = find(buildIndex([...registered().map((t) => ({ id: slug(t), title: t })), { id: 'salvos', title: 'Salvos' }]), q);
-    assert.ok(hits.some((h) => h.sectionId === sec), `${q} -> ${sec}`);
+    assert.ok(
+      hits.some((h) => h.sectionId === sec),
+      `${q} -> ${sec}`,
+    );
   }
 });
 
 test('password, pin, lock, idle and auto-lock land on Users or Access', () => {
   for (const q of ['password', 'pin', 'lock', 'timeout', 'idle', 'auto-lock']) {
     const hits = find(idx(), q);
-    assert.ok(hits.some((h) => h.sectionId === 'users' || h.sectionId === 'access'), q);
+    assert.ok(
+      hits.some((h) => h.sectionId === 'users' || h.sectionId === 'access'),
+      q,
+    );
   }
 });
 
@@ -57,6 +91,22 @@ test('settings are found by label and by dictionary', () => {
   assert.equal(top('wipe').id, 'clear-history');
 });
 
+test('the router salvo group is found by its words', () => {
+  const index = buildIndex([
+    {
+      id: 'router',
+      title: 'Router',
+      settings: [{ id: 'cfg-salvogroup', label: 'Router salvo group (advanced)' }],
+    },
+  ]);
+  for (const q of ['salvo group', 'native', 'group number', 'crosspoint list']) {
+    assert.ok(
+      find(index, q).some((h) => h.id === 'cfg-salvogroup'),
+      q,
+    );
+  }
+});
+
 test('typos still match', () => {
   assert.equal(top('pasword').sectionId === 'access' || top('pasword').sectionId === 'users', true);
   assert.equal(top('histroy').sectionId, 'history');
@@ -64,7 +114,13 @@ test('typos still match', () => {
 });
 
 test('ordering: exact label beats a dictionary hit; section before its settings on a tie', () => {
-  const index = buildIndex([{ id: 'a', title: 'Alpha', settings: [{ id: 'x', label: 'Colour' }] }, { id: 'b', title: 'Beta', settings: [] }], { b: ['colour'], x: [] });
+  const index = buildIndex(
+    [
+      { id: 'a', title: 'Alpha', settings: [{ id: 'x', label: 'Colour' }] },
+      { id: 'b', title: 'Beta', settings: [] },
+    ],
+    { b: ['colour'], x: [] },
+  );
   assert.equal(find(index, 'colour')[0].id, 'x');
   const two = buildIndex([{ id: 'users', title: 'Users', settings: [{ id: 'u1', label: 'Users thing' }] }]);
   assert.equal(find(two, 'users')[0].id, 'users');
@@ -82,10 +138,32 @@ test('all words of a query must match', () => {
   assert.equal(find(idx(), 'dark banana').length, 0);
 });
 
-test('account words reach the Account block inside This device', () => {
-  const secs = [{ id: 'this-device', title: 'This device', settings: [
-    { id: 'account', label: 'Account' }, { id: 'account-pin', label: 'Change my PIN' }, { id: 'account-logout', label: 'Log out' }] }];
-  for (const [q, id] of [['account', 'account'], ['sign out', 'account-logout'], ['logout', 'account-logout'], ['change pin', 'account-pin']]) {
-    assert.ok(find(buildIndex(secs), q).some((h) => h.id === id), q);
+test('this device still finds the This browser section', () => {
+  const secs = [{ id: 'this-browser', title: 'This browser', settings: [{ id: 'cfg-theme', label: 'Theme' }] }];
+  assert.equal(find(buildIndex(secs), 'this device')[0]?.sectionId, 'this-browser');
+});
+
+test('account words reach the Me block inside This browser', () => {
+  const secs = [
+    {
+      id: 'this-browser',
+      title: 'This browser',
+      settings: [
+        { id: 'account', label: 'Me' },
+        { id: 'account-pin', label: 'Change my PIN' },
+        { id: 'account-logout', label: 'Sign out' },
+      ],
+    },
+  ];
+  for (const [q, id] of [
+    ['account', 'account'],
+    ['sign out', 'account-logout'],
+    ['logout', 'account-logout'],
+    ['change pin', 'account-pin'],
+  ]) {
+    assert.ok(
+      find(buildIndex(secs), q).some((h) => h.id === id),
+      q,
+    );
   }
 });

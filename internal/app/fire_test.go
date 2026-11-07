@@ -12,19 +12,14 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// fakeSalvo is the fake router's group salvo memory, like the Ultrix's: a
-// staged list per group shared by every client, 122 for each 120, 123 for
-// each 121, and no Connected after a Go. Guarded by fakeRouter.mu.
+// fakeSalvo: group salvo memory like the Ultrix: staged list per group shared by clients,
+// 122 per 120, 123 per 121, no Connected after a Go. Guarded by fakeRouter.mu.
 type fakeSalvo struct {
-	off       bool // no group salvos: 120 and 121 are ignored
-	loseStage bool // stages, but never answers with 122
-	loseExt   bool // stages with 248, but never answers with 250
-	noGoAck   bool // carries out a Go set, but never answers it
-	wipe      bool // the group is emptied (someone else's clear) just before each Go set
-	// announce: after a Go set, a Connected for each staged crosspoint that
-	// changed (0 = none, as the Ultrix sometimes; 1 = all; 2 = every other
-	// one), in destination and level order, 4 ms apart, from announceAfter
-	// on (the Ultrix's: ~100 ms). pending is those still to come.
+	off           bool // no group salvos: 120 and 121 are ignored
+	loseStage     bool // stages, but never answers with 122
+	loseExt       bool // stages with 248, but never answers with 250
+	noGoAck       bool // carries out a Go set, but never answers it
+	wipe          bool // the group is emptied (someone else's clear) just before each Go set
 	announce      int
 	announceAfter time.Duration
 	pending       sync.WaitGroup
@@ -34,7 +29,6 @@ type fakeSalvo struct {
 	seq           []byte // c clear, s stage, g go, in order
 }
 
-// salvoMsg handles 120 and 121. Caller holds f.mu.
 func (f *fakeRouter) salvoMsg(m []byte) {
 	s := &f.salvo
 	if s.off {
@@ -89,7 +83,6 @@ func (f *fakeRouter) salvoMsg(m []byte) {
 	}
 }
 
-// announceGo sends the Connecteds of a Go set, per announce. Caller holds f.mu.
 func (f *fakeRouter) announceGo(xs []swp08.Staged) {
 	s := &f.salvo
 	if s.announce == 0 || len(xs) == 0 {
@@ -114,7 +107,6 @@ func (f *fakeRouter) announceGo(xs []swp08.Staged) {
 	}()
 }
 
-// settle waits for the Go's Connecteds to have been sent and handled.
 func (f *fakeRouter) settle() {
 	f.salvo.pending.Wait()
 	for len(f.out) > 0 {
@@ -123,9 +115,6 @@ func (f *fakeRouter) settle() {
 	time.Sleep(20 * time.Millisecond) // the last one handled
 }
 
-// fireLeftovers fails if a fired batch left a waiter behind, or own keys
-// other than those of staged levels a tally confirmed, which last only
-// salvoAnnounceFor from the Go and then expire with nothing logged.
 func fireLeftovers(t *testing.T, a *App) {
 	t.Helper()
 	a.mu.Lock()
@@ -145,7 +134,6 @@ func fireLeftovers(t *testing.T, a *App) {
 	}
 }
 
-// nativeApp is a test app in native fire mode with n levels (wire 0..n-1).
 func nativeApp(t *testing.T, n int) (*App, *fakeRouter) {
 	t.Helper()
 	h, _ := OpenHistory("")
@@ -160,15 +148,13 @@ func nativeApp(t *testing.T, n int) (*App, *fakeRouter) {
 	return a, newFakeRouter(t, a)
 }
 
-// batchOf runs one confirm: src to each dst on levels, and returns the
-// entries newest first.
-func batchOf(t *testing.T, a *App, src int, dsts []int, levels ...int) []Entry {
+func takeOf(t *testing.T, a *App, src int, dsts []int, levels ...int) []Entry {
 	t.Helper()
-	var items []takeReq
+	var items []routeReq
 	for i, d := range dsts {
-		items = append(items, takeReq{ID: i + 1, Src: src, Dst: d, Levels: levels})
+		items = append(items, routeReq{ID: i + 1, Src: src, Dst: d, Levels: levels})
 	}
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	es, _ := a.hist.Page(-1, len(dsts))
 	if len(es) != len(dsts) {
 		t.Fatalf("entries %+v", es)
@@ -176,7 +162,6 @@ func batchOf(t *testing.T, a *App, src int, dsts []int, levels ...int) []Entry {
 	return es
 }
 
-// cmds counts the messages with command byte cmd sent so far.
 func (f *fakeRouter) cmds(cmd byte) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -195,8 +180,6 @@ func (f *fakeRouter) salvoSeq() string {
 	return string(f.salvo.seq)
 }
 
-// The Ultrix sometimes announces a Go's crosspoints and sometimes not: the
-// takes come out the same either way.
 func TestNativeFire(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
@@ -223,7 +206,7 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	f.seed(6, 1, 0, 1, 2)
 	f.seed(7, 1, 0, 1)
 	f.seed(7, 9, 2) // dst 7 level 3 is on src 9 already
-	es := batchOf(t, a, 9, []int{5, 6, 7}, 1, 2, 3)
+	es := takeOf(t, a, 9, []int{5, 6, 7}, 1, 2, 3)
 	if got := f.salvoSeq(); got != "csssssssssgc" {
 		t.Fatalf("salvo messages %q, want clear, 9 stages, go, clear", got)
 	}
@@ -238,7 +221,6 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 		want := [][2]int{{1, 1}, {2, 1}, {3, 1}}
 		if e.Dst == 7 {
 			want[2][1] = 9
-			// Level 3 was on src 9 already: staged (a no-op), and says so.
 			if !equalInts(e.Already, []int{3}) {
 				t.Fatalf("already %v", e.Already)
 			}
@@ -251,7 +233,6 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	}
 	f.settle()
 	if announce == 1 {
-		// Every key was used up by its Connected.
 		leftovers(t, a)
 	}
 	fireLeftovers(t, a)
@@ -260,14 +241,11 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 		if c.first.IsZero() || c.sent.IsZero() {
 			t.Errorf("cause not marked at the Go: %+v", c)
 		}
-		// A late Connected is one of the take's changes: what follows the
-		// destination then still follows the take.
 		if announce != 0 && after > 0 && c.last.Sub(c.first) < after/2 {
 			t.Errorf("late Connected not seen as the take's change: %+v", c)
 		}
 	}
 	a.mu.Unlock()
-	// The batch's timing is logged.
 	timed := false
 	for len(a.evq) > 0 {
 		if e := <-a.evq; e.Why == "salvo" && strings.Contains(e.Note, "9 of 9 crosspoints confirmed, the last") {
@@ -277,13 +255,10 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	if !timed {
 		t.Error("no salvo timing event")
 	}
-	// The confirming tallies and Connecteds are ours: nothing logged as
-	// made elsewhere, nor found.
 	endBurst(a)
 	if n := a.hist.Len(); n != 3 {
 		t.Fatalf("%d entries, want the 3 takes", n)
 	}
-	// The router has every route.
 	for _, e := range es {
 		f.mu.Lock()
 		if f.tally[[2]int{e.Dst, 0}] != 9 {
@@ -293,8 +268,6 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	}
 }
 
-// Level 17 (wire 16) and numbers past 1023 ride the salvo too, staged with
-// the extended 248 beside 120's, under one Go, in every announce world.
 func TestNativeFits(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
@@ -320,12 +293,12 @@ func testNativeExt(t *testing.T, announce int, after time.Duration) {
 	for _, d := range []int{5, 1100, 7} {
 		f.seed(d, 1, 0, 15, 16)
 	}
-	items := []takeReq{
+	items := []routeReq{
 		{ID: 1, Src: 9, Dst: 5, Levels: []int{1, 17}},
 		{ID: 2, Src: 1500, Dst: 1100, Levels: []int{1, 17}}, // all past 1023: 248
 		{ID: 3, Src: 9, Dst: 7, Levels: []int{16, 17}},
 	}
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	es, _ := a.hist.Page(-1, 3)
 	if len(es) != 3 {
 		t.Fatalf("entries %+v", es)
@@ -364,15 +337,13 @@ func testNativeExt(t *testing.T, announce int, after time.Duration) {
 	}
 }
 
-// A router that stages with 248 but never answers with 250: the group is
-// cleared and the batch goes as ordinary connects.
 func TestNativeNoExtStageAck(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 17)
 	f.salvo.loseExt = true
 	f.seed(5, 1, 16)
 	f.seed(6, 1, 16)
-	es := batchOf(t, a, 9, []int{5, 6}, 17)
+	es := takeOf(t, a, 9, []int{5, 6}, 17)
 	for _, e := range es {
 		if !e.OK || len(e.Already) != 0 {
 			t.Fatalf("take %+v", e)
@@ -397,7 +368,7 @@ func TestMarkStages(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Normalize()
 	r, _ := newRuntime(cfg)
-	items := []takeReq{
+	items := []routeReq{
 		{Src: 1, Dst: 5, Levels: []int{1, 17}},
 		{Src: 1, Dst: 6, Levels: []int{1}},
 		{Src: 2, Dst: 6, Levels: []int{1, 2}}, // dst 6 level 1 twice: neither staged
@@ -420,15 +391,13 @@ func TestMarkStages(t *testing.T) {
 	}
 }
 
-// A router that never answers a stage: the group is cleared and the batch
-// goes as ordinary connects.
 func TestNativeNoStageAck(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.salvo.loseStage = true
 	f.seed(5, 1, 0, 1, 2)
 	f.seed(6, 1, 0, 1, 2)
-	es := batchOf(t, a, 9, []int{5, 6}, 1, 2, 3)
+	es := takeOf(t, a, 9, []int{5, 6}, 1, 2, 3)
 	for _, e := range es {
 		if !e.OK || len(e.Already) != 0 {
 			t.Fatalf("take %+v", e)
@@ -453,15 +422,13 @@ func TestNativeNoStageAck(t *testing.T) {
 	}
 }
 
-// A router without group salvos never answers the first clear: nothing is
-// staged and the batch goes as ordinary connects.
 func TestNativeUnsupported(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.salvo.off = true
 	f.seed(5, 1, 0)
 	f.seed(6, 1, 0)
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	for _, e := range es {
 		if !e.OK {
 			t.Fatalf("take %+v", e)
@@ -476,7 +443,6 @@ func TestNativeUnsupported(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
-// A protected destination is refused as ever and left out of the salvo.
 func TestNativeProtected(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
@@ -486,7 +452,7 @@ func TestNativeProtected(t *testing.T) {
 	a.mu.Lock()
 	a.router.protect[6] = map[int]int{2: 9}
 	a.mu.Unlock()
-	es := batchOf(t, a, 9, []int{5, 6, 7}, 1, 2)
+	es := takeOf(t, a, 9, []int{5, 6, 7}, 1, 2)
 	for _, e := range es {
 		switch {
 		case e.Dst == 6 && (e.OK || !strings.Contains(e.Err, "protected on levels 2")):
@@ -510,13 +476,11 @@ func TestNativeProtected(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
-// One take is sent as today, even in native mode; so is a batch whose
-// other takes all fall away (protected).
 func TestNativeSingleTake(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.seed(5, 1, 0)
-	batchOf(t, a, 9, []int{5}, 1)
+	takeOf(t, a, 9, []int{5}, 1)
 	if n := f.cmds(swp08.CmdGoSalvo) + f.cmds(swp08.CmdConnectOnGo); n != 0 {
 		t.Fatalf("%d salvo messages for one take", n)
 	}
@@ -524,7 +488,7 @@ func TestNativeSingleTake(t *testing.T) {
 	a.mu.Lock()
 	a.router.protect[6] = map[int]int{1: 9}
 	a.mu.Unlock()
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	if n := f.cmds(swp08.CmdGoSalvo) + f.cmds(swp08.CmdConnectOnGo); n != 0 {
 		t.Fatalf("%d salvo messages when one take is left", n)
 	}
@@ -536,7 +500,6 @@ func TestNativeSingleTake(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
-// Two batches at once: their salvos never mix in the router's group.
 func TestNativeFireLock(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
@@ -549,7 +512,7 @@ func TestNativeFireLock(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			d := 5 + i*3
-			a.batch(&client{ip: "10.0.0.1"}, []takeReq{
+			a.take(&client{ip: "10.0.0.1"}, []routeReq{
 				{ID: 1, Src: src, Dst: d, Levels: []int{1, 2, 3}},
 				{ID: 2, Src: src, Dst: d + 1, Levels: []int{1, 2, 3}},
 				{ID: 3, Src: src, Dst: d + 2, Levels: []int{1, 2, 3}},
@@ -575,15 +538,13 @@ func TestNativeFireLock(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
-// No 123 for the Go: it is never sent again, nor followed by connects; the
-// group is cleared and the interrogates confirm what the Go did.
 func TestNativeNoGoAck(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.salvo.noGoAck = true
 	f.seed(5, 1, 0)
 	f.seed(6, 1, 0)
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	for _, e := range es {
 		if !e.OK {
 			t.Fatalf("take %+v", e)
@@ -598,15 +559,13 @@ func TestNativeNoGoAck(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
-// Someone else clears the group before the Go: 123 says nothing was set.
-// The takes fail on what the router reports, and nothing is resent.
 func TestNativeGoNothing(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.salvo.wipe = true
 	f.seed(5, 1, 0)
 	f.seed(6, 1, 0)
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	for _, e := range es {
 		if e.OK || !equalInts(e.Failed, []int{1}) || !strings.Contains(e.Err, "level 1 still on source 2") {
 			t.Fatalf("take %+v", e)
@@ -618,17 +577,14 @@ func TestNativeGoNothing(t *testing.T) {
 	fireLeftovers(t, a)
 }
 
-// Three takes in a native batch where two take the same destination level:
-// those two are not staged, and the lone stageable take must still be
-// connected (in turn), not left staged.
 func TestNativeOneStageable(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.seed(8, 1, 0)
 	f.seed(9, 1, 0)
-	items := []takeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{1}}, {ID: 2, Src: 4, Dst: 9, Levels: []int{1}}, {ID: 3, Src: 5, Dst: 9, Levels: []int{1}}}
+	items := []routeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{1}}, {ID: 2, Src: 4, Dst: 9, Levels: []int{1}}, {ID: 3, Src: 5, Dst: 9, Levels: []int{1}}}
 	stages, conns := f.cmds(swp08.CmdConnectOnGo), f.cmds(swp08.CmdExtConnect)
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	if n := f.cmds(swp08.CmdConnectOnGo) - stages; n != 0 {
 		t.Fatalf("%d staged, want 0", n)
 	}
