@@ -19,7 +19,7 @@ func usernameApp(t *testing.T) *App {
 	t.Helper()
 	a := userApp(t, true)
 	admin := adminClient(t, a)
-	err := a.SaveUsers(admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
+	err := a.SaveUsers(admin, usersReq{SignInMode: sp(config.SignInUsername), Users: []userEdit{
 		{Name: "Ana", Was: "Ana", Username: sp("ana.k")},
 		{Name: "Bo", Was: "Bo", Username: sp("bobby"), Pin: "1234"},
 	}})
@@ -101,7 +101,7 @@ func TestUsernameUniqueIgnoringCaseAndIndependentOfName(t *testing.T) {
 
 func TestUsernameModeNeedsEveryUsername(t *testing.T) {
 	a := userApp(t, true)
-	err := a.SaveUsers(adminClient(t, a), usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
+	err := a.SaveUsers(adminClient(t, a), usersReq{SignInMode: sp(config.SignInUsername), Users: []userEdit{
 		{Name: "Ana", Was: "Ana", Username: sp("ana")}, {Name: "Bo", Was: "Bo"},
 	}})
 	if err == nil {
@@ -114,7 +114,7 @@ func TestUsernameModeNeedsEveryUsername(t *testing.T) {
 
 func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	a := userApp(t, true)
-	req := usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
+	req := usersReq{SignInMode: sp(config.SignInUsername), Users: []userEdit{
 		{Name: "Ana", Was: "Ana", Username: sp("ana")}, {Name: "Bo", Was: "Bo", Username: sp("bo")},
 	}}
 	// Over the wire the policy refuses it without the Advanced Settings PIN, and a
@@ -156,7 +156,7 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	if err := a.SaveUsers(admin, req); err != nil {
 		t.Fatal(err)
 	}
-	back := usersReq{SignInMode: config.SignInPin, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
+	back := usersReq{SignInMode: sp(config.SignInPin), Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
 	if err := a.SaveUsers(admin, back); err == nil {
 		t.Fatal("went back to PIN only")
 	}
@@ -173,14 +173,14 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 // Salted hashes can't show a shared PIN, so there is no way back to PIN only.
 func TestUsernameModeCannotGoBackToPinOnly(t *testing.T) {
 	a := usernameApp(t)
-	back := usersReq{SignInMode: config.SignInPin, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
+	back := usersReq{SignInMode: sp(config.SignInPin), Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
 	if err := a.SaveUsers(adminClient(t, a), back); err == nil {
 		t.Fatal("went back to PIN only")
 	}
 	if a.r().cfg.SignInMode != config.SignInUsername {
 		t.Fatal("the mode changed")
 	}
-	same := usersReq{SignInMode: config.SignInUsername, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
+	same := usersReq{SignInMode: sp(config.SignInUsername), Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
 	if err := a.SaveUsers(adminClient(t, a), same); err != nil {
 		t.Fatalf("re-saving the same mode: %v", err)
 	}

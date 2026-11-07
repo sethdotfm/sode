@@ -62,7 +62,7 @@ type Config struct {
 	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
 	PinMaxTries    int            `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
-	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (configMsg).
+	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
 	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
 	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`

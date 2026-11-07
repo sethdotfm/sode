@@ -13,7 +13,7 @@ import (
 )
 
 // Users and page locks. Off until the config has users and a lock on. policy.go holds the
-// message->need table; this file is the access state (who a connection unlocked as) and
+// message->need table; this file is the access state (who a connection signed in as) and
 // the lock screen messages.
 
 var errPageLocked = errors.New("locked; unlock with your PIN first")
@@ -37,16 +37,14 @@ func (l gate) on(k config.Locks) bool {
 
 var pageGates = map[string]gate{"main": gateMain, "log": gateLog}
 
-// connUser: page and token guarded by App.mu; user is atomic.
+// connUser: page and sess guarded by App.mu; user is atomic.
 type connUser struct {
 	page string // "main" (default) or "log", as the page declared
-	// token: session token held (from hi or issued on unlock); persistent users only; a
-	// lock revokes it.
-	token string
-	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
-	// locked: the session's Lock (under mu). The user stays set so only their PIN resumes
-	// it; every access check treats a locked connection as signed in to nothing.
-	locked bool
+	// sess: the token (from hi or issued on unlock) and the Lock, shared with connections
+	// on the same token. While locked the user stays set so only their PIN resumes it;
+	// every access check treats a locked connection as signed in to nothing.
+	sess *session
+	user atomic.Pointer[config.User] // who it signed in as, with that user's PIN hash then
 	// profile: last profile message sent (under mu); "" = none, so no clear is sent.
 	profile string
 }
@@ -71,12 +69,26 @@ func (a *App) userSameMu(c *client, cfg config.Config) bool {
 
 // userOKMu: signed in and not under the Lock. Caller holds mu.
 func (a *App) userOKMu(c *client, cfg config.Config) bool {
-	return !c.u.locked && a.userSameMu(c, cfg)
+	return !c.u.lockedMu() && a.userSameMu(c, cfg)
 }
 
 // heldMu: the session's Lock is on and its user can still resume it. Caller holds mu.
 func (a *App) heldMu(c *client, cfg config.Config) bool {
-	return c.u.locked && a.userSameMu(c, cfg)
+	return c.u.lockedMu() && a.userSameMu(c, cfg)
+}
+
+// endDeadHeldMu: a Lock with nobody left to resume it (the user was removed or changed
+// their PIN) ends, so the connection signs out. Run where a config change applies. Caller
+// holds mu. It sends nothing: the callers that change users or PINs (applyConfig,
+// UserSetPin) sync every connection after, and other commits cannot change either.
+func (a *App) endDeadHeldMu() {
+	cfg := a.r().cfg
+	for cl := range a.clients {
+		if cl.u.lockedMu() && !a.userSameMu(cl, cfg) {
+			cl.u.user.Store(nil)
+			cl.u.sess = nil
+		}
+	}
 }
 
 // Caller holds mu.
@@ -118,13 +130,8 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	if page == "" {
 		page = "main"
 	}
-	if c.u.locked && !a.userSameMu(c, cfg) {
-		// Nobody left to resume it: the user was removed or changed their PIN.
-		c.u.user.Store(nil)
-		c.u.locked = false
-	}
 	m := lockStateMsg{T: "lockState", Page: page, Enforced: pageGates[page].on(cfg.Locks)}
-	m.Held = c.u.locked
+	m.Held = a.heldMu(c, cfg)
 	m.Mode = cfg.SignInMode
 	if a.userOKMu(c, cfg) {
 		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the unlock-time copy
@@ -172,13 +179,12 @@ func (a *App) Hi(c *client, page, token string) {
 	cfg := a.r().cfg
 	c.u.page = page
 	u, ok := a.tokens.user(token, cfg)
-	if ok && !u.Persistent && pageGates[page].on(cfg.Locks) && !a.tokens.locked(token) {
-		ok = false // under a PIN lock a tab token only carries a held Lock, never a sign-in
+	if ok && heldOnly(u, page, cfg.Locks) && !a.tokens.locked(token) {
+		ok = false
 	}
 	if ok && c.u.user.Load() == nil {
 		c.u.user.Store(&u)
-		c.u.token = token
-		c.u.locked = a.tokens.locked(token)
+		a.adoptMu(c, token, a.tokens.locked(token))
 	}
 	a.pushAccessMu(c, true)
 	a.mu.Unlock()
@@ -199,113 +205,92 @@ var dummyPinHash = sync.OnceValue(func() string {
 
 func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
 
-// UserUnlockAs: PIN only mode ignores username and finds the user by PIN, which no two
-// users share; a PIN several users hold (left over from Username and PIN mode) signs
-// nobody in. Username and PIN mode compares the PIN with the named user's hash only. A
-// held Lock resumes with its own user's PIN whatever the mode, and a username there must
-// be that user's. Every try counts in the users' pool, like an Advanced Settings PIN.
+// matchPin finds the user a PIN signs in, or nil. Pure: it reads only cfg. Candidates are
+// the holder of a Lock (only their PIN counts), the user a username names, or in PIN only
+// mode everyone; exactly one must match, so a PIN several users hold (left over from
+// Username and PIN mode) signs nobody in. A username that names nobody, or someone other
+// than the holder, burns a check so it costs what a right one does.
+func matchPin(cfg config.Config, holder *config.User, username, pin string) *config.User {
+	byName := cfg.SignInMode == config.SignInUsername
+	var cands []config.User
+	switch {
+	case holder != nil:
+		if named, ok := cfg.FindUsername(username); byName && username != "" && (!ok || named.Name != holder.Name) {
+			break
+		}
+		if u, ok := cfg.FindUser(holder.Name); ok { // the live hash, not the sign-in copy
+			cands = []config.User{u}
+		}
+	case byName:
+		if u, ok := cfg.FindUsername(username); ok {
+			cands = []config.User{u}
+		}
+	default:
+		cands = cfg.Users
+	}
+	if len(cands) == 0 {
+		burnPinCheck(pin)
+		return nil
+	}
+	n := utf8.RuneCountInString(pin)
+	var found []config.User
+	for _, u := range cands {
+		// Username mode hashes whatever the length: PIN lengths are public, so skipping it
+		// would tell a known username from an unknown one.
+		if !byName && u.Len != n {
+			continue
+		}
+		if config.CheckPin(u.Pin, pin) && u.Len == n {
+			found = append(found, u)
+		}
+	}
+	if len(found) != 1 {
+		return nil
+	}
+	return &found[0]
+}
+
+// UserUnlockAs: PIN only mode ignores username and finds the user by PIN. Username and PIN
+// mode compares the PIN with the named user's hash only. A held Lock resumes with its own
+// user's PIN whatever the mode, and a username there must be that user's. Every try
+// counts in the users' pool, like an Advanced Settings PIN.
 func (a *App) UserUnlockAs(c *client, username, pin string) error {
 	cfg := a.r().cfg
-	users := cfg.Users
 	a.mu.Lock()
-	var owner *config.User // a held Lock: only this user's PIN counts
-	if c.u.locked {
-		owner = c.u.user.Load()
+	var holder *config.User
+	if c.u.lockedMu() {
+		holder = c.u.user.Load()
 	}
 	a.mu.Unlock()
-	n := utf8.RuneCountInString(pin)
 	var hit *config.User
 	err := a.tryPin(&a.userPin, c.ip, func() bool {
-		if cfg.SignInMode == config.SignInUsername {
-			named, ok := cfg.FindUsername(username)
-			switch {
-			case owner != nil && username != "" && (!ok || named.Name != owner.Name):
-				burnPinCheck(pin)
-				return false
-			case owner != nil:
-				named, ok = *owner, true
-			case !ok:
-				burnPinCheck(pin)
-				return false
-			}
-			for i := range users {
-				if users[i].Name != named.Name {
-					continue
-				}
-				// The hash runs whatever the length: PIN lengths are public, so skipping it
-				// would tell a known username from an unknown one.
-				if config.CheckPin(users[i].Pin, pin) && users[i].Len == n {
-					hit = &users[i]
-					return true
-				}
-			}
-			return false
-		}
-		var found []*config.User
-		for i := range users {
-			if owner != nil && users[i].Name != owner.Name {
-				continue
-			}
-			if users[i].Len == n && config.CheckPin(users[i].Pin, pin) {
-				found = append(found, &users[i])
-			}
-		}
-		if len(found) != 1 {
-			return false
-		}
-		hit = found[0]
-		return true
+		hit = matchPin(cfg, holder, username, pin)
+		return hit != nil
 	})
 	if err != nil {
 		return err
 	}
 	a.mu.Lock()
-	if u, ok := a.r().cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
+	cfg = a.r().cfg // the PIN check can wait minutes: the user may have changed since
+	if u, ok := cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
 		a.mu.Unlock()
 		return errors.New("that PIN changed; try again")
 	}
 	held := c.u.user.Load()
-	if c.u.locked && held != nil && held.Name != hit.Name {
-		// Locked by another tab while the PIN was being checked: only the holder resumes it.
+	if c.u.lockedMu() && held != nil {
+		if held.Name != hit.Name {
+			// Locked by another tab while the PIN was being checked: only the holder resumes it.
+			a.mu.Unlock()
+			return errors.New("wrong PIN")
+		}
+		tok, drop := a.holdMu(c, false)
 		a.mu.Unlock()
-		return errors.New("wrong PIN")
-	}
-	if c.u.locked && held != nil {
-		// Resume: same user, same session. Every connection sharing the token resumes.
-		tok := c.u.token
-		// A tab token under a PIN lock exists only to carry the Lock across a reload.
-		drop := tok != "" && !hit.Persistent && pageGates[c.u.page].on(a.r().cfg.Locks)
-		c.u.locked = false
-		if drop {
-			c.u.token = ""
-		}
-		if tok != "" {
-			for cl := range a.clients {
-				if cl != c && cl.u.token == tok {
-					cl.u.locked = false
-					if drop {
-						cl.u.token = ""
-					}
-					a.syncAccessMu(cl)
-				}
-			}
-			a.tokens.setLocked(tok, false)
-		}
-		a.syncAccessMu(c)
-		a.mu.Unlock()
-		switch {
-		case drop:
-			a.tokens.forget(tok)
-		case tok != "":
-			a.tokens.persist()
-		}
+		a.finishHold(c, false, tok, drop)
 		return nil
 	}
 	defer a.mu.Unlock()
-	// A token-X connection unlocking as Y must drop X's token, or Y's lock would revoke
-	// X's.
-	c.u.token = ""
-	c.u.locked = false
+	// A token-X connection unlocking as Y leaves X's session, or Y's Lock would end X's.
+	c.u.sess = &session{}
 	c.u.user.Store(hit)
 	a.syncAccessMu(c)
 	return nil
@@ -325,10 +310,7 @@ func (a *App) SignOutAll(c *client, name string) error {
 	a.mu.Lock()
 	for cl := range a.clients {
 		if u := cl.u.user.Load(); u != nil && strings.EqualFold(u.Name, name) {
-			cl.u.user.Store(nil)
-			cl.u.token = ""
-			cl.u.locked = false
-			a.syncAccessMu(cl)
+			a.signOutMu(cl)
 		}
 	}
 	a.mu.Unlock()
@@ -349,8 +331,9 @@ type userEdit struct {
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// SignInMode: "" keeps the current one. Saved here so it needs the Advanced Settings PIN.
-	SignInMode string `json:"signInMode"`
+	// SignInMode: nil keeps the current one, like userEdit.Username. Saved here so it needs
+	// the Advanced Settings PIN.
+	SignInMode *string `json:"signInMode"`
 	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
 	Locks    json.RawMessage `json:"locks"`
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
@@ -374,12 +357,12 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			cur.MaxPinLen = req.MaxPin
 		}
 		maxLen := cur.MaxPinLen
-		if req.SignInMode != "" {
+		if mode := req.SignInMode; mode != nil {
 			// Salted hashes can't be checked for shared PINs, so there is no safe way back.
-			if cur.SignInMode == config.SignInUsername && req.SignInMode != config.SignInUsername {
+			if cur.SignInMode == config.SignInUsername && *mode != config.SignInUsername {
 				return errors.New("Username and PIN mode can't be switched back to PIN only")
 			}
-			cur.SignInMode = req.SignInMode
+			cur.SignInMode = *mode
 		}
 		if len(req.Users) == 0 && cur.Locks.Any() {
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
@@ -457,7 +440,7 @@ type userResult struct {
 	ID    int    `json:"id"`
 	Err   string `json:"err,omitempty"`
 	Token string `json:"token,omitempty"`
-	Tab   bool   `json:"tab,omitempty"` // Token is a no-lock login's: for this tab only
+	Tab   bool   `json:"tab,omitempty"` // Token is a sign-in without a page lock's: for this tab only
 }
 
 // Unlocks run inline like the settings unlock, so a later lock is handled after.
@@ -469,7 +452,7 @@ func (a *App) serveUserUnlock(c *client, m *inMsg) {
 		a.command(c, "userUnlock", "refused", "", err)
 	} else {
 		a.command(c, "userUnlock", "ok", "", nil)
-		if res.Token = a.issueSessionTab(c, m.Tab); res.Token != "" {
+		if res.Token = a.issueToken(c, m.Tab); res.Token != "" {
 			if us, _ := a.r().cfg.FindUser(c.who()); !us.Persistent {
 				res.Tab = true
 			}

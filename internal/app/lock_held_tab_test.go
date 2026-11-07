@@ -131,7 +131,7 @@ func TestLockRacingTokenIssueReachesTheToken(t *testing.T) {
 	a.tokens.mu.Unlock()
 	tok := <-done
 	a.mu.Lock()
-	held := c.u.token
+	held := c.u.tokenMu()
 	a.mu.Unlock()
 	if held != "" && !a.tokens.locked(held) {
 		t.Fatalf("the Lock is on but token %q (issued %q) is not marked locked", held, tok)
