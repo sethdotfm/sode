@@ -59,8 +59,8 @@ function pinControls(cancel) {
   pinIn.type = 'password';
   pinIn.placeholder = 'PIN';
   pinIn.autocomplete = 'current-password';
-  pinIn.setAttribute('aria-label', 'Settings PIN');
-  const pinOk = btn('pb-btn--ok pb-btn--sm', 'Unlock', () => {});
+  pinIn.setAttribute('aria-label', 'Advanced Settings PIN');
+  const pinOk = btn('pb-btn--ok pb-btn--sm', 'Enter', () => {});
   const pinRow = el('div', 'sode__filters-set', pinIn, pinOk, btn('pb-btn--ghost pb-btn--sm', 'Cancel', cancel));
   pinRow.hidden = true;
   return { pinIn, pinOk, pinRow };
@@ -404,7 +404,7 @@ function prefsNode() {
   return el(
     'div',
     'sode__rv-sec',
-    el('div', 'sode__filters-set', el('strong', null, 'This device settings'), el('span', 'sode__hint', 'go to'), to),
+    el('div', 'sode__filters-set', el('strong', null, 'This browser settings'), el('span', 'sode__hint', 'go to'), to),
     el('span', 'sode__hint', 'Everyone’s defaults are set in Settings, not here.'),
     ...rows,
   );
@@ -530,7 +530,7 @@ function apply() {
         if (!open) return;
         if (r.ok) return done();
         refresh();
-        setNote(r.locked ? 'Only a trusted user or the settings PIN can change another user’s profile.' : sentence(r.err) || 'Not saved.', true);
+        setNote(r.locked ? 'Only a trusted user or the Advanced Settings PIN can change another user’s profile.' : sentence(r.err) || 'Not saved.', true);
       });
       return;
     }
@@ -577,7 +577,7 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
       if (st !== mine || !open) return;
       fetched = r.ok
         ? { state: 'ok', profile: r.profile }
-        : { state: 'err', err: r.locked ? 'Only a trusted user or the settings PIN can read another user’s profile.' : sentence(r.err) };
+        : { state: 'err', err: r.locked ? 'Only a trusted user or the Advanced Settings PIN can read another user’s profile.' : sentence(r.err) };
       render();
     });
     render();

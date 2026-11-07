@@ -59,14 +59,14 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"follows"}, Re: wordRe(`(?i)follows`), Docs: "#206"},
 	{Terms: []string{"automation"}, Re: wordRe(`(?i)automation`)},
 	{Terms: []string{"operator"}, Re: wordRe(`(?i)operators?`), Docs: "#206", UI: "#210"},
-	{Terms: []string{"account"}, Re: wordRe(`(?i)accounts?`), Docs: "#206", UI: "#209"},
-	{Terms: []string{"log in", "log out"}, Re: wordRe(`(?i)log(?:s|ged|ging)? (?:in|out)|log-?(?:in|out)s?`), Docs: "#206", UI: "#209"},
-	{Terms: []string{"unlock"}, Re: wordRe(`(?i)unlock(?:s|ed|ing)?`), Docs: "#206", UI: "#209"},
-	{Terms: []string{"Settings PIN"}, Re: wordRe(`(?i)settings pin`), Docs: "#206", UI: "#209"},
+	{Terms: []string{"account"}, Re: wordRe(`(?i)accounts?`), Docs: "#206"},
+	{Terms: []string{"log in", "log out"}, Re: wordRe(`(?i)log(?:s|ged|ging)? (?:in|out)|log-?(?:in|out)s?`), Docs: "#206"},
+	{Terms: []string{"unlock"}, Re: wordRe(`(?i)unlock(?:s|ed|ing)?`), Docs: "#206"},
+	{Terms: []string{"Settings PIN"}, Re: wordRe(`(?i)settings pin`), Docs: "#206"},
 	{Terms: []string{"admin PIN"}, Re: wordRe(`(?i)admin pin`)},
-	{Terms: []string{"hand lock", "soft lock", "screen lock"}, Re: wordRe(`(?i)(?:hand|soft|screen)[ -]lock`), Docs: "#206", UI: "#209"},
+	{Terms: []string{"hand lock", "soft lock", "screen lock"}, Re: wordRe(`(?i)(?:hand|soft|screen)[ -]lock`), Docs: "#206"},
 	{Terms: []string{"idle timeout"}, Re: wordRe(`(?i)idle[ -]timeout`)},
-	{Terms: []string{"This device"}, Re: wordRe(`(?i)this device`), Docs: "#206", UI: "#210"},
+	{Terms: []string{"This device"}, Re: wordRe(`(?i)this device`), Docs: "#206"},
 }
 
 // vocabMask blanks phrases that contain a retired word but stay: the Advanced Settings PIN,
@@ -83,6 +83,13 @@ var vocabMask = []*regexp.Regexp{
 // File is a path suffix and Line a regexp; Why says what is kept.
 var vocabAllow = []struct{ Term, File, Line, Why string }{
 	{"salvo", "docs/agents/salvos.md", ".", "the native group-send fire mode and the router's salvos"},
+	{"account", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"log in", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"unlock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"Settings PIN", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"hand lock", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"This device", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
+	{"", ".js", `^(?:login|logout|unlock|unlocked)$`, "bus and wire event names, which do not change"},
 	{"", "docs/vocabulary-plan.md", `^\|`, "the checklist tables quote the old words by design"},
 }
 

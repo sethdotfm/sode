@@ -12,7 +12,8 @@ const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
 export const DICT = {
   // ---- sections
-  'this-device': [
+  'this-browser': [
+    'this device',
     'this browser',
     'local',
     'personal',
@@ -37,7 +38,7 @@ export const DICT = {
     'profile',
     'follow',
   ],
-  'your-account': [
+  me: [
     'account',
     'logged in',
     'login',
@@ -54,7 +55,7 @@ export const DICT = {
     'import',
     'export',
   ],
-  'global-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'appearance', 'preferences'],
+  'global-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'shared settings', 'appearance', 'preferences'],
   'router-source-destination-names': [
     'names',
     'source names',
@@ -178,7 +179,7 @@ export const DICT = {
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
   grids: ['grid', 'grids', 'panel', 'panels', 'tablet', 'buttons'],
 
-  // ---- This device / Defaults
+  // ---- This browser / Defaults
   ...both('theme', ['dark', 'light', 'colour', 'color', 'mode', 'night', 'appearance', 'theme', 'dark mode', 'light mode']),
   ...both('layout', ['desktop', 'phone', 'mobile', 'tablet', 'touch', 'size', 'narrow', 'responsive']),
   ...both('clock', ['time', '24h', '24 hour', '12 hour', '12h', 'am pm', 'hours', 'format', 'clock', 'timestamp']),
@@ -196,7 +197,7 @@ export const DICT = {
     ]),
   ),
 
-  // ---- Account (inside This device; only shown while logged in as a user)
+  // ---- Me (inside This browser; only shown while logged in as a user)
   'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
   'account-transfer': ['export', 'import', 'backup', 'restore', 'share', 'transfer', 'my settings', 'presets', 'filter sets', 'account'],
   'lock-pages': ['lock', 'lock main screen', 'lock communication log', 'lock log', 'pin', 'users', 'protect', 'screen lock'],
@@ -298,7 +299,21 @@ export const DICT = {
   ],
 
   // ---- History
-  'cfg-hidden': ['hidden', 'hide', 'destinations', 'dst', 'filter', 'global filter', 'panel', 'external', 'external change', 'external follow', 'mv', 'multiviewer', 'recent'],
+  'cfg-hidden': [
+    'hidden',
+    'hide',
+    'destinations',
+    'dst',
+    'filter',
+    'global filter',
+    'panel',
+    'external',
+    'external change',
+    'external follow',
+    'mv',
+    'multiviewer',
+    'recent',
+  ],
   'clear-history': ['clear', 'delete', 'erase', 'wipe', 'reset', 'undo', 'history', 'recent', 'remove all'],
   'open-log': ['log', 'communication log', 'audit', 'uptime', 'messages', 'sent', 'wire', 'router log', 'events', 'tx', 'ack', 'diagnostics', 'debug', 'graph'],
 };

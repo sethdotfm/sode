@@ -193,12 +193,12 @@ const pinIn = el('input', 'pb-input');
 pinIn.type = 'password';
 pinIn.placeholder = 'PIN';
 pinIn.autocomplete = 'current-password';
-pinIn.setAttribute('aria-label', 'Settings PIN');
-const pinOk = btn('pb-btn--ok', 'Unlock');
+pinIn.setAttribute('aria-label', 'Advanced Settings PIN');
+const pinOk = btn('pb-btn--ok', 'Enter');
 const pinRow = el(
   'div',
   'sode__filters-set',
-  labeled('Settings PIN', pinIn),
+  labeled('Advanced Settings PIN', pinIn),
   pinOk,
   btn('pb-btn--ghost', 'Cancel', () => saver.cancel()),
 );

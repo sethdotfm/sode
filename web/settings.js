@@ -330,7 +330,7 @@ on('access', (L) => {
   acctUser = L.user || '';
   const acct = !!L.user || loginOffered(L);
   $('account-name').hidden = !acct;
-  $('account-name').replaceChildren(...(L.user ? ['Logged in as ', el('strong', null, L.user)] : ['Not logged in']));
+  $('account-name').replaceChildren(...(L.user ? ['Signed in as ', el('strong', null, L.user)] : ['Not signed in']));
   for (const id of ['account-profile', 'account-transfer', 'account-pin', 'account-logout']) $(id).hidden = !L.user;
   $('account-login').hidden = !!L.user || !acct;
   $('soft-lock-btn').hidden = L.enforced;
@@ -634,7 +634,7 @@ form.addEventListener('submit', (e) => {
   }
   const pin = $('cfg-pin').value;
   if (pin && [...pin].length < 4) {
-    $('settings-err').textContent = 'The settings PIN must be at least 4 characters.';
+    $('settings-err').textContent = 'The Advanced Settings PIN must be at least 4 characters.';
     $('settings-err').hidden = false;
     showPinFields(true);
     focusField($('cfg-pin'));

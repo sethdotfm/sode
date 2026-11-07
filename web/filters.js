@@ -460,7 +460,7 @@ function saveSet(done = () => {}) {
     const to = moveTo,
       from = a.scope,
       was = a.name;
-    if (to === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
+    if (to === 'user' && !profileName()) return setNote('Sign in to save a set for yourself.', true);
     nameDirty = false;
     moveTo = null;
     if (to === 'local') {
@@ -547,7 +547,7 @@ function saveName() {
     return landed();
   }
   const fNow = filterState();
-  if (scope === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
+  if (scope === 'user' && !profileName()) return setNote('Sign in to save a set for yourself.', true);
   saveIn(
     scope,
     sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),

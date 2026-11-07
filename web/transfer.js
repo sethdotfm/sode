@@ -302,7 +302,7 @@ function renderExport() {
     ...(wait
       ? [el('span', 'sode__hint sode__error-text', other?.state === 'err' ? other.err : 'Reading their profile…')]
       : [
-          el('label', 'pb-check', pc, el('span', 'pb-check__label', 'This device settings'), el('span', 'sode__hint', ` ${prefNote}`)),
+          el('label', 'pb-check', pc, el('span', 'pb-check__label', 'This browser settings'), el('span', 'sode__hint', ` ${prefNote}`)),
           ...pickList('sets', d.sets),
           ...pickList('presets', d.presets),
         ]),
@@ -436,7 +436,7 @@ function openTransfer({ scope = '', user = '', what = '' } = {}) {
         if (other !== mine) return;
         other = r.ok
           ? { name: user, state: 'ok', profile: r.profile }
-          : { name: user, state: 'err', err: r.locked ? 'Only a trusted user or the settings PIN can read another user’s profile.' : sentence(r.err) };
+          : { name: user, state: 'err', err: r.locked ? 'Only a trusted user or the Advanced Settings PIN can read another user’s profile.' : sentence(r.err) };
         if (open) renderExport();
       });
     }

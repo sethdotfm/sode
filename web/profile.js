@@ -75,7 +75,7 @@ let chain = Promise.resolve();
 // `name` defaults to the logged-in user; a trusted user may name another. No PIN is asked here: the server decides.
 // The own profile's local copy takes the parts at once so the next save builds on them; a failed save puts it back.
 export function saveProfile(parts, name = cur.name) {
-  if (!name) return Promise.resolve({ ok: false, err: 'Not logged in.', locked: false });
+  if (!name) return Promise.resolve({ ok: false, err: 'Not signed in.', locked: false });
   // At call time, not when the queued send runs: the next caller reads it now.
   const before = cur;
   const mine = name === cur.name;

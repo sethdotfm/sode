@@ -91,7 +91,7 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
   function askPin(err = '') {
     pin.row.hidden = false;
     pin.input.value = '';
-    setNote(err || 'Enter the settings PIN.', !!err);
+    setNote(err || 'Enter the Advanced Settings PIN.', !!err);
     pin.input.focus();
   }
 
