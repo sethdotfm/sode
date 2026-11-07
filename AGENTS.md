@@ -10,7 +10,7 @@ go test ./...   (Dockerfile build runs it too)
 go vet ./...
 go test ./internal/app -run TestName -v
 node --test 'web/test/*.test.mjs'
-go run ./cmd/swp08sim   (simulator on :8910, SIM_* env in cmd/swp08sim and README)
+go run ./cmd/swp08sim   (simulator on :8910, SIM_* env in cmd/swp08sim and docs/reference.md)
 SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   (:8080, SODE_DEBUG hex-dumps SW-P-08)
 docker compose --profile sim up --build
 
