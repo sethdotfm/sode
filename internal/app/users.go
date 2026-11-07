@@ -40,7 +40,7 @@ var pageGates = map[string]gate{"main": gateMain, "log": gateLog}
 // connUser: page and sess guarded by App.mu; user is atomic.
 type connUser struct {
 	page string // "main" (default) or "log", as the page declared
-	// sess: the token (from hi or issued on unlock) and the Lock, shared with connections
+	// sess: the token (from hi or issued at sign-in) and the Lock, shared with connections
 	// on the same token. While locked the user stays set so only their PIN resumes it;
 	// every access check treats a locked connection as signed in to nothing.
 	sess *session
@@ -134,7 +134,7 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	m.Held = a.heldMu(c, cfg)
 	m.Mode = cfg.SignInMode
 	if a.userOKMu(c, cfg) {
-		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the unlock-time copy
+		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the sign-in copy
 		m.User, m.Trusted, m.Persistent = u.Name, u.Trusted, u.Persistent
 	}
 	m.Locked = m.Held || m.Enforced && m.User == ""
@@ -170,7 +170,7 @@ func (a *App) syncAccess(c *client) {
 }
 
 // Hi: a valid token brings the connection up as that user; a bad one is ignored. An
-// already unlocked connection is left alone.
+// already signed-in connection is left alone.
 func (a *App) Hi(c *client, page, token string) {
 	if _, ok := pageGates[page]; !ok {
 		page = "main"
@@ -289,7 +289,7 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 		return nil
 	}
 	defer a.mu.Unlock()
-	// A token-X connection unlocking as Y leaves X's session, or Y's Lock would end X's.
+	// A token-X connection signing in as Y leaves X's session, or Y's Lock would end X's.
 	c.u.sess = &session{}
 	c.u.user.Store(hit)
 	a.syncAccessMu(c)
@@ -473,7 +473,7 @@ type userResult struct {
 	Tab   bool   `json:"tab,omitempty"` // Token is a sign-in without a page lock's: for this tab only
 }
 
-// Unlocks run inline like the settings unlock, so a later lock is handled after.
+// Sign-ins run inline like the Advanced Settings PIN entry, so a later lock is handled after.
 func (a *App) serveUserUnlock(c *client, m *inMsg) {
 	res := userResult{T: "userUnlockResult", OK: true, ID: m.ID}
 	err := a.UserUnlockAs(c, m.User, m.Pin)
@@ -531,7 +531,7 @@ func (a *App) usersList(id int) usersListMsg {
 }
 
 // UserSetPin needs the user's own PIN, not the Advanced Settings PIN; the old PIN counts as a try
-// (same pool). Other connections of the user relock; c stays unlocked.
+// (same pool). Other connections of the user relock; c stays signed in.
 func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 	who := c.u.user.Load()
 	if who == nil {
