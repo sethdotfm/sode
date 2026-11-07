@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -282,5 +283,22 @@ func TestUserUnlockMessageCarriesUsername(t *testing.T) {
 	}
 	if st := lastLockState(t, read); st["locked"] != false || st["mode"] != "username" {
 		t.Fatalf("lockState %v", st)
+	}
+}
+
+// An unknown username must cost about what a known one does, or response time tells
+// which usernames exist.
+func TestUnknownUsernameCostsAsMuchAsAKnownOne(t *testing.T) {
+	a := usernameApp(t)
+	try := func(user string) time.Duration {
+		start := time.Now()
+		if err := a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, "9999"); err == nil {
+			t.Fatalf("%s: a wrong PIN was accepted", user)
+		}
+		return time.Since(start)
+	}
+	known, unknown := try("ana.k"), try("nobody")
+	if unknown < known/2 {
+		t.Fatalf("unknown username answered in %v, a known one in %v", unknown, known)
 	}
 }

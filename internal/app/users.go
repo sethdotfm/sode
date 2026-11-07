@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"unicode/utf8"
 
@@ -189,6 +190,15 @@ func (a *App) Hi(c *client, page, token string) {
 // UserUnlock signs in by PIN alone (PIN only mode).
 func (a *App) UserUnlock(c *client, pin string) error { return a.UserUnlockAs(c, "", pin) }
 
+// dummyPinHash gives a wrong username the same PBKDF2 cost as a right one, so timing
+// can't reveal which usernames exist.
+var dummyPinHash = sync.OnceValue(func() string {
+	h, _ := config.HashPin("0000")
+	return h
+})
+
+func burnPinCheck(pin string) { config.CheckPin(dummyPinHash(), pin) }
+
 // UserUnlockAs: PIN only mode ignores username and finds the user by PIN, which no two
 // users share; a PIN several users hold (left over from Username and PIN mode) signs
 // nobody in. Username and PIN mode compares the PIN with the named user's hash only. A
@@ -210,10 +220,12 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 			named, ok := cfg.FindUsername(username)
 			switch {
 			case owner != nil && username != "" && (!ok || named.Name != owner.Name):
+				burnPinCheck(pin)
 				return false
 			case owner != nil:
 				named, ok = *owner, true
 			case !ok:
+				burnPinCheck(pin)
 				return false
 			}
 			for i := range users {
