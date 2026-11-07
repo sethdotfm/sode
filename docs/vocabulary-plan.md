@@ -8,7 +8,7 @@ Brings the repo in line with `GLOSSARY.md`. Two tracks. Track 1 renames words an
 
 One branch, one commit per step, so each step can be reverted alone. Run `go test ./...` and `node --test 'web/test/*.test.mjs'` after each step.
 
-File counts below are case-insensitive greps (vendor, CHANGELOG and GLOSSARY excluded) and overcount. "salvo" includes the router's own salvo and the native fire mode, which stay.
+File counts below are case-insensitive greps (vendor, CHANGELOG and GLOSSARY excluded) and overcount. The count for the old preset word includes the router's own salvo and the native fire mode, which stay.
 
 | Step | Scope | Notes |
 | --- | --- | --- |
