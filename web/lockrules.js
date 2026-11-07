@@ -32,11 +32,11 @@ export function groupActor(entries, users) {
 
 export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastActive >= minutes * 60_000;
 
-// s is the lock state ({enforced, locked, user, persistent}). A persistent user is skipped by
-// the idle timer ONLY (Ctrl+L and the Lock button always work).
-export const idleLock = (s, lastActive, now, minutes) => !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
+// s is the lock state ({locked, user}). Anyone signed in gets the server-held Lock, persistent
+// users and tab sign-ins included; it never signs them out.
+export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user) && idleDue(lastActive, now, minutes);
 
-export const localIdleLock = (s, pageLocked, lastActive, now, minutes) => !s.enforced && !pageLocked && idleDue(lastActive, now, minutes);
+export const localIdleLock = (s, pageLocked, lastActive, now, minutes) => !s.enforced && !s.user && !pageLocked && idleDue(lastActive, now, minutes);
 
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
 // step.
