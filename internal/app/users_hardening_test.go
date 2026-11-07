@@ -211,8 +211,8 @@ func TestUserUnlockClearsToken(t *testing.T) {
 	if err := a.UserUnlock(c, "567890"); err != nil { // Bo, by PIN
 		t.Fatal(err)
 	}
-	if c.who() != "Bo" || c.u.token != "" {
-		t.Fatalf("who %s token %q", c.who(), c.u.token)
+	if c.who() != "Bo" || c.u.tokenMu() != "" {
+		t.Fatalf("who %s token %q", c.who(), c.u.tokenMu())
 	}
 	a.UserLock(c)
 	if !tokenAlive(a, tok) {
@@ -346,7 +346,7 @@ func TestHardeningOverWebSocket(t *testing.T) {
 	var tokens []string
 	for cl := range a.clients {
 		if cl.who() == "Bo" {
-			tokens = append(tokens, cl.u.token)
+			tokens = append(tokens, cl.u.tokenMu())
 		}
 	}
 	a.mu.Unlock()

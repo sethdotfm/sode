@@ -101,6 +101,7 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	}
 	a.mu.Lock()
 	a.rt.Store(nr)
+	a.endDeadHeldMu()
 	if after != nil {
 		after(old, nr)
 	}

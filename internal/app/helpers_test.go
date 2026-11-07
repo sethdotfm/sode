@@ -30,6 +30,13 @@ func (a *App) ApplyConfig(c config.Config) error {
 	return a.applyConfig(func(cur *config.Config) error { *cur = c; return nil })
 }
 
+// UserLock is what the userLock handler does.
+func (a *App) UserLock(c *client) { a.setHeld(c, true) }
+
+func (a *App) issueSession(c *client) string { return a.issueToken(c, false) }
+
+func (a *App) issueSessionTab(c *client, tab bool) string { return a.issueToken(c, tab) }
+
 func (a *App) pageAllowed(c *client, g gate) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
