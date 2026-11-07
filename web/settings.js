@@ -21,6 +21,7 @@ import { guardedEdited } from './lockrules.js';
 import { omitOwned } from './owned.js';
 import { intProblem } from './settingsrules.js';
 import { buildIndex, find, slug } from './settingsindex.js';
+import { resultStep } from './keys.js';
 import './users.js'; // adds its section before the table of contents is built
 import './profiles.js';
 import './configfile.js';
@@ -705,12 +706,14 @@ findBox.addEventListener('focus', () => {
   }
 });
 findBox.addEventListener('keydown', (e) => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    if (!hits.length) return;
+  const step = resultStep(e, hits.length > 0);
+  if (step) {
+    // Consumed here, so the section stepper (settingstoc.js) sees defaultPrevented.
     e.preventDefault();
-    cur = (cur + (e.key === 'ArrowDown' ? 1 : hits.length - 1)) % hits.length;
+    cur = (cur + (step > 0 ? 1 : hits.length - 1)) % hits.length;
     markHit();
+  } else if (e.ctrlKey || e.metaKey || e.altKey) {
+    return;
   } else if (e.key === 'Enter') {
     e.preventDefault();
     if (hits[cur]) pickHit(hits[cur]);
