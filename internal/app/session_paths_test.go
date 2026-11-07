@@ -118,6 +118,47 @@ func TestHeldTabTokenIsSharedAndDroppedOnResume(t *testing.T) {
 	}
 }
 
+func TestResumedTabsShareNoLockOrSignOut(t *testing.T) {
+	setup := func(t *testing.T) (a *App, c, one, two *client) {
+		a = userApp(t, true)
+		setFlags(t, a, "Ana", false, false)
+		c = &client{ip: "10.0.0.1"}
+		register(a, c)
+		if err := a.UserUnlock(c, "1234"); err != nil {
+			t.Fatal(err)
+		}
+		a.UserLock(c)
+		tok := sessionToken(c)
+		one, two = &client{ip: "10.0.0.2"}, &client{ip: "10.0.0.3"}
+		register(a, one)
+		register(a, two)
+		a.Hi(one, "main", tok)
+		a.Hi(two, "main", tok)
+		if err := a.UserUnlock(one, "1234"); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	t.Run("Lock of one tab", func(t *testing.T) {
+		a, c, one, two := setup(t)
+		a.UserLock(one)
+		for name, cl := range map[string]*client{"two": two, "c": c} {
+			if err := canTake(a, cl); err != nil {
+				t.Fatalf("%s locked by another tab's Lock: %v", name, err)
+			}
+		}
+	})
+	t.Run("sign out of one tab", func(t *testing.T) {
+		a, c, one, two := setup(t)
+		a.SignOut(one)
+		for name, cl := range map[string]*client{"two": two, "c": c} {
+			if err := canTake(a, cl); err != nil {
+				t.Fatalf("%s signed out by another tab: %v", name, err)
+			}
+		}
+	})
+}
+
 func TestSignOutAllEndsHeldSessions(t *testing.T) {
 	a, c, tok := persistentApp(t)
 	read := register(a, c)

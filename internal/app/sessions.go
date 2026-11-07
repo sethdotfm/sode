@@ -196,8 +196,15 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 	}
 	s.locked = on
 	if drop {
-		s.token = ""
-	} else if tok != "" {
+		// The token dies, so the connections sharing it part: each keeps its own
+		// tokenless session, and a later Lock or sign-out of one cannot reach the rest.
+		a.eachOnSessionMu(c, func(cl *client) {
+			cl.u.sess = &session{locked: on}
+			a.syncAccessMu(cl)
+		})
+		return tok, drop
+	}
+	if tok != "" {
 		a.tokens.setLocked(tok, on)
 	}
 	a.syncSessionMu(c)
