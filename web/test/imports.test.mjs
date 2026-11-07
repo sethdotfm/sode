@@ -1,8 +1,5 @@
-// Static check of the module graph: every name a web/*.js module imports
-// from another one is exported there. Most modules touch the DOM, so they
-// can't be loaded in Node; the sources are read and parsed instead, which
-// catches a missing or misspelled export without a browser.
-// Run: node --test web/test/
+// Static check of the module graph: every name a web/*.js module imports is exported there. Most modules touch the DOM,
+// so sources are parsed instead of loaded.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -15,7 +12,6 @@ const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$
 const sources = new Map(files.map((f) => [f, strip(readFileSync(join(dir, f), 'utf8'))]));
 const names = (list) => list.split(',').map((x) => x.trim()).filter(Boolean);
 
-// The names a module exports, following `export * from`.
 function exportsOf(file, seen = new Set()) {
   if (seen.has(file)) return new Set();
   seen.add(file);
@@ -32,7 +28,6 @@ function exportsOf(file, seen = new Set()) {
   return out;
 }
 
-// Every `import … from './x.js'` and `import './x.js'`.
 function importsOf(file) {
   const src = sources.get(file);
   const out = [];

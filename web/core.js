@@ -1,12 +1,10 @@
-// Shared state, the connection to Sode, and helpers used by both layouts.
-// Views subscribe with on(event, fn) and render from S.
+// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js: nothing may
+// cycle.
 
 import './tooltip.js';
 
 export const $ = (id) => document.getElementById(id);
 
-// el('div', 'cls', child, 'text', …) — builds DOM without innerHTML so
-// router-supplied names can never inject markup.
 export function el(tag, cls, ...kids) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -20,36 +18,34 @@ export const S = {
   cfg: null,
   configPath: '',
   version: '',
-  brandColors: [], // [{name, label}] for Settings' border colour
+  brandColors: [],
   srcs: [], dsts: [],
   srcBy: new Map(), dstBy: new Map(),
-  tally: new Map(), // dst → Map(ui level → src)
-  prot: new Map(),  // dst → Map(ui level → protecting device)
+  tally: new Map(),
+  prot: new Map(), 
   levels: [], levelDefaults: [],
   levelBy: new Map(),
   namesAt: null,
   wsState: 'connecting',
-  wsLost: false,    // the socket dropped and hasn't come back yet
+  wsLost: false,   
   router: null, routerAddr: '', routerErr: '',
-  routerLastErr: '', // newest error, kept through reconnect attempts until the router is up
+  routerLastErr: '',
   ws: null,
-  hist: [],         // newest first
+  hist: [],        
   histMore: false,
   histLoading: false,
-  result: null,     // last {kind, title, text} banner
-  newId: null,      // history entry that just arrived live
-  prevNumbering: null, // { mode, max } of the levels before the last hello
+  result: null,    
+  newId: null,     
+  prevNumbering: null,
 };
 
-// Adds k to the set, or removes it if it's there.
 export function toggle(set, k) {
   if (set.has(k)) set.delete(k);
   else set.add(k);
 }
 
-// The search left in a box by the last + (a destination added with the
-// search kept): `is()` is true while the box still holds exactly that, so
-// it isn't a destination waiting to be picked. `read` gives the box's text.
+// is() is true while the box still holds the search left by the last + (not a destination
+// waiting to be picked).
 export function keepSearch(read) {
   let kept = null;
   return {
@@ -60,21 +56,18 @@ export function keepSearch(read) {
 
 const listeners = {};
 export const on = (ev, fn) => { (listeners[ev] ||= []).push(fn); };
-// Like on, but runs before the listeners added so far and later: for a
-// module that must refresh its own memo before any view reads it.
+// Runs before earlier listeners: for a module that must refresh its memo before views read it.
 export const onFirst = (ev, fn) => { (listeners[ev] ||= []).unshift(fn); };
 export const emit = (ev, ...args) => {
   for (const fn of listeners[ev] || []) fn(...args);
 };
 
-// Messages from the server that other modules handle: onMsg('recent', fn).
 const handlers = {};
 export const onMsg = (t, fn) => {
   if (handlers[t]) throw new Error(`onMsg('${t}') is already handled`);
   handlers[t] = fn;
 };
 
-// The number shown beside a source or destination is its index plus this.
 export const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 export function item(n, name) {
@@ -84,27 +77,23 @@ export function item(n, name) {
 export const srcItem = (n, name = '') => S.srcBy.get(n) || item(n, name);
 export const dstItem = (n, name = '') => S.dstBy.get(n) || item(n, name);
 export const srcLabel = (n) => srcItem(n).label;
-// A source or destination as rows and confirms show it: the number muted
-// and fixed-width, so it can't run into a name that starts with a digit.
+// Number is muted and fixed-width so it can't run into a name starting with a digit.
 export const labelNode = (it) => el('span', 'sode__lbl', el('span', 'sode__lbl-n', it.num), ...(it.name ? [' ', it.name] : []));
 export const dstLabel = (n) => dstItem(n).label;
-// Tally source text: null = never reported, -1 = router says nothing routed.
 export const tallyText = (s) => (s == null ? 'unknown' : s < 0 ? 'nothing' : srcLabel(s));
 
 // ---- websocket
 
 let retry = 1000;
 
-// Browsers can't see WebSocket ping frames, so the server sends a {"t":"ping"}
-// message every ~5s (#142). A socket that stays quiet for STALE_MS is dead
-// even if it still says OPEN; nothing is sent into one quiet for FRESH_MS.
+// Browsers can't see ping frames; the server sends {"t":"ping"} every ~5s. A socket quiet for
+// STALE_MS is dead even if OPEN; nothing is sent into one quiet for FRESH_MS.
 // ws.lastRx is when anything last arrived.
 const STALE_MS = 15000;
 const FRESH_MS = 7000;
 const quiet = (ws) => Date.now() - ws.lastRx;
 
-// Gives up on a socket we no longer trust. Its own close event can be long
-// in coming on a dead link, so the loss is reported now, once.
+// A dead link's close event can be long in coming, so report the loss now, once.
 function drop(ws) {
   const lost = ws.onclose;
   ws.onclose = ws.onmessage = null;
@@ -113,8 +102,6 @@ function drop(ws) {
 }
 
 export function connect() {
-  // /ws next to the page: the root (or a proxy's prefix), for the main page
-  // and /log.
   const url = new URL('ws', document.baseURI);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(url);
@@ -131,7 +118,7 @@ export function connect() {
     S.wsState = 'down';
     S.wsLost = true;
     S.histLoading = false;
-    emit('wsclose'); // plans.js: takes in flight lose their replies
+    emit('wsclose');
     emit('conn');
     setTimeout(connect, retry);
     retry = Math.min(retry * 2, 10000);
@@ -139,8 +126,6 @@ export function connect() {
   ws.onmessage = (e) => { ws.lastRx = Date.now(); handle(JSON.parse(e.data)); };
 }
 
-// False if the message wasn't sent: no open socket, or one that has gone
-// quiet (probably dead), which is dropped so the page reconnects.
 export function wsSend(m) {
   const ws = S.ws;
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
@@ -155,10 +140,9 @@ export function wsSend(m) {
 function handle(m) {
   switch (m.t) {
     case 'hello':
-      // How levels were typed until now, so views can rewrite their boxes.
       S.prevNumbering = S.cfg && { mode: S.cfg.levelNumbering, max: S.levels.length };
       S.cfg = m.cfg;
-      emit('helloCfg', m.cfg); // device.js: the global device defaults
+      emit('helloCfg', m.cfg);
       S.pinSet = !!m.pinSet;
       S.configPath = m.configPath;
       S.version = m.version || '';
@@ -175,10 +159,10 @@ function handle(m) {
       setStatus(m.status);
       S.hist = m.recent || [];
       S.histMore = m.more;
-      // A page asked for before this snapshot is for a list since replaced
-      // and will be ignored (takePage): don't wait for it.
+      // A page asked for before this snapshot is for a replaced list and is ignored (takePage):
+      // don't wait for it.
       S.histLoading = false;
-      emit('helloData'); // filterstore.js: follow a global filter set that changed
+      emit('helloData');
       emit('hello');
       emit('conn');
       break;
@@ -212,14 +196,14 @@ function handle(m) {
       setStatus(m);
       emit('conn');
       break;
-    case 'ping': // heartbeat: receiving it is all that matters
+    case 'ping':
       break;
-    case 'sentPage': // the /log page (log.js)
+    case 'sentPage':
     case 'uptimeResult':
     case 'sentAdd':
       emit(m.t, m);
       break;
-    default: // takeResult (plans.js); recent, historyCleared, history (history.js); filterSets (filterstore.js); the answers to saves for everyone (globalsave.js)
+    default:
       handlers[m.t]?.(m);
   }
 }
@@ -260,15 +244,10 @@ function setStatus(st) {
   else if (S.router === 'up') S.routerLastErr = '';
 }
 
-// Dot state and text for the WebSocket and router links, plus down:
-// { title, text, err, links } once either link is lost. Not while first
-// connecting, or reconnecting after a restart or new settings: the router
-// only counts as lost when it's down, or still connecting after a failure.
 export function connState() {
   const ws = { up: ['ok', 'Server connected'], connecting: ['warn', 'Server connecting'], down: ['error', 'Server disconnected'] }[S.wsState];
   const map = { up: ['ok', 'connected'], connecting: ['warn', 'connecting'], down: ['error', 'down'] };
   const [dot, word] = S.wsState === 'up' && S.router ? map[S.router] || ['idle', S.router] : ['idle', 'unknown'];
-  // down.links: browser↔server and server↔router, true / false / null (unknown).
   let down = null;
   if (S.wsLost) {
     down = {
@@ -289,8 +268,6 @@ export function connState() {
   return { ws, rt: [dot, `Router ${word}`], down };
 }
 
-// What the status shows for the router (Settings → Router → Status
-// shows): [text, is a name]. Name falls back to the address when unset.
 export function routerLabel() {
   const show = S.cfg?.routerShow || 'address';
   if (show === 'none') return ['', false];
@@ -298,10 +275,8 @@ export function routerLabel() {
   return [S.routerAddr || '', false];
 }
 
-// The page starts below the banner when it is fixed to the top of the
-// window (the desktop one; the phone's sits in its own column). Both
-// layouts call renderDown with their own banner, so watch them all and
-// publish the height of whichever is fixed and showing as --sode-down-h.
+// The page starts below a fixed banner (the desktop one; the phone's has its own column):
+// publish the fixed, showing banner's height as --sode-down-h.
 const banners = new Set();
 let downObs;
 function publishDownHeight() {
@@ -311,10 +286,7 @@ function publishDownHeight() {
   }
   document.documentElement.style.setProperty('--sode-down-h', `${h}px`);
 }
-// Fills (or hides) a disconnected banner: what's lost, a browser → server
-// → router map with each link marked, and the router's error if any.
-// Redrawn only when its content changes: status flaps while reconnecting,
-// and each redraw would re-announce the alert.
+// Redraw only when content changes: each redraw would re-announce the alert.
 export function renderDown(box, c) {
   box.hidden = !c.down;
   if (typeof ResizeObserver !== 'undefined' && typeof document !== 'undefined' && !banners.has(box)) {
@@ -340,15 +312,13 @@ export function renderDown(box, c) {
   ].filter(Boolean));
 }
 
-// Server errors are Go-style (lowercase, no full stop); shown as sentences.
 export const sentence = (t) => {
   const s = String(t || '').trim();
   return s && s[0].toUpperCase() + s.slice(1) + (/[.!?…]$/.test(s) ? '' : '.');
 };
 
-// Why a name can't be used, or ''. names: the names already taken (any
-// case); old: the name being edited, which may be kept or change case;
-// noun: "preset", "filter set"; reserved: a name nothing may take.
+// names: names already taken (any case); old: the name being edited, may change case; reserved:
+// a name nothing may take.
 export function nameProblem(name, names, { noun = 'item', old = '', max = 32, reserved = '' } = {}) {
   const n = name.trim();
   if (!n) return 'Name required.';
@@ -360,14 +330,10 @@ export function nameProblem(name, names, { noun = 'item', old = '', max = 32, re
   return '';
 }
 
-// Patches can go out: Sode is reachable and connected to the router.
 export const linked = () => !!S.ws && S.wsState === 'up' && S.router === 'up';
 
-// Buttons that send to the router are marked with needsLink: shown as
-// disabled while patches can't go out, and kept in step on each 'conn'
-// without redrawing anything. The class and aria-disabled, not the disabled
-// attribute, so a focused button keeps focus; a press still goes through
-// planBlocked, which says it's not connected.
+// needsLink buttons look disabled via class and aria-disabled, not the disabled attribute, so a
+// focused button keeps focus; a press still goes through planBlocked.
 export function setLinkDisabled(b, off) {
   b.classList.toggle('disabled', off);
   b.setAttribute('aria-disabled', String(off));
@@ -386,10 +352,8 @@ export function setDot(dotEl, textEl, [state, text]) {
   textEl.textContent = text;
 }
 
-// Badge text for protect devices: 'Protected by 9' or 'Protected by 9, 12'.
 export const protectedLabel = (devices) => `Protected by ${devices.join(', ')}`;
 
-// Protected levels of dst among levels, with the devices holding them.
 export function protectedOn(dst, levels) {
   const t = S.prot.get(dst);
   const hit = t ? levels.filter((u) => t.has(u)) : [];
@@ -430,7 +394,6 @@ export function search(list, q, n = 8) {
   best.total = out.length; // how many matched before the cut
   return best;
 }
-// A vendored patchbay icon as an svg node; sm = the small size.
 export function icon(name, sm = true) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', sm ? 'pb-icon pb-icon--sm' : 'pb-icon');
@@ -442,11 +405,9 @@ export function icon(name, sm = true) {
   return svg;
 }
 
-// A chevron for disclosure toggles: down when open, right when closed.
 export const chevron = (open) => icon(open ? 'chevron-down' : 'chevron-right');
 
-// These forms only group inputs; Enter never submits the page. (An inline
-// onsubmit would break the Content-Security-Policy, see http.go.)
+// Enter never submits the page. (An inline onsubmit would break the CSP, see http.go.)
 if (typeof document !== 'undefined') {
   document.addEventListener('submit', (e) => {
     if (e.target.matches?.('.sode__boxes, .sode-log__filters')) e.preventDefault();

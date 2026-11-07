@@ -40,11 +40,11 @@ test('1234 and 12345: the five-digit user can always log in, the four-digit one 
   const lens = [4, 5];
   let pin = '';
   for (const k of '1234') pin = padKey(pin, k, lens);
-  assert.equal(sendDelay(pin, lens), null); // not sent on its own
-  assert.equal(sendable(pin, lens), true); // the check key or Enter sends it
+  assert.equal(sendDelay(pin, lens), null);
+  assert.equal(sendable(pin, lens), true);
   pin = padKey(pin, '5', lens);
   assert.equal(pin, '12345');
-  assert.equal(sendDelay(pin, lens), 0); // the longest goes at once
+  assert.equal(sendDelay(pin, lens), 0);
 });
 
 test('sendable: only lengths some user has', () => {
@@ -74,10 +74,10 @@ test('idleLock: a logged-in user locks when idle; a persistent one never does', 
 });
 
 test('needsPin: a trusted user skips the prompt', () => {
-  assert.equal(needsPin(false, false, false), false); // no PIN set
+  assert.equal(needsPin(false, false, false), false);
   assert.equal(needsPin(true, false, false), true);
-  assert.equal(needsPin(true, true, false), false); // PIN entered
-  assert.equal(needsPin(true, false, true), false); // trusted user
+  assert.equal(needsPin(true, true, false), false);
+  assert.equal(needsPin(true, false, true), false);
   assert.equal(needsPin(true, true, true), false);
 });
 
@@ -200,7 +200,7 @@ test('softIdleLock: idle past the auto-lock minutes, only where no PIN lock is o
 
 test('tab login: offered only with users, no lock and nobody in', () => {
   assert.equal(loginOffered({ enforced: false, user: '', lens: [4] }), true);
-  assert.equal(loginOffered({ enforced: false, user: '', lens: [] }), false); // no users: nothing new
+  assert.equal(loginOffered({ enforced: false, user: '', lens: [] }), false);
   assert.equal(loginOffered({ enforced: true, user: '', lens: [4] }), false);
   assert.equal(loginOffered({ enforced: false, user: 'Ana', lens: [4] }), false);
   assert.equal(loginOffered({ enforced: false, user: '' }), false);
@@ -227,7 +227,7 @@ test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")',
 
 test('hand lock: Log in as is offered with users and no lock, logged in or not', () => {
   assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
-  assert.equal(loginAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true); // switching user
+  assert.equal(loginAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
   assert.equal(loginAsOffered({ enforced: false, user: '', lens: [] }), false);
   assert.equal(loginAsOffered({ enforced: true, user: '', lens: [4] }), false);
   assert.equal(loginAsOffered({ enforced: false }), false);
@@ -243,7 +243,7 @@ test('lock view: which body shows', () => {
 test('lock view: transitions', () => {
   const soft = softLock(PAGE_VIEW, false);
   assert.deepEqual(soft, { mode: 'soft', back: 'page' });
-  assert.equal(softLock(PAGE_VIEW, true), PAGE_VIEW); // enforced: no hand lock
+  assert.equal(softLock(PAGE_VIEW, true), PAGE_VIEW);
   assert.equal(softUnlock(soft), PAGE_VIEW);
   assert.deepEqual(startLogin(PAGE_VIEW, false), { mode: 'login', back: 'page' });
   assert.equal(startLogin(soft, false), soft); // Settings' button never over the hand lock
@@ -272,7 +272,7 @@ test('hand lock: the chip shows for a logged-in user under it only', () => {
   assert.equal(chipShown({ covered: true, soft: true, user: 'Ana' }), true);
   assert.equal(chipShown({ covered: true, soft: true, user: '' }), false);
   assert.equal(chipShown({ covered: false, soft: false, user: '' }), true);
-  assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false); // a pad is up
+  assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false);
 });
 
 test('hand lock: Log out offered only with a user and no PIN lock; the view stays soft', () => {
@@ -289,12 +289,12 @@ test('hand lock: Log out offered only with a user and no PIN lock; the view stay
 test('a logged-in lock is the PIN pad, not dismissable, and ends with a real unlock (#198)', () => {
   const v = userLock(PAGE_VIEW, false);
   assert.deepEqual(v, { mode: MODE.OWN, back: 'page' });
-  assert.equal(userLock(PAGE_VIEW, true), PAGE_VIEW); // an enforced lock has its own pad
+  assert.equal(userLock(PAGE_VIEW, true), PAGE_VIEW);
   assert.equal(viewBody(v, false), 'pad');
-  assert.equal(cancelLogin(v), v); // no Cancel
+  assert.equal(cancelLogin(v), v);
   assert.equal(lockArrived(v, true), PAGE_VIEW);
   assert.equal(lockArrived(v, false), v);
-  assert.equal(loginWon(v, { enforced: false, unlocked: false, user: 'Ana' }), v); // someone else's state
+  assert.equal(loginWon(v, { enforced: false, unlocked: false, user: 'Ana' }), v);
   assert.equal(loginWon(v, { enforced: false, unlocked: true, user: '' }), v);
   assert.equal(loginWon(v, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
 });

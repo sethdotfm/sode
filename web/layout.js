@@ -1,7 +1,4 @@
-// Phone or desktop layout: automatic on narrow touch screens, with a
-// per-device override remembered in this browser. Until it chooses, the
-// global default (Settings) applies. index.html applies the same rule before
-// first paint.
+// Auto on narrow touch screens, per-browser override, else the global default. index.html applies the same rule before first paint.
 
 import { on } from './core.js';
 import { pref } from './device.js';
@@ -20,7 +17,7 @@ export function applyLayout() {
   const next = p === 'auto' ? (narrowTouch.matches ? 'phone' : 'desktop') : p;
   if (root.dataset.layout === next) return;
   root.dataset.layout = next;
-  if (next === 'phone') root.dataset.pbLayout = 'phone'; // patchbay's own phone reflow
+  if (next === 'phone') root.dataset.pbLayout = 'phone';
   else delete root.dataset.pbLayout;
   for (const fn of listeners) fn(next);
 }

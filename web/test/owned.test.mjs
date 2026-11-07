@@ -1,5 +1,4 @@
 // The Settings form's config message leaves out what the server owns.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OWNED_KEYS, omitOwned } from '../owned.js';

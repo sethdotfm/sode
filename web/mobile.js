@@ -1,10 +1,6 @@
-// Phone layout: a composer over a summary of the patch so far. One input
-// at a time steps Source → Destination → Levels; the keyboard's Next/Go
-// advances, and a bottom sheet with a slider confirms. On the Destination
-// step, + (typed or the button) adds another destination and stays on the
-// step. Destination comes first where this browser is set to
-// Destination before Source (Settings). A blank Source or Destination
-// goes to the other first (to see what's on it) and comes back.
+// Phone layout: one input steps Source → Destination → Levels; a bottom sheet with a slider
+// confirms. A blank Source or Destination goes to the other first (to see what's on it) and
+// comes back.
 
 import {
   $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode, toggle, keepSearch,
@@ -32,18 +28,15 @@ const view = $('mobile-view');
 const M = {
   step: order()[0],
   sel: { src: null },
-  dsts: [], // destinations so far, one bubble each
-  dstFirst: false, // a blank Source went to Destination first
+  dsts: [],
+  dstFirst: false,
   feedOpen: false,
 };
-// The best match sits nearest the input (the list is column-reverse), so
-// ↑ moves to the next-best one.
+// The best match sits nearest the input (column-reverse list), so ↑ moves to the next-best.
 const matches = combobox(() => inputs[M.step], $('m-matches'), {
-  // One entry per destination: those already added don't come up again.
   source: (text) => (M.step === 'lvl' || M.sel[M.step] ? []
     : search(M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n)), text, 50)),
   onPick: () => advance(),
-  // Destination rows have a + that adds the match and keeps the search.
   add: (it) => { addDst(it, true); inputs.dst.focus(); },
   canAdd: () => M.step === 'dst',
   press: 'click',
@@ -73,8 +66,7 @@ function renderConn() {
   syncGo();
 }
 
-// Next works offline (it only moves through the steps); Go, which patches,
-// shows as disabled without the link (a press gets "Not connected").
+// Next works offline; Go shows disabled without the link (a press says "Not connected").
 function syncGo() {
   setLinkDisabled($('m-go'), M.step === 'lvl' && !linked());
 }
@@ -88,12 +80,12 @@ function setStep(step, focus = true) {
   $('m-step').textContent = PROMPT[step];
   $('m-step').htmlFor = inputs[step].id;
   $('m-go').textContent = step === 'lvl' ? 'Go' : 'Next';
-  $('m-go').classList.toggle('pb-btn--danger', step === 'lvl'); // red only for the take
+  $('m-go').classList.toggle('pb-btn--danger', step === 'lvl');
   syncGo();
   $('m-add').hidden = step !== 'dst';
   $('m-picker').hidden = step !== 'lvl';
   $('m-ops').hidden = step !== 'lvl';
-  matches.refresh(); // none on the Levels step
+  matches.refresh();
   lvl.render();
   if (focus) inputs[step].focus();
   renderThread();
@@ -105,13 +97,11 @@ function shake(node) {
   node.classList.add('sode-m__shake');
 }
 
-// Next/Go: accept the step and move on. Focus moves within the same
-// handler so the phone keeps its keyboard open.
+// Focus moves within the same handler so the phone keeps its keyboard open.
 function advance() {
   const step = M.step;
   if (step === 'src') {
     if (!M.sel.src) {
-      // Blank: pick the destination first and come back for the source.
       if (!inputs.src.value.trim() && !M.dsts.length) {
         M.dstFirst = true;
         return setStep('dst');
@@ -123,9 +113,7 @@ function advance() {
     return setStep(M.dsts.length ? 'lvl' : 'dst');
   }
   if (step === 'dst') {
-    // Blank: pick the source first and come back for the destination.
     if (!inputs.dst.value.trim() && !M.dsts.length && !M.sel.src) return setStep('src');
-    // Next with an empty box goes on with the destinations already added.
     if ((inputs.dst.value.trim() && !keptText()) || !M.dsts.length) {
       const it = matches.current();
       if (!it) return shake(inputs.dst);
@@ -138,12 +126,11 @@ function advance() {
   const levels = lvl.levels();
   if (!levels) return shake(inputs.lvl);
   inputs.lvl.blur();
-  if (boxPicking()) return addPatch(); // Add from Patch Boxes: the last step adds the patch to the preset
+  if (boxPicking()) return addPatch();
   openSheet(patchPlan(M.sel.src, M.dsts, levels));
 }
 
-// +: the best match becomes a bubble. The typed search stays and its list
-// stays open without the bubbles, so the next match is one + away.
+// + keeps the typed search and its list (minus the bubbles), so the next match is one + away.
 function plus() {
   if (M.step !== 'dst') return;
   const it = matches.current();
@@ -160,13 +147,10 @@ function choose(it) {
   renderThread();
 }
 
-// The search left in the box by the last + (null when there is none).
-// While the box still holds exactly that, Next goes on with the bubbles
-// instead of adding another match.
+// The search left by the last +: while the box holds exactly it, Next goes on with the bubbles.
 const kept = keepSearch(() => inputs.dst.value);
 const keptText = kept.is;
 
-// keep: the search text and its match list stay for another (+).
 function addDst(it, keep = false) {
   if (!M.dsts.some((d) => d.n === it.n)) M.dsts.push(it);
   if (!keep) inputs.dst.value = '';
@@ -176,7 +160,6 @@ function addDst(it, keep = false) {
   else matches.close();
 }
 
-// Puts a destination bubble back in the box to edit.
 function editDst(i) {
   const [it] = M.dsts.splice(i, 1);
   inputs.dst.value = editText(it);
@@ -196,10 +179,8 @@ function reset() {
 
 // ---- the last take's source, destinations or levels
 
-// A "Last:" chip by the step's label, as on desktop: tap to fill the step
-// from the last take (destinations are added to any already picked) and
-// move on. Hidden when the step already has it, and for levels when
-// they're the default.
+// "Last:" chip as on desktop: tap fills the step from the last take. Hidden when the step has
+// it, and for default levels.
 const boxState = () => ({ src: M.sel.src, dsts: M.dsts, levels: lvl.levels() || [] });
 
 function renderLast() {
@@ -213,13 +194,12 @@ function renderLast() {
     const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', n || 'Last'), el('span', 'sode__last-text', ...v));
     b.type = 'button';
     b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
-    b.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
     b.addEventListener('click', () => useLast(k, !!n));
     return b;
   }).filter(Boolean));
 }
 
-// A source in a stacked row's changes becomes the source.
 function pickSrc(n) {
   closeSwipes();
   choose(srcItem(n));
@@ -235,7 +215,6 @@ function useLast(k, next = false) {
     choose(t.src);
     setStep(M.dsts.length ? 'lvl' : 'dst');
   } else if (k === 'dst') {
-    // Adds to the destinations already picked.
     if (!t.dsts.length) return;
     if (next) usedNext('dst', t);
     for (const d of t.dsts) if (!M.dsts.some((x) => x.n === d.n)) M.dsts.push(d);
@@ -249,7 +228,6 @@ function useLast(k, next = false) {
 
 // ---- thread: recent, result, the patch summary, currently
 
-// Puts a picked item back in its box to edit.
 const editText = (it) => (it.label.startsWith(it.num + ' ') ? it.name : it.label);
 
 function editSrc() {
@@ -261,7 +239,6 @@ function editSrc() {
   matches.refresh();
 }
 
-// Taps in the summary act without taking focus, so the keyboard stays up.
 function tap(node, label, onTap) {
   if (label) node.setAttribute('aria-label', label);
   node.addEventListener('pointerdown', (e) => e.preventDefault());
@@ -269,10 +246,8 @@ function tap(node, label, onTap) {
   return node;
 }
 
-// The best match for what's typed on this step, before it's picked.
 const maybe = (k) => (M.step === k && inputs[k].value.trim() ? matches.current() : null);
 
-// One summary row: its name, then what's picked (or the match it would be).
 function sumRow(k, ...vals) {
   const row = el('div', `sode-m__sum-row sode-m__sum-row--${k}` + (M.step === k ? ' sode-m__sum-row--on' : ''),
     el('span', 'sode-m__sum-key', PROMPT[k]), el('span', 'sode-m__sum-vals', ...vals));
@@ -308,8 +283,7 @@ function renderThread() {
   const nodes = [];
   const typing = view.classList.contains('sode-m--typing');
   if (typing || M.sel.src || M.dsts.length) nodes.push(summary());
-  // Room is short: Currently for the newest destination only, or the one
-  // being typed.
+  // Room is short: Currently only for the newest destination, or the one being typed.
   const last = M.dsts[M.dsts.length - 1] || maybe('dst');
   const others = M.dsts.length - 1;
   if (last) {
@@ -328,14 +302,12 @@ function renderThread() {
   if (end) scrollThread();
 }
 
-// Redraws (a tally, names, a result) keep the thread's end in view only if
-// it was in view before, so reading back through Recent isn't interrupted.
-// While typing the summary is pinned at the top and nothing scrolls.
+// Redraws keep the thread's end in view only if it was in view, so reading back through Recent
+// isn't interrupted. While typing the summary is pinned at the top and nothing scrolls.
 function atEnd() {
   const t = $('m-thread');
   return t.scrollHeight - t.scrollTop - t.clientHeight < 24;
 }
-// After layout settles (the composer may just have grown or shrunk).
 function scrollThread() {
   requestAnimationFrame(() => {
     if (view.classList.contains('sode-m--typing')) return;
@@ -349,14 +321,12 @@ function scrollThread() {
 const REVEAL = 96;
 const arrived = arrivals();
 
-const openFolders = new Set(); // history groups showing their takes
-const openFollowers = new Set(); // history groups showing their Followers
-const openChanges = new Set(); // merged rows (history IDs) listing their changes
+const openFolders = new Set();
+const openFollowers = new Set();
+const openChanges = new Set();
 
-// Recent's buttons close any swiped-open row, then confirm.
 const sheetFor = (plan) => { closeSwipes(); openSheet(plan); };
 const undoBtn = (plan, label, text = 'Undo') => undoButton(plan, label, sheetFor, { text, cls: 'sode-m__undo' });
-// Redo / Retry, the swipe-right action: the row's left-hand reveal.
 const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholder: false, cls: 'sode-m__redo' });
 
 function recentRow(e) {
@@ -367,7 +337,6 @@ function recentRow(e) {
   const status = statusNode({ e });
   const again = againPlan({ e });
   const retry = redoBtn(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`);
-  // A stacked row's changes, behind a toggle as on desktop.
   const open = !!e.chain && openChanges.has(e.id);
   const changesId = `m-changes-${e.id}`;
   const disc = e.chain && disclosure(open, 'Changes', changesId, () => {
@@ -393,8 +362,7 @@ function recentRow(e) {
   return row;
 }
 
-// A folder: one confirm's takes behind a summary row. Swipe it to undo
-// them all; open it to swipe or retry them one by one.
+// A folder: swipe to undo all; open it to swipe or retry one by one.
 function folderRows(f) {
   const open = openFolders.has(f.group);
   const kidsId = `m-folder-${f.group}`;
@@ -422,8 +390,6 @@ function folderRows(f) {
   return [row, kids];
 }
 
-// "Followers · N" at the bottom of an open folder: changes made elsewhere
-// that seem to follow the confirm (not any one take), opening to their rows.
 function followerRows(f) {
   if (!f.followers?.length) return [];
   const open = openFollowers.has(f.group);
@@ -443,14 +409,14 @@ function followerRows(f) {
   return [head, kids];
 }
 
-const OPEN = 'sode-m__recent-row--open'; // swiped left: Undo showing
-const OPEN_R = 'sode-m__recent-row--open-r'; // swiped right: Redo / Retry showing
+const OPEN = 'sode-m__recent-row--open';
+const OPEN_R = 'sode-m__recent-row--open-r';
 function swipeable(row, face, canRedo = false) {
   let x0 = null, y0 = 0, dx = 0, base = 0, horiz = null;
   const set = (x) => { face.style.transform = `translateX(${x}px)`; };
   const rest = () => (row.classList.contains(OPEN) ? -REVEAL : row.classList.contains(OPEN_R) ? REVEAL : 0);
   face.addEventListener('pointerdown', (e) => {
-    if (picking()) return; // a tap ticks the row; no swiping while choosing
+    if (picking()) return;
     x0 = e.clientX; y0 = e.clientY; dx = 0; horiz = null;
     delete face.dataset.noTap; // a drag doesn't always end in a click
     base = rest();
@@ -472,8 +438,8 @@ function swipeable(row, face, canRedo = false) {
     face.classList.remove('sode-m__recent-face--drag');
     const at = base + dx;
     const side = !horiz ? 0 : at < -REVEAL / 2 ? -1 : canRedo && at > REVEAL / 2 ? 1 : 0;
-    if (horiz || base) face.dataset.noTap = '1'; // a swipe, or closing one, isn't a tap
-    if (!horiz && base) { closeSwipes(); x0 = null; return; } // tap on an open row closes it
+    if (horiz || base) face.dataset.noTap = '1';
+    if (!horiz && base) { closeSwipes(); x0 = null; return; }
     if (horiz) {
       closeSwipes(row);
       row.classList.toggle(OPEN, side < 0);
@@ -498,9 +464,8 @@ const pager = historyPager(5, () => layout() === 'phone');
 pullToLoad($('m-thread'), $('m-recent-more'), pager, () => layout() === 'phone' && !$('m-recent').hidden);
 
 bindPick($('m-recent-list'));
-// The pick bar is a row of the phone view under its header, so it pushes the
-// thread down instead of covering the patch summary; on any other layout it
-// goes back to floating over the page (CSS, history.css).
+// The pick bar sits under the header and pushes the thread down; on other layouts it floats
+// over the page (history.css).
 function placeBar() {
   if (layout() !== 'phone') return void (pickBar.parentNode !== document.body && document.body.append(pickBar));
   if (pickBar.previousElementSibling !== $('m-result')) $('m-result').after(pickBar);
@@ -515,7 +480,7 @@ function renderRecent() {
 
 // ---- confirm sheet with slider
 
-let pending = null; // plan + lock (a shallow copy: planBlocked's prot is keyed by its items)
+let pending = null;
 
 function openSheet(plan) {
   const { block, prot } = planBlocked(plan);
@@ -584,7 +549,6 @@ const release = (e) => {
 };
 handle.addEventListener('pointerup', release);
 handle.addEventListener('pointercancel', release);
-// Keyboard fallback for the slider: → or End completes it.
 handle.addEventListener('keydown', (e) => {
   if (!pending || !pending.lock.ready()) return;
   if (e.key === 'ArrowRight' || e.key === 'End') {
@@ -603,8 +567,7 @@ inputs.src.addEventListener('input', () => {
   matches.refresh();
   renderThread();
 });
-// A typed + adds the destination. Read from the value, since phone
-// keyboards often send no usable key code.
+// Read from the value: phone keyboards often send no usable key code.
 inputs.dst.addEventListener('input', () => {
   const v = inputs.dst.value;
   if (v.includes('+')) {
@@ -623,10 +586,8 @@ for (const k of STEPS) {
       e.preventDefault();
       advance();
     } else if (e.key === 'Backspace' && !inputs[k].value) {
-      // Backspace on an empty step goes back to edit what's picked before
-      // it: from Levels the step before in the order, from Destination
-      // its newest one and then the source, from Source the newest
-      // destination where Destination came first.
+      // Backspace on an empty step goes back to edit the previous pick (Source-first: Levels →
+      // Destination's newest → source; Destination-first: Source → newest destination).
       const back = k === 'lvl' ? order().slice(0, 2).reverse()
         : k === 'dst' ? ['dst', 'src']
           : flipped() || M.dstFirst ? ['dst'] : [];
@@ -646,8 +607,7 @@ for (const k of STEPS) {
     }
   });
 }
-// The number pad has no ! , or -, so these keys type the words for them
-// at the cursor, with a space either side.
+// The number pad has no ! , or -: these keys type the words for them at the cursor, spaced.
 for (const b of $('m-ops').children) {
   b.addEventListener('pointerdown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
@@ -658,8 +618,8 @@ for (const b of $('m-ops').children) {
     i.dispatchEvent(new Event('input'));
   });
 }
-// Backspace right after one of those words takes the whole word and its
-// spaces. beforeinput, since phone keyboards often send no key code.
+// Backspace right after such a word takes the word and its spaces. beforeinput: phone keyboards
+// often send no key code.
 inputs.lvl.addEventListener('beforeinput', (e) => {
   const i = inputs.lvl;
   if (e.inputType !== 'deleteContentBackward' || i.selectionStart !== i.selectionEnd) return;
@@ -670,10 +630,9 @@ inputs.lvl.addEventListener('beforeinput', (e) => {
   i.setRangeText('', m.index, i.selectionStart, 'end');
   i.dispatchEvent(new Event('input'));
 });
-for (const id of ['m-go', 'm-add']) $(id).addEventListener('pointerdown', (e) => e.preventDefault()); // keep the keyboard up
+for (const id of ['m-go', 'm-add']) $(id).addEventListener('pointerdown', (e) => e.preventDefault());
 $('m-go').addEventListener('click', advance);
 $('m-add').addEventListener('click', plus);
-// Cancel: clear the whole entry and let the keyboard go.
 $('m-cancel').addEventListener('click', () => {
   reset();
   document.activeElement?.blur();
@@ -681,23 +640,17 @@ $('m-cancel').addEventListener('click', () => {
 
 // ---- typing: keyboard up means Recent steps aside
 
-// While a composer input has focus the keyboard is up and room is short,
-// so Recent hides and the bubbles, levels and Currently get the space.
-// It returns when the keyboard goes away. Focus moving between steps
-// happens synchronously, so check after the blur settles.
+// While a composer input has focus the keyboard is up and room is short, so Recent hides. Focus
+// moves between steps synchronously: check after the blur settles.
 function syncTyping() {
   const typing = STEPS.some((k) => document.activeElement === inputs[k]);
   if (view.classList.contains('sode-m--typing') === typing) return;
   const t = $('m-thread');
   view.classList.toggle('sode-m--typing', typing);
   renderThread();
-  // The summary to the top while typing; after, the top again, which shows
-  // the result banner and the latest card.
   if (typing) t.scrollTop = 0;
   else requestAnimationFrame(() => { t.scrollTop = 0; });
 }
-// Typing in Recent's Filter by boxes: the composer goes instead, leaving
-// the room to Recent.
 const filterBox = () => !!document.activeElement?.closest('#m-recent [data-search]');
 const syncFiltering = () => view.classList.toggle('sode-m--filtering', filterBox());
 $('m-recent').addEventListener('focusin', syncFiltering);
@@ -709,9 +662,8 @@ for (const k of STEPS) {
 
 // ---- keyboard overlap (iOS)
 
-// iOS Safari doesn't shrink the layout viewport for the keyboard, so size
-// the phone view to the visual viewport; the composer then sits on top of
-// the keyboard. Android Chrome resizes for us (interactive-widget).
+// iOS Safari doesn't shrink the layout viewport for the keyboard: size the phone view to the
+// visual viewport. Android Chrome resizes itself (interactive-widget).
 const vv = window.visualViewport;
 if (vv) {
   const fit = () => {
@@ -742,7 +694,6 @@ on('result', (r) => {
   $('m-result').replaceChildren(resultNode(r));
   if (end) scrollThread();
 });
-// Order changed in Settings: an empty composer starts on the new first step.
 on('flip', () => {
   if (!M.sel.src && !M.dsts.length) setStep(order()[0], false);
   else renderThread();
@@ -753,12 +704,9 @@ onLayout((l) => {
   else { renderThread(); renderRecent(); }
 });
 
-// The first step from the start, so a Destination-first browser doesn't
-// show the Source box until hello.
+// Start on the right step so a Destination-first browser doesn't show Source until hello.
 setStep(order()[0], false);
 
-// Presets (presets.js): a pressed button opens the usual confirm sheet; the
-// patch so far can fill a preset.
 presetHost({
   active,
   confirm: sheetFor,

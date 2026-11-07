@@ -1,19 +1,11 @@
-// How the /log page reads the sent log back (issue 141). Pure, no imports,
-// so Node tests it. The page asks for pages of entries newest first; the
-// filters hide some, so it keeps reading until enough are *shown* (want)
-// or the log, or the page cap, runs out. Without that, an open or a Load
-// older whose pages hold only hidden entries (keepalives under the
-// default "Connects" filter) showed nothing, and looked stuck.
-//
-// Each method that asks for something returns the request to send,
-// { before, n }, or null.
+// How /log reads the sent log back, newest first. Filters hide entries, so it reads on until enough are shown (want)
+// or the log or page cap runs out; else a page of only hidden keepalives looked stuck. Pure, no imports.
+// Methods return the request { before, n } to send, or null.
 
-// Entries per request on open and per Load older.
 export const PAGE = 100;
 // Per request while reading on to find more to show, or back to a time
 // range (the server's most).
 export const FILL = 500;
-// Requests for one open or Load older while the filters hide everything.
 export const AUTO_PAGES = 20;
 
 export function newPager() {
@@ -29,7 +21,6 @@ export function newPager() {
   const oldest = () => list[list.length - 1];
   const byNewest = (a, b) => b.seq - a.seq;
 
-  // The entries not loaded yet, stamped with their time as ms (t), newest first.
   function add(entries) {
     const fresh = entries.filter((e) => !seen.has(e.seq));
     for (const e of fresh) {
@@ -55,7 +46,6 @@ export function newPager() {
     get loading() { return pending !== null; },
     get oldest() { return oldest(); },
 
-    // A fresh connection: forget everything and ask for the newest page.
     open() {
       list = [];
       seen.clear();
@@ -66,7 +56,6 @@ export function newPager() {
       return ask(-1, PAGE);
     },
 
-    // Load older: PAGE more shown rows than now. null if busy or nothing loaded.
     older(shownNow) {
       if (!started || pending !== null || !list.length) return null;
       want = shownNow + PAGE;
@@ -74,9 +63,7 @@ export function newPager() {
       return ask(oldest().seq, PAGE);
     },
 
-    // A reply. null when it isn't the one awaited (a connection since
-    // replaced, or a duplicate), leaving the request pending. Else
-    // { fresh, newest }: the entries it added.
+    // null when not the awaited reply (replaced connection, duplicate); else { fresh, newest }.
     receive(m) {
       if (!started || pending === null || m.before !== pending) return null;
       const newest = m.before === -1;
@@ -90,7 +77,6 @@ export function newPager() {
       return { fresh, newest };
     },
 
-    // Live entries (sentAdd), newest first; those already loaded are dropped.
     live(m) {
       const fresh = add(m.entries);
       list.unshift(...fresh);
@@ -98,21 +84,16 @@ export function newPager() {
       return fresh;
     },
 
-    // After a reply: more of the log while the filters leave fewer than
-    // `want` of the loaded entries shown, within the page cap.
     next(shownNow) {
       return idle() && shownNow < want && pages < AUTO_PAGES ? ask(oldest().seq, FILL) : null;
     },
 
-    // Read on to cover a time range, whatever is shown and however many pages.
     back() {
       return idle() ? ask(oldest().seq, FILL) : null;
     },
 
-    // The request returned couldn't be sent: there is nothing to wait for.
     unsent() { pending = null; },
 
-    // The connection dropped.
     close() {
       started = false;
       pending = null;

@@ -25,18 +25,14 @@ test('topDialog: one hidden by someone else is skipped', () => {
 
 import { backdropClose, bringToFront } from '../dialogkeys.js';
 
-// The targets are those of mousedown and mouseup. A press on the backdrop
-// released inside the dialog (or the reverse, or a selection dragged out)
-// still fires a click on the common ancestor, root, so the click's target says
-// nothing: only where the mouse went down and came up counts.
 test('backdropClose: only when mousedown and mouseup were both on the backdrop', () => {
   const root = {}, inner = {};
   assert.equal(backdropClose(root, root, root), true);
-  assert.equal(backdropClose(inner, root, root), false); // selection dragged out
-  assert.equal(backdropClose(root, inner, root), false); // pressed outside, released in
+  assert.equal(backdropClose(inner, root, root), false);
+  assert.equal(backdropClose(root, inner, root), false);
   assert.equal(backdropClose(inner, inner, root), false);
   assert.equal(backdropClose(null, root, root), false);
-  assert.equal(backdropClose(root, null, root), false); // no mouseup seen
+  assert.equal(backdropClose(root, null, root), false);
 });
 
 test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => {
@@ -55,8 +51,8 @@ test('bringToFront: moves a scrim to the end of its parent, keeps focus', () => 
   bringToFront(a);
   assert.deepEqual(kids, [b, a]);
   assert.equal(active, field);
-  bringToFront(a); // already last: nothing moves
+  bringToFront(a);
   assert.deepEqual(kids, [b, a]);
-  bringToFront({ parentNode: null }); // detached: no error
+  bringToFront({ parentNode: null });
   delete globalThis.document;
 });

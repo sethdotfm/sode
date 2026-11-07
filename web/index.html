@@ -76,7 +76,6 @@
         <div class="sode__box-head" aria-hidden="true"><span class="sode__label">&nbsp;</span></div>
         <button type="button" class="pb-btn pb-btn--danger sode__patch" id="patch" tabindex="-1">Take</button>
       </div>
-      <!-- On a row of their own, so both start at the same height. -->
       <div class="sode__under sode__under--src" id="src-under" aria-live="polite"></div>
       <div class="sode__under sode__under--dst" id="dst-under" aria-live="polite"></div>
     </form>
@@ -429,7 +428,7 @@
     <fieldset class="sode__group">
       <legend>Server Backup</legend>
       <span class="sode__hint">Everything saved on this server (settings, users, locks, filter sets, presets, profiles) as one config.yaml. Needs the settings PIN.</span>
-      <!-- Server configuration file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
+      <!-- Server config file (configfile.js). Saved apart from the form: data-apart keeps its inputs out of the unsaved-changes check. -->
       <div class="sode__field" id="config-file" data-apart data-find="config-file" data-label="Server Backup">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="config-pins"><span class="pb-check__label">Include Secrets (private backup)</span></label>
         <span class="sode__hint">If enabled, the file includes the Advanced Settings PIN and every user's PIN hash. Without them, a new server can't restore the users.</span>
@@ -482,7 +481,6 @@
       </div>
     </fieldset>
 
-    <!-- Export & import (transfer.js) -->
     <fieldset class="sode__group">
       <legend>Export & import</legend>
       <div class="sode__field" data-find="transfer-open" data-label="Export & import">

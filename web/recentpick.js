@@ -1,21 +1,13 @@
-// Pick mode for Recent: the preset editor's "Add from Recent…" steps aside,
-// Recent's rows get a check box instead of their buttons, and a bar says what
-// the next click does. Takes and folders are ticked (any number), "Include
-// follows" also adds what followed them (changes made elsewhere right after:
-// likely router automation), Add hands the takes back, Cancel/Esc drops them.
-// A second mode, 'boxes' ("Add from Patch Boxes…"), uses the same bar and state
-// but leaves the patch boxes live: the Take button gives way to Add (the boxes'
-// patch becomes a row, the boxes clear) and Done; Recent is left alone.
-// One state, two layouts: each layout asks picking()/pickBox() while building
-// its rows, redraws on the 'pick' event and calls bindPick(list) once.
+// Pick mode for Recent (the preset editor's "Add from Recent..."): rows get check boxes, a bar says what the next click does.
+// "Include follows" also adds changes made right after (likely router automation).
+// Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state but keeps the patch boxes live: Add turns the patch into a row, Done ends it.
+// Each layout asks picking()/pickBox() while building rows, redraws on 'pick' and calls bindPick(list) once.
 import { el, on, emit, S } from './core.js';
 import { histRows } from './history.js';
 
 // ---- pure
 
-// Every pickable row of histRows' result by its key: 'e<id>' (a take, a
-// follower, a merged row's newest) and 'f<group>' (a folder: all its takes).
-// entries: what picking it adds; follows: what "Include follows" adds.
+// Keys: 'e<id>' (a take, follower, merged row's newest) and 'f<group>' (a folder: all its takes).
 export function indexRows(rows) {
   const m = new Map();
   const one = (e) => m.set(`e${e.id}`, { entries: [e], follows: e.follows || [] });
@@ -32,9 +24,7 @@ export function indexRows(rows) {
   return m;
 }
 
-// The picked keys as takes [{ src, dst, levels }], oldest first, each entry
-// once (a folder and one of its takes together count once). ok(e) says
-// whether an entry can be a take (a real source and a level that exists).
+// Picked keys as takes, oldest first, each entry once; ok(e): a real source and an existing level.
 export function pickedTakes(index, keys, withFollows, ok = () => true) {
   const seen = new Map();
   for (const k of keys) {
@@ -50,10 +40,7 @@ export function pickedTakes(index, keys, withFollows, ok = () => true) {
 // ---- the two modes
 
 const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
-// What each mode says and does. Recent: tick takes and folders, Add hands
-// them back. Boxes: Add turns the patch in the boxes into a row, again and
-// again, until Done. count/addText/canAdd take the state and, in Recent, the
-// takes ticked now (taken), worked out once per redraw.
+// count/addText/canAdd take the state and, in Recent, the takes ticked now (taken), worked out once per redraw.
 export const MODES = {
   recent: {
     msg: (name) => `Choose takes for ${name}`,
@@ -94,7 +81,6 @@ export const MODES = {
 
 // { mode, label, onAdd(takes), onAddPatch(): note, onCancel(), picked: Set of keys, follows, ok, note }
 let st = null;
-// Recent's rows get check boxes only in the Recent mode.
 export const picking = () => st?.mode === 'recent';
 export const boxPicking = () => st?.mode === 'boxes';
 export const isPicked = (key) => !!st?.picked.has(key);
@@ -128,7 +114,6 @@ function finish(fn) {
 }
 export const endPick = () => finish(null);
 const cancel = () => finish((s) => s.onCancel?.());
-// Add (button or Enter in the boxes): whatever the mode adds.
 export const addPatch = () => st?.mode === 'boxes' && MODES.boxes.add(st);
 const add = () => st && MODES[st.mode].add(st);
 
@@ -152,7 +137,7 @@ bar.setAttribute('role', 'region');
 bar.setAttribute('aria-label', 'Choose takes from Recent');
 bar.hidden = true;
 document.body.append(bar);
-// Each layout may place the bar (the phone makes it a row of its view): see mobile.js.
+// The phone makes the bar a row of its view (mobile.js).
 export const pickBar = bar;
 
 followsIn.addEventListener('change', () => { if (st) { st.follows = followsIn.checked; update(); } });
@@ -177,7 +162,6 @@ function update() {
   emit('pick');
 }
 
-// The lock chip sits at the top left over the bar: start the bar's content after it.
 function clearChip() {
   const chip = document.querySelector('.sode-lock__who');
   const r = chip && !chip.hidden ? chip.getBoundingClientRect() : null;
@@ -185,7 +169,6 @@ function clearChip() {
 }
 globalThis.addEventListener?.('resize', () => { if (st) clearChip(); });
 
-// Esc cancels, ahead of everything else on the page.
 document.addEventListener('keydown', (e) => {
   if (!st || e.key !== 'Escape') return;
   if (!MODES[st.mode].escCancels(e)) return;
@@ -193,13 +176,11 @@ document.addEventListener('keydown', (e) => {
   e.stopImmediatePropagation();
   cancel();
 }, true);
-// A lock or a dropped link ends it (the page is covered, or the rows may change).
 on('locking', () => cancel());
 on('wsclose', () => cancel());
 
 // ---- for the layouts
 
-// The check box that stands where a row's buttons are.
 export function pickBox(key) {
   const i = el('input', 'pb-check__input');
   i.type = 'checkbox';
@@ -208,9 +189,7 @@ export function pickBox(key) {
   return el('label', 'pb-check sode__pickbox', i, el('span', 'pb-check__label', 'Add'));
 }
 
-// While picking, a click on a take or folder ticks it, whatever it hit, but
-// the "N takes" disclosure still opens a folder so its takes can be picked
-// one by one.
+// A click ticks a take or folder, whatever it hit, except the "N takes" disclosure, which still opens a folder.
 export function bindPick(list) {
   list.addEventListener('click', (e) => {
     if (!picking()) return;

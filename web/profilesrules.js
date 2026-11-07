@@ -1,12 +1,9 @@
-// The pure parts of the Profiles dialog (profiles.js): how a profile's parts
-// read as lines. No imports but prefs.js, so Node tests it.
+// Pure parts of the Profiles dialog (profiles.js). No imports but prefs.js.
 
 import { PREFS } from './prefs.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
-// This device settings as [{key, label, value}], in PREFS order; values that
-// aren't valid for their setting are left out (the browser ignores them too).
 const LABELS = { theme: 'Theme', layout: 'Layout', clock: 'Clock', flip: 'Destination before Source', scrollTop: 'Scroll to top', setStack: 'Stacked sets', nextMode: 'Next chip', searchFilters: 'Quick search follows filters' };
 export function prefRows(prefs) {
   const out = [];
@@ -19,14 +16,12 @@ export function prefRows(prefs) {
   return out;
 }
 
-// The prefs map without one setting (what a Remove saves).
 export function withoutPref(prefs, key) {
   const rest = { ...(prefs || {}) };
   delete rest[key];
   return rest;
 }
 
-// A filter set's short summary: what it shows and hides.
 export function setSummary(s) {
   const bits = [];
   if (s?.src) bits.push(`sources ${s.src}`);
@@ -37,29 +32,21 @@ export function setSummary(s) {
   return bits.length ? bits.join('; ') : 'Shows everything';
 }
 
-// A preset's short summary: its takes and destinations.
 export function presetSummary(p) {
   const items = Array.isArray(p?.items) ? p.items : [];
   const dsts = items.reduce((n, it) => n + (Array.isArray(it?.dsts) ? it.dsts.length : 0), 0);
   return `${plural(items.length, 'take')}, ${plural(dsts, 'destination')}`;
 }
 
-// The list without entry i (what a Remove saves).
 export const without = (list, i) => (Array.isArray(list) ? list.filter((_, j) => j !== i) : []);
 
-// Whether a users-editor row's Profile… button is off: a new row (no saved
-// name) or one whose name was edited has no profile to open yet.
 export const profileButtonOff = (was, typed) => !was || String(typed).trim() !== was;
 
-// Whether the Profiles button is offered: users exist and the viewer is a
-// trusted user or holds the settings PIN.
 export const canSeeProfiles = (names, trusted, unlocked) => (names?.length || 0) > 0 && !!(trusted || unlocked);
 
 // ---- editing a profile
 
-// Every This device setting as a select: [{key, label, value, options}] in
-// PREFS order. value is the saved one ('' = Not set, also for a value that
-// isn't valid); options are [value, text] pairs with Not set first.
+// value '' = Not set (also for an invalid one); options are [value, text] pairs, Not set first.
 export function prefFields(prefs) {
   return Object.entries(PREFS).map(([key, def]) => {
     let v = prefs?.[key];
@@ -74,8 +61,7 @@ export function prefFields(prefs) {
   });
 }
 
-// The prefs map with one setting changed: '' (Not set) removes it, a value
-// that isn't allowed for that setting changes nothing. Other keys are kept.
+// '' (Not set) removes the key; a value not allowed for that setting changes nothing.
 export function prefsWith(prefs, key, value) {
   const def = PREFS[key];
   const next = { ...(prefs || {}) };
@@ -85,8 +71,6 @@ export function prefsWith(prefs, key, value) {
   return next;
 }
 
-// The list with `entry` added, or put in place of `old` (matched ignoring
-// case). The name is checked by the caller (core.js nameProblem).
 export function upsertEntry(list, entry, old = '') {
   const items = Array.isArray(list) ? list : [];
   const at = old ? items.findIndex((x) => String(x?.name).toLowerCase() === old.toLowerCase()) : -1;
@@ -95,27 +79,20 @@ export function upsertEntry(list, entry, old = '') {
   return next;
 }
 
-// A filter set as saved in a profile: its name and the filter's own fields.
 export const filterEntry = (name, f) => ({ name: String(name).trim(), ...f });
 
-// The entry named `name` (ignoring case), or undefined.
 export const findByName = (list, name) => (Array.isArray(list) ? list : [])
   .find((x) => String(x?.name).toLowerCase() === String(name).toLowerCase());
 
-// The profile with `parts` ({prefs}, {filterSets}, {presets}) put in. The
-// dialog applies this when a change is made, not when the save returns, so a
-// second change before the first answer builds on the first.
+// Applied when a change is made, not when the save returns, so a second change builds on the first.
 export const withParts = (prof, parts) => ({ ...(prof || {}), ...parts });
 
-// The server caps a whole profile at 48 KiB (the socket read limit is 64).
+// Server caps a whole profile at 48 KiB (socket read limit is 64).
 export const PROFILE_MAX_BYTES = 48 * 1024;
 
-// Why `parts` ({filterSets}, {presets}) would make the profile `p` too big
-// to save, or ''. Parts replace the same-named part of p.
 export function profileProblem(p, parts) {
   const next = { prefs: p.prefs, filterSets: p.filterSets, presets: p.presets, pinOrder: p.pinOrder, ...parts };
-  // UTF-8 bytes as the server counts them: Go's json.Marshal also writes
-  // < > & as <, >, & (5 more bytes each).
+  // UTF-8 bytes as the server counts them: Go's json.Marshal also writes < > & as 6-byte escapes.
   const json = JSON.stringify(next);
   const bytes = new TextEncoder().encode(json).length + 5 * (json.match(/[<>&]/g) || []).length;
   return bytes > PROFILE_MAX_BYTES

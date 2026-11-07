@@ -1,4 +1,4 @@
-// Redo: plans built from takes that worked. Run: node --test web/test/
+// Redo: plans built from takes that worked.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -64,10 +64,10 @@ test('againPlan: folders', async () => {
 test('alreadyThere: any non-undo item whose dst has the source everywhere', async () => {
   const { S, againPlan, undoPlan, alreadyThere } = await setup();
   const item = (o) => againPlan({ e: take(o) }).items[0];
-  assert.equal(alreadyThere(item()), false); // no tally known
+  assert.equal(alreadyThere(item()), false);
   S.tally = new Map([[5, new Map([[1, 7], [2, 7], [3, 7]])]]);
   assert.equal(alreadyThere(item()), true);
-  assert.equal(alreadyThere(item({ ok: false })), true); // retry too
+  assert.equal(alreadyThere(item({ ok: false })), true);
   assert.equal(alreadyThere(undoPlan(take()).items[0]), false);
   S.tally = new Map([[5, new Map([[1, 7], [2, 7], [3, 4]])]]);
   assert.equal(alreadyThere(item()), false);

@@ -1,11 +1,5 @@
-// Users (#151, #165): Settings shows a button; the
-// directory (users and the longest PIN) is edited in its own dialog, which
-// saves on its own (the `users` message, guarded by the settings PIN like the
-// rest), never with the main Save. The locks and the idle time are Settings >
-// Access fields. Each saved user has a Profile… button (bus 'openProfile'),
-// in the editor and, for a trusted user without the settings PIN (who cannot
-// open the editor), in a list in the Settings section. The server holds every
-// rule and says what is wrong.
+// Users: the directory (users, longest PIN) is edited in its own dialog that saves on its own (`users` message, settings-PIN guarded), never with the main Save.
+// Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a trusted user without the PIN. The server holds every rule.
 // Imported by settings.js before it builds its table of contents.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
@@ -16,8 +10,8 @@ import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 
 const form = $('settings-view');
 
-// ---- the Settings section: the button
 
+// ---- the Settings section: the button
 const manage = el('button', 'pb-btn pb-btn--outline', 'Manage users');
 manage.type = 'button';
 manage.id = 'users-manage';
@@ -25,8 +19,6 @@ manage.dataset.find = 'users-manage';
 manage.dataset.label = 'Manage users';
 manage.setAttribute('aria-haspopup', 'dialog');
 
-// A trusted user without the settings PIN: each user's name and a Profile…
-// button (the profile dialog reads and saves through the server, which decides).
 const people = el('div', 'sode__field');
 people.hidden = true;
 people.setAttribute('role', 'group');
@@ -36,15 +28,14 @@ const group = el('fieldset', 'sode__group',
   el('legend', null, 'Users'),
   el('div', 'sode__field', manage),
   people);
-group.dataset.apart = ''; // its inputs save apart from the Settings form
+group.dataset.apart = '';
 
-// Next to Access, where the PIN is; at the end if that isn't found.
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
 if (access) access.after(group);
 else form.querySelector('#settings-err')?.parentElement?.before(group) ?? form.append(group);
 
-// ---- the dialog
 
+// ---- the dialog
 const check = (label) => {
   const input = el('input', 'pb-check__input');
   input.type = 'checkbox';
@@ -102,7 +93,6 @@ dialog.append(
 root.append(dialog);
 document.body.append(root);
 
-// Enter in a field saves the users, not the Settings form.
 dialog.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
     e.preventDefault();
@@ -164,7 +154,6 @@ function addRow(u = { name: '', len: 0 }) {
     out.disabled = true;
     signing.set(id, { out, name: u.name });
   }) : el('span'); // a new row has none; the span keeps the columns in line
-  // Only a saved user has a profile: not a new row, not one being renamed.
   const prof = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: row.dataset.was }));
   prof.setAttribute('aria-haspopup', 'dialog');
   const paintProf = () => {
@@ -206,7 +195,6 @@ function fill() {
   saveBtn.disabled = false;
 }
 
-// The Settings list of profiles, for a trusted user who can't open the editor.
 function paintPeople() {
   const names = S.userNames || [];
   const show = trusted() && !unlocked() && canSeeProfiles(names, true, false);
@@ -222,8 +210,7 @@ function paintPeople() {
 
 const paintSummary = paintPeople;
 
-// The directory is not in the hello (a locked page gets that too): the
-// settings PIN holder asks for it. Without the PIN the list stays empty.
+// The directory is not in the hello (a locked page gets that too): the settings PIN holder asks for it.
 const load = () => { wsSend({ t: 'usersList', id: ++listSeq }); };
 onMsg('usersListResult', (m) => {
   if (m.id !== listSeq) return;
@@ -236,17 +223,16 @@ onMsg('usersListResult', (m) => {
   paintSummary();
   if (isOpen && !edited) fill();
 });
-on('unlockResult', (m) => { if (m.ok) load(); }); // the PIN just entered
+on('unlockResult', (m) => { if (m.ok) load(); });
 on('locked', () => { listed = []; loaded = false; paintSummary(); });
 on('access', paintSummary);
 for (const ev of ['unlockResult', 'conn']) on(ev, paintPeople);
 on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
 
-// ---- open / close / save
 
+// ---- open / close / save
 async function openUsers() {
-  // The list and the saving need the settings PIN, which a trusted user may not
-  // have entered: a popup asks for it, instead of an editor with no users in it.
+  // A trusted user may not have the PIN entered: a popup asks instead of an editor with no users.
   const opener = document.activeElement;
   if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) { opener?.focus?.(); return; }
   back = opener;
@@ -269,10 +255,7 @@ function closeUsers() {
   if (back?.isConnected) back.focus();
 }
 manage.addEventListener('click', openUsers);
-// Esc goes to the top dialog of the stack (dialogkeys.js), so a Profile
-// opened from here closes first.
 const dlg = trapDialog(root, dialog, closeUsers);
-// The page locking takes the dialog with it, edits and all.
 on('locking', () => { if (isOpen) { edited = false; closeUsers(); } });
 
 function doSave() {

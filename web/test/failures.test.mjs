@@ -1,5 +1,4 @@
 // Failed takes: what the router reported, undo and changedSince.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -21,7 +20,7 @@ test('failed takes: reasons, undo and changedSince', async () => {
   };
   assert.deepEqual(failureGroups(e).map((g) => [g.levels, g.text]), [[[1], 'still on CAM 1'], [[2], 'on CAM 9'], [[3], 'no answer']]);
   assert.equal(failureGroups({ ...e, ok: true }).length, 0);
-  assert.equal(failureGroups({ ...e, failed: undefined }).length, 0); // an older entry
+  assert.equal(failureGroups({ ...e, failed: undefined }).length, 0);
   // Undo restores the levels that may have changed: 3 (unknown) and 4.
   const item = undoPlan(e).items[0];
   assert.deepEqual(item.groups.map((g) => g.levels), [[3, 4]]);
@@ -29,7 +28,6 @@ test('failed takes: reasons, undo and changedSince', async () => {
   // Level 4 moved on since; level 3 can't tell (it never confirmed).
   S.tally = new Map([[5, new Map([[3, 0], [4, 9]])]]);
   assert.deepEqual(changedSince(item).map((r) => r.levels), [[4]]);
-  // An old failed entry without the data checks nothing, as before.
   assert.deepEqual(changedSince(undoPlan({ ...e, failed: undefined, now: undefined }).items[0]), []);
 });
 
@@ -43,7 +41,6 @@ test('late confirms: note, putEntry, undo and changedSince', async () => {
   const note1 = entryNote({ ...base, ok: true, late: [3] });
   assert.ok(note && note1);
 
-  // putEntry: new goes first, a known id is replaced in place.
   S.hist = [{ id: 3 }, { id: 2 }, { id: 1 }];
   const before = S.hist;
   assert.equal(putEntry({ id: 4 }), 'new');
@@ -89,12 +86,10 @@ test('histRows: followers of a confirm go in its folder', async () => {
   assert.deepEqual(rows[0].f.followers.map((e) => e.id), [8, 7]);
   assert.equal(rows[0].f.followers[0].merged, undefined);
   assert.ok(entryNote(list[0]));
-  // Unknown folder: stays a standalone row.
   rows = histRows([ext(9, 7, { followGroup: 'zz' }), ...list.slice(2)]);
   assert.equal(rows.length, 2);
   assert.equal(rows[0].e.id, 9);
   assert.equal(rows[1].f.followers, undefined);
-  // A filter hiding one follower drops it from the folder only.
   setFilter({ sode: true, ext: true, hidden: true, src: '', dst: '!D8' });
   rows = histRows([ext(8, 7, { followGroup: 'g' }), ext(6, 8, { followGroup: 'g' }), ext(5, 9, { followGroup: 'g' }), ...list.slice(2)]);
   assert.deepEqual(rows[0].f.followers.map((e) => e.id), [8, 5]);
@@ -128,12 +123,10 @@ test('failure banner: grouped lines, shrinks as takes resolve', async () => {
   const b2 = failureBanner(t, h2);
   assert.equal(b2.title, 'Take partly failed (2 of 5 still)');
   assert.notEqual(b2.key, b.key);
-  // All resolved: a confirmation.
   const h3 = h2.concat([{ id: 21, ok: true, retry: 12, dst: 12, levels: [1] }, { id: 22, ok: true, retry: 13, dst: 13, levels: [1] }]);
   const b3 = failureBanner(t, h3);
   assert.equal(b3.kind, 'ok');
   assert.match(b3.title, /resolved: all 4 takes confirmed/);
-  // Many outcomes are capped.
   const many = [1, 2, 3, 4, 5].map((i) => mk(30 + i, { failed: [1], now: [[1, i]] }));
   const t2 = { verb: 'patch', total: 5, items: many.map((e) => ({ entry: e.id, dst: dst(e.id), err: 'x' })) };
   assert.match(failureBanner(t2, many).key, /and 2 more; see Recent/);

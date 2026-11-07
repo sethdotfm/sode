@@ -1,4 +1,3 @@
-// Plans (what a confirm shows and sends), take results and their banners.
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
 import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
@@ -11,25 +10,19 @@ import { showResult, setResult } from './banner.js';
 export { showResult, resultNode } from './banner.js';
 
 let takeSeq = 0;
-const takes = new Map(); // take id → batch
+const takes = new Map();
 
-// ---- plans: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
-// One item per destination. undo/retry are the history entries an item
-// undoes or retries. Protection isn't kept here: planBlocked returns it.
-// A plan may also carry title (a heading line for the confirm) and warnings
-// (lines about what was left out), which planSummary shows as they are.
+// Plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }, one item per
+// destination; undo/retry are the entries an item undoes or retries. Protection isn't kept
+// here: planBlocked returns it. May carry title and warnings (shown as is).
 
-// A plan item for new routes: dst takes groups ([{src, levels}]).
 export const takeItem = (dst, groups, retry = null) => ({ dst, groups, skipped: [], untouched: [], undo: null, retry });
 
-// Levels of a failed take that the router answered for, so it is known the
-// take didn't change them: still on their old route, or on someone else's.
-// Undo leaves them alone (restoring would overwrite a route that isn't the
-// take's). Levels with no answer stay in: they may have switched.
-// Late levels did change with the take, whatever `now` says.
+// Failed-take levels the router answered for were not changed by the take (old route, or
+// someone else's): undo leaves them alone. Levels with no answer stay in (they may have
+// switched). Late levels did change with the take, whatever `now` says.
 const untouchedLevels = (e) => new Set(e.ok ? [] : (e.now || []).map(([u]) => u).filter((u) => !e.late?.includes(u)));
 
-// Groups an entry's previous routing into restorable takes.
 function undoItem(e) {
   const groups = new Map();
   const skipped = [];
@@ -51,9 +44,8 @@ function undoItem(e) {
   };
 }
 
-// "Take this line again": the entry's route as a fresh patch. A failed take
-// is a retry (linked to its entry); any other is a redo, sent as a plain new
-// take with no link. Needs a real source and a level that still exists.
+// A failed take is a retry (linked to its entry); any other is a redo, sent as a plain new
+// take. Needs a real source and a level that still exists.
 export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
 const againItem = (e) => takeItem(dstItem(e.dst, e.dstName),
   [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }], e.ok ? null : e);
@@ -63,9 +55,8 @@ export const patchPlan = (src, dsts, levels) => ({
   items: dsts.map((dst) => takeItem(dst, [{ src, levels }])),
 });
 
-// A preset (presetstore.js) as a plan: its takes grouped per destination.
-// What the router doesn't have is left out and listed in warnings. A preset
-// is validated when it is saved (presetProblem), not again here.
+// What the router doesn't have is left out and listed in warnings. Validated at save
+// (presetProblem), not here.
 export function presetPlan(preset, defaults) {
   const r = resolvePreset(preset, {
     src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u),
@@ -76,36 +67,29 @@ export function presetPlan(preset, defaults) {
     items: r.takes.map((t) => takeItem(dstItem(t.dst), t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })))),
   };
 }
-// Follows (changes the router made after a take, see histRows) are left
-// out of an undo unless the confirm's box is ticked: extra.on. extra is
-// shared by copies of the plan, so the box works on whichever is sent.
-// A destination followed more than once (a merged row) goes back to before
-// the oldest follow: one undo each, not several racing.
+// Follows are left out of an undo unless extra.on (shared by copies of the plan). A destination
+// followed more than once goes back to before the oldest follow: one undo each, not several
+// racing.
 function withFollows(plan, follows) {
   const oldest = new Map();
   for (const f of follows) if (!oldest.has(f.dst) || f.id < oldest.get(f.dst).id) oldest.set(f.dst, f);
   return oldest.size ? { ...plan, extra: { items: [...oldest.values()].map(undoItem), on: false } } : plan;
 }
-// Back to how a stacked row's destination was at one of its changes,
-// at: by undoing the change that came after it, then.
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
 export const folderUndoPlan = (f) => withFollows({ verb: 'undo', items: f.entries.map(undoItem) }, f.entries.flatMap((e) => e.follows || []));
-// The Retry / Redo of a history row, { e } or { f }. A folder with failed
-// takes retries just those; otherwise it redoes every redoable take.
-// Empty items = nothing to offer.
+// A folder with failed takes retries just those; otherwise it redoes every redoable take. Empty
+// items = nothing to offer.
 export function againPlan(row) {
   const es = row.f ? row.f.entries : [row.e];
   const failed = es.filter((e) => !e.ok);
   const use = (failed.length ? failed : es).filter(canRedo);
   return { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
 }
-// Undo for a history row: a single entry or a whole folder.
 export const rowUndoPlan = (row) => (row.f ? folderUndoPlan(row.f) : undoPlan(row.e));
 
-// The one table of verb wording. word: the confirm's title and slider; ask:
-// "Are you sure you want to ___"; busy: the banner while sending; resets:
-// whether sending clears the patch boxes (only a new patch does).
+// The one table of verb wording. busy: banner while sending; resets: whether sending clears the
+// patch boxes (only a new patch does).
 export const VERBS = {
   patch: { word: 'take', ask: 'take', busy: 'Taking…', resets: true },
   undo: { word: 'undo', ask: 'undo', busy: 'Undoing…', resets: false },
@@ -114,23 +98,18 @@ export const VERBS = {
   preset: { word: 'take', ask: 'take', busy: 'Taking…', resets: false },
 };
 export const planVerb = (plan) => VERBS[plan.verb].word;
-// True when a plan has nothing to send (an undo with nothing routed before).
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
 // ---- results
 
-// "A → B (levels 1–3; 2 was already on A)" for one take.
 function takeText(t, already = []) {
   return `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
     (already.length ? `; ${levelText(already)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') + ')';
 }
 
-// Joins the first few of list, then "and N more".
 function capped(list, n = 3) {
   return list.length <= n ? list.join('; ') : `${list.slice(0, n).join('; ')}; and ${list.length - n} more`;
 }
 
-// A batch is the takes from one confirm. It reports once, after every
-// take has answered.
 function takeResult(m) {
   const b = takes.get(m.id);
   if (!b) return;
@@ -146,18 +125,16 @@ function takeResult(m) {
     showResult('ok', title, capped(b.results.map((r) => takeText(r, r.already))));
     return;
   }
-  // The banner follows the entries of the failed takes, so it shrinks as
-  // they're confirmed late or retried (refreshResult), instead of going stale.
+  // The banner follows the failed takes' entries, so it shrinks as they're confirmed late or
+  // retried (refreshResult).
   const track = { verb: b.verb, total: b.results.length, items: failed.map((r) => ({ entry: r.entry, dst: r.dst, err: r.err })) };
   const banner = failureBanner(track);
   track.key = banner.key;
   showResult(banner.kind, banner.title, banner.text, track);
 }
 
-// What the router said about a failed take, short: its levels grouped by
-// outcome ("levels 0–16 no answer"), at most two groups; older entries
-// (before outcomes were recorded) and failures with no breakdown give a
-// clipped err.
+// Levels grouped by outcome ("levels 0–16 no answer"), at most two groups; entries without
+// outcomes give a clipped err.
 function outcomeText(e, err) {
   const why = e ? failureGroups(e) : [];
   if (why.length) {
@@ -168,11 +145,8 @@ function outcomeText(e, err) {
   return t.length > 90 ? `${t.slice(0, 87)}…` : t;
 }
 
-// The result banner for failed takes of one confirm, from the history now:
-// one line per distinct outcome, naming a few destinations. A take counts as
-// resolved once its entry is ok (confirmed late) or a retry of it went
-// through; with none left the banner turns into a confirmation.
-// t: { verb, total, items: [{ entry, dst, err }] }.
+// One line per distinct outcome. A take is resolved once its entry is ok (confirmed late) or a
+// retry went through; with none left the banner turns into a confirmation.
 export function failureBanner(t, hist = S.hist) {
   const byId = new Map(hist.map((e) => [e.id, e]));
   const retried = new Set(hist.filter((e) => e.ok && e.retry != null).map((e) => e.retry));
@@ -202,7 +176,6 @@ export function failureBanner(t, hist = S.hist) {
     text: () => el('div', null, ...shown.map((l) => el('div', null, l))) };
 }
 
-// Redraws the banner as the failed takes it names get resolved.
 function refreshResult() {
   const r = S.result;
   if (!r?.track) return;
@@ -213,11 +186,9 @@ function refreshResult() {
 }
 on('history', refreshResult);
 
-// Whether a plan can be confirmed right now. block: why not, as a result
-// banner, or null. prot: each protected item's protection ({levels,
-// devices}), keyed by the item itself, so copies of the plan must stay
-// shallow. A plan only blocks when every destination is protected;
-// otherwise those are refused and the rest go.
+// prot: each protected item's protection, keyed by the item itself, so copies of the plan must
+// stay shallow. Blocks only when every destination is protected; otherwise those are refused
+// and the rest go.
 export function planBlocked(plan) {
   const prot = new Map();
   if (!linked()) {
@@ -269,12 +240,9 @@ function planQuestion(plan) {
     ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
-// What an undo item would overwrite besides the take it undoes: the levels
-// it restores where dst no longer has that take's source, because
-// something changed them since. [{src, levels}] by what's there now. A
-// failed take may have left some levels as they were: those it never
-// confirmed (failed) can't tell, so only the rest are checked. An entry
-// from before failures were recorded can't say which, so it checks none.
+// Levels an undo would overwrite besides the take's own: those restored where dst no longer has
+// the take's source. Levels the take never confirmed can't tell, so only the rest are checked;
+// an entry without recorded failures checks none.
 export function changedSince(item) {
   const e = item.undo;
   if (!e || (!e.ok && !e.failed?.length)) return [];
@@ -284,16 +252,14 @@ export function changedSince(item) {
   return bySource(e.dst, levels.sort((a, b) => a - b));
 }
 
-// True when a (non-undo) item would change nothing: dst already has the
-// source on every one of its levels (the router then sends no reply).
+// A non-undo item that changes nothing: dst already has the source on every level (the router
+// sends no reply).
 export function alreadyThere(item) {
   if (item.undo) return false;
   const t = S.tally.get(item.dst.n);
   return !!t && item.groups.length > 0 && item.groups.every((g) => g.levels.length > 0 && g.levels.every((u) => t.get(u) === g.src.n));
 }
 
-// One destination's part of a confirm: new routes, then what they replace.
-// since: warn about changes made after the take being undone.
 function itemSummary(item, boxed, prot, since) {
   const all = item.groups.flatMap((g) => g.levels).sort((a, b) => a - b);
   const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
@@ -320,10 +286,6 @@ function itemSummary(item, boxed, prot, since) {
   ].filter(Boolean);
 }
 
-// What a confirm shows: the question, then each destination's new routes
-// and what they replace. With several destinations each gets its own
-// block, headed by its name, so the groups are easy to tell apart.
-// prot: from planBlocked. spaceHint: the follows box says Space ticks it.
 export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) {
   // Restore goes back past newer changes on purpose; other undos warn.
   const since = plan.verb === 'undo' && !plan.at;
@@ -344,7 +306,6 @@ export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) 
   ].filter(Boolean);
 }
 
-// The box that adds an undo's follows, or null.
 function extraBox(plan, spaceHint) {
   const x = plan.extra;
   if (!x) return null;
@@ -358,9 +319,8 @@ function extraBox(plan, spaceHint) {
     `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`));
 }
 
-// This browser's last patch (not an undo or retry) as numbers, so names
-// stay current; until it makes one, the newest take in history made in
-// Sode. For the "Last:" chips and Ctrl+S/D/F.
+// This browser's last patch as numbers, so names stay current; until it makes one, the newest
+// Sode take in history.
 let lastPatch = null;
 
 export function lastTake() {
@@ -374,16 +334,10 @@ export function lastTake() {
   return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
 }
 
-// The last take with its source and every destination one number higher,
-// for the Next chips and Ctrl+Shift+S/D: Cam 1 → Rec 1 + Rec 5 then Cam 2 →
-// Rec 2 + Rec 6. Each side is null (src) or empty (dsts) when any of its
-// numbers would run past the router's list. Levels aren't carried.
-//
-// Repeating (#195): state is the boxes now ({src, dsts}). While a box still
-// holds what the last Next fill put there (run), the next step starts from
-// that, so Ctrl+Shift+S/D keep going: Cam 2, Cam 3, …; Rec 2 + Rec 6, then
-// Rec 3 + Rec 7. A take, Clear or a hand pick changes the box, so the run
-// stops counting by itself.
+// Last take with source and every destination one number higher (Cam 1 → Rec 1 + Rec 5 then Cam
+// 2 → Rec 2 + Rec 6). A side is null/empty when any number would run past the router's list.
+// Levels aren't carried. Repeating: while a box still holds what the last Next fill put there
+// (run), the next step starts from that; a take, Clear or hand pick ends the run by itself.
 let run = { src: null, dsts: null };
 
 export function nextTake(state) {
@@ -395,17 +349,15 @@ export function nextTake(state) {
   return { src: nextOf(src, S.srcBy), dsts: dsts.every(Boolean) ? dsts : [], levels: [] };
 }
 
-// Notes that take t (from nextTake) was just put in box k ('src' or 'dst').
 export function usedNext(k, t) {
   if (k === 'src') run.src = t.src;
   else if (k === 'dst') run.dsts = t.dsts;
 }
 
-// For tests.
 export function resetNext() { run = { src: null, dsts: null }; }
 
-// A name without its counter: trailing digits and single letters set apart
-// by a space ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon").
+// ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon"): trailing digits and single letters
+// set apart by a space.
 export function nameStem(name) {
   let s = name.trim();
   for (let prev = ''; s !== prev;) {
@@ -415,10 +367,8 @@ export function nameStem(name) {
   return s;
 }
 
-// The item after it: number + 1, or with pref nextMode fuzzy the next one in
-// router order that the name's text matches ("Cam 3" → search "Cam" → the
-// first higher match; "Prmpt A" → "Prmpt B"). Falls back to the number when
-// the name is only a counter or no higher match is left (#196).
+// number + 1, or with nextMode fuzzy the next router-order match on the name's text. Falls back
+// to the number when the name is only a counter or no higher match is left.
 function nextOf(it, by) {
   if (pref('nextMode') === 'fuzzy') {
     const q = nameStem(it.name || '');
@@ -433,10 +383,7 @@ function nextOf(it, by) {
 
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-// What the "Last:" chip of each box shows for take t (from lastTake), or
-// false when the box already has it. state: { src: the picked source or
-// null, dsts: the destinations already picked, levels: the levels now
-// typed }. For levels, also false when they're the default.
+// false when the box already has it. For levels, also false when they're the default.
 export function lastChip(t, state) {
   if (!t) return { src: false, dst: false, lvl: false };
   return {
@@ -447,7 +394,6 @@ export function lastChip(t, state) {
   };
 }
 
-// Sends every take in a plan as one batch. False if the connection is gone.
 export function sendTakes(p) {
   const batch = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
@@ -484,7 +430,6 @@ export function sendTakes(p) {
 onMsg('takeResult', takeResult);
 on('wsclose', () => {
   if (!takes.size) return;
-  // Replies to a dead socket are lost; the outcome is in history.
   takes.clear();
   showResult('warn', 'Connection lost', 'The take was sent but its result is unknown. Check Recent once reconnected.');
 });

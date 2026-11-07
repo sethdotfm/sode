@@ -1,8 +1,6 @@
-// The match list under a text box: windowed browse lists, the moved flag.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// A small DOM: elements keep children, classes, attributes and listeners.
 const fake = (tag = 'div') => {
   const n = {
     tag, kids: [], className: '', attrs: {}, dataset: {}, listeners: {}, hidden: false, id: '',
@@ -69,7 +67,6 @@ test('moving past the window draws that row and keeps the active descendant', ()
   assert.equal(menu.kids.length < 2690, true);
   assert.equal(input.getAttribute('aria-activedescendant'), 'src-opt-400');
   assert.ok(menu.kids.find((li) => li.dataset.i === '400').classList.contains('active'));
-  // Back to the first row (wraps from above it).
   nav('ArrowUp');
   nav('PageUp');
   assert.equal(cb.current().n, 399 - 8);
@@ -78,11 +75,11 @@ test('moving past the window draws that row and keeps the active descendant', ()
 test('a wrap or a jump draws a fresh window there, not every row in between', () => {
   const { cb, menu } = make();
   cb.browse(items(2690), 0);
-  cb.nav({ key: 'ArrowUp', preventDefault() {} }); // wraps to the last row
+  cb.nav({ key: 'ArrowUp', preventDefault() {} });
   assert.equal(cb.current().n, 2689);
   assert.equal(menu.kids.length, WINDOW);
   assert.ok(ids(menu).includes(2689));
-  cb.nav({ key: 'ArrowDown', preventDefault() {} }); // and back to the first
+  cb.nav({ key: 'ArrowDown', preventDefault() {} });
   assert.equal(cb.current().n, 0);
   assert.equal(menu.kids.length, WINDOW);
 });

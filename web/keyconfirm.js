@@ -1,18 +1,11 @@
-// The churning-letter confirm of the desktop page: a
-// random key, a lockout before it works, Esc to cancel. It fills the page's
-// #confirm dialog; the page wires its keys (so it decides when a keystroke
-// belongs to the confirm) and says what happens when it closes or sends.
+// Desktop confirm dialog (#confirm): churning key, lockout, Esc. The page wires its keys and decides what a close or send does.
 
 import { $, el, S } from './core.js';
 import { planSummary, planVerb } from './plans.js';
 import { lockout } from './lockout.js';
 import { churnKey } from './lockrules.js';
 
-// prompt(keyNode): the nodes of the line under the summary. spaceHint:
-// the undo's follows box says Space ticks it. onTake(plan, viaKeys, prot):
-// the confirm was accepted and has closed; send the plan. onClose(plan,
-// viaKeys): it was cancelled. viaKeys: answered from the keyboard.
-// Returns { open(plan, prot), close(viaKeys), take(viaKeys), key(e), isOpen() }.
+// spaceHint: the undo's follows box says Space ticks it. viaKeys: answered from the keyboard.
 export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
   let cur = null; // { plan, prot, key, lock }
   let lastKey = '';
@@ -54,21 +47,18 @@ export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
       onClose(c?.plan, viaKeys);
     },
 
-    // Accepts it once the lockout has passed.
     take(viaKeys = false) {
       if (!cur?.lock.ready()) return;
       const c = end();
       onTake(c.plan, viaKeys, c.prot);
     },
 
-    // A keydown while the confirm is open: it takes them all.
     key(e) {
       e.preventDefault();
       e.stopPropagation();
       if (!cur) return;
       if (e.key === 'Escape') return api.close(true);
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      // Space ticks the box that adds an undo's follows.
       if (e.key === ' ' && cur.plan.extra) {
         $('confirm-body').querySelector('.sode__plan-extra input')?.click();
         return;

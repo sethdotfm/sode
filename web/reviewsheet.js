@@ -1,10 +1,5 @@
-// The review sheet (Beta 1.6, #169): what an import file or a share link
-// would change, shown before anything is saved. Two columns, Importing and
-// Current, one row per item, each with its match status (always as text),
-// and a choice per row: Replace / Keep both (with a name) / Skip. One target
-// scope for the whole import. Used by the Export & import dialog (transfer.js)
-// and by share links. Saving goes through the same stores and savers the
-// Filters and Presets dialogs use; the pure rules are exportfmt.js.
+// Review sheet: what an import file or share link would change, shown before anything is saved. Used by transfer.js and share links.
+// Saving goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
 import { trapDialog } from './widgets.js';
@@ -59,8 +54,7 @@ const sumEl = el('span', 'sode__hint');
 sumEl.setAttribute('aria-live', 'polite');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
-// A PIN row for each saver for everyone (filter sets and presets are two
-// messages, each saver has its own); only one shows at a time.
+// A PIN row per saver for everyone (filter sets and presets are two messages); one shows at a time.
 function pinControls(cancel) {
   const pinIn = el('input', 'pb-input');
   pinIn.type = 'password';
@@ -101,7 +95,6 @@ const gsave = globalSaver({
   t: 'filterSets', resultT: 'filterSetsResult', ...pinA, setNote,
   isOpen: () => open, failTitle: 'Import not saved', render: () => refresh(),
 });
-// Presets for everyone ride their own message.
 const gsavePresets = globalSaver({
   t: 'presets', resultT: 'presetsResult', ...pinB, setNote,
   isOpen: () => open, failTitle: 'Import not saved', render: () => refresh(),
@@ -113,7 +106,6 @@ const forUser = () => st?.user && st.user !== profileName();
 const live = () => ({ srcs: S.srcs, dsts: S.dsts, levelCount: S.levels.length });
 const scope = () => st.scope;
 
-// The target scope's current lists, as { name, f } and { name, items, pinned }.
 function curSets(sc) {
   if (sc === 'user' && forUser()) return (fetched?.profile?.filterSets || []).filter((s) => s?.name).map((s) => ({ name: String(s.name), f: normFilter(s) }));
   return setsIn(sc).map((s) => ({ name: s.name, f: s.f }));
@@ -125,8 +117,7 @@ function curPresets(sc) {
 const curNames = (kind, sc) => (kind === 'filter' ? curSets(sc) : curPresets(sc)).map((x) => x.name);
 const curPrefs = (sc) => (sc === 'user' ? (forUser() ? fetched?.profile?.prefs : profile().prefs) || {} : null);
 
-// The doc's rows. A preset row's match is made fresh each time, so names
-// loaded after the sheet opened count.
+// A preset row's match is made fresh each time, so names loaded after the sheet opened count.
 function makeRows(doc) {
   return [
     ...(doc.filterSets || []).map((s) => ({ kind: 'filter', name: String(s.name), f: fmt.filterOf(s), choice: '', as: '' })),
@@ -136,9 +127,7 @@ function makeRows(doc) {
 const matched = (r) => fmt.matchPreset(r.src, live());
 const clashOf = (r) => fmt.conflict(r.name, curNames(r.kind, scope()));
 
-// What a row does now: its own choice if the person made one, else the
-// default (Keep both on a clash, else import; a preset with an ambiguous
-// match waits as Skip until chosen).
+// Own choice, else default (Keep both on a clash, else import; an ambiguous preset match waits as Skip).
 function choiceOf(r) {
   const clash = clashOf(r);
   const c = r.choice || (r.kind === 'preset' && matched(r).count.ambiguous ? 'skip' : fmt.defaultChoice(clash));
@@ -147,7 +136,6 @@ function choiceOf(r) {
   return c === 'replace' ? 'replace' : 'both';
 }
 
-// The valid prefs of the file, as [{ name, value }] and what is wrong with the rest.
 function prefList() {
   const out = [];
   for (const [name, value] of Object.entries(st.doc.prefs || {})) {
@@ -158,7 +146,6 @@ function prefList() {
 }
 const prefTarget = () => (forUser() || (st.prefsTo === 'user' && profileName()) ? 'user' : 'local');
 
-// ---- the plan: what saving would do, and what stops it
 
 function plan() {
   const sc = scope();
@@ -169,7 +156,6 @@ function plan() {
     const existing = kind === 'filter' ? curSets(sc) : curPresets(sc);
     const incoming = rs.map((r) => (kind === 'filter' ? { name: r.name, f: r.f } : { ...normPreset({ name: r.name, items: matched(r).saved.items }), pinned: true }));
     const choices = rs.map(choiceOf);
-    // Names being added or kept, for the rename check.
     const picks = rs.map((r, i) => {
       if (choices[i] !== 'both') return { choice: choices[i] };
       const others = [...existing.map((x) => x.name), ...rs.filter((x, j) => j !== i && choices[j] !== 'skip').map((x) => x.name)];
@@ -205,7 +191,6 @@ function plan() {
   if (Object.keys(out.prefs).length && prefTarget() === 'user') {
     out.parts.prefs = { ...curPrefs('user'), ...out.prefs };
   }
-  // The size of what would be sent.
   const sizeParts = { ...out.parts };
   if (sc === 'global') {
     const g = {};
@@ -221,7 +206,6 @@ function plan() {
   return out;
 }
 
-// What the person has now for a pref, in this browser or in the profile.
 function currentPref(name) {
   return prefTarget() === 'user' ? (curPrefs('user')[name] || '') : ownPref(name);
 }
@@ -237,7 +221,6 @@ function summaryOf(kind, x) {
   return `${pluralize(x.items.length, 'source')}, ${pluralize(n, 'destination')}`;
 }
 
-// The match of a preset, as status lines.
 function matchLines(r) {
   const m = matched(r);
   const lines = [];
@@ -262,13 +245,11 @@ function matchLines(r) {
   return lines;
 }
 
-// Status lines, the worst (warn, then info, ok, idle) shown and the others in a disclosure.
 const RANK = { warn: 0, error: 0, info: 1, ok: 2, idle: 3 };
 const rankOf = (n) => RANK[[...n.firstChild.classList].find((c) => c.startsWith('pb-dot--'))?.slice(8)] ?? 3;
 function worstFirst(lines) {
   const sorted = lines.map((n, i) => [n, i]).sort((a, b) => rankOf(a[0]) - rankOf(b[0]) || a[1] - b[1]).map((x) => x[0]);
-  // Every warning stays visible; only notes (info, ok) fold away, behind the
-  // first one when there is no warning.
+  // Every warning stays visible; notes (info, ok) fold away, behind the first one when there is no warning.
   const loud = sorted.filter((n) => rankOf(n) === 0);
   const shown = loud.length ? loud : sorted.slice(0, 1);
   const rest = sorted.filter((n) => !shown.includes(n));
@@ -281,7 +262,6 @@ function rowNode(r, i, choices) {
   const cur = (r.kind === 'filter' ? curSets(sc) : curPresets(sc)).find((x) => fmt.conflict(r.name, [x.name]));
   const m = r.kind === 'preset' ? matched(r) : null;
   const incoming = r.kind === 'filter' ? { f: r.f } : { items: m.saved.items };
-  // Name, kind and summary on one line; the worst status below it, the rest behind a disclosure.
   const inCell = el('div', 'sode__rv-in', el('div', 'sode__rv-line', el('strong', null, r.name), el('span', 'sode__hint', r.kind === 'filter' ? 'Filter set' : 'Preset'),
     el('span', 'sode__hint', summaryOf(r.kind, incoming))),
     ...worstFirst(r.kind === 'filter' ? [status('info', 'Carried as written')] : matchLines(r)));
@@ -356,7 +336,6 @@ function render() {
   refresh();
 }
 
-// The parts that change when something is typed or a save is in flight.
 function refresh() {
   if (!open || !st) return;
   let p;
@@ -398,7 +377,6 @@ function summaryText(p) {
 }
 
 function finish(p) {
-  // This browser's own settings, whichever scope the lists went to.
   if (prefTarget() === 'local') for (const [name, v] of Object.entries(p.prefs)) setPref(name, v);
   const where = st.scope === 'user' && forUser() ? `${st.user}’s profile` : scopeLabel(st.scope).toLowerCase();
   const text = `${summaryText(p)} imported to ${where}.`;
@@ -413,8 +391,7 @@ function apply() {
   const sc = scope();
   const done = () => finish(p);
   if (!Object.keys(p.parts).length) return done();
-  // Settings that go to my profile while the lists go elsewhere (This
-  // browser / Everyone) are their own save, after the lists.
+  // Settings going to my profile while the lists go elsewhere are their own save, after the lists.
   const withPrefs = (next) => {
     if (!p.parts.prefs || sc === 'user') return next();
     busy = true;
@@ -449,7 +426,6 @@ function apply() {
     }
     return psave.change(p.parts, done);
   }
-  // Everyone: filter sets, then presets (two messages, one PIN).
   const afterLists = () => withPrefs(done);
   const sendPresets = () => (p.parts.presets ? gsavePresets.change({ presets: p.parts.presets }, afterLists) : afterLists());
   if (p.parts.filterSets) gsave.change({ sets: p.parts.filterSets }, sendPresets);
@@ -466,10 +442,7 @@ function applyNowClick() {
 
 // ---- open / close
 
-// doc: an export document. Options: scope (where it goes), user (review it
-// for that user's profile: scope 'user', read and saved by name), applyNow
-// (f, name): offered for one filter set (a link), source: a line about where
-// it came from.
+// Options: scope, user (review for that user's profile, saved by name), applyNow (f, name) for one filter set (a link), source (where it came from).
 export function openReview({ doc, scope: sc = 'local', user = '', applyNow = null, source = '', title = 'Review import', onLocked = null }) {
   back = document.activeElement;
   st = { doc, scope: sc, user, applyNow, onLocked, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
@@ -515,7 +488,6 @@ const dlg = trapDialog(root, dialog, () => {
   close();
 });
 
-// A lock coming down puts the sheet away whole (state, savers), and a share link asks to be shown again.
 on('locking', () => {
   if (!open) return;
   const again = st?.onLocked;

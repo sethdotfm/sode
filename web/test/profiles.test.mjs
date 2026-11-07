@@ -38,8 +38,8 @@ test('canSeeProfiles', () => {
 test('profileButtonOff: only a saved, unrenamed user has a profile to open', () => {
   assert.equal(profileButtonOff('Ana', 'Ana'), false);
   assert.equal(profileButtonOff('Ana', ' Ana '), false);
-  assert.equal(profileButtonOff('', 'Ana'), true); // a new row
-  assert.equal(profileButtonOff('Ana', 'Ann'), true); // renamed, not saved
+  assert.equal(profileButtonOff('', 'Ana'), true);
+  assert.equal(profileButtonOff('Ana', 'Ann'), true);
   assert.equal(profileButtonOff(undefined, ''), true);
 });
 

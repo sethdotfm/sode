@@ -1,6 +1,4 @@
-// The 'user' (Me) scope of filter sets and presets: they come from the
-// profile message, carry their user, and never leak to another user.
-// Run: node --test web/test/
+// The 'user' (Me) scope of filter sets and presets: from the profile message, carry their user, never leak to another user.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -63,7 +61,7 @@ test("the active set carries its user: Bob never picks up Ana's same-named set",
   assert.equal(m.activeSet().name, 'Mine');
   assert.equal(JSON.parse(mem.get('sode-filter-active')).user, 'Ana');
   login('Bob', [f({ name: 'Mine', src: 'BOB' })]);
-  assert.equal(m.activeSet().scope, 'all'); // dropped, not Bob's
+  assert.equal(m.activeSet().scope, 'all');
   assert.equal(m.filterState().src, '');
 });
 
@@ -87,7 +85,7 @@ test('a stack drops the sets of a user that left, keeps the rest', () => {
   assert.deepEqual(JSON.parse(mem.get('sode-filter-stack')).map((r) => r.user), [undefined, 'Ana']);
   login('Bob', []);
   assert.equal(m.activeStack().length, 0);
-  assert.equal(m.activeSet().name, 'G'); // one left is that set
+  assert.equal(m.activeSet().name, 'G');
 });
 
 test('a set edited on another device is followed unless this browser edited it', () => {
@@ -141,7 +139,7 @@ test('profileProblem refuses an oversized profile; saves send the whole list', a
   let done = false;
   saver.change({ presets: [{ name: 'P', items: [], pinned: true }] }, () => { done = true; });
   assert.equal(saver.busy(), true);
-  await new Promise((r) => setImmediate(r)); // saves go through the queue
+  await new Promise((r) => setImmediate(r));
   const out = sent.at(-1);
   assert.deepEqual([out.t, out.name, out.presets.length], ['profileSave', 'Ana', 1]);
   deliver({ t: 'profileSaveResult', id: out.id, ok: true });
@@ -160,7 +158,7 @@ test('saveProfile: one at a time, the second built on the first; a lost socket s
   // The own copy takes each save at call time, so the second was built on the first.
   assert.deepEqual(profile().prefs, { theme: 'dark', clock: '12' });
   await new Promise((r) => setImmediate(r));
-  assert.equal(sent.length, 1); // the second waits for the first's answer
+  assert.equal(sent.length, 1);
   deliver({ t: 'profileSaveResult', id: sent[0].id, ok: true });
   assert.equal((await a).ok, true);
   await new Promise((r) => setImmediate(r));

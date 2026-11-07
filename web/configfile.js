@@ -1,10 +1,5 @@
-// Server configuration file (Settings > Server Backup): Export saves the live
-// config.yaml, Import replaces the whole configuration with a picked file.
-// The block is in index.html; this wires it. Both are settings-PIN actions:
-// the popup (pinprompt.js) asks first when this connection hasn't entered the
-// PIN, and again, with a retry, if the server refuses. The server makes and
-// reads the file; this only moves it.
-// Imported by settings.js.
+// Settings > Server Backup. Export and Import are settings-PIN actions: pinprompt.js asks first, and again with a retry if the server refuses.
+// The server makes and reads the file; this only moves it.
 
 import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { needsPin, unlocked } from './pin.js';
@@ -40,8 +35,6 @@ function reset() {
   pick.value = '';
 }
 
-// Claims the one slot for `kind`, asking for the PIN first if need be. 0: not
-// started (the PIN was not given).
 async function start(kind) {
   fail('');
   const what = kind === 'export' ? 'Exporting' : 'Importing';
@@ -50,8 +43,6 @@ async function start(kind) {
   return seq;
 }
 
-// A refusal for the PIN asks for it again and goes on with `retry`; anything
-// else is shown as it is.
 function failed(m, retry) {
   setBusy(null);
   say('');
@@ -129,10 +120,8 @@ async function runImport() {
   const { bytes, name } = picked;
   confirmBox.hidden = true;
   say(`Importing ${name}…`);
-  // The begin message raises the server's read limit for the one message
-  // after it (only for the settings PIN). The file goes out only once the
-  // server has answered it: a refused begin must never be followed by a big
-  // message, which would close the socket instead of showing the refusal.
+  // The begin message raises the server's read limit for the next message. Send the file only after begin is answered:
+  // a refused begin followed by a big message would close the socket instead of showing the refusal.
   if (!wsSend({ t: 'configImportBegin', id, size: bytes })) {
     setBusy(null);
     say('');
@@ -159,9 +148,7 @@ onMsg('configImportResult', (m) => {
   reset();
   setBusy(null);
   say('');
-  // The server has sent the new settings (hello). Close Settings so the open
-  // form can't be saved back over them; its unsaved edits are for the old
-  // settings, so they are discarded.
+  // New settings arrived: close Settings (discarding the form) so it can't be saved back over them.
   emit('settingsClose', { discard: true });
   showResult('ok', 'Configuration imported', `Everyone now has the settings from ${name}.`);
 });
@@ -177,7 +164,6 @@ on('conn', () => {
     : 'The connection dropped.');
 });
 
-// Settings closing or relocking leaves nothing half-done on screen.
 on('access', () => { if (needsPin()) reset(); });
 on('locked', () => reset());
 box.hidden = false;

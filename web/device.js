@@ -1,8 +1,5 @@
-// This device: the per-browser settings (prefs.js). Each follows the
-// global default (cfg.deviceDefaults, cached here for the next load) until
-// this browser chooses its own. applyPrefs puts the resolved values to work
-// and tells the views ('prefs', 'flip'); the layout follows in layout.js.
-// Also the clock's time formats and the theme key.
+// Per-browser prefs (prefs.js): follow cfg.deviceDefaults (cached here for the next load) until this browser picks its own.
+// applyPrefs tells the views ('prefs', 'flip'); layout.js follows.
 
 import { $, el, on, emit } from './core.js';
 import { mac } from './keys.js';
@@ -10,26 +7,19 @@ import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile 
 import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
 
 let globals = readJSON(CACHE_KEY);
-// The logged-in user's defaults: {user, prefs} from the cache until the
-// profile arrives. Only ever one user's; cleared when that user is gone.
-// Used only while a session token is kept (a guest never gets a previous
-// user's prefs, #187): the same keys as lock.js's TOKEN_KEY / TAB_KEY.
+// {user, prefs} of the logged-in user, cached until the profile arrives. Used only while a session token is kept
+// (same keys as lock.js TOKEN_KEY / TAB_KEY).
 const cached = cachedProfile(readJSON(PROFILE_CACHE_KEY), !!(readStr('sode-session') || readTab('sode-tab-session')));
 let mineUser = cached.user;
 let mineMap = cached.prefs;
 const stored = (name) => readStr(PREFS[name].key);
 const resolveAll = () => Object.fromEntries(Object.keys(PREFS).map((n) => [n, resolve(n, stored(n), mineMap, globals)]));
-// What is in force now. index.html applied the same before first paint.
 let applied = resolveAll();
 
 export const pref = (name) => applied[name];
-// This browser's own choice, or '' when it follows the global default.
 export const ownPref = (name) => own(name, stored(name));
-// What it would be without this browser's choice: with a profile, the
-// user's default, else the global one.
 export const globalPref = (name) => resolve(name, null, null, globals);
 export const defaultPref = (name) => resolve(name, null, mineMap, globals);
-// The logged-in user's own default for it, or ''.
 export const myPref = (name) => mine(name, mineMap);
 
 function setProfilePrefs(p) {
@@ -40,18 +30,16 @@ function setProfilePrefs(p) {
   applyPrefs();
 }
 on('profile', setProfilePrefs);
-// Nobody (a guest), or somebody else, is in: the cached user's prefs go at
-// once; the server's `profile` brings the right ones (#187).
+// Nobody or somebody else is in: drop the cached prefs; `profile` brings the right ones.
 on('access', (a) => { if (mineUser && a.user !== mineUser) setProfilePrefs(null); });
 
 
-// v '' (or anything unknown) goes back to the global default.
+// '' or unknown goes back to the global default.
 export function setPref(name, v) {
   writeStr(PREFS[name].key, own(name, v) ? v : null);
   applyPrefs();
 }
 
-// The server's deviceDefaults, on every hello (so also after a save).
 function setGlobals(d) {
   globals = d || null;
   writeJSON(CACHE_KEY, globals);
@@ -59,8 +47,7 @@ function setGlobals(d) {
 }
 on('helloCfg', (cfg) => setGlobals(cfg.deviceDefaults));
 
-// Crossfade the whole page to the theme ('system' = follow the OS): a View
-// Transition where available, else patchbay's per-property fade class.
+// View Transition where available, else patchbay's fade class.
 function setTheme(next) {
   const root = document.documentElement;
   const apply = () => {
@@ -95,19 +82,14 @@ function applyPrefs() {
   emit('prefs');
 }
 
-// Clock: '24' (default), '12', or 'locale' to follow the browser's
-// language. Pages can't read the OS 12/24-hour switch.
+// 'locale' follows the browser language; pages can't read the OS 12/24-hour switch.
 export const clockPref = () => pref('clock');
 
-// Destination before Source: the desktop arrow, Settings, and on a phone the
-// order of the steps.
 export const flipped = () => pref('flip') === 'on';
 export const setFlip = (on) => setPref('flip', on ? 'on' : 'off');
 
-// Scroll to the top when a box is focused (desktop).
 export const scrollTopPref = () => pref('scrollTop') === 'on';
 
-// The time formatter, built once and again only when the Clock changes.
 let timeFmt = null;
 function timeFormat() {
   if (timeFmt) return timeFmt;
@@ -121,17 +103,13 @@ function timeFormat() {
   return timeFmt;
 }
 
-// The time, after an ISO 8601 date (2026-10-22) unless it's today.
 const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dateOf = (d) => (d.toDateString() === new Date().toDateString() ? '' : isoDate(d));
 export const fmtTime = (iso) => {
   const d = new Date(iso);
   return [dateOf(d), timeFormat().format(d)].filter(Boolean).join(' ');
 };
-// The time alone, for detail under a row that shows the date.
 export const fmtClock = (iso) => timeFormat().format(new Date(iso));
-// Always dated, as nodes: the date in its own span so a narrow layout can
-// drop it.
 export const timeNodes = (iso) => {
   const d = new Date(iso);
   return [el('span', 'sode__date', `${isoDate(d)} `), timeFormat().format(d)];
@@ -139,8 +117,6 @@ export const timeNodes = (iso) => {
 
 // ---- theme
 
-// Follows the global default until this browser picks one in Settings (or
-// with Alt/Option+Shift+T); applyPrefs sets it, the select is settings.js's.
 export function initTheme() {
   const root = document.documentElement;
   const osDark = matchMedia('(prefers-color-scheme: dark)');

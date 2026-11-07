@@ -14,7 +14,6 @@ function server(total) {
 const isConnect = (e) => e.kind === 'connect';
 const shown = (p) => p.list.filter(isConnect).length;
 
-// Drives the loop log.js runs: send, reply, ask again.
 function run(p, srv, req) {
   let sent = 0;
   while (req) {

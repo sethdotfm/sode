@@ -1,7 +1,5 @@
-// Presets in the page: the buttons above Recent (both layouts) and the
-// editor dialog. Pressing a button builds a plan and the layout showing opens
-// its normal confirm; the confirm sends one batch. Storage and the pure
-// parts are presetstore.js, the plan is plans.js.
+// Presets in the page: the buttons above Recent (both layouts) and the editor dialog. Storage
+// and pure parts are presetstore.js, the plan is plans.js.
 
 import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem, icon } from './core.js';
 import { mac } from './keys.js';
@@ -20,19 +18,15 @@ import {
   parseRefs, itemsFromTakes, presetTip, isBlankRow, fillFrom,
 } from './presetstore.js';
 
-// ---- the layouts: each registers once what it has
 
 const hosts = [];
-// host: { active(), confirm(plan), patch(), clear(), focus(), fill?(take) }.
-// patch() gives the patch boxes as { src: item, dsts: [item], levels: [ui] }
-// (levels [] = the default levels), or null while they hold no patch. clear()
-// empties the boxes, focus() starts at Source. fill(take), same shape as
-// patch(), puts a patch in the boxes: only the desktop has it.
+// host: { active(), confirm(plan), patch(), clear(), focus(), fill?(take) }. patch() gives {
+// src: item, dsts: [item], levels: [ui] } (levels [] = default), or null while the boxes hold
+// no patch. fill(take) is desktop only.
 export const presetHost = (host) => { hosts.push(host); };
 const shown = () => hosts.find((h) => h.active());
 export const presetShown = () => !!shown();
 
-// ---- the buttons
 
 export function fire(scope, name) {
   const s = findPreset(scope, name);
@@ -49,10 +43,9 @@ export function fire(scope, name) {
 const phone = () => document.documentElement.dataset.pbLayout === 'phone';
 const askPopup = () => emit('presetPopup');
 
-// Shift-click (or Shift+Enter in the popup): the preset's patch goes into the
-// patch boxes and nothing is sent. The boxes hold one source, so a preset of
-// several takes fills the first one that still exists, and says so; what of
-// that take no longer exists is left out, and said too.
+// Shift-click (or Shift+Enter in the popup) fills the boxes and sends nothing. They hold one
+// source, so a multi-take preset fills the first take that still exists, and says so, and
+// what's missing.
 export function fillBoxes(scope, name) {
   const s = findPreset(scope, name);
   const host = shown();
@@ -78,17 +71,16 @@ function renderStrips() {
     edit.addEventListener('click', () => openPresets());
     const chips = list.map((s, i) => {
       const b = el('button', 'pb-chip sode__set', s.name);
-      // Option/Alt+1-9 fire the first nine: the key slides in over the chip while Option is held.
+      // Alt+1-9 fire the first nine: the key slides in over the chip while Option is held.
       if (i < 9) {
         const k = `${mac ? '⌥' : 'Alt+'}${i + 1}`;
         const hint = el('span', 'sode__chip-key', el('kbd', 'sode__key-note', k));
-        hint.setAttribute('aria-hidden', 'true'); // aria-keyshortcuts says it
+        hint.setAttribute('aria-hidden', 'true');
         b.append(hint);
         b.setAttribute('aria-keyshortcuts', `Alt+${i + 1}`);
       }
       b.type = 'button';
-      // Names come from the router and change (a re-poll, a late load): the tip is
-      // worked out when the pointer or focus arrives, not only when the strip is drawn.
+      // Names change (re-poll, late load): the tip is worked out when the pointer or focus arrives.
       const tip = () => { b.dataset.pbTip = presetTip(s, (n) => srcItem(n).label, (n) => dstItem(n).label); };
       tip();
       b.addEventListener('pointerenter', tip);
@@ -96,9 +88,8 @@ function renderStrips() {
       b.addEventListener('click', (e) => (e.shiftKey ? fillBoxes(s.scope, s.name) : fire(s.scope, s.name)));
       return b;
     });
-    // The popup (presetpopup.js) lists every preset, pinned or not.
-    // A plain chip with a list icon first in the strip (not the selected style: it
-    // opens a list, it is not a state), so it is the first stop for the arrow keys.
+    // A plain chip (not the selected style: it opens a list, it isn't a state), so it is the
+    // first stop for the arrow keys.
     const more = all.length ? el('button', 'pb-chip sode__set sode__presets-all', icon('list'), 'Show all') : null;
     if (more) {
       more.type = 'button';
@@ -106,14 +97,11 @@ function renderStrips() {
       more.setAttribute('aria-haspopup', 'dialog');
       more.addEventListener('click', askPopup);
     }
-    // A rule after Show all sets it apart from the pinned chips.
     const sep = () => {
       const x = el('span', 'sode__sets-sep', '|');
       x.setAttribute('aria-hidden', 'true');
       return x;
     };
-    // Laid out like Recent's bar: the title, then Edit and the chips (Show all
-    // pinned, the pinned presets scrolling).
     box.replaceChildren(
       el('span', 'sode__label', 'Presets'),
       edit,
@@ -121,9 +109,8 @@ function renderStrips() {
     );
   }
 }
-// Keyboard mode `p` (desktop): the first preset chip (not Show all), then ←/→
-// between buttons in DOM order (Show all, the chips, Edit);
-// Enter presses one (the normal confirm), Esc goes back to Source.
+// Keyboard mode `p` (desktop): first preset chip, ←/→ in DOM order (Show all, chips, Edit);
+// Enter presses, Esc goes back to Source.
 on('presetStrip', () => {
   const b = document.querySelector('[data-presets] .sode__set:not(.sode__presets-all)') || document.querySelector('[data-presets] .sode__set') || document.querySelector('[data-presets] button');
   b?.focus();
@@ -144,7 +131,6 @@ document.addEventListener('keydown', (e) => {
 on('presets', () => { renderStrips(); if (open && !tgt) renderEditor(true); });
 renderStrips();
 
-// ---- the dialog
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -169,7 +155,6 @@ nameIn.setAttribute('aria-label', 'Preset name');
 nameIn.autocomplete = 'off';
 const scopeIn = el('select', 'pb-select');
 scopeIn.setAttribute('aria-label', 'Save for');
-// 'Me' is added while someone is logged in (see renderHead).
 const scopeOpts = () => scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id));
 scopeIn.append(...scopeOpts());
 const pinnedIn = el('input', 'pb-check__input');
@@ -189,10 +174,8 @@ const pinRow = el('div', 'sode__filters-set', labeled('Settings PIN', pinIn), pi
 pinRow.hidden = true;
 const delBtn = btn('pb-btn--outline', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit', 'Save', () => save());
-// A link to the saved preset (names ride along; opening it shows a review).
 const shareUI = shareRow();
 const saveAsBtn = btn('pb-btn--outline', 'Save as…', () => askSaveAs());
-// Save as: the preset as typed, under another name, in the scope chosen here.
 const asName = el('input', 'pb-input');
 asName.maxLength = 32;
 asName.placeholder = 'Name';
@@ -211,7 +194,6 @@ const shareBtn = btn('pb-btn--outline', 'Share', () => {
 const pickRow = el('div', 'sode__filters-set', labeled('Preset', el('span', 'pb-select-wrap', pick)), btn('pb-btn--outline', 'New', () => load(null)));
 const scopeWrap = labeled('Save for', el('span', 'pb-select-wrap', scopeIn), 'sode__filters-scope');
 const titleEl = Object.assign(el('span', 'pb-modal__title', 'Edit Presets'), { id: 'presets-title' });
-// To the organizer (the Presets popup): pin, order, fire. Closing here keeps the unsaved-changes warning.
 const organizerBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Preset Organizer', () => { closePresets(); if (!open) emit('presetPopup'); });
 const transferBtn = btn('pb-btn--outline', 'Import & Export…', () => emit('openTransfer', { scope: cur?.old ? cur.from : 'local', user: profileName() || '', what: 'presets' }));
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closePresets());
@@ -238,8 +220,6 @@ function setNote(text, error = false) {
   paintSave();
 }
 
-// Save is green when what is typed can be saved, red when it can't (or the last
-// try said why), plain while nothing has changed.
 function paintSave() {
   if (!cur) return;
   let state = 'commit';
@@ -248,22 +228,18 @@ function paintSave() {
   for (const s of ['commit', 'danger', 'ok']) saveBtn.classList.toggle(`pb-btn--${s}`, s === state);
 }
 
-// Presets for everyone: the whole list is sent, after the PIN if one is set.
 const saver = globalSaver({
   t: 'presets', resultT: 'presetsResult', pinIn, pinRow, pinOk, setNote,
   isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved for everyone.',
   render: () => renderHead(true),
 });
-// Presets of the logged-in user ('Me'): their profile, no PIN row.
 const profSaver = profileSaver({
   setNote, isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved to your profile.',
   render: () => renderHead(true),
 });
 
-// Aimed at a profile (bus 'openPresetEditor', from the Profile dialog): the
-// same editor on one preset of that user's profile, with the picker, scope,
-// Save as, Share, Delete and Export hidden; the save goes to that profile.
-// editTarget(...) from profile.js; null for the usual editor.
+// Aimed at a profile (bus 'openPresetEditor'): the editor on one preset of that user's profile,
+// with picker, scope, Save as, Share, Delete and Export hidden; the save goes to that profile.
 let tgt = null;
 const tgtSaver = profileSaver({
   target: () => tgt,
@@ -272,11 +248,8 @@ const tgtSaver = profileSaver({
 });
 
 let open = false, back = null;
-// cur: the preset being edited: { scope, old, name, items: [{ src, dsts, levels }] } as typed text.
 let cur = null, dirty = false, deleting = false, discard = false;
-// An edit: unsaved, and a close warning given earlier no longer covers it.
 const touch = () => { dirty = true; discard = false; paintSave(); };
-// Examples: a source takes one number or name; destinations take a list.
 const SRC_EXAMPLE = '12 or Cam 1';
 const DST_EXAMPLE = '12, 20-24, Monitor 1';
 const blankRow = () => ({ src: '', dsts: '', levels: '' });
@@ -298,7 +271,6 @@ function load(s) {
 }
 
 const lookup = (list) => (t) => search(list, t, 1)[0]?.n ?? null;
-// A row's typed text as a take, plus a line saying what it means.
 function parseRow(r) {
   const s = parseRefs(r.src, off(), lookup(S.srcs));
   const d = parseRefs(r.dsts, off(), lookup(S.dsts));
@@ -336,7 +308,6 @@ function renderRows() {
       return labeled(text, inp);
     };
     upd();
-    // Labels show on the first row only; later rows keep their aria-labels.
     return el('div', `sode__preset-row${i ? ' sode__preset-row--bare' : ''}`,
       field('src', SRC_EXAMPLE, `Take ${i + 1} source`, 'Source'),
       field('dsts', DST_EXAMPLE, `Take ${i + 1} destinations`, 'Destinations'),
@@ -350,13 +321,11 @@ function focusLast() {
   ins[0]?.focus();
 }
 
-// The preset picker and the buttons around the name. keep: what is being
-// typed (the name) stays as it is.
+// keep: what is being typed (the name) stays as it is.
 function renderHead(keep = false) {
   pick.replaceChildren(new Option('New preset…', ''), ...allPresets().map((s) => new Option(`${s.name} (${scopeLabel(s.scope)})`, `${s.scope}:${s.name}`)));
   pick.value = cur.old ? `${cur.from}:${cur.old}` : '';
   if (!keep) nameIn.value = cur.name;
-  // Rebuilt so that 'Me' follows who is logged in; a Me preset of someone else is gone from the list anyway.
   scopeIn.replaceChildren(...scopeOpts());
   scopeIn.value = [...scopeIn.options].some((o) => o.value === cur.scope) ? cur.scope : 'local';
   cur.scope = scopeIn.value;
@@ -377,8 +346,8 @@ function renderHead(keep = false) {
   organizerBtn.hidden = !!t;
 }
 
-// keepEdit: the lists changed under us (a reconnect, another browser's
-// save); only the picker is refreshed, never the rows or name being typed.
+// keepEdit: the lists changed under us; only the picker refreshes, never the rows or name being
+// typed.
 function renderEditor(keepEdit = false) {
   if (keepEdit && cur?.old && !findPreset(cur.from, cur.old) && !dirty) return load(null);
   renderHead(keepEdit);
@@ -394,7 +363,6 @@ pick.addEventListener('change', () => {
 });
 nameIn.addEventListener('input', () => { cur.name = nameIn.value; touch(); setNote(''); });
 pinnedIn.addEventListener('change', () => { cur.pinned = pinnedIn.checked; touch(); });
-// A saved preset can change scope: Save copies it to the new one, then removes it from the old.
 scopeIn.addEventListener('change', () => {
   cur.scope = scopeIn.value;
   if (!cur.old) return;
@@ -402,8 +370,8 @@ scopeIn.addEventListener('change', () => {
   setNote(cur.scope === cur.from ? scopeLabel(cur.from) : `Save moves it from ${scopeLabel(cur.from)} to ${scopeLabel(cur.scope)}.`);
 });
 
-// Add from Patch Boxes…: the editor steps aside, the patch boxes stay live and
-// the bar's Add (or Enter) turns what is in them into a row; Done comes back.
+// Add from Patch Boxes: the editor steps aside, the patch boxes stay live and the bar's Add (or
+// Enter) turns them into a row.
 let added = 0;
 function addFromBoxes() {
   if (!shown()) return setNote('The patch boxes are not showing.', true);
@@ -430,10 +398,10 @@ function addFromBoxes() {
       return `Added ${added} row${added === 1 ? '' : 's'}`;
     },
   });
-  shown().focus(); // start at Source
+  shown().focus();
 }
-// The editor steps aside while Recent is in pick mode (recentpick.js); Add or
-// Cancel brings it back. A lock ends the pick first (see 'locking' below).
+// The editor steps aside while Recent is in pick mode (recentpick.js). A lock ends the pick
+// first (see 'locking' below).
 let picking = false;
 function fillFromRecent() {
   if (!S.hist.length) return setNote('No takes made in Sode yet.', true);
@@ -464,11 +432,7 @@ function addRows(items, note) {
   setNote(note);
 }
 
-// ---- saving
 
-// The typed rows as a preset, or an error line. next: the scope's list as
-// it would be saved.
-// moving: saved under another scope, so it is a new preset there (a name taken there is refused).
 function built(moving = false) {
   const items = [];
   for (const r of cur.items.filter((x) => !isBlankRow(x))) {
@@ -485,7 +449,6 @@ function built(moving = false) {
   return tooMuch ? { err: tooMuch } : { s, next };
 }
 
-// Takes preset `name` out of one scope (a move's second step).
 function removeFrom(scope, name, done) {
   if (scope === 'local') { deleteLocalPreset(name); return done(); }
   const next = presetsIn(scope).filter((x) => x.name.toLowerCase() !== name.toLowerCase()).map(saved);
@@ -507,8 +470,6 @@ function save() {
     if (from === 'global') clearPinOverride(was);
     removeFrom(from, was, () => { cur.scope = to; finish(); });
   };
-  // Save is the footer's: once the preset has landed (and a move has removed
-  // the old copy) the dialog closes.
   const finish = () => { dirty = false; closePresets(); };
   if (to === 'local') {
     saveLocalPreset(b.s, moving ? '' : cur.old);
@@ -518,7 +479,6 @@ function save() {
   sv.change({ presets: b.next }, landed);
 }
 
-// ---- save as
 
 function askSaveAs() {
   asScope.replaceChildren(...scopeOpts());
@@ -532,7 +492,6 @@ function closeSaveAs() {
   asRow.hidden = true;
   saveAsBtn.focus();
 }
-// The name is checked against the target scope; a name taken there is replaced.
 function saveAs() {
   const name = asName.value.trim().slice(0, 32);
   const target = asScope.value;
@@ -580,7 +539,6 @@ function deleteClick() {
   (cur.from === 'user' ? profSaver : saver).change({ presets: next }, () => load(null));
 }
 
-// ---- open / close
 
 
 export function openPresets(scope = '', name = '') {
@@ -598,20 +556,19 @@ function closePresets() {
   if (open && dirty && !discard) { discard = true; return setNote('Unsaved changes. Close again to discard them, or Save.', true); }
   open = false;
   dlg.hide();
-  if (tgt) { // nothing global to finish
+  if (tgt) {
     tgt = null;
     if (back?.isConnected) back.focus();
     return;
   }
   profSaver.close();
-  saver.close(); // a save already sent finishes first (its answer locks up after it)
+  saver.close();
   if (back?.isConnected) back.focus();
 }
 
 const dlg = trapDialog(root, dialog, closePresets);
 
-// A lock closes the editor like the other dialogs do, without the
-// unsaved-changes warning (the page is covered; the edits can't be reached).
+// A lock closes the editor without the unsaved-changes warning (the page is covered).
 on('locking', () => {
   if (picking) { picking = false; endPick(); }
   if (!open) return;

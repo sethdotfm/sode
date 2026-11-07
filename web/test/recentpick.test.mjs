@@ -1,5 +1,4 @@
 // Pick mode for Recent: which rows can be picked and what they add.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

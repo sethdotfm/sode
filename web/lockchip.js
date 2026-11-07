@@ -1,8 +1,5 @@
-// The "Logged in as" chip of the lock screen (#151): the name and ONE icon
-// button that locks. Changing the PIN and logging out live in Settings'
-// Account block, which asks for them over the bus ('changePin', 'logout');
-// this module owns the change-PIN dialog. lock.js owns the state and passes
-// the action in; this builds the DOM with el() only.
+// Lock screen's "Logged in as" chip: name and one lock button. Change PIN and logout live in Settings' Account block (bus 'changePin', 'logout');
+// this owns the change-PIN dialog. lock.js owns the state.
 
 import { el, S, on, onMsg, icon, wsSend, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
@@ -17,7 +14,6 @@ const field = (id, label, auto) => {
   return { input, row: el('div', 'sode-lock__field', Object.assign(el('label', null, label), { htmlFor: id }), input) };
 };
 
-// api: { lock() }.
 export function buildChip(api) {
   const name = el('span', 'sode-lock__who-name');
   const lockBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-tip--start', icon('lock-open'));
@@ -25,9 +21,7 @@ export function buildChip(api) {
   lockBtn.dataset.pbTip = 'Lock (Ctrl+L)';
   lockBtn.setAttribute('aria-label', 'Lock');
   lockBtn.addEventListener('click', () => api.lock());
-  // Shown instead of the button while a lock is up: status, with the words beside it.
-  // Both sit in one cell and cross-fade (the root's is-hand class), so the
-  // icon never snaps in or out with the lock screen's border.
+  // Status with words, cross-faded with the button (is-hand) so the icon doesn't snap against the lock screen's border.
   const ico = el('span', 'sode-lock__who-ico', icon('lock'));
   const slot = el('div', 'sode-lock__who-slot', lockBtn, ico);
   const root = el('div', 'sode-lock__who', el('div', 'sode-lock__who-bar', slot, name));
@@ -97,8 +91,7 @@ export function buildChip(api) {
     closePin();
   });
 
-  // update: render the chip for lock state L.
-  // handLocked: the lock button does nothing then, so it goes.
+  // handLocked: the lock button does nothing, so it goes.
   function update(L, chip, handLocked) {
     root.hidden = !chip;
     root.classList.toggle('is-hand', !!handLocked);
@@ -107,8 +100,7 @@ export function buildChip(api) {
     ico.setAttribute('aria-hidden', String(!handLocked));
     name.textContent = L.user ? `Logged in as ${L.user}` : '';
   }
-  // setLocked: swap the button's icon with the overlay (open lock, closed lock),
-  // at the moment the overlay's border starts to move.
+  // Swaps the icon when the overlay's border starts to move.
   function setLocked(on) {
     lockBtn.replaceChildren(icon(on ? 'lock' : 'lock-open'));
   }

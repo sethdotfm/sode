@@ -1,5 +1,4 @@
 // Logic both layouts share: toggle, keepSearch and the "Last:" chips.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -129,7 +128,6 @@ test('nextTake: repeating keeps going while the boxes hold the last Next (#195)'
   t = nextTake({ src: it(2), dsts: [it(6), it(7)] });
   assert.equal(t.src.n, 3);
   assert.deepEqual(t.dsts.map((d) => d.n), [7, 8]);
-  // The boxes were cleared or changed: back to the last take.
   t = nextTake({ src: it(4), dsts: [it(9)] });
   assert.equal(t.src.n, 2);
   assert.deepEqual(t.dsts.map((d) => d.n), [6, 7]);

@@ -1,17 +1,12 @@
-// Export documents, share links and import matching (Beta 1.6, #169). Pure:
-// no imports, no DOM, so Node tests it. transfer.js and reviewsheet.js do
-// the dialogs and the saving.
-//
-// An export document (version 1, the server's exportDoc) carries numbers
-// with names beside them, so an import on another router can match by name
-// when the numbers differ. A share link holds ONE item as base64url JSON in
-// the URL fragment (#share=): a fragment never reaches the server or a proxy.
+// Export documents, share links and import matching. Pure: no imports, no DOM, so Node tests it
+// (dialogs: transfer.js, reviewsheet.js). Export documents carry numbers with names beside them
+// so an import on another router can match by name. A share link holds ONE item as base64url
+// JSON in the URL fragment (#share=), which never reaches the server or a proxy.
 
-export const SOCKET_LIMIT = 64 * 1024; // wsReadLimit: presets, filterSets, profileSave
-export const PROFILE_LIMIT = 48 * 1024; // a whole profile
+export const SOCKET_LIMIT = 64 * 1024;
+export const PROFILE_LIMIT = 48 * 1024;
 export const NAME_MAX = 32;
 
-// How the This device settings read, for the export chooser and the review.
 export const PREF_LABELS = {
   theme: 'Theme', layout: 'Layout', clock: 'Clock', flip: 'Destination before Source', scrollTop: 'Scroll to top on focus',
   searchFilters: 'Search respects filters', setStack: 'Stacked filter sets', nextMode: 'Next means',
@@ -24,7 +19,6 @@ const runes = (s) => [...String(s)].length;
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 const ints = (a) => [].concat(a ?? []).map(Number).filter((n) => Number.isInteger(n));
 
-// A filter set as the document and the server carry it: every field.
 export const filterOf = (s) => {
   const f = s?.f || s || {};
   return {
@@ -33,12 +27,10 @@ export const filterOf = (s) => {
   };
 };
 
-// ---- the export document
 
-// prefs: { name: value }; filterSets: [{ name, f }] or flat; presets:
-// [{ name, items: [{ src, dsts: [n], levels }] }] (internal numbers);
-// srcName(n) / dstName(n): the router's name now ('' if unknown);
-// now: Date or ms. site and user are left out when blank.
+// prefs: { name: value }; filterSets: [{ name, f }] or flat; presets use internal numbers;
+// srcName(n) / dstName(n): the router's name now ('' if unknown); now: Date or ms. site and
+// user are left out when blank.
 export function buildExport({ prefs, filterSets, presets, site, user, now = Date.now(), srcName = () => '', dstName = () => '' }) {
   const doc = { sode: 1 };
   if (site) doc.site = String(site);
@@ -64,7 +56,6 @@ function itemOut(it, srcName, dstName) {
   return out;
 }
 
-// A preset item from a document, as { src, srcName, dsts: [{ n, name }], levels }.
 export const itemIn = (it) => ({
   src: Number.isInteger(+it?.src) ? +it.src : -1,
   srcName: String(it?.srcName ?? ''),
@@ -72,14 +63,12 @@ export const itemIn = (it) => ({
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
 
-// ---- checking a document read from a file
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => Number.isInteger(v) && v >= 0;
 const goodName = (v) => typeof v === 'string' && v.trim() !== '' && runes(v) <= NAME_MAX && !/[\p{Cc}]/u.test(v);
 
-// Why a document read from a file is not one this Sode reads, or ''. Only
-// its shape and version: the saves check the content (config.Validate).
+// Only shape and version: the saves check the content (config.Validate).
 export function checkDoc(doc) {
   if (!isObj(doc)) return 'Not a Sode export: the file is not a mapping.';
   if (doc.sode == null) return 'Not a Sode export: it has no "sode" version.';
@@ -108,7 +97,6 @@ export function checkDoc(doc) {
   return '';
 }
 
-// ---- file names
 
 const clean = (s) => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '')
   .replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-{2,}/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 40);
@@ -116,13 +104,11 @@ const clean = (s) => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '')
 const two = (n) => String(n).padStart(2, '0');
 export const dateStamp = (d) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
 
-// YYYY-MM-DD-Sode-Export-<Site>-<User>.yaml; a blank part is left out.
 export function defaultFileName({ now = new Date(), site = '', user = '' } = {}) {
   const parts = [dateStamp(new Date(now)), 'Sode', 'Export', clean(site), clean(user)].filter(Boolean);
   return parts.join('-') + '.yaml';
 }
 
-// What the person typed (blank = the default), made safe, ending in .yaml.
 export function fileNameFor(typed, dflt) {
   const base = clean(String(typed || '').trim().replace(/\.ya?ml$/i, ''));
   return base ? `${base}.yaml` : dflt;
@@ -130,10 +116,8 @@ export function fileNameFor(typed, dflt) {
 
 // ---- matching an imported item against this router
 
-// live: { srcs: [{ n, name }], dsts: [{ n, name }], levelCount }. Names
-// compare ignoring case and outer spaces. Statuses, best to worst:
-// same (number and name agree), byName (one live item has that name: the
-// number is remapped), ambiguous (several do: never the first), unmatched.
+// Names compare ignoring case and outer spaces. Statuses, best to worst: same, byName (one live
+// item has that name: number remapped), ambiguous (several do: never the first), unmatched.
 export const STATUS = ['same', 'byName', 'ambiguous', 'unmatched'];
 export const worst = (a, b) => (STATUS.indexOf(a) >= STATUS.indexOf(b) ? a : b);
 
@@ -147,10 +131,8 @@ export function matchEnd(n, name, list) {
   return { status: 'unmatched', n };
 }
 
-// An item (itemIn shape) against the router: each end's match, the item's
-// worst status, the item as it would be saved ({ src, dsts, levels }: remapped
-// where matched by name, as written otherwise) and the levels above the
-// router's count.
+// Result: each end's match, the worst status, the item as it would be saved (remapped where
+// matched by name) and levels above the router's count.
 export function matchItem(it, live) {
   const src = matchEnd(it.src, it.srcName, live.srcs);
   const dsts = it.dsts.map((d) => matchEnd(d.n, d.name, live.dsts));
@@ -163,8 +145,6 @@ export function matchItem(it, live) {
   };
 }
 
-// A whole imported preset: its items matched, the worst status, and the
-// preset as it would be saved.
 export function matchPreset(p, live) {
   const items = p.items.map((it) => matchItem(itemIn(it), live));
   let status = 'same';
@@ -177,12 +157,9 @@ export function matchPreset(p, live) {
   };
 }
 
-// ---- conflicts and renames
 
-// The existing name that `name` collides with (any case), or null.
 export const conflict = (name, existing) => existing.find((x) => same(x, name)) ?? null;
 
-// "Name 2", "Name 3"…: the first not in taken (any case), at most 32 runes.
 export function renameFor(name, taken) {
   const base = String(name).trim();
   for (let i = 2; ; i++) {
@@ -193,14 +170,11 @@ export function renameFor(name, taken) {
   }
 }
 
-// Choices: 'import' (no clash), 'replace' | 'both' (a clash) or 'skip'.
 export const defaultChoice = (clash) => (clash ? 'both' : 'import');
 
-// The list that results from importing `incoming` ({ name, ...}) into
-// `existing`. picks[i]: { choice, as } (as: the name for Keep both, else an
-// automatic one). Replace swaps the existing item in place; the rest append.
-// Names stay unique whatever the case (a later row never takes an earlier
-// one's name). Returns { list, added, replaced, kept, skipped }.
+// picks[i]: { choice, as } (as: name for Keep both, else automatic). Replace swaps in place;
+// the rest append. Names stay unique whatever the case. Returns { list, added, replaced, kept,
+// skipped }.
 export function applyChoices(existing, incoming, picks) {
   const list = existing.map((x) => ({ ...x }));
   const out = { list, added: 0, replaced: 0, kept: 0, skipped: 0 };
@@ -225,8 +199,6 @@ export function applyChoices(existing, incoming, picks) {
   return out;
 }
 
-// Why a rename for Keep both won't do, or ''. taken: every name in the
-// target scope (and those of the other rows being added).
 export function renameProblem(name, taken) {
   const n = String(name).trim();
   if (!n) return 'Name required.';
@@ -235,13 +207,10 @@ export function renameProblem(name, taken) {
   return '';
 }
 
-// ---- size
 
-// UTF-8 bytes of the JSON of v (what a socket message costs).
 export const jsonBytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
 
-// A message the page would send ({ t, id, ... }) is over the socket's read
-// limit; a profile also over its own. '' when fine.
+// Over the socket's read limit; a profile also over its own. '' when fine.
 export function sizeProblem(scope, parts, what = 'import') {
   const kib = (b) => `${Math.ceil(b / 1024)} KiB`;
   if (scope === 'user') {
@@ -256,7 +225,6 @@ export function sizeProblem(scope, parts, what = 'import') {
   return '';
 }
 
-// ---- share links: one item, base64url JSON, in the fragment
 
 const b64 = (s) => {
   const bytes = new TextEncoder().encode(s);
@@ -266,7 +234,6 @@ const b64 = (s) => {
 };
 const unb64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
 
-// { kind: 'preset', name, items } or { kind: 'filter', name, ...non-default parts }.
 export function presetShare(p, srcName = () => '', dstName = () => '') {
   return { kind: 'preset', name: p.name, items: p.items.map((it) => itemOut(it, srcName, dstName)) };
 }
@@ -279,10 +246,8 @@ export function filterShare(name, f) {
 
 export const encodeShare = (doc) => b64(JSON.stringify(doc));
 
-// base = the page's address without query or fragment.
 export const shareUrl = (base, doc) => `${base}#share=${encodeShare(doc)}`;
 
-// The share document in text, checked; throws a plain message.
 export function decodeShare(text) {
   let d;
   try { d = JSON.parse(unb64(String(text))); } catch (e) { throw new Error('The link is damaged.'); }
@@ -298,7 +263,6 @@ export function decodeShare(text) {
   throw new Error('The link is not a Sode share link.');
 }
 
-// The old ?f= link: base64url JSON of a filter's non-default parts (+ name).
 export function decodeLegacy(text) {
   let d;
   try { d = JSON.parse(unb64(String(text))); } catch (e) { throw new Error('The link is damaged.'); }
@@ -306,9 +270,8 @@ export function decodeLegacy(text) {
   return { kind: 'filter', name: String(d.name ?? '').trim().slice(0, NAME_MAX), ...filterOf(d) };
 }
 
-// What a page address holds, and the address without it. Returns
-// { doc, error, search, hash } (doc null and error '' when there is no link).
-// search/hash: the parts to put back (our parameters removed).
+// Returns { doc, error, search, hash } (doc null and error '' when there is no link);
+// search/hash: the parts to put back with our parameters removed.
 export function readLink(search, hash) {
   const out = { doc: null, error: '', search, hash };
   const h = new URLSearchParams(String(hash).replace(/^#/, ''));
@@ -326,17 +289,15 @@ export function readLink(search, hash) {
   return out;
 }
 
-// ---- opening a pending share link
 
-// May the review sheet open now? Only once the router's names are in (the
-// match needs them), the lock state is known (`L`, from lock.js's `access`;
-// null until then) and the page is not covered: not locked by a PIN lock
-// and not by hand. A link waits, in the address, until all of that is true.
+// Only once the router's names are in, the lock state is known (`L` from lock.js's `access`;
+// null until then) and the page is not covered (PIN lock or hand lock). A link waits, in the
+// address, until then.
 export const mayOpenSheet = (L, handLocked = false, namesLoaded = true) =>
   !!L && namesLoaded && !(L.enforced && L.locked) && !(handLocked && !L.enforced);
 
-// The suggested name for Save as: "Name 2", or "Name (mine)" for a copy of
-// an Everyone item; '' with nothing to copy. At most 32 characters.
+// "Name 2", or "Name (mine)" for a copy of an Everyone item; '' with nothing to copy. At most
+// 32 characters.
 export function saveAsName(name, fromScope = '') {
   const base = String(name || '').trim();
   if (!base) return '';
@@ -344,7 +305,6 @@ export function saveAsName(name, fromScope = '') {
   return [...base].slice(0, NAME_MAX - suffix.length).join('').trimEnd() + suffix;
 }
 
-// A share document as an export document, so one review sheet takes both.
 export function docOfShare(d) {
   if (d.kind === 'preset') return { sode: 1, presets: [{ name: d.name, items: d.items }] };
   return { sode: 1, filterSets: [{ name: d.name || 'Shared filter', ...filterOf(d) }] };

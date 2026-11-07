@@ -1,5 +1,4 @@
-// The Advanced Settings PIN fields in Settings (Access): behind a "Change
-// Advanced PIN" button; a Save error or a Settings search hit opens them.
+// Advanced PIN fields in Settings > Access, behind "Change Advanced PIN"; a Save error or search hit opens them.
 
 import { $, S } from './core.js';
 
@@ -16,7 +15,6 @@ export function showPinFields(open) {
   $('cfg-pin-change').setAttribute('aria-expanded', String(open));
 }
 
-// Back to the closed, empty state (the form opened, or a save went through).
 export function resetPinFields() {
   $('cfg-pin').value = '';
   $('cfg-pin2').value = '';

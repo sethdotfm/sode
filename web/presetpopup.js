@@ -1,8 +1,5 @@
-// The Presets popup (Ctrl+G, or ⌘G on a Mac; a button on the phone): every
-// preset, pinned or not, with a search box. Enter presses the highlighted
-// one, which opens the usual confirm (presets.js `fire`). Each row can pin
-// or unpin the preset for this browser (or in the user's profile). Pinning for
-// everyone, and sharing, are in the preset editor.
+// Presets popup (Ctrl+G / Cmd+G): every preset with search; Enter fires via presets.js.
+// Pins here are per browser or in the user's profile; pinning for everyone is in the editor.
 
 import { el, on, emit, icon, sentence } from './core.js';
 import { chord, mac } from './keys.js';
@@ -35,7 +32,6 @@ list.setAttribute('role', 'listbox');
 list.setAttribute('aria-label', 'Presets');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
-// To the editor (make, change, share, pin for everyone).
 const editorBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__head-link', 'Preset Editor');
 editorBtn.type = 'button';
 editorBtn.addEventListener('click', () => { close(); openPresets(); });
@@ -79,8 +75,7 @@ function draw() {
   const at = list.contains(f) && f.closest('.sode__preset-item')
     ? [f.closest('.sode__preset-item').id, [...f.closest('.sode__preset-item').querySelectorAll('button')].indexOf(f)] : null;
   const ov = pinOverrides();
-  // Pinned presets first, in the strip's order (the saved one), then the rest;
-  // a search keeps its ranking inside each part.
+  // Pinned first in the strip's order, then the rest; search ranks within each.
   const ranked = rankPresets(allPresets(), input.value);
   const isPinned = (s) => effectivePin(s, ov);
   const searching = !!input.value.trim();
@@ -88,7 +83,6 @@ function draw() {
   shownList = [...pins, ...ranked.filter((s) => !isPinned(s))];
   hi = Math.max(0, Math.min(hi, shownList.length - 1));
   const reorder = !searching && pins.length > 1;
-  // Option/Alt+1-9 fire the first nine pinned presets, in the strip's order.
   const keySlot = new Map(pinnedPresets().map((s, i) => [presetKey(s), i]));
   list.replaceChildren(...shownList.map((s, i) => {
     const pinned = isPinned(s);
@@ -118,7 +112,6 @@ function draw() {
   if (at) (document.getElementById(at[0])?.querySelectorAll('button')[at[1]] || input).focus();
 }
 
-// Pins or unpins s: a preset of the user's own in their profile, any other for this browser.
 function togglePin(s) {
   const pinned = effectivePin(s, pinOverrides());
   if (s.scope === 'user') profSaver.change({ presets: withUserPin(s.name, !pinned) }, () => {});
@@ -127,8 +120,7 @@ function togglePin(s) {
 
 // ---- reordering the pinned presets: drag a row, or Alt+↑/↓ on the highlighted one
 let dragKey = '';
-// The order shows at once; a save that fails (profile too big, link down) puts
-// the real order back and says why.
+// The order shows at once; a failed save restores the real order and says why.
 function reorder(saved) {
   saved?.then((r) => {
     if (r.ok) return;
@@ -146,7 +138,6 @@ function dragRow(row, s) {
   row.addEventListener('dragleave', () => row.classList.remove('is-over'));
   row.addEventListener('drop', (e) => { e.preventDefault(); row.classList.remove('is-over'); reorder(movePin(dragKey, { before: key })); dragKey = ''; });
 }
-// Moves the highlighted pinned preset one place up or down among the pins.
 function nudge(d) {
   const s = shownList[hi];
   if (!s || input.value.trim() || !effectivePin(s, pinOverrides())) return;
@@ -168,18 +159,13 @@ function pressPreset(s, fill = false) {
 }
 
 input.addEventListener('input', () => { hi = 0; setNote(''); draw(); });
-// A click on empty space inside the popup (#155, #156) must not take focus
-// away from the search box; buttons and the box itself behave as usual.
-// A draggable row (a pinned preset) is left alone on mousedown: cancelling it
-// would also cancel a drag that starts on its icon or key.
+// A click on empty space must not steal focus from the search box; a draggable row is left alone on mousedown so its drag still starts.
 dialog.addEventListener('mousedown', (e) => {
   if (e.target.closest('button, input, [draggable="true"]')) return;
   e.preventDefault();
   input.focus();
 });
 dialog.addEventListener('click', (e) => { if (!e.target.closest('button, input')) input.focus(); });
-// Keys while the popup is open, by chord. A focused button keeps its own
-// Enter/Space; anywhere else the keys drive the list.
 const NUDGE = { 'alt+up': -1, 'alt+down': 1, 'alt+meta+k': -1, 'alt+meta+j': 1, 'ctrl+alt+k': -1, 'ctrl+alt+j': 1 };
 const MOVE = { down: 1, up: -1, 'ctrl+j': 1, 'ctrl+k': -1, 'meta+j': 1, 'meta+k': -1 };
 dialog.addEventListener('keydown', (e) => {
@@ -207,7 +193,7 @@ export function openPopup() {
   input.focus();
 }
 
-// Focus goes back where it was; a confirm opened next remembers that place.
+// Focus returns where it was; a confirm opened next remembers it.
 function close() {
   if (!open) return;
   open = false;
@@ -216,7 +202,6 @@ function close() {
   if (back?.isConnected) back.focus();
 }
 
-// Esc: the typed text first, then the popup.
 const dlg = trapDialog(root, dialog, () => {
   if (input.value) { input.value = ''; hi = 0; draw(); input.focus(); } else close();
 });

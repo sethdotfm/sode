@@ -1,12 +1,6 @@
-// Export & import (Beta 1.6, #169): the Settings > Export & import dialog,
-// and share links. Export writes a YAML file (the server only converts:
-// POST api/yaml); import reads one (or pasted text) into the review sheet
-// (reviewsheet.js), which is also what a share link opens. Names ride beside
-// numbers so another router's numbers can still be matched. The pure rules
-// are exportfmt.js.
-//
-// Other modules ask for this dialog with emit('openTransfer', { scope, user })
-// (the Profiles dialog does, preselecting one user's profile).
+// Settings > Export & import dialog, and share links. Export writes YAML (the server only converts: POST api/yaml); import reads a file or
+// pasted text into the review sheet (reviewsheet.js), which a share link also opens. Names ride beside numbers so another router's numbers can still be matched.
+// Pure rules are in exportfmt.js. Other modules open this with emit('openTransfer', { scope, user }).
 
 import { $, el, S, on, sentence } from './core.js';
 import { trapDialog, labeled } from './widgets.js';
@@ -37,9 +31,6 @@ const dot = (kind) => {
 
 // ---- share links
 
-// A read-only link field with its Copy link button and status line, for a
-// share button to fill (shareLink). The button copies; sharing itself never
-// touches the clipboard.
 export function shareRow() {
   const input = el('input', 'pb-input sode__code');
   input.readOnly = true;
@@ -51,7 +42,6 @@ export function shareRow() {
   return ui;
 }
 
-// Puts a share link for doc into ui ({ box, input, status }) and selects it.
 export function shareLink(doc, ui) {
   ui.box.hidden = false;
   ui.input.value = fmt.shareUrl(`${location.origin}${location.pathname}`, doc);
@@ -60,8 +50,7 @@ export function shareLink(doc, ui) {
   copiedOff(ui);
 }
 
-// The Copy link button says "Copied" in green for two seconds, in place (no
-// extra element). With no clipboard the link stays selected, to copy by hand.
+// With no clipboard the link stays selected, to copy by hand.
 const COPIED_MS = 2000;
 function copiedOff(ui) {
   clearTimeout(ui.timer);
@@ -89,9 +78,7 @@ export async function copyLink(ui) {
 
 export const sharePresetDoc = (p) => fmt.presetShare(p, srcName, dstName);
 
-// Opens the review sheet for a share document.
-// onLocked: called if a lock closes the sheet (the link then waits to be
-// shown again after unlocking).
+// onLocked: a lock closed the sheet; the link waits to be shown again after unlocking.
 export function reviewShare(share, source = '', onLocked = null) {
   openReview({
     doc: fmt.docOfShare(share),
@@ -102,7 +89,6 @@ export function reviewShare(share, source = '', onLocked = null) {
   });
 }
 
-// Uses a filter without saving it, with Undo.
 function applyNow(f, name) {
   const prev = snapshot();
   adoptFilter(normFilter(f));
@@ -113,13 +99,9 @@ function applyNow(f, name) {
   showResult('info', name ? `Shared filter “${name}” applied` : 'Shared filter applied', () => el('span', 'sode__filters-empty', undo));
 }
 
-// A link in the page address (a #share= fragment, or the old ?f=) is kept
-// PENDING until the sheet can show: the router's names are in and the page
-// is not covered by a lock (a new browser with the main lock on gets `hello`
-// before the lock screen, so the sheet would open and be closed again). The
-// address is cleaned only once the sheet is up, so a reload while locked
-// keeps the link. A link pasted into a tab already on Sode (hashchange) goes
-// the same way.
+// A link in the address (#share=, or the old ?f=) stays PENDING until the sheet can show: names are in and no lock covers the page
+// (a new browser with the main lock on gets `hello` before the lock screen, so the sheet would open and be closed again).
+// The address is cleaned only once the sheet is up, so a reload while locked keeps the link. A hashchange link goes the same way.
 let pending = null; // the share document waiting to be shown
 let access = null; // lock.js's lock state, once it has said
 let namesIn = false;
@@ -189,14 +171,12 @@ const setNote = (t, error = false) => {
 };
 
 let open = false, back = null;
-// ex: the export choices. user: a profile named by openTransfer (someone
-// else's, read by name; the logged-in user's own is just 'user').
+// user: a profile named by openTransfer (someone else's, read by name; the logged-in user's own is just 'user').
 let ex = null;
 let other = null; // { name, state: 'wait' | 'ok' | 'err', profile, err }
 
 const newEx = () => ({ src: 'local', prefs: true, setsMode: 'all', setsPick: new Set(), presetsMode: 'all', presetsPick: new Set() });
 
-// What a source holds: { prefs, sets: [{ name, f }], presets, user }.
 function dataOf(src) {
   if (src === 'global') return { prefs: {}, sets: globalSets(), presets: globalPresets(), user: '' };
   if (src === 'other') {
@@ -314,7 +294,6 @@ async function download() {
   setNote(`Saved ${file}.`);
 }
 
-// POST to the converter. { ok, text, err }.
 async function convert(url, body, type) {
   try {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': type }, body });

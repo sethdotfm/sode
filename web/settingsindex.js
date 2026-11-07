@@ -1,18 +1,9 @@
-// Settings search (pure, no imports; Node-tested). An index of every section
-// and every setting in the Settings view, searched by label, by a dictionary
-// of the words people actually type, and by the section's title.
-//
-// RULE: a new settings section needs an entry in DICT under its slug (see
-// `slug`); test/settingsindex.test.mjs fails otherwise. Settings are keyed by
-// the id of their control. DICT may name ids that don't exist (yet); those
-// are ignored.
-//
-// This has its own scorer instead of core.js `search`: that one scores
-// numbered router items and needs the DOM, and this must load in Node.
+// Settings search: pure, no imports (Node-tested), own scorer because core.js `search` needs the DOM.
+// RULE: a new settings section needs an entry in DICT under its slug (see `slug`); settingsindex.test.mjs fails otherwise.
+// Settings are keyed by their control's id; DICT ids that don't exist (yet) are ignored.
 
 export const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-// Both the This device and Global defaults copy of a setting.
 const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
 export const DICT = {
@@ -119,7 +110,6 @@ export const DICT = {
 
 const words = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
 
-// Edit distance, stopping early past `max`.
 function lev(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
@@ -136,7 +126,6 @@ function lev(a, b, max) {
   return prev[b.length];
 }
 
-// How well one typed word matches one word of text: 0 = not at all.
 function wordScore(t, w) {
   if (t === w) return 100;
   if (w.startsWith(t)) return 80;
@@ -150,7 +139,6 @@ function wordScore(t, w) {
 
 const top = (t, ws) => ws.reduce((m, w) => Math.max(m, wordScore(t, w)), 0);
 
-// sections: [{ id, title, settings: [{ id, label }] }] -> flat index, in page order.
 export function buildIndex(sections, dict = DICT) {
   const out = [];
   for (const sec of sections) {
@@ -175,8 +163,6 @@ function scoreEntry(e, toks) {
   return sum;
 }
 
-// The entries matching q, best first (ties keep page order); `.total` counts
-// the matches before the cut to n.
 export function find(index, query, n = 8) {
   const toks = words(query);
   const hits = [];

@@ -1,4 +1,3 @@
-// Entry point: views subscribe to core, then the connection starts.
 import './layout.js';
 import './keys.js';
 import { connect, on } from './core.js';

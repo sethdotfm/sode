@@ -183,12 +183,12 @@ test('a share link with no takes or no name is refused', () => {
 
 test('mayOpenSheet waits for the lock state, the names, and an uncovered page', () => {
   const open = { enforced: false, locked: false };
-  assert.equal(mayOpenSheet(null, false, true), false); // the lock state has not come
-  assert.equal(mayOpenSheet(open, false, false), false); // names not in
+  assert.equal(mayOpenSheet(null, false, true), false);
+  assert.equal(mayOpenSheet(open, false, false), false);
   assert.equal(mayOpenSheet(open, false, true), true);
-  assert.equal(mayOpenSheet({ enforced: true, locked: true }, false, true), false); // PIN lock up
+  assert.equal(mayOpenSheet({ enforced: true, locked: true }, false, true), false);
   assert.equal(mayOpenSheet({ enforced: true, locked: false, user: 'ana' }, false, true), true);
-  assert.equal(mayOpenSheet(open, true, true), false); // hand lock
+  assert.equal(mayOpenSheet(open, true, true), false);
   // a stale hand-lock marker while a PIN lock is enforced and unlocked does not hold it
   assert.equal(mayOpenSheet({ enforced: true, locked: false }, true, true), true);
 });

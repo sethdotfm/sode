@@ -1,5 +1,4 @@
 // Presets: storage, typed references, and turning a preset into a plan.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -107,7 +106,7 @@ test('presetPlan: one item per destination, default levels, unresolved left out 
   ] }, [1, 2]);
   assert.equal(plan.verb, 'preset');
   assert.equal(plan.title, 'Preset: Show');
-  assert.equal(plan.preset, 'Show'); // the bare name, sent with the batch
+  assert.equal(plan.preset, 'Show');
   assert.deepEqual(plan.items.map((i) => [i.dst.n, i.groups.map((g) => [g.src.n, g.levels])]), [
     [0, [[0, [1, 2]]]],
     [1, [[0, [1, 2]], [1, [3]]]],
@@ -142,7 +141,7 @@ test('a preset plan can be confirmed: wording, summary and verb', async () => {
   assert.equal(VERBS.preset.resets, false);
   // Nodes are stand-ins here; what matters is that it builds and the head lines come first.
   const nodes = planSummary(plan);
-  assert.ok(nodes.length >= 4); // title, warnings, question, the items
+  assert.ok(nodes.length >= 4);
   assert.equal(plan.warnings.length, 1);
 });
 

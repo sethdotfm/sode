@@ -1,10 +1,6 @@
-// The logged-in user's profile (Beta 1.6, #161): their saved This device
-// settings, filter sets and presets, kept on the server and pushed to every
-// connection unlocked as that user (`profile` message; name '' clears it).
-// This is the ONLY module that handles `profile` and `profileSaveResult`
-// (onMsg allows one handler per type); everything else reads it from here
-// and listens for the 'profile' bus event. Never in the hello, so it is empty
-// for a locked or anonymous page.
+// The logged-in user's profile (This device prefs, filter sets, presets), pushed to every connection unlocked as that user (name '' clears it).
+// The ONLY module handling `profile` and `profileSaveResult` (onMsg allows one handler per type); others use the 'profile' bus event.
+// Never in the hello, so empty for a locked or anonymous page.
 
 import { on, onMsg, emit, wsSend } from './core.js';
 import { findByName } from './profilesrules.js';
@@ -12,11 +8,9 @@ import { findByName } from './profilesrules.js';
 const EMPTY = Object.freeze({ name: '', prefs: {}, filterSets: [], presets: [], pinOrder: [] });
 let cur = EMPTY;
 
-// { name, prefs, filterSets, presets, pinOrder }; name '' means nobody / no users.
 export const profile = () => cur;
 export const profileName = () => cur.name;
 
-// What the server sent, as a profile (a clear, or junk, is EMPTY).
 export function toProfile(m) {
   if (!m || typeof m.name !== 'string' || !m.name) return EMPTY;
   return {
@@ -28,10 +22,7 @@ export function toProfile(m) {
   };
 }
 
-// What an editor aimed at one user's profile (bus 'openFilterEditor' /
-// 'openPresetEditor' {user, name?, profile}) works on: the whole profile in
-// its one shape, the list `key` ('filterSets' | 'presets') and the entry
-// being edited, if any. Null without a user.
+// What an editor aimed at one user's profile (bus 'openFilterEditor' / 'openPresetEditor') works on; null without a user.
 export function editTarget(m, key) {
   const user = String(m?.user || '');
   if (!user) return null;
@@ -66,8 +57,7 @@ onMsg('profileSaveResult', (m) => {
   done({ ok: !!m.ok, err: m.err || '', locked: !!m.locked });
 });
 
-// A dropped socket never answers: settle everything waiting so a button or
-// dialog isn't stuck for ever.
+// A dropped socket never answers: settle everything waiting.
 on('wsclose', () => {
   for (const done of pending.values()) done(lost);
   pending.clear();
@@ -75,19 +65,12 @@ on('wsclose', () => {
   reading.clear();
 });
 
-// Saves go one at a time, each after the last one's answer: the server may
-// handle messages of one connection out of order, and each save replaces
-// whole parts, so two in flight could lose one.
+// Saves go one at a time: the server may handle one connection's messages out of order and each save replaces whole parts.
 let chain = Promise.resolve();
 
-// Saves some parts of a profile ({prefs}, {filterSets}, {presets}, {pinOrder}; a part
-// left out is kept; a part sent replaces the whole list/map). `name` is the
-// owner: the logged-in user by default; a trusted user may name another.
-// Resolves { ok, err, locked }. No PIN is asked for here: the server decides
-// (own profile: no PIN; someone else's: trusted user or settings PIN).
-// For the own profile the local copy takes the new parts at once, so the next
-// save is built from them (the server's `profile` push confirms it); a failed
-// save puts it back.
+// Saves some parts ({prefs}, {filterSets}, {presets}, {pinOrder}); a part left out is kept, a part sent replaces the whole list/map.
+// `name` defaults to the logged-in user; a trusted user may name another. No PIN is asked here: the server decides.
+// The own profile's local copy takes the parts at once so the next save builds on them; a failed save puts it back.
 export function saveProfile(parts, name = cur.name) {
   if (!name) return Promise.resolve({ ok: false, err: 'Not logged in.', locked: false });
   // At call time, not when the queued send runs: the next caller reads it now.
@@ -112,8 +95,7 @@ export function saveProfile(parts, name = cur.name) {
   return p;
 }
 
-// Reads any user's profile (a trusted user or the settings PIN; the server
-// refuses others with locked: true). Resolves { ok, err, locked, profile }.
+// Any user's profile (trusted user or settings PIN; others get locked: true).
 export function fetchProfile(name) {
   return new Promise((resolve) => {
     const id = ++seq;

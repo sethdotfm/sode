@@ -1,5 +1,4 @@
-// Tests for the levels language (levels boxes, default levels). Not embedded.
-// docker run --rm -v "$PWD/web":/w node:22-alpine node --test '/w/test/*.test.mjs'
+// Levels language (levels boxes, default levels).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseLevelsAs } from '../levels.js';
@@ -50,6 +49,6 @@ test('invalid', () => {
   assert.equal(p('1..'), null);
   assert.equal(p('abc'), null);
   assert.equal(p('1-2-3'), null);
-  assert.equal(p('!1-17'), null); // everything left out
+  assert.equal(p('!1-17'), null);
   assert.equal(p(''), null);
 });

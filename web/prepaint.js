@@ -1,9 +1,5 @@
-// Runs in <head> before first paint (a classic script, not a module, so it
-// blocks): applies the theme, and on the main page the layout and the flip,
-// so there is no flash. Each is this browser's own choice, else the logged-in
-// user's cached default, else the global default last cached from the server (as resolve() in prefs.js does).
-// device.js keeps them up to date afterwards. The other pages load it with
-// data-only="theme" and get the theme alone.
+// Classic script in <head> (blocks) so there is no flash: theme, plus layout and flip on the main page (other pages: data-only="theme").
+// Repeats prefs.js resolve() inline: keep in step.
 (() => {
   const root = document.documentElement;
   const themeOnly = document.currentScript?.dataset.only === 'theme';

@@ -2,7 +2,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// Just enough DOM for el(): elements that collect their text.
 const fake = () => {
   const n = { kids: [], className: '', setAttribute() {}, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, style: {}, dataset: {}, append(...k) { this.kids.push(...k); }, set textContent(v) { this.kids = [String(v)]; } };
   Object.defineProperty(n, 'text', { get() { return this.kids.map((k) => (typeof k === 'string' ? k : k.text ?? '')).join(''); } });
@@ -31,7 +30,7 @@ const names = (l) => l.map((s) => s.name).join(',');
 test('pinning: global flag, local override, unknown names, default', async () => {
   const m = await setup();
   m.S.cfg.presets = [sv('Morning'), sv('Evening', false), sv('Late', true)];
-  assert.equal(names(m.pinnedPresets()), 'Morning,Late'); // no flag = pinned
+  assert.equal(names(m.pinnedPresets()), 'Morning,Late');
   const g = (n) => m.globalPresets().find((s) => s.name === n);
   m.setLocalPin(g('Evening'), true);
   m.setLocalPin(g('Morning'), false);

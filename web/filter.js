@@ -1,19 +1,7 @@
-// The Recent filter language, for sources and destinations. No imports,
-// so it runs in Node for tests.
-//
-// Terms are separated by commas and OR'd; ! terms then remove. Only !
-// terms means everything but those.
-//   65            number is 65 (as shown, so numberOffset applies)
-//   1-50          number between, also "1 thru 50", "1 through 50", "1 to 50"
-//   PIP           name contains, ignoring case
-//   'NOT USED'    name contains, taken literally ('' for a quote inside)
-//   "CAM 1"       name is exactly that, ignoring case ("" for a quote inside)
-//   /^DSM\d/      name matches the regex (ignoring case unless flags given)
-//   !65, !PIP     excludes; "not" works too before a number, quote or regex
-//                 (so a bare NOT USED stays a name)
-//
-// A rule is { not, kind: 'num' | 'range' | 'name' | 'exact' | 're', a, b,
-// text, flags, quoted }.
+// Recent filter language for sources and destinations. No imports (Node tests).
+// Comma-separated terms are OR'd, then ! terms remove; only ! terms means everything but those.
+// Terms: 65, 1-50 (also "1 thru 50", "through", "to"), PIP (name contains), 'NOT USED' ('' = quote), "CAM 1" (exact), /re/ (flags optional), !term ("not" works before a number, quote or regex).
+// Rule: { not, kind: 'num' | 'range' | 'name' | 'exact' | 're', a, b, text, flags, quoted }.
 
 const NUM = /^\d+$/;
 // "not" as a word, only where what follows can't be part of a name.
@@ -90,11 +78,9 @@ export function parseFilter(text) {
   return { rules };
 }
 
-// Whether name text must be quoted to read back as a name.
 const needsQuote = (t) => NUM.test(t.trim()) || RANGE.test(t.trim()) || /[,"']/.test(t) ||
   /^\s|\s$/.test(t) || /^[!/]/.test(t) || NOT_WORD.test(t);
 const quote = (t, q) => q + t.replaceAll(q, q + q) + q;
-// A regex's text with each unescaped / escaped, to sit between slashes.
 function slashes(t) {
   let out = '';
   for (let i = 0; i < t.length; i++) {
@@ -104,7 +90,6 @@ function slashes(t) {
   return out;
 }
 
-// Rules as code, the way a person would type them.
 export function filterText(rules) {
   return rules.map((r) => {
     const body = r.kind === 'num' ? String(r.a)
@@ -116,13 +101,10 @@ export function filterText(rules) {
   }).join(', ');
 }
 
-// A name folded for fuzzy matching: lower case, without spaces or
-// punctuation, and numbers without leading zeros ("PROD MON03" →
-// "prodmon3").
+// Fold for fuzzy: lower case, no spaces or punctuation, no leading zeros ("PROD MON03" -> "prodmon3").
 const fold = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '').replace(/(^|[a-z])0+(?=\d)/g, '$1');
 
-// Fuzzy name text, for searching: every word of it is in the folded name.
-// So "prodmon" finds "PROD MON03", "dsm3" "DSM 03" and "mv 28" "MV 28".
+// Every word of the fuzzy text is in the folded name.
 function fuzzy(text) {
   const words = text.split(/\s+/).map(fold).filter(Boolean);
   return (num, name) => {
@@ -131,7 +113,6 @@ function fuzzy(text) {
   };
 }
 
-// One rule as a test on (number as shown, name).
 function test(r, fuzzyNames) {
   switch (r.kind) {
     case 'num': return (num) => num === r.a;
@@ -153,32 +134,25 @@ function test(r, fuzzyNames) {
   }
 }
 
-// rules → (num, name) => bool. No rules matches everything. With fuzzy,
-// bare name terms match fuzzily (see fuzzy), for searching.
+// No rules matches everything; fuzzy makes bare name terms fuzzy (for searching).
 export function compileFilter(rules, { fuzzy = false } = {}) {
   const inc = rules.filter((r) => !r.not).map((r) => test(r, fuzzy));
   const exc = rules.filter((r) => r.not).map((r) => test(r, fuzzy));
   return (num, name = '') => (!inc.length || inc.some((f) => f(num, name))) && !exc.some((f) => f(num, name));
 }
 
-// Text → matcher, or null if it doesn't parse. Blank matches everything.
 export function filterFn(text, opts) {
   const p = parseFilter(text || '');
   return p.rules ? compileFilter(p.rules, opts) : null;
 }
 
-// ---- filter sets: whether one set's saved filter f (kinds plus the
-// compiled srcOk/dstOk) lets an entry show. x: ext (made elsewhere), the
-// source and destination as number+name (sn, sname, dn, dname) and
-// hiddenDst (Settings hides that destination).
+// Filter sets: x = ext (made elsewhere); sn/sname/dn/dname = source/destination number+name; hiddenDst = Settings hides that destination.
 export function entryAllows(f, { srcOk, dstOk }, x) {
   if (x.ext ? !f.ext : !f.sode) return false;
   if (x.ext && !f.hidden && x.hiddenDst) return false;
   return srcOk(x.sn, x.sname) && dstOk(x.dn, x.dname);
 }
 
-// Stacked sets: 'or' lets an entry show if any set allows it, otherwise
-// every set must. Each set's excludes and kinds count only in that set.
-// sets: [{ f, srcOk, dstOk }].
+// 'or': any set allows it; else every set must. Excludes and kinds count only within their set.
 export const stackAllows = (mode, sets, x) =>
   (mode === 'or' ? sets.some((s) => entryAllows(s.f, s, x)) : sets.every((s) => entryAllows(s.f, s, x)));

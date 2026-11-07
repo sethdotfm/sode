@@ -1,13 +1,7 @@
-// The per-browser ("This device") settings and how one is resolved: this
-// browser's own choice (a localStorage value), else the global default from
-// Settings (config deviceDefaults), else the built-in one. A missing or
-// unknown stored value means "follow the global default". Pure, so Node
-// tests it; device.js does the storage. index.html repeats the lookup for
-// theme, layout and flip before first paint (keep them in step).
+// Resolves a pref: this browser's value (localStorage), else the global default (deviceDefaults), else built-in; missing or unknown means follow global.
+// Pure; device.js does storage. prepaint.js repeats the lookup inline: keep in step.
 
-// Values are strings in localStorage; the on/off ones are booleans in the
-// config. `values` maps each to how it reads in Settings.
-// What the browser's language gives for the clock, for the Browser language label.
+// Stored as strings; the on/off ones are booleans in the config.
 const browserClock = () => (/h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hourCycle || '') ? '12-hour' : '24-hour');
 
 export const PREFS = {
@@ -24,29 +18,19 @@ export const PREFS = {
 // The Browser language option says what it gives (still one table entry, as the Go test reads it).
 Object.defineProperty(PREFS.clock.values, 'locale', { get: () => `Browser language (${browserClock()})`, enumerable: true });
 
-// Where the last global defaults are kept, so the next page load follows
-// them before the server's hello arrives.
 export const CACHE_KEY = 'sode-device-defaults';
 
 const valid = (name, v) => typeof v === 'string' && Object.hasOwn(PREFS[name].values, v);
 
-// A config value (a string, or a boolean for the on/off ones) as a pref
-// value, or null if it isn't one.
 export function fromGlobal(name, g) {
   if (PREFS[name].bool && typeof g === 'boolean') return g ? 'on' : 'off';
   return valid(name, g) ? g : null;
 }
 
-// Where the logged-in user's own defaults are cached ({user, prefs}), so the
-// next load follows them before the profile arrives.
 export const PROFILE_CACHE_KEY = 'sode-profile-prefs';
 
-// The cached profile prefs of the last logged-in user are used only while this
-// browser holds a session token (sode-session in localStorage, or
-// sode-tab-session in sessionStorage): without one the next page load is a
-// guest, who gets browser and everyone's defaults, never a previous user's
-// (#187). Returns {user, prefs}; user '' = none. index.html's prepaint.js
-// repeats this inline: keep them in step.
+// Cached profile prefs count only while a session token is kept (sode-session, sode-tab-session); else the next load is a guest.
+// prepaint.js repeats this inline: keep in step.
 export function cachedProfile(raw, hasSession) {
   if (!hasSession || !raw || typeof raw.user !== 'string' || !raw.user || !raw.prefs || typeof raw.prefs !== 'object') {
     return { user: '', prefs: {} };
@@ -54,16 +38,11 @@ export function cachedProfile(raw, hasSession) {
   return { user: raw.user, prefs: raw.prefs };
 }
 
-// This browser's stored value if it is one, else ''.
 export const own = (name, stored) => (valid(name, stored) ? stored : '');
 
-// The logged-in user's default (profile prefs: name -> value string), or ''.
 export const mine = (name, profilePrefs) => fromGlobal(name, profilePrefs?.[name]) || '';
 
-// The value in force: this browser's own, else the profile's (Me), else the
-// global default, else the built-in.
 export const resolve = (name, stored, profilePrefs, globals) =>
   own(name, stored) || mine(name, profilePrefs) || fromGlobal(name, globals?.[name]) || PREFS[name].def;
 
-// The config value for a pref value, the reverse of fromGlobal.
 export const toGlobal = (name, v) => (PREFS[name].bool ? v === 'on' : v);

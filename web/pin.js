@@ -1,6 +1,4 @@
-// The settings PIN unlock, shared by Settings and Recent's Filters. The
-// server unlocks a connection for the PIN entered against, until a lock, a
-// PIN change or the socket dropping; one flag here follows that.
+// Settings PIN unlock shared by Settings and Filters; one flag follows the server's per-connection unlock (until lock, PIN change or socket drop).
 
 import { S, on, wsSend, sentence } from './core.js';
 import { needsPin as needsPinRule } from './lockrules.js';
@@ -9,16 +7,13 @@ let seq = 0;
 let waiting = null; // the unlock in flight: { id, resolve }
 let isUnlocked = false;
 
-// unlocked() is the settings PIN only. A user the server calls trusted may
-// also make low-risk saves without it (needsPin); the destructive controls
-// (users, clear history, changing the PIN, the config file) are PIN-only: ask
-// for it with the popup (pinprompt.js) before, or after the server refuses.
+// unlocked() is the settings PIN only; a trusted user may make low-risk saves without it (needsPin).
+// Destructive controls are PIN-only: ask via pinprompt.js before, or after a refusal.
 let trustedUser = false;
 
 export const unlocked = () => isUnlocked;
 export const trusted = () => trustedUser;
 export const needsPin = () => needsPinRule(S.pinSet, isUnlocked, trustedUser);
-// The server refused for want of the PIN: this page's unlock is gone.
 export const lostUnlock = () => { isUnlocked = false; };
 
 function settle(r) {
@@ -27,10 +22,7 @@ function settle(r) {
   w?.resolve(r);
 }
 
-// Sends the PIN. Resolves {ok, err}; stale when overtaken (relock, or the
-// socket dropping, which also says why in err), so the caller only needs
-// to re-enable what it disabled. superseded too when a newer unlock took
-// over: that one's caller has the button now, so leave it be.
+// Resolves {ok, err}; stale when overtaken (relock, socket drop with why in err); superseded when a newer unlock's caller owns the button.
 export function unlock(pin) {
   settle({ ok: false, stale: true, superseded: true });
   const id = ++seq;
@@ -38,15 +30,13 @@ export function unlock(pin) {
   return new Promise((resolve) => { waiting = { id, resolve }; });
 }
 
-// Locks again. Also sent with an unlock still in flight: the server
-// handles them in order, so the lock wins. force: send it regardless.
+// Also sent with an unlock in flight: the server handles them in order, so the lock wins.
 export function relock(force = false) {
   if (force || isUnlocked || waiting) wsSend({ t: 'lock' });
   isUnlocked = false;
   settle({ ok: false, stale: true });
 }
 
-// lock.js: what the server says about this connection's user.
 on('access', (m) => {
   trustedUser = !!m.trusted && !!m.user && !m.locked;
 });

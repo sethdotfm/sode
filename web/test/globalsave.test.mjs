@@ -1,5 +1,4 @@
 // globalSaver with a fake socket: send, answer, PIN, lock, lost socket.
-// Run: node --test web/test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -51,7 +50,7 @@ test('close keeps a sent save, drops one waiting for the PIN', async () => {
   core.S.pinSet = true;
   const { saver: s2 } = await make();
   core.S.pinSet = true;
-  s2.change({}, () => {}); // no unlock: waits for the PIN
+  s2.change({}, () => {});
   assert.equal(s2.close(), false);
   assert.ok(!s2.busy());
 });
