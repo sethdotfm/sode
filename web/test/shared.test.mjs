@@ -58,10 +58,7 @@ test('nextTake: last take one number higher, per side', async () => {
   S.hist = [{ id: 1, src: 1, srcName: 'X1', dst: 5, dstName: 'X5', levels: [1], ok: true }];
   let t = nextTake();
   assert.equal(t.src.n, 2);
-  assert.deepEqual(
-    t.dsts.map((d) => d.n),
-    [6],
-  );
+  assert.deepEqual(t.dsts.map((d) => d.n), [6]);
   S.hist = [{ id: 2, src: 2, srcName: 'X2', dst: 7, dstName: 'X7', levels: [1], ok: true }];
   t = nextTake();
   assert.equal(t.src, null, 'past the last source');
@@ -125,24 +122,15 @@ test('nextTake: repeating keeps going while the boxes hold the last Next (#195)'
   const empty = { src: null, dsts: [] };
   let t = nextTake(empty);
   assert.equal(t.src.n, 2);
-  assert.deepEqual(
-    t.dsts.map((d) => d.n),
-    [6, 7],
-  );
+  assert.deepEqual(t.dsts.map((d) => d.n), [6, 7]);
   usedNext('src', t);
   usedNext('dst', t);
   t = nextTake({ src: it(2), dsts: [it(6), it(7)] });
   assert.equal(t.src.n, 3);
-  assert.deepEqual(
-    t.dsts.map((d) => d.n),
-    [7, 8],
-  );
+  assert.deepEqual(t.dsts.map((d) => d.n), [7, 8]);
   t = nextTake({ src: it(4), dsts: [it(9)] });
   assert.equal(t.src.n, 2);
-  assert.deepEqual(
-    t.dsts.map((d) => d.n),
-    [6, 7],
-  );
+  assert.deepEqual(t.dsts.map((d) => d.n), [6, 7]);
   resetNext();
 });
 

@@ -24,20 +24,19 @@ export function fedBy(src, levels) {
 }
 
 // Button when onPick is given and src is routed (>= 0; null unknown, -1 nothing), else plain text.
-export const srcEnd = (src, text, onPick) =>
-  onPick && src != null && src >= 0 ? pickEnd('src', text, 'Use as source', () => onPick(src)) : el('span', 'sode__end sode__end--src', text);
+export const srcEnd = (src, text, onPick) => (onPick && src != null && src >= 0
+  ? pickEnd('src', text, 'Use as source', () => onPick(src))
+  : el('span', 'sode__end sode__end--src', text));
 
-export const srcRow = (levels, srcText, src = null, onPick = null) => el('div', 'sode__route', levelBar(levels), srcEnd(src, srcText, onPick));
+export const srcRow = (levels, srcText, src = null, onPick = null) =>
+  el('div', 'sode__route', levelBar(levels), srcEnd(src, srcText, onPick));
 
 export function routeRow(levels, srcText, dstText) {
-  return el(
-    'div',
-    'sode__route',
+  return el('div', 'sode__route',
     levelBar(levels),
     el('span', 'sode__end sode__end--src', srcText),
     el('span', 'sode__arrow', '→'),
-    el('span', 'sode__end sode__end--dst', dstText),
-  );
+    el('span', 'sode__end sode__end--dst', dstText));
 }
 
 export function pickEnd(side, text, title, onPick) {
@@ -54,6 +53,8 @@ export function currentlyNodes(dst, onPick) {
   const all = allLevels();
   const rows = bySource(dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src), r.src, onPick));
   const p = protectedOn(dst.n, all);
-  const prot = p.levels.length ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(p.devices))) : null;
+  const prot = p.levels.length
+    ? el('div', 'sode__route', levelBar(p.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(p.devices)))
+    : null;
   return [el('div', 'sode__label', `Currently on ${dst.label}`), ...rows, prot].filter(Boolean);
 }

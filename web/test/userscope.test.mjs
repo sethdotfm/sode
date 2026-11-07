@@ -7,22 +7,12 @@ globalThis.document = new Proxy({ baseURI: 'http://sode.test/' }, { get: (t, k) 
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
 const si = globalThis.setInterval;
-globalThis.setInterval = (...a) => {
-  const t = si(...a);
-  t.unref?.();
-  return t;
-};
+globalThis.setInterval = (...a) => { const t = si(...a); t.unref?.(); return t; };
 const sent = [];
 class FakeWS {
   static OPEN = 1;
-  constructor() {
-    this.readyState = 1;
-    this.lastRx = Date.now();
-    FakeWS.last = this;
-  }
-  send(m) {
-    sent.push(JSON.parse(m));
-  }
+  constructor() { this.readyState = 1; this.lastRx = Date.now(); FakeWS.last = this; }
+  send(m) { sent.push(JSON.parse(m)); }
   close() {}
 }
 globalThis.WebSocket = FakeWS;
@@ -44,15 +34,9 @@ test('user sets come from the profile and sit between Everyone and This browser'
   reset();
   m.S.cfg.filterSets = [f({ name: 'Shared', dst: 'MV' })];
   m.saveLocalSet('Mine');
-  assert.deepEqual(
-    m.allSets().map((s) => `${s.scope}:${s.name}`),
-    ['all:All', 'global:Shared', 'local:Mine'],
-  );
+  assert.deepEqual(m.allSets().map((s) => `${s.scope}:${s.name}`), ['all:All', 'global:Shared', 'local:Mine']);
   login('Ana', [f({ name: 'Ana set', src: 'CAM' })]);
-  assert.deepEqual(
-    m.allSets().map((s) => `${s.scope}:${s.name}`),
-    ['all:All', 'global:Shared', 'user:Ana set', 'local:Mine'],
-  );
+  assert.deepEqual(m.allSets().map((s) => `${s.scope}:${s.name}`), ['all:All', 'global:Shared', 'user:Ana set', 'local:Mine']);
   login('');
   assert.deepEqual(m.userSets(), []);
 });
@@ -88,10 +72,7 @@ test('logging out drops a user set', () => {
   login('');
   assert.equal(m.activeSet().scope, 'all');
   assert.equal(m.filterState().src, '');
-  assert.equal(
-    m.allSets().some((s) => s.scope === 'user'),
-    false,
-  );
+  assert.equal(m.allSets().some((s) => s.scope === 'user'), false);
 });
 
 test('a stack drops the sets of a user that left, keeps the rest', () => {
@@ -101,10 +82,7 @@ test('a stack drops the sets of a user that left, keeps the rest', () => {
   m.toggleSet('global', 'G');
   m.toggleSet('user', 'A');
   assert.equal(m.activeStack().length, 2);
-  assert.deepEqual(
-    JSON.parse(mem.get('sode-filter-stack')).map((r) => r.user),
-    [undefined, 'Ana'],
-  );
+  assert.deepEqual(JSON.parse(mem.get('sode-filter-stack')).map((r) => r.user), [undefined, 'Ana']);
   login('Bob', []);
   assert.equal(m.activeStack().length, 0);
   assert.equal(m.activeSet().name, 'G');
@@ -126,22 +104,13 @@ test('user presets: own pinned flag, scoped after Everyone', () => {
   reset();
   m.S.cfg.presets = [{ name: 'Show', items: [{ src: 1, dsts: [0], levels: [] }] }];
   login('Ana', [], [{ name: 'Show', pinned: false, items: [{ src: 2, dsts: [1], levels: [] }] }]);
-  assert.deepEqual(
-    m.allPresets().map((s) => `${s.scope}:${s.name}`),
-    ['global:Show', 'user:Show'],
-  );
+  assert.deepEqual(m.allPresets().map((s) => `${s.scope}:${s.name}`), ['global:Show', 'user:Show']);
   assert.equal(m.findPreset('user', 'show').items[0].src, 2);
   // a browser override of the Everyone preset never touches the Me preset of the same name
   m.setLocalPin(m.findPreset('global', 'Show'), false);
-  assert.deepEqual(
-    m.pinnedPresets().map((s) => s.scope),
-    [],
-  );
+  assert.deepEqual(m.pinnedPresets().map((s) => s.scope), []);
   m.setLocalPin(m.findPreset('global', 'Show'), true);
-  assert.deepEqual(
-    m.pinnedPresets().map((s) => s.scope),
-    ['global'],
-  );
+  assert.deepEqual(m.pinnedPresets().map((s) => s.scope), ['global']);
   assert.equal(m.effectivePin(m.findPreset('user', 'Show')), false);
   m.setLocalPin(m.findPreset('user', 'Show'), true); // a Me preset is saved to the profile instead: no local effect
   assert.equal(m.effectivePin(m.findPreset('user', 'Show')), false);
@@ -168,9 +137,7 @@ test('profileProblem refuses an oversized profile; saves send the whole list', a
   assert.equal(saver.busy(), false);
   sent.length = 0;
   let done = false;
-  saver.change({ presets: [{ name: 'P', items: [], pinned: true }] }, () => {
-    done = true;
-  });
+  saver.change({ presets: [{ name: 'P', items: [], pinned: true }] }, () => { done = true; });
   assert.equal(saver.busy(), true);
   await new Promise((r) => setImmediate(r));
   const out = sent.at(-1);

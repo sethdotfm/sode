@@ -23,13 +23,7 @@ function dismiss(r) {
     // .sode__banner--out collapses it so what is below slides up.
     const done = () => wrap.remove();
     wrap.classList.add('sode__banner--out');
-    wrap.addEventListener(
-      'transitionend',
-      (e) => {
-        if (e.target === wrap) done();
-      },
-      { once: true },
-    );
+    wrap.addEventListener('transitionend', (e) => { if (e.target === wrap) done(); }, { once: true });
     setTimeout(done, 400); // a hidden copy never transitions
   }
 }
@@ -42,16 +36,8 @@ export function resultNode(r) {
   close.setAttribute('aria-label', 'Dismiss');
   close.dataset.pbTip = 'Dismiss';
   close.addEventListener('click', () => dismiss(r));
-  const inner = el(
-    'div',
-    'sode__banner-in',
-    el(
-      'div',
-      `pb-alert pb-alert--${r.kind}`,
-      el('div', 'sode__banner-body', el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text),
-      close,
-    ),
-  );
+  const inner = el('div', 'sode__banner-in', el('div', `pb-alert pb-alert--${r.kind}`,
+    el('div', 'sode__banner-body', el('div', 'pb-alert__title', r.title), typeof r.text === 'function' ? r.text() : r.text), close));
   wrap.append(inner);
   const ms = dismissMs(r.kind, S.cfg?.resultDismissSeconds || 0);
   if (ms) {

@@ -51,12 +51,9 @@ function showView() {
 
 let clean = '';
 let savedAt = null;
-const formState = () =>
-  JSON.stringify(
-    [...form.querySelectorAll('input, select, textarea')]
-      .filter((f) => !f.closest('[data-apart]') && f.id !== 'settings-find')
-      .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)),
-  );
+const formState = () => JSON.stringify([...form.querySelectorAll('input, select, textarea')]
+  .filter((f) => !f.closest('[data-apart]') && f.id !== 'settings-find')
+  .map((f) => (f.type === 'checkbox' || f.type === 'radio' ? f.checked : f.value)));
 const dirty = () => isOpen() && formState() !== clean;
 const warned = () => !$('settings-unsaved').hidden;
 
@@ -90,25 +87,15 @@ function exitSettings() {
 // (e.g. after a config import).
 on('settingsClose', (m) => {
   if (!isOpen()) return;
-  if (m?.discard) {
-    unwarn();
-    closeSettings();
-  } else exitSettings();
+  if (m?.discard) { unwarn(); closeSettings(); } else exitSettings();
 });
 
 function renderSaveState() {
   const path = S.configPath ? el('code', null, S.configPath) : null;
-  $('settings-path').replaceChildren(
-    ...(dirty()
-      ? warned()
-        ? []
-        : ['Unsaved changes']
-      : !path
-        ? [savedAt ? `Applied ${fmtTime(savedAt)}; not saved: ` : 'Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']
-        : savedAt
-          ? [`Saved ${fmtTime(savedAt)} to `, path]
-          : ['Saved to ', path]),
-  );
+  $('settings-path').replaceChildren(...(dirty() ? (warned() ? [] : ['Unsaved changes'])
+    : !path ? [savedAt ? `Applied ${fmtTime(savedAt)}; not saved: ` : 'Not saved: ', el('code', null, 'SODE_CONFIG'), ' unset']
+    : savedAt ? [`Saved ${fmtTime(savedAt)} to `, path]
+    : ['Saved to ', path]));
 }
 
 // Previewed before save: window border and the app icon the server draws (icon.go).
@@ -172,12 +159,9 @@ export function openSettings() {
 function renderLock(opening = false, afterPin = false) {
   if (!isOpen()) return;
   const locked = needsPin();
-  const flipped = locked !== 'locked' in form.dataset;
+  const flipped = locked !== ('locked' in form.dataset);
   if (locked) form.dataset.locked = '';
-  else {
-    delete form.dataset.locked;
-    $('lock-help').hidden = true;
-  }
+  else { delete form.dataset.locked; $('lock-help').hidden = true; }
   if (!opening && !flipped) return;
   if (layout() !== 'desktop') return;
   if (locked) $('lock-pin').focus();
@@ -200,11 +184,7 @@ function readSettings() {
   for (const f of fields()) {
     const k = f.dataset.key;
     if (f.dataset.type === 'bool') c[k] = f.checked;
-    else if (f.dataset.type === 'list')
-      c[k] = f.value
-        .split(',')
-        .map((x) => x.trim())
-        .filter(Boolean);
+    else if (f.dataset.type === 'list') c[k] = f.value.split(',').map((x) => x.trim()).filter(Boolean);
     else if (f.dataset.type === 'int') c[k] = f.value.trim() === '' ? NaN : Number(f.value);
     else c[k] = f.value.trim();
   }
@@ -229,7 +209,10 @@ function readSettings() {
 
 const prefOptions = (name, globalText) => {
   const opt = (value, text) => Object.assign(el('option', null, text), { value });
-  return [...(globalText ? [opt('', globalText)] : []), ...Object.entries(PREFS[name].values).map(([v, text]) => opt(v, text))];
+  return [
+    ...(globalText ? [opt('', globalText)] : []),
+    ...Object.entries(PREFS[name].values).map(([v, text]) => opt(v, text)),
+  ];
 };
 
 for (const s of form.querySelectorAll('select[data-gpref]')) s.replaceChildren(...prefOptions(s.dataset.gpref));
@@ -270,27 +253,11 @@ function myButton(select) {
     const r = await saveProfile({ prefs });
     save.disabled = clear.disabled = false;
     note.hidden = r.ok;
-    note.textContent = r.ok ? '' : r.err || 'Could not save.';
+    note.textContent = r.ok ? '' : (r.err || 'Could not save.');
     if (r.ok) after();
   };
-  save.addEventListener(
-    'click',
-    run(
-      (prefs) => {
-        prefs[name] = pref(name);
-      },
-      () => setPref(name, ''),
-    ),
-  );
-  clear.addEventListener(
-    'click',
-    run(
-      (prefs) => {
-        delete prefs[name];
-      },
-      () => renderPrefs(),
-    ),
-  );
+  save.addEventListener('click', run((prefs) => { prefs[name] = pref(name); }, () => setPref(name, '')));
+  clear.addEventListener('click', run((prefs) => { delete prefs[name]; }, () => renderPrefs()));
   const row = el('div', 'sode__my-defaults');
   row.append(save, clear, note);
   select.closest('.sode__field').append(row);
@@ -308,7 +275,7 @@ function renderPrefs() {
     const name = s.dataset.pref;
     const opt = (value, text) => Object.assign(el('option', null, text), { value });
     s.replaceChildren(
-      opt('', `${myPref(name) ? 'My' : "Everyone's"} default (${PREFS[name].values[defaultPref(name)]})`),
+      opt('', `${myPref(name) ? 'My' : 'Everyone\'s'} default (${PREFS[name].values[defaultPref(name)]})`),
       ...Object.keys(PREFS[name].values).map((v) => opt(v, originText(name, v))),
     );
     s.value = ownPref(name);
@@ -345,10 +312,12 @@ $('account-login').addEventListener('click', () => emit('login'));
 fillAbout($('lock-exit'));
 fillAbout($('settings-foot'), { id: 'open-log' });
 
+
 const sections = [...form.querySelectorAll(':scope > fieldset.sode__group')];
 const toc = $('settings-toc');
 const tocApi = initToc({ form, sections, toc, isOpen });
 const { phone, showPage, reveal, focusField, markSection } = tocApi;
+
 
 function renderNumbering() {
   const n = formLevels();
@@ -370,13 +339,14 @@ function numberingChanged() {
   rerenderColors();
 }
 
+
 const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const toHex = (v) => {
   const h = v.trim().replace(/^#/, '').toLowerCase();
   return '#' + (h.length === 3 ? [...h].map((c) => c + c).join('') : h);
 };
 
-const swatchOf = (ui) => (ui === 1 ? 'video' : String(((ui - 2) % 16) + 1).padStart(2, '0'));
+const swatchOf = (ui) => (ui === 1 ? 'video' : String((ui - 2) % 16 + 1).padStart(2, '0'));
 
 function defaultHex(ui) {
   if (S.levelDefaults[ui - 1]) return S.levelDefaults[ui - 1];
@@ -385,13 +355,7 @@ function defaultHex(ui) {
   document.body.append(probe);
   const rgb = getComputedStyle(probe).color.match(/\d+/g) || [];
   probe.remove();
-  return (
-    '#' +
-    rgb
-      .slice(0, 3)
-      .map((c) => Number(c).toString(16).padStart(2, '0'))
-      .join('')
-  );
+  return '#' + rgb.slice(0, 3).map((c) => Number(c).toString(16).padStart(2, '0')).join('');
 }
 
 function preview(slot, ui, v) {
@@ -470,9 +434,7 @@ function configResult(m) {
     // Not trusted: Settings flips to its own PIN prompt. A trusted user's form never did, so
     // ask in the popup and save again.
     if (needsPin()) return showLockErr(m.err);
-    reask('Saving that needs the Advanced Settings PIN.').then((ok) => {
-      if (ok) form.requestSubmit();
-    });
+    reask('Saving that needs the Advanced Settings PIN.').then((ok) => { if (ok) form.requestSubmit(); });
     return;
   }
   $('settings-err').textContent = sentence(m.err);
@@ -539,15 +501,11 @@ on('historyCleared', () => {
   clearing = 0;
   showResult('ok', 'History cleared', 'Recent is empty for everyone.');
 });
-on('wsclose', () => {
-  clearing = 0;
-});
+on('wsclose', () => { clearing = 0; });
 
 for (const id of ['settings-open', 'm-settings']) $(id).addEventListener('click', openSettings);
 $('settings-exit').addEventListener('click', exitSettings);
-$('settings-back').addEventListener('click', () => {
-  if (!tocApi.back()) exitSettings();
-});
+$('settings-back').addEventListener('click', () => { if (!tocApi.back()) exitSettings(); });
 $('lock-cancel').addEventListener('click', exitSettings);
 
 function openLockHelp() {
@@ -589,10 +547,7 @@ $('names-refresh').addEventListener('click', () => {
     $('names-refresh').textContent = 'Refreshing…';
   }
 });
-const askThenSave = (why) =>
-  askPin(why).then((ok) => {
-    if (ok) form.requestSubmit();
-  });
+const askThenSave = (why) => askPin(why).then((ok) => { if (ok) form.requestSubmit(); });
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   if ('locked' in form.dataset) return void sendUnlock();
@@ -641,7 +596,7 @@ form.addEventListener('submit', (e) => {
     return;
   }
   if (pin !== $('cfg-pin2').value) {
-    $('settings-err').textContent = "The two PINs don't match.";
+    $('settings-err').textContent = 'The two PINs don\'t match.';
     $('settings-err').hidden = false;
     showPinFields(true);
     reveal($('cfg-pin2'));
@@ -657,14 +612,8 @@ form.addEventListener('submit', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (!$('lock-help').hidden) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeLockHelp();
-    }
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      $('lock-help-close').focus();
-    }
+    if (e.key === 'Escape') { e.preventDefault(); closeLockHelp(); }
+    if (e.key === 'Tab') { e.preventDefault(); $('lock-help-close').focus(); }
     return;
   }
   if (isOpen() && e.key === 'Escape') {
@@ -674,28 +623,18 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('popstate', showView);
 
-on('hello', () => {
-  showView();
-  syncLock();
-});
+on('hello', () => { showView(); syncLock(); });
 on('names', renderNamesStatus);
 on('namesChecked', renderNamesStatus);
-on('conn', () => {
-  renderNamesStatus();
-  syncLock();
-});
-on('access', () => {
-  if (isOpen() && !saving()) renderLock();
-});
+on('conn', () => { renderNamesStatus(); syncLock(); });
+on('access', () => { if (isOpen() && !saving()) renderLock(); });
 // A bare `locked`: this connection's unlock is gone (PIN changed elsewhere, or a clear-history
 // was refused). A request of ours waiting on it asks again in the popup; otherwise only a
 // connection that needs the PIN for Settings drops to the PIN prompt.
 on('locked', () => {
   if (clearPending()) {
     clearing = 0;
-    reask('Clearing history needs the Advanced Settings PIN.').then((ok) => {
-      if (ok) sendClear();
-    });
+    reask('Clearing history needs the Advanced Settings PIN.').then((ok) => { if (ok) sendClear(); });
   } else if (isOpen() && !saving() && needsPin()) showLockErr('Settings are locked; enter the PIN again.');
 });
 on('configResult', configResult);
@@ -725,21 +664,16 @@ function settingsOf(sec, secId) {
   return [...out.values()];
 }
 const OUTSIDE = [{ secId: 'history', id: 'open-log', label: 'View Logs', node: $('open-log') }];
-const makeIndex = () =>
-  buildIndex(
-    sections.map((sec, i) => {
-      const settings = settingsOf(sec, secIds[i]);
-      for (const x of OUTSIDE.filter((o) => o.secId === secIds[i])) {
-        settings.push({ id: x.id, label: x.label });
-        targets.set(`${x.secId}/${x.id}`, x.node);
-      }
-      return { id: secIds[i], title: sec.querySelector('legend').textContent, settings };
-    }),
-  );
+const makeIndex = () => buildIndex(sections.map((sec, i) => {
+  const settings = settingsOf(sec, secIds[i]);
+  for (const x of OUTSIDE.filter((o) => o.secId === secIds[i])) {
+    settings.push({ id: x.id, label: x.label });
+    targets.set(`${x.secId}/${x.id}`, x.node);
+  }
+  return { id: secIds[i], title: sec.querySelector('legend').textContent, settings };
+}));
 let settingsIndex = makeIndex();
-indexNow = () => {
-  settingsIndex = makeIndex();
-};
+indexNow = () => { settingsIndex = makeIndex(); };
 
 let hits = [];
 let cur = 0;
@@ -763,16 +697,14 @@ function showHits() {
   const q = findBox.value.trim();
   hits = q ? find(settingsIndex, q) : [];
   cur = 0;
-  foundList.replaceChildren(
-    ...hits.map((h, i) => {
-      const li = el('li', null, el('span', null, h.label), el('span', 'sode__hint', h.kind === 'section' ? 'Section' : 'in ' + h.section));
-      li.id = `settings-found-${i}`;
-      li.setAttribute('role', 'option');
-      li.addEventListener('mousedown', (e) => e.preventDefault());
-      li.addEventListener('click', () => pickHit(h));
-      return li;
-    }),
-  );
+  foundList.replaceChildren(...hits.map((h, i) => {
+    const li = el('li', null, el('span', null, h.label), el('span', 'sode__hint', h.kind === 'section' ? 'Section' : 'in ' + h.section));
+    li.id = `settings-found-${i}`;
+    li.setAttribute('role', 'option');
+    li.addEventListener('mousedown', (e) => e.preventDefault());
+    li.addEventListener('click', () => pickHit(h));
+    return li;
+  }));
   foundList.hidden = !hits.length;
   $('settings-find-none').hidden = !q || hits.length > 0;
   findBox.setAttribute('aria-expanded', String(hits.length > 0));
@@ -793,10 +725,7 @@ function pickHit(h) {
   findBox.value = '';
   showHits();
   tocApi.pick(i);
-  node.scrollIntoView({
-    behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    block: h.kind === 'section' ? 'start' : 'center',
-  });
+  node.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: h.kind === 'section' ? 'start' : 'center' });
   flash(node);
   if (h.kind === 'setting') document.getElementById(h.id)?.focus({ preventScroll: true });
   else findBox.blur();
@@ -804,21 +733,9 @@ function pickHit(h) {
 
 // Typing here isn't editing the settings: the form must not see it (it would dismiss the
 // unsaved-changes warning).
-for (const ev of ['input', 'change'])
-  findBox.addEventListener(ev, (e) => {
-    e.stopPropagation();
-    if (ev === 'input') showHits();
-  });
-findBox.addEventListener('blur', () => {
-  foundList.hidden = true;
-  findBox.setAttribute('aria-expanded', 'false');
-});
-findBox.addEventListener('focus', () => {
-  if (hits.length) {
-    foundList.hidden = false;
-    findBox.setAttribute('aria-expanded', 'true');
-  }
-});
+for (const ev of ['input', 'change']) findBox.addEventListener(ev, (e) => { e.stopPropagation(); if (ev === 'input') showHits(); });
+findBox.addEventListener('blur', () => { foundList.hidden = true; findBox.setAttribute('aria-expanded', 'false'); });
+findBox.addEventListener('focus', () => { if (hits.length) { foundList.hidden = false; findBox.setAttribute('aria-expanded', 'true'); } });
 findBox.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

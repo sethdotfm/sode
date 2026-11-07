@@ -3,63 +3,22 @@
 // comes back.
 
 import {
-  $,
-  el,
-  S,
-  on,
-  connState,
-  routerLabel,
-  linked,
-  setLinkDisabled,
-  renderDown,
-  setDot,
-  search,
-  dstItem,
-  srcItem,
-  labelNode,
-  toggle,
-  keepSearch,
+  $, el, S, on, connState, routerLabel, linked, setLinkDisabled, renderDown, setDot, search, dstItem, srcItem, labelNode, toggle, keepSearch,
 } from './core.js';
 import { defaultLevelsWord, levelBar, allLevels, levelText } from './levelview.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
 import {
-  undoPlan,
-  againPlan,
-  planVerb,
-  folderUndoPlan,
-  resultNode,
-  showResult,
-  patchPlan,
-  planBlocked,
-  planSummary,
-  sendTakes,
-  lastTake,
-  nextTake,
-  usedNext,
-  lastChip,
-  VERBS,
+  undoPlan, againPlan, planVerb, folderUndoPlan, resultNode, showResult, patchPlan, planBlocked, planSummary,
+  sendTakes, lastTake, nextTake, usedNext, lastChip, VERBS,
 } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
 import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './recentpick.js';
-import {
-  byLabel,
-  levelBox,
-  combobox,
-  disclosure,
-  undoButton,
-  againButton,
-  arrivals,
-  feeding,
-  lockout,
-  stackSteps,
-  clickToToggle,
-  pullToLoad,
-} from './widgets.js';
+import { byLabel, levelBox, combobox, disclosure, undoButton, againButton, arrivals, feeding, lockout, stackSteps, clickToToggle, pullToLoad } from './widgets.js';
 
 const STEPS = ['src', 'dst', 'lvl'];
 const PROMPT = { src: 'Source', dst: 'Destination', lvl: 'Levels' };
@@ -75,13 +34,10 @@ const M = {
 };
 // The best match sits nearest the input (column-reverse list), so ↑ moves to the next-best.
 const matches = combobox(() => inputs[M.step], $('m-matches'), {
-  source: (text) =>
-    M.step === 'lvl' || M.sel[M.step] ? [] : search(M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n)), text, 50),
+  source: (text) => (M.step === 'lvl' || M.sel[M.step] ? []
+    : search(M.step === 'src' ? S.srcs : S.dsts.filter((d) => !M.dsts.some((x) => x.n === d.n)), text, 50)),
   onPick: () => advance(),
-  add: (it) => {
-    addDst(it, true);
-    inputs.dst.focus();
-  },
+  add: (it) => { addDst(it, true); inputs.dst.focus(); },
   canAdd: () => M.step === 'dst',
   press: 'click',
   cls: 'sode-m__match',
@@ -232,21 +188,16 @@ function renderLast() {
   const k = M.step;
   const state = S.cfg && boxState();
   const what = { src: 'source', dst: 'destinations', lvl: 'levels' }[k];
-  slot.replaceChildren(
-    ...['', 'Next']
-      .filter((n) => state && (!n || k !== 'lvl'))
-      .map((n) => {
-        const v = lastChip(n ? nextTake(state) : lastTake(), state)[k];
-        if (!v) return null;
-        const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', n || 'Last'), el('span', 'sode__last-text', ...v));
-        b.type = 'button';
-        b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
-        b.addEventListener('pointerdown', (e) => e.preventDefault());
-        b.addEventListener('click', () => useLast(k, !!n));
-        return b;
-      })
-      .filter(Boolean),
-  );
+  slot.replaceChildren(...['', 'Next'].filter((n) => state && (!n || k !== 'lvl')).map((n) => {
+    const v = lastChip(n ? nextTake(state) : lastTake(), state)[k];
+    if (!v) return null;
+    const b = el('button', 'pb-chip sode__last', el('span', 'sode__tag', n || 'Last'), el('span', 'sode__last-text', ...v));
+    b.type = 'button';
+    b.setAttribute('aria-label', n ? `Use the last take's ${what}, the next one` : `Use the last take's ${what}`);
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
+    b.addEventListener('click', () => useLast(k, !!n));
+    return b;
+  }).filter(Boolean));
 }
 
 function pickSrc(n) {
@@ -291,25 +242,16 @@ function editSrc() {
 function tap(node, label, onTap) {
   if (label) node.setAttribute('aria-label', label);
   node.addEventListener('pointerdown', (e) => e.preventDefault());
-  node.addEventListener('click', (e) => {
-    e.stopPropagation();
-    onTap();
-  });
+  node.addEventListener('click', (e) => { e.stopPropagation(); onTap(); });
   return node;
 }
 
 const maybe = (k) => (M.step === k && inputs[k].value.trim() ? matches.current() : null);
 
 function sumRow(k, ...vals) {
-  const row = el(
-    'div',
-    `sode-m__sum-row sode-m__sum-row--${k}` + (M.step === k ? ' sode-m__sum-row--on' : ''),
-    el('span', 'sode-m__sum-key', PROMPT[k]),
-    el('span', 'sode-m__sum-vals', ...vals),
-  );
-  return tap(row, null, () => {
-    if (M.step !== k) setStep(k);
-  });
+  const row = el('div', `sode-m__sum-row sode-m__sum-row--${k}` + (M.step === k ? ' sode-m__sum-row--on' : ''),
+    el('span', 'sode-m__sum-key', PROMPT[k]), el('span', 'sode-m__sum-vals', ...vals));
+  return tap(row, null, () => { if (M.step !== k) setStep(k); });
 }
 
 const sumVal = (it, cls = '') => el('span', 'sode-m__sum-val' + cls, labelNode(it));
@@ -318,23 +260,19 @@ const sumNone = (text) => el('span', 'sode__hint', text);
 function summary() {
   const src = M.sel.src
     ? tap(el('button', 'sode-m__sum-val', labelNode(M.sel.src)), `Source ${M.sel.src.label}, tap to change`, editSrc)
-    : maybe('src')
-      ? sumVal(maybe('src'), ' sode-m__sum-val--maybe')
+    : maybe('src') ? sumVal(maybe('src'), ' sode-m__sum-val--maybe')
       : sumNone(M.step === 'src' && !M.dsts.length && !inputs.src.value.trim() ? '— Press Next to select a destination first.' : '—');
   const blankDst = M.step === 'dst' && !M.sel.src && !M.dsts.length && !inputs.dst.value.trim();
-  const dsts = M.dsts.map((it, i) => tap(el('button', 'sode-m__sum-val', labelNode(it)), `Destination ${it.label}, tap to change`, () => editDst(i)));
+  const dsts = M.dsts.map((it, i) =>
+    tap(el('button', 'sode-m__sum-val', labelNode(it)), `Destination ${it.label}, tap to change`, () => editDst(i)));
   const next = maybe('dst');
   if (next) dsts.push(sumVal(next, ' sode-m__sum-val--maybe'));
   const levels = lvl.levels();
   const rows = {
     src: () => sumRow('src', src),
     dst: () => sumRow('dst', ...(dsts.length ? dsts : [sumNone(blankDst ? '— Press Next to select a source first.' : '—')])),
-    lvl: () =>
-      sumRow(
-        'lvl',
-        levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
-        levels && lvl.empty() ? sumNone(`(${defaultLevelsWord()})`) : null,
-      ),
+    lvl: () => sumRow('lvl', levels ? el('span', 'sode-m__sum-lvls', levelText(levels)) : el('span', 'pb-badge pb-badge--error', 'Not valid'),
+      levels && lvl.empty() ? sumNone(`(${defaultLevelsWord()})`) : null),
   };
   return el('div', 'sode-m__sum', ...order().map((k) => rows[k]()));
 }
@@ -349,33 +287,15 @@ function renderThread() {
   const last = M.dsts[M.dsts.length - 1] || maybe('dst');
   const others = M.dsts.length - 1;
   if (last) {
-    nodes.push(
-      el(
-        'div',
-        'sode-m__card',
-        ...currentlyNodes(last),
-        others > 0 ? el('div', 'sode__hint', `and ${others} more destination${others === 1 ? '' : 's'}`) : null,
-      ),
-    );
+    nodes.push(el('div', 'sode-m__card', ...currentlyNodes(last),
+      others > 0 ? el('div', 'sode__hint', `and ${others} more destination${others === 1 ? '' : 's'}`) : null));
   } else if (M.sel.src) {
-    nodes.push(
-      el(
-        'div',
-        'sode-m__card',
-        feeding(fedBy(M.sel.src.n, allLevels()), {
-          open: M.feedOpen,
-          onToggle: () => {
-            M.feedOpen = !M.feedOpen;
-            renderThread();
-          },
-          onPick: (d) => {
-            addDst(dstItem(d));
-            setStep('lvl');
-          },
-          hold: 'pointerdown',
-        }),
-      ),
-    );
+    nodes.push(el('div', 'sode-m__card', feeding(fedBy(M.sel.src.n, allLevels()), {
+      open: M.feedOpen,
+      onToggle: () => { M.feedOpen = !M.feedOpen; renderThread(); },
+      onPick: (d) => { addDst(dstItem(d)); setStep('lvl'); },
+      hold: 'pointerdown',
+    })));
   }
   $('m-compose').replaceChildren(...nodes);
   renderLast();
@@ -405,16 +325,12 @@ const openFolders = new Set();
 const openFollowers = new Set();
 const openChanges = new Set();
 
-const sheetFor = (plan) => {
-  closeSwipes();
-  openSheet(plan);
-};
+const sheetFor = (plan) => { closeSwipes(); openSheet(plan); };
 const undoBtn = (plan, label, text = 'Undo') => undoButton(plan, label, sheetFor, { text, cls: 'sode-m__undo' });
 const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholder: false, cls: 'sode-m__redo' });
 
 function recentRow(e) {
-  const src = srcItem(e.src, e.srcName),
-    dst = dstItem(e.dst, e.dstName);
+  const src = srcItem(e.src, e.srcName), dst = dstItem(e.dst, e.dstName);
   const undo = e.chain
     ? undoBtn(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, `Undo ${e.chain.length}`)
     : undoBtn(undoPlan(e), `Undo ${src.label} to ${dst.label}`);
@@ -423,39 +339,24 @@ function recentRow(e) {
   const retry = redoBtn(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`);
   const open = !!e.chain && openChanges.has(e.id);
   const changesId = `m-changes-${e.id}`;
-  const disc =
-    e.chain &&
-    disclosure(open, 'Changes', changesId, () => {
-      toggle(openChanges, e.id);
-      renderRecent();
-    });
+  const disc = e.chain && disclosure(open, 'Changes', changesId, () => {
+    toggle(openChanges, e.id);
+    renderRecent();
+  });
   let changes = null;
   if (open) {
     changes = el('div', 'sode-m__changes', ...stackSteps(e, { restore: sheetFor, pickSrc }));
     changes.id = changesId;
   }
-  const face = el(
-    'div',
-    'sode-m__recent-face',
-    el(
-      'div',
-      'sode-m__recent-top',
-      el('span', 'sode__hist-time', fmtTime(e.time)),
-      el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : []), disc),
-    ),
+  const face = el('div', 'sode-m__recent-face',
+    el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(e.time)),
+      el('span', 'sode-m__recent-status', status, ...(picking() ? [pickBox(`e${e.id}`)] : []), disc)),
     el('div', 'sode-m__recent-route', el('strong', null, labelNode(src)), ' → ', el('strong', null, labelNode(dst)), entryNote(e), byLabel(e)),
     changes,
     e.follows && !open ? el('div', 'sode__hint', `Followed by: ${[...new Set(e.follows.map((f) => dstItem(f.dst, f.dstName).label))].join(', ')}`) : null,
-    levelBar(e.levels.filter((u) => S.levelBy.has(u))),
-  );
+    levelBar(e.levels.filter((u) => S.levelBy.has(u))));
   if (disc) clickToToggle(face, disc, '.sode-m__changes');
-  const row = el(
-    'li',
-    'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : '') + (isPicked(`e${e.id}`) ? ' sode-m__recent-row--picked' : ''),
-    undo,
-    ...(retry ? [retry] : []),
-    face,
-  );
+  const row = el('li', 'sode-m__recent-row' + (arrived.entry(e) ? ' sode--enter' : '') + (isPicked(`e${e.id}`) ? ' sode-m__recent-row--picked' : ''), undo, ...(retry ? [retry] : []), face);
   row.dataset.key = `e${e.id}`;
   swipeable(row, face, !!retry);
   return row;
@@ -465,42 +366,22 @@ function recentRow(e) {
 function folderRows(f) {
   const open = openFolders.has(f.group);
   const kidsId = `m-folder-${f.group}`;
-  const undo = undoBtn(
-    folderUndoPlan(f),
-    `Undo all ${f.entries.length} takes of ${folderIds(f)}`,
-    folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all',
-  );
+  const undo = undoBtn(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all');
   const again = againPlan({ f });
-  const retry = redoBtn(
-    again,
-    `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`,
-  );
+  const retry = redoBtn(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`);
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
     renderRecent();
   });
   disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
 
-  const face = el(
-    'div',
-    'sode-m__recent-face',
-    el(
-      'div',
-      'sode-m__recent-top',
-      el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
-      el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
-    ),
+  const face = el('div', 'sode-m__recent-face',
+    el('div', 'sode-m__recent-top', el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
+      el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc)),
     el('div', 'sode-m__recent-route', ...folderTitle(f), byLabel(f)),
-    levelBar(folderLevels(f)),
-  );
+    levelBar(folderLevels(f)));
   clickToToggle(face, disc);
-  const row = el(
-    'li',
-    'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''),
-    undo,
-    ...(retry ? [retry] : []),
-    face,
-  );
+  const row = el('li', 'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''), undo, ...(retry ? [retry] : []), face);
   row.dataset.key = `f${f.group}`;
   swipeable(row, face, !!retry);
   if (!open) return [row];
@@ -518,7 +399,8 @@ function followerRows(f) {
     renderRecent();
   });
   disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
-  const face = el('div', 'sode-m__recent-face', el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
+  const face = el('div', 'sode-m__recent-face',
+    el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
   clickToToggle(face, disc);
   const head = el('li', 'sode-m__recent-row', face);
   if (!open) return [head];
@@ -530,28 +412,18 @@ function followerRows(f) {
 const OPEN = 'sode-m__recent-row--open';
 const OPEN_R = 'sode-m__recent-row--open-r';
 function swipeable(row, face, canRedo = false) {
-  let x0 = null,
-    y0 = 0,
-    dx = 0,
-    base = 0,
-    horiz = null;
-  const set = (x) => {
-    face.style.transform = `translateX(${x}px)`;
-  };
+  let x0 = null, y0 = 0, dx = 0, base = 0, horiz = null;
+  const set = (x) => { face.style.transform = `translateX(${x}px)`; };
   const rest = () => (row.classList.contains(OPEN) ? -REVEAL : row.classList.contains(OPEN_R) ? REVEAL : 0);
   face.addEventListener('pointerdown', (e) => {
     if (picking()) return;
-    x0 = e.clientX;
-    y0 = e.clientY;
-    dx = 0;
-    horiz = null;
+    x0 = e.clientX; y0 = e.clientY; dx = 0; horiz = null;
     delete face.dataset.noTap; // a drag doesn't always end in a click
     base = rest();
   });
   face.addEventListener('pointermove', (e) => {
     if (x0 == null) return;
-    const mx = e.clientX - x0,
-      my = e.clientY - y0;
+    const mx = e.clientX - x0, my = e.clientY - y0;
     if (horiz == null && Math.abs(mx) + Math.abs(my) > 8) {
       horiz = Math.abs(mx) > Math.abs(my);
       if (horiz) face.setPointerCapture(e.pointerId);
@@ -567,11 +439,7 @@ function swipeable(row, face, canRedo = false) {
     const at = base + dx;
     const side = !horiz ? 0 : at < -REVEAL / 2 ? -1 : canRedo && at > REVEAL / 2 ? 1 : 0;
     if (horiz || base) face.dataset.noTap = '1';
-    if (!horiz && base) {
-      closeSwipes();
-      x0 = null;
-      return;
-    }
+    if (!horiz && base) { closeSwipes(); x0 = null; return; }
     if (horiz) {
       closeSwipes(row);
       row.classList.toggle(OPEN, side < 0);
@@ -602,10 +470,7 @@ function placeBar() {
   if (layout() !== 'phone') return void (pickBar.parentNode !== document.body && document.body.append(pickBar));
   if (pickBar.previousElementSibling !== $('m-result')) $('m-result').after(pickBar);
 }
-on('pick', () => {
-  placeBar();
-  renderRecent();
-});
+on('pick', () => { placeBar(); renderRecent(); });
 
 function renderRecent() {
   const rows = pager.list();
@@ -693,9 +558,7 @@ handle.addEventListener('keydown', (e) => {
   }
 });
 $('m-sheet-cancel').addEventListener('click', closeSheet);
-$('m-sheet').addEventListener('click', (e) => {
-  if (e.target === $('m-sheet')) closeSheet();
-});
+$('m-sheet').addEventListener('click', (e) => { if (e.target === $('m-sheet')) closeSheet(); });
 
 // ---- inputs
 
@@ -725,7 +588,9 @@ for (const k of STEPS) {
     } else if (e.key === 'Backspace' && !inputs[k].value) {
       // Backspace on an empty step goes back to edit the previous pick (Source-first: Levels →
       // Destination's newest → source; Destination-first: Source → newest destination).
-      const back = k === 'lvl' ? order().slice(0, 2).reverse() : k === 'dst' ? ['dst', 'src'] : flipped() || M.dstFirst ? ['dst'] : [];
+      const back = k === 'lvl' ? order().slice(0, 2).reverse()
+        : k === 'dst' ? ['dst', 'src']
+          : flipped() || M.dstFirst ? ['dst'] : [];
       const to = back.find((b) => (b === 'dst' ? M.dsts.length : M.sel.src));
       if (!to) return;
       e.preventDefault();
@@ -747,8 +612,7 @@ for (const b of $('m-ops').children) {
   b.addEventListener('pointerdown', (e) => e.preventDefault());
   b.addEventListener('click', () => {
     const i = inputs.lvl;
-    const a = i.selectionStart ?? i.value.length,
-      z = i.selectionEnd ?? a;
+    const a = i.selectionStart ?? i.value.length, z = i.selectionEnd ?? a;
     const pre = /(^|\s)$/.test(i.value.slice(0, a)) ? '' : ' ';
     i.setRangeText(`${pre}${b.dataset.op} `, a, z, 'end');
     i.dispatchEvent(new Event('input'));
@@ -785,10 +649,7 @@ function syncTyping() {
   view.classList.toggle('sode-m--typing', typing);
   renderThread();
   if (typing) t.scrollTop = 0;
-  else
-    requestAnimationFrame(() => {
-      t.scrollTop = 0;
-    });
+  else requestAnimationFrame(() => { t.scrollTop = 0; });
 }
 const filterBox = () => !!document.activeElement?.closest('#m-recent [data-search]');
 const syncFiltering = () => view.classList.toggle('sode-m--filtering', filterBox());
@@ -824,16 +685,10 @@ on('hello', () => {
   setStep(M.step, false);
   renderRecent();
 });
-on('names', () => {
-  matches.refresh();
-  renderThread();
-});
+on('names', () => { matches.refresh(); renderThread(); });
 on('tally', renderThread);
 on('conn', renderConn);
-on('history', () => {
-  renderRecent();
-  renderLast();
-});
+on('history', () => { renderRecent(); renderLast(); });
 on('result', (r) => {
   const end = atEnd();
   $('m-result').replaceChildren(resultNode(r));
@@ -846,10 +701,7 @@ on('flip', () => {
 onLayout((l) => {
   placeBar();
   if (l !== 'phone') closeSheet();
-  else {
-    renderThread();
-    renderRecent();
-  }
+  else { renderThread(); renderRecent(); }
 });
 
 // Start on the right step so a Destination-first browser doesn't show Source until hello.
@@ -858,7 +710,7 @@ setStep(order()[0], false);
 presetHost({
   active,
   confirm: sheetFor,
-  patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : lvl.levels() || [] } : null),
+  patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : (lvl.levels() || []) } : null),
   clear: reset,
   focus: () => setStep(order()[0], false),
 });

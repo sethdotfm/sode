@@ -1,42 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  padKey,
-  padCap,
-  sendDelay,
-  sendable,
-  idleDue,
-  idleLock,
-  needsPin,
-  guardedEdited,
-  pageType,
-  liftFrom,
-  shouldFly,
-  brandFrames,
-  dots,
-  actorUser,
-  folderActor,
-  wrongFeedback,
-  WRONG_MS,
-  churnKey,
-  softIdleLock,
-  loginOffered,
-  loginAsOffered,
-  logOutOffered,
-  MODE,
-  PAGE_VIEW,
-  viewBody,
-  softLock,
-  userLock,
-  softUnlock,
-  startLogin,
-  cancelLogin,
-  lockArrived,
-  loginWon,
-  chipShown,
-  wantsTab,
-  hiToken,
-  tokenHome,
+  padKey, padCap, sendDelay, sendable, idleDue, idleLock, needsPin, guardedEdited, pageType, liftFrom, shouldFly, brandFrames,
+  dots, actorUser, folderActor, wrongFeedback, WRONG_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, MODE, PAGE_VIEW, viewBody, softLock, userLock, softUnlock, startLogin, cancelLogin, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome,
 } from '../lockrules.js';
 
 test('padKey adds digits, deletes and clears, capped at the longest PIN', () => {
@@ -148,8 +114,7 @@ test('shouldFly: only an unscrolled page with the whole logo in view', () => {
 
 test('brandFrames: fresh frames every run, a fade when not flying, a slow tail out', () => {
   const t = { x: -10, y: -20, scale: 0.5 };
-  const a = brandFrames('in', true, t),
-    b = brandFrames('in', true, t);
+  const a = brandFrames('in', true, t), b = brandFrames('in', true, t);
   assert.notEqual(a, b);
   assert.notEqual(a[0], b[0]);
   assert.deepEqual(a, b);
@@ -221,10 +186,7 @@ test('churnKey: a letter, never the one before, never one that is easy to confus
   assert.equal(seen.size, 23);
   // Even if the dice keep landing on the last key, it moves on.
   const rolls = [0, 0, 0.5];
-  assert.notEqual(
-    churnKey('a', () => rolls.shift()),
-    'a',
-  );
+  assert.notEqual(churnKey('a', () => rolls.shift()), 'a');
 });
 
 test('softIdleLock: idle past the auto-lock minutes, only where no PIN lock is on and not already locked', () => {

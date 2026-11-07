@@ -31,10 +31,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Windows/Linux: a bare Alt release focuses the browser menu bar; swallowed while presets show.
-document.addEventListener(
-  'keyup',
-  (e) => {
-    if (!mac && e.key === 'Alt' && presetShown()) e.preventDefault();
-  },
-  true,
-);
+document.addEventListener('keyup', (e) => {
+  if (!mac && e.key === 'Alt' && presetShown()) e.preventDefault();
+}, true);

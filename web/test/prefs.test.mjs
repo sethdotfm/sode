@@ -29,16 +29,7 @@ test('on/off prefs take booleans from the config', () => {
 
 test('built-in defaults match the old behaviour', () => {
   const d = Object.fromEntries(Object.keys(PREFS).map((k) => [k, resolve(k, null, null, null)]));
-  assert.deepEqual(d, {
-    theme: 'system',
-    layout: 'auto',
-    clock: '24',
-    flip: 'off',
-    scrollTop: 'on',
-    searchFilters: 'off',
-    setStack: 'and',
-    nextMode: 'number',
-  });
+  assert.deepEqual(d, { theme: 'system', layout: 'auto', clock: '24', flip: 'off', scrollTop: 'on', searchFilters: 'off', setStack: 'and', nextMode: 'number' });
 });
 
 test('three layers: own, then profile, then global, then built-in', () => {
@@ -69,7 +60,7 @@ test('profile bools are on/off strings (booleans tolerated)', () => {
   assert.equal(mine('flip', null), '');
 });
 
-test("cachedProfile: a guest (no session token) never gets the last user's prefs (#187)", async () => {
+test('cachedProfile: a guest (no session token) never gets the last user\'s prefs (#187)', async () => {
   const { cachedProfile } = await import('../prefs.js');
   const raw = { user: 'Ana', prefs: { theme: 'dark' } };
   assert.deepEqual(cachedProfile(raw, true), { user: 'Ana', prefs: { theme: 'dark' } });

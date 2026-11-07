@@ -11,8 +11,7 @@ import { pref } from './device.js';
 
 let query = { src: '', dst: '' };
 const anything = () => true;
-let searchSrc = anything,
-  searchDst = anything;
+let searchSrc = anything, searchDst = anything;
 
 export const searchActive = () => !!(query.src.trim() || query.dst.trim());
 export function setSearch(next) {
@@ -43,8 +42,10 @@ function trimHist() {
 // changed (or another router is connected).
 function found(e) {
   const either = (fn, n, now, then) => fn(n + off(), now) || (!!then && then !== now && fn(n + off(), then));
-  const hit = (x) => either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName) && either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
-  const byPreset = !!e.preset && searchActive() && (!query.src.trim() || searchSrc(-1, e.preset)) && (!query.dst.trim() || searchDst(-1, e.preset));
+  const hit = (x) => either(searchSrc, x.src, srcItem(x.src, x.srcName).name, x.srcName) &&
+    either(searchDst, x.dst, dstItem(x.dst, x.dstName).name, x.dstName);
+  const byPreset = !!e.preset && searchActive() &&
+    (!query.src.trim() || searchSrc(-1, e.preset)) && (!query.dst.trim() || searchDst(-1, e.preset));
   return hit(e) || byPreset || !!e.follows?.some(hit);
 }
 
@@ -66,10 +67,7 @@ const MERGE_MS = 30000;
 // f.entries keeps all, for Undo all). Several calls per redraw, so the answer is kept
 // (rowsCache).
 let rowsCache = null;
-for (const ev of ['history', 'filters', 'search', 'names', 'hello'])
-  onFirst(ev, () => {
-    rowsCache = null;
-  });
+for (const ev of ['history', 'filters', 'search', 'names', 'hello']) onFirst(ev, () => { rowsCache = null; });
 
 export function histRows(list) {
   const c = rowsCache;
@@ -165,29 +163,21 @@ export function folderStatus(f) {
     return { dot: bad ? 'warn' : 'info', text: `${got}/${f.n} done…`, pulse: true };
   }
   const title = got < f.n ? `${got} of ${f.n} loaded` : '';
-  if (f.entries.every((e) => e.ext))
-    return extStatus(
-      f.entries.every((e) => e.found),
-      title,
-    );
+  if (f.entries.every((e) => e.ext)) return extStatus(f.entries.every((e) => e.found), title);
   if (!bad) return { dot: 'ok', text: 'ok', title };
   if (bad === got) return { dot: 'error', text: 'failed', title };
   return { dot: 'warn', text: `${bad}/${got} failed`, title };
 }
 
-const extStatus = (found, title = '') =>
-  found
-    ? { dot: 'warn', text: 'found', title: title || 'Changed without notice; found when Sode re-read the router' }
-    : { dot: 'info', text: 'panel', title: title || 'From another panel' };
+const extStatus = (found, title = '') => (found
+  ? { dot: 'warn', text: 'found', title: title || 'Changed without notice; found when Sode re-read the router' }
+  : { dot: 'info', text: 'panel', title: title || 'From another panel' });
 
 export function statusNode(row) {
-  const st = row.f
-    ? folderStatus(row.f)
-    : row.e.ext && row.e.followGroup
-      ? { dot: 'info', text: 'follow', title: 'Changed along with this confirm' }
-      : row.e.ext
-        ? extStatus(row.e.found)
-        : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
+  const st = row.f ? folderStatus(row.f)
+    : row.e.ext && row.e.followGroup ? { dot: 'info', text: 'follow', title: 'Changed along with this confirm' }
+    : row.e.ext ? extStatus(row.e.found)
+    : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
   const dot = el('span', `pb-dot pb-dot--${st.dot}${st.pulse ? ' pb-dot--pulse' : ''}`);
   dot.setAttribute('aria-hidden', 'true');
   const node = el('span', 'pb-status', dot, el('span', 'sode__status-text', st.text));
@@ -206,12 +196,8 @@ export function folderTitle(f) {
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
   const follows = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
   const preset = f.entries.find((e) => e.preset)?.preset;
-  const notes = [
-    preset && `Preset: ${preset}`,
-    kind,
-    folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
-    follows && `+${follows} follow${follows === 1 ? '' : 's'}`,
-  ].filter(Boolean);
+  const notes = [preset && `Preset: ${preset}`, kind, folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+    follows && `+${follows} follow${follows === 1 ? '' : 's'}`].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
 
@@ -251,10 +237,7 @@ export function historyPager(step, visible = () => true) {
   const pg = {
     shown: step,
     auto: 0,
-    reset() {
-      pg.shown = step;
-      pg.auto = 0;
-    },
+    reset() { pg.shown = step; pg.auto = 0; },
     list() {
       const rows = histRows(S.hist);
       const s = searchActive();
@@ -278,12 +261,8 @@ export function historyPager(step, visible = () => true) {
       return b;
     },
   };
-  on('filters', () => {
-    pg.auto = 0;
-  }); // a new filter may need older pages
-  on('search', () => {
-    pg.auto = 0;
-  });
+  on('filters', () => { pg.auto = 0; }); // a new filter may need older pages
+  on('search', () => { pg.auto = 0; });
   return pg;
 }
 export function attachFollows(e) {
@@ -310,8 +289,7 @@ export function beforeGroups(e) {
 // and for entries recorded before this existed.
 export function failureGroups(e) {
   if (e.ok || !e.failed?.length) return [];
-  const now = new Map(e.now || []),
-    prev = new Map(e.prev);
+  const now = new Map(e.now || []), prev = new Map(e.prev);
   const groups = new Map();
   for (const u of [...e.failed].sort((a, b) => a - b)) {
     if (!S.levelBy.has(u)) continue;
@@ -367,6 +345,4 @@ onMsg('historyCleared', () => {
   emit('history');
   emit('historyCleared');
 });
-onMsg('history', (m) => {
-  if (takePage(m)) emit('history');
-});
+onMsg('history', (m) => { if (takePage(m)) emit('history'); });

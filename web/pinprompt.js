@@ -71,8 +71,7 @@ function build() {
   dialog.append(
     el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Advanced Settings'), { id: 'pinprompt-title' })),
     el('div', 'pb-modal__body', why, input, err),
-    el('div', 'pb-modal__footer', cancel, go),
-  );
+    el('div', 'pb-modal__footer', cancel, go));
   input.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -90,9 +89,7 @@ export function askPin(text = '') {
   ui.why.hidden = !text;
   ui.dlg.show();
   ui.input.focus();
-  return new Promise((resolve) => {
-    done = resolve;
-  });
+  return new Promise((resolve) => { done = resolve; });
 }
 
 // Refused for want of the PIN: ask again; true once entered so the caller retries.
@@ -103,9 +100,5 @@ export function reask(text) {
 
 // A lock or socket drop closes the popup; the PIN removed (hello without one) lets the asker go ahead.
 on('locking', () => close(false));
-on('conn', () => {
-  if (S.wsState !== 'up') close(false);
-});
-on('hello', () => {
-  if (!S.pinSet) close(true);
-});
+on('conn', () => { if (S.wsState !== 'up') close(false); });
+on('hello', () => { if (!S.pinSet) close(true); });

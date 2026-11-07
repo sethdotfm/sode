@@ -29,10 +29,7 @@ function undoItem(e) {
   const untouched = untouchedLevels(e);
   for (const [u, s] of e.prev) {
     if (!S.levelBy.has(u) || untouched.has(u)) continue;
-    if (s < 0) {
-      skipped.push(u);
-      continue;
-    }
+    if (s < 0) { skipped.push(u); continue; }
     if (!groups.has(s)) groups.set(s, []);
     groups.get(s).push(u);
   }
@@ -43,20 +40,15 @@ function undoItem(e) {
     groups: [...groups].map(([s, levels]) => ({ src: srcItem(s), levels: levels.sort((a, b) => a - b) })),
     skipped: skipped.sort((a, b) => a - b),
     untouched: [...untouched].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b),
-    undo: e,
-    retry: null,
+    undo: e, retry: null,
   };
 }
 
 // A failed take is a retry (linked to its entry); any other is a redo, sent as a plain new
 // take. Needs a real source and a level that still exists.
 export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
-const againItem = (e) =>
-  takeItem(
-    dstItem(e.dst, e.dstName),
-    [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
-    e.ok ? null : e,
-  );
+const againItem = (e) => takeItem(dstItem(e.dst, e.dstName),
+  [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }], e.ok ? null : e);
 
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
@@ -66,31 +58,13 @@ export const patchPlan = (src, dsts, levels) => ({
 // What the router doesn't have is left out and listed in warnings. Validated at save
 // (presetProblem), not here.
 export function presetPlan(preset, defaults) {
-  const r = resolvePreset(
-    preset,
-    {
-      src: (n) => S.srcBy.has(n),
-      dst: (n) => S.dstBy.has(n),
-      level: (u) => S.levelBy.has(u),
-    },
-    defaults,
-  );
-  const warnings = r.missing.map(
-    (m) =>
-      (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) +
-      ' on the router now',
-  );
+  const r = resolvePreset(preset, {
+    src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u),
+  }, defaults);
+  const warnings = r.missing.map((m) => (m.kind === 'level' ? `Level ${m.n} does not exist` : `${m.kind[0].toUpperCase()}${m.kind.slice(1)} ${m.n + off()} does not exist`) + ' on the router now');
   return {
-    verb: 'preset',
-    preset: preset.name,
-    title: `Preset: ${preset.name}`,
-    warnings,
-    items: r.takes.map((t) =>
-      takeItem(
-        dstItem(t.dst),
-        t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })),
-      ),
-    ),
+    verb: 'preset', preset: preset.name, title: `Preset: ${preset.name}`, warnings,
+    items: r.takes.map((t) => takeItem(dstItem(t.dst), t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })))),
   };
 }
 // Follows are left out of an undo unless extra.on (shared by copies of the plan). A destination
@@ -103,11 +77,7 @@ function withFollows(plan, follows) {
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
-export const folderUndoPlan = (f) =>
-  withFollows(
-    { verb: 'undo', items: f.entries.map(undoItem) },
-    f.entries.flatMap((e) => e.follows || []),
-  );
+export const folderUndoPlan = (f) => withFollows({ verb: 'undo', items: f.entries.map(undoItem) }, f.entries.flatMap((e) => e.follows || []));
 // A folder with failed takes retries just those; otherwise it redoes every redoable take. Empty
 // items = nothing to offer.
 export function againPlan(row) {
@@ -132,11 +102,8 @@ export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
 // ---- results
 
 function takeText(t, already = []) {
-  return (
-    `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
-    (already.length ? `; ${levelText(already)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') +
-    ')'
-  );
+  return `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
+    (already.length ? `; ${levelText(already)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') + ')';
 }
 
 function capped(list, n = 3) {
@@ -205,7 +172,8 @@ export function failureBanner(t, hist = S.hist) {
   const partly = open.length < t.total;
   const count = t.total > 1 ? ` (${open.length} of ${t.total}${open.length < t.items.length ? ' still' : ''})` : '';
   const title = `${what} ${partly ? 'partly failed' : 'failed'}${count}`;
-  return { kind: 'error', title, key: [title, ...shown].join('\n'), text: () => el('div', null, ...shown.map((l) => el('div', null, l))) };
+  return { kind: 'error', title, key: [title, ...shown].join('\n'),
+    text: () => el('div', null, ...shown.map((l) => el('div', null, l))) };
 }
 
 function refreshResult() {
@@ -228,10 +196,7 @@ export function planBlocked(plan) {
   }
   const live = plan.items.filter((i) => i.groups.length);
   for (const i of live) {
-    const p = protectedOn(
-      i.dst.n,
-      i.groups.flatMap((g) => g.levels),
-    );
+    const p = protectedOn(i.dst.n, i.groups.flatMap((g) => g.levels));
     if (p.levels.length) prot.set(i, p);
   }
   const hit = live.filter((i) => prot.has(i));
@@ -241,17 +206,13 @@ export function planBlocked(plan) {
     const p = prot.get(i);
     return {
       block: {
-        kind: 'error',
-        title: 'Destination protected',
+        kind: 'error', title: 'Destination protected',
         text: `${i.dst.label} is protected on levels ${levelText(p.levels)} by device ${p.devices.join(', ')}.`,
       },
       prot,
     };
   }
-  return {
-    block: { kind: 'error', title: 'Destinations protected', text: `All ${hit.length} destinations are protected: ${hit.map((i) => i.dst.label).join(', ')}.` },
-    prot,
-  };
+  return { block: { kind: 'error', title: 'Destinations protected', text: `All ${hit.length} destinations are protected: ${hit.map((i) => i.dst.label).join(', ')}.` }, prot };
 }
 
 function planQuestion(plan) {
@@ -260,43 +221,23 @@ function planQuestion(plan) {
   const to = n === 1 ? ['Destination ', strong(labelNode(plan.items[0].dst))] : [strong(`${n} destinations`)];
   const uniq = (its) => [...new Map(its.map((it) => [it.n, it])).values()];
   if (plan.at) {
-    return el(
-      'div',
-      null,
-      'Are you sure you want to go back to ',
-      strong(labelNode(srcItem(plan.at.src, plan.at.srcName))),
-      ' on ',
-      ...to,
-      `, as at ${fmtClock(plan.at.time)}?`,
-    );
+    return el('div', null, 'Are you sure you want to go back to ', strong(labelNode(srcItem(plan.at.src, plan.at.srcName))),
+      ' on ', ...to, `, as at ${fmtClock(plan.at.time)}?`);
   }
   const stack = n === 1 && plan.items[0].undo?.chain;
   if (stack) {
-    return el('div', null, `Are you sure you want to undo ${stack.length} changes on `, ...to, `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
+    return el('div', null, `Are you sure you want to undo ${stack.length} changes on `, ...to,
+      `, back to before ${fmtClock(stack[stack.length - 1].time)}?`);
   }
   if (plan.verb === 'undo') {
     const srcs = uniq(plan.items.map((i) => srcItem(i.undo.src, i.undo.srcName)));
-    return el(
-      'div',
-      null,
-      'Are you sure you want to undo the take of ',
-      srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`,
-      ' to ',
-      ...to,
-      '?',
-    );
+    return el('div', null, 'Are you sure you want to undo the take of ', srcs.length === 1 ? strong(labelNode(srcs[0])) : `${srcs.length} sources`,
+      ' to ', ...to, '?');
   }
   const srcs = uniq(plan.items.flatMap((i) => i.groups.map((g) => g.src)));
   const what = VERBS[plan.verb].ask;
-  return el(
-    'div',
-    null,
-    `Are you sure you want to ${what} `,
-    ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]),
-    ' to ',
-    ...to,
-    '?',
-  );
+  return el('div', null, `Are you sure you want to ${what} `,
+    ...(srcs.length === 1 ? ['Source ', strong(labelNode(srcs[0]))] : [strong(`${srcs.length} sources`)]), ' to ', ...to, '?');
 }
 
 // Levels an undo would overwrite besides the take's own: those restored where dst no longer has
@@ -308,10 +249,7 @@ export function changedSince(item) {
   const t = S.tally.get(e.dst);
   const failed = new Set(e.ok ? [] : e.failed);
   const levels = item.groups.flatMap((g) => g.levels).filter((u) => !failed.has(u) && t?.has(u) && t.get(u) !== e.src);
-  return bySource(
-    e.dst,
-    levels.sort((a, b) => a - b),
-  );
+  return bySource(e.dst, levels.sort((a, b) => a - b));
 }
 
 // A non-undo item that changes nothing: dst already has the source on every level (the router
@@ -327,33 +265,24 @@ function itemSummary(item, boxed, prot, since) {
   const before = bySource(item.dst.n, all).map((r) => srcRow(r.levels, tallyText(r.src)));
   return [
     ...item.groups.map((g) => routeRow(g.levels, labelNode(g.src), labelNode(item.dst))),
-    ...(since ? changedSince(item) : []).map((r) =>
-      el('div', 'sode__route', levelBar(r.levels), el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`),
-    ),
+    ...(since ? changedSince(item) : []).map((r) => el('div', 'sode__route', levelBar(r.levels),
+      el('span', 'pb-badge pb-badge--warn', 'Changed since'), `now ${tallyText(r.src)}; undo will replace it`)),
     alreadyThere(item)
-      ? el(
-          'div',
-          'sode__route',
-          el('span', 'pb-badge pb-badge--info', 'Already there'),
-          'the destination already has this source on every level; this changes nothing.',
-        )
+      ? el('div', 'sode__route', el('span', 'pb-badge pb-badge--info', 'Already there'), 'the destination already has this source on every level; this changes nothing.')
       : null,
-    prot ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)), 'will be refused') : null,
+    prot
+      ? el('div', 'sode__route', levelBar(prot.levels), el('span', 'pb-badge pb-badge--warn', protectedLabel(prot.devices)),
+        'will be refused')
+      : null,
     item.untouched?.length
-      ? el(
-          'div',
-          'sode__hist-note',
-          `Level${item.untouched.length === 1 ? '' : 's'} ${levelText(item.untouched)}: the take didn't change ${item.untouched.length === 1 ? 'it' : 'them'}, left as is.`,
-        )
+      ? el('div', 'sode__hist-note', `Level${item.untouched.length === 1 ? '' : 's'} ${levelText(item.untouched)}: the take didn't change ${item.untouched.length === 1 ? 'it' : 'them'}, left as is.`)
       : null,
     item.skipped.length
       ? el('div', 'sode__hist-note', `Level${item.skipped.length === 1 ? '' : 's'} ${levelText(item.skipped)}: nothing was routed before, left as is.`)
       : null,
-    ...(!before.length
-      ? []
-      : boxed
-        ? [el('div', 'sode__plan-before', el('div', 'sode__label', 'Replacing'), ...before)]
-        : [el('div', 'sode__label', 'Replacing'), ...before]),
+    ...(!before.length ? [] : boxed
+      ? [el('div', 'sode__plan-before', el('div', 'sode__label', 'Replacing'), ...before)]
+      : [el('div', 'sode__label', 'Replacing'), ...before]),
   ].filter(Boolean);
 }
 
@@ -363,26 +292,16 @@ export function planSummary(plan, { prot = new Map(), spaceHint = false } = {}) 
   const head = [
     plan.title ? el('div', 'sode__label', plan.title) : null,
     plan.warnings?.length
-      ? el(
-          'div',
-          'pb-alert pb-alert--warn',
-          el('div', null, el('div', 'pb-alert__title', `${plan.warnings.length} left out`), ...plan.warnings.map((l) => el('div', null, l))),
-        )
+      ? el('div', 'pb-alert pb-alert--warn', el('div', null, el('div', 'pb-alert__title', `${plan.warnings.length} left out`), ...plan.warnings.map((l) => el('div', null, l))))
       : null,
   ];
-  if (plan.items.length === 1)
-    return [...head, planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
+  if (plan.items.length === 1) return [...head, planQuestion(plan), ...itemSummary(plan.items[0], false, prot.get(plan.items[0]), since), extraBox(plan, spaceHint)].filter(Boolean);
   return [
     ...head,
     planQuestion(plan),
-    ...plan.items.map((i, n) =>
-      el(
-        'section',
-        'sode__plan-item',
-        el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
-        ...itemSummary(i, true, prot.get(i), since),
-      ),
-    ),
+    ...plan.items.map((i, n) => el('section', 'sode__plan-item',
+      el('div', 'sode__plan-head', el('span', 'sode__plan-n', `${n + 1}/${plan.items.length}`), el('strong', null, labelNode(i.dst))),
+      ...itemSummary(i, true, prot.get(i), since))),
     extraBox(plan, spaceHint),
   ].filter(Boolean);
 }
@@ -395,19 +314,9 @@ function extraBox(plan, spaceHint) {
   const c = el('input', 'pb-check__input');
   c.type = 'checkbox';
   c.checked = x.on;
-  c.addEventListener('change', () => {
-    x.on = c.checked;
-  });
-  return el(
-    'label',
-    'pb-check sode__plan-extra',
-    c,
-    el(
-      'span',
-      'pb-check__label',
-      `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
-    ),
-  );
+  c.addEventListener('change', () => { x.on = c.checked; });
+  return el('label', 'pb-check sode__plan-extra', c, el('span', 'pb-check__label',
+    `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`));
 }
 
 // This browser's last patch as numbers, so names stay current; until it makes one, the newest
@@ -445,15 +354,13 @@ export function usedNext(k, t) {
   else if (k === 'dst') run.dsts = t.dsts;
 }
 
-export function resetNext() {
-  run = { src: null, dsts: null };
-}
+export function resetNext() { run = { src: null, dsts: null }; }
 
 // ("Cam 3" → "Cam", "Prmpt A" → "Prmpt", "Mon 2 B" → "Mon"): trailing digits and single letters
 // set apart by a space.
 export function nameStem(name) {
   let s = name.trim();
-  for (let prev = ''; s !== prev; ) {
+  for (let prev = ''; s !== prev;) {
     prev = s;
     s = s.replace(/\s+[A-Za-z]$/, '').replace(/[\s\d]+$/, '');
   }
@@ -467,9 +374,7 @@ function nextOf(it, by) {
     const q = nameStem(it.name || '');
     if (q) {
       const all = [...by.values()];
-      const hit = search(all, q, all.length)
-        .filter((x) => x.n > it.n)
-        .sort((a, b) => a.n - b.n)[0];
+      const hit = search(all, q, all.length).filter((x) => x.n > it.n).sort((a, b) => a.n - b.n)[0];
       if (hit) return hit;
     }
   }
@@ -483,7 +388,8 @@ export function lastChip(t, state) {
   if (!t) return { src: false, dst: false, lvl: false };
   return {
     src: t.src && !(state.src && state.src.n === t.src.n) && [labelNode(t.src)],
-    dst: !t.dsts.every((d) => state.dsts.some((x) => x.n === d.n)) && [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
+    dst: !t.dsts.every((d) => state.dsts.some((x) => x.n === d.n)) &&
+      [labelNode(t.dsts[t.dsts.length - 1]), t.dsts.length > 1 ? ` +${t.dsts.length - 1}` : ''],
     lvl: t.levels.length > 0 && !sameList(state.levels, t.levels) && !sameList(t.levels, parseLevels('') || []) && [levelText(t.levels)],
   };
 }
@@ -514,10 +420,9 @@ export function sendTakes(p) {
   }
   const list = [...batch.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;
-  const text =
-    dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
-      ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
-      : capped(list.map((t) => takeText(t)));
+  const text = dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
+    ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
+    : capped(list.map((t) => takeText(t)));
   showResult('info', VERBS[p.verb].busy, text);
   return true;
 }

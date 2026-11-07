@@ -28,20 +28,18 @@ export function keyConfirm({ prompt, spaceHint = false, onTake, onClose }) {
       const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
       const verb = planVerb(plan);
       $('confirm-title').textContent = `Confirm ${verb}`;
-      $('confirm-body').replaceChildren(...planSummary(plan, { prot, spaceHint }), el('div', 'sode__prompt', ...prompt(keyEl)));
+      $('confirm-body').replaceChildren(
+        ...planSummary(plan, { prot, spaceHint }),
+        el('div', 'sode__prompt', ...prompt(keyEl)),
+      );
       $('confirm-ok').textContent = `${verb[0].toUpperCase()}${verb.slice(1)} (${key.toUpperCase()})`;
       $('confirm-ok').disabled = true;
       $('confirm').hidden = false;
       $('confirm-dialog').focus();
-      cur = {
-        plan,
-        prot,
-        key,
-        lock: lockout(() => {
-          keyEl.classList.remove('sode__key--locked');
-          $('confirm-ok').disabled = false;
-        }),
-      };
+      cur = { plan, prot, key, lock: lockout(() => {
+        keyEl.classList.remove('sode__key--locked');
+        $('confirm-ok').disabled = false;
+      }) };
     },
 
     close(viaKeys = false) {

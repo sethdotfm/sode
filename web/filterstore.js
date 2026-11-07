@@ -10,11 +10,8 @@ import { readJSON, writeJSON, readStr, writeStr } from './store.js';
 const FILTER_KEY = 'sode-filter';
 export const FILTER_DEFAULT = Object.freeze({ src: '', dst: '', sode: true, ext: true, hidden: false });
 export const normFilter = (f) => ({
-  src: String(f?.src ?? ''),
-  dst: String(f?.dst ?? ''),
-  sode: f?.sode !== false,
-  ext: f?.ext !== false,
-  hidden: f?.hidden === true,
+  src: String(f?.src ?? ''), dst: String(f?.dst ?? ''),
+  sode: f?.sode !== false, ext: f?.ext !== false, hidden: f?.hidden === true,
 });
 
 function loadFilter() {
@@ -37,8 +34,8 @@ let dstOk = filterFn(filter.dst) || anything;
 
 export const filterState = () => ({ ...filter });
 
-export const filterCount = () =>
-  ['src', 'dst'].filter((k) => filter[k].trim()).length + ['sode', 'ext', 'hidden'].filter((k) => filter[k] !== FILTER_DEFAULT[k]).length;
+export const filterCount = () => ['src', 'dst'].filter((k) => filter[k].trim()).length +
+  ['sode', 'ext', 'hidden'].filter((k) => filter[k] !== FILTER_DEFAULT[k]).length;
 
 function applyFilter(next) {
   filter = normFilter(next);
@@ -61,17 +58,13 @@ export function setFilter(next) {
 const SETS_KEY = 'sode-filter-sets';
 const ACTIVE_KEY = 'sode-filter-active';
 
-export const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT).every((k) => (typeof a[k] === 'string' ? a[k].trim() === b[k].trim() : a[k] === b[k]));
+export const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT)
+  .every((k) => (typeof a[k] === 'string' ? a[k].trim() === b[k].trim() : a[k] === b[k]));
 export const globalSets = () => (S.cfg?.filterSets || []).map((s) => ({ scope: 'global', name: s.name, f: normFilter(s) }));
-export const localSets = () =>
-  []
-    .concat(readJSON(SETS_KEY, []))
-    .filter((s) => s?.name)
-    .map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
-export const userSets = () =>
-  (profileName() ? profile().filterSets : [])
-    .filter((s) => s?.name)
-    .map((s) => ({ scope: 'user', user: profileName(), name: String(s.name), f: normFilter(s) }));
+export const localSets = () => [].concat(readJSON(SETS_KEY, [])).filter((s) => s?.name)
+  .map((s) => ({ scope: 'local', name: String(s.name), f: normFilter(s.f) }));
+export const userSets = () => (profileName() ? profile().filterSets : []).filter((s) => s?.name)
+  .map((s) => ({ scope: 'user', user: profileName(), name: String(s.name), f: normFilter(s) }));
 export const allSets = () => [{ scope: 'all', name: 'All', f: normFilter(FILTER_DEFAULT) }, ...globalSets(), ...userSets(), ...localSets()];
 const SET_LISTS = { global: globalSets, user: userSets, local: localSets };
 export const setsIn = (scope) => (SET_LISTS[scope] || (() => []))();
@@ -79,8 +72,8 @@ export const setsIn = (scope) => (SET_LISTS[scope] || (() => []))();
 // theirs.
 export const setRef = (scope, name) => (scope === 'user' ? { scope, user: profileName(), name } : { scope, name });
 // Names are unique per scope whatever the case, so a set renamed only in case is the same set.
-const findSet = (scope, name, user) =>
-  allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase() && (scope !== 'user' || s.user === user));
+const findSet = (scope, name, user) => allSets().find((s) => s.scope === scope && s.name.toLowerCase() === name.toLowerCase()
+  && (scope !== 'user' || s.user === user));
 const saveLocals = (list) => writeJSON(SETS_KEY, list.length ? list.map(({ name, f }) => ({ name, f })) : null);
 
 // The active set { scope, name, base }, or null (unsaved); or a stack of two or more [{ scope,
@@ -90,13 +83,8 @@ const STACK_KEY = 'sode-filter-stack';
 const isRef = (r) => r && typeof r.scope === 'string' && typeof r.name === 'string';
 const sameRef = (a, b) => a.scope === b.scope && a.name.toLowerCase() === b.name.toLowerCase() && (a.user ?? '') === (b.user ?? '');
 const copyRef = ({ scope, name, user }) => (scope === 'user' ? { scope, user: String(user ?? ''), name } : { scope, name });
-const loadStack = () =>
-  []
-    .concat(readJSON(STACK_KEY, null) ?? [])
-    .filter(isRef)
-    .map(copyRef);
-let active = null,
-  stack = [];
+const loadStack = () => [].concat(readJSON(STACK_KEY, null) ?? []).filter(isRef).map(copyRef);
+let active = null, stack = [];
 {
   // Old first-beta list under the active key.
   const stored = [].concat(readJSON(ACTIVE_KEY, null) ?? []).filter(isRef);
@@ -146,10 +134,7 @@ export function pickSet(scope, name) {
 function useSets(refs) {
   const sets = refs.map((r) => findSet(r.scope, r.name, r.user)).filter(Boolean);
   if (sets.length < 2) return sets.length ? pickSet(sets[0].scope, sets[0].name) : pickSet('all', 'All');
-  setActive(
-    null,
-    sets.map(({ scope, name, user }) => copyRef({ scope, name, user })),
-  );
+  setActive(null, sets.map(({ scope, name, user }) => copyRef({ scope, name, user })));
   applyFilter(sets[0].f);
 }
 
@@ -164,9 +149,7 @@ export function toggleSet(scope, name) {
 function stackMatchers() {
   if (!stackM) {
     stackM = activeStack().map((s) => ({
-      f: s.f,
-      srcOk: filterFn(s.f.src) || anything,
-      dstOk: filterFn(s.f.dst) || anything,
+      f: s.f, srcOk: filterFn(s.f.src) || anything, dstOk: filterFn(s.f.dst) || anything,
     }));
   }
   return stackM.length > 1 ? stackM : null;
@@ -220,10 +203,7 @@ function followProfile() {
   const mine = (r) => r.scope === 'user' && r.user === now;
   if (left && (stack.some((r) => r.scope === 'user') || active?.scope === 'user')) {
     if (stack.length) return useSets(stack.filter((r) => r.scope !== 'user' || mine(r)));
-    if (!mine(active)) {
-      pickSet('all', 'All');
-      return;
-    }
+    if (!mine(active)) { pickSet('all', 'All'); return; }
   }
   if (stack.length) return useSets(stack);
   const s = active?.scope === 'user' && mine(active) && findSet('user', active.name, now);
@@ -243,22 +223,17 @@ export function filterSummary(f) {
 }
 
 // Compiled once per expression. Blank (or unparsable) hides nothing.
-let hiddenText = null,
-  hiddenFn = null;
+let hiddenText = null, hiddenFn = null;
 export function globallyHidden(num, name) {
   const t = (S.cfg?.hiddenDsts || '').trim();
-  if (t !== hiddenText) {
-    hiddenText = t;
-    hiddenFn = t ? filterFn(t) : null;
-  }
+  if (t !== hiddenText) { hiddenText = t; hiddenFn = t ? filterFn(t) : null; }
   return !!hiddenFn && hiddenFn(num, name);
 }
 
 // Quick search is history.js's. With a stack, each set's saved filter judges it and pref
 // setStack says whether all must allow or any may.
 export function filterAllows(e) {
-  const s = srcItem(e.src, e.srcName),
-    d = dstItem(e.dst, e.dstName);
+  const s = srcItem(e.src, e.srcName), d = dstItem(e.dst, e.dstName);
   const dn = e.dst + off();
   const x = { ext: !!e.ext, sn: e.src + off(), sname: s.name, dn, dname: d.name, hiddenDst: !!e.ext && globallyHidden(dn, d.name) };
   const st = stackMatchers();

@@ -13,9 +13,7 @@ import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
 
-on('brand', ({ text }) => {
-  document.title = text;
-});
+on('brand', ({ text }) => { document.title = text; });
 
 initTheme();
 applySharedLink();

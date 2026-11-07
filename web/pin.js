@@ -14,9 +14,7 @@ let trustedUser = false;
 export const unlocked = () => isUnlocked;
 export const trusted = () => trustedUser;
 export const needsPin = () => needsPinRule(S.pinSet, isUnlocked, trustedUser);
-export const lostUnlock = () => {
-  isUnlocked = false;
-};
+export const lostUnlock = () => { isUnlocked = false; };
 
 function settle(r) {
   const w = waiting;
@@ -29,9 +27,7 @@ export function unlock(pin) {
   settle({ ok: false, stale: true, superseded: true });
   const id = ++seq;
   if (!wsSend({ t: 'unlock', pin, id })) return Promise.resolve({ ok: false, err: 'Not connected to Sode.' });
-  return new Promise((resolve) => {
-    waiting = { id, resolve };
-  });
+  return new Promise((resolve) => { waiting = { id, resolve }; });
 }
 
 // Also sent with an unlock in flight: the server handles them in order, so the lock wins.
@@ -50,9 +46,7 @@ on('unlockResult', (m) => {
   if (m.ok) isUnlocked = true;
   settle(m.ok ? { ok: true } : { ok: false, err: sentence(m.err) });
 });
-on('locked', () => {
-  isUnlocked = false;
-});
+on('locked', () => { isUnlocked = false; });
 on('conn', () => {
   if (S.wsState === 'up') return;
   isUnlocked = false;
@@ -60,6 +54,4 @@ on('conn', () => {
   settle({ ok: false, stale: true, err: 'Not connected to Sode.' });
 });
 // With no PIN now, one set later (even while disconnected) needs entering.
-on('hello', () => {
-  if (!S.pinSet) isUnlocked = false;
-});
+on('hello', () => { if (!S.pinSet) isUnlocked = false; });

@@ -22,23 +22,18 @@ export function initToc({ form, sections, toc, isOpen }) {
     const i = sections.findIndex((s) => s.contains(node));
     if (i >= 0 && String(i) !== form.dataset.page) showPage(i);
   }
-  const focusField = (node) => {
-    reveal(node);
-    node.focus();
-  };
-  toc.replaceChildren(
-    ...sections.map((sec, i) => {
-      const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
-      b.type = 'button';
-      b.addEventListener('click', () => {
-        if (phone()) return showPage(i);
-        picked = i;
-        mark(i);
-        sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-      });
-      return b;
-    }),
-  );
+  const focusField = (node) => { reveal(node); node.focus(); };
+  toc.replaceChildren(...sections.map((sec, i) => {
+    const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      if (phone()) return showPage(i);
+      picked = i;
+      mark(i);
+      sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+    return b;
+  }));
   function mark(cur) {
     [...toc.children].forEach((b, i) => {
       b.classList.toggle('active', i === cur);
@@ -55,25 +50,17 @@ export function initToc({ form, sections, toc, isOpen }) {
     const line = (s) => parseFloat(getComputedStyle(s).scrollMarginTop) + 8;
     mark(Math.max(atEnd ? sections.length - 1 : sections.findLastIndex((s) => s.getBoundingClientRect().top <= line(s)), 0));
   }
-  window.addEventListener(
-    'scroll',
-    () => {
-      if (tocTick) return;
-      tocTick = true;
-      requestAnimationFrame(markSection);
-    },
-    { passive: true },
-  );
+  window.addEventListener('scroll', () => {
+    if (tocTick) return;
+    tocTick = true;
+    requestAnimationFrame(markSection);
+  }, { passive: true });
   for (const ev of ['scrollend', 'wheel', 'touchstart', 'keydown']) {
-    window.addEventListener(
-      ev,
-      () => {
-        if (picked < 0) return;
-        picked = -1;
-        if (ev !== 'scrollend') markSection();
-      },
-      { passive: true },
-    );
+    window.addEventListener(ev, () => {
+      if (picked < 0) return;
+      picked = -1;
+      if (ev !== 'scrollend') markSection();
+    }, { passive: true });
   }
 
   // Ctrl+J/K (Cmd on a Mac) step sections, also from the search box; not while a dialog is over Settings.
@@ -88,15 +75,8 @@ export function initToc({ form, sections, toc, isOpen }) {
   });
 
   return {
-    phone,
-    showPage,
-    reveal,
-    focusField,
-    markSection,
-    pick(i) {
-      picked = i;
-      mark(i);
-    },
+    phone, showPage, reveal, focusField, markSection,
+    pick(i) { picked = i; mark(i); },
     back() {
       if (!phone() || form.dataset.page == null) return false;
       showPage(-1);

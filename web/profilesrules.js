@@ -4,16 +4,7 @@ import { PREFS } from './prefs.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
-const LABELS = {
-  theme: 'Theme',
-  layout: 'Layout',
-  clock: 'Clock',
-  flip: 'Destination before Source',
-  scrollTop: 'Scroll to top',
-  setStack: 'Stacked sets',
-  nextMode: 'Next chip',
-  searchFilters: 'Quick search follows filters',
-};
+const LABELS = { theme: 'Theme', layout: 'Layout', clock: 'Clock', flip: 'Destination before Source', scrollTop: 'Scroll to top', setStack: 'Stacked sets', nextMode: 'Next chip', searchFilters: 'Quick search follows filters' };
 export function prefRows(prefs) {
   const out = [];
   for (const [key, def] of Object.entries(PREFS)) {
@@ -84,14 +75,14 @@ export function upsertEntry(list, entry, old = '') {
   const items = Array.isArray(list) ? list : [];
   const at = old ? items.findIndex((x) => String(x?.name).toLowerCase() === old.toLowerCase()) : -1;
   const next = items.slice();
-  if (at >= 0) next[at] = entry;
-  else next.push(entry);
+  if (at >= 0) next[at] = entry; else next.push(entry);
   return next;
 }
 
 export const filterEntry = (name, f) => ({ name: String(name).trim(), ...f });
 
-export const findByName = (list, name) => (Array.isArray(list) ? list : []).find((x) => String(x?.name).toLowerCase() === String(name).toLowerCase());
+export const findByName = (list, name) => (Array.isArray(list) ? list : [])
+  .find((x) => String(x?.name).toLowerCase() === String(name).toLowerCase());
 
 // Applied when a change is made, not when the save returns, so a second change builds on the first.
 export const withParts = (prof, parts) => ({ ...(prof || {}), ...parts });

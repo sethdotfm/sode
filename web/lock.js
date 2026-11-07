@@ -7,39 +7,7 @@
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
-import {
-  padKey,
-  sendDelay,
-  sendable,
-  idleLock,
-  pageType,
-  liftFrom,
-  shouldFly,
-  brandFrames,
-  OUT_FACTOR,
-  dots,
-  wrongFeedback,
-  WELCOME_MS,
-  churnKey,
-  softIdleLock,
-  loginOffered,
-  loginAsOffered,
-  logOutOffered,
-  MODE,
-  PAGE_VIEW,
-  viewBody,
-  softLock as softView,
-  userLock as userLockView,
-  softUnlock as softUnview,
-  startLogin,
-  cancelLogin as cancelView,
-  lockArrived,
-  loginWon,
-  chipShown,
-  wantsTab,
-  hiToken,
-  tokenHome,
-} from './lockrules.js';
+import { padKey, sendDelay, sendable, idleLock, pageType, liftFrom, shouldFly, brandFrames, OUT_FACTOR, dots, wrongFeedback, WELCOME_MS, churnKey, softIdleLock, loginOffered, loginAsOffered, logOutOffered, MODE, PAGE_VIEW, viewBody, softLock as softView, userLock as userLockView, softUnlock as softUnview, startLogin, cancelLogin as cancelView, lockArrived, loginWon, chipShown, wantsTab, hiToken, tokenHome } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { buildChip } from './lockchip.js';
 import { layout, onLayout } from './layout.js';
@@ -72,6 +40,7 @@ on('conn', () => {
 // Drop keys of the removed admin-browser sign-in.
 writeStr('sode-lock-token', null);
 writeStr('sode-lock-never', null);
+
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
@@ -177,9 +146,7 @@ function placeChip() {
   const b = head?.getBoundingClientRect();
   if (b?.width) document.documentElement.style.setProperty('--sode-head-h', `${b.bottom}px`);
 }
-addEventListener('resize', () => {
-  if (chip && !chip.root.hidden) placeChip();
-});
+addEventListener('resize', () => { if (chip && !chip.root.hidden) placeChip(); });
 
 const logo = () => [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-log__title')].find((e) => e.getBoundingClientRect().width > 0);
 const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -241,9 +208,7 @@ function showLock() {
   if (V.mode !== MODE.LOGIN) closeModals();
   inerted = [];
   for (const c of document.body.children) inert(c);
-  watch ||= new MutationObserver((list) => {
-    for (const r of list) for (const n of r.addedNodes) inert(n);
-  });
+  watch ||= new MutationObserver((list) => { for (const r of list) for (const n of r.addedNodes) inert(n); });
   watch.observe(document.body, { childList: true });
   const had = document.activeElement;
   if (had && had !== document.body && !root.contains(had)) before = had;
@@ -262,17 +227,12 @@ function fitBrand() {
   brand.style.whiteSpace = 'nowrap';
   const w = brand.getBoundingClientRect().width;
   if (w <= room) return;
-  const size = (parseFloat(getComputedStyle(brand).fontSize) * (room - 1)) / w;
+  const size = parseFloat(getComputedStyle(brand).fontSize) * (room - 1) / w;
   const min = 1.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
   if (size >= min) brand.style.fontSize = `${size}px`;
-  else {
-    brand.style.whiteSpace = '';
-    brand.style.fontSize = `${min}px`;
-  }
+  else { brand.style.whiteSpace = ''; brand.style.fontSize = `${min}px`; }
 }
-const refit = () => {
-  if (root && !root.hidden) fitBrand();
-};
+const refit = () => { if (root && !root.hidden) fitBrand(); };
 addEventListener('resize', refit);
 onLayout(refit);
 
@@ -332,6 +292,7 @@ function hideLock() {
   if (scrolled && (window.scrollX !== scrolled.x || window.scrollY !== scrolled.y)) window.scrollTo({ left: scrolled.x, top: scrolled.y, behavior: 'instant' });
 }
 
+
 let fbTimer = 0;
 let welcoming = false;
 let settle = null;
@@ -348,23 +309,11 @@ function feedback(text, kind, ms = 0, shake = false) {
     dotsEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
     if (shake) {
       dotsEl.animate(
-        [
-          { transform: 'translateX(0)' },
-          { transform: 'translateX(-0.6rem)' },
-          { transform: 'translateX(0.6rem)' },
-          { transform: 'translateX(-0.4rem)' },
-          { transform: 'translateX(0.4rem)' },
-          { transform: 'translateX(0)' },
-        ],
-        { duration: 400, easing: 'ease-in-out' },
-      );
+        [{ transform: 'translateX(0)' }, { transform: 'translateX(-0.6rem)' }, { transform: 'translateX(0.6rem)' }, { transform: 'translateX(-0.4rem)' }, { transform: 'translateX(0.4rem)' }, { transform: 'translateX(0)' }],
+        { duration: 400, easing: 'ease-in-out' });
     }
   }
-  if (ms)
-    fbTimer = setTimeout(() => {
-      clearFeedback();
-      paint();
-    }, ms);
+  if (ms) fbTimer = setTimeout(() => { clearFeedback(); paint(); }, ms);
 }
 
 function clearFeedback() {
@@ -376,6 +325,7 @@ function clearFeedback() {
   dotsEl.setAttribute('aria-hidden', 'true');
   paint();
 }
+
 
 function paint() {
   dotsEl.textContent = dots(pin);
@@ -472,10 +422,7 @@ onMsg('lockState', (m) => {
     feedback(`Welcome, ${L.user}`, 'ok');
     say('');
     const t = setTimeout(() => done(), WELCOME_MS);
-    settle = () => {
-      clearTimeout(t);
-      done();
-    };
+    settle = () => { clearTimeout(t); done(); };
     return;
   }
   done();
@@ -499,6 +446,7 @@ function cancelLogin() {
   else render();
 }
 
+
 function softLock() {
   if (soft || L.enforced || !S.cfg || V.mode === MODE.OWN) return;
   if (L.user) return pinLock();
@@ -510,14 +458,11 @@ function softLock() {
   softKey.classList.add('sode__key--locked');
   softBtn.disabled = true;
   softNote.textContent = 'Wait a moment…';
-  soft = {
-    key,
-    lock: lockout(() => {
-      softKey.classList.remove('sode__key--locked');
-      softBtn.disabled = false;
-      softNote.textContent = '';
-    }),
-  };
+  soft = { key, lock: lockout(() => {
+    softKey.classList.remove('sode__key--locked');
+    softBtn.disabled = false;
+    softNote.textContent = '';
+  }) };
   render();
 }
 
@@ -567,6 +512,7 @@ function logOutFromFoot() {
 
 on('softLock', softLock);
 
+
 // Lock and Log out both end the session: the server forgets the unlock and revokes the token
 // (so a reload cannot undo it).
 function lockNow() {
@@ -583,55 +529,50 @@ function lockNow() {
 }
 
 // Capture phase so nothing underneath sees it. Only where it does something.
-document.addEventListener(
-  'keydown',
-  (e) => {
-    if (V.mode === MODE.SOFT) {
-      // The page behind must not see a key (not a take, not Ctrl+Z); a shortcut chord is kept
-      // from the page but left to the browser.
-      e.stopImmediatePropagation();
-      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-      if (e.key === 'Tab' || ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button'))) return;
+document.addEventListener('keydown', (e) => {
+  if (V.mode === MODE.SOFT) {
+    // The page behind must not see a key (not a take, not Ctrl+Z); a shortcut chord is kept
+    // from the page but left to the browser.
+    e.stopImmediatePropagation();
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    if (e.key === 'Tab' || (e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button')) return;
+    e.preventDefault();
+    if (e.key.toLowerCase() === soft.key || (S.cfg?.confirmEnter && e.key === 'Enter')) softUnlock();
+    return;
+  }
+  if (root && !root.hidden && root.classList.contains('is-on')) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (V.mode === MODE.LOGIN && e.key === 'Escape') {
       e.preventDefault();
-      if (e.key.toLowerCase() === soft.key || (S.cfg?.confirmEnter && e.key === 'Enter')) softUnlock();
+      e.stopPropagation();
+      cancelLogin();
       return;
     }
-    if (root && !root.hidden && root.classList.contains('is-on')) {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (V.mode === MODE.LOGIN && e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        cancelLogin();
-        return;
-      }
-      const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
-      if (k === 'enter' && e.target.closest?.('button')) return;
-      if (k) {
-        e.preventDefault();
-        e.stopPropagation();
-        press(k);
-      }
-      return;
+    const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
+    if (k === 'enter' && e.target.closest?.('button')) return;
+    if (k) {
+      e.preventDefault();
+      e.stopPropagation();
+      press(k);
     }
-    if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat) {
-      if (L.enforced && L.user) {
-        e.preventDefault();
-        e.stopPropagation();
-        lockNow();
-      } else if (!L.enforced && S.cfg) {
-        e.preventDefault();
-        e.stopPropagation();
-        softLock();
-      }
+    return;
+  }
+  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat) {
+    if (L.enforced && L.user) {
+      e.preventDefault();
+      e.stopPropagation();
+      lockNow();
+    } else if (!L.enforced && S.cfg) {
+      e.preventDefault();
+      e.stopPropagation();
+      softLock();
     }
-  },
-  true,
-);
+  }
+}, true);
+
 
 let lastActive = Date.now();
-const touch = () => {
-  lastActive = Date.now();
-};
+const touch = () => { lastActive = Date.now(); };
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
 setInterval(() => {

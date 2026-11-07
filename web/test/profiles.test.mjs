@@ -4,13 +4,7 @@ import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfil
 
 test('prefRows: labels values, skips unknown ones', () => {
   const r = prefRows({ theme: 'dark', flip: true, clock: 'bogus', nope: 'x' });
-  assert.deepEqual(
-    r.map((x) => [x.key, x.value]),
-    [
-      ['theme', 'Dark'],
-      ['flip', 'Yes'],
-    ],
-  );
+  assert.deepEqual(r.map((x) => [x.key, x.value]), [['theme', 'Dark'], ['flip', 'Yes']]);
   assert.deepEqual(prefRows(null), []);
 });
 
@@ -69,31 +63,16 @@ test('prefsWith sets, removes on Not set, ignores bad values', () => {
 });
 
 test('upsertEntry adds or replaces in place, ignoring case, without mutating', () => {
-  const l = [
-    { name: 'A', v: 1 },
-    { name: 'B', v: 2 },
-  ];
-  assert.deepEqual(
-    upsertEntry(l, { name: 'C' }).map((x) => x.name),
-    ['A', 'B', 'C'],
-  );
-  assert.deepEqual(
-    upsertEntry(l, { name: 'a2', v: 9 }, 'a').map((x) => x.name),
-    ['a2', 'B'],
-  );
-  assert.deepEqual(
-    l.map((x) => x.name),
-    ['A', 'B'],
-  );
+  const l = [{ name: 'A', v: 1 }, { name: 'B', v: 2 }];
+  assert.deepEqual(upsertEntry(l, { name: 'C' }).map((x) => x.name), ['A', 'B', 'C']);
+  assert.deepEqual(upsertEntry(l, { name: 'a2', v: 9 }, 'a').map((x) => x.name), ['a2', 'B']);
+  assert.deepEqual(l.map((x) => x.name), ['A', 'B']);
 });
 
 test('withParts: two quick pref changes accumulate (the second builds on the first)', () => {
   let prof = { prefs: { clock: '12' }, filterSets: [], presets: [] };
   const sent = [];
-  for (const [k, v] of [
-    ['theme', 'dark'],
-    ['layout', 'phone'],
-  ]) {
+  for (const [k, v] of [['theme', 'dark'], ['layout', 'phone']]) {
     const parts = { prefs: prefsWith(prof.prefs, k, v) };
     prof = withParts(prof, parts); // at change time, before any answer
     sent.push(parts);

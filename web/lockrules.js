@@ -34,19 +34,20 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 
 // s is the lock state ({enforced, locked, user, persistent}). A persistent user is skipped by
 // the idle timer ONLY (Ctrl+L and the Lock button always work).
-export const idleLock = (s, lastActive, now, minutes) => !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
+export const idleLock = (s, lastActive, now, minutes) =>
+  !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
 
-export const softIdleLock = (s, handLocked, lastActive, now, minutes) => !s.enforced && !handLocked && idleDue(lastActive, now, minutes);
+export const softIdleLock = (s, handLocked, lastActive, now, minutes) =>
+  !s.enforced && !handLocked && idleDue(lastActive, now, minutes);
 
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
 // step.
-const GUARDED = ['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests', 'fireMode', 'salvoGroup', 'pinMaxTries', 'autoLockMinutes'];
-export const guardedEdited = (next, cur) =>
-  !!cur &&
-  (GUARDED.some((k) => next[k] !== cur[k]) ||
-    !!next.locks?.main !== !!cur.locks?.main ||
-    !!next.locks?.log !== !!cur.locks?.log ||
-    (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
+const GUARDED = ['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests',
+  'fireMode', 'salvoGroup', 'pinMaxTries', 'autoLockMinutes'];
+export const guardedEdited = (next, cur) => !!cur && (
+  GUARDED.some((k) => next[k] !== cur[k]) ||
+  !!next.locks?.main !== !!cur.locks?.main || !!next.locks?.log !== !!cur.locks?.log ||
+  (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
 
 // A low-risk settings save asks for the settings PIN first, except on a trusted user's
 // connection. The server decides; this only hides the prompt.
@@ -80,15 +81,8 @@ export function brandFrames(dir, fly, t) {
   const at = `translate(${t.x}px, ${t.y}px) scale(${t.scale})`;
   if (!fly) return dir === 'in' ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }];
   return dir === 'in'
-    ? [
-        { transform: at, opacity: 1 },
-        { transform: 'none', opacity: 1 },
-      ]
-    : [
-        { transform: 'none', opacity: 1, offset: 0 },
-        { opacity: 1, offset: 0.55 },
-        { transform: at, opacity: 0, offset: 1 },
-      ];
+    ? [{ transform: at, opacity: 1 }, { transform: 'none', opacity: 1 }]
+    : [{ transform: 'none', opacity: 1, offset: 0 }, { opacity: 1, offset: 0.55 }, { transform: at, opacity: 0, offset: 1 }];
 }
 
 export const OUT_FACTOR = 1.5;
@@ -115,8 +109,7 @@ export const dots = (pin) => '●'.repeat(pin.length);
 const CHURN_KEYS = 'abcdefghjkmnpqrstuvwxyz';
 export function churnKey(last = '', rnd = Math.random) {
   let key;
-  do key = CHURN_KEYS[Math.floor(rnd() * CHURN_KEYS.length)];
-  while (key === last);
+  do key = CHURN_KEYS[Math.floor(rnd() * CHURN_KEYS.length)]; while (key === last);
   return key;
 }
 
@@ -154,8 +147,9 @@ export const softLock = (v, enforced) => (enforced ? v : { mode: MODE.SOFT, back
 
 export const softUnlock = () => PAGE_VIEW;
 
-export const startLogin = (v, fromSoft) =>
-  fromSoft ? (v.mode === MODE.SOFT ? { mode: MODE.LOGIN, back: 'soft' } : v) : v.mode === MODE.PAGE ? { mode: MODE.LOGIN, back: 'page' } : v;
+export const startLogin = (v, fromSoft) => (fromSoft
+  ? (v.mode === MODE.SOFT ? { mode: MODE.LOGIN, back: 'soft' } : v)
+  : (v.mode === MODE.PAGE ? { mode: MODE.LOGIN, back: 'page' } : v));
 
 // The view stays SOFT so the page stays covered; "Log in as..." remains when users exist.
 export const logOutOffered = (s) => !s.enforced && !!s.user;
@@ -166,7 +160,6 @@ export const lockArrived = (v, enforced) => (enforced && (v.mode === MODE.SOFT |
 
 // A login ends only with an enforced lock or a real unlock; any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
-export const loginWon = (v, { enforced, unlocked, user }) =>
-  (v.mode === MODE.LOGIN || v.mode === MODE.OWN) && (enforced || (unlocked && user)) ? PAGE_VIEW : v;
+export const loginWon = (v, { enforced, unlocked, user }) => ((v.mode === MODE.LOGIN || v.mode === MODE.OWN) && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 
 export const chipShown = ({ covered, soft, user }) => (soft ? !!user : !covered);

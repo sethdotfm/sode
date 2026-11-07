@@ -14,12 +14,8 @@ function stub(readyState, ago) {
     readyState,
     lastRx: Date.now() - ago,
     send: (m) => calls.sent.push(m),
-    close: () => {
-      calls.closed++;
-    },
-    onclose: () => {
-      calls.lost++;
-    },
+    close: () => { calls.closed++; },
+    onclose: () => { calls.lost++; },
     onmessage: () => {},
   };
 }

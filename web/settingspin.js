@@ -4,7 +4,9 @@ import { $, S } from './core.js';
 
 export function renderPinStatus() {
   $('cfg-pin-clear-row').hidden = !S.pinSet;
-  $('cfg-pin-status').textContent = S.pinSet ? 'A PIN is set. Leave both fields blank to keep it.' : 'No PIN is set. Use 4–64 characters.';
+  $('cfg-pin-status').textContent = S.pinSet
+    ? 'A PIN is set. Leave both fields blank to keep it.'
+    : 'No PIN is set. Use 4–64 characters.';
   $('cfg-pin-change').textContent = S.pinSet ? 'Change Advanced PIN' : 'Set Advanced PIN';
 }
 

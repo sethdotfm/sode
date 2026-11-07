@@ -7,8 +7,7 @@ function server(total) {
   return ({ before, n }) => {
     const top = before < 0 ? total : before;
     const entries = [];
-    for (let s = top - 1; s >= 0 && entries.length < n; s--)
-      entries.push({ seq: s, time: '2026-10-29T10:00:00Z', kind: s % 10 === 0 ? 'connect' : 'keepalive' });
+    for (let s = top - 1; s >= 0 && entries.length < n; s--) entries.push({ seq: s, time: '2026-10-29T10:00:00Z', kind: s % 10 === 0 ? 'connect' : 'keepalive' });
     return { before, entries, more: top - entries.length > 0, total };
   };
 }
@@ -48,13 +47,7 @@ test('Load older with a page of hidden entries still adds rows', () => {
 test('stops at the page cap while everything is hidden, and at the log start', () => {
   const p = P.newPager();
   const hidden = server(100_000);
-  const srv = (r) => {
-    const m = hidden(r);
-    m.entries.forEach((e) => {
-      e.kind = 'keepalive';
-    });
-    return m;
-  };
+  const srv = (r) => { const m = hidden(r); m.entries.forEach((e) => { e.kind = 'keepalive'; }); return m; };
   assert.equal(run(p, srv, p.open()), P.AUTO_PAGES);
   assert.ok(p.older(0));
   const q = P.newPager();
@@ -73,7 +66,7 @@ test('a reply for another request is ignored and leaves the pending one', () => 
   assert.equal(p.loading, false);
 });
 
-test("a new connection drops the old one's reply; Load older works after", () => {
+test('a new connection drops the old one\'s reply; Load older works after', () => {
   const p = P.newPager();
   const srv = server(300);
   run(p, srv, p.open());
@@ -91,12 +84,7 @@ test('live entries before the newest page are merged, not duplicated', () => {
   const p = P.newPager();
   const srv = server(300);
   const req = p.open();
-  p.live({
-    entries: [
-      { seq: 299, time: '2026-10-29T10:00:00Z', kind: 'connect' },
-      { seq: 300, time: '2026-10-29T10:00:00Z', kind: 'connect' },
-    ],
-  });
+  p.live({ entries: [{ seq: 299, time: '2026-10-29T10:00:00Z', kind: 'connect' }, { seq: 300, time: '2026-10-29T10:00:00Z', kind: 'connect' }] });
   p.receive(srv(req));
   assert.deepEqual(p.list.map((e) => e.seq).slice(0, 3), [300, 299, 298]);
   assert.equal(new Set(p.list.map((e) => e.seq)).size, p.list.length);
@@ -106,12 +94,8 @@ test('a time range keeps reading regardless of the cap', () => {
   const p = P.newPager();
   const srv = server(100_000);
   p.open();
-  let req = null,
-    n = 0;
+  let req = null, n = 0;
   p.receive(srv({ before: -1, n: 100 }));
-  while ((req = p.back()) && n < 50) {
-    p.receive(srv(req));
-    n++;
-  }
+  while ((req = p.back()) && n < 50) { p.receive(srv(req)); n++; }
   assert.equal(n, 50);
 });

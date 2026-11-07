@@ -31,9 +31,8 @@ function setProfilePrefs(p) {
 }
 on('profile', setProfilePrefs);
 // Nobody or somebody else is in: drop the cached prefs; `profile` brings the right ones.
-on('access', (a) => {
-  if (mineUser && a.user !== mineUser) setProfilePrefs(null);
-});
+on('access', (a) => { if (mineUser && a.user !== mineUser) setProfilePrefs(null); });
+
 
 // '' or unknown goes back to the global default.
 export function setPref(name, v) {
@@ -125,14 +124,10 @@ export function initTheme() {
 
   // Alt/Option+Shift+T: browsers keep Mod+Shift+T for reopening tabs.
   // Matched by e.code because Option changes e.key on macOS.
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setPref('theme', isDark() ? 'light' : 'dark');
-    },
-    true,
-  );
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyT' || !e.shiftKey || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    setPref('theme', isDark() ? 'light' : 'dark');
+  }, true);
 }

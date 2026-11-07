@@ -13,34 +13,20 @@ import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
 import {
-  allPresets,
-  presetsIn,
-  findPreset,
-  normPreset,
-  presetProblem,
-  presetsProblem,
-  replacePreset,
-  saveLocalPreset,
-  deleteLocalPreset,
-  pinnedPresets,
-  saved,
-  clearPinOverride,
-  parseRefs,
-  itemsFromTakes,
-  presetTip,
-  isBlankRow,
-  fillFrom,
+  allPresets, presetsIn, findPreset, normPreset, presetProblem, presetsProblem, replacePreset, saveLocalPreset, deleteLocalPreset,
+  pinnedPresets, saved, clearPinOverride,
+  parseRefs, itemsFromTakes, presetTip, isBlankRow, fillFrom,
 } from './presetstore.js';
+
 
 const hosts = [];
 // host: { active(), confirm(plan), patch(), clear(), focus(), fill?(take) }. patch() gives {
 // src: item, dsts: [item], levels: [ui] } (levels [] = default), or null while the boxes hold
 // no patch. fill(take) is desktop only.
-export const presetHost = (host) => {
-  hosts.push(host);
-};
+export const presetHost = (host) => { hosts.push(host); };
 const shown = () => hosts.find((h) => h.active());
 export const presetShown = () => !!shown();
+
 
 export function fire(scope, name) {
   const s = findPreset(scope, name);
@@ -95,13 +81,7 @@ function renderStrips() {
       }
       b.type = 'button';
       // Names change (re-poll, late load): the tip is worked out when the pointer or focus arrives.
-      const tip = () => {
-        b.dataset.pbTip = presetTip(
-          s,
-          (n) => srcItem(n).label,
-          (n) => dstItem(n).label,
-        );
-      };
+      const tip = () => { b.dataset.pbTip = presetTip(s, (n) => srcItem(n).label, (n) => dstItem(n).label); };
       tip();
       b.addEventListener('pointerenter', tip);
       b.addEventListener('focus', tip);
@@ -132,10 +112,7 @@ function renderStrips() {
 // Keyboard mode `p` (desktop): first preset chip, ←/→ in DOM order (Show all, chips, Edit);
 // Enter presses, Esc goes back to Source.
 on('presetStrip', () => {
-  const b =
-    document.querySelector('[data-presets] .sode__set:not(.sode__presets-all)') ||
-    document.querySelector('[data-presets] .sode__set') ||
-    document.querySelector('[data-presets] button');
+  const b = document.querySelector('[data-presets] .sode__set:not(.sode__presets-all)') || document.querySelector('[data-presets] .sode__set') || document.querySelector('[data-presets] button');
   b?.focus();
 });
 document.addEventListener('keydown', (e) => {
@@ -151,11 +128,9 @@ document.addEventListener('keydown', (e) => {
     document.getElementById('src')?.focus();
   }
 });
-on('presets', () => {
-  renderStrips();
-  if (open && !tgt) renderEditor(true);
-});
+on('presets', () => { renderStrips(); if (open && !tgt) renderEditor(true); });
 renderStrips();
+
 
 const root = el('div', 'pb-modal-backdrop sode__scrim');
 root.hidden = true;
@@ -195,13 +170,7 @@ pinIn.placeholder = 'PIN';
 pinIn.autocomplete = 'current-password';
 pinIn.setAttribute('aria-label', 'Settings PIN');
 const pinOk = btn('pb-btn--ok', 'Unlock');
-const pinRow = el(
-  'div',
-  'sode__filters-set',
-  labeled('Settings PIN', pinIn),
-  pinOk,
-  btn('pb-btn--ghost', 'Cancel', () => saver.cancel()),
-);
+const pinRow = el('div', 'sode__filters-set', labeled('Settings PIN', pinIn), pinOk, btn('pb-btn--ghost', 'Cancel', () => saver.cancel()));
 pinRow.hidden = true;
 const delBtn = btn('pb-btn--outline', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit', 'Save', () => save());
@@ -214,64 +183,32 @@ asName.setAttribute('aria-label', 'Name for the copy');
 asName.autocomplete = 'off';
 const asScope = el('select', 'pb-select');
 asScope.setAttribute('aria-label', 'Save the copy for');
-const asRow = el(
-  'div',
-  'sode__filters-set',
-  labeled('Name of the copy', asName),
-  labeled('Save the copy for', el('span', 'pb-select-wrap', asScope), 'sode__filters-scope'),
-  btn('pb-btn--commit', 'Save', () => saveAs()),
-  btn('pb-btn--ghost', 'Cancel', () => closeSaveAs()),
-);
+const asRow = el('div', 'sode__filters-set', labeled('Name of the copy', asName), labeled('Save the copy for', el('span', 'pb-select-wrap', asScope), 'sode__filters-scope'),
+  btn('pb-btn--commit', 'Save', () => saveAs()), btn('pb-btn--ghost', 'Cancel', () => closeSaveAs()));
 asRow.hidden = true;
 const shareBtn = btn('pb-btn--outline', 'Share', () => {
   const p = cur?.old && findPreset(cur.from, cur.old);
   if (p) shareLink(sharePresetDoc(p), shareUI);
 });
 
-const pickRow = el(
-  'div',
-  'sode__filters-set',
-  labeled('Preset', el('span', 'pb-select-wrap', pick)),
-  btn('pb-btn--outline', 'New', () => load(null)),
-);
+const pickRow = el('div', 'sode__filters-set', labeled('Preset', el('span', 'pb-select-wrap', pick)), btn('pb-btn--outline', 'New', () => load(null)));
 const scopeWrap = labeled('Save for', el('span', 'pb-select-wrap', scopeIn), 'sode__filters-scope');
 const titleEl = Object.assign(el('span', 'pb-modal__title', 'Edit Presets'), { id: 'presets-title' });
-const organizerBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Preset Organizer', () => {
-  closePresets();
-  if (!open) emit('presetPopup');
-});
-const transferBtn = btn('pb-btn--outline', 'Import & Export…', () =>
-  emit('openTransfer', { scope: cur?.old ? cur.from : 'local', user: profileName() || '', what: 'presets' }),
-);
+const organizerBtn = btn('pb-btn--outline pb-btn--sm sode__head-link', 'Preset Organizer', () => { closePresets(); if (!open) emit('presetPopup'); });
+const transferBtn = btn('pb-btn--outline', 'Import & Export…', () => emit('openTransfer', { scope: cur?.old ? cur.from : 'local', user: profileName() || '', what: 'presets' }));
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closePresets());
 dialog.append(
   el('div', 'pb-modal__header', titleEl, organizerBtn),
-  el(
-    'div',
-    'pb-modal__body sode__filters-body',
-    el(
-      'div',
-      'sode__filters-sets',
+  el('div', 'pb-modal__body sode__filters-body',
+    el('div', 'sode__filters-sets',
       pickRow,
       el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveAsBtn, shareBtn, delBtn),
-      asRow,
-      pinnedBox,
-      pinRow,
-      shareUI.box,
-    ),
-    el(
-      'div',
-      'sode__filters-set',
-      btn('pb-btn--outline', 'Add row', () => {
-        cur.items.push(blankRow());
-        renderRows();
-        focusLast();
-      }),
+      asRow, pinnedBox, pinRow, shareUI.box),
+    el('div', 'sode__filters-set',
+      btn('pb-btn--outline', 'Add row', () => { cur.items.push(blankRow()); renderRows(); focusLast(); }),
       btn('pb-btn--outline', 'Add from Patch Boxes…', addFromBoxes),
-      btn('pb-btn--outline', 'Add from Recent…', fillFromRecent),
-    ),
-    rowsBox,
-  ),
+      btn('pb-btn--outline', 'Add from Recent…', fillFromRecent)),
+    rowsBox),
   el('div', 'pb-modal__footer', transferBtn, noteEl, cancelBtn, saveBtn),
 );
 root.append(dialog);
@@ -292,22 +229,12 @@ function paintSave() {
 }
 
 const saver = globalSaver({
-  t: 'presets',
-  resultT: 'presetsResult',
-  pinIn,
-  pinRow,
-  pinOk,
-  setNote,
-  isOpen: () => open,
-  failTitle: 'Presets not saved',
-  okNote: 'Saved for everyone.',
+  t: 'presets', resultT: 'presetsResult', pinIn, pinRow, pinOk, setNote,
+  isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved for everyone.',
   render: () => renderHead(true),
 });
 const profSaver = profileSaver({
-  setNote,
-  isOpen: () => open,
-  failTitle: 'Presets not saved',
-  okNote: 'Saved to your profile.',
+  setNote, isOpen: () => open, failTitle: 'Presets not saved', okNote: 'Saved to your profile.',
   render: () => renderHead(true),
 });
 
@@ -316,24 +243,13 @@ const profSaver = profileSaver({
 let tgt = null;
 const tgtSaver = profileSaver({
   target: () => tgt,
-  setNote,
-  isOpen: () => open && !!tgt,
-  failTitle: 'Presets not saved',
-  okNote: 'Saved.',
+  setNote, isOpen: () => open && !!tgt, failTitle: 'Presets not saved', okNote: 'Saved.',
   render: () => renderHead(true),
 });
 
-let open = false,
-  back = null;
-let cur = null,
-  dirty = false,
-  deleting = false,
-  discard = false;
-const touch = () => {
-  dirty = true;
-  discard = false;
-  paintSave();
-};
+let open = false, back = null;
+let cur = null, dirty = false, deleting = false, discard = false;
+const touch = () => { dirty = true; discard = false; paintSave(); };
 const SRC_EXAMPLE = '12 or Cam 1';
 const DST_EXAMPLE = '12, 20-24, Monitor 1';
 const blankRow = () => ({ src: '', dsts: '', levels: '' });
@@ -358,65 +274,47 @@ const lookup = (list) => (t) => search(list, t, 1)[0]?.n ?? null;
 function parseRow(r) {
   const s = parseRefs(r.src, off(), lookup(S.srcs));
   const d = parseRefs(r.dsts, off(), lookup(S.dsts));
-  let levels = [],
-    badLevels = false;
+  let levels = [], badLevels = false;
   if (r.levels.trim()) {
     const l = parseLevels(r.levels);
-    if (l) levels = l;
-    else badLevels = true;
+    if (l) levels = l; else badLevels = true;
   }
   const bad = [...s.bad.map((t) => `source “${t}”`), ...d.bad.map((t) => `destination “${t}”`), ...(badLevels ? ['levels'] : [])];
   if (s.ns.length > 1) bad.push('more than one source');
   const item = { src: s.ns.length === 1 ? s.ns[0] : -1, dsts: d.ns, levels };
   const known = S.srcBy.has(item.src) && item.dsts.every((n) => S.dstBy.has(n));
-  const text = bad.length
-    ? `Not understood: ${bad.join(', ')}`
-    : !item.dsts.length && item.src < 0
-      ? ''
+  const text = bad.length ? `Not understood: ${bad.join(', ')}`
+    : !item.dsts.length && item.src < 0 ? ''
       : `${item.src >= 0 ? srcItem(item.src).label : '?'} → ${item.dsts.map((n) => dstItem(n).label).join(', ') || '?'}${known ? '' : ' (not on the router now)'}`;
   return { item, text, error: bad.length > 0, known };
 }
 
 function renderRows() {
-  rowsBox.replaceChildren(
-    ...cur.items.map((r, i) => {
-      const hint = el('span', 'sode__hint sode__preset-hint');
-      const upd = () => {
-        const p = parseRow(r);
-        hint.textContent = p.text;
-        hint.classList.toggle('sode__error-text', p.error || (!p.known && !!p.text));
-      };
-      const field = (key, ph, label, text) => {
-        const inp = el('input', 'pb-input');
-        inp.value = r[key];
-        inp.placeholder = ph;
-        inp.autocomplete = 'off';
-        inp.spellcheck = false;
-        inp.setAttribute('aria-label', label);
-        inp.addEventListener('input', () => {
-          r[key] = inp.value;
-          touch();
-          upd();
-          setNote('');
-        });
-        return labeled(text, inp);
-      };
-      upd();
-      return el(
-        'div',
-        `sode__preset-row${i ? ' sode__preset-row--bare' : ''}`,
-        field('src', SRC_EXAMPLE, `Take ${i + 1} source`, 'Source'),
-        field('dsts', DST_EXAMPLE, `Take ${i + 1} destinations`, 'Destinations'),
-        field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`, 'Levels'),
-        btn('pb-btn--ghost', 'Remove', () => {
-          cur.items.splice(i, 1);
-          touch();
-          renderRows();
-        }),
-        hint,
-      );
-    }),
-  );
+  rowsBox.replaceChildren(...cur.items.map((r, i) => {
+    const hint = el('span', 'sode__hint sode__preset-hint');
+    const upd = () => {
+      const p = parseRow(r);
+      hint.textContent = p.text;
+      hint.classList.toggle('sode__error-text', p.error || (!p.known && !!p.text));
+    };
+    const field = (key, ph, label, text) => {
+      const inp = el('input', 'pb-input');
+      inp.value = r[key];
+      inp.placeholder = ph;
+      inp.autocomplete = 'off';
+      inp.spellcheck = false;
+      inp.setAttribute('aria-label', label);
+      inp.addEventListener('input', () => { r[key] = inp.value; touch(); upd(); setNote(''); });
+      return labeled(text, inp);
+    };
+    upd();
+    return el('div', `sode__preset-row${i ? ' sode__preset-row--bare' : ''}`,
+      field('src', SRC_EXAMPLE, `Take ${i + 1} source`, 'Source'),
+      field('dsts', DST_EXAMPLE, `Take ${i + 1} destinations`, 'Destinations'),
+      field('levels', S.levels.length ? `Levels (${S.levels[0].label}-${S.levels[S.levels.length - 1].label})` : 'Levels', `Take ${i + 1} levels`, 'Levels'),
+      btn('pb-btn--ghost', 'Remove', () => { cur.items.splice(i, 1); touch(); renderRows(); }),
+      hint);
+  }));
 }
 function focusLast() {
   const ins = rowsBox.querySelectorAll('.sode__preset-row:last-child input');
@@ -442,12 +340,7 @@ function renderHead(keep = false) {
   pinRow.hidden = pinRow.hidden || t;
   saveAsBtn.hidden = t;
   transferBtn.hidden = t;
-  if (t) {
-    delBtn.hidden = true;
-    shareBtn.hidden = true;
-    asRow.hidden = true;
-    shareUI.box.hidden = true;
-  }
+  if (t) { delBtn.hidden = true; shareBtn.hidden = true; asRow.hidden = true; shareUI.box.hidden = true; }
   paintSave();
   titleEl.textContent = t ? `${tgt.old ? 'Edit' : 'Add'} preset for ${tgt.user}` : 'Edit Presets';
   organizerBtn.hidden = !!t;
@@ -468,15 +361,8 @@ pick.addEventListener('change', () => {
   const i = v.indexOf(':');
   load(findPreset(v.slice(0, i), v.slice(i + 1)));
 });
-nameIn.addEventListener('input', () => {
-  cur.name = nameIn.value;
-  touch();
-  setNote('');
-});
-pinnedIn.addEventListener('change', () => {
-  cur.pinned = pinnedIn.checked;
-  touch();
-});
+nameIn.addEventListener('input', () => { cur.name = nameIn.value; touch(); setNote(''); });
+pinnedIn.addEventListener('change', () => { cur.pinned = pinnedIn.checked; touch(); });
 scopeIn.addEventListener('change', () => {
   cur.scope = scopeIn.value;
   if (!cur.old) return;
@@ -546,6 +432,7 @@ function addRows(items, note) {
   setNote(note);
 }
 
+
 function built(moving = false) {
   const items = [];
   for (const r of cur.items.filter((x) => !isBlankRow(x))) {
@@ -555,12 +442,7 @@ function built(moving = false) {
   }
   const s = { ...normPreset({ name: cur.name, items }), pinned: cur.pinned };
   const list = tgt ? tgt.lists : presetsIn(cur.scope);
-  const err =
-    nameProblem(
-      s.name,
-      list.map((x) => x.name),
-      { noun: 'preset', old: moving ? '' : cur.old },
-    ) || presetProblem(s);
+  const err = nameProblem(s.name, list.map((x) => x.name), { noun: 'preset', old: moving ? '' : cur.old }) || presetProblem(s);
   if (err) return { err };
   const next = replacePreset(list, s, moving ? '' : cur.old);
   const tooMuch = presetsProblem(next);
@@ -568,13 +450,8 @@ function built(moving = false) {
 }
 
 function removeFrom(scope, name, done) {
-  if (scope === 'local') {
-    deleteLocalPreset(name);
-    return done();
-  }
-  const next = presetsIn(scope)
-    .filter((x) => x.name.toLowerCase() !== name.toLowerCase())
-    .map(saved);
+  if (scope === 'local') { deleteLocalPreset(name); return done(); }
+  const next = presetsIn(scope).filter((x) => x.name.toLowerCase() !== name.toLowerCase()).map(saved);
   (scope === 'user' ? profSaver : saver).change({ presets: next }, done);
 }
 
@@ -583,32 +460,17 @@ function save() {
   const b = built(moving);
   if (b.err) return setNote(b.err, true);
   if (tgt) {
-    return tgtSaver.change({ presets: b.next }, () => {
-      dirty = false;
-      closePresets();
-    });
+    return tgtSaver.change({ presets: b.next }, () => { dirty = false; closePresets(); });
   }
-  const from = cur.from,
-    was = cur.old,
-    to = cur.scope;
+  const from = cur.from, was = cur.old, to = cur.scope;
   // Copy first, remove after: a refused or lost save never loses the preset.
   const landed = () => {
-    cur.from = to;
-    cur.old = b.s.name;
-    cur.name = b.s.name;
-    nameIn.value = cur.name;
-    dirty = false;
+    cur.from = to; cur.old = b.s.name; cur.name = b.s.name; nameIn.value = cur.name; dirty = false;
     if (!moving) return finish();
     if (from === 'global') clearPinOverride(was);
-    removeFrom(from, was, () => {
-      cur.scope = to;
-      finish();
-    });
+    removeFrom(from, was, () => { cur.scope = to; finish(); });
   };
-  const finish = () => {
-    dirty = false;
-    closePresets();
-  };
+  const finish = () => { dirty = false; closePresets(); };
   if (to === 'local') {
     saveLocalPreset(b.s, moving ? '' : cur.old);
     return landed();
@@ -616,6 +478,7 @@ function save() {
   const sv = to === 'user' ? profSaver : saver;
   sv.change({ presets: b.next }, landed);
 }
+
 
 function askSaveAs() {
   asScope.replaceChildren(...scopeOpts());
@@ -632,11 +495,7 @@ function closeSaveAs() {
 function saveAs() {
   const name = asName.value.trim().slice(0, 32);
   const target = asScope.value;
-  const bad = (msg) => {
-    asName.classList.add('pb-input--invalid');
-    setNote(msg, true);
-    asName.focus();
-  };
+  const bad = (msg) => { asName.classList.add('pb-input--invalid'); setNote(msg, true); asName.focus(); };
   const items = [];
   for (const r of cur.items.filter((x) => !isBlankRow(x))) {
     const p = parseRow(r);
@@ -653,16 +512,7 @@ function saveAs() {
   const next = replacePreset(list, s, taken);
   const tooMuch = presetsProblem(next);
   if (tooMuch) return bad(tooMuch);
-  const loaded = () => {
-    closeSaveAs();
-    cur.scope = target;
-    cur.from = target;
-    cur.old = s.name;
-    cur.name = s.name;
-    dirty = false;
-    discard = false;
-    renderHead();
-  };
+  const loaded = () => { closeSaveAs(); cur.scope = target; cur.from = target; cur.old = s.name; cur.name = s.name; dirty = false; discard = false; renderHead(); };
   if (target === 'local') {
     saveLocalPreset(s, taken);
     loaded();
@@ -671,24 +521,13 @@ function saveAs() {
   (target === 'user' ? profSaver : saver).change({ presets: next }, loaded);
 }
 asName.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    saveAs();
-  }
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    e.stopPropagation();
-    closeSaveAs();
-  }
+  if (e.key === 'Enter') { e.preventDefault(); saveAs(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSaveAs(); }
 });
 
 function deleteClick() {
   if (!cur.old) return;
-  if (!deleting) {
-    deleting = true;
-    delBtn.textContent = 'Really delete?';
-    return;
-  }
+  if (!deleting) { deleting = true; delBtn.textContent = 'Really delete?'; return; }
   deleting = false;
   const name = cur.old;
   if (cur.from === 'local') {
@@ -696,11 +535,11 @@ function deleteClick() {
     load(null);
     return setNote('Deleted.');
   }
-  const next = presetsIn(cur.from)
-    .filter((s) => s.name.toLowerCase() !== name.toLowerCase())
-    .map(saved);
+  const next = presetsIn(cur.from).filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   (cur.from === 'user' ? profSaver : saver).change({ presets: next }, () => load(null));
 }
+
+
 
 export function openPresets(scope = '', name = '') {
   back = document.activeElement;
@@ -714,10 +553,7 @@ export function openPresets(scope = '', name = '') {
 }
 
 function closePresets() {
-  if (open && dirty && !discard) {
-    discard = true;
-    return setNote('Unsaved changes. Close again to discard them, or Save.', true);
-  }
+  if (open && dirty && !discard) { discard = true; return setNote('Unsaved changes. Close again to discard them, or Save.', true); }
   open = false;
   dlg.hide();
   if (tgt) {
@@ -734,10 +570,7 @@ const dlg = trapDialog(root, dialog, closePresets);
 
 // A lock closes the editor without the unsaved-changes warning (the page is covered).
 on('locking', () => {
-  if (picking) {
-    picking = false;
-    endPick();
-  }
+  if (picking) { picking = false; endPick(); }
   if (!open) return;
   discard = true;
   closePresets();

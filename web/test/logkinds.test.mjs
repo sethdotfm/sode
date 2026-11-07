@@ -6,10 +6,7 @@ const [a, b, c] = KIND_IDS;
 
 test('KIND_IDS are unique and match KINDS', () => {
   assert.equal(new Set(KIND_IDS).size, KIND_IDS.length);
-  assert.deepEqual(
-    KIND_IDS,
-    KINDS.map((g) => g.id),
-  );
+  assert.deepEqual(KIND_IDS, KINDS.map((g) => g.id));
 });
 
 test('normalizeKinds: default, unknown ids and empty lists', () => {

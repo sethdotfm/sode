@@ -1,8 +1,6 @@
 // /log uptime graph: turns the server's link record (state at range start, changes, per-slot bad counts) into coloured slots. Pure, no imports.
 
-const MIN = 60_000,
-  HOUR = 60 * MIN,
-  DAY = 24 * HOUR;
+const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const SLOTS = [MIN, 5 * MIN, 15 * MIN, 30 * MIN, HOUR, 3 * HOUR, 6 * HOUR, 12 * HOUR, DAY, 7 * DAY];
 // The most slots a row has: 24h is 96 × 15 min, 7 days 168 × 1 h.
 export const MAX_SLOTS = 200;
@@ -44,9 +42,7 @@ export function slots(data) {
     const s = { from: a, to: b, upMs: 0, knownMs: 0, bad: c.bad, slow: c.slow, colour: 'future' };
     if (end > a) {
       while (k < trans.length && trans[k].t <= a) state = trans[k++].s;
-      let at = a,
-        cur = state,
-        j = k;
+      let at = a, cur = state, j = k;
       const span = (until) => {
         if (cur) s.knownMs += until - at;
         if (cur === 'up') s.upMs += until - at;
@@ -81,9 +77,7 @@ export function summary(data) {
   if (!known) return 'No record for this time';
   const up = ss.reduce((t, s) => t + s.upMs, 0);
   const pct = up === known ? '100' : (Math.floor((up / known) * 1000) / 10).toFixed(1);
-  const d = drops(data),
-    bad = ss.reduce((t, s) => t + s.bad, 0),
-    slow = ss.reduce((t, s) => t + s.slow, 0);
+  const d = drops(data), bad = ss.reduce((t, s) => t + s.bad, 0), slow = ss.reduce((t, s) => t + s.slow, 0);
   const parts = [`${pct}% up`, `${d} ${d === 1 ? 'drop' : 'drops'}`];
   if (bad) parts.push(`${bad} failed`);
   if (slow) parts.push(`${slow} slow`);

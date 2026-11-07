@@ -40,13 +40,8 @@ export function buildChip(api) {
   const form = el('form', 'pb-modal__body sode-lock__pin-form', oldF.row, newF.row, againF.row, note);
   form.id = 'sode-pin-form';
   save.setAttribute('form', form.id); // the footer is the form's sibling
-  const dialog = el(
-    'div',
-    'pb-modal sode-lock__pin-dlg',
-    el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'Change my PIN')),
-    form,
-    el('div', 'pb-modal__footer', cancel, save),
-  );
+  const dialog = el('div', 'pb-modal sode-lock__pin-dlg', el('div', 'pb-modal__header', el('span', 'pb-modal__title', 'Change my PIN')), form,
+    el('div', 'pb-modal__footer', cancel, save));
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-label', 'Change my PIN');

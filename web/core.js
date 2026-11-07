@@ -19,28 +19,23 @@ export const S = {
   configPath: '',
   version: '',
   brandColors: [],
-  srcs: [],
-  dsts: [],
-  srcBy: new Map(),
-  dstBy: new Map(),
+  srcs: [], dsts: [],
+  srcBy: new Map(), dstBy: new Map(),
   tally: new Map(),
-  prot: new Map(),
-  levels: [],
-  levelDefaults: [],
+  prot: new Map(), 
+  levels: [], levelDefaults: [],
   levelBy: new Map(),
   namesAt: null,
   wsState: 'connecting',
-  wsLost: false,
-  router: null,
-  routerAddr: '',
-  routerErr: '',
+  wsLost: false,   
+  router: null, routerAddr: '', routerErr: '',
   routerLastErr: '',
   ws: null,
-  hist: [],
+  hist: [],        
   histMore: false,
   histLoading: false,
-  result: null,
-  newId: null,
+  result: null,    
+  newId: null,     
   prevNumbering: null,
 };
 
@@ -55,20 +50,14 @@ export function keepSearch(read) {
   let kept = null;
   return {
     is: () => kept !== null && read() === kept,
-    set: (keep, text) => {
-      kept = keep && text.trim() ? text : null;
-    },
+    set: (keep, text) => { kept = keep && text.trim() ? text : null; },
   };
 }
 
 const listeners = {};
-export const on = (ev, fn) => {
-  (listeners[ev] ||= []).push(fn);
-};
+export const on = (ev, fn) => { (listeners[ev] ||= []).push(fn); };
 // Runs before earlier listeners: for a module that must refresh its memo before views read it.
-export const onFirst = (ev, fn) => {
-  (listeners[ev] ||= []).unshift(fn);
-};
+export const onFirst = (ev, fn) => { (listeners[ev] ||= []).unshift(fn); };
 export const emit = (ev, ...args) => {
   for (const fn of listeners[ev] || []) fn(...args);
 };
@@ -108,11 +97,7 @@ const quiet = (ws) => Date.now() - ws.lastRx;
 function drop(ws) {
   const lost = ws.onclose;
   ws.onclose = ws.onmessage = null;
-  try {
-    ws.close();
-  } catch {
-    /* already closed */
-  }
+  try { ws.close(); } catch { /* already closed */ }
   lost?.();
 }
 
@@ -126,13 +111,7 @@ export function connect() {
   const watch = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN && quiet(ws) > STALE_MS) drop(ws);
   }, 1000);
-  ws.onopen = () => {
-    ws.lastRx = Date.now();
-    retry = 1000;
-    S.wsState = 'up';
-    S.wsLost = false;
-    emit('conn');
-  };
+  ws.onopen = () => { ws.lastRx = Date.now(); retry = 1000; S.wsState = 'up'; S.wsLost = false; emit('conn'); };
   ws.onclose = () => {
     clearInterval(watch);
     S.ws = null;
@@ -144,10 +123,7 @@ export function connect() {
     setTimeout(connect, retry);
     retry = Math.min(retry * 2, 10000);
   };
-  ws.onmessage = (e) => {
-    ws.lastRx = Date.now();
-    handle(JSON.parse(e.data));
-  };
+  ws.onmessage = (e) => { ws.lastRx = Date.now(); handle(JSON.parse(e.data)); };
 }
 
 export function wsSend(m) {
@@ -324,23 +300,16 @@ export function renderDown(box, c) {
   box.dataset.key = key;
   if (!c.down) return box.replaceChildren();
   const { title, text, err, links } = c.down;
-  const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''), ok === true ? 'ok' : ok === false ? '✕ lost' : '?');
-  box.replaceChildren(
-    ...[
-      el('div', 'sode__down-title', title),
-      links &&
-        el(
-          'div',
-          'sode__down-map',
-          el('span', 'sode__down-node', 'This browser'),
-          link(links[0]),
-          el('span', 'sode__down-node', 'Sode server'),
-          link(links[1]),
-          el('span', 'sode__down-node', 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?')),
-        ),
-      el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
-    ].filter(Boolean),
-  );
+  const link = (ok) => el('span', 'sode__down-link' + (ok === false ? ' sode__down-link--lost' : ''),
+    ok === true ? 'ok' : ok === false ? '✕ lost' : '?');
+  box.replaceChildren(...[
+    el('div', 'sode__down-title', title),
+    links && el('div', 'sode__down-map',
+      el('span', 'sode__down-node', 'This browser'), link(links[0]),
+      el('span', 'sode__down-node', 'Sode server'), link(links[1]),
+      el('span', 'sode__down-node', 'Router ', S.cfg?.routerName ? `${S.cfg.routerName} ` : '', el('code', null, S.routerAddr || '?'))),
+    el('div', null, text, err ? el('div', null, el('code', null, err)) : null),
+  ].filter(Boolean));
 }
 
 export const sentence = (t) => {
@@ -402,9 +371,7 @@ function score(it, q) {
   // Subsequence over "num name", rewarding runs and word starts.
   const t = it.num + ' ' + it.lname;
   const qq = q.replace(/\s+/g, '');
-  let qi = 0,
-    pts = 0,
-    prev = -2;
+  let qi = 0, pts = 0, prev = -2;
   for (let i = 0; i < t.length && qi < qq.length; i++) {
     if (t[i] !== qq[qi]) continue;
     pts += (i === prev + 1 ? 3 : 1) + (i === 0 || t[i - 1] === ' ' ? 2 : 0);

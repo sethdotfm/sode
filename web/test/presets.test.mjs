@@ -41,10 +41,7 @@ test('normPreset cleans numbers (shared cases)', async () => {
 const build = (c) => {
   if (!c.gen) return c;
   const { items, perItem } = c.gen;
-  return {
-    name: c.name,
-    items: Array.from({ length: items }, (_, i) => ({ src: i, dsts: Array.from({ length: perItem }, (_, j) => i * perItem + j), levels: [1] })),
-  };
+  return { name: c.name, items: Array.from({ length: items }, (_, i) => ({ src: i, dsts: Array.from({ length: perItem }, (_, j) => i * perItem + j), levels: [1] })) };
 };
 
 test('preset validation matches the shared cases', async () => {
@@ -60,8 +57,7 @@ test('preset lists match the shared cases (count and 48 KiB)', async () => {
   const { presetsProblem } = await setup();
   for (const c of cases.lists) {
     const list = Array.from({ length: c.fill.presets }, (_, k) => ({
-      name: `s${k}`,
-      items: Array.from({ length: c.fill.items }, (_, i) => ({ src: i, dsts: [i], levels: [1] })),
+      name: `s${k}`, items: Array.from({ length: c.fill.items }, (_, i) => ({ src: i, dsts: [i], levels: [1] })),
     }));
     assert.equal(presetsProblem(list) === '', c.ok, c.name);
   }
@@ -72,15 +68,9 @@ test('local presets: add, replace, rename, delete, names ignoring case', async (
   const a = { name: 'Morning', items: [{ src: 0, dsts: [1], levels: [] }] };
   m.saveLocalPreset(a);
   m.saveLocalPreset({ name: 'Evening', items: a.items });
-  assert.deepEqual(
-    m.localPresets().map((s) => s.name),
-    ['Morning', 'Evening'],
-  );
+  assert.deepEqual(m.localPresets().map((s) => s.name), ['Morning', 'Evening']);
   m.saveLocalPreset({ name: 'Morn', items: a.items }, 'morning');
-  assert.deepEqual(
-    m.localPresets().map((s) => s.name),
-    ['Morn', 'Evening'],
-  );
+  assert.deepEqual(m.localPresets().map((s) => s.name), ['Morn', 'Evening']);
   assert.ok(m.findPreset('local', 'EVENING'));
   const names = m.localPresets().map((x) => x.name);
   assert.ok(m.nameProblem('evening', names, { noun: 'preset' }));
@@ -88,20 +78,14 @@ test('local presets: add, replace, rename, delete, names ignoring case', async (
   assert.ok(m.nameProblem('  ', names));
   assert.ok(m.nameProblem('All', [], { reserved: 'all' }));
   m.deleteLocalPreset('morn');
-  assert.deepEqual(
-    m.localPresets().map((s) => s.name),
-    ['Evening'],
-  );
+  assert.deepEqual(m.localPresets().map((s) => s.name), ['Evening']);
 });
 
 test('global presets come from the config, ahead of local ones', async () => {
   const m = await setup();
   m.S.cfg.presets = [{ name: 'Show', items: [{ src: 1, dsts: [0, 2], levels: [] }] }];
   m.saveLocalPreset({ name: 'Mine', items: [{ src: 0, dsts: [0], levels: [] }] });
-  assert.deepEqual(
-    m.allPresets().map((s) => `${s.scope}:${s.name}`),
-    ['global:Show', 'local:Mine'],
-  );
+  assert.deepEqual(m.allPresets().map((s) => `${s.scope}:${s.name}`), ['global:Show', 'local:Mine']);
 });
 
 test('presetProblem', async () => {
@@ -114,34 +98,19 @@ test('presetProblem', async () => {
 
 test('presetPlan: one item per destination, default levels, unresolved left out and said', async () => {
   const { presetPlan } = await setup();
-  const plan = presetPlan(
-    {
-      name: 'Show',
-      items: [
-        { src: 0, dsts: [0, 1], levels: [1, 2] },
-        { src: 1, dsts: [1], levels: [3] },
-        { src: 99, dsts: [2], levels: [] },
-        { src: 2, dsts: [77], levels: [1, 9] },
-      ],
-    },
-    [1, 2],
-  );
+  const plan = presetPlan({ name: 'Show', items: [
+    { src: 0, dsts: [0, 1], levels: [1, 2] },
+    { src: 1, dsts: [1], levels: [3] },
+    { src: 99, dsts: [2], levels: [] },
+    { src: 2, dsts: [77], levels: [1, 9] },
+  ] }, [1, 2]);
   assert.equal(plan.verb, 'preset');
   assert.equal(plan.title, 'Preset: Show');
   assert.equal(plan.preset, 'Show');
-  assert.deepEqual(
-    plan.items.map((i) => [i.dst.n, i.groups.map((g) => [g.src.n, g.levels])]),
-    [
-      [0, [[0, [1, 2]]]],
-      [
-        1,
-        [
-          [0, [1, 2]],
-          [1, [3]],
-        ],
-      ],
-    ],
-  );
+  assert.deepEqual(plan.items.map((i) => [i.dst.n, i.groups.map((g) => [g.src.n, g.levels])]), [
+    [0, [[0, [1, 2]]]],
+    [1, [[0, [1, 2]], [1, [3]]]],
+  ]);
   assert.deepEqual(plan.warnings, [
     'Source 100 does not exist on the router now',
     'Level 9 does not exist on the router now',
@@ -151,47 +120,23 @@ test('presetPlan: one item per destination, default levels, unresolved left out 
 
 test('presetPlan: the same source twice on one destination merges levels', async () => {
   const { presetPlan } = await setup();
-  const plan = presetPlan(
-    {
-      name: 'x',
-      items: [
-        { src: 0, dsts: [0], levels: [1] },
-        { src: 0, dsts: [0], levels: [3] },
-      ],
-    },
-    [1, 2],
-  );
-  assert.deepEqual(
-    plan.items[0].groups.map((g) => g.levels),
-    [[1, 3]],
-  );
+  const plan = presetPlan({ name: 'x', items: [{ src: 0, dsts: [0], levels: [1] }, { src: 0, dsts: [0], levels: [3] }] }, [1, 2]);
+  assert.deepEqual(plan.items[0].groups.map((g) => g.levels), [[1, 3]]);
 });
 
 test('itemsFromTakes', async () => {
   const { itemsFromTakes } = await setup();
   const takes = [
-    { src: 1, dst: 5, levels: [1, 2] },
-    { src: 1, dst: 6, levels: [1, 2] },
-    { src: 2, dst: 7, levels: [3] },
+    { src: 1, dst: 5, levels: [1, 2] }, { src: 1, dst: 6, levels: [1, 2] }, { src: 2, dst: 7, levels: [3] },
   ];
   assert.deepEqual(itemsFromTakes(takes), [
-    { src: 1, dsts: [5, 6], levels: [1, 2] },
-    { src: 2, dsts: [7], levels: [3] },
+    { src: 1, dsts: [5, 6], levels: [1, 2] }, { src: 2, dsts: [7], levels: [3] },
   ]);
 });
 
 test('a preset plan can be confirmed: wording, summary and verb', async () => {
   const { presetPlan, planVerb, planSummary, VERBS } = await setup();
-  const plan = presetPlan(
-    {
-      name: 'Show',
-      items: [
-        { src: 0, dsts: [0, 1], levels: [1] },
-        { src: 99, dsts: [2], levels: [] },
-      ],
-    },
-    [1, 2],
-  );
+  const plan = presetPlan({ name: 'Show', items: [{ src: 0, dsts: [0, 1], levels: [1] }, { src: 99, dsts: [2], levels: [] }] }, [1, 2]);
   assert.equal(planVerb(plan), 'take');
   assert.equal(VERBS.preset.resets, false);
   // Nodes are stand-ins here; what matters is that it builds and the head lines come first.
@@ -202,20 +147,10 @@ test('a preset plan can be confirmed: wording, summary and verb', async () => {
 
 test('replacePreset adds, replaces by old name ignoring case, and leaves the rest', async () => {
   const { replacePreset } = await setup();
-  const a = { name: 'A', items: [] },
-    b = { name: 'B', items: [] };
-  assert.deepEqual(
-    replacePreset([a], b).map((x) => x.name),
-    ['A', 'B'],
-  );
-  assert.deepEqual(
-    replacePreset([a, b], { name: 'C', items: [] }, 'a').map((x) => x.name),
-    ['C', 'B'],
-  );
-  assert.deepEqual(
-    replacePreset([a], { name: 'C', items: [] }, 'gone').map((x) => x.name),
-    ['A', 'C'],
-  );
+  const a = { name: 'A', items: [] }, b = { name: 'B', items: [] };
+  assert.deepEqual(replacePreset([a], b).map((x) => x.name), ['A', 'B']);
+  assert.deepEqual(replacePreset([a, b], { name: 'C', items: [] }, 'a').map((x) => x.name), ['C', 'B']);
+  assert.deepEqual(replacePreset([a], { name: 'C', items: [] }, 'gone').map((x) => x.name), ['A', 'C']);
 });
 
 test('conflicts: different sources, one destination, overlapping levels', async () => {
@@ -247,32 +182,11 @@ test('presets saved under the old salvo keys move to the new ones, once', async 
 test('presetTip: one or many sources and destinations', async () => {
   const { presetTip } = await setup();
   const s = (items) => ({ items });
-  const sl = (n) => `S${n}`,
-    dl = (n) => `D${n}`;
+  const sl = (n) => `S${n}`, dl = (n) => `D${n}`;
   assert.equal(presetTip(s([{ src: 1, dsts: [2], levels: [] }]), sl, dl), 'S1 to D2');
   assert.equal(presetTip(s([{ src: 1, dsts: [2, 3, 4], levels: [] }]), sl, dl), 'S1 to 3 Destinations');
-  assert.equal(
-    presetTip(
-      s([
-        { src: 1, dsts: [2], levels: [] },
-        { src: 1, dsts: [2, 5], levels: [] },
-      ]),
-      sl,
-      dl,
-    ),
-    'S1 to 2 Destinations',
-  );
-  assert.equal(
-    presetTip(
-      s([
-        { src: 1, dsts: [2], levels: [] },
-        { src: 4, dsts: [3], levels: [] },
-      ]),
-      sl,
-      dl,
-    ),
-    '2 Sources to 2 Destinations',
-  );
+  assert.equal(presetTip(s([{ src: 1, dsts: [2], levels: [] }, { src: 1, dsts: [2, 5], levels: [] }]), sl, dl), 'S1 to 2 Destinations');
+  assert.equal(presetTip(s([{ src: 1, dsts: [2], levels: [] }, { src: 4, dsts: [3], levels: [] }]), sl, dl), '2 Sources to 2 Destinations');
   assert.equal(presetTip(s([]), sl, dl), 'No takes');
 });
 
@@ -287,15 +201,9 @@ test('orderPins: saved order first, the rest after in their own order', async ()
   const { orderPins, presetKey } = await setup();
   const mk = (scope, name) => ({ scope, name });
   const list = [mk('global', 'A'), mk('user', 'B'), mk('local', 'C'), mk('global', 'D')];
-  assert.deepEqual(
-    orderPins(list, []).map((s) => s.name),
-    ['A', 'B', 'C', 'D'],
-  );
+  assert.deepEqual(orderPins(list, []).map((s) => s.name), ['A', 'B', 'C', 'D']);
   const order = [presetKey(mk('local', 'c')), presetKey(mk('global', 'D')), 'global:gone'];
-  assert.deepEqual(
-    orderPins(list, order).map((s) => s.name),
-    ['C', 'D', 'A', 'B'],
-  );
+  assert.deepEqual(orderPins(list, order).map((s) => s.name), ['C', 'D', 'A', 'B']);
   assert.equal(presetKey(mk('user', 'Mon 1')), 'user:mon 1');
 });
 

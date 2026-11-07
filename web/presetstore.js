@@ -13,8 +13,8 @@ export const MAX_PRESETS = 30;
 export const MAX_ITEMS = 100;
 export const MAX_DSTS = 100;
 export const MAX_TOTAL = 200;
-export const MAX_NUM = 0xfffe;
-export const MAX_LEVEL = 64;
+export const MAX_NUM = 0xFFFE;  
+export const MAX_LEVEL = 64;    
 export const MAX_BYTES = 48 * 1024;
 const KEY = 'sode-presets';
 const ORDER = 'sode-preset-order';
@@ -22,10 +22,7 @@ const PINS = 'sode-preset-pins';
 
 // Old salvo keys: move what a browser holds to the new keys once (a new key already there wins).
 export function migrateLegacyKeys() {
-  for (const [from, to] of [
-    ['sode-salvos', KEY],
-    ['sode-salvo-pins', PINS],
-  ]) {
+  for (const [from, to] of [['sode-salvos', KEY], ['sode-salvo-pins', PINS]]) {
     const v = readStr(from);
     if (v == null) continue;
     if (readStr(to) == null) writeStr(to, v);
@@ -35,11 +32,7 @@ export function migrateLegacyKeys() {
 migrateLegacyKeys();
 
 // Out-of-range values stay so presetProblem can name them rather than quietly changing the preset.
-const ints = (a) =>
-  []
-    .concat(a ?? [])
-    .map(Number)
-    .filter((n) => Number.isInteger(n));
+const ints = (a) => [].concat(a ?? []).map(Number).filter((n) => Number.isInteger(n));
 export const normItem = (it) => ({
   src: Number.isInteger(+it?.src) ? +it.src : -1,
   dsts: [...new Set(ints(it?.dsts))],
@@ -53,19 +46,15 @@ export const normPreset = (s) => ({
 // A preset saved before the pinned flag existed is pinned. Stored and sent without scope.
 export const saved = ({ name, items, pinned }) => ({ name, items, pinned: pinned !== false });
 
-export const globalPresets = () =>
-  (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normPreset(s), pinned: s.pinned !== false }));
-export const localPresets = () =>
-  []
-    .concat(readJSON(KEY, []))
-    .filter((s) => s?.name)
-    .map((s) => ({ scope: 'local', ...normPreset(s), pinned: s.pinned !== false }));
-export const userPresets = () =>
-  (profileName() ? profile().presets : []).filter((s) => s?.name).map((s) => ({ scope: 'user', ...normPreset(s), pinned: s.pinned !== false }));
+export const globalPresets = () => (S.cfg?.presets || []).filter((s) => s?.name).map((s) => ({ scope: 'global', ...normPreset(s), pinned: s.pinned !== false }));
+export const localPresets = () => [].concat(readJSON(KEY, [])).filter((s) => s?.name).map((s) => ({ scope: 'local', ...normPreset(s), pinned: s.pinned !== false }));
+export const userPresets = () => (profileName() ? profile().presets : []).filter((s) => s?.name)
+  .map((s) => ({ scope: 'user', ...normPreset(s), pinned: s.pinned !== false }));
 export const allPresets = () => [...globalPresets(), ...userPresets(), ...localPresets()];
 const PRESET_LISTS = { global: globalPresets, user: userPresets, local: localPresets };
 export const presetsIn = (scope) => (PRESET_LISTS[scope] || (() => []))();
-export const findPreset = (scope, name) => allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
+export const findPreset = (scope, name) =>
+  allPresets().find((s) => s.scope === scope && s.name.toLowerCase() === String(name).toLowerCase());
 
 export function presetProblem(s) {
   if (!s.items.length) return 'Add at least one take.';
@@ -127,9 +116,7 @@ export function putLocalPresets(list) {
   emit('presets');
 }
 export function deleteLocalPreset(name) {
-  const list = localPresets()
-    .filter((s) => s.name.toLowerCase() !== name.toLowerCase())
-    .map(saved);
+  const list = localPresets().filter((s) => s.name.toLowerCase() !== name.toLowerCase()).map(saved);
   writeJSON(KEY, list.length ? list : null);
   emit('presets');
 }
@@ -164,10 +151,7 @@ export function pinOrder() {
 export function orderPins(list, order = pinOrder()) {
   const at = new Map(order.map((k, i) => [k, i]));
   const rank = (s) => at.get(presetKey(s)) ?? Infinity;
-  return list
-    .map((s, i) => [s, i])
-    .sort((a, b) => (rank(a[0]) === rank(b[0]) ? a[1] - b[1] : rank(a[0]) - rank(b[0])))
-    .map((x) => x[0]);
+  return list.map((s, i) => [s, i]).sort((a, b) => (rank(a[0]) === rank(b[0]) ? a[1] - b[1] : rank(a[0]) - rank(b[0]))).map((x) => x[0]);
 }
 export function moveKey(keys, key, to) {
   const rest = keys.filter((k) => k !== key);
@@ -218,10 +202,7 @@ export function setLocalPin(s, on) {
     else o[pinKey(s.name)] = on;
     writeJSON(PINS, Object.keys(o).length ? o : null);
   } else {
-    writeJSON(
-      KEY,
-      localPresets().map((x) => saved(x.name.toLowerCase() === s.name.toLowerCase() ? { ...x, pinned: on } : x)),
-    );
+    writeJSON(KEY, localPresets().map((x) => saved(x.name.toLowerCase() === s.name.toLowerCase() ? { ...x, pinned: on } : x)));
   }
   emit('presets');
 }
@@ -233,9 +214,11 @@ export function clearPinOverride(name) {
   writeJSON(PINS, Object.keys(o).length ? o : null);
   emit('presets');
 }
-export const withGlobalPin = (name, on) => globalPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
+export const withGlobalPin = (name, on) =>
+  globalPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
 
-export const withUserPin = (name, on) => userPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
+export const withUserPin = (name, on) =>
+  userPresets().map((s) => saved(s.name.toLowerCase() === name.toLowerCase() ? { ...s, pinned: on } : s));
 
 // ---- the popup's list: all presets, or the best matches (core.js search). Matches keep their order among equal scores.
 export function rankPresets(list, q) {
@@ -247,11 +230,8 @@ export function rankPresets(list, q) {
 // ---- typed references: a bare number or range a-b is a display number (internal + off()), anything else is looked up by name with lookup(token). → { ns: [internal], bad: [tokens] }
 
 export function parseRefs(text, offset, lookup) {
-  const ns = [],
-    bad = [];
-  const add = (n) => {
-    if (!ns.includes(n)) ns.push(n);
-  };
+  const ns = [], bad = [];
+  const add = (n) => { if (!ns.includes(n)) ns.push(n); };
   for (const raw of String(text).split(',')) {
     const t = raw.trim();
     if (!t) continue;
@@ -279,28 +259,21 @@ export function presetTip(s, srcLabel, dstLabel) {
   return `${from} to ${to}`;
 }
 
+
 // has: { src(n), dst(n), level(u) }; defaults: default levels (UI). Returns takes grouped per
 // destination plus missing = [{ kind: 'source' | 'destination' | 'level', n }].
 export function resolvePreset(preset, has, defaults) {
   const byDst = new Map();
   const missing = [];
-  const miss = (kind, n) => {
-    if (!missing.some((m) => m.kind === kind && m.n === n)) missing.push({ kind, n });
-  };
+  const miss = (kind, n) => { if (!missing.some((m) => m.kind === kind && m.n === n)) missing.push({ kind, n }); };
   for (const it of preset.items) {
-    if (!has.src(it.src)) {
-      miss('source', it.src);
-      continue;
-    }
+    if (!has.src(it.src)) { miss('source', it.src); continue; }
     const want = it.levels.length ? it.levels : defaults;
     const levels = want.filter((u) => has.level(u));
     for (const u of want) if (!has.level(u)) miss('level', u);
     if (!levels.length) continue;
     for (const d of it.dsts) {
-      if (!has.dst(d)) {
-        miss('destination', d);
-        continue;
-      }
+      if (!has.dst(d)) { miss('destination', d); continue; }
       if (!byDst.has(d)) byDst.set(d, []);
       const groups = byDst.get(d);
       const g = groups.find((x) => x.src === it.src);
@@ -322,15 +295,14 @@ export function fillFrom(preset, has, defaults) {
     if (r.takes.length) {
       return {
         take: { src: it.src, dsts: r.takes.map((t) => t.dst), levels: it.levels.length ? r.takes[0].groups[0].levels : [] },
-        partial: r.missing.length > 0,
-        many: preset.items.length > 1,
-        missing: [],
+        partial: r.missing.length > 0, many: preset.items.length > 1, missing: [],
       };
     }
     missing.push(...r.missing);
   }
   return { take: null, partial: false, many: preset.items.length > 1, missing };
 }
+
 
 export function itemsFromTakes(takes) {
   const by = new Map();
