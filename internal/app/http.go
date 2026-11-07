@@ -156,6 +156,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.CloseNow()
 	budget := newReadBudget(conn.SetReadLimit)
+	cc := &connCtx{budget: budget}
 
 	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
@@ -255,63 +256,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			a.refuse(c, m.T, rl, &m, err)
 			continue
 		}
-		switch m.T {
-		case "hi", "userUnlock", "userLock", "userSetPin", "users", "usersList", "userSignOutAll":
-			a.serveUsers(c, &m)
-		case "batch":
-			a.serveBatch(c, &m)
-		case "history":
-			go a.history(c, m.Before, m.N)
-		case "sent":
-			go a.sentHistory(c, int64(m.Before), m.N)
-		case "uptime":
-			a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
-		case "refreshNames":
-			a.command(c, "refreshNames", "sent", "", nil)
-			go a.RefreshNames()
-		case "unlock":
-			// In line: a later lock is handled after, and one connection checks one PIN at
-			// a time.
-			res := opResult{T: "unlockResult", OK: true, ID: &m.ID}
-			err := a.Unlock(c, m.Pin)
-			if err != nil {
-				res.OK, res.Err = false, err.Error()
-			}
-			a.command(c, "unlock", map[bool]string{true: "ok", false: "refused"}[err == nil], "", err)
-			a.reply(c, res)
-		case "lock":
-			a.Lock(c)
-			a.command(c, "lock", "ok", "", nil)
-		case "clearHistory":
-			a.command(c, "clearHistory", "ok", "", nil)
-			go a.ClearHistory(c.who())
-		case "filterSets":
-			go func(sets []config.FilterSet, id int) {
-				a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
-			}(m.Sets, m.ID)
-		case "presets":
-			go func(presets []config.Preset, id int) {
-				a.replyOp(c, "presets", id, len(presets), "preset", a.SavePresets(c, presets))
-			}(m.Presets, m.ID)
-		case "config":
-			a.serveConfig(c, &m)
-		case "configExport":
-			go a.serveConfigExport(c, &m)
-		case "configImportBegin":
-			if budget.Grant(m.Size) {
-				// Answered either way after the limit is raised: the page sends the file
-				// only after this, so a refusal is a normal result, not a too-big message.
-				a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
-			} else {
-				a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
-			}
-		case "configImport":
-			a.serveConfigImport(c, &m)
-		case "profileSave":
-			go a.serveProfileSave(c, &m)
-		case "profileGet":
-			a.serveProfileGet(c, &m)
-		}
+		rl.handle(a, c, &m, cc)
 	}
 }
 

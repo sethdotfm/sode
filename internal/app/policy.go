@@ -1,24 +1,29 @@
 package app
 
-import "errors"
+import (
+	"errors"
 
-// Access policy: what each browser message needs, in one table checked before dispatch. An
-// unlisted type is dropped (TestPolicyCoversEveryMessage).
+	"github.com/sethdotfm/sode/internal/config"
+)
+
+// Message table: what each browser message needs and what runs for it, in one place. The
+// read loop looks the type up, checks access, then calls the handler; an unlisted type is
+// dropped (TestPolicyCoversEveryMessage: every rule has a handler). A handler picks inline
+// or goroutine itself: unlock and userUnlock stay inline so a following lock wins.
 // Locks cover actions, not data: hello, names, tally, recent history stream to a locked
 // browser (the lock screen is not a secret). Settings changes need the settings PIN
 // (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock: a
 // locked wall panel must still save with the PIN. Locks require a settings PIN (Validate).
 //
 //	open: hi userUnlock userLock userSetPin unlock lock history
-//	needTake: batch; needMain: refreshNames; needMain+Admin: clearHistory; needLog: sent uptime
+//	needMain: batch refreshNames; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
 //	needAdmin: users userSignOutAll configExport configImportBegin configImport
 //	profileSave: the user's own unlock or needTrusted; profileGet needTrusted; both re-checked by guardProfile.
 type need uint8
 
 const (
-	needTake need = 1 << iota
-	needMain
+	needMain need = 1 << iota
 	needLog
 	// needAdmin: settings PIN unlocked here (when set); re-checked under cfgMu by guardSave.
 	needAdmin
@@ -42,42 +47,118 @@ type rule struct {
 	self   string
 	// admitted runs under mu on admit, so a lock can't slip between check and effect.
 	admitted func(c *client)
+	// handle runs after admit passed; connCtx is the read loop's per-connection state.
+	handle func(a *App, c *client, m *inMsg, cc *connCtx)
+	// onRefuse: extra replies after a refusal is logged (a batch fails each take).
+	onRefuse func(a *App, c *client, m *inMsg, err error)
+}
+
+// connCtx: per-connection state the read loop owns.
+type connCtx struct {
+	budget *readBudget
 }
 
 var policy = map[string]rule{
-	"hi":         {}, // declares the page type and session token; answered with the lock state
-	"userUnlock": {}, // the way out of the lock; counted in the user PIN pool
-	"userLock":   {}, // locking is never refused
-	"userSetPin": {},
-	"unlock":     {}, // counted in the settings pool
-	"lock":       {}, // forgetting an unlock is never refused
-	"history":    {},
+	// declares the page type and session token; answered with the lock state
+	"hi": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.Hi(c, m.Page, m.Token) }},
+	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
+	// handled after.
+	"userUnlock": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserUnlock(c, m) }},
+	// locking is never refused
+	"userLock": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+		a.UserLock(c)
+		a.command(c, "userLock", "ok", "", nil)
+	}},
+	"userSetPin": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserSetPin(c, m) }},
+	// counted in the settings pool. In line: a later lock is handled after, and one
+	// connection checks one PIN at a time.
+	"unlock": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		err := a.Unlock(c, m.Pin)
+		a.command(c, "unlock", map[bool]string{true: "ok", false: "refused"}[err == nil], "", err)
+		a.reply(c, opResultFor("unlock", &m.ID, err))
+	}},
+	// forgetting an unlock is never refused
+	"lock": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+		a.Lock(c)
+		a.command(c, "lock", "ok", "", nil)
+	}},
+	"history": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 
-	"batch":        {need: needTake, why: "take"},
-	"refreshNames": {need: needMain},
+	"batch": {need: needMain, why: "take",
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveBatch(c, m) },
+		onRefuse: func(a *App, c *client, m *inMsg, err error) {
+			for _, it := range m.Items {
+				a.reply(c, takeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
+			}
+		}},
+	"refreshNames": {need: needMain, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+		a.command(c, "refreshNames", "sent", "", nil)
+		go a.RefreshNames()
+	}},
 	// Erasing history is more than a take.
-	"clearHistory": {need: needMain | needAdmin},
+	"clearHistory": {need: needMain | needAdmin, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+		a.command(c, "clearHistory", "ok", "", nil)
+		go a.ClearHistory(c.who())
+	}},
 
 	// Admitting sent subscribes to the feed in the same step, so a lock can't slip in.
-	"sent":   {need: needLog, admitted: func(c *client) { c.sent = true }},
-	"uptime": {need: needLog},
+	"sent": {need: needLog, admitted: func(c *client) { c.sent = true },
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.sentHistory(c, int64(m.Before), m.N) }},
+	"uptime": {need: needLog, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
+	}},
 
 	"config": {need: needTrusted, op: "config", noID: true,
-		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin }},
-	"filterSets": {need: needTrusted, op: "filterSets"},
-	"presets":    {need: needTrusted, op: "presets"},
+		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin },
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfig(c, m) }},
+	"filterSets": {need: needTrusted, op: "filterSets", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		go func(sets []config.FilterSet, id int) {
+			a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
+		}(m.Sets, m.ID)
+	}},
+	"presets": {need: needTrusted, op: "presets", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		go func(presets []config.Preset, id int) {
+			a.replyOp(c, "presets", id, len(presets), "preset", a.SavePresets(c, presets))
+		}(m.Presets, m.ID)
+	}},
 	// A user saves their own profile with no PIN; others need a trusted user or the PIN.
-	"profileSave": {need: needTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name }},
-	"profileGet":  {need: needTrusted, op: "profileGet"},
+	"profileSave": {need: needTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name },
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.serveProfileSave(c, m) }},
+	"profileGet": {need: needTrusted, op: "profileGet",
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveProfileGet(c, m) }},
 	// PIN only, trusted or not: holds users, locks, router, profiles and PIN hashes. Begin
 	// raises the read limit for the next message, so it must never be reachable without
 	// the PIN.
-	"configExport":      {need: needAdmin, op: "configExport"},
-	"configImportBegin": {need: needAdmin, op: "configImportBegin"},
-	"configImport":      {need: needAdmin, op: "configImport"},
-	"userSignOutAll":    {need: needAdmin, op: "userSignOutAll"},
-	"usersList":         {need: needAdmin, op: "usersList"},
-	"users":             {need: needAdmin, op: "users"}, // and SaveUsers wants a settings PIN to exist
+	"configExport": {need: needAdmin, op: "configExport",
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.serveConfigExport(c, m) }},
+	"configImportBegin": {need: needAdmin, op: "configImportBegin", handle: func(a *App, c *client, m *inMsg, cc *connCtx) {
+		if cc.budget.Grant(m.Size) {
+			// Answered either way after the limit is raised: the page sends the file
+			// only after this, so a refusal is a normal result, not a too-big message.
+			a.reply(c, opResult{T: "configImportBeginResult", OK: true, ID: &m.ID})
+		} else {
+			a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
+		}
+	}},
+	"configImport": {need: needAdmin, op: "configImport",
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfigImport(c, m) }},
+	"userSignOutAll": {need: needAdmin, op: "userSignOutAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		go func(name string, id int) {
+			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
+		}(m.Name, m.ID)
+	}},
+	"usersList": {need: needAdmin, op: "usersList",
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
+	// and SaveUsers wants a settings PIN to exist
+	"users": {need: needAdmin, op: "users", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		if m.UsersReq == nil {
+			return
+		}
+		go func(r usersReq, id int) {
+			err := a.SaveUsers(c, r)
+			a.replyOp(c, "users", id, 0, "", err)
+		}(*m.UsersReq, m.ID)
+	}},
 }
 
 func (r rule) forMsg(m *inMsg) rule {
@@ -95,8 +176,7 @@ func (a *App) admit(c *client, r rule) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	switch {
-	case r.need&needTake != 0 && (!a.pageAllowedLocked(c, gateMain)),
-		r.need&needMain != 0 && !a.pageAllowedLocked(c, gateMain),
+	case r.need&needMain != 0 && !a.pageAllowedLocked(c, gateMain),
 		r.need&needLog != 0 && !a.pageAllowedLocked(c, gateLog):
 		return errPageLocked
 	case r.need&needAdmin != 0 && !a.settingsUnlockedLocked(c):
@@ -124,13 +204,11 @@ func (a *App) refuse(c *client, t string, r rule, m *inMsg, err error) {
 			id = -1
 		}
 		a.replyOp(c, r.op, id, 0, "", err) // logs the command too
-	case t == "batch":
-		a.command(c, why, outcome(err), "", err)
-		for _, it := range m.Items {
-			a.reply(c, takeResult{T: "takeResult", ID: it.ID, Err: err.Error()})
-		}
 	default:
 		a.command(c, why, outcome(err), "", err)
+		if r.onRefuse != nil {
+			r.onRefuse(a, c, m, err)
+		}
 	}
 	if errors.Is(err, errPageLocked) {
 		a.syncAccess(c)

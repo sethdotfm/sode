@@ -8,7 +8,6 @@ import (
 	"go/parser"
 	"go/token"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -17,43 +16,34 @@ import (
 	"github.com/coder/websocket"
 )
 
-// Every message type the read loop handles is in the policy table, and every
-// table entry is handled: a new case can't go live unguarded.
+// The table is the dispatch: every rule has a handler, and the read loop has no switch
+// on the message type left to fall out of step with it.
 func TestPolicyCoversEveryMessage(t *testing.T) {
-	f, err := parser.ParseFile(token.NewFileSet(), "http.go", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	handled := map[string]bool{}
-	ast.Inspect(f, func(n ast.Node) bool {
-		sw, ok := n.(*ast.SwitchStmt)
-		if !ok {
-			return true
+	for _, file := range []string{"http.go", "users.go"} {
+		f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if sel, ok := sw.Tag.(*ast.SelectorExpr); !ok || sel.Sel.Name != "T" {
-			return true
-		}
-		for _, st := range sw.Body.List {
-			for _, e := range st.(*ast.CaseClause).List {
-				if lit, ok := e.(*ast.BasicLit); ok {
-					s, _ := strconv.Unquote(lit.Value)
-					handled[s] = true
+		ast.Inspect(f, func(n ast.Node) bool {
+			if sw, ok := n.(*ast.SwitchStmt); ok {
+				if sel, ok := sw.Tag.(*ast.SelectorExpr); ok && sel.Sel.Name == "T" {
+					t.Errorf("%s switches on the message type; add a rule to policy instead", file)
 				}
 			}
-		}
-		return true
-	})
-	if len(handled) == 0 {
-		t.Fatal("found no message cases in http.go")
+			return true
+		})
 	}
-	for m := range handled {
+	if len(policy) == 0 {
+		t.Fatal("empty policy table")
+	}
+	for m, r := range policy {
+		if r.handle == nil {
+			t.Errorf("policy lists %q without a handler", m)
+		}
+	}
+	for _, m := range []string{"hi", "batch", "unlock", "userUnlock", "configImportBegin", "users", "usersList"} {
 		if _, ok := policy[m]; !ok {
-			t.Errorf("message %q is handled but not in the policy table", m)
-		}
-	}
-	for m := range policy {
-		if !handled[m] {
-			t.Errorf("policy lists %q, which the read loop does not handle", m)
+			t.Errorf("policy lost %q", m)
 		}
 	}
 }

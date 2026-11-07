@@ -430,55 +430,34 @@ type userResult struct {
 }
 
 // Unlocks run inline like the settings unlock, so a later lock is handled after.
-func (a *App) serveUsers(c *client, m *inMsg) {
-	switch m.T {
-	case "hi":
-		a.Hi(c, m.Page, m.Token)
-	case "userUnlock":
-		res := userResult{T: "userUnlockResult", OK: true, ID: m.ID}
-		err := a.UserUnlock(c, m.Pin)
-		if err != nil {
-			res.OK, res.Err = false, err.Error()
-			a.command(c, "userUnlock", "refused", "", err)
-		} else {
-			a.command(c, "userUnlock", "ok", "", nil)
-			if res.Token = a.issueSessionTab(c, m.Tab); res.Token != "" {
-				if us, _ := a.r().cfg.FindUser(c.who()); !us.Persistent {
-					res.Tab = true
-				}
-				a.mu.Lock()
-				a.syncAccessLocked(c) // after the token, so the page's state is final
-				a.mu.Unlock()
+func (a *App) serveUserUnlock(c *client, m *inMsg) {
+	res := userResult{T: "userUnlockResult", OK: true, ID: m.ID}
+	err := a.UserUnlock(c, m.Pin)
+	if err != nil {
+		res.OK, res.Err = false, err.Error()
+		a.command(c, "userUnlock", "refused", "", err)
+	} else {
+		a.command(c, "userUnlock", "ok", "", nil)
+		if res.Token = a.issueSessionTab(c, m.Tab); res.Token != "" {
+			if us, _ := a.r().cfg.FindUser(c.who()); !us.Persistent {
+				res.Tab = true
 			}
+			a.mu.Lock()
+			a.syncAccessLocked(c) // after the token, so the page's state is final
+			a.mu.Unlock()
 		}
-		a.reply(c, res)
-	case "userLock":
-		a.UserLock(c)
-		a.command(c, "userLock", "ok", "", nil)
-	case "userSignOutAll":
-		go func(name string, id int) {
-			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
-		}(m.Name, m.ID)
-	case "userSetPin":
-		res := opResult{T: "userSetPinResult", OK: true, ID: &m.ID}
-		if err := a.UserSetPin(c, m.Old, m.New); err != nil {
-			res.OK, res.Err = false, err.Error()
-			a.command(c, "userSetPin", "refused", "", err)
-		} else {
-			a.command(c, "userSetPin", "ok", "", nil)
-		}
-		a.reply(c, res)
-	case "usersList":
-		a.reply(c, a.usersList(m.ID))
-	case "users":
-		if m.UsersReq == nil {
-			return
-		}
-		go func(r usersReq, id int) {
-			err := a.SaveUsers(c, r)
-			a.replyOp(c, "users", id, 0, "", err)
-		}(*m.UsersReq, m.ID)
 	}
+	a.reply(c, res)
+}
+
+func (a *App) serveUserSetPin(c *client, m *inMsg) {
+	err := a.UserSetPin(c, m.Old, m.New)
+	if err != nil {
+		a.command(c, "userSetPin", "refused", "", err)
+	} else {
+		a.command(c, "userSetPin", "ok", "", nil)
+	}
+	a.reply(c, opResultFor("userSetPin", &m.ID, err))
 }
 
 // Len: whether a PIN is set (0 = none); never a hash.
