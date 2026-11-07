@@ -98,7 +98,7 @@ dialog.append(
     el(
       'p',
       'sode__hint',
-      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. ' +
+      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ.A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. ' +
         RENAME_HINT,
     ),
     table,
