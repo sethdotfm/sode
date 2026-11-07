@@ -264,7 +264,13 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 		a.mu.Unlock()
 		return errors.New("that PIN changed; try again")
 	}
-	if c.u.locked && c.u.user.Load() != nil && c.u.user.Load().Name == hit.Name {
+	held := c.u.user.Load()
+	if c.u.locked && held != nil && held.Name != hit.Name {
+		// Locked by another tab while the PIN was being checked: only the holder resumes it.
+		a.mu.Unlock()
+		return errors.New("wrong PIN")
+	}
+	if c.u.locked && held != nil {
 		// Resume: same user, same session. Every connection sharing the token resumes.
 		tok := c.u.token
 		// A tab token under a PIN lock exists only to carry the Lock across a reload.

@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -229,5 +230,29 @@ func TestHeldLockBlocksTrustedSavesEvenWithAdvancedSettingsPin(t *testing.T) {
 		if err := a.SaveFilterSets(c, []config.FilterSet{{Name: "X", Sode: true, Ext: true}}); err == nil {
 			t.Errorf("enforced=%v: filter sets saved from a locked session", enforced)
 		}
+	}
+}
+
+// A Lock raised (by another tab of the session) while a PIN is being checked still binds:
+// another user's PIN must not swap the session out from under it.
+func TestLockRaisedDuringPinCheckBlocksOtherUsersPin(t *testing.T) {
+	a := userApp(t, true)
+	c := &client{ip: "10.0.0.1"}
+	register(a, c)
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error)
+	go func() { done <- a.UserUnlock(c, "567890") }()
+	time.Sleep(30 * time.Millisecond) // inside the PBKDF2 check, off mu
+	a.UserLock(c)
+	if err := <-done; err == nil {
+		t.Fatal("Bo's PIN was accepted on Ana's locked session")
+	}
+	if c.who() != "Ana" {
+		t.Fatalf("the session switched to %q", c.who())
+	}
+	if err := canTake(a, c); !errors.Is(err, errPageLocked) {
+		t.Fatalf("the Lock was left behind: %v", err)
 	}
 }
