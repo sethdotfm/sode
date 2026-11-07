@@ -39,12 +39,24 @@ export function newPager() {
   const idle = () => started && pending === null && more && list.length > 0;
 
   return {
-    get list() { return list; },
-    get more() { return more; },
-    get total() { return total; },
-    get started() { return started; },
-    get loading() { return pending !== null; },
-    get oldest() { return oldest(); },
+    get list() {
+      return list;
+    },
+    get more() {
+      return more;
+    },
+    get total() {
+      return total;
+    },
+    get started() {
+      return started;
+    },
+    get loading() {
+      return pending !== null;
+    },
+    get oldest() {
+      return oldest();
+    },
 
     open() {
       list = [];
@@ -92,7 +104,9 @@ export function newPager() {
       return idle() ? ask(oldest().seq, FILL) : null;
     },
 
-    unsent() { pending = null; },
+    unsent() {
+      pending = null;
+    },
 
     close() {
       started = false;

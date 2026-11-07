@@ -7,7 +7,10 @@ cutTip.hidden = true;
 cutTip.setAttribute('aria-hidden', 'true');
 document.body.append(cutTip);
 let cutFor = null;
-const hideCutTip = () => { cutTip.hidden = true; cutFor = null; };
+const hideCutTip = () => {
+  cutTip.hidden = true;
+  cutFor = null;
+};
 
 // Tips in a scrolling row (.sode__sets) would be clipped, so the floating tip shows them (the CSS one is hidden there).
 const rowTip = (n) => n instanceof Element && n.closest('.sode__sets [data-pb-tip]');
@@ -28,7 +31,10 @@ function cutOff(n) {
 }
 
 function placeCutTip(n) {
-  const gap = 4, w = cutTip.offsetWidth, h = cutTip.offsetHeight, r = n.getBoundingClientRect();
+  const gap = 4,
+    w = cutTip.offsetWidth,
+    h = cutTip.offsetHeight,
+    r = n.getBoundingClientRect();
   cutTip.style.left = `${Math.max(gap, Math.min(r.left, innerWidth - w - gap))}px`;
   cutTip.style.top = `${r.bottom + gap + h <= innerHeight ? r.bottom + gap : r.top - gap - h}px`;
 }
@@ -45,7 +51,9 @@ document.addEventListener('mouseover', (e) => {
   cutTip.hidden = false;
   placeCutTip(c.n);
 });
-document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) hideCutTip(); });
+document.addEventListener('mouseout', (e) => {
+  if (!e.relatedTarget) hideCutTip();
+});
 document.addEventListener('focusin', (e) => {
   const t = rowTip(e.target);
   if (touchOnly.matches || !t || !t.matches(':focus-visible')) return;

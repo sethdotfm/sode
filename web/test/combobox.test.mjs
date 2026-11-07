@@ -3,29 +3,70 @@ import assert from 'node:assert/strict';
 
 const fake = (tag = 'div') => {
   const n = {
-    tag, kids: [], className: '', attrs: {}, dataset: {}, listeners: {}, hidden: false, id: '',
-    scrollTop: 0, scrollHeight: 0, clientHeight: 0,
-    setAttribute(k, v) { this.attrs[k] = String(v); },
-    getAttribute(k) { return this.attrs[k] ?? null; },
-    removeAttribute(k) { delete this.attrs[k]; },
-    addEventListener(t, f) { (this.listeners[t] ||= []).push(f); },
-    append(...k) { this.kids.push(...k); },
-    prepend(...k) { this.kids.unshift(...k); },
-    replaceChildren(...k) { this.kids = k; },
-    contains(x) { return this.kids.includes(x); },
-    querySelector() { return null; },
+    tag,
+    kids: [],
+    className: '',
+    attrs: {},
+    dataset: {},
+    listeners: {},
+    hidden: false,
+    id: '',
+    scrollTop: 0,
+    scrollHeight: 0,
+    clientHeight: 0,
+    setAttribute(k, v) {
+      this.attrs[k] = String(v);
+    },
+    getAttribute(k) {
+      return this.attrs[k] ?? null;
+    },
+    removeAttribute(k) {
+      delete this.attrs[k];
+    },
+    addEventListener(t, f) {
+      (this.listeners[t] ||= []).push(f);
+    },
+    append(...k) {
+      this.kids.push(...k);
+    },
+    prepend(...k) {
+      this.kids.unshift(...k);
+    },
+    replaceChildren(...k) {
+      this.kids = k;
+    },
+    contains(x) {
+      return this.kids.includes(x);
+    },
+    querySelector() {
+      return null;
+    },
     scrollIntoView() {},
     classList: null,
   };
   const set = new Set();
   n.classList = {
-    add: (c) => set.add(c), remove: (c) => set.delete(c), contains: (c) => set.has(c),
+    add: (c) => set.add(c),
+    remove: (c) => set.delete(c),
+    contains: (c) => set.has(c),
     toggle: (c, on) => (on ? set.add(c) : set.delete(c)),
   };
-  Object.defineProperty(n, 'textContent', { set(v) { this.kids = [String(v)]; } });
+  Object.defineProperty(n, 'textContent', {
+    set(v) {
+      this.kids = [String(v)];
+    },
+  });
   return n;
 };
-globalThis.document = { createElement: fake, createElementNS: fake, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], body: fake(), documentElement: { dataset: {} } };
+globalThis.document = {
+  createElement: fake,
+  createElementNS: fake,
+  addEventListener() {},
+  querySelector: () => null,
+  querySelectorAll: () => [],
+  body: fake(),
+  documentElement: { dataset: {} },
+};
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 
 const { combobox } = await import('../widgets.js');
@@ -132,7 +173,10 @@ test('a click on a row picks it, through one listener on the menu', () => {
 test('a browse list shows no cursor until ↓ (or ↑) is pressed', () => {
   const { cb, input, menu } = make();
   cb.browse(items(5), 0);
-  assert.equal(menu.kids.some((li) => li.className.includes('active')), false);
+  assert.equal(
+    menu.kids.some((li) => li.className.includes('active')),
+    false,
+  );
   assert.equal(input.getAttribute('aria-activedescendant'), null);
   cb.nav({ key: 'ArrowDown', preventDefault() {} });
   assert.equal(cb.current().n, 0);
@@ -160,7 +204,11 @@ test('onRender says whether the list is showing after every redraw', () => {
 test('browse scrolls the chosen row into view even though no row is highlighted yet', () => {
   const made = document.createElement;
   const scrolled = [];
-  document.createElement = (t) => { const n = made(t); n.scrollIntoView = () => scrolled.push(n); return n; };
+  document.createElement = (t) => {
+    const n = made(t);
+    n.scrollIntoView = () => scrolled.push(n);
+    return n;
+  };
   try {
     const { cb, menu } = make();
     cb.browse(items(5), 3);

@@ -12,7 +12,10 @@ export function indexRows(rows) {
   const m = new Map();
   const one = (e) => m.set(`e${e.id}`, { entries: [e], follows: e.follows || [] });
   for (const r of rows) {
-    if (r.e) { one(r.e); continue; }
+    if (r.e) {
+      one(r.e);
+      continue;
+    }
     const f = r.f;
     (f.shown || f.entries).forEach(one);
     (f.followers || []).forEach(one);
@@ -33,7 +36,9 @@ export function pickedTakes(index, keys, withFollows, ok = () => true) {
     for (const e of x.entries) seen.set(e.id, e);
     if (withFollows) for (const e of x.follows) seen.set(e.id, e);
   }
-  return [...seen.values()].filter((e) => e.dst >= 0 && ok(e)).sort((a, b) => a.id - b.id)
+  return [...seen.values()]
+    .filter((e) => e.dst >= 0 && ok(e))
+    .sort((a, b) => a.id - b.id)
     .map((e) => ({ src: e.src, dst: e.dst, levels: [...e.levels] }));
 }
 
@@ -89,7 +94,8 @@ const pickedNow = (s) => pickedTakes(indexRows(histRows(S.hist)), s.picked, s.fo
 
 export function togglePick(key) {
   if (!st || !/^[ef]/.test(key)) return;
-  if (st.picked.has(key)) st.picked.delete(key); else st.picked.add(key);
+  if (st.picked.has(key)) st.picked.delete(key);
+  else st.picked.add(key);
   update();
 }
 
@@ -140,7 +146,12 @@ document.body.append(bar);
 // The phone makes the bar a row of its view (mobile.js).
 export const pickBar = bar;
 
-followsIn.addEventListener('change', () => { if (st) { st.follows = followsIn.checked; update(); } });
+followsIn.addEventListener('change', () => {
+  if (st) {
+    st.follows = followsIn.checked;
+    update();
+  }
+});
 addBtn.addEventListener('click', add);
 cancelBtn.addEventListener('click', cancel);
 
@@ -167,15 +178,21 @@ function clearChip() {
   const r = chip && !chip.hidden ? chip.getBoundingClientRect() : null;
   bar.style.paddingLeft = r && r.width ? `${Math.ceil(r.right) + 16}px` : '';
 }
-globalThis.addEventListener?.('resize', () => { if (st) clearChip(); });
+globalThis.addEventListener?.('resize', () => {
+  if (st) clearChip();
+});
 
-document.addEventListener('keydown', (e) => {
-  if (!st || e.key !== 'Escape') return;
-  if (!MODES[st.mode].escCancels(e)) return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  cancel();
-}, true);
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (!st || e.key !== 'Escape') return;
+    if (!MODES[st.mode].escCancels(e)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    cancel();
+  },
+  true,
+);
 on('locking', () => cancel());
 on('wsclose', () => cancel());
 
@@ -191,13 +208,17 @@ export function pickBox(key) {
 
 // A click ticks a take or folder, whatever it hit, except the "N takes" disclosure, which still opens a folder.
 export function bindPick(list) {
-  list.addEventListener('click', (e) => {
-    if (!picking()) return;
-    if (e.target.closest('.sode__hist-toggle')) return;
-    const key = e.target.closest('[data-key]')?.dataset.key;
-    if (!key || !/^[ef]/.test(key)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    togglePick(key);
-  }, true);
+  list.addEventListener(
+    'click',
+    (e) => {
+      if (!picking()) return;
+      if (e.target.closest('.sode__hist-toggle')) return;
+      const key = e.target.closest('[data-key]')?.dataset.key;
+      if (!key || !/^[ef]/.test(key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      togglePick(key);
+    },
+    true,
+  );
 }

@@ -24,21 +24,47 @@ const TIME_SLACK = 30_000;
 const FILTER_KEY = 'sode-log-filter';
 
 const KIND_LABEL = {
-  connect: 'Connect', interrogate: 'Interrogate', keepalive: 'Keepalive', tallyDump: 'Tally dump',
-  protectDump: 'Protect dump', srcNames: 'Source names', dstNames: 'Destination names', other: 'Other',
-  salvoStage: 'Salvo stage', salvoGo: 'Salvo go',
-  browser: 'Browser', command: 'Command', link: 'Router link', server: 'Sode',
+  connect: 'Connect',
+  interrogate: 'Interrogate',
+  keepalive: 'Keepalive',
+  tallyDump: 'Tally dump',
+  protectDump: 'Protect dump',
+  srcNames: 'Source names',
+  dstNames: 'Destination names',
+  other: 'Other',
+  salvoStage: 'Salvo stage',
+  salvoGo: 'Salvo go',
+  browser: 'Browser',
+  command: 'Command',
+  link: 'Router link',
+  server: 'Sode',
 };
 const WHY_LABEL = {
-  take: 'Take', undo: 'Undo', retry: 'Retry', check: 'Check before take', confirm: 'Confirm take',
-  resync: 'Resync', names: 'Name refresh', keepalive: 'Link check',
-  connect: 'WebSocket connected', disconnect: 'WebSocket dropped', refreshNames: 'Refresh names',
-  clearHistory: 'Clear history', config: 'Settings saved', filterSets: 'Filter sets saved', presets: 'Presets saved', salvos: 'Presets saved', // salvos: rows logged before the rename
-  unlock: 'Settings PIN', lock: 'Settings locked', salvo: 'Native salvo',
-  userUnlock: 'User PIN', userLock: 'User locked', adminUnlock: 'Admin password (old rows)', users: 'Users saved',
+  take: 'Take',
+  undo: 'Undo',
+  retry: 'Retry',
+  check: 'Check before take',
+  confirm: 'Confirm take',
+  resync: 'Resync',
+  names: 'Name refresh',
+  keepalive: 'Link check',
+  connect: 'WebSocket connected',
+  disconnect: 'WebSocket dropped',
+  refreshNames: 'Refresh names',
+  clearHistory: 'Clear history',
+  config: 'Settings saved',
+  filterSets: 'Filter sets saved',
+  presets: 'Presets saved',
+  salvos: 'Presets saved', // salvos: rows logged before the rename
+  unlock: 'Settings PIN',
+  lock: 'Settings locked',
+  salvo: 'Native salvo',
+  userUnlock: 'User PIN',
+  userLock: 'User locked',
+  adminUnlock: 'Admin password (old rows)',
+  users: 'Users saved',
 };
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
-
 
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
@@ -92,9 +118,18 @@ function initFilters() {
     return b;
   };
   // Problems is its own dimension: after a separator, outside the All logic.
-  const allChip = chip('All', () => { filter.kinds = KIND_IDS.slice(); });
-  const kindChips = KINDS.map((g) => ({ id: g.id, b: chip(g.label, () => { filter.kinds = pressKind(filter.kinds, g.id); }) }));
-  const problemsChip = chip('Problems only', () => { filter.problems = !filter.problems; });
+  const allChip = chip('All', () => {
+    filter.kinds = KIND_IDS.slice();
+  });
+  const kindChips = KINDS.map((g) => ({
+    id: g.id,
+    b: chip(g.label, () => {
+      filter.kinds = pressKind(filter.kinds, g.id);
+    }),
+  }));
+  const problemsChip = chip('Problems only', () => {
+    filter.problems = !filter.problems;
+  });
   const bar = el('span', 'sode-log__sep', '|');
   bar.setAttribute('aria-hidden', 'true');
   const sync = () => {
@@ -107,7 +142,8 @@ function initFilters() {
   sync();
   // datetime-local is local time. To counts to the end of what it shows: 14:30 is up to
   // 14:30:59.999.
-  const from = $('log-from'), to = $('log-to');
+  const from = $('log-from'),
+    to = $('log-to');
   const parse = (input, end) => {
     if (!input.value) return null;
     const t = new Date(input.value).getTime();
@@ -115,7 +151,8 @@ function initFilters() {
     return end ? t + (input.value.length <= 16 ? 59999 : 999) : t;
   };
   const applyRange = () => {
-    const f = parse(from, false), t = parse(to, true);
+    const f = parse(from, false),
+      t = parse(to, true);
     const bad = f === undefined || t === undefined || (f != null && t != null && f > t);
     from.classList.toggle('pb-input--invalid', bad);
     to.classList.toggle('pb-input--invalid', bad);
@@ -128,7 +165,10 @@ function initFilters() {
     refreshUptime();
   };
   const byHand = (e) => {
-    if (e.isTrusted) { chipOn = null; leaveSlot(); }
+    if (e.isTrusted) {
+      chipOn = null;
+      leaveSlot();
+    }
     applyRange();
   };
   from.addEventListener('change', byHand);
@@ -155,7 +195,6 @@ function initFilters() {
     });
   }
 }
-
 
 const pager = newPager();
 // Kept in step with tbody's rows so new ones go in place instead of redrawing everything.
@@ -225,9 +264,10 @@ function showCounts(m) {
   const n = m.lost || 0;
   const note = $('log-lost');
   note.hidden = !n;
-  note.textContent = n ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'wasn’t' : 'weren’t'} saved to this log. The server log has details.` : '';
+  note.textContent = n
+    ? `${n} message${n === 1 ? '' : 's'} since the last restart ${n === 1 ? 'wasn’t' : 'weren’t'} saved to this log. The server log has details.`
+    : '';
 }
-
 
 const tbody = $('log-rows');
 
@@ -245,10 +285,18 @@ function fmtStamp(iso) {
 }
 
 const EVENT_RESULT = {
-  up: ['ok', 'Router up'], down: ['error', 'Router down'], changed: ['warn', 'Router changed'],
-  connected: ['ok', 'Connected'], disconnected: ['idle', 'Disconnected'],
-  sent: ['ok', 'Sent'], ok: ['ok', 'Done'], refused: ['error', 'Refused'], locked: ['warn', 'Locked'], error: ['error', 'Failed'],
-  start: ['ok', 'Started'], stop: ['idle', 'Stopped'],
+  up: ['ok', 'Router up'],
+  down: ['error', 'Router down'],
+  changed: ['warn', 'Router changed'],
+  connected: ['ok', 'Connected'],
+  disconnected: ['idle', 'Disconnected'],
+  sent: ['ok', 'Sent'],
+  ok: ['ok', 'Done'],
+  refused: ['error', 'Refused'],
+  locked: ['warn', 'Locked'],
+  error: ['error', 'Failed'],
+  start: ['ok', 'Started'],
+  stop: ['idle', 'Stopped'],
 };
 
 function outcome(e) {
@@ -284,7 +332,9 @@ const side = (n, name) => (n >= 0 ? labelNode(item(n, name || '')) : '');
 
 function row(e, fresh = false) {
   const why = WHY_LABEL[e.why] || e.why || '';
-  const tr = el('tr', fresh ? 'sode--enter' : null,
+  const tr = el(
+    'tr',
+    fresh ? 'sode--enter' : null,
     el('td', 'sode-log__time', ...fmtStamp(e.time)),
     el('td', null, isEvent(e) ? '' : el('span', 'pb-text-muted', `0x${e.cmd.toString(16).toUpperCase().padStart(2, '0')} `), KIND_LABEL[e.kind] || e.kind),
     el('td', null, levelCell(e)),
@@ -358,7 +408,8 @@ function appendRows(es) {
 }
 
 function insertRow(e) {
-  let lo = 0, hi = shown.length;
+  let lo = 0,
+    hi = shown.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
     if (order(shown[mid], e) <= 0) lo = mid + 1;
@@ -411,10 +462,13 @@ function renderMore() {
   const empty = $('log-empty');
   empty.hidden = shown > 0 || busy;
   empty.textContent = !pager.list.length
-    ? (pager.more ? '' : 'Nothing sent yet.')
-    : rangeDone() || !pager.more ? 'Nothing matches the filters.' : 'Nothing loaded matches the filters.';
+    ? pager.more
+      ? ''
+      : 'Nothing sent yet.'
+    : rangeDone() || !pager.more
+      ? 'Nothing matches the filters.'
+      : 'Nothing loaded matches the filters.';
 }
-
 
 const CSV_COLS = [
   ['time', (e) => e.time],
@@ -446,8 +500,7 @@ function csvCell(v) {
 
 $('log-csv').addEventListener('click', () => {
   const rows = shownRows();
-  const text = [CSV_COLS.map(([h]) => h), ...rows.map((e) => CSV_COLS.map(([, f]) => f(e)))]
-    .map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+  const text = [CSV_COLS.map(([h]) => h), ...rows.map((e) => CSV_COLS.map(([, f]) => f(e)))].map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
   const d = new Date();
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
@@ -468,7 +521,6 @@ const fmtDay = (t) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-
 let routerWas = null;
 on('conn', () => {
   const c = connState();
@@ -477,7 +529,10 @@ on('conn', () => {
   setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
   setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
   $('log-addr').textContent = routerLabel()[0];
-  if (S.wsState !== 'up') { pager.close(); renderMore(); }
+  if (S.wsState !== 'up') {
+    pager.close();
+    renderMore();
+  }
 });
 // ---- uptime graph. One strip whose toggles set the log's time range (From = that long ago, no To)
 // and keep rolling with the clock; with no times set it shows the last 24 hours. Only the
@@ -494,7 +549,8 @@ const upSum = $('log-uptime-sum');
 const customTimes = () => range.from != null || range.to != null;
 
 function localStamp(t) {
-  const d = new Date(t), p = (n) => String(n).padStart(2, '0');
+  const d = new Date(t),
+    p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
@@ -539,7 +595,8 @@ function refreshUptime() {
 }
 
 function enterSlot(s) {
-  const from = $('log-from'), to = $('log-to');
+  const from = $('log-from'),
+    to = $('log-to');
   const prev = slotMode ? slotMode.prev : { from: from.value, to: to.value, chip: chipOn, sort: { ...sort } };
   const view = slotMode ? slotMode.view : upLast;
   slotMode = { from: s.from, to: s.to, view, prev };
@@ -579,11 +636,7 @@ function showSlot() {
   const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
   back.type = 'button';
   back.addEventListener('click', leaveSlotBack);
-  note.replaceChildren(
-    el('strong', null, 'One slot of the graph'),
-    ` · ${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)} · newest first`,
-    back,
-  );
+  note.replaceChildren(el('strong', null, 'One slot of the graph'), ` · ${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)} · newest first`, back);
 }
 
 on('uptimeResult', (m) => {
@@ -591,19 +644,26 @@ on('uptimeResult', (m) => {
   const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
   const text = summary(data);
   upLast = { from: m.from, to: m.to };
-  upBars.replaceChildren(...slots(data).map((s) => {
-    const bar = el('button', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
-    bar.type = 'button';
-    bar.title = slotText(s, fmtDay);
-    bar.setAttribute('aria-label', bar.title);
-    bar.disabled = s.colour === 'future';
-    const sel = !!slotMode && s.from === slotMode.from;
-    if (sel) bar.classList.add('sode-log__up-bar--sel');
-    bar.setAttribute('aria-pressed', String(sel));
-    bar.addEventListener('click', () => enterSlot(s));
-    return bar;
-  }));
-  const label = slotMode || chipOn || !customTimes() ? (slotMode ? `${fmtDay(m.from)} to ${fmtDay(m.to)}` : PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label) : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
+  upBars.replaceChildren(
+    ...slots(data).map((s) => {
+      const bar = el('button', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
+      bar.type = 'button';
+      bar.title = slotText(s, fmtDay);
+      bar.setAttribute('aria-label', bar.title);
+      bar.disabled = s.colour === 'future';
+      const sel = !!slotMode && s.from === slotMode.from;
+      if (sel) bar.classList.add('sode-log__up-bar--sel');
+      bar.setAttribute('aria-pressed', String(sel));
+      bar.addEventListener('click', () => enterSlot(s));
+      return bar;
+    }),
+  );
+  const label =
+    slotMode || chipOn || !customTimes()
+      ? slotMode
+        ? `${fmtDay(m.from)} to ${fmtDay(m.to)}`
+        : PRESETS.find((p) => p.id === (chipOn || DEFAULT_PRESET)).label
+      : `${fmtDay(m.from)} to ${fmtDay(m.to)}`;
   upBars.setAttribute('aria-label', `Router uptime, ${label}: ${text}`);
   upSum.textContent = text;
 });

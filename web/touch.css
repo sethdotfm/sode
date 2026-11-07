@@ -1,12 +1,16 @@
 /* Touch screens (pointer: coarse). Last in the cascade on every page, overriding base.css and history.css.
 Patchbay's own 16px rule for fields has zero specificity and loses to .pb-input's size; the phone's real one is in mobile.css. */
 @media (pointer: coarse) {
-  .sode__search-box { --sode-search-h: var(--pb-control-h); }
+  .sode__search-box {
+    --sode-search-h: var(--pb-control-h);
+  }
 }
 
 /* No hover on touch: a tap would leave a tooltip over the pressed button (and iOS spends the first tap on hover). */
 @media (hover: none) {
   :root [data-pb-tip]::after,
   :root [data-pb-tip]:hover::after,
-  :root [data-pb-tip]:focus-visible::after { display: none; }
+  :root [data-pb-tip]:focus-visible::after {
+    display: none;
+  }
 }

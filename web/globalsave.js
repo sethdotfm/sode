@@ -18,7 +18,9 @@ function onResult(resultT, fn) {
   if (!list) {
     list = [];
     resultHandlers.set(resultT, list);
-    onMsg(resultT, (m) => { for (const f of list) f(m); });
+    onMsg(resultT, (m) => {
+      for (const f of list) f(m);
+    });
   }
   list.push(fn);
 }
@@ -39,7 +41,9 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
   function send(payload) {
     const p = pending;
     p.sent = true;
-    const settle = (r) => { if (pending === p) answer(p, r); };
+    const settle = (r) => {
+      if (pending === p) answer(p, r);
+    };
     if (how.send(p, payload, settle) === false) {
       pending = null;
       render();
@@ -72,7 +76,9 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
     if (pin) relock();
   }
 
-  how.listen?.((m) => { if (pending?.sent && m.id === pending.id) answer(pending, m); });
+  how.listen?.((m) => {
+    if (pending?.sent && m.id === pending.id) answer(pending, m);
+  });
 
   // The answer to a save on a dead socket never comes: let it be tried again.
   on('wsclose', () => {
@@ -103,14 +109,25 @@ function makeSaver({ how, setNote, isOpen, failTitle, render = () => {}, okNote 
       if (r.superseded) return;
       pin.ok.disabled = false;
       if (r.stale) return;
-      if (!r.ok) { setNote(r.err, true); pin.input.select(); return; }
+      if (!r.ok) {
+        setNote(r.err, true);
+        pin.input.select();
+        return;
+      }
       pin.row.hidden = true;
       pending?.run();
     };
     pin.ok.addEventListener('click', sendPin);
     pin.input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); sendPin(); }
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendPin();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        cancel();
+      }
     });
   }
 
@@ -154,7 +171,9 @@ export function profileSaver({ target, ...opts }) {
     how: {
       pin: null,
       check: (parts) => profileProblem(tgt()?.profile || profile(), parts),
-      send(p, parts, settle) { saveProfile(parts, tgt()?.user || undefined).then(settle); },
+      send(p, parts, settle) {
+        saveProfile(parts, tgt()?.user || undefined).then(settle);
+      },
     },
   });
 }

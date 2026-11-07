@@ -4,8 +4,22 @@
 import { $, el, S, on, emit, off, search, item, labelNode, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
 import {
-  filterState, setFilter, filterCount, allSets, activeSet, adoptFilter, pickSet,
-  saveLocalSet, deleteLocalSet, renameLocalSet, setsIn, setRef, filterSummary, toggleSet, activeStack, isActive,
+  filterState,
+  setFilter,
+  filterCount,
+  allSets,
+  activeSet,
+  adoptFilter,
+  pickSet,
+  saveLocalSet,
+  deleteLocalSet,
+  renameLocalSet,
+  setsIn,
+  setRef,
+  filterSummary,
+  toggleSet,
+  activeStack,
+  isActive,
 } from './filterstore.js';
 import { pref } from './device.js';
 import { PREFS } from './prefs.js';
@@ -40,14 +54,22 @@ const KINDS = [
 
 let tgt = null;
 const curF = () => (tgt ? tgt.f : filterState());
-const putF = (next) => { if (tgt) tgt.f = normFilter(next); else setFilter(next); };
+const putF = (next) => {
+  if (tgt) tgt.f = normFilter(next);
+  else setFilter(next);
+};
 
 function complete(r) {
   if (r.kind === 'num') return Number.isInteger(r.a);
   if (r.kind === 'range') return Number.isInteger(r.a) && Number.isInteger(r.b);
   if (r.kind === 're') {
     if (!r.text) return false;
-    try { new RegExp(r.text, 'i'); return true; } catch (e) { return false; }
+    try {
+      new RegExp(r.text, 'i');
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
   return !!r.text;
 }
@@ -81,14 +103,21 @@ function editor(key) {
     const list = key === 'src' ? S.srcs : S.dsts;
     const p = parseFilter(ed.text);
     if (p.error) return;
-    if (!p.rules.length) { note.textContent = `All ${noun}`; return; }
-    if (!list.length) { note.textContent = ''; return; }
+    if (!p.rules.length) {
+      note.textContent = `All ${noun}`;
+      return;
+    }
+    if (!list.length) {
+      note.textContent = '';
+      return;
+    }
     const fn = compileFilter(p.rules);
     const hits = list.filter((i) => fn(i.n + off(), i.name));
-    const shown = hits.slice(0, 4).map((i) => i.label).join(', ');
-    note.textContent = hits.length
-      ? `${hits.length} of ${list.length}: ${shown}${hits.length > 4 ? ', …' : ''}`
-      : `No ${noun} match`;
+    const shown = hits
+      .slice(0, 4)
+      .map((i) => i.label)
+      .join(', ');
+    note.textContent = hits.length ? `${hits.length} of ${list.length}: ${shown}${hits.length > 4 ? ', …' : ''}` : `No ${noun} match`;
   }
 
   function fromRows() {
@@ -127,11 +156,44 @@ function editor(key) {
     };
     const num = (v) => (/^\s*\d+\s*$/.test(v) ? Number(v) : NaN);
     const n = i + 1;
-    const values = r.kind === 'range'
-      ? [input(r.a, `Rule ${n} from`, (v) => { r.a = num(v); }, true), el('span', 'sode__hint', 'to'),
-        input(r.b, `Rule ${n} to`, (v) => { r.b = num(v); }, true)]
-      : r.kind === 'num' ? [input(r.a, `Rule ${n} number`, (v) => { r.a = num(v); }, true)]
-      : [input(r.text, `Rule ${n} ${r.kind === 're' ? 'regex' : 'name'}`, (v) => { r.text = v; delete r.quoted; })];
+    const values =
+      r.kind === 'range'
+        ? [
+            input(
+              r.a,
+              `Rule ${n} from`,
+              (v) => {
+                r.a = num(v);
+              },
+              true,
+            ),
+            el('span', 'sode__hint', 'to'),
+            input(
+              r.b,
+              `Rule ${n} to`,
+              (v) => {
+                r.b = num(v);
+              },
+              true,
+            ),
+          ]
+        : r.kind === 'num'
+          ? [
+              input(
+                r.a,
+                `Rule ${n} number`,
+                (v) => {
+                  r.a = num(v);
+                },
+                true,
+              ),
+            ]
+          : [
+              input(r.text, `Rule ${n} ${r.kind === 're' ? 'regex' : 'name'}`, (v) => {
+                r.text = v;
+                delete r.quoted;
+              }),
+            ];
     const remove = el('button', 'pb-btn pb-btn--ghost', 'Remove');
     remove.type = 'button';
     remove.setAttribute('aria-label', `Remove rule ${n}`);
@@ -141,8 +203,21 @@ function editor(key) {
       render();
       box.querySelector('.sode__filters-add')?.focus();
     });
-    return el('div', 'sode__filters-rule',
-      sel([['in', 'Include'], ['out', 'Exclude']], r.not ? 'out' : 'in', `Rule ${n}: include or exclude`, (v) => { r.not = v === 'out'; fromRows(); }),
+    return el(
+      'div',
+      'sode__filters-rule',
+      sel(
+        [
+          ['in', 'Include'],
+          ['out', 'Exclude'],
+        ],
+        r.not ? 'out' : 'in',
+        `Rule ${n}: include or exclude`,
+        (v) => {
+          r.not = v === 'out';
+          fromRows();
+        },
+      ),
       sel(KINDS, r.kind, `Rule ${n}: what to match`, (v) => {
         if ((v === 'num' || v === 'range') !== (r.kind === 'num' || r.kind === 'range')) Object.assign(r, { a: undefined, b: undefined, text: '' });
         r.kind = v;
@@ -151,7 +226,8 @@ function editor(key) {
         box.querySelectorAll('.sode__filters-rule')[i]?.querySelector('input')?.focus();
       }),
       el('span', 'sode__filters-vals', ...values),
-      remove);
+      remove,
+    );
   }
 
   function render() {
@@ -164,7 +240,10 @@ function editor(key) {
       f.spellcheck = false;
       f.autocomplete = 'off';
       f.setAttribute('aria-label', `${key === 'src' ? 'Sources' : 'Destinations'} filter`);
-      f.addEventListener('input', () => { ed.text = f.value; changed(); });
+      f.addEventListener('input', () => {
+        ed.text = f.value;
+        changed();
+      });
       body = f;
     } else {
       const add = el('button', 'pb-btn pb-btn--outline pb-btn--sm sode__filters-add', '+ Add rule');
@@ -175,9 +254,7 @@ function editor(key) {
         const rules = box.querySelectorAll('.sode__filters-rule');
         rules[rules.length - 1]?.querySelector('input')?.focus();
       });
-      body = el('div', 'sode__filters-rules',
-        ...ed.rows.map(rowNode),
-        el('div', null, add));
+      body = el('div', 'sode__filters-rules', ...ed.rows.map(rowNode), el('div', null, add));
     }
     const err = el('div', 'pb-note pb-note--error');
     err.setAttribute('role', 'alert');
@@ -197,7 +274,10 @@ function editor(key) {
     },
     toVisual() {
       const p = parseFilter(ed.text);
-      if (p.error) { changed(true); return false; }
+      if (p.error) {
+        changed(true);
+        return false;
+      }
       ed.rows = p.rules.map((r) => ({ ...r }));
       return true;
     },
@@ -238,7 +318,6 @@ function renderShow() {
   $('flt-hidden-note').replaceChildren(...(g ? [el('code', null, g)] : ['None set in Settings']));
 }
 
-
 function buttonState() {
   const sets = activeStack().length;
   const parts = filterCount();
@@ -273,8 +352,7 @@ function renderButtons() {
     });
     return b;
   };
-  const groups = SCOPE_GROUPS
-    .map(([scope, label]) => [label, sets.filter((s) => s.scope === scope)]).filter(([, g]) => g.length);
+  const groups = SCOPE_GROUPS.map(([scope, label]) => [label, sets.filter((s) => s.scope === scope)]).filter(([, g]) => g.length);
   for (const box of document.querySelectorAll('[data-sets]')) {
     const kids = [];
     if (sets.length > 1) {
@@ -295,7 +373,6 @@ function renderButtons() {
   }
   if (filtersOpen()) renderSetBar();
 }
-
 
 let back = null;
 // The filter and set as they were when the dialog opened: Cancel restores them (edits apply to
@@ -380,12 +457,21 @@ function chrome() {
   $('flt-clear').hidden = t;
   $('flt-share-btn').hidden = t;
   $('filters-title').textContent = t ? `${tgt.old ? 'Edit' : 'Add'} filter set for ${tgt.user}` : 'Filters';
-  if (t) { tName.value = tgt.old; tNoteSet(''); tName.classList.remove('pb-input--invalid'); }
+  if (t) {
+    tName.value = tgt.old;
+    tNoteSet('');
+    tName.classList.remove('pb-input--invalid');
+  }
 }
 
 const tgtSaver = profileSaver({
   target: () => tgt,
-  setNote: tNoteSet, isOpen: () => filtersOpen() && !!tgt, failTitle: 'Filter set not saved', render: () => { tSave.disabled = tgtSaver.busy(); },
+  setNote: tNoteSet,
+  isOpen: () => filtersOpen() && !!tgt,
+  failTitle: 'Filter set not saved',
+  render: () => {
+    tSave.disabled = tgtSaver.busy();
+  },
 });
 
 function saveTarget() {
@@ -393,15 +479,27 @@ function saveTarget() {
   eds.src.flush();
   eds.dst.flush();
   const name = tName.value.trim();
-  const bad = nameProblem(name, tgt.lists.map((x) => String(x?.name)), { noun: 'filter set', old: tgt.old, reserved: 'all' });
-  if (bad) { tName.classList.add('pb-input--invalid'); tNoteSet(bad, true); tName.focus(); return; }
+  const bad = nameProblem(
+    name,
+    tgt.lists.map((x) => String(x?.name)),
+    { noun: 'filter set', old: tgt.old, reserved: 'all' },
+  );
+  if (bad) {
+    tName.classList.add('pb-input--invalid');
+    tNoteSet(bad, true);
+    tName.focus();
+    return;
+  }
   tName.classList.remove('pb-input--invalid');
   const list = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old);
   tgtSaver.change({ filterSets: list }, closeFilters);
 }
 tSave.addEventListener('click', saveTarget);
 tName.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); saveTarget(); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveTarget();
+  }
 });
 
 on('openFilterEditor', (m) => {
@@ -423,7 +521,11 @@ for (const b of document.querySelectorAll('[data-filters]')) b.addEventListener(
 $('flt-done').addEventListener('click', cancelFilters);
 // Save closes once the write has landed (the server's answer for everyone or Me; stays open for
 // a PIN or an error).
-$('flt-save').addEventListener('click', () => saveSet(() => { if (filtersOpen()) closeFilters(); }));
+$('flt-save').addEventListener('click', () =>
+  saveSet(() => {
+    if (filtersOpen()) closeFilters();
+  }),
+);
 $('flt-visual').addEventListener('click', () => setMode('visual'));
 $('flt-code').addEventListener('click', () => setMode('code'));
 for (const k of ['sode', 'ext', 'hidden']) {
@@ -449,9 +551,9 @@ $('flt-clear').addEventListener('click', () => {
 
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false;
-let naming = false;  
+let naming = false;
 let nameDirty = false;
-let moveTo = null;    
+let moveTo = null;
 
 function renderSetBar() {
   const a = activeSet();
@@ -482,7 +584,10 @@ function renderSetBar() {
   const named = a && a.scope !== 'all';
   const busy = saver.busy() || profSaver.busy();
   const cur = $('flt-set-cur');
-  if (!named) { nameDirty = false; cur.value = ''; } else if (!nameDirty) cur.value = a.name;
+  if (!named) {
+    nameDirty = false;
+    cur.value = '';
+  } else if (!nameDirty) cur.value = a.name;
   cur.disabled = busy || !named;
   const scopeBox = $('flt-set-cur-scope');
   scopeBox.replaceChildren(...scopeOptions(!!profileName()).map(([id, label]) => new Option(label, id)));
@@ -497,8 +602,10 @@ function renderSetBar() {
   $('flt-set-del').classList.toggle('pb-btn--danger', deleting && named);
   if (busy) return;
   if (stack.length) {
-    return setNote(`Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. `
-      + 'Changing a filter leaves the stack, and the share link is off.');
+    return setNote(
+      `Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. ` +
+        'Changing a filter leaves the stack, and the share link is off.',
+    );
   }
   if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
   setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' · edited' : ''}` : '');
@@ -511,17 +618,24 @@ const setNote = (text, error = false) => {
 // ---- sets for everyone: send the whole list, after the PIN if needed. An unlock lasts while the dialog is open (or until a save sent before it closed is answered).
 
 const saver = globalSaver({
-  t: 'filterSets', resultT: 'filterSetsResult', pinIn: $('flt-pin'), pinRow: $('flt-pin-row'), pinOk: $('flt-pin-ok'),
-  setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar,
+  t: 'filterSets',
+  resultT: 'filterSetsResult',
+  pinIn: $('flt-pin'),
+  pinRow: $('flt-pin-row'),
+  pinOk: $('flt-pin-ok'),
+  setNote,
+  isOpen: filtersOpen,
+  failTitle: 'Filter set not saved',
+  render: renderSetBar,
 });
 $('flt-pin-cancel').addEventListener('click', saver.cancel);
 const profSaver = profileSaver({ setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar });
-const changeShared = (scope, list, done) => (scope === 'user'
-  ? profSaver.change({ filterSets: list.map((s) => ({ name: s.name, ...s.f })) }, done)
-  : saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done));
+const changeShared = (scope, list, done) =>
+  scope === 'user'
+    ? profSaver.change({ filterSets: list.map((s) => ({ name: s.name, ...s.f })) }, done)
+    : saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done);
 const sharedWith = (scope, fn) => fn(setsIn(scope).map((s) => ({ name: s.name, f: s.f })));
 const refTo = (scope, name, base) => ({ ...setRef(scope, name), base });
-
 
 $('flt-set').addEventListener('change', (e) => {
   const [scope, ...rest] = e.target.value.split(':');
@@ -546,7 +660,10 @@ $('flt-set-cur-scope').addEventListener('change', () => {
   renderSetBar();
 });
 $('flt-set-cur').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); $('flt-save').click(); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    $('flt-save').click();
+  }
 });
 
 function removeSet(scope, name, done = () => {}) {
@@ -555,7 +672,14 @@ function removeSet(scope, name, done = () => {}) {
     landed();
     return done();
   }
-  changeShared(scope, sharedWith(scope, (l) => l.filter((s) => s.name !== name)), () => { landed(); done(); });
+  changeShared(
+    scope,
+    sharedWith(scope, (l) => l.filter((s) => s.name !== name)),
+    () => {
+      landed();
+      done();
+    },
+  );
 }
 
 // A move copies to the other scope first, then removes here. done() runs once everything is
@@ -570,13 +694,21 @@ function saveSet(done = () => {}) {
   const moving = !!moveTo && moveTo !== a.scope;
   if (renamed || moving) {
     const into = moving ? moveTo : a.scope;
-    const taken = allSets().filter((x) => x.scope === into).map((x) => x.name);
+    const taken = allSets()
+      .filter((x) => x.scope === into)
+      .map((x) => x.name);
     const err = nameProblem(name, taken, { noun: 'filter set', old: moving ? '' : a.name, reserved: 'all' });
-    if (err) { box.classList.add('pb-input--invalid'); setNote(err, true); return box.focus(); }
+    if (err) {
+      box.classList.add('pb-input--invalid');
+      setNote(err, true);
+      return box.focus();
+    }
   }
   flushEds();
   if (moving) {
-    const to = moveTo, from = a.scope, was = a.name;
+    const to = moveTo,
+      from = a.scope,
+      was = a.name;
     if (to === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
     nameDirty = false;
     moveTo = null;
@@ -585,8 +717,14 @@ function saveSet(done = () => {}) {
       return removeSet(from, was, done);
     }
     const f = filterState();
-    return changeShared(to, sharedWith(to, (l) => [...l, { name, f }]),
-      () => { adoptFilter(f, refTo(to, name, f)); removeSet(from, was, done); });
+    return changeShared(
+      to,
+      sharedWith(to, (l) => [...l, { name, f }]),
+      () => {
+        adoptFilter(f, refTo(to, name, f));
+        removeSet(from, was, done);
+      },
+    );
   }
   if (a.scope === 'local') {
     if (renamed) renameLocalSet(a.name, name);
@@ -596,14 +734,26 @@ function saveSet(done = () => {}) {
     return done();
   }
   const f = filterState();
-  changeShared(a.scope, sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name, f } : s))),
-    () => { nameDirty = false; adoptFilter(f, refTo(a.scope, name, f)); landed(); done(); });
+  changeShared(
+    a.scope,
+    sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name, f } : s))),
+    () => {
+      nameDirty = false;
+      adoptFilter(f, refTo(a.scope, name, f));
+      landed();
+      done();
+    },
+  );
 }
 
 $('flt-set-del').addEventListener('click', () => {
   const a = activeSet();
   if (!a || a.scope === 'all') return;
-  if (!deleting) { deleting = true; renderSetBar(); return; }
+  if (!deleting) {
+    deleting = true;
+    renderSetBar();
+    return;
+  }
   deleting = false;
   if (a.scope === 'local') {
     deleteLocalSet(a.name);
@@ -611,11 +761,15 @@ $('flt-set-del').addEventListener('click', () => {
     $('flt-set').focus();
     return;
   }
-  changeShared(a.scope, sharedWith(a.scope, (l) => l.filter((s) => s.name !== a.name)), () => {
-    adoptFilter(filterState());
-    landed();
-    $('flt-set').focus();
-  });
+  changeShared(
+    a.scope,
+    sharedWith(a.scope, (l) => l.filter((s) => s.name !== a.name)),
+    () => {
+      adoptFilter(filterState());
+      landed();
+      $('flt-set').focus();
+    },
+  );
 });
 
 function askName() {
@@ -640,7 +794,11 @@ function saveName() {
   const f = $('flt-set-name');
   const name = f.value.trim().slice(0, 32);
   const scope = $('flt-set-scope').value;
-  const bad = (msg) => { f.classList.add('pb-input--invalid'); setNote(msg, true); f.focus(); };
+  const bad = (msg) => {
+    f.classList.add('pb-input--invalid');
+    setNote(msg, true);
+    f.focus();
+  };
   const err = nameProblem(name, [], { noun: 'filter set', old: '', reserved: 'all' });
   if (err) return bad(err);
   flushEds();
@@ -651,16 +809,32 @@ function saveName() {
   }
   const fNow = filterState();
   if (scope === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
-  changeShared(scope, sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
-    () => { adoptFilter(fNow, refTo(scope, name, fNow)); landed(); });
+  changeShared(
+    scope,
+    sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
+    () => {
+      adoptFilter(fNow, refTo(scope, name, fNow));
+      landed();
+    },
+  );
 }
-const flushEds = () => { eds.src.flush(); eds.dst.flush(); };
+const flushEds = () => {
+  eds.src.flush();
+  eds.dst.flush();
+};
 $('flt-set-saveas').addEventListener('click', askName);
 $('flt-set-name-ok').addEventListener('click', saveName);
 $('flt-set-name-cancel').addEventListener('click', closeName);
 $('flt-set-name').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); saveName(); }
-  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeName(); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveName();
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    closeName();
+  }
 });
 
 const dlg = trapDialog(root, dialog, cancelFilters);
@@ -675,7 +849,6 @@ $('flt-share-btn').addEventListener('click', () => {
 });
 $('flt-share-copy').addEventListener('click', () => copyLink(shareUI));
 
-
 // While searching: still reading back through the log, or nothing found (the filters may not
 // even apply).
 export function emptyNote(rows, fetching) {
@@ -686,7 +859,12 @@ export function emptyNote(rows, fetching) {
   const clear = el('button', 'pb-btn pb-btn--outline pb-btn--sm', searching ? 'Clear search' : 'Clear filters');
   clear.type = 'button';
   clear.addEventListener('click', () => (searching ? clearSearch() : pickSet('all', 'All')));
-  return el('div', 'sode__filters-empty', el('span', 'sode__hint', !searching && activeStack().length ? 'No matches in the stacked sets.' : 'No matches.'), clear);
+  return el(
+    'div',
+    'sode__filters-empty',
+    el('span', 'sode__hint', !searching && activeStack().length ? 'No matches in the stacked sets.' : 'No matches.'),
+    clear,
+  );
 }
 
 // ---- quick search boxes above Recent, kept in step across layouts. Names logged in history count too, so a renamed source is still found. Text that's an expression applies as typed instead.
@@ -712,7 +890,8 @@ function buildCandidates(k, live) {
   const extra = [];
   for (const e of S.hist) {
     for (const x of [e, ...(e.follows || [])]) {
-      const n = x[k], name = k === 'src' ? x.srcName : x.dstName;
+      const n = x[k],
+        name = k === 'src' ? x.srcName : x.dstName;
       const key = `${n}\u0000${name || ''}`;
       if (seen.has(key) || (by.has(n) && !name)) continue;
       seen.add(key);
@@ -726,7 +905,9 @@ const searchBoxes = [...document.querySelectorAll('[data-search]')];
 const sb = { src: { picks: [], text: '' }, dst: { picks: [], text: '' } };
 const lists = [];
 
-function menuOf(f) { return f.parentElement.querySelector('.sode__menu'); }
+function menuOf(f) {
+  return f.parentElement.querySelector('.sode__menu');
+}
 
 function boxQuery(k) {
   const st = sb[k];
@@ -772,7 +953,9 @@ for (const b of searchBoxes) {
     });
     lists.push(cb);
     f.addEventListener('input', () => typed(k, f, cb));
-    f.addEventListener('focus', () => { if (f.value && !looksLikeExpr(f.value)) typed(k, f, cb); });
+    f.addEventListener('focus', () => {
+      if (f.value && !looksLikeExpr(f.value)) typed(k, f, cb);
+    });
     f.addEventListener('blur', () => cb.close());
     f.addEventListener('keydown', (e) => {
       const st = sb[k];
@@ -791,8 +974,10 @@ for (const b of searchBoxes) {
       e.preventDefault();
       e.stopPropagation();
       if (cb.open) cb.close();
-      else if (f.value) { f.value = ''; typed(k, f, cb); }
-      else f.blur();
+      else if (f.value) {
+        f.value = '';
+        typed(k, f, cb);
+      } else f.blur();
     });
   }
   // Clear leaves focus alone (no phone keyboard); the button greys out, so let focus go.
@@ -814,28 +999,43 @@ function renderSearch() {
       const err = looksLikeExpr(st.text) ? parseFilter(st.text).error : null;
       f.classList.toggle('pb-input--invalid', !!err);
       f.title = err || '';
-      f.previousElementSibling.replaceChildren(...st.picks.map((it, i) => {
-        const x = el('button', 'pb-chip__remove', '×');
-        x.type = 'button';
-        x.tabIndex = -1;
-        x.setAttribute('aria-label', `Remove ${it.label}`);
-        x.addEventListener('mousedown', (e) => e.preventDefault());
-        x.addEventListener('click', () => unpick(k, i));
-        return el('span', 'pb-chip pb-chip--static sode__search-chip', labelNode(it), x);
-      }));
+      f.previousElementSibling.replaceChildren(
+        ...st.picks.map((it, i) => {
+          const x = el('button', 'pb-chip__remove', '×');
+          x.type = 'button';
+          x.tabIndex = -1;
+          x.setAttribute('aria-label', `Remove ${it.label}`);
+          x.addEventListener('mousedown', (e) => e.preventDefault());
+          x.addEventListener('click', () => unpick(k, i));
+          return el('span', 'pb-chip pb-chip--static sode__search-chip', labelNode(it), x);
+        }),
+      );
     }
     b.querySelector('[data-search-clear]').disabled = !on && !['src', 'dst'].some((k) => sb[k].text || sb[k].picks.length);
     b.querySelector('[data-search-note]').textContent = note;
   }
 }
 on('search', renderSearch);
-on('history', () => { if (searchActive()) renderSearch(); });
+on('history', () => {
+  if (searchActive()) renderSearch();
+});
 
 on('filters', renderButtons);
-on('prefs', () => { if (filtersOpen()) renderSetBar(); });
+on('prefs', () => {
+  if (filtersOpen()) renderSetBar();
+});
 on('hello', () => {
   renderButtons();
-  if (filtersOpen()) { renderShow(); eds.src.preview(); eds.dst.preview(); }
+  if (filtersOpen()) {
+    renderShow();
+    eds.src.preview();
+    eds.dst.preview();
+  }
 });
-on('names', () => { if (filtersOpen()) { eds.src.preview(); eds.dst.preview(); } });
+on('names', () => {
+  if (filtersOpen()) {
+    eds.src.preview();
+    eds.dst.preview();
+  }
+});
 renderButtons();

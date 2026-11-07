@@ -38,7 +38,7 @@ export const defaultLevelsHint = () => `${defaultLevelsText()} (${defaultLevelsW
 
 function levelRuns(list) {
   const out = [];
-  for (let i = 0; i < list.length;) {
+  for (let i = 0; i < list.length; ) {
     let j = i;
     while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
     out.push([list[i], list[j]]);
@@ -46,8 +46,10 @@ function levelRuns(list) {
   }
   return out;
 }
-const runsText = (list, dash, sep, mode) => levelRuns(list)
-  .map(([a, b]) => (a === b ? levelLabel(a, mode) : `${levelLabel(a, mode)}${dash}${levelLabel(b, mode)}`)).join(sep);
+const runsText = (list, dash, sep, mode) =>
+  levelRuns(list)
+    .map(([a, b]) => (a === b ? levelLabel(a, mode) : `${levelLabel(a, mode)}${dash}${levelLabel(b, mode)}`))
+    .join(sep);
 export const levelText = (list) => runsText(list, '–', ', ');
 export const levelInput = (list, mode) => runsText(list, '-', ',', mode);
 
@@ -75,11 +77,15 @@ export function levelColor(node, l) {
 // Fixed row of slots, filled when on, so rows line up and color is never the only signal.
 export function levelBar(on) {
   const set = new Set(on);
-  const row = el('span', 'sode__bar', ...S.levels.map((l) => {
-    const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
-    slot.dataset.hint = `Level ${l.label}`; // where the slot is too small for its label
-    return levelColor(slot, l);
-  }));
+  const row = el(
+    'span',
+    'sode__bar',
+    ...S.levels.map((l) => {
+      const slot = el('span', 'sode__slot' + (set.has(l.ui) ? ' sode__slot--on' : ''), l.label);
+      slot.dataset.hint = `Level ${l.label}`; // where the slot is too small for its label
+      return levelColor(slot, l);
+    }),
+  );
   // Two equal rows; an odd first level (0 or V) stands on its own to the left.
   const odd = S.levels.length % 2;
   if (odd) row.classList.add('sode__bar--odd');

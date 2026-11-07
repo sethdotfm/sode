@@ -5,8 +5,14 @@ import { dateStamp } from './exportfmt.js';
 // maxConfigFile in Go.
 export const MAX_BYTES = 2 << 20;
 
-const clean = (s) => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '')
-  .replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-{2,}/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 40);
+const clean = (s) =>
+  String(s || '')
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .slice(0, 40);
 
 // YYYY-MM-DD-Sode-Server-Config-<Site>.yaml; a blank site is left out.
 export function fileName({ now = new Date(), site = '' } = {}) {

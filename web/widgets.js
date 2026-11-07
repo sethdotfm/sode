@@ -3,9 +3,7 @@
 import { actorUser, folderActor } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import { mac } from './keys.js';
-import {
-  levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels,
-} from './levelview.js';
+import { levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
 import { windowAround, growEdge } from './listwindow.js';
@@ -48,7 +46,11 @@ export function levelBox(input, picker, allBtn, { hold = 'mousedown', placeholde
     set([...on].sort((x, y) => x - y));
   }
 
-  input.addEventListener('input', () => { none = false; render(); onChange(); });
+  input.addEventListener('input', () => {
+    none = false;
+    render();
+    onChange();
+  });
   for (const n of [picker, allBtn]) n.addEventListener(hold, (e) => e.preventDefault());
   allBtn.addEventListener('click', () => set((levels() || []).length === S.levels.length ? [] : allLevels()));
 
@@ -83,7 +85,11 @@ let boxSeq = 0;
 // click so a scroll doesn't pick. reverse: drawn bottom-up, ↑ moves to the next match. foot:
 // hidden element for the count line. add: + button on every row; canAdd() says whether the list
 // has them now.
-export function combobox(input, menu, { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null, onRender = null }) {
+export function combobox(
+  input,
+  menu,
+  { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null, onRender = null },
+) {
   const box = typeof input === 'function' ? input : () => input;
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;
   let matches = [];
@@ -105,8 +111,15 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     b.title = 'Add and keep searching';
     b.setAttribute('aria-label', `Add ${it.name}`);
     // pointerdown too: the phone's rows pick on click and keep the keyboard up.
-    for (const t of ['mousedown', 'pointerdown']) b.addEventListener(t, (e) => { e.preventDefault(); e.stopPropagation(); });
-    b.addEventListener('click', (e) => { e.stopPropagation(); add(it); });
+    for (const t of ['mousedown', 'pointerdown'])
+      b.addEventListener(t, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      add(it);
+    });
     return b;
   }
 
@@ -130,7 +143,12 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     menu.hidden = !open;
     onRender?.(open);
     input.setAttribute('aria-expanded', String(open));
-    if (!open) { rows = []; input.removeAttribute('aria-activedescendant'); placeFoot(); return; }
+    if (!open) {
+      rows = [];
+      input.removeAttribute('aria-activedescendant');
+      placeFoot();
+      return;
+    }
     if (!browsed) win = { lo: 0, hi: matches.length };
     rows = rowsFor(win.lo, win.hi);
     menu.replaceChildren(...rows);
@@ -161,10 +179,21 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     return li && menu.contains(li) ? +li.dataset.i : -1;
   };
   if (press === 'click') {
-    menu.addEventListener('pointerdown', (e) => { if (rowOf(e) >= 0) e.preventDefault(); });
-    menu.addEventListener('click', (e) => { const i = rowOf(e); if (i >= 0) choose(i); });
+    menu.addEventListener('pointerdown', (e) => {
+      if (rowOf(e) >= 0) e.preventDefault();
+    });
+    menu.addEventListener('click', (e) => {
+      const i = rowOf(e);
+      if (i >= 0) choose(i);
+    });
   } else {
-    menu.addEventListener('mousedown', (e) => { const i = rowOf(e); if (i >= 0) { e.preventDefault(); choose(i); } });
+    menu.addEventListener('mousedown', (e) => {
+      const i = rowOf(e);
+      if (i >= 0) {
+        e.preventDefault();
+        choose(i);
+      }
+    });
   }
   menu.addEventListener('scroll', () => {
     if (!browsed || !matches.length) return;
@@ -174,8 +203,14 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     if (next === win) return;
     const was = menu.scrollHeight;
     const added = below ? rowsFor(win.hi, next.hi) : rowsFor(next.lo, win.lo);
-    if (below) { menu.append(...added); rows.push(...added); }
-    else { menu.prepend(...added); rows.unshift(...added); menu.scrollTop += menu.scrollHeight - was; }
+    if (below) {
+      menu.append(...added);
+      rows.push(...added);
+    } else {
+      menu.prepend(...added);
+      rows.unshift(...added);
+      menu.scrollTop += menu.scrollHeight - was;
+    }
     win = next;
   });
 
@@ -228,7 +263,15 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
       menu.scrollTop = 0;
     },
     browse(items, n, { keepMoved = false } = {}) {
-      show(items, Math.max(0, items.findIndex((it) => it.n === n)), true, keepMoved && browsed && !browsing);
+      show(
+        items,
+        Math.max(
+          0,
+          items.findIndex((it) => it.n === n),
+        ),
+        true,
+        keepMoved && browsed && !browsing,
+      );
       rows[hi - win.lo]?.scrollIntoView({ block: 'nearest' });
     },
     close() {
@@ -236,8 +279,12 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
     },
     accept,
     current: () => matches[hi],
-    get open() { return matches.length > 0; },
-    get moved() { return browsed && !browsing; },
+    get open() {
+      return matches.length > 0;
+    },
+    get moved() {
+      return browsed && !browsing;
+    },
     // Also swallows the keys with the list closed, so neither the browser's J/K shortcuts nor
     // macOS's Ctrl+K act.
     nav(e) {
@@ -260,7 +307,6 @@ export function combobox(input, menu, { source, onPick, add, canAdd = () => true
   };
 }
 
-
 export function disclosure(open, label, controls, onToggle) {
   const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode__hist-toggle', chevron(open), label);
   b.type = 'button';
@@ -277,7 +323,10 @@ export const labeled = (text, control, cls = '') => el('label', `sode__fld ${cls
 // as does one that selected text not. data-no-tap (a swipe just ended) skips one click.
 export function clickToToggle(row, toggle, skip) {
   row.addEventListener('click', (e) => {
-    if (row.dataset.noTap) { delete row.dataset.noTap; return; }
+    if (row.dataset.noTap) {
+      delete row.dataset.noTap;
+      return;
+    }
     const t = e.target;
     if (t.closest('button, a, input, select, textarea') || (skip && t.closest(skip))) return;
     if (t.closest('.sode__hist-row, .sode-m__recent-face') !== row) return;
@@ -310,8 +359,7 @@ export function againButton(plan, label, onClick, { placeholder = true, cls = 'p
   const none = !plan.items.length;
   if (none && !placeholder) return null;
   const redo = plan.verb !== 'retry';
-  const b = el('button', `${cls}${none ? ' sode__placeholder' : ''}`,
-    redo ? icon('redo-2') : null, redo ? 'Redo' : 'Retry');
+  const b = el('button', `${cls}${none ? ' sode__placeholder' : ''}`, redo ? icon('redo-2') : null, redo ? 'Redo' : 'Retry');
   b.type = 'button';
   if (none) {
     b.tabIndex = -1;
@@ -348,7 +396,6 @@ export function arrivals() {
   };
 }
 
-
 // One row per outcome ("still on CAM 2", "no answer"); [] if unknown. The phone has no such
 // card: its row's note says it in full.
 export function failureRows(e) {
@@ -363,9 +410,15 @@ export function failureRows(e) {
 
 export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst: onPickDst }) {
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
-  const step = (time, levels, text, btn, follows = null, src = null) => el('div', 'sode__route sode__step',
-    el('span', 'sode__step-time', time), levelBar(levels),
-    el('span', 'sode__step-what', srcEnd(src, text, onPickSrc), follows), btn);
+  const step = (time, levels, text, btn, follows = null, src = null) =>
+    el(
+      'div',
+      'sode__route sode__step',
+      el('span', 'sode__step-time', time),
+      levelBar(levels),
+      el('span', 'sode__step-what', srcEnd(src, text, onPickSrc), follows),
+      btn,
+    );
   const restore = (then, at) => {
     const label = srcItem(at.src, at.srcName).label;
     const plan = restorePlan(then, at);
@@ -378,8 +431,20 @@ export function stackSteps(e, { restore: onRestore, pickSrc: onPickSrc, pickDst:
     return b;
   };
   return [
-    ...e.chain.map((c, i) => step(fmtClock(c.time), lv(c.levels), srcItem(c.src, c.srcName).label,
-      i === 0 ? null : restore(e.chain[i - 1], c), followBoxes((e.follows || []).filter((f) => f.follow === c.id), c.levels, onPickDst), c.src)),
+    ...e.chain.map((c, i) =>
+      step(
+        fmtClock(c.time),
+        lv(c.levels),
+        srcItem(c.src, c.srcName).label,
+        i === 0 ? null : restore(e.chain[i - 1], c),
+        followBoxes(
+          (e.follows || []).filter((f) => f.follow === c.id),
+          c.levels,
+          onPickDst,
+        ),
+        c.src,
+      ),
+    ),
     ...beforeGroups(e).map((g, i) => step(i === 0 ? 'before' : '', g.levels, tallyText(g.src), null, null, g.src)),
   ];
 }
@@ -390,7 +455,10 @@ export function followBoxes(follows, levels, onPickDst) {
   if (!follows?.length) return null;
   const lv = (ls) => ls.filter((u) => S.levelBy.has(u));
   const same = (ls) => lv(ls).join() === lv(levels).join();
-  return el('span', 'sode__follows', el('span', 'sode__hist-note', 'Followed by:'),
+  return el(
+    'span',
+    'sode__follows',
+    el('span', 'sode__hist-note', 'Followed by:'),
     ...follows.map((f) => {
       const it = dstItem(f.dst, f.dstName);
       const note = same(f.levels) ? null : el('span', 'sode__hist-note', ` (${levelText(lv(f.levels))})`);
@@ -402,53 +470,89 @@ export function followBoxes(follows, levels, onPickDst) {
       b.addEventListener('mousedown', (e) => e.preventDefault());
       b.addEventListener('click', () => onPickDst(it));
       return b;
-    }));
+    }),
+  );
 }
-
 
 // Pulling past the end of scroller presses Load more: a touch dragged PULL px up and let go, or
 // WHEEL of wheel scrolling at the bottom in one go (a pause starts over). box's --sode-pull
 // runs 0..1. when(): this layout is the one showing.
-const PULL = 140, WHEEL = 700, GAP_MS = 250;
+const PULL = 140,
+  WHEEL = 700,
+  GAP_MS = 250;
 export function pullToLoad(scroller, box, pager, when) {
   const el0 = () => (scroller === window ? document.scrollingElement : scroller);
-  const atEnd = () => { const s = el0(); return s.scrollTop + s.clientHeight >= s.scrollHeight - 2; };
+  const atEnd = () => {
+    const s = el0();
+    return s.scrollTop + s.clientHeight >= s.scrollHeight - 2;
+  };
   const ready = () => when() && pager.hasMore() && !S.histLoading && !!box.querySelector('button');
   const show = (p) => box.style.setProperty('--sode-pull', String(Math.max(0, Math.min(1, p))));
-  const fire = () => { show(0); pager.more(); };
+  const fire = () => {
+    show(0);
+    pager.more();
+  };
 
-  let sum = 0, last = 0, idle = 0;
-  scroller.addEventListener('wheel', (e) => {
-    const now = performance.now();
-    if (now - last > GAP_MS) sum = 0;
-    last = now;
-    clearTimeout(idle);
-    if (e.deltaY <= 0 || !atEnd() || !ready()) { sum = Math.min(sum, 0); show(0); return; }
-    sum += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el0().clientHeight : 1);
-    if (sum >= WHEEL) { sum = -Infinity; fire(); return; }
-    show(sum / WHEEL);
-    idle = setTimeout(() => { sum = 0; show(0); }, GAP_MS);
-  }, { passive: true });
+  let sum = 0,
+    last = 0,
+    idle = 0;
+  scroller.addEventListener(
+    'wheel',
+    (e) => {
+      const now = performance.now();
+      if (now - last > GAP_MS) sum = 0;
+      last = now;
+      clearTimeout(idle);
+      if (e.deltaY <= 0 || !atEnd() || !ready()) {
+        sum = Math.min(sum, 0);
+        show(0);
+        return;
+      }
+      sum += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el0().clientHeight : 1);
+      if (sum >= WHEEL) {
+        sum = -Infinity;
+        fire();
+        return;
+      }
+      show(sum / WHEEL);
+      idle = setTimeout(() => {
+        sum = 0;
+        show(0);
+      }, GAP_MS);
+    },
+    { passive: true },
+  );
 
-  let y0 = null, pulled = 0;
-  scroller.addEventListener('touchstart', (e) => {
-    y0 = e.touches.length === 1 && atEnd() && ready() ? e.touches[0].clientY : null;
+  let y0 = null,
     pulled = 0;
-  }, { passive: true });
-  scroller.addEventListener('touchmove', (e) => {
-    if (y0 == null) return;
-    pulled = (y0 - e.touches[0].clientY) / PULL;
-    show(pulled);
-  }, { passive: true });
+  scroller.addEventListener(
+    'touchstart',
+    (e) => {
+      y0 = e.touches.length === 1 && atEnd() && ready() ? e.touches[0].clientY : null;
+      pulled = 0;
+    },
+    { passive: true },
+  );
+  scroller.addEventListener(
+    'touchmove',
+    (e) => {
+      if (y0 == null) return;
+      pulled = (y0 - e.touches[0].clientY) / PULL;
+      show(pulled);
+    },
+    { passive: true },
+  );
   const end = () => {
     if (y0 != null && pulled >= 1 && ready()) fire();
     else show(0);
     y0 = null;
   };
   scroller.addEventListener('touchend', end);
-  scroller.addEventListener('touchcancel', () => { y0 = null; show(0); });
+  scroller.addEventListener('touchcancel', () => {
+    y0 = null;
+    show(0);
+  });
 }
-
 
 // First two as chips, all once open, toggle for the rest. onPick(d) uses one as the destination.
 export function feeding(fed, { open, onToggle, onPick, hold = 'mousedown', empty = 'Not feeding any destination' }) {

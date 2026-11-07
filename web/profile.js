@@ -46,8 +46,11 @@ onMsg('profileGetResult', (m) => {
   const done = reading.get(m.id);
   if (!done) return;
   reading.delete(m.id);
-  done(m.ok ? { ok: true, err: '', locked: false, profile: toProfile({ ...m.profile, name: m.name }) }
-    : { ok: false, err: m.err || 'Could not read that profile.', locked: !!m.locked, profile: EMPTY });
+  done(
+    m.ok
+      ? { ok: true, err: '', locked: false, profile: toProfile({ ...m.profile, name: m.name }) }
+      : { ok: false, err: m.err || 'Could not read that profile.', locked: !!m.locked, profile: EMPTY },
+  );
 });
 
 onMsg('profileSaveResult', (m) => {
@@ -78,18 +81,19 @@ export function saveProfile(parts, name = cur.name) {
   const mine = name === cur.name;
   const next = mine ? { ...cur, ...parts } : null;
   if (mine) cur = next;
-  const run = () => new Promise((resolve) => {
-    const id = ++seq;
-    const settle = (r) => {
-      if (!r.ok && mine && cur === next) cur = before;
-      if (r.ok) emit('profileSaved', { name });
-      resolve(r);
-    };
-    if (!wsSend({ t: 'profileSave', id, name, ...parts })) {
-      return settle({ ok: false, err: 'Not connected to Sode.', locked: false });
-    }
-    pending.set(id, settle);
-  });
+  const run = () =>
+    new Promise((resolve) => {
+      const id = ++seq;
+      const settle = (r) => {
+        if (!r.ok && mine && cur === next) cur = before;
+        if (r.ok) emit('profileSaved', { name });
+        resolve(r);
+      };
+      if (!wsSend({ t: 'profileSave', id, name, ...parts })) {
+        return settle({ ok: false, err: 'Not connected to Sode.', locked: false });
+      }
+      pending.set(id, settle);
+    });
   const p = chain.then(run);
   chain = p.catch(() => {});
   return p;

@@ -4,13 +4,23 @@
   const root = document.documentElement;
   const themeOnly = document.currentScript?.dataset.only === 'theme';
   let g = {};
-  const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-  try { g = JSON.parse(get('sode-device-defaults')) || {}; } catch (e) {}
+  const get = (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch (e) {
+      return null;
+    }
+  };
+  try {
+    g = JSON.parse(get('sode-device-defaults')) || {};
+  } catch (e) {}
   let mine = {};
   try {
     // Only with a session token kept (else this load is a guest): as cachedProfile() in prefs.js.
     let tab = null;
-    try { tab = sessionStorage.getItem('sode-tab-session'); } catch (e) {}
+    try {
+      tab = sessionStorage.getItem('sode-tab-session');
+    } catch (e) {}
     const c = JSON.parse(get('sode-profile-prefs'));
     if ((get('sode-session') || tab) && c && typeof c.user === 'string' && c.user && c.prefs && typeof c.prefs === 'object') mine = c.prefs;
   } catch (e) {}

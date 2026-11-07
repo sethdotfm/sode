@@ -8,7 +8,11 @@ export function shortcutList({ keyMode, fromHistory, enterKeys, focusFirst }) {
   let wasKeys = false;
   let fromHist = false;
   // A Mac-only key (⌃Z beside ⌘Z) is hidden elsewhere.
-  if (mac) for (const k of $('keys').querySelectorAll('[data-mac]')) { k.textContent = k.dataset.mac; k.hidden = false; }
+  if (mac)
+    for (const k of $('keys').querySelectorAll('[data-mac]')) {
+      k.textContent = k.dataset.mac;
+      k.hidden = false;
+    }
   function open() {
     back = document.activeElement;
     wasKeys = keyMode();

@@ -1,0 +1,7 @@
+{
+  "singleQuote": true,
+  "printWidth": 160,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "overrides": [{ "files": "*.css", "options": { "singleQuote": false } }]
+}

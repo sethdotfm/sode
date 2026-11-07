@@ -16,15 +16,27 @@ export function parseFilter(text) {
   const rules = [];
   let i = 0;
   const n = text.length;
-  const ws = () => { while (i < n && /\s/.test(text[i])) i++; };
+  const ws = () => {
+    while (i < n && /\s/.test(text[i])) i++;
+  };
   while (i < n) {
     ws();
     if (i >= n) break;
-    if (text[i] === ',') { i++; continue; }
+    if (text[i] === ',') {
+      i++;
+      continue;
+    }
     const start = i;
     let not = false;
-    if (text[i] === '!') { not = true; i++; ws(); }
-    else if (NOT_WORD.test(text.slice(i))) { not = true; i += 3; ws(); }
+    if (text[i] === '!') {
+      not = true;
+      i++;
+      ws();
+    } else if (NOT_WORD.test(text.slice(i))) {
+      not = true;
+      i += 3;
+      ws();
+    }
     let rule;
     if (text[i] === '"' || text[i] === "'") {
       const q = text[i];
@@ -33,7 +45,11 @@ export function parseFilter(text) {
       for (;;) {
         if (i >= n) return { error: 'Unclosed quote', at: start };
         if (text[i] === q) {
-          if (text[i + 1] === q) { s += q; i += 2; continue; }
+          if (text[i + 1] === q) {
+            s += q;
+            i += 2;
+            continue;
+          }
           i++;
           break;
         }
@@ -46,8 +62,15 @@ export function parseFilter(text) {
       i++;
       for (;;) {
         if (i >= n) return { error: 'Unclosed /regex/', at: start };
-        if (text[i] === '\\' && i + 1 < n) { s += text[i] + text[i + 1]; i += 2; continue; }
-        if (text[i] === '/') { i++; break; }
+        if (text[i] === '\\' && i + 1 < n) {
+          s += text[i] + text[i + 1];
+          i += 2;
+          continue;
+        }
+        if (text[i] === '/') {
+          i++;
+          break;
+        }
         s += text[i++];
       }
       let flags = '';
@@ -78,31 +101,47 @@ export function parseFilter(text) {
   return { rules };
 }
 
-const needsQuote = (t) => NUM.test(t.trim()) || RANGE.test(t.trim()) || /[,"']/.test(t) ||
-  /^\s|\s$/.test(t) || /^[!/]/.test(t) || NOT_WORD.test(t);
+const needsQuote = (t) => NUM.test(t.trim()) || RANGE.test(t.trim()) || /[,"']/.test(t) || /^\s|\s$/.test(t) || /^[!/]/.test(t) || NOT_WORD.test(t);
 const quote = (t, q) => q + t.replaceAll(q, q + q) + q;
 function slashes(t) {
   let out = '';
   for (let i = 0; i < t.length; i++) {
-    if (t[i] === '\\') { out += t[i] + (t[i + 1] ?? ''); i++; continue; }
+    if (t[i] === '\\') {
+      out += t[i] + (t[i + 1] ?? '');
+      i++;
+      continue;
+    }
     out += t[i] === '/' ? '\\/' : t[i];
   }
   return out;
 }
 
 export function filterText(rules) {
-  return rules.map((r) => {
-    const body = r.kind === 'num' ? String(r.a)
-      : r.kind === 'range' ? `${r.a}-${r.b}`
-      : r.kind === 're' ? `/${slashes(r.text)}/${r.flags || ''}`
-      : r.kind === 'exact' ? quote(r.text, '"')
-      : r.quoted || needsQuote(r.text) ? quote(r.text, "'") : r.text;
-    return (r.not ? '!' : '') + body;
-  }).join(', ');
+  return rules
+    .map((r) => {
+      const body =
+        r.kind === 'num'
+          ? String(r.a)
+          : r.kind === 'range'
+            ? `${r.a}-${r.b}`
+            : r.kind === 're'
+              ? `/${slashes(r.text)}/${r.flags || ''}`
+              : r.kind === 'exact'
+                ? quote(r.text, '"')
+                : r.quoted || needsQuote(r.text)
+                  ? quote(r.text, "'")
+                  : r.text;
+      return (r.not ? '!' : '') + body;
+    })
+    .join(', ');
 }
 
 // Fold for fuzzy: lower case, no spaces or punctuation, no leading zeros ("PROD MON03" -> "prodmon3").
-const fold = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '').replace(/(^|[a-z])0+(?=\d)/g, '$1');
+const fold = (s) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .replace(/(^|[a-z])0+(?=\d)/g, '$1');
 
 // Every word of the fuzzy text is in the folded name.
 function fuzzy(text) {
@@ -115,8 +154,10 @@ function fuzzy(text) {
 
 function test(r, fuzzyNames) {
   switch (r.kind) {
-    case 'num': return (num) => num === r.a;
-    case 'range': return (num) => num >= r.a && num <= r.b;
+    case 'num':
+      return (num) => num === r.a;
+    case 'range':
+      return (num) => num >= r.a && num <= r.b;
     case 're': {
       const re = new RegExp(r.text, stateless(r.flags) || 'i');
       return (num, name) => re.test(name);
@@ -154,5 +195,4 @@ export function entryAllows(f, { srcOk, dstOk }, x) {
 }
 
 // 'or': any set allows it; else every set must. Excludes and kinds count only within their set.
-export const stackAllows = (mode, sets, x) =>
-  (mode === 'or' ? sets.some((s) => entryAllows(s.f, s, x)) : sets.every((s) => entryAllows(s.f, s, x)));
+export const stackAllows = (mode, sets, x) => (mode === 'or' ? sets.some((s) => entryAllows(s.f, s, x)) : sets.every((s) => entryAllows(s.f, s, x)));
