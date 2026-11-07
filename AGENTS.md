@@ -33,6 +33,8 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 - Confirm dialog: churning random letter plus lockout (default 500ms, Enter optional).
 - Version (#95): Version and Stage in internal/app/version.go, sent in hello as BuildLabel(), shown in Settings, noted in README's Version line. Every release bumps both and adds a CHANGELOG.md section (#147). TestVersionNoted fails on mismatch, or with SODE_RELEASE_TAG if the tag differs or the heading says unreleased. See RELEASING.md. Only promote.yml may push the latest image tag.
 
+- Vocabulary: GLOSSARY.md fixes the terms. TestRetiredWordsCoverGlossary and the scans in internal/app/vocabulary_test.go fail on any _Avoid_ term used in docs or UI strings unless its row names the pending ticket. A new _Avoid_ term needs a row; a finished sweep clears its ticket.
+
 ## Shared saves and owned fields
 
 - Filter sets and presets save through saveShared (app/shared.go: takes cfgMu, guardSave(c,true) re-checks PIN or trusted user, update mutates a copy then Normalize, Validate, save, optional small broadcast) and replyOp(c, kind, id, n, noun, err) (logs the command, answers <kind>Result echoing id, sets locked). New saved-apart features use both. Name rules: validateNames in config/names.go (count, empty, 32 runes, unique ignoring case).

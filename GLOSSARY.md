@@ -7,15 +7,15 @@ Sode is a keyboard-first web page for patching an SW-P-08 router, built and test
 ### Routing
 
 **Source**:
-A router input, shown by its number and the name the router gives it.
+A router connection that signal comes from, shown by its number and the name the router gives it.
 _Avoid_: input
 
 **Destination**:
-A router output, shown by its number and the name the router gives it.
+A router connection that signal goes to, shown by its number and the name the router gives it.
 _Avoid_: output
 
 **Level**:
-One of the parallel signal layers (such as video or audio) that a source can be connected to a destination on. Levels are numbered 1..N in Sode whatever the router uses on the wire.
+One of the parallel signal types (such as video or audio) that a source can be connected to a destination on. Levels are numbered 1..N in Sode whatever the router uses on the wire.
 _Avoid_: wire level, layer
 
 **Router name**:
@@ -59,7 +59,7 @@ The shared, chronological record of takes and external changes that every browse
 _Avoid_: Recent
 
 **Group**:
-The folder in History for a take that sent several routes. Undo all and Redo all act on a Group, undoing or repeating every route in that take.
+The expandable row in History for a take that sent several routes. Undo all and Redo all act on a Group, undoing or repeating every route in that take.
 _Avoid_: batch, folder
 
 **Entry**:
@@ -100,13 +100,13 @@ _Avoid_: panel change, outside change
 A kind of external change the router made without announcing it, noticed by Sode only later.
 
 **External follow**:
-An external change on a destination that probably followed another destination's change, such as a multiviewer PiP following a DSM. Sode cannot tell a follow from other automation, so this is always a suspicion.
+An external change on a destination that probably followed another destination's change, such as a multiviewer PiP following a DSM. Sode cannot tell a follow from other automatic behavior, so this is always a suspicion.
 _Avoid_: follows (as a certain fact), automation
 
 ### People and access
 
 **User**:
-A named person who can sign in to Sode. Their name is what History shows in place of an IP address. Changing a name is an advanced setting. History entries keep the name from when they were made, and the user's Profile follows the rename.
+A named person who can sign in to Sode. Their name is what History shows in place of an IP address. Changing a name is an advanced setting. History entries keep the name from when they were made, and the user's Profile is renamed with them.
 _Avoid_: operator, account
 
 **Sign in** / **Sign out**:
