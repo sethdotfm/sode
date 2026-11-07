@@ -27,7 +27,7 @@ import { entryNote, historyPager, statusNode, folderTitle, folderLevels } from '
 import { planVerb, resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
-import { emptyNote } from './filters.js';
+import { emptyNote } from './searchbox.js';
 import { presetHost } from './presets.js';
 import { rowActions, disclosureAria, followersHead, lastFill } from './recentrows.js';
 import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './recentpick.js';

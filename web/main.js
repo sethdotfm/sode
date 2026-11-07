@@ -8,6 +8,7 @@ import './brand.js';
 import './lock.js';
 import './profile.js';
 import './filters.js';
+import './searchbox.js';
 import { applySharedLink } from './transfer.js';
 import './mobile.js';
 import './presetpopup.js';
