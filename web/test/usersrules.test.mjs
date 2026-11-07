@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, usernameColumn, MODES } from '../usersrules.js';
+import { usersReq, usernameColumn, MODES, modeOneWay, switchNeedsWarning } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', was: 'Ann', pin: '', trusted: true, persistent: false, username: ' ann ' },
@@ -48,4 +48,13 @@ test('the username column shows in Username and PIN mode only', () => {
       ['username', 'Username and PIN'],
     ],
   );
+});
+
+test('Username and PIN is one-way: no way back once saved, a warning before the first switch', () => {
+  assert.equal(modeOneWay('username'), true);
+  assert.equal(modeOneWay('pin'), false);
+  assert.equal(modeOneWay(undefined), false);
+  assert.equal(switchNeedsWarning('username', 'pin'), true);
+  assert.equal(switchNeedsWarning('username', 'username'), false);
+  assert.equal(switchNeedsWarning('pin', 'pin'), false);
 });

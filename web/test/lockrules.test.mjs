@@ -356,7 +356,7 @@ test('a held Lock cancels the letter Lock', () => {
 });
 
 test('username mode asks for a username, except when resuming a held Lock', async () => {
-  const { asksUsername, canSend, padDelay, unlockMsg } = await import('../lockrules.js');
+  const { asksUsername, canSend, padDelay, signInMsg } = await import('../lockrules.js');
   const pinOnly = { enforced: true, locked: true, mode: 'pin', lens: [4] };
   const named = { enforced: true, locked: true, mode: 'username', lens: [4], held: false };
   assert.equal(asksUsername(pinOnly), false);
@@ -367,7 +367,7 @@ test('username mode asks for a username, except when resuming a held Lock', asyn
   // PIN only: the old rules and message, whatever the field holds
   assert.equal(canSend(pinOnly, '1234', ''), true);
   assert.equal(padDelay(pinOnly, '1234', ''), 0);
-  assert.deepEqual(unlockMsg(pinOnly, { pin: '1234', id: 3, username: 'ann' }), { t: 'userUnlock', pin: '1234', id: 3, tab: false });
+  assert.deepEqual(signInMsg(pinOnly, { pin: '1234', id: 3, username: 'ann' }), { t: 'userUnlock', pin: '1234', id: 3, tab: false });
 
   // Username and PIN: nothing sends, by hand or by itself, without a username
   assert.equal(canSend(named, '1234', ''), false);
@@ -376,8 +376,8 @@ test('username mode asks for a username, except when resuming a held Lock', asyn
   assert.equal(canSend(named, '123', 'ann'), false);
   assert.equal(padDelay(named, '1234', ''), null);
   assert.equal(padDelay(named, '1234', 'ann'), 0);
-  assert.deepEqual(unlockMsg(named, { pin: '1234', id: 4, username: ' ann ' }), { t: 'userUnlock', user: 'ann', pin: '1234', id: 4, tab: false });
+  assert.deepEqual(signInMsg(named, { pin: '1234', id: 4, username: ' ann ' }), { t: 'userUnlock', user: 'ann', pin: '1234', id: 4, tab: false });
   const held = { ...named, held: true, user: 'Ann' };
-  assert.deepEqual(unlockMsg(held, { pin: '1234', id: 5, username: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
+  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, username: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
   assert.equal(canSend(held, '1234', ''), true);
 });

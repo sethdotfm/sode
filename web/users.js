@@ -7,7 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
-import { MODES, usernameColumn, usersReq } from './usersrules.js';
+import { MODES, modeOneWay, switchNeedsWarning, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
@@ -71,7 +71,7 @@ const modeField = el(
   'sode__field',
   Object.assign(el('label', null, 'Sign-in mode'), { htmlFor: 'usr-mode' }),
   el('span', 'pb-select-wrap', modeSelect),
-  el('span', 'sode__hint', 'Username and PIN: each user has a username, and two users may share a PIN.'),
+  el('span', 'sode__hint', 'Username and PIN: each user has a username, and two users may share a PIN. This cannot be switched back to PIN only for now.'),
 );
 const usernameHead = el('span', null, 'Username');
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
@@ -119,6 +119,7 @@ dialog.addEventListener('keydown', (e) => {
 
 let isOpen = false;
 let edited = false; // changed in the dialog since it filled
+let warned = false; // the one-way switch was warned about; the next Save sends it
 let discard = false; // warned once; the next close discards
 let back = null;
 let seq = 0;
@@ -242,6 +243,8 @@ onMsg('userSignOutAllResult', (m) => {
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
   modeSelect.value = listedMode;
+  modeSelect.options[0].disabled = modeOneWay(listedMode);
+  warned = false;
   rows.replaceChildren();
   paintMode();
   for (const u of listed) addRow(u);
@@ -341,6 +344,10 @@ on('locking', () => {
 function doSave() {
   err.hidden = true;
   setNote('');
+  if (switchNeedsWarning(mode(), listedMode) && !warned) {
+    warned = true;
+    return setNote('Username and PIN cannot be switched back to PIN only. Save again to switch, or choose PIN only.', true);
+  }
   const users = [...rows.children].map((row) => {
     const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
@@ -367,6 +374,7 @@ onMsg('usersResult', async (m) => {
 
 modeSelect.addEventListener('change', () => {
   touched();
+  warned = false;
   paintMode();
 });
 maxInput.addEventListener('input', () => {

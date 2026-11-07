@@ -143,7 +143,7 @@ export const canSend = (s, pin, username) => sendable(pin, s.lens || []) && (!as
 // A pad that auto-sends waits for the username, so a full PIN typed first is not lost as a wrong try.
 export const padDelay = (s, pin, username) => (asksUsername(s) && username.trim() === '' ? null : sendDelay(pin, s.lens || []));
 
-export const unlockMsg = (s, { pin, id, username }) => ({
+export const signInMsg = (s, { pin, id, username }) => ({
   t: 'userUnlock',
   ...(asksUsername(s) ? { user: username.trim() } : {}),
   pin,

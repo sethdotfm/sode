@@ -21,3 +21,9 @@ export function usersReq(rows, maxPinLen, mode, savedMode) {
   }));
   return { users, maxPinLen, ...(mode !== savedMode ? { signInMode: mode } : {}) };
 }
+
+// The server refuses Username and PIN back to PIN only (one-way for now).
+export const modeOneWay = (savedMode) => savedMode === 'username';
+
+// Warn before the first save that switches to Username and PIN, since it cannot be undone.
+export const switchNeedsWarning = (mode, savedMode) => mode === 'username' && !modeOneWay(savedMode);

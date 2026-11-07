@@ -24,7 +24,7 @@ import {
   asksUsername,
   canSend,
   padDelay,
-  unlockMsg,
+  signInMsg,
   signInAsOffered,
   signOutOffered,
   MODE,
@@ -433,7 +433,7 @@ function press(k) {
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend(unlockMsg(L, { pin, id, username: nameValue() }))) return say('Not connected to Sode.', true);
+  if (!wsSend(signInMsg(L, { pin, id, username: nameValue() }))) return say('Not connected to Sode.', true);
   say('Checking…');
 }
 
