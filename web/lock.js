@@ -540,7 +540,7 @@ function cancelSignIn() {
 
 function localLock() {
   if (L.user) return lockNow();
-  if (soft || L.enforced || !S.cfg) return;
+  if (soft || L.enforced || lockCovers(L) || !S.cfg) return;
   build();
   V = softView(V, false);
   const key = churnKey(lastSoftKey);

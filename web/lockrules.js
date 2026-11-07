@@ -42,7 +42,8 @@ export const seenActive = (last, seen) => (Number.isFinite(seen) && seen > last 
 // Pointer moves fire constantly: one message a second is plenty against a minutes-long timer.
 export const shouldShare = (lastShared, now) => now - lastShared >= 1000;
 
-export const localIdleLock = (s, pageLocked, lastActive, now, minutes) => !s.enforced && !s.user && !pageLocked && idleDue(lastActive, now, minutes);
+// A held Lock has no user in the browser's state but is not a letter Lock: the pad stays.
+export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enforced && !s.locked && !s.user && !letterUp && idleDue(lastActive, now, minutes);
 
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
 // step.

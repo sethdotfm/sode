@@ -240,6 +240,7 @@ test('localIdleLock: idle past the auto-lock minutes, only where no PIN lock is 
   assert.equal(localIdleLock({ enforced: false }, false, 0, idle, 0), false);
   assert.equal(localIdleLock({ enforced: false }, true, 0, idle, 5), false);
   assert.equal(localIdleLock({ enforced: true }, false, 0, idle, 5), false);
+  assert.equal(localIdleLock({ enforced: false, locked: true, held: true, user: '' }, false, 0, idle, 5), false); // a held Lock is not a letter Lock
 });
 
 test('tab signedIn: offered only with users, no lock and nobody in', () => {
