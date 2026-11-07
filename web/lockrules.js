@@ -126,7 +126,7 @@ export function churnKey(last = '', rnd = Math.random) {
   return key;
 }
 
-// Tab login: users exist, this page has no PIN lock, nobody is logged in. The pad it opens can
+// Tab sign-in: users exist, this page has no PIN lock, nobody is signed in. The pad it opens can
 // be dismissed.
 export const signInOffered = (s) => !s.enforced && !s.user && (s.lens?.length || 0) > 0;
 
@@ -160,7 +160,7 @@ export const signInMsg = (s, { pin, id, username }) => ({
 export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
 // One value {mode, back}. mode is one of MODE: PAGE (a lock from the server may still cover
-// it, see viewBody), SOFT (hand lock) or SIGN_IN (pad by request, dismissable). back: where
+// it, see viewBody), SOFT (Lock with nobody signed in) or SIGN_IN (pad by request, dismissable). back: where
 // Cancel / Esc of a sign-in returns to ('page' or 'soft'). Pure; lock.js does the DOM.
 export const MODE = Object.freeze({ PAGE: 'page', SOFT: 'soft', SIGN_IN: 'login' });
 export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
@@ -185,7 +185,7 @@ export const tokenStale = (m, user) => !!m.hi && !user && !m.held;
 // unlocked must be told again, not shown the page.
 export const resendLock = (owed, m) => !!owed && !!m.user && !m.held;
 
-// Nothing with an enforced lock on; wins over a login pad.
+// Nothing with an enforced lock on; wins over a sign-in pad.
 export const localLock = (v, enforced) => (enforced ? v : { mode: MODE.SOFT, back: 'page' });
 
 export const dismissLocalLock = () => PAGE_VIEW;
@@ -193,7 +193,7 @@ export const dismissLocalLock = () => PAGE_VIEW;
 export const startSignIn = (v, fromSoft) =>
   fromSoft ? (v.mode === MODE.SOFT ? { mode: MODE.SIGN_IN, back: 'soft' } : v) : v.mode === MODE.PAGE ? { mode: MODE.SIGN_IN, back: 'page' } : v;
 
-// The view stays SOFT so the page stays covered; "Log in as..." remains when users exist.
+// The view stays SOFT so the page stays covered; "Sign in as…" remains when users exist.
 export const signOutOffered = (s) => !s.enforced && !!s.user;
 
 export const cancelSignIn = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
@@ -201,7 +201,7 @@ export const cancelSignIn = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
 // covered: a lock from the server is up (lockCovers).
 export const lockArrived = (v, covered) => (covered && v.mode === MODE.SOFT ? PAGE_VIEW : v);
 
-// A login ends only with an enforced lock or a real unlock; any other state (someone else saved
+// A sign-in ends only with an enforced lock or a real unlock; any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
 export const signInWon = (v, { enforced, unlocked, user }) => (v.mode === MODE.SIGN_IN && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 

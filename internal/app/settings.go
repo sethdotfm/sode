@@ -175,7 +175,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 	if err != nil {
 		return err
 	}
-	a.catchUpSessions() // Never log out may have just been ticked
+	a.catchUpSessions() // Never sign out may have just been ticked
 	if reconnect {
 		a.sw.SetTarget(c.Router, applied.probe())
 	}

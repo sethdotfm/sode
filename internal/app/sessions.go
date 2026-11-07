@@ -6,7 +6,7 @@ package app
 // issueSession does disk I/O: never under mu. "" for a non-persistent user.
 func (a *App) issueSession(c *client) string { return a.issueSessionTab(c, false) }
 
-// tab: a no-lock login's token for a non-persistent user, marked tab in the store, kept in
+// tab: a no-lock sign-in's token for a non-persistent user, marked tab in the store, kept in
 // sessionStorage.
 func (a *App) issueSessionTab(c *client, tab bool) string {
 	who := c.u.user.Load()
@@ -87,7 +87,7 @@ func (a *App) touchSessions() {
 }
 
 // Issues tokens to persistent-user connections holding none or a dead one (tokens are
-// otherwise issued only at PIN entry, e.g. after Never log out is ticked or a PIN change).
+// otherwise issued only at PIN entry, e.g. after Never sign out is ticked or a PIN change).
 // Off mu: writes the token file.
 func (a *App) catchUpSessions() {
 	a.mu.Lock()

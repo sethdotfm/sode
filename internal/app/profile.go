@@ -43,7 +43,7 @@ type profileGetResult struct {
 }
 
 // Caller holds mu.
-func (a *App) isUserLocked(c *client, name string) bool {
+func (a *App) signedInAsMu(c *client, name string) bool {
 	if name == "" || !a.userOKMu(c, a.r().cfg) {
 		return false
 	}
@@ -54,7 +54,7 @@ func (a *App) isUserLocked(c *client, name string) bool {
 func (a *App) guardProfile(c *client, name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !a.isUserLocked(c, name) && !a.trustedMu(c) {
+	if !a.signedInAsMu(c, name) && !a.trustedMu(c) {
 		return errLocked
 	}
 	return nil
@@ -123,7 +123,7 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 		return errNoSuchUser
 	}, func(_, _ *runtime) {
 		for cl := range a.clients {
-			if a.isUserLocked(cl, owner) {
+			if a.signedInAsMu(cl, owner) {
 				a.pushProfileMu(cl)
 			}
 		}

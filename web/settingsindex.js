@@ -189,7 +189,7 @@ export const DICT = {
   ...both('set-stack', ['stack', 'stacked', 'filter sets', 'sets', 'and', 'or', 'combine', 'all', 'any', 'filter']),
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
 
-  // ---- My defaults (per-row buttons shown while logged in)
+  // ---- My defaults (per-row buttons shown while signed in)
   ...Object.fromEntries(
     ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].flatMap((n) => [
       ['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']],
@@ -197,7 +197,7 @@ export const DICT = {
     ]),
   ),
 
-  // ---- Me (inside This browser; only shown while logged in as a user)
+  // ---- Me (inside This browser; only shown while signed in as a user)
   'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
   'account-transfer': ['export', 'import', 'backup', 'restore', 'share', 'transfer', 'my settings', 'presets', 'filter sets', 'account'],
   'lock-pages': ['lock', 'lock main screen', 'lock communication log', 'lock log', 'pin', 'users', 'protect', 'screen lock'],

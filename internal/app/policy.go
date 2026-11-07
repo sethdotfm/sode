@@ -16,7 +16,7 @@ import (
 // locked wall panel must still save with the PIN. Locks require an Advanced Settings PIN (Validate).
 //
 //	open: hi userUnlock userLock userSignOut userSetPin unlock lock history
-//	needMain: take refreshNames; needMain+Admin: clearHistory; needLog: sent uptime
+//	needMain: `batch` `refreshNames`; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
 //	needAdmin: users userSignOutAll configExport configImportBegin configImport
 //	profileSave: the user's own unlock or needTrusted; profileGet needTrusted; both re-checked by guardProfile.
@@ -187,7 +187,7 @@ func (a *App) admit(c *client, r rule) error {
 		return errPageLocked
 	case r.need&needAdmin != 0 && !a.settingsUnlockedMu(c):
 		return errLocked
-	case r.need&needTrusted != 0 && !a.trustedMu(c) && !a.isUserLocked(c, r.self):
+	case r.need&needTrusted != 0 && !a.trustedMu(c) && !a.signedInAsMu(c, r.self):
 		return errLocked
 	}
 	if r.admitted != nil {

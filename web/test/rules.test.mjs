@@ -1,4 +1,4 @@
-// Source rules that used to live in AGENTS.md as steering. Sources are scanned as text, vendor/ is skipped.
+// Source rules, checked as text. Sources are scanned as text, vendor/ is skipped.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';

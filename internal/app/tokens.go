@@ -33,7 +33,7 @@ type tokenRec struct {
 	User string    `json:"user"` // the user it was issued to
 	Pin  string    `json:"pin"`  // that user's PIN hash then
 	At   time.Time `json:"at"`
-	Tab  bool      `json:"tab,omitempty"` // a no-lock login: for a user who is not persistent, kept by one browser tab
+	Tab  bool      `json:"tab,omitempty"` // a no-lock sign-in: for a user who is not persistent, kept by one browser tab
 	// Locked: the session's Lock (ADR 0001); a reload with this token comes back locked.
 	Locked bool `json:"locked,omitempty"`
 }
@@ -102,7 +102,7 @@ func (s *tokenStore) save() {
 
 // valid: prune deletes invalid tokens so one can't revive when the user is made persistent
 // again, renamed back or given the old PIN. A tab token is valid only while its user is
-// NOT persistent, and for tabTokenMaxAge, so ticking Never log out can't turn it into a
+// NOT persistent, and for tabTokenMaxAge, so ticking Never sign out can't turn it into a
 // persistent one that skips a lock.
 func valid(r tokenRec, cfg config.Config) (config.User, bool) {
 	u, ok := cfg.FindUser(r.User)

@@ -2,7 +2,7 @@
 // connection asks for; this module shows the pad and locks again when idle or on Ctrl+L. A
 // persistent user gets a session token kept here and sent in `hi`, so a reload doesn't log them
 // out; the Lock keeps it, signing out revokes it. Off unless the server says this page type is locked. With no PIN
-// lock a hand lock (churning letter, behind the confirm lockout) can still be put up as a guard
+// lock a Lock with nobody signed in (churning letter, behind the confirm lockout) can still be put up as a guard
 // against keyboard mashing: page-local state, a reload clears it.
 
 import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
@@ -55,7 +55,7 @@ import { layout, onLayout } from './layout.js';
 // localStorage rather than a cookie: the socket's `hi` carries it, no HTTP endpoint is needed,
 // and a cookie would be JS-readable anyway (see docs/agents/users-locks.md).
 const TOKEN_KEY = 'sode-session';
-// A no-lock login's token: this tab only (sessionStorage), so closing the tab logs out while a
+// A no-lock sign-in's token: this tab only (sessionStorage), so closing the tab signs out while a
 // reload stays in.
 const TAB_KEY = 'sode-tab-session';
 const page = pageType(location.pathname);
@@ -86,7 +86,7 @@ let brand, dotsEl, msg, state, chip, checkKey;
 let nameField, nameInput;
 let padBody, softBody, softKey, softBtn, softNote, signInAsBtn, signOutBtn, softFoot;
 let owedLock = false; // the Lock was raised here but the server has not confirmed it
-let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
+let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a sign-in
 let V = PAGE_VIEW;
 let handOn = false;
 let cancelBtn;
@@ -459,8 +459,8 @@ onMsg('userUnlockResult', (m) => {
   say(w.note, !!w.note);
 });
 
-// A token sent outside an unlock (user already logged in when Never log out was ticked, or
-// changed their own PIN). Kept only while this page is logged in.
+// A token sent outside an unlock (user already signed in when Never sign out was ticked, or
+// changed their own PIN). Kept only while this page is signed in.
 onMsg('session', (m) => {
   // A held Lock's tab token arrives after the page already raised the Lock, so L.user is empty.
   if (m.token && m.tab) writeTab(TAB_KEY, m.token);
@@ -498,7 +498,7 @@ onMsg('lockState', (m) => {
   const done = () => {
     settle = null;
     welcoming = false;
-    // A login that worked ends the hand lock for good; other states say nothing about this pad.
+    // A sign-in that worked ends the Lock with nobody signed in for good; other states say nothing about this pad.
     V = signInWon(V, { enforced: L.enforced, unlocked, user: L.user });
     unlocked = false;
     render();
@@ -568,8 +568,8 @@ function dismissLocalLock() {
   render();
 }
 
-// "Log in as...": ends the hand lock and begins a login. Cancel returns to the hand lock. The
-// hand lock sends nothing to the server, so a tab login stays in until this one succeeds.
+// "Sign in as…": ends the Lock with nobody signed in and begins a sign-in. Cancel returns to
+// it. That Lock sends nothing to the server, so a tab sign-in stays in until this one succeeds.
 function signInFromLock() {
   if (!soft || !signInAsOffered(L)) return;
   soft.lock.cancel();
@@ -582,7 +582,7 @@ function signInFromLock() {
   render();
 }
 
-// From the held Lock, or under the hand lock with someone signed in: the session ends.
+// From the held Lock, or under the Lock with nobody signed in, with someone signed in: the session ends.
 function signOutFromFoot() {
   if (L.held || (V.mode === MODE.SOFT && signOutOffered(L))) signOutNow();
 }
