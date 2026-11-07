@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, usernameColumn, MODES, modeOneWay, switchNeedsWarning, renameNotice } from '../usersrules.js';
+import { usersReq, usernameColumn, MODES, pinClashes, clashNotice, renameNotice } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', was: 'Ann', pin: '', trusted: true, persistent: false, username: ' ann ' },
@@ -50,13 +50,31 @@ test('the username column shows in Username and PIN mode only', () => {
   );
 });
 
-test('Username and PIN is one-way: no way back once saved, a warning before the first switch', () => {
-  assert.equal(modeOneWay('username'), true);
-  assert.equal(modeOneWay('pin'), false);
-  assert.equal(modeOneWay(undefined), false);
-  assert.equal(switchNeedsWarning('username', 'pin'), true);
-  assert.equal(switchNeedsWarning('username', 'username'), false);
-  assert.equal(switchNeedsWarning('pin', 'pin'), false);
+test('going back to PIN only needs a new PIN for each user who shares one', () => {
+  const shared = [
+    { name: 'Ann', shared: true, pin: '' },
+    { name: ' Bob ', shared: true, pin: '' },
+    { name: 'Cy', shared: true, pin: '4321' },
+    { name: 'Di', shared: false, pin: '' },
+    { name: 'New', pin: '' },
+  ];
+  assert.deepEqual(pinClashes(shared, 'pin', 'username'), ['Ann', 'Bob']);
+  assert.deepEqual(pinClashes(shared, 'username', 'username'), []);
+  assert.deepEqual(pinClashes(shared, 'pin', 'pin'), []);
+  assert.deepEqual(
+    pinClashes(
+      shared.map((r) => ({ ...r, pin: '1234' })),
+      'pin',
+      'username',
+    ),
+    [],
+  );
+});
+
+test('clashNotice names the users and what to do', () => {
+  assert.equal(clashNotice([]), '');
+  assert.equal(clashNotice(['Ann']), 'Ann shares a PIN with another user. Give Ann a new PIN to switch to PIN only.');
+  assert.match(clashNotice(['Ann', 'Bob']), /^Ann and Bob share a PIN with other users\. Give each a new PIN/);
 });
 
 test('renameNotice names each renamed saved user and stays quiet otherwise', () => {

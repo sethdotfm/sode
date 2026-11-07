@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -374,11 +375,8 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			cur.MaxPinLen = req.MaxPin
 		}
 		maxLen := cur.MaxPinLen
+		wasUsername := cur.SignInMode == config.SignInUsername
 		if req.SignInMode != "" {
-			// Salted hashes can't be checked for shared PINs, so there is no safe way back.
-			if cur.SignInMode == config.SignInUsername && req.SignInMode != config.SignInUsername {
-				return errors.New("Username and PIN mode can't be switched back to PIN only")
-			}
 			cur.SignInMode = req.SignInMode
 		}
 		if len(req.Users) == 0 && cur.Locks.Any() {
@@ -446,6 +444,22 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				}
 			}
 		}
+		if cur.SignInMode == config.SignInUsername {
+			for i := range out {
+				if pin, isNew := fresh[out[i].Name]; isNew {
+					config.TagPin(out, i, pin)
+				}
+			}
+		} else {
+			if wasUsername {
+				if shared := config.SharedPinUsers(out); len(shared) > 0 {
+					return errors.New("PIN only needs every PIN different, and these users share one: " + strings.Join(shared, ", ") + ". Give each a new PIN.")
+				}
+			}
+			for i := range out {
+				out[i].PinTag = ""
+			}
+		}
 		cur.Users = out
 		return nil
 	})
@@ -506,13 +520,16 @@ type userView struct {
 	Len        int    `json:"len"`
 	Trusted    bool   `json:"trusted,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
+	// Shared: another user has this PIN; going back to PIN only needs a new one.
+	Shared bool `json:"shared,omitempty"`
 }
 
 func (a *App) usersList(id int) usersListMsg {
 	cfg := a.r().cfg
 	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode}
+	shared := config.SharedPinUsers(cfg.Users)
 	for _, u := range cfg.Users {
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent})
+		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, slices.Contains(shared, u.Name)})
 	}
 	return m
 }
@@ -561,6 +578,9 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 				}
 			}
 			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)
+			if cfg.SignInMode == config.SignInUsername {
+				config.TagPin(cfg.Users, i, newPin)
+			}
 			return nil
 		}
 		return errors.New("unlock with your PIN first")
