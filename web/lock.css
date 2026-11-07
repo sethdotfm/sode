@@ -370,8 +370,14 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   flex: 1 1 8rem;
   min-width: 0;
 }
-.sode__users-dlg .pb-modal__body > .pb-btn {
+.sode__users-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
   margin-top: var(--pb-space-4);
+}
+.sode__users-acts .pb-btn[hidden] {
+  display: none;
 }
 .sode__users-opts {
   align-items: end;
