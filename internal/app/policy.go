@@ -183,6 +183,8 @@ func (a *App) admit(c *client, r rule) error {
 	case r.need&needMain != 0 && !a.pageAllowedMu(c, gateMain),
 		r.need&needLog != 0 && !a.pageAllowedMu(c, gateLog):
 		return errPageLocked
+	case r.need&needAdmin != 0 && a.heldMu(c, a.r().cfg):
+		return errPageLocked
 	case r.need&needAdmin != 0 && !a.settingsUnlockedMu(c):
 		return errLocked
 	case r.need&needTrusted != 0 && !a.trustedMu(c) && !a.isUserLocked(c, r.self):

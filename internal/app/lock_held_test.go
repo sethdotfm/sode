@@ -181,3 +181,27 @@ func TestLockedSessionOfRemovedUserIsGone(t *testing.T) {
 		t.Fatalf("a Lock with nobody to resume it: %v", st)
 	}
 }
+
+func TestHeldLockBlocksAdvancedSettingsPinPaths(t *testing.T) {
+	for _, enforced := range []bool{false, true} {
+		a := userApp(t, enforced)
+		setFlags(t, a, "Ana", true, true)
+		c := &client{ip: "10.0.0.1"}
+		register(a, c)
+		if err := a.UserUnlock(c, "1234"); err != nil {
+			t.Fatal(err)
+		}
+		if err := a.Unlock(c, "2468"); err != nil {
+			t.Fatal(err)
+		}
+		if err := admitMsg(a, c, inMsg{T: "users"}); err != nil {
+			t.Fatalf("enforced=%v: before the Lock: %v", enforced, err)
+		}
+		a.UserLock(c)
+		for _, m := range []inMsg{{T: "users"}, {T: "configExport"}, {T: "configImportBegin"}, {T: "userSignOutAll"}} {
+			if err := admitMsg(a, c, m); !errors.Is(err, errPageLocked) {
+				t.Errorf("enforced=%v: %s from a locked session with the Advanced Settings PIN: %v", enforced, m.T, err)
+			}
+		}
+	}
+}
