@@ -42,3 +42,23 @@ export function renameNotice(rows) {
   const names = renamed(rows).map((r) => `${r.was} to ${r.name.trim() || '(no name)'}`);
   return names.length ? `Renaming ${names.join(', ')} signs that user out everywhere. Their Profile and PIN stay.` : '';
 }
+
+// Usernames for rows that have none: the Name without spaces. Keep in step with config.Normalize's
+// username rules (24 runes, printable, no spaces, unique ignoring case); the server still checks.
+const MAX_USERNAME = 24;
+export function prefillUsernames(rows) {
+  const taken = new Set(rows.map((r) => r.username.trim().toLowerCase()).filter(Boolean));
+  return rows.map((r) => {
+    const own = r.username.trim();
+    if (own) return own;
+    const base = [...r.name.replace(/[\p{White_Space}\p{C}]/gu, '')].slice(0, MAX_USERNAME);
+    if (!base.length) return '';
+    let pick = base.join('');
+    for (let n = 2; taken.has(pick.toLowerCase()); n++) {
+      const tail = String(n);
+      pick = base.slice(0, MAX_USERNAME - tail.length).join('') + tail;
+    }
+    taken.add(pick.toLowerCase());
+    return pick;
+  });
+}
