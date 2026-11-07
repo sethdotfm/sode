@@ -413,18 +413,13 @@ function extraBox(plan, spaceHint) {
   );
 }
 
-// This browser's last patch as numbers, so names stay current; until it makes one, the newest
-// Sode take in history.
+// This browser's last patch as numbers, so names stay current. Null until it makes one: History
+// holds other people's takes and must not fill a box.
 let lastPatch = null;
 
 export function lastTake() {
-  let t = lastPatch;
-  if (!t) {
-    const e = S.hist.find((x) => !x.ext && x.undo == null && x.retry == null);
-    if (!e) return null;
-    const es = e.group && e.groupN > 1 ? S.hist.filter((x) => x.group === e.group).reverse() : [e];
-    t = { src: [e.src, e.srcName], dsts: es.map((x) => [x.dst, x.dstName]), levels: e.levels };
-  }
+  const t = lastPatch;
+  if (!t) return null;
   return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
 }
 

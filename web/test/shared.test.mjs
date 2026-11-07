@@ -32,6 +32,40 @@ test('keepSearch holds only a non-blank search that is still in the box', async 
   assert.equal(k.is(), false);
 });
 
+// The last patch is this browser's own: sendTakes sets it, History never does.
+async function patched(src, dsts, levels = [1], srcName = `X${src}`) {
+  const { S, sendTakes } = await import('./all.mjs');
+  globalThis.WebSocket = { OPEN: 1 };
+  S.ws = { readyState: 1, lastRx: Date.now(), send() {} };
+  const it = (n) => ({ n, num: n + 1, name: `X${n}`, label: `X${n}` });
+  const s0 = { ...it(src), name: srcName, label: srcName };
+  sendTakes({ verb: 'patch', items: dsts.map((d) => ({ dst: it(d), groups: [{ src: s0, levels }] })) });
+}
+
+test('lastTake: no Last until this browser has made a take, then that take and not History', async () => {
+  const { S, lastTake, lastChip } = await import('./all.mjs');
+  S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
+  S.levels = [{ ui: 1 }, { ui: 2 }];
+  S.levelBy = new Map([
+    [1, {}],
+    [2, {}],
+  ]);
+  S.srcBy = new Map([3, 4].map((n) => [n, { n, num: n + 1, name: `X${n}` }]));
+  S.dstBy = new Map([7, 8].map((n) => [n, { n, num: n + 1, name: `X${n}` }]));
+  S.hist = [{ id: 1, src: 3, srcName: 'X3', dst: 7, dstName: 'X7', levels: [1], ok: true }];
+  const empty = { src: null, dsts: [], levels: [] };
+  assert.equal(lastTake(), null);
+  assert.deepEqual(lastChip(lastTake(), empty), { src: false, dst: false, lvl: false });
+  await patched(4, [8]);
+  const t = lastTake();
+  assert.equal(t.src.n, 4);
+  assert.deepEqual(
+    t.dsts.map((d) => d.n),
+    [8],
+  );
+  assert.ok(lastChip(t, empty).src);
+});
+
 test('lastChip: hides what the box already has', async () => {
   const { S, lastChip } = await import('./all.mjs');
   S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1,2', filterSets: [] };
@@ -55,19 +89,17 @@ test('nextTake: last take one number higher, per side', async () => {
   const it = (n) => ({ n, num: n + 1, name: `X${n}` });
   S.srcBy = new Map([1, 2].map((n) => [n, it(n)]));
   S.dstBy = new Map([5, 6, 7].map((n) => [n, it(n)]));
-  S.hist = [{ id: 1, src: 1, srcName: 'X1', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  await patched(1, [5]);
   let t = nextTake();
   assert.equal(t.src.n, 2);
   assert.deepEqual(
     t.dsts.map((d) => d.n),
     [6],
   );
-  S.hist = [{ id: 2, src: 2, srcName: 'X2', dst: 7, dstName: 'X7', levels: [1], ok: true }];
+  await patched(2, [7]);
   t = nextTake();
   assert.equal(t.src, null, 'past the last source');
   assert.deepEqual(t.dsts, [], 'past the last destination');
-  S.hist = [];
-  assert.equal(nextTake(), null);
 });
 
 test('nextTake: fuzzy takes the next match of the name text, in router order', async () => {
@@ -78,7 +110,7 @@ test('nextTake: fuzzy takes the next match of the name text, in router order', a
   const srcs = [it(1, 'Cam 1'), it(2, 'Bars'), it(7, 'Cam 2'), it(9, 'Cam 3')];
   S.srcBy = new Map(srcs.map((s) => [s.n, s]));
   S.dstBy = new Map();
-  S.hist = [{ id: 1, src: 1, srcName: 'Cam 1', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  await patched(1, [5], [1], 'Cam 1');
   setPref('nextMode', 'number');
   assert.equal(nextTake().src.name, 'Bars');
   setPref('nextMode', 'fuzzy');
@@ -100,7 +132,7 @@ test('nextTake: fuzzy steps through letters too (#149)', async () => {
   const srcs = [it(1, 'Prmpt A'), it(2, 'Bars'), it(7, 'Prmpt B'), it(9, 'Prmpt C')];
   S.srcBy = new Map(srcs.map((s) => [s.n, s]));
   S.dstBy = new Map();
-  S.hist = [{ id: 1, src: 1, srcName: 'Prmpt A', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  await patched(1, [5], [1], 'Prmpt A');
   setPref('nextMode', 'fuzzy');
   assert.equal(nextTake().src.name, 'Prmpt B');
   setPref('nextMode', '');
@@ -118,10 +150,7 @@ test('nextTake: repeating keeps going while the boxes hold the last Next (#195)'
   const it = (n) => ({ n, num: n + 1, name: `X${n}` });
   S.srcBy = new Map([1, 2, 3, 4].map((n) => [n, it(n)]));
   S.dstBy = new Map([5, 6, 7, 8, 9].map((n) => [n, it(n)]));
-  S.hist = [
-    { id: 2, group: 'g', groupN: 2, src: 1, srcName: 'X1', dst: 6, dstName: 'X6', levels: [1], ok: true },
-    { id: 1, group: 'g', groupN: 2, src: 1, srcName: 'X1', dst: 5, dstName: 'X5', levels: [1], ok: true },
-  ];
+  await patched(1, [5, 6]);
   const empty = { src: null, dsts: [] };
   let t = nextTake(empty);
   assert.equal(t.src.n, 2);
@@ -154,10 +183,10 @@ test('nextTake: fuzzy falls back to the next number when the name runs out (#196
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
   S.srcBy = new Map([it(1, 'Cam 1'), it(2, 'Cam 2'), it(3, 'Bars')].map((s) => [s.n, s]));
   S.dstBy = new Map();
-  S.hist = [{ id: 1, src: 2, srcName: 'Cam 2', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  await patched(2, [5], [1], 'Cam 2');
   setPref('nextMode', 'fuzzy');
   assert.equal(nextTake().src.name, 'Bars');
-  S.hist = [{ id: 1, src: 3, srcName: 'Bars', dst: 5, dstName: 'X5', levels: [1], ok: true }];
+  await patched(3, [5], [1], 'Bars');
   assert.equal(nextTake().src, null, 'past the end of the list');
   setPref('nextMode', '');
 });
