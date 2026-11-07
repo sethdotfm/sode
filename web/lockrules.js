@@ -181,6 +181,10 @@ export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user
 // still alive and waiting for its PIN, so its token stays.
 export const tokenStale = (m, user) => !!m.hi && !user && !m.held;
 
+// The page raised a Lock the server never got (wsSend refused). A session that answers
+// unlocked must be told again, not shown the page.
+export const resendLock = (owed, m) => !!owed && !!m.user && !m.held;
+
 // Nothing with an enforced lock on; wins over a login pad.
 export const localLock = (v, enforced) => (enforced ? v : { mode: MODE.SOFT, back: 'page' });
 

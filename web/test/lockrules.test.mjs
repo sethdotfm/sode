@@ -33,6 +33,7 @@ import {
   raiseLock,
   signedOut,
   tokenStale,
+  resendLock,
   dismissLocalLock,
   startSignIn,
   cancelSignIn,
@@ -395,4 +396,11 @@ test('shouldShare: at most one activity message a second', () => {
   assert.equal(shouldShare(0, 999), false);
   assert.equal(shouldShare(0, 1000), true);
   assert.equal(shouldShare(5000, 5500), false);
+});
+
+test('a Lock the server never got is sent again, not undone, when the session answers unlocked', () => {
+  assert.equal(resendLock(true, { user: 'Ana', held: false }), true);
+  assert.equal(resendLock(true, { user: 'Ana', held: true }), false); // the server holds it now
+  assert.equal(resendLock(true, { user: '', held: false }), false); // session gone: nothing to hold
+  assert.equal(resendLock(false, { user: 'Ana', held: false }), false); // nothing owed
 });

@@ -37,6 +37,7 @@ import {
   raiseLock,
   signedOut,
   tokenStale,
+  resendLock,
   dismissLocalLock as softUnview,
   startSignIn,
   cancelSignIn as cancelView,
@@ -84,6 +85,7 @@ let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
 let nameField, nameInput;
 let padBody, softBody, softKey, softBtn, softNote, signInAsBtn, signOutBtn, softFoot;
+let owedLock = false; // the Lock was raised here but the server has not confirmed it
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
 let V = PAGE_VIEW;
 let handOn = false;
@@ -466,6 +468,11 @@ onMsg('session', (m) => {
 });
 
 onMsg('lockState', (m) => {
+  if (resendLock(owedLock, m)) {
+    owedLock = !wsSend({ t: 'userLock' });
+    return;
+  }
+  if (m.held || !m.user) owedLock = false;
   if (settle) settle();
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
   L.enforced = !!m.enforced;
@@ -586,7 +593,7 @@ on('localLock', localLock);
 // until this user's PIN resumes it. The token stays for that.
 function lockNow() {
   if (!L.user) return;
-  wsSend({ t: 'userLock' });
+  owedLock = !wsSend({ t: 'userLock' });
   pin = '';
   clearTimeout(timer);
   Object.assign(L, raiseLock(L));
@@ -601,6 +608,7 @@ function signOutNow() {
   writeStr(TOKEN_KEY, null);
   writeTab(TAB_KEY, null);
   wsSend({ t: 'userSignOut' });
+  owedLock = false;
   pin = '';
   clearTimeout(timer);
   clearFeedback();
