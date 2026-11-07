@@ -13,13 +13,20 @@ function levelTok(tok, mode) {
 // "1-3,5" in mode -> sorted UI levels within 1..max, or null. ! leaves out ("1-8 !3"); + is a comma; t/thru/through is -; n/not is !.
 // Phone pad: . is a comma and .. is -.
 export function parseLevelsAs(text, mode, max) {
-  const out = new Set(), not = new Set();
-  const norm = text.replace(/and/gi, ',').replace(/not|n/gi, '!').replace(/through|thru|t|\.{2,}/gi, '-').replace(/\./g, ',')
-    .replace(/\s*-\s*/g, '-').replace(/!\s*/g, ' !');
+  const out = new Set(),
+    not = new Set();
+  const norm = text
+    .replace(/and/gi, ',')
+    .replace(/not|n/gi, '!')
+    .replace(/through|thru|t|\.{2,}/gi, '-')
+    .replace(/\./g, ',')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/!\s*/g, ' !');
   for (const part of norm.split(/[\s,+]+/).filter(Boolean)) {
     const m = part.match(/^(!?)([^-!]+)(?:-([^-!]+))?$/);
     if (!m) return null;
-    let a = levelTok(m[2], mode), b = m[3] ? levelTok(m[3], mode) : a;
+    let a = levelTok(m[2], mode),
+      b = m[3] ? levelTok(m[3], mode) : a;
     if (!Number.isInteger(a) || !Number.isInteger(b)) return null;
     if (a > b) [a, b] = [b, a];
     for (let i = a; i <= b; i++) {

@@ -2,32 +2,181 @@
 // RULE: a new settings section needs an entry in DICT under its slug (see `slug`); settingsindex.test.mjs fails otherwise.
 // Settings are keyed by their control's id; DICT ids that don't exist (yet) are ignored.
 
-export const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+export const slug = (s) =>
+  String(s)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
 const both = (k, terms) => ({ ['cfg-' + k]: terms, ['gcfg-' + k]: terms });
 
 export const DICT = {
   // ---- sections
-  'this-device': ['this browser', 'local', 'personal', 'preferences', 'prefs', 'appearance', 'display', 'device', 'my settings', 'theme', 'dark', 'light', 'colour', 'color', 'clock', 'time', '24h', 'layout', 'my default', 'set as my default', 'clear my default', 'profile', 'follow'],
-  'your-account': ['account', 'logged in', 'login', 'log in', 'logout', 'log out', 'sign in', 'sign out', 'lock', 'lock the screen', 'profile', 'my profile', 'change pin', 'import', 'export'],
+  'this-device': [
+    'this browser',
+    'local',
+    'personal',
+    'preferences',
+    'prefs',
+    'appearance',
+    'display',
+    'device',
+    'my settings',
+    'theme',
+    'dark',
+    'light',
+    'colour',
+    'color',
+    'clock',
+    'time',
+    '24h',
+    'layout',
+    'my default',
+    'set as my default',
+    'clear my default',
+    'profile',
+    'follow',
+  ],
+  'your-account': [
+    'account',
+    'logged in',
+    'login',
+    'log in',
+    'logout',
+    'log out',
+    'sign in',
+    'sign out',
+    'lock',
+    'lock the screen',
+    'profile',
+    'my profile',
+    'change pin',
+    'import',
+    'export',
+  ],
   'global-defaults': ['global', 'everyone', 'default', 'defaults', 'all devices', 'all browsers', 'shared', 'appearance', 'preferences'],
-  'router-source-destination-names': ['names', 'source names', 'destination names', 'labels', 'refresh', 'poll', 'reread', 'router names', 'name length', 'characters', 'truncate'],
+  'router-source-destination-names': [
+    'names',
+    'source names',
+    'destination names',
+    'labels',
+    'refresh',
+    'poll',
+    'reread',
+    'router names',
+    'name length',
+    'characters',
+    'truncate',
+  ],
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
-  'takes': ['take', 'patch', 'route', 'confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'default levels', 'resync', 'reread', 'delay', 'safety'],
-  'branding': ['brand', 'logo', 'name', 'title', 'border', 'colour', 'color', 'icon', 'identify', 'favicon', 'tab'],
-  'router': ['ip', 'address', 'host', 'hostname', 'port', 'connection', 'connect', 'tcp', 'ultrix', 'swp08', 'sw-p-08', 'status', 'server'],
-  'matrix': ['level', 'levels', 'offset', 'number', 'numbering', 'wire', 'matrix', 'zero', 'start at 0', 'start at 1', 'count', 'router levels', 'video', 'audio', 'va'],
+  takes: ['take', 'patch', 'route', 'confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'default levels', 'resync', 'reread', 'delay', 'safety'],
+  branding: ['brand', 'logo', 'name', 'title', 'border', 'colour', 'color', 'icon', 'identify', 'favicon', 'tab'],
+  router: ['ip', 'address', 'host', 'hostname', 'port', 'connection', 'connect', 'tcp', 'ultrix', 'swp08', 'sw-p-08', 'status', 'server'],
+  matrix: [
+    'level',
+    'levels',
+    'offset',
+    'number',
+    'numbering',
+    'wire',
+    'matrix',
+    'zero',
+    'start at 0',
+    'start at 1',
+    'count',
+    'router levels',
+    'video',
+    'audio',
+    'va',
+  ],
   'server-backup': ['server configuration', 'config file', 'config.yaml', 'backup', 'restore', 'export', 'import', 'secrets', 'pins', 'download', 'upload'],
-  'access': ['password', 'pin', 'lock', 'locked', 'unlock', 'security', 'admin', 'passcode', 'protect', 'tries', 'wrong', 'lockout', 'timeout', 'idle', 'auto lock', 'auto-lock', 'permissions', 'login', 'settings pin'],
-  'sode-networking': ['audit', 'networking', 'network', 'proxy', 'proxies', 'trusted', 'x-forwarded-for', 'forwarded', 'ip address', 'client ip', 'reverse proxy', 'log', 'logging', 'who'],
-  'history': ['recent', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
-  'users': ['user', 'users', 'people', 'operators', 'names', 'pin', 'password', 'passwords', 'lock', 'lock screen', 'auto lock', 'auto-lock', 'timeout', 'idle', 'inactivity', 'logout', 'access', 'who', 'accounts', 'permissions'],
-  'export-import': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share', 'share link', 'move', 'copy', 'transfer', 'another site', 'studio', 'settings file', 'save', 'load', 'presets', 'filter sets'],
+  access: [
+    'password',
+    'pin',
+    'lock',
+    'locked',
+    'unlock',
+    'security',
+    'admin',
+    'passcode',
+    'protect',
+    'tries',
+    'wrong',
+    'lockout',
+    'timeout',
+    'idle',
+    'auto lock',
+    'auto-lock',
+    'permissions',
+    'login',
+    'settings pin',
+  ],
+  'sode-networking': [
+    'audit',
+    'networking',
+    'network',
+    'proxy',
+    'proxies',
+    'trusted',
+    'x-forwarded-for',
+    'forwarded',
+    'ip address',
+    'client ip',
+    'reverse proxy',
+    'log',
+    'logging',
+    'who',
+  ],
+  history: ['recent', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
+  users: [
+    'user',
+    'users',
+    'people',
+    'operators',
+    'names',
+    'pin',
+    'password',
+    'passwords',
+    'lock',
+    'lock screen',
+    'auto lock',
+    'auto-lock',
+    'timeout',
+    'idle',
+    'inactivity',
+    'logout',
+    'access',
+    'who',
+    'accounts',
+    'permissions',
+  ],
+  'export-import': [
+    'export',
+    'import',
+    'backup',
+    'restore',
+    'yaml',
+    'file',
+    'download',
+    'upload',
+    'share',
+    'share link',
+    'move',
+    'copy',
+    'transfer',
+    'another site',
+    'studio',
+    'settings file',
+    'save',
+    'load',
+    'presets',
+    'filter sets',
+  ],
   'transfer-open': ['export', 'import', 'backup', 'restore', 'yaml', 'file', 'download', 'upload', 'share link', 'review', 'transfer', 'copy to another site'],
   // Sections other branches may add; ignored until they exist.
-  'salvos': ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
+  salvos: ['preset', 'presets', 'salvo', 'salvos', 'scene', 'batch', 'multi take', 'macro', 'group'],
   'fire-mode': ['fire', 'native', 'sync', 'salvo', 'router salvo', 'simultaneous', 'together'],
-  'grids': ['grid', 'grids', 'panel', 'panels', 'tablet', 'buttons'],
+  grids: ['grid', 'grids', 'panel', 'panels', 'tablet', 'buttons'],
 
   // ---- This device / Defaults
   ...both('theme', ['dark', 'light', 'colour', 'color', 'mode', 'night', 'appearance', 'theme', 'dark mode', 'light mode']),
@@ -40,19 +189,53 @@ export const DICT = {
   ...both('next-mode', ['next', 'increment', 'plus one', 'number', 'fuzzy', 'chip', 'ctrl shift s', 'following']),
 
   // ---- My defaults (per-row buttons shown while logged in)
-  ...Object.fromEntries(['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].flatMap((n) => [['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']], ['my-default-clear-' + n, ['my default', 'clear my default', 'remove', 'profile', 'personal', 'account']]])),
+  ...Object.fromEntries(
+    ['theme', 'layout', 'clock', 'flip', 'scrollTop', 'searchFilters', 'setStack', 'nextMode'].flatMap((n) => [
+      ['my-default-' + n, ['my default', 'save as my default', 'set as my default', 'profile', 'personal', 'follow me', 'account']],
+      ['my-default-clear-' + n, ['my default', 'clear my default', 'remove', 'profile', 'personal', 'account']],
+    ]),
+  ),
 
   // ---- Account (inside This device; only shown while logged in as a user)
   'account-profile': ['profile', 'my profile', 'my settings', 'user settings', 'presets', 'filters', 'filter sets', 'account'],
   'account-transfer': ['export', 'import', 'backup', 'restore', 'share', 'transfer', 'my settings', 'presets', 'filter sets', 'account'],
   'lock-pages': ['lock', 'lock main screen', 'lock communication log', 'lock log', 'pin', 'users', 'protect', 'screen lock'],
   'cfg-auto-lock': ['auto lock', 'auto-lock', 'idle', 'inactivity', 'timeout', 'minutes', 'lock after', 'hand lock'],
-  'config-file': ['server configuration', 'config file', 'config.yaml', 'yaml', 'backup', 'restore', 'export', 'import', 'download', 'upload', 'migrate', 'copy settings'],
+  'config-file': [
+    'server configuration',
+    'config file',
+    'config.yaml',
+    'yaml',
+    'backup',
+    'restore',
+    'export',
+    'import',
+    'download',
+    'upload',
+    'migrate',
+    'copy settings',
+  ],
   'config-export': ['export', 'download', 'save', 'backup', 'config file', 'config.yaml', 'yaml', 'server configuration', 'settings file'],
   'config-import': ['import', 'upload', 'restore', 'load', 'replace', 'config file', 'config.yaml', 'yaml', 'server configuration', 'settings file'],
   'config-pins': ['include pins', 'private backup', 'secret', 'hashes', 'pin', 'password', 'backup', 'export'],
-  'users-manage': ['manage users', 'add user', 'remove user', 'edit users', 'users', 'pin', 'trusted', 'never log out', 'persistent', 'sign out everywhere', 'lock main screen', 'lock log', 'auto lock', 'idle', 'longest pin'],
-  'account': ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
+  'users-manage': [
+    'manage users',
+    'add user',
+    'remove user',
+    'edit users',
+    'users',
+    'pin',
+    'trusted',
+    'never log out',
+    'persistent',
+    'sign out everywhere',
+    'lock main screen',
+    'lock log',
+    'auto lock',
+    'idle',
+    'longest pin',
+  ],
+  account: ['account', 'logged in', 'login', 'logout', 'log out', 'sign out', 'signout', 'user', 'me', 'my', 'session', 'password', 'pin'],
   'account-pin': ['pin', 'password', 'passcode', 'change', 'my pin', 'account', 'reset'],
   'soft-lock': ['lock', 'lock screen', 'screen lock', 'keyboard', 'mashing', 'accidental', 'cat', 'clean', 'unlock', 'ctrl+l', 'letter', 'protect'],
   'soft-lock-btn': ['lock', 'lock screen', 'keyboard', 'mashing', 'accidental', 'unlock', 'ctrl+l'],
@@ -98,7 +281,21 @@ export const DICT = {
   'cfg-pin-tries': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'reset pin'],
 
   // ---- Audit
-  'cfg-proxies': ['proxy', 'proxies', 'trusted', 'network', 'x-forwarded-for', 'forwarded', 'reverse proxy', 'nginx', 'ip', 'client ip', 'cidr', 'tls', 'https'],
+  'cfg-proxies': [
+    'proxy',
+    'proxies',
+    'trusted',
+    'network',
+    'x-forwarded-for',
+    'forwarded',
+    'reverse proxy',
+    'nginx',
+    'ip',
+    'client ip',
+    'cidr',
+    'tls',
+    'https',
+  ],
 
   // ---- History
   'cfg-hidden': ['hidden', 'hide', 'destinations', 'dst', 'filter', 'global filter', 'panel', 'mv', 'multiviewer', 'recent'],
@@ -108,7 +305,13 @@ export const DICT = {
 
 // ---- matching
 
-const words = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+const words = (s) =>
+  String(s)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
 
 function lev(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
@@ -144,8 +347,14 @@ export function buildIndex(sections, dict = DICT) {
   for (const sec of sections) {
     const sw = words(sec.title);
     const mk = (kind, id, label) => ({
-      kind, id, sectionId: sec.id, section: sec.title, label,
-      lw: words(label), tw: (dict[id] || []).flatMap(words), sw,
+      kind,
+      id,
+      sectionId: sec.id,
+      section: sec.title,
+      label,
+      lw: words(label),
+      tw: (dict[id] || []).flatMap(words),
+      sw,
     });
     out.push(mk('section', sec.id, sec.title));
     for (const s of sec.settings || []) out.push(mk('setting', s.id, s.label));

@@ -8,8 +8,14 @@ export const PROFILE_LIMIT = 48 * 1024;
 export const NAME_MAX = 32;
 
 export const PREF_LABELS = {
-  theme: 'Theme', layout: 'Layout', clock: 'Clock', flip: 'Destination before Source', scrollTop: 'Scroll to top on focus',
-  searchFilters: 'Search respects filters', setStack: 'Stacked filter sets', nextMode: 'Next means',
+  theme: 'Theme',
+  layout: 'Layout',
+  clock: 'Clock',
+  flip: 'Destination before Source',
+  scrollTop: 'Scroll to top on focus',
+  searchFilters: 'Search respects filters',
+  setStack: 'Stacked filter sets',
+  nextMode: 'Next means',
 };
 
 const FILTER_DEFAULT = { src: '', dst: '', sode: true, ext: true, hidden: false };
@@ -17,16 +23,22 @@ const FILTER_KEYS = Object.keys(FILTER_DEFAULT);
 
 const runes = (s) => [...String(s)].length;
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-const ints = (a) => [].concat(a ?? []).map(Number).filter((n) => Number.isInteger(n));
+const ints = (a) =>
+  []
+    .concat(a ?? [])
+    .map(Number)
+    .filter((n) => Number.isInteger(n));
 
 export const filterOf = (s) => {
   const f = s?.f || s || {};
   return {
-    src: String(f.src ?? ''), dst: String(f.dst ?? ''),
-    sode: f.sode !== false, ext: f.ext !== false, hidden: f.hidden === true,
+    src: String(f.src ?? ''),
+    dst: String(f.dst ?? ''),
+    sode: f.sode !== false,
+    ext: f.ext !== false,
+    hidden: f.hidden === true,
   };
 };
-
 
 // prefs: { name: value }; filterSets: [{ name, f }] or flat; presets use internal numbers;
 // srcName(n) / dstName(n): the router's name now ('' if unknown); now: Date or ms. site and
@@ -63,7 +75,6 @@ export const itemIn = (it) => ({
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
 });
 
-
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => Number.isInteger(v) && v >= 0;
 const goodName = (v) => typeof v === 'string' && v.trim() !== '' && runes(v) <= NAME_MAX && !/[\p{Cc}]/u.test(v);
@@ -73,7 +84,10 @@ export function checkDoc(doc) {
   if (!isObj(doc)) return 'Not a Sode export: the file is not a mapping.';
   if (doc.sode == null) return 'Not a Sode export: it has no "sode" version.';
   if (doc.sode !== 1) return `Unsupported export version ${typeof doc.sode === 'object' ? '?' : doc.sode} (this Sode reads version 1).`;
-  if (doc.exported != null && (typeof doc.exported !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:\d\d)$/.test(doc.exported) || isNaN(Date.parse(doc.exported)))) {
+  if (
+    doc.exported != null &&
+    (typeof doc.exported !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:\d\d)$/.test(doc.exported) || isNaN(Date.parse(doc.exported)))
+  ) {
     return '"exported" must be an RFC 3339 time.';
   }
   if (doc.prefs != null && !isObj(doc.prefs)) return '"prefs" must be a mapping.';
@@ -91,15 +105,21 @@ export function checkDoc(doc) {
     for (const it of p.items) {
       if (!isObj(it) || !isNum(it.src)) return `Preset “${p.name}”: every item needs a source number of 0 or more.`;
       if (!Array.isArray(it.dsts) || !it.dsts.every((d) => isObj(d) && isNum(d.n))) return `Preset “${p.name}”: every destination needs a number of 0 or more.`;
-      if (it.levels != null && !(Array.isArray(it.levels) && it.levels.every((l) => Number.isInteger(l) && l >= 1))) return `Preset “${p.name}”: levels must be whole numbers from 1.`;
+      if (it.levels != null && !(Array.isArray(it.levels) && it.levels.every((l) => Number.isInteger(l) && l >= 1)))
+        return `Preset “${p.name}”: levels must be whole numbers from 1.`;
     }
   }
   return '';
 }
 
-
-const clean = (s) => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '')
-  .replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-{2,}/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 40);
+const clean = (s) =>
+  String(s)
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .slice(0, 40);
 
 const two = (n) => String(n).padStart(2, '0');
 export const dateStamp = (d) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
@@ -110,7 +130,11 @@ export function defaultFileName({ now = new Date(), site = '', user = '' } = {})
 }
 
 export function fileNameFor(typed, dflt) {
-  const base = clean(String(typed || '').trim().replace(/\.ya?ml$/i, ''));
+  const base = clean(
+    String(typed || '')
+      .trim()
+      .replace(/\.ya?ml$/i, ''),
+  );
   return base ? `${base}.yaml` : dflt;
 }
 
@@ -140,7 +164,10 @@ export function matchItem(it, live) {
   for (const d of dsts) status = worst(status, d.status);
   const levelsOver = live.levelCount ? it.levels.filter((l) => l > live.levelCount) : [];
   return {
-    src, dsts, status, levelsOver,
+    src,
+    dsts,
+    status,
+    levelsOver,
     saved: { src: src.n, dsts: [...new Set(dsts.map((d) => d.n))], levels: [...it.levels] },
   };
 }
@@ -150,13 +177,17 @@ export function matchPreset(p, live) {
   let status = 'same';
   for (const m of items) status = worst(status, m.status);
   return {
-    items, status,
+    items,
+    status,
     levelsOver: [...new Set(items.flatMap((m) => m.levelsOver))].sort((a, b) => a - b),
-    count: { ambiguous: items.filter((m) => m.status === 'ambiguous').length, unmatched: items.filter((m) => m.status === 'unmatched').length, byName: items.filter((m) => m.status === 'byName').length },
+    count: {
+      ambiguous: items.filter((m) => m.status === 'ambiguous').length,
+      unmatched: items.filter((m) => m.status === 'unmatched').length,
+      byName: items.filter((m) => m.status === 'byName').length,
+    },
     saved: { name: p.name, items: items.map((m) => m.saved) },
   };
 }
-
 
 export const conflict = (name, existing) => existing.find((x) => same(x, name)) ?? null;
 
@@ -164,7 +195,10 @@ export function renameFor(name, taken) {
   const base = String(name).trim();
   for (let i = 2; ; i++) {
     const suffix = ` ${i}`;
-    const stem = [...base].slice(0, NAME_MAX - suffix.length).join('').trimEnd();
+    const stem = [...base]
+      .slice(0, NAME_MAX - suffix.length)
+      .join('')
+      .trimEnd();
     const cand = stem + suffix;
     if (!conflict(cand, taken)) return cand;
   }
@@ -181,7 +215,10 @@ export function applyChoices(existing, incoming, picks) {
   incoming.forEach((it, i) => {
     const p = picks[i] || { choice: 'import' };
     const taken = () => list.map((x) => x.name);
-    if (p.choice === 'skip') { out.skipped++; return; }
+    if (p.choice === 'skip') {
+      out.skipped++;
+      return;
+    }
     const at = list.findIndex((x) => same(x.name, it.name));
     if (p.choice === 'replace' && at >= 0) {
       list[at] = { ...it };
@@ -190,7 +227,7 @@ export function applyChoices(existing, incoming, picks) {
     }
     let name = it.name;
     if (at >= 0 || p.choice === 'both') {
-      name = at >= 0 ? ((p.as && !conflict(p.as, taken())) ? p.as.trim() : renameFor(it.name, taken())) : it.name;
+      name = at >= 0 ? (p.as && !conflict(p.as, taken()) ? p.as.trim() : renameFor(it.name, taken())) : it.name;
       if (at >= 0) out.kept++;
     }
     list.push({ ...it, name });
@@ -207,7 +244,6 @@ export function renameProblem(name, taken) {
   return '';
 }
 
-
 export const jsonBytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
 
 // Over the socket's read limit; a profile also over its own. '' when fine.
@@ -215,16 +251,17 @@ export function sizeProblem(scope, parts, what = 'import') {
   const kib = (b) => `${Math.ceil(b / 1024)} KiB`;
   if (scope === 'user') {
     const b = jsonBytes(parts);
-    if (b > PROFILE_LIMIT) return `Too big for one save (${kib(b)}, a profile holds at most ${PROFILE_LIMIT / 1024} KiB): ${what} fewer filter sets or presets.`;
+    if (b > PROFILE_LIMIT)
+      return `Too big for one save (${kib(b)}, a profile holds at most ${PROFILE_LIMIT / 1024} KiB): ${what} fewer filter sets or presets.`;
   }
   for (const [k, v] of Object.entries(parts)) {
     if (!Array.isArray(v)) continue;
     const b = jsonBytes({ t: 'save', id: 999999, [k]: v });
-    if (b > SOCKET_LIMIT) return `Too big for one save (${kib(b)}, at most ${SOCKET_LIMIT / 1024} KiB): ${what} fewer ${k === 'presets' ? 'presets' : 'filter sets'}.`;
+    if (b > SOCKET_LIMIT)
+      return `Too big for one save (${kib(b)}, at most ${SOCKET_LIMIT / 1024} KiB): ${what} fewer ${k === 'presets' ? 'presets' : 'filter sets'}.`;
   }
   return '';
 }
-
 
 const b64 = (s) => {
   const bytes = new TextEncoder().encode(s);
@@ -250,7 +287,11 @@ export const shareUrl = (base, doc) => `${base}#share=${encodeShare(doc)}`;
 
 export function decodeShare(text) {
   let d;
-  try { d = JSON.parse(unb64(String(text))); } catch (e) { throw new Error('The link is damaged.'); }
+  try {
+    d = JSON.parse(unb64(String(text)));
+  } catch (e) {
+    throw new Error('The link is damaged.');
+  }
   if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');
   const name = String(d.name ?? '').trim();
   if (runes(name) > NAME_MAX) throw new Error('The link is damaged.');
@@ -265,9 +306,19 @@ export function decodeShare(text) {
 
 export function decodeLegacy(text) {
   let d;
-  try { d = JSON.parse(unb64(String(text))); } catch (e) { throw new Error('The link is damaged.'); }
+  try {
+    d = JSON.parse(unb64(String(text)));
+  } catch (e) {
+    throw new Error('The link is damaged.');
+  }
   if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');
-  return { kind: 'filter', name: String(d.name ?? '').trim().slice(0, NAME_MAX), ...filterOf(d) };
+  return {
+    kind: 'filter',
+    name: String(d.name ?? '')
+      .trim()
+      .slice(0, NAME_MAX),
+    ...filterOf(d),
+  };
 }
 
 // Returns { doc, error, search, hash } (doc null and error '' when there is no link);
@@ -284,17 +335,23 @@ export function readLink(search, hash) {
   } catch (e) {
     out.error = e.message;
   }
-  if (share != null) { h.delete('share'); const t = h.toString(); out.hash = t ? `#${t}` : ''; }
-  if (legacy != null) { s.delete('f'); const t = s.toString(); out.search = t ? `?${t}` : ''; }
+  if (share != null) {
+    h.delete('share');
+    const t = h.toString();
+    out.hash = t ? `#${t}` : '';
+  }
+  if (legacy != null) {
+    s.delete('f');
+    const t = s.toString();
+    out.search = t ? `?${t}` : '';
+  }
   return out;
 }
-
 
 // Only once the router's names are in, the lock state is known (`L` from lock.js's `access`;
 // null until then) and the page is not covered (PIN lock or hand lock). A link waits, in the
 // address, until then.
-export const mayOpenSheet = (L, handLocked = false, namesLoaded = true) =>
-  !!L && namesLoaded && !(L.enforced && L.locked) && !(handLocked && !L.enforced);
+export const mayOpenSheet = (L, handLocked = false, namesLoaded = true) => !!L && namesLoaded && !(L.enforced && L.locked) && !(handLocked && !L.enforced);
 
 // "Name 2", or "Name (mine)" for a copy of an Everyone item; '' with nothing to copy. At most
 // 32 characters.
@@ -302,7 +359,12 @@ export function saveAsName(name, fromScope = '') {
   const base = String(name || '').trim();
   if (!base) return '';
   const suffix = fromScope === 'global' ? ' (mine)' : ' 2';
-  return [...base].slice(0, NAME_MAX - suffix.length).join('').trimEnd() + suffix;
+  return (
+    [...base]
+      .slice(0, NAME_MAX - suffix.length)
+      .join('')
+      .trimEnd() + suffix
+  );
 }
 
 export function docOfShare(d) {

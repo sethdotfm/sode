@@ -37,11 +37,7 @@ dialog.setAttribute('role', 'dialog');
 dialog.setAttribute('aria-modal', 'true');
 dialog.setAttribute('aria-labelledby', 'profiles-title');
 dialog.tabIndex = -1;
-dialog.append(
-  el('div', 'pb-modal__header', title),
-  el('div', 'pb-modal__body',
-    body, err),
-  el('div', 'pb-modal__footer', note, transferBtn, closeBtn));
+dialog.append(el('div', 'pb-modal__header', title), el('div', 'pb-modal__body', body, err), el('div', 'pb-modal__footer', note, transferBtn, closeBtn));
 // A later "Restrictions" section (sources and destinations a trusted user hides from a user) goes in `body` after presets.
 root.append(dialog);
 document.body.append(root);
@@ -55,12 +51,14 @@ let removing = null; // { kind, i } waiting for its confirm
 let saving = 0; // this dialog's own saves in flight
 
 const own = () => !!who && who === profileName();
-const setNote = (t) => { note.textContent = t; };
+const setNote = (t) => {
+  note.textContent = t;
+};
 function fail(text) {
   err.textContent = sentence(text);
   err.hidden = false;
 }
-const askAgain = () => reask('Another user\'s profile needs the Advanced Settings PIN.');
+const askAgain = () => reask("Another user's profile needs the Advanced Settings PIN.");
 
 // Export / import opens on top; Esc closes it first.
 function transfer() {
@@ -72,12 +70,22 @@ function line(kind, i, name, summary) {
   const editEv = kind === 'filterSets' ? 'openFilterEditor' : 'openPresetEditor';
   const text = el('span', 'sode__profiles-item', el('strong', null, name), el('span', 'sode__hint', summary));
   if (removing && removing.kind === kind && removing.i === i) {
-    return el('li', 'sode__profiles-row', text,
+    return el(
+      'li',
+      'sode__profiles-row',
+      text,
       el('span', 'pb-note pb-note--warn', `Remove "${name}" from ${who}'s profile?`),
       btn('pb-btn--danger pb-btn--sm', 'Remove', () => doRemove(kind, i)),
-      btn('pb-btn--outline pb-btn--sm', 'Keep', () => { removing = null; paint(); }));
+      btn('pb-btn--outline pb-btn--sm', 'Keep', () => {
+        removing = null;
+        paint();
+      }),
+    );
   }
-  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { removing = { kind, i }; paint(); });
+  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
+    removing = { kind, i };
+    paint();
+  });
   rm.setAttribute('aria-label', `Remove ${name}`);
   const ed = btn('pb-btn--outline pb-btn--sm', 'Edit', () => emit(editEv, { user: who, name, profile: prof }));
   ed.setAttribute('aria-label', `Edit ${name}`);
@@ -102,10 +110,13 @@ function prefLine(f) {
 
 function listSection(heading, rows, empty, addText, ev) {
   const add = btn('pb-btn--outline pb-btn--sm', addText, () => emit(ev, { user: who, profile: prof }));
-  return el('section', 'sode__profiles-sec',
+  return el(
+    'section',
+    'sode__profiles-sec',
     el('h3', 'sode__profiles-h', heading),
     rows.length ? el('ul', 'sode__profiles-list', ...rows) : el('p', 'sode__hint', empty),
-    el('div', null, add));
+    el('div', null, add),
+  );
 }
 
 function paint() {
@@ -116,12 +127,28 @@ function paint() {
     return;
   }
   body.replaceChildren(
-    el('section', 'sode__profiles-sec sode__profiles-sec--prefs',
+    el(
+      'section',
+      'sode__profiles-sec sode__profiles-sec--prefs',
       el('h3', 'sode__profiles-h', 'User defaults'),
       el('p', 'sode__hint', 'Not set follows the global default.'),
-      el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine))),
-    listSection('Filter sets', prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))), 'None saved.', 'Add filter set', 'openFilterEditor'),
-    listSection('Presets', prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))), 'None saved.', 'Add preset', 'openPresetEditor'));
+      el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine)),
+    ),
+    listSection(
+      'Filter sets',
+      prof.filterSets.map((s, i) => line('filterSets', i, String(s.name), setSummary(s))),
+      'None saved.',
+      'Add filter set',
+      'openFilterEditor',
+    ),
+    listSection(
+      'Presets',
+      prof.presets.map((p, i) => line('presets', i, String(p.name), presetSummary(p))),
+      'None saved.',
+      'Add preset',
+      'openPresetEditor',
+    ),
+  );
 }
 
 async function load(name) {
@@ -130,7 +157,8 @@ async function load(name) {
   removing = null;
   err.hidden = true;
   setNote('');
-  if (own()) { // the cached copy, no round trip
+  if (own()) {
+    // the cached copy, no round trip
     prof = profile();
     return paint();
   }
@@ -139,7 +167,7 @@ async function load(name) {
   const r = await fetchProfile(name);
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked && await askAgain()) return load(name); // the PIN was entered: read it again
+    if (r.locked && (await askAgain())) return load(name); // the PIN was entered: read it again
     if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not read that profile.');
     return paint();
@@ -158,13 +186,18 @@ async function doSave(parts, done) {
   const name = who;
   prof = withParts(prof, parts);
   saving++;
-  const r = await saveProfile(parts, name).finally(() => { saving--; });
+  const r = await saveProfile(parts, name).finally(() => {
+    saving--;
+  });
   if (mine !== token || !isOpen) return;
   if (!r.ok) {
-    if (r.locked && await askAgain()) return doSave(parts, done); // the PIN was entered: save again
+    if (r.locked && (await askAgain())) return doSave(parts, done); // the PIN was entered: save again
     if (mine !== token || !isOpen) return;
     fail(r.err || 'Could not save that profile.');
-    if (own()) { prof = profile(); return paint(); }
+    if (own()) {
+      prof = profile();
+      return paint();
+    }
     paint();
     return load(name).then(() => fail(r.err || 'Could not save that profile.'));
   }
@@ -198,12 +231,28 @@ on('openProfile', (m) => openDialog(String(m?.name || '')));
 on('profileSaved', (m) => {
   if (!isOpen || m?.name !== who || saving) return;
   err.hidden = true;
-  if (own()) { prof = profile(); setNote('Saved.'); return paint(); }
+  if (own()) {
+    prof = profile();
+    setNote('Saved.');
+    return paint();
+  }
   load(who).then(() => setNote('Saved.'));
 });
-const dlg = trapDialog(root, dialog, () => { if (removing) { removing = null; paint(); } else closeDialog(); });
-on('locking', () => { if (isOpen) closeDialog(); });
-on('profile', () => { if (isOpen && own()) { prof = profile(); paint(); } });
+const dlg = trapDialog(root, dialog, () => {
+  if (removing) {
+    removing = null;
+    paint();
+  } else closeDialog();
+});
+on('locking', () => {
+  if (isOpen) closeDialog();
+});
+on('profile', () => {
+  if (isOpen && own()) {
+    prof = profile();
+    paint();
+  }
+});
 for (const ev of ['access', 'conn', 'unlockResult', 'locked', 'hello']) {
   on(ev, () => {
     if (isOpen && !own() && (!S.userNames?.includes(who) || !canSeeProfiles(S.userNames, trusted(), unlocked()))) closeDialog();

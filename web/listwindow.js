@@ -1,7 +1,7 @@
 // Window of rows drawn from a long list (thousands on a big router), growing near an edge. Pure, import-free.
 
 export const WINDOW = 150; // rows drawn at first
-export const STEP = 75;    // rows added when an edge is reached
+export const STEP = 75; // rows added when an edge is reached
 
 // Rows lo..hi-1 drawn; a short list is drawn whole.
 export function windowAround(n, at, size = WINDOW) {

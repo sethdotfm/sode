@@ -10,7 +10,9 @@ const listeners = [];
 export const layoutPref = () => pref('layout');
 
 export const layout = () => root.dataset.layout;
-export const onLayout = (fn) => { listeners.push(fn); };
+export const onLayout = (fn) => {
+  listeners.push(fn);
+};
 
 export function applyLayout() {
   const p = layoutPref();

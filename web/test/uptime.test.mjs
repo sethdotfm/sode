@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { slots, summary, drops, slotFor, slotText, rangeFor, presetId, presetText, slotLabel, PRESETS, MAX_SLOTS } from '../uptime.js';
 
-const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
+const MIN = 60_000,
+  HOUR = 60 * MIN,
+  DAY = 24 * HOUR;
 const colours = (d) => slots(d).map((s) => s.colour);
 // 4 hours in 1 hour slots, "now" at the end.
 const base = (over) => ({ start: 'up', trans: [], counts: [], from: 0, to: 4 * HOUR, slot: HOUR, now: 4 * HOUR, ...over });
@@ -12,14 +14,24 @@ test('up all the time is green', () => {
 });
 
 test('down for a whole slot is red, part of one is yellow', () => {
-  const d = base({ trans: [{ t: HOUR + 30 * MIN, s: 'down' }, { t: 3 * HOUR, s: 'up' }] });
+  const d = base({
+    trans: [
+      { t: HOUR + 30 * MIN, s: 'down' },
+      { t: 3 * HOUR, s: 'up' },
+    ],
+  });
   // 0 ok · 1 half down · 2 down · 3 up
   assert.deepEqual(colours(d), ['ok', 'warn', 'error', 'ok']);
   assert.equal(slots(d)[1].upMs, 30 * MIN);
 });
 
 test('failed or slow messages make an up slot yellow', () => {
-  const d = base({ counts: [{ i: 1, bad: 2, slow: 0 }, { i: 2, bad: 0, slow: 1 }] });
+  const d = base({
+    counts: [
+      { i: 1, bad: 2, slow: 0 },
+      { i: 2, bad: 0, slow: 1 },
+    ],
+  });
   assert.deepEqual(colours(d), ['ok', 'warn', 'warn', 'ok']);
 });
 
@@ -41,19 +53,38 @@ test('state carries across slots with no change in them', () => {
 });
 
 test('Sode being off counts as down', () => {
-  const d = base({ trans: [{ t: HOUR, s: 'off' }, { t: 3 * HOUR, s: 'down' }, { t: 3 * HOUR + 1, s: 'up' }] });
+  const d = base({
+    trans: [
+      { t: HOUR, s: 'off' },
+      { t: 3 * HOUR, s: 'down' },
+      { t: 3 * HOUR + 1, s: 'up' },
+    ],
+  });
   assert.deepEqual(colours(d).slice(0, 3), ['ok', 'error', 'error']);
 });
 
 test('summary: rounds down, counts drops, and always has text', () => {
   assert.equal(summary(base()), '100% up · 0 drops');
-  const d = base({ trans: [{ t: HOUR, s: 'down' }, { t: HOUR + 36 * 1000, s: 'up' }], counts: [{ i: 0, bad: 3, slow: 2 }] });
+  const d = base({
+    trans: [
+      { t: HOUR, s: 'down' },
+      { t: HOUR + 36 * 1000, s: 'up' },
+    ],
+    counts: [{ i: 0, bad: 3, slow: 2 }],
+  });
   assert.equal(summary(d), '99.7% up · 1 drop · 3 failed · 2 slow');
   assert.equal(summary(base({ start: '' })), 'No record for this time');
 });
 
 test('drops counts up-to-not-up changes only', () => {
-  const d = base({ trans: [{ t: 1, s: 'down' }, { t: 2, s: 'off' }, { t: 3, s: 'up' }, { t: 4, s: 'down' }] });
+  const d = base({
+    trans: [
+      { t: 1, s: 'down' },
+      { t: 2, s: 'off' },
+      { t: 3, s: 'up' },
+      { t: 4, s: 'down' },
+    ],
+  });
   assert.equal(drops(d), 2);
 });
 

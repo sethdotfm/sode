@@ -32,14 +32,18 @@ function listen() {
   listening = true;
   // Capture, so it runs before page key handlers. Only keys outside the top dialog are taken;
   // inside, a field's own Esc still comes first.
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    const top = topDialog(stack);
-    if (!top || top.root.contains(e.target)) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    top.onEsc();
-  }, true);
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key !== 'Escape') return;
+      const top = topDialog(stack);
+      if (!top || top.root.contains(e.target)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      top.onEsc();
+    },
+    true,
+  );
 }
 
 // Stopped at root so the layouts' own keys don't act behind it.
@@ -47,25 +51,48 @@ export function trapDialog(root, dialog, onEsc) {
   const entry = { root, onEsc, order: 0 };
   stack.push(entry);
   listen();
-  let down = null, up = null;
-  root.addEventListener('mousedown', (e) => { down = e.target; up = null; });
-  root.addEventListener('mouseup', (e) => { up = e.target; });
+  let down = null,
+    up = null;
+  root.addEventListener('mousedown', (e) => {
+    down = e.target;
+    up = null;
+  });
+  root.addEventListener('mouseup', (e) => {
+    up = e.target;
+  });
   root.addEventListener('click', (e) => {
-    const d = down, u = up;
+    const d = down,
+      u = up;
     down = up = null;
     if (e.target === root && backdropClose(d, u, root)) onEsc();
   });
   root.addEventListener('keydown', (e) => {
     e.stopPropagation();
-    if (e.key === 'Escape') { e.preventDefault(); onEsc(); return; }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onEsc();
+      return;
+    }
     if (e.key !== 'Tab') return;
     const all = [...dialog.querySelectorAll('button, input, select')].filter((x) => !x.disabled && x.offsetParent);
-    const first = all[0], last = all[all.length - 1];
-    if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    const first = all[0],
+      last = all[all.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   });
   return {
-    show() { root.hidden = false; bringToFront(root); entry.order = ++shows; },
-    hide() { root.hidden = true; },
+    show() {
+      root.hidden = false;
+      bringToFront(root);
+      entry.order = ++shows;
+    },
+    hide() {
+      root.hidden = true;
+    },
   };
 }

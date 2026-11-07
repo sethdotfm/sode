@@ -2,7 +2,9 @@
 
 // box: { input, cb, list }; chosen(): the confirmed item. sync() is for the combobox onRender and focus; open() for the button and arrows.
 export function showAll(box, btn, chosen) {
-  const sync = () => { btn.hidden = box.cb.open || document.activeElement !== box.input; };
+  const sync = () => {
+    btn.hidden = box.cb.open || document.activeElement !== box.input;
+  };
   const open = () => {
     box.input.focus();
     box.cb.browse(box.list(), chosen()?.n);

@@ -17,5 +17,4 @@ export const scopeIds = (withAll = false) => [...(withAll ? [DEFAULT] : []), ...
 
 export const usableScopes = (hasUser) => SCOPES.filter((s) => s.id !== 'user' || hasUser).map((s) => s.id);
 
-export const scopeOptions = (hasUser) => ['local', ...usableScopes(hasUser).filter((id) => id !== 'local')]
-  .map((id) => [id, scopeLabel(id)]);
+export const scopeOptions = (hasUser) => ['local', ...usableScopes(hasUser).filter((id) => id !== 'local')].map((id) => [id, scopeLabel(id)]);

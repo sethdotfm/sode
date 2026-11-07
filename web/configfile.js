@@ -21,8 +21,13 @@ let seq = 0;
 let busy = null; // { id, kind: 'export' | 'import' }
 let picked = null; // { name, text, bytes } waiting for the confirm
 
-const say = (text) => { status.textContent = text; };
-const fail = (text) => { err.textContent = text; err.hidden = !text; };
+const say = (text) => {
+  status.textContent = text;
+};
+const fail = (text) => {
+  err.textContent = text;
+  err.hidden = !text;
+};
 
 function setBusy(b) {
   busy = b;
@@ -47,7 +52,9 @@ function failed(m, retry) {
   setBusy(null);
   say('');
   if (m.locked) {
-    reask('The Advanced Settings PIN is needed again.').then((ok) => { if (ok) retry(); });
+    reask('The Advanced Settings PIN is needed again.').then((ok) => {
+      if (ok) retry();
+    });
     return;
   }
   fail(sentence(m.err) || 'The server refused.');
@@ -98,22 +105,31 @@ pick.addEventListener('change', async () => {
   const text = await f.text().catch(() => '');
   const bytes = new TextEncoder().encode(text).length;
   const problem = fileProblem(bytes, text);
-  if (problem) { reset(); return fail(problem); }
+  if (problem) {
+    reset();
+    return fail(problem);
+  }
   picked = { name: f.name, text, bytes };
-  confirmText.textContent = `Replace the whole server configuration with ${f.name} (${sizeText(bytes)})? `
-    + 'Every setting, user, lock, filter set, preset and profile is replaced by the file\'s, for everyone. '
-    + 'A PIN the file leaves out stays as it is. The settings form closes and reloads. This cannot be undone.';
+  confirmText.textContent =
+    `Replace the whole server configuration with ${f.name} (${sizeText(bytes)})? ` +
+    "Every setting, user, lock, filter set, preset and profile is replaced by the file's, for everyone. " +
+    'A PIN the file leaves out stays as it is. The settings form closes and reloads. This cannot be undone.';
   confirmBox.hidden = false;
   $('config-keep').focus();
 });
 
-$('config-keep').addEventListener('click', () => { reset(); say('Import cancelled.'); importBtn.focus(); });
+$('config-keep').addEventListener('click', () => {
+  reset();
+  say('Import cancelled.');
+  importBtn.focus();
+});
 
 async function runImport() {
   if (!picked) return;
   const id = await start('import');
   if (!id) return;
-  if (!picked) { // a lock or a PIN change reset the block while the PIN popup was open
+  if (!picked) {
+    // a lock or a PIN change reset the block while the PIN popup was open
     setBusy(null);
     return;
   }
@@ -132,7 +148,10 @@ $('config-replace').addEventListener('click', runImport);
 
 onMsg('configImportBeginResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
-  if (!m.ok) { if (!m.locked) reset(); return failed(m, runImport); }
+  if (!m.ok) {
+    if (!m.locked) reset();
+    return failed(m, runImport);
+  }
   if (!picked || !wsSend({ t: 'configImport', id: busy.id, yaml: picked.text })) {
     reset();
     setBusy(null);
@@ -143,7 +162,10 @@ onMsg('configImportBeginResult', (m) => {
 
 onMsg('configImportResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
-  if (!m.ok) { if (!m.locked) reset(); return failed(m, runImport); }
+  if (!m.ok) {
+    if (!m.locked) reset();
+    return failed(m, runImport);
+  }
   const name = picked?.name || 'the file';
   reset();
   setBusy(null);
@@ -159,11 +181,11 @@ on('conn', () => {
   const kind = busy.kind;
   setBusy(null);
   say('');
-  fail(kind === 'import'
-    ? 'The connection dropped before the answer: check Settings to see whether the import was applied.'
-    : 'The connection dropped.');
+  fail(kind === 'import' ? 'The connection dropped before the answer: check Settings to see whether the import was applied.' : 'The connection dropped.');
 });
 
-on('access', () => { if (needsPin()) reset(); });
+on('access', () => {
+  if (needsPin()) reset();
+});
 on('locked', () => reset());
 box.hidden = false;

@@ -61,7 +61,12 @@ function copiedOff(ui) {
 }
 export async function copyLink(ui) {
   let ok = false;
-  try { await navigator.clipboard.writeText(ui.input.value); ok = true; } catch (e) { /* no clipboard */ }
+  try {
+    await navigator.clipboard.writeText(ui.input.value);
+    ok = true;
+  } catch (e) {
+    /* no clipboard */
+  }
   if (!ok) {
     ui.input.select();
     copiedOff(ui);
@@ -137,9 +142,18 @@ function takeLink() {
 }
 
 export function applySharedLink() {
-  on('helloData', () => { namesIn = true; tryOpen(); });
-  on('access', (l) => { access = l; tryOpen(); });
-  on('handlock', ({ on: up }) => { handUp = up; tryOpen(); });
+  on('helloData', () => {
+    namesIn = true;
+    tryOpen();
+  });
+  on('access', (l) => {
+    access = l;
+    tryOpen();
+  });
+  on('handlock', ({ on: up }) => {
+    handUp = up;
+    tryOpen();
+  });
   window.addEventListener('hashchange', takeLink);
   takeLink();
 }
@@ -161,7 +175,12 @@ noteEl.setAttribute('aria-live', 'polite');
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Export & import'), { id: 'tr-title' })),
   el('div', 'pb-modal__body sode__filters-body', exBox, imBox, noteEl),
-  el('div', 'pb-modal__footer', btn('pb-btn--ok', 'Close', () => close())));
+  el(
+    'div',
+    'pb-modal__footer',
+    btn('pb-btn--ok', 'Close', () => close()),
+  ),
+);
 root.append(dialog);
 document.body.append(root);
 
@@ -170,7 +189,8 @@ const setNote = (t, error = false) => {
   noteEl.classList.toggle('sode__error-text', error);
 };
 
-let open = false, back = null;
+let open = false,
+  back = null;
 // user: a profile named by openTransfer (someone else's, read by name; the logged-in user's own is just 'user').
 let ex = null;
 let other = null; // { name, state: 'wait' | 'ok' | 'err', profile, err }
@@ -213,7 +233,11 @@ function pickList(kind, items) {
   sel.append(new Option(`All ${label.toLowerCase()} (${items.length})`, 'all'), new Option(`Chosen ${label.toLowerCase()}`, 'chosen'));
   sel.disabled = !items.length;
   sel.value = items.length ? mode : 'all';
-  sel.addEventListener('change', () => { if (kind === 'sets') ex.setsMode = sel.value; else ex.presetsMode = sel.value; renderExport(); });
+  sel.addEventListener('change', () => {
+    if (kind === 'sets') ex.setsMode = sel.value;
+    else ex.presetsMode = sel.value;
+    renderExport();
+  });
   const out = [el('div', 'sode__filters-set', el('span', 'sode__label', label), el('span', 'pb-select-wrap', sel))];
   if (!items.length) out.push(el('span', 'sode__hint', `No ${label.toLowerCase()} here.`));
   else if (mode === 'chosen') {
@@ -221,7 +245,10 @@ function pickList(kind, items) {
       const c = el('input', 'pb-check__input');
       c.type = 'checkbox';
       c.checked = picked.has(it.name);
-      c.addEventListener('change', () => { if (c.checked) picked.add(it.name); else picked.delete(it.name); });
+      c.addEventListener('change', () => {
+        if (c.checked) picked.add(it.name);
+        else picked.delete(it.name);
+      });
       out.push(el('label', 'pb-check sode__filters-indent', c, el('span', 'pb-check__label', it.name)));
     }
   }
@@ -237,35 +264,55 @@ function renderExport() {
   src.setAttribute('aria-label', 'Export from');
   for (const [v, t] of opts) src.append(new Option(t, v));
   src.value = ex.src;
-  src.addEventListener('change', () => { ex.src = src.value; setNote(''); renderExport(); });
+  src.addEventListener('change', () => {
+    ex.src = src.value;
+    setNote('');
+    renderExport();
+  });
   const prefs = validPrefs(d.prefs);
   const pc = el('input', 'pb-check__input');
   pc.type = 'checkbox';
   pc.checked = ex.prefs && Object.keys(prefs).length > 0;
   pc.disabled = !Object.keys(prefs).length;
-  pc.addEventListener('change', () => { ex.prefs = pc.checked; });
-  const prefNote = ex.src === 'global' ? 'Everyone’s defaults are set in Settings.'
-    : !Object.keys(prefs).length ? 'None set here.' : `${Object.keys(prefs).length} set`;
+  pc.addEventListener('change', () => {
+    ex.prefs = pc.checked;
+  });
+  const prefNote =
+    ex.src === 'global' ? 'Everyone’s defaults are set in Settings.' : !Object.keys(prefs).length ? 'None set here.' : `${Object.keys(prefs).length} set`;
   const name = el('input', 'pb-input');
   name.setAttribute('aria-label', 'File name');
   name.autocomplete = 'off';
   name.value = ex.file || '';
   name.placeholder = fmt.defaultFileName({ site: site(), user: d.user });
-  name.addEventListener('input', () => { ex.file = name.value; });
-  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); download(); } });
+  name.addEventListener('input', () => {
+    ex.file = name.value;
+  });
+  name.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      download();
+    }
+  });
   const wait = ex.src === 'other' && other?.state !== 'ok';
   const go = btn('pb-btn--outline', 'Download', () => download());
   go.disabled = wait;
   exBox.replaceChildren(
     el('strong', null, 'Export'),
     el('div', 'sode__filters-set', el('span', 'sode__label', 'From'), el('span', 'pb-select-wrap', src)),
-    ...(wait ? [el('span', 'sode__hint sode__error-text', other?.state === 'err' ? other.err : 'Reading their profile…')] : [
-      el('label', 'pb-check', pc, el('span', 'pb-check__label', 'This device settings'), el('span', 'sode__hint', ` ${prefNote}`)),
-      ...pickList('sets', d.sets),
-      ...pickList('presets', d.presets),
-    ]),
+    ...(wait
+      ? [el('span', 'sode__hint sode__error-text', other?.state === 'err' ? other.err : 'Reading their profile…')]
+      : [
+          el('label', 'pb-check', pc, el('span', 'pb-check__label', 'This device settings'), el('span', 'sode__hint', ` ${prefNote}`)),
+          ...pickList('sets', d.sets),
+          ...pickList('presets', d.presets),
+        ]),
     el('div', 'sode__filters-set', name, go),
-    el('span', 'sode__hint', 'Blank: the file is named with the date, this site and the profile. Names are saved beside the numbers so another router can match them.'));
+    el(
+      'span',
+      'sode__hint',
+      'Blank: the file is named with the date, this site and the profile. Names are saved beside the numbers so another router can match them.',
+    ),
+  );
 }
 
 function chosen(items, mode, picked) {
@@ -323,8 +370,13 @@ function renderImport() {
     el('strong', null, 'Import'),
     el('div', 'sode__filters-set', picker),
     paste,
-    el('div', 'sode__filters-set', btn('pb-btn--outline', 'Review import', () => review())),
-    el('span', 'sode__hint', 'Nothing is saved until you have looked at it in the review.'));
+    el(
+      'div',
+      'sode__filters-set',
+      btn('pb-btn--outline', 'Review import', () => review()),
+    ),
+    el('span', 'sode__hint', 'Nothing is saved until you have looked at it in the review.'),
+  );
 }
 
 async function review() {
@@ -332,14 +384,22 @@ async function review() {
   const f = picker.files?.[0];
   if (f) {
     if (f.size > 1 << 20) return setNote('That file is over 1 MiB.', true);
-    try { text = await f.text(); } catch (e) { return setNote('Could not read that file.', true); }
+    try {
+      text = await f.text();
+    } catch (e) {
+      return setNote('Could not read that file.', true);
+    }
   }
   if (!text.trim()) return setNote('Choose a file or paste the export first.', true);
   setNote('Reading…');
   const r = await convert('api/yaml?from=yaml', text, 'text/plain');
   if (!r.ok) return setNote(r.err, true);
   let doc;
-  try { doc = JSON.parse(r.text); } catch (e) { return setNote('The file could not be read.', true); }
+  try {
+    doc = JSON.parse(r.text);
+  } catch (e) {
+    return setNote('The file could not be read.', true);
+  }
   const bad = fmt.checkDoc(doc);
   if (bad) return setNote(bad, true);
   const user = other && other.name !== profileName() ? other.name : '';
@@ -353,8 +413,14 @@ function openTransfer({ scope = '', user = '', what = '' } = {}) {
   back = document.activeElement;
   ex = newEx();
   // what: the kind the caller is about is the one exported; the other kinds start as none chosen.
-  if (what === 'presets') { ex.setsMode = 'chosen'; ex.prefs = false; }
-  if (what === 'filters') { ex.presetsMode = 'chosen'; ex.prefs = false; }
+  if (what === 'presets') {
+    ex.setsMode = 'chosen';
+    ex.prefs = false;
+  }
+  if (what === 'filters') {
+    ex.presetsMode = 'chosen';
+    ex.prefs = false;
+  }
   other = null;
   picker.value = '';
   paste.value = '';
@@ -368,7 +434,8 @@ function openTransfer({ scope = '', user = '', what = '' } = {}) {
       const mine = other;
       fetchProfile(user).then((r) => {
         if (other !== mine) return;
-        other = r.ok ? { name: user, state: 'ok', profile: r.profile }
+        other = r.ok
+          ? { name: user, state: 'ok', profile: r.profile }
           : { name: user, state: 'err', err: r.locked ? 'Only a trusted user or the settings PIN can read another user’s profile.' : sentence(r.err) };
         if (open) renderExport();
       });
@@ -390,9 +457,15 @@ function close() {
 const dlg = trapDialog(root, dialog, close);
 on('openTransfer', openTransfer);
 on('locking', close);
-on('profile', () => { if (open) renderExport(); });
-on('presets', () => { if (open) renderExport(); });
-on('filters', () => { if (open) renderExport(); });
+on('profile', () => {
+  if (open) renderExport();
+});
+on('presets', () => {
+  if (open) renderExport();
+});
+on('filters', () => {
+  if (open) renderExport();
+});
 
 const openBtn = $('transfer-open');
 if (openBtn) openBtn.addEventListener('click', () => openTransfer());

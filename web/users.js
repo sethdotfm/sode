@@ -10,7 +10,6 @@ import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 
 const form = $('settings-view');
 
-
 // ---- the Settings section: the button
 const manage = el('button', 'pb-btn pb-btn--outline', 'Manage users');
 manage.type = 'button';
@@ -24,16 +23,12 @@ people.hidden = true;
 people.setAttribute('role', 'group');
 people.setAttribute('aria-label', 'Profiles');
 
-const group = el('fieldset', 'sode__group',
-  el('legend', null, 'Users'),
-  el('div', 'sode__field', manage),
-  people);
+const group = el('fieldset', 'sode__group', el('legend', null, 'Users'), el('div', 'sode__field', manage), people);
 group.dataset.apart = '';
 
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
 if (access) access.after(group);
 else form.querySelector('#settings-err')?.parentElement?.before(group) ?? form.append(group);
-
 
 // ---- the dialog
 const check = (label) => {
@@ -47,10 +42,8 @@ const btn = (cls, text, fn) => {
   b.addEventListener('click', fn);
   return b;
 };
-const field = (id, label, input, hint) => el('div', 'sode__field',
-  Object.assign(el('label', null, label), { htmlFor: id }),
-  el('span', 'pb-number-wrap', input),
-  el('span', 'sode__hint', hint));
+const field = (id, label, input, hint) =>
+  el('div', 'sode__field', Object.assign(el('label', null, label), { htmlFor: id }), el('span', 'pb-number-wrap', input), el('span', 'sode__hint', hint));
 const number = (id) => {
   const i = el('input', 'pb-input');
   i.type = 'number';
@@ -69,7 +62,10 @@ const note = el('span', 'sode__hint');
 note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 
-const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => { addRow().focus(); touched(); });
+const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
+  addRow().focus();
+  touched();
+});
 const saveBtn = btn('pb-btn--ok', 'Save', () => doSave());
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => closeUsers());
 
@@ -82,14 +78,21 @@ dialog.setAttribute('aria-labelledby', 'users-title');
 dialog.tabIndex = -1;
 dialog.append(
   el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Users'), { id: 'users-title' })),
-  el('div', 'pb-modal__body',
-    el('p', 'sode__hint', 'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.'),
+  el(
+    'div',
+    'pb-modal__body',
+    el(
+      'p',
+      'sode__hint',
+      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.',
+    ),
     el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows),
     addBtn,
-    el('div', 'sode__users-opts',
-      field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
-    err),
-  el('div', 'pb-modal__footer', note, cancelBtn, saveBtn));
+    el('div', 'sode__users-opts', field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
+    err,
+  ),
+  el('div', 'pb-modal__footer', note, cancelBtn, saveBtn),
+);
 root.append(dialog);
 document.body.append(root);
 
@@ -145,25 +148,27 @@ function addRow(u = { name: '', len: 0 }) {
   const never = check('Never log out');
   never.input.checked = !!u.persistent;
   never.input.dataset.flag = 'persistent';
-  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => { row.remove(); touched(); });
-  const out = u.len ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
-    err.hidden = true;
-    setNote('');
-    const id = ++outSeq;
-    if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail('Not connected to Sode.');
-    out.disabled = true;
-    signing.set(id, { out, name: u.name });
-  }) : el('span'); // a new row has none; the span keeps the columns in line
+  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
+    row.remove();
+    touched();
+  });
+  const out = u.len
+    ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
+        err.hidden = true;
+        setNote('');
+        const id = ++outSeq;
+        if (!wsSend({ t: 'userSignOutAll', name: u.name, id })) return fail('Not connected to Sode.');
+        out.disabled = true;
+        signing.set(id, { out, name: u.name });
+      })
+    : el('span'); // a new row has none; the span keeps the columns in line
   const prof = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: row.dataset.was }));
   prof.setAttribute('aria-haspopup', 'dialog');
   const paintProf = () => {
     prof.disabled = profileButtonOff(row.dataset.was, name.value);
     prof.title = prof.disabled ? 'Save the user first' : '';
   };
-  const row = el('div', 'sode__users-row',
-    el('div', 'sode__users-in', name),
-    el('div', 'sode__users-in', pin),
-    trust.label, never.label, prof, out, rm);
+  const row = el('div', 'sode__users-row', el('div', 'sode__users-in', name), el('div', 'sode__users-in', pin), trust.label, never.label, prof, out, rm);
   row.dataset.was = u.len ? u.name : '';
   paintProf();
   name.addEventListener('input', paintProf);
@@ -178,8 +183,12 @@ onMsg('userSignOutAllResult', (m) => {
   signing.delete(m.id);
   if (w) w.out.disabled = false;
   if (m.ok) return setNote(`Signed ${w?.name || 'the user'} out everywhere.`);
-  if (m.locked) { // ask, then send it again; the error shows only if the PIN is not given
-    reask('Managing users needs the Advanced Settings PIN again.').then((ok) => { if (ok) w?.out.click(); else fail(m.err); });
+  if (m.locked) {
+    // ask, then send it again; the error shows only if the PIN is not given
+    reask('Managing users needs the Advanced Settings PIN again.').then((ok) => {
+      if (ok) w?.out.click();
+      else fail(m.err);
+    });
     return;
   }
   fail(m.err);
@@ -200,21 +209,26 @@ function paintPeople() {
   const show = trusted() && !unlocked() && canSeeProfiles(names, true, false);
   people.hidden = !show;
   if (!show) return people.replaceChildren();
-  people.replaceChildren(...names.map((n) => {
-    const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
-    b.setAttribute('aria-haspopup', 'dialog');
-    b.setAttribute('aria-label', `Profile of ${n}`);
-    return el('div', 'sode__names', el('span', 'sode__label', n), b);
-  }));
+  people.replaceChildren(
+    ...names.map((n) => {
+      const b = btn('pb-btn--outline pb-btn--sm', 'Edit Profile', () => emit('openProfile', { name: n }));
+      b.setAttribute('aria-haspopup', 'dialog');
+      b.setAttribute('aria-label', `Profile of ${n}`);
+      return el('div', 'sode__names', el('span', 'sode__label', n), b);
+    }),
+  );
 }
 
 const paintSummary = paintPeople;
 
 // The directory is not in the hello (a locked page gets that too): the settings PIN holder asks for it.
-const load = () => { wsSend({ t: 'usersList', id: ++listSeq }); };
+const load = () => {
+  wsSend({ t: 'usersList', id: ++listSeq });
+};
 onMsg('usersListResult', (m) => {
   if (m.id !== listSeq) return;
-  if (!m.ok) { // a stale unlock: ask, then read the directory again
+  if (!m.ok) {
+    // a stale unlock: ask, then read the directory again
     if (m.locked && isOpen) reask('Managing users needs the Advanced Settings PIN.').then((ok) => (ok ? load() : closeUsers()));
     return;
   }
@@ -223,18 +237,30 @@ onMsg('usersListResult', (m) => {
   paintSummary();
   if (isOpen && !edited) fill();
 });
-on('unlockResult', (m) => { if (m.ok) load(); });
-on('locked', () => { listed = []; loaded = false; paintSummary(); });
+on('unlockResult', (m) => {
+  if (m.ok) load();
+});
+on('locked', () => {
+  listed = [];
+  loaded = false;
+  paintSummary();
+});
 on('access', paintSummary);
 for (const ev of ['unlockResult', 'conn']) on(ev, paintPeople);
-on('hello', () => { paintSummary(); load(); if (isOpen && !edited) fill(); });
-
+on('hello', () => {
+  paintSummary();
+  load();
+  if (isOpen && !edited) fill();
+});
 
 // ---- open / close / save
 async function openUsers() {
   // A trusted user may not have the PIN entered: a popup asks instead of an editor with no users.
   const opener = document.activeElement;
-  if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) { opener?.focus?.(); return; }
+  if (S.pinSet && !unlocked() && !(await askPin('Managing users needs the Advanced Settings PIN.'))) {
+    opener?.focus?.();
+    return;
+  }
   back = opener;
   isOpen = true;
   setNote('');
@@ -256,7 +282,12 @@ function closeUsers() {
 }
 manage.addEventListener('click', openUsers);
 const dlg = trapDialog(root, dialog, closeUsers);
-on('locking', () => { if (isOpen) { edited = false; closeUsers(); } });
+on('locking', () => {
+  if (isOpen) {
+    edited = false;
+    closeUsers();
+  }
+});
 
 function doSave() {
   err.hidden = true;
@@ -280,7 +311,7 @@ onMsg('usersResult', async (m) => {
     if (isOpen) closeUsers();
     return;
   }
-  if (m.locked && await reask('Managing users needs the Advanced Settings PIN again.')) return doSave(); // the PIN was entered: save again
+  if (m.locked && (await reask('Managing users needs the Advanced Settings PIN again.'))) return doSave(); // the PIN was entered: save again
   fail(m.err);
 });
 

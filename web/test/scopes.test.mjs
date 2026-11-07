@@ -8,6 +8,13 @@ test('scopes: labels, order, and Me only with a user', () => {
   assert.equal(scopeLabel('all'), 'Default');
   assert.equal(scopeLabel('local'), 'This browser');
   assert.deepEqual(usableScopes(false), ['global', 'local']);
-  assert.deepEqual(scopeOptions(true), [['local', 'This browser'], ['global', 'Everyone'], ['user', 'Me']]);
-  assert.deepEqual(scopeOptions(false).map((o) => o[0]), ['local', 'global']);
+  assert.deepEqual(scopeOptions(true), [
+    ['local', 'This browser'],
+    ['global', 'Everyone'],
+    ['user', 'Me'],
+  ]);
+  assert.deepEqual(
+    scopeOptions(false).map((o) => o[0]),
+    ['local', 'global'],
+  );
 });

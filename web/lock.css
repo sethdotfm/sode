@@ -6,7 +6,10 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   --sode-lock-out: calc(var(--sode-lock-motion) * 1.5);
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --sode-lock-motion: 0ms; --sode-lock-out: 0ms; }
+  :root {
+    --sode-lock-motion: 0ms;
+    --sode-lock-out: 0ms;
+  }
 }
 
 .sode-lock {
@@ -33,7 +36,9 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
     border-width var(--sode-lock-out) var(--pb-ease);
   z-index: var(--pb-z-toast);
 }
-.sode-lock[hidden] { display: none; }
+.sode-lock[hidden] {
+  display: none;
+}
 .sode-lock.is-on {
   -webkit-backdrop-filter: blur(var(--pb-space-5));
   backdrop-filter: blur(var(--pb-space-5));
@@ -88,8 +93,12 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   max-width: 100%;
   text-align: center;
 }
-.sode-lock__dots.is-bad { color: var(--pb-status-error); }
-.sode-lock__dots.is-ok { color: var(--pb-status-ok); }
+.sode-lock__dots.is-bad {
+  color: var(--pb-status-error);
+}
+.sode-lock__dots.is-ok {
+  color: var(--pb-status-ok);
+}
 
 .sode-lock__state {
   color: var(--pb-text-muted);
@@ -101,10 +110,22 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   letter-spacing: var(--pb-space-4);
   min-height: calc(var(--pb-text-xl) * 1.6);
 }
-.sode-lock__msg { margin: 0; min-height: 1.5em; }
-.sode-lock__body[hidden] { display: none; }
-.sode-lock__soft-line { color: var(--pb-text-strong); font-size: var(--pb-text-md); margin: 0; }
-.sode-lock__soft-line .sode__key { font-size: var(--pb-text-lg); padding: 0 var(--pb-space-3); }
+.sode-lock__msg {
+  margin: 0;
+  min-height: 1.5em;
+}
+.sode-lock__body[hidden] {
+  display: none;
+}
+.sode-lock__soft-line {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-md);
+  margin: 0;
+}
+.sode-lock__soft-line .sode__key {
+  font-size: var(--pb-text-lg);
+  padding: 0 var(--pb-space-3);
+}
 .sode-lock__pad {
   display: grid;
   gap: var(--pb-space-5);
@@ -116,7 +137,9 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   font-variant-numeric: tabular-nums;
   height: calc(var(--pb-control-h-lg) * 1.6);
 }
-.pb-btn.sode-lock__key--word { font-size: var(--pb-text-md); }
+.pb-btn.sode-lock__key--word {
+  font-size: var(--pb-text-md);
+}
 .pb-btn.sode-lock__key--go {
   font-size: var(--pb-text-xl);
   grid-column: 1 / -1;
@@ -136,10 +159,16 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
 [data-layout="phone"] .sode-lock__who {
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
-.sode-lock__who[hidden] { display: none; }
-[data-layout="phone"] .sode-lock__who-slot > .pb-btn { display: none; }
+.sode-lock__who[hidden] {
+  display: none;
+}
+[data-layout="phone"] .sode-lock__who-slot > .pb-btn {
+  display: none;
+}
 /* The phone's chip shows only under a lock screen (is-hand); the name is in Settings' Account row otherwise. */
-[data-layout="phone"] .sode-lock__who:not(.is-hand) { display: none; }
+[data-layout="phone"] .sode-lock__who:not(.is-hand) {
+  display: none;
+}
 /* The chip slides inside the border at its rate. It has no background while any lock overlay is up (data-sode-lock, set before and cleared after it shows):
 a grey box rising under the fading overlay looked wrong behind the lock button. */
 /* `top` also follows the lost-link banner (--sode-down-h), and that must jump, not float. */
@@ -148,8 +177,12 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
     left var(--sode-lock-out) var(--pb-ease),
     top var(--sode-lock-out) var(--pb-ease);
 }
-[data-sode-lock] .sode-lock__who { background: transparent; }
-.sode-lock__who-bar { transition: padding var(--sode-lock-out) var(--pb-ease); }
+[data-sode-lock] .sode-lock__who {
+  background: transparent;
+}
+.sode-lock__who-bar {
+  transition: padding var(--sode-lock-out) var(--pb-ease);
+}
 .sode-lock__who-bar {
   align-items: center;
   display: flex;
@@ -157,14 +190,22 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   min-height: calc(var(--pb-control-h-sm) + var(--pb-space-2) * 2);
   padding: var(--pb-space-2) var(--pb-space-3);
 }
-.sode-lock__who-slot { display: grid; flex: none; }
+.sode-lock__who-slot {
+  display: grid;
+  flex: none;
+}
 .sode-lock__who-slot > * {
   grid-area: 1 / 1;
   transition: opacity var(--sode-lock-out) var(--pb-ease);
 }
-[data-sode-lock-on] .sode-lock__who-slot > * { transition-duration: var(--sode-lock-motion); }
+[data-sode-lock-on] .sode-lock__who-slot > * {
+  transition-duration: var(--sode-lock-motion);
+}
 .sode-lock__who:not(.is-hand) .sode-lock__who-ico,
-.sode-lock__who.is-hand .sode-lock__who-slot > .pb-btn { opacity: 0; pointer-events: none; }
+.sode-lock__who.is-hand .sode-lock__who-slot > .pb-btn {
+  opacity: 0;
+  pointer-events: none;
+}
 .sode-lock__who-slot > .pb-btn,
 .sode-lock__who-ico {
   align-items: center;
@@ -176,11 +217,22 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   padding: 0;
   width: var(--pb-control-h-sm);
 }
-.sode-lock__who-name { font-size: var(--pb-text-xs); }
-[data-sode-chip] .sode-log__head { padding-top: var(--pb-space-8); }
-.sode-lock__pin[hidden] { display: none; }
-.sode__scrim > .sode-lock__pin-dlg { min-width: 0; width: min(24rem, calc(100vw - var(--pb-space-8) * 2)); }
-[data-sode-lock] .sode-lock__who { z-index: calc(var(--pb-z-toast) + 1); }
+.sode-lock__who-name {
+  font-size: var(--pb-text-xs);
+}
+[data-sode-chip] .sode-log__head {
+  padding-top: var(--pb-space-8);
+}
+.sode-lock__pin[hidden] {
+  display: none;
+}
+.sode__scrim > .sode-lock__pin-dlg {
+  min-width: 0;
+  width: min(24rem, calc(100vw - var(--pb-space-8) * 2));
+}
+[data-sode-lock] .sode-lock__who {
+  z-index: calc(var(--pb-z-toast) + 1);
+}
 .sode-lock__foot {
   align-self: stretch;
   display: flex;
@@ -190,7 +242,9 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   opacity: 0;
   transition: opacity calc(var(--sode-lock-motion) * 0.5) var(--pb-ease);
 }
-.sode-lock__foot[hidden] { display: none; }
+.sode-lock__foot[hidden] {
+  display: none;
+}
 .sode-lock.is-on .sode-lock__foot {
   opacity: 1;
   transition-delay: calc(var(--sode-lock-motion) * 0.5);
@@ -204,9 +258,18 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   top: calc(var(--pb-space-5) + var(--pb-space-4) + var(--sode-down-h, 0px));
 }
 /* The chip slides under a stationary pointer, so its button must not take hover (a flickering grey box) while it moves: through the way in (an animation that holds pointer-events off) and the whole way out. */
-[data-sode-lock-on] .sode-lock__who { animation: sode-chip-quiet var(--sode-lock-motion) linear; }
-[data-sode-lock]:not([data-sode-lock-on]) .sode-lock__who { pointer-events: none; }
-@keyframes sode-chip-quiet { from, to { pointer-events: none; } }
+[data-sode-lock-on] .sode-lock__who {
+  animation: sode-chip-quiet var(--sode-lock-motion) linear;
+}
+[data-sode-lock]:not([data-sode-lock-on]) .sode-lock__who {
+  pointer-events: none;
+}
+@keyframes sode-chip-quiet {
+  from,
+  to {
+    pointer-events: none;
+  }
+}
 [data-sode-lock-on][data-layout="phone"] .sode-lock__who {
   top: calc(var(--sode-head-h, 3rem) + var(--pb-space-3) + var(--sode-down-h, 0px));
 }
@@ -214,22 +277,49 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   padding: var(--pb-space-2) var(--pb-space-4);
   transition: padding var(--sode-lock-motion) var(--pb-ease);
 }
-.sode-lock__pin-form { display: flex; flex-direction: column; gap: var(--pb-space-5); }
-.sode-lock__field { display: flex; flex-direction: column; gap: var(--pb-space-2); }
-.sode-lock__pin-note { margin: 0; min-height: 1.5em; }
+.sode-lock__pin-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+}
+.sode-lock__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-lock__pin-note {
+  margin: 0;
+  min-height: 1.5em;
+}
 
-.sode__scrim > .sode__filters.sode__users-dlg { width: min(60rem, calc(100vw - var(--pb-space-8) * 2)); }
-.sode__scrim > .sode__filters.sode__profiles-dlg { width: min(64rem, calc(100vw - var(--pb-space-8) * 2)); }
-.sode__scrim > .sode__filters.sode__pinprompt { width: min(26rem, calc(100vw - var(--pb-space-8) * 2)); }
-.sode__pinprompt .pb-modal__body { display: flex; flex-direction: column; gap: var(--pb-space-4); }
-.sode__users-list { display: flex; flex-direction: column; gap: var(--pb-space-4); }
+.sode__scrim > .sode__filters.sode__users-dlg {
+  width: min(60rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode__scrim > .sode__filters.sode__profiles-dlg {
+  width: min(64rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode__scrim > .sode__filters.sode__pinprompt {
+  width: min(26rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode__pinprompt .pb-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode__users-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
 .sode__users-row {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3) var(--pb-space-5);
 }
-.sode__users-head { display: none; }
+.sode__users-head {
+  display: none;
+}
 @media (min-width: 50rem) {
   .sode__users-table {
     column-gap: var(--pb-space-5);
@@ -243,12 +333,24 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
     grid-column: 1 / -1;
     grid-template-columns: subgrid;
   }
-  .sode__users-head { font-size: 0.875rem; margin-bottom: var(--pb-space-2); }
-  .sode__users-list { row-gap: var(--pb-space-4); }
-  .sode__users-row { column-gap: var(--pb-space-5); }
+  .sode__users-head {
+    font-size: 0.875rem;
+    margin-bottom: var(--pb-space-2);
+  }
+  .sode__users-list {
+    row-gap: var(--pb-space-4);
+  }
+  .sode__users-row {
+    column-gap: var(--pb-space-5);
+  }
 }
-.sode__users-in { flex: 1 1 8rem; min-width: 0; }
-.sode__users-dlg .pb-modal__body > .pb-btn { margin-top: var(--pb-space-4); }
+.sode__users-in {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+.sode__users-dlg .pb-modal__body > .pb-btn {
+  margin-top: var(--pb-space-4);
+}
 .sode__users-opts {
   align-items: end;
   display: flex;
@@ -256,10 +358,24 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   gap: var(--pb-space-4) var(--pb-space-6);
   margin-top: var(--pb-space-5);
 }
-.sode__users-opts .sode__checks { display: flex; flex-direction: column; gap: var(--pb-space-2); }
+.sode__users-opts .sode__checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
 
-.sode__profiles-h { font-size: 1rem; margin: var(--pb-space-4) 0 var(--pb-space-2); }
-.sode__profiles-list { display: flex; flex-direction: column; gap: var(--pb-space-2); list-style: none; margin: 0; padding: 0; }
+.sode__profiles-h {
+  font-size: 1rem;
+  margin: var(--pb-space-4) 0 var(--pb-space-2);
+}
+.sode__profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .sode__profiles-row {
   align-items: center;
   background: var(--pb-surface-raised);
@@ -269,10 +385,29 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   gap: var(--pb-space-2) var(--pb-space-4);
   padding: var(--pb-space-3) var(--pb-space-4);
 }
-.sode__profiles-body { display: grid; gap: var(--pb-space-3) var(--pb-space-7); grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
-.sode__profiles-body > .sode__hint { grid-column: 1 / -1; }
-.sode__profiles-sec--prefs { grid-row: span 2; }
-@media (max-width: 49.99rem) { .sode__profiles-sec--prefs { grid-row: auto; } }
-.sode__profiles-item { display: flex; flex: 1 1 12rem; flex-direction: column; min-width: 0; }
+.sode__profiles-body {
+  display: grid;
+  gap: var(--pb-space-3) var(--pb-space-7);
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+.sode__profiles-body > .sode__hint {
+  grid-column: 1 / -1;
+}
+.sode__profiles-sec--prefs {
+  grid-row: span 2;
+}
+@media (max-width: 49.99rem) {
+  .sode__profiles-sec--prefs {
+    grid-row: auto;
+  }
+}
+.sode__profiles-item {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  min-width: 0;
+}
 
-.sode-lock__who-ico { color: var(--pb-text-muted); }
+.sode-lock__who-ico {
+  color: var(--pb-text-muted);
+}
