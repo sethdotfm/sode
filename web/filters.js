@@ -28,7 +28,7 @@ import { shareLink, copyLink } from './transfer.js';
 import { filterShare, saveAsName } from './exportfmt.js';
 import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { parseFilter, filterText, compileFilter } from './filter.js';
-import { globalSaver, profileSaver } from './globalsave.js';
+import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
 import { upsertEntry, filterEntry } from './profilesrules.js';
@@ -385,15 +385,10 @@ export function openFilters() {
   tgt = null;
   openSnap = snapshot();
   chrome();
-  const f = filterState();
   renderMode();
-  renderShow();
-  eds.src.load(f.src);
-  eds.dst.load(f.dst);
-  $('flt-share').hidden = true;
+  loadDialog(filterState());
   $('flt-set-name-row').hidden = true;
   $('flt-pin-row').hidden = true;
-  naming = false;
   deleting = false;
   renderSetBar();
   dlg.show();
@@ -492,7 +487,7 @@ function saveTarget() {
   }
   tName.classList.remove('pb-input--invalid');
   const list = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old);
-  tgtSaver.change({ filterSets: list }, closeFilters);
+  saveIn('user', list, closeFilters);
 }
 tSave.addEventListener('click', saveTarget);
 tName.addEventListener('keydown', (e) => {
@@ -509,10 +504,7 @@ on('openFilterEditor', (m) => {
   tgt = { ...t, f: normFilter(t.found || FILTER_DEFAULT) };
   chrome();
   renderMode();
-  renderShow();
-  eds.src.load(tgt.f.src);
-  eds.dst.load(tgt.f.dst);
-  $('flt-share').hidden = true;
+  loadDialog(tgt.f);
   dlg.show();
   dialog.focus();
 });
@@ -534,13 +526,14 @@ for (const k of ['sode', 'ext', 'hidden']) {
     renderShow();
   });
 }
-function reload() {
-  const f = curF();
+// Show filter f in the editors and hide the share row.
+function loadDialog(f) {
   renderShow();
   eds.src.load(f.src);
   eds.dst.load(f.dst);
   $('flt-share').hidden = true;
 }
+const reload = () => loadDialog(curF());
 
 $('flt-clear').addEventListener('click', () => {
   pickSet('all', 'All');
@@ -551,7 +544,6 @@ $('flt-clear').addEventListener('click', () => {
 
 const setKey = (s) => `${s.scope}:${s.name}`;
 let deleting = false;
-let naming = false;
 let nameDirty = false;
 let moveTo = null;
 
@@ -630,11 +622,19 @@ const saver = globalSaver({
 });
 $('flt-pin-cancel').addEventListener('click', saver.cancel);
 const profSaver = profileSaver({ setNote, isOpen: filtersOpen, failTitle: 'Filter set not saved', render: renderSetBar });
-const changeShared = (scope, list, done) =>
-  scope === 'user'
-    ? profSaver.change({ filterSets: list.map((s) => ({ name: s.name, ...s.f })) }, done)
-    : saver.change({ sets: list.map((s) => ({ name: s.name, ...s.f })) }, done);
-const sharedWith = (scope, fn) => fn(setsIn(scope).map((s) => ({ name: s.name, f: s.f })));
+const wireSet = (s) => ({ name: s.name, ...s.f });
+const { saveIn, removeIn } = scopeWriter({
+  global: saver,
+  user: profSaver,
+  target: () => tgt && tgtSaver,
+  key: 'filterSets',
+  globalKey: 'sets',
+  listOf: (scope) => setsIn(scope).map(wireSet),
+  same: (a, b) => a === b,
+  dropLocal: deleteLocalSet,
+});
+// fn maps the scope's sets as { name, f }; the result goes out in wire shape.
+const sharedWith = (scope, fn) => fn(setsIn(scope).map((s) => ({ name: s.name, f: s.f }))).map(wireSet);
 const refTo = (scope, name, base) => ({ ...setRef(scope, name), base });
 
 $('flt-set').addEventListener('change', (e) => {
@@ -667,19 +667,10 @@ $('flt-set-cur').addEventListener('keydown', (e) => {
 });
 
 function removeSet(scope, name, done = () => {}) {
-  if (scope === 'local') {
-    deleteLocalSet(name);
+  removeIn(scope, name, () => {
     landed();
-    return done();
-  }
-  changeShared(
-    scope,
-    sharedWith(scope, (l) => l.filter((s) => s.name !== name)),
-    () => {
-      landed();
-      done();
-    },
-  );
+    done();
+  });
 }
 
 // A move copies to the other scope first, then removes here. done() runs once everything is
@@ -717,7 +708,7 @@ function saveSet(done = () => {}) {
       return removeSet(from, was, done);
     }
     const f = filterState();
-    return changeShared(
+    return saveIn(
       to,
       sharedWith(to, (l) => [...l, { name, f }]),
       () => {
@@ -734,7 +725,7 @@ function saveSet(done = () => {}) {
     return done();
   }
   const f = filterState();
-  changeShared(
+  saveIn(
     a.scope,
     sharedWith(a.scope, (l) => l.map((s) => (s.name === a.name ? { ...s, name, f } : s))),
     () => {
@@ -755,26 +746,15 @@ $('flt-set-del').addEventListener('click', () => {
     return;
   }
   deleting = false;
-  if (a.scope === 'local') {
-    deleteLocalSet(a.name);
+  removeIn(a.scope, a.name, () => {
+    if (a.scope !== 'local') adoptFilter(filterState());
     landed();
     $('flt-set').focus();
-    return;
-  }
-  changeShared(
-    a.scope,
-    sharedWith(a.scope, (l) => l.filter((s) => s.name !== a.name)),
-    () => {
-      adoptFilter(filterState());
-      landed();
-      $('flt-set').focus();
-    },
-  );
+  });
 });
 
 function askName() {
   const a = activeSet();
-  naming = true;
   const f = $('flt-set-name');
   const named = a && a.scope !== 'all';
   f.value = !named ? '' : saveAsName(a.name, a.scope);
@@ -788,7 +768,6 @@ function askName() {
 function closeName() {
   $('flt-set-name-row').hidden = true;
   $('flt-set-saveas').focus();
-  naming = false;
 }
 function saveName() {
   const f = $('flt-set-name');
@@ -809,7 +788,7 @@ function saveName() {
   }
   const fNow = filterState();
   if (scope === 'user' && !profileName()) return setNote('Log in to save a set for yourself.', true);
-  changeShared(
+  saveIn(
     scope,
     sharedWith(scope, (l) => [...l.filter((s) => s.name.toLowerCase() !== name.toLowerCase()), { name, f: fNow }]),
     () => {

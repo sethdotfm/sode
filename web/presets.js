@@ -6,7 +6,7 @@ import { mac } from './keys.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan, canRedo } from './plans.js';
 import { startPick, endPick } from './recentpick.js';
-import { globalSaver, profileSaver } from './globalsave.js';
+import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { trapDialog, labeled } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
@@ -322,6 +322,15 @@ const tgtSaver = profileSaver({
   okNote: 'Saved.',
   render: () => renderHead(true),
 });
+const { saveIn, removeIn } = scopeWriter({
+  global: saver,
+  user: profSaver,
+  target: () => tgt && tgtSaver,
+  key: 'presets',
+  listOf: (scope) => presetsIn(scope).map(saved),
+  same: (a, b) => a.toLowerCase() === b.toLowerCase(),
+  dropLocal: deleteLocalPreset,
+});
 
 let open = false,
   back = null;
@@ -546,36 +555,26 @@ function addRows(items, note) {
   setNote(note);
 }
 
-function built(moving = false) {
+// The preset the editor holds as name, in list: { s, next } or { err }. dupes: names it may not take; replace: the entry it overwrites.
+function build(name, list, { dupes, old, replace }) {
   const items = [];
   for (const r of cur.items.filter((x) => !isBlankRow(x))) {
     const p = parseRow(r);
     if (p.error) return { err: p.text };
     items.push(p.item);
   }
-  const s = { ...normPreset({ name: cur.name, items }), pinned: cur.pinned };
-  const list = tgt ? tgt.lists : presetsIn(cur.scope);
-  const err =
-    nameProblem(
-      s.name,
-      list.map((x) => x.name),
-      { noun: 'preset', old: moving ? '' : cur.old },
-    ) || presetProblem(s);
+  const s = { ...normPreset({ name, items }), pinned: cur.pinned };
+  const err = nameProblem(s.name, dupes, { noun: 'preset', old }) || presetProblem(s);
   if (err) return { err };
-  const next = replacePreset(list, s, moving ? '' : cur.old);
+  const next = replacePreset(list, s, replace);
   const tooMuch = presetsProblem(next);
   return tooMuch ? { err: tooMuch } : { s, next };
 }
 
-function removeFrom(scope, name, done) {
-  if (scope === 'local') {
-    deleteLocalPreset(name);
-    return done();
-  }
-  const next = presetsIn(scope)
-    .filter((x) => x.name.toLowerCase() !== name.toLowerCase())
-    .map(saved);
-  (scope === 'user' ? profSaver : saver).change({ presets: next }, done);
+function built(moving = false) {
+  const list = tgt ? tgt.lists : presetsIn(cur.scope);
+  const old = moving ? '' : cur.old;
+  return build(cur.name, list, { dupes: list.map((x) => x.name), old, replace: old });
 }
 
 function save() {
@@ -583,7 +582,7 @@ function save() {
   const b = built(moving);
   if (b.err) return setNote(b.err, true);
   if (tgt) {
-    return tgtSaver.change({ presets: b.next }, () => {
+    return saveIn(cur.scope, b.next, () => {
       dirty = false;
       closePresets();
     });
@@ -600,7 +599,7 @@ function save() {
     dirty = false;
     if (!moving) return finish();
     if (from === 'global') clearPinOverride(was);
-    removeFrom(from, was, () => {
+    removeIn(from, was, () => {
       cur.scope = to;
       finish();
     });
@@ -613,8 +612,7 @@ function save() {
     saveLocalPreset(b.s, moving ? '' : cur.old);
     return landed();
   }
-  const sv = to === 'user' ? profSaver : saver;
-  sv.change({ presets: b.next }, landed);
+  saveIn(to, b.next, landed);
 }
 
 function askSaveAs() {
@@ -637,22 +635,11 @@ function saveAs() {
     setNote(msg, true);
     asName.focus();
   };
-  const items = [];
-  for (const r of cur.items.filter((x) => !isBlankRow(x))) {
-    const p = parseRow(r);
-    if (p.error) return bad(p.text);
-    items.push(p.item);
-  }
-  const err = nameProblem(name, [], { noun: 'preset' });
-  if (err) return bad(err);
-  const s = { ...normPreset({ name, items }), pinned: cur.pinned };
   const list = presetsIn(target);
   const taken = list.find((x) => x.name.toLowerCase() === name.toLowerCase())?.name || '';
-  const perr = presetProblem(s);
-  if (perr) return bad(perr);
-  const next = replacePreset(list, s, taken);
-  const tooMuch = presetsProblem(next);
-  if (tooMuch) return bad(tooMuch);
+  const b = build(name, list, { dupes: [], replace: taken });
+  if (b.err) return bad(b.err);
+  const { s, next } = b;
   const loaded = () => {
     closeSaveAs();
     cur.scope = target;
@@ -668,7 +655,7 @@ function saveAs() {
     loaded();
     return setNote('Saved for this browser.');
   }
-  (target === 'user' ? profSaver : saver).change({ presets: next }, loaded);
+  saveIn(target, next, loaded);
 }
 asName.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
@@ -691,15 +678,11 @@ function deleteClick() {
   }
   deleting = false;
   const name = cur.old;
-  if (cur.from === 'local') {
-    deleteLocalPreset(name);
+  const local = cur.from === 'local';
+  removeIn(cur.from, name, () => {
     load(null);
-    return setNote('Deleted.');
-  }
-  const next = presetsIn(cur.from)
-    .filter((s) => s.name.toLowerCase() !== name.toLowerCase())
-    .map(saved);
-  (cur.from === 'user' ? profSaver : saver).change({ presets: next }, () => load(null));
+    if (local) setNote('Deleted.');
+  });
 }
 
 export function openPresets(scope = '', name = '') {
