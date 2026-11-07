@@ -91,7 +91,6 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 		cfg.SettingsPin = ""
 		for i := range cfg.Users {
 			cfg.Users[i].Pin = ""
-			cfg.Users[i].PinTag = "" // equal tags would show who shares a PIN
 		}
 		head += "# No PINs in this file. Importing it keeps each user's current PIN and the Advanced Settings PIN.\n"
 	}
