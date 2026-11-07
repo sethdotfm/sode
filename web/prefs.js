@@ -1,5 +1,5 @@
 // Resolves a pref: this browser's value (localStorage), else the global default (deviceDefaults), else built-in; missing or unknown means follow global.
-// Pure; device.js does storage. prepaint.js repeats the lookup inline: keep in step.
+// Pure; device.js does storage. prepaint.js repeats the lookup inline; prepaint.test.mjs checks they agree.
 
 // Stored as strings; the on/off ones are booleans in the config.
 const browserClock = () => (/h1[12]/.test(new Intl.DateTimeFormat([], { hour: 'numeric' }).resolvedOptions().hourCycle || '') ? '12-hour' : '24-hour');
@@ -30,7 +30,7 @@ export function fromGlobal(name, g) {
 export const PROFILE_CACHE_KEY = 'sode-profile-prefs';
 
 // Cached profile prefs count only while a session token is kept (sode-session, sode-tab-session); else the next load is a guest.
-// prepaint.js repeats this inline: keep in step.
+// prepaint.js repeats this inline (prepaint.test.mjs).
 export function cachedProfile(raw, hasSession) {
   if (!hasSession || !raw || typeof raw.user !== 'string' || !raw.user || !raw.prefs || typeof raw.prefs !== 'object') {
     return { user: '', prefs: {} };
