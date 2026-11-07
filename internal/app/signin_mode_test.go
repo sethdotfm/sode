@@ -302,3 +302,20 @@ func TestUnknownUsernameCostsAsMuchAsAKnownOne(t *testing.T) {
 		t.Fatalf("unknown username answered in %v, a known one in %v", unknown, known)
 	}
 }
+
+// PIN lengths are public (lockState.lens), so a wrong-length PIN for a known username must
+// still pay the hash cost, or a fast answer says the username exists.
+func TestWrongLengthPinCostsAsMuchAsARightLengthOne(t *testing.T) {
+	a := usernameApp(t)
+	try := func(user, pin string) time.Duration {
+		start := time.Now()
+		if err := a.UserUnlockAs(&client{ip: "10.0.0.9"}, user, pin); err == nil {
+			t.Fatalf("%s: a wrong PIN was accepted", user)
+		}
+		return time.Since(start)
+	}
+	short, unknown := try("ana.k", "99"), try("nobody", "9999")
+	if short < unknown/2 {
+		t.Fatalf("a wrong-length PIN answered in %v, an unknown username in %v", short, unknown)
+	}
+}

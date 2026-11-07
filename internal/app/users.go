@@ -229,7 +229,12 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 				return false
 			}
 			for i := range users {
-				if users[i].Name == named.Name && users[i].Len == n && config.CheckPin(users[i].Pin, pin) {
+				if users[i].Name != named.Name {
+					continue
+				}
+				// The hash runs whatever the length: PIN lengths are public, so skipping it
+				// would tell a known username from an unknown one.
+				if config.CheckPin(users[i].Pin, pin) && users[i].Len == n {
 					hit = &users[i]
 					return true
 				}
