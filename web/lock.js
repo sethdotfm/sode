@@ -418,7 +418,7 @@ function clearFeedback() {
 
 function paint() {
   dotsEl.textContent = dots(pin);
-  state.textContent = pin ? `${pin.length} ${pin.length === 1 ? 'digit' : 'digits'} entered` : 'Please enter your PIN.';
+  state.textContent = pin ? `${pin.length} ${pin.length === 1 ? 'digit' : 'digits'} entered` : '';
   checkKey.disabled = !canSend(L, pin, nameValue());
 }
 

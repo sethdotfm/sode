@@ -13,6 +13,7 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
 }
 
 .sode-lock {
+  --sode-lock-w: min(100%, calc(var(--pb-control-h-lg) * 6.5)); /* the pad and the username box */
   align-items: center;
   -webkit-backdrop-filter: blur(0);
   backdrop-filter: blur(0);
@@ -104,7 +105,7 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-2);
-  width: min(16rem, 100%);
+  width: var(--sode-lock-w);
 }
 .sode-lock__namefield[hidden] {
   display: none;
@@ -112,9 +113,14 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
 .sode-lock__namelabel {
   color: var(--pb-text-muted);
 }
+.sode-lock__name {
+  font-size: var(--pb-text-lg);
+  height: var(--pb-control-h-lg);
+}
 .sode-lock__state {
   color: var(--pb-text-muted);
   margin: 0;
+  min-height: 1.5em; /* the digit count appears without moving the pad */
 }
 .sode-lock__dots {
   color: var(--pb-text-strong);
@@ -142,7 +148,7 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
   display: grid;
   gap: var(--pb-space-5);
   grid-template-columns: repeat(3, 1fr);
-  width: min(100%, calc(var(--pb-control-h-lg) * 6.5));
+  width: var(--sode-lock-w);
 }
 .pb-btn.sode-lock__key {
   font-size: var(--pb-text-xl);
