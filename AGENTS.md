@@ -2,7 +2,7 @@
 
 Notes for AI agents working in this repo. Only the non-obvious is here; code and git history hold the rest.
 
-Sode: keyboard-first web patching for one SW-P-08 router (Ross Ultrix). Settings table and protocol summary are in README.md.
+Sode: keyboard-first web patching for one SW-P-08 router (Ross Ultrix). Settings table and protocol summary are in docs/reference.md.
 
 ## Commands
 
