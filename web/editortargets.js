@@ -1,9 +1,6 @@
-// What the Filters and Presets editors work on. Each editor holds one target and never asks which
-// kind it is: the browser target is This browser's own data, the profile target is a draft aimed at
-// one user's profile (bus 'openFilterEditor' / 'openPresetEditor', t from profile.js editTarget).
-// `own` says whether the browser-only controls (picker, scope, sets, share) show. `edit` is
-// {user, profile} for profileSaver, null for the browser. `saver` is the profileSaver a profile
-// save goes through, null for the browser.
+// What the Filters and Presets editors work on: This browser's own data, or a draft aimed at one
+// user's profile (t is profile.js editTarget). `edit` and `saver` are null for the browser:
+// profileSaver and scopeWriter take them as "no profile".
 
 import { nameProblem } from './core.js';
 import { upsertEntry, filterEntry } from './profilesrules.js';
@@ -11,7 +8,7 @@ import { upsertEntry, filterEntry } from './profilesrules.js';
 const forUser = (noun, t) => `${t.old ? 'Edit' : 'Add'} ${noun} for ${t.user}`;
 
 // Filters. read/write: the browser's filter. snapshot/restore: Cancel rolls the filter back, since
-// edits reach Recent as they are made. onClose: the browser's saver settles.
+// edits reach History as they are made. onClose: the browser's saver settles.
 export function browserFilters({ read, write, snapshot, restore, onClose }) {
   let snap = null;
   return {
@@ -25,7 +22,6 @@ export function browserFilters({ read, write, snapshot, restore, onClose }) {
     begin() {
       snap = snapshot();
     },
-    // A set write has landed: Cancel must not roll back past it.
     landed() {
       snap = snapshot();
     },

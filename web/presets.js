@@ -644,33 +644,33 @@ function closeSaveAs() {
 }
 function saveAs() {
   const name = asName.value.trim().slice(0, 32);
-  const target = asScope.value;
+  const dest = asScope.value;
   const bad = (msg) => {
     asName.classList.add('pb-input--invalid');
     setNote(msg, true);
     asName.focus();
   };
-  const list = presetsIn(target);
+  const list = presetsIn(dest);
   const taken = list.find((x) => x.name.toLowerCase() === name.toLowerCase())?.name || '';
   const b = build(name, list, { dupes: [], replace: taken });
   if (b.err) return bad(b.err);
   const { s, next } = b;
   const loaded = () => {
     closeSaveAs();
-    cur.scope = target;
-    cur.from = target;
+    cur.scope = dest;
+    cur.from = dest;
     cur.old = s.name;
     cur.name = s.name;
     dirty = false;
     discard = false;
     renderHead();
   };
-  if (target === 'local') {
+  if (dest === 'local') {
     saveLocalPreset(s, taken);
     loaded();
     return setNote('Saved for this browser.');
   }
-  saveIn(target, next, loaded);
+  saveIn(dest, next, loaded);
 }
 asName.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
