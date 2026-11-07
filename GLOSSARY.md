@@ -62,6 +62,21 @@ _Avoid_: batch, folder
 **Entry**:
 One row in History: a take, or an external change.
 
+**Before**:
+What the router had on a destination just before a take. Undo restores it.
+
+**Result**:
+What the router did with one destination in a take. It connected the source, it already had it (Already), or it did not confirm (Failed). A Result can arrive Late.
+
+**Already**:
+A Result where the router already had that source on that destination, so nothing changed.
+
+**Failed**:
+A Result where the router did not confirm the change, or refused it. Retry prepares a plan for the Failed destinations.
+
+**Late**:
+A Result that the router confirmed after Sode had stopped waiting. Sode amends the Entry when it arrives.
+
 **Filter**:
 One rule on Source or Destination that limits which entries History shows.
 
@@ -132,7 +147,7 @@ Someone who is not signed in. A guest sees This browser and Everyone values and 
 The Source box, the Destination box and the Level box, where a plan is typed. What they hold is a plan until Confirm.
 
 **Last**:
-The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser.
+The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser, and the chip is hidden until this browser has made a take.
 
 **Next**:
 The chip in a patch box that fills it with the value after Last, either the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
