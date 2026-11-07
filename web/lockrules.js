@@ -206,8 +206,21 @@ export const lockArrived = (v, covered) => (covered && v.mode === MODE.SOFT ? PA
 // settings, a token catch-up) says nothing about the pad.
 export const signInWon = (v, { enforced, unlocked, user }) => (v.mode === MODE.SIGN_IN && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 
-export const chipShown = ({ covered, soft, user }) => (soft ? !!user : !covered);
+// heldUser: whose held Lock this tab shows (the server's held state carries no name).
+export const chipShown = ({ covered, soft, user, heldUser = '' }) => (soft ? !!user : !covered || !!heldUser);
 
 // The server fills `user` only for a session that is signed in and not locked, so a held Lock that
 // ends with no user ended by sign out, a removed user or a changed PIN; with a user it was resumed.
 export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user;
+
+// This tab's own memory of whose Lock is up: from the user it had when the Lock came, kept
+// across reloads in sessionStorage, and forgotten once the Lock is gone.
+export const heldWho = (kept, prev, next) => (next.held ? prev.user || kept : '');
+
+// A username is kept for the next sign-in unless a browser-wide token already signs them in.
+export const remembers = (m) => !m.token || !!m.tab;
+
+export const prefillName = (s, last) => (asksUsername(s) ? last || '' : '');
+
+// The pad takes the keys once the box already holds a name.
+export const focusName = (s, name) => asksUsername(s) && !name.trim();

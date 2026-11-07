@@ -45,6 +45,10 @@ import {
   signInWon,
   chipShown,
   heldEnded,
+  heldWho,
+  remembers,
+  prefillName,
+  focusName,
   wantsTab,
   hiToken,
   tokenHome,
@@ -59,6 +63,11 @@ const TOKEN_KEY = 'sode-session';
 // A no-lock sign-in's token: this tab only (sessionStorage), so closing the tab signs out while a
 // reload stays in.
 const TAB_KEY = 'sode-tab-session';
+// Whose Lock this tab shows: this tab's sessionStorage, so a reload still names them. The
+// username box's prefill is the browser's (localStorage); no name ever comes from the server.
+const HELD_KEY = 'sode-held-user';
+const LAST_KEY = 'sode-last-user';
+let heldUser = readTab(HELD_KEY) || '';
 const page = pageType(location.pathname);
 
 {
@@ -190,11 +199,12 @@ function say(text, bad = false) {
 
 function render() {
   const covered = viewBody(V, lockCovers(L)) !== '';
-  const showChip = chipShown({ covered, soft: V.mode === MODE.SOFT, user: L.user });
+  const who = L.held ? heldUser : '';
+  const showChip = chipShown({ covered, soft: V.mode === MODE.SOFT, user: L.user, heldUser: who });
   if (covered) showLock();
   else hideLock();
   build();
-  chip.update(L, showChip, V.mode === MODE.SOFT);
+  chip.update(L, showChip, V.mode === MODE.SOFT || L.held, L.user || who);
   document.documentElement.toggleAttribute('data-sode-chip', !!showChip);
   if (showChip) placeChip();
 }
@@ -245,7 +255,7 @@ function showLock() {
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
   pin = '';
-  nameInput.value = '';
+  nameInput.value = prefillName(L, readStr(LAST_KEY));
   welcoming = false;
   clearFeedback();
   say('');
@@ -276,7 +286,7 @@ function showLock() {
   const had = document.activeElement;
   if (had && had !== document.body && !root.contains(had)) before = had;
   had?.blur?.();
-  if (asksUsername(L) && V.mode !== MODE.SOFT) nameInput.focus({ preventScroll: true });
+  if (focusName(L, nameValue()) && V.mode !== MODE.SOFT) nameInput.focus({ preventScroll: true });
   else root.focus({ preventScroll: true });
 }
 
@@ -444,6 +454,7 @@ function sendPin() {
 onMsg('userUnlockResult', (m) => {
   if (m.id !== seq) return;
   if (m.ok) {
+    if (asksUsername(L) && remembers(m)) writeStr(LAST_KEY, nameValue().trim());
     pin = '';
     unlocked = true;
     say('');
@@ -477,6 +488,9 @@ onMsg('lockState', (m) => {
   if (settle) settle();
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
   const ended = heldEnded(L, m);
+  heldUser = heldWho(heldUser, L, m);
+  writeTab(HELD_KEY, heldUser || null);
+  if (ended) writeStr(LAST_KEY, null);
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.held = !!m.held;
@@ -579,6 +593,7 @@ function signInFromLock() {
   soft.lock.cancel();
   soft = null;
   V = startSignIn(V, true);
+  nameInput.value ||= prefillName(L, readStr(LAST_KEY));
   pin = '';
   clearTimeout(timer);
   clearFeedback();
@@ -600,6 +615,8 @@ function lockNow() {
   owedLock = !wsSend({ t: 'userLock' });
   pin = '';
   clearTimeout(timer);
+  heldUser = L.user;
+  writeTab(HELD_KEY, heldUser);
   Object.assign(L, raiseLock(L));
   render();
   emit('access', { ...L });
@@ -610,7 +627,10 @@ function lockNow() {
 function signOutNow() {
   if (!L.user && !L.held) return;
   writeStr(TOKEN_KEY, null);
+  writeStr(LAST_KEY, null);
   writeTab(TAB_KEY, null);
+  heldUser = '';
+  writeTab(HELD_KEY, null);
   wsSend({ t: 'userSignOut' });
   owedLock = false;
   pin = '';

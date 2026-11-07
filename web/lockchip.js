@@ -97,13 +97,13 @@ export function buildChip(api) {
   });
 
   // pageLocked: the lock button does nothing, so it goes.
-  function update(L, chip, pageLocked) {
+  function update(L, chip, pageLocked, who = L.user) {
     root.hidden = !chip;
     root.classList.toggle('is-hand', !!pageLocked);
     lockBtn.inert = !!pageLocked; // out of the tab order and unclickable while faded
     lockBtn.setAttribute('aria-hidden', String(!!pageLocked));
     ico.setAttribute('aria-hidden', String(!pageLocked));
-    name.textContent = L.user ? `Signed in as ${L.user}` : '';
+    name.textContent = who ? `Signed in as ${who}` : '';
   }
   // Swaps the icon when the overlay's border starts to move.
   function setLocked(on) {

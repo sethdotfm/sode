@@ -41,6 +41,10 @@ import {
   signInWon,
   chipShown,
   heldEnded,
+  heldWho,
+  remembers,
+  prefillName,
+  focusName,
   wantsTab,
   hiToken,
   tokenHome,
@@ -319,6 +323,8 @@ test('hand lock: the chip shows for a logged-in user under it only', () => {
   assert.equal(chipShown({ covered: true, soft: true, user: '' }), false);
   assert.equal(chipShown({ covered: false, soft: false, user: '' }), true);
   assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false);
+  assert.equal(chipShown({ covered: true, soft: false, user: '', heldUser: 'Ana' }), true); // the held pad says whose it is
+  assert.equal(chipShown({ covered: true, soft: false, user: '', heldUser: '' }), false);
 });
 
 test('hand lock: Sign out offered only with a user and no PIN lock; the view stays soft', () => {
@@ -412,4 +418,26 @@ test('heldEnded: a held Lock that ends with nobody signed in was ended elsewhere
   assert.equal(heldEnded({ held: true }, { held: false, user: 'Ana' }), false); // another tab's PIN resumed it
   assert.equal(heldEnded({ held: true }, { held: true, user: '' }), false);
   assert.equal(heldEnded({ held: false }, { held: false, user: '' }), false);
+});
+
+test('heldWho: this tab remembers whose Lock it is; a Lock that is gone forgets it', () => {
+  assert.equal(heldWho('', { user: 'Ana' }, { held: true }), 'Ana'); // raised from another tab
+  assert.equal(heldWho('Ana', { user: '' }, { held: true }), 'Ana'); // reload or a later state
+  assert.equal(heldWho('Ana', { user: '' }, { held: false }), '');
+  assert.equal(heldWho('', { user: '' }, { held: true }), '');
+});
+
+test('remembers: only a sign-in without a browser-wide token keeps the username', () => {
+  assert.equal(remembers({ ok: true }), true);
+  assert.equal(remembers({ ok: true, token: 't', tab: true }), true);
+  assert.equal(remembers({ ok: true, token: 't' }), false); // Never sign out: the token already signs them in
+});
+
+test('prefillName and focusName: username mode fills the box, and then the pad takes the keys', () => {
+  assert.equal(prefillName({ mode: 'username', held: false }, 'ana'), 'ana');
+  assert.equal(prefillName({ mode: 'username', held: true }, 'ana'), '');
+  assert.equal(prefillName({ mode: 'pin', held: false }, 'ana'), '');
+  assert.equal(focusName({ mode: 'username', held: false }, 'ana'), false);
+  assert.equal(focusName({ mode: 'username', held: false }, ''), true);
+  assert.equal(focusName({ mode: 'pin', held: false }, ''), false);
 });
