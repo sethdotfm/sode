@@ -1,5 +1,5 @@
-// Pick mode for Recent (the preset editor's "Add from Recent..."): rows get check boxes, a bar says what the next click does.
-// "Include follows" also adds changes made right after (likely router automation).
+// Pick mode for History (the preset editor's "Add from History..."): rows get check boxes, a bar says what the next click does.
+// "Include external follow entries" also adds changes made right after (probably following the take).
 // Mode 'boxes' ("Add from Patch Boxes...") uses the same bar and state but keeps the patch boxes live: Add turns the patch into a row, Done ends it.
 // Each layout asks picking()/pickBox() while building rows, redraws on 'pick' and calls bindPick(list) once.
 import { el, on, emit, S } from './core.js';
@@ -49,8 +49,8 @@ const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
 export const MODES = {
   recent: {
     msg: (name) => `Choose takes for ${name}`,
-    sub: 'Click takes or folders in Recent to select them.',
-    aria: 'Choose takes from Recent',
+    sub: 'Click takes or folders in History to select them.',
+    aria: 'Choose takes from History',
     follows: true,
     cancelText: 'Cancel',
     taken: (s) => pickedNow(s),
@@ -131,8 +131,8 @@ const count = el('span', 'sode__hint');
 count.setAttribute('role', 'status');
 const followsIn = el('input', 'pb-check__input');
 followsIn.type = 'checkbox';
-const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include follows'));
-followsBox.title = 'Also add changes made elsewhere right after a chosen take (likely router automation)';
+const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include external follow entries'));
+followsBox.title = 'Also add external changes made right after a chosen take, which probably followed it';
 const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
@@ -140,7 +140,7 @@ cancelBtn.type = 'button';
 const controls = el('div', 'sode__pickbar-controls', followsBox, count, addBtn, cancelBtn);
 const bar = el('div', 'sode__pickbar', el('div', 'sode__pickbar-title', msg, sub), controls);
 bar.setAttribute('role', 'region');
-bar.setAttribute('aria-label', 'Choose takes from Recent');
+bar.setAttribute('aria-label', 'Choose takes from History');
 bar.hidden = true;
 document.body.append(bar);
 // The phone makes the bar a row of its view (mobile.js).

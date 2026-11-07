@@ -86,7 +86,7 @@
 
     <section class="sode__history" aria-labelledby="history-head">
       <div class="sode__recent-head" id="history-bar">
-        <span class="sode__label" id="history-head">Recent</span>
+        <span class="sode__label" id="history-head">History</span>
       </div>
       <div class="sode__recent-tools">
         <div class="sode__search" data-search id="history-search">
@@ -108,7 +108,7 @@
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
       </div>
-      <ul class="sode__hist" id="history" tabindex="-1" aria-label="Recent takes"></ul>
+      <ul class="sode__hist" id="history" tabindex="-1" aria-label="History"></ul>
       <div class="sode__hist-more" id="history-more" aria-live="polite"></div>
     </section>
 
@@ -463,14 +463,14 @@
     <fieldset class="sode__group">
       <legend>History</legend>
       <div class="sode__field">
-        <label for="cfg-hidden">Hidden destinations in Recent</label>
+        <label for="cfg-hidden">Hidden destinations in History</label>
         <input id="cfg-hidden" class="pb-input sode__code" data-key="hiddenDsts" placeholder="65, MV, !MV 1" spellcheck="false" autocomplete="off">
         <span class="sode__hint" id="cfg-hidden-note"></span>
       </div>
-      <div class="sode__field" data-find="clear-history" data-label="Clear Recent">
-        <span>Clears Recent history for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect Logs.</span>
+      <div class="sode__field" data-find="clear-history" data-label="Clear History">
+        <span>Clears History for everyone, including retry and undo checkpoints. Cannot be undone. Does not affect Logs.</span>
         <div class="sode__names" id="clear-step1">
-          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear Recent</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="clear-history">Clear History</button>
         </div>
         <div class="sode__names" id="clear-step2" hidden>
           <span>
@@ -522,7 +522,7 @@
       <div class="sode__recent-head sode__presets" data-presets role="group" aria-label="Presets"></div>
       <section class="sode-m__recent" id="m-recent" aria-labelledby="m-recent-head">
         <div class="sode__recent-head">
-          <span class="sode__label" id="m-recent-head">Recent <span class="sode__hint">(swipe left to undo, right to redo)</span></span>
+          <span class="sode__label" id="m-recent-head">History <span class="sode__hint">(swipe left to undo, right to redo)</span></span>
           <div class="sode__sets" data-sets role="group" aria-label="Filter sets"></div>
           <button type="button" class="pb-btn pb-btn--ghost pb-btn--sm sode__filters-btn sode__chipbtn" data-filters aria-haspopup="dialog">Filters</button>
         </div>
@@ -620,7 +620,7 @@
       <fieldset class="sode__filters-show">
         <legend class="sode__label">Show</legend>
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-sode"><span class="pb-check__label">Sode takes</span></label>
-        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-ext"><span class="pb-check__label">Other panels</span></label>
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="flt-ext"><span class="pb-check__label">External changes</span></label>
         <label class="pb-check sode__filters-indent"><input type="checkbox" class="pb-check__input" id="flt-hidden"><span class="pb-check__label">Hidden destinations</span></label>
         <span class="sode__hint sode__filters-indent" id="flt-hidden-note"></span>
       </fieldset>
@@ -693,9 +693,9 @@
         <dt><kbd data-mac="⌥↑">Alt+↑</kbd> <kbd data-mac="⌥↓">Alt+↓</kbd> <kbd data-mac="⌥⌘j">Ctrl+Alt+j</kbd> <kbd data-mac="⌥⌘k">Ctrl+Alt+k</kbd></dt><dd>Move a pinned preset up or down</dd>
         <dt><kbd>Esc</kbd></dt><dd>Clear the search, then close</dd>
       </dl>
-      <div class="sode__label">Keyboard mode (Recent)</div>
+      <div class="sode__label">Keyboard mode (History)</div>
       <dl>
-        <dt><kbd>Esc</kbd></dt><dd>Start it: with the boxes empty (or on a button in Recent); a click leaves</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Start it: with the boxes empty (or on a button in History); a click leaves</dd>
         <dt><kbd>s</kbd> <kbd>d</kbd> <kbd>f</kbd></dt><dd>Source, Destination, Levels</dd>
         <dt><kbd>j</kbd> <kbd>k</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>Next, previous (<kbd data-mac="⌘j">Ctrl+j</kbd> <kbd data-mac="⌘k">Ctrl+k</kbd> work too)</dd>
         <dt><kbd>⇧j</kbd> <kbd>⇧↓</kbd></dt><dd>Next group</dd>

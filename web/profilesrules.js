@@ -12,7 +12,7 @@ const LABELS = {
   scrollTop: 'Scroll to top',
   setStack: 'Stacked sets',
   nextMode: 'Next chip',
-  searchFilters: 'Quick search follows filters',
+  searchFilters: 'Quick search uses filters',
 };
 export function prefRows(prefs) {
   const out = [];

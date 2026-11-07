@@ -127,7 +127,7 @@ export const DICT = {
     'logging',
     'who',
   ],
-  history: ['recent', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
+  history: ['history', 'recent', 'external', 'undo', 'clear', 'delete', 'erase', 'filter', 'filters', 'filter sets', 'set', 'search', 'hidden', 'hide'],
   users: [
     'user',
     'users',
@@ -298,7 +298,7 @@ export const DICT = {
   ],
 
   // ---- History
-  'cfg-hidden': ['hidden', 'hide', 'destinations', 'dst', 'filter', 'global filter', 'panel', 'mv', 'multiviewer', 'recent'],
+  'cfg-hidden': ['hidden', 'hide', 'destinations', 'dst', 'filter', 'global filter', 'panel', 'external', 'external change', 'external follow', 'mv', 'multiviewer', 'recent'],
   'clear-history': ['clear', 'delete', 'erase', 'wipe', 'reset', 'undo', 'history', 'recent', 'remove all'],
   'open-log': ['log', 'communication log', 'audit', 'uptime', 'messages', 'sent', 'wire', 'router log', 'events', 'tx', 'ack', 'diagnostics', 'debug', 'graph'],
 };

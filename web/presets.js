@@ -185,7 +185,7 @@ scopeIn.append(...scopeOpts());
 const pinnedIn = el('input', 'pb-check__input');
 pinnedIn.type = 'checkbox';
 pinnedIn.checked = true;
-const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned (show above Recent)'));
+const pinnedBox = el('label', 'pb-check', pinnedIn, el('span', 'pb-check__label', 'Pinned (show above History)'));
 const rowsBox = el('div', 'sode__preset-rows');
 const noteEl = el('span', 'sode__hint');
 noteEl.setAttribute('aria-live', 'polite');
@@ -268,7 +268,7 @@ dialog.append(
         focusLast();
       }),
       btn('pb-btn--outline', 'Add from Patch Boxes…', addFromBoxes),
-      btn('pb-btn--outline', 'Add from Recent…', fillFromRecent),
+      btn('pb-btn--outline', 'Add from History…', fillFromRecent),
     ),
     rowsBox,
   ),
@@ -543,7 +543,7 @@ function fillFromRecent() {
     onAdd: (takes) => {
       back();
       const items = itemsFromTakes(takes);
-      addRows(items, `Added ${takes.length} take${takes.length === 1 ? '' : 's'} from Recent.`);
+      addRows(items, `Added ${takes.length} take${takes.length === 1 ? '' : 's'} from History.`);
     },
   });
 }
