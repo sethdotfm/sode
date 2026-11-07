@@ -96,13 +96,13 @@ export function buildChip(api) {
     closePin();
   });
 
-  // handLocked: the lock button does nothing, so it goes.
-  function update(L, chip, handLocked) {
+  // pageLocked: the lock button does nothing, so it goes.
+  function update(L, chip, pageLocked) {
     root.hidden = !chip;
-    root.classList.toggle('is-hand', !!handLocked);
-    lockBtn.inert = !!handLocked; // out of the tab order and unclickable while faded
-    lockBtn.setAttribute('aria-hidden', String(!!handLocked));
-    ico.setAttribute('aria-hidden', String(!handLocked));
+    root.classList.toggle('is-hand', !!pageLocked);
+    lockBtn.inert = !!pageLocked; // out of the tab order and unclickable while faded
+    lockBtn.setAttribute('aria-hidden', String(!!pageLocked));
+    ico.setAttribute('aria-hidden', String(!pageLocked));
     name.textContent = L.user ? `Signed in as ${L.user}` : '';
   }
   // Swaps the icon when the overlay's border starts to move.

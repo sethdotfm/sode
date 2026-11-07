@@ -8,7 +8,7 @@ import {
   S,
   on,
   connState,
-  routerLabel,
+  routerTitle,
   linked,
   setLinkDisabled,
   renderDown,
@@ -23,14 +23,14 @@ import {
 import { defaultLevelsWord, levelBar, allLevels, levelText } from './levelview.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, folderTitle, folderLevels } from './history.js';
+import { entryNote, historyPager, statusNode, groupTitle, groupLevels } from './history.js';
 import { planVerb, resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { emptyNote } from './searchbox.js';
 import { presetHost } from './presets.js';
-import { rowActions, disclosureAria, followersHead, lastFill } from './recentrows.js';
-import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './recentpick.js';
+import { rowActions, disclosureAria, followersHead, lastFill } from './historyrows.js';
+import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './historypick.js';
 import {
   byLabel,
   levelBox,
@@ -87,7 +87,7 @@ function renderConn() {
   $('m-ws-text').parentElement.title = c.ws[1];
   setDot($('m-rt-dot'), $('m-rt-text'), [c.rt[0], 'Router']);
   $('m-rt-text').parentElement.title = c.rt[1];
-  const [label, isName] = routerLabel();
+  const [label, isName] = routerTitle();
   $('m-rt-addr').textContent = label;
   $('m-rt-addr').title = label;
   $('m-rt-addr').classList.toggle('sode__conn-addr--name', isName);
@@ -383,7 +383,7 @@ function scrollThread() {
 const REVEAL = 96;
 const arrived = arrivals();
 
-const openFolders = new Set();
+const openGroups = new Set();
 const openFollowers = new Set();
 const openChanges = new Set();
 
@@ -394,7 +394,7 @@ const sheetFor = (plan) => {
 const undoBtn = (plan, label, text = 'Undo') => undoButton(plan, label, sheetFor, { text, cls: 'sode-m__undo' });
 const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholder: false, cls: 'sode-m__redo' });
 
-function recentRow(e) {
+function historyRow(e) {
   const src = srcItem(e.src, e.srcName),
     dst = dstItem(e.dst, e.dstName);
   const acts = rowActions({ e });
@@ -407,7 +407,7 @@ function recentRow(e) {
     e.chain &&
     disclosure(open, 'Changes', changesId, () => {
       toggle(openChanges, e.id);
-      renderRecent();
+      renderHistory();
     });
   let changes = null;
   if (open) {
@@ -442,15 +442,15 @@ function recentRow(e) {
 }
 
 // A folder: swipe to undo all; open it to swipe or retry one by one.
-function folderRows(f) {
-  const open = openFolders.has(f.group);
+function groupRows(f) {
+  const open = openGroups.has(f.group);
   const kidsId = `m-folder-${f.group}`;
   const acts = rowActions({ f });
   const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
   const retry = redoBtn(acts.again.plan, acts.again.label);
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
-    toggle(openFolders, f.group);
-    renderRecent();
+    toggle(openGroups, f.group);
+    renderHistory();
   });
   disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
 
@@ -463,13 +463,13 @@ function folderRows(f) {
       el('span', 'sode__hist-time', fmtTime(f.entries[0].time)),
       el('span', 'sode-m__recent-status', statusNode({ f }), ...(picking() ? [pickBox(`f${f.group}`)] : []), disc),
     ),
-    el('div', 'sode-m__recent-route', ...folderTitle(f), byLabel(f)),
-    levelBar(folderLevels(f)),
+    el('div', 'sode-m__recent-route', ...groupTitle(f), byLabel(f)),
+    levelBar(groupLevels(f)),
   );
   clickToToggle(face, disc);
   const row = el(
     'li',
-    'sode-m__recent-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''),
+    'sode-m__recent-row' + (arrived.group(f, open) ? ' sode--enter' : '') + (isPicked(`f${f.group}`) ? ' sode-m__recent-row--picked' : ''),
     undo,
     ...(retry ? [retry] : []),
     face,
@@ -477,7 +477,7 @@ function folderRows(f) {
   row.dataset.key = `f${f.group}`;
   swipeable(row, face, !!retry);
   if (!open) return [row];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(recentRow), ...followerRows(f)));
+  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.shown.map(historyRow), ...followerRows(f)));
   kids.id = kidsId;
   return [row, kids];
 }
@@ -488,14 +488,14 @@ function followerRows(f) {
   const { count, aria, kidsId } = followersHead(f, open, 'm');
   const disc = disclosure(open, count, kidsId, () => {
     toggle(openFollowers, f.group);
-    renderRecent();
+    renderHistory();
   });
   disc.setAttribute('aria-label', aria);
   const face = el('div', 'sode-m__recent-face', el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
   clickToToggle(face, disc);
   const head = el('li', 'sode-m__recent-row', face);
   if (!open) return [head];
-  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.followers.map(recentRow)));
+  const kids = el('li', 'sode-m__recent-kids', el('ul', 'sode-m__recent-list', ...f.followers.map(historyRow)));
   kids.id = kidsId;
   return [head, kids];
 }
@@ -577,12 +577,12 @@ function placeBar() {
 }
 on('pick', () => {
   placeBar();
-  renderRecent();
+  renderHistory();
 });
 
-function renderRecent() {
+function renderHistory() {
   const rows = pager.list();
-  $('m-recent-list').replaceChildren(...rows.flatMap((r) => (r.f ? folderRows(r.f) : [recentRow(r.e)])));
+  $('m-recent-list').replaceChildren(...rows.flatMap((r) => (r.f ? groupRows(r.f) : [historyRow(r.e)])));
   $('m-recent-more').replaceChildren(...[emptyNote(rows, pager.fetching()), pager.button()].filter(Boolean));
 }
 
@@ -795,7 +795,7 @@ on('hello', () => {
   pager.reset();
   lvl.reset();
   setStep(M.step, false);
-  renderRecent();
+  renderHistory();
 });
 on('names', () => {
   matches.refresh();
@@ -804,7 +804,7 @@ on('names', () => {
 on('tally', renderThread);
 on('conn', renderConn);
 on('history', () => {
-  renderRecent();
+  renderHistory();
   renderLast();
 });
 on('result', (r) => {
@@ -821,7 +821,7 @@ onLayout((l) => {
   if (l !== 'phone') closeSheet();
   else {
     renderThread();
-    renderRecent();
+    renderHistory();
   }
 });
 

@@ -28,7 +28,7 @@ export function indexRows(rows) {
 }
 
 // Picked keys as takes, oldest first, each entry once; ok(e): a real source and an existing level.
-export function pickedTakes(index, keys, withFollows, ok = () => true) {
+export function pickedEntries(index, keys, withFollows, ok = () => true) {
   const seen = new Map();
   for (const k of keys) {
     const x = index.get(k);
@@ -47,7 +47,7 @@ export function pickedTakes(index, keys, withFollows, ok = () => true) {
 const plural = (n) => `${n} take${n === 1 ? '' : 's'}`;
 // count/addText/canAdd take the state and, in Recent, the takes ticked now (taken), worked out once per redraw.
 export const MODES = {
-  recent: {
+  history: {
     msg: (name) => `Choose takes for ${name}`,
     sub: 'Click takes or Groups in History to select them.',
     aria: 'Choose takes from History',
@@ -86,11 +86,11 @@ export const MODES = {
 
 // { mode, label, onAdd(takes), onAddPatch(): note, onCancel(), picked: Set of keys, follows, ok, note }
 let st = null;
-export const picking = () => st?.mode === 'recent';
+export const picking = () => st?.mode === 'history';
 export const boxPicking = () => st?.mode === 'boxes';
 export const isPicked = (key) => !!st?.picked.has(key);
 
-const pickedNow = (s) => pickedTakes(indexRows(histRows(S.hist)), s.picked, s.follows, s.ok);
+const pickedNow = (s) => pickedEntries(indexRows(histRows(S.hist)), s.picked, s.follows, s.ok);
 
 export function togglePick(key) {
   if (!st || !/^[ef]/.test(key)) return;
@@ -104,7 +104,7 @@ export function togglePick(key) {
 // to show), onCancel() (Done) }.
 export function startPick(opts) {
   if (st) return;
-  st = { mode: 'recent', ...opts, picked: new Set(), follows: false, note: '' };
+  st = { mode: 'history', ...opts, picked: new Set(), follows: false, note: '' };
   followsIn.checked = false;
   document.documentElement.dataset.sodePick = st.mode === 'boxes' ? 'boxes' : '';
   update();

@@ -6,9 +6,25 @@ import { layout } from './layout.js';
 import { flipped } from './device.js';
 
 // Modifier rule: see AGENTS.md. Each check excludes the other two modifiers.
-// dsts is an accessor: desktop.js replaces the array. recent is what desktopRecent returned.
-export function desktopKeys({ boxes, sel, dsts, lvl, confirm, keys, recent, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally }) {
-  const { histList, histArea, onListKey, enterKeys, undoLast } = recent;
+// dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned.
+export function desktopKeys({
+  boxes,
+  sel,
+  dsts,
+  lvl,
+  confirm,
+  keys,
+  historyView,
+  active,
+  select,
+  addDst,
+  useLast,
+  wantsMatch,
+  patchNow,
+  clearAll,
+  renderTally,
+}) {
+  const { histList, histArea, onListKey, enterKeys, undoLast } = historyView;
   // Modifier rule: see AGENTS.md. Each check excludes the other two modifiers.
   document.addEventListener('keydown', (e) => {
     if (confirm.isOpen()) return confirm.key(e);

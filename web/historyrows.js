@@ -2,8 +2,8 @@
 // each layout builds its own DOM from these.
 
 import { srcItem, dstItem } from './core.js';
-import { undoPlan, againPlan, folderUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
-import { folderPartial, folderIds } from './history.js';
+import { undoPlan, againPlan, groupUndoPlan, lastTake, nextTake, usedNext } from './plans.js';
+import { groupPartial, groupIds } from './history.js';
 import { UNDO_TIP_ALL } from './widgets.js';
 
 const noun = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -17,12 +17,12 @@ export function rowActions(row) {
     const again = againPlan({ f });
     return {
       undo: {
-        plan: folderUndoPlan(f),
-        label: `Undo all ${f.entries.length} takes of ${folderIds(f)}`,
-        text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all',
+        plan: groupUndoPlan(f),
+        label: `Undo all ${f.entries.length} takes of ${groupIds(f)}`,
+        text: groupPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all',
         tip: UNDO_TIP_ALL,
       },
-      again: { plan: again, label: `${againWord(again)} ${noun(again.items.length, 'take')} of ${folderIds(f)}` },
+      again: { plan: again, label: `${againWord(again)} ${noun(again.items.length, 'take')} of ${groupIds(f)}` },
     };
   }
   const e = row.e;

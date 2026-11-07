@@ -1,4 +1,4 @@
-// History as the views show it: rows and folders from S.hist. Owns the rows memo (histRows),
+// History as the views show it: rows and Groups from S.hist. Owns the rows memo (histRows),
 // dropped when anything it reads changes.
 
 import { el, S, on, onFirst, onMsg, emit, off, wsSend, srcItem, dstItem, labelNode, tallyText } from './core.js';
@@ -81,7 +81,7 @@ export function histRows(list) {
 
 function buildRows(list) {
   const rows = [];
-  const folders = new Map();
+  const byGroup = new Map();
   const chains = new Map();
   // Follows go with the take they followed (e.follows) when loaded and shown; one whose take is
   // hidden stands alone if it passes the filters itself.
@@ -135,17 +135,17 @@ function buildRows(list) {
       rows.push(row);
       continue;
     }
-    let f = folders.get(e.group);
+    let f = byGroup.get(e.group);
     if (!f) {
       f = { group: e.group, n: e.groupN, entries: [], shown: [] };
-      folders.set(e.group, f);
+      byGroup.set(e.group, f);
       rows.push({ f });
     }
     f.entries.push(e);
     if (passes(e)) f.shown.push(e);
   }
   for (const [g, fs] of followers) {
-    const f = folders.get(g);
+    const f = byGroup.get(g);
     if (!f) continue;
     const shown = fs.filter(passes);
     if (shown.length) f.followers = shown;
@@ -158,7 +158,7 @@ function buildRows(list) {
 // missing takes just aren't loaded.
 const IN_FLIGHT_MS = 30000;
 
-export function folderStatus(f) {
+export function groupStatus(f) {
   const got = f.entries.length;
   const bad = f.entries.filter((e) => !e.ok).length;
   if (got < f.n && Date.now() - Date.parse(f.entries[0].time) < IN_FLIGHT_MS) {
@@ -182,7 +182,7 @@ const extStatus = (found, title = '') =>
 
 export function statusNode(row) {
   const st = row.f
-    ? folderStatus(row.f)
+    ? groupStatus(row.f)
     : row.e.ext && row.e.followGroup
       ? { dot: 'info', text: 'External follow', title: 'Changed along with this confirm, probably as a result of it' }
       : row.e.ext
@@ -197,7 +197,7 @@ export function statusNode(row) {
   return node;
 }
 
-export function folderTitle(f) {
+export function groupTitle(f) {
   const srcs = [...new Set(f.entries.map((e) => e.src))];
   const dsts = [...new Set(f.entries.map((e) => e.dst))];
   const strong = (t) => el('strong', null, t);
@@ -209,17 +209,17 @@ export function folderTitle(f) {
   const notes = [
     preset && `Preset: ${preset}`,
     kind,
-    folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
+    groupPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
     nFollow && `+${nFollow} external follow ${nFollow === 1 ? 'entry' : 'entries'}`,
   ].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
 
-export const folderPartial = (f) => !!f.shown && f.shown.length < f.entries.length;
+export const groupPartial = (f) => !!f.shown && f.shown.length < f.entries.length;
 
-export const folderLevels = (f) => [...new Set(f.entries.flatMap((e) => e.levels))].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b);
+export const groupLevels = (f) => [...new Set(f.entries.flatMap((e) => e.levels))].filter((u) => S.levelBy.has(u)).sort((a, b) => a - b);
 
-export function folderIds(f) {
+export function groupIds(f) {
   const ids = f.entries.map((e) => e.id);
   return `#${Math.min(...ids)}–#${Math.max(...ids)}`;
 }

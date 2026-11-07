@@ -999,7 +999,7 @@ html[data-alt] .sode__chip-key {
   padding-top: var(--pb-space-6);
 }
 
-/* Pick mode (recentpick.js): the bar says what the next click does; patch boxes and presets wait. */
+/* Pick mode (historypick.js): the bar says what the next click does; patch boxes and presets wait. */
 .sode__pickbar {
   align-items: center;
   background: var(--pb-accent);

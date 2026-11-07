@@ -5,7 +5,7 @@ import { el, S, on, emit, off, search, srcItem, dstItem, nameProblem, icon } fro
 import { mac } from './keys.js';
 import { levelInput, parseLevels } from './levelview.js';
 import { showResult, presetPlan, canRedo } from './plans.js';
-import { startPick, endPick } from './recentpick.js';
+import { startPick, endPick } from './historypick.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { trapDialog, labeled } from './widgets.js';
@@ -26,7 +26,7 @@ import {
   saved,
   clearPinOverride,
   parseRefs,
-  itemsFromTakes,
+  itemsFromEntries,
   presetTip,
   isBlankRow,
   fillFrom,
@@ -67,8 +67,8 @@ export function fillBoxes(scope, name) {
   if (!host.fill) return showResult('info', `Preset ${s.name}`, 'Filling the boxes from a preset works on the desktop layout.');
   if (!S.srcBy.size) return showResult('warn', 'Preset not filled', 'The router’s names have not loaded yet.');
   const r = fillFrom(s, { src: (n) => S.srcBy.has(n), dst: (n) => S.dstBy.has(n), level: (u) => S.levelBy.has(u) }, parseLevels('') || []);
-  if (!r.take) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
-  host.fill({ src: srcItem(r.take.src), dsts: r.take.dsts.map((n) => dstItem(n)), levels: r.take.levels });
+  if (!r.fill) return showResult('error', `Preset ${s.name} not filled`, 'Nothing in it exists on the router now.');
+  host.fill({ src: srcItem(r.fill.src), dsts: r.fill.dsts.map((n) => dstItem(n)), levels: r.fill.levels });
   const notes = [];
   if (r.many) notes.push(`The boxes hold one source, so only one of its ${s.items.length} takes was filled.`);
   if (r.partial) notes.push('Some of its destinations or levels no longer exist on the router and were left out.');
@@ -268,7 +268,7 @@ dialog.append(
         focusLast();
       }),
       btn('pb-btn--outline', 'Add from Patch Boxes…', addFromBoxes),
-      btn('pb-btn--outline', 'Add from History…', fillFromRecent),
+      btn('pb-btn--outline', 'Add from History…', fillFromHistory),
     ),
     rowsBox,
   ),
@@ -523,10 +523,10 @@ function addFromBoxes() {
   });
   shown().focus();
 }
-// The editor steps aside while Recent is in pick mode (recentpick.js). A lock ends the pick
+// The editor steps aside while History is in pick mode (historypick.js). A lock ends the pick
 // first (see 'locking' below).
 let picking = false;
-function fillFromRecent() {
+function fillFromHistory() {
   if (!S.hist.length) return setNote('No takes made in Sode yet.', true);
   picking = true;
   dlg.hide();
@@ -540,10 +540,10 @@ function fillFromRecent() {
     label: cur.name,
     ok: canRedo,
     onCancel: back,
-    onAdd: (takes) => {
+    onAdd: (entries) => {
       back();
-      const items = itemsFromTakes(takes);
-      addRows(items, `Added ${takes.length} take${takes.length === 1 ? '' : 's'} from History.`);
+      const items = itemsFromEntries(entries);
+      addRows(items, `Added ${entries.length} take${entries.length === 1 ? '' : 's'} from History.`);
     },
   });
 }

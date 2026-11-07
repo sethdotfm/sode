@@ -1,7 +1,7 @@
 // The /log page: every message Sode wrote to the router, plus browser connects, commands and
 // router link changes, newest first, live, with this browser's filters and the router uptime
 // graph.
-import { $, el, S, on, connect, wsSend, connState, routerLabel, setDot, item, labelNode } from './core.js';
+import { $, el, S, on, connect, wsSend, connState, routerTitle, setDot, item, labelNode } from './core.js';
 import { levelColor } from './levelview.js';
 import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
@@ -528,7 +528,7 @@ on('conn', () => {
   routerWas = c.rt[0];
   setDot($('log-ws-dot'), $('log-ws-text'), [c.ws[0], 'Server']);
   setDot($('log-rt-dot'), $('log-rt-text'), [c.rt[0], 'Router']);
-  $('log-addr').textContent = routerLabel()[0];
+  $('log-addr').textContent = routerTitle()[0];
   if (S.wsState !== 'up') {
     pager.close();
     renderMore();

@@ -123,7 +123,7 @@ test('preset trigger: plan carries the name, history shows it, search finds it',
   };
   f.shown = f.entries;
   const title = m
-    .folderTitle(f)
+    .groupTitle(f)
     .map((n) => (typeof n === 'string' ? n : text(n)))
     .join('');
   assert.match(title, /Preset: Morning/);

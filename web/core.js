@@ -292,7 +292,7 @@ export function connState() {
   return { ws, rt: [dot, `Router ${word}`], down };
 }
 
-export function routerLabel() {
+export function routerTitle() {
   const show = S.cfg?.routerShow || 'address';
   if (show === 'none') return ['', false];
   if (show === 'name' && S.cfg.routerName) return [S.cfg.routerName, true];

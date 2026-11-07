@@ -28,8 +28,8 @@ type retiredWord struct {
 	// the word is reviewed by hand, with Why saying so.
 	Re  *regexp.Regexp
 	Why string
-	// Docs and UI hold the ticket that will sweep that scope; empty means enforced now.
-	Docs, UI string
+	// Docs, UI and Ident hold the ticket that will sweep that scope; empty means enforced now.
+	Docs, UI, Ident string
 }
 
 func wordRe(expr string) *regexp.Regexp {
@@ -99,6 +99,29 @@ var vocabAllow = []struct{ Term, File, Line, Why string }{
 	{"salvo", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"operator", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"", "docs/vocabulary-plan.md", `^\|`, "the checklist tables quote the old words by design"},
+}
+
+// identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
+// types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
+var identAllow = []struct{ Term, File, Line, Why string }{
+	{"Recent", "web/core.js", `m\.recent`, "the `recent` message carries its entries under this field"},
+	{"refresh", "web/log.js", `^\s*refreshNames:`, "`log` command kind, as the server logs it"},
+	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},
+	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
+	{"unlock", "web/log.js", `^\s*(?:unlock|userUnlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
+	{"unlock", "web/pin.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/pinprompt.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/globalsave.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/settings.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/configfile.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/profiles.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/profilesrules.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/users.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
+	{"unlock", "web/lockrules.js", `unlocked`, "the `lockState` field `unlocked` is the Advanced Settings PIN access"},
+	{"unlock", "web/lock.js", `unlocked`, "the `lockState` field `unlocked` is the Advanced Settings PIN access"},
+	{"unlock", "web/test/lockrules.test.mjs", `unlocked`, "the `lockState` field `unlocked` is the Advanced Settings PIN access"},
+	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
+	{"follows", ".mjs", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 }
 
 type vocabHit struct {
@@ -176,6 +199,18 @@ func masked(line string) string {
 func allowed(term, file, line string) bool {
 	for _, a := range vocabAllow {
 		if (a.Term == "" || a.Term == term) && strings.HasSuffix(file, a.File) && regexp.MustCompile(a.Line).MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
+
+func identAllowed(term, file, line string) bool {
+	if allowed(term, file, line) {
+		return true
+	}
+	for _, a := range identAllow {
+		if a.Term == term && strings.HasSuffix(file, a.File) && regexp.MustCompile(a.Line).MatchString(line) {
 			return true
 		}
 	}
@@ -423,4 +458,163 @@ func TestDocsUseGlossaryWords(t *testing.T) {
 
 func TestUIStringsUseGlossaryWords(t *testing.T) {
 	checkScope(t, "the UI strings", func(w retiredWord) string { return w.UI }, uiTexts(t))
+}
+
+var (
+	identWord  = regexp.MustCompile(`[A-Za-z_$][A-Za-z0-9_$]*`)
+	identParts = regexp.MustCompile(`[A-Z]+[a-z0-9]*|[a-z0-9]+`)
+)
+
+// jsCode returns a script with its comments and string literals blanked, line breaks kept,
+// so what is left is identifiers and punctuation. Wire types and `sode-*` keys are strings
+// and so never reach the identifier scan.
+func jsCode(src string) string {
+	b := []byte(src)
+	blank := func(from, to int) {
+		for k := from; k < to && k < len(b); k++ {
+			if b[k] != '\n' {
+				b[k] = ' '
+			}
+		}
+	}
+	for i := 0; i < len(b); {
+		switch c := b[i]; {
+		case c == '/' && i+1 < len(b) && b[i+1] == '/':
+			j := i
+			for j < len(b) && b[j] != '\n' {
+				j++
+			}
+			blank(i, j)
+			i = j
+		case c == '/' && i+1 < len(b) && b[i+1] == '*':
+			end := strings.Index(string(b[i+2:]), "*/")
+			if end < 0 {
+				blank(i, len(b))
+				return string(b)
+			}
+			blank(i, i+end+4)
+			i += end + 4
+		case c == '\'' || c == '"' || c == '`':
+			j := i + 1
+			for j < len(b) && b[j] != c && (c == '`' || b[j] != '\n') {
+				if b[j] == '\\' {
+					j++
+				}
+				j++
+			}
+			blank(i, j+1)
+			i = j + 1
+		default:
+			i++
+		}
+	}
+	return string(b)
+}
+
+// identWords splits each identifier of a line into lowercase words (recentRow becomes
+// "recent row", lock__pad "lock pad"), so the rows that scan prose scan names too.
+func identWords(line string) string {
+	var out []string
+	for _, id := range identWord.FindAllString(line, -1) {
+		out = append(out, strings.ToLower(strings.Join(identParts.FindAllString(id, -1), " ")))
+	}
+	return strings.Join(out, " ; ")
+}
+
+// identOnly holds names a prose scan cannot judge: a per-destination unit is a Route, and the
+// word take is for the whole confirm. takeResult stays a take: it is the wire answer to one.
+var identOnly = []retiredWord{
+	{Terms: []string{"take (a route)"}, Re: regexp.MustCompile(`take (?:item|text)|from takes|picked takes|\br ; takes\b`)},
+}
+
+// identRe makes a row's prose pattern work on lowercase identifier words.
+func identRe(w retiredWord) *regexp.Regexp {
+	return regexp.MustCompile("(?i)" + w.Re.String())
+}
+
+// identFiles returns the code of every web script and test, and every file name under web/
+// and web/test/.
+func identFiles(t *testing.T) (code map[string]string, names []string) {
+	t.Helper()
+	code = map[string]string{}
+	for _, pat := range []string{"web/*", "web/test/*"} {
+		paths, _ := filepath.Glob(filepath.Join(repoRoot(), pat))
+		for _, p := range paths {
+			if st, err := os.Stat(p); err != nil || st.IsDir() {
+				continue
+			}
+			rel, _ := filepath.Rel(repoRoot(), p)
+			rel = filepath.ToSlash(rel)
+			names = append(names, rel)
+			if strings.HasSuffix(p, ".js") || strings.HasSuffix(p, ".mjs") {
+				b, err := os.ReadFile(p)
+				if err != nil {
+					t.Fatal(err)
+				}
+				code[rel] = jsCode(string(b))
+			}
+		}
+	}
+	sort.Strings(names)
+	return code, names
+}
+
+func TestIdentifierScanMechanics(t *testing.T) {
+	src := "const recentRow = 'Recent'; // folder here\nfunction sendBatch() {}\n/* salvo */ let m__recent;"
+	code := jsCode(src)
+	words := identWords(code)
+	for _, want := range []string{"recent row", "send batch", "m recent"} {
+		if !strings.Contains(words, want) {
+			t.Errorf("identWords missing %q in %q", want, words)
+		}
+	}
+	for _, leaked := range []string{"folder", "salvo"} {
+		if strings.Contains(words, leaked) {
+			t.Errorf("comment text %q leaked: %q", leaked, words)
+		}
+	}
+	if strings.Contains(code, "'Recent'") {
+		t.Error("string literal not blanked")
+	}
+	if !identRe(retiredWords[7]).MatchString("send batch") || !identRe(retiredWords[11]).MatchString("recent row") {
+		t.Error("identRe does not match identifier words")
+	}
+}
+
+// TestIdentifiersUseGlossaryWords scans names, not text: variables, functions, properties
+// and file names. Wire message types and `sode-*` keys are strings and stay out of scope.
+func TestIdentifiersUseGlossaryWords(t *testing.T) {
+	code, names := identFiles(t)
+	files := make([]string, 0, len(code))
+	for f := range code {
+		files = append(files, f)
+	}
+	sort.Strings(files)
+	baseWords := strings.NewReplacer("_", " ", "-", " ", ".", " ")
+	for _, w := range append(append([]retiredWord{}, retiredWords...), identOnly...) {
+		if w.Re == nil {
+			continue
+		}
+		re := identRe(w)
+		var hits []vocabHit
+		for _, f := range files {
+			for i, line := range strings.Split(code[f], "\n") {
+				if re.MatchString(masked(identWords(line))) && !identAllowed(w.Terms[0], f, line) {
+					hits = append(hits, vocabHit{f, i + 1, strings.TrimSpace(line)})
+				}
+			}
+		}
+		for _, n := range names {
+			base := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(n), ".mjs"), ".js")
+			if re.MatchString(baseWords.Replace(base)) && !identAllowed(w.Terms[0], n, base) {
+				hits = append(hits, vocabHit{n, 0, "file name"})
+			}
+		}
+		switch pending := w.Ident; {
+		case pending == "" && len(hits) > 0:
+			t.Errorf("retired word %q in web identifiers (rename it, or list it as pending with its ticket):%s", w.Terms[0], hitReport(hits))
+		case pending != "" && len(hits) == 0:
+			t.Errorf("%q is clean in web identifiers: clear its pending ticket %s so it stays enforced", w.Terms[0], pending)
+		}
+	}
 }

@@ -112,14 +112,14 @@ let access = null; // lock.js's lock state, once it has said
 let namesIn = false;
 
 let handUp = false; // lock.js's overlay is up (its 'handlock' event)
-const handLocked = () => handUp;
+const pageLocked = () => handUp;
 const clean = () => {
   const r = fmt.readLink(location.search, location.hash);
   if (r.doc || r.error) history.replaceState(null, '', location.pathname + r.search + r.hash);
 };
 
 function tryOpen() {
-  if (!pending || !fmt.mayOpenSheet(access, handLocked(), namesIn)) return;
+  if (!pending || !fmt.mayOpenSheet(access, pageLocked(), namesIn)) return;
   const doc = pending;
   pending = null;
   clean();

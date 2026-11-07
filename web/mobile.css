@@ -530,7 +530,7 @@
   font-weight: var(--pb-weight-normal);
 }
 
-/* ---- Choosing takes for a preset (recentpick.js exports the bar; mobile.js places it) */
+/* ---- Choosing takes for a preset (historypick.js exports the bar; mobile.js places it) */
 [data-layout="phone"] .sode-m > .sode__pickbar {
   flex: 0 0 auto;
   gap: var(--pb-space-2) var(--pb-space-4);

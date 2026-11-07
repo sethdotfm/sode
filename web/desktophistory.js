@@ -5,22 +5,22 @@ import { mac } from './keys.js';
 import { levelBar } from './levelview.js';
 import { srcRow } from './routes.js';
 import { timeNodes } from './device.js';
-import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, folderTitle, folderLevels, folderIds } from './history.js';
+import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupTitle, groupLevels, groupIds } from './history.js';
 import { rowUndoPlan, planEmpty, showResult, againPlan } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters } from './filters.js';
 import { emptyNote } from './searchbox.js';
-import { rowActions, disclosureAria, followersHead } from './recentrows.js';
-import { isPicked, picking, pickBox, togglePick, bindPick } from './recentpick.js';
+import { rowActions, disclosureAria, followersHead } from './historyrows.js';
+import { isPicked, picking, pickBox, togglePick, bindPick } from './historypick.js';
 import { byLabel, disclosure, undoButton, againButton, stackSteps, followBoxes, failureRows, clickToToggle, pullToLoad, arrivals } from './widgets.js';
 
 // What it takes from desktop.js: select(k, item), focusBox(input), openConfirm(plan), focusSearch(k),
 // openKeys() (the shortcut list, built after this), boxes (for the two inputs) and active().
 // The module owns the Recent state: expanded rows, open folders and followers, the arrival marks,
 // the keyboard cursor.
-export function desktopRecent({ select, focusBox, openConfirm, focusSearch, openKeys, boxes, active }) {
+export function desktopHistory({ select, focusBox, openConfirm, focusSearch, openKeys, boxes, active }) {
   const expanded = new Set();
-  const openFolders = new Set();
+  const openGroups = new Set();
   const openFollowers = new Set();
   const arrived = arrivals();
 
@@ -97,10 +97,10 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
   }
   const useRowDst = (it) => useEnd('dst', it);
 
-  function folderRow(f) {
-    const open = openFolders.has(f.group);
+  function groupRow(f) {
+    const open = openGroups.has(f.group);
     const kidsId = `hist-folder-${f.group}`;
-    const title = folderTitle(f);
+    const title = groupTitle(f);
     const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
 
     const acts = rowActions({ f });
@@ -108,7 +108,7 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
     const retry = againButton(acts.again.plan, acts.again.label, openConfirm);
 
     const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
-      toggle(openFolders, f.group);
+      toggle(openGroups, f.group);
       autoOpen.delete(f.group); // opened by hand: stays open
       renderHistory();
     });
@@ -116,10 +116,10 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
 
     const row = el(
       'li',
-      'pb-input sode__hist-row' + (arrived.folder(f, open) ? ' sode--enter' : '') + curClass(`f${f.group}`),
-      el('span', 'sode__hist-id', folderIds(f)),
+      'pb-input sode__hist-row' + (arrived.group(f, open) ? ' sode--enter' : '') + curClass(`f${f.group}`),
+      el('span', 'sode__hist-id', groupIds(f)),
       histTime(f.entries[0].time),
-      levelBar(folderLevels(f)),
+      levelBar(groupLevels(f)),
       el(
         'span',
         'sode__hist-route sode__hist-route--boxes',
@@ -192,10 +192,10 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
     if (cursor && !stops(list).some((x) => x.key === cursor)) {
       // Its row left the page: drop the cursor and close the folders it opened.
       cursor = null;
-      for (const g of autoOpen) openFolders.delete(g);
+      for (const g of autoOpen) openGroups.delete(g);
       autoOpen.clear();
     }
-    histList.replaceChildren(...list.map((r) => (r.f ? folderRow(r.f) : histRow(r.e))));
+    histList.replaceChildren(...list.map((r) => (r.f ? groupRow(r.f) : histRow(r.e))));
     $('history-more').replaceChildren(...[emptyNote(list, pager.fetching()), pager.button()].filter(Boolean));
     if (scroll === true && keyMode()) histList.querySelector('.sode__hist-row--cur')?.scrollIntoView({ block: 'nearest' });
   }
@@ -233,7 +233,7 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
     list.forEach((r, top) => {
       if (r.e) return out.push({ key: `e${r.e.id}`, e: r.e, top });
       out.push({ key: `f${r.f.group}`, f: r.f, top });
-      if (!openFolders.has(r.f.group)) return;
+      if (!openGroups.has(r.f.group)) return;
       for (const e of r.f.shown) out.push({ key: `e${e.id}`, e, top, in: r.f });
       if (!r.f.followers?.length) return;
       out.push({ key: `w${r.f.group}`, head: r.f, top, in: r.f });
@@ -248,13 +248,13 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
     let redraw = false;
     for (const g of autoOpen) {
       if (g !== group) {
-        openFolders.delete(g);
+        openGroups.delete(g);
         autoOpen.delete(g);
         redraw = true;
       }
     }
-    if (s.f && !openFolders.has(s.f.group)) {
-      openFolders.add(s.f.group);
+    if (s.f && !openGroups.has(s.f.group)) {
+      openGroups.add(s.f.group);
       autoOpen.add(s.f.group);
       redraw = true;
     }
@@ -311,10 +311,10 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
       else if (s.follower) return moveTo(stops().find((x) => x.key === `w${s.in.group}`));
       else if (s.in) return moveTo(stops().find((x) => x.key === `f${s.in.group}`));
     } else if (on) {
-      openFolders.add(s.f.group);
+      openGroups.add(s.f.group);
       autoOpen.delete(s.f.group);
     } else {
-      openFolders.delete(s.f.group);
+      openGroups.delete(s.f.group);
       autoOpen.delete(s.f.group);
     }
     renderHistory();
@@ -416,7 +416,7 @@ export function desktopRecent({ select, focusBox, openConfirm, focusSearch, open
   function undoRow(row) {
     const plan = rowUndoPlan(row);
     if (planEmpty(plan)) {
-      const what = row.f ? folderIds(row.f) : `#${row.e.id}`;
+      const what = row.f ? groupIds(row.f) : `#${row.e.id}`;
       return showResult('warn', 'Nothing to undo', `${what} had nothing routed before it, so there is nothing to restore.`);
     }
     openConfirm(plan);

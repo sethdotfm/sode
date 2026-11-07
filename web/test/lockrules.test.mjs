@@ -15,24 +15,24 @@ import {
   brandFrames,
   dots,
   actorUser,
-  folderActor,
+  groupActor,
   wrongFeedback,
   WRONG_MS,
   churnKey,
-  softIdleLock,
-  loginOffered,
-  loginAsOffered,
-  logOutOffered,
+  localIdleLock,
+  signInOffered,
+  signInAsOffered,
+  signOutOffered,
   MODE,
   PAGE_VIEW,
   viewBody,
-  softLock,
+  localLock,
   userLock,
-  softUnlock,
-  startLogin,
-  cancelLogin,
+  dismissLocalLock,
+  startSignIn,
+  cancelSignIn,
   lockArrived,
-  loginWon,
+  signInWon,
   chipShown,
   wantsTab,
   hiToken,
@@ -173,12 +173,12 @@ test('actorUser names configured users only, never an address', () => {
   assert.equal(actorUser('Ana', undefined), '');
 });
 
-test('folderActor: one name only when every take shares it', () => {
+test('groupActor: one name only when every take shares it', () => {
   const users = ['Ana', 'Bo'];
-  assert.equal(folderActor([{ client: 'Ana' }, { client: 'Ana' }], users), 'Ana');
-  assert.equal(folderActor([{ client: 'Ana' }, { client: 'Bo' }], users), '');
-  assert.equal(folderActor([{ client: 'Ana' }, { client: '10.0.0.1' }], users), '');
-  assert.equal(folderActor([{ client: '10.0.0.1' }], users), '');
+  assert.equal(groupActor([{ client: 'Ana' }, { client: 'Ana' }], users), 'Ana');
+  assert.equal(groupActor([{ client: 'Ana' }, { client: 'Bo' }], users), '');
+  assert.equal(groupActor([{ client: 'Ana' }, { client: '10.0.0.1' }], users), '');
+  assert.equal(groupActor([{ client: '10.0.0.1' }], users), '');
 });
 
 test('dots', () => {
@@ -227,24 +227,24 @@ test('churnKey: a letter, never the one before, never one that is easy to confus
   );
 });
 
-test('softIdleLock: idle past the auto-lock minutes, only where no PIN lock is on and not already locked', () => {
+test('localIdleLock: idle past the auto-lock minutes, only where no PIN lock is on and not already locked', () => {
   const idle = 5 * 60_000;
-  assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 5), true);
-  assert.equal(softIdleLock({ enforced: false }, false, 0, idle - 1, 5), false);
-  assert.equal(softIdleLock({ enforced: false }, false, 0, idle, 0), false);
-  assert.equal(softIdleLock({ enforced: false }, true, 0, idle, 5), false);
-  assert.equal(softIdleLock({ enforced: true }, false, 0, idle, 5), false);
+  assert.equal(localIdleLock({ enforced: false }, false, 0, idle, 5), true);
+  assert.equal(localIdleLock({ enforced: false }, false, 0, idle - 1, 5), false);
+  assert.equal(localIdleLock({ enforced: false }, false, 0, idle, 0), false);
+  assert.equal(localIdleLock({ enforced: false }, true, 0, idle, 5), false);
+  assert.equal(localIdleLock({ enforced: true }, false, 0, idle, 5), false);
 });
 
-test('tab login: offered only with users, no lock and nobody in', () => {
-  assert.equal(loginOffered({ enforced: false, user: '', lens: [4] }), true);
-  assert.equal(loginOffered({ enforced: false, user: '', lens: [] }), false);
-  assert.equal(loginOffered({ enforced: true, user: '', lens: [4] }), false);
-  assert.equal(loginOffered({ enforced: false, user: 'Ana', lens: [4] }), false);
-  assert.equal(loginOffered({ enforced: false, user: '' }), false);
+test('tab signedIn: offered only with users, no lock and nobody in', () => {
+  assert.equal(signInOffered({ enforced: false, user: '', lens: [4] }), true);
+  assert.equal(signInOffered({ enforced: false, user: '', lens: [] }), false);
+  assert.equal(signInOffered({ enforced: true, user: '', lens: [4] }), false);
+  assert.equal(signInOffered({ enforced: false, user: 'Ana', lens: [4] }), false);
+  assert.equal(signInOffered({ enforced: false, user: '' }), false);
 });
 
-test('tab login: tokens', () => {
+test('tab signedIn: tokens', () => {
   assert.equal(wantsTab({ enforced: false }), true);
   assert.equal(wantsTab({ enforced: true }), false);
   assert.equal(hiToken('t', 'p'), 't');
@@ -264,11 +264,11 @@ test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")',
 });
 
 test('hand lock: Sign in as is offered with users and no lock, signed in or not', () => {
-  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
-  assert.equal(loginAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
-  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [] }), false);
-  assert.equal(loginAsOffered({ enforced: true, user: '', lens: [4] }), false);
-  assert.equal(loginAsOffered({ enforced: false }), false);
+  assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
+  assert.equal(signInAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
+  assert.equal(signInAsOffered({ enforced: false, user: '', lens: [] }), false);
+  assert.equal(signInAsOffered({ enforced: true, user: '', lens: [4] }), false);
+  assert.equal(signInAsOffered({ enforced: false }), false);
 });
 
 test('lock view: which body shows', () => {
@@ -279,31 +279,31 @@ test('lock view: which body shows', () => {
 });
 
 test('lock view: transitions', () => {
-  const soft = softLock(PAGE_VIEW, false);
+  const soft = localLock(PAGE_VIEW, false);
   assert.deepEqual(soft, { mode: 'soft', back: 'page' });
-  assert.equal(softLock(PAGE_VIEW, true), PAGE_VIEW);
-  assert.equal(softUnlock(soft), PAGE_VIEW);
-  assert.deepEqual(startLogin(PAGE_VIEW, false), { mode: 'login', back: 'page' });
-  assert.equal(startLogin(soft, false), soft); // Settings' button never over the hand lock
-  assert.deepEqual(startLogin(soft, true), { mode: 'login', back: 'soft' });
-  assert.equal(startLogin(PAGE_VIEW, true), PAGE_VIEW);
-  const fromSoft = startLogin(soft, true);
+  assert.equal(localLock(PAGE_VIEW, true), PAGE_VIEW);
+  assert.equal(dismissLocalLock(soft), PAGE_VIEW);
+  assert.deepEqual(startSignIn(PAGE_VIEW, false), { mode: 'login', back: 'page' });
+  assert.equal(startSignIn(soft, false), soft); // Settings' button never over the hand lock
+  assert.deepEqual(startSignIn(soft, true), { mode: 'login', back: 'soft' });
+  assert.equal(startSignIn(PAGE_VIEW, true), PAGE_VIEW);
+  const fromSoft = startSignIn(soft, true);
   assert.equal(fromSoft.back, 'soft'); // the caller reads this before cancelling
-  assert.equal(cancelLogin(fromSoft), PAGE_VIEW);
-  assert.equal(cancelLogin(soft), soft);
-  assert.deepEqual(softLock(fromSoft, false), { mode: 'soft', back: 'page' }); // idle lock wins over a pad
+  assert.equal(cancelSignIn(fromSoft), PAGE_VIEW);
+  assert.equal(cancelSignIn(soft), soft);
+  assert.deepEqual(localLock(fromSoft, false), { mode: 'soft', back: 'page' }); // idle lock wins over a pad
   assert.equal(lockArrived(soft, true), PAGE_VIEW);
   assert.equal(lockArrived(soft, false), soft);
   assert.equal(lockArrived(fromSoft, true), fromSoft);
 });
 
-test('lock view: a login ends only with a real unlock or an enforced lock', () => {
-  const login = { mode: 'login', back: 'soft' };
-  assert.equal(loginWon(login, { enforced: false, unlocked: false, user: 'Ana' }), login); // someone else's state
-  assert.equal(loginWon(login, { enforced: false, unlocked: true, user: '' }), login);
-  assert.equal(loginWon(login, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
-  assert.equal(loginWon(login, { enforced: true, unlocked: false, user: '' }), PAGE_VIEW);
-  assert.equal(loginWon(PAGE_VIEW, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
+test('lock view: a signedIn ends only with a real unlock or an enforced lock', () => {
+  const signedIn = { mode: 'login', back: 'soft' };
+  assert.equal(signInWon(signedIn, { enforced: false, unlocked: false, user: 'Ana' }), signedIn); // someone else's state
+  assert.equal(signInWon(signedIn, { enforced: false, unlocked: true, user: '' }), signedIn);
+  assert.equal(signInWon(signedIn, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
+  assert.equal(signInWon(signedIn, { enforced: true, unlocked: false, user: '' }), PAGE_VIEW);
+  assert.equal(signInWon(PAGE_VIEW, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
 });
 
 test('hand lock: the chip shows for a logged-in user under it only', () => {
@@ -314,14 +314,14 @@ test('hand lock: the chip shows for a logged-in user under it only', () => {
 });
 
 test('hand lock: Sign out offered only with a user and no PIN lock; the view stays soft', () => {
-  assert.equal(logOutOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
-  assert.equal(logOutOffered({ enforced: false, user: '', lens: [4] }), false);
-  assert.equal(logOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
-  const v = softLock(PAGE_VIEW, false);
-  // logging out changes no view: lockArrived(false) and loginWon leave soft alone
+  assert.equal(signOutOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
+  assert.equal(signOutOffered({ enforced: false, user: '', lens: [4] }), false);
+  assert.equal(signOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
+  const v = localLock(PAGE_VIEW, false);
+  // logging out changes no view: lockArrived(false) and signInWon leave soft alone
   assert.deepEqual(lockArrived(v, false), v);
-  assert.deepEqual(loginWon(v, { enforced: false, unlocked: false, user: '' }), v);
-  assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
+  assert.deepEqual(signInWon(v, { enforced: false, unlocked: false, user: '' }), v);
+  assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
 });
 
 test('a logged-in lock is the PIN pad, not dismissable, and ends with a real unlock (#198)', () => {
@@ -329,10 +329,10 @@ test('a logged-in lock is the PIN pad, not dismissable, and ends with a real unl
   assert.deepEqual(v, { mode: MODE.OWN, back: 'page' });
   assert.equal(userLock(PAGE_VIEW, true), PAGE_VIEW);
   assert.equal(viewBody(v, false), 'pad');
-  assert.equal(cancelLogin(v), v);
+  assert.equal(cancelSignIn(v), v);
   assert.equal(lockArrived(v, true), PAGE_VIEW);
   assert.equal(lockArrived(v, false), v);
-  assert.equal(loginWon(v, { enforced: false, unlocked: false, user: 'Ana' }), v);
-  assert.equal(loginWon(v, { enforced: false, unlocked: true, user: '' }), v);
-  assert.equal(loginWon(v, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
+  assert.equal(signInWon(v, { enforced: false, unlocked: false, user: 'Ana' }), v);
+  assert.equal(signInWon(v, { enforced: false, unlocked: true, user: '' }), v);
+  assert.equal(signInWon(v, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
 });

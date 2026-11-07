@@ -308,20 +308,20 @@ export function resolvePreset(preset, has, defaults) {
       else groups.push({ src: it.src, levels: [...levels] });
     }
   }
-  return { takes: [...byDst].map(([dst, groups]) => ({ dst, groups })), missing };
+  return { routes: [...byDst].map(([dst, groups]) => ({ dst, groups })), missing };
 }
 
 // What Shift-click fills: the first take that still exists, built on resolvePreset so the rules
-// match firing. { take, partial, many, missing }: levels [] = default; partial: something of
+// match firing. { fill, partial, many, missing }: levels [] = default; partial: something of
 // that take is gone; many: more takes than the boxes hold; missing: what the router lacks,
 // listed when no take fits.
 export function fillFrom(preset, has, defaults) {
   const missing = [];
   for (const it of preset.items) {
     const r = resolvePreset({ items: [it] }, has, defaults);
-    if (r.takes.length) {
+    if (r.routes.length) {
       return {
-        take: { src: it.src, dsts: r.takes.map((t) => t.dst), levels: it.levels.length ? r.takes[0].groups[0].levels : [] },
+        fill: { src: it.src, dsts: r.routes.map((t) => t.dst), levels: it.levels.length ? r.routes[0].groups[0].levels : [] },
         partial: r.missing.length > 0,
         many: preset.items.length > 1,
         missing: [],
@@ -329,12 +329,12 @@ export function fillFrom(preset, has, defaults) {
     }
     missing.push(...r.missing);
   }
-  return { take: null, partial: false, many: preset.items.length > 1, missing };
+  return { fill: null, partial: false, many: preset.items.length > 1, missing };
 }
 
-export function itemsFromTakes(takes) {
+export function itemsFromEntries(entries) {
   const by = new Map();
-  for (const t of takes) {
+  for (const t of entries) {
     const key = `${t.src}|${t.levels.join(',')}`;
     if (!by.has(key)) by.set(key, { src: t.src, dsts: [], levels: [...t.levels] });
     const it = by.get(key);

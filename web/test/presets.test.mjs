@@ -167,14 +167,14 @@ test('presetPlan: the same source twice on one destination merges levels', async
   );
 });
 
-test('itemsFromTakes', async () => {
-  const { itemsFromTakes } = await setup();
+test('itemsFromEntries', async () => {
+  const { itemsFromEntries } = await setup();
   const takes = [
     { src: 1, dst: 5, levels: [1, 2] },
     { src: 1, dst: 6, levels: [1, 2] },
     { src: 2, dst: 7, levels: [3] },
   ];
-  assert.deepEqual(itemsFromTakes(takes), [
+  assert.deepEqual(itemsFromEntries(takes), [
     { src: 1, dsts: [5, 6], levels: [1, 2] },
     { src: 2, dsts: [7], levels: [3] },
   ]);
@@ -342,15 +342,15 @@ test('fillFrom: the first take that still exists, with what was left out', async
   const p = (...items) => ({ name: 'P', items });
   // Whole: one take, nothing missing; its own [] levels stay [].
   let r = fillFrom(p({ src: 0, dsts: [1, 2], levels: [] }), has, [1, 2]);
-  assert.deepEqual(r, { take: { src: 0, dsts: [1, 2], levels: [] }, partial: false, many: false, missing: [] });
+  assert.deepEqual(r, { fill: { src: 0, dsts: [1, 2], levels: [] }, partial: false, many: false, missing: [] });
   // A destination gone: filled without it, and partial.
   r = fillFrom(p({ src: 0, dsts: [1, 9], levels: [2] }), has, [1, 2]);
-  assert.deepEqual([r.take, r.partial], [{ src: 0, dsts: [1], levels: [2] }, true]);
+  assert.deepEqual([r.fill, r.partial], [{ src: 0, dsts: [1], levels: [2] }, true]);
   // Every level of the first take gone: it is skipped, not filled with defaults.
   r = fillFrom(p({ src: 0, dsts: [1], levels: [5] }, { src: 1, dsts: [2], levels: [1] }), has, [1, 2]);
-  assert.deepEqual([r.take, r.many], [{ src: 1, dsts: [2], levels: [1] }, true]);
+  assert.deepEqual([r.fill, r.many], [{ src: 1, dsts: [2], levels: [1] }, true]);
   // Nothing fits: no take, and what is missing is listed.
   r = fillFrom(p({ src: 9, dsts: [1], levels: [] }, { src: 0, dsts: [1], levels: [7] }), has, [1, 2]);
-  assert.equal(r.take, null);
+  assert.equal(r.fill, null);
   assert.deepEqual(r.missing.map((m) => m.kind).sort(), ['level', 'source']);
 });

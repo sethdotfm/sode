@@ -1,6 +1,6 @@
 // Widgets both layouts build the same way; each layout passes its own elements.
 
-import { actorUser, folderActor } from './lockrules.js';
+import { actorUser, groupActor } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import { mac } from './keys.js';
 import { levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels } from './levelview.js';
@@ -386,7 +386,7 @@ export function arrivals() {
     },
     // A folder animates if closed; either way it uses up the arrival of the take inside, so
     // opening it doesn't replay it.
-    folder(f, open) {
+    group(f, open) {
       const has = f.entries.some((e) => e.id === S.newId);
       const fresh = has && !seen.has(`g${f.group}`);
       if (fresh) seen.add(`g${f.group}`);
@@ -586,6 +586,6 @@ export { trapDialog } from './dialogkeys.js';
 // none). A folder shows it when all its takes share one.
 export function byLabel(x) {
   const users = S.userNames;
-  const name = x.entries ? folderActor(x.entries, users) : actorUser(x.client, users);
+  const name = x.entries ? groupActor(x.entries, users) : actorUser(x.client, users);
   return name ? el('span', 'sode__hist-by', `by ${name}`) : null;
 }

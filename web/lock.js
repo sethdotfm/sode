@@ -21,20 +21,20 @@ import {
   wrongFeedback,
   WELCOME_MS,
   churnKey,
-  softIdleLock,
-  loginOffered,
-  loginAsOffered,
-  logOutOffered,
+  localIdleLock,
+  signInOffered,
+  signInAsOffered,
+  signOutOffered,
   MODE,
   PAGE_VIEW,
   viewBody,
-  softLock as softView,
+  localLock as softView,
   userLock as userLockView,
-  softUnlock as softUnview,
-  startLogin,
-  cancelLogin as cancelView,
+  dismissLocalLock as softUnview,
+  startSignIn,
+  cancelSignIn as cancelView,
   lockArrived,
-  loginWon,
+  signInWon,
   chipShown,
   wantsTab,
   hiToken,
@@ -75,7 +75,7 @@ writeStr('sode-lock-never', null);
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
-let padBody, softBody, softKey, softBtn, softNote, loginAsBtn, logOutBtn, softFoot;
+let padBody, softBody, softKey, softBtn, softNote, signInAsBtn, signOutBtn, softFoot;
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
 let V = PAGE_VIEW;
 let handOn = false;
@@ -120,27 +120,27 @@ function build() {
   cancelBtn = el('button', 'pb-btn pb-btn--outline', 'Cancel');
   cancelBtn.type = 'button';
   cancelBtn.hidden = true;
-  cancelBtn.addEventListener('click', cancelLogin);
+  cancelBtn.addEventListener('click', cancelSignIn);
   padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn);
 
   softKey = el('kbd', 'sode__key sode__key--locked');
   softBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
   softBtn.type = 'button';
-  softBtn.addEventListener('click', softUnlock);
+  softBtn.addEventListener('click', dismissLocalLock);
   softNote = el('p', 'sode-lock__msg');
   softNote.setAttribute('role', 'status');
   softNote.setAttribute('aria-live', 'polite');
-  loginAsBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Sign in as…');
-  loginAsBtn.type = 'button';
-  loginAsBtn.hidden = true;
-  loginAsBtn.addEventListener('click', loginFromHandLock);
-  logOutBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Sign out');
-  logOutBtn.type = 'button';
-  logOutBtn.hidden = true;
-  logOutBtn.addEventListener('click', logOutFromFoot);
+  signInAsBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Sign in as…');
+  signInAsBtn.type = 'button';
+  signInAsBtn.hidden = true;
+  signInAsBtn.addEventListener('click', signInFromLock);
+  signOutBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Sign out');
+  signOutBtn.type = 'button';
+  signOutBtn.hidden = true;
+  signOutBtn.addEventListener('click', signOutFromFoot);
   softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to dismiss'), softBtn, softNote);
   softBody.hidden = true;
-  softFoot = el('div', 'sode-lock__foot', logOutBtn, loginAsBtn);
+  softFoot = el('div', 'sode-lock__foot', signOutBtn, signInAsBtn);
   softFoot.hidden = true;
   // The foot is the last row, in flow, so it can't land on the pad.
   root = el('div', 'sode-lock', el('div', 'sode-lock__main', brand, padBody, softBody), softFoot);
@@ -151,7 +151,7 @@ function build() {
   root.setAttribute('aria-label', 'Locked');
   document.body.append(root);
 
-  chip = buildChip({ lock: () => (L.enforced ? lockNow() : softLock()) });
+  chip = buildChip({ lock: () => (L.enforced ? lockNow() : localLock()) });
   document.body.append(chip.root);
 }
 
@@ -208,12 +208,12 @@ function showLock() {
   build();
   const body = viewBody(V, L.enforced && L.locked);
   padBody.hidden = body !== 'pad';
-  cancelBtn.hidden = V.mode !== MODE.LOGIN;
+  cancelBtn.hidden = V.mode !== MODE.SIGN_IN;
   const ownLock = V.mode === MODE.OWN;
   softBody.hidden = body !== 'soft';
-  logOutBtn.hidden = !(ownLock || logOutOffered(L));
-  loginAsBtn.hidden = ownLock || !loginAsOffered(L);
-  softFoot.hidden = !ownLock && (body !== 'soft' || (logOutBtn.hidden && loginAsBtn.hidden));
+  signOutBtn.hidden = !(ownLock || signOutOffered(L));
+  signInAsBtn.hidden = ownLock || !signInAsOffered(L);
+  softFoot.hidden = !ownLock && (body !== 'soft' || (signOutBtn.hidden && signInAsBtn.hidden));
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
@@ -238,7 +238,7 @@ function showLock() {
   root.classList.add('is-on');
   document.documentElement.dataset.sodeLockOn = 'on';
   chip?.setLocked(true);
-  if (V.mode !== MODE.LOGIN) closeModals();
+  if (V.mode !== MODE.SIGN_IN) closeModals();
   inerted = [];
   for (const c of document.body.children) inert(c);
   watch ||= new MutationObserver((list) => {
@@ -437,7 +437,7 @@ onMsg('session', (m) => {
 
 onMsg('lockState', (m) => {
   if (settle) settle();
-  const was = (L.enforced && L.locked) || V.mode === MODE.LOGIN || V.mode === MODE.OWN;
+  const was = (L.enforced && L.locked) || V.mode === MODE.SIGN_IN || V.mode === MODE.OWN;
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.user = m.user || '';
@@ -460,7 +460,7 @@ onMsg('lockState', (m) => {
     settle = null;
     welcoming = false;
     // A login that worked ends the hand lock for good; other states say nothing about this pad.
-    V = loginWon(V, { enforced: L.enforced, unlocked, user: L.user });
+    V = signInWon(V, { enforced: L.enforced, unlocked, user: L.user });
     unlocked = false;
     render();
     emit('access', { ...L });
@@ -484,22 +484,22 @@ onMsg('lockState', (m) => {
 on('logout', () => lockNow());
 
 on('login', () => {
-  if (!loginOffered(L) || V.mode !== MODE.PAGE) return;
-  V = startLogin(V, false);
+  if (!signInOffered(L) || V.mode !== MODE.PAGE) return;
+  V = startSignIn(V, false);
   render();
 });
 
-function cancelLogin() {
-  if (V.mode !== MODE.LOGIN) return;
+function cancelSignIn() {
+  if (V.mode !== MODE.SIGN_IN) return;
   const back = V.back === 'soft';
   V = cancelView(V);
   clearTimeout(timer);
   clearFeedback();
-  if (back && !L.enforced) softLock();
+  if (back && !L.enforced) localLock();
   else render();
 }
 
-function softLock() {
+function localLock() {
   if (soft || L.enforced || !S.cfg || V.mode === MODE.OWN) return;
   if (L.user) return pinLock();
   build();
@@ -532,7 +532,7 @@ function pinLock() {
   lockNow();
 }
 
-function softUnlock() {
+function dismissLocalLock() {
   if (!soft?.lock.ready()) return;
   soft.lock.cancel();
   soft = null;
@@ -542,11 +542,11 @@ function softUnlock() {
 
 // "Log in as...": ends the hand lock and begins a login. Cancel returns to the hand lock. The
 // hand lock never sends userLock, so a tab login stays in until this one succeeds.
-function loginFromHandLock() {
-  if (!soft || !loginAsOffered(L)) return;
+function signInFromLock() {
+  if (!soft || !signInAsOffered(L)) return;
   soft.lock.cancel();
   soft = null;
-  V = startLogin(V, true);
+  V = startSignIn(V, true);
   pin = '';
   clearTimeout(timer);
   clearFeedback();
@@ -556,16 +556,16 @@ function loginFromHandLock() {
 
 // Under the hand lock the session ends (token revoked) and the hand lock stays up. On a
 // logged-in user's own lock the session already ended: the pad just goes away.
-function logOutFromFoot() {
+function signOutFromFoot() {
   if (V.mode === MODE.OWN) {
     V = PAGE_VIEW;
     clearTimeout(timer);
     clearFeedback();
     render();
-  } else if (V.mode === MODE.SOFT && logOutOffered(L)) lockNow();
+  } else if (V.mode === MODE.SOFT && signOutOffered(L)) lockNow();
 }
 
-on('softLock', softLock);
+on('localLock', localLock);
 
 // Lock and Log out both end the session: the server forgets the unlock and revokes the token
 // (so a reload cannot undo it).
@@ -593,15 +593,15 @@ document.addEventListener(
       if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       if (e.key === 'Tab' || ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button'))) return;
       e.preventDefault();
-      if (e.key.toLowerCase() === soft.key || (S.cfg?.confirmEnter && e.key === 'Enter')) softUnlock();
+      if (e.key.toLowerCase() === soft.key || (S.cfg?.confirmEnter && e.key === 'Enter')) dismissLocalLock();
       return;
     }
     if (root && !root.hidden && root.classList.contains('is-on')) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (V.mode === MODE.LOGIN && e.key === 'Escape') {
+      if (V.mode === MODE.SIGN_IN && e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        cancelLogin();
+        cancelSignIn();
         return;
       }
       const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;
@@ -621,7 +621,7 @@ document.addEventListener(
       } else if (!L.enforced && S.cfg) {
         e.preventDefault();
         e.stopPropagation();
-        softLock();
+        localLock();
       }
     }
   },
@@ -637,5 +637,5 @@ document.addEventListener('pointermove', touch, { passive: true });
 setInterval(() => {
   const minutes = S.cfg?.autoLockMinutes || 0;
   if (idleLock(L, lastActive, Date.now(), minutes)) lockNow();
-  else if (S.cfg && softIdleLock(L, !!soft, lastActive, Date.now(), minutes)) softLock();
+  else if (S.cfg && localIdleLock(L, !!soft, lastActive, Date.now(), minutes)) localLock();
 }, 5000);

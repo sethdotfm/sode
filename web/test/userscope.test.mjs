@@ -32,11 +32,11 @@ const { profileSaver, profileProblem, PROFILE_MAX_BYTES } = await import('../glo
 m.connect();
 const deliver = (msg) => FakeWS.last.onmessage({ data: JSON.stringify(msg) });
 const f = (o) => ({ src: '', dst: '', sode: true, ext: true, hidden: false, ...o });
-const login = (name, filterSets = [], presets = []) => deliver({ t: 'profile', name, prefs: {}, filterSets, presets });
+const signIn = (name, filterSets = [], presets = []) => deliver({ t: 'profile', name, prefs: {}, filterSets, presets });
 const reset = () => {
   mem.clear();
   m.S.cfg = { numberOffset: 1, levelNumbering: '1', defaultLevels: '1', filterSets: [], presets: [] };
-  login('');
+  signIn('');
   m.pickSet('all', 'All');
 };
 
@@ -48,19 +48,19 @@ test('user sets come from the profile and sit between Everyone and This browser'
     m.allSets().map((s) => `${s.scope}:${s.name}`),
     ['all:All', 'global:Shared', 'local:Mine'],
   );
-  login('Ana', [f({ name: 'Ana set', src: 'CAM' })]);
+  signIn('Ana', [f({ name: 'Ana set', src: 'CAM' })]);
   assert.deepEqual(
     m.allSets().map((s) => `${s.scope}:${s.name}`),
     ['all:All', 'global:Shared', 'user:Ana set', 'local:Mine'],
   );
-  login('');
+  signIn('');
   assert.deepEqual(m.userSets(), []);
 });
 
 test('a name used in two scopes is two sets; picking goes by scope', () => {
   reset();
   m.S.cfg.filterSets = [f({ name: 'Cams', src: 'GLOBAL' })];
-  login('Ana', [f({ name: 'cams', src: 'ANA' })]);
+  signIn('Ana', [f({ name: 'cams', src: 'ANA' })]);
   m.pickSet('user', 'Cams');
   assert.equal(m.filterState().src, 'ANA');
   assert.equal(m.activeRef().user, 'Ana');
@@ -72,20 +72,20 @@ test('a name used in two scopes is two sets; picking goes by scope', () => {
 
 test("the active set carries its user: Bob never picks up Ana's same-named set", () => {
   reset();
-  login('Ana', [f({ name: 'Mine', src: 'ANA' })]);
+  signIn('Ana', [f({ name: 'Mine', src: 'ANA' })]);
   m.pickSet('user', 'Mine');
   assert.equal(m.activeSet().name, 'Mine');
   assert.equal(JSON.parse(mem.get('sode-filter-active')).user, 'Ana');
-  login('Bob', [f({ name: 'Mine', src: 'BOB' })]);
+  signIn('Bob', [f({ name: 'Mine', src: 'BOB' })]);
   assert.equal(m.activeSet().scope, 'all');
   assert.equal(m.filterState().src, '');
 });
 
 test('logging out drops a user set', () => {
   reset();
-  login('Ana', [f({ name: 'Mine', src: 'ANA' })]);
+  signIn('Ana', [f({ name: 'Mine', src: 'ANA' })]);
   m.pickSet('user', 'Mine');
-  login('');
+  signIn('');
   assert.equal(m.activeSet().scope, 'all');
   assert.equal(m.filterState().src, '');
   assert.equal(
@@ -97,7 +97,7 @@ test('logging out drops a user set', () => {
 test('a stack drops the sets of a user that left, keeps the rest', () => {
   reset();
   m.S.cfg.filterSets = [f({ name: 'G', dst: 'MV' })];
-  login('Ana', [f({ name: 'A', src: 'ANA' })]);
+  signIn('Ana', [f({ name: 'A', src: 'ANA' })]);
   m.toggleSet('global', 'G');
   m.toggleSet('user', 'A');
   assert.equal(m.activeStack().length, 2);
@@ -105,19 +105,19 @@ test('a stack drops the sets of a user that left, keeps the rest', () => {
     JSON.parse(mem.get('sode-filter-stack')).map((r) => r.user),
     [undefined, 'Ana'],
   );
-  login('Bob', []);
+  signIn('Bob', []);
   assert.equal(m.activeStack().length, 0);
   assert.equal(m.activeSet().name, 'G');
 });
 
 test('a set edited on another device is followed unless this browser edited it', () => {
   reset();
-  login('Ana', [f({ name: 'Mine', src: 'ONE' })]);
+  signIn('Ana', [f({ name: 'Mine', src: 'ONE' })]);
   m.pickSet('user', 'Mine');
-  login('Ana', [f({ name: 'Mine', src: 'TWO' })]);
+  signIn('Ana', [f({ name: 'Mine', src: 'TWO' })]);
   assert.equal(m.filterState().src, 'TWO');
   m.setFilter(f({ src: 'HAND' }));
-  login('Ana', [f({ name: 'Mine', src: 'THREE' })]);
+  signIn('Ana', [f({ name: 'Mine', src: 'THREE' })]);
   assert.equal(m.filterState().src, 'HAND');
   assert.equal(m.activeSet().edited, true);
 });
@@ -125,7 +125,7 @@ test('a set edited on another device is followed unless this browser edited it',
 test('user presets: own pinned flag, scoped after Everyone', () => {
   reset();
   m.S.cfg.presets = [{ name: 'Show', items: [{ src: 1, dsts: [0], levels: [] }] }];
-  login('Ana', [], [{ name: 'Show', pinned: false, items: [{ src: 2, dsts: [1], levels: [] }] }]);
+  signIn('Ana', [], [{ name: 'Show', pinned: false, items: [{ src: 2, dsts: [1], levels: [] }] }]);
   assert.deepEqual(
     m.allPresets().map((s) => `${s.scope}:${s.name}`),
     ['global:Show', 'user:Show'],
@@ -149,7 +149,7 @@ test('user presets: own pinned flag, scoped after Everyone', () => {
   assert.equal(next.length, 1);
   assert.equal(next[0].pinned, true);
   assert.equal('scope' in next[0], false);
-  login('');
+  signIn('');
   assert.deepEqual(m.userPresets(), []);
 });
 
@@ -160,7 +160,7 @@ test('profileProblem refuses an oversized profile; saves send the whole list', a
   assert.match(profileProblem({ prefs: {}, filterSets: [], presets: [] }, { filterSets: big }), /too big/);
   assert.equal(PROFILE_MAX_BYTES, 48 * 1024);
 
-  login('Ana');
+  signIn('Ana');
   const notes = [];
   const saver = profileSaver({ setNote: (t, e) => notes.push([t, !!e]), isOpen: () => true, failTitle: 'x' });
   saver.change({ filterSets: big }, () => assert.fail('too big'));
@@ -184,7 +184,7 @@ test('profileProblem refuses an oversized profile; saves send the whole list', a
 test('saveProfile: one at a time, the second built on the first; a lost socket settles them', async () => {
   const { saveProfile, profile } = await import('../profile.js');
   reset();
-  login('Ana');
+  signIn('Ana');
   sent.length = 0;
   const a = saveProfile({ prefs: { theme: 'dark' } });
   const b = saveProfile({ prefs: { ...profile().prefs, clock: '12' } });

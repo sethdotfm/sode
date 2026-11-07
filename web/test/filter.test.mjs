@@ -163,7 +163,7 @@ test('filter sets', async () => {
 
 test('follows and merged chains', async () => {
   const core = await import('./all.mjs');
-  const { S, histRows, undoPlan, folderUndoPlan, sendTakes, pickSet } = core;
+  const { S, histRows, undoPlan, groupUndoPlan, sendTakes, pickSet } = core;
   pickSet('all', 'All');
   S.cfg = { numberOffset: 1, filterSets: [] };
   S.levelBy = new Map([
@@ -248,7 +248,7 @@ test('follows and merged chains', async () => {
     sent.pop().items.map((i) => i.dst),
     [2, 40],
   );
-  assert.equal(folderUndoPlan(rows[3].f).extra.items.length, 1);
+  assert.equal(groupUndoPlan(rows[3].f).extra.items.length, 1);
   assert.equal(undoPlan(rows[2].e).extra, undefined);
   const twice = undoPlan({
     ...take,

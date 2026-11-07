@@ -25,7 +25,7 @@ export function actorUser(client, names) {
   return client && names?.includes(client) ? client : '';
 }
 
-export function folderActor(entries, users) {
+export function groupActor(entries, users) {
   const who = new Set(entries.map((e) => actorUser(e.client, users)));
   return who.size === 1 ? [...who][0] : '';
 }
@@ -36,7 +36,7 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 // the idle timer ONLY (Ctrl+L and the Lock button always work).
 export const idleLock = (s, lastActive, now, minutes) => !!(s.enforced && !s.locked && s.user) && !s.persistent && idleDue(lastActive, now, minutes);
 
-export const softIdleLock = (s, handLocked, lastActive, now, minutes) => !s.enforced && !handLocked && idleDue(lastActive, now, minutes);
+export const localIdleLock = (s, pageLocked, lastActive, now, minutes) => !s.enforced && !pageLocked && idleDue(lastActive, now, minutes);
 
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
 // step.
@@ -122,7 +122,7 @@ export function churnKey(last = '', rnd = Math.random) {
 
 // Tab login: users exist, this page has no PIN lock, nobody is logged in. The pad it opens can
 // be dismissed.
-export const loginOffered = (s) => !s.enforced && !s.user && (s.lens?.length || 0) > 0;
+export const signInOffered = (s) => !s.enforced && !s.user && (s.lens?.length || 0) > 0;
 
 // The server then keeps the user in for this tab only. A page with a lock never asks; its idle
 // timer stays in charge.
@@ -134,39 +134,39 @@ export const hiToken = (tab, persistent) => tab || persistent || '';
 
 export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
-export const loginAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
+export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
 // One value {mode, back}. mode is one of MODE: PAGE (an enforced lock may still cover it, see
 // viewBody), SOFT (hand lock), LOGIN (pad by request, dismissable) or OWN (logged-in user's
 // lock, no PIN lock: pad, not dismissable). back: where Cancel / Esc of a login returns to
 // ('page' or 'soft'). Pure; lock.js does the DOM.
-export const MODE = Object.freeze({ PAGE: 'page', SOFT: 'soft', LOGIN: 'login', OWN: 'userlock' });
+export const MODE = Object.freeze({ PAGE: 'page', SOFT: 'soft', SIGN_IN: 'login', OWN: 'userlock' });
 export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
-export const viewBody = (v, enforcedLocked) => (v.mode === MODE.SOFT ? 'soft' : enforcedLocked || v.mode === MODE.LOGIN || v.mode === MODE.OWN ? 'pad' : '');
+export const viewBody = (v, enforcedLocked) => (v.mode === MODE.SOFT ? 'soft' : enforcedLocked || v.mode === MODE.SIGN_IN || v.mode === MODE.OWN ? 'pad' : '');
 
 // Locking while logged in with no PIN lock: the PIN pad with no Cancel, and the session ended
 // on the server. The hand lock is only for a page nobody is logged in on.
 export const userLock = (v, enforced) => (enforced ? v : { mode: MODE.OWN, back: 'page' });
 
 // Nothing with an enforced lock on; wins over a login pad.
-export const softLock = (v, enforced) => (enforced ? v : { mode: MODE.SOFT, back: 'page' });
+export const localLock = (v, enforced) => (enforced ? v : { mode: MODE.SOFT, back: 'page' });
 
-export const softUnlock = () => PAGE_VIEW;
+export const dismissLocalLock = () => PAGE_VIEW;
 
-export const startLogin = (v, fromSoft) =>
-  fromSoft ? (v.mode === MODE.SOFT ? { mode: MODE.LOGIN, back: 'soft' } : v) : v.mode === MODE.PAGE ? { mode: MODE.LOGIN, back: 'page' } : v;
+export const startSignIn = (v, fromSoft) =>
+  fromSoft ? (v.mode === MODE.SOFT ? { mode: MODE.SIGN_IN, back: 'soft' } : v) : v.mode === MODE.PAGE ? { mode: MODE.SIGN_IN, back: 'page' } : v;
 
 // The view stays SOFT so the page stays covered; "Log in as..." remains when users exist.
-export const logOutOffered = (s) => !s.enforced && !!s.user;
+export const signOutOffered = (s) => !s.enforced && !!s.user;
 
-export const cancelLogin = (v) => (v.mode === MODE.LOGIN ? PAGE_VIEW : v);
+export const cancelSignIn = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
 
 export const lockArrived = (v, enforced) => (enforced && (v.mode === MODE.SOFT || v.mode === MODE.OWN) ? PAGE_VIEW : v);
 
 // A login ends only with an enforced lock or a real unlock; any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
-export const loginWon = (v, { enforced, unlocked, user }) =>
-  (v.mode === MODE.LOGIN || v.mode === MODE.OWN) && (enforced || (unlocked && user)) ? PAGE_VIEW : v;
+export const signInWon = (v, { enforced, unlocked, user }) =>
+  (v.mode === MODE.SIGN_IN || v.mode === MODE.OWN) && (enforced || (unlocked && user)) ? PAGE_VIEW : v;
 
 export const chipShown = ({ covered, soft, user }) => (soft ? !!user : !covered);

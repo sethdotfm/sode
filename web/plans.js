@@ -16,7 +16,7 @@ const takes = new Map();
 // destination; undo/retry are the entries an item undoes or retries. Protection isn't kept
 // here: planBlocked returns it. May carry title and warnings (shown as is).
 
-export const takeItem = (dst, groups, retry = null) => ({ dst, groups, skipped: [], untouched: [], undo: null, retry });
+export const routeItem = (dst, groups, retry = null) => ({ dst, groups, skipped: [], untouched: [], undo: null, retry });
 
 // Failed-take levels the router answered for were not changed by the take (old route, or
 // someone else's): undo leaves them alone. Levels with no answer stay in (they may have
@@ -52,7 +52,7 @@ function undoItem(e) {
 // take. Needs a real source and a level that still exists.
 export const canRedo = (e) => !!e && e.src >= 0 && e.levels.some((u) => S.levelBy.has(u));
 const againItem = (e) =>
-  takeItem(
+  routeItem(
     dstItem(e.dst, e.dstName),
     [{ src: srcItem(e.src, e.srcName), levels: e.levels.filter((u) => S.levelBy.has(u)).sort((a, b) => a - b) }],
     e.ok ? null : e,
@@ -60,7 +60,7 @@ const againItem = (e) =>
 
 export const patchPlan = (src, dsts, levels) => ({
   verb: 'patch',
-  items: dsts.map((dst) => takeItem(dst, [{ src, levels }])),
+  items: dsts.map((dst) => routeItem(dst, [{ src, levels }])),
 });
 
 // The patch the boxes hold, as preset saving wants it: null until Source and a destination are set.
@@ -88,8 +88,8 @@ export function presetPlan(preset, defaults) {
     preset: preset.name,
     title: `Preset: ${preset.name}`,
     warnings,
-    items: r.takes.map((t) =>
-      takeItem(
+    items: r.routes.map((t) =>
+      routeItem(
         dstItem(t.dst),
         t.groups.map((g) => ({ src: srcItem(g.src), levels: g.levels })),
       ),
@@ -106,7 +106,7 @@ function withFollows(plan, follows) {
 }
 export const restorePlan = (then, at) => ({ verb: 'undo', items: [undoItem(then)], at });
 export const undoPlan = (e) => withFollows({ verb: 'undo', items: [undoItem(e)] }, e.follows || []);
-export const folderUndoPlan = (f) =>
+export const groupUndoPlan = (f) =>
   withFollows(
     { verb: 'undo', items: f.entries.map(undoItem) },
     f.entries.flatMap((e) => e.follows || []),
@@ -119,7 +119,7 @@ export function againPlan(row) {
   const use = (failed.length ? failed : es).filter(canRedo);
   return { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
 }
-export const rowUndoPlan = (row) => (row.f ? folderUndoPlan(row.f) : undoPlan(row.e));
+export const rowUndoPlan = (row) => (row.f ? groupUndoPlan(row.f) : undoPlan(row.e));
 
 // The one table of verb wording. busy: banner while sending; resets: whether sending clears the
 // patch boxes (only a new patch does).
@@ -134,7 +134,7 @@ export const planVerb = (plan) => VERBS[plan.verb].word;
 export const planEmpty = (plan) => !plan.items.some((i) => i.groups.length);
 // ---- results
 
-function takeText(t, already = []) {
+function routeText(t, already = []) {
   return (
     `${t.g.src.label} → ${t.dst.label} (levels ${levelText(t.g.levels)}` +
     (already.length ? `; ${levelText(already)} ${already.length === 1 ? 'was' : 'were'} already on ${t.g.src.label}` : '') +
@@ -158,7 +158,7 @@ function takeResult(m) {
   if (!failed.length) {
     const many = dsts > 1 ? ` ${dsts} destinations` : '';
     const title = undo ? `Undone${many && ' on' + many}` : `Success${many && ':' + many}`;
-    showResult('ok', title, capped(b.results.map((r) => takeText(r, r.already))));
+    showResult('ok', title, capped(b.results.map((r) => routeText(r, r.already))));
     return;
   }
   // The banner follows the failed takes' entries, so it shrinks as they're confirmed late or
@@ -492,7 +492,7 @@ export function lastChip(t, state) {
 }
 
 export function sendTakes(p) {
-  const batch = { verb: p.verb, byId: new Map(), results: [] };
+  const take = { verb: p.verb, byId: new Map(), results: [] };
   const items = [];
   for (const it of [...p.items, ...(p.extra?.on ? p.extra.items : [])]) {
     for (const g of it.groups) {
@@ -501,7 +501,7 @@ export function sendTakes(p) {
       if (it.undo) msg.undo = it.undo.id;
       if (it.retry) msg.retry = it.retry.id;
       items.push(msg);
-      batch.byId.set(id, { dst: it.dst, g });
+      take.byId.set(id, { dst: it.dst, g });
     }
   }
   const out = { t: 'batch', items };
@@ -510,17 +510,17 @@ export function sendTakes(p) {
     showResult('error', 'Not sent', 'The patch was NOT sent: the connection to the Sode server was lost. It is reconnecting; try again in a moment.');
     return false;
   }
-  for (const id of batch.byId.keys()) takes.set(id, batch);
+  for (const id of take.byId.keys()) takes.set(id, take);
   if (p.verb === 'patch') {
     const g = p.items[0].groups[0];
     lastPatch = { src: [g.src.n, g.src.name], dsts: p.items.map((i) => [i.dst.n, i.dst.name]), levels: g.levels };
   }
-  const list = [...batch.byId.values()];
+  const list = [...take.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;
   const text =
     dsts > 1 && new Set(list.map((t) => t.g.src.n)).size === 1
       ? `${list[0].g.src.label} → ${dsts} destinations (levels ${levelText(list[0].g.levels)})`
-      : capped(list.map((t) => takeText(t)));
+      : capped(list.map((t) => routeText(t)));
   showResult('info', VERBS[p.verb].busy, text);
   return true;
 }

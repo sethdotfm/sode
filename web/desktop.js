@@ -1,19 +1,19 @@
 // Desktop layout: three boxes, Tab between them, churning-key confirm.
 
-import { $, el, S, on, connState, routerLabel, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
+import { $, el, S, on, connState, routerTitle, needsLink, renderDown, setDot, search, dstLabel, dstItem, srcItem, keepSearch } from './core.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
 import { resultNode, showResult, patchPlan, planBlocked, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
 import { layout } from './layout.js';
 import { presetHost } from './presets.js';
-import { lastFill } from './recentrows.js';
-import { boxPicking, addPatch } from './recentpick.js';
+import { lastFill } from './historyrows.js';
+import { boxPicking, addPatch } from './historypick.js';
 import { keyConfirm } from './keyconfirm.js';
 import { showAll } from './showall.js';
 import { shortcutList } from './shortcuts.js';
 import { levelBox, combobox } from './widgets.js';
-import { desktopRecent } from './desktoprecent.js';
+import { desktopHistory } from './desktophistory.js';
 import { desktopKeys } from './desktopkeys.js';
 
 const sel = { src: null, dst: null };
@@ -45,7 +45,7 @@ function renderConn() {
   const c = connState();
   setDot($('conn-srv-dot'), $('conn-srv-text'), [c.ws[0], 'Server']);
   setDot($('conn-rt-dot'), $('conn-rt-text'), [c.rt[0], 'Router']);
-  const [label, isName] = routerLabel();
+  const [label, isName] = routerTitle();
   $('conn-addr').textContent = label;
   $('conn-addr').classList.toggle('sode__conn-addr--name', isName);
   $('conn').title = [c.ws[1], `${c.rt[1]} ${S.routerAddr}`, S.router !== 'up' && S.routerLastErr].filter(Boolean).join('\n');
@@ -262,8 +262,8 @@ function renderTally() {
 
 // ---- history
 
-const recent = desktopRecent({ select, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
-const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = recent;
+const historyView = desktopHistory({ select, focusBox, openConfirm, focusSearch, openKeys: () => keys.open(), boxes, active });
+const { renderHistory, enterKeys, keyMode, histList, histArea, pager } = historyView;
 
 // ---- flip order (per browser; index.html applies it before first paint)
 
@@ -409,7 +409,7 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   });
 }
 
-desktopKeys({ boxes, sel, dsts: () => dsts, lvl, confirm, keys, recent, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally });
+desktopKeys({ boxes, sel, dsts: () => dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally });
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());
