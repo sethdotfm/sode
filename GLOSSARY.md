@@ -22,6 +22,9 @@ _Avoid_: wire level, layer
 The name the router gives a source or destination. Sode cannot change it, and re-reads names from the router on a timer. Keep it apart from a user's name, a preset's name and a filter set's name.
 _Avoid_: label, refresh (for the re-read)
 
+**Route**:
+One source connected to one destination on a set of levels. A take sends one or more routes.
+
 **Protected**:
 Describes a destination that the router will not change because something has protected it. Sode refuses a plan that includes a protected destination before sending anything.
 _Avoid_: protect (as a noun), locked
@@ -35,8 +38,8 @@ Anything a person fires that Sode acts on, such as a take, an undo, a retry, a r
 The deliberate step that turns a plan into a take, done with the churning letter key and its short lockout. No take happens without one.
 
 **Take**:
-A kind of command that executes a change on the router hardware. A take sends one source to one destination with levels, or sends several such routes at once. One confirm is one take. "Take" is a reserved word, so nothing that has not been sent to the router is a take.
-_Avoid_: batch, route request, using "take" for any other command, a plan or saved entry, or as an ordinary verb meaning "accept" or "interpret literally"
+A kind of command that executes a change on the router hardware by sending one or more routes. One confirm is one take. "Take" is a reserved word, so nothing that has not been sent to the router is a take.
+_Avoid_: batch, using "take" for any other command, a plan or saved entry, or as an ordinary verb meaning "accept" or "interpret literally"
 
 **Plan**:
 What Sode intends to send but has not yet sent. A plan becomes a take when a person confirms it. Undo, Redo and Retry are plans: each one prepares a plan that does nothing until confirmed.
@@ -56,11 +59,11 @@ The shared, chronological record of takes and external changes that every browse
 _Avoid_: Recent
 
 **Group**:
-The entry in History for a take that reached several destinations. Undo all and Redo all act on a Group, undoing or repeating every destination in that take.
+The folder in History for a take that sent several routes. Undo all and Redo all act on a Group, undoing or repeating every route in that take.
 _Avoid_: batch, folder
 
 **Entry**:
-One row in History: a take, or an external change.
+One row in History: a route from a take, or an external change.
 
 **Before**:
 What the router had on a destination just before a take. Undo restores it.
