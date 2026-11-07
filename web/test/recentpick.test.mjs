@@ -68,8 +68,8 @@ test('entries that cannot be a take are left out; unknown keys are ignored', () 
 test('each mode says its own count, Add label and whether Add is on', () => {
   const taken = [{}, {}];
   const recent = { picked: new Set(['a']) };
-  assert.equal(MODES.recent.count(recent, taken), '1 chosen · 2 takes');
-  assert.equal(MODES.recent.count(recent, [{}]), '1 chosen · 1 take');
+  assert.equal(MODES.recent.count(recent, taken), '1 chosen, 2 takes');
+  assert.equal(MODES.recent.count(recent, [{}]), '1 chosen, 1 take');
   assert.equal(MODES.recent.addText(recent, taken), 'Add 2');
   assert.equal(MODES.recent.addText(recent, []), 'Add');
   assert.equal(MODES.recent.canAdd(recent, []), false);

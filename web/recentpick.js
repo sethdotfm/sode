@@ -54,7 +54,7 @@ export const MODES = {
     follows: true,
     cancelText: 'Cancel',
     taken: (s) => pickedNow(s),
-    count: (s, t) => `${s.picked.size} chosen · ${plural(t.length)}`,
+    count: (s, t) => `${s.picked.size} chosen, ${plural(t.length)}`,
     addText: (s, t) => (t.length ? `Add ${t.length}` : 'Add'),
     canAdd: (s, t) => t.length > 0,
     add(s) {

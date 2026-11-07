@@ -239,7 +239,7 @@ export function filterSummary(f) {
   if (!f.sode) parts.push('No Sode takes');
   if (!f.ext) parts.push('No other panels');
   else if (f.hidden) parts.push('With hidden');
-  return parts.join(' · ') || 'Everything';
+  return parts.join(', ') || 'Everything';
 }
 
 // Compiled once per expression. Blank (or unparsable) hides nothing.

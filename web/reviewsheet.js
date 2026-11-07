@@ -561,7 +561,7 @@ export function openReview({ doc, scope: sc = 'local', user = '', applyNow = nul
   busy = false;
   titleEl.textContent = title;
   const bits = [doc.site && `From ${doc.site}`, doc.user && `profile of ${doc.user}`, doc.exported && `exported ${doc.exported.slice(0, 10)}`].filter(Boolean);
-  fromEl.textContent = source || bits.join(' · ');
+  fromEl.textContent = source || bits.join(', ');
   fromEl.hidden = !fromEl.textContent;
   pinA.pinRow.hidden = true;
   pinB.pinRow.hidden = true;

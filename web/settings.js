@@ -236,8 +236,8 @@ for (const s of form.querySelectorAll('select[data-gpref]')) s.replaceChildren(.
 
 const originText = (name, v) => {
   const text = PREFS[name].values[v];
-  if (myPref(name) === v) return `${text} \u00b7 my default`;
-  if (globalPref(name) === v) return `${text} \u00b7 everyone's default`;
+  if (myPref(name) === v) return `${text} (my default)`;
+  if (globalPref(name) === v) return `${text} (everyone's default)`;
   return text;
 };
 

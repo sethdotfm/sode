@@ -14,7 +14,7 @@ import './lock.js';
 
 on('brand', ({ text }) => {
   document.querySelector('.sode-log__title').textContent = `${text} Communication Log`;
-  document.title = `${text} Communication Log \u00b7 ${text}`;
+  document.title = `${text} Communication Log`;
 });
 
 // Entries are kept in finish order but stamped with when first sent (or queued), so the log
@@ -308,7 +308,7 @@ function outcome(e) {
   }
   const tries = `${e.tries} ${e.tries === 1 ? 'try' : 'tries'}`;
   const [dot, text] = {
-    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', e.ackMs ? `ACK · ${fmtMs(e.ackMs)}` : 'ACK'],
+    ack: e.tries > 1 ? ['warn', `ACK after ${tries}`] : ['ok', e.ackMs ? `ACK in ${fmtMs(e.ackMs)}` : 'ACK'],
     nak: ['error', `NAK, gave up after ${tries}`],
     noack: ['error', `No ACK after ${tries}`],
     write: ['error', 'Write failed'],
@@ -340,7 +340,7 @@ function row(e, fresh = false) {
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
-    el('td', null, why, e.by ? el('span', 'pb-text-muted', ` · ${e.by}`) : '', e.note ? el('span', 'pb-text-muted', ` · ${e.note}`) : ''),
+    el('td', null, why, e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '', e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : ''),
     el('td', null, outcome(e)),
     el('td', 'sode-log__hex', e.hex),
   );
@@ -636,7 +636,7 @@ function showSlot() {
   const back = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Back');
   back.type = 'button';
   back.addEventListener('click', leaveSlotBack);
-  note.replaceChildren(el('strong', null, 'One slot of the graph'), ` · ${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)} · newest first`, back);
+  note.replaceChildren(el('strong', null, 'One slot of the graph'), `${fmtDay(slotMode.from)} to ${fmtDay(slotMode.to)}`, 'newest first', back);
 }
 
 on('uptimeResult', (m) => {

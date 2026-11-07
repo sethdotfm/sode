@@ -87,7 +87,7 @@ export function summary(data) {
   const parts = [`${pct}% up`, `${d} ${d === 1 ? 'drop' : 'drops'}`];
   if (bad) parts.push(`${bad} failed`);
   if (slow) parts.push(`${slow} slow`);
-  return parts.join(' · ');
+  return parts.join(', ');
 }
 
 export function slotText(s, fmt) {

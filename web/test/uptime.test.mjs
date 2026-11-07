@@ -20,7 +20,7 @@ test('down for a whole slot is red, part of one is yellow', () => {
       { t: 3 * HOUR, s: 'up' },
     ],
   });
-  // 0 ok · 1 half down · 2 down · 3 up
+  // 0 ok, 1 half down, 2 down, 3 up
   assert.deepEqual(colours(d), ['ok', 'warn', 'error', 'ok']);
   assert.equal(slots(d)[1].upMs, 30 * MIN);
 });
@@ -64,7 +64,7 @@ test('Sode being off counts as down', () => {
 });
 
 test('summary: rounds down, counts drops, and always has text', () => {
-  assert.equal(summary(base()), '100% up · 0 drops');
+  assert.equal(summary(base()), '100% up, 0 drops');
   const d = base({
     trans: [
       { t: HOUR, s: 'down' },
@@ -72,7 +72,7 @@ test('summary: rounds down, counts drops, and always has text', () => {
     ],
     counts: [{ i: 0, bad: 3, slow: 2 }],
   });
-  assert.equal(summary(d), '99.7% up · 1 drop · 3 failed · 2 slow');
+  assert.equal(summary(d), '99.7% up, 1 drop, 3 failed, 2 slow');
   assert.equal(summary(base({ start: '' })), 'No record for this time');
 });
 

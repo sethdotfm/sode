@@ -321,15 +321,15 @@ function renderShow() {
 function buttonState() {
   const sets = activeStack().length;
   const parts = filterCount();
-  if (sets) return { text: `Filters · ${sets} sets`, aria: `Filters, ${sets} sets stacked`, on: true };
-  if (parts) return { text: `Filters · ${parts}`, aria: `Filters, ${parts} active`, on: true };
+  if (sets) return { text: 'Filters', count: `${sets} sets`, aria: `Filters, ${sets} sets stacked`, on: true };
+  if (parts) return { text: 'Filters', count: `${parts}`, aria: `Filters, ${parts} active`, on: true };
   return { text: 'Filters', aria: 'Filters, none active', on: false };
 }
 
 function renderButtons() {
-  const { text, aria, on: lit } = buttonState();
+  const { text, count, on: lit, aria } = buttonState();
   for (const b of document.querySelectorAll('[data-filters]')) {
-    b.textContent = text;
+    b.replaceChildren(text, ...(count ? [el('span', 'sode__filters-count', count)] : []));
     b.classList.toggle('sode__filters-btn--on', lit);
     b.setAttribute('aria-label', aria);
   }
@@ -595,12 +595,12 @@ function renderSetBar() {
   if (busy) return;
   if (stack.length) {
     return setNote(
-      `Stacked: ${stack.map((s) => s.name).join(', ')} · ${PREFS.setStack.values[pref('setStack')]}. ` +
+      `Stacked: ${stack.map((s) => s.name).join(', ')} (${PREFS.setStack.values[pref('setStack')]}). ` +
         'Changing a filter leaves the stack, and the share link is off.',
     );
   }
   if (named && moveTo) return setNote(`Save moves it from ${scopeLabel(a.scope)} to ${scopeLabel(moveTo)}.`);
-  setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' · edited' : ''}` : '');
+  setNote(a && a.scope !== 'all' ? `${scopeLabel(a.scope)}${a.edited ? ' (edited)' : ''}` : '');
 }
 const setNote = (text, error = false) => {
   $('flt-set-note').textContent = text;
@@ -969,7 +969,7 @@ for (const b of searchBoxes) {
 function renderSearch() {
   const on = searchActive();
   const n = on ? histRows(S.hist).length : 0;
-  const note = !on ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ' · ignoring filters'}`;
+  const note = !on ? '' : `${n} found${S.histMore ? ' so far' : ''}${searchRespectsFilters() ? '' : ', ignoring filters'}`;
   for (const b of searchBoxes) {
     for (const k of ['src', 'dst']) {
       const st = sb[k];

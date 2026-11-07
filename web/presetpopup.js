@@ -112,7 +112,13 @@ function draw() {
   list.replaceChildren(
     ...shownList.map((s, i) => {
       const pinned = isPinned(s);
-      const main = el('button', 'sode__preset-main', el('strong', null, s.name), el('span', 'sode__hint', ` ${scopeText(s)}${pinned ? '' : ' · not pinned'}`));
+      const main = el(
+        'button',
+        'sode__preset-main',
+        el('strong', null, s.name),
+        el('span', 'sode__hint', ` ${scopeText(s)}`),
+        pinned ? '' : el('span', 'sode__hint sode__preset-flag', 'not pinned'),
+      );
       main.type = 'button';
       main.tabIndex = -1;
       main.addEventListener('click', (e) => pressPreset(s, e.shiftKey));

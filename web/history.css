@@ -1089,3 +1089,9 @@ html[data-alt] .sode__chip-key {
 [data-layout="phone"] .sode__head-link {
   display: none;
 }
+.sode__preset-flag {
+  margin-inline-start: var(--pb-space-2);
+}
+.sode__filters-count {
+  margin-inline-start: var(--pb-space-2);
+}

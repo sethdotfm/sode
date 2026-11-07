@@ -182,3 +182,6 @@
   height: var(--pb-space-4);
   width: var(--pb-space-4);
 }
+.sode-log__why-part {
+  margin-inline-start: var(--pb-space-2);
+}
