@@ -184,10 +184,31 @@ function addRow(u = { name: '', len: 0 }) {
   const never = check('Never sign out');
   never.input.checked = !!u.persistent;
   never.input.dataset.flag = 'persistent';
-  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {
+  // A saved user takes two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
+  const disarm = () => {
+    rm.dataset.armed = '';
+    rm.textContent = 'Remove';
+    rm.classList.replace('pb-btn--danger', 'pb-btn--ghost');
+  };
+  const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', async () => {
+    if (!row.dataset.was) {
+      row.remove();
+      touched();
+      return;
+    }
+    if (!rm.dataset.armed) {
+      rm.dataset.armed = '1';
+      rm.textContent = 'Confirm remove';
+      rm.classList.replace('pb-btn--ghost', 'pb-btn--danger');
+      setNote(`Remove "${row.dataset.was}"? Once saved, this can't be undone: their PIN and profile are deleted.`);
+      return;
+    }
+    if (S.pinSet && !(await askPin('Removing a user needs the Advanced Settings PIN.'))) return disarm();
+    setNote('');
     row.remove();
     touched();
   });
+  rm.addEventListener('blur', disarm);
   const out = u.len
     ? btn('pb-btn--outline pb-btn--sm', 'Sign out everywhere', () => {
         err.hidden = true;
