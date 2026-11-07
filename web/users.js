@@ -7,7 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
-import { MODES, RENAME_HINT, modeOneWay, renameNotice, switchNeedsWarning, usernameColumn, usersReq } from './usersrules.js';
+import { MODES, RENAME_HINT, clashNotice, pinClashes, renameNotice, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
@@ -71,7 +71,11 @@ const modeField = el(
   'sode__field',
   Object.assign(el('label', null, 'Sign-in mode'), { htmlFor: 'usr-mode' }),
   el('span', 'pb-select-wrap', modeSelect),
-  el('span', 'sode__hint', 'Username and PIN: each user has a username, and two users may share a PIN. This cannot be switched back to PIN only for now.'),
+  el(
+    'span',
+    'sode__hint',
+    'Username and PIN: each user has a username, and two users may share a PIN. Switching back to PIN only needs a different PIN for each user who shares one.',
+  ),
 );
 const usernameHead = el('span', null, 'Username');
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
@@ -120,7 +124,6 @@ dialog.addEventListener('keydown', (e) => {
 
 let isOpen = false;
 let edited = false; // changed in the dialog since it filled
-let warned = false; // the one-way switch was warned about; the next Save sends it
 let discard = false; // warned once; the next close discards
 let back = null;
 let seq = 0;
@@ -138,7 +141,10 @@ const setNote = (text, error = false) => {
 function touched() {
   edited = true;
   discard = false;
-  setNote(renameNotice(readRows()));
+  const r = readRows();
+  const clashes = pinClashes(r, mode(), listedMode);
+  for (const row of rows.children) row.toggleAttribute('data-clash', clashes.includes(row.querySelector('input[data-field="name"]').value.trim()));
+  setNote(clashNotice(clashes) || renameNotice(r));
 }
 function fail(text) {
   err.textContent = sentence(text);
@@ -238,6 +244,7 @@ function addRow(u = { name: '', len: 0 }) {
     rm,
   );
   row.dataset.was = u.len ? u.name : '';
+  if (u.shared) row.dataset.shared = '1';
   paintProf();
   name.addEventListener('input', paintProf);
   for (const f of [name, uname, pin]) f.addEventListener('input', touched);
@@ -265,8 +272,6 @@ onMsg('userSignOutAllResult', (m) => {
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
   modeSelect.value = listedMode;
-  modeSelect.options[0].disabled = modeOneWay(listedMode);
-  warned = false;
   rows.replaceChildren();
   paintMode();
   for (const u of listed) addRow(u);
@@ -367,18 +372,27 @@ function readRows() {
   return [...rows.children].map((row) => {
     const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
-    return { name: val('name'), was: row.dataset.was, pin: val('pin'), trusted: flag('trusted'), persistent: flag('persistent'), username: val('username') };
+    return {
+      name: val('name'),
+      was: row.dataset.was,
+      shared: !!row.dataset.shared,
+      pin: val('pin'),
+      trusted: flag('trusted'),
+      persistent: flag('persistent'),
+      username: val('username'),
+    };
   });
 }
 
 function doSave() {
   err.hidden = true;
   setNote('');
-  if (switchNeedsWarning(mode(), listedMode) && !warned) {
-    warned = true;
-    return setNote('Username and PIN cannot be switched back to PIN only. Save again to switch, or choose PIN only.', true);
-  }
   const users = readRows();
+  const clashes = pinClashes(users, mode(), listedMode);
+  if (clashes.length) {
+    setNote(clashNotice(clashes), true);
+    return rows.querySelector('.sode__users-row[data-clash] input[data-field="pin"]')?.focus();
+  }
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode) }))
     return fail('Not connected to Sode.');
@@ -400,7 +414,6 @@ onMsg('usersResult', async (m) => {
 
 modeSelect.addEventListener('change', () => {
   touched();
-  warned = false;
   paintMode();
 });
 maxInput.addEventListener('input', () => {

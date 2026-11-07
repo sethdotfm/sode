@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -16,6 +18,10 @@ type User struct {
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 	Pin      string `yaml:"pin" json:"-"`
 	Len      int    `yaml:"len" json:"len"`
+	// PinTag is shared by users whose PINs are equal, so going back to PIN only can find clashes
+	// the salted hashes hide. A random token, set where the PIN is typed (the server holds no
+	// PIN otherwise); empty while the PIN is unique. Never sent before the PIN.
+	PinTag string `yaml:"pinTag,omitempty" json:"-"`
 	// Trusted: low-risk saves need no Advanced Settings PIN (policy: app/policy.go).
 	Trusted    bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
 	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
@@ -80,7 +86,42 @@ func (c Config) FindUsername(username string) (User, bool) {
 	return User{}, false
 }
 
-func (u *User) TakePin(from User) { u.Pin, u.Len = from.Pin, from.Len }
+func (u *User) TakePin(from User) { u.Pin, u.Len, u.PinTag = from.Pin, from.Len, from.PinTag }
+
+// TagPin sets users[i].PinTag after its PIN became pin: the tag of the user whose hash matches
+// (made if that user has none yet), else empty.
+func TagPin(users []User, i int, pin string) {
+	users[i].PinTag = ""
+	for j := range users {
+		if j == i || users[j].Len != len(pin) || !CheckPin(users[j].Pin, pin) {
+			continue
+		}
+		if users[j].PinTag == "" {
+			b := make([]byte, 8)
+			_, _ = rand.Read(b)
+			users[j].PinTag = hex.EncodeToString(b)
+		}
+		users[i].PinTag = users[j].PinTag
+		return
+	}
+}
+
+// SharedPinUsers names, in list order, the users whose PIN another user has too.
+func SharedPinUsers(users []User) []string {
+	n := map[string]int{}
+	for _, u := range users {
+		if u.PinTag != "" {
+			n[u.PinTag]++
+		}
+	}
+	var out []string
+	for _, u := range users {
+		if u.PinTag != "" && n[u.PinTag] > 1 {
+			out = append(out, u.Name)
+		}
+	}
+	return out
+}
 
 // KeepPins is c with PIN hashes it lacks taken from live (a user's hash and length together).
 // Hashes must look like hashes so a file can't stop the next start; a user with neither is an error.

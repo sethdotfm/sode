@@ -22,11 +22,16 @@ export function usersReq(rows, maxPinLen, mode, savedMode) {
   return { users, maxPinLen, ...(mode !== savedMode ? { signInMode: mode } : {}) };
 }
 
-// The server refuses Username and PIN back to PIN only (one-way for now).
-export const modeOneWay = (savedMode) => savedMode === 'username';
+// Going back to PIN only: users whose saved PIN another user has (row.shared, from the server)
+// and who have no new PIN typed yet. The server refuses the save while any remain.
+export const pinClashes = (rows, mode, savedMode) =>
+  mode === 'pin' && savedMode === 'username' ? rows.filter((r) => r.shared && !r.pin).map((r) => r.name.trim()) : [];
 
-// Warn before the first save that switches to Username and PIN, since it cannot be undone.
-export const switchNeedsWarning = (mode, savedMode) => mode === 'username' && !modeOneWay(savedMode);
+export function clashNotice(names) {
+  if (!names.length) return '';
+  if (names.length === 1) return `${names[0]} shares a PIN with another user. Give ${names[0]} a new PIN to switch to PIN only.`;
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)} share a PIN with other users. Give each a new PIN to switch to PIN only.`;
+}
 
 // Saved users whose name was edited. A rename ends the user's sessions on every browser (ADR 0001).
 export const renamed = (rows) => rows.filter((r) => r.was && r.name.trim() !== r.was);
