@@ -88,9 +88,9 @@ func (c Config) FindUsername(username string) (User, bool) {
 
 func (u *User) TakePin(from User) { u.Pin, u.Len, u.PinTag = from.Pin, from.Len, from.PinTag }
 
-// TagPin sets users[i].PinTag after its PIN became pin: the tag of the user whose hash matches
-// (made if that user has none yet), else empty.
-func TagPin(users []User, i int, pin string) {
+// LinkEqualPin sets users[i].PinTag after its PIN became pin: the tag of the user whose hash
+// matches, else empty. It also mutates that other user, giving it a tag if it had none.
+func LinkEqualPin(users []User, i int, pin string) {
 	users[i].PinTag = ""
 	for j := range users {
 		if j == i || users[j].Len != len(pin) || !CheckPin(users[j].Pin, pin) {
@@ -106,17 +106,29 @@ func TagPin(users []User, i int, pin string) {
 	}
 }
 
-// SharedPinUsers names, in list order, the users whose PIN another user has too.
-func SharedPinUsers(users []User) []string {
+// SharedPinSet holds the names of users whose PIN another user has too.
+func SharedPinSet(users []User) map[string]bool {
 	n := map[string]int{}
 	for _, u := range users {
 		if u.PinTag != "" {
 			n[u.PinTag]++
 		}
 	}
-	var out []string
+	out := map[string]bool{}
 	for _, u := range users {
 		if u.PinTag != "" && n[u.PinTag] > 1 {
+			out[u.Name] = true
+		}
+	}
+	return out
+}
+
+// SharedPinUsers is SharedPinSet in list order.
+func SharedPinUsers(users []User) []string {
+	set := SharedPinSet(users)
+	var out []string
+	for _, u := range users {
+		if set[u.Name] {
 			out = append(out, u.Name)
 		}
 	}

@@ -83,7 +83,7 @@ const fillBtn = btn('pb-btn--outline pb-btn--sm', 'Fill empty usernames', () => 
   for (const [i, row] of [...rows.children].entries()) row.querySelector('input[data-field="username"]').value = names[i];
   touched();
 });
-fillBtn.title = 'Sets each empty username to the Name without spaces. You can edit them before saving.';
+fillBtn.dataset.pbTip = 'Sets each empty username to the Name without spaces. You can edit them before saving.';
 const usernameHead = el('span', null, 'Username');
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
 
@@ -150,7 +150,11 @@ function touched() {
   discard = false;
   const r = readRows();
   const clashes = pinClashes(r, mode(), listedMode);
-  for (const row of rows.children) row.toggleAttribute('data-clash', clashes.includes(row.querySelector('input[data-field="name"]').value.trim()));
+  for (const row of rows.children) {
+    const clash = clashes.includes(row.querySelector('input[data-field="name"]').value.trim());
+    row.toggleAttribute('data-clash', clash);
+    row.querySelector('input[data-field="pin"]').classList.toggle('pb-input--invalid', clash);
+  }
   setNote(clashNotice(clashes) || renameNotice(r));
 }
 function fail(text) {
