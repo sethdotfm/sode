@@ -273,11 +273,11 @@ func (a *App) fireSalvo(r *runtime, staged []*routeRun) (sent bool, err error) {
 			missing++
 			last = done
 			if queued++; queued%stageChunk == 0 {
-				leftQueue(last)
+				a.leftQueue(last)
 			}
 		}
 	}
-	leftQueue(last)
+	a.leftQueue(last)
 	// Every crosspoint must be staged before the Go.
 	if missing > 0 {
 		if _, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool {
@@ -297,7 +297,7 @@ func (a *App) fireSalvo(r *runtime, staged []*routeRun) (sent bool, err error) {
 		return false, fmt.Errorf("go: %w", err)
 	}
 	// From here the routes may have changed: never again as connects.
-	leftQueue(done)
+	a.leftQueue(done)
 	wrote := time.Now() // the Go is written and ACKed
 	x, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool { return x.Cmd == swp08.CmdGoDoneAck && x.Group == g })
 	at := time.Now()
@@ -342,7 +342,7 @@ func (a *App) clearSalvo(ext *extTracker, fs *fireState, g int, why swp08.Why) e
 	if err != nil {
 		return fmt.Errorf("clear: %w", err)
 	}
-	leftQueue(done)
+	a.leftQueue(done)
 	if _, ok := fs.await(salvoReply, func(x swp08.SalvoAck) bool { return x.Cmd == swp08.CmdGoDoneAck && x.Group == g }); !ok {
 		return errNoClear
 	}
