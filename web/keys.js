@@ -9,6 +9,19 @@ export function chord(e) {
   return `${e.ctrlKey ? 'ctrl+' : ''}${e.altKey ? 'alt+' : ''}${e.shiftKey ? 'shift+' : ''}${e.metaKey ? 'meta+' : ''}${key}`;
 }
 
+// Ctrl+J/K (Cmd on a Mac) as 1 (down) or -1 (up) for list moves, else 0. Every list that takes them goes through here so they stay in step.
+export function listStep(e) {
+  const mod = (e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey);
+  return (mod && !e.altKey && !e.shiftKey && { KeyJ: 1, KeyK: -1 }[e.code]) || 0;
+}
+
+// Step for a search box's result list: arrows or Ctrl/Cmd+J/K, 0 when there are no results so the key falls through to other handlers (Settings steps sections then).
+export function resultStep(e, hasResults) {
+  if (!hasResults) return 0;
+  if (e.ctrlKey || e.metaKey || e.altKey) return listStep(e);
+  return { ArrowDown: 1, ArrowUp: -1 }[e.key] || 0;
+}
+
 // Window blur clears both: the key-up of an Alt-Tab never arrives.
 const HELD = { shift: 'shiftKey', alt: 'altKey' };
 function held(e) {
