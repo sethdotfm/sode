@@ -23,7 +23,7 @@ func (a *App) guardSave(c *client, trusted bool) error {
 }
 
 // saveShared: mutate edits a copy, then update. broadcast builds one message from the new
-// config (nil: none), not a full snapshot, so Recent isn't reset.
+// config (nil: none), not a full snapshot, so History isn't reset.
 func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast func(config.Config) any) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()

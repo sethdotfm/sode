@@ -6,14 +6,14 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// Changes made elsewhere (panel, Companion) arrive as Connecteds no take asked for. A
-// panel take is one message per level, so changes are collected until quiet and written as
+// External changes (a hardware panel, Companion) arrive as Connecteds no take asked for. An
+// external change arrives as one message per level, so changes are collected until quiet and written as
 // one entry per destination and source; a burst over several destinations shares a history
 // group.
 // The router also re-routes destinations itself (a multiviewer PiP following a DSM). The
 // same source moved to another destination right after one of our takes is written as a
 // follow of it (Entry.Follow), not a take. Changes made elsewhere aren't followed: a
-// panel's salvo stays one burst.
+// group send from a panel stays one burst.
 // The router doesn't announce every change (2026-10-23: KiPro 4 moved with no Connected).
 // Those surface as a tally differing from the cache (periodic dump, interrogate) and are
 // written as found entries, never follows (time unknown).

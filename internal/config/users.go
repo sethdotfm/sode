@@ -13,7 +13,7 @@ type User struct {
 	Name string `yaml:"name" json:"name"`
 	Pin  string `yaml:"pin" json:"-"`
 	Len  int    `yaml:"len" json:"len"`
-	// Trusted: low-risk saves need no settings PIN (policy: app/policy.go).
+	// Trusted: low-risk saves need no Advanced Settings PIN (policy: app/policy.go).
 	Trusted    bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
 	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
 	// Profile is never in JSON: sent only to connections unlocked as this user.
@@ -129,7 +129,7 @@ func (c Config) validateUsers() []error {
 		bad("add a user before turning a lock on")
 	}
 	if c.Locks.Any() && c.SettingsPin == "" {
-		bad("set a settings PIN before turning a lock on: users and locks are administered with it")
+		bad("set an Advanced Settings PIN before turning a lock on: users and locks are administered with it")
 	}
 	if c.MaxPinLen < UserPinMin || c.MaxPinLen > UserPinMax {
 		bad("longest user PIN must be %d-%d digits", UserPinMin, UserPinMax)

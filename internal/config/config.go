@@ -42,7 +42,7 @@ type Config struct {
 	NameRefreshSeconds   int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
 	TallyResyncSeconds   int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
 	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
-	// HiddenDsts is a Recent filter expression (web/filter.js) hiding other panels' changes to these destinations; still recorded.
+	// HiddenDsts is a History filter expression (web/filter.js) hiding External changes to these destinations; still recorded.
 	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
 	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
 	Presets    []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
@@ -62,7 +62,7 @@ type Config struct {
 	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
 	PinMaxTries    int            `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"deviceDefaults" json:"deviceDefaults" owned:"true"`
-	// Locks and AutoLockMinutes change only with the settings PIN; a Settings save without them keeps live values (configMsg).
+	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (configMsg).
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
 	Locks           Locks  `yaml:"locks" json:"locks" guard:"pin"`
 	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`

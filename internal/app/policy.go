@@ -10,10 +10,10 @@ import (
 // read loop looks the type up, checks access, then calls the handler; an unlisted type is
 // dropped (TestPolicyCoversEveryMessage: every rule has a handler). A handler picks inline
 // or goroutine itself: unlock and userUnlock stay inline so a following lock wins.
-// Locks cover actions, not data: hello, names, tally, recent history stream to a locked
-// browser (the lock screen is not a secret). Settings changes need the settings PIN
+// Locks cover actions, not data: hello, names, tally, History stream to a locked
+// browser (the lock screen is not a secret). Settings changes need the Advanced Settings PIN
 // (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock: a
-// locked wall panel must still save with the PIN. Locks require a settings PIN (Validate).
+// locked wall panel must still save with the PIN. Locks require an Advanced Settings PIN (Validate).
 //
 //	open: hi userUnlock userLock userSignOut userSetPin unlock lock history
 //	needMain: take refreshNames; needMain+Admin: clearHistory; needLog: sent uptime
@@ -25,7 +25,7 @@ type need uint8
 const (
 	needMain need = 1 << iota
 	needLog
-	// needAdmin: settings PIN unlocked here (when set); re-checked under cfgMu by guardSave.
+	// needAdmin: Advanced Settings PIN unlocked here (when set); re-checked under cfgMu by guardSave.
 	needAdmin
 	// needTrusted: the PIN, or unlocked as a Trusted user. Weaker than needAdmin; a rule
 	// with both means the PIN.
@@ -153,7 +153,7 @@ var policy = map[string]rule{
 	}},
 	"usersList": {need: needAdmin, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
-	// and SaveUsers wants a settings PIN to exist
+	// and SaveUsers wants an Advanced Settings PIN to exist
 	"users": {need: needAdmin, op: "users", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		if m.UsersReq == nil {
 			return

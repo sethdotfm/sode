@@ -102,7 +102,7 @@ func TestValidateNames(t *testing.T) {
 	}
 }
 
-// Locks and idle time are guarded by the settings PIN, not owned: a Settings save carries them.
+// Locks and idle time are guarded by the Advanced Settings PIN, not owned: a Settings save carries them.
 func TestLocksAreGuardedNotOwned(t *testing.T) {
 	typ := reflect.TypeOf(Config{})
 	for _, name := range []string{"Locks", "AutoLockMinutes"} {

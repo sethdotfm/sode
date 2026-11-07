@@ -99,7 +99,7 @@ func TestUsersConfigValidation(t *testing.T) {
 	c := cfg.Clone()
 	c.Users, c.Locks, c.AutoLockMinutes = []config.User{good}, config.Locks{Main: true}, 5
 	if c.Validate() == nil {
-		t.Fatal("lock without a settings PIN accepted")
+		t.Fatal("lock without an Advanced Settings PIN accepted")
 	}
 	c.SettingsPin = good.Pin
 	if err := c.Validate(); err != nil {
@@ -149,16 +149,16 @@ func TestUserUnlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := a.SaveSettings(c, a.r().cfg, "", false); err != nil {
-		t.Fatalf("save with the settings PIN, locked as a user: %v", err)
+		t.Fatalf("save with the Advanced Settings PIN, locked as a user: %v", err)
 	}
 	if err := a.SaveFilterSets(c, nil); err != nil {
-		t.Fatalf("filter sets with the settings PIN: %v", err)
+		t.Fatalf("filter sets with the Advanced Settings PIN: %v", err)
 	}
 	if err := a.admit(c, policy["batch"]); !errors.Is(err, errPageLocked) {
 		t.Fatalf("batch while locked: %v", err)
 	}
 	if err := a.admit(c, policy["config"]); err != nil {
-		t.Fatalf("config with the settings PIN: %v", err)
+		t.Fatalf("config with the Advanced Settings PIN: %v", err)
 	}
 	if err := a.UserUnlock(c, "12345"); err == nil || a.userPin.n != 1 {
 		t.Fatalf("wrong-length PIN: %v, n=%d", err, a.userPin.n)
@@ -207,10 +207,10 @@ func TestUserUnlockBackoff(t *testing.T) {
 		t.Fatalf("5th wrong: %v", err)
 	}
 	if a.pin.n != 0 {
-		t.Fatal("user failures counted against the settings PIN")
+		t.Fatal("user failures counted against the Advanced Settings PIN")
 	}
 	if err := a.Unlock(c, "2468"); err != nil {
-		t.Fatalf("settings PIN blocked by user PIN failures: %v", err)
+		t.Fatalf("Advanced Settings PIN blocked by user PIN failures: %v", err)
 	}
 	if err := a.UserUnlock(c, "1234"); err == nil || a.pageAllowed(c, gateMain) {
 		t.Fatalf("right PIN during the wait: %v", err)
@@ -224,7 +224,7 @@ func TestSaveUsers(t *testing.T) {
 	a := pinApp(t)
 	c := &client{ip: "10.0.0.1"}
 	if err := a.SaveUsers(c, usersReq{Users: []userEdit{{Name: "Ana", Pin: "1234"}}}); !errors.Is(err, errNeedAdminPin) {
-		t.Fatalf("users saved with no settings PIN: %v", err)
+		t.Fatalf("users saved with no Advanced Settings PIN: %v", err)
 	}
 	if err := a.SaveSettings(c, a.r().cfg, "2468", false); err != nil {
 		t.Fatal(err)
@@ -300,7 +300,7 @@ func TestSaveUsers(t *testing.T) {
 	}
 	a.Lock(c)
 	if err := a.SaveUsers(c, req); !errors.Is(err, errLocked) {
-		t.Fatalf("users saved without the settings PIN: %v", err)
+		t.Fatalf("users saved without the Advanced Settings PIN: %v", err)
 	}
 }
 

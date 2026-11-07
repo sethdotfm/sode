@@ -6,7 +6,7 @@ import (
 )
 
 // Fields saved outside the Settings form carry owned:"true"; a Settings save keeps their live values (KeepOwned).
-// Form-saved fields carry guard:"router|pin|open": reconnect, only the settings PIN, anyone. TestEveryFieldChooses enforces one.
+// Form-saved fields carry guard:"router|pin|open": reconnect, only the Advanced Settings PIN, anyone. TestEveryFieldChooses enforces one.
 
 func (c *Config) KeepOwned(from Config) {
 	dst, src := reflect.ValueOf(c).Elem(), reflect.ValueOf(from)

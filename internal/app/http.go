@@ -25,7 +25,7 @@ type client struct {
 	ip   string
 	send chan []byte
 
-	// pin: settings PIN hash this connection unlocked, guarded by App.mu; a changed or
+	// pin: Advanced Settings PIN hash this connection unlocked, guarded by App.mu; a changed or
 	// removed PIN stops matching.
 	pin string
 

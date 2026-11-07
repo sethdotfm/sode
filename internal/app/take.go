@@ -251,7 +251,7 @@ func (w *waiter) unregister(a *App, id int) {
 	}
 }
 
-// tallyCheck waits for interrogate answers so a take reads dst's real routes, not a cache
+// tallyCheck waits for interrogate answers so a route reads dst's real state, not a cache
 // that misses unannounced changes.
 type tallyCheck struct {
 	dst   int
@@ -441,7 +441,7 @@ type routeRun struct {
 	e   *Entry
 }
 
-// prepare returns nil when the take is over (bad request or protected dst), already
+// prepare returns nil when the route is over (bad request or protected dst), already
 // answered and recorded.
 func (a *App) prepare(r *runtime, c *client, req routeReq) *routeRun {
 	res := &routeResult{T: "takeResult", ID: req.ID}

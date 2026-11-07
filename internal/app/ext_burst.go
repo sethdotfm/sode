@@ -119,7 +119,7 @@ func (b *burst) entries(name func(dst bool, n int) string, changes map[int]map[i
 		} else if c := followed(e.Src, e.Dst, o.first); c != nil {
 			if c.group != "" {
 				// Which take of a multi-take confirm is a guess: tied to the whole
-				// confirm, not a panel route (no Group) nor a follow of one take.
+				// confirm, not an external route (no Group) nor a follow of one take.
 				e.FollowGroup = c.group
 			} else {
 				id := c.id

@@ -17,7 +17,7 @@ import (
 
 var errPageLocked = errors.New("locked; unlock with your PIN first")
 
-var errNeedAdminPin = errors.New("Set a settings PIN first: users and locks are administered with it")
+var errNeedAdminPin = errors.New("Set an Advanced Settings PIN first: users and locks are administered with it")
 
 type gate int
 
@@ -103,7 +103,7 @@ type lockStateMsg struct {
 	// Hi: answer to the page's own hi; an unsolicited state may arrive first and says
 	// nothing about the token.
 	Hi bool `json:"hi,omitempty"`
-	// Trusted: low-risk settings without the settings PIN; the server decides.
+	// Trusted: low-risk settings without the Advanced Settings PIN; the server decides.
 	Trusted    bool `json:"trusted,omitempty"`
 	Persistent bool `json:"persistent,omitempty"`
 }
@@ -184,7 +184,7 @@ func (a *App) Hi(c *client, page, token string) {
 }
 
 // UserUnlock: PINs are unique across users. Every try counts in the users' pool, like a
-// settings PIN.
+// Advanced Settings PIN.
 func (a *App) UserUnlock(c *client, pin string) error {
 	users := a.r().cfg.Users
 	a.mu.Lock()
@@ -245,7 +245,7 @@ func (a *App) UserUnlock(c *client, pin string) error {
 	return nil
 }
 
-// SignOutAll needs the settings PIN (a trusted user is not enough).
+// SignOutAll needs the Advanced Settings PIN (a trusted user is not enough).
 func (a *App) SignOutAll(c *client, name string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -438,7 +438,7 @@ type usersReq struct {
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
 }
 
-// SaveUsers needs the settings PIN only (not the main lock). PINs unique across users.
+// SaveUsers needs the Advanced Settings PIN only (not the main lock). PINs unique across users.
 func (a *App) SaveUsers(c *client, req usersReq) error {
 	if present(req.Locks) || present(req.AutoLock) {
 		return errors.New("the lock settings moved to Settings > Access: reload this page")
@@ -582,7 +582,7 @@ func (a *App) usersList(id int) usersListMsg {
 	return m
 }
 
-// UserSetPin needs the user's own PIN, not the settings PIN; the old PIN counts as a try
+// UserSetPin needs the user's own PIN, not the Advanced Settings PIN; the old PIN counts as a try
 // (same pool). Other connections of the user relock; c stays unlocked.
 func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 	who := c.u.user.Load()
