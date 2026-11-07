@@ -98,13 +98,13 @@ test('idleDue', () => {
   assert.equal(idleDue(1000, 5 * 60_000, 5), false);
 });
 
-test('idleLock: a logged-in user locks when idle; a persistent one never does', () => {
+test('idleLock: every signed-in user locks when idle, persistent ones and tab sign-ins included', () => {
   const t = 5 * 60_000;
   const user = { enforced: true, locked: false, user: 'Ana', persistent: false };
   assert.equal(idleLock(user, 0, t, 5), true);
-  assert.equal(idleLock({ ...user, persistent: true }, 0, t, 5), false);
+  assert.equal(idleLock({ ...user, persistent: true }, 0, t, 5), true);
   assert.equal(idleLock({ ...user, locked: true }, 0, t, 5), false);
-  assert.equal(idleLock({ ...user, enforced: false }, 0, t, 5), false);
+  assert.equal(idleLock({ ...user, enforced: false }, 0, t, 5), true);
   assert.equal(idleLock({ enforced: true, locked: false, user: '' }, 0, t, 5), false);
   assert.equal(idleLock(user, 0, t, 0), false);
   assert.equal(idleLock(user, 1000, t, 5), false);
