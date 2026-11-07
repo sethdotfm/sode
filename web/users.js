@@ -7,7 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
-import { MODES, RENAME_HINT, clashNotice, pinClashes, renameNotice, usernameColumn, usersReq } from './usersrules.js';
+import { MODES, RENAME_HINT, clashNotice, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
@@ -77,6 +77,13 @@ const modeField = el(
     'Username and PIN: each user has a username, and two users may share a PIN. Switching back to PIN only needs a different PIN for each user who shares one.',
   ),
 );
+const fillBtn = btn('pb-btn--outline pb-btn--sm', 'Fill empty usernames', () => {
+  const r = readRows();
+  const names = prefillUsernames(r);
+  for (const [i, row] of [...rows.children].entries()) row.querySelector('input[data-field="username"]').value = names[i];
+  touched();
+});
+fillBtn.title = 'Sets each empty username to the Name without spaces. You can edit them before saving.';
 const usernameHead = el('span', null, 'Username');
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
 
@@ -106,7 +113,7 @@ dialog.append(
         RENAME_HINT,
     ),
     table,
-    addBtn,
+    el('div', 'sode__users-acts', addBtn, fillBtn),
     el('div', 'sode__users-opts', modeField, field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
     err,
   ),
@@ -156,6 +163,7 @@ function paintMode() {
   const named = usernameColumn(mode());
   table.classList.toggle('sode__users-table--named', named);
   usernameHead.hidden = !named;
+  fillBtn.hidden = !named;
   for (const c of rows.querySelectorAll('.sode__users-name')) c.hidden = !named;
 }
 

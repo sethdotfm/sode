@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, usernameColumn, MODES, pinClashes, clashNotice, renameNotice } from '../usersrules.js';
+import { usersReq, usernameColumn, MODES, pinClashes, clashNotice, renameNotice, prefillUsernames } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', was: 'Ann', pin: '', trusted: true, persistent: false, username: ' ann ' },
@@ -93,4 +93,30 @@ test('renameNotice names each renamed saved user and stays quiet otherwise', () 
     ]),
     /A to A2, B to B2 signs/,
   );
+});
+
+const pre = (...pairs) => prefillUsernames(pairs.map(([name, username = '']) => ({ name, username })));
+
+test('prefill drops spaces from the Name', () => {
+  assert.deepEqual(pre(['Ann Lee'], ['Bob']), ['AnnLee', 'Bob']);
+});
+
+test('prefill never overwrites a username and counts it as taken', () => {
+  assert.deepEqual(pre(['Ann Lee', 'custom'], ['Bob', 'Bobby'], ['Cy', 'bob']), ['custom', 'Bobby', 'bob']);
+  assert.deepEqual(pre(['Ann', 'Bob'], ['Bob']), ['Bob', 'Bob2']);
+});
+
+test('prefill numbers names that collapse to the same username, ignoring case', () => {
+  assert.deepEqual(pre(['A B'], ['AB'], ['a b'], ['ab']), ['AB', 'AB2', 'ab3', 'ab4']);
+});
+
+test('prefill keeps within 24 characters when it numbers', () => {
+  const long = 'x'.repeat(30);
+  const out = pre([long], [long]);
+  assert.equal(out[0], 'x'.repeat(24));
+  assert.equal(out[1], 'x'.repeat(23) + '2');
+});
+
+test('prefill leaves a nameless row empty and trims the typed username', () => {
+  assert.deepEqual(pre(['  '], ['Zed', ' zed ']), ['', 'zed']);
 });
