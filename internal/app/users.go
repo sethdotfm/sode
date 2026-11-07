@@ -359,9 +359,9 @@ type userEdit struct {
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
-	// SignInMode: nil keeps the current one, like userEdit.Username. Saved here so it needs
+	// SignInMode: "" keeps the current one. Saved here so it needs
 	// the Advanced Settings PIN.
-	SignInMode *string `json:"signInMode"`
+	SignInMode string `json:"signInMode"`
 	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
 	Locks    json.RawMessage `json:"locks"`
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
@@ -386,8 +386,8 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		maxLen := cur.MaxPinLen
 		wasUsername := cur.SignInMode == config.SignInUsername
-		if mode := req.SignInMode; mode != nil {
-			cur.SignInMode = *mode
+		if req.SignInMode != "" {
+			cur.SignInMode = req.SignInMode
 		}
 		if len(req.Users) == 0 && cur.Locks.Any() {
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
