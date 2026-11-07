@@ -9,6 +9,7 @@ Terms: use the words in GLOSSARY.md and avoid its _Avoid_ words in code comments
 ## Commands
 
 go test ./...   (about 70s; Dockerfile build runs it too; run it and docker builds with run_in_background)
+go test -race -timeout 40m ./...   (what CI runs; about 18 min on an M-series Mac, against 70s plain, and over Go's default 10m timeout; use run_in_background)
 go vet ./...
 go test ./internal/app -run TestName -v
 node --test 'web/test/*.test.mjs'
