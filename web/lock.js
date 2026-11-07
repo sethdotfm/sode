@@ -94,7 +94,7 @@ let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
 let nameField, nameInput;
 let padBody, letterBody, letterKey, letterBtn, letterNote, signInAsBtn, signOutBtn, letterFoot;
-const owed = createOwed(wsSend); // a Lock or sign out the server has not got yet
+const owed = createOwed(wsSend); // a Lock the server has not got yet
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a sign-in
 let V = PAGE_VIEW;
 let covering = false;
@@ -607,7 +607,7 @@ on('localLock', localLock);
 // until this user's PIN resumes it. The token stays for that.
 function lockNow() {
   if (!L.user) return;
-  owed.owe('userLock');
+  owed.owe();
   pin = '';
   clearTimeout(timer);
   heldUser = L.user;
@@ -626,7 +626,7 @@ function signOutNow() {
   writeTab(TAB_KEY, null);
   heldUser = '';
   writeTab(HELD_KEY, null);
-  owed.owe('userSignOut');
+  wsSend({ t: 'userSignOut' });
   pin = '';
   clearTimeout(timer);
   clearFeedback();

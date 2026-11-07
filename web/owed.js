@@ -1,31 +1,21 @@
-// One message the server may still owe us: a Lock or a sign out that wsSend refused (socket down). The
-// slot holds one, so a later one replaces an earlier one. Pure; send is injected (wsSend returns false
-// when refused).
-
-// The server's answer says whether it still needs the message. A Lock is owed while the session answers
-// unlocked; a sign out while the session still answers signed in or held.
-const stillOwed = {
-  userLock: (m) => !!m.user && !m.held,
-  userSignOut: (m) => !!m.user || !!m.held,
-};
+// A Lock that wsSend refused (socket down), sent again when a lockState shows the session still
+// unlocked. Sign out is not kept: signOutNow clears the stored tokens first, so the next hello
+// is signed out anyway. Pure; send is injected (wsSend returns false when refused).
 
 export function createOwed(send) {
-  let owed = '';
+  let owed = false;
+  const owe = () => {
+    owed = !send({ t: 'userLock' });
+  };
   return {
-    owe(t) {
-      owed = send({ t }) ? '' : t;
-    },
-    clear() {
-      owed = '';
-    },
-    pending: () => owed,
-    // Call with each lockState. True when it resent the message, so the caller skips the state.
+    owe,
+    // Call with each lockState. True when it resent the Lock, so the caller skips the state.
     arrived(m) {
-      if (owed && stillOwed[owed](m)) {
-        this.owe(owed);
+      if (owed && !!m.user && !m.held) {
+        owe();
         return true;
       }
-      owed = '';
+      owed = false;
       return false;
     },
   };

@@ -18,61 +18,40 @@ const gone = { user: '', held: false };
 test('a Lock the server never got is sent again while the session answers unlocked', () => {
   const s = fakeSend();
   const o = createOwed(s.send);
-  o.owe('userLock');
+  o.owe();
   s.up = true;
   assert.equal(o.arrived(signedIn), true);
   assert.deepEqual(s.sent, ['userLock']);
-  assert.equal(o.pending(), '');
+  assert.equal(o.arrived(signedIn), false);
 });
 
 test('a Lock is dropped once the server holds it or the session is gone', () => {
   for (const m of [held, gone]) {
     const s = fakeSend();
     const o = createOwed(s.send);
-    o.owe('userLock');
+    o.owe();
     s.up = true;
     assert.equal(o.arrived(m), false);
-    assert.equal(o.pending(), '');
+    assert.equal(o.arrived(signedIn), false);
     assert.deepEqual(s.sent, []);
   }
-});
-
-test('a refused userSignOut is sent again while the session still answers signed in or held', () => {
-  for (const m of [signedIn, held]) {
-    const s = fakeSend();
-    const o = createOwed(s.send);
-    o.owe('userSignOut');
-    s.up = true;
-    assert.equal(o.arrived(m), true);
-    assert.deepEqual(s.sent, ['userSignOut']);
-  }
-});
-
-test('a userSignOut is dropped once the session is gone', () => {
-  const s = fakeSend();
-  const o = createOwed(s.send);
-  o.owe('userSignOut');
-  s.up = true;
-  assert.equal(o.arrived(gone), false);
-  assert.deepEqual(s.sent, []);
 });
 
 test('a resend that is refused again stays owed', () => {
   const s = fakeSend();
   const o = createOwed(s.send);
-  o.owe('userSignOut');
+  o.owe();
   assert.equal(o.arrived(signedIn), true);
-  assert.equal(o.pending(), 'userSignOut');
+  s.up = true;
+  assert.equal(o.arrived(signedIn), true);
+  assert.deepEqual(s.sent, ['userLock']);
 });
 
-test('one slot: a later message replaces an earlier one; a sent one owes nothing', () => {
+test('a Lock that went out owes nothing', () => {
   const s = fakeSend();
-  const o = createOwed(s.send);
-  o.owe('userLock');
-  o.owe('userSignOut');
-  assert.equal(o.pending(), 'userSignOut');
   s.up = true;
-  o.owe('userLock');
-  assert.equal(o.pending(), '');
+  const o = createOwed(s.send);
+  o.owe();
+  assert.deepEqual(s.sent, ['userLock']);
   assert.equal(o.arrived(signedIn), false);
 });
