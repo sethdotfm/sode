@@ -124,21 +124,21 @@ function build() {
   padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn);
 
   softKey = el('kbd', 'sode__key sode__key--locked');
-  softBtn = el('button', 'pb-btn pb-btn--ok', 'Unlock');
+  softBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
   softBtn.type = 'button';
   softBtn.addEventListener('click', softUnlock);
   softNote = el('p', 'sode-lock__msg');
   softNote.setAttribute('role', 'status');
   softNote.setAttribute('aria-live', 'polite');
-  loginAsBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log in as…');
+  loginAsBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Sign in as…');
   loginAsBtn.type = 'button';
   loginAsBtn.hidden = true;
   loginAsBtn.addEventListener('click', loginFromHandLock);
-  logOutBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Log out');
+  logOutBtn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Sign out');
   logOutBtn.type = 'button';
   logOutBtn.hidden = true;
   logOutBtn.addEventListener('click', logOutFromFoot);
-  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to unlock'), softBtn, softNote);
+  softBody = el('div', 'sode-lock__body', el('p', 'sode-lock__soft-line', 'Press ', softKey, ' to dismiss'), softBtn, softNote);
   softBody.hidden = true;
   softFoot = el('div', 'sode-lock__foot', logOutBtn, loginAsBtn);
   softFoot.hidden = true;

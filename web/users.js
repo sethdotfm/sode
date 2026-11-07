@@ -84,7 +84,7 @@ dialog.append(
     el(
       'p',
       'sode__hint',
-      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the settings PIN.',
+      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN.',
     ),
     el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows),
     addBtn,
@@ -145,7 +145,7 @@ function addRow(u = { name: '', len: 0 }) {
   const trust = check('Trusted');
   trust.input.checked = !!u.trusted;
   trust.input.dataset.flag = 'trusted';
-  const never = check('Never log out');
+  const never = check('Never sign out');
   never.input.checked = !!u.persistent;
   never.input.dataset.flag = 'persistent';
   const rm = btn('pb-btn--ghost pb-btn--sm', 'Remove', () => {

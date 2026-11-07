@@ -28,7 +28,7 @@ const idx = () =>
           id: 'access',
           title: 'Access',
           settings: [
-            { id: 'cfg-pin', label: 'Settings PIN' },
+            { id: 'cfg-pin', label: 'Advanced Settings PIN' },
             { id: 'cfg-pin-tries', label: 'Lock after wrong PINs' },
           ],
         },
@@ -52,8 +52,8 @@ test('every registered section has dictionary terms', () => {
 
 test('common words reach their section', () => {
   const cases = {
-    dark: 'this-device',
-    clock: 'this-device',
+    dark: 'this-browser',
+    clock: 'this-browser',
     ip: 'router',
     host: 'router',
     poll: 'router-source-destination-names',
@@ -122,15 +122,20 @@ test('all words of a query must match', () => {
   assert.equal(find(idx(), 'dark banana').length, 0);
 });
 
-test('account words reach the Account block inside This device', () => {
+test('this device still finds the This browser section', () => {
+  const secs = [{ id: 'this-browser', title: 'This browser', settings: [{ id: 'cfg-theme', label: 'Theme' }] }];
+  assert.equal(find(buildIndex(secs), 'this device')[0]?.sectionId, 'this-browser');
+});
+
+test('account words reach the Me block inside This browser', () => {
   const secs = [
     {
-      id: 'this-device',
-      title: 'This device',
+      id: 'this-browser',
+      title: 'This browser',
       settings: [
-        { id: 'account', label: 'Account' },
+        { id: 'account', label: 'Me' },
         { id: 'account-pin', label: 'Change my PIN' },
-        { id: 'account-logout', label: 'Log out' },
+        { id: 'account-logout', label: 'Sign out' },
       ],
     },
   ];

@@ -103,7 +103,7 @@ export function buildChip(api) {
     lockBtn.inert = !!handLocked; // out of the tab order and unclickable while faded
     lockBtn.setAttribute('aria-hidden', String(!!handLocked));
     ico.setAttribute('aria-hidden', String(!handLocked));
-    name.textContent = L.user ? `Logged in as ${L.user}` : '';
+    name.textContent = L.user ? `Signed in as ${L.user}` : '';
   }
   // Swaps the icon when the overlay's border starts to move.
   function setLocked(on) {

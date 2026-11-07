@@ -263,7 +263,7 @@ test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")',
   assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
 });
 
-test('hand lock: Log in as is offered with users and no lock, logged in or not', () => {
+test('hand lock: Sign in as is offered with users and no lock, signed in or not', () => {
   assert.equal(loginAsOffered({ enforced: false, user: '', lens: [4] }), true);
   assert.equal(loginAsOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
   assert.equal(loginAsOffered({ enforced: false, user: '', lens: [] }), false);
@@ -313,7 +313,7 @@ test('hand lock: the chip shows for a logged-in user under it only', () => {
   assert.equal(chipShown({ covered: true, soft: false, user: 'Ana' }), false);
 });
 
-test('hand lock: Log out offered only with a user and no PIN lock; the view stays soft', () => {
+test('hand lock: Sign out offered only with a user and no PIN lock; the view stays soft', () => {
   assert.equal(logOutOffered({ enforced: false, user: 'Ana', lens: [4] }), true);
   assert.equal(logOutOffered({ enforced: false, user: '', lens: [4] }), false);
   assert.equal(logOutOffered({ enforced: true, user: 'Ana', lens: [4] }), false);
