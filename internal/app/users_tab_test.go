@@ -24,9 +24,9 @@ func TestTabSession(t *testing.T) {
 	if fresh.who() != "Ana" {
 		t.Fatal("tab token not honored")
 	}
-	a.UserLock(fresh)
+	a.SignOut(fresh)
 	if tokenAlive(a, tok) {
-		t.Fatal("lock did not revoke")
+		t.Fatal("sign out did not revoke")
 	}
 	setFlags(t, a, "Ana", false, true)
 	d := &client{ip: "10.0.0.3"}

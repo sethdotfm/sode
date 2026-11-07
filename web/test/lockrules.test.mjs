@@ -27,7 +27,10 @@ import {
   PAGE_VIEW,
   viewBody,
   localLock,
-  userLock,
+  lockCovers,
+  raiseLock,
+  signedOut,
+  tokenStale,
   dismissLocalLock,
   startSignIn,
   cancelSignIn,
@@ -324,15 +327,30 @@ test('hand lock: Sign out offered only with a user and no PIN lock; the view sta
   assert.equal(signInAsOffered({ enforced: false, user: '', lens: [4] }), true);
 });
 
-test('a logged-in lock is the PIN pad, not dismissable, and ends with a real unlock (#198)', () => {
-  const v = userLock(PAGE_VIEW, false);
-  assert.deepEqual(v, { mode: MODE.OWN, back: 'page' });
-  assert.equal(userLock(PAGE_VIEW, true), PAGE_VIEW);
-  assert.equal(viewBody(v, false), 'pad');
-  assert.equal(cancelSignIn(v), v);
-  assert.equal(lockArrived(v, true), PAGE_VIEW);
-  assert.equal(lockArrived(v, false), v);
-  assert.equal(signInWon(v, { enforced: false, unlocked: false, user: 'Ana' }), v);
-  assert.equal(signInWon(v, { enforced: false, unlocked: true, user: '' }), v);
-  assert.equal(signInWon(v, { enforced: false, unlocked: true, user: 'Ana' }), PAGE_VIEW);
+test('a signed-in Lock is held by the server: a pad with no Cancel that only a PIN ends', () => {
+  const user = { enforced: false, locked: false, held: false, user: 'Ana', trusted: true, persistent: true };
+  assert.equal(lockCovers(user), false);
+  const held = raiseLock(user);
+  assert.deepEqual(held, { enforced: false, locked: true, held: true, user: '', trusted: false, persistent: false });
+  assert.equal(lockCovers(held), true);
+  assert.equal(viewBody(PAGE_VIEW, lockCovers(held)), 'pad');
+  assert.equal(lockCovers({ enforced: true, locked: true }), true);
+  assert.equal(lockCovers({ enforced: false, locked: true }), false); // nobody signed in, no PIN lock: the letter Lock's turn
+});
+
+test('Sign out from the Lock clears it; an enforced lock then asks for a Sign in', () => {
+  const held = { enforced: false, locked: true, held: true, user: '' };
+  assert.deepEqual(signedOut(held), { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false });
+  assert.equal(lockCovers(signedOut({ ...held, enforced: true })), true);
+});
+
+test('a held Lock keeps the browser session token across a reload', () => {
+  assert.equal(tokenStale({ hi: true, held: true }, ''), false);
+  assert.equal(tokenStale({ hi: true }, ''), true);
+  assert.equal(tokenStale({ hi: true }, 'Ana'), false);
+  assert.equal(tokenStale({ held: false }, ''), false); // not the answer to hi
+});
+
+test('a held Lock cancels the letter Lock', () => {
+  assert.equal(lockArrived({ mode: MODE.SOFT, back: 'page' }, true), PAGE_VIEW);
 });

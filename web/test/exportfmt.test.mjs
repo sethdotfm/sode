@@ -260,6 +260,7 @@ test('mayOpenSheet waits for the lock state, the names, and an uncovered page', 
   assert.equal(mayOpenSheet(open, false, false), false);
   assert.equal(mayOpenSheet(open, false, true), true);
   assert.equal(mayOpenSheet({ enforced: true, locked: true }, false, true), false);
+  assert.equal(mayOpenSheet({ enforced: false, locked: true, held: true }, false, true), false);
   assert.equal(mayOpenSheet({ enforced: true, locked: false, user: 'ana' }, false, true), true);
   assert.equal(mayOpenSheet(open, true, true), false);
   // a stale hand-lock marker while a PIN lock is enforced and unlocked does not hold it
