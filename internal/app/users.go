@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -447,7 +446,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		if cur.SignInMode == config.SignInUsername {
 			for i := range out {
 				if pin, isNew := fresh[out[i].Name]; isNew {
-					config.TagPin(out, i, pin)
+					config.LinkEqualPin(out, i, pin)
 				}
 			}
 		} else {
@@ -527,9 +526,9 @@ type userView struct {
 func (a *App) usersList(id int) usersListMsg {
 	cfg := a.r().cfg
 	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode}
-	shared := config.SharedPinUsers(cfg.Users)
+	shared := config.SharedPinSet(cfg.Users)
 	for _, u := range cfg.Users {
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, slices.Contains(shared, u.Name)})
+		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, shared[u.Name]})
 	}
 	return m
 }
@@ -579,7 +578,7 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 			}
 			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)
 			if cfg.SignInMode == config.SignInUsername {
-				config.TagPin(cfg.Users, i, newPin)
+				config.LinkEqualPin(cfg.Users, i, newPin)
 			}
 			return nil
 		}

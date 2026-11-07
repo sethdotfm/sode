@@ -73,6 +73,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - `wire` (Communication Log field). The router's own level number, kept apart from the UI Level on purpose.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
 - `signInMode` (`pin` or `username`, also in `lockState` as `mode` and in `usersListResult`), a user's `username`, and the `user` field of `userUnlock`. The Sign-in mode, the username and the name a username signs in with. New names, no retired word.
+- `pinTag` (a user's yaml key, never JSON). A random token that users with equal PINs share. Kept in config.yaml and in a server config export, so an import with PINs keeps it.
 
 ## Enforcement
 

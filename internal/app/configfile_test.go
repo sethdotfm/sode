@@ -424,3 +424,29 @@ func TestConfigImportIntoBlankInstall(t *testing.T) {
 		t.Fatalf("file without users: %v", err)
 	}
 }
+
+// Equal tags show which users share a PIN, so only a private backup (which holds the hashes
+// anyway) carries them; an import without PINs keeps the live ones.
+func TestConfigExportPinTag(t *testing.T) {
+	a := userApp(t, false)
+	if err := a.commit(func(cfg *config.Config) error {
+		cfg.Users[0].PinTag, cfg.Users[1].PinTag = "aa", "aa"
+		return nil
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	text, c := exportOf(t, a, false)
+	if strings.Contains(text, "pinTag") || c.Users[0].PinTag != "" {
+		t.Fatalf("pinTag in a plain export:\n%s", text)
+	}
+	if _, c = exportOf(t, a, true); c.Users[0].PinTag != "aa" || c.Users[1].PinTag != "aa" {
+		t.Fatal("a private backup lost pinTag")
+	}
+	text, _ = exportOf(t, a, false)
+	if err := a.ImportConfig(adminClient(t, a), text); err != nil {
+		t.Fatal(err)
+	}
+	if u := a.r().cfg.Users; u[0].PinTag != "aa" || u[1].PinTag != "aa" {
+		t.Fatalf("import without PINs lost pinTag: %+v", u)
+	}
+}

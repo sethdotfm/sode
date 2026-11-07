@@ -216,7 +216,7 @@ func TestUsernameModeBackToPinOnlyAfterNewPins(t *testing.T) {
 	if err := a.UserUnlock(c, "2222"); err != nil || c.who() != "Bo" {
 		t.Fatalf("%v %q", err, c.who())
 	}
-	// A new PIN that another user already has is refused as before.
+	// A new PIN that another user already has is refused.
 	a = usernameApp(t)
 	back = backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "1111"})
 	if err := a.SaveUsers(adminClient(t, a), back); err == nil {
