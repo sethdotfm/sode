@@ -6,18 +6,18 @@ DISCLOSURE: This was written by an LLM.
 
 **Version:** Beta 1.6.0
 
-Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It is for operators who want to make routes fast from any browser on the network, on a desktop keyboard or a phone. You type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key.
+Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It is for people who want to make routes fast from any browser on the network, on a desktop keyboard or a phone. You type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key.
 
 ## Features
 
 - Sode is a single static Go binary in a small distroless image, serving plain HTTP on :8080.
-- It always uses extended SW-P-08 commands with 16-bit source and destination numbers, honors protects and reconnects on its own.
+- It always uses extended SW-P-08 commands with 16-bit source and destination numbers, honors protected destinations and reconnects on its own.
 - Names come from the router and are re-read every 60 seconds by default.
 - The desktop layout is keyboard-first, with a shortcut list on `?`, and phones get a text-message style layout.
-- Recent lists every take for all browsers, including routes made from panels, and undo restores what the router had before.
-- Presets fire a saved set of takes in one confirm, sequentially or as a native group salvo.
-- Filters and named filter sets limit what Recent shows, and you can share them with everyone or as a link.
-- Optional users, PIN locks and per-user profiles cover shared wall panels and several operators.
+- History lists every take for all browsers, including routes made from panels, and undo restores what the router had before.
+- Presets fire a saved set of takes in one confirm, sequentially or as a native fire mode group send.
+- Filters and named filter sets limit what History shows, and you can share them with everyone or as a link.
+- Optional users, PIN locks and per-user profiles cover shared wall panels and several users.
 - A communication log at `/log` shows every message sent to the router and a router uptime graph.
 - `/api/health` reports the server and the router separately for monitors such as Uptime Kuma.
 
@@ -60,11 +60,11 @@ You change settings in the page, with the **Settings** button at the bottom. Sod
 
 A few process settings stay in the environment: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
-If you forget the settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
+If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
 
 ## More documentation
 
-- [docs/reference.md](docs/reference.md) has the full settings table, the SW-P-08 protocol notes, proxy and app-install notes, and details on levels, presets, Recent, filters, users and locks, profiles, monitoring, the communication log, the simulator and image tags.
+- [docs/reference.md](docs/reference.md) has the full settings table, the SW-P-08 protocol notes, proxy and app-install notes, and details on levels, presets, History, filters, users and locks, profiles, monitoring, the communication log, the simulator and image tags.
 - [RELEASING.md](RELEASING.md) has the release steps, and [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
 
 ## Development
