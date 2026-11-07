@@ -40,6 +40,7 @@ import {
   lockArrived,
   signInWon,
   chipShown,
+  heldEnded,
   wantsTab,
   hiToken,
   tokenHome,
@@ -404,4 +405,11 @@ test('a Lock the server never got is sent again, not undone, when the session an
   assert.equal(resendLock(true, { user: 'Ana', held: true }), false); // the server holds it now
   assert.equal(resendLock(true, { user: '', held: false }), false); // session gone: nothing to hold
   assert.equal(resendLock(false, { user: 'Ana', held: false }), false); // nothing owed
+});
+
+test('heldEnded: a held Lock that ends with nobody signed in was ended elsewhere; one that ends signed in was resumed', () => {
+  assert.equal(heldEnded({ held: true }, { held: false, user: '' }), true);
+  assert.equal(heldEnded({ held: true }, { held: false, user: 'Ana' }), false); // another tab's PIN resumed it
+  assert.equal(heldEnded({ held: true }, { held: true, user: '' }), false);
+  assert.equal(heldEnded({ held: false }, { held: false, user: '' }), false);
 });

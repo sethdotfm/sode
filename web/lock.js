@@ -44,6 +44,7 @@ import {
   lockArrived,
   signInWon,
   chipShown,
+  heldEnded,
   wantsTab,
   hiToken,
   tokenHome,
@@ -475,6 +476,7 @@ onMsg('lockState', (m) => {
   if (m.held || !m.user) owedLock = false;
   if (settle) settle();
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
+  const ended = heldEnded(L, m);
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
   L.held = !!m.held;
@@ -489,6 +491,8 @@ onMsg('lockState', (m) => {
     soft = null;
   }
   V = lockArrived(V, lockCovers(L));
+  // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.
+  if (ended && !L.enforced) localLock();
   // Only the answer to our `hi` says whether the token was honored; a state sent for another
   // reason says nothing. A token the server no longer honors is forgotten.
   if (tokenStale(m, L.user)) {
@@ -612,8 +616,10 @@ function signOutNow() {
   pin = '';
   clearTimeout(timer);
   clearFeedback();
+  const wasHeld = L.held;
   Object.assign(L, signedOut(L));
-  render();
+  if (wasHeld && !L.enforced) localLock();
+  else render();
   emit('access', { ...L });
 }
 

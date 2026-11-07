@@ -207,3 +207,7 @@ export const lockArrived = (v, covered) => (covered && v.mode === MODE.SOFT ? PA
 export const signInWon = (v, { enforced, unlocked, user }) => (v.mode === MODE.SIGN_IN && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 
 export const chipShown = ({ covered, soft, user }) => (soft ? !!user : !covered);
+
+// The server fills `user` only for a session that is signed in and not locked, so a held Lock that
+// ends with no user ended by sign out, a removed user or a changed PIN; with a user it was resumed.
+export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user;
