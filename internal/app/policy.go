@@ -64,9 +64,10 @@ var policy = map[string]rule{
 	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
 	// handled after.
 	"userUnlock": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserUnlock(c, m) }},
-	// locking and signing out are never refused
+	// locking and signing out are never refused; with nobody signed in the Lock is page-only
+	// and the server does nothing
 	"userLock": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
-		a.UserLock(c)
+		a.setHeld(c, true)
 		a.command(c, "userLock", "ok", "", nil)
 	}},
 	"userSignOut": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
