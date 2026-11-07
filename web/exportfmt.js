@@ -351,7 +351,8 @@ export function readLink(search, hash) {
 // Only once the router's names are in, the lock state is known (`L` from lock.js's `access`;
 // null until then) and the page is not covered (PIN lock or hand lock). A link waits, in the
 // address, until then.
-export const mayOpenSheet = (L, pageLocked = false, namesLoaded = true) => !!L && namesLoaded && !(L.enforced && L.locked) && !(pageLocked && !L.enforced);
+export const mayOpenSheet = (L, pageLocked = false, namesLoaded = true) =>
+  !!L && namesLoaded && !(L.locked && (L.enforced || L.held)) && !(pageLocked && !L.enforced);
 
 // "Name 2", or "Name (mine)" for a copy of an Everyone item; '' with nothing to copy. At most
 // 32 characters.

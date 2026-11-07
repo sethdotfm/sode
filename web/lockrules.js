@@ -136,18 +136,27 @@ export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
 export const signInAsOffered = (s) => !s.enforced && (s.lens?.length || 0) > 0;
 
-// One value {mode, back}. mode is one of MODE: PAGE (an enforced lock may still cover it, see
-// viewBody), SOFT (hand lock), LOGIN (pad by request, dismissable) or OWN (logged-in user's
-// lock, no PIN lock: pad, not dismissable). back: where Cancel / Esc of a login returns to
-// ('page' or 'soft'). Pure; lock.js does the DOM.
-export const MODE = Object.freeze({ PAGE: 'page', SOFT: 'soft', SIGN_IN: 'login', OWN: 'userlock' });
+// One value {mode, back}. mode is one of MODE: PAGE (a lock from the server may still cover
+// it, see viewBody), SOFT (hand lock) or SIGN_IN (pad by request, dismissable). back: where
+// Cancel / Esc of a sign-in returns to ('page' or 'soft'). Pure; lock.js does the DOM.
+export const MODE = Object.freeze({ PAGE: 'page', SOFT: 'soft', SIGN_IN: 'login' });
 export const PAGE_VIEW = Object.freeze({ mode: MODE.PAGE, back: 'page' });
 
-export const viewBody = (v, enforcedLocked) => (v.mode === MODE.SOFT ? 'soft' : enforcedLocked || v.mode === MODE.SIGN_IN || v.mode === MODE.OWN ? 'pad' : '');
+export const viewBody = (v, covered) => (v.mode === MODE.SOFT ? 'soft' : covered || v.mode === MODE.SIGN_IN ? 'pad' : '');
 
-// Locking while logged in with no PIN lock: the PIN pad with no Cancel, and the session ended
-// on the server. The hand lock is only for a page nobody is logged in on.
-export const userLock = (v, enforced) => (enforced ? v : { mode: MODE.OWN, back: 'page' });
+// The server covers the page: a PIN lock with nobody signed in, or the held Lock of a
+// signed-in session.
+export const lockCovers = (s) => !!s.locked && !!(s.enforced || s.held);
+
+// The Lock of a signed-in session keeps the session (ADR 0001). Until the server's state
+// arrives the page already shows the pad.
+export const raiseLock = (s) => ({ ...s, locked: true, held: true, user: '', trusted: false, persistent: false });
+
+export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user: '', trusted: false, persistent: false });
+
+// Only the answer to our hi says whether the token was honored. A held Lock is the session
+// still alive and waiting for its PIN, so its token stays.
+export const tokenStale = (m, user) => !!m.hi && !user && !m.held;
 
 // Nothing with an enforced lock on; wins over a login pad.
 export const localLock = (v, enforced) => (enforced ? v : { mode: MODE.SOFT, back: 'page' });
@@ -162,11 +171,11 @@ export const signOutOffered = (s) => !s.enforced && !!s.user;
 
 export const cancelSignIn = (v) => (v.mode === MODE.SIGN_IN ? PAGE_VIEW : v);
 
-export const lockArrived = (v, enforced) => (enforced && (v.mode === MODE.SOFT || v.mode === MODE.OWN) ? PAGE_VIEW : v);
+// covered: a lock from the server is up (lockCovers).
+export const lockArrived = (v, covered) => (covered && v.mode === MODE.SOFT ? PAGE_VIEW : v);
 
 // A login ends only with an enforced lock or a real unlock; any other state (someone else saved
 // settings, a token catch-up) says nothing about the pad.
-export const signInWon = (v, { enforced, unlocked, user }) =>
-  (v.mode === MODE.SIGN_IN || v.mode === MODE.OWN) && (enforced || (unlocked && user)) ? PAGE_VIEW : v;
+export const signInWon = (v, { enforced, unlocked, user }) => (v.mode === MODE.SIGN_IN && (enforced || (unlocked && user)) ? PAGE_VIEW : v);
 
 export const chipShown = ({ covered, soft, user }) => (soft ? !!user : !covered);

@@ -61,6 +61,7 @@ const WHY_LABEL = {
   salvo: 'Native salvo',
   userUnlock: 'User PIN',
   userLock: 'User locked',
+  userSignOut: 'User signed out',
   adminUnlock: 'Admin password (old rows)',
   users: 'Users saved',
 };

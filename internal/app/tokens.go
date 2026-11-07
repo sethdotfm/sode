@@ -34,6 +34,8 @@ type tokenRec struct {
 	Pin  string    `json:"pin"`  // that user's PIN hash then
 	At   time.Time `json:"at"`
 	Tab  bool      `json:"tab,omitempty"` // a no-lock login: for a user who is not persistent, kept by one browser tab
+	// Locked: the session's Lock (ADR 0001); a reload with this token comes back locked.
+	Locked bool `json:"locked,omitempty"`
 }
 
 // perUserTokens: one per browser; the oldest goes.
@@ -214,6 +216,36 @@ func (s *tokenStore) issue(u config.User, cfg config.Config, tab bool) string {
 	s.toks[tokenKey(t)] = tokenRec{User: u.Name, Pin: u.Pin, At: time.Now(), Tab: tab}
 	s.save()
 	return t
+}
+
+func (s *tokenStore) locked(t string) bool {
+	if t == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.toks[tokenKey(t)].Locked
+}
+
+// setLocked changes the flag in memory only, cheap enough under App.mu; persist writes
+// it. A token the store does not know is ignored.
+func (s *tokenStore) setLocked(t string, on bool) {
+	if t == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k := tokenKey(t)
+	if r, ok := s.toks[k]; ok {
+		r.Locked = on
+		s.toks[k] = r
+	}
+}
+
+// persist writes the file. Never with App.mu held.
+func (s *tokenStore) persist() {
+	s.mu.Lock()
+	s.save()
 }
 
 func (s *tokenStore) forget(t string) {

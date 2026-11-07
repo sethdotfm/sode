@@ -29,7 +29,10 @@ import {
   PAGE_VIEW,
   viewBody,
   localLock as softView,
-  userLock as userLockView,
+  lockCovers,
+  raiseLock,
+  signedOut,
+  tokenStale,
   dismissLocalLock as softUnview,
   startSignIn,
   cancelSignIn as cancelView,
@@ -59,7 +62,7 @@ const page = pageType(location.pathname);
   document.head.append(css);
 }
 
-const L = { enforced: false, locked: false, user: '', trusted: false, persistent: false, lens: [] };
+const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, lens: [] };
 export const lockState = () => ({ ...L });
 
 let hiFor = null;
@@ -151,7 +154,7 @@ function build() {
   root.setAttribute('aria-label', 'Locked');
   document.body.append(root);
 
-  chip = buildChip({ lock: () => (L.enforced ? lockNow() : localLock()) });
+  chip = buildChip({ lock: () => (L.user ? lockNow() : localLock()) });
   document.body.append(chip.root);
 }
 
@@ -162,7 +165,7 @@ function say(text, bad = false) {
 }
 
 function render() {
-  const covered = viewBody(V, L.enforced && L.locked) !== '';
+  const covered = viewBody(V, lockCovers(L)) !== '';
   const showChip = chipShown({ covered, soft: V.mode === MODE.SOFT, user: L.user });
   if (covered) showLock();
   else hideLock();
@@ -206,14 +209,13 @@ let scrolled = null;
 
 function showLock() {
   build();
-  const body = viewBody(V, L.enforced && L.locked);
+  const body = viewBody(V, lockCovers(L));
   padBody.hidden = body !== 'pad';
   cancelBtn.hidden = V.mode !== MODE.SIGN_IN;
-  const ownLock = V.mode === MODE.OWN;
   softBody.hidden = body !== 'soft';
-  signOutBtn.hidden = !(ownLock || signOutOffered(L));
-  signInAsBtn.hidden = ownLock || !signInAsOffered(L);
-  softFoot.hidden = !ownLock && (body !== 'soft' || (signOutBtn.hidden && signInAsBtn.hidden));
+  signOutBtn.hidden = !(L.held || signOutOffered(L));
+  signInAsBtn.hidden = L.held || !signInAsOffered(L);
+  softFoot.hidden = !L.held && (body !== 'soft' || (signOutBtn.hidden && signInAsBtn.hidden));
   root.setAttribute('aria-label', 'Locked');
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
@@ -437,22 +439,23 @@ onMsg('session', (m) => {
 
 onMsg('lockState', (m) => {
   if (settle) settle();
-  const was = (L.enforced && L.locked) || V.mode === MODE.SIGN_IN || V.mode === MODE.OWN;
+  const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
   L.enforced = !!m.enforced;
   L.locked = !!m.locked;
+  L.held = !!m.held;
   L.user = m.user || '';
   L.trusted = !!m.trusted;
   L.persistent = !!m.persistent;
   L.lens = m.lens || [];
   S.userNames = m.names || [];
-  if (L.enforced && soft) {
+  if (lockCovers(L) && soft) {
     soft.lock.cancel();
     soft = null;
   }
-  V = lockArrived(V, L.enforced);
+  V = lockArrived(V, lockCovers(L));
   // Only the answer to our `hi` says whether the token was honored; a state sent for another
   // reason says nothing. A token the server no longer honors is forgotten.
-  if (m.hi && !L.user) {
+  if (tokenStale(m, L.user)) {
     if (readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
     if (readTab(TAB_KEY)) writeTab(TAB_KEY, null);
   }
@@ -464,7 +467,7 @@ onMsg('lockState', (m) => {
     unlocked = false;
     render();
     emit('access', { ...L });
-    if (was && !(L.enforced && L.locked)) emit('unlocked');
+    if (was && !lockCovers(L)) emit('unlocked');
   };
   if (was && !L.locked && L.user && root && !root.hidden && root.classList.contains('is-on') && !welcoming) {
     welcoming = true;
@@ -481,7 +484,7 @@ onMsg('lockState', (m) => {
   done();
 });
 
-on('logout', () => lockNow());
+on('logout', () => signOutNow());
 
 on('login', () => {
   if (!signInOffered(L) || V.mode !== MODE.PAGE) return;
@@ -500,8 +503,8 @@ function cancelSignIn() {
 }
 
 function localLock() {
-  if (soft || L.enforced || !S.cfg || V.mode === MODE.OWN) return;
-  if (L.user) return pinLock();
+  if (L.user) return lockNow();
+  if (soft || L.enforced || !S.cfg) return;
   build();
   V = softView(V, false);
   const key = churnKey(lastSoftKey);
@@ -521,17 +524,6 @@ function localLock() {
   render();
 }
 
-// Lock while logged in with no PIN lock: the session ends on the server (as Log out) and the
-// PIN pad covers the page with no Cancel. A reload shows nobody logged in.
-function pinLock() {
-  build();
-  V = userLockView(V, false);
-  pin = '';
-  clearTimeout(timer);
-  clearFeedback();
-  lockNow();
-}
-
 function dismissLocalLock() {
   if (!soft?.lock.ready()) return;
   soft.lock.cancel();
@@ -541,7 +533,7 @@ function dismissLocalLock() {
 }
 
 // "Log in as...": ends the hand lock and begins a login. Cancel returns to the hand lock. The
-// hand lock never sends userLock, so a tab login stays in until this one succeeds.
+// hand lock sends nothing to the server, so a tab login stays in until this one succeeds.
 function signInFromLock() {
   if (!soft || !signInAsOffered(L)) return;
   soft.lock.cancel();
@@ -554,30 +546,36 @@ function signInFromLock() {
   render();
 }
 
-// Under the hand lock the session ends (token revoked) and the hand lock stays up. On a
-// logged-in user's own lock the session already ended: the pad just goes away.
+// From the held Lock, or under the hand lock with someone signed in: the session ends.
 function signOutFromFoot() {
-  if (V.mode === MODE.OWN) {
-    V = PAGE_VIEW;
-    clearTimeout(timer);
-    clearFeedback();
-    render();
-  } else if (V.mode === MODE.SOFT && signOutOffered(L)) lockNow();
+  if (L.held || (V.mode === MODE.SOFT && signOutOffered(L))) signOutNow();
 }
 
 on('localLock', localLock);
 
-// Lock and Log out both end the session: the server forgets the unlock and revokes the token
-// (so a reload cannot undo it).
+// The Lock keeps the session: the server holds it, so a reload or another tab shows the pad
+// until this user's PIN resumes it. The token stays for that.
 function lockNow() {
   if (!L.user) return;
+  wsSend({ t: 'userLock' });
+  pin = '';
+  clearTimeout(timer);
+  Object.assign(L, raiseLock(L));
+  render();
+  emit('access', { ...L });
+}
+
+// Sign out ends the session: the server forgets the unlock and revokes the token (so a
+// reload cannot undo it).
+function signOutNow() {
+  if (!L.user && !L.held) return;
   writeStr(TOKEN_KEY, null);
   writeTab(TAB_KEY, null);
-  wsSend({ t: 'userLock' });
-  L.locked = L.enforced;
-  L.user = '';
-  L.trusted = false;
-  L.persistent = false;
+  wsSend({ t: 'userSignOut' });
+  pin = '';
+  clearTimeout(timer);
+  clearFeedback();
+  Object.assign(L, signedOut(L));
   render();
   emit('access', { ...L });
 }
@@ -614,7 +612,7 @@ document.addEventListener(
       return;
     }
     if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.code === 'KeyL' && !e.repeat) {
-      if (L.enforced && L.user) {
+      if (L.user) {
         e.preventDefault();
         e.stopPropagation();
         lockNow();

@@ -177,7 +177,7 @@ func TestUserUnlock(t *testing.T) {
 	if a.pageAllowed(&client{ip: "10.0.0.2"}, gateMain) {
 		t.Fatal("unlock leaked to another connection")
 	}
-	a.UserLock(c)
+	a.SignOut(c)
 	if a.pageAllowed(c, gateMain) || c.who() != "10.0.0.1" {
 		t.Fatal("lock didn't lock")
 	}

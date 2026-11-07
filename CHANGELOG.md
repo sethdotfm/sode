@@ -2,6 +2,10 @@
 
 Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
 
+## Unreleased
+
+- **The Lock keeps a signed-in user signed in and the server holds it**: Ctrl+L, the chip's lock button and Lock in Settings raise the Lock without ending the session. A reload or reconnect shows the PIN pad again, the server refuses takes, name re-reads, history clearing and log reads from that session until the same user's PIN resumes it, and another user's PIN does not (it counts as a wrong try). Other tabs of the session lock and resume together. **Sign out** on the Lock ends the session and revokes its tokens (new message `userSignOut`; `userLock` now only locks). The locked flag is saved with the session token in `tokens.json`. With nobody signed in, the Lock is still the page-only letter. This reverses #198, where locking signed the user out.
+
 ## Beta 1.6.0
 
 - **Cleanup before rc.3**, no new features: middle dots are gone from the UI. The log's Why cell, the log's one-slot note, *not pinned* in Presets and the Filters button count are spaced apart instead, and page titles, option labels and summaries use plain wording (*Text (my default)*, *100% up, 0 drops*, *ACK in 12 ms*). Behind that, code comments are cut to context only, `web/` is formatted with Prettier, `filters.js` and `desktop.js` are split into smaller modules (`filtereditor.js`, `searchbox.js`, `desktoprecent.js`, `desktopkeys.js`), presets and filter sets share one scoped save and delete, both layouts share the Recent row wording (`recentrows.js`), and the server has one config commit and one WebSocket dispatch table (the policy table). A format and lint hook (`.claude/hooks/lint.sh`) runs on edits.

@@ -15,7 +15,7 @@ import (
 // (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock: a
 // locked wall panel must still save with the PIN. Locks require a settings PIN (Validate).
 //
-//	open: hi userUnlock userLock userSetPin unlock lock history
+//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history
 //	needMain: take refreshNames; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
 //	needAdmin: users userSignOutAll configExport configImportBegin configImport
@@ -64,10 +64,14 @@ var policy = map[string]rule{
 	// the way out of the lock; counted in the user PIN pool. In line: a later lock is
 	// handled after.
 	"userUnlock": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserUnlock(c, m) }},
-	// locking is never refused
+	// locking and signing out are never refused
 	"userLock": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
 		a.UserLock(c)
 		a.command(c, "userLock", "ok", "", nil)
+	}},
+	"userSignOut": {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+		a.SignOut(c)
+		a.command(c, "userSignOut", "ok", "", nil)
 	}},
 	"userSetPin": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserSetPin(c, m) }},
 	// counted in the settings pool. In line: a later lock is handled after, and one

@@ -43,6 +43,9 @@ type connUser struct {
 	// lock revokes it.
 	token string
 	user  atomic.Pointer[config.User] // who it unlocked as, with that user's PIN hash then
+	// locked: the session's Lock (under mu). The user stays set so only their PIN resumes
+	// it; every access check treats a locked connection as signed in to nothing.
+	locked bool
 	// profile: last profile message sent (under mu); "" = none, so no clear is sent.
 	profile string
 }
@@ -54,8 +57,9 @@ func (c *client) who() string {
 	return c.ip
 }
 
-// userOKLocked: unlocked as a user who still exists with the same PIN. Caller holds mu.
-func (a *App) userOKLocked(c *client, cfg config.Config) bool {
+// userSameLocked: signed in as a user who still exists with the same PIN, locked or not.
+// Caller holds mu.
+func (a *App) userSameLocked(c *client, cfg config.Config) bool {
 	was := c.u.user.Load()
 	if was == nil {
 		return false
@@ -64,9 +68,22 @@ func (a *App) userOKLocked(c *client, cfg config.Config) bool {
 	return ok && u.Pin == was.Pin
 }
 
+// userOKLocked: signed in and not under the Lock. Caller holds mu.
+func (a *App) userOKLocked(c *client, cfg config.Config) bool {
+	return !c.u.locked && a.userSameLocked(c, cfg)
+}
+
+// heldLocked: the session's Lock is on and its user can still resume it. Caller holds mu.
+func (a *App) heldLocked(c *client, cfg config.Config) bool {
+	return c.u.locked && a.userSameLocked(c, cfg)
+}
+
 // Caller holds mu.
 func (a *App) pageAllowedLocked(c *client, g gate) bool {
 	cfg := a.r().cfg
+	if a.heldLocked(c, cfg) {
+		return false
+	}
 	return !g.on(cfg.Locks) || a.userOKLocked(c, cfg)
 }
 
@@ -75,7 +92,10 @@ type lockStateMsg struct {
 	Page     string `json:"page"`
 	Enforced bool   `json:"enforced"` // this page type has a lock on
 	Locked   bool   `json:"locked"`
-	User     string `json:"user,omitempty"`
+	// Held: the Lock is the signed-in session's, held by the server. Carries no name: only
+	// that user's PIN resumes it.
+	Held bool   `json:"held,omitempty"`
+	User string `json:"user,omitempty"`
 	// Lens: PIN lengths in use; rides every lock state so a pad is never stale.
 	Lens []int `json:"lens,omitempty"`
 	// Names: for "by Ana" in history; not sent to locked pages.
@@ -95,12 +115,18 @@ func (a *App) lockStateLocked(c *client) lockStateMsg {
 	if page == "" {
 		page = "main"
 	}
+	if c.u.locked && !a.userSameLocked(c, cfg) {
+		// Nobody left to resume it: the user was removed or changed their PIN.
+		c.u.user.Store(nil)
+		c.u.locked = false
+	}
 	m := lockStateMsg{T: "lockState", Page: page, Enforced: pageGates[page].on(cfg.Locks)}
+	m.Held = c.u.locked
 	if a.userOKLocked(c, cfg) {
 		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the unlock-time copy
 		m.User, m.Trusted, m.Persistent = u.Name, u.Trusted, u.Persistent
 	}
-	m.Locked = m.Enforced && m.User == ""
+	m.Locked = m.Held || m.Enforced && m.User == ""
 	m.Lens = cfg.PinLens()
 	if !m.Locked {
 		for _, u := range cfg.Users {
@@ -148,6 +174,7 @@ func (a *App) Hi(c *client, page, token string) {
 	if ok && c.u.user.Load() == nil {
 		c.u.user.Store(&u)
 		c.u.token = token
+		c.u.locked = a.tokens.locked(token)
 	}
 	a.pushAccessLocked(c, true)
 	a.mu.Unlock()
@@ -160,10 +187,19 @@ func (a *App) Hi(c *client, page, token string) {
 // settings PIN.
 func (a *App) UserUnlock(c *client, pin string) error {
 	users := a.r().cfg.Users
+	a.mu.Lock()
+	var owner *config.User // a held Lock: only this user's PIN counts
+	if c.u.locked {
+		owner = c.u.user.Load()
+	}
+	a.mu.Unlock()
 	n := utf8.RuneCountInString(pin)
 	var hit *config.User
 	err := a.tryPin(&a.userPin, c.ip, func() bool {
 		for i := range users {
+			if owner != nil && users[i].Name != owner.Name {
+				continue
+			}
 			if users[i].Len == n && config.CheckPin(users[i].Pin, pin) {
 				hit = &users[i]
 				return true
@@ -175,13 +211,35 @@ func (a *App) UserUnlock(c *client, pin string) error {
 		return err
 	}
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	if u, ok := a.r().cfg.FindUser(hit.Name); !ok || u.Pin != hit.Pin {
+		a.mu.Unlock()
 		return errors.New("that PIN changed; try again")
 	}
+	if c.u.locked && c.u.user.Load() != nil && c.u.user.Load().Name == hit.Name {
+		// Resume: same user, same session. Every connection sharing the token resumes.
+		tok := c.u.token
+		c.u.locked = false
+		if tok != "" {
+			for cl := range a.clients {
+				if cl != c && cl.u.token == tok {
+					cl.u.locked = false
+					a.syncAccessLocked(cl)
+				}
+			}
+			a.tokens.setLocked(tok, false)
+		}
+		a.syncAccessLocked(c)
+		a.mu.Unlock()
+		if tok != "" {
+			a.tokens.persist()
+		}
+		return nil
+	}
+	defer a.mu.Unlock()
 	// A token-X connection unlocking as Y must drop X's token, or Y's lock would revoke
 	// X's.
 	c.u.token = ""
+	c.u.locked = false
 	c.u.user.Store(hit)
 	a.syncAccessLocked(c)
 	return nil
@@ -203,6 +261,7 @@ func (a *App) SignOutAll(c *client, name string) error {
 		if u := cl.u.user.Load(); u != nil && strings.EqualFold(u.Name, name) {
 			cl.u.user.Store(nil)
 			cl.u.token = ""
+			cl.u.locked = false
 			a.syncAccessLocked(cl)
 		}
 	}
@@ -220,6 +279,12 @@ func (a *App) issueSessionTab(c *client, tab bool) string {
 	cfg := a.r().cfg
 	if who == nil {
 		return ""
+	}
+	a.mu.Lock()
+	held := c.u.locked
+	a.mu.Unlock()
+	if held {
+		return "" // a locked session already has its token, or none to give
 	}
 	u, ok := cfg.FindUser(who.Name)
 	if !ok || u.Pin != who.Pin {
@@ -271,7 +336,7 @@ func (a *App) touchSessions() {
 	cfg := a.r().cfg
 	var held []string
 	for cl := range a.clients {
-		if cl.u.token != "" && a.userOKLocked(cl, cfg) {
+		if cl.u.token != "" && a.userSameLocked(cl, cfg) {
 			held = append(held, cl.u.token)
 		}
 	}
@@ -301,18 +366,52 @@ func (a *App) catchUpSessions() {
 	}
 }
 
-// UserLock revokes c's token so a reload doesn't undo it; other connections sharing the
-// token lock too.
+// UserLock raises the signed-in user's Lock and keeps the session (ADR 0001). The flag
+// rides the token, so a reload comes back locked; other connections sharing the token
+// lock too. With nobody signed in it does nothing: that Lock is page-only.
 func (a *App) UserLock(c *client) {
+	a.setHeld(c, true)
+}
+
+// setHeld sets or clears the Lock of c's session and of every connection sharing its token.
+func (a *App) setHeld(c *client, on bool) {
+	a.mu.Lock()
+	if !a.userSameLocked(c, a.r().cfg) {
+		a.syncAccessLocked(c)
+		a.mu.Unlock()
+		return
+	}
+	tok := c.u.token
+	c.u.locked = on
+	if tok != "" {
+		for cl := range a.clients {
+			if cl != c && cl.u.token == tok {
+				cl.u.locked = on
+				a.syncAccessLocked(cl)
+			}
+		}
+		a.tokens.setLocked(tok, on)
+	}
+	a.syncAccessLocked(c)
+	a.mu.Unlock()
+	if tok != "" {
+		a.tokens.persist()
+	}
+}
+
+// SignOut ends c's session: the token dies and other connections sharing it sign out too.
+func (a *App) SignOut(c *client) {
 	a.mu.Lock()
 	tok := c.u.token
 	c.u.user.Store(nil)
 	c.u.token = ""
+	c.u.locked = false
 	if tok != "" {
 		for cl := range a.clients {
 			if cl != c && cl.u.token == tok {
 				cl.u.user.Store(nil)
 				cl.u.token = ""
+				cl.u.locked = false
 				a.syncAccessLocked(cl)
 			}
 		}

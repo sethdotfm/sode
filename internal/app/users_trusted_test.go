@@ -387,7 +387,7 @@ func TestSessionOverWebSocket(t *testing.T) {
 	if m := until2("lockState"); m["locked"] != false || m["user"] != "Ana" || m["trusted"] != true || m["persistent"] != true {
 		t.Fatalf("token hi: %v", m)
 	}
-	send2(map[string]any{"t": "userLock"})
+	send2(map[string]any{"t": "userSignOut"})
 	if m := until2("lockState"); m["locked"] != true {
 		t.Fatalf("after lock: %v", m)
 	}
