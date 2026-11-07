@@ -1,6 +1,6 @@
 # Sode
 
-Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for operators. Today it drives one router. Multiple routers and tie lines are plausible later, after the core product is excellent.
+Sode is a keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It exists to make patching about 1000 times faster and simpler for the people doing it. Today it drives one router. Multiple routers and tie lines are plausible later, after the core product is excellent.
 
 ## Language
 
@@ -32,14 +32,14 @@ _Avoid_: protect (as a noun), locked
 Anything a person fires that Sode acts on, such as a take, an undo, a retry, a router name re-read, clearing History or saving settings. Every command is logged.
 
 **Confirm**:
-The deliberate step that turns a plan into a command, done with the churning letter key and its short lockout. Nothing reaches the router without one.
+The deliberate step that turns a plan into a take, done with the churning letter key and its short lockout. No take happens without one.
 
 **Take**:
-A kind of command that executes a change on the router hardware. A take sends one source to one destination with levels, or sends several such routes at once. One confirm is one take. "Take" is a protected word: nothing that has not been sent to the router is a take.
+A kind of command that executes a change on the router hardware. A take sends one source to one destination with levels, or sends several such routes at once. One confirm is one take. "Take" is a reserved word, so nothing that has not been sent to the router is a take.
 _Avoid_: batch, route request, using "take" for any other command, a plan or saved entry, or as an ordinary verb meaning "accept" or "interpret literally"
 
 **Plan**:
-What Sode intends to send but has not yet sent. A plan becomes a take when the operator confirms it. Undo, Redo and Retry are plans: each one prepares a plan that does nothing until confirmed.
+What Sode intends to send but has not yet sent. A plan becomes a take when a person confirms it. Undo, Redo and Retry are plans: each one prepares a plan that does nothing until confirmed.
 _Avoid_: pending take
 
 **Preset**:
@@ -89,7 +89,7 @@ _Avoid_: follows (as a certain fact), automation
 
 **User**:
 A named person who can sign in to Sode. Their name is what History shows in place of an IP address. Changing a name is an advanced setting. History entries keep the name from when they were made, and the user's Profile follows the rename.
-_Avoid_: operator (as a role in Sode), account
+_Avoid_: operator, account
 
 **Sign in** / **Sign out**:
 Sign in is how a user identifies themself. Sign out ends that session. Whether a page requires sign-in is set per page type.
@@ -99,7 +99,7 @@ _Avoid_: log in, log out, unlock (for a user's session)
 How a user signs in. PIN only is the default, where the PIN alone says who is signing in, so every PIN is unique. Username and PIN is an optional mode for deployments that want it, where the username is separate from the name History shows.
 
 **Shared settings**:
-The settings and saved items that every browser sees, such as the router's configuration, Everyone filter sets and Everyone presets. Saving them needs the Advanced Settings PIN or a trusted user. Personal settings, saved to This browser or Me, need neither.
+The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs the Advanced Settings PIN or a trusted user. Personal settings, saved to This browser or Me, need neither.
 
 **Advanced settings**:
 The shared settings that change the router connection, weaken a guard, or manage users, the PIN and History. Changing them, including adding, removing and renaming users, needs the **Advanced Settings PIN**, even for a trusted user.
