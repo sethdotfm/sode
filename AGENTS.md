@@ -36,6 +36,11 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 - Version (#95): Version and Stage in internal/app/version.go, sent in hello as BuildLabel(), shown in Settings, noted in README's Version line. Every release bumps both and adds a CHANGELOG.md section (#147). TestVersionNoted fails on mismatch, or with SODE_RELEASE_TAG if the tag differs or the heading says unreleased. See RELEASING.md. Only promote.yml may push the latest image tag.
 
 - Vocabulary: GLOSSARY.md fixes the terms. TestRetiredWordsCoverGlossary and the scans in internal/app/vocabulary_test.go fail on any _Avoid_ term used in docs or UI strings unless its row names the pending ticket. A new _Avoid_ term needs a row; a finished sweep clears its ticket. TestIdentifiersUseGlossaryWords applies the same rows to web identifiers and file names (strings, so wire types and `sode-*` keys, are out of scope); a kept name goes in identAllow with its reason. A route is the per-destination unit, so names for one say route, not take.
+- Kept old names: nothing persisted or sent was renamed for the glossary, since old files, deploy env and open pages hold them. Full table in docs/persisted-names.md; a rename needs the issue owner's approval, a load-old-files path and a fixture test. TestAllowlistsMatchSomething fails on a vocabAllow or identAllow entry that exempts nothing, so drop an entry when its name goes.
+  - Config and env: `settingsPin` (the Advanced Settings PIN hash), `nameRefreshSeconds` / `SODE_NAME_REFRESH_S`, `deviceDefaults`, `SODE_SENTLOG*` (Communication Log file), `SIM_PANEL_*` and `SIM_FOLLOWS` (simulator). `salvos` and history's `salvo` are read-only legacy; `sode-salvos` and `sode-salvo-pins` are migrated once.
+  - `localStorage`: `sode-device-defaults` (web/prepaint.js reads it before first paint).
+  - Wire: `batch`, `recent` (also the `hello` field), `refreshNames`, `sent`/`sentAdd`/`sentPage`, `unlock`/`unlockResult`, `userUnlock`/`userUnlockResult`, `protect` (also the `hello` field), `locked`. The server logs `refreshNames`, `unlock` and `userUnlock` as `why` values in Communication Log rows, so those also stay.
+  - `salvoGroup`, `fireMode` `native` and the `salvo*` request kinds are the router's own salvo and are correct.
 
 ## Shared saves and owned fields
 

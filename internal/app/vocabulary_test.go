@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -81,7 +82,7 @@ var vocabMask = []*regexp.Regexp{
 
 // vocabAllow exempts whole lines from one row, named by its first term (empty means any).
 // File is a path suffix and Line a regexp; Why says what is kept.
-var vocabAllow = []struct{ Term, File, Line, Why string }{
+var vocabAllow = []allowEntry{
 	{"salvo", "docs/agents/salvos.md", ".", "the native group-send fire mode and the router's salvos"},
 	{"account", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"log in", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
@@ -99,27 +100,19 @@ var vocabAllow = []struct{ Term, File, Line, Why string }{
 	{"salvo", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"operator", "web/settingsindex.js", ".", "search aliases keep the retired words so a search for them still finds the setting"},
 	{"", "docs/vocabulary-plan.md", `^\|`, "the checklist tables quote the old words by design"},
+	{"", "docs/persisted-names.md", `^\|`, "the audit tables name each kept name and the retired word it carries"},
+	{"salvo", "AGENTS.md", "^  - (?:Config and env|`salvoGroup`)", "the kept-names list names legacy keys and the router's own salvo"},
 }
 
 // identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
 // types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
-var identAllow = []struct{ Term, File, Line, Why string }{
+var identAllow = []allowEntry{
 	{"Recent", "web/core.js", `m\.recent`, "the `recent` message carries its entries under this field"},
 	{"refresh", "web/log.js", `^\s*refreshNames:`, "`log` command kind, as the server logs it"},
 	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
 	{"unlock", "web/log.js", `^\s*(?:unlock|userUnlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
-	{"unlock", "web/pin.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/pinprompt.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/globalsave.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/settings.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/configfile.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/profiles.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/profilesrules.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/users.js", ".", "Advanced Settings PIN access, sent as the `unlock` message"},
-	{"unlock", "web/lockrules.js", `unlocked`, "the `lockState` field `unlocked` is the Advanced Settings PIN access"},
-	{"unlock", "web/lock.js", `unlocked`, "the `lockState` field `unlocked` is the Advanced Settings PIN access"},
-	{"unlock", "web/test/lockrules.test.mjs", `unlocked`, "the `lockState` field `unlocked` is the Advanced Settings PIN access"},
+	{"unlock", "", `\b(?:unlock|unlocked|isUnlocked|lostUnlock|sendUnlock)\b`, "names for the `unlock` and `userUnlock` messages and the access they grant (pin.js, lock.js); they hold a wire value, not a UI word"},
 	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 	{"follows", ".mjs", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 }
@@ -196,25 +189,42 @@ func masked(line string) string {
 	return line
 }
 
-func allowed(term, file, line string) bool {
-	for _, a := range vocabAllow {
-		if (a.Term == "" || a.Term == term) && strings.HasSuffix(file, a.File) && regexp.MustCompile(a.Line).MatchString(line) {
-			return true
+type allowEntry = struct{ Term, File, Line, Why string }
+
+// allowUsed records which allowlist entries exempted a real hit, so
+// TestAllowlistsMatchSomething can fail on an entry that exempts nothing.
+var (
+	allowMu   sync.Mutex
+	allowUsed = map[string]bool{}
+)
+
+func allowKey(kind string, a allowEntry) string {
+	return kind + "|" + a.Term + "|" + a.File + "|" + a.Line
+}
+
+// matchAllow reports whether any entry exempts the line and marks every entry that does,
+// so an entry is not called unused because an earlier one matched first.
+func matchAllow(kind string, list []allowEntry, exactTerm bool, term, file, line string) bool {
+	found := false
+	for _, a := range list {
+		if (a.Term == "" && !exactTerm || a.Term == term) && strings.HasSuffix(file, a.File) && regexp.MustCompile(a.Line).MatchString(line) {
+			allowMu.Lock()
+			allowUsed[allowKey(kind, a)] = true
+			allowMu.Unlock()
+			found = true
 		}
 	}
-	return false
+	return found
+}
+
+func allowed(term, file, line string) bool {
+	return matchAllow("vocab", vocabAllow, false, term, file, line)
 }
 
 func identAllowed(term, file, line string) bool {
-	if allowed(term, file, line) {
-		return true
-	}
-	for _, a := range identAllow {
-		if a.Term == term && strings.HasSuffix(file, a.File) && regexp.MustCompile(a.Line).MatchString(line) {
-			return true
-		}
-	}
-	return false
+	a := allowed(term, file, line)
+	b := matchAllow("ident", identAllow, true, term, file, line)
+	return a || b
 }
 
 func scanLines(term, file, text string, re *regexp.Regexp, skip func(string) bool) []vocabHit {
@@ -615,6 +625,26 @@ func TestIdentifiersUseGlossaryWords(t *testing.T) {
 			t.Errorf("retired word %q in web identifiers (rename it, or list it as pending with its ticket):%s", w.Terms[0], hitReport(hits))
 		case pending != "" && len(hits) == 0:
 			t.Errorf("%q is clean in web identifiers: clear its pending ticket %s so it stays enforced", w.Terms[0], pending)
+		}
+	}
+}
+
+// An allowlist entry that exempts no real hit names something renamed or removed, and would
+// hide the next stray use. The three scans run here to record which entries they needed.
+func TestAllowlistsMatchSomething(t *testing.T) {
+	t.Run("docs", TestDocsUseGlossaryWords)
+	t.Run("ui", TestUIStringsUseGlossaryWords)
+	t.Run("identifiers", TestIdentifiersUseGlossaryWords)
+	allowMu.Lock()
+	defer allowMu.Unlock()
+	for _, a := range vocabAllow {
+		if !allowUsed[allowKey("vocab", a)] {
+			t.Errorf("vocabAllow entry exempts nothing: %q in %q matching %q (%s)", a.Term, a.File, a.Line, a.Why)
+		}
+	}
+	for _, a := range identAllow {
+		if !allowUsed[allowKey("ident", a)] {
+			t.Errorf("identAllow entry exempts nothing: %q in %q matching %q (%s)", a.Term, a.File, a.Line, a.Why)
 		}
 	}
 }

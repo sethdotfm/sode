@@ -91,6 +91,22 @@ test('settings are found by label and by dictionary', () => {
   assert.equal(top('wipe').id, 'clear-history');
 });
 
+test('the router salvo group is found by its words', () => {
+  const index = buildIndex([
+    {
+      id: 'router',
+      title: 'Router',
+      settings: [{ id: 'cfg-salvogroup', label: 'Router salvo group (advanced)' }],
+    },
+  ]);
+  for (const q of ['salvo group', 'native', 'group number', 'crosspoint list']) {
+    assert.ok(
+      find(index, q).some((h) => h.id === 'cfg-salvogroup'),
+      q,
+    );
+  }
+});
+
 test('typos still match', () => {
   assert.equal(top('pasword').sectionId === 'access' || top('pasword').sectionId === 'users', true);
   assert.equal(top('histroy').sectionId, 'history');

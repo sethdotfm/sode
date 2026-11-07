@@ -247,6 +247,7 @@ export const DICT = {
   'names-refresh': ['refresh', 'reload', 'update', 're-read', 're read', 'reread', 'poll', 'names', 'now', 'fetch'],
   'cfg-namerefresh': ['poll', 'interval', 'seconds', 'refresh', 're-read', 're read', 'how often', 'timer', 'off', 'names'],
   'cfg-namelen': ['length', 'characters', 'chars', 'width', 'short', 'long', '4', '8', '12', '16', 'truncate'],
+  'cfg-salvogroup': ['salvo', 'router salvo', 'native', 'group', 'group number', 'crosspoint list', 'fire mode', 'ultrix', '127'],
   'cfg-namereq': ['standard', 'extended', 'request', 'protocol', 'names', 'sw-p-08', 'swp08', '12 char'],
 
   // ---- Level colors
