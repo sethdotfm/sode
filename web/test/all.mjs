@@ -10,3 +10,4 @@ export * from '../plans.js';
 export * from '../banner.js';
 export * from '../presetstore.js';
 export * from '../recentpick.js';
+export * from '../recentrows.js';

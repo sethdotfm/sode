@@ -24,27 +24,12 @@ import { mac, chord } from './keys.js';
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd, srcRow } from './routes.js';
 import { timeNodes, scrollTopPref, flipped, setFlip } from './device.js';
-import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
-import {
-  undoPlan,
-  againPlan,
-  folderUndoPlan,
-  rowUndoPlan,
-  planEmpty,
-  resultNode,
-  showResult,
-  patchPlan,
-  planBlocked,
-  sendTakes,
-  lastTake,
-  nextTake,
-  usedNext,
-  lastChip,
-  VERBS,
-} from './plans.js';
+import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, folderTitle, folderLevels, folderIds } from './history.js';
+import { rowUndoPlan, planEmpty, resultNode, showResult, patchPlan, planBlocked, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
 import { layout } from './layout.js';
 import { openFilters, emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
+import { rowActions, disclosureAria, followersHead, lastFill } from './recentrows.js';
 import { picking, isPicked, pickBox, togglePick, bindPick, boxPicking, addPatch } from './recentpick.js';
 import { keyConfirm } from './keyconfirm.js';
 import { showAll } from './showall.js';
@@ -55,7 +40,6 @@ import {
   combobox,
   disclosure,
   undoButton,
-  UNDO_TIP_ALL,
   againButton,
   arrivals,
   stackSteps,
@@ -232,19 +216,17 @@ on('history', renderLast);
 // Fills one box from the last take, then focuses the opposite box only if empty, else Levels.
 // next: use nextTake() and remember it so a repeat goes on.
 function useLast(k, next = false) {
-  const t = next ? nextTake(boxState()) : lastTake();
-  if (!t) return showResult('info', 'No take yet', "There's no earlier take to reuse.");
+  const fill = lastFill(k, next, boxState());
+  if (fill?.none) return showResult('info', 'No take yet', "There's no earlier take to reuse.");
+  if (!fill) return;
+  const t = fill.t;
   if (k === 'src') {
-    if (!t.src) return;
-    if (next) usedNext('src', t);
     select('src', t.src);
     const dstEmpty = !sel.dst && !dsts.length && !boxes.dst.input.value.trim();
     focusBox(dstEmpty ? boxes.dst.input : lvlInput);
   } else if (k === 'dst') {
     const have = allDsts();
     const add = t.dsts.filter((d) => !have.some((x) => x.n === d.n));
-    if (!t.dsts.length) return;
-    if (next) usedNext('dst', t);
     if (add.length) {
       dsts = [...have, ...add.slice(0, -1)];
       select('dst', add[add.length - 1]);
@@ -322,14 +304,9 @@ function histRow(e) {
     dst = dstItem(e.dst, e.dstName);
   const known = e.levels.filter((u) => S.levelBy.has(u));
 
-  const btn = e.chain
-    ? undoButton(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, openConfirm, {
-        text: `Undo ${e.chain.length}`,
-        tip: 'Set destination to its source before these changes.',
-      })
-    : undoButton(undoPlan(e), `Undo ${src.label} to ${dst.label}`, openConfirm);
-  const again = againPlan({ e });
-  const retry = againButton(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`, openConfirm);
+  const acts = rowActions({ e });
+  const btn = undoButton(acts.undo.plan, acts.undo.label, openConfirm, { text: acts.undo.text, tip: acts.undo.tip });
+  const retry = againButton(acts.again.plan, acts.again.label, openConfirm);
 
   const open = expanded.has(e.id);
   const detailId = `hist-before-${e.id}`;
@@ -398,23 +375,16 @@ function folderRow(f) {
   const title = folderTitle(f);
   const one = (k, item) => (new Set(f.entries.map((e) => e[k])).size === 1 ? item(f.entries[0][k], f.entries[0][`${k}Name`]) : null);
 
-  const undo = undoButton(folderUndoPlan(f), `Undo all ${f.entries.length} takes of ${folderIds(f)}`, openConfirm, {
-    text: folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all',
-    tip: UNDO_TIP_ALL,
-  });
-  const again = againPlan({ f });
-  const retry = againButton(
-    again,
-    `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`,
-    openConfirm,
-  );
+  const acts = rowActions({ f });
+  const undo = undoButton(acts.undo.plan, acts.undo.label, openConfirm, { text: acts.undo.text, tip: acts.undo.tip });
+  const retry = againButton(acts.again.plan, acts.again.label, openConfirm);
 
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
     autoOpen.delete(f.group); // opened by hand: stays open
     renderHistory();
   });
-  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
+  disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
 
   const row = el(
     'li',
@@ -449,13 +419,13 @@ function folderRow(f) {
 function followerRows(f) {
   if (!f.followers?.length) return [];
   const open = openFollowers.has(f.group);
-  const kidsId = `hist-followers-${f.group}`;
+  const { count, aria, kidsId } = followersHead(f, open, 'hist');
   const key = `w${f.group}`;
-  const disc = disclosure(open, `${f.followers.length}`, kidsId, () => {
+  const disc = disclosure(open, count, kidsId, () => {
     toggle(openFollowers, f.group);
     renderHistory();
   });
-  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
+  disc.setAttribute('aria-label', aria);
   const head = el(
     'li',
     'pb-input sode__hist-row' + curClass(key),
@@ -1028,7 +998,7 @@ on('result', (r) => $('result').replaceChildren(resultNode(r)));
 presetHost({
   active,
   confirm: openConfirm,
-  patch: () => (sel.src && allDsts().length ? { src: sel.src, dsts: allDsts(), levels: lvl.empty() ? [] : lvl.levels() || [] } : null),
+  patch: () => boxPatch(sel.src, allDsts(), lvl),
   clear: clearAll,
   focus: () => boxes.src.input.focus(),
   fill: (p) => {

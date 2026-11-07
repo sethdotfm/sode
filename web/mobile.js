@@ -23,28 +23,13 @@ import {
 import { defaultLevelsWord, levelBar, allLevels, levelText } from './levelview.js';
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
-import { entryNote, historyPager, statusNode, folderTitle, folderPartial, folderLevels, folderIds } from './history.js';
-import {
-  undoPlan,
-  againPlan,
-  planVerb,
-  folderUndoPlan,
-  resultNode,
-  showResult,
-  patchPlan,
-  planBlocked,
-  planSummary,
-  sendTakes,
-  lastTake,
-  nextTake,
-  usedNext,
-  lastChip,
-  VERBS,
-} from './plans.js';
+import { entryNote, historyPager, statusNode, folderTitle, folderLevels } from './history.js';
+import { planVerb, resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { emptyNote } from './filters.js';
 import { presetHost } from './presets.js';
+import { rowActions, disclosureAria, followersHead, lastFill } from './recentrows.js';
 import { picking, isPicked, pickBox, bindPick, boxPicking, addPatch, pickBar } from './recentpick.js';
 import {
   byLabel,
@@ -256,16 +241,13 @@ function pickSrc(n) {
 }
 
 function useLast(k, next = false) {
-  const t = next ? nextTake(boxState()) : lastTake();
-  if (!t) return;
+  const fill = lastFill(k, next, boxState());
+  if (!fill || fill.none) return;
+  const t = fill.t;
   if (k === 'src') {
-    if (!t.src) return;
-    if (next) usedNext('src', t);
     choose(t.src);
     setStep(M.dsts.length ? 'lvl' : 'dst');
   } else if (k === 'dst') {
-    if (!t.dsts.length) return;
-    if (next) usedNext('dst', t);
     for (const d of t.dsts) if (!M.dsts.some((x) => x.n === d.n)) M.dsts.push(d);
     inputs.dst.value = '';
     matches.close();
@@ -415,12 +397,10 @@ const redoBtn = (plan, label) => againButton(plan, label, sheetFor, { placeholde
 function recentRow(e) {
   const src = srcItem(e.src, e.srcName),
     dst = dstItem(e.dst, e.dstName);
-  const undo = e.chain
-    ? undoBtn(undoPlan(e), `Undo ${e.chain.length} changes on ${dst.label}`, `Undo ${e.chain.length}`)
-    : undoBtn(undoPlan(e), `Undo ${src.label} to ${dst.label}`);
+  const acts = rowActions({ e });
+  const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
   const status = statusNode({ e });
-  const again = againPlan({ e });
-  const retry = redoBtn(again, `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${src.label} to ${dst.label}`);
+  const retry = redoBtn(acts.again.plan, acts.again.label);
   const open = !!e.chain && openChanges.has(e.id);
   const changesId = `m-changes-${e.id}`;
   const disc =
@@ -465,21 +445,14 @@ function recentRow(e) {
 function folderRows(f) {
   const open = openFolders.has(f.group);
   const kidsId = `m-folder-${f.group}`;
-  const undo = undoBtn(
-    folderUndoPlan(f),
-    `Undo all ${f.entries.length} takes of ${folderIds(f)}`,
-    folderPartial(f) ? `Undo all ${f.entries.length}` : 'Undo all',
-  );
-  const again = againPlan({ f });
-  const retry = redoBtn(
-    again,
-    `${again.verb === 'retry' ? 'Retry' : 'Redo'} ${again.items.length} take${again.items.length === 1 ? '' : 's'} of ${folderIds(f)}`,
-  );
+  const acts = rowActions({ f });
+  const undo = undoBtn(acts.undo.plan, acts.undo.label, acts.undo.text);
+  const retry = redoBtn(acts.again.plan, acts.again.label);
   const disc = disclosure(open, `${f.shown.length}`, kidsId, () => {
     toggle(openFolders, f.group);
     renderRecent();
   });
-  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.shown.length} takes`);
+  disc.setAttribute('aria-label', disclosureAria(open, f.shown.length, 'takes'));
 
   const face = el(
     'div',
@@ -512,12 +485,12 @@ function folderRows(f) {
 function followerRows(f) {
   if (!f.followers?.length) return [];
   const open = openFollowers.has(f.group);
-  const kidsId = `m-followers-${f.group}`;
-  const disc = disclosure(open, `${f.followers.length}`, kidsId, () => {
+  const { count, aria, kidsId } = followersHead(f, open, 'm');
+  const disc = disclosure(open, count, kidsId, () => {
     toggle(openFollowers, f.group);
     renderRecent();
   });
-  disc.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} the ${f.followers.length} followers`);
+  disc.setAttribute('aria-label', aria);
   const face = el('div', 'sode-m__recent-face', el('div', 'sode-m__recent-top', el('strong', null, 'Followers'), el('span', 'sode-m__recent-status', disc)));
   clickToToggle(face, disc);
   const head = el('li', 'sode-m__recent-row', face);
@@ -858,7 +831,7 @@ setStep(order()[0], false);
 presetHost({
   active,
   confirm: sheetFor,
-  patch: () => (M.sel.src && M.dsts.length ? { src: M.sel.src, dsts: [...M.dsts], levels: lvl.empty() ? [] : lvl.levels() || [] } : null),
+  patch: () => boxPatch(M.sel.src, [...M.dsts], lvl),
   clear: reset,
   focus: () => setStep(order()[0], false),
 });

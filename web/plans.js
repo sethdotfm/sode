@@ -63,6 +63,9 @@ export const patchPlan = (src, dsts, levels) => ({
   items: dsts.map((dst) => takeItem(dst, [{ src, levels }])),
 });
 
+// The patch the boxes hold, as preset saving wants it: null until Source and a destination are set.
+export const boxPatch = (src, dsts, lvl) => (src && dsts.length ? { src, dsts, levels: lvl.empty() ? [] : lvl.levels() || [] } : null);
+
 // What the router doesn't have is left out and listed in warnings. Validated at save
 // (presetProblem), not here.
 export function presetPlan(preset, defaults) {
