@@ -72,6 +72,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - `levelWireOffset`. It holds the offset between a Level and the router's own number on the wire. The Settings label says level offset.
 - `wire` (Communication Log field). The router's own level number, kept apart from the UI Level on purpose.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
+- `signInMode` (`pin` or `username`, also in `lockState` as `mode` and in `usersListResult`), a user's `username`, and the `user` field of `userUnlock`. The Sign-in mode, the username and the name a username signs in with. New names, no retired word.
 
 ## Enforcement
 

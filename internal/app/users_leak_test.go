@@ -56,7 +56,7 @@ func TestUsersListNeedsPin(t *testing.T) {
 	}
 	r := a.usersList(3)
 	b, _ := json.Marshal(r)
-	if !r.OK || r.ID != 3 || len(r.Users) != 2 || r.Users[0].Name != "Ana" || r.Users[0].Len != 4 || strings.Contains(string(b), "pin") {
+	if !r.OK || r.ID != 3 || len(r.Users) != 2 || r.Users[0].Name != "Ana" || r.Users[0].Len != 4 || strings.Contains(string(b), `"pin":`) || strings.Contains(string(b), "pbkdf2") {
 		t.Fatalf("list %s", b)
 	}
 }

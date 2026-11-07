@@ -68,6 +68,9 @@ type Config struct {
 	AutoLockMinutes int    `yaml:"autoLockMinutes" json:"autoLockMinutes" guard:"pin"`
 	// MaxPinLen is the longest user PIN (4-12).
 	MaxPinLen int `yaml:"maxPinLen" json:"maxPinLen" owned:"true"`
+	// SignInMode: SignInPin or SignInUsername. Saved with the users (SaveUsers), so changing it
+	// needs the Advanced Settings PIN.
+	SignInMode string `yaml:"signInMode" json:"signInMode" owned:"true"`
 }
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
@@ -147,6 +150,7 @@ func Defaults() Config {
 		LevelNumbering:       "1",
 		PinMaxTries:          10,
 		MaxPinLen:            DefaultMaxPinLen,
+		SignInMode:           SignInPin,
 		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }

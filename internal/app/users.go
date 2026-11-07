@@ -96,6 +96,8 @@ type lockStateMsg struct {
 	// that user's PIN resumes it.
 	Held bool   `json:"held,omitempty"`
 	User string `json:"user,omitempty"`
+	// Mode: sign-in mode, so the sign-in screen knows whether to ask for a username.
+	Mode string `json:"mode"`
 	// Lens: PIN lengths in use; rides every lock state so a pad is never stale.
 	Lens []int `json:"lens,omitempty"`
 	// Names: for "by Ana" in history; not sent to locked pages.
@@ -122,6 +124,7 @@ func (a *App) lockStateLocked(c *client) lockStateMsg {
 	}
 	m := lockStateMsg{T: "lockState", Page: page, Enforced: pageGates[page].on(cfg.Locks)}
 	m.Held = c.u.locked
+	m.Mode = cfg.SignInMode
 	if a.userOKLocked(c, cfg) {
 		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the unlock-time copy
 		m.User, m.Trusted, m.Persistent = u.Name, u.Trusted, u.Persistent
@@ -183,10 +186,17 @@ func (a *App) Hi(c *client, page, token string) {
 	}
 }
 
-// UserUnlock: PINs are unique across users. Every try counts in the users' pool, like a
-// settings PIN.
-func (a *App) UserUnlock(c *client, pin string) error {
-	users := a.r().cfg.Users
+// UserUnlock signs in by PIN alone (PIN only mode).
+func (a *App) UserUnlock(c *client, pin string) error { return a.UserUnlockAs(c, "", pin) }
+
+// UserUnlockAs: PIN only mode ignores username and finds the user by PIN, which no two
+// users share; a PIN several users hold (left over from Username and PIN mode) signs
+// nobody in. Username and PIN mode compares the PIN with the named user's hash only. A
+// held Lock resumes with its own user's PIN whatever the mode, and a username there must
+// be that user's. Every try counts in the users' pool, like a settings PIN.
+func (a *App) UserUnlockAs(c *client, username, pin string) error {
+	cfg := a.r().cfg
+	users := cfg.Users
 	a.mu.Lock()
 	var owner *config.User // a held Lock: only this user's PIN counts
 	if c.u.locked {
@@ -196,16 +206,38 @@ func (a *App) UserUnlock(c *client, pin string) error {
 	n := utf8.RuneCountInString(pin)
 	var hit *config.User
 	err := a.tryPin(&a.userPin, c.ip, func() bool {
+		if cfg.SignInMode == config.SignInUsername {
+			named, ok := cfg.FindUsername(username)
+			switch {
+			case owner != nil && username != "" && (!ok || named.Name != owner.Name):
+				return false
+			case owner != nil:
+				named, ok = *owner, true
+			case !ok:
+				return false
+			}
+			for i := range users {
+				if users[i].Name == named.Name && users[i].Len == n && config.CheckPin(users[i].Pin, pin) {
+					hit = &users[i]
+					return true
+				}
+			}
+			return false
+		}
+		var found []*config.User
 		for i := range users {
 			if owner != nil && users[i].Name != owner.Name {
 				continue
 			}
 			if users[i].Len == n && config.CheckPin(users[i].Pin, pin) {
-				hit = &users[i]
-				return true
+				found = append(found, &users[i])
 			}
 		}
-		return false
+		if len(found) != 1 {
+			return false
+		}
+		hit = found[0]
+		return true
 	})
 	if err != nil {
 		return err
@@ -423,16 +455,20 @@ func (a *App) SignOut(c *client) {
 
 // userEdit: Was is the old name (rename keeps the PIN), Pin a new PIN ("" keeps).
 type userEdit struct {
-	Name       string `json:"name"`
-	Was        string `json:"was"`
-	Pin        string `json:"pin"`
-	Trusted    bool   `json:"trusted"`
-	Persistent bool   `json:"persistent"`
+	Name string `json:"name"`
+	Was  string `json:"was"`
+	// Username: nil keeps the user's current one.
+	Username   *string `json:"username"`
+	Pin        string  `json:"pin"`
+	Trusted    bool    `json:"trusted"`
+	Persistent bool    `json:"persistent"`
 }
 
 type usersReq struct {
 	Users  []userEdit `json:"users"`
 	MaxPin int        `json:"maxPinLen"` // 0 keeps the current one
+	// SignInMode: "" keeps the current one. Saved here so it needs the Advanced Settings PIN.
+	SignInMode string `json:"signInMode"`
 	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
 	Locks    json.RawMessage `json:"locks"`
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
@@ -456,6 +492,9 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			cur.MaxPinLen = req.MaxPin
 		}
 		maxLen := cur.MaxPinLen
+		if req.SignInMode != "" {
+			cur.SignInMode = req.SignInMode
+		}
 		if len(req.Users) == 0 && cur.Locks.Any() {
 			return errors.New("a screen lock is on: turn it off in Settings > Access (and save) before removing the last user")
 		}
@@ -479,6 +518,10 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			if o, ok := old[pk]; ok && !kept[pk] && (e.Was != "" || e.Pin == "") {
 				kept[pk] = true
 				u.Profile = o.Profile.Clone()
+				u.Username = o.Username
+			}
+			if e.Username != nil {
+				u.Username = strings.TrimSpace(*e.Username)
 			}
 			if e.Pin != "" {
 				if err := config.CheckUserPinRules(e.Pin, maxLen); err != nil {
@@ -505,6 +548,9 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			out = append(out, u)
 		}
 		for name, pin := range fresh {
+			if cur.SignInMode == config.SignInUsername {
+				break // the username says whose PIN it is
+			}
 			for _, u := range out {
 				if u.Name == name || u.Len != len(pin) {
 					continue
@@ -531,7 +577,7 @@ type userResult struct {
 // Unlocks run inline like the settings unlock, so a later lock is handled after.
 func (a *App) serveUserUnlock(c *client, m *inMsg) {
 	res := userResult{T: "userUnlockResult", OK: true, ID: m.ID}
-	err := a.UserUnlock(c, m.Pin)
+	err := a.UserUnlockAs(c, m.User, m.Pin)
 	if err != nil {
 		res.OK, res.Err = false, err.Error()
 		a.command(c, "userUnlock", "refused", "", err)
@@ -565,19 +611,22 @@ type usersListMsg struct {
 	ID    int        `json:"id"`
 	OK    bool       `json:"ok"`
 	Users []userView `json:"users"`
+	Mode  string     `json:"signInMode"`
 }
 
 type userView struct {
 	Name       string `json:"name"`
+	Username   string `json:"username,omitempty"`
 	Len        int    `json:"len"`
 	Trusted    bool   `json:"trusted,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
 }
 
 func (a *App) usersList(id int) usersListMsg {
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}}
-	for _, u := range a.r().cfg.Users {
-		m.Users = append(m.Users, userView{u.Name, u.Len, u.Trusted, u.Persistent})
+	cfg := a.r().cfg
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode}
+	for _, u := range cfg.Users {
+		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent})
 	}
 	return m
 }
@@ -621,7 +670,7 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 				return errors.New("your PIN changed; unlock again")
 			}
 			for j, o := range cfg.Users {
-				if j != i && o.Len == len(newPin) && config.CheckPin(o.Pin, newPin) {
+				if cfg.SignInMode == config.SignInPin && j != i && o.Len == len(newPin) && config.CheckPin(o.Pin, newPin) {
 					return errors.New("that PIN can't be used")
 				}
 			}

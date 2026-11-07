@@ -334,6 +334,7 @@ type inMsg struct {
 	Slot       int64              `json:"slot"` // ...and its slot length, ms
 	Config     *configMsg         `json:"config"`
 	Pin        string             `json:"pin"`
+	User       string             `json:"user"` // userUnlock: the username (Username and PIN mode)
 	ClearPin   bool               `json:"clearPin"`
 	ID         int                `json:"id"` // echoed by unlock and save replies
 	Items      []routeReq         `json:"items"`

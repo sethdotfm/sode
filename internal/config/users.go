@@ -11,8 +11,11 @@ import (
 // Len is the PIN length, so the lock screen can tell a partly typed PIN from a wrong full-length one.
 type User struct {
 	Name string `yaml:"name" json:"name"`
-	Pin  string `yaml:"pin" json:"-"`
-	Len  int    `yaml:"len" json:"len"`
+	// Username signs in under SignInUsername; separate from Name (what History shows). Never
+	// sent before the PIN: the hello blanks Users and lockState has no field for it.
+	Username string `yaml:"username,omitempty" json:"username,omitempty"`
+	Pin      string `yaml:"pin" json:"-"`
+	Len      int    `yaml:"len" json:"len"`
 	// Trusted: low-risk saves need no settings PIN (policy: app/policy.go).
 	Trusted    bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
 	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
@@ -28,6 +31,12 @@ type Locks struct {
 }
 
 func (l Locks) Any() bool { return l.Main || l.Log }
+
+// Sign-in modes. Wire and file values.
+const (
+	SignInPin      = "pin"      // the PIN alone says who; every PIN is unique
+	SignInUsername = "username" // username and PIN together; PINs may repeat
+)
 
 const (
 	MaxUsers         = 12 // a PIN is checked against each user of its length
@@ -52,6 +61,19 @@ func CheckUserPinRules(pin string, max int) error {
 func (c Config) FindUser(name string) (User, bool) {
 	for _, u := range c.Users {
 		if strings.EqualFold(u.Name, name) {
+			return u, true
+		}
+	}
+	return User{}, false
+}
+
+// FindUsername is the user whose Username equals username ignoring case; "" matches nobody.
+func (c Config) FindUsername(username string) (User, bool) {
+	if username == "" {
+		return User{}, false
+	}
+	for _, u := range c.Users {
+		if strings.EqualFold(u.Username, username) {
 			return u, true
 		}
 	}
@@ -95,8 +117,12 @@ func (c *Config) normalizeUsers() {
 			c.MaxPinLen = max(c.MaxPinLen, u.Len)
 		}
 	}
+	if c.SignInMode == "" {
+		c.SignInMode = SignInPin
+	}
 	for i := range c.Users {
 		c.Users[i].Name = strings.TrimSpace(c.Users[i].Name)
+		c.Users[i].Username = strings.TrimSpace(c.Users[i].Username)
 	}
 }
 
@@ -106,7 +132,11 @@ func (c Config) validateUsers() []error {
 	if len(c.Users) > MaxUsers {
 		bad("at most %d users", MaxUsers)
 	}
+	if c.SignInMode != SignInPin && c.SignInMode != SignInUsername {
+		bad("sign-in mode must be %q or %q", SignInPin, SignInUsername)
+	}
 	seen := map[string]bool{}
+	seenUsername := map[string]bool{}
 	for _, u := range c.Users {
 		key := strings.ToLower(u.Name)
 		switch n := utf8.RuneCountInString(u.Name); {
@@ -121,6 +151,19 @@ func (c Config) validateUsers() []error {
 		if strings.IndexFunc(u.Name, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0 {
 			bad("user name %q must use printable characters only", u.Name)
 		}
+		switch n := utf8.RuneCountInString(u.Username); {
+		case n == 0:
+			if c.SignInMode == SignInUsername {
+				bad("user %q needs a username", u.Name)
+			}
+		case n > MaxUserName:
+			bad("username %q must be at most %d characters", u.Username, MaxUserName)
+		case strings.IndexFunc(u.Username, func(r rune) bool { return !unicode.IsPrint(r) || unicode.IsSpace(r) }) >= 0:
+			bad("username %q must use printable characters and no spaces", u.Username)
+		case seenUsername[strings.ToLower(u.Username)]:
+			bad("two users have the username %q", u.Username)
+		}
+		seenUsername[strings.ToLower(u.Username)] = true
 		if !ValidPinHash(u.Pin) || u.Len < UserPinMin || u.Len > c.MaxPinLen {
 			bad("user %q has no valid PIN", u.Name)
 		}
