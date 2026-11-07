@@ -8,15 +8,12 @@ import (
 	"time"
 )
 
-// fakeRouter accepts connections and ACKs only the messages answer picks.
-// The connection stays open either way, like a hung router's would.
+// fakeRouter ACKs only the messages answer picks; the connection stays open, like a hung router's.
 func fakeRouter(t *testing.T, answer func(msg []byte) bool) string {
 	addr, _ := fakeRouterAccepted(t, answer)
 	return addr
 }
 
-// fakeRouterAccepted is fakeRouter, plus a channel that gets a value each
-// time it accepts a connection.
 func fakeRouterAccepted(t *testing.T, answer func(msg []byte) bool) (string, chan struct{}) {
 	t.Helper()
 	return fakeRouterReplies(t, func(m []byte) []byte {
@@ -27,8 +24,6 @@ func fakeRouterAccepted(t *testing.T, answer func(msg []byte) bool) (string, cha
 	})
 }
 
-// fakeRouterReplies writes whatever reply returns for each message (nil:
-// nothing).
 func fakeRouterReplies(t *testing.T, reply func(msg []byte) []byte) (string, chan struct{}) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -93,7 +88,6 @@ func (l *stateLog) has(s State) bool {
 	return false
 }
 
-// fastClient is a client with short timings, run until the test ends.
 func fastClient(t *testing.T, addr string) (*Client, *stateLog, func()) {
 	t.Helper()
 	c := NewClient(addr, ExtInterrogate(0, 0, 0))
@@ -105,12 +99,10 @@ func fastClient(t *testing.T, addr string) (*Client, *stateLog, func()) {
 	start := func() {
 		go func() { c.Run(ctx); close(done) }()
 	}
-	// Stop and wait for Run, so nothing outlives the test.
 	t.Cleanup(func() { cancel(); <-done })
 	return c, &log, start
 }
 
-// eventually polls cond for up to two seconds.
 func eventually(cond func() bool) bool {
 	for end := time.Now().Add(2 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
 		if cond() {
@@ -150,7 +142,6 @@ func TestIgnoredCommandKeepsLink(t *testing.T) {
 	if !eventually(func() bool { return log.has(StateUp) }) {
 		t.Fatal("router never came up")
 	}
-	// The ignored send's tries, its probe, and a couple of idle probes.
 	time.Sleep(3*50*time.Millisecond + 3*300*time.Millisecond)
 	if log.has(StateDown) {
 		t.Fatal("link dropped over one ignored command")
@@ -163,7 +154,7 @@ func TestSendRefusedUntilHeard(t *testing.T) {
 	addr, accepted := fakeRouterAccepted(t, func([]byte) bool { return false })
 	c, _, start := fastClient(t, addr)
 	start()
-	select { // connected, so now waiting on the probe's reply
+	select {
 	case <-accepted:
 	case <-time.After(2 * time.Second):
 		t.Fatal("never connected")
@@ -199,7 +190,7 @@ func TestRetargetMidDialIsNotDown(t *testing.T) {
 	c.dial = func(ctx context.Context, addr string) (net.Conn, error) {
 		if addr != good {
 			dialing <- struct{}{}
-			<-ctx.Done() // a dial that never completes on its own
+			<-ctx.Done()
 			return nil, ctx.Err()
 		}
 		return real(ctx, addr)
@@ -238,7 +229,7 @@ func TestDropAfterRetargetInBackoffIsDown(t *testing.T) {
 		t.Fatal("never came up on the new address")
 	}
 	mu.Lock()
-	answer = false // the router goes silent
+	answer = false
 	mu.Unlock()
 	if !eventually(func() bool { return log.has(StateDown) }) {
 		t.Fatal("a real drop after a retarget wasn't reported down")
@@ -256,7 +247,6 @@ func (l *txLog) add(e TxEvent) {
 	l.mu.Unlock()
 }
 
-// find returns the first event for cmd.
 func (l *txLog) find(cmd byte) (TxEvent, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -277,7 +267,7 @@ func TestOnTx(t *testing.T) {
 		switch m[0] {
 		case CmdExtInterrogate:
 			return AckFrame
-		case 0x7F: // NAKed once, then ACKed
+		case 0x7F:
 			mu.Lock()
 			defer mu.Unlock()
 			if !naked {
@@ -286,7 +276,7 @@ func TestOnTx(t *testing.T) {
 			}
 			return AckFrame
 		}
-		return nil // 0x7E: never answered
+		return nil
 	})
 	c, _, start := fastClient(t, addr)
 	var tx txLog
@@ -308,7 +298,6 @@ func TestOnTx(t *testing.T) {
 	if e, _ := tx.find(0x7E); e.Result != TxNoAck || e.Tries != sendTries {
 		t.Errorf("unanswered = %+v, want noack after %d tries", e, sendTries)
 	}
-	// Ack is the wait for the ACK that came, so only ACKed messages have one.
 	if e, _ := tx.find(0x7F); e.Ack <= 0 || e.Ack > ackTimeout {
 		t.Errorf("ACKed after a NAK: Ack = %v, want the last try's wait", e.Ack)
 	}
@@ -322,7 +311,7 @@ func TestOnTx(t *testing.T) {
 func TestOnTxDropped(t *testing.T) {
 	addr := fakeRouter(t, func(m []byte) bool { return m[0] == CmdExtInterrogate })
 	c, log, start := fastClient(t, addr)
-	c.ackTimeout = time.Second // the unanswered message holds the writer
+	c.ackTimeout = time.Second
 	var tx txLog
 	c.OnTx = tx.add
 	start()
@@ -331,7 +320,7 @@ func TestOnTxDropped(t *testing.T) {
 	}
 	c.Send([]byte{0x7E}, Why{})
 	c.Send([]byte{0x7D}, Why{Reason: "take"})
-	time.Sleep(100 * time.Millisecond) // 0x7E written, waiting for its ACK
+	time.Sleep(100 * time.Millisecond)
 	c.SetTarget(addr, ExtInterrogate(0, 0, 0))
 	if !eventually(func() bool { _, ok := tx.find(0x7D); return ok }) {
 		t.Fatal("no event for the queued message")

@@ -6,8 +6,7 @@ import (
 	"strings"
 )
 
-// Command bytes. Extended variants are the general ones + 0x80 and carry
-// 16-bit source/destination numbers and a full byte each for matrix and level.
+// Extended variants are the general commands + 0x80 (16-bit src/dst, a full byte each for matrix and level).
 const (
 	CmdInterrogate   = 0x01
 	CmdConnect       = 0x02
@@ -38,10 +37,8 @@ const (
 	CmdExtDstNames            = 0xEB
 )
 
-// Name length codes used by name requests and responses.
 var nameLens = map[byte]int{0: 4, 1: 8, 2: 12, 3: 16}
 
-// NameLenCode returns the protocol code for a name length of 4, 8, 12 or 16.
 func NameLenCode(chars int) (byte, error) {
 	for c, n := range nameLens {
 		if n == chars {
@@ -51,7 +48,6 @@ func NameLenCode(chars int) (byte, error) {
 	return 0, fmt.Errorf("swp08: name length %d not one of 4, 8, 12, 16", chars)
 }
 
-// NamesPerMsg is how many names of a given length fit one response.
 func NamesPerMsg(code byte) int {
 	switch code {
 	case 0:
@@ -71,8 +67,6 @@ type Crosspoint struct {
 	Cmd           byte // message it came from: Connected means it just changed
 }
 
-// Changed reports whether the router sent this because the route changed,
-// rather than in answer to an interrogate or dump.
 func (x Crosspoint) Changed() bool { return x.Cmd == CmdConnected || x.Cmd == CmdExtConnected }
 
 type NameBlock struct {
@@ -82,15 +76,13 @@ type NameBlock struct {
 	Names         []string
 }
 
-// Protect is one destination's protect state on one level.
 type Protect struct {
 	Matrix, Level int
 	Dst           int
 	Protected     bool
-	Device        int // controller holding the protect
+	Device        int
 }
 
-// Event is a parsed inbound message. Unknown commands leave it empty.
 type Event struct {
 	Cmd         byte
 	Crosspoints []Crosspoint
@@ -119,7 +111,6 @@ func xp(cmd byte, matrix, level, dst, src int) []byte {
 	return []byte{cmd, byte(matrix), byte(level), byte(dst >> 8), byte(dst), byte(src >> 8), byte(src)}
 }
 
-// ExtProtectDumpReq asks for protect states from firstDst onwards.
 func ExtProtectDumpReq(matrix, level, firstDst int) []byte {
 	return []byte{CmdExtProtectDumpReq, byte(matrix), byte(level), byte(firstDst >> 8), byte(firstDst)}
 }
@@ -128,7 +119,6 @@ func ExtTallyDumpReq(matrix, level int) []byte {
 	return []byte{CmdExtTallyDumpReq, byte(matrix), byte(level)}
 }
 
-// ExtTallyDump builds one tally dump message: srcs[i] feeds firstDst+i.
 func ExtTallyDump(matrix, level, firstDst int, srcs []int) []byte {
 	m := []byte{CmdExtTallyDump, byte(matrix), byte(level), byte(len(srcs)), byte(firstDst >> 8), byte(firstDst)}
 	for _, s := range srcs {
@@ -137,7 +127,6 @@ func ExtTallyDump(matrix, level, firstDst int, srcs []int) []byte {
 	return m
 }
 
-// NamesReq requests all source (or destination association) names.
 func NamesReq(dest, ext bool, matrix, level int, lenCode byte) []byte {
 	if ext {
 		cmd := byte(CmdExtSrcNamesReq)
@@ -153,18 +142,15 @@ func NamesReq(dest, ext bool, matrix, level int, lenCode byte) []byte {
 	return []byte{cmd, byte(matrix<<4 | level&0x0f), lenCode}
 }
 
-// Request describes an outgoing message for the sent log. Fields it
-// doesn't carry are -1.
+// Fields a message doesn't carry are -1.
 type Request struct {
-	Kind          string // connect, interrogate, tallyDump, protectDump, srcNames, dstNames, salvoStage, salvoStageExt, salvoGo, other
+	Kind          string
 	Matrix, Level int
 	Dst, Src      int
-	Group         int  // salvoStage, salvoGo: the salvo group; else -1
-	Clear         bool // salvoGo: clear the group rather than set it
+	Group         int
+	Clear         bool
 }
 
-// DescribeTx decodes a message Sode sends. Unknown or short ones are kind
-// other.
 func DescribeTx(m []byte) Request {
 	r := Request{Kind: "other", Matrix: -1, Level: -1, Dst: -1, Src: -1, Group: -1}
 	if len(m) == 0 {
@@ -204,7 +190,6 @@ func DescribeTx(m []byte) Request {
 	return r
 }
 
-// NamesResp builds one names response message.
 func NamesResp(dest, ext bool, matrix, level int, lenCode byte, first int, names []string) []byte {
 	n := nameLens[lenCode]
 	var m []byte
@@ -233,7 +218,6 @@ func NamesResp(dest, ext bool, matrix, level int, lenCode byte, first int, names
 	return m
 }
 
-// Parse decodes the inbound messages Sode cares about.
 func Parse(msg []byte) (Event, error) {
 	if len(msg) == 0 {
 		return Event{}, ErrShort

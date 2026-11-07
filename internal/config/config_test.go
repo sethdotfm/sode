@@ -104,7 +104,6 @@ func TestSaveLoad(t *testing.T) {
 	if _, _, err := Load(path); err != nil {
 		t.Fatalf("legacy levelTypedBase: %v", err)
 	}
-	// So do files from the first hidden-destinations beta.
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nhideDsts: [3, 64]\n"), 0o644)
 	if _, _, err := Load(path); err != nil {
 		t.Fatalf("legacy hideDsts: %v", err)
@@ -116,7 +115,6 @@ func TestSaveLoad(t *testing.T) {
 }
 
 func TestDeviceDefaults(t *testing.T) {
-	// Files from before the block load with today's behavior.
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\n"), 0o644)
 	c, _, err := Load(path)
@@ -124,20 +122,17 @@ func TestDeviceDefaults(t *testing.T) {
 	if err != nil || c.DeviceDefaults != want {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
-	// A partial block keeps the rest, and values are normalized.
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n"), 0o644)
 	c, _, err = Load(path)
 	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number"}
 	if err != nil || c.DeviceDefaults != want {
 		t.Fatalf("partial block: %+v %v", c.DeviceDefaults, err)
 	}
-	// Blank strings (a browser that doesn't know the block) become the defaults.
 	c.DeviceDefaults = DeviceDefaults{}
 	c.Normalize()
 	if err := c.Validate(); err != nil || c.DeviceDefaults.Theme != "system" || c.DeviceDefaults.Clock != "24" {
 		t.Fatalf("blank block: %+v %v", c.DeviceDefaults, err)
 	}
-	// Browsers get it as JSON, with booleans for the on/off ones.
 	b, _ := json.Marshal(Defaults())
 	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number"}`) {
 		t.Fatalf("json: %s", b)
@@ -213,8 +208,7 @@ func TestPin(t *testing.T) {
 	}
 }
 
-// Grid was parked (#150): a file that still has its keys loads, and the next
-// save drops them.
+// Old grid keys load; the next save drops them.
 func TestLegacyGridKeysLoad(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\ngridConfirm: true\ngrids:\n  - link: a\n    cells: []\n"), 0o600); err != nil {
@@ -233,7 +227,6 @@ func TestLegacyGridKeysLoad(t *testing.T) {
 	}
 }
 
-// A config saved while Grid existed has `locks: grid:`; it must still load.
 func TestLegacyGridLockKeyLoads(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(p, []byte("router: 10.0.0.5:8910\nlocks:\n  main: false\n  grid: false\n  log: false\n"), 0o600); err != nil {

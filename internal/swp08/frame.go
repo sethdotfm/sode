@@ -3,7 +3,6 @@ package swp08
 
 import "errors"
 
-// Transport control bytes.
 const (
 	DLE = 0x10
 	STX = 0x02
@@ -17,12 +16,10 @@ var (
 	NakFrame = []byte{DLE, NAK}
 )
 
-// maxMsg bounds a single unstuffed message (DATA + BTC + CHK). BTC is one
-// byte, so anything longer than this is garbage.
+// maxMsg bounds DATA+BTC+CHK; BTC is one byte.
 const maxMsg = 258
 
-// Encode wraps a message (command byte + data) as
-// DLE STX DATA BTC CHK DLE ETX, doubling any DLE inside.
+// Encode: DLE STX DATA BTC CHK DLE ETX, doubling any DLE inside.
 func Encode(msg []byte) []byte {
 	body := make([]byte, 0, len(msg)+2)
 	body = append(body, msg...)
@@ -47,16 +44,16 @@ func Encode(msg []byte) []byte {
 type Kind int
 
 const (
-	KindMsg Kind = iota // a valid message; Msg holds command + data
+	KindMsg Kind = iota
 	KindAck
 	KindNak
-	KindBad // framing or checksum error; reply with NAK
+	KindBad
 )
 
 type Frame struct {
 	Kind Kind
 	Msg  []byte
-	Err  error // set for KindBad; for KindMsg a non-fatal warning (BTC mismatch)
+	Err  error
 }
 
 var (
@@ -67,8 +64,6 @@ var (
 	ErrBTC      = errors.New("swp08: byte count mismatch")
 )
 
-// Decoder turns a TCP byte stream into frames. It is not safe for
-// concurrent use.
 type Decoder struct {
 	inMsg bool
 	esc   bool

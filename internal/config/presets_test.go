@@ -66,7 +66,6 @@ func TestPresetRoundTrip(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(got.Presets, c.Presets) {
 		t.Fatalf("round trip: %+v err=%v want %+v", got.Presets, err, c.Presets)
 	}
-	// Clone shares nothing.
 	d := c.Clone()
 	d.Presets[0].Items[0].Dsts[0] = 77
 	if c.Presets[0].Items[0].Dsts[0] == 77 {
@@ -91,7 +90,6 @@ func TestPresetTotalAndConflict(t *testing.T) {
 		}
 		return d
 	}
-	// 200 in total across items is fine, 201 is not.
 	if err := check(Preset{Name: "a", Items: []PresetItem{item(1, nil, many(100)...), item(1, nil, many(100)...)}}); err != nil {
 		t.Errorf("200 total: %v", err)
 	}
@@ -105,7 +103,6 @@ func TestPresetTotalAndConflict(t *testing.T) {
 	if err := check(Preset{Name: "a", Items: []PresetItem{item(1, []int{1, 2}, 7), item(2, []int{2, 3}, 7)}}); err == nil {
 		t.Error("overlap on level 2 accepted")
 	}
-	// Disjoint levels, a different destination, or the same source are fine.
 	for _, s := range []Preset{
 		{Name: "a", Items: []PresetItem{item(1, []int{1, 2}, 7), item(2, []int{3, 4}, 7)}},
 		{Name: "a", Items: []PresetItem{item(1, nil, 7), item(2, nil, 8)}},
@@ -137,7 +134,6 @@ func TestPresetsMessageFits(t *testing.T) {
 	if len(b) >= 64<<10 {
 		t.Fatalf("message is %d bytes", len(b))
 	}
-	// Heavy levels go past the byte cap: refused with a message, not a dropped socket.
 	for i := range c.Presets {
 		c.Presets[i].Items = nil
 		for j := 0; j < MaxPresetItems; j++ {
@@ -153,7 +149,7 @@ func TestPresetsMessageFits(t *testing.T) {
 	}
 }
 
-// A file saved before presets were renamed has them under "salvos".
+// Old key "salvos" still loads.
 func TestLegacySalvosKeyLoadsAsPresets(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	c := Defaults()

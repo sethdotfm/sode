@@ -5,10 +5,7 @@ import (
 	"strings"
 )
 
-// validateNames checks the names of a list of things the config holds by
-// name (kind is singular, e.g. "preset"): at most max of them, each named, at
-// most 32 characters, no two alike ignoring case. The one place for these
-// rules, for filter sets and presets.
+// validateNames: at most max, each named, 32 runes, unique ignoring case. kind is singular.
 func validateNames(kind string, names []string, max int) []error {
 	var errs []error
 	bad := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }

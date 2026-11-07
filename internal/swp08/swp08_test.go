@@ -49,7 +49,7 @@ func TestSplitFeed(t *testing.T) {
 
 func TestBadChecksum(t *testing.T) {
 	enc := Encode([]byte{0x01, 0x00, 0x00, 0x05})
-	enc[len(enc)-3]++ // corrupt CHK
+	enc[len(enc)-3]++
 	fs := decodeAll(t, enc)
 	if len(fs) != 1 || fs[0].Kind != KindBad || fs[0].Err != ErrChecksum {
 		t.Fatalf("frames %+v", fs)

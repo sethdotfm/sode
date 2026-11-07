@@ -26,8 +26,6 @@ func env(k, def string) string {
 	return def
 }
 
-// loadConfig reads the YAML file. On first start (no file) it is created
-// from the SODE_* seed variables; after that the file wins.
 func loadConfig(path string) config.Config {
 	if path != "" {
 		c, exists, err := config.Load(path)
@@ -61,8 +59,7 @@ func loadConfig(path string) config.Config {
 	return c
 }
 
-// resetSettingsPin clears the PIN in the config file. A running server
-// keeps its copy until it restarts.
+// A running server keeps its PIN copy until it restarts.
 func resetSettingsPin(path string) {
 	if path == "" {
 		log.Fatal("reset-pin: SODE_CONFIG is not set")
