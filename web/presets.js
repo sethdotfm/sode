@@ -8,6 +8,7 @@ import { showResult, presetPlan, canRedo } from './plans.js';
 import { startPick, endPick } from './historypick.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
+import { browserPresets, profilePresets } from './editortargets.js';
 import { trapDialog, labeled } from './widgets.js';
 import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
 import { saveAsName } from './exportfmt.js';
@@ -153,7 +154,7 @@ document.addEventListener('keydown', (e) => {
 });
 on('presets', () => {
   renderStrips();
-  if (open && !tgt) renderEditor(true);
+  if (open && target.own) renderEditor(true);
 });
 renderStrips();
 
@@ -311,13 +312,23 @@ const profSaver = profileSaver({
   render: () => renderHead(true),
 });
 
-// Aimed at a profile (bus 'openPresetEditor'): the editor on one preset of that user's profile,
-// with picker, scope, Save as, Share, Delete and Export hidden; the save goes to that profile.
-let tgt = null;
+// Bus 'openPresetEditor' swaps in a profile target (editortargets.js): the editor on one preset
+// of that user's profile, with picker, scope, Save as, Share, Delete and Export hidden; the save
+// goes to that profile.
+const browser = browserPresets({
+  list: (scope) => presetsIn(scope),
+  note: (c) => (c.old ? scopeLabel(c.from) : ''),
+  save: saveHere,
+  onClose() {
+    profSaver.close();
+    saver.close();
+  },
+});
+let target = browser;
 const tgtSaver = profileSaver({
-  target: () => tgt,
+  target: () => target.edit,
   setNote,
-  isOpen: () => open && !!tgt,
+  isOpen: () => open && !!target.edit,
   failTitle: 'Presets not saved',
   okNote: 'Saved.',
   render: () => renderHead(true),
@@ -325,7 +336,7 @@ const tgtSaver = profileSaver({
 const { saveIn, removeIn } = scopeWriter({
   global: saver,
   user: profSaver,
-  target: () => tgt && tgtSaver,
+  target: () => target.saver,
   key: 'presets',
   listOf: (scope) => presetsIn(scope).map(saved),
   same: (a, b) => a.toLowerCase() === b.toLowerCase(),
@@ -445,21 +456,19 @@ function renderHead(keep = false) {
   shareBtn.hidden = !cur.old;
   delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
   saveBtn.disabled = saver.busy() || profSaver.busy() || tgtSaver.busy();
-  const t = !!tgt;
-  pickRow.hidden = t;
-  scopeWrap.hidden = t;
-  pinRow.hidden = pinRow.hidden || t;
-  saveAsBtn.hidden = t;
-  transferBtn.hidden = t;
-  if (t) {
-    delBtn.hidden = true;
-    shareBtn.hidden = true;
-    asRow.hidden = true;
-    shareUI.box.hidden = true;
-  }
+  const own = target.own;
+  pickRow.hidden = !own;
+  scopeWrap.hidden = !own;
+  pinRow.hidden ||= !own;
+  saveAsBtn.hidden = !own;
+  transferBtn.hidden = !own;
+  delBtn.hidden ||= !own;
+  shareBtn.hidden ||= !own;
+  asRow.hidden ||= !own;
+  shareUI.box.hidden ||= !own;
   paintSave();
-  titleEl.textContent = t ? `${tgt.old ? 'Edit' : 'Add'} preset for ${tgt.user}` : 'Edit Presets';
-  organizerBtn.hidden = !!t;
+  titleEl.textContent = target.title;
+  organizerBtn.hidden = !own;
 }
 
 // keepEdit: the lists changed under us; only the picker refreshes, never the rows or name being
@@ -469,7 +478,7 @@ function renderEditor(keepEdit = false) {
   renderHead(keepEdit);
   if (keepEdit) return;
   renderRows();
-  setNote(cur.old && !tgt ? scopeLabel(cur.from) : '');
+  setNote(target.note(cur));
 }
 pick.addEventListener('change', () => {
   const v = pick.value;
@@ -572,7 +581,7 @@ function build(name, list, { dupes, old, replace }) {
 }
 
 function built(moving = false) {
-  const list = tgt ? tgt.lists : presetsIn(cur.scope);
+  const list = target.list(cur.scope);
   const old = moving ? '' : cur.old;
   return build(cur.name, list, { dupes: list.map((x) => x.name), old, replace: old });
 }
@@ -581,12 +590,11 @@ function save() {
   const moving = !!cur.old && !!cur.from && cur.scope !== cur.from;
   const b = built(moving);
   if (b.err) return setNote(b.err, true);
-  if (tgt) {
-    return saveIn(cur.scope, b.next, () => {
-      dirty = false;
-      closePresets();
-    });
-  }
+  target.save(b, moving);
+}
+
+// Saves the built preset into This browser, everyone's or Me, moving it when the scope changed.
+function saveHere(b, moving) {
   const from = cur.from,
     was = cur.old,
     to = cur.scope;
@@ -615,6 +623,13 @@ function save() {
   saveIn(to, b.next, landed);
 }
 
+function saveThere(b) {
+  saveIn(cur.scope, b.next, () => {
+    dirty = false;
+    closePresets();
+  });
+}
+
 function askSaveAs() {
   asScope.replaceChildren(...scopeOpts());
   asScope.value = 'local';
@@ -629,33 +644,33 @@ function closeSaveAs() {
 }
 function saveAs() {
   const name = asName.value.trim().slice(0, 32);
-  const target = asScope.value;
+  const dest = asScope.value;
   const bad = (msg) => {
     asName.classList.add('pb-input--invalid');
     setNote(msg, true);
     asName.focus();
   };
-  const list = presetsIn(target);
+  const list = presetsIn(dest);
   const taken = list.find((x) => x.name.toLowerCase() === name.toLowerCase())?.name || '';
   const b = build(name, list, { dupes: [], replace: taken });
   if (b.err) return bad(b.err);
   const { s, next } = b;
   const loaded = () => {
     closeSaveAs();
-    cur.scope = target;
-    cur.from = target;
+    cur.scope = dest;
+    cur.from = dest;
     cur.old = s.name;
     cur.name = s.name;
     dirty = false;
     discard = false;
     renderHead();
   };
-  if (target === 'local') {
+  if (dest === 'local') {
     saveLocalPreset(s, taken);
     loaded();
     return setNote('Saved for this browser.');
   }
-  saveIn(target, next, loaded);
+  saveIn(dest, next, loaded);
 }
 asName.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
@@ -687,7 +702,7 @@ function deleteClick() {
 
 export function openPresets(scope = '', name = '') {
   back = document.activeElement;
-  tgt = null;
+  target = browser;
   const s = scope && findPreset(scope, name);
   open = true;
   pinRow.hidden = true;
@@ -703,13 +718,8 @@ function closePresets() {
   }
   open = false;
   dlg.hide();
-  if (tgt) {
-    tgt = null;
-    if (back?.isConnected) back.focus();
-    return;
-  }
-  profSaver.close();
-  saver.close();
+  target.close();
+  target = browser;
   if (back?.isConnected) back.focus();
 }
 
@@ -727,12 +737,13 @@ on('locking', () => {
 });
 
 on('openPresetEditor', (m) => {
-  tgt = editTarget(m, 'presets');
-  if (!tgt) return;
+  const t = editTarget(m, 'presets');
+  if (!t) return;
+  target = profilePresets(t, { save: saveThere, saver: tgtSaver });
   back = document.activeElement;
   open = true;
   pinRow.hidden = true;
-  const found = tgt.found;
+  const found = t.found;
   load(found ? { scope: 'user', ...normPreset(found), pinned: found.pinned !== false } : null);
   dlg.show();
   dialog.focus();
