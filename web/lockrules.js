@@ -36,6 +36,12 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 // users and tab sign-ins included; it never signs them out.
 export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user) && idleDue(lastActive, now, minutes);
 
+// Other tabs of the browser report their last activity; garbage from the channel is ignored.
+export const seenActive = (last, seen) => (Number.isFinite(seen) && seen > last ? seen : last);
+
+// Pointer moves fire constantly: one message a second is plenty against a minutes-long timer.
+export const shouldShare = (lastShared, now) => now - lastShared >= 1000;
+
 export const localIdleLock = (s, pageLocked, lastActive, now, minutes) => !s.enforced && !s.user && !pageLocked && idleDue(lastActive, now, minutes);
 
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in

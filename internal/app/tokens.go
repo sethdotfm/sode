@@ -242,7 +242,7 @@ func (s *tokenStore) setLocked(t string, on bool) {
 	}
 }
 
-// persist writes the file. Never with App.mu held.
+// Never with App.mu held.
 func (s *tokenStore) persist() {
 	s.mu.Lock()
 	s.save()

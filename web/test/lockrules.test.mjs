@@ -7,6 +7,8 @@ import {
   sendable,
   idleDue,
   idleLock,
+  seenActive,
+  shouldShare,
   needsPin,
   guardedEdited,
   pageType,
@@ -380,4 +382,17 @@ test('username mode asks for a username, except when resuming a held Lock', asyn
   const held = { ...named, held: true, user: 'Ann' };
   assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, username: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
   assert.equal(canSend(held, '1234', ''), true);
+});
+
+test('seenActive: activity in another tab only moves the timer forward', () => {
+  assert.equal(seenActive(1000, 5000), 5000);
+  assert.equal(seenActive(5000, 1000), 5000);
+  assert.equal(seenActive(5000, 'x'), 5000);
+  assert.equal(seenActive(5000, undefined), 5000);
+});
+
+test('shouldShare: at most one activity message a second', () => {
+  assert.equal(shouldShare(0, 999), false);
+  assert.equal(shouldShare(0, 1000), true);
+  assert.equal(shouldShare(5000, 5500), false);
 });

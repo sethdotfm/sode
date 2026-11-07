@@ -230,7 +230,7 @@ func TestUsernamesStayOutOfPublicMessages(t *testing.T) {
 	a := usernameApp(t)
 	a.mu.Lock()
 	hello := string(a.hello(helloPage{}))
-	locked := a.lockStateLocked(&client{ip: "10.0.0.1"})
+	locked := a.lockStateMu(&client{ip: "10.0.0.1"})
 	a.mu.Unlock()
 	lb, _ := json.Marshal(locked)
 	for _, s := range []string{"ana.k", "bobby"} {
@@ -247,7 +247,7 @@ func TestUsernamesStayOutOfPublicMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	signed := a.lockStateLocked(in)
+	signed := a.lockStateMu(in)
 	a.mu.Unlock()
 	sb, _ := json.Marshal(signed)
 	if strings.Contains(string(sb), "ana.k") || strings.Contains(string(sb), "bobby") {

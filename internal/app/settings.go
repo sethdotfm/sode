@@ -111,10 +111,10 @@ func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runt
 	return nil
 }
 
-// syncAccessAllLocked: every connection gets its lock state again. Caller holds mu.
-func (a *App) syncAccessAllLocked() {
+// syncAccessAllMu: every connection gets its lock state again. Caller holds mu.
+func (a *App) syncAccessAllMu() {
 	for cl := range a.clients {
-		a.syncAccessLocked(cl)
+		a.syncAccessMu(cl)
 	}
 }
 
@@ -160,7 +160,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 		for cl := range a.clients {
 			a.deliver(cl, hello)
 		}
-		a.syncAccessAllLocked() // locks, users or the Advanced Settings PIN may have changed
+		a.syncAccessAllMu() // locks, users or the Advanced Settings PIN may have changed
 		locked, _ := json.Marshal(simpleMsg{T: "locked"})
 		for cl := range a.clients {
 			if cl.pin != "" && cl.pin != c.SettingsPin {

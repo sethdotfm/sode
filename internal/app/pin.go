@@ -154,21 +154,21 @@ func (a *App) Lock(c *client) {
 func (a *App) settingsUnlocked(c *client) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.settingsUnlockedLocked(c)
+	return a.settingsUnlockedMu(c)
 }
 
-func (a *App) settingsUnlockedLocked(c *client) bool {
+func (a *App) settingsUnlockedMu(c *client) bool {
 	hash := a.r().cfg.SettingsPin
 	return hash == "" || c.pin == hash
 }
 
 // Trusted is read live, so unticking takes effect at once. Caller holds mu.
-func (a *App) trustedLocked(c *client) bool {
-	if a.settingsUnlockedLocked(c) {
+func (a *App) trustedMu(c *client) bool {
+	if a.settingsUnlockedMu(c) {
 		return true
 	}
 	cfg := a.r().cfg
-	if !a.userOKLocked(c, cfg) {
+	if !a.userOKMu(c, cfg) {
 		return false
 	}
 	u, _ := cfg.FindUser(c.u.user.Load().Name)

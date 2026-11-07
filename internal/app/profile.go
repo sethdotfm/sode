@@ -13,7 +13,7 @@ import (
 
 // User profiles: a user's This-device prefs, filter sets and presets, kept on config.User.
 // Never in a hello: pushed as a profile message only to connections unlocked as that user,
-// when access changes (pushAccessLocked) and after a save. Who may save is in policy.go;
+// when access changes (pushAccessMu) and after a save. Who may save is in policy.go;
 // guardProfile repeats it under cfgMu.
 
 var errNoSuchUser = errors.New("no such user")
@@ -44,7 +44,7 @@ type profileGetResult struct {
 
 // Caller holds mu.
 func (a *App) isUserLocked(c *client, name string) bool {
-	if name == "" || !a.userOKLocked(c, a.r().cfg) {
+	if name == "" || !a.userOKMu(c, a.r().cfg) {
 		return false
 	}
 	return strings.EqualFold(c.u.user.Load().Name, name)
@@ -54,18 +54,18 @@ func (a *App) isUserLocked(c *client, name string) bool {
 func (a *App) guardProfile(c *client, name string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !a.isUserLocked(c, name) && !a.trustedLocked(c) {
+	if !a.isUserLocked(c, name) && !a.trustedMu(c) {
 		return errLocked
 	}
 	return nil
 }
 
 // Caller holds mu.
-func (a *App) pushProfileLocked(c *client) {
+func (a *App) pushProfileMu(c *client) {
 	rt := a.r()
 	cfg := rt.cfg
 	var b []byte
-	if a.userOKLocked(c, cfg) {
+	if a.userOKMu(c, cfg) {
 		u, _ := cfg.FindUser(c.u.user.Load().Name)
 		if a.profMemoRT != rt || a.profMemo == nil {
 			a.profMemoRT, a.profMemo = rt, map[string]string{}
@@ -124,7 +124,7 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 	}, func(_, _ *runtime) {
 		for cl := range a.clients {
 			if a.isUserLocked(cl, owner) {
-				a.pushProfileLocked(cl)
+				a.pushProfileMu(cl)
 			}
 		}
 	})

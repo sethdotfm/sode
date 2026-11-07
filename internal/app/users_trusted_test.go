@@ -161,7 +161,7 @@ func TestLockStateCarriesFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	st := a.lockStateLocked(c)
+	st := a.lockStateMu(c)
 	a.mu.Unlock()
 	if st.User != "Ana" || !st.Trusted || !st.Persistent || st.Locked {
 		t.Fatalf("state %+v", st)

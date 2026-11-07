@@ -1,7 +1,7 @@
 // The lock screen. The server decides everything (`lockState`) and refuses what a locked
 // connection asks for; this module shows the pad and locks again when idle or on Ctrl+L. A
 // persistent user gets a session token kept here and sent in `hi`, so a reload doesn't log them
-// out; locking revokes it. Off unless the server says this page type is locked. With no PIN
+// out; the Lock keeps it, signing out revokes it. Off unless the server says this page type is locked. With no PIN
 // lock a hand lock (churning letter, behind the confirm lockout) can still be put up as a guard
 // against keyboard mashing: page-local state, a reload clears it.
 
@@ -10,6 +10,8 @@ import { readStr, writeStr, readTab, writeTab } from './store.js';
 import {
   padKey,
   idleLock,
+  seenActive,
+  shouldShare,
   pageType,
   liftFrom,
   shouldFly,
@@ -137,7 +139,6 @@ function build() {
   nameInput.addEventListener('input', () => {
     if (dotsEl.classList.contains('is-text')) clearFeedback();
     paint();
-    // A PIN typed first goes out as soon as the username completes it.
     clearTimeout(timer);
     const wait = padDelay(L, pin, nameInput.value);
     if (wait != null && pin) timer = setTimeout(sendPin, wait);
@@ -459,7 +460,9 @@ onMsg('userUnlockResult', (m) => {
 // A token sent outside an unlock (user already logged in when Never log out was ticked, or
 // changed their own PIN). Kept only while this page is logged in.
 onMsg('session', (m) => {
-  if (m.token && L.user) writeStr(TOKEN_KEY, m.token);
+  // A held Lock's tab token arrives after the page already raised the Lock, so L.user is empty.
+  if (m.token && m.tab) writeTab(TAB_KEY, m.token);
+  else if (m.token && L.user) writeStr(TOKEN_KEY, m.token);
 });
 
 onMsg('lockState', (m) => {
@@ -662,9 +665,19 @@ document.addEventListener(
   true,
 );
 
+// Idle is per browser: activity in any tab resets every tab's timer, or a background tab would
+// lock the shared session (the server holds the Lock for all of it) under someone who is typing.
 let lastActive = Date.now();
+let lastShared = 0;
+const activity = typeof BroadcastChannel === 'function' ? new BroadcastChannel('sode-activity') : null;
+if (activity) activity.onmessage = (e) => (lastActive = seenActive(lastActive, e.data));
 const touch = () => {
-  lastActive = Date.now();
+  const now = Date.now();
+  lastActive = now;
+  if (activity && shouldShare(lastShared, now)) {
+    lastShared = now;
+    activity.postMessage(now);
+  }
 };
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });

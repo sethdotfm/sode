@@ -1,4 +1,4 @@
-# Presets (#152, renamed in #162)
+# Presets
 
 Moved from AGENTS.md unchanged.
 

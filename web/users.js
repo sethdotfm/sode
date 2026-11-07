@@ -7,7 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
-import { MODES, modeOneWay, switchNeedsWarning, usernameColumn, usersReq } from './usersrules.js';
+import { MODES, RENAME_HINT, modeOneWay, renameNotice, switchNeedsWarning, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
@@ -98,7 +98,8 @@ dialog.append(
     el(
       'p',
       'sode__hint',
-      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN.',
+      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. ' +
+        RENAME_HINT,
     ),
     table,
     addBtn,
@@ -137,7 +138,7 @@ const setNote = (text, error = false) => {
 function touched() {
   edited = true;
   discard = false;
-  setNote('');
+  setNote(renameNotice(readRows()));
 }
 function fail(text) {
   err.textContent = sentence(text);
@@ -341,6 +342,14 @@ on('locking', () => {
   }
 });
 
+function readRows() {
+  return [...rows.children].map((row) => {
+    const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
+    const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
+    return { name: val('name'), was: row.dataset.was, pin: val('pin'), trusted: flag('trusted'), persistent: flag('persistent'), username: val('username') };
+  });
+}
+
 function doSave() {
   err.hidden = true;
   setNote('');
@@ -348,11 +357,7 @@ function doSave() {
     warned = true;
     return setNote('Username and PIN cannot be switched back to PIN only. Save again to switch, or choose PIN only.', true);
   }
-  const users = [...rows.children].map((row) => {
-    const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
-    const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
-    return { name: val('name'), was: row.dataset.was, pin: val('pin'), trusted: flag('trusted'), persistent: flag('persistent'), username: val('username') };
-  });
+  const users = readRows();
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode) }))
     return fail('Not connected to Sode.');

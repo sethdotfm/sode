@@ -32,7 +32,7 @@ func TestLockStateNames(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	a.mu.Lock()
-	m := a.lockStateLocked(c)
+	m := a.lockStateMu(c)
 	a.mu.Unlock()
 	if !m.Locked || len(m.Names) != 0 {
 		t.Fatalf("locked page got %+v", m)
@@ -41,7 +41,7 @@ func TestLockStateNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.mu.Lock()
-	m = a.lockStateLocked(c)
+	m = a.lockStateMu(c)
 	a.mu.Unlock()
 	if m.Locked || !reflect.DeepEqual(m.Names, []string{"Ana", "Bo"}) {
 		t.Fatalf("unlocked page got %+v", m)

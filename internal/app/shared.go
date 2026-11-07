@@ -12,9 +12,9 @@ import (
 func (a *App) guardSave(c *client, trusted bool) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	ok := a.settingsUnlockedLocked(c)
+	ok := a.settingsUnlockedMu(c)
 	if trusted {
-		ok = a.trustedLocked(c)
+		ok = a.trustedMu(c)
 	}
 	if !ok {
 		return errLocked

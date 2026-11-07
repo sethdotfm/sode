@@ -48,7 +48,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"batch"}, Re: wordRe(`(?i)batch(?:es)?`)},
 	{
 		Terms: []string{`using "take" for any other command`, "a plan or saved entry", `as an ordinary verb meaning "accept" or "interpret literally"`},
-		Why:   "a scan cannot tell a route or a preset entry from a take, so #206, #207 and #208 judge it by hand",
+		Why:   "a scan cannot tell a route or a preset entry from a take, so a reviewer judges it by hand",
 	},
 	{Terms: []string{"pending take"}, Re: wordRe(`(?i)pending takes?`)},
 	{Terms: []string{"salvo"}, Re: wordRe(`(?i)salvos?`)},
@@ -346,8 +346,8 @@ func hitReport(hits []vocabHit) string {
 func TestRetiredWordsCoverGlossary(t *testing.T) {
 	covered := map[string]bool{}
 	for _, w := range retiredWords {
-		if w.Re == nil && !regexp.MustCompile(`#\d+`).MatchString(w.Why) {
-			t.Errorf("%v has no scan, so Why must say which ticket judges it", w.Terms)
+		if w.Re == nil && w.Why == "" {
+			t.Errorf("%v has no scan, so Why must say who judges it", w.Terms)
 		}
 		for _, term := range w.Terms {
 			covered[term] = true
@@ -370,7 +370,7 @@ func TestRetiredWordsCoverGlossary(t *testing.T) {
 		}
 		for _, ticket := range []string{w.Docs, w.UI} {
 			if ticket != "" && !regexp.MustCompile(`^#\d+$`).MatchString(ticket) {
-				t.Errorf("%v: pending ticket %q is not like #206", w.Terms, ticket)
+				t.Errorf("%v: pending ticket %q is not a ticket number", w.Terms, ticket)
 			}
 		}
 	}

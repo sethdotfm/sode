@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// Auto-lock sends the same userLock as the lock button, for persistent users too. The
-// page does the timing, so these tests drive the message its idle timer sends.
+// Auto-lock sends the same userLock as the lock button, for persistent users too. The idle
+// timer is client-side (web/lock.js), so these tests drive the userLock it sends.
 
 func idleLock(t *testing.T, a *App, c *client) {
 	t.Helper()

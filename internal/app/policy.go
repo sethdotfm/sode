@@ -180,12 +180,12 @@ func (a *App) admit(c *client, r rule) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	switch {
-	case r.need&needMain != 0 && !a.pageAllowedLocked(c, gateMain),
-		r.need&needLog != 0 && !a.pageAllowedLocked(c, gateLog):
+	case r.need&needMain != 0 && !a.pageAllowedMu(c, gateMain),
+		r.need&needLog != 0 && !a.pageAllowedMu(c, gateLog):
 		return errPageLocked
-	case r.need&needAdmin != 0 && !a.settingsUnlockedLocked(c):
+	case r.need&needAdmin != 0 && !a.settingsUnlockedMu(c):
 		return errLocked
-	case r.need&needTrusted != 0 && !a.trustedLocked(c) && !a.isUserLocked(c, r.self):
+	case r.need&needTrusted != 0 && !a.trustedMu(c) && !a.isUserLocked(c, r.self):
 		return errLocked
 	}
 	if r.admitted != nil {

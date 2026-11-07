@@ -7,7 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { fetchProfile, saveProfile, profile, profileName } from './profile.js';
-import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles } from './profilesrules.js';
+import { prefFields, prefsWith, withParts, setSummary, presetSummary, without, canSeeProfiles, PROFILE_NOTICE } from './profilesrules.js';
 
 // ---- the dialog
 
@@ -127,6 +127,7 @@ function paint() {
     return;
   }
   body.replaceChildren(
+    el('p', 'pb-note', PROFILE_NOTICE),
     el(
       'section',
       'sode__profiles-sec sode__profiles-sec--prefs',

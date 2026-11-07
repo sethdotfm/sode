@@ -21,7 +21,7 @@ func (a *App) ApplyConfig(c config.Config) error {
 func (a *App) pageAllowed(c *client, g gate) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.pageAllowedLocked(c, g)
+	return a.pageAllowedMu(c, g)
 }
 
 // Len is how many entries the history holds.

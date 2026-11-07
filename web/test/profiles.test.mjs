@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles, profileButtonOff } from '../profilesrules.js';
+import { prefRows, withoutPref, setSummary, presetSummary, without, canSeeProfiles, profileButtonOff, PROFILE_NOTICE } from '../profilesrules.js';
 
 test('prefRows: labels values, skips unknown ones', () => {
   const r = prefRows({ theme: 'dark', flip: true, clock: 'bogus', nope: 'x' });
@@ -107,4 +107,10 @@ test('filterEntry and findByName', () => {
   assert.deepEqual(filterEntry(' X ', { src: '1', sode: true }), { name: 'X', src: '1', sode: true });
   assert.equal(findByName([{ name: 'Cams' }], 'cams').name, 'Cams');
   assert.equal(findByName(null, 'a'), undefined);
+});
+
+test('PROFILE_NOTICE says a Profile is not private and who can see it', () => {
+  assert.match(PROFILE_NOTICE, /not private/);
+  assert.match(PROFILE_NOTICE, /trusted users/i);
+  assert.match(PROFILE_NOTICE, /Advanced Settings PIN/);
 });

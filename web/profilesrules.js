@@ -51,6 +51,9 @@ export const without = (list, i) => (Array.isArray(list) ? list.filter((_, j) =>
 
 export const profileButtonOff = (was, typed) => !was || String(typed).trim() !== was;
 
+// Shown in the Profile dialog, for the user's own Profile too (My profile opens the same dialog).
+export const PROFILE_NOTICE = 'A Profile is not private. Trusted users and the Advanced Settings PIN can see and edit every Profile.';
+
 export const canSeeProfiles = (names, trusted, unlocked) => (names?.length || 0) > 0 && !!(trusted || unlocked);
 
 // ---- editing a profile

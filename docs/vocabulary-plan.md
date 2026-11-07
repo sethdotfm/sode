@@ -42,7 +42,7 @@ Each becomes a GitHub issue on `sethdotfm/sode` after the list is approved. None
 
 1. **Server-held Lock for signed-in users.** Reverses #198, where Ctrl+L signs the user out. The server records the locked state per session, so reload and reconnect still show the PIN pad, and only that user's PIN resumes it. Needs an ADR.
 2. **Auto-lock for persistent users.** They skip the idle timer today. After this they get the Lock like everyone else, and Auto-lock never signs anyone out.
-3. **Sign-in mode.** PIN only stays the default. Username and PIN is optional, with PINs no longer unique across users. Username is separate from the name History shows.
+3. **Sign-in mode.** PIN only stays the default. Username and PIN is optional, where users may share a PIN. Username is separate from the name History shows.
 4. **Last chip hides until this browser has made a take.** Remove the fallback to the newest Sode take in History.
 5. **Rename keeps persistent sessions.** Today a rename kills them. Decide whether it should.
 

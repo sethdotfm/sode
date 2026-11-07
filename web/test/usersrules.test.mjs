@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, usernameColumn, MODES, modeOneWay, switchNeedsWarning } from '../usersrules.js';
+import { usersReq, usernameColumn, MODES, modeOneWay, switchNeedsWarning, renameNotice } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', was: 'Ann', pin: '', trusted: true, persistent: false, username: ' ann ' },
@@ -57,4 +57,22 @@ test('Username and PIN is one-way: no way back once saved, a warning before the 
   assert.equal(switchNeedsWarning('username', 'pin'), true);
   assert.equal(switchNeedsWarning('username', 'username'), false);
   assert.equal(switchNeedsWarning('pin', 'pin'), false);
+});
+
+test('renameNotice names each renamed saved user and stays quiet otherwise', () => {
+  assert.equal(renameNotice(rows), '');
+  assert.equal(
+    renameNotice([
+      { name: ' Anna ', was: 'Ann' },
+      { name: 'Bob', was: '' },
+    ]),
+    'Renaming Ann to Anna signs that user out everywhere. Their Profile and PIN stay.',
+  );
+  assert.match(
+    renameNotice([
+      { name: 'A2', was: 'A' },
+      { name: 'B2', was: 'B' },
+    ]),
+    /A to A2, B to B2 signs/,
+  );
 });
