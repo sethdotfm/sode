@@ -420,8 +420,9 @@ func TestTakeOtherSource(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0, 1, 2)
 	f.deaf[[2]int{5, 0}] = true
+	a.routeTimeout = 300 * time.Millisecond // the other source must show before the interrogate
 	go func() {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(30 * time.Millisecond)
 		f.mu.Lock()
 		f.tally[[2]int{5, 0}] = 9
 		f.mu.Unlock()
@@ -516,7 +517,7 @@ func TestTakeLinkDown(t *testing.T) {
 	if e.OK || !strings.HasPrefix(e.Err, "levels 1, 2, 3 not sent:") {
 		t.Fatalf("take %+v", e)
 	}
-	if d := time.Since(start); d > checkTimeout/2 {
+	if d := time.Since(start); d > a.checkTimeout/2 {
 		t.Fatalf("took %v", d)
 	}
 	leftovers(t, a)
@@ -716,7 +717,7 @@ func TestTakeWaitsForQueue(t *testing.T) {
 		a.router.seenAt[[2]int{5, l}] = time.Now() // no check: only the connects wait
 	}
 	a.mu.Unlock()
-	f.hold = routeTimeout + routeGrace + 200*time.Millisecond
+	f.hold = a.routeTimeout + a.routeGrace + 100*time.Millisecond
 	e := routeOne(t, a, 7, 5, 1, 2, 3)
 	if !e.OK || len(e.Failed) != 0 {
 		t.Fatalf("take %+v", e)
@@ -774,7 +775,7 @@ func TestRegisterOwnKeysOutlastQueue(t *testing.T) {
 	w.register(a)
 	until := a.ext.own[ownKey{5, w.levels[0].wire, 7}]
 	a.mu.Unlock()
-	if time.Until(until) < queueMax+ownFor-time.Second {
+	if time.Until(until) < a.queueMax+ownFor-time.Second {
 		t.Fatalf("own key ends in %v", time.Until(until))
 	}
 }
