@@ -145,6 +145,7 @@ func nativeApp(t *testing.T, n int) (*App, *fakeRouter) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	shortTimers(a)
 	return a, newFakeRouter(t, a)
 }
 

@@ -22,14 +22,14 @@ const (
 	extQuiet = 500 * time.Millisecond // a burst ends after this long with no changes
 	extMax   = 3 * time.Second        // or this long after it began
 	// ownFor: how long a matching Connected counts as ours: the take's whole wait plus
-	// slack for a late reply.
-	ownFor = routeTimeout + routeGrace + 5*time.Second // counted from when the connects have gone out (sendRoute)
+	// slack for a late reply. Built from the default timers, so tests that shorten them keep it long.
+	ownFor = defaultRouteTimeout + defaultRouteGrace + 5*time.Second // counted from when the connects have gone out (sendRoute)
 
 	followAfter  = 500 * time.Millisecond // a follow comes this soon after its take's last change
 	followBefore = 50 * time.Millisecond  // or this much before its first (messages race)
 	// A burst that may follow an in-flight take waits for it to be recorded, up to this
 	// long after the burst began. A take still queued holds nothing (cause.sent).
-	extHold   = routeTimeout + routeGrace + 2*time.Second
+	extHold   = defaultRouteTimeout + defaultRouteGrace + 2*time.Second
 	causeKeep = 5 * time.Second // a recorded take can be followed for this long
 )
 

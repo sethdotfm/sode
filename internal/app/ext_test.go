@@ -18,7 +18,17 @@ func newTestApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
+	shortTimers(a)
 	return a
+}
+
+// shortTimers keeps tests that wait on an unanswered router fast. queueMax stays well above
+// the others so a held reply still counts as queued, not lost.
+func shortTimers(a *App) {
+	a.checkTimeout = 40 * time.Millisecond
+	a.routeTimeout = 40 * time.Millisecond
+	a.routeGrace = 40 * time.Millisecond
+	a.queueMax = 500 * time.Millisecond
 }
 
 // endBurst makes the pending burst old enough to be written.

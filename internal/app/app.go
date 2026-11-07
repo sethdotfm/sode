@@ -65,6 +65,7 @@ type App struct {
 
 	sw      *swp08.Client
 	sendMsg func([]byte, swp08.Why) error // sw.Send; tests answer as the router would
+
 	hist    *History
 	sent    *SentLog
 	txq     chan swp08.TxEvent
@@ -86,6 +87,9 @@ type App struct {
 	linkSeen string
 	linkErr  string
 	fire     *fireState
+
+	// Take timers; only tests shorten them (shortTimers).
+	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
@@ -155,18 +159,22 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		sent, _ = OpenSentLog("", 0)
 	}
 	a := &App{
-		hist:    hist,
-		sent:    sent,
-		txq:     make(chan swp08.TxEvent, 1024),
-		evq:     make(chan Sent, 256),
-		cfgPath: cfgPath,
-		router:  newRouterState(),
-		ext:     newExtTracker(),
-		clients: map[*client]struct{}{},
-		started: time.Now(),
-		waiters: map[*waiter]struct{}{},
-		checks:  map[*tallyCheck]struct{}{},
-		status:  statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
+		hist:         hist,
+		sent:         sent,
+		txq:          make(chan swp08.TxEvent, 1024),
+		evq:          make(chan Sent, 256),
+		cfgPath:      cfgPath,
+		router:       newRouterState(),
+		ext:          newExtTracker(),
+		clients:      map[*client]struct{}{},
+		started:      time.Now(),
+		waiters:      map[*waiter]struct{}{},
+		checks:       map[*tallyCheck]struct{}{},
+		checkTimeout: defaultCheckTimeout,
+		routeTimeout: defaultRouteTimeout,
+		routeGrace:   defaultRouteGrace,
+		queueMax:     defaultQueueMax,
+		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.pin, a.userPin = settingsPool(), userPool()
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu

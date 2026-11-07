@@ -28,8 +28,8 @@ import { filterShare, saveAsName } from './exportfmt.js';
 import { scopeIds, scopeLabel, scopeOptions } from './scopes.js';
 import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
+import { browserFilters, profileFilters } from './editortargets.js';
 import { FILTER_DEFAULT, normFilter, snapshot, restore } from './filterstore.js';
-import { upsertEntry, filterEntry } from './profilesrules.js';
 import { trapDialog, labeled } from './widgets.js';
 import { editor } from './filtereditor.js';
 
@@ -39,16 +39,20 @@ const dialog = $('filters-dialog');
 const MODE_KEY = 'sode-filter-mode';
 let mode = readStr(MODE_KEY) === 'code' ? 'code' : 'visual';
 
-// Aimed at a profile (bus 'openFilterEditor'): the filter is a draft held here (never the
-// browser's own filter or active set); a name and Save replace the set bar and a save goes to
-// that user's profile.
-
-let tgt = null;
-const curF = () => (tgt ? tgt.f : filterState());
-const putF = (next) => {
-  if (tgt) tgt.f = normFilter(next);
-  else setFilter(next);
-};
+// Bus 'openFilterEditor' swaps in a profile target (editortargets.js): the filter is a draft
+// (never the browser's own filter or active set); a name and Save replace the set bar and a save
+// goes to that user's profile.
+const browser = browserFilters({
+  read: filterState,
+  write: setFilter,
+  snapshot,
+  restore,
+  // A save already sent finishes first (its answer locks up after it); one waiting for the PIN is dropped.
+  onClose: () => saver.close(),
+});
+let target = browser;
+const curF = () => target.filter();
+const putF = (next) => target.put(next);
 
 const edOpts = { read: curF, write: putF, mode: () => mode };
 const eds = { src: editor('src', edOpts), dst: editor('dst', edOpts) };
@@ -135,15 +139,12 @@ function renderButtons() {
 }
 
 let back = null;
-// The filter and set as they were when the dialog opened: Cancel restores them (edits apply to
-// Recent as they are made).
-let openSnap = null;
 export const filtersOpen = () => !root.hidden;
 
 export function openFilters() {
   back = document.activeElement;
-  tgt = null;
-  openSnap = snapshot();
+  target = browser;
+  target.begin();
   chrome();
   renderMode();
   loadDialog(filterState());
@@ -157,29 +158,19 @@ export function openFilters() {
 
 // A set write has landed: Cancel must not roll the filter back past it.
 function landed() {
-  if (filtersOpen() && !tgt) openSnap = snapshot();
+  if (filtersOpen()) target.landed();
 }
 
 function cancelFilters() {
-  if (tgt || !openSnap) return closeFilters();
-  // Settle the editors' pending text first (it would otherwise be written after the restore).
-  flushEds();
-  restore(openSnap);
-  closeFilters(false);
+  target.cancel(flushEds, closeFilters);
 }
 
 function closeFilters(flush = true) {
   if (flush) flushEds();
   dlg.hide();
-  if (tgt) {
-    tgt = null;
-    chrome();
-    if (back?.isConnected) back.focus();
-    return;
-  }
-  // A save already sent finishes first (its answer locks up after it); one waiting for the PIN
-  // is dropped.
-  saver.close();
+  target.close();
+  target = browser;
+  chrome();
   if (back?.isConnected) back.focus();
 }
 
@@ -204,25 +195,23 @@ const tNoteSet = (text, error = false) => {
 };
 
 function chrome() {
-  const t = !!tgt;
-  $('flt-set').closest('.sode__filters-sets').hidden = t;
-  tBar.hidden = !t;
-  tSave.hidden = !t;
-  $('flt-save').hidden = t;
-  $('flt-clear').hidden = t;
-  $('flt-share-btn').hidden = t;
-  $('filters-title').textContent = t ? `${tgt.old ? 'Edit' : 'Add'} filter set for ${tgt.user}` : 'Filters';
-  if (t) {
-    tName.value = tgt.old;
-    tNoteSet('');
-    tName.classList.remove('pb-input--invalid');
-  }
+  const own = target.own;
+  $('flt-set').closest('.sode__filters-sets').hidden = !own;
+  tBar.hidden = own;
+  tSave.hidden = own;
+  $('flt-save').hidden = !own;
+  $('flt-clear').hidden = !own;
+  $('flt-share-btn').hidden = !own;
+  $('filters-title').textContent = target.title;
+  tName.value = target.name;
+  tNoteSet('');
+  tName.classList.remove('pb-input--invalid');
 }
 
 const tgtSaver = profileSaver({
-  target: () => tgt,
+  target: () => target.edit,
   setNote: tNoteSet,
-  isOpen: () => filtersOpen() && !!tgt,
+  isOpen: () => filtersOpen() && !!target.edit,
   failTitle: 'Filter set not saved',
   render: () => {
     tSave.disabled = tgtSaver.busy();
@@ -230,23 +219,15 @@ const tgtSaver = profileSaver({
 });
 
 function saveTarget() {
-  if (!tgt) return;
-  eds.src.flush();
-  eds.dst.flush();
-  const name = tName.value.trim();
-  const bad = nameProblem(
-    name,
-    tgt.lists.map((x) => String(x?.name)),
-    { noun: 'filter set', old: tgt.old, reserved: 'all' },
-  );
-  if (bad) {
+  flushEds();
+  const { err, list } = target.build(tName.value.trim());
+  if (err) {
     tName.classList.add('pb-input--invalid');
-    tNoteSet(bad, true);
+    tNoteSet(err, true);
     tName.focus();
     return;
   }
   tName.classList.remove('pb-input--invalid');
-  const list = upsertEntry(tgt.lists, filterEntry(name, tgt.f), tgt.old);
   saveIn('user', list, closeFilters);
 }
 tSave.addEventListener('click', saveTarget);
@@ -261,10 +242,10 @@ on('openFilterEditor', (m) => {
   const t = editTarget(m, 'filterSets');
   if (!t) return;
   back = document.activeElement;
-  tgt = { ...t, f: normFilter(t.found || FILTER_DEFAULT) };
+  target = profileFilters(t, { normalize: (f) => normFilter(f || FILTER_DEFAULT), saver: tgtSaver });
   chrome();
   renderMode();
-  loadDialog(tgt.f);
+  loadDialog(target.filter());
   dlg.show();
   dialog.focus();
 });
@@ -386,7 +367,7 @@ const wireSet = (s) => ({ name: s.name, ...s.f });
 const { saveIn, removeIn } = scopeWriter({
   global: saver,
   user: profSaver,
-  target: () => tgt && tgtSaver,
+  target: () => target.saver,
   key: 'filterSets',
   globalKey: 'sets',
   listOf: (scope) => setsIn(scope).map(wireSet),

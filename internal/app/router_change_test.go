@@ -66,7 +66,7 @@ func TestRouterChangeCutsTake(t *testing.T) {
 	})
 	sent := f.sends()
 	changeRouter(t, a)
-	waitDone(t, done, routeTimeout/2)
+	waitDone(t, done, a.routeTimeout/2)
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].OK || !strings.Contains(es[0].Err, "level 1 no answer before the router changed") ||
 		!strings.Contains(es[0].Err, "level 2 no answer before the router changed") || !equalInts(es[0].Failed, []int{1, 2}) {
@@ -100,7 +100,7 @@ func TestRouterChangeDuringCheck(t *testing.T) {
 		return len(a.checks) == 1
 	})
 	changeRouter(t, a)
-	waitDone(t, done, checkTimeout/2)
+	waitDone(t, done, a.checkTimeout/2)
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].OK || !strings.HasPrefix(es[0].Err, "levels 1, 2, 3 not sent: the router changed") || !equalInts(es[0].Failed, []int{1, 2, 3}) {
 		t.Fatalf("take %+v", es)
