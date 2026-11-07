@@ -94,6 +94,30 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	return old, nw, nil
 }
 
+// commit: update, then swap the runtime under mu and run after (nil: nothing) while still
+// holding it. The one config commit; side effects that must not see a half-swapped state
+// go in after. Caller holds cfgMu and has done its own guard check.
+func (a *App) commit(mutate func(*config.Config) error, after func(old, nr *runtime)) error {
+	old, nr, err := a.update(mutate)
+	if err != nil {
+		return err
+	}
+	a.mu.Lock()
+	a.rt.Store(nr)
+	if after != nil {
+		after(old, nr)
+	}
+	a.mu.Unlock()
+	return nil
+}
+
+// syncAccessAllLocked: every connection gets its lock state again. Caller holds mu.
+func (a *App) syncAccessAllLocked() {
+	for cl := range a.clients {
+		a.syncAccessLocked(cl)
+	}
+}
+
 // cutTakes: waits stop at once, each take fails as cut. Their sends are already refused
 // (a.ext changed). Caller holds mu.
 func (a *App) cutTakes() {
@@ -109,47 +133,51 @@ func (a *App) cutTakes() {
 }
 
 func (a *App) applyConfig(mutate func(*config.Config) error) error {
-	oldRt, nr, err := a.update(mutate)
+	page := a.readHello() // history read stays outside mu
+	var reconnect bool
+	var c config.Config
+	var applied *runtime
+	err := a.commit(mutate, func(oldRt, nr *runtime) {
+		old := oldRt.cfg
+		c = nr.cfg
+		reconnect = config.Changed(old, c, "router")
+		if reconnect {
+			a.router = newRouterState()
+			a.ext = newExtTracker()
+			a.cutTakes()
+			a.status.Router = string(swp08.StateConnecting)
+			a.status.Addr = c.Router
+			a.status.Err = ""
+			// SetTarget doesn't report down: tell the link log and uptime here; the next up is
+			// logged again.
+			a.up.State(false)
+			a.linkSeen, a.linkErr = "", ""
+			ch := event(kindLink, "", "", "changed")
+			ch.Note = c.Router
+			a.logEvent(ch)
+		}
+		hello := a.hello(page)
+		for cl := range a.clients {
+			a.deliver(cl, hello)
+		}
+		a.syncAccessAllLocked() // locks, users or the settings PIN may have changed
+		locked, _ := json.Marshal(simpleMsg{T: "locked"})
+		for cl := range a.clients {
+			if cl.pin != "" && cl.pin != c.SettingsPin {
+				cl.pin = ""
+				if c.SettingsPin != "" {
+					a.deliver(cl, locked)
+				}
+			}
+		}
+		applied = nr
+	})
 	if err != nil {
 		return err
 	}
-	old, c := oldRt.cfg, nr.cfg
-	reconnect := config.Changed(old, c, "router")
-
-	page := a.readHello()
-	a.mu.Lock()
-	a.rt.Store(nr)
-	if reconnect {
-		a.router = newRouterState()
-		a.ext = newExtTracker()
-		a.cutTakes()
-		a.status.Router = string(swp08.StateConnecting)
-		a.status.Addr = c.Router
-		a.status.Err = ""
-		// SetTarget doesn't report down: tell the link log and uptime here; the next up is
-		// logged again.
-		a.up.State(false)
-		a.linkSeen, a.linkErr = "", ""
-		ch := event(kindLink, "", "", "changed")
-		ch.Note = c.Router
-		a.logEvent(ch)
-	}
-	hello := a.hello(page)
-	locked, _ := json.Marshal(simpleMsg{T: "locked"})
-	for cl := range a.clients {
-		a.deliver(cl, hello)
-		a.syncAccessLocked(cl) // locks, users or the settings PIN may have changed
-		if cl.pin != "" && cl.pin != c.SettingsPin {
-			cl.pin = ""
-			if c.SettingsPin != "" {
-				a.deliver(cl, locked)
-			}
-		}
-	}
-	a.mu.Unlock()
 	a.catchUpSessions() // Never log out may have just been ticked
 	if reconnect {
-		a.sw.SetTarget(c.Router, nr.probe())
+		a.sw.SetTarget(c.Router, applied.probe())
 	}
 	log.Printf("config: applied (reconnect=%v)", reconnect)
 	return nil

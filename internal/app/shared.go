@@ -30,17 +30,11 @@ func (a *App) saveShared(c *client, mutate func(*config.Config) error, broadcast
 	if err := a.guardSave(c, true); err != nil {
 		return err
 	}
-	_, nr, err := a.update(mutate)
-	if err != nil {
-		return err
-	}
-	a.mu.Lock()
-	a.rt.Store(nr)
-	if broadcast != nil {
-		a.broadcast(broadcast(nr.cfg))
-	}
-	a.mu.Unlock()
-	return nil
+	return a.commit(mutate, func(_, nr *runtime) {
+		if broadcast != nil {
+			a.broadcast(broadcast(nr.cfg))
+		}
+	})
 }
 
 // replyOp: id < 0 = the request has none; reports whether the PIN was why it failed.

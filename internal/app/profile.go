@@ -99,7 +99,7 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 		return n, err
 	}
 	var owner string
-	_, nr, err := a.update(func(cfg *config.Config) error {
+	err := a.commit(func(cfg *config.Config) error {
 		for i := range cfg.Users {
 			u := &cfg.Users[i]
 			if !strings.EqualFold(u.Name, strings.TrimSpace(req.Name)) {
@@ -121,19 +121,14 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 			return nil
 		}
 		return errNoSuchUser
-	})
-	if err != nil {
-		return n, err
-	}
-	a.mu.Lock()
-	a.rt.Store(nr)
-	for cl := range a.clients {
-		if a.isUserLocked(cl, owner) {
-			a.pushProfileLocked(cl)
+	}, func(_, _ *runtime) {
+		for cl := range a.clients {
+			if a.isUserLocked(cl, owner) {
+				a.pushProfileLocked(cl)
+			}
 		}
-	}
-	a.mu.Unlock()
-	return n, nil
+	})
+	return n, err
 }
 
 // Logs whose profile and how many things, never a value.

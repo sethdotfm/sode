@@ -534,7 +534,7 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 	if err != nil {
 		return err
 	}
-	_, nr, err := a.update(func(cfg *config.Config) error {
+	err = a.commit(func(cfg *config.Config) error {
 		for i := range cfg.Users {
 			if !strings.EqualFold(cfg.Users[i].Name, who.Name) {
 				continue
@@ -551,19 +551,15 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 			return nil
 		}
 		return errors.New("unlock with your PIN first")
+	}, func(_, nr *runtime) {
+		if nu, ok := nr.cfg.FindUser(who.Name); ok {
+			c.u.user.Store(&nu)
+		}
+		a.syncAccessAllLocked() // the user's other connections relock
 	})
 	if err != nil {
 		return err
 	}
-	a.mu.Lock()
-	a.rt.Store(nr)
-	if nu, ok := nr.cfg.FindUser(who.Name); ok {
-		c.u.user.Store(&nu)
-	}
-	for cl := range a.clients {
-		a.syncAccessLocked(cl) // the user's other connections relock
-	}
-	a.mu.Unlock()
 	a.catchUpSessions() // c's old tokens died with the old hash
 	return nil
 }
