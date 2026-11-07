@@ -287,5 +287,5 @@ test('failure banner: grouped lines, shrinks as takes resolve', async () => {
   assert.match(b3.title, /resolved: all 4 takes confirmed/);
   const many = [1, 2, 3, 4, 5].map((i) => mk(30 + i, { failed: [1], now: [[1, i]] }));
   const t2 = { verb: 'patch', total: 5, items: many.map((e) => ({ entry: e.id, dst: dst(e.id), err: 'x' })) };
-  assert.match(failureBanner(t2, many).key, /and 2 more; see Recent/);
+  assert.match(failureBanner(t2, many).key, /and 2 more; see History/);
 });

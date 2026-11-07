@@ -177,14 +177,14 @@ export function folderStatus(f) {
 
 const extStatus = (found, title = '') =>
   found
-    ? { dot: 'warn', text: 'found', title: title || 'Changed without notice; found when Sode re-read the router' }
-    : { dot: 'info', text: 'panel', title: title || 'From another panel' };
+    ? { dot: 'warn', text: 'Found', title: title || 'An external change the router made without announcing it, found when Sode re-read the router' }
+    : { dot: 'info', text: 'External change', title: title || 'A change on the router that Sode did not make' };
 
 export function statusNode(row) {
   const st = row.f
     ? folderStatus(row.f)
     : row.e.ext && row.e.followGroup
-      ? { dot: 'info', text: 'follow', title: 'Changed along with this confirm' }
+      ? { dot: 'info', text: 'External follow', title: 'Changed along with this confirm, probably as a result of it' }
       : row.e.ext
         ? extStatus(row.e.found)
         : { dot: row.e.ok ? 'ok' : 'error', text: row.e.ok ? 'ok' : 'failed' };
@@ -204,13 +204,13 @@ export function folderTitle(f) {
   const src = srcs.length === 1 ? labelNode(srcItem(srcs[0], f.entries[0].srcName)) : `${srcs.length} sources`;
   const dst = dsts.length === 1 ? labelNode(dstItem(dsts[0], f.entries[0].dstName)) : `${dsts.length} destinations`;
   const kind = f.entries.every((e) => e.undo != null) ? 'undo' : f.entries.every((e) => e.retry != null) ? 'retry' : '';
-  const follows = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
+  const nFollow = f.entries.reduce((n, e) => n + (e.follows?.length || 0), 0);
   const preset = f.entries.find((e) => e.preset)?.preset;
   const notes = [
     preset && `Preset: ${preset}`,
     kind,
     folderPartial(f) && `${f.shown.length} of ${f.entries.length} shown`,
-    follows && `+${follows} follow${follows === 1 ? '' : 's'}`,
+    nFollow && `+${nFollow} external follow ${nFollow === 1 ? 'entry' : 'entries'}`,
   ].filter(Boolean);
   return [strong(src), ' → ', strong(dst), notes.length ? el('span', 'sode__hist-note', ` (${notes.join('; ')})`) : null].filter(Boolean);
 }
@@ -342,9 +342,9 @@ export function entryNote(e) {
   const parts = [];
   if (e.preset && !(e.group && e.groupN > 1)) parts.push(`Preset: ${e.preset}`);
   if (e.merged > 1) parts.push(`${e.merged} changes`);
-  if (e.follows?.length) parts.push(`+${e.follows.length} follow${e.follows.length === 1 ? '' : 's'}`);
-  if (e.follow != null) parts.push(`follow of #${e.follow}`);
-  if (e.followGroup) parts.push('follow of this confirm');
+  if (e.follows?.length) parts.push(`+${e.follows.length} external follow ${e.follows.length === 1 ? 'entry' : 'entries'}`);
+  if (e.follow != null) parts.push(`external follow of #${e.follow}`);
+  if (e.followGroup) parts.push('external follow of this confirm');
   if (e.undo != null) parts.push(`undo of #${e.undo}`);
   if (e.retry != null) parts.push(`retry of #${e.retry}`);
   if (e.already?.length) parts.push(`${levelText(e.already)} already`);
