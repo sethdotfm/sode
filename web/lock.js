@@ -9,8 +9,6 @@ import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { readStr, writeStr, readTab, writeTab } from './store.js';
 import {
   padKey,
-  sendDelay,
-  sendable,
   idleLock,
   pageType,
   liftFrom,
@@ -23,6 +21,10 @@ import {
   churnKey,
   localIdleLock,
   signInOffered,
+  asksUsername,
+  canSend,
+  padDelay,
+  unlockMsg,
   signInAsOffered,
   signOutOffered,
   MODE,
@@ -62,7 +64,7 @@ const page = pageType(location.pathname);
   document.head.append(css);
 }
 
-const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, lens: [] };
+const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, lens: [], mode: 'pin' };
 export const lockState = () => ({ ...L });
 
 let hiFor = null;
@@ -78,6 +80,7 @@ writeStr('sode-lock-never', null);
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
+let nameField, nameInput;
 let padBody, softBody, softKey, softBtn, softNote, signInAsBtn, signOutBtn, softFoot;
 let unlocked = false; // a userUnlock just succeeded: the lockState that follows ends a login
 let V = PAGE_VIEW;
@@ -124,7 +127,24 @@ function build() {
   cancelBtn.type = 'button';
   cancelBtn.hidden = true;
   cancelBtn.addEventListener('click', cancelSignIn);
-  padBody = el('div', 'sode-lock__body', state, dotsEl, msg, pad, cancelBtn);
+  nameInput = el('input', 'pb-input sode-lock__name');
+  nameInput.id = 'lock-username';
+  nameInput.type = 'text';
+  nameInput.autocomplete = 'username';
+  nameInput.autocapitalize = 'none';
+  nameInput.spellcheck = false;
+  nameInput.maxLength = 24;
+  nameInput.addEventListener('input', () => {
+    if (dotsEl.classList.contains('is-text')) clearFeedback();
+    paint();
+    // A PIN typed first goes out as soon as the username completes it.
+    clearTimeout(timer);
+    const wait = padDelay(L, pin, nameInput.value);
+    if (wait != null && pin) timer = setTimeout(sendPin, wait);
+  });
+  nameField = el('div', 'sode-lock__namefield', Object.assign(el('label', 'sode-lock__namelabel', 'Username'), { htmlFor: 'lock-username' }), nameInput);
+  nameField.hidden = true;
+  padBody = el('div', 'sode-lock__body', nameField, state, dotsEl, msg, pad, cancelBtn);
 
   softKey = el('kbd', 'sode__key sode__key--locked');
   softBtn = el('button', 'pb-btn pb-btn--ok', 'Dismiss');
@@ -212,6 +232,7 @@ function showLock() {
   const body = viewBody(V, lockCovers(L));
   padBody.hidden = body !== 'pad';
   cancelBtn.hidden = V.mode !== MODE.SIGN_IN;
+  nameField.hidden = !asksUsername(L);
   softBody.hidden = body !== 'soft';
   signOutBtn.hidden = !(L.held || signOutOffered(L));
   signInAsBtn.hidden = L.held || !signInAsOffered(L);
@@ -220,6 +241,7 @@ function showLock() {
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
   pin = '';
+  nameInput.value = '';
   welcoming = false;
   clearFeedback();
   say('');
@@ -250,7 +272,8 @@ function showLock() {
   const had = document.activeElement;
   if (had && had !== document.body && !root.contains(had)) before = had;
   had?.blur?.();
-  root.focus({ preventScroll: true });
+  if (asksUsername(L) && V.mode !== MODE.SOFT) nameInput.focus({ preventScroll: true });
+  else root.focus({ preventScroll: true });
 }
 
 // A site name wider than the screen scales down to one line (under 1.25rem it wraps instead).
@@ -382,17 +405,19 @@ function clearFeedback() {
 function paint() {
   dotsEl.textContent = dots(pin);
   state.textContent = pin ? `${pin.length} ${pin.length === 1 ? 'digit' : 'digits'} entered` : 'Please enter your PIN.';
-  checkKey.disabled = !sendable(pin, lens());
+  checkKey.disabled = !canSend(L, pin, nameValue());
 }
 
 const lens = () => L.lens;
+const nameValue = () => nameInput?.value ?? '';
 
 function press(k) {
   clearTimeout(timer);
   if (welcoming) return;
   if (dotsEl.classList.contains('is-text')) clearFeedback();
   if (k === 'enter') {
-    if (sendable(pin, lens())) sendPin();
+    if (canSend(L, pin, nameValue())) sendPin();
+    else if (asksUsername(L) && !nameValue().trim()) say('Enter your username.', true);
     else say(pin ? 'No PIN has that many digits.' : 'Enter your PIN.', true);
     return;
   }
@@ -401,14 +426,14 @@ function press(k) {
   if (k !== 'clear' && k !== 'back') say('');
   // Only the longest length goes on its own: a pause after a shorter PIN may be the start of a
   // longer one.
-  const wait = sendDelay(pin, lens());
+  const wait = padDelay(L, pin, nameValue());
   if (wait == null) return;
   timer = setTimeout(sendPin, wait);
 }
 
 function sendPin() {
   const id = ++seq;
-  if (!wsSend({ t: 'userUnlock', pin, id, tab: wantsTab(L) })) return say('Not connected to Sode.', true);
+  if (!wsSend(unlockMsg(L, { pin, id, username: nameValue() }))) return say('Not connected to Sode.', true);
   say('Checking…');
 }
 
@@ -447,6 +472,7 @@ onMsg('lockState', (m) => {
   L.trusted = !!m.trusted;
   L.persistent = !!m.persistent;
   L.lens = m.lens || [];
+  L.mode = m.mode === 'username' ? 'username' : 'pin';
   S.userNames = m.names || [];
   if (lockCovers(L) && soft) {
     soft.lock.cancel();
@@ -600,6 +626,16 @@ document.addEventListener(
         e.preventDefault();
         e.stopPropagation();
         cancelSignIn();
+        return;
+      }
+      if (e.target === nameInput) {
+        // The pad's keys must not eat what is typed into the username; Enter moves on to the PIN.
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (pin && canSend(L, pin, nameValue())) sendPin();
+          else root.focus({ preventScroll: true });
+        }
         return;
       }
       const k = /^[0-9]$/.test(e.key) ? e.key : e.key === 'Backspace' ? 'back' : e.key === 'Escape' ? 'clear' : e.key === 'Enter' ? 'enter' : null;

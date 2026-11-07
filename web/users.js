@@ -7,6 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
+import { MODES, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
@@ -62,6 +63,19 @@ const note = el('span', 'sode__hint');
 note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
 
+const modeSelect = el('select', 'pb-select');
+modeSelect.id = 'usr-mode';
+for (const m of MODES) modeSelect.append(Object.assign(el('option', null, m.label), { value: m.value }));
+const modeField = el(
+  'div',
+  'sode__field',
+  Object.assign(el('label', null, 'Sign-in mode'), { htmlFor: 'usr-mode' }),
+  el('span', 'pb-select-wrap', modeSelect),
+  el('span', 'sode__hint', 'Username and PIN: each user has a username, and two users may share a PIN.'),
+);
+const usernameHead = el('span', null, 'Username');
+const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
+
 const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
   addRow().focus();
   touched();
@@ -86,9 +100,9 @@ dialog.append(
       'sode__hint',
       'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits and must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN.',
     ),
-    el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows),
+    table,
     addBtn,
-    el('div', 'sode__users-opts', field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
+    el('div', 'sode__users-opts', modeField, field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
     err,
   ),
   el('div', 'pb-modal__footer', note, cancelBtn, saveBtn),
@@ -110,6 +124,7 @@ let back = null;
 let seq = 0;
 let outSeq = 0;
 let listSeq = 0;
+let listedMode = 'pin'; // the saved sign-in mode, what the server keeps when none is sent
 let listed = []; // the directory the server sent; empty until it does
 let loaded = false;
 const signing = new Map();
@@ -128,18 +143,37 @@ function fail(text) {
   err.hidden = false;
 }
 
+const mode = () => (modeSelect.value === 'username' ? 'username' : 'pin');
+function paintMode() {
+  const named = usernameColumn(mode());
+  table.classList.toggle('sode__users-table--named', named);
+  usernameHead.hidden = !named;
+  for (const c of rows.querySelectorAll('.sode__users-name')) c.hidden = !named;
+}
+
 function addRow(u = { name: '', len: 0 }) {
   const name = el('input', 'pb-input');
   name.value = u.name;
   name.spellcheck = false;
   name.autocomplete = 'off';
   name.placeholder = 'Name';
-  name.setAttribute('aria-label', 'User name');
+  name.setAttribute('aria-label', 'Name');
+  name.dataset.field = 'name';
+  const uname = el('input', 'pb-input');
+  uname.value = u.username || '';
+  uname.spellcheck = false;
+  uname.autocomplete = 'off';
+  uname.autocapitalize = 'none';
+  uname.maxLength = 24;
+  uname.placeholder = 'Username';
+  uname.setAttribute('aria-label', 'Username');
+  uname.dataset.field = 'username';
   const pin = el('input', 'pb-input');
   pin.type = 'password';
   pin.inputMode = 'numeric';
   pin.autocomplete = 'new-password';
   pin.setAttribute('aria-label', 'PIN');
+  pin.dataset.field = 'pin';
   pin.placeholder = u.len ? 'unchanged' : 'new PIN';
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
   const trust = check('Trusted');
@@ -168,11 +202,22 @@ function addRow(u = { name: '', len: 0 }) {
     prof.disabled = profileButtonOff(row.dataset.was, name.value);
     prof.title = prof.disabled ? 'Save the user first' : '';
   };
-  const row = el('div', 'sode__users-row', el('div', 'sode__users-in', name), el('div', 'sode__users-in', pin), trust.label, never.label, prof, out, rm);
+  const row = el(
+    'div',
+    'sode__users-row',
+    el('div', 'sode__users-in', name),
+    Object.assign(el('div', 'sode__users-in sode__users-name', uname), { hidden: !usernameColumn(mode()) }),
+    el('div', 'sode__users-in', pin),
+    trust.label,
+    never.label,
+    prof,
+    out,
+    rm,
+  );
   row.dataset.was = u.len ? u.name : '';
   paintProf();
   name.addEventListener('input', paintProf);
-  for (const f of [name, pin]) f.addEventListener('input', touched);
+  for (const f of [name, uname, pin]) f.addEventListener('input', touched);
   for (const f of [trust.input, never.input]) f.addEventListener('change', touched);
   rows.append(row);
   return name;
@@ -196,7 +241,9 @@ onMsg('userSignOutAllResult', (m) => {
 
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
+  modeSelect.value = listedMode;
   rows.replaceChildren();
+  paintMode();
   for (const u of listed) addRow(u);
   edited = false;
   discard = false;
@@ -233,6 +280,7 @@ onMsg('usersListResult', (m) => {
     return;
   }
   listed = m.users || [];
+  listedMode = m.signInMode === 'username' ? 'username' : 'pin';
   loaded = true;
   paintSummary();
   if (isOpen && !edited) fill();
@@ -242,6 +290,7 @@ on('unlockResult', (m) => {
 });
 on('locked', () => {
   listed = [];
+  listedMode = 'pin';
   loaded = false;
   paintSummary();
 });
@@ -293,12 +342,13 @@ function doSave() {
   err.hidden = true;
   setNote('');
   const users = [...rows.children].map((row) => {
-    const [name, pin] = row.querySelectorAll('input');
+    const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
-    return { name: name.value.trim(), was: row.dataset.was, pin: pin.value, trusted: flag('trusted'), persistent: flag('persistent') };
+    return { name: val('name'), was: row.dataset.was, pin: val('pin'), trusted: flag('trusted'), persistent: flag('persistent'), username: val('username') };
   });
   const id = ++seq;
-  if (!wsSend({ t: 'users', id, usersReq: { users, maxPinLen: Math.trunc(Number(maxInput.value)) || 0 } })) return fail('Not connected to Sode.');
+  if (!wsSend({ t: 'users', id, usersReq: usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode) }))
+    return fail('Not connected to Sode.');
   saveBtn.disabled = true;
 }
 
@@ -315,6 +365,10 @@ onMsg('usersResult', async (m) => {
   fail(m.err);
 });
 
+modeSelect.addEventListener('change', () => {
+  touched();
+  paintMode();
+});
 maxInput.addEventListener('input', () => {
   touched();
   for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
