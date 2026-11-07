@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { usersReq, usernameColumn, MODES, pinClashes, clashNotice, renameNotice, prefillUsernames } from '../usersrules.js';
+import { usersReq, usernameColumn, MODES, pinClashes, needsNewPins, clashNotice, renameNotice, prefillUsernames } from '../usersrules.js';
 
 const rows = [
   { name: ' Ann ', was: 'Ann', pin: '', trusted: true, persistent: false, username: ' ann ' },
@@ -50,31 +50,40 @@ test('the username column shows in Username and PIN mode only', () => {
   );
 });
 
-test('going back to PIN only needs a new PIN for each user who shares one', () => {
-  const shared = [
-    { name: 'Ann', shared: true, pin: '' },
-    { name: ' Bob ', shared: true, pin: '' },
-    { name: 'Cy', shared: true, pin: '4321' },
-    { name: 'Di', shared: false, pin: '' },
-    { name: 'New', pin: '' },
+test('going back to PIN only needs a new, different PIN typed for every user', () => {
+  const r = [
+    { name: 'Ann', pin: '' },
+    { name: ' Bob ', pin: '4321' },
+    { name: 'Cy', pin: '4321' },
+    { name: 'Di', pin: '5555' },
   ];
-  assert.deepEqual(pinClashes(shared, 'pin', 'username'), ['Ann', 'Bob']);
-  assert.deepEqual(pinClashes(shared, 'username', 'username'), []);
-  assert.deepEqual(pinClashes(shared, 'pin', 'pin'), []);
-  assert.deepEqual(
-    pinClashes(
-      shared.map((r) => ({ ...r, pin: '1234' })),
-      'pin',
-      'username',
-    ),
-    [],
-  );
+  assert.deepEqual(pinClashes(r, 'pin', 'username'), { missing: ['Ann'], same: ['Bob', 'Cy'] });
+  assert.deepEqual(pinClashes(r, 'username', 'username'), { missing: [], same: [] });
+  assert.deepEqual(pinClashes(r, 'pin', 'pin'), { missing: [], same: [] });
+  assert.deepEqual(pinClashes(r, 'username', 'pin'), { missing: [], same: [] });
+  const ok = [
+    { name: 'Ann', pin: '1111' },
+    { name: 'Bob', pin: '2222' },
+  ];
+  assert.deepEqual(pinClashes(ok, 'pin', 'username'), { missing: [], same: [] });
+});
+
+test('needsNewPins is true only when switching from Username and PIN to PIN only', () => {
+  assert.equal(needsNewPins('pin', 'username'), true);
+  assert.equal(needsNewPins('pin', 'pin'), false);
+  assert.equal(needsNewPins('username', 'username'), false);
+  assert.equal(needsNewPins('username', 'pin'), false);
 });
 
 test('clashNotice names the users and what to do', () => {
-  assert.equal(clashNotice([]), '');
-  assert.equal(clashNotice(['Ann']), 'Ann shares a PIN with another user. Give Ann a new PIN to switch to PIN only.');
-  assert.match(clashNotice(['Ann', 'Bob']), /^Ann and Bob share a PIN with other users\. Give each a new PIN/);
+  assert.equal(clashNotice({ missing: [], same: [] }), '');
+  assert.equal(clashNotice({ missing: ['Ann'], same: [] }), "Give Ann a new PIN to switch to PIN only. Sode can't tell whether saved PINs match.");
+  assert.equal(
+    clashNotice({ missing: ['Ann', 'Bob', 'Cy'], same: [] }),
+    "Give Ann, Bob and Cy a new PIN to switch to PIN only. Sode can't tell whether saved PINs match.",
+  );
+  assert.equal(clashNotice({ missing: [], same: ['Ann', 'Bob'] }), 'Ann and Bob have the same new PIN. Each needs a different one.');
+  assert.match(clashNotice({ missing: ['Cy'], same: ['Ann', 'Bob'] }), /^Give Cy a new PIN.* Ann and Bob have the same new PIN/);
 });
 
 test('renameNotice names each renamed saved user and stays quiet otherwise', () => {

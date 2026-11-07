@@ -335,6 +335,34 @@ func (a *App) SignOutAll(c *client, name string) error {
 	return nil
 }
 
+// backToPinRefusal: salted hashes hide whether saved users share a PIN, so going back to PIN only
+// needs a new PIN typed for every user, all different. Compares plaintext within the request.
+func backToPinRefusal(users []userEdit) error {
+	var missing []string
+	byPin := map[string][]string{}
+	for _, e := range users {
+		name := strings.TrimSpace(e.Name)
+		if e.Pin == "" {
+			missing = append(missing, name)
+		} else {
+			byPin[e.Pin] = append(byPin[e.Pin], name)
+		}
+	}
+	if len(missing) > 0 {
+		return errors.New("PIN only needs every PIN different, and Sode can't tell whether saved PINs match: give a new PIN to " + strings.Join(missing, ", "))
+	}
+	var clash []string
+	for _, e := range users {
+		if names := byPin[e.Pin]; len(names) > 1 {
+			clash = append(clash, strings.TrimSpace(e.Name))
+		}
+	}
+	if len(clash) > 0 {
+		return errors.New("PIN only needs every PIN different, and these users got the same new PIN: " + strings.Join(clash, ", "))
+	}
+	return nil
+}
+
 // userEdit: Was is the old name (rename keeps the PIN), Pin a new PIN ("" keeps).
 type userEdit struct {
 	Name string `json:"name"`
@@ -426,9 +454,14 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 					return errors.New("two rows keep the same user's PIN; give one of them a new PIN")
 				}
 				inherited[key] = true
-				u.TakePin(o)
+				u.Pin, u.Len = o.Pin, o.Len
 			}
 			out = append(out, u)
+		}
+		if wasUsername && cur.SignInMode == config.SignInPin {
+			if err := backToPinRefusal(req.Users); err != nil {
+				return err
+			}
 		}
 		for name, pin := range fresh {
 			if cur.SignInMode == config.SignInUsername {
@@ -441,22 +474,6 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				if p2, isNew := fresh[u.Name]; isNew && p2 == pin || !isNew && config.CheckPin(u.Pin, pin) {
 					return errors.New("that PIN can't be used")
 				}
-			}
-		}
-		if cur.SignInMode == config.SignInUsername {
-			for i := range out {
-				if pin, isNew := fresh[out[i].Name]; isNew {
-					config.LinkEqualPin(out, i, pin)
-				}
-			}
-		} else {
-			if wasUsername {
-				if shared := config.SharedPinUsers(out); len(shared) > 0 {
-					return errors.New("PIN only needs every PIN different, and these users share one: " + strings.Join(shared, ", ") + ". Give each a new PIN.")
-				}
-			}
-			for i := range out {
-				out[i].PinTag = ""
 			}
 		}
 		cur.Users = out
@@ -519,16 +536,13 @@ type userView struct {
 	Len        int    `json:"len"`
 	Trusted    bool   `json:"trusted,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
-	// Shared: another user has this PIN; going back to PIN only needs a new one.
-	Shared bool `json:"shared,omitempty"`
 }
 
 func (a *App) usersList(id int) usersListMsg {
 	cfg := a.r().cfg
 	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode}
-	shared := config.SharedPinSet(cfg.Users)
 	for _, u := range cfg.Users {
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, shared[u.Name]})
+		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent})
 	}
 	return m
 }
@@ -577,9 +591,6 @@ func (a *App) UserSetPin(c *client, oldPin, newPin string) error {
 				}
 			}
 			cfg.Users[i].Pin, cfg.Users[i].Len = h, len(newPin)
-			if cfg.SignInMode == config.SignInUsername {
-				config.LinkEqualPin(cfg.Users, i, newPin)
-			}
 			return nil
 		}
 		return errors.New("unlock with your PIN first")

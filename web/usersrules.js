@@ -22,15 +22,29 @@ export function usersReq(rows, maxPinLen, mode, savedMode) {
   return { users, maxPinLen, ...(mode !== savedMode ? { signInMode: mode } : {}) };
 }
 
-// Going back to PIN only: users whose saved PIN another user has (row.shared, from the server)
-// and who have no new PIN typed yet. The server refuses the save while any remain.
-export const pinClashes = (rows, mode, savedMode) =>
-  mode === 'pin' && savedMode === 'username' ? rows.filter((r) => r.shared && !r.pin).map((r) => r.name.trim()) : [];
+// Salted hashes hide whether saved users share a PIN, so going back to PIN only needs a new PIN
+// typed for every user, all different. The server refuses the save otherwise.
+export const needsNewPins = (mode, savedMode) => mode === 'pin' && savedMode === 'username';
 
-export function clashNotice(names) {
-  if (!names.length) return '';
-  if (names.length === 1) return `${names[0]} shares a PIN with another user. Give ${names[0]} a new PIN to switch to PIN only.`;
-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)} share a PIN with other users. Give each a new PIN to switch to PIN only.`;
+// missing: users with no new PIN. same: users whose typed PIN another row also typed.
+export function pinClashes(rows, mode, savedMode) {
+  const none = { missing: [], same: [] };
+  if (!needsNewPins(mode, savedMode)) return none;
+  const count = new Map();
+  for (const r of rows) if (r.pin) count.set(r.pin, (count.get(r.pin) || 0) + 1);
+  return {
+    missing: rows.filter((r) => !r.pin).map((r) => r.name.trim()),
+    same: rows.filter((r) => r.pin && count.get(r.pin) > 1).map((r) => r.name.trim()),
+  };
+}
+
+const nameList = (names) => (names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]);
+
+export function clashNotice({ missing, same }) {
+  const out = [];
+  if (missing.length) out.push(`Give ${nameList(missing)} a new PIN to switch to PIN only. Sode can't tell whether saved PINs match.`);
+  if (same.length) out.push(`${nameList(same)} have the same new PIN. Each needs a different one.`);
+  return out.join(' ');
 }
 
 // Saved users whose name was edited. A rename ends the user's sessions on every browser (ADR 0001).

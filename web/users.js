@@ -7,7 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
-import { MODES, RENAME_HINT, clashNotice, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
+import { MODES, RENAME_HINT, clashNotice, needsNewPins, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
@@ -150,10 +150,14 @@ function touched() {
   discard = false;
   const r = readRows();
   const clashes = pinClashes(r, mode(), listedMode);
+  const bad = [...clashes.missing, ...clashes.same];
+  const asking = needsNewPins(mode(), listedMode);
   for (const row of rows.children) {
-    const clash = clashes.includes(row.querySelector('input[data-field="name"]').value.trim());
+    const clash = bad.includes(row.querySelector('input[data-field="name"]').value.trim());
+    const pin = row.querySelector('input[data-field="pin"]');
     row.toggleAttribute('data-clash', clash);
-    row.querySelector('input[data-field="pin"]').classList.toggle('pb-input--invalid', clash);
+    pin.classList.toggle('pb-input--invalid', clash);
+    pin.placeholder = asking || !row.dataset.was ? 'new PIN' : 'unchanged';
   }
   setNote(clashNotice(clashes) || renameNotice(r));
 }
@@ -256,7 +260,6 @@ function addRow(u = { name: '', len: 0 }) {
     rm,
   );
   row.dataset.was = u.len ? u.name : '';
-  if (u.shared) row.dataset.shared = '1';
   paintProf();
   name.addEventListener('input', paintProf);
   for (const f of [name, uname, pin]) f.addEventListener('input', touched);
@@ -387,7 +390,6 @@ function readRows() {
     return {
       name: val('name'),
       was: row.dataset.was,
-      shared: !!row.dataset.shared,
       pin: val('pin'),
       trusted: flag('trusted'),
       persistent: flag('persistent'),
@@ -401,7 +403,7 @@ function doSave() {
   setNote('');
   const users = readRows();
   const clashes = pinClashes(users, mode(), listedMode);
-  if (clashes.length) {
+  if (clashes.missing.length || clashes.same.length) {
     setNote(clashNotice(clashes), true);
     return rows.querySelector('.sode__users-row[data-clash] input[data-field="pin"]')?.focus();
   }

@@ -1,8 +1,6 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -18,10 +16,6 @@ type User struct {
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 	Pin      string `yaml:"pin" json:"-"`
 	Len      int    `yaml:"len" json:"len"`
-	// PinTag is shared by users whose PINs are equal, so going back to PIN only can find clashes
-	// the salted hashes hide. A random token, set where the PIN is typed (the server holds no
-	// PIN otherwise); empty while the PIN is unique. Never sent before the PIN.
-	PinTag string `yaml:"pinTag,omitempty" json:"-"`
 	// Trusted: low-risk saves need no Advanced Settings PIN (policy: app/policy.go).
 	Trusted    bool `yaml:"trusted,omitempty" json:"trusted,omitempty"`
 	Persistent bool `yaml:"persistent,omitempty" json:"persistent,omitempty"`
@@ -86,55 +80,6 @@ func (c Config) FindUsername(username string) (User, bool) {
 	return User{}, false
 }
 
-func (u *User) TakePin(from User) { u.Pin, u.Len, u.PinTag = from.Pin, from.Len, from.PinTag }
-
-// LinkEqualPin sets users[i].PinTag after its PIN became pin: the tag of the user whose hash
-// matches, else empty. It also mutates that other user, giving it a tag if it had none.
-func LinkEqualPin(users []User, i int, pin string) {
-	users[i].PinTag = ""
-	for j := range users {
-		if j == i || users[j].Len != len(pin) || !CheckPin(users[j].Pin, pin) {
-			continue
-		}
-		if users[j].PinTag == "" {
-			b := make([]byte, 8)
-			_, _ = rand.Read(b)
-			users[j].PinTag = hex.EncodeToString(b)
-		}
-		users[i].PinTag = users[j].PinTag
-		return
-	}
-}
-
-// SharedPinSet holds the names of users whose PIN another user has too.
-func SharedPinSet(users []User) map[string]bool {
-	n := map[string]int{}
-	for _, u := range users {
-		if u.PinTag != "" {
-			n[u.PinTag]++
-		}
-	}
-	out := map[string]bool{}
-	for _, u := range users {
-		if u.PinTag != "" && n[u.PinTag] > 1 {
-			out[u.Name] = true
-		}
-	}
-	return out
-}
-
-// SharedPinUsers is SharedPinSet in list order.
-func SharedPinUsers(users []User) []string {
-	set := SharedPinSet(users)
-	var out []string
-	for _, u := range users {
-		if set[u.Name] {
-			out = append(out, u.Name)
-		}
-	}
-	return out
-}
-
 // KeepPins is c with PIN hashes it lacks taken from live (a user's hash and length together).
 // Hashes must look like hashes so a file can't stop the next start; a user with neither is an error.
 func (c Config) KeepPins(live Config) (Config, error) {
@@ -154,7 +99,7 @@ func (c Config) KeepPins(live Config) (Config, error) {
 			if !ok || keep.Pin == "" {
 				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep: export with PINs included, or add the user in Settings first", u.Name)
 			}
-			u.TakePin(keep)
+			u.Pin, u.Len = keep.Pin, keep.Len
 		}
 		users[i] = u
 	}

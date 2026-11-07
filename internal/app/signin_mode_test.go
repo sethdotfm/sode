@@ -156,8 +156,8 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	if err := a.SaveUsers(admin, req); err != nil {
 		t.Fatal(err)
 	}
-	// Ana and Bo have different PINs, so going back is allowed and keeps everything but the mode.
-	back := usersReq{SignInMode: config.SignInPin, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
+	// Going back needs a new PIN for each user and keeps everything but the mode and PINs.
+	back := backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "2222"})
 	if err := a.SaveUsers(admin, back); err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 		t.Fatalf("after switching back: %+v", cfg)
 	}
 	c := &client{ip: "10.0.0.5"}
-	if err := a.UserUnlock(c, "567890"); err != nil || c.who() != "Bo" {
+	if err := a.UserUnlock(c, "2222"); err != nil || c.who() != "Bo" {
 		t.Fatalf("PINs after switching back: %v %q", err, c.who())
 	}
 }
@@ -175,108 +175,57 @@ func backToPin(users ...userEdit) usersReq {
 	return usersReq{SignInMode: config.SignInPin, Users: users}
 }
 
-func TestUsernameModeBackToPinOnlyWithUniquePins(t *testing.T) {
-	a := usernameApp(t)
-	admin := adminClient(t, a)
-	// Bo takes a PIN of his own while still in Username and PIN mode.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo", Pin: "9999"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.SaveUsers(admin, backToPin(userEdit{Name: "Ana", Was: "Ana"}, userEdit{Name: "Bo", Was: "Bo"})); err != nil {
-		t.Fatalf("back with unique PINs: %v", err)
-	}
-	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlock(c, "9999"); err != nil || c.who() != "Bo" {
-		t.Fatalf("PIN alone after going back: %v %q", err, c.who())
-	}
-}
-
-func TestUsernameModeBackToPinOnlyRefusesSharedPins(t *testing.T) {
-	a := usernameApp(t) // Ana and Bo share 1234
-	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana"}, userEdit{Name: "Bo", Was: "Bo"}))
-	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
-		t.Fatalf("shared PIN: want a refusal naming Ana and Bo, got %v", err)
-	}
-	if a.r().cfg.SignInMode != config.SignInUsername {
-		t.Fatal("the mode changed")
-	}
-	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlockAs(c, "bobby", "1234"); err != nil || c.who() != "Bo" {
-		t.Fatalf("nothing should have been saved: %v %q", err, c.who())
-	}
-}
-
-func TestUsernameModeBackToPinOnlyAfterNewPins(t *testing.T) {
+func TestUsernameModeBackToPinOnlyWithNewUniquePins(t *testing.T) {
 	a := usernameApp(t)
 	back := backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "2222"})
 	if err := a.SaveUsers(adminClient(t, a), back); err != nil {
 		t.Fatalf("new PINs for both: %v", err)
 	}
-	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlock(c, "2222"); err != nil || c.who() != "Bo" {
-		t.Fatalf("%v %q", err, c.who())
+	if a.r().cfg.SignInMode != config.SignInPin {
+		t.Fatal("the mode did not change")
 	}
-	// A new PIN that another user already has is refused.
-	a = usernameApp(t)
-	back = backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "1111"})
-	if err := a.SaveUsers(adminClient(t, a), back); err == nil {
-		t.Fatal("two new PINs the same")
-	}
-}
-
-func TestSharedPinsFollowEveryChange(t *testing.T) {
-	a := usernameApp(t)
-	admin := adminClient(t, a)
-	shared := func() []string {
-		var out []string
-		for _, u := range a.usersList(1).Users {
-			if u.Shared {
-				out = append(out, u.Name)
-			}
+	for pin, want := range map[string]string{"1111": "Ana", "2222": "Bo"} {
+		c := &client{ip: "10.0.0.1"}
+		if err := a.UserUnlock(c, pin); err != nil || c.who() != want {
+			t.Fatalf("PIN alone %s: %v %q", pin, err, c.who())
 		}
-		return out
-	}
-	if got := shared(); len(got) != 2 {
-		t.Fatalf("Ana and Bo share 1234: %v", got)
-	}
-	// Bo changes his own PIN: the clash is gone.
-	c := &client{ip: "10.0.0.1"}
-	if err := a.UserUnlockAs(c, "bobby", "1234"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.UserSetPin(c, "1234", "4321"); err != nil {
-		t.Fatal(err)
-	}
-	if got := shared(); len(got) != 0 {
-		t.Fatalf("after Bo's change: %v", got)
-	}
-	// Taking Ana's PIN again makes a clash that going back must refuse.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo", Pin: "1234"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if got := shared(); len(got) != 2 {
-		t.Fatalf("after Bo takes 1234 in the editor: %v", got)
-	}
-	if err := a.SaveUsers(admin, backToPin(userEdit{Name: "Ana", Was: "Ana"}, userEdit{Name: "Bo", Was: "Bo"})); err == nil {
-		t.Fatal("went back with a shared PIN")
-	}
-	// A rename keeps the PIN and so the clash.
-	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bob", Was: "Bo"}}}); err != nil {
-		t.Fatal(err)
-	}
-	if got := shared(); len(got) != 2 {
-		t.Fatalf("after a rename: %v", got)
 	}
 }
 
-func TestSharedPinsAreNotSentBeforeThePin(t *testing.T) {
+func TestUsernameModeBackToPinOnlyRefusesUsersWithoutNewPin(t *testing.T) {
 	a := usernameApp(t)
-	if u := a.r().cfg.Users; u[0].PinTag == "" || u[0].PinTag != u[1].PinTag {
-		t.Fatalf("tags %q %q", u[0].PinTag, u[1].PinTag)
+	// Ana and Bo share 1234, but the server can't see that: any user without a typed PIN is refused.
+	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo"}))
+	if err == nil || !strings.Contains(err.Error(), "Bo") || strings.Contains(err.Error(), "Ana") {
+		t.Fatalf("want a refusal naming only Bo, got %v", err)
 	}
-	b, _ := json.Marshal(a.r().cfg.Users)
-	if strings.Contains(strings.ToLower(string(b)), "pintag") {
-		t.Fatalf("users JSON carries the tag: %s", b)
+	err = a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana"}, userEdit{Name: "Bo", Was: "Bo"}))
+	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
+		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
+	}
+	assertNothingSaved(t, a)
+}
+
+func TestUsernameModeBackToPinOnlyRefusesEqualTypedPins(t *testing.T) {
+	a := usernameApp(t)
+	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "1111"}))
+	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
+		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
+	}
+	assertNothingSaved(t, a)
+}
+
+// assertNothingSaved: still Username and PIN, and Ana and Bo still sign in with the old shared PIN.
+func assertNothingSaved(t *testing.T, a *App) {
+	t.Helper()
+	if a.r().cfg.SignInMode != config.SignInUsername {
+		t.Fatal("the mode changed")
+	}
+	for user, want := range map[string]string{"ana.k": "Ana", "bobby": "Bo"} {
+		c := &client{ip: "10.0.0.1"}
+		if err := a.UserUnlockAs(c, user, "1234"); err != nil || c.who() != want {
+			t.Fatalf("nothing should have been saved: %s %v %q", user, err, c.who())
+		}
 	}
 }
 
