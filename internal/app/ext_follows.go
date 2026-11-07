@@ -44,7 +44,7 @@ func (f *follows) expire(now time.Time) {
 }
 
 // Caller holds mu.
-func (f *follows) awaitsTake(pending map[int]map[int]*extLevel) bool {
+func (f *follows) awaitsRoute(pending map[int]map[int]*extLevel) bool {
 	for _, c := range f.causes {
 		if c.done || c.sent.IsZero() {
 			continue

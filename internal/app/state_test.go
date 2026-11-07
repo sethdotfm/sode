@@ -30,7 +30,7 @@ func fillRouterDerived(a *App) {
 	c := &cause{src: 7, dst: 5, id: 1, done: true}
 	a.ext.causes = append(a.ext.causes, c)
 	a.ext.leaders[6] = 5
-	a.ext.lateTake[ownKey{5, 0, 8}] = []lateTake{{id: 1, until: until, cause: c}}
+	a.ext.lateRoute[ownKey{5, 0, 8}] = []lateRoute{{id: 1, until: until, cause: c}}
 	a.ext.lateHits = append(a.ext.lateHits, lateHit{1, 1})
 }
 
@@ -89,7 +89,7 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	a.mu.Lock()
 	if len(a.router.tally) != 1 || len(a.router.srcNames) != 1 || len(a.ext.pending) != 1 || len(a.ext.own) != 1 ||
-		len(a.ext.lateTake) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
+		len(a.ext.lateRoute) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
 		a.mu.Unlock()
 		t.Fatal("a settings change that is not router-side cleared state")
 	}

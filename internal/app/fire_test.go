@@ -148,13 +148,13 @@ func nativeApp(t *testing.T, n int) (*App, *fakeRouter) {
 	return a, newFakeRouter(t, a)
 }
 
-func batchOf(t *testing.T, a *App, src int, dsts []int, levels ...int) []Entry {
+func takeOf(t *testing.T, a *App, src int, dsts []int, levels ...int) []Entry {
 	t.Helper()
-	var items []takeReq
+	var items []routeReq
 	for i, d := range dsts {
-		items = append(items, takeReq{ID: i + 1, Src: src, Dst: d, Levels: levels})
+		items = append(items, routeReq{ID: i + 1, Src: src, Dst: d, Levels: levels})
 	}
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	es, _ := a.hist.Page(-1, len(dsts))
 	if len(es) != len(dsts) {
 		t.Fatalf("entries %+v", es)
@@ -206,7 +206,7 @@ func testNativeFire(t *testing.T, announce int, after time.Duration) {
 	f.seed(6, 1, 0, 1, 2)
 	f.seed(7, 1, 0, 1)
 	f.seed(7, 9, 2) // dst 7 level 3 is on src 9 already
-	es := batchOf(t, a, 9, []int{5, 6, 7}, 1, 2, 3)
+	es := takeOf(t, a, 9, []int{5, 6, 7}, 1, 2, 3)
 	if got := f.salvoSeq(); got != "csssssssssgc" {
 		t.Fatalf("salvo messages %q, want clear, 9 stages, go, clear", got)
 	}
@@ -293,12 +293,12 @@ func testNativeExt(t *testing.T, announce int, after time.Duration) {
 	for _, d := range []int{5, 1100, 7} {
 		f.seed(d, 1, 0, 15, 16)
 	}
-	items := []takeReq{
+	items := []routeReq{
 		{ID: 1, Src: 9, Dst: 5, Levels: []int{1, 17}},
 		{ID: 2, Src: 1500, Dst: 1100, Levels: []int{1, 17}}, // all past 1023: 248
 		{ID: 3, Src: 9, Dst: 7, Levels: []int{16, 17}},
 	}
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	es, _ := a.hist.Page(-1, 3)
 	if len(es) != 3 {
 		t.Fatalf("entries %+v", es)
@@ -343,7 +343,7 @@ func TestNativeNoExtStageAck(t *testing.T) {
 	f.salvo.loseExt = true
 	f.seed(5, 1, 16)
 	f.seed(6, 1, 16)
-	es := batchOf(t, a, 9, []int{5, 6}, 17)
+	es := takeOf(t, a, 9, []int{5, 6}, 17)
 	for _, e := range es {
 		if !e.OK || len(e.Already) != 0 {
 			t.Fatalf("take %+v", e)
@@ -368,7 +368,7 @@ func TestMarkStages(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Normalize()
 	r, _ := newRuntime(cfg)
-	items := []takeReq{
+	items := []routeReq{
 		{Src: 1, Dst: 5, Levels: []int{1, 17}},
 		{Src: 1, Dst: 6, Levels: []int{1}},
 		{Src: 2, Dst: 6, Levels: []int{1, 2}}, // dst 6 level 1 twice: neither staged
@@ -397,7 +397,7 @@ func TestNativeNoStageAck(t *testing.T) {
 	f.salvo.loseStage = true
 	f.seed(5, 1, 0, 1, 2)
 	f.seed(6, 1, 0, 1, 2)
-	es := batchOf(t, a, 9, []int{5, 6}, 1, 2, 3)
+	es := takeOf(t, a, 9, []int{5, 6}, 1, 2, 3)
 	for _, e := range es {
 		if !e.OK || len(e.Already) != 0 {
 			t.Fatalf("take %+v", e)
@@ -428,7 +428,7 @@ func TestNativeUnsupported(t *testing.T) {
 	f.salvo.off = true
 	f.seed(5, 1, 0)
 	f.seed(6, 1, 0)
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	for _, e := range es {
 		if !e.OK {
 			t.Fatalf("take %+v", e)
@@ -452,7 +452,7 @@ func TestNativeProtected(t *testing.T) {
 	a.mu.Lock()
 	a.router.protect[6] = map[int]int{2: 9}
 	a.mu.Unlock()
-	es := batchOf(t, a, 9, []int{5, 6, 7}, 1, 2)
+	es := takeOf(t, a, 9, []int{5, 6, 7}, 1, 2)
 	for _, e := range es {
 		switch {
 		case e.Dst == 6 && (e.OK || !strings.Contains(e.Err, "protected on levels 2")):
@@ -480,7 +480,7 @@ func TestNativeSingleTake(t *testing.T) {
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.seed(5, 1, 0)
-	batchOf(t, a, 9, []int{5}, 1)
+	takeOf(t, a, 9, []int{5}, 1)
 	if n := f.cmds(swp08.CmdGoSalvo) + f.cmds(swp08.CmdConnectOnGo); n != 0 {
 		t.Fatalf("%d salvo messages for one take", n)
 	}
@@ -488,7 +488,7 @@ func TestNativeSingleTake(t *testing.T) {
 	a.mu.Lock()
 	a.router.protect[6] = map[int]int{1: 9}
 	a.mu.Unlock()
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	if n := f.cmds(swp08.CmdGoSalvo) + f.cmds(swp08.CmdConnectOnGo); n != 0 {
 		t.Fatalf("%d salvo messages when one take is left", n)
 	}
@@ -512,7 +512,7 @@ func TestNativeFireLock(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			d := 5 + i*3
-			a.batch(&client{ip: "10.0.0.1"}, []takeReq{
+			a.take(&client{ip: "10.0.0.1"}, []routeReq{
 				{ID: 1, Src: src, Dst: d, Levels: []int{1, 2, 3}},
 				{ID: 2, Src: src, Dst: d + 1, Levels: []int{1, 2, 3}},
 				{ID: 3, Src: src, Dst: d + 2, Levels: []int{1, 2, 3}},
@@ -544,7 +544,7 @@ func TestNativeNoGoAck(t *testing.T) {
 	f.salvo.noGoAck = true
 	f.seed(5, 1, 0)
 	f.seed(6, 1, 0)
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	for _, e := range es {
 		if !e.OK {
 			t.Fatalf("take %+v", e)
@@ -565,7 +565,7 @@ func TestNativeGoNothing(t *testing.T) {
 	f.salvo.wipe = true
 	f.seed(5, 1, 0)
 	f.seed(6, 1, 0)
-	es := batchOf(t, a, 9, []int{5, 6}, 1)
+	es := takeOf(t, a, 9, []int{5, 6}, 1)
 	for _, e := range es {
 		if e.OK || !equalInts(e.Failed, []int{1}) || !strings.Contains(e.Err, "level 1 still on source 2") {
 			t.Fatalf("take %+v", e)
@@ -582,9 +582,9 @@ func TestNativeOneStageable(t *testing.T) {
 	a, f := nativeApp(t, 3)
 	f.seed(8, 1, 0)
 	f.seed(9, 1, 0)
-	items := []takeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{1}}, {ID: 2, Src: 4, Dst: 9, Levels: []int{1}}, {ID: 3, Src: 5, Dst: 9, Levels: []int{1}}}
+	items := []routeReq{{ID: 1, Src: 3, Dst: 8, Levels: []int{1}}, {ID: 2, Src: 4, Dst: 9, Levels: []int{1}}, {ID: 3, Src: 5, Dst: 9, Levels: []int{1}}}
 	stages, conns := f.cmds(swp08.CmdConnectOnGo), f.cmds(swp08.CmdExtConnect)
-	a.batch(&client{ip: "10.0.0.1"}, items)
+	a.take(&client{ip: "10.0.0.1"}, items)
 	if n := f.cmds(swp08.CmdConnectOnGo) - stages; n != 0 {
 		t.Fatalf("%d staged, want 0", n)
 	}

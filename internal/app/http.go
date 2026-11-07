@@ -260,7 +260,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *App) serveBatch(c *client, m *inMsg) {
+func (a *App) serveTake(c *client, m *inMsg) {
 	if len(m.Items) > 0 {
 		why, n := "take", len(m.Items)
 		for _, it := range m.Items {
@@ -277,7 +277,7 @@ func (a *App) serveBatch(c *client, m *inMsg) {
 			m.Items[i].Preset = name
 		}
 	}
-	go a.batch(c, m.Items)
+	go a.take(c, m.Items)
 }
 
 func (a *App) serveConfig(c *client, m *inMsg) {
@@ -336,8 +336,8 @@ type inMsg struct {
 	Pin        string             `json:"pin"`
 	ClearPin   bool               `json:"clearPin"`
 	ID         int                `json:"id"` // echoed by unlock and save replies
-	Items      []takeReq          `json:"items"`
-	Preset     string             `json:"preset"` // batch: the preset that was fired, if any
+	Items      []routeReq         `json:"items"`
+	Preset     string             `json:"preset"` // take: the preset that was fired, if any
 	Salvo      string             `json:"salvo"`  // the same, from a page loaded before presets were renamed
 	Sets       []config.FilterSet `json:"sets"`
 	Prefs      map[string]string  `json:"prefs"`

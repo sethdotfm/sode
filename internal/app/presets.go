@@ -7,7 +7,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Firing a preset is an ordinary batch and needs no PIN.
+// Firing a preset is an ordinary take and needs no PIN.
 func (a *App) SavePresets(c *client, presets []config.Preset) error {
 	return a.saveShared(c, func(cur *config.Config) error {
 		cur.Presets = config.ClonePresets(presets)

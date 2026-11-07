@@ -142,7 +142,7 @@ function draw() {
       return row;
     }),
   );
-  if (!shownList.length) list.append(el('span', 'sode__hint', allPresets().length ? 'No preset matches.' : 'No presets yet. Make one with Edit above Recent.'));
+  if (!shownList.length) list.append(el('span', 'sode__hint', allPresets().length ? 'No preset matches.' : 'No presets yet. Make one with Edit above History.'));
   if (shownList.length) input.setAttribute('aria-activedescendant', `preset-pop-${hi}`);
   else input.removeAttribute('aria-activedescendant');
   list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });

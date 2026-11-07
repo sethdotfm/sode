@@ -18,12 +18,12 @@ import (
 // each take sends after the Go; failure and late handling are the sequential take's. A
 // tally-confirmed key lives salvoAnnounceFor after the Go.
 // Staging: levels the standard layout carries (wire level 0-15, numbers 0-1023) use 120,
-// the rest 248 (extended). A destination level taken twice in a batch is not staged. Fewer
+// the rest 248 (extended). A destination level taken twice in a take is not staged. Fewer
 // than two staged takes: sequential throughout.
 // The staged list is shared by all clients: fire holds fireMu first clear to last, one
 // salvo command at a time, and clears the group before staging and after every fire. A
 // failure before the Go (no 122, no 123 for the first clear, link refusal) clears the
-// group and sends the batch as ordinary connects. After the Go is sent it is never re-sent
+// group and sends the take as ordinary connects. After the Go is sent it is never re-sent
 // and never followed by connects; the takes' interrogates say what happened.
 
 // salvoReply: acknowledge wait after the command was ACKed; the Ultrix answers in 5-7 ms.
@@ -71,7 +71,7 @@ func (fs *fireState) await(d time.Duration, ok func(swp08.SalvoAck) bool) (swp08
 
 // markStages sets Stage per item (a destination level taken twice is staged in neither:
 // order would be up to the router) and returns how many items stage something.
-func markStages(r *runtime, items []takeReq) int {
+func markStages(r *runtime, items []routeReq) int {
 	type dl struct{ dst, wire int }
 	uses := map[dl]int{}
 	for _, it := range items {
@@ -104,10 +104,10 @@ func markStages(r *runtime, items []takeReq) int {
 	return n
 }
 
-func (a *App) batchNative(r *runtime, c *client, items []takeReq) {
-	runs := make([]*takeRun, len(items))
-	runLimited(takeLimit, len(items), func(i int) { runs[i] = a.prepare(r, c, items[i]) })
-	var live, staged []*takeRun
+func (a *App) takeNative(r *runtime, c *client, items []routeReq) {
+	runs := make([]*routeRun, len(items))
+	runLimited(routeLimit, len(items), func(i int) { runs[i] = a.prepare(r, c, items[i]) })
+	var live, staged []*routeRun
 	for _, t := range runs {
 		if t == nil {
 			continue // answered already: bad request or protected
@@ -122,7 +122,7 @@ func (a *App) batchNative(r *runtime, c *client, items []takeReq) {
 		sent, err := a.fireSalvo(r, staged)
 		n := 0
 		for _, t := range staged {
-			n += len(t.w.filter(func(l *takeLevel) bool { return l.native }))
+			n += len(t.w.filter(func(l *routeLevel) bool { return l.native }))
 		}
 		switch {
 		case !sent:
@@ -144,11 +144,11 @@ func (a *App) batchNative(r *runtime, c *client, items []takeReq) {
 			a.unNative(t.w)
 		}
 	}
-	runLimited(takeLimit, len(live), func(i int) { a.complete(r, live[i], a.sendTake(r, live[i].w)) })
+	runLimited(routeLimit, len(live), func(i int) { a.complete(r, live[i], a.sendRoute(r, live[i].w)) })
 	a.logSalvoTiming(c, staged)
 }
 
-func (a *App) logSalvoTiming(c *client, staged []*takeRun) {
+func (a *App) logSalvoTiming(c *client, staged []*routeRun) {
 	a.mu.Lock()
 	var goAt, last time.Time
 	n, byConn, byTally := 0, 0, 0
@@ -191,7 +191,7 @@ func (a *App) logSalvoTiming(c *client, staged []*takeRun) {
 	a.command(c, "salvo", result, note, nil)
 }
 
-// Only the batch goroutine writes native.
+// Only the take goroutine writes native.
 func (w *waiter) hasNative() bool {
 	for _, l := range w.levels {
 		if l.native {
@@ -220,7 +220,7 @@ var (
 
 // fireSalvo: sent reports whether the Go was sent (if not, takes may go as connects); err
 // with sent means the Go's acknowledge was missing or odd.
-func (a *App) fireSalvo(r *runtime, staged []*takeRun) (sent bool, err error) {
+func (a *App) fireSalvo(r *runtime, staged []*routeRun) (sent bool, err error) {
 	a.fireMu.Lock()
 	defer a.fireMu.Unlock()
 	n := 0

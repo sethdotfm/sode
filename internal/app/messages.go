@@ -80,8 +80,8 @@ type simpleMsg struct {
 	T string `json:"t"`
 }
 
-// takeResult: Entry is a pointer (entry 0 is real); none for a take never recorded.
-type takeResult struct {
+// routeResult: Entry is a pointer (entry 0 is real); none for a take never recorded.
+type routeResult struct {
 	T       string `json:"t"` // "takeResult"
 	ID      int    `json:"id"`
 	OK      bool   `json:"ok"`

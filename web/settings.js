@@ -537,7 +537,7 @@ $('clear-confirm').addEventListener('click', async () => {
 on('historyCleared', () => {
   if (!clearPending()) return;
   clearing = 0;
-  showResult('ok', 'History cleared', 'Recent is empty for everyone.');
+  showResult('ok', 'History cleared', 'History is empty for everyone.');
 });
 on('wsclose', () => {
   clearing = 0;

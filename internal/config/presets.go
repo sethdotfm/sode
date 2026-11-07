@@ -12,7 +12,7 @@ const (
 	MaxPresetItems    = 100
 	MaxPresetDsts     = 100
 	MaxPresetLevelNum = 64
-	// MaxPresetTotal keeps one batch well under the 64 KiB read limit.
+	// MaxPresetTotal keeps one take well under the 64 KiB read limit.
 	MaxPresetTotal = 200
 	// MaxPresetsBytes keeps a presets message under the 64 KiB read limit.
 	MaxPresetsBytes = 48 << 10

@@ -131,7 +131,7 @@ function paint() {
       'section',
       'sode__profiles-sec sode__profiles-sec--prefs',
       el('h3', 'sode__profiles-h', 'User defaults'),
-      el('p', 'sode__hint', 'Not set follows the global default.'),
+      el('p', 'sode__hint', 'Not set uses the global default.'),
       el('ul', 'sode__profiles-list', ...prefFields(prof.prefs).map(prefLine)),
     ),
     listSection(

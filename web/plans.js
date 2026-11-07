@@ -204,7 +204,7 @@ export function failureBanner(t, hist = S.hist) {
   }
   const rows = [...lines].map(([k, dsts]) => `${dsts.slice(0, 3).join(', ')}${dsts.length > 3 ? ` +${dsts.length - 3}` : ''}: ${k}`);
   const shown = rows.slice(0, 3);
-  if (rows.length > 3) shown.push(`and ${rows.length - 3} more; see Recent`);
+  if (rows.length > 3) shown.push(`and ${rows.length - 3} more; see History`);
   const partly = open.length < t.total;
   const count = t.total > 1 ? ` (${open.length} of ${t.total}${open.length < t.items.length ? ' still' : ''})` : '';
   const title = `${what} ${partly ? 'partly failed' : 'failed'}${count}`;
@@ -408,7 +408,7 @@ function extraBox(plan, spaceHint) {
     el(
       'span',
       'pb-check__label',
-      `Also undo ${n} suspected automation${n === 1 ? '' : 's'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
+      `Also undo ${n} external follow ${n === 1 ? 'entry' : 'entries'}: ${names.slice(0, 3).join(', ')}${n > 3 ? ', …' : ''}${spaceHint ? ' (Space)' : ''}`,
     ),
   );
 }
@@ -529,5 +529,5 @@ onMsg('takeResult', takeResult);
 on('wsclose', () => {
   if (!takes.size) return;
   takes.clear();
-  showResult('warn', 'Connection lost', 'The take was sent but its result is unknown. Check Recent once reconnected.');
+  showResult('warn', 'Connection lost', 'The take was sent but its result is unknown. Check History once reconnected.');
 });
