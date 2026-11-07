@@ -81,3 +81,17 @@ main.js wires modules then calls connect(). core.js is state/socket/bus (S, WebS
 - docs/agents/router-verified.md: Verified against the real Ultrix (2026-10-22, 172.17.60.101:8910). Read before touching what was measured on the real Ultrix and the protocol quirks Sode depends on.
 - docs/agents/presets.md: Presets (#152, renamed from salvos in #162). Read before touching presets, pinning and pin order, the editor and popup, preset keys.
 - docs/agents/salvos.md: Native salvos (#154). Read before touching fireMode native, group salvos, the simulator's salvo options.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for sethdotfm/sode, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-label vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
