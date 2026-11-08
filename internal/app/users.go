@@ -50,6 +50,9 @@ type connUser struct {
 }
 
 func (c *client) who() string {
+	if c.api != nil {
+		return c.api.Actor.String()
+	}
 	if u := c.u.user.Load(); u != nil {
 		return u.Name
 	}

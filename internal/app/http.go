@@ -32,6 +32,9 @@ type client struct {
 	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
 	sent bool
 
+	// api: set for a caller that is not a browser session (see apiCaller).
+	api *apiCaller
+
 	u connUser // page type, unlocked user, session token (users.go)
 }
 
@@ -262,15 +265,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) serveTake(c *client, m *inMsg) {
 	if len(m.Items) > 0 {
-		why, n := "take", len(m.Items)
-		for _, it := range m.Items {
-			if it.Undo != nil {
-				why = "undo"
-			} else if it.Retry != nil && why == "take" {
-				why = "retry"
-			}
-		}
-		a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
+		n := len(m.Items)
+		a.command(c, takeWhy(m.Items), "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
 	}
 	if name := cleanPresetName(cmp.Or(m.Preset, m.Salvo)); name != "" {
 		for i := range m.Items {

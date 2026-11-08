@@ -44,7 +44,12 @@ const routeLimit = 8
 // the cache is used.
 const bigTake = 6
 
+// take is the one entry point for every confirmed take (browser batch, Undo, Redo, Retry,
+// presets, API). Results go to c.send; an API caller sets c.api.
 func (a *App) take(c *client, items []routeReq) {
+	if a.rightsPass(a.r(), c, items) {
+		return
+	}
 	if len(items) >= bigTake {
 		log.Printf("take of %d routes: not reading routes from the router first, to spare it", len(items))
 		for i := range items {
@@ -368,6 +373,9 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 		w.why.Reason = swp08.ReasonRetry
 	}
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, Prev: [][2]int{}}
+	if c.api != nil {
+		e.setActor(c.api.Actor)
+	}
 	return w, e, nil
 }
 
