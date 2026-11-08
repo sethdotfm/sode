@@ -8,14 +8,20 @@
   --panel-beat: 1000ms; /* one shared clock, so every blinking light flashes in the same phase */
 }
 body { background: var(--pb-surface-base); color: var(--pb-text); font-family: var(--pb-font); }
+.schemes { display: grid; gap: var(--pb-space-6); margin: var(--pb-space-6) auto; width: min(96vw, calc((100vh - var(--pb-toolbar-h) - 4rem) * 2)); }
+.schemes[data-mode="both"] { gap: var(--pb-space-4); grid-template-columns: 1fr 1fr; width: 98vw; }
+.schemes[data-mode="dark"] .scheme[data-scheme="light"], .schemes[data-mode="light"] .scheme[data-scheme="dark"] { display: none; }
+/* Each copy sets its own colour scheme so the tokens resolve light or dark per copy. */
+.scheme { background: var(--pb-surface-base); color: var(--pb-text); padding: var(--pb-space-4); }
+.scheme[data-scheme="dark"] { color-scheme: dark; }
+.scheme[data-scheme="light"] { color-scheme: light; }
 .deck {
   aspect-ratio: 2 / 1;
   display: grid;
   gap: var(--pb-space-3);
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(4, 1fr);
-  margin: var(--pb-space-6) auto;
-  width: min(96vw, calc((100vh - var(--pb-toolbar-h) - 4rem) * 2));
+  width: 100%;
 }
 .deck .cell { height: auto; min-height: 0; min-width: 0; width: 100%; flex-direction: column; gap: var(--pb-space-1); padding: var(--pb-space-2); white-space: normal; text-align: center; line-height: var(--pb-leading-tight); }
 .deck .cell small { color: inherit; font-size: var(--pb-text-xs); font-weight: var(--pb-weight-normal); opacity: 0.85; }

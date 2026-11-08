@@ -20,8 +20,8 @@ export function buildDeck(root, p, cells) {
   check(cells)
   root.className = 'deck'
   const kindClass = {
-    src: 'pb-btn pb-xpt pb-rolebar--source',
-    dst: 'pb-btn pb-xpt pb-rolebar--dest',
+    src: 'pb-btn pb-xpt pb-xpt--source',
+    dst: 'pb-btn pb-xpt pb-xpt--dest',
     pre: 'pb-btn',
     clr: 'pb-btn pb-btn--outline',
     take: 'pb-btn pb-btn--commit',
@@ -62,8 +62,9 @@ export function buildDeck(root, p, cells) {
       b.dataset.v = c.n === st.view ? '1' : ''
       b.innerHTML = `<span>${DESTS[c.n].name}${f ? ` ${icon(RESULT_ICON[f])}<span class="txt"> ${f}</span>` : ''}</span><small>${PROTECTED.has(c.n) ? 'Protected' : name(st.tally[c.n])}</small>${st.staged.has(c.n) ? `<span class="stg">&rarr; ${name(st.staged.get(c.n))}</span>` : ''}`
     } else if (c.kind === 'src') {
-      b.textContent = name(c.n)
-      b.dataset.s = srcState(st, c.n)
+      const s = srcState(st, c.n)
+      b.dataset.s = s
+      b.innerHTML = `<span>${name(c.n)}${s === 'current' ? ` ${icon('check')}` : ''}</span>`
     } else if (c.kind === 'pre') {
       const x = PRESETS.find((q) => q.id === c.id)
       b.textContent = x.name
@@ -79,4 +80,25 @@ export function buildDeck(root, p, cells) {
       b.classList.toggle('armed', p.armed())
     }
   }))
+}
+
+// Two copies of the same live panel, one per colour scheme, so light and dark can be judged side by side.
+export function mountDecks(host, p, cells) {
+  host.className = 'schemes'
+  for (const scheme of ['dark', 'light']) {
+    const w = document.createElement('div')
+    w.className = 'scheme'
+    w.dataset.scheme = scheme
+    const deck = document.createElement('div')
+    w.append(deck)
+    host.append(w)
+    buildDeck(deck, p, cells)
+  }
+  const apply = (mode) => {
+    host.dataset.mode = mode
+    if (mode === 'both') document.documentElement.removeAttribute('data-theme')
+    else document.documentElement.dataset.theme = mode
+  }
+  document.addEventListener('scheme', (e) => apply(e.detail))
+  apply('both')
 }

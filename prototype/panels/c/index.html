@@ -5,7 +5,7 @@
 <style>/* C: hold-to-take layout lives in the cell list below; no variant colours, patchbay tokens only. */</style></head><body><div id="deck"></div>
 <script type="module">
 import { createPanel } from '/shared/model.js'
-import { buildDeck } from '/shared/deck.js'
+import { mountDecks } from '/shared/deck.js'
 import { toolbar } from '/shared/toolbar.js'
 const p = createPanel({ guard: 'hold' })
 toolbar(p, 'C amber, hold guard', '<label>Guard <select id="t-guard"><option value="hold">Hold 0.6s</option><option value="double">Double press</option><option value="none">None</option></select></label>')
@@ -15,5 +15,5 @@ for (let i = 0; i < 12; i++) cells.push({ r: 1 + (i >> 2), c: 3 + (i & 3), kind:
 cells.push({ r: 4, c: 3, cs: 2, kind: 'cur' }, { r: 4, c: 5, kind: 'pre', id: 'p1' }, { r: 4, c: 6, kind: 'pre', id: 'p2' })
 cells.push({ r: 1, c: 7, cs: 2, rs: 3, kind: 'take' }, { r: 4, c: 7, kind: 'clr' }, { r: 4, c: 8, kind: 'pre', id: 'p3' })
 document.getElementById('t-guard').onchange = (e) => (p.st.guard = e.target.value)
-buildDeck(document.getElementById('deck'), p, cells)
+mountDecks(document.getElementById('deck'), p, cells)
 </script></body></html>

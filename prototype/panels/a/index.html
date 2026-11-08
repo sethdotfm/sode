@@ -5,7 +5,7 @@
 <style>/* A: button bank layout lives in the cell list below; no variant colours, patchbay tokens only. */</style></head><body><div id="deck"></div>
 <script type="module">
 import { createPanel } from '/shared/model.js'
-import { buildDeck } from '/shared/deck.js'
+import { mountDecks } from '/shared/deck.js'
 import { toolbar } from '/shared/toolbar.js'
 const p = createPanel()
 toolbar(p, 'A button bank')
@@ -13,5 +13,5 @@ const cells = []
 for (let i = 0; i < 8; i++) cells.push({ r: 1, c: i + 1, kind: 'dst', n: i })
 for (let i = 0; i < 16; i++) cells.push({ r: 2 + (i >> 3), c: (i & 7) + 1, kind: 'src', n: i })
 cells.push({ r: 4, c: 1, cs: 2, kind: 'cur' }, { r: 4, c: 3, kind: 'pre', id: 'p1' }, { r: 4, c: 4, kind: 'pre', id: 'p2' }, { r: 4, c: 5, kind: 'clr' }, { r: 4, c: 6, cs: 3, kind: 'take' })
-buildDeck(document.getElementById('deck'), p, cells)
+mountDecks(document.getElementById('deck'), p, cells)
 </script></body></html>
