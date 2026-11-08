@@ -23,7 +23,7 @@ func (a *App) apiPresets(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	out := []apiPreset{}
 	add := func(scope string, ps []config.Preset) {
 		for _, p := range ps {
-			if v.Preset(p.Name) {
+			if v.WholePreset(p) {
 				out = append(out, apiPreset{scope, p})
 			}
 		}

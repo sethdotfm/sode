@@ -153,14 +153,14 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	strmWantType(t, s.next(), "snapshot", "status")
 
 	// Destination 7 is hidden, so its change never arrives. Destination 2 gets a hidden
-	// source: it reads as nothing routed, never as that source.
+	// source: that row is left out, as the REST read leaves it out.
 	a.mu.Lock()
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{7, 1, 1}, {2, 1, 5}, {2, 2, 1}}})
 	a.mu.Unlock()
 	m = s.next()
 	strmWantType(t, m, "tally", "")
 	json.Unmarshal(m.Data, &ty)
-	if len(ty.Routes) != 2 || ty.Routes[0] != (apiRouteRow{2, 1, -1}) || ty.Routes[1] != (apiRouteRow{2, 2, 1}) {
+	if len(ty.Routes) != 1 || ty.Routes[0] != (apiRouteRow{2, 2, 1}) {
 		t.Errorf("tally delta %s", m.Data)
 	}
 

@@ -61,10 +61,45 @@ func TestHiddenRightsDropNamesTallyAndProtected(t *testing.T) {
 	if got := viewGet(t, a, key, "/api/v1/protected")["protected"].([]any); len(got) != 0 {
 		t.Errorf("protected %v", got) // dst 3 and 7 are both outside the rights
 	}
+	// The value in protect is a device, not a source: device 5 must not hide a visible
+	// destination, and the row carries only dst and level.
+	a.mu.Lock()
+	a.router.protect[2] = map[int]int{1: 5}
+	a.mu.Unlock()
+	got := viewGet(t, a, key, "/api/v1/protected")["protected"].([]any)
+	if len(got) != 1 || len(got[0].(map[string]any)) != 2 || got[0].(map[string]any)["dst"] != float64(2) {
+		t.Errorf("protected %v", got)
+	}
 
 	ps := viewGet(t, a, key, "/api/v1/presets")["presets"].([]any)
 	if len(ps) != 1 || ps[0].(map[string]any)["name"] != "Studio A" {
 		t.Errorf("presets %v", ps)
+	}
+}
+
+// A preset the caller may see by name still names sources and destinations; one that names
+// anything hidden is not listed, so /presets teaches no hidden number.
+func TestHiddenRightsDropPresetsNamingHiddenNumbers(t *testing.T) {
+	setup := func(vis string) (*App, string) {
+		a, _ := apiTestApp(t, func(c *config.Config) {
+			r := viewRights(vis)
+			r.Presets = &[]string{"Studio A", "Mixed", "Hidden src"}
+			c.APIClients[0].Rights = r
+			c.Presets = append(c.Presets,
+				config.Preset{Name: "Mixed", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 7}}}},
+				config.Preset{Name: "Hidden src", Items: []config.PresetItem{{Src: 5, Dsts: []int{2}}}})
+		})
+		return a, botKey(t, a)
+	}
+	a, key := setup(config.VisHidden)
+	ps := viewGet(t, a, key, "/api/v1/presets")["presets"].([]any)
+	if len(ps) != 1 || ps[0].(map[string]any)["name"] != "Studio A" {
+		b, _ := json.Marshal(ps)
+		t.Errorf("presets %s", b)
+	}
+	a, key = setup("")
+	if got := len(viewGet(t, a, key, "/api/v1/presets")["presets"].([]any)); got != 3 {
+		t.Errorf("read-only sees %d presets", got)
 	}
 }
 
