@@ -156,6 +156,35 @@ _Avoid_: This device
 **Guest**:
 Someone who is not signed in. A guest sees This browser and Everyone values and has no Me scope. Guests have one rights entry, and the same entry covers an API call that sends no key.
 
+### Panels
+
+**Panel**:
+A saved grid of tappable cells that patches the router from its own page, made for a wall tablet or a phone. It has an id, a display name and an owner. A panel acts either as a user, with that user's Rights, or as an API client of its own, with Rights no wider than its creator's.
+
+**Hardware panel**:
+A physical router panel. Sode does not make these. Changes from one arrive as an External.
+
+**Cell**:
+One square of a panel's grid. It has a cell kind and may be a merged cell.
+
+**Cell kind**:
+What a cell does: Source, Destination, Preset, Take, Clear or Current Destination. A Source or Destination cell is bound to a router number and shows the Router name.
+
+**Merged cell**:
+A cell that spans several squares of the grid, such as a large Take cell.
+
+**Armed**:
+Describes a Take cell once a Source and a Destination are selected. It lights or blinks until pressed, and pressing it is the Confirm.
+
+**Take mode** / **Instant mode**:
+The panel setting that decides when a panel's plan is confirmed. In Take mode the armed Take cell must be pressed. In Instant mode pressing the Source is the Confirm. A panel can add a hold or a double press to guard the confirm.
+
+**Clear** (cell kind):
+Cancels the plan the panel has pending. It never changes the router.
+
+**Kiosk**:
+A panel setting that hides Sode's branding and settings so the page is only the grid.
+
 ### Interface
 
 **Patch boxes**:
