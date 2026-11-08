@@ -1,6 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allowed, planOutside, listText, parseList, parseNames, draftOf, rightsOf, entryKeys, pickValid, rightsTab, rightsReq } from '../rightsrules.js';
+import {
+  allowed,
+  planOutside,
+  listText,
+  parseList,
+  parseNames,
+  draftOf,
+  rightsOf,
+  entryKeys,
+  pickValid,
+  rightsTab,
+  accessReq,
+  mergeAccess,
+  stepTab,
+} from '../rightsrules.js';
 
 test('allowed: a missing list means all, an empty one means none', () => {
   assert.equal(allowed(null, 'dsts', 4), true);
@@ -75,12 +89,75 @@ test('Edit user rights jumps to the Rights tab with that row selected, even afte
   assert.equal(pickValid(keys, 'user:9'), 'user:1', 'a removed row falls back to the first entry');
 });
 
-test('rightsReq sends rights and the flag only for rows that hold them', () => {
-  const rows = [
-    { name: 'Ana', rights: { dsts: [1] }, noAutoLock: true },
-    { name: 'New' },
-  ];
-  const r = rightsReq(rows);
-  assert.deepEqual(r[0], { rights: { dsts: [1] }, noAutoLock: true });
-  assert.deepEqual(r[1], {}, 'a row with neither sends nothing, so the server keeps its value');
+const ent = (orig, over = {}) => ({ orig, draft: draftOf(orig, 1), dirty: false, ...over });
+
+test('accessReq sends untouched rights as they were loaded, and nothing for a row that never loaded any', () => {
+  const entries = new Map([
+    ['user:1', ent({ dsts: [] })],
+    ['client:5', ent({ sources: [2] })],
+    ['guest', ent({ levels: [1] })],
+  ]);
+  const r = accessReq({
+    entries,
+    users: [
+      { rid: 1, name: 'Ana' },
+      { rid: 2, name: 'New' },
+    ],
+    clients: [
+      { rid: 5, name: 'PanelsBot', scopes: ['take'] },
+      { rid: 6, name: 'Fresh', scopes: [] },
+    ],
+    guestScopes: ['names'],
+    flags: new Map([[1, true]]),
+    off: 1,
+    levels: 4,
+  });
+  assert.deepEqual(r.users, [{ rights: { dsts: [] }, noAutoLock: true }, {}]);
+  assert.deepEqual(r.apiClients, [
+    { name: 'PanelsBot', scopes: ['take'], rights: { sources: [2] } },
+    { name: 'Fresh', scopes: [], rights: {} },
+  ]);
+  assert.deepEqual(r.guestRights, { levels: [1] });
+  assert.deepEqual(r.guestScopes, ['names']);
+});
+
+test('accessReq reads an edited draft, and names the user whose rights are wrong', () => {
+  const edited = ent({}, { dirty: true });
+  edited.draft.dsts = { all: false, text: '3, 5-6' };
+  const entries = new Map([['user:1', edited]]);
+  const ok = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], guestScopes: null, flags: new Map(), off: 1, levels: 4 });
+  assert.deepEqual(ok.users, [{ rights: { dsts: [2, 4, 5] } }]);
+  assert.equal('guestRights' in ok, false, 'no guest entry: the server keeps the saved one');
+  assert.equal('guestScopes' in ok, false);
+  edited.draft.dsts.text = 'x';
+  assert.match(
+    accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], guestScopes: null, flags: new Map(), off: 1, levels: 4 }).error,
+    /^Ana: Destinations/,
+  );
+});
+
+test("mergeAccess puts each row's rights on its user and leaves clients and Guest out until they loaded", () => {
+  const req = { users: [{ name: 'Ana' }, { name: 'Bo' }], maxPinLen: 8 };
+  const acc = { users: [{ rights: { dsts: [] } }, {}], apiClients: [{ name: 'P', scopes: [], rights: {} }], guestRights: {}, guestScopes: ['names'] };
+  assert.deepEqual(mergeAccess(req, acc, true), {
+    users: [{ name: 'Ana', rights: { dsts: [] } }, { name: 'Bo' }],
+    maxPinLen: 8,
+    apiClients: acc.apiClients,
+    guestRights: {},
+    guestScopes: ['names'],
+  });
+  const early = mergeAccess(req, acc, false);
+  assert.equal('apiClients' in early, false);
+  assert.equal('guestRights' in early, false);
+  assert.deepEqual(early.users[0], { name: 'Ana', rights: { dsts: [] } });
+});
+
+test('stepTab moves between tabs with the arrow keys and wraps', () => {
+  const ids = ['users', 'clients', 'rights'];
+  assert.equal(stepTab(ids, 'users', 'ArrowRight'), 'clients');
+  assert.equal(stepTab(ids, 'rights', 'ArrowRight'), 'users');
+  assert.equal(stepTab(ids, 'users', 'ArrowLeft'), 'rights');
+  assert.equal(stepTab(ids, 'clients', 'Home'), 'users');
+  assert.equal(stepTab(ids, 'clients', 'End'), 'rights');
+  assert.equal(stepTab(ids, 'clients', 'a'), null);
 });

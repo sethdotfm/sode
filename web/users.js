@@ -7,6 +7,10 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
+import { accessReq, mergeAccess, rightsTab } from './rightsrules.js';
+import { makeTabs } from './tabs.js';
+import { makeRightsTab } from './usersrights.js';
+import { makeClientsTab } from './usersclients.js';
 import { MODES, RENAME_HINT, clashNotice, needsNewPins, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
@@ -101,22 +105,39 @@ dialog.setAttribute('role', 'dialog');
 dialog.setAttribute('aria-modal', 'true');
 dialog.setAttribute('aria-labelledby', 'users-title');
 dialog.tabIndex = -1;
-dialog.append(
-  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Users'), { id: 'users-title' })),
+let isOpen = false;
+let ridSeq = 0;
+const usersPanel = el(
+  'div',
+  null,
   el(
-    'div',
-    'pb-modal__body',
-    el(
-      'p',
-      'sode__hint',
-      'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. ' +
-        RENAME_HINT,
-    ),
-    table,
-    el('div', 'sode__users-acts', addBtn, fillBtn),
-    el('div', 'sode__users-opts', modeField, field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
-    err,
+    'p',
+    'sode__hint',
+    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. ' +
+      RENAME_HINT,
   ),
+  table,
+  el('div', 'sode__users-acts', addBtn, fillBtn),
+  el('div', 'sode__users-opts', modeField, field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
+);
+// The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
+const userList = () => [...rows.children].map((r) => ({ rid: Number(r.dataset.rid), name: r.querySelector('input[data-field="name"]').value }));
+const rightsPanel = makeRightsTab({ users: userList, clients: () => clientsTab.read(), touched: () => touched() });
+const clientsTab = makeClientsTab({ touched: () => touched(), adopt: (rid, c) => c.name && rightsPanel.adoptClient(rid, c) });
+const tabs = makeTabs(
+  [
+    { id: 'users', text: 'Users', panel: usersPanel },
+    { id: 'clients', text: 'API clients', panel: clientsTab.node },
+    { id: 'rights', text: 'Rights', panel: rightsPanel.node },
+  ],
+  (id) => {
+    clientsTab.shownNow(id === 'clients' && isOpen);
+    if (id === 'rights') rightsPanel.refresh();
+  },
+);
+dialog.append(
+  el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Manage users'), { id: 'users-title' })),
+  el('div', 'pb-modal__body', tabs.node, usersPanel, clientsTab.node, rightsPanel.node, err),
   el('div', 'pb-modal__footer', note, cancelBtn, saveBtn),
 );
 root.append(dialog);
@@ -129,7 +150,6 @@ dialog.addEventListener('keydown', (e) => {
   }
 });
 
-let isOpen = false;
 let edited = false; // changed in the dialog since it filled
 let discard = false; // warned once; the next close discards
 let back = null;
@@ -138,6 +158,7 @@ let outSeq = 0;
 let listSeq = 0;
 let listedMode = 'pin'; // the saved sign-in mode, what the server keeps when none is sent
 let listed = []; // the directory the server sent; empty until it does
+let extras = { apiClients: [], guestRights: {}, guestScopes: [] }; // clients and Guest, sent with it
 let loaded = false;
 const signing = new Map();
 
@@ -176,6 +197,7 @@ function paintMode() {
 }
 
 function addRow(u = { name: '', len: 0 }) {
+  const rid = ++ridSeq;
   const name = el('input', 'pb-input');
   name.value = u.name;
   name.spellcheck = false;
@@ -247,6 +269,11 @@ function addRow(u = { name: '', len: 0 }) {
     prof.disabled = profileButtonOff(row.dataset.was, name.value);
     prof.title = prof.disabled ? 'Save the user first' : '';
   };
+  const rights = btn('pb-btn--outline pb-btn--sm', 'Edit user rights', () => {
+    const t = rightsTab(rid);
+    tabs.select(t.tab);
+    rightsPanel.show(t.pick);
+  });
   const row = el(
     'div',
     'sode__users-row',
@@ -256,15 +283,18 @@ function addRow(u = { name: '', len: 0 }) {
     trust.label,
     never.label,
     prof,
+    rights,
     out,
     rm,
   );
+  row.dataset.rid = String(rid);
   row.dataset.was = u.len ? u.name : '';
   paintProf();
   name.addEventListener('input', paintProf);
   for (const f of [name, uname, pin]) f.addEventListener('input', touched);
   for (const f of [trust.input, never.input]) f.addEventListener('change', touched);
   rows.append(row);
+  if (u.len) rightsPanel.adoptUser(rid, u);
   return name;
 }
 
@@ -288,8 +318,14 @@ function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
   modeSelect.value = listedMode;
   rows.replaceChildren();
+  clientsTab.clear();
+  rightsPanel.reset();
   paintMode();
   for (const u of listed) addRow(u);
+  for (const c of extras.apiClients) clientsTab.addRow(c);
+  rightsPanel.adoptGuest(extras.guestRights, extras.guestScopes);
+  clientsTab.setOwners([...listed.map((u) => ({ kind: 'user', name: u.name })), ...extras.apiClients.map((c) => ({ kind: 'client', name: c.name }))]);
+  rightsPanel.refresh();
   edited = false;
   discard = false;
   err.hidden = true;
@@ -325,6 +361,7 @@ onMsg('usersListResult', (m) => {
     return;
   }
   listed = m.users || [];
+  extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {}, guestScopes: m.guestScopes || [] };
   listedMode = m.signInMode === 'username' ? 'username' : 'pin';
   loaded = true;
   paintSummary();
@@ -335,6 +372,7 @@ on('unlockResult', (m) => {
 });
 on('locked', () => {
   listed = [];
+  extras = { apiClients: [], guestRights: {}, guestScopes: [] };
   listedMode = 'pin';
   loaded = false;
   paintSummary();
@@ -360,6 +398,7 @@ async function openUsers() {
   setNote('');
   fill();
   load();
+  tabs.select('users');
   dlg.show();
   dialog.focus();
 }
@@ -371,6 +410,7 @@ function closeUsers() {
   }
   isOpen = false;
   edited = false;
+  clientsTab.shownNow(false);
   dlg.hide();
   if (back?.isConnected) back.focus();
 }
@@ -388,6 +428,7 @@ function readRows() {
     const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
     return {
+      rid: Number(row.dataset.rid),
       name: val('name'),
       was: row.dataset.was,
       pin: val('pin'),
@@ -407,9 +448,20 @@ function doSave() {
     setNote(clashNotice(clashes), true);
     return rows.querySelector('.sode__users-row[data-clash] input[data-field="pin"]')?.focus();
   }
+  const held = rightsPanel.read();
+  const acc = accessReq({
+    entries: held.entries,
+    users: users.map((u) => ({ rid: u.rid, name: u.name.trim() })),
+    clients: clientsTab.read(),
+    guestScopes: held.entries.get('guest')?.dirty ? held.guestScopes : null,
+    flags: held.flags,
+    off: S.cfg?.numberOffset ?? 0,
+    levels: S.levels.length,
+  });
+  if (acc.error) return fail(acc.error);
+  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode), acc, loaded);
   const id = ++seq;
-  if (!wsSend({ t: 'users', id, usersReq: usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode) }))
-    return fail('Not connected to Sode.');
+  if (!wsSend({ t: 'users', id, usersReq: req })) return fail('Not connected to Sode.');
   saveBtn.disabled = true;
 }
 

@@ -100,7 +100,8 @@ function build(words, v, mask) {
     set(i, 6, i % 2 === 0);
   }
   const finder = (cx, cy) => {
-    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) set(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 4 && Math.max(Math.abs(dx), Math.abs(dy)) !== 2);
+    for (let dy = -4; dy <= 4; dy++)
+      for (let dx = -4; dx <= 4; dx++) set(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 4 && Math.max(Math.abs(dx), Math.abs(dy)) !== 2);
   };
   finder(3, 3);
   finder(size - 4, 3);
@@ -160,7 +161,8 @@ function penalty(m) {
       for (let at = s.indexOf(pat); at >= 0; at = s.indexOf(pat, at + 1)) p += 40;
     }
   }
-  for (let y = 0; y + 1 < size; y++) for (let x = 0; x + 1 < size; x++) if (mod[y][x] === mod[y][x + 1] && mod[y][x] === mod[y + 1][x] && mod[y][x] === mod[y + 1][x + 1]) p += 3;
+  for (let y = 0; y + 1 < size; y++)
+    for (let x = 0; x + 1 < size; x++) if (mod[y][x] === mod[y][x + 1] && mod[y][x] === mod[y + 1][x] && mod[y][x] === mod[y + 1][x + 1]) p += 3;
   const dark = mod.flat().filter(Boolean).length;
   p += (Math.ceil(Math.abs(dark * 20 - size * size * 10) / (size * size)) - 1) * 10;
   return p;

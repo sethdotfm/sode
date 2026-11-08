@@ -51,7 +51,8 @@ function dataMap(v) {
   box(6, 0, 1, size);
   box(0, 6, size, 1);
   const a = ALIGN[v];
-  for (const cy of a) for (const cx of a) if (!((cx === 6 && cy === 6) || (cx === 6 && cy === a.at(-1)) || (cx === a.at(-1) && cy === 6))) box(cx - 2, cy - 2, 5, 5);
+  for (const cy of a)
+    for (const cx of a) if (!((cx === 6 && cy === 6) || (cx === 6 && cy === a.at(-1)) || (cx === a.at(-1) && cy === 6))) box(cx - 2, cy - 2, 5, 5);
   return fn;
 }
 

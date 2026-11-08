@@ -13,7 +13,10 @@ const setup = async () => {
   S.ws = {};
   S.wsState = 'up';
   S.router = 'up';
-  S.levelBy = new Map([[1, {}], [2, {}]]);
+  S.levelBy = new Map([
+    [1, {}],
+    [2, {}],
+  ]);
   return mod;
 };
 const item = (n) => ({ n, num: n + 1, name: `X${n}`, label: `X${n}` });

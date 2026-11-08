@@ -88,7 +88,19 @@ let boxSeq = 0;
 export function combobox(
   input,
   menu,
-  { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null, onRender = null, outside = null },
+  {
+    source,
+    onPick,
+    add,
+    canAdd = () => true,
+    press = 'mousedown',
+    cls = 'pb-menu__item',
+    hiCls = 'active',
+    reverse = false,
+    foot = null,
+    onRender = null,
+    outside = null,
+  },
 ) {
   const box = typeof input === 'function' ? input : () => input;
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;

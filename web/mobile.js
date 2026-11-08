@@ -24,7 +24,21 @@ import { defaultLevelsWord, levelBar, allLevels, levelText } from './levelview.j
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, groupTitle, groupLevels } from './history.js';
-import { planVerb, resultNode, showResult, patchPlan, planBlocked, rightsOff, planSummary, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
+import {
+  planVerb,
+  resultNode,
+  showResult,
+  patchPlan,
+  planBlocked,
+  rightsOff,
+  planSummary,
+  sendTakes,
+  lastTake,
+  nextTake,
+  boxPatch,
+  lastChip,
+  VERBS,
+} from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { emptyNote } from './searchbox.js';

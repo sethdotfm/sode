@@ -343,10 +343,10 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   .sode__users-table {
     column-gap: var(--pb-space-5);
     display: grid;
-    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(5, auto);
+    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(6, auto);
   }
   .sode__users-table--named {
-    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(5, auto);
+    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(8rem, 1fr) repeat(6, auto);
   }
   .sode__users-head,
   .sode__users-list,
@@ -438,4 +438,101 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
 
 .sode-lock__who-ico {
   color: var(--pb-text-muted);
+}
+
+/* API keys: one-time key display, key rows, the rights editor */
+.sode__scrim > .sode__filters.sode__keys-dlg {
+  width: min(40rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode__keys-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+  margin-top: var(--pb-space-5);
+}
+.sode__key-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__key-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  justify-content: space-between;
+}
+.sode__key-main {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  min-width: 0;
+}
+.sode__secret {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  margin-top: var(--pb-space-4);
+}
+.sode__secret-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode__secret-key {
+  flex: 1 1 16rem;
+  font-family: var(--pb-font-mono);
+  min-width: 0;
+}
+.sode__qr {
+  align-self: flex-start;
+  height: auto;
+  width: 12rem;
+}
+.sode__rights-pick {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4) var(--pb-space-6);
+  margin-bottom: var(--pb-space-5);
+}
+.sode__rights-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  margin-bottom: var(--pb-space-4);
+}
+.sode__rights-list textarea,
+.sode__rights-list .pb-input {
+  width: 100%;
+}
+.sode__rights-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+}
+.sode__tabs {
+  margin-bottom: var(--pb-space-5);
+}
+.sode__clients-row {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  margin-bottom: var(--pb-space-4);
+}
+.sode__scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-5);
+}
+.sode__keys-owner {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+  margin: var(--pb-space-5) 0 var(--pb-space-2);
 }

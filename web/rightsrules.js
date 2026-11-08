@@ -48,7 +48,14 @@ export function parseList(text, off) {
   return { list: [...out].sort((x, y) => x - y) };
 }
 
-export const parseNames = (text) => [...new Set(text.split('\n').map((s) => s.trim()).filter(Boolean))];
+export const parseNames = (text) => [
+  ...new Set(
+    text
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ),
+];
 
 const NUMBERED = [
   ['sources', 'Sources', true],
@@ -59,7 +66,8 @@ const NUMBERED = [
 export function draftOf(rights, off) {
   const r = rights || {};
   const d = { visibility: r.visibility === 'hidden' ? 'hidden' : 'readonly' };
-  for (const [kind, , shifted] of NUMBERED) d[kind] = { all: !Array.isArray(r[kind]), text: Array.isArray(r[kind]) ? listText(r[kind], shifted ? off : 0) : '' };
+  for (const [kind, , shifted] of NUMBERED)
+    d[kind] = { all: !Array.isArray(r[kind]), text: Array.isArray(r[kind]) ? listText(r[kind], shifted ? off : 0) : '' };
   d.presets = { all: !Array.isArray(r.presets), text: Array.isArray(r.presets) ? r.presets.join('\n') : '' };
   return d;
 }
@@ -88,9 +96,56 @@ export const pickValid = (keys, pick) => (keys.includes(pick) ? pick : keys[0]);
 
 export const rightsTab = (id) => ({ tab: 'rights', pick: `user:${id}` });
 
-// Per user row. A row that never loaded its rights sends none, so the server keeps what it has.
-export const rightsReq = (rows) =>
-  rows.map((r) => ({
-    ...(r.rights ? { rights: r.rights } : {}),
-    ...(typeof r.noAutoLock === 'boolean' ? { noAutoLock: r.noAutoLock } : {}),
-  }));
+// An entry is {orig, draft, dirty}: the rights as loaded, the editor's draft, and whether the
+// draft was touched. Untouched rights go back as loaded, so saving never rewrites them through the
+// editor's text (and a number offset change can't shift them).
+function entryRights(e, off, levels) {
+  if (!e) return {};
+  if (!e.dirty) return e.orig ? { rights: e.orig } : {};
+  return rightsOf(e.draft, off, levels);
+}
+
+// The rights part of a `users` save: {users: [{rights?, noAutoLock?}] in row order, apiClients,
+// guestRights?, guestScopes?} or {error}. A missing field tells the server to keep what it has.
+// flags: row id to the No auto-lock value, set once a row has loaded or edited it.
+export function accessReq({ entries, users, clients, guestScopes, flags, off, levels }) {
+  const out = { users: [], apiClients: [] };
+  for (const u of users) {
+    const r = entryRights(entries.get(`user:${u.rid}`), off, levels);
+    if (r.error) return { error: `${u.name}: ${r.error}` };
+    out.users.push({ ...(r.rights ? { rights: r.rights } : {}), ...(flags.has(u.rid) ? { noAutoLock: flags.get(u.rid) } : {}) });
+  }
+  for (const c of clients) {
+    const r = entryRights(entries.get(`client:${c.rid}`), off, levels);
+    if (r.error) return { error: `${c.name}: ${r.error}` };
+    out.apiClients.push({ name: c.name.trim(), scopes: c.scopes, rights: r.rights || {} });
+  }
+  if (entries.has('guest')) {
+    const r = entryRights(entries.get('guest'), off, levels);
+    if (r.error) return { error: `Guest: ${r.error}` };
+    out.guestRights = r.rights || {};
+  }
+  if (guestScopes) out.guestScopes = guestScopes;
+  return out;
+}
+
+// req is usersReq's output. Rights go on each user; clients and Guest ride along only once the
+// directory has loaded them, so a page that never did can't erase them.
+export function mergeAccess(req, acc, loaded) {
+  const out = { ...req, users: req.users.map((u, i) => ({ ...u, ...acc.users[i] })) };
+  if (!loaded) return out;
+  out.apiClients = acc.apiClients;
+  if ('guestRights' in acc) out.guestRights = acc.guestRights;
+  if ('guestScopes' in acc) out.guestScopes = acc.guestScopes;
+  return out;
+}
+
+// The tab an arrow, Home or End key moves to, or null for any other key.
+export function stepTab(ids, cur, key) {
+  const i = ids.indexOf(cur);
+  if (key === 'ArrowRight') return ids[(i + 1) % ids.length];
+  if (key === 'ArrowLeft') return ids[(i + ids.length - 1) % ids.length];
+  if (key === 'Home') return ids[0];
+  if (key === 'End') return ids.at(-1);
+  return null;
+}

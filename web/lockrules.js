@@ -42,7 +42,19 @@ export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enfor
 
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
 // step.
-const GUARDED = ['router', 'matrix', 'levels', 'levelWireOffset', 'nameLength', 'nameRequests', 'fireMode', 'salvoGroup', 'pinMaxTries', 'autoLockMinutes', 'requireHttps'];
+const GUARDED = [
+  'router',
+  'matrix',
+  'levels',
+  'levelWireOffset',
+  'nameLength',
+  'nameRequests',
+  'fireMode',
+  'salvoGroup',
+  'pinMaxTries',
+  'autoLockMinutes',
+  'requireHttps',
+];
 export const guardedEdited = (next, cur) =>
   !!cur &&
   (GUARDED.some((k) => next[k] !== cur[k]) ||
