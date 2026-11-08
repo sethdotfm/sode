@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,8 +22,7 @@ const (
 
 // userKeyScopes: a user's key acts as the user in full, except the Communication Log, which
 // takes an explicit scope an API client or Guest can be given.
-var userKeyScopes = []string{config.ScopeNames, config.ScopeTally, config.ScopeProtected, config.ScopeStatus,
-	config.ScopePresets, config.ScopeHistory, config.ScopeLayouts, config.ScopeTake}
+var userKeyScopes = slices.DeleteFunc(slices.Clone(config.AllScopes), func(s string) bool { return s == config.ScopeLog })
 
 type authFail struct {
 	start time.Time
@@ -53,10 +53,7 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 		return nil, false
 	}
 	ip := clientIP(r, rt.proxies)
-	via := cleanPresetName(r.Header.Get("X-Sode-Via"))
-	if len([]rune(via)) > apiViaMax {
-		via = string([]rune(via)[:apiViaMax])
-	}
+	via := cleanText(r.Header.Get("X-Sode-Via"), apiViaMax)
 	now := time.Now()
 
 	hdr := r.Header.Get("Authorization")
@@ -143,10 +140,14 @@ func (a *App) apiRateOK(w http.ResponseWriter, subject string, limit int, now ti
 		s.rate = map[string]*rateWin{}
 	}
 	win := s.rate[subject]
-	if win == nil || now.Sub(win.start) >= apiWindow {
-		if win == nil && len(s.rate) >= apiTrackMax {
-			s.pruneRate(now)
+	if win == nil && subject != "other" && len(s.rate) >= apiTrackMax-1 { // one slot stays for "other"
+		s.pruneRate(now)
+		if len(s.rate) >= apiTrackMax-1 { // full of live windows: later subjects share one
+			subject = "other"
+			win = s.rate[subject]
 		}
+	}
+	if win == nil || now.Sub(win.start) >= apiWindow {
 		win = &rateWin{start: now}
 		s.rate[subject] = win
 	}

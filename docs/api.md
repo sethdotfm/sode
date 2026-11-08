@@ -26,7 +26,7 @@ No PIN is ever sent over the API, and there is no API sign-in. The Lock and auto
 
 ## Scopes, rights and visibility
 
-**Scopes** say which areas a caller may use: `names`, `tally`, `protected`, `status`, `presets`, `history`, `layouts`, `log` and `take`. A user's key has all but `log`. An API client and Guest have the scopes set for them, and Guest starts with `names`, `tally`, `protected` and `status`. A call without the scope gets 403 `scope`.
+**Scopes** say which areas a caller may use: `names`, `tally`, `protected`, `status`, `presets`, `history`, `layouts`, `log` and `take`. A user's key has all but `log`, always: the log scope can be given only to an API client or Guest. An API client and Guest have the scopes set for them, and Guest starts with `names`, `tally`, `protected` and `status`. A call without the scope gets 403 `scope`. A 401 carries `WWW-Authenticate: Bearer`, and a wrong method on a known path is 405 with `Allow`.
 
 **Rights** say which routes a caller may command: allowlists of sources, destinations, levels and presets, set on each user, each API client and Guest. An unset list means everything, so an old file changes nothing. A take with any route outside the rights is refused whole before anything is sent (403 `outside_rights`, no History entry, an `api` row). The browser obeys the same check. Undo checks the destination and level but not the Before source it restores. Protected destinations are still refused per route.
 
@@ -50,7 +50,7 @@ All paths are under `/api/v1`. Errors are `{"error":{"code","message"}}`.
 | `GET /log?before=&n=` | `log` | The Communication Log |
 | `POST /takes` | `take` | A take by routes: `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, 1 to 200 routes |
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |
-| `POST /history/{id}/undo`, `/redo`, `/retry` | `take` | Undo, Redo or Retry one History entry |
+| `POST /history/{id}/undo`, `/redo`, `/retry` | `take` and `history` | Undo, Redo or Retry one History entry |
 
 Known v1 limits. Undo, Redo and Retry work on one entry at a time. To undo a Group, call `GET /history/groups/last`, then undo each returned entry. Single-route takes and External entries are never returned there. There are no settings, users, keys or lock endpoints.
 
@@ -62,13 +62,13 @@ The worst case for one route is about 35 seconds: check 1 s, send queue up to 30
 
 A route the router confirms after the take gave up is a Late Result. The response already carries the entry ids, and the stream sends an `entryUpdate` for each, so match updates by `id`.
 
-**Idempotency-Key.** An optional header (1 to 128 printable characters). A repeat of the same request with the same key from the same API key within 10 minutes returns the first answer with `Idempotent-Replay: true`, so retrying after a timeout or a proxy cut does not take twice. The same key with a different request is 422 `idempotency_mismatch`. A request that did nothing (bad input, rate limit, take cap) is not remembered.
+**Idempotency-Key.** An optional header (1 to 128 printable characters). A repeat of the same request with the same key from the same API key within 10 minutes returns the first answer with `Idempotent-Replay: true`, so retrying after a timeout or a proxy cut does not take twice. The same key with a different request is 422 `idempotency_mismatch`. A request that did nothing (bad input, rate limit, take cap) is not remembered, except an `outside_rights` refusal, which a repeat with the same key replays for the same 10 minutes.
 
 **Large takes.** A take of 6 or more routes skips the Before check, to spare the router, and the response carries `checkSkipped: true`. Each entry's Prev then comes from Sode's cache, so a later Undo may restore less accurately. Send fewer than 6 routes per request to keep the check.
 
 ## Stream
 
-`GET /stream?topics=names,tally,status,history,results` upgrades to a WebSocket that only sends. A browser page cannot set the Bearer header, so use a client library. Each topic needs the scope of the same read (`results` needs `history`). The first frame is `hello`, then one `snapshot` each for `names`, `tally` and `status`, then changes: `names`, `tally` (only changed routes), `status` (the same fields as `GET /status`, with `addr` for the address), `entry`, `entryUpdate` and `historyCleared`. `ping` is a heartbeat every 5 seconds. A slow client is disconnected. Connects and disconnects are `api` rows with the key name.
+`GET /stream?topics=names,tally,status,history,results` upgrades to a WebSocket that only sends. A browser page cannot set the Bearer header, so use a client library. Each topic needs the scope of the same read (`results` needs `history`). The first frame is `hello`, then one `snapshot` each for `names`, `tally` and `status`, then changes: `names`, `tally` (only changed routes), `status` (the same fields as `GET /status`, with `address` for the address), `entry`, `entryUpdate` and `historyCleared`. `ping` is a heartbeat every 5 seconds. A slow client is disconnected. Connects and disconnects are `api` rows with the key name.
 
 ## Require HTTPS
 

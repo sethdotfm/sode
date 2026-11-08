@@ -65,7 +65,8 @@ info:
     scope: 403, the key lacks the scope this path needs
     https_required: 403, Require HTTPS is on and the request did not arrive securely
     bad_request: 400, a parameter or body is not valid
-    outside_rights: 403, a route or preset is outside the key's rights; nothing was sent
+    too_large: 413, the request body is over 64 KiB
+    outside_rights: 403, a route or preset is outside the key's rights; nothing was sent (an Idempotency-Key repeat replays it)
     take_cap: 429, the global cap on API takes in flight is reached; retry shortly
     conflict: 409, Redo of a failed entry or Retry of one that succeeded
     nothing_to_do: 422, the plan has no route left (nothing was routed before, or it no longer exists)
@@ -320,7 +321,7 @@ paths:
     post:
       summary: Undo a History entry
       description: |
-        Scope `take`. Restores what the router had before the entry, one route per previous
+        Scopes `take` and `history`. Restores what the router had before the entry, one route per previous
         source. Levels with nothing routed before, or that a failed take never changed, are left
         as is and listed in `skippedLevels` and `untouchedLevels`. 422 `nothing_to_do` when no
         level can be restored. Rights are checked on the destination and level, not on the
@@ -334,7 +335,7 @@ paths:
   /history/{id}/redo:
     post:
       summary: Redo a successful History entry
-      description: "Scope `take`. Takes the entry's source to its destination again as a new take. 409 `conflict` for a failed entry (use retry)."
+      description: "Scopes `take` and `history`. Takes the entry's source to its destination again as a new take. 409 `conflict` for a failed entry (use retry)."
       parameters:
         - { $ref: "#/components/parameters/EntryId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -344,7 +345,7 @@ paths:
   /history/{id}/retry:
     post:
       summary: Retry a failed History entry
-      description: "Scope `take`. Like redo, but linked to the failed entry. 409 `conflict` for an entry that succeeded."
+      description: "Scopes `take` and `history`. Like redo, but linked to the failed entry. 409 `conflict` for an entry that succeeded."
       parameters:
         - { $ref: "#/components/parameters/EntryId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -369,7 +370,7 @@ paths:
           `data` shaped like the REST read, so a client starts from a full state.
         - `names`: the full names again, after a refresh.
         - `tally`: `data.routes`, only the routes that changed.
-        - `status`: `data` has `router`, `routerUp` and `error`, plus `addr` and `err` for a caller with the scope `log`.
+        - `status`: `data` has `router`, `routerUp` and `error`, plus `address` and `err` for a caller with the scope `log`.
         - `entry`: a new History entry (topic `history`). `data` is an Entry.
         - `entryUpdate`: an entry changed after it was sent, for example a Late Result
           (a route confirmed after the take gave up). `data` is the whole entry. Sent
@@ -542,9 +543,18 @@ components:
         seq: { type: integer }
         time: { type: string, format: date-time }
         kind: { type: string }
+        cmd: { type: integer, description: "SW-P-08 command number; -1 for an event" }
+        level: { type: integer, description: "UI level; 0 when none" }
+        wire: { type: integer, description: "Wire level; -1 when none" }
+        dst: { type: integer, description: "-1 when none" }
+        dstName: { type: string }
+        src: { type: integer, description: "-1 when none" }
+        srcName: { type: string }
         why: { type: string }
         by: { type: string }
+        tries: { type: integer }
         result: { type: string }
         err: { type: string }
         note: { type: string }
-        hex: { type: string }
+        hex: { type: string, description: Empty for an event }
+        ackMs: { type: number, description: How long the router took to ACK }

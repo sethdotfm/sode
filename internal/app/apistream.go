@@ -23,7 +23,7 @@ import (
 //	snapshot       one per names, tally and status topic, topic set, data as the REST read
 //	names          full names, filtered
 //	tally          {routes:[{dst,level,src}]} changed routes only
-//	status         {router, routerUp, error}, plus addr and err for a caller with the log scope
+//	status         {router, routerUp, error}, plus address and err for a caller with the log scope
 //	entry          a new History entry (topic history)
 //	entryUpdate    a changed entry, such as a Late Result (topics history and results, sent once)
 //	historyCleared (topic history)
@@ -71,7 +71,7 @@ type apiStream struct {
 	view   apiView
 	topics map[string]bool
 	send   chan []byte
-	detail bool               // the caller has the log scope: status frames carry addr and err
+	detail bool               // the caller has the log scope: status frames carry address and err
 	keyID  string             // "" for a keyless Guest call
 	ip     string             // the caller's address, for the per-address cap
 	owner  keyOwner           // who the key acts as, re-read on every config commit
@@ -159,7 +159,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		case "tally":
 			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: a.tallySnapshot(st.view)})
 		case "status":
-			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: linkStatus(a.status, st.detail, "addr")})
+			a.streamQueue(st, streamMsg{T: "snapshot", Topic: t, Data: linkStatus(a.status, st.detail)})
 		}
 	}
 	a.mu.Unlock()
@@ -359,7 +359,7 @@ func (a *App) streamFan(v any) {
 			}
 		case statusMsg:
 			if st.topics["status"] {
-				a.streamQueue(st, streamMsg{T: "status", Data: linkStatus(m, st.detail, "addr")})
+				a.streamQueue(st, streamMsg{T: "status", Data: linkStatus(m, st.detail)})
 			}
 		case recentMsg:
 			if m.E == nil {

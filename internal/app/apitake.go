@@ -27,9 +27,9 @@ func init() {
 	registerAPI(
 		apiRoute{"POST", apiBase + "/takes", config.ScopeTake, (*App).apiTakeRoutes},
 		apiRoute{"POST", apiBase + "/presets/{scope}/{name}", config.ScopeTake, (*App).apiTakePreset},
-		apiRoute{"POST", apiBase + "/history/{id}/undo", config.ScopeTake, (*App).apiHistoryAction},
-		apiRoute{"POST", apiBase + "/history/{id}/redo", config.ScopeTake, (*App).apiHistoryAction},
-		apiRoute{"POST", apiBase + "/history/{id}/retry", config.ScopeTake, (*App).apiHistoryAction},
+		apiRoute{"POST", apiBase + "/history/{id}/undo", config.ScopeTake + " " + config.ScopeHistory, (*App).apiHistoryAction},
+		apiRoute{"POST", apiBase + "/history/{id}/redo", config.ScopeTake + " " + config.ScopeHistory, (*App).apiHistoryAction},
+		apiRoute{"POST", apiBase + "/history/{id}/retry", config.ScopeTake + " " + config.ScopeHistory, (*App).apiHistoryAction},
 	)
 }
 
@@ -213,7 +213,7 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 	if err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
-			writeResp(w, respProblem(problem(http.StatusRequestEntityTooLarge, "bad_request", "the request body is over %d bytes", apiTakeBody)), false)
+			writeResp(w, respProblem(problem(http.StatusRequestEntityTooLarge, "too_large", "the request body is over %d bytes", apiTakeBody)), false)
 		} else {
 			writeResp(w, respProblem(problem(http.StatusBadRequest, "bad_request", "the request body could not be read")), false)
 		}
