@@ -32,10 +32,10 @@ _Avoid_: protect (as a noun), locked
 ### Actions
 
 **Command**:
-Anything a person fires that Sode acts on, such as a take, an undo, a retry, a router name re-read, clearing History or saving settings. Every command is logged.
+Anything a person or an API client fires that Sode acts on, such as a take, an undo, a retry, a router name re-read, clearing History or saving settings. Every command is logged.
 
 **Confirm**:
-The deliberate step that turns a plan into a take, done with the churning letter key and its short lockout. No take happens without one.
+The deliberate step that turns a plan into a take. In a browser it is the churning letter key and its short lockout. Over the API it is the take request itself, which the API client is responsible for guarding. No take happens without one.
 
 **Take**:
 A kind of command that executes a change on the router hardware by sending one or more routes. One confirm is one take. "Take" is a reserved word, so nothing that has not been sent to the router is a take.
@@ -116,11 +116,23 @@ _Avoid_: log in, log out, unlock (for a user's session)
 **Sign-in mode**:
 How a user signs in. PIN only is the default, where the PIN alone says who is signing in, so every PIN is unique. Username and PIN is an optional mode for deployments that want it, where the username is separate from the name History shows.
 
+**API client**:
+A named, non-person actor that uses Sode's API with an API key, such as a button panel app. Its name is what History shows in place of a user's name. Managing API clients is an advanced setting.
+
+**API key**:
+The secret an API client or a user sends over the API to prove who it is. Sode shows it once when it is created and keeps only a hash. Each key has a key name, such as "Panel 21", and History shows the actor with it, like "Seth (Panel 21)". A user's key dies with their PIN. A session token is a different thing: it belongs to a user's sign-in.
+
+**Rights**:
+What a user, API client or Guest may command: allowed sources, destinations, levels and presets, where an unset list means all. A take with any route outside the rights is refused whole before anything is sent. Rights are an advanced setting.
+
+**Visibility**:
+Set on each rights entry. Read-only, the default, shows everything and refuses commands outside the rights. Hidden also removes what is outside the rights from what that actor sees over the API. Browsers always see everything.
+
 **Shared settings**:
 The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs the Advanced Settings PIN or a trusted user. Personal settings, saved to This browser or Me, need neither.
 
 **Advanced settings**:
-The shared settings that change the router connection, weaken a guard, or manage users, the PIN and History. Changing them, including adding, removing and renaming users, needs the **Advanced Settings PIN**, even for a trusted user.
+The shared settings that change the router connection, weaken a guard, or manage users, API clients, the PIN and History. Changing them, including adding, removing and renaming users and API clients, needs the **Advanced Settings PIN**, even for a trusted user.
 _Avoid_: Settings PIN, admin PIN
 
 **Trusted user**:
@@ -131,7 +143,7 @@ A cover over the page that stops every key from reaching it until it is dismisse
 _Avoid_: hand lock, soft lock, screen lock
 
 **Auto-lock**:
-Raises the Lock after a set number of idle minutes. It never signs anyone out.
+Raises the Lock after a set number of idle minutes. It never signs anyone out. A user marked No auto-lock is skipped, and the Lock button still works for them.
 _Avoid_: idle timeout
 
 **Profile**:
@@ -142,7 +154,7 @@ The three scopes a setting, filter set or preset can be saved to. This browser w
 _Avoid_: This device
 
 **Guest**:
-Someone who is not signed in. A guest sees This browser and Everyone values and has no Me scope.
+Someone who is not signed in. A guest sees This browser and Everyone values and has no Me scope. Guests have one rights entry, and the same entry covers an API call that sends no key.
 
 ### Interface
 
