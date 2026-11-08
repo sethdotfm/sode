@@ -14,6 +14,9 @@ const actorGuest = "guest" // a browser with nobody signed in
 type apiCaller struct {
 	Actor  Actor
 	Rights config.Rights
+	// sink, when set, takes every reply for this caller instead of a.clients and c.send: a
+	// REST request is not a registered connection and must not see broadcasts.
+	sink func([]byte)
 }
 
 // callerOf is who a take acts as. A browser is its signed-in user (rights read live from the
