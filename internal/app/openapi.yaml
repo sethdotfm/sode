@@ -55,8 +55,7 @@ info:
     is sent: 403 `outside_rights`, no History entry, an `api` row in the Communication Log.
     Undo checks the destination and level but not the source it restores.
 
-    Extending. The stream is added under `paths` and `components` with the same conventions:
-    errors use the `Error` schema and a code from the table below.
+    Errors use the `Error` schema and a code from the table below.
   x-error-codes:
     api_off: 503, the API switch is off
     key_required: 401, no key and Guest API is off
@@ -324,6 +323,45 @@ paths:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       responses:
         "200": { $ref: "#/components/responses/TakeResult" }
+        default: { $ref: "#/components/responses/Error" }
+  /stream:
+    get:
+      summary: Live state over a WebSocket (version 1)
+      description: |
+        Upgrade to a WebSocket with the key in `Authorization: Bearer`. A browser cannot set
+        that header, so use a client library. Choose topics at connect with `?topics=`, a
+        comma list of `names`, `tally`, `status`, `history` and `results`. Each topic needs
+        the scope of the same REST read (`results` needs `history`). A topic outside the
+        key's scopes is refused with 403 `scope`, an unknown or missing topic with 400.
+
+        The stream only sends; anything the client writes is ignored. Every frame is JSON
+        `{"t", "topic"?, "data"?}`. `ping` is a heartbeat every 5 seconds, ignore it.
+
+        - `hello`: first frame. `data` has `v` (1), `topics` and `numberOffset`.
+        - `snapshot`: one each for `names`, `tally` and `status`, with `topic` set and
+          `data` shaped like the REST read, so a client starts from a full state.
+        - `names`: the full names again, after a refresh.
+        - `tally`: `data.routes`, only the routes that changed.
+        - `status`: `data` has `router`, `addr`, `err` and `routerUp`.
+        - `entry`: a new History entry (topic `history`). `data` is an Entry.
+        - `entryUpdate`: an entry changed after it was sent, for example a Late Result
+          (a route confirmed after the take gave up). `data` is the whole entry. Sent
+          once for a connection with `history`, `results` or both. A take request's
+          response carries entry ids, so match updates by `id`.
+        - `historyCleared`: History was emptied (topic `history`).
+
+        Visibility. Under hidden rights nothing about an out-of-rights source or
+        destination arrives: not in names, not in tally, not in an entry or update. A tally
+        change whose source is hidden from the caller arrives as `src` -1. A hidden entry
+        never arrives, so ids can skip. A slow client is disconnected. Connects and
+        disconnects are recorded as `api` rows in the Communication Log with the key name.
+      parameters:
+        - name: topics
+          in: query
+          required: true
+          schema: { type: string, example: "names,tally,results" }
+      responses:
+        "101": { description: Switching protocols, the stream follows }
         default: { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
