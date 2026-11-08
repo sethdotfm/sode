@@ -13,16 +13,25 @@ function check(cells) {
   if (used.size !== ROWS * COLS) console.warn(`grid has ${ROWS * COLS - used.size} empty squares`)
 }
 
-export function buildDeck(root, p, cells, colours = {}) {
+const icon = (id) => `<svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/vendor/patchbay/icons/lucide.svg#${id}"/></svg>`
+const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' }
+
+export function buildDeck(root, p, cells) {
   check(cells)
   root.className = 'deck'
-  const bg = { src: 'var(--c-idle)', dst: 'var(--c-idle)', pre: 'var(--c-pre)', take: 'var(--c-take)', clr: 'var(--c-clr)', cur: 'var(--c-cur)', ...colours }
+  const kindClass = {
+    src: 'pb-btn pb-xpt pb-rolebar--source',
+    dst: 'pb-btn pb-xpt pb-rolebar--dest',
+    pre: 'pb-btn',
+    clr: 'pb-btn pb-btn--outline',
+    take: 'pb-btn pb-btn--commit',
+    cur: 'pb-panel info',
+  }
   let lastTap = 0, raf = 0
   const els = cells.map((c) => {
-    const b = document.createElement('button')
-    b.className = 'cell ' + c.kind
+    const b = document.createElement(c.kind === 'cur' ? 'div' : 'button')
+    b.className = `cell ${c.kind} ${kindClass[c.kind]}`
     b.style.gridArea = `${c.r} / ${c.c} / span ${c.rs || 1} / span ${c.cs || 1}`
-    b.style.setProperty('--bg', bg[c.kind])
     if (c.kind === 'take') {
       b.innerHTML = '<span class="lbl"></span><div class="ring"></div>'
       const ring = b.querySelector('.ring')
@@ -37,8 +46,8 @@ export function buildDeck(root, p, cells, colours = {}) {
         else p.take()
       }
       b.onpointerup = b.onpointerleave = stop
-    } else {
-      b.onclick = () => ({ dst: () => p.pickDst(c.n), src: () => p.pickSrc(c.n), pre: () => p.pickPreset(c.id), clr: () => p.clear(), cur: () => {} })[c.kind]()
+    } else if (c.kind !== 'cur') {
+      b.onclick = () => ({ dst: () => p.pickDst(c.n), src: () => p.pickSrc(c.n), pre: () => p.pickPreset(c.id), clr: () => p.clear() })[c.kind]()
     }
     root.append(b)
     return b
@@ -48,26 +57,25 @@ export function buildDeck(root, p, cells, colours = {}) {
     const b = els[i]
     if (c.kind === 'dst') {
       const f = flashOf(st, c.n)
-      b.className = 'cell dst' + (f ? ' flash-' + f : '')
+      b.className = `cell dst ${kindClass.dst}` + (PROTECTED.has(c.n) ? ' pb-xpt--protected' : '') + (f ? ' flash-' + f : '')
       b.dataset.s = dstState(st, c.n)
       b.dataset.v = c.n === st.view ? '1' : ''
-      b.disabled = PROTECTED.has(c.n)
-      b.innerHTML = `${DESTS[c.n].name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${b.disabled ? 'PROTECTED' : name(st.tally[c.n])}</small>${st.staged.has(c.n) ? `<span class="stg">&rarr; ${name(st.staged.get(c.n))}</span>` : ''}`
+      b.innerHTML = `<span>${DESTS[c.n].name}${f ? ` ${icon(RESULT_ICON[f])}<span class="txt"> ${f}</span>` : ''}</span><small>${PROTECTED.has(c.n) ? 'Protected' : name(st.tally[c.n])}</small>${st.staged.has(c.n) ? `<span class="stg">&rarr; ${name(st.staged.get(c.n))}</span>` : ''}`
     } else if (c.kind === 'src') {
       b.textContent = name(c.n)
       b.dataset.s = srcState(st, c.n)
     } else if (c.kind === 'pre') {
       const x = PRESETS.find((q) => q.id === c.id)
       b.textContent = x.name
-      b.classList.toggle('sel', st.presetName === x.name)
-    } else if (c.kind === 'clr') b.textContent = 'CLEAR'
+      b.classList.toggle('pb-btn--selected', st.presetName === x.name)
+    } else if (c.kind === 'clr') b.textContent = 'Clear'
     else if (c.kind === 'cur') {
       b.innerHTML = st.view != null
-        ? `${DESTS[st.view].name}<small>now ${name(st.tally[st.view])}${st.staged.has(st.view) ? ' &rarr; ' + name(st.staged.get(st.view)) : ''}</small><small>${st.staged.size} staged</small>`
-        : 'NO DESTINATION'
+        ? `<span class="pb-label">Current destination</span><span class="name">${DESTS[st.view].name}</span><span class="pb-text-muted pb-num">has ${name(st.tally[st.view])}${st.staged.has(st.view) ? ' &rarr; ' + name(st.staged.get(st.view)) : ''} &middot; ${st.staged.size} staged</span>`
+        : '<span class="pb-label">Current destination</span><span class="pb-text-muted">None selected</span>'
     } else if (c.kind === 'take') {
-      b.querySelector('.lbl').textContent = st.mode === 'instant' ? 'INSTANT' : 'TAKE'
-      b.disabled = st.mode === 'instant'
+      b.querySelector('.lbl').textContent = st.mode === 'instant' ? 'Instant' : 'Take'
+      b.disabled = st.mode === 'instant' || !p.armed()
       b.classList.toggle('armed', p.armed())
     }
   }))

@@ -1,9 +1,8 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Panels prototype B: destination rail</title>
-<link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/shared/proto.css">
-<style>/* B: destinations as a two-column rail on the left, big Current Destination across the top. */
-:root { --gap:.5rem; --c-idle:#34414f; --c-cur:#14507a }
-body { background:#0a1018 } .cell { border-radius:.8rem }</style></head><body><div id="deck"></div>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css">
+<style>/* B: destination rail layout lives in the cell list below; no variant colours, patchbay tokens only. */</style></head><body><div id="deck"></div>
 <script type="module">
 import { createPanel } from '/shared/model.js'
 import { buildDeck } from '/shared/deck.js'

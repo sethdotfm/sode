@@ -1,9 +1,8 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Panels prototype C: amber hold-to-take</title>
-<link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/shared/proto.css">
-<style>/* C: amber-on-black hardware look, tall Take column at the right with a hold guard. */
-:root { --c-idle:#2a2a2a; --c-pre:#2a2a2a; --c-clr:#2a2a2a; --c-take:#5a1010; --c-cur:#000; --gap:.3rem }
-body { color:#ffb000 } .cell { border:1px solid #6b4a00; border-radius:.2rem; color:#ffb000; text-transform:uppercase; letter-spacing:.04em }</style></head><body><div id="deck"></div>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css">
+<style>/* C: hold-to-take layout lives in the cell list below; no variant colours, patchbay tokens only. */</style></head><body><div id="deck"></div>
 <script type="module">
 import { createPanel } from '/shared/model.js'
 import { buildDeck } from '/shared/deck.js'
