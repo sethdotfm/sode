@@ -25,6 +25,9 @@ type client struct {
 	ip   string
 	send chan []byte
 
+	// secure: the upgrade request came through a trusted proxy marked HTTPS (ADR 0005).
+	secure bool
+
 	// pin: Advanced Settings PIN hash this connection unlocked, guarded by App.mu; a changed or
 	// removed PIN stops matching.
 	pin string
@@ -64,7 +67,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
 	mux.HandleFunc("/api/yaml", a.serveYAML)
-	return secureHeaders(mux)
+	return a.httpsGate(secureHeaders(mux))
 }
 
 // csp: same-origin scripts only (no inline bodies or on*= handlers; a test keeps it so);
@@ -161,7 +164,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	budget := newReadBudget(conn.SetReadLimit)
 	cc := &connCtx{budget: budget}
 
-	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
+	c := &client{ip: clientIP(r, a.r().proxies), secure: secureRequest(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
 		a.xffWarn.Do(func() {
 			log.Printf("ws: behind a proxy but trustedProxies is empty; set it to the proxy's address so history shows real client IPs")
