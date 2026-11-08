@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><title>Editor prototype C: navigator</title></head><body><div class="ed-app c"><div class="ed-body">
+<nav class="ed-nav" id="nav"></nav>
+<main class="ed-main"><div id="ro"></div><div id="canvas"></div><div id="tabs"></div></main></div></div>
+<dialog class="ed-dlg c" id="dlg"><div id="dlgbody"></div><div class="pb-row"><span class="pb-grow"></span><button class="pb-btn pb-btn--sm" id="dlgx">Done</button></div></dialog>
+<script type="module">
+import { createEditor } from '/shared/ed.js'
+import { canvas, inspector, settings, tabs, toolbar, icon } from '/shared/edview.js'
+const E = createEditor()
+toolbar(E, 'C navigator')
+const PANELS = [
+  { name: 'Studio A', who: 'You', note: 'Signed-in user', own: true },
+  { name: 'Replay desk', who: 'You', note: 'API client', own: true, api: true },
+  { name: 'Master control', who: 'Dana', note: 'Shared with you', own: false },
+  { name: 'Edit bay 2', who: 'Priya', note: 'Shared with everyone', own: false },
+]
+const nav = document.getElementById('nav'), ro = document.getElementById('ro')
+let cur = 0
+const drawNav = () => {
+  nav.innerHTML = '<div class="pb-label">My panels</div>' + PANELS.map((p, i) => p.own ? item(p, i) : '').join('') + '<button class="pb-btn pb-btn--sm pb-btn--block" data-new>' + icon('plus') + ' New panel</button><div class="pb-divider"></div><div class="pb-label">Shared with me</div>' + PANELS.map((p, i) => p.own ? '' : item(p, i)).join('')
+  ro.innerHTML = PANELS[cur].own ? '' : '<div class="pb-banner pb-banner--info"><span>' + PANELS[cur].who + ' shared this panel. You can use it. To change it, save a copy.</span> <button class="pb-btn pb-btn--sm" id="copy">' + icon('copy') + ' Save a copy</button> <a class="pb-btn pb-btn--sm pb-btn--ok" href="#" onclick="return false">' + icon('play') + ' Open</a></div>'
+  const c = document.getElementById('copy'); if (c) c.onclick = () => { PANELS.unshift({ ...PANELS[cur], name: PANELS[cur].name + ' copy', who: 'You', note: 'Your copy', own: true }); cur = 0; E.readonly = false; E.cfg.name = PANELS[0].name; E.emit('cfg'); drawNav() }
+}
+const item = (p, i) => '<button class="pb-btn pb-btn--ghost ed-navitem' + (i === cur ? ' pb-btn--selected' : '') + '" data-i="' + i + '"><strong>' + p.name + '</strong><span class="pb-text-muted">' + p.note + (p.own ? '' : ' by ' + p.who) + '</span></button>'
+nav.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.i) { cur = +b.dataset.i; E.readonly = !PANELS[cur].own; E.cfg.name = PANELS[cur].name; E.cfg.acts = PANELS[cur].api ? 'api' : 'user'; E.emit('cfg', false); drawNav() } if ('new' in b.dataset) { PANELS.unshift({ name: 'New panel', who: 'You', note: 'Signed-in user', own: true }); cur = 0; E.readonly = false; E.cfg.name = 'New panel'; E.emit('cfg'); drawNav() } }
+drawNav()
+canvas(document.getElementById('canvas'), E)
+// Double-click a cell opens its editor in a dialog, so the grid keeps the whole width.
+const dlg = document.getElementById('dlg')
+inspector(document.getElementById('dlgbody'), E)
+document.getElementById('canvas').ondblclick = (e) => { if (!E.test && E.rect() && !E.readonly) dlg.showModal() }
+document.getElementById('dlgx').onclick = () => dlg.close()
+tabs(document.getElementById('tabs'), [
+  { text: 'Layout', render: (n) => { settings(n, E, ['layout']); const h = document.createElement('p'); h.className = 'pb-hint'; h.textContent = 'Double-click a cell to edit it. Shift-click or drag to select several, then press Merge.'; n.append(h); const m = document.createElement('button'); m.className = 'pb-btn pb-btn--sm pb-btn--commit'; m.innerHTML = icon('merge') + ' Merge selection'; m.onclick = () => E.merge(); n.append(m) } },
+  { text: 'Behaviour', render: (n) => settings(n, E, ['identity', 'behaviour']) },
+  { text: 'Colours', render: (n) => settings(n, E, ['colours']) },
+  { text: 'Access and sharing', render: (n) => settings(n, E, ['access', 'sharing']) },
+])
+</script></body></html>

@@ -1,0 +1,56 @@
+/* PROTOTYPE editor CSS: layout and edit-mode overlays only; colours and sizes are patchbay tokens. */
+.ed-scope { --panel-src: color-mix(in oklab, var(--panel-current) var(--panel-mute), var(--pb-surface-control)); --panel-dst: color-mix(in oklab, var(--panel-view) var(--panel-mute), var(--pb-surface-control)); }
+body { margin: 0; }
+.ed-app { display: grid; grid-template-rows: auto 1fr; height: calc(100vh - var(--pb-toolbar-h)); }
+.ed-body { display: grid; min-height: 0; }
+.ed-body > * { min-height: 0; overflow: auto; }
+.ed-side, .ed-pal, .ed-nav, .ed-drawer { background: var(--pb-surface-raised, var(--pb-surface-control)); padding: var(--pb-space-4); }
+.ed-side { border-left: 1px solid var(--pb-border); }
+.ed-pal, .ed-nav { border-right: 1px solid var(--pb-border); }
+.ed-main { padding: var(--pb-space-5); display: flex; flex-direction: column; align-items: center; gap: var(--pb-space-4); }
+.ed-canvas { width: 100%; max-width: calc((100vh - 14rem) * 2); }
+.ed-sec { display: flex; flex-direction: column; gap: var(--pb-space-3); padding-bottom: var(--pb-space-4); margin-bottom: var(--pb-space-4); border-bottom: 1px solid var(--pb-border); }
+.ed-sec:last-child { border-bottom: 0; }
+.ed-kinds { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); }
+.ed-lvls, .ed-step, .ed-steps, .ed-col { display: flex; align-items: center; gap: var(--pb-space-3); flex-wrap: wrap; }
+.ed-col { justify-content: space-between; }
+.ed-col input[type="color"] { width: 3rem; height: 2rem; border: 1px solid var(--pb-border); background: none; padding: 0; }
+.ed-sw { display: flex; gap: var(--pb-space-3); }
+.ed-sw__a { flex: 1; padding: var(--pb-space-3); text-align: center; border: 1px solid var(--pb-border); }
+.ed-tabpane { padding-top: var(--pb-space-4); }
+
+/* Edit grid: dashed empty squares, kind badge, merge size tag, selection outline. */
+.ed-grid .cell { position: relative; cursor: pointer; user-select: none; }
+.ed-grid .now { cursor: pointer; }
+.ed-badge { position: absolute; top: var(--pb-space-1); left: var(--pb-space-1); opacity: 0.7; line-height: 0; }
+.ed-span, .ed-lv { position: absolute; bottom: var(--pb-space-1); right: var(--pb-space-1); font-size: var(--pb-text-xs); opacity: 0.8; }
+.ed-lv { right: auto; left: var(--pb-space-1); }
+.ed-empty { background: none; border: 1px dashed var(--pb-border); color: var(--pb-text-muted); cursor: pointer; display: grid; place-items: center; min-width: 0; min-height: 0; }
+.ed-empty:hover { background: var(--pb-overlay-hover); }
+.ed-grid .ed-sel { outline: 3px solid var(--pb-text-strong); outline-offset: -3px; }
+.ed-empty.ed-sel { background: var(--pb-overlay-hover); }
+.deck .cell .name { color: inherit; }
+
+/* A: three columns */
+.a .ed-body { grid-template-columns: 11rem 1fr 22rem; }
+.a .ed-pal { display: flex; flex-direction: column; gap: var(--pb-space-2); }
+.a .ed-pal .pb-btn { justify-content: flex-start; }
+
+/* B: brush strip on top, drawer on the right, edge handles around the grid */
+.b .ed-body { grid-template-rows: auto 1fr; position: relative; }
+.b .ed-brushes { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); align-items: center; padding: var(--pb-space-3) var(--pb-space-5); border-bottom: 1px solid var(--pb-border); }
+.b .ed-frame { display: grid; grid-template: 1fr auto / 1fr auto; gap: var(--pb-space-2); width: 100%; max-width: calc((100vh - 16rem) * 2 + 4rem); }
+.b .ed-edge { display: flex; gap: var(--pb-space-2); }
+.b .ed-edge--col { flex-direction: column; justify-content: center; }
+.b .ed-edge--row { justify-content: center; }
+.b .ed-pop { position: fixed; right: var(--pb-space-5); bottom: var(--pb-space-5); width: 20rem; z-index: 5; box-shadow: var(--pb-shadow-lg, 0 8px 24px rgb(0 0 0 / 40%)); }
+.b .ed-drawer { position: fixed; top: var(--pb-toolbar-h); right: 0; bottom: 0; width: 24rem; border-left: 1px solid var(--pb-border); overflow: auto; z-index: 6; transform: translateX(100%); transition: transform 0.15s; }
+.b .ed-drawer.open { transform: none; }
+
+/* C: navigator left, live grid center, tabs below it */
+.c .ed-body { grid-template-columns: 15rem 1fr; }
+.c .ed-main { align-items: stretch; }
+.c .ed-main .ed-canvas { align-self: center; }
+.c .ed-navitem { display: grid; gap: var(--pb-space-1); text-align: left; width: 100%; padding: var(--pb-space-3); }
+.c .ed-dlg { border: 1px solid var(--pb-border); background: var(--pb-surface-base); color: var(--pb-text); padding: var(--pb-space-5); width: 24rem; }
+.c .ed-dlg::backdrop { background: rgb(0 0 0 / 50%); }

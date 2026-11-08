@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><title>Editor prototype A: inspector</title></head><body><div class="ed-app a"><div class="ed-body">
+<aside class="ed-pal" id="pal"></aside><main class="ed-main"><div id="canvas"></div><p class="pb-hint">Click a square. Shift-click or drag to select several, then Merge.</p></main><aside class="ed-side" id="side"></aside></div></div>
+<script type="module">
+import { createEditor, KINDS } from '/shared/ed.js'
+import { canvas, inspector, settings, tabs, toolbar, icon } from '/shared/edview.js'
+const E = createEditor()
+toolbar(E, 'A inspector', { steppers: true })
+canvas(document.getElementById('canvas'), E)
+const pal = document.getElementById('pal')
+pal.innerHTML = '<div class="pb-label">Make selection</div>' + KINDS.map((k) => `<button class="pb-btn pb-btn--sm" data-k="${k.k}">${icon(k.icon)} ${k.name}</button>`).join('') + '<div class="pb-divider"></div><button class="pb-btn pb-btn--sm pb-btn--commit" data-m>' + icon('merge') + ' Merge</button><button class="pb-btn pb-btn--sm pb-btn--danger" data-r>' + icon('trash-2') + ' Remove</button>'
+pal.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.k) E.setKind(b.dataset.k); if ('m' in b.dataset) E.merge(); if ('r' in b.dataset) E.remove() }
+tabs(document.getElementById('side'), [
+  { text: 'Cell', render: (n) => inspector(n, E) },
+  { text: 'Panel', render: (n) => settings(n, E, ['identity', 'behaviour', 'colours']) },
+  { text: 'Access', render: (n) => settings(n, E, ['access', 'sharing']) },
+])
+</script></body></html>

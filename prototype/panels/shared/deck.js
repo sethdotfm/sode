@@ -2,7 +2,7 @@
 import { SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED, srcState, dstState } from './model.js'
 export const ROWS = 4, COLS = 8
 
-function check(cells) {
+function check(cells, ROWS, COLS) {
   const used = new Map()
   for (const c of cells) for (let r = c.r; r < c.r + (c.rs || 1); r++) for (let k = c.c; k < c.c + (c.cs || 1); k++) {
     if (r > ROWS || k > COLS) throw new Error(`cell ${c.kind} outside ${ROWS}x${COLS}`)
@@ -16,9 +16,11 @@ function check(cells) {
 const icon = (id) => `<svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/vendor/patchbay/icons/lucide.svg#${id}"/></svg>`
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' }
 
-export function buildDeck(root, p, cells) {
-  check(cells)
+export function buildDeck(root, p, cells, ROWS = 4, COLS = 8) {
+  check(cells, ROWS, COLS)
   root.className = 'deck'
+  root.style.gridTemplate = `repeat(${ROWS}, 1fr) / repeat(${COLS}, 1fr)`
+  root.style.aspectRatio = `${COLS} / ${ROWS}`
   const kindClass = {
     src: 'pb-btn pb-xpt',
     dst: 'pb-btn pb-xpt',

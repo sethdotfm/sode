@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><title>Editor prototype B: paint</title></head><body><div class="ed-app b"><div class="ed-body">
+<div class="ed-brushes" id="brushes"></div>
+<main class="ed-main"><div class="ed-frame"><div id="canvas"></div><div class="ed-edge ed-edge--col" id="ecol"></div><div class="ed-edge ed-edge--row" id="erow"></div></div><p class="pb-hint" id="hint"></p></main></div>
+<aside class="ed-pop pb-panel" id="pop" hidden></aside>
+<aside class="ed-drawer" id="drawer"></aside></div>
+<script type="module">
+import { createEditor, KINDS } from '/shared/ed.js'
+import { canvas, inspector, settings, tabs, toolbar, icon } from '/shared/edview.js'
+const E = createEditor()
+toolbar(E, 'B paint')
+canvas(document.getElementById('canvas'), E, { paint: true })
+const br = document.getElementById('brushes')
+const tools = [['select', 'Select', 'square-pen'], ...KINDS.map((k) => [k.k, k.name, k.icon]), ['erase', 'Erase', 'eraser']]
+br.innerHTML = '<span class="pb-label">Brush</span>' + tools.map(([k, n, i]) => `<button class="pb-btn pb-btn--sm" data-t="${k}">${icon(i)} ${n}</button>`).join('') + '<span class="pb-toolbar__sep"></span><button class="pb-btn pb-btn--sm pb-btn--commit" data-m>' + icon('merge') + ' Merge selection</button><span class="pb-toolbar__spacer"></span><button class="pb-btn pb-btn--sm" data-d>' + icon('settings') + ' Panel settings</button>'
+const hint = document.getElementById('hint')
+const syncTool = () => { br.querySelectorAll('[data-t]').forEach((b) => b.classList.toggle('pb-btn--selected', b.dataset.t === E.tool)); hint.textContent = E.tool === 'select' ? 'Select mode: click or drag to select squares, then edit the cell or merge.' : E.tool === 'erase' ? 'Drag across cells to erase them.' : 'Click or drag across squares to paint them as ' + E.tool + ' cells.' }
+br.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.t) { E.tool = b.dataset.t; syncTool() } if ('m' in b.dataset) E.merge(); if ('d' in b.dataset) document.getElementById('drawer').classList.toggle('open') }
+syncTool()
+const edge = (id, k, label) => { document.getElementById(id).innerHTML = `<button class="pb-btn pb-btn--icon pb-btn--sm" data-d="1" aria-label="More ${label}">${icon('plus')}</button><button class="pb-btn pb-btn--icon pb-btn--sm" data-d="-1" aria-label="Fewer ${label}">${icon('minus')}</button>`; document.getElementById(id).onclick = (e) => { const b = e.target.closest('button'); if (b) E.resize(E.rows + (k === 'rows' ? +b.dataset.d : 0), E.cols + (k === 'cols' ? +b.dataset.d : 0)) } }
+edge('ecol', 'cols', 'columns'); edge('erow', 'rows', 'rows')
+const pop = document.getElementById('pop')
+inspector(pop, E)
+E.on((t) => { if (t === 'sel' || t === 'layout') pop.hidden = !E.rect() || E.tool !== 'select' })
+tabs(document.getElementById('drawer'), [
+  { text: 'Panel', render: (n) => settings(n, E, ['identity', 'behaviour', 'colours']) },
+  { text: 'Access', render: (n) => settings(n, E, ['access', 'sharing']) },
+])
+</script></body></html>
