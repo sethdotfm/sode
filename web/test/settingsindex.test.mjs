@@ -44,6 +44,31 @@ const idx = () =>
   );
 const top = (q) => find(idx(), q)[0];
 
+test('sections appear in the agreed order', () => {
+  const html = read('index.html');
+  const view = html.slice(html.indexOf('id="settings-view"'));
+  const titles = [...view.matchAll(/<fieldset class="sode__group[^"]*"[^>]*>\s*<legend>([^<]+)<\/legend>/g)].map((m) => m[1]);
+  // users.js inserts Users right after Access.
+  titles.splice(titles.indexOf('Access') + 1, 0, 'Users');
+  assert.deepEqual(titles, [
+    'This browser',
+    'My user',
+    'Global defaults',
+    'Router & matrix',
+    'Takes',
+    'Router Source & Destination Names',
+    'Level colors',
+    'Branding',
+    'Access',
+    'Users',
+    'History',
+    'Proxy',
+    'Export & import',
+    'Server backup',
+  ]);
+  assert.match(view, /<fieldset class="sode__group"[^>]*data-toc="Router names"[^>]*>\s*<legend>Router Source/);
+});
+
 test('every registered section has dictionary terms', () => {
   const secs = registered();
   assert.ok(secs.length >= 12, 'found the sections: ' + secs.join(', '));
@@ -54,13 +79,13 @@ test('common words reach their section', () => {
   const cases = {
     dark: 'this-browser',
     clock: 'this-browser',
-    ip: 'router',
-    host: 'router',
+    ip: 'router-matrix',
+    host: 'router-matrix',
     poll: 'router-source-destination-names',
-    offset: 'matrix',
+    offset: 'router-matrix',
     undo: 'history',
-    audit: 'sode-networking',
-    proxy: 'sode-networking',
+    audit: 'proxy',
+    proxy: 'proxy',
     brand: 'branding',
     border: 'branding',
     salvo: 'salvos',

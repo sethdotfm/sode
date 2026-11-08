@@ -586,7 +586,7 @@ on('locked', () => {
 });
 on('configResult', configResult);
 
-// ---- settings search. Picking a hit scrolls to it, focuses a control and outlines it with a "Found" tag. Esc clears the box first; a second Esc leaves Settings.
+// ---- settings search. Picking a hit scrolls to it, focuses a control and outlines it with a pulse. Esc clears the box first; a second Esc leaves Settings.
 
 const findBox = $('settings-find');
 const foundList = $('settings-found');
@@ -630,19 +630,30 @@ indexNow = () => {
 let hits = [];
 let cur = 0;
 let flashTimer = 0;
+let flashStart = null;
 let flashed = null;
 
 function unflash() {
   clearTimeout(flashTimer);
+  if (flashStart) window.removeEventListener('scrollend', flashStart);
+  flashStart = null;
   if (!flashed) return;
   flashed.node.classList.remove('sode__is-found');
   flashed = null;
 }
-function flash(node) {
+// Starts after the scroll ends, so a far target pulses on screen; the timeout covers a scroll that never fires scrollend.
+function flash(node, smooth) {
   unflash();
-  node.classList.add('sode__is-found');
-  flashed = { node };
-  flashTimer = setTimeout(unflash, 2500);
+  const start = () => {
+    unflash();
+    node.classList.add('sode__is-found');
+    flashed = { node };
+    flashTimer = setTimeout(unflash, 2500);
+  };
+  if (!smooth) return start();
+  flashStart = start;
+  window.addEventListener('scrollend', start, { once: true });
+  flashTimer = setTimeout(start, 1000);
 }
 
 function showHits() {
@@ -679,11 +690,9 @@ function pickHit(h) {
   findBox.value = '';
   showHits();
   tocApi.pick(i);
-  node.scrollIntoView({
-    behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    block: h.kind === 'section' ? 'start' : 'center',
-  });
-  flash(node);
+  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  node.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: h.kind === 'section' ? 'start' : 'center' });
+  flash(node, smooth);
   if (h.kind === 'setting') document.getElementById(h.id)?.focus({ preventScroll: true });
   else findBox.blur();
 }

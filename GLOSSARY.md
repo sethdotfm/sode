@@ -138,7 +138,7 @@ _Avoid_: idle timeout
 A user's saved personal settings, filter sets and presets, kept on the server so they follow the user to any browser. A profile is not private: trusted users and the Advanced Settings PIN can see and edit every profile.
 
 **Me** / **This browser** / **Everyone**:
-The three scopes a setting, filter set or preset can be saved to. This browser wins over Me, and Me wins over Everyone. The Settings section for personal choices uses the same name.
+The three scopes a setting, filter set or preset can be saved to. This browser wins over Me, and Me wins over Everyone. The Settings section for personal choices is My user.
 _Avoid_: This device
 
 **Guest**:

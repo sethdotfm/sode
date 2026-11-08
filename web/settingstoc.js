@@ -28,7 +28,7 @@ export function initToc({ form, sections, toc, isOpen }) {
   };
   toc.replaceChildren(
     ...sections.map((sec, i) => {
-      const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
+      const b = el('button', 'pb-tab', sec.dataset.toc || sec.querySelector('legend').textContent);
       b.type = 'button';
       b.addEventListener('click', () => {
         if (phone()) return showPage(i);

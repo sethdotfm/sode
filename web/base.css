@@ -10,11 +10,13 @@ html {
 :root {
   --sode-side-w: 0.3125rem;
   --sode-motion-enter: 400ms;
+  --sode-motion-found: 600ms;
   --pb-font-num: var(--pb-font);
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
     --sode-motion-enter: 0ms;
+    --sode-motion-found: 0ms;
   }
 }
 
@@ -377,9 +379,16 @@ html {
   display: block;
 }
 .sode__is-found {
-  background: color-mix(in srgb, var(--pb-accent) 14%, transparent);
-  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+  animation: sode-found var(--sode-motion-found) var(--pb-ease) 3;
+  background: color-mix(in srgb, var(--pb-status-info) 14%, transparent);
+  outline: var(--pb-accent-bar-w) solid var(--pb-status-info);
   outline-offset: var(--pb-space-1);
+}
+@keyframes sode-found {
+  50% {
+    background: color-mix(in srgb, var(--pb-status-info) 34%, transparent);
+    outline-offset: var(--pb-space-3);
+  }
 }
 .sode__settings > .sode__group {
   scroll-margin-top: calc(var(--pb-space-10) * 2 + var(--sode-down-h, 0px));

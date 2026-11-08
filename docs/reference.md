@@ -116,7 +116,7 @@ With users set up, each user has a **profile**. It holds their own This browser 
 
 **Share and export.** A preset's or filter set's **Share** gives a link you can paste in chat. Opening the link shows what it holds next to what you have now, and you choose where to save it. It never applies itself unreviewed. Settings > **Export & import** writes any mix of settings, filter sets and presets to a YAML file and reads one back through the same review. The file is named `YYYY-MM-DD-Sode-Export-Site-User.yaml` unless you name it. Exports carry names beside numbers, so a freelancer's presets can land on another studio's router. Sode matches a source or destination by number when the name agrees, else by its name. It flags anything ambiguous or missing and never applies it silently.
 
-**Server configuration backup.** Settings > Server Backup has **Export** and **Import** for the whole `config.yaml`, and both need the Advanced Settings PIN. PINs are left out unless you tick *Include Secrets (private backup)*, which makes a secret file, so keep it private. Importing replaces everything. If the file has no PINs, each user keeps their current PIN by name, and Sode refuses a new user in the file until it carries a PIN.
+**Server configuration backup.** Settings > Server backup has **Export** and **Import** for the whole `config.yaml`, and both need the Advanced Settings PIN. PINs are left out unless you tick *Include Secrets (private backup)*, which makes a secret file, so keep it private. Importing replaces everything. If the file has no PINs, each user keeps their current PIN by name, and Sode refuses a new user in the file until it carries a PIN.
 
 ## Monitoring (Uptime Kuma)
 
