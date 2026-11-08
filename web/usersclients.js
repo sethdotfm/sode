@@ -6,18 +6,12 @@ import { el, onMsg, wsSend, sentence } from './core.js';
 import { SCOPES } from './apirules.js';
 import { expiryFrom, keyNameProblem, keysByOwner, ownerText } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
+import { btn, labeled, opt } from './formbits.js';
 
 const MAX_CLIENTS = 12; // config.MaxAPIClients
 
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
-const opt = (value, text) => Object.assign(el('option', null, text), { value });
-
-export function makeClientsTab({ touched, adopt }) {
+// users: the Users tab's rows, {name, was}.
+export function makeClientsTab({ users, touched, adopt }) {
   const rows = el('div');
   const keyHost = el('div');
   const shown = el('div');
@@ -27,7 +21,7 @@ export function makeClientsTab({ touched, adopt }) {
   let rid = 0;
   let seq = 0;
   let listSeq = 0;
-  let owners = []; // the saved users and clients a key can be made for
+  let owners = []; // the saved users and clients the For list shows
   let open = false;
 
   const say = (t) => {
@@ -123,6 +117,7 @@ export function makeClientsTab({ touched, adopt }) {
   kexp.type = 'date';
   const make = btn('pb-btn--outline pb-btn--sm', 'Make key', () => {
     say('');
+    syncOwners();
     const o = owners[who.selectedIndex];
     if (!o) return say('Save the API client first, then make its key.');
     const bad = keyNameProblem(kname.value);
@@ -134,7 +129,7 @@ export function makeClientsTab({ touched, adopt }) {
     make.disabled = true;
   });
   onMsg('keyCreateForResult', (m) => {
-    if (m.id !== seq) return;
+    if (m.id !== seq || !open) return;
     make.disabled = false;
     if (!m.ok) return say(m.err);
     kname.value = kexp.value = '';
@@ -142,7 +137,29 @@ export function makeClientsTab({ touched, adopt }) {
     load();
   });
 
-  const labeled = (id, text, control) => el('div', 'sode__field', Object.assign(el('label', null, text), { htmlFor: id }), control);
+  // Only saved rows can own a key, and rows change under the tab, so the list is rebuilt from them on every read.
+  function syncOwners() {
+    owners = [
+      ...users()
+        .filter((u) => u.was)
+        .map((u) => ({ kind: 'user', name: u.was })),
+      ...read()
+        .filter((c) => c.was)
+        .map((c) => ({ kind: 'client', name: c.was })),
+    ];
+    const keep = who.value;
+    who.replaceChildren(...owners.map((o) => opt(`${o.kind}:${o.name}`, ownerText(o))));
+    if (owners.some((o) => `${o.kind}:${o.name}` === keep)) who.value = keep;
+  }
+  who.addEventListener('focus', syncOwners);
+  who.addEventListener('pointerdown', syncOwners);
+  // Enter in the key form makes the key; the dialog's Enter saves the Users panel only.
+  for (const i of [who, kname, kexp])
+    i.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      make.click();
+    });
   const node = el(
     'div',
     null,
@@ -183,16 +200,17 @@ export function makeClientsTab({ touched, adopt }) {
     addRow,
     clear: () => rows.replaceChildren(),
     count: () => rows.children.length,
-    // users: the saved users' names, for the "Make a key for" list.
-    setOwners(saved) {
-      owners = saved;
-      who.replaceChildren(...owners.map((o) => opt(o.name, ownerText(o))));
-    },
     // The tab is on screen: list the keys, and forget a key shown before.
     shownNow(on_) {
       open = on_;
-      if (!on_) shown.replaceChildren();
-      else load();
+      if (!on_) {
+        shown.replaceChildren();
+        seq++; // a key made meanwhile has nowhere to show
+        make.disabled = false;
+      } else {
+        syncOwners();
+        load();
+      }
     },
     forget: () => shown.replaceChildren(),
     say,

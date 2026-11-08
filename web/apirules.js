@@ -27,3 +27,6 @@ export function apiSettingsReq(cur, next) {
   for (const k of FIELDS) if (next[k] !== cur[k]) apiSettings[k] = next[k];
   return { t: 'apiSettings', apiSettings };
 }
+
+// Whether the form differs from the saved settings.
+export const apiEdited = (cur, next) => FIELDS.some((k) => next[k] !== cur[k]);

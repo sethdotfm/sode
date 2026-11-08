@@ -1,8 +1,17 @@
-// A tab strip on patchbay's pb-tabs, with arrow, Home and End keys (stepTab in rightsrules.js).
+// A tab strip on patchbay's pb-tabs, with arrow, Home and End keys (stepTab).
 // items: [{id, text, panel}]. The panels are the caller's nodes; this shows one and hides the rest.
 
 import { el } from './core.js';
-import { stepTab } from './rightsrules.js';
+
+// The tab an arrow, Home or End key moves to, or null for any other key.
+export function stepTab(ids, cur, key) {
+  const i = ids.indexOf(cur);
+  if (key === 'ArrowRight') return ids[(i + 1) % ids.length];
+  if (key === 'ArrowLeft') return ids[(i + ids.length - 1) % ids.length];
+  if (key === 'Home') return ids[0];
+  if (key === 'End') return ids.at(-1);
+  return null;
+}
 
 export function makeTabs(items, onChange) {
   const bar = el('div', 'pb-tabs sode__tabs');

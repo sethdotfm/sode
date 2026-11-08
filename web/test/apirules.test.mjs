@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { apiSettingsReq, apiProblem, SCOPES } from '../apirules.js';
+import { apiSettingsReq, apiProblem, apiEdited, SCOPES } from '../apirules.js';
 
 const cur = { enabled: false, rateLimit: 600, takeCap: 4, guestEnabled: false, logReads: false };
 
@@ -23,4 +23,10 @@ test('the scope list matches the server', () => {
     SCOPES.map((s) => s.id),
     ['names', 'tally', 'protected', 'status', 'presets', 'history', 'layouts', 'log', 'take'],
   );
+});
+
+test('apiEdited is false while the form equals what was saved, so a hello repaint may refill it', () => {
+  assert.equal(apiEdited(cur, { ...cur }), false);
+  assert.equal(apiEdited(cur, { ...cur, takeCap: 5 }), true);
+  assert.equal(apiEdited(cur, { ...cur, logReads: true }), true);
 });

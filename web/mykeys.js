@@ -6,9 +6,8 @@ import { el, on, onMsg, wsSend, sentence } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { createReq, expiryFrom, keyNameProblem } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
+import { btn, field } from './formbits.js';
 
-const field = (id, text, control, hint) =>
-  el('div', 'sode__field', Object.assign(el('label', null, text), { htmlFor: id }), control, ...(hint ? [el('span', 'sode__hint', hint)] : []));
 const make = (id, type, auto) => {
   const i = el('input', 'pb-input');
   i.id = id;
@@ -28,10 +27,8 @@ const shown = el('div');
 const note = el('div', 'pb-note pb-note--error');
 note.setAttribute('role', 'alert');
 note.hidden = true;
-const makeBtn = el('button', 'pb-btn pb-btn--ok', 'Make key');
-makeBtn.type = 'button';
-const close = el('button', 'pb-btn pb-btn--outline', 'Close');
-close.type = 'button';
+const makeBtn = btn('pb-btn--ok', 'Make key');
+const close = btn('pb-btn--outline', 'Close');
 
 const dialog = el(
   'div',

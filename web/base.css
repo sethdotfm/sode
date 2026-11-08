@@ -971,3 +971,9 @@ html:has(.sode__scrim:not([hidden])) {
 .sode__menu-off .sode__num {
   color: var(--pb-text-disabled);
 }
+.sode__menu-tag {
+  margin-inline-start: auto;
+  padding-inline-start: 0.5rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}

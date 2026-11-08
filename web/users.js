@@ -9,6 +9,7 @@ import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
 import { accessReq, mergeAccess, rightsTab } from './rightsrules.js';
 import { makeTabs } from './tabs.js';
+import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
 import { MODES, RENAME_HINT, clashNotice, needsNewPins, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
@@ -29,6 +30,7 @@ people.setAttribute('role', 'group');
 people.setAttribute('aria-label', 'Profiles');
 
 const group = el('fieldset', 'sode__group', el('legend', null, 'Users'), el('div', 'sode__field', manage), people);
+group.id = 'users-group';
 group.dataset.apart = '';
 
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
@@ -36,19 +38,6 @@ if (access) access.after(group);
 else form.querySelector('#settings-err')?.parentElement?.before(group) ?? form.append(group);
 
 // ---- the dialog
-const check = (label) => {
-  const input = el('input', 'pb-check__input');
-  input.type = 'checkbox';
-  return { input, label: el('label', 'pb-check', input, el('span', 'pb-check__label', label)) };
-};
-const btn = (cls, text, fn) => {
-  const b = el('button', `pb-btn ${cls}`, text);
-  b.type = 'button';
-  b.addEventListener('click', fn);
-  return b;
-};
-const field = (id, label, input, hint) =>
-  el('div', 'sode__field', Object.assign(el('label', null, label), { htmlFor: id }), el('span', 'pb-number-wrap', input), el('span', 'sode__hint', hint));
 const number = (id) => {
   const i = el('input', 'pb-input');
   i.type = 'number';
@@ -118,12 +107,13 @@ const usersPanel = el(
   ),
   table,
   el('div', 'sode__users-acts', addBtn, fillBtn),
-  el('div', 'sode__users-opts', modeField, field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
+  el('div', 'sode__users-opts', modeField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
 );
 // The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
-const userList = () => [...rows.children].map((r) => ({ rid: Number(r.dataset.rid), name: r.querySelector('input[data-field="name"]').value }));
+const userList = () =>
+  [...rows.children].map((r) => ({ rid: Number(r.dataset.rid), name: r.querySelector('input[data-field="name"]').value, was: r.dataset.was }));
 const rightsPanel = makeRightsTab({ users: userList, clients: () => clientsTab.read(), touched: () => touched() });
-const clientsTab = makeClientsTab({ touched: () => touched(), adopt: (rid, c) => c.name && rightsPanel.adoptClient(rid, c) });
+const clientsTab = makeClientsTab({ users: userList, touched: () => touched(), adopt: (rid, c) => c.name && rightsPanel.adoptClient(rid, c) });
 const tabs = makeTabs(
   [
     { id: 'users', text: 'Users', panel: usersPanel },
@@ -143,7 +133,8 @@ dialog.append(
 root.append(dialog);
 document.body.append(root);
 
-dialog.addEventListener('keydown', (e) => {
+// Enter saves from the Users panel only; the other tabs have their own forms.
+usersPanel.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
     e.preventDefault();
     saveBtn.click();
@@ -222,11 +213,9 @@ function addRow(u = { name: '', len: 0 }) {
   pin.dataset.field = 'pin';
   pin.placeholder = u.len ? 'unchanged' : 'new PIN';
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
-  const trust = check('Trusted');
-  trust.input.checked = !!u.trusted;
+  const trust = check('Trusted', { checked: !!u.trusted });
   trust.input.dataset.flag = 'trusted';
-  const never = check('Never sign out');
-  never.input.checked = !!u.persistent;
+  const never = check('Never sign out', { checked: !!u.persistent });
   never.input.dataset.flag = 'persistent';
   // A saved user takes two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
   const disarm = () => {
@@ -319,12 +308,12 @@ function fill() {
   modeSelect.value = listedMode;
   rows.replaceChildren();
   clientsTab.clear();
+  clientsTab.forget();
   rightsPanel.reset();
   paintMode();
   for (const u of listed) addRow(u);
   for (const c of extras.apiClients) clientsTab.addRow(c);
   rightsPanel.adoptGuest(extras.guestRights, extras.guestScopes);
-  clientsTab.setOwners([...listed.map((u) => ({ kind: 'user', name: u.name })), ...extras.apiClients.map((c) => ({ kind: 'client', name: c.name }))]);
   rightsPanel.refresh();
   edited = false;
   discard = false;
@@ -448,13 +437,10 @@ function doSave() {
     setNote(clashNotice(clashes), true);
     return rows.querySelector('.sode__users-row[data-clash] input[data-field="pin"]')?.focus();
   }
-  const held = rightsPanel.read();
   const acc = accessReq({
-    entries: held.entries,
+    entries: rightsPanel.read(),
     users: users.map((u) => ({ rid: u.rid, name: u.name.trim() })),
     clients: clientsTab.read(),
-    guestScopes: held.entries.get('guest')?.dirty ? held.guestScopes : null,
-    flags: held.flags,
     off: S.cfg?.numberOffset ?? 0,
     levels: S.levels.length,
   });

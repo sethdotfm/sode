@@ -5,15 +5,12 @@
 import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
-import { apiProblem, apiSettingsReq } from './apirules.js';
-
-const form = $('settings-view');
+import { apiEdited, apiProblem, apiSettingsReq } from './apirules.js';
+import { btn, check as checkbox, field } from './formbits.js';
 
 const check = (id, text, hint) => {
-  const input = el('input', 'pb-check__input');
-  input.type = 'checkbox';
-  input.id = id;
-  return { input, node: el('div', 'sode__field', el('label', 'pb-check', input, el('span', 'pb-check__label', text)), el('span', 'sode__hint', hint)) };
+  const c = checkbox(text, { id });
+  return { input: c.input, node: el('div', 'sode__field', c.label, el('span', 'sode__hint', hint)) };
 };
 const num = (id, text, hint, min, max) => {
   const input = el('input', 'pb-input');
@@ -21,16 +18,7 @@ const num = (id, text, hint, min, max) => {
   input.id = id;
   input.min = String(min);
   input.max = String(max);
-  return {
-    input,
-    node: el(
-      'div',
-      'sode__field',
-      Object.assign(el('label', null, text), { htmlFor: id }),
-      el('span', 'pb-number-wrap', input),
-      el('span', 'sode__hint', hint),
-    ),
-  };
+  return { input, node: field(id, text, el('span', 'pb-number-wrap', input), hint) };
 };
 
 const enabled = check('api-enabled', 'API enabled', 'Off by default. While off, every API call is refused.');
@@ -45,8 +33,7 @@ err.hidden = true;
 const note = el('span', 'sode__hint');
 note.setAttribute('role', 'status');
 note.setAttribute('aria-live', 'polite');
-const save = el('button', 'pb-btn pb-btn--outline', 'Save API settings');
-save.type = 'button';
+const save = btn('pb-btn--outline', 'Save API settings');
 save.id = 'api-save';
 save.dataset.find = 'api-save';
 save.dataset.label = 'Save API settings';
@@ -64,16 +51,25 @@ const group = el(
   err,
 );
 group.dataset.apart = '';
-const usersGroup = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Users');
-if (usersGroup) usersGroup.after(group);
-else form.querySelector('#settings-err')?.parentElement?.before(group) ?? form.append(group);
+$('users-group').after(group); // users.js is imported first
 
 let saved = { enabled: false, rateLimit: 0, takeCap: 1, guestEnabled: false, logReads: false };
 let seq = 0;
+let painted = false;
+
+const edited = () => ({
+  enabled: enabled.input.checked,
+  rateLimit: Number(rate.input.value),
+  takeCap: Number(cap.input.value),
+  guestEnabled: guest.input.checked,
+  logReads: logReads.input.checked,
+});
 
 function paint() {
   const a = S.cfg?.api;
   if (!a) return;
+  if (painted && apiEdited(saved, edited())) return; // a hello must not drop unsaved edits
+  painted = true;
   saved = { enabled: !!a.enabled, rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads };
   enabled.input.checked = saved.enabled;
   guest.input.checked = saved.guestEnabled;
@@ -84,13 +80,6 @@ function paint() {
 on('hello', paint);
 paint();
 
-const edited = () => ({
-  enabled: enabled.input.checked,
-  rateLimit: Number(rate.input.value),
-  takeCap: Number(cap.input.value),
-  guestEnabled: guest.input.checked,
-  logReads: logReads.input.checked,
-});
 const fail = (text) => {
   err.textContent = sentence(text);
   err.hidden = !text;

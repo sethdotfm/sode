@@ -90,30 +90,38 @@ export function rightsOf(d, off, levels) {
 // ---- the Rights tab's entries. Rows are keyed by a number that never changes, not by the name being
 // edited, so a rename keeps the selection.
 
-export const entryKeys = (users, clients) => [...users.map((u) => `user:${u.id}`), ...clients.map((c) => `client:${c.id}`), 'guest'];
+export const entryKeys = (users, clients) => [...users.map((u) => `user:${u.rid}`), ...clients.map((c) => `client:${c.rid}`), 'guest'];
 
 export const pickValid = (keys, pick) => (keys.includes(pick) ? pick : keys[0]);
 
 export const rightsTab = (id) => ({ tab: 'rights', pick: `user:${id}` });
 
-// An entry is {orig, draft, dirty}: the rights as loaded, the editor's draft, and whether the
-// draft was touched. Untouched rights go back as loaded, so saving never rewrites them through the
-// editor's text (and a number offset change can't shift them).
+// An entry is {orig, draft, dirty}: what loaded, the editor's draft, and which fields the draft
+// changed ('rights', 'noAutoLock', 'scopes'). extra holds noAutoLock (a user) or scopes (Guest).
+// orig.rights is undefined for a row that never loaded. Untouched fields go back as loaded, so a save
+// never rewrites rights through the editor's text (and a number offset change can't shift them).
+export const newEntry = (rights, off, extra = {}) => ({
+  orig: { rights, ...extra },
+  draft: { ...draftOf(rights, off), ...extra },
+  dirty: new Set(),
+});
+
 function entryRights(e, off, levels) {
   if (!e) return {};
-  if (!e.dirty) return e.orig ? { rights: e.orig } : {};
+  if (!e.dirty.has('rights')) return e.orig.rights ? { rights: e.orig.rights } : {};
   return rightsOf(e.draft, off, levels);
 }
 
 // The rights part of a `users` save: {users: [{rights?, noAutoLock?}] in row order, apiClients,
 // guestRights?, guestScopes?} or {error}. A missing field tells the server to keep what it has.
-// flags: row id to the No auto-lock value, set once a row has loaded or edited it.
-export function accessReq({ entries, users, clients, guestScopes, flags, off, levels }) {
+// No auto-lock and Guest scopes go only once edited.
+export function accessReq({ entries, users, clients, off, levels }) {
   const out = { users: [], apiClients: [] };
   for (const u of users) {
-    const r = entryRights(entries.get(`user:${u.rid}`), off, levels);
+    const e = entries.get(`user:${u.rid}`);
+    const r = entryRights(e, off, levels);
     if (r.error) return { error: `${u.name}: ${r.error}` };
-    out.users.push({ ...(r.rights ? { rights: r.rights } : {}), ...(flags.has(u.rid) ? { noAutoLock: flags.get(u.rid) } : {}) });
+    out.users.push({ ...(r.rights ? { rights: r.rights } : {}), ...(e?.dirty.has('noAutoLock') ? { noAutoLock: e.draft.noAutoLock } : {}) });
   }
   for (const c of clients) {
     const r = entryRights(entries.get(`client:${c.rid}`), off, levels);
@@ -121,11 +129,12 @@ export function accessReq({ entries, users, clients, guestScopes, flags, off, le
     out.apiClients.push({ name: c.name.trim(), scopes: c.scopes, rights: r.rights || {} });
   }
   if (entries.has('guest')) {
-    const r = entryRights(entries.get('guest'), off, levels);
+    const g = entries.get('guest');
+    const r = entryRights(g, off, levels);
     if (r.error) return { error: `Guest: ${r.error}` };
     out.guestRights = r.rights || {};
+    if (g.dirty.has('scopes')) out.guestScopes = g.draft.scopes;
   }
-  if (guestScopes) out.guestScopes = guestScopes;
   return out;
 }
 
@@ -138,14 +147,4 @@ export function mergeAccess(req, acc, loaded) {
   if ('guestRights' in acc) out.guestRights = acc.guestRights;
   if ('guestScopes' in acc) out.guestScopes = acc.guestScopes;
   return out;
-}
-
-// The tab an arrow, Home or End key moves to, or null for any other key.
-export function stepTab(ids, cur, key) {
-  const i = ids.indexOf(cur);
-  if (key === 'ArrowRight') return ids[(i + 1) % ids.length];
-  if (key === 'ArrowLeft') return ids[(i + ids.length - 1) % ids.length];
-  if (key === 'Home') return ids[0];
-  if (key === 'End') return ids.at(-1);
-  return null;
 }

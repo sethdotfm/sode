@@ -13,7 +13,7 @@ import {
   rightsTab,
   accessReq,
   mergeAccess,
-  stepTab,
+  newEntry,
 } from '../rightsrules.js';
 
 test('allowed: a missing list means all, an empty one means none', () => {
@@ -79,23 +79,27 @@ test('planOutside skips the Before source of an undo and checks a preset by name
 
 test('Edit user rights jumps to the Rights tab with that row selected, even after a rename', () => {
   const rows = [
-    { id: 1, name: 'Ana' },
-    { id: 2, name: 'Bo' },
+    { rid: 1, name: 'Ana' },
+    { rid: 2, name: 'Bo' },
   ];
   assert.deepEqual(rightsTab(2), { tab: 'rights', pick: 'user:2' });
-  const keys = entryKeys(rows, [{ id: 7, name: 'PanelsBot' }]);
+  const keys = entryKeys(rows, [{ rid: 7, name: 'PanelsBot' }]);
   assert.deepEqual(keys, ['user:1', 'user:2', 'client:7', 'guest']);
   assert.equal(pickValid(keys, 'user:2'), 'user:2');
   assert.equal(pickValid(keys, 'user:9'), 'user:1', 'a removed row falls back to the first entry');
 });
 
-const ent = (orig, over = {}) => ({ orig, draft: draftOf(orig, 1), dirty: false, ...over });
+const ent = (rights, extra, dirty = []) => {
+  const e = newEntry(rights, 1, extra);
+  for (const d of dirty) e.dirty.add(d);
+  return e;
+};
 
 test('accessReq sends untouched rights as they were loaded, and nothing for a row that never loaded any', () => {
   const entries = new Map([
-    ['user:1', ent({ dsts: [] })],
+    ['user:1', ent({ dsts: [] }, { noAutoLock: true }, ['noAutoLock'])],
     ['client:5', ent({ sources: [2] })],
-    ['guest', ent({ levels: [1] })],
+    ['guest', ent({ levels: [1] }, { scopes: ['names'] }, ['scopes'])],
   ]);
   const r = accessReq({
     entries,
@@ -107,8 +111,6 @@ test('accessReq sends untouched rights as they were loaded, and nothing for a ro
       { rid: 5, name: 'PanelsBot', scopes: ['take'] },
       { rid: 6, name: 'Fresh', scopes: [] },
     ],
-    guestScopes: ['names'],
-    flags: new Map([[1, true]]),
     off: 1,
     levels: 4,
   });
@@ -121,19 +123,26 @@ test('accessReq sends untouched rights as they were loaded, and nothing for a ro
   assert.deepEqual(r.guestScopes, ['names']);
 });
 
+test('accessReq sends No auto-lock and Guest scopes only once edited', () => {
+  const entries = new Map([
+    ['user:1', ent({}, { noAutoLock: true })],
+    ['guest', ent({}, { scopes: ['names'] })],
+  ]);
+  const r = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
+  assert.deepEqual(r.users, [{ rights: {} }]);
+  assert.equal('guestScopes' in r, false);
+});
+
 test('accessReq reads an edited draft, and names the user whose rights are wrong', () => {
-  const edited = ent({}, { dirty: true });
+  const edited = ent({}, {}, ['rights']);
   edited.draft.dsts = { all: false, text: '3, 5-6' };
   const entries = new Map([['user:1', edited]]);
-  const ok = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], guestScopes: null, flags: new Map(), off: 1, levels: 4 });
+  const ok = accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 });
   assert.deepEqual(ok.users, [{ rights: { dsts: [2, 4, 5] } }]);
   assert.equal('guestRights' in ok, false, 'no guest entry: the server keeps the saved one');
   assert.equal('guestScopes' in ok, false);
   edited.draft.dsts.text = 'x';
-  assert.match(
-    accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], guestScopes: null, flags: new Map(), off: 1, levels: 4 }).error,
-    /^Ana: Destinations/,
-  );
+  assert.match(accessReq({ entries, users: [{ rid: 1, name: 'Ana' }], clients: [], off: 1, levels: 4 }).error, /^Ana: Destinations/);
 });
 
 test("mergeAccess puts each row's rights on its user and leaves clients and Guest out until they loaded", () => {
@@ -150,14 +159,4 @@ test("mergeAccess puts each row's rights on its user and leaves clients and Gues
   assert.equal('apiClients' in early, false);
   assert.equal('guestRights' in early, false);
   assert.deepEqual(early.users[0], { name: 'Ana', rights: { dsts: [] } });
-});
-
-test('stepTab moves between tabs with the arrow keys and wraps', () => {
-  const ids = ['users', 'clients', 'rights'];
-  assert.equal(stepTab(ids, 'users', 'ArrowRight'), 'clients');
-  assert.equal(stepTab(ids, 'rights', 'ArrowRight'), 'users');
-  assert.equal(stepTab(ids, 'users', 'ArrowLeft'), 'rights');
-  assert.equal(stepTab(ids, 'clients', 'Home'), 'users');
-  assert.equal(stepTab(ids, 'clients', 'End'), 'rights');
-  assert.equal(stepTab(ids, 'clients', 'a'), null);
 });
