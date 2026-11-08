@@ -46,8 +46,8 @@ func TestAPIWrongMethodOnTemplatedPathIs405(t *testing.T) {
 func TestAPIOversizedBodyIs413WithOwnCode(t *testing.T) {
 	a, _, key := takerApp(t, nil)
 	wantErr(t, apiPost(a, "/api/v1/takes", key, strings.Repeat(" ", apiTakeBody+1), nil), 413, "too_large")
-	if !strings.Contains(string(openAPIFile), "too_large:") {
-		t.Error("x-error-codes lacks too_large")
+	if !strings.Contains(string(openAPIFile), "- too_large\n") {
+		t.Error("the Error.code enum lacks too_large")
 	}
 }
 
