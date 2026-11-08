@@ -3,7 +3,7 @@ export const SOURCES = ['CAM 1','CAM 2','CAM 3','CAM 4','PGM','PVW','CLEAN','GFX
 export const DESTS = ['MON A','MON B','MON C','MON D','REC 1','REC 2','AIR','MV 1','MV 2','STREAM'].map((name, n) => ({ n, name }))
 export const LEVELS = [1, 2, 3]
 export const PRESETS = [
-  { id: 'p1', name: 'Show open', routes: [[0, 0], [1, 1], [4, 6]] },
+  { id: 'p1', name: 'Show open', routes: [[0, 0], [1, 1], [4, 4]] },
   { id: 'p2', name: 'Replay', routes: [[9, 0], [10, 1]] },
   { id: 'p3', name: 'Bars all', routes: [[15, 0], [15, 1], [15, 2], [15, 3]] },
 ]
