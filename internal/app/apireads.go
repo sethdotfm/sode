@@ -44,15 +44,19 @@ func namesOf(m map[int]string, ok func(int) bool) []apiName {
 	return out
 }
 
-func (a *App) apiNames(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
-	v := cl.view()
-	a.mu.Lock()
-	res := apiNames{
+// namesSnapshot is the names as v shows them. Caller holds mu.
+func (a *App) namesSnapshot(v apiView) apiNames {
+	return apiNames{
 		NumberOffset: a.r().cfg.NumberOffset,
 		Sources:      namesOf(a.router.srcNames, v.Source),
 		Destinations: namesOf(a.router.dstNames, v.Destination),
 		NamesAt:      a.router.namesAt,
 	}
+}
+
+func (a *App) apiNames(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+	a.mu.Lock()
+	res := a.namesSnapshot(cl.view())
 	a.mu.Unlock()
 	apiJSON(w, res)
 }
@@ -87,15 +91,20 @@ type apiLevel struct {
 	Label string `json:"label"`
 }
 
-func (a *App) apiTally(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+// tallySnapshot is the levels and routes as v shows them. Caller holds mu.
+func (a *App) tallySnapshot(v apiView) map[string]any {
 	levels := []apiLevel{}
 	for _, l := range a.r().levels {
 		levels = append(levels, apiLevel{l.UI, l.Label})
 	}
+	return map[string]any{"levels": levels, "routes": routeRows(a.router.tally, v)}
+}
+
+func (a *App) apiTally(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
-	routes := routeRows(a.router.tally, cl.view())
+	res := a.tallySnapshot(cl.view())
 	a.mu.Unlock()
-	apiJSON(w, map[string]any{"levels": levels, "routes": routes})
+	apiJSON(w, res)
 }
 
 func (a *App) apiProtected(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {

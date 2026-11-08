@@ -112,6 +112,8 @@ type App struct {
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
 
 	apiS apiState // REST throttles (apiauth.go)
+
+	streams map[*apiStream]struct{} // attached API streams (apistream.go), guarded by mu
 }
 
 // routerState is replaced as a whole on a router change. Guarded by App.mu.
@@ -595,6 +597,7 @@ func (a *App) broadcast(v any) {
 	for c := range a.clients {
 		a.deliver(c, b)
 	}
+	a.streamFan(v)
 }
 
 // deliver drops b if the browser can't keep up. Caller holds mu.
