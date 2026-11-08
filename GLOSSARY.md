@@ -120,7 +120,13 @@ How a user signs in. PIN only is the default, where the PIN alone says who is si
 A named, non-person actor that uses Sode's API with an API key, such as a button panel app. Its name is what History shows in place of a user's name. Managing API clients is an advanced setting.
 
 **API key**:
-The secret an API client sends to prove who it is. Sode shows it once when it is created and keeps only a hash. A session token is a different thing: it belongs to a user's sign-in.
+The secret an API client or a user sends over the API to prove who it is. Sode shows it once when it is created and keeps only a hash. Each key has a key name, such as "Panel 21", and History shows the actor with it, like "Seth (Panel 21)". A user's key dies with their PIN. A session token is a different thing: it belongs to a user's sign-in.
+
+**Rights**:
+What a user, API client or Guest may command: allowed sources, destinations, levels and presets, where an unset list means all. A take with any route outside the rights is refused whole before anything is sent. Rights are an advanced setting.
+
+**Visibility**:
+Set on each rights entry. Read-only, the default, shows everything and refuses commands outside the rights. Hidden also removes what is outside the rights from what that actor sees over the API. Browsers always see everything.
 
 **Shared settings**:
 The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs the Advanced Settings PIN or a trusted user. Personal settings, saved to This browser or Me, need neither.
