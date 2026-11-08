@@ -1,0 +1,315 @@
+openapi: 3.0.3
+info:
+  title: Sode API
+  version: "1"
+  description: |
+    Read access to one SW-P-08 router through Sode. The API is off until an administrator
+    turns it on in Settings. Served at /api/v1/openapi.yaml, always open.
+
+    Auth. Send a key as `Authorization: Bearer <key>`. A key is never accepted in a query
+    string. A call with no Authorization header is a Guest call, allowed only while the Guest
+    API switch is on, and only for the scopes Guest has been given.
+
+    Numbers. Sources and destinations are the router's own numbers, 0-based. Add
+    `numberOffset` (from /names) to show the number a person sees. Levels are UI levels, the
+    same numbers the rights lists use. A source of -1 means nothing is routed.
+
+    Via note. Any request may carry `X-Sode-Via`, free text (32 printable characters) that
+    Sode records beside the key name in the Communication Log, marked unverified. The key name
+    itself is set when the key is made, so it is verified.
+
+    Throttles. Each key has a rate limit per minute (the API settings default). A keyless
+    call is limited per source address. Ten bad keys from one address in a minute make that
+    address wait. Both answer 429 with `Retry-After` in seconds.
+
+    CORS is off: no cross-origin headers are sent.
+
+    Extending. Writes and the stream are added under `paths` and `components` with the same
+    conventions: errors use the `Error` schema and a code from the table below.
+  x-error-codes:
+    api_off: 503, the API switch is off
+    key_required: 401, no key and Guest API is off
+    invalid_key: 401, the key is unknown, malformed or its owner is gone
+    key_expired: 401, the key's expiry has passed
+    rate_limited: 429, too many requests or too many bad keys from this address
+    scope: 403, the key lacks the scope this path needs
+    https_required: 403, Require HTTPS is on and the request did not arrive securely
+    bad_request: 400, a parameter is not valid
+    not_found: 404, no such path
+    method_not_allowed: 405, the path does not take this method
+servers:
+  - url: /api/v1
+security:
+  - bearer: []
+  - {}
+paths:
+  /openapi.yaml:
+    get:
+      summary: This file
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI document, open even while the API is off
+          content:
+            application/yaml:
+              schema: { type: string }
+  /names:
+    get:
+      summary: Source and destination names
+      description: Scope `names`.
+      responses:
+        "200":
+          description: Names as the router last reported them
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [numberOffset, sources, destinations, namesAt]
+                properties:
+                  numberOffset: { type: integer, description: Add to a router number to show it }
+                  sources: { type: array, items: { $ref: "#/components/schemas/Name" } }
+                  destinations: { type: array, items: { $ref: "#/components/schemas/Name" } }
+                  namesAt: { type: string, format: date-time, description: When the names were last read, zero if never }
+        default: { $ref: "#/components/responses/Error" }
+  /tally:
+    get:
+      summary: What each destination is routed from, per level
+      description: Scope `tally`.
+      responses:
+        "200":
+          description: Levels and routes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [levels, routes]
+                properties:
+                  levels:
+                    type: array
+                    items:
+                      type: object
+                      required: [level, label]
+                      properties:
+                        level: { type: integer, description: UI level, from 1 }
+                        label: { type: string, description: How a person writes the level }
+                  routes: { type: array, items: { $ref: "#/components/schemas/Route" } }
+        default: { $ref: "#/components/responses/Error" }
+  /protected:
+    get:
+      summary: Protected destinations
+      description: Scope `protected`. A take to one is refused before anything is sent.
+      responses:
+        "200":
+          description: Protected destination and level pairs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [protected]
+                properties:
+                  protected: { type: array, items: { $ref: "#/components/schemas/Route" } }
+        default: { $ref: "#/components/responses/Error" }
+  /presets:
+    get:
+      summary: Presets
+      description: |
+        Scope `presets`. Everyone presets for any caller, plus Me presets for a user's key.
+        This browser presets live in a browser and are never listed.
+      responses:
+        "200":
+          description: Presets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [presets]
+                properties:
+                  presets: { type: array, items: { $ref: "#/components/schemas/Preset" } }
+        default: { $ref: "#/components/responses/Error" }
+  /history:
+    get:
+      summary: History, newest first, paged
+      description: |
+        Scope `history`. A page never ends inside a Group. Ask for the next page with
+        `before` set to the id of the oldest entry returned.
+      parameters:
+        - { $ref: "#/components/parameters/Before" }
+        - { $ref: "#/components/parameters/N" }
+      responses:
+        "200":
+          description: A page of History entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [before, entries, more]
+                properties:
+                  before: { type: integer, description: The page asked for, -1 for the newest }
+                  entries: { type: array, items: { $ref: "#/components/schemas/Entry" } }
+                  more: { type: boolean }
+        default: { $ref: "#/components/responses/Error" }
+  /status:
+    get:
+      summary: Server link and Router link
+      description: Scope `status`. The same facts as `/api/health`, which stays open without a key.
+      responses:
+        "200":
+          description: Link state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [server, router, routerUp, address, version, uptimeSeconds]
+                properties:
+                  server: { type: string, enum: [up] }
+                  router: { type: string, description: "up, connecting or down" }
+                  routerUp: { type: boolean }
+                  address: { type: string }
+                  err: { type: string }
+                  version: { type: string }
+                  uptimeSeconds: { type: integer }
+        default: { $ref: "#/components/responses/Error" }
+  /layouts:
+    get:
+      summary: Panel layouts
+      description: Scope `layouts`. Read-only. The content is defined by the panel page ticket; the list is empty until then.
+      responses:
+        "200":
+          description: Layouts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [layouts]
+                properties:
+                  layouts: { type: array, items: { type: object } }
+        default: { $ref: "#/components/responses/Error" }
+  /log:
+    get:
+      summary: Communication Log, newest first, paged
+      description: |
+        Scope `log`. Shows raw router messages and API rows, so it ignores visibility. Ask
+        for the next page with `before` set to the `seq` of the oldest row returned.
+      parameters:
+        - { $ref: "#/components/parameters/Before" }
+        - { $ref: "#/components/parameters/N" }
+      responses:
+        "200":
+          description: A page of rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [before, entries, more, total]
+                properties:
+                  before: { type: integer }
+                  entries: { type: array, items: { $ref: "#/components/schemas/LogRow" } }
+                  more: { type: boolean }
+                  total: { type: integer }
+        default: { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: An API key, shown once when it is made.
+  parameters:
+    Before:
+      name: before
+      in: query
+      schema: { type: integer }
+      description: Page cursor, see the path. Default is the newest page.
+    N:
+      name: n
+      in: query
+      schema: { type: integer, minimum: 1 }
+      description: Page size. Defaults and caps differ per path (History 50 up to 500, log 100 up to 500).
+  responses:
+    Error:
+      description: An error, with the reason in `error.code`
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, description: See x-error-codes in info }
+            message: { type: string }
+    Name:
+      type: object
+      required: [n, name]
+      properties:
+        n: { type: integer }
+        name: { type: string }
+    Route:
+      type: object
+      required: [dst, level, src]
+      properties:
+        dst: { type: integer }
+        level: { type: integer, description: UI level }
+        src: { type: integer, description: -1 = nothing routed }
+    Preset:
+      type: object
+      required: [scope, name, items]
+      properties:
+        scope: { type: string, enum: [everyone, me] }
+        name: { type: string }
+        pinned: { type: boolean }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              src: { type: integer }
+              dsts: { type: array, items: { type: integer } }
+              levels: { type: array, items: { type: integer }, description: Empty means the default levels }
+    Actor:
+      type: object
+      required: [kind, name]
+      properties:
+        kind: { type: string, enum: [user, client] }
+        name: { type: string }
+        key: { type: string, description: The key name, verified }
+        via: { type: string, description: The caller's own note, unverified }
+    Entry:
+      type: object
+      description: One route of a take. Fields beyond these appear as they apply (Failed, Already, Late, Group, ...).
+      required: [id, time, client, src, dst, levels, ok]
+      properties:
+        id: { type: integer }
+        time: { type: string, format: date-time }
+        client: { type: string, description: Who did it, a user, an API actor with key name, or an address }
+        actor: { $ref: "#/components/schemas/Actor" }
+        src: { type: integer }
+        srcName: { type: string }
+        dst: { type: integer }
+        dstName: { type: string }
+        levels: { type: array, items: { type: integer } }
+        prev: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }, description: "[UI level, src] before the take, -1 = nothing routed" }
+        ok: { type: boolean }
+        err: { type: string }
+        undo: { type: integer }
+        retry: { type: integer }
+        group: { type: string }
+        preset: { type: string }
+        ext: { type: boolean, description: An External change }
+    LogRow:
+      type: object
+      description: One Communication Log row, a router message or an event such as an `api` row.
+      required: [seq, time, kind, result]
+      properties:
+        seq: { type: integer }
+        time: { type: string, format: date-time }
+        kind: { type: string }
+        why: { type: string }
+        by: { type: string }
+        result: { type: string }
+        err: { type: string }
+        note: { type: string }
+        hex: { type: string }

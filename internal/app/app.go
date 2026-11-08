@@ -110,6 +110,8 @@ type App struct {
 	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
+
+	apiS apiState // REST throttles (apiauth.go)
 }
 
 // routerState is replaced as a whole on a router change. Guarded by App.mu.
@@ -244,6 +246,7 @@ func (a *App) periodic() {
 		a.touchSessions()
 	}
 	a.expireKeys(time.Now())
+	a.flushAuthFails(time.Now())
 	if !up {
 		return
 	}

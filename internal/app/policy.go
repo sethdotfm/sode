@@ -18,7 +18,7 @@ import (
 //	open: hi userUnlock userLock userSignOut userSetPin unlock lock history
 //	needMain: `batch` `refreshNames`; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
-//	needAdmin: users userSignOutAll configExport configImportBegin configImport
+//	needAdmin: users apiSettings userSignOutAll configExport configImportBegin configImport
 //	profileSave: the user's own unlock or needTrusted; profileGet needTrusted; both re-checked by guardProfile.
 type need uint8
 
@@ -162,6 +162,15 @@ var policy = map[string]rule{
 	"keyCreateFor": {need: needAdmin, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreateFor(c, m) }},
 	"keyRevokeAny": {need: needAdmin, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAny(c, m) }},
 	"keyRevokeAll": {need: needAdmin, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAll(c, m) }},
+	// the API settings area: advanced, so the Advanced Settings PIN even for a trusted user
+	"apiSettings": {need: needAdmin, op: "apiSettings", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+		if m.APISet == nil {
+			return
+		}
+		go func(r apiSettingsReq, id int) {
+			a.replyOp(c, "apiSettings", id, 0, "", a.SaveAPISettings(c, r))
+		}(*m.APISet, m.ID)
+	}},
 	"usersList": {need: needAdmin, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
 	// and SaveUsers wants an Advanced Settings PIN to exist

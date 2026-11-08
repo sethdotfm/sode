@@ -120,6 +120,10 @@ With users set up, each user has a **profile**. It holds their own This browser 
 
 **Server configuration backup.** Settings > Server backup has **Export** and **Import** for the whole `config.yaml`, and both need the Advanced Settings PIN. PINs are left out unless you tick *Include Secrets (private backup)*, which makes a secret file, so keep it private. Importing replaces everything. If the file has no PINs, each user keeps their current PIN by name, and Sode refuses a new user in the file until it carries a PIN.
 
+## API (read only so far)
+
+`/api/v1` is off until an administrator turns on *API enabled* (the `apiSettings` message, advanced). Send a key as `Authorization: Bearer <key>`; a call with no header is a Guest call, allowed only with *Guest API* on and limited to Guest's scopes (default names, tally, protected, status). Reads: `names`, `tally`, `protected`, `presets`, `history`, `status`, `layouts`, `log` (log scope). Each needs the scope of the same name. Each key has a rate limit per minute; keyless calls are limited per address; ten bad keys from one address in a minute make it wait. *Log API reads* writes one `api` row per read. The contract is `/api/v1/openapi.yaml`, open even while the API is off. Numbers are the router's own, 0-based; add `numberOffset` to display them.
+
 ## Monitoring (Uptime Kuma)
 
 `GET /api/health` reports the server and the router separately. It needs no PIN and shows no settings:

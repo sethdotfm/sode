@@ -36,6 +36,10 @@ func (a *App) httpsGate(next http.Handler) http.Handler {
 			return
 		}
 		if !secureRequest(r, rt.proxies) {
+			if isAPIPath(r.URL.Path) {
+				apiFail(w, http.StatusForbidden, "https_required", "HTTPS required: Require HTTPS is on, and this request did not arrive over HTTPS through a trusted proxy")
+				return
+			}
 			http.Error(w, "HTTPS required: Require HTTPS is on, and this request did not arrive over HTTPS through a trusted proxy", http.StatusForbidden)
 			return
 		}

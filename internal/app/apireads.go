@@ -1,0 +1,123 @@
+package app
+
+import (
+	"net/http"
+	"sort"
+	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/internal/swp08"
+)
+
+// Router state reads: names, tally, protected destinations, status, panel layouts.
+
+func init() {
+	registerAPI(
+		apiRoute{"GET", apiBase + "/names", config.ScopeNames, (*App).apiNames},
+		apiRoute{"GET", apiBase + "/tally", config.ScopeTally, (*App).apiTally},
+		apiRoute{"GET", apiBase + "/protected", config.ScopeProtected, (*App).apiProtected},
+		apiRoute{"GET", apiBase + "/status", config.ScopeStatus, (*App).apiStatus},
+		apiRoute{"GET", apiBase + "/layouts", config.ScopeLayouts, (*App).apiLayouts},
+	)
+}
+
+type apiName struct {
+	N    int    `json:"n"`
+	Name string `json:"name"`
+}
+
+type apiNames struct {
+	NumberOffset int       `json:"numberOffset"`
+	Sources      []apiName `json:"sources"`
+	Destinations []apiName `json:"destinations"`
+	NamesAt      time.Time `json:"namesAt"`
+}
+
+func namesOf(m map[int]string, ok func(int) bool) []apiName {
+	out := []apiName{}
+	for n, name := range m {
+		if ok(n) {
+			out = append(out, apiName{n, name})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].N < out[j].N })
+	return out
+}
+
+func (a *App) apiNames(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+	v := cl.view()
+	a.mu.Lock()
+	res := apiNames{
+		NumberOffset: a.r().cfg.NumberOffset,
+		Sources:      namesOf(a.router.srcNames, v.Source),
+		Destinations: namesOf(a.router.dstNames, v.Destination),
+		NamesAt:      a.router.namesAt,
+	}
+	a.mu.Unlock()
+	apiJSON(w, res)
+}
+
+type apiRouteRow struct {
+	Dst   int `json:"dst"`
+	Level int `json:"level"` // UI level
+	Src   int `json:"src"`   // -1 = nothing routed
+}
+
+// routeRows lists a dst to level to value map in a stable order, keeping what v shows.
+func routeRows(m map[int]map[int]int, v apiView) []apiRouteRow {
+	out := []apiRouteRow{}
+	for d, t := range m {
+		for l, s := range t {
+			if v.Route(d, l, s) {
+				out = append(out, apiRouteRow{d, l, s})
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Dst != out[j].Dst {
+			return out[i].Dst < out[j].Dst
+		}
+		return out[i].Level < out[j].Level
+	})
+	return out
+}
+
+type apiLevel struct {
+	Level int    `json:"level"`
+	Label string `json:"label"`
+}
+
+func (a *App) apiTally(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+	levels := []apiLevel{}
+	for _, l := range a.r().levels {
+		levels = append(levels, apiLevel{l.UI, l.Label})
+	}
+	a.mu.Lock()
+	routes := routeRows(a.router.tally, cl.view())
+	a.mu.Unlock()
+	apiJSON(w, map[string]any{"levels": levels, "routes": routes})
+}
+
+func (a *App) apiProtected(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+	a.mu.Lock()
+	rows := routeRows(a.router.protect, cl.view())
+	a.mu.Unlock()
+	apiJSON(w, map[string]any{"protected": rows})
+}
+
+// apiStatus: the Server link and the Router link, as /api/health reports them.
+func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, _ *apiCtx) {
+	a.mu.Lock()
+	st := a.status
+	a.mu.Unlock()
+	apiJSON(w, map[string]any{
+		"server": "up", "router": st.Router, "address": st.Addr, "err": st.Err,
+		"version": VersionLabel(), "uptimeSeconds": int64(time.Since(a.started).Seconds()),
+		"routerUp": st.Router == string(swp08.StateUp),
+	})
+}
+
+// apiLayouts: the panel ticket defines the content; the endpoint exists so clients can ask.
+func (a *App) apiLayouts(w http.ResponseWriter, _ *http.Request, _ *apiCtx) {
+	apiJSON(w, map[string]any{"layouts": []any{}})
+}

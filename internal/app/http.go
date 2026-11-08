@@ -67,6 +67,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
 	mux.HandleFunc("/api/yaml", a.serveYAML)
+	a.mountAPI(mux)
 	return a.httpsGate(secureHeaders(mux))
 }
 
@@ -336,6 +337,7 @@ type inMsg struct {
 	KeyID      string             `json:"keyId"`   // keyRevoke, keyRevokeAny
 	Expires    int64              `json:"expires"` // key expiry, unix ms; 0 = never
 	Owner      *keyOwner          `json:"owner"`   // keyCreateFor, keyRevokeAll
+	APISet     *apiSettingsReq    `json:"apiSettings"`
 }
 
 func plural(n int, one, many string) string {

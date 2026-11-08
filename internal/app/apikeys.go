@@ -157,8 +157,15 @@ func (s *keyStore) count(o keyOwner) int {
 
 // lookup finds the live key for a presented secret; an expired key is not found.
 func (s *keyStore) lookup(secret string, now time.Time) (apiKey, bool) {
+	k, _, ok := s.find(secret, now)
+	return k, ok
+}
+
+// find is lookup that also says a key was found but has expired, so the API can name that
+// reason. An expired key still in the store is not returned as live.
+func (s *keyStore) find(secret string, now time.Time) (k apiKey, expired, ok bool) {
 	if !strings.HasPrefix(secret, keyPrefix) {
-		return apiKey{}, false
+		return apiKey{}, false, false
 	}
 	h := keyHash(secret)
 	s.mu.Lock()
@@ -166,12 +173,12 @@ func (s *keyStore) lookup(secret string, now time.Time) (apiKey, bool) {
 	for _, r := range s.recs {
 		if subtle.ConstantTimeCompare([]byte(r.Hash), []byte(h)) == 1 {
 			if !r.Expires.IsZero() && !now.Before(r.Expires) {
-				return apiKey{}, false
+				return apiKey{}, true, false
 			}
-			return r.apiKey, true
+			return r.apiKey, false, true
 		}
 	}
-	return apiKey{}, false
+	return apiKey{}, false, false
 }
 
 // used counts one use. The file follows within keyWriteEvery or at flush.
