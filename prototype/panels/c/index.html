@@ -1,69 +1,20 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Panels prototype C: hold-to-take amber panel</title>
+<title>Panels prototype C: amber hold-to-take</title>
 <link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/shared/proto.css">
-<style>
-/* C: three columns. Destinations left, sources and presets centre, one full-height Take column on the right
-   with a hold guard (press and hold fills a ring). Colours are a user palette, here amber-on-black like a
-   hardware panel, to show that kinds need not be told apart by hue. */
-:root { --c-src:#2a2a2a; --c-idle:#2a2a2a; --c-pre:#2a2a2a; --c-take:#5a1010; --c-clr:#2a2a2a; --c-cur:#101010; --amber:#ffb000 }
-body { color:var(--amber); padding-top:2.2rem; box-sizing:border-box; height:100vh; display:grid; grid-template-columns:15rem 1fr 14rem; gap:.5rem; padding:2.6rem .5rem .5rem }
-.col { display:flex; flex-direction:column; gap:.4rem; min-height:0 }
-.grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; align-content:start; flex:1 }
-.c { border:1px solid #6b4a00; border-radius:.2rem; background:var(--bg); color:var(--amber); padding:.4rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; position:relative; overflow:hidden }
-.c small { display:block; font-weight:400; opacity:.8 }
-.c.sel { background:var(--amber); color:#000 }
-.c[disabled] { opacity:.3 }
-#cur { background:#000; border:1px solid var(--amber); padding:.6rem; text-align:left; min-height:5rem }
-#dsts { display:flex; flex-direction:column; gap:.4rem; flex:1 } #dsts .c { flex:1; text-align:left }
-#take { flex:1; font-size:2rem; letter-spacing:.3em }
-#ring { position:absolute; left:0; bottom:0; height:.6rem; width:0; background:#fff }
-.banner2 { font-size:.75rem; opacity:.7 }
-</style></head><body>
-<div class="col" id="left"><div class="c" id="cur"></div><div id="dsts"></div></div>
-<div class="col"><div class="grid" id="srcs"></div><div class="grid" id="pres" style="flex:0"></div></div>
-<div class="col" id="right"></div>
+<style>/* C: amber-on-black hardware look, tall Take column at the right with a hold guard. */
+:root { --c-idle:#2a2a2a; --c-pre:#2a2a2a; --c-clr:#2a2a2a; --c-take:#5a1010; --c-cur:#000; --gap:.3rem }
+body { color:#ffb000 } .cell { border:1px solid #6b4a00; border-radius:.2rem; color:#ffb000; text-transform:uppercase; letter-spacing:.04em }</style></head><body><div id="deck"></div>
 <script type="module">
-import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED, srcState, dstState } from '/shared/model.js'
+import { createPanel } from '/shared/model.js'
+import { buildDeck } from '/shared/deck.js'
 import { toolbar } from '/shared/toolbar.js'
 const p = createPanel({ guard: 'hold' })
 toolbar(p, 'C amber, hold guard', '<label>Guard <select id="t-guard"><option value="hold">Hold 0.6s</option><option value="double">Double press</option><option value="none">None</option></select></label>')
+const cells = []
+for (let i = 0; i < 8; i++) cells.push({ r: 1 + (i >> 1), c: 1 + (i & 1), kind: 'dst', n: i })
+for (let i = 0; i < 12; i++) cells.push({ r: 1 + (i >> 2), c: 3 + (i & 3), kind: 'src', n: i })
+cells.push({ r: 4, c: 3, cs: 2, kind: 'cur' }, { r: 4, c: 5, kind: 'pre', id: 'p1' }, { r: 4, c: 6, kind: 'pre', id: 'p2' })
+cells.push({ r: 1, c: 7, cs: 2, rs: 3, kind: 'take' }, { r: 4, c: 7, kind: 'clr' }, { r: 4, c: 8, kind: 'pre', id: 'p3' })
 document.getElementById('t-guard').onchange = (e) => (p.st.guard = e.target.value)
-const mk = (parent, cls, fn) => { const b = document.createElement('button'); b.className = 'c ' + cls; b.onclick = fn; parent.append(b); return b }
-const dsts = DESTS.map((d) => mk(document.getElementById('dsts'), 'dst', () => p.pickDst(d.n)))
-const srcs = SOURCES.map((s) => mk(document.getElementById('srcs'), 'src', () => p.pickSrc(s.n)))
-const pres = PRESETS.map((x) => mk(document.getElementById('pres'), 'pre', () => p.pickPreset(x.id)))
-const take = mk(document.getElementById('right'), 'take', null); take.id = 'take'
-const clr = mk(document.getElementById('right'), 'clr', () => p.clear()); clr.textContent = 'Clear'; clr.style.height = '5rem'
-take.insertAdjacentHTML('beforeend', '<div id="ring"></div>')
-// Guard: hold fills the ring; double press needs two presses within 500ms.
-let t0 = 0, raf = 0, lastTap = 0
-const ring = take.querySelector('#ring')
-const stop = () => { cancelAnimationFrame(raf); ring.style.width = '0'; t0 = 0 }
-take.onpointerdown = () => {
-  if (!p.armed()) return
-  if (p.st.guard === 'hold') {
-    t0 = performance.now()
-    const tick = () => { const k = Math.min(1, (performance.now() - t0) / 600); ring.style.width = k * 100 + '%'; if (k >= 1) { stop(); p.take() } else raf = requestAnimationFrame(tick) }
-    tick()
-  } else if (p.st.guard === 'double') { const n = Date.now(); if (n - lastTap < 500) { lastTap = 0; p.take() } else lastTap = n }
-  else p.take()
-}
-take.onpointerup = take.onpointerleave = stop
-p.subscribe((st) => {
-  DESTS.forEach((d, i) => {
-    const f = flashOf(st, d.n), b = dsts[i]
-    b.className = 'c dst' + (f ? ' flash-' + f : '')
-    b.dataset.s = dstState(st, d.n)
-    b.disabled = PROTECTED.has(d.n)
-    b.innerHTML = `${d.name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${b.disabled ? 'protected' : SOURCES[st.tally[d.n]].name}</small>${st.staged.has(d.n) ? `<span class="stg">&rarr; ${SOURCES[st.staged.get(d.n)].name}</span>` : ''}`
-  })
-  SOURCES.forEach((s, i) => { srcs[i].textContent = s.name; srcs[i].dataset.s = srcState(st, s.n) })
-  PRESETS.forEach((x, i) => { pres[i].textContent = x.name; pres[i].classList.toggle('sel', st.presetName === x.name) })
-  const lbl = st.mode === 'instant' ? 'Instant' : 'Take'
-  take.firstChild.textContent !== undefined && (take.childNodes[0].nodeType === 3 ? (take.childNodes[0].textContent = lbl) : take.prepend(lbl))
-  take.disabled = st.mode === 'instant'
-  take.classList.toggle('armed', p.armed())
-  document.getElementById('cur').innerHTML = st.view != null
-    ? `${DESTS[st.view].name}<small>now ${SOURCES[st.tally[st.view]].name}${st.staged.has(st.view) ? ' &rarr; ' + SOURCES[st.staged.get(st.view)].name : ''}</small><small>${st.staged.size} staged</small>` : 'Pick a destination'
-})
+buildDeck(document.getElementById('deck'), p, cells)
 </script></body></html>

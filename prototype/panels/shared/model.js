@@ -5,11 +5,11 @@ export const LEVELS = [1, 2, 3]
 export const PRESETS = [
   { id: 'p1', name: 'Show open', routes: [[5, 0], [6, 1], [7, 4]] },
   { id: 'p2', name: 'Replay', routes: [[9, 0], [10, 1]] },
-  { id: 'p3', name: 'Bars all', routes: [[15, 0], [15, 1], [15, 2], [15, 3]] },
+  { id: 'p3', name: 'VT 1 all', routes: [[11, 0], [11, 1], [11, 2], [11, 3]] },
 ]
 // Level sets: a take sends the intersection of the Source's and Destination's sets.
 const destLevels = { 5: [1, 2], 9: [3] }
-const srcLevels = { 12: [3], 13: [1] }
+const srcLevels = { 10: [3], 11: [1] }
 export const levelsOf = (kind, n) => (kind === 'dst' ? destLevels : srcLevels)[n] || LEVELS
 export const common = (s, d) => levelsOf('src', s).filter((l) => levelsOf('dst', d).includes(l))
 export const PROTECTED = new Set([6])
@@ -22,7 +22,7 @@ export function createPanel(opts = {}) {
     idleClear: true,
     view: null, // destination whose current/pending source the grid shows
     staged: new Map(), // dst -> src, applied together by Take
-    tally: Object.fromEntries(DESTS.map((d, i) => [d.n, (i * 3) % SOURCES.length])),
+    tally: Object.fromEntries(DESTS.map((d, i) => [d.n, (i * 3) % 12])),
     flash: {},
     error: null,
     log: [],
@@ -106,5 +106,5 @@ export const flashOf = (st, dst) => {
 export const ICON = { connected: '✓', already: '＝', failed: '✕' }
 // Source cell state for the viewed destination: solid green is what it has now, flashing green is staged.
 export const srcState = (st, n) => (st.view == null ? 'idle' : st.tally[st.view] === n ? 'current' : st.staged.get(st.view) === n ? 'pending' : 'idle')
-// Destination cell state: orange is the one being viewed; staged ones keep an orange outline.
-export const dstState = (st, d) => (d === st.view ? 'view' : st.staged.has(d) ? 'staged' : 'idle')
+// Destination cell state: blinking orange has staged info, solid orange is viewed, otherwise grey.
+export const dstState = (st, d) => (st.staged.has(d) ? 'staged' : d === st.view ? 'view' : 'idle')
