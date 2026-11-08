@@ -25,10 +25,10 @@ func rightsApp(t *testing.T, r config.Rights) (*App, *fakeRouter, *client) {
 	if err := a.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
-	return a, f, signedIn(t, a, "Ana")
+	return a, f, rightsSignedIn(t, a, "Ana")
 }
 
-func signedIn(t *testing.T, a *App, name string) *client {
+func rightsSignedIn(t *testing.T, a *App, name string) *client {
 	t.Helper()
 	u, _ := a.r().cfg.FindUser(name)
 	c := &client{ip: "10.0.0.1", send: make(chan []byte, 32)}
