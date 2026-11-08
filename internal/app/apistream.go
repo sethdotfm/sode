@@ -33,11 +33,22 @@ import (
 // route or entry. A tally change whose Source is hidden is left out, as the REST read
 // leaves it out, so a client never sees -1 for a route that has a hidden source. Frames go out in the order the server saw the changes.
 
+// A config commit re-resolves each open stream (refreshStreams): a rights change filters the
+// next frame, and losing the API, Guest, a topic scope or the log scope ends the stream.
+// Liveness is the text ping frame alone. Each key and each address may hold 8 streams; more
+// get 429.
+
 func init() {
 	registerAPI(apiRoute{"GET", apiBase + "/stream", "", (*App).apiStreamServe})
 }
 
 const apiStreamVersion = 1
+
+// Open streams allowed at once. Vars so tests can isolate one cap.
+var (
+	apiStreamMaxPerKey  = 8
+	apiStreamMaxPerAddr = 8
+)
 
 // streamTopics maps a topic to the scope that allows it. results (entry updates only) rides
 // the history scope.
@@ -62,6 +73,8 @@ type apiStream struct {
 	send   chan []byte
 	detail bool               // the caller has the log scope: status frames carry addr and err
 	keyID  string             // "" for a keyless Guest call
+	ip     string             // the caller's address, for the per-address cap
+	owner  keyOwner           // who the key acts as, re-read on every config commit
 	cancel context.CancelFunc // ends the connection; safe from any goroutine
 	ended  string             // why a key lifecycle path cut it, set under App.mu
 }
@@ -100,27 +113,38 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			return
 		}
 	}
-	conn, err := websocket.Accept(w, r, nil)
-	if err != nil {
-		return
-	}
-	defer conn.CloseNow()
-	conn.SetReadLimit(1 << 10) // the stream takes no input
-
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	st := &apiStream{view: cl.view(), detail: cl.has(config.ScopeLog), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel}
+	st := &apiStream{view: cl.view(), detail: cl.has(config.ScopeLog), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel, ip: cl.IP}
 	if cl.Key != nil {
 		st.keyID = cl.Key.ID
+		st.owner = cl.Key.Owner
 	}
 	for _, t := range topics {
 		st.topics[t] = true
 	}
 
-	// Register and queue the snapshots under one lock so no change arrives ahead of them.
+	// Register (after the caps) and queue the snapshots under one lock so no change arrives
+	// ahead of them. Registering before the upgrade keeps the caps exact under a burst.
 	a.mu.Lock()
 	if a.streams == nil {
 		a.streams = map[*apiStream]struct{}{}
+	}
+	perKey, perAddr := 0, 0
+	for o := range a.streams {
+		if st.keyID != "" && o.keyID == st.keyID {
+			perKey++
+		}
+		if o.ip == st.ip {
+			perAddr++
+		}
+	}
+	if perKey >= apiStreamMaxPerKey || perAddr >= apiStreamMaxPerAddr {
+		a.mu.Unlock()
+		msg := fmt.Sprintf("too many open streams: %d for a key and %d for an address at most", apiStreamMaxPerKey, apiStreamMaxPerAddr)
+		a.apiEvent(cl.Actor, "refused", "refused", "stream "+strings.Join(topics, ","), fmt.Errorf("%s", msg))
+		apiFail(w, http.StatusTooManyRequests, "too_many_streams", msg)
+		return
 	}
 	a.streams[st] = struct{}{}
 	a.streamQueue(st, streamMsg{T: "hello", Data: map[string]any{
@@ -139,6 +163,14 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 	}
 	a.mu.Unlock()
+	conn, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		a.dropStream(st)
+		return
+	}
+	defer conn.CloseNow()
+	conn.SetReadLimit(1 << 10) // the stream takes no input
+
 	// A key ended between auth and registering is not seen by endStreams.
 	if st.keyID != "" && !a.keys.alive(st.keyID) {
 		a.endStreams([]apiKey{*cl.Key}, "key ended")
@@ -148,11 +180,8 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	a.apiEvent(cl.Actor, "streamConnect", "ok", "topics "+strings.Join(topics, ", "), nil)
 	var gone error
 	defer func() {
+		a.dropStream(st)
 		a.mu.Lock()
-		if _, ok := a.streams[st]; ok {
-			delete(a.streams, st)
-			close(st.send)
-		}
 		ended := st.ended
 		a.mu.Unlock()
 		var cerr error
@@ -172,8 +201,6 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 
 	go func() {
 		defer cancel()
-		ping := time.NewTicker(20 * time.Second)
-		defer ping.Stop()
 		beat := time.NewTicker(wsHeartbeat)
 		defer beat.Stop()
 		write := func(b []byte) error {
@@ -197,13 +224,6 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 				if write(pingMsg) != nil {
 					return
 				}
-			case <-ping.C:
-				pctx, pcancel := context.WithTimeout(ctx, 10*time.Second)
-				err := conn.Ping(pctx)
-				pcancel()
-				if err != nil {
-					return
-				}
 			}
 		}
 	}()
@@ -213,6 +233,16 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			gone = err
 			return
 		}
+	}
+}
+
+// dropStream unregisters st and closes its queue once. Takes mu.
+func (a *App) dropStream(st *apiStream) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.streams[st]; ok {
+		delete(a.streams, st)
+		close(st.send)
 	}
 }
 
@@ -238,6 +268,44 @@ func (a *App) endStreams(keys []apiKey, why string) {
 	}
 }
 
+// refreshStreams applies a config commit to the open streams as the next REST call would see
+// it: a changed view takes effect at once, and a stream ends when its caller lost the API,
+// Guest, a scope it uses or its log detail. Caller holds mu.
+func (a *App) refreshStreams(cfg config.Config) {
+	for st := range a.streams {
+		if st.ended != "" {
+			continue
+		}
+		why := ""
+		cl := &apiCtx{Scopes: cfg.GuestAPIScopes, Rights: cfg.GuestRights}
+		switch {
+		case !cfg.API.Enabled:
+			why = "the API is off"
+		case st.keyID == "" && !cfg.API.GuestEnabled:
+			why = "the Guest API is off"
+		case st.keyID != "":
+			if cl = a.resolveKey(cfg, apiKey{Owner: st.owner}, ""); cl == nil {
+				continue // pruneKeys ends it
+			}
+		}
+		if why == "" {
+			lost := st.detail && !cl.has(config.ScopeLog)
+			for t := range st.topics {
+				lost = lost || !cl.has(streamTopics[t])
+			}
+			if lost {
+				why = "its scopes changed"
+			}
+		}
+		if why != "" {
+			st.ended = why
+			st.cancel()
+			continue
+		}
+		st.view = cl.view()
+	}
+}
+
 // streamQueue drops the stream if it can't keep up. Caller holds mu.
 func (a *App) streamQueue(st *apiStream, m streamMsg) {
 	b, err := json.Marshal(m)
@@ -252,6 +320,9 @@ func (a *App) streamQueue(st *apiStream, m streamMsg) {
 	case st.send <- b:
 	default:
 		log.Printf("api stream: too slow, dropping")
+		if st.ended == "" {
+			st.ended = "too slow"
+		}
 		delete(a.streams, st)
 		close(st.send)
 	}
