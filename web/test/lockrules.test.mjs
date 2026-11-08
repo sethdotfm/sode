@@ -269,6 +269,7 @@ test('guardedEdited: the locks and the idle time need the PIN (Go guard:"pin")',
   assert.equal(guardedEdited({ ...cur, locks: { main: false, log: false } }, cur), true);
   assert.equal(guardedEdited({ ...cur, locks: { main: true, log: true } }, cur), true);
   assert.equal(guardedEdited({ ...cur, autoLockMinutes: 5 }, cur), true);
+  assert.equal(guardedEdited({ ...cur, requireHttps: true }, { ...cur, requireHttps: false }), true);
   assert.equal(guardedEdited({ ...cur, locks: undefined }, { ...cur, locks: {} }), false);
 });
 

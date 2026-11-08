@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
@@ -23,7 +24,8 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 	}
 	// A trusted user may not weaken what the admin guards through plain fields.
 	admin := a.settingsUnlocked(c)
-	return a.applyConfig(func(cur *config.Config) error {
+	toggled, now := false, false
+	err := a.applyConfig(func(cur *config.Config) error {
 		// cur is a copy of live; fields saved apart (owned) stay as is, so a stale browser
 		// copy can't undo them.
 		live := *cur
@@ -35,6 +37,10 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 			if err := trustedMayNotChange(live, cfg); err != nil {
 				return err
 			}
+		}
+		// Turning it on from a connection that is not secure would lock this page out (ADR 0005).
+		if toggled, now = cfg.RequireHTTPS != live.RequireHTTPS, cfg.RequireHTTPS; toggled && now && !c.secure {
+			return errInsecureSave
 		}
 		defaults := cfg.DeviceDefaults // owned, but the form edits it
 		*cur = cfg
@@ -55,7 +61,13 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 		}
 		return nil
 	})
+	if err == nil && toggled {
+		a.apiEvent(Actor{Kind: actorUser, Name: c.who()}, "requireHttps", map[bool]string{true: "on", false: "off"}[now], "", nil)
+	}
+	return err
 }
+
+var errInsecureSave = errors.New("turning on Require HTTPS needs a request that arrived over HTTPS through a trusted proxy, so you can't lock yourself out; open Sode through your HTTPS address and save again")
 
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	return a.saveShared(c, func(cur *config.Config) error {
