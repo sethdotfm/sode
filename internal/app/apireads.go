@@ -139,10 +139,10 @@ func (a *App) apiProtected(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 // linkStatus is the Router link as any caller with the status scope sees it. The router
 // address and the error text (which quotes it) go only to a caller with the log scope, the
 // same rule as the Communication Log's raw router rows.
-func linkStatus(s statusMsg, withDetail bool, addrKey string) map[string]any {
+func linkStatus(s statusMsg, withDetail bool) map[string]any {
 	m := map[string]any{"router": s.Router, "routerUp": s.Router == string(swp08.StateUp), "error": s.Err != ""}
 	if withDetail {
-		m[addrKey], m["err"] = s.Addr, s.Err
+		m["address"], m["err"] = s.Addr, s.Err
 	}
 	return m
 }
@@ -152,7 +152,7 @@ func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
 	st := a.status
 	a.mu.Unlock()
-	m := linkStatus(st, cl.has(config.ScopeLog), "address")
+	m := linkStatus(st, cl.has(config.ScopeLog))
 	m["server"], m["version"], m["uptimeSeconds"] = "up", VersionLabel(), int64(time.Since(a.started).Seconds())
 	apiJSON(w, m)
 }

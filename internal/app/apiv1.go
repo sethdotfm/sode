@@ -31,6 +31,16 @@ type apiCtx struct {
 
 func (c *apiCtx) has(scope string) bool { return slices.Contains(c.Scopes, scope) }
 
+// missing is the first scope of the space-separated list the caller lacks, or "".
+func (c *apiCtx) missing(scopes string) string {
+	for _, s := range strings.Fields(scopes) {
+		if !c.has(s) {
+			return s
+		}
+	}
+	return ""
+}
+
 func (c *apiCtx) caller() *apiCaller { return &apiCaller{Actor: c.Actor, Rights: c.Rights} }
 
 // client is the take path's view of this caller (see rights.go).
@@ -41,7 +51,8 @@ func (c *apiCtx) client() *client {
 // apiHandler runs after auth, rate limit and scope checks passed.
 type apiHandler func(a *App, w http.ResponseWriter, r *http.Request, cl *apiCtx)
 
-// apiRoute: Scope "" means any authenticated caller (none today). Path includes apiBase.
+// apiRoute: Scope "" means any authenticated caller (none today); several scopes are
+// separated by spaces and the caller needs all of them. Path includes apiBase.
 type apiRoute struct {
 	Method, Path, Scope string
 	Handle              apiHandler
@@ -63,6 +74,9 @@ type apiErr struct {
 func apiFail(w http.ResponseWriter, status int, code, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
+	if status == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", "Bearer")
+	}
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(apiErrBody{apiErr{code, msg}})
 }
@@ -85,7 +99,7 @@ func (a *App) mountAPI(mux *http.ServeMux) {
 	mux.HandleFunc(apiBase+"/", func(w http.ResponseWriter, r *http.Request) {
 		var allow []string
 		for _, rt := range apiRoutes {
-			if rt.Path == r.URL.Path && !slices.Contains(allow, rt.Method) {
+			if pathMatches(rt.Path, r.URL.Path) && !slices.Contains(allow, rt.Method) {
 				allow = append(allow, rt.Method)
 			}
 		}
@@ -98,19 +112,33 @@ func (a *App) mountAPI(mux *http.ServeMux) {
 	})
 }
 
+// pathMatches compares a route path with a request path; a {name} segment matches any one segment.
+func pathMatches(pattern, path string) bool {
+	ps, qs := strings.Split(pattern, "/"), strings.Split(path, "/")
+	if len(ps) != len(qs) {
+		return false
+	}
+	for i, p := range ps {
+		if p != qs[i] && !(strings.HasPrefix(p, "{") && strings.HasSuffix(p, "}") && qs[i] != "") {
+			return false
+		}
+	}
+	return true
+}
+
 func (a *App) apiWrap(rt apiRoute) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cl, ok := a.apiAuth(w, r)
 		if !ok {
 			return
 		}
-		if rt.Scope != "" && !cl.has(rt.Scope) {
-			msg := fmt.Sprintf("this key lacks the %q scope", rt.Scope)
+		if missing := cl.missing(rt.Scope); missing != "" {
+			msg := fmt.Sprintf("this key lacks the %q scope", missing)
 			a.apiEvent(cl.Actor, "refused", "refused", rt.Method+" "+r.URL.Path, fmt.Errorf("%s", msg))
 			apiFail(w, http.StatusForbidden, "scope", msg)
 			return
 		}
-		if rt.Method == http.MethodGet && a.r().cfg.API.LogReads {
+		if rt.Method == http.MethodGet && a.r().cfg.API.LogReads && r.URL.Path != apiBase+"/stream" { // the stream writes streamConnect
 			a.apiEvent(cl.Actor, "read", "ok", r.URL.Path, nil)
 		}
 		rt.Handle(a, w, r, cl)
