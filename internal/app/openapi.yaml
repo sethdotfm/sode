@@ -183,6 +183,29 @@ paths:
                   entries: { type: array, items: { $ref: "#/components/schemas/Entry" } }
                   more: { type: boolean }
         default: { $ref: "#/components/responses/Error" }
+  /history/groups/last:
+    get:
+      summary: The most recent Group in History
+      description: |
+        Scope `history`. A Group is a take of several routes, so a caller can undo it by
+        calling `/history/{id}/undo` for each returned entry. A take of one route is not a
+        Group and is never returned here, and neither are External entries. The response
+        is the newest Group that has a route the caller can see, with its entries in take
+        order (oldest id first). For a caller with hidden visibility the entries are only
+        the visible routes and `groupN` is absent, and a Group with no visible route is
+        skipped for the next older one. 404 `not_found` when History has no such Group.
+      responses:
+        "200":
+          description: The Group and its entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [group, entries]
+                properties:
+                  group: { type: string, description: The Group id, as `group` on each entry }
+                  entries: { type: array, items: { $ref: "#/components/schemas/Entry" } }
+        default: { $ref: "#/components/responses/Error" }
   /status:
     get:
       summary: Server link and Router link
