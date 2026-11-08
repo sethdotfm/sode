@@ -39,6 +39,7 @@ type apiState struct {
 	mu    sync.Mutex
 	fails map[string]*authFail
 	rate  map[string]*rateWin
+	take  apiTakeState // takes in flight and Idempotency-Key answers (apiidem.go)
 }
 
 // apiAuth is the one auth step. It writes the error response itself and returns false, or

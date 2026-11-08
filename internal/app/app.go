@@ -599,6 +599,10 @@ func (a *App) broadcast(v any) {
 
 // deliver drops b if the browser can't keep up. Caller holds mu.
 func (a *App) deliver(c *client, b []byte) {
+	if c.api != nil && c.api.sink != nil {
+		c.api.sink(b)
+		return
+	}
 	if _, ok := a.clients[c]; !ok {
 		return
 	}

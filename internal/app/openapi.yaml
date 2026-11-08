@@ -3,7 +3,7 @@ info:
   title: Sode API
   version: "1"
   description: |
-    Read access to one SW-P-08 router through Sode. The API is off until an administrator
+    Read and command access to one SW-P-08 router through Sode. The API is off until an administrator
     turns it on in Settings. Served at /api/v1/openapi.yaml, always open.
 
     Auth. Send a key as `Authorization: Bearer <key>`. A key is never accepted in a query
@@ -24,8 +24,39 @@ info:
 
     CORS is off: no cross-origin headers are sent.
 
-    Extending. Writes and the stream are added under `paths` and `components` with the same
-    conventions: errors use the `Error` schema and a code from the table below.
+    Writes. A take request is its own Confirm: nothing asks a person, so guard the button on
+    your side. The request is synchronous. It returns when the router has answered or timed
+    out every route, with a Result per route and the History entry ids. One route can take
+    about 35 seconds in the worst case (check 1 s, send queue up to 30 s, route 3 s, grace
+    1 s), and a take of more than 8 routes runs them 8 at a time, so it can take longer.
+    Common proxies cut a request at 60 seconds: raise the proxy's read timeout for
+    `/api/v1`, or send an `Idempotency-Key` so a retry after a cut returns the first answer
+    instead of taking twice. A route the router did not confirm in time is `failed` and may
+    be confirmed later; the entry then updates (stream ticket) and its id is in the response.
+    Sode sets a write deadline on each take request itself and no server-wide write timeout,
+    so `/ws` and the stream are not cut.
+
+    Idempotency. `Idempotency-Key` (1 to 128 printable characters, no spaces) makes a repeated
+    request with the same key from the same API key return the first answer, with
+    `Idempotent-Replay: true`, for 10 minutes. The same key with a different request is
+    refused with `idempotency_mismatch`. Requests that did nothing (bad input, rate limit,
+    take cap) are not remembered, so a repeat runs.
+
+    Limits. Takes in flight across all callers are capped by the API settings take cap
+    (default 4, because the router answers one message at a time): over it, 429
+    `take_cap`. A request holds 1 to 200 routes.
+
+    Large takes. A take of 6 or more routes does not read each destination from the router
+    first, to spare it. The response carries `checkSkipped: true` then. Each entry's Prev
+    comes from Sode's cache, which a change nobody announced can make stale, so a later Undo
+    may restore less accurately. Take fewer than 6 routes per request to keep the check.
+
+    Rights. A take with any route outside the key's rights is refused whole, before anything
+    is sent: 403 `outside_rights`, no History entry, an `api` row in the Communication Log.
+    Undo checks the destination and level but not the source it restores.
+
+    Extending. The stream is added under `paths` and `components` with the same conventions:
+    errors use the `Error` schema and a code from the table below.
   x-error-codes:
     api_off: 503, the API switch is off
     key_required: 401, no key and Guest API is off
@@ -34,7 +65,12 @@ info:
     rate_limited: 429, too many requests or too many bad keys from this address
     scope: 403, the key lacks the scope this path needs
     https_required: 403, Require HTTPS is on and the request did not arrive securely
-    bad_request: 400, a parameter is not valid
+    bad_request: 400, a parameter or body is not valid
+    outside_rights: 403, a route or preset is outside the key's rights; nothing was sent
+    take_cap: 429, the global cap on API takes in flight is reached; retry shortly
+    conflict: 409, Redo of a failed entry or Retry of one that succeeded
+    nothing_to_do: 422, the plan has no route left (nothing was routed before, or it no longer exists)
+    idempotency_mismatch: 422, the Idempotency-Key was used for a different request
     not_found: 404, no such path
     method_not_allowed: 405, the path does not take this method
 servers:
@@ -207,6 +243,88 @@ paths:
                   more: { type: boolean }
                   total: { type: integer }
         default: { $ref: "#/components/responses/Error" }
+  /takes:
+    post:
+      summary: Take by routes
+      description: |
+        Scope `take`. Synchronous, see Writes in the description. `levels` are UI levels;
+        leave it out for the default levels. Always 200 once the take ran, even when a route
+        failed: read each result. Refusals before anything is sent are errors.
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [routes]
+              additionalProperties: false
+              properties:
+                routes:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [src, dst]
+                    additionalProperties: false
+                    properties:
+                      src: { type: integer, description: "The router's number, 0-based" }
+                      dst: { type: integer, description: "The router's number, 0-based" }
+                      levels: { type: array, items: { type: integer } }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        default: { $ref: "#/components/responses/Error" }
+  /presets/{scope}/{name}:
+    post:
+      summary: Take a preset
+      description: |
+        Scope `take`. `scope` is `everyone`, or `me` with a user's key. The preset fires only if
+        every route is within the key's rights. Parts the router no longer has are left out and
+        listed in `leftOut`. The body is ignored.
+      parameters:
+        - { name: scope, in: path, required: true, schema: { type: string, enum: [everyone, me] } }
+        - { name: name, in: path, required: true, schema: { type: string }, description: "The preset name, URL-encoded" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/{id}/undo:
+    post:
+      summary: Undo a History entry
+      description: |
+        Scope `take`. Restores what the router had before the entry, one route per previous
+        source. Levels with nothing routed before, or that a failed take never changed, are left
+        as is and listed in `skippedLevels` and `untouchedLevels`. 422 `nothing_to_do` when no
+        level can be restored. Rights are checked on the destination and level, not on the
+        source restored.
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/{id}/redo:
+    post:
+      summary: Redo a successful History entry
+      description: "Scope `take`. Takes the entry's source to its destination again as a new take. 409 `conflict` for a failed entry (use retry)."
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/{id}/retry:
+    post:
+      summary: Retry a failed History entry
+      description: "Scope `take`. Like redo, but linked to the failed entry. 409 `conflict` for an entry that succeeded."
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        default: { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     bearer:
@@ -224,13 +342,58 @@ components:
       in: query
       schema: { type: integer, minimum: 1 }
       description: Page size. Defaults and caps differ per path (History 50 up to 500, log 100 up to 500).
+    EntryId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 0 }
+      description: A History entry id
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+      description: A repeat with the same key and request returns the first answer
   responses:
+    TakeResult:
+      description: The take ran. Each route has its own result.
+      headers:
+        Idempotent-Replay:
+          schema: { type: string, enum: ["true"] }
+          description: Present when this is a stored answer to an earlier request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TakeResult" }
     Error:
       description: An error, with the reason in `error.code`
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    TakeResult:
+      type: object
+      required: [ok, checkSkipped, results]
+      properties:
+        ok: { type: boolean, description: Every route succeeded }
+        checkSkipped: { type: boolean, description: "The destinations were not read from the router first (6 or more routes), so Prev may be stale" }
+        results:
+          type: array
+          items:
+            type: object
+            required: [id, src, dst, levels, result, ok]
+            properties:
+              id: { type: integer, description: "Position in this request, from 1" }
+              src: { type: integer }
+              dst: { type: integer }
+              levels: { type: array, items: { type: integer } }
+              result: { type: string, enum: [connected, already, failed] }
+              ok: { type: boolean }
+              already: { type: array, items: { type: integer }, description: Levels already on the source }
+              error: { type: string }
+              entry: { type: integer, description: The History entry id; follow it for a late result }
+        leftOut: { type: array, items: { type: string }, description: Preset parts the router no longer has }
+        skippedLevels: { type: array, items: { type: integer }, description: Undo only }
+        untouchedLevels: { type: array, items: { type: integer }, description: Undo only }
     Error:
       type: object
       required: [error]
