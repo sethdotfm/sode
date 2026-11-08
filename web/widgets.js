@@ -88,7 +88,7 @@ let boxSeq = 0;
 export function combobox(
   input,
   menu,
-  { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null, onRender = null },
+  { source, onPick, add, canAdd = () => true, press = 'mousedown', cls = 'pb-menu__item', hiCls = 'active', reverse = false, foot = null, onRender = null, outside = null },
 ) {
   const box = typeof input === 'function' ? input : () => input;
   const pre = `${(typeof input !== 'function' && input.id) || `cb${++boxSeq}`}-opt-`;
@@ -168,6 +168,11 @@ export function combobox(
       li.dataset.i = String(i);
       li.setAttribute('role', 'option');
       li.setAttribute('aria-selected', String(on));
+      // Greyed, still pickable: the plan then says why the server would refuse it.
+      if (outside?.(it)) {
+        li.classList.add('sode__menu-off');
+        li.title = 'Outside your rights';
+      }
       if (add && canAdd()) li.append(addButton(it));
       out.push(li);
     }

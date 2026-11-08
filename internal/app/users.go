@@ -48,6 +48,8 @@ type connUser struct {
 	user atomic.Pointer[config.User] // who it signed in as, with that user's PIN hash then
 	// profile: last profile message sent (under mu); "" = none, so no clear is sent.
 	profile string
+	// rights: last myRights message sent (under mu); "" = none, so no clear is sent.
+	rights string
 }
 
 func (c *client) who() string {
@@ -167,6 +169,7 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	b, _ := json.Marshal(m)
 	a.deliver(c, b)
 	a.pushProfileMu(c) // only to the user it belongs to
+	a.pushRightsMu(c)
 }
 
 func (a *App) syncAccess(c *client) {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -31,6 +32,36 @@ func (a *App) callerOf(c *client) (Actor, config.Rights) {
 		}
 	}
 	return Actor{Kind: actorGuest, Name: "Guest"}, cfg.GuestRights
+}
+
+type myRightsMsg struct {
+	T      string         `json:"t"` // "myRights"
+	Rights *config.Rights `json:"rights,omitempty"`
+}
+
+// pushRightsMu tells a signed-in connection its own user's Rights so the page can grey out
+// what the server would refuse. Never in the hello or lock state (ADR 0004); a guest or a
+// Lock-covered page gets nothing, and a clear follows a loss. The server stays the
+// authority. Caller holds mu.
+func (a *App) pushRightsMu(c *client) {
+	cfg := a.r().cfg
+	var msg string
+	if a.userOKMu(c, cfg) {
+		if u, ok := cfg.FindUser(c.u.user.Load().Name); ok {
+			rt := u.Rights.Clone()
+			j, _ := json.Marshal(myRightsMsg{T: "myRights", Rights: &rt})
+			msg = string(j)
+		}
+	}
+	if msg == c.u.rights {
+		return
+	}
+	c.u.rights = msg
+	if msg == "" {
+		j, _ := json.Marshal(myRightsMsg{T: "myRights"})
+		msg = string(j)
+	}
+	a.deliver(c, []byte(msg))
 }
 
 // takeWhy names a batch for the log: undo and retry win over a plain take.

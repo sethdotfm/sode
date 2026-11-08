@@ -24,7 +24,7 @@ import { defaultLevelsWord, levelBar, allLevels, levelText } from './levelview.j
 import { fedBy, currentlyNodes } from './routes.js';
 import { flipped, fmtTime } from './device.js';
 import { entryNote, historyPager, statusNode, groupTitle, groupLevels } from './history.js';
-import { planVerb, resultNode, showResult, patchPlan, planBlocked, planSummary, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
+import { planVerb, resultNode, showResult, patchPlan, planBlocked, rightsOff, planSummary, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
 import { layout, onLayout } from './layout.js';
 import { kbdUp } from './keyboard.js';
 import { emptyNote } from './searchbox.js';
@@ -68,6 +68,7 @@ const matches = combobox(() => inputs[M.step], $('m-matches'), {
     inputs.dst.focus();
   },
   canAdd: () => M.step === 'dst',
+  outside: (it) => rightsOff(M.step === 'src' ? 'sources' : 'dsts', it.n),
   press: 'click',
   cls: 'sode-m__match',
   hiCls: 'sode-m__match--hi',

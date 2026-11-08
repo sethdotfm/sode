@@ -1,7 +1,8 @@
 // A plan: { verb, items: [{ dst, groups: [{src, levels}], skipped, undo, retry }] }
 
 import { el, S, search, on, onMsg, emit, wsSend, off, linked, protectedOn, protectedLabel, srcItem, dstItem, labelNode, tallyText } from './core.js';
-import { levelText, levelBar, parseLevels } from './levelview.js';
+import { levelText, levelBar, parseLevels, levelLabel } from './levelview.js';
+import { allowed, planOutside } from './rightsrules.js';
 import { bySource, srcRow, routeRow } from './routes.js';
 import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
@@ -229,6 +230,8 @@ export function planBlocked(plan) {
   if (!linked()) {
     return { block: { kind: 'error', title: 'Not connected', text: 'Sode is not connected to the router.' }, prot };
   }
+  const outside = planOutside(S.myRights, plan, off(), levelLabel);
+  if (outside) return { block: { kind: 'error', title: 'Outside your rights', text: outside }, prot };
   const live = plan.items.filter((i) => i.groups.length);
   for (const i of live) {
     const p = protectedOn(
@@ -519,6 +522,16 @@ export function sendTakes(p) {
   showResult('info', VERBS[p.verb].busy, text);
   return true;
 }
+
+// The signed-in user's own Rights (`myRights`, never in the hello). Null means nothing is greyed out;
+// the server refuses a take outside them whatever this page thinks.
+export const applyMyRights = (r) => {
+  S.myRights = r || null;
+  emit('myRights');
+};
+export const rightsOff = (kind, n) => !allowed(S.myRights, kind, n);
+onMsg('myRights', (m) => applyMyRights(m.rights));
+on('wsclose', () => applyMyRights(null));
 
 onMsg('takeResult', takeResult);
 on('wsclose', () => {

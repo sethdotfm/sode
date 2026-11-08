@@ -115,6 +115,15 @@ test('idleLock: every signed-in user locks when idle, persistent ones and tab si
   assert.equal(idleLock(user, 1000, t, 5), false);
 });
 
+test('idleLock: a user marked No auto-lock is skipped, and raising the Lock or signing out forgets the flag', () => {
+  const t = 5 * 60_000;
+  const user = { enforced: true, locked: false, user: 'Ana', noAutoLock: true };
+  assert.equal(idleLock(user, 0, t, 5), false);
+  assert.equal(idleLock({ ...user, noAutoLock: false }, 0, t, 5), true);
+  assert.equal(raiseLock(user).noAutoLock, false);
+  assert.equal(signedOut(user).noAutoLock, false);
+});
+
 test('needsPin: a trusted user skips the prompt', () => {
   assert.equal(needsPin(false, false, false), false);
   assert.equal(needsPin(true, false, false), true);
@@ -340,7 +349,7 @@ test('a signed-in Lock is held by the server: a pad with no Cancel that only a P
   const user = { enforced: false, locked: false, held: false, user: 'Ana', trusted: true, persistent: true };
   assert.equal(lockCovers(user), false);
   const held = raiseLock(user);
-  assert.deepEqual(held, { enforced: false, locked: true, held: true, user: '', trusted: false, persistent: false });
+  assert.deepEqual(held, { enforced: false, locked: true, held: true, user: '', trusted: false, persistent: false, noAutoLock: false });
   assert.equal(lockCovers(held), true);
   assert.equal(viewBody(PAGE_VIEW, lockCovers(held)), 'pad');
   assert.equal(lockCovers({ enforced: true, locked: true }), true);
@@ -349,7 +358,7 @@ test('a signed-in Lock is held by the server: a pad with no Cancel that only a P
 
 test('Sign out from the Lock clears it; an enforced lock then asks for a Sign in', () => {
   const held = { enforced: false, locked: true, held: true, user: '' };
-  assert.deepEqual(signedOut(held), { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false });
+  assert.deepEqual(signedOut(held), { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false });
   assert.equal(lockCovers(signedOut({ ...held, enforced: true })), true);
 });
 

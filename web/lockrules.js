@@ -33,8 +33,9 @@ export function groupActor(entries, users) {
 export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastActive >= minutes * 60_000;
 
 // s is the lock state ({locked, user}). Anyone signed in gets the server-held Lock, persistent
-// users and tab sign-ins included; it never signs them out.
-export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user) && idleDue(lastActive, now, minutes);
+// users and tab sign-ins included; it never signs them out. A user marked No auto-lock is skipped
+// (the server tells only that user, in lockState); the Lock button still works for them.
+export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user && !s.noAutoLock) && idleDue(lastActive, now, minutes);
 
 // A held Lock has no user in the browser's state but is not a letter Lock: the pad stays.
 export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enforced && !s.locked && !s.user && !letterUp && idleDue(lastActive, now, minutes);
@@ -168,9 +169,9 @@ export const lockCovers = (s) => !!s.locked && !!(s.enforced || s.held);
 
 // The Lock of a signed-in session keeps the session (ADR 0001). Until the server's state
 // arrives the page already shows the pad.
-export const raiseLock = (s) => ({ ...s, locked: true, held: true, user: '', trusted: false, persistent: false });
+export const raiseLock = (s) => ({ ...s, locked: true, held: true, user: '', trusted: false, persistent: false, noAutoLock: false });
 
-export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user: '', trusted: false, persistent: false });
+export const signedOut = (s) => ({ ...s, locked: !!s.enforced, held: false, user: '', trusted: false, persistent: false, noAutoLock: false });
 
 // Only the answer to our hi says whether the token was honored. A held Lock is the session
 // still alive and waiting for its PIN, so its token stays.
