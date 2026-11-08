@@ -143,7 +143,7 @@ A cover over the page that stops every key from reaching it until it is dismisse
 _Avoid_: hand lock, soft lock, screen lock
 
 **Auto-lock**:
-Raises the Lock after a set number of idle minutes. It never signs anyone out.
+Raises the Lock after a set number of idle minutes. It never signs anyone out. A user marked No auto-lock is skipped, and the Lock button still works for them.
 _Avoid_: idle timeout
 
 **Profile**:
@@ -154,7 +154,7 @@ The three scopes a setting, filter set or preset can be saved to. This browser w
 _Avoid_: This device
 
 **Guest**:
-Someone who is not signed in. A guest sees This browser and Everyone values and has no Me scope.
+Someone who is not signed in. A guest sees This browser and Everyone values and has no Me scope. Guests have one rights entry, and the same entry covers an API call that sends no key.
 
 ### Interface
 
