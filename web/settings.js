@@ -169,7 +169,7 @@ export function openSettings() {
 }
 
 // Focus moves only when this flips (or on open), not on every status update.
-function renderLock(opening = false, afterPin = false) {
+function renderLock(opening = false) {
   if (!isOpen()) return;
   const locked = needsPin();
   const flipped = locked !== 'locked' in form.dataset;
@@ -181,8 +181,7 @@ function renderLock(opening = false, afterPin = false) {
   if (!opening && !flipped) return;
   if (layout() !== 'desktop') return;
   if (locked) $('lock-pin').focus();
-  else if (afterPin) $('settings-find').focus({ preventScroll: true });
-  else $('cfg-namerefresh').focus();
+  else $('settings-find').focus({ preventScroll: true });
 }
 
 function closeSettings() {
@@ -382,7 +381,7 @@ async function sendUnlock() {
   if (!r.ok) return showLockErr(r.err);
   $('lock-pin').value = '';
   $('lock-err').hidden = true;
-  renderLock(false, true);
+  renderLock();
 }
 
 function syncLock() {
