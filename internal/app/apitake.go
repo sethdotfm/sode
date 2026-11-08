@@ -270,36 +270,25 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 	n := len(plan.Items)
 	sink := &sinkResults{by: map[int]routeResult{}}
 	cl.sink = sink.put
-	var capped, admitted bool
-	// take calls admit after its rights check, so a refused take holds no slot and logs no `sent` row.
-	cl.admit = func() bool {
-		if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
-			capped = true
-			a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
-			return false
-		}
-		admitted = true
-		note := fmt.Sprintf("%d %s", n, plural(n, "route", "routes"))
-		if plan.Preset != "" {
-			note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
-		}
-		a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
-		// A write deadline for this request only; the recorder in tests has none.
-		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))
-		return true
-	}
-	defer func() {
-		if admitted {
-			a.apiS.takeEnd()
-		}
-	}()
-	if msg := a.take(cl.client(), plan.Items); msg != "" {
+	c := cl.client()
+	// Rights first, so a refused take holds no slot and logs no `sent` row.
+	if msg := a.rightsPass(rt, c, plan.Items); msg != "" {
 		return problem(http.StatusForbidden, "outside_rights", "%s", msg).answer(), true
 	}
-	if capped {
+	if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
+		a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
 		return problem(http.StatusTooManyRequests, "take_cap",
 			"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
 	}
+	defer a.apiS.takeEnd()
+	note := fmt.Sprintf("%d %s", n, plural(n, "route", "routes"))
+	if plan.Preset != "" {
+		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
+	}
+	a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
+	// A write deadline for this request only; the recorder in tests has none.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))
+	a.takeAllowed(c, plan.Items)
 
 	out := apiTakeOut{OK: true, CheckSkipped: n >= bigTake, LeftOut: plan.LeftOut, Skipped: plan.Skipped, Untouched: plan.Untouched, Results: make([]apiRouteOut, n)}
 	sink.mu.Lock()

@@ -51,9 +51,13 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 	if msg := a.rightsPass(a.r(), c, items); msg != "" {
 		return msg
 	}
-	if c.api != nil && c.api.admit != nil && !c.api.admit() {
-		return ""
-	}
+	a.takeAllowed(c, items)
+	return ""
+}
+
+// takeAllowed runs items that already passed rightsPass. The API path calls it directly so its
+// take cap sits between the rights check and the run.
+func (a *App) takeAllowed(c *client, items []routeReq) {
 	if len(items) >= bigTake {
 		log.Printf("take of %d routes: not reading routes from the router first, to spare it", len(items))
 		for i := range items {
@@ -69,7 +73,7 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 	if r := a.r(); r.cfg.FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
 			a.takeNative(r, c, items)
-			return ""
+			return
 		}
 		// A lone staged take would wait for a Go that never comes.
 		for i := range items {
@@ -77,7 +81,6 @@ func (a *App) take(c *client, items []routeReq) (refused string) {
 		}
 	}
 	runLimited(routeLimit, len(items), func(i int) { a.route(c, items[i]) })
-	return ""
 }
 
 func runLimited(limit, n int, fn func(i int)) {

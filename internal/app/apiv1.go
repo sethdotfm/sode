@@ -31,8 +31,6 @@ type apiCtx struct {
 	// sink takes every reply of a take run for this request instead of a.clients: a REST
 	// request is not a registered connection and must not see broadcasts.
 	sink func([]byte)
-	// admit runs once the take passed the Rights check, just before it starts; false stops it.
-	admit func() bool
 }
 
 func (c *apiCtx) has(scope string) bool { return slices.Contains(c.Scopes, scope) }
