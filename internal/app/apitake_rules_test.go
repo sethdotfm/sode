@@ -175,6 +175,29 @@ func TestAPIWPresetRights(t *testing.T) {
 	}
 }
 
+// A hidden caller gets the 404 of an unknown preset for one that names a hidden number, and
+// nothing is sent. A preset that passes WholePreset only ever leaves out numbers the caller sees.
+func TestAPIWHiddenCallerCannotFirePresetListHides(t *testing.T) {
+	a, f, key := takerApp(t, func(c *config.Config) {
+		c.APIClients[0].Rights = config.Rights{Sources: &[]int{1}, Dsts: &[]int{2, 99}, Presets: &[]string{"Studio A", "Mixed", "Gone"}, Visibility: config.VisHidden}
+		c.Presets = append(c.Presets,
+			config.Preset{Name: "Mixed", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 7}}}},
+			config.Preset{Name: "Gone", Items: []config.PresetItem{{Src: 1, Dsts: []int{99}}}})
+	})
+	f.seed(2, 3, 0)
+	n := f.sends()
+	wantErr(t, apiPost(a, "/api/v1/presets/everyone/Mixed", key, ``, nil), 404, "not_found")
+	if f.sends() != n {
+		t.Fatal("sent for a preset that names a hidden destination")
+	}
+	// Destination 99 is in rights but not on the router, so the 422 may name it.
+	rec := apiPost(a, "/api/v1/presets/everyone/Gone", key, ``, nil)
+	wantErr(t, rec, 422, "nothing_to_do")
+	if !strings.Contains(rec.Body.String(), "destination 100") {
+		t.Errorf("body %s", rec.Body.String())
+	}
+}
+
 func TestAPIWUserKeyFiresMePreset(t *testing.T) {
 	a, f, _ := takerApp(t, func(c *config.Config) {
 		for i := range c.Users {

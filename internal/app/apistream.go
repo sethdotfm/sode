@@ -199,12 +199,15 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		a.apiEvent(cl.Actor, "streamDisconnect", "ok", note, cerr)
 	}()
 
+	// streamWriteTimeout bounds one write so a stalled client closes its stream instead of
+	// backing up the writer. Same length as wsHeartbeat, but independent of it.
+	const streamWriteTimeout = 5 * time.Second
 	go func() {
 		defer cancel()
 		beat := time.NewTicker(wsHeartbeat)
 		defer beat.Stop()
 		write := func(b []byte) error {
-			wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
+			wctx, wcancel := context.WithTimeout(ctx, streamWriteTimeout)
 			defer wcancel()
 			return conn.Write(wctx, websocket.MessageText, b)
 		}

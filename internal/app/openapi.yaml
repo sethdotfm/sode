@@ -311,7 +311,8 @@ paths:
       description: |
         Scope `take`. `scope` is `everyone`, or `me` with a user's key. The preset fires only if
         every route is within the key's rights. Parts the router no longer has are left out and
-        listed in `leftOut`. The body is ignored.
+        listed in `leftOut`. A caller with hidden visibility gets 404 `not_found` for a preset
+        that `GET /presets` does not list. The body is ignored.
       parameters:
         - { name: scope, in: path, required: true, schema: { type: string, enum: [everyone, me] } }
         - { name: name, in: path, required: true, schema: { type: string }, description: "The preset name, URL-encoded" }

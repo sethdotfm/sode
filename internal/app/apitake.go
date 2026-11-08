@@ -124,7 +124,7 @@ func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 			return nil, problem(http.StatusNotFound, "not_found", `no preset scope %q; use "everyone", or "me" with a user's key`, scope)
 		}
 		i := slices.IndexFunc(list, func(p config.Preset) bool { return cleanPresetName(p.Name) == cleanPresetName(name) })
-		if i < 0 || !cl.view().Preset(list[i].Name) {
+		if i < 0 || !cl.view().WholePreset(list[i]) {
 			return nil, problem(http.StatusNotFound, "not_found", "no preset %q in %s", name, scope)
 		}
 		return planPreset(a, a.r(), list[i])
