@@ -315,7 +315,6 @@ export const DICT = {
     'global filter',
     'panel',
     'external',
-    'external change',
     'external follow',
     'mv',
     'multiviewer',

@@ -6,8 +6,8 @@ import (
 	"github.com/sethdotfm/sode/internal/swp08"
 )
 
-// External changes (a hardware panel, Companion) arrive as Connecteds no take asked for. An
-// external change arrives as one message per level, so changes are collected until quiet and written as
+// Externals (a hardware panel, Companion) arrive as Connecteds no take asked for. An
+// External arrives as one message per level, so changes are collected until quiet and written as
 // one entry per destination and source; a burst over several destinations shares a history
 // group.
 // The router also re-routes destinations itself (a multiviewer PiP following a DSM). The

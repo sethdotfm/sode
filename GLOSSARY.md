@@ -55,7 +55,7 @@ The router's own stored group of routes, fired by number on the router. Sode doe
 ### Record
 
 **History**:
-The shared, chronological record of takes and external changes that every browser sees.
+The shared, chronological record of takes and External entries that every browser sees.
 _Avoid_: Recent
 
 **Group**:
@@ -63,7 +63,7 @@ The expandable row in History for a take that sent several routes. Undo all and 
 _Avoid_: batch, folder
 
 **Entry**:
-One row in History: a route from a take, or an external change.
+One row in History: a route from a take, or an External.
 
 **Before**:
 What the router had on a destination just before a take. Undo restores it.
@@ -92,15 +92,15 @@ _Avoid_: sent log
 
 ### Changes Sode did not make
 
-**External change**:
+**External**:
 A change on the router that Sode did not make, such as one from a hardware panel, Companion or the router itself. Sode learns of it from the router and records it in History next to its own takes.
-_Avoid_: panel change, outside change
+_Avoid_: external change, panel change, outside change
 
 **Found**:
-A kind of external change the router made without announcing it, noticed by Sode only later.
+A kind of External the router made without announcing it, noticed by Sode only later.
 
 **External follow**:
-An external change on a destination that probably followed another destination's change, such as a multiviewer PiP following a DSM. Sode cannot tell a follow from other automatic behavior, so this is always a suspicion.
+An External on a destination that probably followed another destination's change, such as a multiviewer PiP following a DSM. Sode cannot tell a follow from other automatic behavior, so this is always a suspicion.
 _Avoid_: follows (as a certain fact), automation
 
 ### People and access
