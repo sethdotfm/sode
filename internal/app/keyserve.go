@@ -3,7 +3,6 @@ package app
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -13,9 +12,6 @@ import (
 // passed the policy table: never the hello or lock state.
 
 var errUnlockFirst = errors.New("unlock with your PIN first")
-
-// sodeActor is the actor on rows no connection caused (a key that expired or died with a PIN).
-var sodeActor = Actor{Kind: actorUser, Name: "Sode"}
 
 // keyExpiry turns a request's unix ms into an expiry; 0 means never.
 func keyExpiry(ms int64, now time.Time) (time.Time, error) {
@@ -28,8 +24,6 @@ func keyExpiry(ms int64, now time.Time) (time.Time, error) {
 	}
 	return t, nil
 }
-
-func connActor(c *client) Actor { return Actor{Kind: actorUser, Name: c.who()} }
 
 // keyOwnerExists: a key whose user or API client is gone must not outlive it.
 func keyOwnerExists(cfg config.Config, o keyOwner) bool {
@@ -265,38 +259,5 @@ func (a *App) expireKeys(now time.Time) {
 	a.endStreams(exp, "key expired")
 	for _, k := range exp {
 		a.apiEvent(sodeActor, "keyExpired", "ok", fmt.Sprintf("key %q of %s", k.Name, k.Owner.Name), nil)
-	}
-}
-
-// auditRights writes a row per actor whose rights, scopes or No auto-lock a users save
-// changed, so widened rights can be found later.
-func (a *App) auditRights(c *client, was, now config.Config) {
-	act := connActor(c)
-	row := func(why, note string) { a.apiEvent(act, why, "ok", note, nil) }
-	for _, u := range now.Users {
-		ou, existed := was.FindUser(u.Name)
-		if !reflect.DeepEqual(ou.Rights, u.Rights) && (existed || !u.Rights.IsOpen()) {
-			row("rightsEdit", "rights of user "+u.Name)
-		}
-		if ou.NoAutoLock != u.NoAutoLock {
-			row("noAutoLockEdit", fmt.Sprintf("No auto-lock of %s is now %v", u.Name, u.NoAutoLock))
-		}
-	}
-	for _, cl := range now.APIClients {
-		ocl, existed := was.FindAPIClient(cl.Name)
-		switch {
-		case !existed:
-			row("clientEdit", "API client "+cl.Name+" added")
-		case !reflect.DeepEqual(ocl.Rights, cl.Rights) || !reflect.DeepEqual(ocl.Scopes, cl.Scopes):
-			row("clientEdit", "API client "+cl.Name+" changed")
-		}
-	}
-	for _, ocl := range was.APIClients {
-		if _, ok := now.FindAPIClient(ocl.Name); !ok {
-			row("clientEdit", "API client "+ocl.Name+" removed")
-		}
-	}
-	if !reflect.DeepEqual(was.GuestRights, now.GuestRights) || !reflect.DeepEqual(was.GuestAPIScopes, now.GuestAPIScopes) {
-		row("rightsEdit", "Guest rights or scopes")
 	}
 }

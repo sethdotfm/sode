@@ -10,17 +10,7 @@ import (
 
 const actorGuest = "guest" // a browser with nobody signed in
 
-// apiCaller is the identity and Rights of a client that is not a browser session. Set on
-// client.api, it replaces the lookup callerOf does for a browser.
-type apiCaller struct {
-	Actor  Actor
-	Rights config.Rights
-	// sink, when set, takes every reply for this caller instead of a.clients and c.send: a
-	// REST request is not a registered connection and must not see broadcasts.
-	sink func([]byte)
-}
-
-// callerOf is who a take acts as. A browser is its signed-in user (rights read live from the
+// callerOf is who a take acts as. An API caller brings its own (client.api). A browser is its signed-in user (rights read live from the
 // config, so an edit applies at once), or Guest when nobody is signed in or the Lock is on.
 func (a *App) callerOf(c *client) (Actor, config.Rights) {
 	if c.api != nil {
@@ -138,20 +128,20 @@ func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) stri
 
 // rightsPass refuses the whole take, before anything is sent, if any route is outside the
 // caller's rights. Each item gets the failed result a refused route gets, with no History
-// entry (nothing happened), and one `api` row records it. Reports whether it refused.
-func (a *App) rightsPass(r *runtime, c *client, items []routeReq) bool {
+// entry (nothing happened), and one `api` row records it. Returns the refusal, or "".
+func (a *App) rightsPass(r *runtime, c *client, items []routeReq) string {
 	if len(items) == 0 {
-		return false
+		return ""
 	}
 	act, rt := a.callerOf(c)
 	msg := a.outsideRights(r, rt, items)
 	if msg == "" {
-		return false
+		return ""
 	}
 	for _, it := range items {
 		a.reply(c, &routeResult{T: "takeResult", ID: it.ID, Err: msg})
 	}
 	n := len(items)
 	a.apiEvent(act, takeWhy(items), "refused", fmt.Sprintf("%d %s", n, plural(n, "route", "routes")), fmt.Errorf("%s", msg))
-	return true
+	return msg
 }

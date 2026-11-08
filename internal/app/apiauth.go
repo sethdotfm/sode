@@ -34,12 +34,14 @@ type rateWin struct {
 	n     int
 }
 
-// apiState is the throttle memory. Guarded by its own mutex: never held with App.mu.
+// apiState is the throttle memory, the count of takes in flight and the Idempotency-Key
+// answers (apiidem.go). One mutex guards it all; never held with App.mu or across a take.
 type apiState struct {
-	mu    sync.Mutex
-	fails map[string]*authFail
-	rate  map[string]*rateWin
-	take  apiTakeState // takes in flight and Idempotency-Key answers (apiidem.go)
+	mu       sync.Mutex
+	fails    map[string]*authFail
+	rate     map[string]*rateWin
+	inflight int
+	idem     map[string]*idemSlot
 }
 
 // apiAuth is the one auth step. It writes the error response itself and returns false, or

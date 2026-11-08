@@ -32,7 +32,7 @@ info:
     Common proxies cut a request at 60 seconds: raise the proxy's read timeout for
     `/api/v1`, or send an `Idempotency-Key` so a retry after a cut returns the first answer
     instead of taking twice. A route the router did not confirm in time is `failed` and may
-    be confirmed later; the entry then updates (stream ticket) and its id is in the response.
+    be confirmed later; the entry then updates on the stream and its id is in the response.
     Sode sets a write deadline on each take request itself and no server-wide write timeout,
     so `/ws` and the stream are not cut.
 
@@ -40,7 +40,8 @@ info:
     request with the same key from the same API key return the first answer, with
     `Idempotent-Replay: true`, for 10 minutes. The same key with a different request is
     refused with `idempotency_mismatch`. Requests that did nothing (bad input, rate limit,
-    take cap) are not remembered, so a repeat runs.
+    take cap) are not remembered, so a repeat runs. A call without an API key (a keyless
+    Guest) cannot send `Idempotency-Key`: guests behind one address would share answers.
 
     Limits. Takes in flight across all callers are capped by the API settings take cap
     (default 4, because the router answers one message at a time): over it, 429
@@ -234,7 +235,7 @@ paths:
   /layouts:
     get:
       summary: Panel layouts
-      description: Scope `layouts`. Read-only. The content is defined by the panel page ticket; the list is empty until then.
+      description: Scope `layouts`. Read-only. The content is not defined yet; the list is empty until then.
       responses:
         "200":
           description: Layouts

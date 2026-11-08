@@ -157,7 +157,7 @@ func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	apiJSON(w, m)
 }
 
-// apiLayouts: the panel ticket defines the content; the endpoint exists so clients can ask.
+// apiLayouts: the content is not defined yet; the endpoint exists so clients can ask.
 func (a *App) apiLayouts(w http.ResponseWriter, _ *http.Request, _ *apiCtx) {
 	apiJSON(w, map[string]any{"layouts": []any{}})
 }

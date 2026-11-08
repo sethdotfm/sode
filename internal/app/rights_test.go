@@ -220,7 +220,7 @@ func TestRightsAPICaller(t *testing.T) {
 	f := newFakeRouter(t, a)
 	f.seed(5, 1, 0)
 	act := Actor{Kind: actorClient, Name: "PanelsBot", Key: "Panel 43"}
-	c := &client{ip: "10.0.0.3", send: make(chan []byte, 8), api: &apiCaller{Actor: act, Rights: config.Rights{Dsts: ints(5)}}}
+	c := &client{ip: "10.0.0.3", send: make(chan []byte, 8), api: &apiCtx{Actor: act, Rights: config.Rights{Dsts: ints(5)}}}
 	register(a, c)
 	allFailed(t, takeResults(t, a, c, []routeReq{{ID: 1, Src: 7, Dst: 6, Levels: []int{1}}}), 1, "destination 7")
 	rs := takeResults(t, a, c, []routeReq{{ID: 2, Src: 7, Dst: 5, Levels: []int{1}}})

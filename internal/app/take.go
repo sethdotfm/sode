@@ -45,10 +45,14 @@ const routeLimit = 8
 const bigTake = 6
 
 // take is the one entry point for every confirmed take (browser batch, Undo, Redo, Retry,
-// presets, API). Results go to c.send; an API caller sets c.api.
-func (a *App) take(c *client, items []routeReq) {
-	if a.rightsPass(a.r(), c, items) {
-		return
+// presets, API). Results go to c.send, or to c.api.sink for an API caller. It returns the
+// refusal when the caller's rights do not cover every route; nothing ran then.
+func (a *App) take(c *client, items []routeReq) (refused string) {
+	if msg := a.rightsPass(a.r(), c, items); msg != "" {
+		return msg
+	}
+	if c.api != nil && c.api.admit != nil && !c.api.admit() {
+		return ""
 	}
 	if len(items) >= bigTake {
 		log.Printf("take of %d routes: not reading routes from the router first, to spare it", len(items))
@@ -65,7 +69,7 @@ func (a *App) take(c *client, items []routeReq) {
 	if r := a.r(); r.cfg.FireMode == "native" && len(items) > 1 {
 		if markStages(r, items) >= 2 {
 			a.takeNative(r, c, items)
-			return
+			return ""
 		}
 		// A lone staged take would wait for a Go that never comes.
 		for i := range items {
@@ -73,6 +77,7 @@ func (a *App) take(c *client, items []routeReq) {
 		}
 	}
 	runLimited(routeLimit, len(items), func(i int) { a.route(c, items[i]) })
+	return ""
 }
 
 func runLimited(limit, n int, fn func(i int)) {

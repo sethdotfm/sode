@@ -23,6 +23,7 @@ type takePlan struct {
 	Untouched []int    // undo: levels a failed take never changed, left as is
 }
 
+// apiProblem is every API error: a status, a code listed in openapi.yaml and a message.
 type apiProblem struct {
 	Status    int
 	Code, Msg string
@@ -31,6 +32,12 @@ type apiProblem struct {
 func problem(status int, code, format string, args ...any) *apiProblem {
 	return &apiProblem{status, code, fmt.Sprintf(format, args...)}
 }
+
+func (p *apiProblem) answer() apiAnswer {
+	return jsonAnswer(p.Status, apiErrBody{apiErr{p.Code, p.Msg}})
+}
+
+func (p *apiProblem) write(w http.ResponseWriter) { p.answer().write(w, false) }
 
 // Get returns one entry by id.
 func (h *History) Get(id int) (Entry, bool) {

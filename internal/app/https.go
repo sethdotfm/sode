@@ -11,16 +11,22 @@ import (
 // hstsHeader: short on purpose, browsers keep it after Require HTTPS goes off (ADR 0005).
 const hstsHeader = "max-age=3600"
 
+func inPrefixes(a netip.Addr, prefixes []netip.Prefix) bool {
+	return slices.ContainsFunc(prefixes, func(p netip.Prefix) bool { return p.Contains(a) })
+}
+
+// trustedPeer returns the connecting address and whether it is one of the trusted proxies,
+// the only peers whose forwarding headers count.
+func trustedPeer(r *http.Request, trusted []netip.Prefix) (host string, ok bool) {
+	host, _, _ = net.SplitHostPort(r.RemoteAddr)
+	a, err := netip.ParseAddr(host)
+	return host, err == nil && inPrefixes(a.Unmap(), trusted)
+}
+
 // secureRequest: only a trusted proxy's X-Forwarded-Proto counts (ADR 0005); anyone else
 // can send the header.
 func secureRequest(r *http.Request, trusted []netip.Prefix) bool {
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	peer, err := netip.ParseAddr(host)
-	if err != nil {
-		return false
-	}
-	peer = peer.Unmap()
-	if !slices.ContainsFunc(trusted, func(p netip.Prefix) bool { return p.Contains(peer) }) {
+	if _, ok := trustedPeer(r, trusted); !ok {
 		return false
 	}
 	return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")

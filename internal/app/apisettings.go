@@ -1,8 +1,6 @@
 package app
 
 import (
-	"fmt"
-
 	"github.com/sethdotfm/sode/internal/config"
 )
 
@@ -49,20 +47,4 @@ func (a *App) SaveAPISettings(c *client, req apiSettingsReq) error {
 		a.auditAPISettings(connActor(c), before, a.r().cfg.API)
 	}
 	return err
-}
-
-func (a *App) auditAPISettings(act Actor, was, now config.APISettings) {
-	onOff := func(b bool) string { return map[bool]string{true: "on", false: "off"}[b] }
-	if was.Enabled != now.Enabled {
-		a.apiEvent(act, "apiEnabled", onOff(now.Enabled), "", nil)
-	}
-	if was.GuestEnabled != now.GuestEnabled {
-		a.apiEvent(act, "guestApi", onOff(now.GuestEnabled), "", nil)
-	}
-	if was.LogReads != now.LogReads {
-		a.apiEvent(act, "logApiReads", onOff(now.LogReads), "", nil)
-	}
-	if was.RateLimit != now.RateLimit || was.TakeCap != now.TakeCap {
-		a.apiEvent(act, "apiLimits", "ok", fmt.Sprintf("rate limit %d a minute, take cap %d", now.RateLimit, now.TakeCap), nil)
-	}
 }
