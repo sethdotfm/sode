@@ -25,7 +25,7 @@ export function buildDeck(root, p, cells) {
     pre: 'pb-btn',
     clr: 'pb-btn pb-btn--outline',
     take: 'pb-btn pb-btn--commit',
-    cur: 'pb-panel info',
+    cur: 'pb-panel now',
   }
   let lastTap = 0, raf = 0
   const els = cells.map((c) => {
@@ -71,9 +71,9 @@ export function buildDeck(root, p, cells) {
       b.classList.toggle('pb-btn--selected', st.presetName === x.name)
     } else if (c.kind === 'clr') b.textContent = 'Clear'
     else if (c.kind === 'cur') {
-      b.innerHTML = st.view != null
-        ? `<span class="pb-label">Current destination</span><span class="name">${DESTS[st.view].name}</span><span class="pb-text-muted pb-num">has ${name(st.tally[st.view])}${st.staged.has(st.view) ? ' &rarr; ' + name(st.staged.get(st.view)) : ''} &middot; ${st.staged.size} staged</span>`
-        : '<span class="pb-label">Current destination</span><span class="pb-text-muted">None selected</span>'
+      // Only the source now on the viewed destination, so it stays visible when the destination is off screen.
+      b.innerHTML = st.view != null ? `<span class="name">${name(st.tally[st.view])}</span>` : '<span class="pb-text-muted">&mdash;</span>'
+      b.title = st.view != null ? `Now on ${DESTS[st.view].name}` : 'No destination selected'
     } else if (c.kind === 'take') {
       b.querySelector('.lbl').textContent = st.mode === 'instant' ? 'Instant' : 'Take'
       b.disabled = st.mode === 'instant' || !p.armed()

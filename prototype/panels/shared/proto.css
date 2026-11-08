@@ -10,10 +10,14 @@
   --panel-view: var(--pb-brand);
   --panel-current: var(--pb-status-ok);
   --panel-on: var(--pb-text-on-accent);
-  /* Idle cells lean cool so orange and green read as the complement. Needs upstream tokens before this ships. */
-  --panel-src: color-mix(in srgb, var(--pb-hue-blue) 30%, var(--pb-surface-control));
-  --panel-dst: color-mix(in srgb, var(--pb-hue-periwinkle) 30%, var(--pb-surface-control));
-  --panel-pulse-s: 3.2s;
+  /* Idle cells are the active colour muted: mixed into the control surface, so they come out desaturated
+     and darker in dark mode and paler in light mode. Sources follow the current (green) colour and
+     destinations the view (orange) colour. --panel-mute is how much of the active colour survives. */
+  --panel-mute: 26%;
+  --panel-src: color-mix(in oklab, var(--panel-current) var(--panel-mute), var(--pb-surface-control));
+  --panel-dst: color-mix(in oklab, var(--panel-view) var(--panel-mute), var(--pb-surface-control));
+  --panel-pulse-s: 4s;
+  --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state colour */
 }
 body { background: var(--pb-surface-base); color: var(--pb-text); font-family: var(--pb-font); }
 .schemes { display: grid; gap: var(--pb-space-6); margin: var(--pb-space-6) auto; width: min(96vw, calc((100vh - var(--pb-toolbar-h) - 4rem) * 2)); }
@@ -36,22 +40,23 @@ body { background: var(--pb-surface-base); color: var(--pb-text); font-family: v
 .deck .stg { font-size: var(--pb-text-xs); font-weight: var(--pb-weight-bold); }
 .deck .take { font-size: var(--pb-text-xl); letter-spacing: var(--pb-tracking-label); }
 .deck .take .ring { background: var(--pb-text-strong); bottom: 0; height: var(--pb-space-3); left: 0; position: absolute; width: 0; }
-.deck .info { align-items: flex-start; justify-content: center; text-align: left; display: flex; flex-direction: column; padding: var(--pb-space-3) var(--pb-space-4); min-width: 0; }
-.deck .info .name { color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
+.deck .now { align-items: center; background: color-mix(in oklab, var(--panel-current) 55%, var(--pb-surface-control)); border: var(--pb-state-border-w) solid var(--panel-current); display: flex; justify-content: center; min-width: 0; padding: var(--pb-space-3); text-align: center; }
+.deck .now .name { color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
 
 /* Cell states. Viewed destination: solid orange. Current source: solid green. Staged destination and
    pending source: a static ring plus a fill that swells between the idle colour and the state colour. */
 .deck .cell[data-s="idle"].src { background-color: var(--panel-src); }
 .deck .cell[data-s="idle"].dst { background-color: var(--panel-dst); }
-.deck .cell[data-s="idle"].src:hover, .deck .cell[data-s="idle"].dst:hover { background-color: color-mix(in srgb, var(--pb-text) 10%, var(--panel-dst)); }
+.deck .cell[data-s="idle"].src:hover { background-color: color-mix(in oklab, var(--pb-text) 10%, var(--panel-src)); }
+.deck .cell[data-s="idle"].dst:hover { background-color: color-mix(in oklab, var(--pb-text) 10%, var(--panel-dst)); }
 .deck .cell[data-s="view"] { background-color: var(--panel-view); color: var(--panel-on); }
 .deck .cell[data-s="current"] { background-color: var(--panel-current); color: var(--panel-on); }
-.deck .cell[data-s="staged"] { background-color: color-mix(in srgb, var(--panel-view) calc(var(--pulse) * 100%), var(--panel-dst)); box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-view); color: var(--pb-text-strong); }
-.deck .cell[data-s="pending"] { background-color: color-mix(in srgb, var(--panel-current) calc(var(--pulse) * 100%), var(--panel-src)); box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-current); color: var(--pb-text-strong); }
+.deck .cell[data-s="staged"] { background-color: color-mix(in oklab, var(--panel-view) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--panel-dst)); box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-view); color: var(--pb-text-strong); }
+.deck .cell[data-s="pending"] { background-color: color-mix(in oklab, var(--panel-current) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--panel-src)); box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-current); color: var(--pb-text-strong); }
 .deck .cell[data-v="1"] { outline: var(--pb-state-border-w, 2px) solid var(--pb-text-strong); outline-offset: calc(var(--pb-space-1) * -1); }
 .deck .cell.flash-connected { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-ok); }
 .deck .cell.flash-already { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle); }
 .deck .cell.flash-failed { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error); }
-.deck .cell.take.armed { background-color: color-mix(in srgb, var(--pb-commit) calc(var(--pulse) * 100%), var(--pb-surface-control)); color: var(--pb-text-strong); }
+.deck .cell.take.armed { background-color: color-mix(in oklab, var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-surface-control)); color: var(--pb-text-strong); }
 .txt { display: none; } body.text-on .txt { display: inline; }
 .deck .cell[data-s="staged"], .deck .cell[data-s="pending"], .deck .cell.take.armed { transition: none; }
