@@ -114,16 +114,25 @@ func (a *App) apiProtected(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"protected": rows})
 }
 
+// linkStatus is the Router link as any caller with the status scope sees it. The router
+// address and the error text (which quotes it) go only to a caller with the log scope, the
+// same rule as the Communication Log's raw router rows.
+func linkStatus(s statusMsg, withDetail bool, addrKey string) map[string]any {
+	m := map[string]any{"router": s.Router, "routerUp": s.Router == string(swp08.StateUp), "error": s.Err != ""}
+	if withDetail {
+		m[addrKey], m["err"] = s.Addr, s.Err
+	}
+	return m
+}
+
 // apiStatus: the Server link and the Router link, as /api/health reports them.
-func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, _ *apiCtx) {
+func (a *App) apiStatus(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
 	st := a.status
 	a.mu.Unlock()
-	apiJSON(w, map[string]any{
-		"server": "up", "router": st.Router, "address": st.Addr, "err": st.Err,
-		"version": VersionLabel(), "uptimeSeconds": int64(time.Since(a.started).Seconds()),
-		"routerUp": st.Router == string(swp08.StateUp),
-	})
+	m := linkStatus(st, cl.has(config.ScopeLog), "address")
+	m["server"], m["version"], m["uptimeSeconds"] = "up", VersionLabel(), int64(time.Since(a.started).Seconds())
+	apiJSON(w, m)
 }
 
 // apiLayouts: the panel ticket defines the content; the endpoint exists so clients can ask.

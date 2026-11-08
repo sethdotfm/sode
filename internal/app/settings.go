@@ -62,9 +62,15 @@ func (a *App) saveSettings(c *client, msg json.RawMessage, pin string, clearPin 
 		return nil
 	})
 	if err == nil && toggled {
-		a.apiEvent(Actor{Kind: actorUser, Name: c.who()}, "requireHttps", map[bool]string{true: "on", false: "off"}[now], "", nil)
+		a.auditRequireHTTPS(connActor(c), !now, now)
 	}
 	return err
+}
+
+func (a *App) auditRequireHTTPS(act Actor, was, now bool) {
+	if was != now {
+		a.apiEvent(act, "requireHttps", map[bool]string{true: "on", false: "off"}[now], "", nil)
+	}
 }
 
 var errInsecureSave = errors.New("turning on Require HTTPS needs a request that arrived over HTTPS through a trusted proxy, so you can't lock yourself out; open Sode through your HTTPS address and save again")

@@ -59,6 +59,16 @@ type apiKey struct {
 type keyRec struct {
 	apiKey
 	Hash string `json:"hash"`
+	// PinFP fingerprints the owner's PIN hash at creation, for user keys only, so a PIN
+	// edited in config.yaml while Sode was down still ends the key. Empty in a keys.json
+	// from before it existed; reconcile stamps those.
+	PinFP string `json:"pinFp,omitempty"`
+}
+
+// pinFP is a one-way stamp of a user's PIN hash: stored in place of it, never the PIN or hash.
+func pinFP(pinHash string) string {
+	h := sha256.Sum256([]byte("sode key owner pin v1\x00" + pinHash))
+	return hex.EncodeToString(h[:16])
 }
 
 // keyStore holds API keys beside the config in keys.json: sha256 only, mode 0600, atomic
@@ -115,11 +125,12 @@ func (s *keyStore) save() {
 
 // create stores a new key and returns its secret, shown once and kept nowhere.
 func (s *keyStore) create(o keyOwner, name string, expires time.Time) (string, apiKey, error) {
-	return s.createCapped(o, name, expires, 0)
+	return s.createCapped(o, name, expires, 0, "")
 }
 
-// createCapped refuses once owner holds max keys (0 = no cap).
-func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max int) (string, apiKey, error) {
+// createCapped refuses once owner holds max keys (0 = no cap). fp is pinFP of a user
+// owner's PIN hash ("" for a client).
+func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max int, fp string) (string, apiKey, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", apiKey{}, errors.New("a key needs a key name")
@@ -133,7 +144,7 @@ func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max 
 		return "", apiKey{}, fmt.Errorf("%s already has %d keys", o.Name, max)
 	}
 	k := apiKey{ID: hex.EncodeToString(id), Owner: o, Name: name, Created: time.Now().UTC(), Expires: expires}
-	s.recs = append(s.recs, keyRec{apiKey: k, Hash: keyHash(secret)})
+	s.recs = append(s.recs, keyRec{apiKey: k, Hash: keyHash(secret), PinFP: fp})
 	s.mu.Unlock()
 	s.save()
 	return secret, k, nil
@@ -238,6 +249,40 @@ func (s *keyStore) dropWhere(gone func(keyRec) bool) []apiKey {
 	})
 	s.mu.Unlock()
 	if len(out) > 0 {
+		s.save()
+	}
+	return out
+}
+
+// reconcile runs once at startup against the loaded config and returns the keys it ended:
+// owner gone, or a user whose PIN hash no longer matches the stamp. A key with no stamp
+// (older keys.json) is kept and stamped now; a PIN edited while down before this version
+// ran cannot be told.
+func (s *keyStore) reconcile(cfg config.Config) []apiKey {
+	changed := false
+	var out []apiKey
+	s.mu.Lock()
+	kept := s.recs[:0]
+	for _, r := range s.recs {
+		ok := keyOwnerExists(cfg, r.Owner)
+		if ok && r.Owner.Kind == actorUser {
+			u, _ := cfg.FindUser(r.Owner.Name)
+			switch fp := pinFP(u.Pin); {
+			case r.PinFP == "":
+				r.PinFP, changed = fp, true
+			case r.PinFP != fp:
+				ok = false
+			}
+		}
+		if ok {
+			kept = append(kept, r)
+		} else {
+			out = append(out, r.apiKey)
+		}
+	}
+	s.recs = kept
+	s.mu.Unlock()
+	if changed || len(out) > 0 {
 		s.save()
 	}
 	return out

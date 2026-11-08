@@ -42,7 +42,7 @@ All paths are under `/api/v1`. Errors are `{"error":{"code","message"}}`.
 
 | Path | Scope | What it does |
 | --- | --- | --- |
-| `GET /names`, `/tally`, `/protected`, `/status` | the same name | Names, what each destination is routed from per level, Protected destinations, Server link and Router link |
+| `GET /names`, `/tally`, `/protected`, `/status` | the same name | Names, what each destination is routed from per level, Protected destinations, Server link and Router link (`router`, `routerUp` and an `error` flag; `address` and the `err` text only with the `log` scope, since they name the router) |
 | `GET /presets` | `presets` | Everyone presets, plus Me presets for a user's key. Never This browser |
 | `GET /history?before=&n=` | `history` | History, newest first. A page never ends inside a Group |
 | `GET /history/groups/last` | `history` | The latest Group with its entries, oldest first |
@@ -68,7 +68,7 @@ A route the router confirms after the take gave up is a Late Result. The respons
 
 ## Stream
 
-`GET /stream?topics=names,tally,status,history,results` upgrades to a WebSocket that only sends. A browser page cannot set the Bearer header, so use a client library. Each topic needs the scope of the same read (`results` needs `history`). The first frame is `hello`, then one `snapshot` each for `names`, `tally` and `status`, then changes: `names`, `tally` (only changed routes), `status`, `entry`, `entryUpdate` and `historyCleared`. `ping` is a heartbeat every 5 seconds. A slow client is disconnected. Connects and disconnects are `api` rows with the key name.
+`GET /stream?topics=names,tally,status,history,results` upgrades to a WebSocket that only sends. A browser page cannot set the Bearer header, so use a client library. Each topic needs the scope of the same read (`results` needs `history`). The first frame is `hello`, then one `snapshot` each for `names`, `tally` and `status`, then changes: `names`, `tally` (only changed routes), `status` (the same fields as `GET /status`, with `addr` for the address), `entry`, `entryUpdate` and `historyCleared`. `ping` is a heartbeat every 5 seconds. A slow client is disconnected. Connects and disconnects are `api` rows with the key name.
 
 ## Require HTTPS
 

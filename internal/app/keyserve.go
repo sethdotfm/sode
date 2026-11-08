@@ -93,7 +93,7 @@ func (a *App) CreateOwnKey(c *client, pin, keyName string, expiresMs int64) (str
 	if nu, ok := cur.FindUser(u.Name); !ok || nu.Pin != u.Pin {
 		return "", apiKey{}, errors.New("your PIN changed; unlock again")
 	}
-	return a.keys.createCapped(keyOwner{Kind: actorUser, Name: u.Name}, keyName, exp, cur.API.MaxUserKeys)
+	return a.keys.createCapped(keyOwner{Kind: actorUser, Name: u.Name}, keyName, exp, cur.API.MaxUserKeys, pinFP(u.Pin))
 }
 
 func (a *App) replyKeyCreate(c *client, t string, id int, secret string, rec apiKey, err error) {
@@ -175,13 +175,14 @@ func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int6
 	}
 	cfg := a.r().cfg
 	var max int
+	var fp string
 	switch o.Kind {
 	case actorUser:
 		u, ok := cfg.FindUser(o.Name)
 		if !ok {
 			return "", apiKey{}, errors.New("no such user")
 		}
-		o.Name, max = u.Name, cfg.API.MaxUserKeys
+		o.Name, max, fp = u.Name, cfg.API.MaxUserKeys, pinFP(u.Pin)
 	case actorClient:
 		cl, ok := cfg.FindAPIClient(o.Name)
 		if !ok {
@@ -191,7 +192,7 @@ func (a *App) CreateKeyFor(c *client, o keyOwner, keyName string, expiresMs int6
 	default:
 		return "", apiKey{}, errors.New("a key belongs to a user or an API client")
 	}
-	return a.keys.createCapped(o, keyName, exp, max)
+	return a.keys.createCapped(o, keyName, exp, max, fp)
 }
 
 func (a *App) serveKeyCreateFor(c *client, m *inMsg) {

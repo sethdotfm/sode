@@ -209,7 +209,10 @@ paths:
   /status:
     get:
       summary: Server link and Router link
-      description: Scope `status`. The same facts as `/api/health`, which stays open without a key.
+      description: |
+        Scope `status`. The same facts as `/api/health`, which stays open without a key. The
+        router address and the error text name the router, so only a caller that also has
+        the scope `log` gets `address` and `err`; everyone else gets the `error` flag.
       responses:
         "200":
           description: Link state
@@ -217,13 +220,14 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [server, router, routerUp, address, version, uptimeSeconds]
+                required: [server, router, routerUp, error, version, uptimeSeconds]
                 properties:
                   server: { type: string, enum: [up] }
                   router: { type: string, description: "up, connecting or down" }
                   routerUp: { type: boolean }
-                  address: { type: string }
-                  err: { type: string }
+                  error: { type: boolean, description: The router link has a problem }
+                  address: { type: string, description: Only with the scope `log` }
+                  err: { type: string, description: Only with the scope `log` }
                   version: { type: string }
                   uptimeSeconds: { type: integer }
         default: { $ref: "#/components/responses/Error" }
@@ -365,7 +369,7 @@ paths:
           `data` shaped like the REST read, so a client starts from a full state.
         - `names`: the full names again, after a refresh.
         - `tally`: `data.routes`, only the routes that changed.
-        - `status`: `data` has `router`, `addr`, `err` and `routerUp`.
+        - `status`: `data` has `router`, `routerUp` and `error`, plus `addr` and `err` for a caller with the scope `log`.
         - `entry`: a new History entry (topic `history`). `data` is an Entry.
         - `entryUpdate`: an entry changed after it was sent, for example a Late Result
           (a route confirmed after the take gave up). `data` is the whole entry. Sent

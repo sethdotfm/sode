@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"maps"
 	"net/netip"
@@ -185,7 +186,9 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
 	a.keys = loadKeys(cfgPath)
-	a.keys.dropWhere(func(r keyRec) bool { return !keyOwnerExists(cfg, r.Owner) })
+	for _, k := range a.keys.reconcile(cfg) {
+		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
+	}
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())

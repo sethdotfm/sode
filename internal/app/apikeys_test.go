@@ -95,7 +95,7 @@ func TestKeyDropOwnerAndCaps(t *testing.T) {
 	if n := s.count(keyOwner{Kind: actorUser, Name: "ana"}); n != 3 {
 		t.Fatalf("count %d (owner names compare ignoring case, kinds apart)", n)
 	}
-	if _, _, err := s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, "z", time.Time{}, 3); err == nil {
+	if _, _, err := s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, "z", time.Time{}, 3, ""); err == nil {
 		t.Fatal("cap not enforced")
 	}
 	if n := s.dropOwner(keyOwner{Kind: actorUser, Name: "ANA"}); n != 3 {
