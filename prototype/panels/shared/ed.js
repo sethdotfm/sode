@@ -10,7 +10,7 @@ export const KINDS = [
   { k: 'cur', name: 'Current Destination', icon: 'eye' },
 ]
 export const kindName = (k) => KINDS.find((x) => x.k === k).name
-export const labelOf = (c) => ({ src: () => SOURCES[c.n]?.name, dst: () => DESTS[c.n]?.name, pre: () => PRESETS.find((p) => p.id === c.pid)?.name, take: () => 'Take', clr: () => 'Clear', cur: () => 'Currently' })[c.kind]() || '?'
+export const labelOf = (c) => ({ src: () => (c.n == null ? 'Choose a source' : SOURCES[c.n]?.name), dst: () => (c.n == null ? 'Choose a destination' : DESTS[c.n]?.name), pre: () => (c.pid == null ? 'Choose a preset' : PRESETS.find((p) => p.id === c.pid)?.name), take: () => 'Take', clr: () => 'Clear', cur: () => 'Currently' })[c.kind]() || '?'
 export const FS = { sm: 0.85, md: 1, lg: 1.3, xl: 1.7 }
 export const FS_NAMES = [['', 'Panel default'], ['sm', 'Small'], ['md', 'Normal'], ['lg', 'Large'], ['xl', 'Huge']]
 // Vendored Lucide icons that suit sources, destinations and presets.
@@ -71,7 +71,7 @@ export function createEditor() {
   E.single = () => { const s = E.selCells(); return s.length === 1 && E.selSquares() === s[0].rs * s[0].cs ? s[0] : null }
 
   E.setKind = (kind) => {
-    const q = E.rect(); if (!q) return
+    const q = E.rect(); if (!q || !KINDS.some((k) => k.k === kind)) return
     const cells = E.selCells()
     if (cells.length) for (const c of cells) { if (c.kind !== kind) Object.assign(c, { kind, n: undefined, pid: undefined, ...defaults(kind) }) }
     else for (let r = q.r1; r <= q.r2; r++) for (let k = q.c1; k <= q.c2; k++) add({ r, c: k, kind, ...defaults(kind) })
@@ -223,6 +223,39 @@ export function createEditor() {
     E.select(r, c)
   }
 
+  // Templates: a saved layout (and optionally settings) that is shared; cells come back unassigned so only the details are filled in.
+  E.isUnbound = (x) => (x.kind === 'src' || x.kind === 'dst' ? x.n == null : x.kind === 'pre' ? x.pid == null : false)
+  E.unbound = () => E.cells.filter(E.isUnbound).sort((a, b) => a.r - b.r || a.c - b.c)
+  E.nextUnbound = () => {
+    const list = E.unbound(); if (!list.length) return false
+    const q = E.rect(), t = (q && list.find((x) => x.r > q.r1 || (x.r === q.r1 && x.c > q.c1))) || list[0]
+    E.select(t.r, t.c); return true
+  }
+  const SETTING_KEYS = ['mode', 'guard', 'multi', 'text', 'fontSize', 'title', 'colView', 'colCur', 'colTake', 'idle', 'levels']
+  const T = (name, by, scope, items) => ({ id: 't' + E.uid++, name, by, scope, rows: 4, cols: 8, cfg: { title: true, fontSize: 'md' }, cells: items.map(([kind, r, c, rs = 1, cs = 1]) => ({ kind, r, c, rs, cs, lv: null })) })
+  const row = (kind, r, c0, n) => Array.from({ length: n }, (_, i) => [kind, r, c0 + i])
+  E.templates = [
+    T('Director station', 'Dana', 'Everyone', [...row('src', 1, 1, 8), ...row('src', 2, 1, 8), ...row('dst', 3, 1, 4), ['cur', 3, 5, 1, 2], ...row('pre', 3, 7, 2), ['clr', 4, 1], ...row('pre', 4, 2, 3), ['take', 4, 5, 1, 4]]),
+    T('Replay operator', 'Priya', 'Everyone', [...row('src', 1, 1, 8), ...row('src', 2, 1, 8), ...row('dst', 3, 1, 2), ['cur', 3, 3, 1, 2], ...row('pre', 3, 5, 4), ['clr', 4, 1, 1, 2], ['take', 4, 3, 1, 6]]),
+    T('Master control', 'You', 'Me', [...row('dst', 1, 1, 8), ...row('src', 2, 1, 8), ...row('src', 3, 1, 8), ['cur', 4, 1, 1, 2], ['clr', 4, 3], ...row('pre', 4, 4, 2), ['take', 4, 6, 1, 3]]),
+  ]
+  E.saveTemplate = ({ name, scope, withBindings, withSettings }) => {
+    const t = { id: 't' + E.uid++, name: name || 'Untitled template', by: 'You', scope, rows: E.rows, cols: E.cols, cfg: withSettings ? Object.fromEntries(SETTING_KEYS.map((k) => [k, E.cfg[k]])) : {},
+      cells: E.cells.map((x) => ({ kind: x.kind, r: x.r, c: x.c, rs: x.rs, cs: x.cs, fs: x.fs || null, lv: x.lv || null, art: x.art?.kind === 'icon' ? x.art : null, ...(withBindings ? { n: x.n, pid: x.pid } : {}) })) }
+    E.templates.unshift(t); say(`Saved template "${t.name}" for ${scope === 'Me' ? 'you' : 'everyone'}.`); emit('templates', false)
+  }
+  E.deleteTemplate = (id) => { E.templates = E.templates.filter((t) => t.id !== id); emit('templates', false) }
+  E.useTemplate = (t, asNew) => {
+    if (asNew) { E.panels.unshift({ name: t.name, who: 'You', own: true, acts: 'user' }); E.openPanel(0) }
+    E.rows = t.rows; E.cols = t.cols; E.anchor = E.head = null
+    E.cells = t.cells.map((x) => ({ id: E.uid++, rs: 1, cs: 1, lv: null, ...x }))
+    Object.assign(E.cfg, t.cfg)
+    if (asNew) E.cfg.name = t.name
+    const n = E.unbound().length
+    say(n ? `Applied "${t.name}". ${n} cell${n > 1 ? 's' : ''} still need a source, destination or preset.` : `Applied "${t.name}".`)
+    emit('layout'); emit('cfg')
+  }
+
   E.openPanel = (i) => {
     const p = E.panels[i]; E.curPanel = i; E.readonly = !p.own
     E.cfg.name = p.name; E.cfg.acts = p.own ? p.acts || 'user' : 'user'
@@ -232,7 +265,7 @@ export function createEditor() {
   E.copyPanel = () => { const p = E.panels[E.curPanel]; E.panels.unshift({ ...p, name: p.name + ' copy', who: 'You', own: true }); E.openPanel(0) }
   E.setCfg = (k, v) => { E.cfg[k] = v; if (k === 'name') { E.panels[E.curPanel].name = v; emit('panel', false) } emit('cfg') }
   E.save = () => { E.dirty = false; say('Saved. Open panels refresh in 10 s.'); emit('save', false) }
-  E.deckCells = () => E.cells.map((x) => ({ r: x.r, c: x.c, rs: x.rs, cs: x.cs, kind: x.kind, n: x.n, id: x.pid, fs: x.fs ? FS[x.fs] : null, art: E.artOf(x) }))
+  E.deckCells = () => E.cells.filter((x) => !E.isUnbound(x)).map((x) => ({ r: x.r, c: x.c, rs: x.rs, cs: x.cs, kind: x.kind, n: x.n, id: x.pid, fs: x.fs ? FS[x.fs] : null, art: E.artOf(x) }))
 
   // Starting layout: the approved prototype A grid.
   for (let i = 0; i < 8; i++) add({ r: 1, c: i + 1, kind: 'dst', n: i })

@@ -36,9 +36,10 @@ export function gridView(host, E, { paint = false } = {}) {
       d.style.gridArea = `${x.r} / ${x.c} / span ${x.rs} / span ${x.cs}`
       d.dataset.r = x.r; d.dataset.c = x.c; d.dataset.s = 'idle'
       if (E.isSel(x.r, x.c)) d.classList.add('ed-sel')
+      if (E.isUnbound(x)) d.classList.add('ed-unbound')
       const lbl = esc(labelOf(x))
       d.innerHTML = (x.kind === 'cur' ? `<span class="pb-label">Currently</span><span class="name">${lbl}</span>` : `<span>${lbl}</span>`) +
-        `<span class="ed-badge">${icon(kindIcon(x.kind))}</span>` + (POOL[x.kind] || x.kind === 'pre' ? (E.allowed(x.kind, x.kind === 'pre' ? x.pid : x.n) ? '' : `<span class="ed-out" title="Outside your Rights">${icon('lock')}</span>`) : '') + (x.lv ? `<span class="ed-lv">L${x.lv.join(',')}</span>` : '') + (x.rs * x.cs > 1 ? `<span class="ed-span">${x.cs}&times;${x.rs}</span>` : '')
+        `<span class="ed-badge">${icon(kindIcon(x.kind))}</span>` + (!E.isUnbound(x) && (POOL[x.kind] || x.kind === 'pre') ? (E.allowed(x.kind, x.kind === 'pre' ? x.pid : x.n) ? '' : `<span class="ed-out" title="Outside your Rights">${icon('lock')}</span>`) : '') + (x.lv ? `<span class="ed-lv">L${x.lv.join(',')}</span>` : '') + (x.rs * x.cs > 1 ? `<span class="ed-span">${x.cs}&times;${x.rs}</span>` : '')
       host.append(d)
       decorate(d, { fs: x.fs ? FS[x.fs] : null, art: E.artOf(x) })
     }

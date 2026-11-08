@@ -11,3 +11,6 @@ Three editor layouts over one editor state (`shared/ed.js`) and shared views (`s
 Run `node prototype/panels/serve-editor.mjs`, then open 8111 (A inspector), 8112 (B paint), 8113 (C navigator).
 "Test it live" swaps the edit grid for the working stub panel with the panel's settings applied.
 "Viewer is Trusted" shows how API client panels are gated. Save only clears the Unsaved badge.
+
+Variant D (8114) is the smart cursor: a floating chooser on the selected square, a grip that extends a run, and a gesture pad
+for multi-square selections. Templates (toolbar, A and D) are saved layouts whose cells come back unassigned.
