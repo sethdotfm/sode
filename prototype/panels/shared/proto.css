@@ -1,0 +1,16 @@
+/* PROTOTYPE: result and state styling shared by the variants; layout is per variant. */
+:root { --c-src:#2563a8; --c-dst:#a86a12; --c-pre:#6a3fa0; --c-take:#c23030; --c-clr:#555; --c-cur:#1f6f5c; --c-ok:#1f9d55; --c-already:#8a8f98; --c-bad:#d13438 }
+html, body { margin:0; background:#0b0c0e; color:#e8e8e8; font-family: var(--pb-font, system-ui, sans-serif); height:100%; }
+button { font:inherit; color:inherit; cursor:pointer; }
+@keyframes arm { 0%,100% { filter:brightness(1); box-shadow:0 0 0 0 #fff0 } 50% { filter:brightness(1.6); box-shadow:0 0 0 6px #fff6 } }
+.armed { animation: arm 0.9s ease-in-out infinite; }
+.flash-connected { outline:4px solid var(--c-ok); }
+.flash-already { outline:4px solid var(--c-already); }
+.flash-failed { outline:4px solid var(--c-bad); }
+.ico { font-weight:700; margin-left:.3em; }
+.toolbar { position:fixed; top:0; left:0; right:0; z-index:5; display:flex; gap:.75rem; align-items:center; padding:.35rem .75rem; background:#000c; font-size:.8rem; }
+.toolbar label { display:flex; gap:.3rem; align-items:center; }
+.toolbar b { color:#f5c542; letter-spacing:.08em; }
+.err { position:fixed; left:50%; bottom:1rem; transform:translateX(-50%); background:var(--c-bad); padding:.5rem 1rem; border-radius:.4rem; z-index:6; }
+.banner { position:fixed; left:50%; bottom:3.5rem; transform:translateX(-50%); background:#233; border:1px solid #5aa; padding:.5rem 1rem; border-radius:.4rem; z-index:6; font-size:.85rem; }
+.txt { display:none } body.text-on .txt { display:inline }

@@ -1,0 +1,60 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panels prototype A: button bank</title>
+<link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/shared/proto.css">
+<style>
+/* A: a dense hardware-style button bank, fixed square cells, colour-coded by kind. */
+#grid { display:grid; grid-template-columns:repeat(8,1fr); grid-auto-rows:minmax(4.2rem,11vh); gap:.4rem; padding:3rem .6rem .6rem; max-width:80rem; margin:auto; }
+.cell { border:0; border-radius:.35rem; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.15rem; font-weight:600; padding:.2rem; text-align:center; }
+.cell small { font-weight:400; opacity:.85; font-size:.7em; }
+.cell.sel { box-shadow: inset 0 0 0 .22rem #fff; }
+.cell[disabled] { opacity:.35; }
+.cell.take { font-size:1.8rem; letter-spacing:.2em; }
+</style></head><body ><div id="grid"></div>
+<script type="module">
+import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED } from '/shared/model.js'
+import { toolbar } from '/shared/toolbar.js'
+const p = createPanel()
+toolbar(p, 'A button bank')
+const cells = []
+DESTS.slice(0, 8).forEach((d, i) => cells.push({ r: 1, c: i + 1, kind: 'dst', n: d.n }))
+cells.push({ r: 2, c: 1, kind: 'dst', n: 8 }, { r: 2, c: 2, kind: 'dst', n: 9 })
+cells.push({ r: 2, c: 3, cs: 4, kind: 'cur' }, { r: 2, c: 7, cs: 2, kind: 'clr' })
+SOURCES.forEach((s, i) => cells.push({ r: 3 + (i >> 3), c: (i & 7) + 1, kind: 'src', n: s.n }))
+PRESETS.forEach((x, i) => cells.push({ r: 5, c: i + 1, kind: 'pre', id: x.id }))
+cells.push({ r: 5, c: 4, cs: 5, rs: 2, kind: 'take' })
+const grid = document.getElementById('grid')
+const bg = { src: 'var(--c-src)', dst: 'var(--c-dst)', pre: 'var(--c-pre)', take: 'var(--c-take)', clr: 'var(--c-clr)', cur: 'var(--c-cur)' }
+const els = cells.map((c) => {
+  const b = document.createElement('button')
+  b.className = 'cell ' + c.kind
+  b.style.cssText = `grid-row:${c.r}/span ${c.rs || 1};grid-column:${c.c}/span ${c.cs || 1};--bg:${bg[c.kind]}`
+  b.onclick = () => ({ dst: () => p.pickDst(c.n), src: () => p.pickSrc(c.n), pre: () => p.pickPreset(c.id), take: () => p.take(), clr: () => p.clear(), cur: () => {} })[c.kind]()
+  grid.append(b)
+  return b
+})
+p.subscribe((st) => cells.forEach((c, i) => {
+  const b = els[i]
+  b.classList.remove('sel', 'armed', 'flash-connected', 'flash-already', 'flash-failed')
+  if (c.kind === 'dst') {
+    const f = flashOf(st, c.n)
+    b.innerHTML = `${DESTS[c.n].name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${SOURCES[st.tally[c.n]].name}</small>`
+    b.classList.toggle('sel', st.selDsts.includes(c.n))
+    if (f) b.classList.add('flash-' + f)
+    b.disabled = PROTECTED.has(c.n)
+    if (b.disabled) b.innerHTML += '<small>PROTECTED</small>'
+  } else if (c.kind === 'src') {
+    b.innerHTML = SOURCES[c.n].name
+    b.classList.toggle('sel', st.selSrc === c.n)
+  } else if (c.kind === 'pre') {
+    b.innerHTML = PRESETS.find((x) => x.id === c.id).name
+    b.classList.toggle('sel', st.plan?.id === c.id)
+  } else if (c.kind === 'cur') {
+    b.innerHTML = st.selDsts.length ? `${st.selDsts.map((d) => DESTS[d].name).join(' + ')}<small>now ${st.selDsts.map((d) => SOURCES[st.tally[d]].name).join(' / ')}${st.selSrc != null ? ' > ' + SOURCES[st.selSrc].name : ''}</small>` : 'NO DESTINATION'
+  } else if (c.kind === 'clr') b.textContent = 'CLEAR'
+  else if (c.kind === 'take') {
+    b.textContent = st.mode === 'instant' ? 'INSTANT' : 'TAKE'
+    b.disabled = st.mode === 'instant'
+    b.classList.toggle('armed', p.armed())
+  }
+}))
+</script></body></html>

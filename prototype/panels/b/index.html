@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panels prototype B: destination rail</title>
+<link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/shared/proto.css">
+<style>
+/* B: touch-first and portrait-friendly. A big Current Destination header carries the tally, a destination
+   rail on the left, sources as wide rows, and a thumb-sized merged Take bar docked at the bottom. */
+body { display:flex; flex-direction:column; padding-top:2.2rem; box-sizing:border-box; }
+#cur { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; text-align:center; gap:1rem; padding:.8rem 1rem; background:var(--c-cur); font-size:clamp(1.2rem,3.5vw,2.4rem); font-weight:700; }
+#cur small { display:block; font-size:.45em; font-weight:400; opacity:.85 }
+#main { flex:1; display:grid; grid-template-columns:16rem 1fr; min-height:0; }
+#rail { display:flex; flex-direction:column; gap:.3rem; padding:.5rem; overflow:auto; background:#15110a }
+#srcs { display:grid; grid-template-columns:repeat(auto-fill,minmax(10rem,1fr)); grid-auto-rows:4.2rem; gap:.4rem; padding:.5rem; overflow:auto; align-content:start }
+.c { border:0; border-radius:.5rem; background:var(--bg); padding:.5rem .8rem; text-align:left; font-weight:600; font-size:1.05rem; }
+.c small { display:block; font-weight:400; opacity:.85 }
+.c.sel { box-shadow: inset 0 0 0 .25rem #fff }
+.c[disabled] { opacity:.35 }
+#bar { display:grid; grid-template-columns:1fr 1fr 1fr 2fr 1fr; gap:.4rem; padding:.5rem; background:#111; height:6.5rem }
+#bar .c { text-align:center; font-size:1.3rem } #take { font-size:2.2rem; letter-spacing:.25em }
+</style></head><body>
+<div id="cur"></div>
+<div id="main"><div id="rail"></div><div id="srcs"></div></div>
+<div id="bar"></div>
+<script type="module">
+import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED } from '/shared/model.js'
+import { toolbar } from '/shared/toolbar.js'
+const p = createPanel()
+toolbar(p, 'B destination rail')
+const rail_ = document.getElementById('rail'), srcs_ = document.getElementById('srcs'), bar_ = document.getElementById('bar')
+const mk = (parent, cls, bg, fn) => { const b = document.createElement('button'); b.className = 'c ' + cls; b.style.setProperty('--bg', bg); b.onclick = fn; parent.append(b); return b }
+const rail = DESTS.map((d) => mk(rail_, 'dst', 'var(--c-dst)', () => p.pickDst(d.n)))
+const srcs = SOURCES.map((s) => mk(srcs_, 'src', 'var(--c-src)', () => p.pickSrc(s.n)))
+const pres = PRESETS.map((x) => mk(bar_, 'pre', 'var(--c-pre)', () => p.pickPreset(x.id)))
+const take = mk(bar_, 'take', 'var(--c-take)', () => p.take()); take.id = 'take'
+const clr = mk(bar_, 'clr', 'var(--c-clr)', () => p.clear()); clr.textContent = 'CLEAR'
+p.subscribe((st) => {
+  DESTS.forEach((d, i) => {
+    const f = flashOf(st, d.n), b = rail[i]
+    b.className = 'c dst' + (st.selDsts.includes(d.n) ? ' sel' : '') + (f ? ' flash-' + f : '')
+    b.disabled = PROTECTED.has(d.n)
+    b.innerHTML = `${d.name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${b.disabled ? 'PROTECTED' : SOURCES[st.tally[d.n]].name}</small>`
+  })
+  SOURCES.forEach((s, i) => { srcs[i].textContent = s.name; srcs[i].classList.toggle('sel', st.selSrc === s.n) })
+  PRESETS.forEach((x, i) => { pres[i].textContent = x.name; pres[i].classList.toggle('sel', st.plan?.id === x.id) })
+  take.textContent = st.mode === 'instant' ? 'INSTANT' : 'TAKE'
+  take.disabled = st.mode === 'instant'
+  take.classList.toggle('armed', p.armed())
+  const names = st.selDsts.map((d) => DESTS[d].name).join(' + ')
+  document.getElementById('cur').innerHTML = st.selDsts.length
+    ? `<div>${names}<small>has ${st.selDsts.map((d) => SOURCES[st.tally[d]].name).join(' / ')}</small></div><div>&rarr;</div><div>${st.selSrc != null ? SOURCES[st.selSrc].name : st.plan ? st.plan.name : '?'}<small>${st.selSrc != null || st.plan ? 'ready' : 'pick a source'}</small></div>`
+    : `<div></div><div>Pick a destination</div><div></div>`
+})
+</script></body></html>
