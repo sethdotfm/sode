@@ -1,3 +1,8 @@
+/* One animated number on the root drives every pulsing cell, so they all breathe in the same phase. */
+@property --pulse { syntax: "<number>"; inherits: true; initial-value: 0; }
+@keyframes pulse { 0%, 100% { --pulse: 0; } 50% { --pulse: 1; } }
+:root { animation: pulse var(--panel-pulse-s) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { :root { animation: none; --pulse: 0.6; } }
 /* PROTOTYPE page CSS: layout and state wiring only; every colour and size is a patchbay token. */
 :root {
   /* Panel roles. Orange has no semantic token yet; --pb-brand is the nearest and needs an upstream
@@ -5,7 +10,10 @@
   --panel-view: var(--pb-brand);
   --panel-current: var(--pb-status-ok);
   --panel-on: var(--pb-text-on-accent);
-  --panel-beat: 1000ms; /* one shared clock, so every blinking light flashes in the same phase */
+  /* Idle cells lean cool so orange and green read as the complement. Needs upstream tokens before this ships. */
+  --panel-src: color-mix(in srgb, var(--pb-hue-blue) 30%, var(--pb-surface-control));
+  --panel-dst: color-mix(in srgb, var(--pb-hue-periwinkle) 30%, var(--pb-surface-control));
+  --panel-pulse-s: 3.2s;
 }
 body { background: var(--pb-surface-base); color: var(--pb-text); font-family: var(--pb-font); }
 .schemes { display: grid; gap: var(--pb-space-6); margin: var(--pb-space-6) auto; width: min(96vw, calc((100vh - var(--pb-toolbar-h) - 4rem) * 2)); }
@@ -32,18 +40,18 @@ body { background: var(--pb-surface-base); color: var(--pb-text); font-family: v
 .deck .info .name { color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
 
 /* Cell states. Viewed destination: solid orange. Current source: solid green. Staged destination and
-   pending source: a static ring plus a fill that follows the shared beat. */
-.cell[data-s="view"] { background-color: var(--panel-view); color: var(--panel-on); }
-.cell[data-s="current"] { background-color: var(--panel-current); color: var(--panel-on); }
-.cell[data-s="staged"] { box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-view); }
-.cell[data-s="pending"] { box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-current); }
-.cell[data-v="1"] { outline: var(--pb-state-border-w, 2px) solid var(--pb-text-strong); outline-offset: calc(var(--pb-space-1) * -1); }
-.cell.flash-connected { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-ok); }
-.cell.flash-already { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle); }
-.cell.flash-failed { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error); }
-.cell, .cell.take { transition-duration: calc(var(--panel-beat) * 0.4); }
-html[data-beat="on"] .cell[data-s="staged"] { background-color: var(--panel-view); color: var(--panel-on); }
-html[data-beat="on"] .cell[data-s="pending"] { background-color: var(--panel-current); color: var(--panel-on); }
-.cell.take.armed { background-color: var(--pb-surface-control); color: var(--pb-text); }
-html[data-beat="on"] .cell.take.armed { background-color: var(--pb-commit); color: var(--pb-text-on-accent); }
+   pending source: a static ring plus a fill that swells between the idle colour and the state colour. */
+.deck .cell[data-s="idle"].src { background-color: var(--panel-src); }
+.deck .cell[data-s="idle"].dst { background-color: var(--panel-dst); }
+.deck .cell[data-s="idle"].src:hover, .deck .cell[data-s="idle"].dst:hover { background-color: color-mix(in srgb, var(--pb-text) 10%, var(--panel-dst)); }
+.deck .cell[data-s="view"] { background-color: var(--panel-view); color: var(--panel-on); }
+.deck .cell[data-s="current"] { background-color: var(--panel-current); color: var(--panel-on); }
+.deck .cell[data-s="staged"] { background-color: color-mix(in srgb, var(--panel-view) calc(var(--pulse) * 100%), var(--panel-dst)); box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-view); color: var(--pb-text-strong); }
+.deck .cell[data-s="pending"] { background-color: color-mix(in srgb, var(--panel-current) calc(var(--pulse) * 100%), var(--panel-src)); box-shadow: inset 0 0 0 var(--pb-space-1) var(--panel-current); color: var(--pb-text-strong); }
+.deck .cell[data-v="1"] { outline: var(--pb-state-border-w, 2px) solid var(--pb-text-strong); outline-offset: calc(var(--pb-space-1) * -1); }
+.deck .cell.flash-connected { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-ok); }
+.deck .cell.flash-already { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle); }
+.deck .cell.flash-failed { box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error); }
+.deck .cell.take.armed { background-color: color-mix(in srgb, var(--pb-commit) calc(var(--pulse) * 100%), var(--pb-surface-control)); color: var(--pb-text-strong); }
 .txt { display: none; } body.text-on .txt { display: inline; }
+.deck .cell[data-s="staged"], .deck .cell[data-s="pending"], .deck .cell.take.armed { transition: none; }

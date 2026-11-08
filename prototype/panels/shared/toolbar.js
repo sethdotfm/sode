@@ -28,6 +28,4 @@ export function toolbar(panel, label, extra = '') {
     if (st.error) stack.insertAdjacentHTML('beforeend', `<div class="pb-toast pb-toast--error" role="alert"><div class="pb-toast__body"><div class="pb-toast__msg"></div></div></div>`)
     if (st.error) stack.querySelector('.pb-toast__msg').textContent = st.error
   })
-  // One clock for every blinking light. Reduced motion holds it steady; the static rings still mark state.
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(() => (document.documentElement.dataset.beat = document.documentElement.dataset.beat === 'on' ? 'off' : 'on'), 1000)
 }

@@ -20,8 +20,8 @@ export function buildDeck(root, p, cells) {
   check(cells)
   root.className = 'deck'
   const kindClass = {
-    src: 'pb-btn pb-xpt pb-xpt--source',
-    dst: 'pb-btn pb-xpt pb-xpt--dest',
+    src: 'pb-btn pb-xpt',
+    dst: 'pb-btn pb-xpt',
     pre: 'pb-btn',
     clr: 'pb-btn pb-btn--outline',
     take: 'pb-btn pb-btn--commit',
