@@ -30,3 +30,7 @@ export function apiSettingsReq(cur, next) {
 
 // Whether the form differs from the saved settings.
 export const apiEdited = (cur, next) => FIELDS.some((k) => next[k] !== cur[k]);
+
+// A hello repaints unless the form holds edits that are neither the saved values nor the incoming ones.
+// The commit's hello can land before the save result, so a form equal to the incoming values is not an edit.
+export const apiRepaints = (saved, form, incoming) => !apiEdited(saved, form) || !apiEdited(incoming, form);

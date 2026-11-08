@@ -5,7 +5,7 @@
 import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
-import { apiEdited, apiProblem, apiSettingsReq } from './apirules.js';
+import { apiProblem, apiRepaints, apiSettingsReq } from './apirules.js';
 import { btn, check as checkbox, field } from './formbits.js';
 
 const check = (id, text, hint) => {
@@ -54,6 +54,7 @@ group.dataset.apart = '';
 $('users-group').after(group); // users.js is imported first
 
 let saved = { enabled: false, rateLimit: 0, takeCap: 1, guestEnabled: false, logReads: false };
+let sent = saved;
 let seq = 0;
 let painted = false;
 
@@ -68,9 +69,10 @@ const edited = () => ({
 function paint() {
   const a = S.cfg?.api;
   if (!a) return;
-  if (painted && apiEdited(saved, edited())) return; // a hello must not drop unsaved edits
+  const incoming = { enabled: !!a.enabled, rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads };
+  if (painted && !apiRepaints(saved, edited(), incoming)) return;
   painted = true;
-  saved = { enabled: !!a.enabled, rateLimit: a.rateLimit, takeCap: a.takeCap, guestEnabled: !!a.guestEnabled, logReads: !!a.logReads };
+  saved = incoming;
   enabled.input.checked = saved.enabled;
   guest.input.checked = saved.guestEnabled;
   logReads.input.checked = saved.logReads;
@@ -94,6 +96,7 @@ async function doSave() {
   if (S.pinSet && !unlocked() && !(await askPin('API settings need the Advanced Settings PIN.'))) return;
   const id = ++seq;
   if (!wsSend({ ...apiSettingsReq(saved, next), id })) return fail('Not connected to Sode.');
+  sent = next;
   save.disabled = true;
 }
 save.addEventListener('click', doSave);
@@ -102,6 +105,7 @@ onMsg('apiSettingsResult', async (m) => {
   if (m.id !== seq) return;
   save.disabled = false;
   if (m.ok) {
+    saved = sent;
     note.textContent = 'Saved.';
     return;
   }
