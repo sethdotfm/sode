@@ -181,6 +181,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
 	a.keys = loadKeys(cfgPath)
+	a.keys.dropWhere(func(r keyRec) bool { return !keyOwnerExists(cfg, r.Owner) })
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())
@@ -242,6 +243,7 @@ func (a *App) periodic() {
 	if sessions {
 		a.touchSessions()
 	}
+	a.expireKeys(time.Now())
 	if !up {
 		return
 	}
