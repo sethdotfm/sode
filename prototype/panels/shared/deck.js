@@ -16,6 +16,16 @@ function check(cells, ROWS, COLS) {
 const icon = (id) => `<svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="/vendor/patchbay/icons/lucide.svg#${id}"/></svg>`
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' }
 
+// Artwork and font scale for one cell: an icon above the label, or an image behind it that leaves the state colour showing.
+export function decorate(b, c) {
+  b.querySelectorAll(':scope > .art').forEach((n) => n.remove())
+  if (c.fs) b.style.setProperty('--fs', c.fs); else b.style.removeProperty('--fs')
+  const a = c.art
+  b.classList.toggle('has-img', !!(a && a.kind === 'image' && a.url))
+  if (a && a.kind === 'image' && a.url) b.style.setProperty('--art', `url("${a.url}")`); else b.style.removeProperty('--art')
+  if (a && a.kind === 'icon' && a.ref) b.insertAdjacentHTML('afterbegin', `<svg class="pb-icon pb-icon--lg art" viewBox="0 0 24 24" aria-hidden="true"><use href="/vendor/patchbay/icons/lucide.svg#${a.ref}"/></svg>`)
+}
+
 export function buildDeck(root, p, cells, ROWS = 4, COLS = 8) {
   check(cells, ROWS, COLS)
   root.className = 'deck'
@@ -57,6 +67,7 @@ export function buildDeck(root, p, cells, ROWS = 4, COLS = 8) {
   const name = (n) => SOURCES[n].name
   p.subscribe((st) => cells.forEach((c, i) => {
     const b = els[i]
+    queueMicrotask(() => decorate(b, c))
     if (c.kind === 'dst') {
       const f = flashOf(st, c.n)
       b.className = `cell dst ${kindClass.dst}` + (PROTECTED.has(c.n) ? ' pb-xpt--protected' : '') + (f ? ' flash-' + f : '')

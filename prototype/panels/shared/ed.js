@@ -11,16 +11,30 @@ export const KINDS = [
 ]
 export const kindName = (k) => KINDS.find((x) => x.k === k).name
 export const labelOf = (c) => ({ src: () => SOURCES[c.n]?.name, dst: () => DESTS[c.n]?.name, pre: () => PRESETS.find((p) => p.id === c.pid)?.name, take: () => 'Take', clr: () => 'Clear', cur: () => 'Currently' })[c.kind]() || '?'
+export const FS = { sm: 0.85, md: 1, lg: 1.3, xl: 1.7 }
+export const FS_NAMES = [['', 'Panel default'], ['sm', 'Small'], ['md', 'Normal'], ['lg', 'Large'], ['xl', 'Huge']]
+// Vendored Lucide icons that suit sources, destinations and presets.
+export const ART_ICONS = 'video camera clapperboard film tv tv-minimal monitor monitor-play projector webcam mic mic-vocal headphones speaker volume-2 audio-lines music podcast radio radio-tower satellite satellite-dish antenna wifi signal cast airplay globe cloud server hard-drive disc router cable plug play pause circle-play square-play circle-dot rewind fast-forward list-video image images layers layout-grid presentation captions type megaphone newspaper user user-round users briefcase mountain sun moon star flag flame trophy house building warehouse car plane map-pin clock timer zap eye scan-line'.split(' ')
 export const POOL = { src: SOURCES, dst: DESTS }
 
+// Fuzzy match: query letters in order, with a bonus for runs and word starts. -1 is no match, 0 is an empty query.
+export function fuzzy(q, text) {
+  q = q.trim().toLowerCase(); if (!q) return 0
+  const t = text.toLowerCase(); let s = 0, i = 0, prev = -2
+  for (const ch of q) { if (ch === ' ') continue; const j = t.indexOf(ch, i); if (j < 0) return -1; s += (j === prev + 1 ? 3 : 1) + (j === 0 || t[j - 1] === ' ' ? 2 : 0); prev = j; i = j + 1 }
+  return s
+}
+
 const DEFAULT_CFG = () => ({
-  name: 'Studio A', id: 'studio-a', mode: 'take', guard: 'none', multi: true, text: false, idle: 30, levels: [1, 2, 3],
+  name: 'Studio A', id: 'studio-a', fontSize: 'md', title: true, backdrop: null, mode: 'take', guard: 'none', multi: true, text: false, idle: 30, levels: [1, 2, 3],
   colView: null, colCur: null, colTake: null,
   acts: 'user', rightsCap: 'mine', kiosk: false, auth: 'open', share: 'private', sharedWith: ['Dana'],
 })
 
 export function createEditor() {
-  const E = { rows: 4, cols: 8, cells: [], anchor: null, head: null, tool: 'select', test: false, trusted: true, dirty: false, notice: '', cfg: DEFAULT_CFG(), readonly: false, subs: new Set(), uid: 1 }
+  const E = { rows: 4, cols: 8, cells: [], anchor: null, head: null, tool: 'select', test: false, uploads: [], trusted: true, rights: 'all', dirty: false, ghost: null, ghostAt: '', curPanel: 0,
+    seq: { kind: 'src', keys: [], q: '', dir: 'across', wrap: 'edge', holesOnly: true },
+    panels: [{ name: 'Studio A', who: 'You', own: true, acts: 'user' }, { name: 'Replay desk', who: 'You', own: true, acts: 'api' }, { name: 'Master control', who: 'Dana', own: false }, { name: 'Edit bay 2', who: 'Priya', own: false }], notice: '', cfg: DEFAULT_CFG(), readonly: false, subs: new Set(), uid: 1 }
   E.on = (f) => (E.subs.add(f), f('init'))
   const emit = (topic, dirty = true) => { if (dirty && topic !== 'sel') E.dirty = true; E.subs.forEach((f) => f(topic)) }
   E.emit = emit
@@ -105,9 +119,77 @@ export function createEditor() {
     if (cut) say(`Removed ${cut} cell${cut > 1 ? 's' : ''} that no longer fit.`)
     emit('layout')
   }
-  E.setCfg = (k, v) => { E.cfg[k] = v; if (k === 'acts' && v === 'user') E.cfg.kiosk = E.cfg.kiosk; emit('cfg') }
+
+  // Rights stub: 'all' is full Rights; 'ro' and 'hidden' are limited, with Visibility Read-only (everything listed, outside greyed) or Hidden (outside not listed).
+  E.allowed = (kind, key) => E.rights === 'all' || (kind === 'src' ? key < 10 : kind === 'dst' ? key < 8 : ['p1', 'p2'].includes(key))
+  E.items = (kind) => (kind === 'pre' ? PRESETS.map((p) => ({ key: p.id, name: p.name, num: null })) : POOL[kind].map((p) => ({ key: p.n, name: p.name, num: p.n + 1 })))
+    .map((i) => ({ ...i, ok: E.allowed(kind, i.key) })).filter((i) => E.rights !== 'hidden' || i.ok)
+  E.setRights = (v) => { E.rights = v; emit('rights', false) }
+
+  E.canUnmerge = () => E.selCells().some((x) => x.rs * x.cs > 1)
+  E.unmerge = () => {
+    const m = E.selCells().filter((x) => x.rs * x.cs > 1)
+    if (!m.length) return say('Select a merged cell to unmerge.')
+    for (const x of m) Object.assign(x, { rs: 1, cs: 1 })
+    say('Unmerged. The first square keeps the cell and the others are empty.')
+    emit('layout')
+  }
+
+  // Sequential add: the picked keys fill squares in order from the clicked square, showing a plan first.
+  const order = (kind) => (kind === 'pre' ? PRESETS.map((p) => p.id) : POOL[kind].map((p) => p.n))
+  E.armed = () => E.seq.keys.length > 0
+  E.setSeq = (patch) => { Object.assign(E.seq, patch); E.ghost = null; E.ghostAt = ''; emit('seq', false) }
+  E.plan = (r, c) => {
+    const { kind, keys, dir, wrap, holesOnly } = E.seq
+    const queue = order(kind).filter((k) => keys.includes(k)), slots = []
+    const [outer, inner] = dir === 'across' ? [E.rows, E.cols] : [E.cols, E.rows]
+    const [o0, i0] = dir === 'across' ? [r, c] : [c, r]
+    for (let o = o0; o <= outer && queue.length; o++) for (let i = o === o0 ? i0 : wrap === 'start' ? i0 : 1; i <= inner && queue.length; i++) {
+      const [rr, cc] = dir === 'across' ? [o, i] : [i, o]
+      const hit = E.cellAt(rr, cc)
+      if (hit && holesOnly) continue
+      slots.push({ r: rr, c: cc, key: queue.shift(), replace: !!hit })
+    }
+    return { slots, dropped: queue.length, kind }
+  }
+  E.hover = (r, c) => {
+    const at = r ? `${r},${c}` : ''
+    if (at === E.ghostAt) return
+    E.ghostAt = at; E.ghost = r && E.armed() ? E.plan(r, c) : null
+    emit('ghost', false)
+  }
+  E.place = (r, c) => {
+    const pl = E.plan(r, c)
+    for (const s of pl.slots) {
+      E.cells = E.cells.filter((x) => x !== E.cellAt(s.r, s.c))
+      add({ r: s.r, c: s.c, kind: pl.kind, ...(pl.kind === 'pre' ? { pid: s.key } : { n: s.key }) })
+    }
+    E.seq.keys = []; E.ghost = null; E.ghostAt = ''
+    if (pl.dropped) say(`Placed ${pl.slots.length}. ${pl.dropped} did not fit before the edge of the grid.`)
+    emit('layout'); emit('seq', false)
+  }
+
+
+  // Look: per-cell font size and artwork (an icon, or an uploaded image). Uploads live in memory here; the build needs per-panel storage and a size cap.
+  E.artOf = (x) => (x.art ? { ...x.art, url: x.art.kind === 'image' ? E.uploads.find((u) => u.id === x.art.ref)?.url : null } : null)
+  E.setLook = (cells, patch) => { for (const x of cells) Object.assign(x, patch); emit('layout') }
+  E.addUpload = (file) => {
+    if (!/^image\/(jpeg|png|svg\+xml)$/.test(file.type)) return say('Use a JPEG, PNG or SVG file.')
+    if (file.size > 1024 * 1024) return say('That file is over 1 MB.')
+    const u = { id: 'u' + E.uid++, name: file.name, url: URL.createObjectURL(file) }
+    E.uploads.push(u); emit('uploads'); return u
+  }
+
+  E.openPanel = (i) => {
+    const p = E.panels[i]; E.curPanel = i; E.readonly = !p.own
+    E.cfg.name = p.name; E.cfg.acts = p.own ? p.acts || 'user' : 'user'
+    E.dirty = false; E.emit('panel', false); E.emit('cfg', false)
+  }
+  E.newPanel = () => { E.panels.unshift({ name: 'New panel', who: 'You', own: true, acts: 'user' }); E.openPanel(0) }
+  E.copyPanel = () => { const p = E.panels[E.curPanel]; E.panels.unshift({ ...p, name: p.name + ' copy', who: 'You', own: true }); E.openPanel(0) }
+  E.setCfg = (k, v) => { E.cfg[k] = v; if (k === 'name') { E.panels[E.curPanel].name = v; emit('panel', false) } emit('cfg') }
   E.save = () => { E.dirty = false; say('Saved. Open panels refresh in 10 s.'); emit('save', false) }
-  E.deckCells = () => E.cells.map((x) => ({ r: x.r, c: x.c, rs: x.rs, cs: x.cs, kind: x.kind, n: x.n, id: x.pid }))
+  E.deckCells = () => E.cells.map((x) => ({ r: x.r, c: x.c, rs: x.rs, cs: x.cs, kind: x.kind, n: x.n, id: x.pid, fs: x.fs ? FS[x.fs] : null, art: E.artOf(x) }))
 
   // Starting layout: the approved prototype A grid.
   for (let i = 0; i < 8; i++) add({ r: 1, c: i + 1, kind: 'dst', n: i })
