@@ -21,32 +21,33 @@ body { display:flex; flex-direction:column; padding-top:2.2rem; box-sizing:borde
 <div id="main"><div id="rail"></div><div id="srcs"></div></div>
 <div id="bar"></div>
 <script type="module">
-import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED } from '/shared/model.js'
+import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED, srcState, dstState } from '/shared/model.js'
 import { toolbar } from '/shared/toolbar.js'
 const p = createPanel()
 toolbar(p, 'B destination rail')
 const rail_ = document.getElementById('rail'), srcs_ = document.getElementById('srcs'), bar_ = document.getElementById('bar')
 const mk = (parent, cls, bg, fn) => { const b = document.createElement('button'); b.className = 'c ' + cls; b.style.setProperty('--bg', bg); b.onclick = fn; parent.append(b); return b }
-const rail = DESTS.map((d) => mk(rail_, 'dst', 'var(--c-dst)', () => p.pickDst(d.n)))
-const srcs = SOURCES.map((s) => mk(srcs_, 'src', 'var(--c-src)', () => p.pickSrc(s.n)))
+const rail = DESTS.map((d) => mk(rail_, 'dst', 'var(--c-idle)', () => p.pickDst(d.n)))
+const srcs = SOURCES.map((s) => mk(srcs_, 'src', 'var(--c-idle)', () => p.pickSrc(s.n)))
 const pres = PRESETS.map((x) => mk(bar_, 'pre', 'var(--c-pre)', () => p.pickPreset(x.id)))
 const take = mk(bar_, 'take', 'var(--c-take)', () => p.take()); take.id = 'take'
 const clr = mk(bar_, 'clr', 'var(--c-clr)', () => p.clear()); clr.textContent = 'CLEAR'
 p.subscribe((st) => {
   DESTS.forEach((d, i) => {
     const f = flashOf(st, d.n), b = rail[i]
-    b.className = 'c dst' + (st.selDsts.includes(d.n) ? ' sel' : '') + (f ? ' flash-' + f : '')
+    b.className = 'c dst' + (f ? ' flash-' + f : '')
+    b.dataset.s = dstState(st, d.n)
     b.disabled = PROTECTED.has(d.n)
-    b.innerHTML = `${d.name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${b.disabled ? 'PROTECTED' : SOURCES[st.tally[d.n]].name}</small>`
+    b.innerHTML = `${d.name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${b.disabled ? 'PROTECTED' : SOURCES[st.tally[d.n]].name}</small>${st.staged.has(d.n) ? `<span class="stg">&rarr; ${SOURCES[st.staged.get(d.n)].name}</span>` : ''}`
   })
-  SOURCES.forEach((s, i) => { srcs[i].textContent = s.name; srcs[i].classList.toggle('sel', st.selSrc === s.n) })
-  PRESETS.forEach((x, i) => { pres[i].textContent = x.name; pres[i].classList.toggle('sel', st.plan?.id === x.id) })
+  SOURCES.forEach((s, i) => { srcs[i].textContent = s.name; srcs[i].dataset.s = srcState(st, s.n) })
+  PRESETS.forEach((x, i) => { pres[i].textContent = x.name; pres[i].classList.toggle('sel', st.presetName === x.name) })
   take.textContent = st.mode === 'instant' ? 'INSTANT' : 'TAKE'
   take.disabled = st.mode === 'instant'
   take.classList.toggle('armed', p.armed())
-  const names = st.selDsts.map((d) => DESTS[d].name).join(' + ')
-  document.getElementById('cur').innerHTML = st.selDsts.length
-    ? `<div>${names}<small>has ${st.selDsts.map((d) => SOURCES[st.tally[d]].name).join(' / ')}</small></div><div>&rarr;</div><div>${st.selSrc != null ? SOURCES[st.selSrc].name : st.plan ? st.plan.name : '?'}<small>${st.selSrc != null || st.plan ? 'ready' : 'pick a source'}</small></div>`
+  const v = st.view, nxt = v != null && st.staged.get(v)
+  document.getElementById('cur').innerHTML = v != null
+    ? `<div>${DESTS[v].name}<small>has ${SOURCES[st.tally[v]].name}</small></div><div>&rarr;</div><div>${nxt !== undefined && nxt !== false ? SOURCES[nxt].name : '(no change)'}<small>${st.staged.size} staged${st.presetName ? ' - ' + st.presetName : ''}</small></div>`
     : `<div></div><div>Pick a destination</div><div></div>`
 })
 </script></body></html>

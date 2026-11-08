@@ -5,7 +5,7 @@
 /* C: three columns. Destinations left, sources and presets centre, one full-height Take column on the right
    with a hold guard (press and hold fills a ring). Colours are a user palette, here amber-on-black like a
    hardware panel, to show that kinds need not be told apart by hue. */
-:root { --c-src:#2a2a2a; --c-dst:#3a2a05; --c-pre:#2a2a2a; --c-take:#5a1010; --c-clr:#2a2a2a; --c-cur:#101010; --amber:#ffb000 }
+:root { --c-src:#2a2a2a; --c-idle:#2a2a2a; --c-pre:#2a2a2a; --c-take:#5a1010; --c-clr:#2a2a2a; --c-cur:#101010; --amber:#ffb000 }
 body { color:var(--amber); padding-top:2.2rem; box-sizing:border-box; height:100vh; display:grid; grid-template-columns:15rem 1fr 14rem; gap:.5rem; padding:2.6rem .5rem .5rem }
 .col { display:flex; flex-direction:column; gap:.4rem; min-height:0 }
 .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; align-content:start; flex:1 }
@@ -23,7 +23,7 @@ body { color:var(--amber); padding-top:2.2rem; box-sizing:border-box; height:100
 <div class="col"><div class="grid" id="srcs"></div><div class="grid" id="pres" style="flex:0"></div></div>
 <div class="col" id="right"></div>
 <script type="module">
-import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED } from '/shared/model.js'
+import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED, srcState, dstState } from '/shared/model.js'
 import { toolbar } from '/shared/toolbar.js'
 const p = createPanel({ guard: 'hold' })
 toolbar(p, 'C amber, hold guard', '<label>Guard <select id="t-guard"><option value="hold">Hold 0.6s</option><option value="double">Double press</option><option value="none">None</option></select></label>')
@@ -52,17 +52,18 @@ take.onpointerup = take.onpointerleave = stop
 p.subscribe((st) => {
   DESTS.forEach((d, i) => {
     const f = flashOf(st, d.n), b = dsts[i]
-    b.className = 'c dst' + (st.selDsts.includes(d.n) ? ' sel' : '') + (f ? ' flash-' + f : '')
+    b.className = 'c dst' + (f ? ' flash-' + f : '')
+    b.dataset.s = dstState(st, d.n)
     b.disabled = PROTECTED.has(d.n)
-    b.innerHTML = `${d.name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${b.disabled ? 'protected' : SOURCES[st.tally[d.n]].name}</small>`
+    b.innerHTML = `${d.name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${b.disabled ? 'protected' : SOURCES[st.tally[d.n]].name}</small>${st.staged.has(d.n) ? `<span class="stg">&rarr; ${SOURCES[st.staged.get(d.n)].name}</span>` : ''}`
   })
-  SOURCES.forEach((s, i) => { srcs[i].textContent = s.name; srcs[i].classList.toggle('sel', st.selSrc === s.n) })
-  PRESETS.forEach((x, i) => { pres[i].textContent = x.name; pres[i].classList.toggle('sel', st.plan?.id === x.id) })
+  SOURCES.forEach((s, i) => { srcs[i].textContent = s.name; srcs[i].dataset.s = srcState(st, s.n) })
+  PRESETS.forEach((x, i) => { pres[i].textContent = x.name; pres[i].classList.toggle('sel', st.presetName === x.name) })
   const lbl = st.mode === 'instant' ? 'Instant' : 'Take'
   take.firstChild.textContent !== undefined && (take.childNodes[0].nodeType === 3 ? (take.childNodes[0].textContent = lbl) : take.prepend(lbl))
   take.disabled = st.mode === 'instant'
   take.classList.toggle('armed', p.armed())
-  document.getElementById('cur').innerHTML = st.selDsts.length
-    ? `${st.selDsts.map((d) => DESTS[d].name).join(' + ')}<small>${st.selSrc != null ? '&rarr; ' + SOURCES[st.selSrc].name : st.plan ? st.plan.name : 'pick a source'}</small>` : 'Pick a destination'
+  document.getElementById('cur').innerHTML = st.view != null
+    ? `${DESTS[st.view].name}<small>now ${SOURCES[st.tally[st.view]].name}${st.staged.has(st.view) ? ' &rarr; ' + SOURCES[st.staged.get(st.view)].name : ''}</small><small>${st.staged.size} staged</small>` : 'Pick a destination'
 })
 </script></body></html>

@@ -11,7 +11,7 @@
 .cell.take { font-size:1.8rem; letter-spacing:.2em; }
 </style></head><body ><div id="grid"></div>
 <script type="module">
-import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED } from '/shared/model.js'
+import { createPanel, SOURCES, DESTS, PRESETS, flashOf, ICON, PROTECTED, srcState, dstState } from '/shared/model.js'
 import { toolbar } from '/shared/toolbar.js'
 const p = createPanel()
 toolbar(p, 'A button bank')
@@ -23,7 +23,7 @@ SOURCES.forEach((s, i) => cells.push({ r: 3 + (i >> 3), c: (i & 7) + 1, kind: 's
 PRESETS.forEach((x, i) => cells.push({ r: 5, c: i + 1, kind: 'pre', id: x.id }))
 cells.push({ r: 5, c: 4, cs: 5, rs: 2, kind: 'take' })
 const grid = document.getElementById('grid')
-const bg = { src: 'var(--c-src)', dst: 'var(--c-dst)', pre: 'var(--c-pre)', take: 'var(--c-take)', clr: 'var(--c-clr)', cur: 'var(--c-cur)' }
+const bg = { src: 'var(--c-idle)', dst: 'var(--c-idle)', pre: 'var(--c-pre)', take: 'var(--c-take)', clr: 'var(--c-clr)', cur: 'var(--c-cur)' }
 const els = cells.map((c) => {
   const b = document.createElement('button')
   b.className = 'cell ' + c.kind
@@ -37,19 +37,19 @@ p.subscribe((st) => cells.forEach((c, i) => {
   b.classList.remove('sel', 'armed', 'flash-connected', 'flash-already', 'flash-failed')
   if (c.kind === 'dst') {
     const f = flashOf(st, c.n)
-    b.innerHTML = `${DESTS[c.n].name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${SOURCES[st.tally[c.n]].name}</small>`
-    b.classList.toggle('sel', st.selDsts.includes(c.n))
+    b.innerHTML = `${DESTS[c.n].name}${f ? `<span class="ico">${ICON[f]}<span class="txt"> ${f}</span></span>` : ''}<small>${SOURCES[st.tally[c.n]].name}</small>${st.staged.has(c.n) ? `<span class="stg">&rarr; ${SOURCES[st.staged.get(c.n)].name}</span>` : ''}`
+    b.dataset.s = dstState(st, c.n)
     if (f) b.classList.add('flash-' + f)
     b.disabled = PROTECTED.has(c.n)
     if (b.disabled) b.innerHTML += '<small>PROTECTED</small>'
   } else if (c.kind === 'src') {
     b.innerHTML = SOURCES[c.n].name
-    b.classList.toggle('sel', st.selSrc === c.n)
+    b.dataset.s = srcState(st, c.n)
   } else if (c.kind === 'pre') {
     b.innerHTML = PRESETS.find((x) => x.id === c.id).name
-    b.classList.toggle('sel', st.plan?.id === c.id)
+    b.classList.toggle('sel', st.presetName === PRESETS.find((x) => x.id === c.id).name)
   } else if (c.kind === 'cur') {
-    b.innerHTML = st.selDsts.length ? `${st.selDsts.map((d) => DESTS[d].name).join(' + ')}<small>now ${st.selDsts.map((d) => SOURCES[st.tally[d]].name).join(' / ')}${st.selSrc != null ? ' > ' + SOURCES[st.selSrc].name : ''}</small>` : 'NO DESTINATION'
+    b.innerHTML = st.view != null ? `${DESTS[st.view].name}<small>now ${SOURCES[st.tally[st.view]].name}${st.staged.has(st.view) ? ' &rarr; ' + SOURCES[st.staged.get(st.view)].name : ''}</small><small>${st.staged.size} staged</small>` : 'NO DESTINATION'
   } else if (c.kind === 'clr') b.textContent = 'CLEAR'
   else if (c.kind === 'take') {
     b.textContent = st.mode === 'instant' ? 'INSTANT' : 'TAKE'

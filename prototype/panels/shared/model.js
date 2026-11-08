@@ -17,93 +17,85 @@ export const PROTECTED = new Set([6])
 export function createPanel(opts = {}) {
   const st = {
     mode: opts.mode || 'take', // 'take' | 'instant'
-    multi: opts.multi ?? true,
-    guard: opts.guard || 'none', // 'none' | 'hold' | 'double'
+    multi: opts.multi ?? true, // false: one staged change at a time
+    guard: opts.guard || 'none',
     idleClear: true,
-    selDsts: [],
-    selSrc: null,
-    plan: null, // preset plan, {name, routes}
+    view: null, // destination whose current/pending source the grid shows
+    staged: new Map(), // dst -> src, applied together by Take
     tally: Object.fromEntries(DESTS.map((d, i) => [d.n, (i * 3) % SOURCES.length])),
-    flash: {}, // dst -> {result, at}
+    flash: {},
     error: null,
-    last: null,
     log: [],
     idleAt: 0,
+    presetName: null,
   }
   const subs = new Set()
   const emit = () => subs.forEach((f) => f(st))
   const touch = () => (st.idleAt = Date.now())
   const err = (m) => {
     st.error = m
+    emit()
     setTimeout(() => { if (st.error === m) { st.error = null; emit() } }, 3000)
-  }
-  const routesNow = () => {
-    if (st.plan) return st.plan.routes.map(([s, d]) => ({ src: s, dst: d }))
-    if (st.selSrc == null) return []
-    return st.selDsts.map((d) => ({ src: st.selSrc, dst: d }))
   }
   const api = {
     st,
     subscribe(f) { subs.add(f); f(st) },
     armed() {
-      const r = routesNow()
-      return st.mode === 'take' && r.length > 0 && r.every((x) => !PROTECTED.has(x.dst) && common(x.src, x.dst).length)
+      return st.mode === 'take' && st.staged.size > 0 && [...st.staged].every(([d, s]) => !PROTECTED.has(d) && common(s, d).length)
     },
     pickDst(n) {
       touch()
       if (PROTECTED.has(n)) return err(DESTS[n].name + ' is protected')
-      st.plan = null
-      const i = st.selDsts.indexOf(n)
-      if (i >= 0) st.selDsts.splice(i, 1)
-      else if (st.multi) st.selDsts.push(n)
-      else st.selDsts = [n]
+      st.presetName = null
+      if (st.view === n && st.staged.has(n)) st.staged.delete(n)
+      if (!st.multi) st.staged.clear()
+      st.view = n
       emit()
     },
     pickSrc(n) {
       touch()
-      if (!st.selDsts.length) return err('Pick a destination first')
-      const bad = st.selDsts.find((d) => !common(n, d).length)
-      if (bad != null) return err(`No common levels: ${SOURCES[n].name} to ${DESTS[bad].name}`)
-      st.selSrc = n
-      st.plan = null
+      if (st.view == null) return err('Pick a destination first')
+      if (!common(n, st.view).length) return err(`No common levels: ${SOURCES[n].name} to ${DESTS[st.view].name}`)
+      st.presetName = null
+      if (!st.multi) st.staged.clear()
+      if (n === st.tally[st.view]) st.staged.delete(st.view)
+      else st.staged.set(st.view, n)
       if (st.mode === 'instant') return api.fire()
       emit()
     },
     pickPreset(id) {
       touch()
       const p = PRESETS.find((x) => x.id === id)
-      st.plan = p
-      st.selSrc = null
-      st.selDsts = []
       const bad = p.routes.find(([s, d]) => PROTECTED.has(d) || !common(s, d).length)
-      if (bad) { st.plan = null; return err('Preset has a refused route') }
+      if (bad) return err('Preset has a refused route')
+      st.staged = new Map(p.routes.map(([s, d]) => [d, s]))
+      st.presetName = p.name
+      if (!st.staged.has(st.view)) st.view = p.routes[0][1]
       if (st.mode === 'instant') return api.fire()
       emit()
     },
-    clear() { touch(); st.selDsts = []; st.selSrc = null; st.plan = null; st.error = null; emit() },
-    // Take cell press; a guard is handled by the view (hold ring, double press).
+    clear() { touch(); st.staged.clear(); st.view = null; st.presetName = null; st.error = null; emit() },
     take() { if (api.armed()) api.fire() },
     fire() {
-      const routes = routesNow()
-      if (!routes.length) return
+      if (!st.staged.size) return
       const now = Date.now()
-      for (const r of routes) {
-        const already = st.tally[r.dst] === r.src
-        st.tally[r.dst] = r.src
-        st.flash[r.dst] = { result: already ? 'already' : 'connected', at: now }
+      const done = []
+      for (const [d, s] of st.staged) {
+        const already = st.tally[d] === s
+        st.tally[d] = s
+        st.flash[d] = { result: already ? 'already' : 'connected', at: now }
+        done.push(`${SOURCES[s].name} > ${DESTS[d].name} [${common(s, d).join(',')}]`)
       }
-      st.last = { routes, at: now }
-      st.log.unshift(routes.map((r) => `${SOURCES[r.src].name} > ${DESTS[r.dst].name} [${common(r.src, r.dst).join(',')}]`).join(', '))
-      st.selSrc = null
-      st.plan = null
-      if (!st.multi) st.selDsts = []
+      st.log.unshift(done.join(', '))
+      st.staged.clear()
+      st.presetName = null
       emit()
       setTimeout(emit, 1600)
     },
     set(k, v) { st[k] = v; api.clear() },
   }
   setInterval(() => {
-    if (st.idleClear && st.idleAt && Date.now() - st.idleAt > 30000 && (st.selDsts.length || st.selSrc != null || st.plan)) api.clear()
+    if (st.idleClear && st.idleAt && Date.now() - st.idleAt > 30000 && (st.view != null || st.staged.size)) api.clear()
   }, 1000)
   return api
 }
@@ -112,3 +104,7 @@ export const flashOf = (st, dst) => {
   return f && Date.now() - f.at < 1500 ? f.result : null
 }
 export const ICON = { connected: '✓', already: '＝', failed: '✕' }
+// Source cell state for the viewed destination: solid green is what it has now, flashing green is staged.
+export const srcState = (st, n) => (st.view == null ? 'idle' : st.tally[st.view] === n ? 'current' : st.staged.get(st.view) === n ? 'pending' : 'idle')
+// Destination cell state: orange is the one being viewed; staged ones keep an orange outline.
+export const dstState = (st, d) => (d === st.view ? 'view' : st.staged.has(d) ? 'staged' : 'idle')

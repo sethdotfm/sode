@@ -1,5 +1,5 @@
 /* PROTOTYPE: result and state styling shared by the variants; layout is per variant. */
-:root { --c-src:#2563a8; --c-dst:#a86a12; --c-pre:#6a3fa0; --c-take:#c23030; --c-clr:#555; --c-cur:#1f6f5c; --c-ok:#1f9d55; --c-already:#8a8f98; --c-bad:#d13438 }
+:root { --c-idle:#3a3d42; --c-view:#ff8a1f; --c-current:#1f9d55; --c-src:#2563a8; --c-dst:#a86a12; --c-pre:#6a3fa0; --c-take:#c23030; --c-clr:#555; --c-cur:#1f6f5c; --c-ok:#1f9d55; --c-already:#8a8f98; --c-bad:#d13438 }
 html, body { margin:0; background:#0b0c0e; color:#e8e8e8; font-family: var(--pb-font, system-ui, sans-serif); height:100%; }
 button { font:inherit; color:inherit; cursor:pointer; }
 @keyframes arm { 0%,100% { filter:brightness(1); box-shadow:0 0 0 0 #fff0 } 50% { filter:brightness(1.6); box-shadow:0 0 0 6px #fff6 } }
@@ -14,3 +14,10 @@ button { font:inherit; color:inherit; cursor:pointer; }
 .err { position:fixed; left:50%; bottom:1rem; transform:translateX(-50%); background:var(--c-bad); padding:.5rem 1rem; border-radius:.4rem; z-index:6; }
 .banner { position:fixed; left:50%; bottom:3.5rem; transform:translateX(-50%); background:#233; border:1px solid #5aa; padding:.5rem 1rem; border-radius:.4rem; z-index:6; font-size:.85rem; }
 .txt { display:none } body.text-on .txt { display:inline }
+[data-s="view"] { background:var(--c-view) !important; color:#000 !important; }
+[data-s="staged"] { box-shadow: inset 0 0 0 .22rem var(--c-view) !important; }
+[data-s="current"] { background:var(--c-current) !important; color:#fff !important; }
+@keyframes blinkg { 0%,100% { background:var(--c-idle) } 50% { background:var(--c-current) } }
+[data-s="pending"] { animation: blinkg .8s ease-in-out infinite; color:#fff !important; }
+.stg { display:block; font-size:.7em; color:var(--c-view); font-weight:700 }
+[data-s="view"] .stg { color:#000 }
