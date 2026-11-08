@@ -171,6 +171,7 @@ export function inspector(host, E) {
       if (pool || x.kind === 'pre') h += `<div class="pb-label">${x.kind === 'src' ? 'Source' : x.kind === 'dst' ? 'Destination' : 'Preset'}: <strong>${esc(cur || '')}</strong></div>${E.allowed(x.kind, x.kind === 'pre' ? x.pid : x.n) ? '' : '<p class="pb-hint">Outside your Rights. A press on this button would be refused.</p>'}<div data-pick></div>`
       if (pool) h += `<div class="pb-label">Levels for this cell</div><div class="ed-lvls">${E.cfg.levels.map((l) => `<label class="pb-check"><input type="checkbox" class="pb-check__input" data-lv="${l}" ${!x.lv || x.lv.includes(l) ? 'checked' : ''}><span class="pb-check__label">${l}</span></label>`).join('')}<span class="pb-hint">${x.lv ? '' : 'All'}</span></div>`
       if (x.kind === 'take' || x.kind === 'clr' || x.kind === 'cur') h += `<p class="pb-hint">${{ take: 'Confirms the plan. Lights when armed.', clr: 'Drops every staged change and the viewed destination.', cur: 'Shows the source now on the viewed destination. Not pressable.' }[x.kind]}</p>`
+      if (x.kind !== 'cur') h += `<div class="pb-field"><label class="pb-label" for="i-label">Label</label><input id="i-label" class="pb-input" data-label value="${esc(x.label || '')}" placeholder="${esc(labelOf({ ...x, label: null }))}"><span class="pb-hint">Leave empty to show the router name.</span></div>`
       h += fsSel(x.fs) + '<div data-art></div>'
       h += `<div class="pb-row pb-row--tight">${x.rs * x.cs > 1 ? `<button class="pb-btn pb-btn--sm" data-act="unmerge">${icon('split')} Unmerge</button>` : ''}<button class="pb-btn pb-btn--sm pb-btn--danger" data-act="remove">${icon('trash-2')} Remove</button></div>`
     } else {
@@ -197,6 +198,7 @@ export function inspector(host, E) {
     const t = e.target, x = E.single()
     if (t.dataset.lv && x) E.levelsOf(x, +t.dataset.lv, t.checked)
     if ('fs' in t.dataset) E.setLook(E.selCells(), { fs: t.value || null })
+    if ('label' in t.dataset && x) E.setLook([x], { label: t.value.trim() || null })
   }
   E.on((t) => (t === 'sel' || t === 'layout' || t === 'init' || t === 'rights' || t === 'uploads') && draw())
 }
@@ -335,7 +337,7 @@ export function tabs(host, items, start = 0) {
   host.innerHTML = `<div class="pb-tabs" role="tablist">${items.map((t, i) => `<button class="pb-tab" role="tab" data-i="${i}">${t.text}</button>`).join('')}</div>`
   const panes = items.map((t) => { const d = document.createElement('div'); d.className = 'pb-tabpanel ed-tabpane'; host.append(d); return d })
   items.forEach((t, i) => t.render(panes[i]))
-  const show = (i) => { host.querySelectorAll('.pb-tab').forEach((b, j) => b.setAttribute('aria-selected', String(i === j))); panes.forEach((p, j) => (p.hidden = i !== j)) }
+  const show = (i) => { host.querySelectorAll('.pb-tab').forEach((b, j) => b.setAttribute('aria-selected', String(i === j))); panes.forEach((p, j) => { p.hidden = i !== j; p.classList.toggle('active', i === j) }) }
   host.querySelector('.pb-tabs').onclick = (e) => { const b = e.target.closest('.pb-tab'); if (b) show(+b.dataset.i) }
   show(start)
   return { show }
@@ -350,7 +352,7 @@ export function toolbar(E, label, { steppers = false, panels = false } = {}) {
     ${panels ? '' : '<span class="pb-text" id="tb-name"></span>'}<span id="tb-dirty"></span>
     ${steppers ? '<span class="pb-toolbar__sep"></span><div class="pb-toolbar__group" id="tb-steps"></div>' : ''}
     <span class="pb-toolbar__spacer"></span>
-    ${panels ? '<span class="pb-select-wrap ed-panelpick"><select id="tb-panel" aria-label="Panel to edit"></select></span><span class="pb-toolbar__spacer"></span>' : ''}
+    ${panels ? '<span class="pb-select-wrap ed-panelpick"><select id="tb-panel" class="pb-select" aria-label="Panel to edit"></select></span><span class="pb-toolbar__spacer"></span>' : ''}
     <label class="pb-check"><input type="checkbox" class="pb-check__input" id="tb-test"><span class="pb-check__label">Test it live</span></label>
     <span class="pb-select-wrap"><select id="tb-rights" class="pb-select" aria-label="Viewer Rights"><option value="all">Full Rights</option><option value="ro">Limited, Read-only visibility</option><option value="hidden">Limited, Hidden visibility</option></select></span>
     <span class="pb-select-wrap"><select id="tb-theme" class="pb-select pb-w-sm" aria-label="Theme"><option value="dark">Dark</option><option value="light">Light</option></select></span>

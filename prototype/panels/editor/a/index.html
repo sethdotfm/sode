@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><title>Editor prototype A: inspector</title></head><body><div class="ed-app a"><div class="ed-body">
 <aside class="ed-pal" id="pal"></aside><main class="ed-main"><div id="ro"></div><div id="canvas"></div><p class="pb-hint">Click a square. Shift-click or drag to select several, then Merge. Drag a block of squares, then use Fill selection to fill it with a run of numbers.</p></main><aside class="ed-side" id="side"></aside></div></div>
 <script type="module">
-import { createEditor, KINDS } from '/shared/ed.js'
+import { createEditor } from '/shared/ed.js'
 import { canvas, inspector, settings, sequencer, tabs, toolbar, icon } from '/shared/edview.js'
 import { templatesUI } from '/shared/templates.js'
 const E = createEditor()
@@ -12,10 +12,7 @@ templatesUI(E)
 const ro = document.getElementById('ro')
 E.on((t) => { if (t === 'init' || t === 'panel') { const p = E.panels[E.curPanel]; ro.innerHTML = p.own ? '' : `<div class="pb-banner pb-banner--info"><span>${p.who} shared this panel. You can use it. To change it, save a copy.</span> <button class="pb-btn pb-btn--sm" id="copy">${icon('copy')} Save a copy</button></div>`; const c = document.getElementById('copy'); if (c) c.onclick = () => E.copyPanel() } })
 canvas(document.getElementById('canvas'), E)
-const pal = document.getElementById('pal')
-pal.innerHTML = '<div class="pb-label">Button type</div><div class="ed-kinds">' + KINDS.map((k) => `<button class="pb-btn pb-btn--sm" data-kind="${k.k}">${icon(k.icon)} ${k.name}</button>`).join('') + '</div><div class="pb-row pb-row--tight"><button class="pb-btn pb-btn--sm pb-btn--commit" data-m>' + icon('merge') + ' Merge</button><button class="pb-btn pb-btn--sm" data-u>' + icon('split') + ' Unmerge</button><button class="pb-btn pb-btn--sm pb-btn--danger" data-r>' + icon('trash-2') + ' Remove</button></div><div class="pb-divider"></div><div id="seq" class="ed-sec"></div>'
-pal.onclick = (e) => { const b = e.target.closest('button[data-kind],button[data-m],button[data-u],button[data-r]'); if (!b || E.readonly) return; if (b.dataset.kind) E.setKind(b.dataset.kind); if ('m' in b.dataset) E.merge(); if ('u' in b.dataset) E.unmerge(); if ('r' in b.dataset) E.remove() }
-E.on((t) => { if (t === 'sel' || t === 'layout' || t === 'init') { pal.querySelector('[data-m]').disabled = E.selSquares() < 2; pal.querySelector('[data-u]').disabled = !E.canUnmerge(); pal.querySelector('[data-r]').disabled = !E.selCells().length } })
+document.getElementById('pal').innerHTML = '<div id="seq" class="ed-sec"></div>'
 sequencer(document.getElementById('seq'), E)
 const side = tabs(document.getElementById('side'), [
   { text: 'Cell', render: (n) => inspector(n, E) },

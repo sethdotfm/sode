@@ -73,22 +73,22 @@ export function buildDeck(root, p, cells, ROWS = 4, COLS = 8) {
       b.className = `cell dst ${kindClass.dst}` + (PROTECTED.has(c.n) ? ' pb-xpt--protected' : '') + (f ? ' flash-' + f : '')
       b.dataset.s = dstState(st, c.n)
       b.dataset.v = c.n === st.view ? '1' : ''
-      b.innerHTML = `<span>${DESTS[c.n].name}${f ? ` ${icon(RESULT_ICON[f])}<span class="txt"> ${f}</span>` : ''}</span><small>${PROTECTED.has(c.n) ? 'Protected' : name(st.tally[c.n])}</small>${st.staged.has(c.n) ? `<span class="stg">&rarr; ${name(st.staged.get(c.n))}</span>` : ''}`
+      b.innerHTML = `<span>${c.label || DESTS[c.n].name}${f ? ` ${icon(RESULT_ICON[f])}<span class="txt"> ${f}</span>` : ''}</span><small>${PROTECTED.has(c.n) ? 'Protected' : name(st.tally[c.n])}</small>${st.staged.has(c.n) ? `<span class="stg">&rarr; ${name(st.staged.get(c.n))}</span>` : ''}`
     } else if (c.kind === 'src') {
       const s = srcState(st, c.n)
       b.dataset.s = s
-      b.innerHTML = `<span>${name(c.n)}${s === 'current' ? ` ${icon('check')}` : ''}</span>`
+      b.innerHTML = `<span>${c.label || name(c.n)}${s === 'current' ? ` ${icon('check')}` : ''}</span>`
     } else if (c.kind === 'pre') {
       const x = PRESETS.find((q) => q.id === c.id)
-      b.textContent = x.name
+      b.textContent = c.label || x.name
       b.classList.toggle('pb-btn--selected', st.presetName === x.name)
-    } else if (c.kind === 'clr') b.textContent = 'Clear'
+    } else if (c.kind === 'clr') b.textContent = c.label || 'Clear'
     else if (c.kind === 'cur') {
       // Only the source now on the viewed destination, so it stays visible when the destination is off screen.
       b.innerHTML = st.view != null ? `<span class="pb-label">Currently</span><span class="name">${name(st.tally[st.view])}</span>` : '<span class="pb-label">Currently</span><span class="pb-text-muted">&mdash;</span>'
       b.title = st.view != null ? `Now on ${DESTS[st.view].name}` : 'No destination selected'
     } else if (c.kind === 'take') {
-      b.querySelector('.lbl').textContent = st.mode === 'instant' ? 'Instant' : 'Take'
+      b.querySelector('.lbl').textContent = c.label || (st.mode === 'instant' ? 'Instant' : 'Take')
       b.disabled = st.mode === 'instant' || !p.armed()
       b.classList.toggle('armed', p.armed())
     }

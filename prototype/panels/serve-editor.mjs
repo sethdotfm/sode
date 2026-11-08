@@ -1,4 +1,4 @@
-// PROTOTYPE: serves the three editor variants on 8111 to 8114; /shared and /vendor are common.
+// PROTOTYPE: serves the three editor variants on 8111 to 8115; /shared and /vendor are common.
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -15,4 +15,4 @@ function serve(port, v) {
     fs.readFile(file, (err, buf) => err ? res.writeHead(404).end('not found') : (res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' }), res.end(buf)))
   }).listen(port, () => console.log(`editor ${v.toUpperCase()}: http://localhost:${port}`))
 }
-serve(8111, 'a'); serve(8112, 'b'); serve(8113, 'c'); serve(8114, 'd')
+serve(8111, 'a'); serve(8112, 'b'); serve(8113, 'c'); serve(8114, 'd'); serve(8115, 'e')

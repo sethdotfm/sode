@@ -119,3 +119,16 @@ body { margin: 0; }
 .sc-core { grid-area: 2 / 2; display: grid; place-items: center; border-radius: 50%; background: var(--pb-overlay-hover); cursor: grab; touch-action: none; }
 .sc-types { position: absolute; top: 100%; left: 0; width: 100%; background: var(--pb-surface-base); border: 1px solid var(--pb-border); padding: var(--pb-space-2); }
 .sc-tip { position: fixed; z-index: 50; pointer-events: none; padding: var(--pb-space-1) var(--pb-space-3); background: var(--pb-text-strong); color: var(--pb-surface-base); font-size: var(--pb-text-sm); }
+
+.sc-slim { width: 16rem; padding: var(--pb-space-2); }
+.sc-slim .ed-opts { max-height: 9rem; }
+.sc-bar { position: absolute; display: flex; gap: var(--pb-space-1); padding: var(--pb-space-1); background: var(--pb-surface-base); border: 1px solid var(--pb-border); box-shadow: 0 8px 24px rgb(0 0 0 / 40%); }
+.e .ed-body { grid-template-columns: 18rem 1fr 24rem; }
+
+/* Toolbar: keep everything on one line. */
+.pb-toolbar { flex-wrap: nowrap; overflow-x: auto; }
+.pb-toolbar .ed-steps, .pb-toolbar .ed-step { flex-wrap: nowrap; white-space: nowrap; gap: var(--pb-space-2); }
+.pb-toolbar .pb-check__label, .pb-toolbar .pb-btn { white-space: nowrap; }
+.pb-toolbar .pb-number-wrap { width: 4.5rem; }
+#tb-rights { min-width: 15rem; }
+.ed-panelpick select { min-width: 16rem; }

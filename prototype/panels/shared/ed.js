@@ -10,7 +10,7 @@ export const KINDS = [
   { k: 'cur', name: 'Current Destination', icon: 'eye' },
 ]
 export const kindName = (k) => KINDS.find((x) => x.k === k).name
-export const labelOf = (c) => ({ src: () => (c.n == null ? 'Choose a source' : SOURCES[c.n]?.name), dst: () => (c.n == null ? 'Choose a destination' : DESTS[c.n]?.name), pre: () => (c.pid == null ? 'Choose a preset' : PRESETS.find((p) => p.id === c.pid)?.name), take: () => 'Take', clr: () => 'Clear', cur: () => 'Currently' })[c.kind]() || '?'
+export const labelOf = (c) => c.label || ({ src: () => (c.n == null ? 'Choose a source' : SOURCES[c.n]?.name), dst: () => (c.n == null ? 'Choose a destination' : DESTS[c.n]?.name), pre: () => (c.pid == null ? 'Choose a preset' : PRESETS.find((p) => p.id === c.pid)?.name), take: () => 'Take', clr: () => 'Clear', cur: () => 'Currently' })[c.kind]() || '?'
 export const FS = { sm: 0.85, md: 1, lg: 1.3, xl: 1.7 }
 export const FS_NAMES = [['', 'Panel default'], ['sm', 'Small'], ['md', 'Normal'], ['lg', 'Large'], ['xl', 'Huge']]
 // Vendored Lucide icons that suit sources, destinations and presets.
@@ -183,7 +183,7 @@ export function createEditor() {
     E.setFill({ keys: idx.map((i) => ord[i]), bad: [], text: runs.map(([a, z]) => (a === z ? a + 1 : `${a + 1}-${z + 1}`)).join(', ') })
   }
   E.setFillKind = (kind) => { E.fill.kind = kind; E.setFillText(kind === 'pre' ? '1-3' : '1-8') }
-  E.previewFill = () => { E.ghost = E.fillPlan(); emit('ghost', false) }
+  E.previewFill = () => { E.ghost = E.selSquares() > 1 ? E.fillPlan() : null; emit('ghost', false) }
   E.applyFill = () => {
     const pl = E.fillPlan(); if (!pl || !pl.slots.length) return say('Nothing to place. Select squares and type some numbers.')
     for (const s of pl.slots) {
@@ -265,7 +265,7 @@ export function createEditor() {
   E.copyPanel = () => { const p = E.panels[E.curPanel]; E.panels.unshift({ ...p, name: p.name + ' copy', who: 'You', own: true }); E.openPanel(0) }
   E.setCfg = (k, v) => { E.cfg[k] = v; if (k === 'name') { E.panels[E.curPanel].name = v; emit('panel', false) } emit('cfg') }
   E.save = () => { E.dirty = false; say('Saved. Open panels refresh in 10 s.'); emit('save', false) }
-  E.deckCells = () => E.cells.filter((x) => !E.isUnbound(x)).map((x) => ({ r: x.r, c: x.c, rs: x.rs, cs: x.cs, kind: x.kind, n: x.n, id: x.pid, fs: x.fs ? FS[x.fs] : null, art: E.artOf(x) }))
+  E.deckCells = () => E.cells.filter((x) => !E.isUnbound(x)).map((x) => ({ r: x.r, c: x.c, rs: x.rs, cs: x.cs, kind: x.kind, n: x.n, id: x.pid, label: x.label || null, fs: x.fs ? FS[x.fs] : null, art: E.artOf(x) }))
 
   // Starting layout: the approved prototype A grid.
   for (let i = 0; i < 8; i++) add({ r: 1, c: i + 1, kind: 'dst', n: i })

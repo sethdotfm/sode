@@ -44,7 +44,8 @@ export function seriesPlan(E, tr, tc) {
   return { slots, dropped }
 }
 
-export function smartCursor(host, E) {
+export function smartCursor(host, E, opts = {}) {
+  const slim = !!opts.slim
   host.style.position = 'relative'
   const layer = document.createElement('div'); layer.className = 'sc-layer'; host.append(layer)
   const tip = document.createElement('div'); tip.className = 'sc-tip'; tip.hidden = true; document.body.append(tip)
@@ -86,11 +87,13 @@ export function smartCursor(host, E) {
   const popover = (R, hostRect) => {
     const x = E.single(), q = E.rect(), key = `${q.r1},${q.c1}`
     if (key !== lastSel) { lastSel = key; if (x && (POOL[x.kind] || x.kind === 'pre')) popKind = x.kind }
-    const pop = el('sc-pop pb-panel')
-    pop.innerHTML = `<div class="pb-row"><span class="pb-label pb-grow">Square ${q.r1},${q.c1}${x ? ': ' + labelOf(x) : ''}</span><button class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" data-x aria-label="Close">${icon('x')}</button></div>
+    const pop = el('sc-pop pb-panel' + (slim ? ' sc-slim' : ''))
+    const kindBtn = (k) => slim ? `<button class="pb-btn pb-btn--sm pb-btn--icon${(x ? x.kind : popKind) === k.k && (POOL[k.k] || k.k === 'pre' ? popKind === k.k : true) ? ' pb-btn--selected' : ''}" data-kind="${k.k}" data-pb-tip="${k.name}" aria-label="${k.name}">${icon(k.icon)}</button>` : ''
+    if (slim) pop.innerHTML = `<div class="ed-kinds">${KINDS.map(kindBtn).join('')}</div><div data-pick></div>`
+    else pop.innerHTML = `<div class="pb-row"><span class="pb-label pb-grow">Square ${q.r1},${q.c1}${x ? ': ' + labelOf(x) : ''}</span><button class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" data-x aria-label="Close">${icon('x')}</button></div>
       <div class="ed-kinds">${KINDS.map((k) => `<button class="pb-btn pb-btn--sm${(x ? x.kind : popKind) === k.k && (POOL[k.k] || k.k === 'pre' ? popKind === k.k : true) ? ' pb-btn--selected' : ''}" data-kind="${k.k}">${icon(k.icon)} ${k.name}</button>`).join('')}</div><div data-pick></div>
       <p class="pb-hint">Enter places it and moves to the next square. Esc closes.</p>`
-    pop.querySelector('[data-x]').onclick = () => E.deselect()
+    pop.querySelector('[data-x]')?.addEventListener('click', () => E.deselect())
     pop.querySelector('.ed-kinds').onclick = (e) => {
       const b = e.target.closest('[data-kind]'); if (!b) return
       if (POOL[b.dataset.kind] || b.dataset.kind === 'pre') { popKind = b.dataset.kind; render() } else { E.chooseAt(b.dataset.kind); E.nextUnbound() || E.advance() }
@@ -102,6 +105,15 @@ export function smartCursor(host, E) {
     if (top + pop.offsetHeight > hostRect.height + 120) top = Math.max(0, R.y - pop.offsetHeight - 12)
     pop.style.left = Math.max(0, left) + 'px'; pop.style.top = top + 'px'
     setTimeout(() => pk.querySelector('input')?.focus(), 0)
+  }
+
+  // Slim: three icon buttons beside a multi-square selection, no pad and no gesture.
+  const bar = (R, hostRect) => {
+    const b = el('sc-bar pb-panel')
+    b.innerHTML = [['merge', 'Merge', 'merge', true], ['unmerge', 'Unmerge', 'split', E.canUnmerge()], ['remove', 'Remove', 'trash-2', E.selCells().length > 0]].map(([k, t, i, ok]) => `<button class="pb-btn pb-btn--sm pb-btn--icon" data-a="${k}" data-pb-tip="${t}" aria-label="${t}" ${ok ? '' : 'disabled'}>${icon(i)}</button>`).join('')
+    b.onclick = (e) => { const a = e.target.closest('[data-a]')?.dataset.a; if (a === 'merge') E.merge(); if (a === 'unmerge') E.unmerge(); if (a === 'remove') E.remove() }
+    layer.append(b)
+    b.style.left = Math.max(0, Math.min(R.x + R.w - b.offsetWidth, hostRect.width - b.offsetWidth)) + 'px'; b.style.top = R.y + R.h + 12 + 'px'
   }
 
   const pad = (R, hostRect) => {
@@ -133,7 +145,7 @@ export function smartCursor(host, E) {
     if (E.test || down || drag || !q || E.readonly || !host.querySelector('.ed-grid')) return
     const g = geo(), R = g.rect(q.r1, q.c1, q.r2, q.c2), hr = host.getBoundingClientRect()
     if (E.selCells().length) layer.append(grip(R))
-    E.selSquares() === 1 ? popover(R, hr) : pad(R, hr)
+    E.selSquares() === 1 ? popover(R, hr) : slim ? bar(R, hr) : pad(R, hr)
   }
 
   host.addEventListener('pointerdown', (e) => { if (!e.target.closest('.sc-layer')) down = true }, true)
