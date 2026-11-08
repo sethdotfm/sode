@@ -32,10 +32,10 @@ _Avoid_: protect (as a noun), locked
 ### Actions
 
 **Command**:
-Anything a person fires that Sode acts on, such as a take, an undo, a retry, a router name re-read, clearing History or saving settings. Every command is logged.
+Anything a person or an API client fires that Sode acts on, such as a take, an undo, a retry, a router name re-read, clearing History or saving settings. Every command is logged.
 
 **Confirm**:
-The deliberate step that turns a plan into a take, done with the churning letter key and its short lockout. No take happens without one.
+The deliberate step that turns a plan into a take. In a browser it is the churning letter key and its short lockout. Over the API it is the take request itself, which the API client is responsible for guarding. No take happens without one.
 
 **Take**:
 A kind of command that executes a change on the router hardware by sending one or more routes. One confirm is one take. "Take" is a reserved word, so nothing that has not been sent to the router is a take.
@@ -116,11 +116,17 @@ _Avoid_: log in, log out, unlock (for a user's session)
 **Sign-in mode**:
 How a user signs in. PIN only is the default, where the PIN alone says who is signing in, so every PIN is unique. Username and PIN is an optional mode for deployments that want it, where the username is separate from the name History shows.
 
+**API client**:
+A named, non-person actor that uses Sode's API with an API key, such as a button panel app. Its name is what History shows in place of a user's name. Managing API clients is an advanced setting.
+
+**API key**:
+The secret an API client sends to prove who it is. Sode shows it once when it is created and keeps only a hash. A session token is a different thing: it belongs to a user's sign-in.
+
 **Shared settings**:
 The settings and saved items that every browser sees, such as the layout and clock defaults for Everyone, Everyone filter sets and Everyone presets. Saving them needs the Advanced Settings PIN or a trusted user. Personal settings, saved to This browser or Me, need neither.
 
 **Advanced settings**:
-The shared settings that change the router connection, weaken a guard, or manage users, the PIN and History. Changing them, including adding, removing and renaming users, needs the **Advanced Settings PIN**, even for a trusted user.
+The shared settings that change the router connection, weaken a guard, or manage users, API clients, the PIN and History. Changing them, including adding, removing and renaming users and API clients, needs the **Advanced Settings PIN**, even for a trusted user.
 _Avoid_: Settings PIN, admin PIN
 
 **Trusted user**:
