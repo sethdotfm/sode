@@ -68,6 +68,7 @@ info:
     too_large: 413, the request body is over 64 KiB
     outside_rights: 403, a route or preset is outside the key's rights; nothing was sent (an Idempotency-Key repeat replays it)
     take_cap: 429, the global cap on API takes in flight is reached; retry shortly
+    too_many_streams: 429, the key or the address already has 8 open streams
     conflict: 409, Redo of a failed entry or Retry of one that succeeded
     nothing_to_do: 422, the plan has no route left (nothing was routed before, or it no longer exists)
     idempotency_mismatch: 422, the Idempotency-Key was used for a different request
@@ -382,8 +383,12 @@ paths:
         destination arrives: not in names, not in tally, not in an entry or update. A tally
         change whose source is hidden from the caller is left out, as `GET /tally` leaves
         that route out. A hidden entry
-        never arrives, so ids can skip. A slow client is disconnected. Connects and
-        disconnects are recorded as `api` rows in the Communication Log with the key name.
+        never arrives, so ids can skip. A rights or scope change applies to an open stream
+        at once, and a stream whose key lost a topic's scope, or whose API switch went off,
+        is closed. A slow client is disconnected. A key or an address can hold 8 streams at
+        a time, and a ninth is refused with 429 `too_many_streams`. Connects and
+        disconnects are recorded as `api` rows in the Communication Log with the key name
+        and, for a disconnect, the reason.
       parameters:
         - name: topics
           in: query

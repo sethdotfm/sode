@@ -68,7 +68,7 @@ A route the router confirms after the take gave up is a Late Result. The respons
 
 ## Stream
 
-`GET /stream?topics=names,tally,status,history,results` upgrades to a WebSocket that only sends. A browser page cannot set the Bearer header, so use a client library. Each topic needs the scope of the same read (`results` needs `history`). The first frame is `hello`, then one `snapshot` each for `names`, `tally` and `status`, then changes: `names`, `tally` (only changed routes), `status` (the same fields as `GET /status`, with `address` for the address), `entry`, `entryUpdate` and `historyCleared`. `ping` is a heartbeat every 5 seconds. A slow client is disconnected. Connects and disconnects are `api` rows with the key name.
+`GET /stream?topics=names,tally,status,history,results` upgrades to a WebSocket that only sends. A browser page cannot set the Bearer header, so use a client library. Each topic needs the scope of the same read (`results` needs `history`). The first frame is `hello`, then one `snapshot` each for `names`, `tally` and `status`, then changes: `names`, `tally` (only changed routes), `status` (the same fields as `GET /status`, with `address` for the address), `entry`, `entryUpdate` and `historyCleared`. `ping` is a heartbeat every 5 seconds. A rights or scope change applies to an open stream at once, and a stream whose key lost a topic's scope, or whose API switch went off, is closed. A key or an address can hold 8 streams at a time; a ninth is refused with 429 `too_many_streams`. A slow client is disconnected. Connects and disconnects are `api` rows with the key name, and a disconnect row says why.
 
 ## Require HTTPS
 
