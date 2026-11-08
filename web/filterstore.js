@@ -237,7 +237,7 @@ export function filterSummary(f) {
   if (f.src.trim()) parts.push(`Src: ${f.src.trim()}`);
   if (f.dst.trim()) parts.push(`Dst: ${f.dst.trim()}`);
   if (!f.sode) parts.push('No Sode takes');
-  if (!f.ext) parts.push('No external changes');
+  if (!f.ext) parts.push('No Externals');
   else if (f.hidden) parts.push('With hidden');
   return parts.join(', ') || 'Everything';
 }

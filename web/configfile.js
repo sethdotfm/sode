@@ -1,4 +1,4 @@
-// Settings > Server Backup. Export and Import are settings-PIN actions: pinprompt.js asks first, and again with a retry if the server refuses.
+// Settings > Server backup. Export and Import are settings-PIN actions: pinprompt.js asks first, and again with a retry if the server refuses.
 // The server makes and reads the file; this only moves it.
 
 import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';

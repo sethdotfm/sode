@@ -42,7 +42,7 @@ type Config struct {
 	NameRefreshSeconds   int      `yaml:"nameRefreshSeconds" json:"nameRefreshSeconds" guard:"open"`
 	TallyResyncSeconds   int      `yaml:"tallyResyncSeconds" json:"tallyResyncSeconds" guard:"open"`
 	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
-	// HiddenDsts is a History filter expression (web/filter.js) hiding External changes to these destinations; still recorded.
+	// HiddenDsts is a History filter expression (web/filter.js) hiding Externals on these destinations; still recorded.
 	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
 	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
 	Presets    []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`

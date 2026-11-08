@@ -107,7 +107,7 @@ func TestExtSkipsOwnTakes(t *testing.T) {
 	a.onRouterMsg(swp08.ExtConnected(0, 0, 5, 1))
 	endBurst(a)
 	if n := a.hist.Len(); n != 1 {
-		t.Fatalf("external change after expiry: %d entries", n)
+		t.Fatalf("External after expiry: %d entries", n)
 	}
 }
 

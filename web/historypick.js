@@ -132,7 +132,7 @@ count.setAttribute('role', 'status');
 const followsIn = el('input', 'pb-check__input');
 followsIn.type = 'checkbox';
 const followsBox = el('label', 'pb-check', followsIn, el('span', 'pb-check__label', 'Include external follow entries'));
-followsBox.title = 'Also add external changes made right after a chosen take, which probably followed it';
+followsBox.title = 'Also add Externals made right after a chosen take, which probably followed it';
 const addBtn = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Add');
 addBtn.type = 'button';
 const cancelBtn = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Cancel');
