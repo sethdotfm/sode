@@ -193,6 +193,7 @@
         <div class="sode__names sode__names--start">
           <button type="button" class="pb-btn pb-btn--outline" id="account-login" data-find="account-login" data-label="Sign in" hidden>Sign in</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-pin" data-find="account-pin" data-label="Change my PIN">Change my PIN</button>
+          <button type="button" class="pb-btn pb-btn--outline" id="account-keys" data-find="account-keys" data-label="My API keys" aria-haspopup="dialog" hidden>My API keys</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-profile" data-find="account-profile" data-label="My profile" aria-haspopup="dialog">My profile</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-transfer" data-find="account-transfer" data-label="Export / import" aria-haspopup="dialog">Import &amp; Export</button>
           <button type="button" class="pb-btn pb-btn--outline" id="account-logout" data-find="account-logout" data-label="Sign out">Sign out</button>
@@ -456,6 +457,10 @@
         <label for="cfg-proxies">Trusted proxies</label>
         <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="10.0.0.2, 172.18.0.0/16" spellcheck="false">
         <span class="sode__hint">Client IPs in history come from <code>X-Forwarded-For</code> only through these.</span>
+      </div>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-require-https" data-key="requireHttps" data-type="bool"><span class="pb-check__label">Require HTTPS</span></label>
+        <span class="sode__hint">Refuses every request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>, except the health endpoints. Needs at least one trusted proxy, and you must save from an HTTPS address. Console reset: <code>sode -reset-https</code>.</span>
       </div>
     </fieldset>
 

@@ -145,6 +145,7 @@ func (a *App) touchSessions() {
 	}
 	a.mu.Unlock()
 	a.tokens.touch(cfg, held...)
+	a.keys.flush()
 }
 
 // Issues tokens to persistent-user connections holding none or a dead one (tokens are

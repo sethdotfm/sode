@@ -76,7 +76,7 @@ const page = pageType(location.pathname);
   document.head.append(css);
 }
 
-const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, lens: [], mode: 'pin' };
+const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false, lens: [], mode: 'pin' };
 export const lockState = () => ({ ...L });
 
 let hiFor = null;
@@ -492,6 +492,7 @@ onMsg('lockState', (m) => {
   L.user = m.user || '';
   L.trusted = !!m.trusted;
   L.persistent = !!m.persistent;
+  L.noAutoLock = !!m.noAutoLock;
   L.lens = m.lens || [];
   L.mode = m.mode === 'username' ? 'username' : 'pin';
   S.userNames = m.names || [];

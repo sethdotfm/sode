@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"maps"
 	"net/netip"
@@ -102,6 +103,7 @@ type App struct {
 	pin     pinPool
 	userPin pinPool
 	tokens  *tokenStore
+	keys    *keyStore
 	cfgMu   sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
@@ -109,6 +111,10 @@ type App struct {
 	fireMu sync.Mutex // one native salvo at a time: the router's staged list is shared (fire.go)
 
 	xffWarn sync.Once // X-Forwarded-For seen with no trustedProxies
+
+	apiS apiState // REST throttles (apiauth.go)
+
+	streams map[*apiStream]struct{} // attached API streams (apistream.go), guarded by mu
 }
 
 // routerState is replaced as a whole on a router change. Guarded by App.mu.
@@ -179,6 +185,10 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.pin, a.userPin = settingsPool(), userPool()
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
+	a.keys = loadKeys(cfgPath)
+	for _, k := range a.keys.reconcile(cfg) {
+		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
+	}
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())
@@ -240,6 +250,8 @@ func (a *App) periodic() {
 	if sessions {
 		a.touchSessions()
 	}
+	a.expireKeys(time.Now())
+	a.flushAuthFails(time.Now())
 	if !up {
 		return
 	}
@@ -588,10 +600,15 @@ func (a *App) broadcast(v any) {
 	for c := range a.clients {
 		a.deliver(c, b)
 	}
+	a.streamFan(v)
 }
 
 // deliver drops b if the browser can't keep up. Caller holds mu.
 func (a *App) deliver(c *client, b []byte) {
+	if c.api != nil && c.api.sink != nil {
+		c.api.sink(b)
+		return
+	}
 	if _, ok := a.clients[c]; !ok {
 		return
 	}

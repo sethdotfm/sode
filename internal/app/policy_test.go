@@ -41,7 +41,7 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 			t.Errorf("policy lists %q without a handler", m)
 		}
 	}
-	for _, m := range []string{"hi", "batch", "unlock", "userUnlock", "configImportBegin", "users", "usersList"} {
+	for _, m := range []string{"hi", "batch", "unlock", "userUnlock", "configImportBegin", "users", "usersList", "apiSettings"} {
 		if _, ok := policy[m]; !ok {
 			t.Errorf("policy lost %q", m)
 		}

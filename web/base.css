@@ -965,3 +965,15 @@ html:has(.sode__scrim:not([hidden])) {
 .sode__scrim .pb-modal__body {
   overscroll-behavior: contain;
 }
+
+/* Rows outside the signed-in rights: greyed but pickable, the plan says why it is refused. */
+.sode__menu-off,
+.sode__menu-off .sode__num {
+  color: var(--pb-text-disabled);
+}
+.sode__menu-tag {
+  margin-inline-start: auto;
+  padding-inline-start: var(--pb-space-4);
+  font-size: var(--pb-text-xs);
+  white-space: nowrap;
+}

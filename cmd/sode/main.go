@@ -81,9 +81,26 @@ func resetSettingsPin(path string) {
 	log.Printf("reset-pin: removed the Advanced Settings PIN (and turned the page locks off) from %s; restart sode to apply", path)
 }
 
+// A running server keeps its setting until it restarts.
+func resetRequireHTTPS(path string) {
+	if path == "" {
+		log.Fatal("reset-https: SODE_CONFIG is not set")
+	}
+	was, err := config.ClearRequireHTTPS(path)
+	if err != nil {
+		log.Fatalf("reset-https: %v", err)
+	}
+	if !was {
+		log.Printf("reset-https: Require HTTPS is not on in %s", path)
+		return
+	}
+	log.Printf("reset-https: turned Require HTTPS off in %s; restart sode to apply", path)
+}
+
 func main() {
 	health := flag.Bool("healthcheck", false, "probe the local /healthz and exit")
 	resetPin := flag.Bool("reset-pin", false, "remove the Advanced Settings PIN from SODE_CONFIG and exit (restart sode afterwards)")
+	resetHTTPS := flag.Bool("reset-https", false, "turn Require HTTPS off in SODE_CONFIG and exit (restart sode afterwards)")
 	flag.Parse()
 	listen := env("SODE_LISTEN", ":8080")
 
@@ -100,6 +117,10 @@ func main() {
 	cfgPath := os.Getenv("SODE_CONFIG")
 	if *resetPin {
 		resetSettingsPin(cfgPath)
+		return
+	}
+	if *resetHTTPS {
+		resetRequireHTTPS(cfgPath)
 		return
 	}
 	cfg := loadConfig(cfgPath)

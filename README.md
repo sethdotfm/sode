@@ -4,7 +4,7 @@ DISCLOSURE: This was written by an LLM.
 
 [![CI](https://github.com/sethdotfm/sode/actions/workflows/ci.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/ci.yml) [![rc](https://github.com/sethdotfm/sode/actions/workflows/rc.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/rc.yml) [![Release](https://img.shields.io/github/v/release/sethdotfm/sode?include_prereleases)](https://github.com/sethdotfm/sode/releases) [![Go version](https://img.shields.io/github/go-mod/go-version/sethdotfm/sode)](go.mod) [![License](https://img.shields.io/github/license/sethdotfm/sode)](LICENSE)
 
-**Version:** Beta 1.7.0
+**Version:** Beta 1.8.0
 
 Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It is for people who want to make routes fast from any browser on the network, on a desktop keyboard or a phone. You type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key.
 
@@ -19,6 +19,7 @@ Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, b
 - Filters and named filter sets limit what History shows, and you can share them with everyone or as a link.
 - Optional users, PIN locks and per-user profiles cover shared wall panels and several users.
 - A communication log at `/log` shows every message sent to the router and a router uptime graph.
+- An optional authenticated API (`/api/v1`, off by default) with keys, rights and a live stream lets other apps read state and fire takes. See [docs/api.md](docs/api.md).
 - `/api/health` reports the server and the router separately for monitors such as Uptime Kuma.
 
 ## Quickstart
@@ -64,6 +65,7 @@ If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -re
 
 ## More documentation
 
+- [docs/api.md](docs/api.md) is the guide to the API: keys, scopes, rights, endpoints, the stream and timeouts.
 - [docs/reference.md](docs/reference.md) has the full settings table, the SW-P-08 protocol notes, proxy and app-install notes, and details on levels, presets, History, filters, users and locks, profiles, monitoring, the communication log, the simulator and image tags.
 - [RELEASING.md](RELEASING.md) has the release steps, and [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
 

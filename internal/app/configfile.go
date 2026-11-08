@@ -102,7 +102,7 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 }
 
 // ImportConfig replaces the whole config (no KeepOwned: everything comes from the file
-// except PIN hashes it omits). Refused without the Advanced Settings PIN or for a file that doesn't
+// except PIN hashes it omits). Writes the same `api` rows as the saves it stands in for. Refused without the Advanced Settings PIN or for a file that doesn't
 // parse or validate. Router changes reconnect via applyConfig.
 func (a *App) ImportConfig(c *client, text string) error {
 	if len(text) > maxConfigFile {
@@ -120,14 +120,26 @@ func (a *App) ImportConfig(c *client, text string) error {
 	if err := a.guardSave(c, false); err != nil {
 		return err
 	}
-	return a.applyConfig(func(cur *config.Config) error {
+	before := a.r().cfg
+	err = a.applyConfig(func(cur *config.Config) error {
 		m, err := file.KeepPins(*cur)
 		if err != nil {
 			return err
 		}
+		// Same lock-out rule as saveSettings (ADR 0005).
+		if m.RequireHTTPS && !cur.RequireHTTPS && !c.secure {
+			return errInsecureSave
+		}
 		*cur = m
 		return nil
 	})
+	if err == nil {
+		now := a.r().cfg
+		a.auditRights(c, before, now)
+		a.auditAPISettings(connActor(c), before.API, now.API)
+		a.auditRequireHTTPS(connActor(c), before.RequireHTTPS, now.RequireHTTPS)
+	}
+	return err
 }
 
 // blank: only whitespace and comments (would load as defaults, wiping the config).

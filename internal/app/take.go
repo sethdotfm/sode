@@ -44,7 +44,20 @@ const routeLimit = 8
 // the cache is used.
 const bigTake = 6
 
-func (a *App) take(c *client, items []routeReq) {
+// take is the one entry point for every confirmed take (browser batch, Undo, Redo, Retry,
+// presets, API). Results go to c.send, or to c.api.sink for an API caller. It returns the
+// refusal when the caller's rights do not cover every route; nothing ran then.
+func (a *App) take(c *client, items []routeReq) (refused string) {
+	if msg := a.rightsPass(a.r(), c, items); msg != "" {
+		return msg
+	}
+	a.takeAllowed(c, items)
+	return ""
+}
+
+// takeAllowed runs items that already passed rightsPass. The API path calls it directly so its
+// take cap sits between the rights check and the run.
+func (a *App) takeAllowed(c *client, items []routeReq) {
 	if len(items) >= bigTake {
 		log.Printf("take of %d routes: not reading routes from the router first, to spare it", len(items))
 		for i := range items {
@@ -368,6 +381,9 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 		w.why.Reason = swp08.ReasonRetry
 	}
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, Prev: [][2]int{}}
+	if c.api != nil {
+		e.setActor(c.api.Actor)
+	}
 	return w, e, nil
 }
 

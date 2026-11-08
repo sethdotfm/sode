@@ -71,6 +71,14 @@ type Config struct {
 	// SignInMode: SignInPin or SignInUsername. Saved with the users (SaveUsers), so changing it
 	// needs the Advanced Settings PIN.
 	SignInMode string `yaml:"signInMode" json:"signInMode" owned:"true"`
+	// API settings, clients, Guest rights and scopes change only through their own admin
+	// messages. Clients and Guest rights stay out of JSON: never sent before the PIN.
+	API            APISettings `yaml:"api" json:"api" owned:"true"`
+	APIClients     []APIClient `yaml:"apiClients,omitempty" json:"-" owned:"true"`
+	GuestRights    Rights      `yaml:"guestRights,omitempty" json:"-" owned:"true"`
+	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
+	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
+	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
 }
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
@@ -151,6 +159,8 @@ func Defaults() Config {
 		PinMaxTries:          10,
 		MaxPinLen:            DefaultMaxPinLen,
 		SignInMode:           SignInPin,
+		API:                  DefaultAPISettings(),
+		GuestAPIScopes:       slices.Clone(DefaultGuestScopes),
 		DeviceDefaults:       DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"},
 	}
 }
@@ -218,7 +228,15 @@ func (c Config) Clone() Config {
 	c.Users = slices.Clone(c.Users)
 	for i := range c.Users {
 		c.Users[i].Profile = c.Users[i].Profile.Clone()
+		c.Users[i].Rights = c.Users[i].Rights.Clone()
 	}
+	c.APIClients = slices.Clone(c.APIClients)
+	for i := range c.APIClients {
+		c.APIClients[i].Scopes = slices.Clone(c.APIClients[i].Scopes)
+		c.APIClients[i].Rights = c.APIClients[i].Rights.Clone()
+	}
+	c.GuestRights = c.GuestRights.Clone()
+	c.GuestAPIScopes = slices.Clone(c.GuestAPIScopes)
 	return c
 }
 
@@ -227,6 +245,7 @@ func (c *Config) Normalize() {
 	c.RouterName = strings.TrimSpace(c.RouterName)
 	c.BrandText = strings.TrimSpace(c.BrandText)
 	c.normalizeUsers()
+	c.normalizeAPI()
 	c.BrandBorder = strings.ToLower(strings.TrimSpace(c.BrandBorder))
 	c.RouterShow = strings.ToLower(strings.TrimSpace(c.RouterShow))
 	if c.RouterShow == "" {
@@ -426,6 +445,7 @@ func (c Config) Validate() error {
 		bad("trusted proxies: %v", err)
 	}
 	errs = append(errs, c.validateUsers()...)
+	errs = append(errs, c.validateAPI()...)
 	errs = append(errs, c.validateProfiles()...)
 	return errors.Join(errs...)
 }

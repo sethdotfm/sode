@@ -42,6 +42,7 @@ export const S = {
   result: null,
   newId: null,
   prevNumbering: null,
+  myRights: null,
 };
 
 export function toggle(set, k) {

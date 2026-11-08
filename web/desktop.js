@@ -4,7 +4,7 @@ import { $, el, S, on, connState, routerTitle, needsLink, renderDown, setDot, se
 import { levelBar, allLevels } from './levelview.js';
 import { fedBy, bySource, currentlyNodes, pickEnd } from './routes.js';
 import { scrollTopPref, flipped, setFlip } from './device.js';
-import { resultNode, showResult, patchPlan, planBlocked, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
+import { resultNode, showResult, patchPlan, planBlocked, rightsOff, sendTakes, lastTake, nextTake, boxPatch, lastChip, VERBS } from './plans.js';
 import { layout } from './layout.js';
 import { presetHost } from './presets.js';
 import { lastFill } from './historyrows.js';
@@ -32,6 +32,7 @@ for (const k of ['src', 'dst']) {
     add: k === 'dst' ? (it) => addDst(it) : undefined,
     foot: $(`${k}-count`),
     onRender: () => b.all?.sync(),
+    outside: (it) => rightsOff(k === 'src' ? 'sources' : 'dsts', it.n),
   });
 }
 const lvlInput = $('lvl');

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
-	"net"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -25,12 +24,19 @@ type client struct {
 	ip   string
 	send chan []byte
 
+	// secure: the upgrade request came through a trusted proxy marked HTTPS (ADR 0005).
+	secure bool
+
 	// pin: Advanced Settings PIN hash this connection unlocked, guarded by App.mu; a changed or
 	// removed PIN stops matching.
 	pin string
 
 	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
 	sent bool
+
+	// api: set for a caller that is not a browser session; its Actor and Rights replace
+	// the lookup callerOf does for a browser.
+	api *apiCtx
 
 	u connUser // page type, unlocked user, session token (users.go)
 }
@@ -61,7 +67,8 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	})
 	mux.HandleFunc("/api/health", a.serveHealth)
 	mux.HandleFunc("/api/yaml", a.serveYAML)
-	return secureHeaders(mux)
+	a.mountAPI(mux)
+	return a.httpsGate(secureHeaders(mux))
 }
 
 // csp: same-origin scripts only (no inline bodies or on*= handlers; a test keeps it so);
@@ -113,16 +120,13 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 // clientIP: a hop that isn't an address ends the search at the peer rather than trusting
 // what lies beyond.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	host, ok := trustedPeer(r, trusted)
+	if !ok {
+		return host
+	}
 	parse := func(s string) (netip.Addr, bool) {
 		a, err := netip.ParseAddr(strings.TrimSpace(s))
 		return a.Unmap(), err == nil
-	}
-	isTrusted := func(a netip.Addr) bool {
-		return slices.ContainsFunc(trusted, func(p netip.Prefix) bool { return p.Contains(a) })
-	}
-	if a, ok := parse(host); !ok || !isTrusted(a) {
-		return host
 	}
 	lines := r.Header.Values("X-Forwarded-For")
 	if len(lines) == 0 {
@@ -136,7 +140,7 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 		if !ok {
 			return host
 		}
-		if !isTrusted(a) {
+		if !inPrefixes(a, trusted) {
 			return a.String()
 		}
 	}
@@ -158,7 +162,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 	budget := newReadBudget(conn.SetReadLimit)
 	cc := &connCtx{budget: budget}
 
-	c := &client{ip: clientIP(r, a.r().proxies), send: make(chan []byte, 256)}
+	c := &client{ip: clientIP(r, a.r().proxies), secure: secureRequest(r, a.r().proxies), send: make(chan []byte, 256)}
 	if r.Header.Get("X-Forwarded-For") != "" && len(a.r().proxies) == 0 {
 		a.xffWarn.Do(func() {
 			log.Printf("ws: behind a proxy but trustedProxies is empty; set it to the proxy's address so history shows real client IPs")
@@ -262,15 +266,8 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) serveTake(c *client, m *inMsg) {
 	if len(m.Items) > 0 {
-		why, n := "take", len(m.Items)
-		for _, it := range m.Items {
-			if it.Undo != nil {
-				why = "undo"
-			} else if it.Retry != nil && why == "take" {
-				why = "retry"
-			}
-		}
-		a.command(c, why, "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
+		n := len(m.Items)
+		a.command(c, takeWhy(m.Items), "sent", fmt.Sprintf("%d %s", n, plural(n, "take", "takes")), nil)
 	}
 	if name := cleanPresetName(cmp.Or(m.Preset, m.Salvo)); name != "" {
 		for i := range m.Items {
@@ -330,9 +327,14 @@ type inMsg struct {
 	Old        string             `json:"old"`
 	New        string             `json:"new"`
 	UsersReq   *usersReq          `json:"usersReq"`
-	Pins       bool               `json:"pins"` // configExport: include the PIN hashes
-	YAML       string             `json:"yaml"` // configImport: the file
-	Size       int                `json:"size"` // configImportBegin: the file's size in bytes
+	Pins       bool               `json:"pins"`    // configExport: include the PIN hashes
+	YAML       string             `json:"yaml"`    // configImport: the file
+	Size       int                `json:"size"`    // configImportBegin: the file's size in bytes
+	KeyName    string             `json:"keyName"` // keyCreate, keyCreateFor
+	KeyID      string             `json:"keyId"`   // keyRevoke, keyRevokeAny
+	Expires    int64              `json:"expires"` // key expiry, unix ms; 0 = never
+	Owner      *keyOwner          `json:"owner"`   // keyCreateFor, keyRevokeAll
+	APISet     *apiSettingsReq    `json:"apiSettings"`
 }
 
 func plural(n int, one, many string) string {

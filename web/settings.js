@@ -22,7 +22,9 @@ import { omitOwned } from './owned.js';
 import { intProblem } from './settingsrules.js';
 import { buildIndex, find, slug } from './settingsindex.js';
 import { resultStep } from './keys.js';
-import './users.js'; // adds its section before the table of contents is built
+import './mykeys.js';
+import './users.js';
+import './apisettings.js'; // adds its section before the table of contents is built
 import './profiles.js';
 import './configfile.js';
 

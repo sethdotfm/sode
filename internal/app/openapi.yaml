@@ -1,0 +1,718 @@
+openapi: 3.0.3
+info:
+  title: Sode API
+  version: "1"
+  description: |
+    Read and command access to one SW-P-08 router through Sode. The API is off until an administrator
+    turns it on in Settings. Served at /api/v1/openapi.yaml, always open. The guide with worked
+    examples is docs/api.md in the Sode repository.
+
+    Auth. Send a key as `Authorization: Bearer <key>` (`sode_` plus 43 URL-safe characters; treat it
+    as opaque). A key is never accepted in a query string. A call with no Authorization header is
+    a Guest call, allowed only while the Guest API switch is on, and only for the scopes Guest
+    has been given. A 401 carries `WWW-Authenticate: Bearer`.
+
+    Numbers. Sources and destinations are the router's own numbers, 0-based. Add `numberOffset`
+    (from /names) to show the number a person sees; with an offset of 1, send `src: 0` for the
+    source a person calls 1. Levels are UI levels from 1, never offset, the same numbers the
+    rights lists use. A source of -1 means nothing is routed. A route that omits `levels`, or sends `[]`, uses
+    the server's Default levels setting, which no endpoint reports, so always send `levels`.
+
+    Via note. Any request may carry `X-Sode-Via`, free text (32 printable characters at most)
+    that Sode records beside the key name in the Communication Log, marked unverified. The key
+    name itself is set when the key is made, so it is verified.
+
+    Throttles. Each key has a rate limit per minute (the API settings default 600). A keyless
+    call is limited per source address. Ten bad keys from one address in a minute make that
+    address wait. Both answer 429 `rate_limited` with `Retry-After` in seconds. CORS is off:
+    no cross-origin headers are sent.
+
+    Writes. A take request is its own Confirm: nothing asks a person, so guard the button on
+    your side. The request is synchronous and returns when the router has answered or timed out
+    every route, always 200 once the take ran, with a result per route and the History entry
+    ids. One route can take about 35 seconds in the worst case (check 1 s, send queue up to
+    30 s, route 3 s, grace 1 s); more than 8 routes run 8 at a time and take longer. Common
+    proxies cut a request at 60 seconds, so raise the proxy's read timeout for `/api/v1`. A
+    route the router did not confirm in time is `failed` and may be confirmed later: the entry
+    then updates on the stream (match by `id`).
+
+    Idempotency. `Idempotency-Key` (1 to 128 printable characters, no spaces) makes a repeat of
+    the same request from the same API key return the first answer with `Idempotent-Replay:
+    true` for 10 minutes. The same key with a different request is 422
+    `idempotency_mismatch`. A request that did nothing (bad input, rate limit, take cap) is not
+    remembered, except an `outside_rights` refusal, which is replayed. A keyless Guest cannot
+    send the header (400 `bad_request`), because guests behind one address would share answers.
+
+    Limits. Takes in flight across all callers are capped (default 4, because the router
+    answers one message at a time): over it, 429 `take_cap`, with no `Retry-After`. A request
+    holds 1 to 200 routes and a body of at most 64 KiB. A take of 6 or more routes does not
+    read each destination first, to spare the router, and says `checkSkipped: true`; Prev then
+    comes from Sode's cache, so a later Undo may restore less accurately.
+
+    Rights. A take with any route outside the key's rights is refused whole, before anything is
+    sent: 403 `outside_rights`, no results, no History entry, an `api` row in the Communication
+    Log. Undo checks the destination and level but not the source it restores.
+servers:
+  - url: /api/v1
+security:
+  - bearer: []
+  - {}
+tags:
+  - name: reads
+    description: Current state and History
+  - name: writes
+    description: Takes, presets, Undo, Redo and Retry; scope `take`
+  - name: stream
+    description: Live changes over a WebSocket
+paths:
+  /openapi.yaml:
+    get:
+      operationId: getOpenAPI
+      summary: The OpenAPI document
+      security: []
+      responses:
+        "200":
+          description: This document, open even while the API is off
+          content:
+            application/yaml:
+              schema: { type: string }
+  /names:
+    get:
+      operationId: listNames
+      tags: [reads]
+      summary: Source and destination names
+      description: Scope `names`.
+      responses:
+        "200":
+          description: Names as the router last reported them
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [numberOffset, sources, destinations, namesAt]
+                properties:
+                  numberOffset: { type: integer, description: Add to a router number to show it }
+                  sources: { type: array, items: { $ref: "#/components/schemas/Name" } }
+                  destinations: { type: array, items: { $ref: "#/components/schemas/Name" } }
+                  namesAt: { type: string, format: date-time, description: When the names were last read, zero if never }
+              example:
+                numberOffset: 1
+                sources: [{ n: 0, name: CAM 1 }, { n: 1, name: CAM 2 }]
+                destinations: [{ n: 0, name: MON A }]
+                namesAt: "2026-11-08T09:30:00Z"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /tally:
+    get:
+      operationId: getTally
+      tags: [reads]
+      summary: What each destination is routed from, per level
+      description: Scope `tally`.
+      responses:
+        "200":
+          description: Levels and routes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [levels, routes]
+                properties:
+                  levels:
+                    type: array
+                    items:
+                      type: object
+                      required: [level, label]
+                      properties:
+                        level: { type: integer, description: UI level, from 1 }
+                        label: { type: string, description: How a person writes the level }
+                  routes: { type: array, items: { $ref: "#/components/schemas/Route" } }
+              example:
+                levels: [{ level: 1, label: "1" }]
+                routes: [{ dst: 0, level: 1, src: 3 }]
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /protected:
+    get:
+      operationId: listProtected
+      tags: [reads]
+      summary: Protected destinations
+      description: Scope `protected`. A take to one is refused before anything is sent.
+      responses:
+        "200":
+          description: Protected destination and level pairs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [protected]
+                properties:
+                  protected: { type: array, items: { $ref: "#/components/schemas/ProtectedRow" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /presets:
+    get:
+      operationId: listPresets
+      tags: [reads]
+      summary: Presets
+      description: |
+        Scope `presets`. Everyone presets for any caller, plus Me presets for a user's key.
+        This browser presets live in a browser and are never listed.
+      responses:
+        "200":
+          description: Presets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [presets]
+                properties:
+                  presets: { type: array, items: { $ref: "#/components/schemas/Preset" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /history:
+    get:
+      operationId: listHistory
+      tags: [reads]
+      summary: History, newest first, paged
+      description: |
+        Scope `history`. A page never ends inside a Group. Ask for the next page with
+        `before` set to the id of the oldest entry returned.
+      parameters:
+        - { $ref: "#/components/parameters/Before" }
+        - { $ref: "#/components/parameters/N" }
+      responses:
+        "200":
+          description: A page of History entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [before, entries, more]
+                properties:
+                  before: { type: integer, description: The page asked for, -1 for the newest }
+                  entries: { type: array, items: { $ref: "#/components/schemas/Entry" } }
+                  more: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/groups/last:
+    get:
+      operationId: getLastGroup
+      tags: [reads]
+      summary: The most recent Group in History
+      description: |
+        Scope `history`. A Group is a take of several routes, so a caller can undo it by
+        calling `/history/{id}/undo` for each returned entry. A take of one route is not a
+        Group and is never returned here, and neither are External entries. The response is
+        the newest Group that has a route the caller can see, entries oldest id first. For a
+        caller with hidden visibility the entries are only the visible routes and `groupN` is
+        absent; a Group with no visible route is skipped for the next older one. 404
+        `not_found` when History has no such Group.
+      responses:
+        "200":
+          description: The Group and its entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [group, entries]
+                properties:
+                  group: { type: string, description: The Group id, as `group` on each entry }
+                  entries: { type: array, items: { $ref: "#/components/schemas/Entry" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /status:
+    get:
+      operationId: getStatus
+      tags: [reads]
+      summary: Server link and Router link
+      description: |
+        Scope `status`. The same facts as `/api/health`, which stays open without a key. The
+        router address and the error text name the router, so only a caller that also has
+        the scope `log` gets `address` and `err`; everyone else gets the `error` flag.
+      responses:
+        "200":
+          description: Link state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [server, router, routerUp, error, version, uptimeSeconds]
+                properties:
+                  server: { type: string, enum: [up] }
+                  router: { type: string, enum: [up, connecting, down] }
+                  routerUp: { type: boolean }
+                  error: { type: boolean, description: The router link has a problem }
+                  address: { type: string, description: Only with the scope `log` }
+                  err: { type: string, description: Only with the scope `log` }
+                  version: { type: string }
+                  uptimeSeconds: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /layouts:
+    get:
+      operationId: listLayouts
+      tags: [reads]
+      summary: Panel layouts
+      description: Scope `layouts`. Read-only. The content is not defined yet; the list is empty until then.
+      responses:
+        "200":
+          description: Layouts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [layouts]
+                properties:
+                  layouts: { type: array, items: { type: object } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /log:
+    get:
+      operationId: listLog
+      tags: [reads]
+      summary: Communication Log, newest first, paged
+      description: |
+        Scope `log`. Shows raw router messages and API rows, so it ignores visibility. Ask
+        for the next page with `before` set to the `seq` of the oldest row returned.
+      parameters:
+        - { $ref: "#/components/parameters/Before" }
+        - { $ref: "#/components/parameters/N" }
+      responses:
+        "200":
+          description: A page of rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [before, entries, more, total]
+                properties:
+                  before: { type: integer }
+                  entries: { type: array, items: { $ref: "#/components/schemas/LogRow" } }
+                  more: { type: boolean }
+                  total: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /takes:
+    post:
+      operationId: postTake
+      tags: [writes]
+      summary: Take by routes
+      description: |
+        Scope `take`. Synchronous, see Writes above. Always 200 once the take ran, even when a
+        route failed: read each result. Refusals before anything is sent are errors.
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [routes]
+              additionalProperties: false
+              properties:
+                routes:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [src, dst]
+                    additionalProperties: false
+                    properties:
+                      src: { type: integer, description: "The router's number, 0-based" }
+                      dst: { type: integer, description: "The router's number, 0-based" }
+                      levels: { type: array, items: { type: integer }, description: "UI levels from 1; omitted or empty means the server's Default levels, so send them" }
+            example:
+              routes: [{ src: 1, dst: 0, levels: [1] }]
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "413": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /presets/{scope}/{name}:
+    post:
+      operationId: postPreset
+      tags: [writes]
+      summary: Take a preset
+      description: |
+        Scope `take`. `scope` is `everyone`, or `me` with a user's key. The preset fires only if
+        every route is within the key's rights. Parts the router no longer has are left out and
+        listed in `leftOut`. A caller with hidden visibility gets 404 `not_found` for a preset
+        that `GET /presets` does not list. The body is ignored.
+      parameters:
+        - { name: scope, in: path, required: true, schema: { type: string, enum: [everyone, me] } }
+        - { name: name, in: path, required: true, schema: { type: string }, description: "The preset name, URL-encoded" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/{id}/undo:
+    post:
+      operationId: undoEntry
+      tags: [writes]
+      summary: Undo a History entry
+      description: |
+        Scopes `take` and `history`. Restores what the router had before the entry, one route per
+        previous source. Levels with nothing routed before, or that a failed take never changed,
+        are left as is and listed in `skippedLevels` and `untouchedLevels`. 422 `nothing_to_do`
+        when no level can be restored.
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/{id}/redo:
+    post:
+      operationId: redoEntry
+      tags: [writes]
+      summary: Redo a successful History entry
+      description: "Scopes `take` and `history`. Takes the entry's source to its destination again as a new take. 409 `conflict` for a failed entry (use retry)."
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /history/{id}/retry:
+    post:
+      operationId: retryEntry
+      tags: [writes]
+      summary: Retry a failed History entry
+      description: "Scopes `take` and `history`. Like redo, but linked to the failed entry. 409 `conflict` for an entry that succeeded."
+      parameters:
+        - { $ref: "#/components/parameters/EntryId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /stream:
+    get:
+      operationId: openStream
+      tags: [stream]
+      summary: Live state over a WebSocket (version 1)
+      description: |
+        Upgrade to a WebSocket with the key in `Authorization: Bearer`. A browser cannot set
+        that header, so use a client library. Choose topics at connect with `?topics=`, a
+        comma list of `names`, `tally`, `status`, `history` and `results`. Each topic needs
+        the scope of the same REST read (`results` needs `history`). A topic outside the key's
+        scopes is refused with 403 `scope`, an unknown or missing topic with 400.
+
+        The stream only sends; anything the client writes is ignored. Every frame is JSON
+        `{"t", "topic"?, "data"?}`. `ping` is a heartbeat every 5 seconds, ignore it.
+
+        - `hello`: first frame. `data` has `v` (1), `topics` and `numberOffset`.
+        - `snapshot`: one each for `names`, `tally` and `status`, with `topic` set and `data`
+          shaped like the REST read, so a client starts from a full state. There is none for
+          `history`: read `GET /history` first and bridge by id.
+        - `names`: the full names again, after a refresh.
+        - `tally`: `data.routes`, only the routes that changed.
+        - `status`: `data` has `router`, `routerUp` and `error`, plus `address` and `err` for a
+          caller with the scope `log`.
+        - `entry`: a new History entry (topic `history`). `data` is an Entry.
+        - `entryUpdate`: an entry changed after it was sent, for example a Late Result (a route
+          confirmed after the take gave up). `data` is the whole Entry. Sent once for a
+          connection with `history`, `results` or both; `results` alone suits a client that
+          fires takes and wants only Late Results. Match updates by `id`.
+        - `historyCleared`: History was emptied (topic `history`).
+
+        Example frames:
+
+            {"t":"hello","data":{"v":1,"topics":["tally"],"numberOffset":1}}
+            {"t":"snapshot","topic":"tally","data":{"levels":[{"level":1,"label":"1"}],"routes":[{"dst":0,"level":1,"src":3}]}}
+            {"t":"tally","topic":"tally","data":{"routes":[{"dst":0,"level":1,"src":1}]}}
+
+        Visibility. Under hidden rights nothing about an out-of-rights source or destination
+        arrives: not in names, not in tally, not in an entry or update. A tally change whose
+        source is hidden from the caller is left out, as `GET /tally` leaves that route out. A
+        hidden entry never arrives, so ids can skip. A rights or scope change applies to an
+        open stream at once, to later frames only: the client keeps what it holds until it
+        reconnects. A stream whose key lost a topic's scope, or whose API switch went off, is
+        closed.
+
+        Lifetime. A key or an address can hold 8 streams at a time, and a ninth is refused
+        with 429 `too_many_streams`. A client is dropped when a frame write stalls for 5
+        seconds or 256 frames are queued. Connects and disconnects are `api` rows in the
+        Communication Log with the key name and, for a disconnect, the reason.
+      parameters:
+        - name: topics
+          in: query
+          required: true
+          schema: { type: string, example: "names,tally,results" }
+      responses:
+        "101": { description: Switching protocols, the stream follows }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: An API key, shown once when it is made.
+  parameters:
+    Before:
+      name: before
+      in: query
+      schema: { type: integer }
+      description: Page cursor, see the path. Default is the newest page.
+    N:
+      name: n
+      in: query
+      schema: { type: integer, minimum: 1 }
+      description: Page size. Defaults and caps differ per path (History 50 up to 500, log 100 up to 500).
+    EntryId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 0 }
+      description: A History entry id
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, minLength: 1, maxLength: 128 }
+      description: A repeat with the same key and request returns the first answer, see Idempotency above
+  responses:
+    TakeResult:
+      description: The take ran. Each route has its own result.
+      headers:
+        Idempotent-Replay:
+          schema: { type: string, enum: ["true"] }
+          description: Present when this is a stored answer to an earlier request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TakeResult" }
+          example:
+            ok: true
+            checkSkipped: false
+            results: [{ id: 1, src: 1, dst: 0, levels: [1], result: connected, ok: true, entry: 412 }]
+    Unauthorized:
+      description: "`key_required`, `invalid_key` or `key_expired`; carries `WWW-Authenticate: Bearer`"
+      headers:
+        WWW-Authenticate: { schema: { type: string, enum: [Bearer] } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent) or `https_required`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: "`rate_limited` (carries `Retry-After` in seconds), `take_cap` (retry in a second or two; no `Retry-After`) or `too_many_streams`"
+      headers:
+        Retry-After: { schema: { type: integer }, description: Seconds; only on rate_limited }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Error:
+      description: An error, with the reason in `error.code`
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    TakeResult:
+      type: object
+      required: [ok, checkSkipped, results]
+      properties:
+        ok: { type: boolean, description: Every route succeeded }
+        checkSkipped: { type: boolean, description: "The destinations were not read from the router first (6 or more routes), so Prev may be stale" }
+        results:
+          type: array
+          items:
+            type: object
+            required: [id, src, dst, levels, result, ok]
+            properties:
+              id: { type: integer, description: "Position in this request, from 1" }
+              src: { type: integer }
+              dst: { type: integer }
+              levels: { type: array, items: { type: integer } }
+              result: { type: string, enum: [connected, already, failed] }
+              ok: { type: boolean }
+              already: { type: array, items: { type: integer }, description: Levels already on the source }
+              error: { type: string }
+              entry: { type: integer, description: The History entry id; follow it for a late result }
+        leftOut: { type: array, items: { type: string }, description: Preset parts the router no longer has }
+        skippedLevels: { type: array, items: { type: integer }, description: Undo only }
+        untouchedLevels: { type: array, items: { type: integer }, description: Undo only }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - api_off
+                - key_required
+                - invalid_key
+                - key_expired
+                - rate_limited
+                - scope
+                - https_required
+                - bad_request
+                - too_large
+                - outside_rights
+                - take_cap
+                - too_many_streams
+                - conflict
+                - nothing_to_do
+                - idempotency_mismatch
+                - not_found
+                - method_not_allowed
+              description: |
+                503 api_off (the API switch is off). 401 key_required, invalid_key, key_expired.
+                403 scope, outside_rights, https_required. 400 bad_request. 413 too_large (body over
+                64 KiB). 404 not_found (no such path, entry or visible preset). 405
+                method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of a
+                successful one). 422 nothing_to_do (no route left to run), idempotency_mismatch.
+                429 rate_limited, take_cap, too_many_streams.
+            message: { type: string }
+    Name:
+      type: object
+      required: [n, name]
+      properties:
+        n: { type: integer }
+        name: { type: string }
+    Route:
+      type: object
+      required: [dst, level, src]
+      properties:
+        dst: { type: integer }
+        level: { type: integer, description: UI level }
+        src: { type: integer, description: -1 = nothing routed }
+    ProtectedRow:
+      type: object
+      required: [dst, level]
+      properties:
+        dst: { type: integer }
+        level: { type: integer, description: UI level }
+    Preset:
+      type: object
+      required: [scope, name, items]
+      properties:
+        scope: { type: string, enum: [everyone, me] }
+        name: { type: string }
+        pinned: { type: boolean }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              src: { type: integer }
+              dsts: { type: array, items: { type: integer } }
+              levels: { type: array, items: { type: integer }, description: Empty means the default levels }
+    Actor:
+      type: object
+      required: [kind, name]
+      properties:
+        kind: { type: string, enum: [user, client, guest] }
+        name: { type: string }
+        key: { type: string, description: The key name, verified }
+        via: { type: string, description: The caller's own note, unverified }
+    Entry:
+      type: object
+      description: One route of a take. Optional fields appear only when they apply.
+      required: [id, time, client, src, srcName, dst, dstName, levels, prev, ok]
+      properties:
+        id: { type: integer }
+        time: { type: string, format: date-time }
+        client: { type: string, description: Who did it, a user, an API actor with key name, or an address }
+        actor: { $ref: "#/components/schemas/Actor" }
+        src: { type: integer }
+        srcName: { type: string }
+        dst: { type: integer }
+        dstName: { type: string }
+        levels: { type: array, items: { type: integer } }
+        prev: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }, description: "[UI level, src] before the take, -1 = nothing routed" }
+        ok: { type: boolean }
+        err: { type: string }
+        failed: { type: array, items: { type: integer }, description: Levels the router never confirmed, or that were not sent }
+        now: { type: array, items: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }, description: "[UI level, src] the router reported for the failed levels afterwards, -1 = nothing routed; absent when it gave no answer" }
+        already: { type: array, items: { type: integer }, description: Levels that were already on src }
+        late: { type: array, items: { type: integer }, description: Levels that were failed until the router confirmed them after the take gave up }
+        unsent: { type: array, items: { type: integer }, description: Levels never sent }
+        sendErr: { type: string, description: Why a level was not sent }
+        cut: { type: boolean, description: The router changed under the take, so its failed levels just got no answer }
+        undo: { type: integer, description: The id of the entry this one undid }
+        retry: { type: integer, description: The id of the failed entry this one retries }
+        group: { type: string, description: Entries of one take of several routes share it }
+        groupN: { type: integer, description: Routes in the Group; absent for a hidden caller }
+        preset: { type: string, description: The preset this take was fired from }
+        ext: { type: boolean, description: An External change }
+        found: { type: boolean, description: External only, changed without a Connected and seen when Sode re-read the router }
+        follow: { type: integer, description: External only, the id of the take this seems to follow }
+        followGroup: { type: string, description: External only, the Group of that take }
+    LogRow:
+      type: object
+      description: One Communication Log row, a router message or an event such as an `api` row.
+      required: [seq, time, kind, cmd, level, wire, dst, src, tries, result, hex]
+      properties:
+        seq: { type: integer }
+        time: { type: string, format: date-time }
+        kind: { type: string }
+        cmd: { type: integer, description: "SW-P-08 command number; -1 for an event" }
+        level: { type: integer, description: "UI level; 0 when none" }
+        wire: { type: integer, description: "Wire level; -1 when none" }
+        dst: { type: integer, description: "-1 when none" }
+        dstName: { type: string }
+        src: { type: integer, description: "-1 when none" }
+        srcName: { type: string }
+        why: { type: string }
+        by: { type: string }
+        tries: { type: integer }
+        result: { type: string }
+        err: { type: string }
+        note: { type: string }
+        hex: { type: string, description: Empty for an event }
+        ackMs: { type: number, description: How long the router took to ACK }

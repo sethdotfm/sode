@@ -17,6 +17,7 @@ type Entry struct {
 	ID          int       `json:"id"`
 	Time        time.Time `json:"time"`
 	Client      string    `json:"client"`
+	Actor       *Actor    `json:"actor,omitempty"` // set for an API actor: Client then holds its label, never an address
 	Src         int       `json:"src"`
 	SrcName     string    `json:"srcName"`
 	Dst         int       `json:"dst"`

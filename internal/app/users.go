@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,9 +48,14 @@ type connUser struct {
 	user atomic.Pointer[config.User] // who it signed in as, with that user's PIN hash then
 	// profile: last profile message sent (under mu); "" = none, so no clear is sent.
 	profile string
+	// rights: last myRights message sent (under mu); "" = none, so no clear is sent.
+	rights string
 }
 
 func (c *client) who() string {
+	if c.api != nil {
+		return c.api.Actor.String()
+	}
 	if u := c.u.user.Load(); u != nil {
 		return u.Name
 	}
@@ -121,6 +127,8 @@ type lockStateMsg struct {
 	// Trusted: low-risk settings without the Advanced Settings PIN; the server decides.
 	Trusted    bool `json:"trusted,omitempty"`
 	Persistent bool `json:"persistent,omitempty"`
+	// NoAutoLock: to the signed-in user only, so the page's idle timer skips them.
+	NoAutoLock bool `json:"noAutoLock,omitempty"`
 }
 
 // Caller holds mu.
@@ -135,7 +143,7 @@ func (a *App) lockStateMu(c *client) lockStateMsg {
 	m.Mode = cfg.SignInMode
 	if a.userOKMu(c, cfg) {
 		u, _ := cfg.FindUser(c.u.user.Load().Name) // live flags, not the sign-in copy
-		m.User, m.Trusted, m.Persistent = u.Name, u.Trusted, u.Persistent
+		m.User, m.Trusted, m.Persistent, m.NoAutoLock = u.Name, u.Trusted, u.Persistent, u.NoAutoLock
 	}
 	m.Locked = m.Held || m.Enforced && m.User == ""
 	m.Lens = cfg.PinLens()
@@ -161,6 +169,7 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	b, _ := json.Marshal(m)
 	a.deliver(c, b)
 	a.pushProfileMu(c) // only to the user it belongs to
+	a.pushRightsMu(c)
 }
 
 func (a *App) syncAccess(c *client) {
@@ -354,6 +363,10 @@ type userEdit struct {
 	Pin        string  `json:"pin"`
 	Trusted    bool    `json:"trusted"`
 	Persistent bool    `json:"persistent"`
+	// Rights and NoAutoLock: nil keeps the user's current value, so a page that doesn't
+	// know them can't erase them.
+	Rights     *config.Rights `json:"rights"`
+	NoAutoLock *bool          `json:"noAutoLock"`
 }
 
 type usersReq struct {
@@ -362,6 +375,11 @@ type usersReq struct {
 	// SignInMode: "" keeps the current one. Saved here so it needs
 	// the Advanced Settings PIN.
 	SignInMode string `json:"signInMode"`
+	// API clients, Guest rights and Guest scopes: nil keeps the current ones. They ride this
+	// save so they need the Advanced Settings PIN.
+	APIClients  *[]config.APIClient `json:"apiClients"`
+	GuestRights *config.Rights      `json:"guestRights"`
+	GuestScopes *[]string           `json:"guestScopes"`
 	// Locks and AutoLock are read only to refuse them: a stale page must not look saved.
 	Locks    json.RawMessage `json:"locks"`
 	AutoLock json.RawMessage `json:"autoLockMinutes"`
@@ -380,7 +398,8 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	if err := a.guardSave(c, false); err != nil {
 		return err
 	}
-	return a.applyConfig(func(cur *config.Config) error {
+	before := a.r().cfg
+	err := a.applyConfig(func(cur *config.Config) error {
 		if req.MaxPin != 0 {
 			cur.MaxPinLen = req.MaxPin
 		}
@@ -413,9 +432,16 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 				kept[pk] = true
 				u.Profile = o.Profile.Clone()
 				u.Username = o.Username
+				u.Rights, u.NoAutoLock = o.Rights.Clone(), o.NoAutoLock
 			}
 			if e.Username != nil {
 				u.Username = strings.TrimSpace(*e.Username)
+			}
+			if e.Rights != nil {
+				u.Rights = e.Rights.Clone()
+			}
+			if e.NoAutoLock != nil {
+				u.NoAutoLock = *e.NoAutoLock
 			}
 			if e.Pin != "" {
 				if err := config.CheckUserPinRules(e.Pin, maxLen); err != nil {
@@ -460,8 +486,24 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			}
 		}
 		cur.Users = out
+		if req.APIClients != nil {
+			cur.APIClients = slices.Clone(*req.APIClients)
+			for i := range cur.APIClients {
+				cur.APIClients[i].Rights = cur.APIClients[i].Rights.Clone()
+			}
+		}
+		if req.GuestRights != nil {
+			cur.GuestRights = req.GuestRights.Clone()
+		}
+		if req.GuestScopes != nil {
+			cur.GuestAPIScopes = slices.Clone(*req.GuestScopes)
+		}
 		return nil
 	})
+	if err == nil {
+		a.auditRights(c, before, a.r().cfg)
+	}
+	return err
 }
 
 type userResult struct {
@@ -511,6 +553,10 @@ type usersListMsg struct {
 	OK    bool       `json:"ok"`
 	Users []userView `json:"users"`
 	Mode  string     `json:"signInMode"`
+	// Rights and API clients: needAdmin only, never before the PIN.
+	APIClients  []config.APIClient `json:"apiClients"`
+	GuestRights config.Rights      `json:"guestRights"`
+	GuestScopes []string           `json:"guestScopes"`
 }
 
 type userView struct {
@@ -519,13 +565,20 @@ type userView struct {
 	Len        int    `json:"len"`
 	Trusted    bool   `json:"trusted,omitempty"`
 	Persistent bool   `json:"persistent,omitempty"`
+	NoAutoLock bool   `json:"noAutoLock,omitempty"`
+	// Rights has no omitempty: an unset list is "all", an empty one "none".
+	Rights config.Rights `json:"rights"`
 }
 
 func (a *App) usersList(id int) usersListMsg {
-	cfg := a.r().cfg
-	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode}
+	cfg := a.r().cfg.Clone()
+	m := usersListMsg{T: "usersListResult", ID: id, OK: true, Users: []userView{}, Mode: cfg.SignInMode,
+		APIClients: cfg.APIClients, GuestRights: cfg.GuestRights, GuestScopes: cfg.GuestAPIScopes}
+	if m.APIClients == nil {
+		m.APIClients = []config.APIClient{}
+	}
 	for _, u := range cfg.Users {
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent})
+		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights})
 	}
 	return m
 }
