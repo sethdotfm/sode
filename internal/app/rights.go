@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -81,25 +82,55 @@ func takeWhy(items []routeReq) string {
 	return why
 }
 
+// undoMatches reports whether an undo route restores what its History entry had before: the
+// same destination, each level inside the entry, and the Before source for that level. The
+// tag comes from the browser, so only a match earns the skip of the source check.
+func (a *App) undoMatches(it routeReq) bool {
+	if it.Undo == nil {
+		return false
+	}
+	e, ok := a.hist.Get(*it.Undo)
+	if !ok || e.Dst != it.Dst || len(it.Levels) == 0 {
+		return false
+	}
+	for _, ui := range it.Levels {
+		i := slices.IndexFunc(e.Prev, func(p [2]int) bool { return p[0] == ui })
+		if i < 0 || e.Prev[i][1] != it.Src || !slices.Contains(e.Levels, ui) {
+			return false
+		}
+	}
+	return true
+}
+
 // outsideRights returns why the first route that rights do not allow is refused, or "".
-// Undo restores what the router had, so it skips the Before source. Numbers are the
-// router's, not names: a refusal must not teach a hidden actor what exists.
-func outsideRights(r *runtime, rt config.Rights, items []routeReq) string {
+// A matching undo skips the Before source (undoMatches). With hidden visibility a refusal
+// names the kind but never the number or preset, so it cannot teach a caller what exists.
+func (a *App) outsideRights(r *runtime, rt config.Rights, items []routeReq) string {
 	off := r.cfg.NumberOffset
+	quiet := rt.Hidden()
+	kind := func(what string, n int) string {
+		if quiet {
+			return what + " is outside your rights"
+		}
+		return fmt.Sprintf("%s %d is outside your rights", what, n)
+	}
 	for _, it := range items {
 		switch {
 		case it.Preset != "" && !rt.AllowsPreset(it.Preset):
+			if quiet {
+				return "preset is outside your rights"
+			}
 			return fmt.Sprintf("preset %q is outside your rights", it.Preset)
 		case !rt.AllowsDst(it.Dst):
-			return fmt.Sprintf("destination %d is outside your rights", it.Dst+off)
+			return kind("destination", it.Dst+off)
 		}
 		for _, ui := range it.Levels {
 			if !rt.AllowsLevel(ui) {
 				return fmt.Sprintf("level %s is outside your rights", r.cfg.LevelLabel(ui))
 			}
 		}
-		if it.Undo == nil && !rt.AllowsSource(it.Src) {
-			return fmt.Sprintf("source %d is outside your rights", it.Src+off)
+		if !rt.AllowsSource(it.Src) && !a.undoMatches(it) {
+			return kind("source", it.Src+off)
 		}
 	}
 	return ""
@@ -113,7 +144,7 @@ func (a *App) rightsPass(r *runtime, c *client, items []routeReq) bool {
 		return false
 	}
 	act, rt := a.callerOf(c)
-	msg := outsideRights(r, rt, items)
+	msg := a.outsideRights(r, rt, items)
 	if msg == "" {
 		return false
 	}

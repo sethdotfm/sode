@@ -139,16 +139,44 @@ func TestRightsPreset(t *testing.T) {
 func TestRightsUndoSkipsBeforeSource(t *testing.T) {
 	a, f, c := rightsApp(t, config.Rights{Sources: ints(7), Dsts: ints(5)})
 	f.seed(5, 1, 0)
-	undo := 3
+	a.record(&Entry{Src: 7, Dst: 5, Levels: []int{1}, Prev: [][2]int{{1, 1}}, OK: true})
+	undo := 0
 	// Undo restores source 1, which is outside the rights.
 	if rs := takeResults(t, a, c, []routeReq{{ID: 1, Src: 1, Dst: 5, Levels: []int{1}, Undo: &undo}}); len(rs) != 1 || !rs[0].OK {
 		t.Fatalf("undo: %+v", rs)
 	}
 	allFailed(t, takeResults(t, a, c, []routeReq{{ID: 2, Src: 1, Dst: 5, Levels: []int{1}}}), 1, "source 2")
-	retry := 3
+	retry := 0
 	allFailed(t, takeResults(t, a, c, []routeReq{{ID: 3, Src: 1, Dst: 5, Levels: []int{1}, Retry: &retry}}), 1, "source 2")
 	// Undo still checks the destination.
 	allFailed(t, takeResults(t, a, c, []routeReq{{ID: 4, Src: 7, Dst: 6, Levels: []int{1}, Undo: &undo}}), 1, "destination 7")
+}
+
+// The undo tag comes from the browser, so it only skips the source check for the route the
+// entry really had before.
+func TestRightsForgedUndoTagStillChecksSource(t *testing.T) {
+	a, f, c := rightsApp(t, config.Rights{Sources: ints(7), Dsts: ints(5)})
+	f.seed(5, 1, 0)
+	a.record(&Entry{Src: 7, Dst: 5, Levels: []int{1}, Prev: [][2]int{{1, 1}}, OK: true})
+	id, missing := 0, 12345
+	for name, it := range map[string]routeReq{
+		"other source":  {Src: 3, Dst: 5, Levels: []int{1}, Undo: &id},
+		"other level":   {Src: 1, Dst: 5, Levels: []int{2}, Undo: &id},
+		"other dst":     {Src: 1, Dst: 6, Levels: []int{1}, Undo: &id},
+		"unknown entry": {Src: 1, Dst: 5, Levels: []int{1}, Undo: &missing},
+	} {
+		t.Run(name, func(t *testing.T) {
+			n := f.sends()
+			it.ID = 1
+			rs := takeResults(t, a, c, []routeReq{it})
+			if len(rs) != 1 || rs[0].OK {
+				t.Fatalf("forged undo went through: %+v", rs)
+			}
+			if f.sends() != n {
+				t.Fatal("sent")
+			}
+		})
+	}
 }
 
 func TestRightsGuestApplyToSignedOutBrowser(t *testing.T) {
@@ -238,5 +266,27 @@ func TestRightsBrowserBatchParity(t *testing.T) {
 	}
 	if api == nil || api.By != "Ana" || api.Result != "refused" || api.Why != "take" {
 		t.Fatalf("rows %+v", logged(t, a))
+	}
+}
+
+// A hidden caller's refusal says what kind is outside the rights and never the number.
+func TestRightsRefusalHidesNumbersFromHiddenCaller(t *testing.T) {
+	a, _, _ := rightsApp(t, config.Rights{})
+	rt := a.r()
+	hidden := config.Rights{Sources: ints(1), Dsts: ints(5), Presets: &[]string{"Show"}, Visibility: config.VisHidden}
+	for name, it := range map[string]routeReq{
+		"source":      {Src: 42, Dst: 5, Levels: []int{1}},
+		"destination": {Src: 1, Dst: 41, Levels: []int{1}},
+		"preset":      {Src: 1, Dst: 5, Levels: []int{1}, Preset: "Secret mix"},
+	} {
+		msg := a.outsideRights(rt, hidden, []routeReq{it})
+		if msg == "" || strings.ContainsAny(msg, "0123456789") || strings.Contains(msg, "Secret") {
+			t.Errorf("%s: %q names a hidden thing", name, msg)
+		}
+	}
+	readOnly := hidden
+	readOnly.Visibility = ""
+	if msg := a.outsideRights(rt, readOnly, []routeReq{{Src: 42, Dst: 5, Levels: []int{1}}}); !strings.Contains(msg, "source 43") {
+		t.Errorf("read-only caller: %q", msg)
 	}
 }

@@ -22,6 +22,20 @@ func (v apiView) Source(n int) bool       { return !v.Hidden() || v.rights.Allow
 func (v apiView) Destination(n int) bool  { return !v.Hidden() || v.rights.AllowsDst(n) }
 func (v apiView) Preset(name string) bool { return !v.Hidden() || v.rights.AllowsPreset(name) }
 
+// WholePreset: the preset is visible by name and every source and destination it names is
+// visible, since its items would otherwise teach a hidden number.
+func (v apiView) WholePreset(p config.Preset) bool {
+	if !v.Preset(p.Name) {
+		return false
+	}
+	for _, it := range p.Items {
+		if !v.Source(it.Src) || slices.ContainsFunc(it.Dsts, func(d int) bool { return !v.Destination(d) }) {
+			return false
+		}
+	}
+	return true
+}
+
 // Route: src < 0 means nothing routed, which is always visible.
 func (v apiView) Route(dst, level, src int) bool {
 	return v.Destination(dst) && (src < 0 || v.Source(src))

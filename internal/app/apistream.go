@@ -30,8 +30,8 @@ import (
 //	ping           heartbeat, ignore
 //
 // Visibility (apiView) filters every frame, so a hidden caller never sees an out-of-rights
-// route or entry. A tally change whose Source is hidden reads as src -1, the same as the
-// REST read omits it. Frames go out in the order the server saw the changes.
+// route or entry. A tally change whose Source is hidden is left out, as the REST read
+// leaves it out, so a client never sees -1 for a route that has a hidden source. Frames go out in the order the server saw the changes.
 
 func init() {
 	registerAPI(apiRoute{"GET", apiBase + "/stream", "", (*App).apiStreamServe})
@@ -274,11 +274,10 @@ func (a *App) streamFan(v any) {
 				if !st.view.Destination(c.Dst) {
 					continue
 				}
-				src := c.Src
-				if src >= 0 && !st.view.Source(src) {
-					src = -1
+				if !st.view.Route(c.Dst, c.Level, c.Src) {
+					continue
 				}
-				rows = append(rows, apiRouteRow{c.Dst, c.Level, src})
+				rows = append(rows, apiRouteRow{c.Dst, c.Level, c.Src})
 			}
 			if len(rows) > 0 {
 				a.streamQueue(st, streamMsg{T: "tally", Data: map[string]any{"routes": rows}})

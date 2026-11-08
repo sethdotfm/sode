@@ -270,7 +270,7 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		plan.Items[i].ID = i + 1
 		plan.Items[i].Preset = plan.Preset
 	}
-	if msg := outsideRights(rt, cl.Rights, plan.Items); msg != "" {
+	if msg := a.outsideRights(rt, cl.Rights, plan.Items); msg != "" {
 		a.rightsPass(rt, c, plan.Items) // writes the refusal row
 		return respJSON(http.StatusForbidden, apiErrBody{apiErr{"outside_rights", msg}}, true)
 	}

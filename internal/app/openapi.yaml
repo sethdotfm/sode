@@ -142,7 +142,7 @@ paths:
                 type: object
                 required: [protected]
                 properties:
-                  protected: { type: array, items: { $ref: "#/components/schemas/Route" } }
+                  protected: { type: array, items: { $ref: "#/components/schemas/ProtectedRow" } }
         default: { $ref: "#/components/responses/Error" }
   /presets:
     get:
@@ -379,7 +379,8 @@ paths:
 
         Visibility. Under hidden rights nothing about an out-of-rights source or
         destination arrives: not in names, not in tally, not in an entry or update. A tally
-        change whose source is hidden from the caller arrives as `src` -1. A hidden entry
+        change whose source is hidden from the caller is left out, as `GET /tally` leaves
+        that route out. A hidden entry
         never arrives, so ids can skip. A slow client is disconnected. Connects and
         disconnects are recorded as `api` rows in the Communication Log with the key name.
       parameters:
@@ -482,6 +483,12 @@ components:
         dst: { type: integer }
         level: { type: integer, description: UI level }
         src: { type: integer, description: -1 = nothing routed }
+    ProtectedRow:
+      type: object
+      required: [dst, level]
+      properties:
+        dst: { type: integer }
+        level: { type: integer, description: UI level }
     Preset:
       type: object
       required: [scope, name, items]

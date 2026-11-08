@@ -67,6 +67,13 @@ type apiRouteRow struct {
 	Src   int `json:"src"`   // -1 = nothing routed
 }
 
+// apiProtectedRow: router.protect maps dst and level to a device, which is not a source, so
+// the row carries no value and visibility asks about the destination only.
+type apiProtectedRow struct {
+	Dst   int `json:"dst"`
+	Level int `json:"level"` // UI level
+}
+
 // routeRows lists a dst to level to value map in a stable order, keeping what v shows.
 func routeRows(m map[int]map[int]int, v apiView) []apiRouteRow {
 	out := []apiRouteRow{}
@@ -109,8 +116,23 @@ func (a *App) apiTally(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 
 func (a *App) apiProtected(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	a.mu.Lock()
-	rows := routeRows(a.router.protect, cl.view())
+	v := cl.view()
+	rows := []apiProtectedRow{}
+	for d, t := range a.router.protect {
+		if !v.Destination(d) {
+			continue
+		}
+		for l := range t {
+			rows = append(rows, apiProtectedRow{d, l})
+		}
+	}
 	a.mu.Unlock()
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Dst != rows[j].Dst {
+			return rows[i].Dst < rows[j].Dst
+		}
+		return rows[i].Level < rows[j].Level
+	})
 	apiJSON(w, map[string]any{"protected": rows})
 }
 
