@@ -26,7 +26,7 @@ export function fuzzy(q, text) {
 }
 
 const DEFAULT_CFG = () => ({
-  name: 'Studio A', id: 'studio-a', fontSize: 'md', title: true, backdrop: null, mode: 'take', guard: 'none', multi: true, text: false, idle: 30, levels: [1, 2, 3],
+  name: 'Studio A', id: 'studio-a', orient: 'auto', wake: true, haptic: false, click: false, hold: 600, banner: 10, snooze: 60, resultSecs: 3, notes: '', rate: 60, nets: '', returnSecs: 0, fontSize: 'md', title: true, backdrop: null, mode: 'take', guard: 'none', multi: true, text: false, idle: 30, levels: [1, 2, 3],
   colView: null, colCur: null, colTake: null,
   acts: 'user', rightsCap: 'mine', kiosk: false, auth: 'open', share: 'private', sharedWith: ['Dana'],
 })
@@ -137,20 +137,28 @@ export function createEditor() {
 
   // Fill selection: the selected squares are the target; typed numbers ("1-8, 12") pick what goes in, in reading order.
   const order = (kind) => (kind === 'pre' ? PRESETS.map((p) => p.id) : POOL[kind].map((p) => p.n))
-  const parseRuns = (text, max) => {
-    const out = [], bad = []
-    for (const tok of text.split(/[,\s]+/).filter(Boolean)) {
-      const m = tok.match(/^(\d+)(?:-(\d+))?$/)
-      if (!m) { bad.push(tok); continue }
-      const a = +m[1], z = m[2] ? +m[2] : a
-      for (let k = Math.min(a, z); k <= Math.max(a, z); k++) k >= 1 && k <= max ? out.push(k - 1) : bad.push(String(k))
+  // Parts split on commas. A part of digits and dashes is a number run ("1-8"); anything else is a fuzzy name query ("cam", "rep 2").
+  const parseRuns = (text, kind) => {
+    const ord = order(kind), items = E.items(kind), out = [], bad = []
+    for (const part of text.split(',').map((t) => t.trim()).filter(Boolean)) {
+      if (/^[\d\s-]+$/.test(part)) {
+        for (const tok of part.split(/\s+/).filter(Boolean)) {
+          const m = tok.match(/^(\d+)(?:-(\d+))?$/)
+          if (!m) { bad.push(tok); continue }
+          const x = +m[1], z = m[2] ? +m[2] : x
+          for (let k = Math.min(x, z); k <= Math.max(x, z); k++) k >= 1 && k <= ord.length ? out.push(k - 1) : bad.push(String(k))
+        }
+      } else {
+        const hits = items.filter((i) => fuzzy(part, `${i.num ?? ''} ${i.name}`) >= 0).map((i) => ord.indexOf(i.key)).sort((x, y) => x - y)
+        hits.length ? out.push(...hits) : bad.push(part)
+      }
     }
     return { out, bad }
   }
   E.fillPlan = () => {
     const q = E.rect(), F = E.fill
     if (!q) return null
-    const ord = order(F.kind), { out, bad } = parseRuns(F.text, ord.length)
+    const ord = order(F.kind), { out, bad } = parseRuns(F.text, F.kind)
     const keys = out.map((i) => ord[i]).filter((k) => E.items(F.kind).some((i) => i.key === k))
     const queue = [...keys], slots = []
     const [o0, o1, i0, i1] = F.dir === 'across' ? [q.r1, q.r2, q.c1, q.c2] : [q.c1, q.c2, q.r1, q.r2]

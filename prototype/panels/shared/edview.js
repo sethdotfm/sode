@@ -203,7 +203,7 @@ export function inspector(host, E) {
 export function sequencer(host, E) {
   host.innerHTML = `<div class="pb-label">Fill selection</div><p class="pb-hint" data-sel></p>
     <div class="ed-kinds">${[['src', 'Sources'], ['dst', 'Destinations'], ['pre', 'Presets']].map(([k, t]) => `<button class="pb-btn pb-btn--sm" data-sk="${k}">${t}</button>`).join('')}</div>
-    <div class="pb-field"><label class="pb-label" for="q-text">Numbers</label><input id="q-text" class="pb-input" data-text placeholder="1-8, 12, 15-16" value="${E.fill.text}"><span class="pb-hint">As the router numbers them. Ranges and commas.</span></div>
+    <div class="pb-field"><label class="pb-label" for="q-text">Numbers</label><input id="q-text" class="pb-input" data-text placeholder="1-8, 12, cam" value="${E.fill.text}"><span class="pb-hint">Router numbers (1-8, 12) or names (cam, replay). Separate with commas.</span></div>
     <div class="pb-field"><label class="pb-label" for="q-dir">Fill</label><span class="pb-select-wrap"><select id="q-dir" class="pb-select" data-o="dir"><option value="across">Across, then down</option><option value="down">Down, then across</option></select></span></div>
     <label class="pb-check"><input type="checkbox" class="pb-check__input" data-o="keep"><span class="pb-check__label">Keep cells already there</span></label>
     <p class="pb-hint" data-names></p>
@@ -258,14 +258,32 @@ export const SECTIONS = {
     return chk('s-title', 'title', 'Show a title bar with the panel name', c.title) +
       f('s-fs', 'Font size for the whole panel', sel('s-fs', 'fontSize', FS_NAMES.slice(1), c.fontSize), 'A cell can override it.') +
       `<div class="pb-label">Backdrop image${bd ? `: <strong>${esc(bd.name)}</strong>` : ''}</div><div data-backdrop></div>` },
+  display: (E) => { const c = E.cfg
+    return f('s-orient', 'Orientation', sel('s-orient', 'orient', [['auto', 'Follow the device'], ['land', 'Landscape'], ['port', 'Portrait']], c.orient)) +
+      chk('s-wake', 'wake', 'Keep the screen awake while the panel is open', c.wake) +
+      chk('s-haptic', 'haptic', 'Buzz on a press (phones and tablets that support it)', c.haptic) +
+      chk('s-click', 'click', 'Click sound on a press', c.click) +
+      f('s-res', 'Show a Result for (seconds)', `<span class="pb-number-wrap"><input id="s-res" type="number" min="1" max="30" class="pb-input pb-w-sm" data-cfg="resultSecs" data-num value="${c.resultSecs}"></span>`) +
+      f('s-ret', 'Return the view to the first destination after idle (seconds)', `<span class="pb-number-wrap"><input id="s-ret" type="number" min="0" max="3600" class="pb-input pb-w-sm" data-cfg="returnSecs" data-num value="${c.returnSecs}"></span>`, '0 leaves the view where it is.') },
+  updates: (E) => { const c = E.cfg
+    return f('s-ban', 'Refresh open panels after a saved edit (seconds)', `<span class="pb-number-wrap"><input id="s-ban" type="number" min="0" max="120" class="pb-input pb-w-sm" data-cfg="banner" data-num value="${c.banner}"></span>`, 'A banner counts down first. Wait for no destination being viewed, or this long.') +
+      f('s-snz', 'Snooze the refresh banner for (seconds)', `<span class="pb-number-wrap"><input id="s-snz" type="number" min="10" max="600" class="pb-input pb-w-sm" data-cfg="snooze" data-num value="${c.snooze}"></span>`) +
+      f('s-hold', 'Hold time for the hold guard (ms)', `<span class="pb-number-wrap"><input id="s-hold" type="number" min="200" max="3000" step="100" class="pb-input pb-w-sm" data-cfg="hold" data-num value="${c.hold}"></span>`) +
+      f('s-notes', 'Notes for other editors', `<textarea id="s-notes" class="pb-textarea" rows="3" data-cfg="notes" placeholder="Who this panel is for">${esc(c.notes)}</textarea>`) },
+  limits: (E) => { const c = E.cfg
+    return f('s-rate', 'Most takes per minute from this panel', `<span class="pb-number-wrap"><input id="s-rate" type="number" min="1" max="600" class="pb-input pb-w-sm" data-cfg="rate" data-num value="${c.rate}"></span>`, 'The API client take cap still applies.') +
+      f('s-nets', 'Only allow these networks', `<input id="s-nets" class="pb-input" data-cfg="nets" value="${esc(c.nets)}" placeholder="10.1.0.0/16, 172.17.60.0/24">`, 'Empty allows any address that has the link.') },
   layout: (E) => `<div class="ed-steps">${[['rows', 'Rows', E.rows], ['cols', 'Columns', E.cols]].map(([k, l, v]) => `<div class="ed-step"><span class="pb-label">${l}</span><button class="pb-btn pb-btn--icon pb-btn--sm" data-step="${k}" data-d="-1" aria-label="Fewer ${l}">${icon('minus')}</button><span class="pb-number-wrap"><input type="number" min="1" max="${k === 'rows' ? 8 : 16}" class="pb-input pb-w-sm" data-dim="${k}" value="${v}" aria-label="${l}"></span><button class="pb-btn pb-btn--icon pb-btn--sm" data-step="${k}" data-d="1" aria-label="More ${l}">${icon('plus')}</button></div>`).join('')}</div><button class="pb-btn pb-btn--sm" data-act="fill">Fill empty squares with Sources</button>`,
 }
+
+const TITLES = { identity: 'Identity', appearance: 'Appearance', behaviour: 'Behaviour', display: 'Device and feedback', updates: 'Updates and guards', colours: 'Colours', access: 'Who it acts as', limits: 'Limits', sharing: 'Sharing', layout: 'Grid size' }
 
 // Renders the named sections into host and wires every [data-cfg] control. Re-renders on structural cfg changes only, so typing keeps focus.
 export function settings(host, E, names) {
   const mountBackdrop = () => { const n = host.querySelector('[data-backdrop]'); if (n) { uploads(n, E, E.cfg.backdrop, (id) => { E.setCfg('backdrop', id); mountBackdrop() }); n.insertAdjacentHTML('afterbegin', `<button class="pb-btn pb-btn--ghost pb-btn--sm" data-nobd>No backdrop</button>`); n.querySelector('[data-nobd]').onclick = () => { E.setCfg('backdrop', null); mountBackdrop() } } }
-  const draw = () => { host.innerHTML = names.map((n) => `<div class="ed-sec" data-sec="${n}">${SECTIONS[n](E)}</div>`).join(''); mountBackdrop() }
-  const redraw = (...secs) => { for (const s of secs) { const n = host.querySelector(`[data-sec="${s}"]`); if (n) n.innerHTML = SECTIONS[s](E) } mountBackdrop() }
+  const head = (n) => `<h3 class="ed-h">${TITLES[n] || ''}</h3>`
+  const draw = () => { host.innerHTML = names.map((n) => `<div class="ed-sec" data-sec="${n}">${head(n)}${SECTIONS[n](E)}</div>`).join(''); mountBackdrop() }
+  const redraw = (...secs) => { for (const s of secs) { const n = host.querySelector(`[data-sec="${s}"]`); if (n) n.innerHTML = head(s) + SECTIONS[s](E) } mountBackdrop() }
   host.oninput = host.onchange = (e) => {
     const t = e.target
     if (E.readonly) return

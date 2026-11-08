@@ -89,3 +89,6 @@ body { margin: 0; }
 .ed-out { position: absolute; top: var(--pb-space-1); right: var(--pb-space-1); color: var(--pb-status-warn); line-height: 0; }
 .ed-panelpick { min-width: 16rem; }
 .a .ed-body { grid-template-columns: 19rem 1fr 23rem; }
+
+.ed-h { font-size: var(--pb-text-sm); font-weight: var(--pb-weight-bold); letter-spacing: var(--pb-tracking-label); text-transform: uppercase; color: var(--pb-text-muted); margin: 0; }
+.ed-sec textarea { width: 100%; }

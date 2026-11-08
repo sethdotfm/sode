@@ -17,7 +17,7 @@ E.on((t) => { if (t === 'sel' || t === 'layout' || t === 'init') { pal.querySele
 sequencer(document.getElementById('seq'), E)
 tabs(document.getElementById('side'), [
   { text: 'Cell', render: (n) => inspector(n, E) },
-  { text: 'Panel', render: (n) => settings(n, E, ['identity', 'appearance', 'behaviour', 'colours']) },
-  { text: 'Access', render: (n) => settings(n, E, ['access', 'sharing']) },
+  { text: 'Panel', render: (n) => settings(n, E, ['identity', 'appearance', 'behaviour', 'display', 'colours', 'updates']) },
+  { text: 'Access', render: (n) => settings(n, E, ['access', 'limits', 'sharing']) },
 ])
 </script></body></html>
