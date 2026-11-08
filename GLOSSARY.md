@@ -170,6 +170,15 @@ One square of a panel's grid. It has a cell kind and may be a merged cell.
 **Cell kind**:
 What a cell does: Source, Destination, Preset, Take, Clear or Current Destination. A Source or Destination cell is bound to a router number and shows the Router name.
 
+**Current Destination** (cell kind):
+A cell that shows, under the caption "Currently", the source now on the viewed destination. It cannot be pressed. It stays useful when that source is not on screen.
+
+**Viewed destination**:
+The destination whose current and staged source a panel's Source cells show. Pressing a Destination cell views it.
+
+**Staged**:
+Describes a change a panel holds for one destination until Take. Each destination has its own, together they are the panel's plan, and Clear drops them all.
+
 **Merged cell**:
 A cell that spans several squares of the grid, such as a large Take cell.
 
