@@ -15,7 +15,7 @@ info:
     Numbers. Sources and destinations are the router's own numbers, 0-based. Add `numberOffset`
     (from /names) to show the number a person sees; with an offset of 1, send `src: 0` for the
     source a person calls 1. Levels are UI levels from 1, never offset, the same numbers the
-    rights lists use. A source of -1 means nothing is routed. A route that omits `levels` uses
+    rights lists use. A source of -1 means nothing is routed. A route that omits `levels`, or sends `[]`, uses
     the server's Default levels setting, which no endpoint reports, so always send `levels`.
 
     Via note. Any request may carry `X-Sode-Via`, free text (32 printable characters at most)
@@ -340,7 +340,7 @@ paths:
                     properties:
                       src: { type: integer, description: "The router's number, 0-based" }
                       dst: { type: integer, description: "The router's number, 0-based" }
-                      levels: { type: array, items: { type: integer }, description: "UI levels from 1; omitted means the server's Default levels, so send them" }
+                      levels: { type: array, items: { type: integer }, description: "UI levels from 1; omitted or empty means the server's Default levels, so send them" }
             example:
               routes: [{ src: 1, dst: 0, levels: [1] }]
       responses:
@@ -656,14 +656,14 @@ components:
       type: object
       required: [kind, name]
       properties:
-        kind: { type: string, enum: [user, client] }
+        kind: { type: string, enum: [user, client, guest] }
         name: { type: string }
         key: { type: string, description: The key name, verified }
         via: { type: string, description: The caller's own note, unverified }
     Entry:
       type: object
       description: One route of a take. Optional fields appear only when they apply.
-      required: [id, time, client, src, dst, levels, ok]
+      required: [id, time, client, src, srcName, dst, dstName, levels, prev, ok]
       properties:
         id: { type: integer }
         time: { type: string, format: date-time }

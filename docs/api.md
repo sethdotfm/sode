@@ -65,7 +65,7 @@ Read `results[].result` (`connected`, `already` or `failed`), not just the statu
 
 ## Numbers
 
-Sources and destinations are the router's own numbers, 0-based. `/names` carries `numberOffset`; add it to show the number a person sees. Levels are UI levels, from 1, the same numbers the rights lists use. A source of -1 means nothing is routed. If a route omits `levels`, Sode uses the *Default levels* setting, which no endpoint reports, so always send `levels`.
+Sources and destinations are the router's own numbers, 0-based. `/names` carries `numberOffset`; add it to show the number a person sees. Levels are UI levels, from 1, the same numbers the rights lists use. A source of -1 means nothing is routed. If a route omits `levels` or sends `[]`, Sode uses the *Default levels* setting, which no endpoint reports, so always send `levels`.
 
 ## Endpoints
 
@@ -101,10 +101,10 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 | 403 | `https_required` | Require HTTPS is on and the request did not arrive securely | Use the HTTPS URL |
 | 400 | `bad_request` | A parameter or body is not valid | Fix the request |
 | 413 | `too_large` | The body is over 64 KiB | Send fewer routes |
-| 404 | `not_found` | No such path, History entry or visible preset | Check the id or name |
+| 404 | `not_found` | No such path, History entry or visible preset, or scope `me` on a client or Guest key | Check the id, name or scope |
 | 405 | `method_not_allowed` | The path does not take this method | Use a method in `Allow` |
 | 409 | `conflict` | Redo of a failed entry, or Retry of one that succeeded | Use the other verb |
-| 422 | `nothing_to_do` | The plan has no route left to run | Nothing to undo or redo |
+| 422 | `nothing_to_do` | The plan has no route left to run: nothing to undo, a Redo of a route with no source, or a preset whose parts are all gone from the router | Nothing to do |
 | 422 | `idempotency_mismatch` | The Idempotency-Key was used for a different request | Use a new key |
 | 429 | `rate_limited` | Too many requests, or ten bad keys from this address in a minute | Wait `Retry-After` seconds |
 | 429 | `take_cap` | The global cap on API takes in flight is reached | Retry in a second or two (no `Retry-After`) |
@@ -114,7 +114,7 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 
 A take request is its own Confirm: nothing asks a person, so guard the button on your side. The request waits and returns when the router has answered or timed out every route. It is always 200 once the take ran, even when a route failed, so read each result: `connected`, `already` or `failed`, with the History `entry` id. Refusals before anything is sent are errors.
 
-The worst case for one route is about 35 seconds: check 1 s, send queue up to 30 s, route 3 s, grace 1 s. More than 8 routes run 8 at a time and take longer. Common proxies cut a request at 60 seconds, so raise the proxy's read timeout for `/api/v1`. Sode sets a write deadline on each take request and no server-wide write timeout, so `/ws` and the stream are not cut.
+The worst case for one route is about 35 seconds: check 1 s, send queue up to 30 s, route 3 s, grace 1 s. More than 8 routes run 8 at a time and take longer. Common proxies cut a request at 60 seconds, so raise the proxy's read timeout for `/api/v1`.
 
 A route the router confirms after the take gave up is a Late Result. The response already carries the entry ids, and the stream sends an `entryUpdate` for each, so match updates by `id`.
 
@@ -134,7 +134,7 @@ Every frame is JSON `{"t","topic","data"}`. The first is `hello`, then one `snap
 {"t":"hello","data":{"v":1,"topics":["tally","results"],"numberOffset":1}}
 {"t":"snapshot","topic":"tally","data":{"levels":[{"level":1,"label":"1"}],"routes":[{"dst":0,"level":1,"src":3}]}}
 {"t":"tally","topic":"tally","data":{"routes":[{"dst":0,"level":1,"src":1}]}}
-{"t":"entryUpdate","topic":"results","data":{"id":412,"time":"2026-11-08T09:31:02Z","client":"PanelsBot (Panel 43)","src":1,"srcName":"CAM 2","dst":0,"dstName":"MON A","levels":[1],"prev":[[1,3]],"ok":true,"late":[1]}}
+{"t":"entryUpdate","topic":"results","data":{"id":412,"time":"2026-11-08T09:31:02Z","client":"PanelsBot (Panel 43)","actor":{"kind":"client","name":"PanelsBot","key":"Panel 43"},"src":1,"srcName":"CAM 2","dst":0,"dstName":"MON A","levels":[1],"prev":[[1,3]],"ok":true,"late":[1]}}
 ```
 
 Changes follow as `names`, `tally` (only changed routes), `status` (the same fields as `GET /status`), `entry`, `entryUpdate` (the whole Entry again) and `historyCleared`. `ping` is a heartbeat every 5 seconds, ignore it.
