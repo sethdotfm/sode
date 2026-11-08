@@ -1,7 +1,7 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><title>Editor prototype A: inspector</title></head><body><div class="ed-app a"><div class="ed-body">
-<aside class="ed-pal" id="pal"></aside><main class="ed-main"><div id="ro"></div><div id="canvas"></div><p class="pb-hint">Click a square. Shift-click or drag to select several, then Merge. Picked a sequence? Click the square to start from.</p></main><aside class="ed-side" id="side"></aside></div></div>
+<aside class="ed-pal" id="pal"></aside><main class="ed-main"><div id="ro"></div><div id="canvas"></div><p class="pb-hint">Click a square. Shift-click or drag to select several, then Merge. Drag a block of squares, then use Fill selection to fill it with a run of numbers.</p></main><aside class="ed-side" id="side"></aside></div></div>
 <script type="module">
 import { createEditor, KINDS } from '/shared/ed.js'
 import { canvas, inspector, settings, sequencer, tabs, toolbar, icon } from '/shared/edview.js'

@@ -52,16 +52,13 @@ export function gridView(host, E, { paint = false } = {}) {
     }
   }
   const sq = (e) => { const t = e.target.closest('[data-r]'); return t && { r: +t.dataset.r, c: +t.dataset.c } }
-  host.onpointerleave = () => E.hover(0, 0)
   host.onpointerdown = (e) => {
     const s = sq(e); if (!s) return
-    if (E.armed()) return E.place(s.r, s.c)
     down = true
     if (paint && E.tool !== 'select') E.paint(s.r, s.c, E.tool); else E.select(s.r, s.c, e.shiftKey)
   }
   host.onpointerover = (e) => {
     const s = sq(e); if (!s) return
-    if (E.armed()) return E.hover(s.r, s.c)
     if (!down) return
     if (paint && E.tool !== 'select') E.paint(s.r, s.c, E.tool); else E.extend(s.r, s.c)
   }
@@ -77,7 +74,7 @@ export function gridView(host, E, { paint = false } = {}) {
       host.append(d)
     }
   }
-  E.on((t) => { if (t === 'ghost') ghosts(); else if (!['cfg', 'notice', 'save', 'seq', 'panel', 'trusted', 'uploads'].includes(t)) draw() })
+  E.on((t) => { if (t === 'ghost') ghosts(); else if (!['cfg', 'notice', 'save', 'seq', 'panel', 'trusted', 'uploads'].includes(t)) { draw(); ghosts() } })
 }
 
 // Test mode swaps the edit grid for the live stub panel at the same size, with the panel's settings applied.
@@ -153,7 +150,7 @@ export function artPicker(host, E, art, onPick) {
 
 // Uploaded images for this panel: thumbnails to choose from and a button to add JPEG, PNG or SVG.
 export function uploads(host, E, cur, onPick) {
-  host.innerHTML = `<div class="ed-thumbs">${E.uploads.map((u) => `<button class="ed-thumb${cur === u.id ? ' is-on' : ''}" data-u="${u.id}" title="${esc(u.name)}"><img src="${u.url}" alt="${esc(u.name)}"></button>`).join('')}</div><label class="pb-btn pb-btn--sm">${icon('plus')} Upload JPEG, PNG or SVG<input type="file" accept="image/jpeg,image/png,image/svg+xml" hidden></label><span class="pb-hint">Up to 1 MB each. Shown dimmed behind the label so the state colour still reads.</span>`
+  host.innerHTML = `<div class="ed-thumbs">${E.uploads.map((u) => `<button class="ed-thumb${cur === u.id ? ' is-on' : ''}" data-u="${u.id}" title="${esc(u.name)}"><img src="${u.url}" alt="${esc(u.name)}"></button>`).join('')}</div><label class="pb-btn pb-btn--sm">${icon('plus')} Upload JPEG, PNG, GIF or SVG<input type="file" accept="image/jpeg,image/png,image/gif,image/svg+xml" hidden></label><span class="pb-hint">Up to 1 MB each, GIFs may animate. Shown dimmed behind the label so the state colour still reads.</span>`
   host.querySelector('input').onchange = (e) => { const f = e.target.files[0]; const u = f && E.addUpload(f); if (u) onPick(u.id) }
   host.querySelector('.ed-thumbs').onclick = (e) => { const b = e.target.closest('[data-u]'); if (b) onPick(b.dataset.u) }
 }
@@ -202,45 +199,32 @@ export function inspector(host, E) {
   E.on((t) => (t === 'sel' || t === 'layout' || t === 'init' || t === 'rights' || t === 'uploads') && draw())
 }
 
-// Add in sequence: pick a run of Sources, Destinations or Presets (shift-click for a range), then click a square to place them in order.
+// Fill selection: drag across squares in the grid, type the numbers to put in them, and a preview shows in those squares before Apply.
 export function sequencer(host, E) {
-  host.innerHTML = `<div class="pb-label">Add in sequence</div><div class="ed-kinds">${[['src', 'Sources'], ['dst', 'Destinations'], ['pre', 'Presets']].map(([k, t]) => `<button class="pb-btn pb-btn--sm" data-sk="${k}">${t}</button>`).join('')}</div>
-    <input class="pb-input" data-q placeholder="Find, then shift-click a range" aria-label="Find">
-    <div class="ed-opts ed-seqlist"></div>
-    <div class="pb-row pb-row--tight"><button class="pb-btn pb-btn--sm" data-all>All shown</button><button class="pb-btn pb-btn--sm pb-btn--ghost" data-none>None</button></div>
+  host.innerHTML = `<div class="pb-label">Fill selection</div><p class="pb-hint" data-sel></p>
+    <div class="ed-kinds">${[['src', 'Sources'], ['dst', 'Destinations'], ['pre', 'Presets']].map(([k, t]) => `<button class="pb-btn pb-btn--sm" data-sk="${k}">${t}</button>`).join('')}</div>
+    <div class="pb-field"><label class="pb-label" for="q-text">Numbers</label><input id="q-text" class="pb-input" data-text placeholder="1-8, 12, 15-16" value="${E.fill.text}"><span class="pb-hint">As the router numbers them. Ranges and commas.</span></div>
     <div class="pb-field"><label class="pb-label" for="q-dir">Fill</label><span class="pb-select-wrap"><select id="q-dir" class="pb-select" data-o="dir"><option value="across">Across, then down</option><option value="down">Down, then across</option></select></span></div>
-    <div class="pb-field"><label class="pb-label" for="q-wrap">Next line starts at</label><span class="pb-select-wrap"><select id="q-wrap" class="pb-select" data-o="wrap"><option value="edge">The edge of the grid</option><option value="start">The square you click</option></select></span></div>
-    <label class="pb-check"><input type="checkbox" class="pb-check__input" data-o="holesOnly" checked><span class="pb-check__label">Only fill empty squares</span></label>
-    <p class="pb-hint" data-status></p>`
-  const list = host.querySelector('.ed-seqlist'), q = host.querySelector('[data-q]'), status = host.querySelector('[data-status]')
-  let last = null, shown = []
-  const drawList = () => {
-    const S = E.seq
-    host.querySelectorAll('[data-sk]').forEach((b) => b.classList.toggle('pb-btn--selected', b.dataset.sk === S.kind))
-    shown = E.items(S.kind).filter((i) => fuzzy(q.value, `${i.num ?? ''} ${i.name}`) >= 0)
-    list.innerHTML = shown.map((i) => `<button class="ed-opt${S.keys.includes(i.key) ? ' is-on' : ''}${i.ok ? '' : ' is-out'}" data-k="${i.key}" aria-pressed="${S.keys.includes(i.key)}">${i.num != null ? `<span class="pb-num">${i.num}</span>` : ''}<span>${esc(i.name)}</span>${i.ok ? '' : '<span class="pb-text-muted">outside Rights</span>'}</button>`).join('') || '<p class="pb-text-muted">No match.</p>'
-    drawStatus()
-  }
-  const drawStatus = () => {
-    const n = E.seq.keys.length, g = E.ghost
-    status.textContent = !n ? 'Pick some, then click a square in the grid to place them from there.' : g ? `Placing ${g.slots.length}${g.dropped ? `, ${g.dropped} will not fit` : ''}. Squares that replace a cell are outlined. Click to place.` : `${n} picked. Hover the grid to preview, click to place. Esc cancels.`
+    <label class="pb-check"><input type="checkbox" class="pb-check__input" data-o="keep"><span class="pb-check__label">Keep cells already there</span></label>
+    <p class="pb-hint" data-names></p>
+    <button class="pb-btn pb-btn--sm pb-btn--commit" data-apply>Fill</button>`
+  const $ = (x) => host.querySelector(x)
+  const draw = () => {
+    const F = E.fill, g = E.fillPlan(), n = E.selSquares()
+    host.querySelectorAll('[data-sk]').forEach((b) => b.classList.toggle('pb-btn--selected', b.dataset.sk === F.kind))
+    $('[data-sel]').textContent = n ? `${n} square${n > 1 ? 's' : ''} selected. The preview shows in the grid.` : 'Drag across the squares to fill, or shift-click the two corners.'
+    const names = g ? g.slots.slice(0, 3).map((s) => labelOf(F.kind === 'pre' ? { kind: 'pre', pid: s.key } : { kind: F.kind, n: s.key })) : []
+    $('[data-names]').textContent = !g ? '' : `${g.slots.length} to place${names.length ? ': ' + names.join(', ') + (g.slots.length > 3 ? ', ...' : '') : ''}.${g.dropped ? ` ${g.dropped} will not fit.` : ''}${g.bad.length ? ` Not found: ${g.bad.slice(0, 4).join(', ')}.` : ''}${g.slots.some((s) => s.replace) ? ' Squares that replace a cell are outlined red.' : ''}`
+    const btn = $('[data-apply]'); btn.disabled = !g || !g.slots.length; btn.textContent = g && g.slots.length ? `Fill ${g.slots.length} square${g.slots.length > 1 ? 's' : ''}` : 'Fill'
+    E.previewFill()
   }
   host.onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return
-    if (b.dataset.sk) { E.setSeq({ kind: b.dataset.sk, keys: [] }); last = null; return drawList() }
-    if ('all' in b.dataset) return E.setSeq({ keys: shown.filter((i) => i.ok || E.rights !== 'hidden').map((i) => i.key) })
-    if ('none' in b.dataset) return E.setSeq({ keys: [] })
-    if (b.dataset.k !== undefined) {
-      const i = shown.findIndex((x) => String(x.key) === b.dataset.k), keys = new Set(E.seq.keys)
-      if (e.shiftKey && last != null) { const [a, z] = [Math.min(last, i), Math.max(last, i)]; for (let k = a; k <= z; k++) keys.add(shown[k].key) }
-      else keys.has(shown[i].key) ? keys.delete(shown[i].key) : keys.add(shown[i].key)
-      last = i; E.setSeq({ keys: [...keys] })
-    }
+    if (b.dataset.sk) E.setFill({ kind: b.dataset.sk, text: b.dataset.sk === 'pre' ? '1-3' : E.fill.text })
+    if ('apply' in b.dataset) { E.applyFill(); $('[data-text]').focus() }
   }
-  host.onchange = (e) => { const o = e.target.dataset.o; if (o) E.setSeq({ [o]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }) }
-  q.oninput = drawList
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && E.armed()) E.setSeq({ keys: [] }) })
-  E.on((t) => { if (t === 'seq' || t === 'rights' || t === 'init') drawList(); if (t === 'ghost') drawStatus() })
+  host.oninput = host.onchange = (e) => { const t = e.target; if (t.dataset.text !== undefined) E.setFill({ text: t.value }); if (t.dataset.o) E.setFill({ [t.dataset.o]: t.type === 'checkbox' ? t.checked : t.value }) }
+  E.on((t) => { if (t === 'seq' || t === 'sel' || t === 'layout' || t === 'rights' || t === 'init') { if (t === 'seq' && document.activeElement === $('[data-text]')) { /* keep focus */ } draw() } })
 }
 
 const f = (id, label, ctl, hint = '') => `<div class="pb-field"><label class="pb-label" for="${id}">${label}</label>${ctl}${hint ? `<span class="pb-hint">${hint}</span>` : ''}</div>`

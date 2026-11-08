@@ -32,8 +32,8 @@ const DEFAULT_CFG = () => ({
 })
 
 export function createEditor() {
-  const E = { rows: 4, cols: 8, cells: [], anchor: null, head: null, tool: 'select', test: false, uploads: [], trusted: true, rights: 'all', dirty: false, ghost: null, ghostAt: '', curPanel: 0,
-    seq: { kind: 'src', keys: [], q: '', dir: 'across', wrap: 'edge', holesOnly: true },
+  const E = { rows: 4, cols: 8, cells: [], anchor: null, head: null, tool: 'select', test: false, uploads: [], trusted: true, rights: 'all', dirty: false, ghost: null, curPanel: 0,
+    fill: { kind: 'src', text: '1-8', dir: 'across', keep: false },
     panels: [{ name: 'Studio A', who: 'You', own: true, acts: 'user' }, { name: 'Replay desk', who: 'You', own: true, acts: 'api' }, { name: 'Master control', who: 'Dana', own: false }, { name: 'Edit bay 2', who: 'Priya', own: false }], notice: '', cfg: DEFAULT_CFG(), readonly: false, subs: new Set(), uid: 1 }
   E.on = (f) => (E.subs.add(f), f('init'))
   const emit = (topic, dirty = true) => { if (dirty && topic !== 'sel') E.dirty = true; E.subs.forEach((f) => f(topic)) }
@@ -135,46 +135,52 @@ export function createEditor() {
     emit('layout')
   }
 
-  // Sequential add: the picked keys fill squares in order from the clicked square, showing a plan first.
+  // Fill selection: the selected squares are the target; typed numbers ("1-8, 12") pick what goes in, in reading order.
   const order = (kind) => (kind === 'pre' ? PRESETS.map((p) => p.id) : POOL[kind].map((p) => p.n))
-  E.armed = () => E.seq.keys.length > 0
-  E.setSeq = (patch) => { Object.assign(E.seq, patch); E.ghost = null; E.ghostAt = ''; emit('seq', false) }
-  E.plan = (r, c) => {
-    const { kind, keys, dir, wrap, holesOnly } = E.seq
-    const queue = order(kind).filter((k) => keys.includes(k)), slots = []
-    const [outer, inner] = dir === 'across' ? [E.rows, E.cols] : [E.cols, E.rows]
-    const [o0, i0] = dir === 'across' ? [r, c] : [c, r]
-    for (let o = o0; o <= outer && queue.length; o++) for (let i = o === o0 ? i0 : wrap === 'start' ? i0 : 1; i <= inner && queue.length; i++) {
-      const [rr, cc] = dir === 'across' ? [o, i] : [i, o]
-      const hit = E.cellAt(rr, cc)
-      if (hit && holesOnly) continue
-      slots.push({ r: rr, c: cc, key: queue.shift(), replace: !!hit })
+  const parseRuns = (text, max) => {
+    const out = [], bad = []
+    for (const tok of text.split(/[,\s]+/).filter(Boolean)) {
+      const m = tok.match(/^(\d+)(?:-(\d+))?$/)
+      if (!m) { bad.push(tok); continue }
+      const a = +m[1], z = m[2] ? +m[2] : a
+      for (let k = Math.min(a, z); k <= Math.max(a, z); k++) k >= 1 && k <= max ? out.push(k - 1) : bad.push(String(k))
     }
-    return { slots, dropped: queue.length, kind }
+    return { out, bad }
   }
-  E.hover = (r, c) => {
-    const at = r ? `${r},${c}` : ''
-    if (at === E.ghostAt) return
-    E.ghostAt = at; E.ghost = r && E.armed() ? E.plan(r, c) : null
-    emit('ghost', false)
+  E.fillPlan = () => {
+    const q = E.rect(), F = E.fill
+    if (!q) return null
+    const ord = order(F.kind), { out, bad } = parseRuns(F.text, ord.length)
+    const keys = out.map((i) => ord[i]).filter((k) => E.items(F.kind).some((i) => i.key === k))
+    const queue = [...keys], slots = []
+    const [o0, o1, i0, i1] = F.dir === 'across' ? [q.r1, q.r2, q.c1, q.c2] : [q.c1, q.c2, q.r1, q.r2]
+    for (let o = o0; o <= o1; o++) for (let i = i0; i <= i1; i++) {
+      const [r, c] = F.dir === 'across' ? [o, i] : [i, o]
+      const hit = E.cellAt(r, c)
+      if (hit && (hit.r !== r || hit.c !== c || F.keep)) continue
+      if (!queue.length) continue
+      slots.push({ r, c, key: queue.shift(), replace: !!hit })
+    }
+    return { slots, dropped: queue.length, bad, kind: F.kind, picked: keys.length, squares: E.selSquares() }
   }
-  E.place = (r, c) => {
-    const pl = E.plan(r, c)
+  E.setFill = (patch) => { Object.assign(E.fill, patch); emit('seq', false) }
+  E.previewFill = () => { E.ghost = E.fillPlan(); emit('ghost', false) }
+  E.applyFill = () => {
+    const pl = E.fillPlan(); if (!pl || !pl.slots.length) return say('Nothing to place. Select squares and type some numbers.')
     for (const s of pl.slots) {
       E.cells = E.cells.filter((x) => x !== E.cellAt(s.r, s.c))
       add({ r: s.r, c: s.c, kind: pl.kind, ...(pl.kind === 'pre' ? { pid: s.key } : { n: s.key }) })
     }
-    E.seq.keys = []; E.ghost = null; E.ghostAt = ''
-    if (pl.dropped) say(`Placed ${pl.slots.length}. ${pl.dropped} did not fit before the edge of the grid.`)
-    emit('layout'); emit('seq', false)
+    if (pl.dropped) say(`Filled ${pl.slots.length}. ${pl.dropped} more did not fit in the selection.`)
+    E.ghost = null
+    emit('layout')
   }
-
 
   // Look: per-cell font size and artwork (an icon, or an uploaded image). Uploads live in memory here; the build needs per-panel storage and a size cap.
   E.artOf = (x) => (x.art ? { ...x.art, url: x.art.kind === 'image' ? E.uploads.find((u) => u.id === x.art.ref)?.url : null } : null)
   E.setLook = (cells, patch) => { for (const x of cells) Object.assign(x, patch); emit('layout') }
   E.addUpload = (file) => {
-    if (!/^image\/(jpeg|png|svg\+xml)$/.test(file.type)) return say('Use a JPEG, PNG or SVG file.')
+    if (!/^image\/(jpeg|png|gif|svg\+xml)$/.test(file.type)) return say('Use a JPEG, PNG, GIF or SVG file.')
     if (file.size > 1024 * 1024) return say('That file is over 1 MB.')
     const u = { id: 'u' + E.uid++, name: file.name, url: URL.createObjectURL(file) }
     E.uploads.push(u); emit('uploads'); return u
