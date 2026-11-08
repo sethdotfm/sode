@@ -457,6 +457,10 @@
         <input id="cfg-proxies" class="pb-input" data-key="trustedProxies" data-type="list" placeholder="10.0.0.2, 172.18.0.0/16" spellcheck="false">
         <span class="sode__hint">Client IPs in history come from <code>X-Forwarded-For</code> only through these.</span>
       </div>
+      <div class="sode__field">
+        <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-require-https" data-key="requireHttps" data-type="bool"><span class="pb-check__label">Require HTTPS</span></label>
+        <span class="sode__hint">Refuses every request that a trusted proxy did not mark <code>X-Forwarded-Proto: https</code>, except the health endpoints. Needs at least one trusted proxy, and you must save from an HTTPS address. Console reset: <code>sode -reset-https</code>.</span>
+      </div>
     </fieldset>
 
     <fieldset class="sode__group">

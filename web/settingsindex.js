@@ -319,6 +319,7 @@ export const DICT = {
     'tls',
     'https',
   ],
+  'cfg-require-https': ['require https', 'https', 'tls', 'ssl', 'secure', 'hsts', 'x-forwarded-proto', 'insecure', 'refuse', 'proxy', 'reset https'],
 
   // ---- History
   'cfg-hidden': [
