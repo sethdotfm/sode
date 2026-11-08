@@ -98,7 +98,7 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 		return nil, false
 	}
 	cl.Actor.Via = via
-	if !a.apiRateOK(w, "key:"+k.ID, cfg.API.RateLimit, now) {
+	if !a.apiRateOK(w, k.subject(), cfg.API.RateLimit, now) {
 		return nil, false
 	}
 	a.keys.used(k.ID, now)

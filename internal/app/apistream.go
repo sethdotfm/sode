@@ -31,12 +31,12 @@ import (
 //
 // Visibility (apiView) filters every frame, so a hidden caller never sees an out-of-rights
 // route or entry. A tally change whose Source is hidden is left out, as the REST read
-// leaves it out, so a client never sees -1 for a route that has a hidden source. Frames go out in the order the server saw the changes.
-
-// A config commit re-resolves each open stream (refreshStreams): a rights change filters the
-// next frame, and losing the API, Guest, a topic scope or the log scope ends the stream.
-// Liveness is the text ping frame alone. Each key and each address may hold 8 streams; more
-// get 429.
+// leaves it out, so a client never sees -1 for a route that has a hidden source. Frames go
+// out in the order the server saw the changes.
+//
+// refreshStreams re-resolves each open stream on a config commit: a rights change filters the
+// next frame only, and losing the API, Guest, a topic scope or the log scope ends the stream.
+// Liveness is the text ping frame alone; the per-key and per-address caps are below.
 
 func init() {
 	registerAPI(apiRoute{"GET", apiBase + "/stream", "", (*App).apiStreamServe})

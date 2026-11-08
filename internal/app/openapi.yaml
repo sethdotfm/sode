@@ -545,7 +545,7 @@ components:
     LogRow:
       type: object
       description: One Communication Log row, a router message or an event such as an `api` row.
-      required: [seq, time, kind, result]
+      required: [seq, time, kind, cmd, level, wire, dst, src, tries, result, hex]
       properties:
         seq: { type: integer }
         time: { type: string, format: date-time }

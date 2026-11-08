@@ -230,7 +230,7 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 		}
 		sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
 		var owner, mismatch bool
-		slot, owner, mismatch = a.apiS.idemBegin(r.Context(), "key:"+cl.Key.ID, idem, hex.EncodeToString(sum[:]), time.Now())
+		slot, owner, mismatch = a.apiS.idemBegin(r.Context(), cl.Key.subject(), idem, hex.EncodeToString(sum[:]), time.Now())
 		switch {
 		case mismatch:
 			problem(http.StatusUnprocessableEntity, "idempotency_mismatch", "this Idempotency-Key was used for a different request").write(w)
@@ -248,7 +248,7 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 		if keep {
 			a.apiS.idemCommit(slot, ans.Status, ans.Body)
 		} else {
-			a.apiS.idemAbandon("key:"+cl.Key.ID, idem, slot)
+			a.apiS.idemAbandon(cl.Key.subject(), idem, slot)
 		}
 	}
 	ans.write(w, false)

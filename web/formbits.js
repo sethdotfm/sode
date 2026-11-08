@@ -1,4 +1,4 @@
-// Small form builders shared by the users, API clients, rights, My API keys and API settings modules.
+// Small form builders shared by the Settings panels that build their fields in code.
 
 import { el } from './core.js';
 

@@ -55,6 +55,9 @@ type apiKey struct {
 	Expires  time.Time `json:"expires,omitzero"` // zero = never
 }
 
+// subject names this key in the rate table and the idempotency table.
+func (k *apiKey) subject() string { return "key:" + k.ID }
+
 type keyRec struct {
 	apiKey
 	Hash string `json:"hash"`

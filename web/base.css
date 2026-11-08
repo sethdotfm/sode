@@ -973,7 +973,7 @@ html:has(.sode__scrim:not([hidden])) {
 }
 .sode__menu-tag {
   margin-inline-start: auto;
-  padding-inline-start: 0.5rem;
-  font-size: 0.75rem;
+  padding-inline-start: var(--pb-space-4);
+  font-size: var(--pb-text-xs);
   white-space: nowrap;
 }

@@ -183,7 +183,6 @@ export function combobox(
       // Greyed, still pickable: the plan then says why the server would refuse it.
       if (outside?.(it)) {
         li.classList.add('sode__menu-off');
-        li.dataset.pbTip = 'Outside your rights';
         li.append(el('span', 'sode__menu-tag', 'Outside rights'));
       }
       if (add && canAdd()) li.append(addButton(it));
