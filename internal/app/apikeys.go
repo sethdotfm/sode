@@ -25,7 +25,6 @@ const keyPrefix = "sode_"
 // keyWriteEvery bounds how often use counts reach the disk; flush writes the rest.
 const keyWriteEvery = time.Minute
 
-// newKeySecret is the one-time key: prefix plus 32 random bytes, URL-safe.
 func newKeySecret() string {
 	b := make([]byte, 32)
 	rand.Read(b)
@@ -51,9 +50,9 @@ type apiKey struct {
 	Owner    keyOwner  `json:"owner"`
 	Name     string    `json:"name"` // the key name, e.g. "Panel 21"
 	Created  time.Time `json:"created"`
-	LastUsed time.Time `json:"lastUsed,omitempty"`
+	LastUsed time.Time `json:"lastUsed,omitzero"`
 	Count    int       `json:"count"`
-	Expires  time.Time `json:"expires,omitempty"` // zero = never
+	Expires  time.Time `json:"expires,omitzero"` // zero = never
 }
 
 type keyRec struct {
@@ -123,13 +122,8 @@ func (s *keyStore) save() {
 	}
 }
 
-// create stores a new key and returns its secret, shown once and kept nowhere.
-func (s *keyStore) create(o keyOwner, name string, expires time.Time) (string, apiKey, error) {
-	return s.createCapped(o, name, expires, 0, "")
-}
-
-// createCapped refuses once owner holds max keys (0 = no cap). fp is pinFP of a user
-// owner's PIN hash ("" for a client).
+// createCapped returns the secret, shown once and kept nowhere. It refuses once owner holds
+// max keys (0 = no cap). fp is pinFP of a user owner's PIN hash ("" for a client).
 func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max int, fp string) (string, apiKey, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -160,20 +154,8 @@ func (s *keyStore) countMu(o keyOwner) int {
 	return n
 }
 
-func (s *keyStore) count(o keyOwner) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.countMu(o)
-}
-
-// lookup finds the live key for a presented secret; an expired key is not found.
-func (s *keyStore) lookup(secret string, now time.Time) (apiKey, bool) {
-	k, _, ok := s.find(secret, now)
-	return k, ok
-}
-
-// find is lookup that also says a key was found but has expired, so the API can name that
-// reason. An expired key still in the store is not returned as live.
+// find returns the live key for a presented secret. expired says the secret matched a key
+// past its expiry, so the API can name that reason; such a key is never returned as live.
 func (s *keyStore) find(secret string, now time.Time) (k apiKey, expired, ok bool) {
 	if !strings.HasPrefix(secret, keyPrefix) {
 		return apiKey{}, false, false
@@ -208,7 +190,6 @@ func (s *keyStore) used(id string, now time.Time) {
 	}
 }
 
-// flush writes counts not yet on disk.
 func (s *keyStore) flush() {
 	s.mu.Lock()
 	d := s.dirty
@@ -218,14 +199,12 @@ func (s *keyStore) flush() {
 	}
 }
 
-// alive reports whether the key id is still stored.
 func (s *keyStore) alive(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return slices.ContainsFunc(s.recs, func(r keyRec) bool { return r.ID == id })
 }
 
-// list is every key, oldest first.
 func (s *keyStore) list() []apiKey {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -288,7 +267,6 @@ func (s *keyStore) reconcile(cfg config.Config) []apiKey {
 	return out
 }
 
-// revoke ends one key; false if there was none.
 func (s *keyStore) revoke(id string) bool {
 	return len(s.dropWhere(func(r keyRec) bool { return r.ID == id })) > 0
 }

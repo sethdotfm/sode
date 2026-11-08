@@ -15,7 +15,7 @@ var rvkBot = keyOwner{Kind: actorClient, Name: "PanelsBot"}
 // rvkOpen attaches a stream with a fresh key and returns it with the key's id.
 func rvkOpen(t *testing.T, a *App, exp time.Time) (*strmConn, string) {
 	t.Helper()
-	secret, rec, err := a.keys.create(rvkBot, "Panel 43", exp)
+	secret, rec, err := a.keys.createCapped(rvkBot, "Panel 43", exp, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,14 +19,20 @@ import (
 
 const apiBase = "/api/v1"
 
-// apiCtx is who a request is, resolved once by apiAuth. Writes (E) and the stream (F) reuse
-// it: Actor goes in History and the log, Rights go to the take path through client().
+// apiCtx is who a request is, resolved once by apiAuth. Writes and the stream reuse it:
+// Actor goes in History and the log, and the take path reads Rights through client().
 type apiCtx struct {
 	Actor  Actor
 	Rights config.Rights
 	Scopes []string
 	Key    *apiKey // nil for a keyless Guest call
 	IP     string
+
+	// sink takes every reply of a take run for this request instead of a.clients: a REST
+	// request is not a registered connection and must not see broadcasts.
+	sink func([]byte)
+	// admit runs once the take passed the Rights check, just before it starts; false stops it.
+	admit func() bool
 }
 
 func (c *apiCtx) has(scope string) bool { return slices.Contains(c.Scopes, scope) }
@@ -41,12 +47,9 @@ func (c *apiCtx) missing(scopes string) string {
 	return ""
 }
 
-func (c *apiCtx) caller() *apiCaller { return &apiCaller{Actor: c.Actor, Rights: c.Rights} }
-
-// client is the take path's view of this caller (see rights.go).
-func (c *apiCtx) client() *client {
-	return &client{ip: c.IP, send: make(chan []byte, 256), api: c.caller()}
-}
+// client is the take path's view of this caller (see rights.go). It has no send channel:
+// deliver answers through sink.
+func (c *apiCtx) client() *client { return &client{ip: c.IP, api: c} }
 
 // apiHandler runs after auth, rate limit and scope checks passed.
 type apiHandler func(a *App, w http.ResponseWriter, r *http.Request, cl *apiCtx)
@@ -72,13 +75,7 @@ type apiErr struct {
 }
 
 func apiFail(w http.ResponseWriter, status int, code, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	if status == http.StatusUnauthorized {
-		w.Header().Set("WWW-Authenticate", "Bearer")
-	}
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(apiErrBody{apiErr{code, msg}})
+	(&apiProblem{status, code, msg}).write(w)
 }
 
 func apiJSON(w http.ResponseWriter, v any) {

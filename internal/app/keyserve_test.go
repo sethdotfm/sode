@@ -82,7 +82,7 @@ func TestOwnKeyNeedsOwnPinAndShowsKeyOnce(t *testing.T) {
 	if r["ok"] != false {
 		t.Fatalf("wrong PIN made a key: %v", r)
 	}
-	if a.keys.count(keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
 		t.Fatal("key stored after a wrong PIN")
 	}
 	// The Advanced Settings PIN is not the user's PIN.
@@ -95,7 +95,7 @@ func TestOwnKeyNeedsOwnPinAndShowsKeyOnce(t *testing.T) {
 	if r["ok"] != true || !strings.HasPrefix(secret, "sode_") {
 		t.Fatalf("reply %v", r)
 	}
-	if _, ok := a.keys.lookup(secret, time.Now()); !ok {
+	if _, _, ok := a.keys.find(secret, time.Now()); !ok {
 		t.Fatal("new key does not look up")
 	}
 
@@ -119,7 +119,7 @@ func TestOwnKeyNeedsSignIn(t *testing.T) {
 	c := &client{ip: "10.0.0.1"}
 	next := registerAll(a, c)
 	r := send(t, a, c, next, inMsg{T: "keyCreate", ID: 1, Pin: "1234", KeyName: "x"}, "keyCreateResult")
-	if r["ok"] != false || a.keys.count(keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if r["ok"] != false || keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
 		t.Fatalf("anonymous connection made a key: %v", r)
 	}
 	if r := send(t, a, c, next, inMsg{T: "keyListOwn", ID: 2}, "keyListOwnResult"); r["ok"] != false || len(r["keys"].([]any)) != 0 {
@@ -174,14 +174,14 @@ func TestKeyExpiryAtCreateAndSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := a.keys.lookup(secret, time.Now()); !ok {
+	if _, _, ok := a.keys.find(secret, time.Now()); !ok {
 		t.Fatal("live key refused")
 	}
-	if _, ok := a.keys.lookup(secret, soon.Add(time.Second)); ok {
+	if _, _, ok := a.keys.find(secret, soon.Add(time.Second)); ok {
 		t.Fatal("expired key accepted")
 	}
 	a.expireKeys(soon.Add(time.Second))
-	if a.keys.count(keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
+	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 0 {
 		t.Fatal("expired key kept")
 	}
 	var found bool
@@ -205,7 +205,7 @@ func TestRevokeOwnKeyOnlyOwn(t *testing.T) {
 	if r := send(t, a, bo, nextB, inMsg{T: "keyRevoke", ID: 1, KeyID: rec.ID}, "keyRevokeResult"); r["ok"] != false {
 		t.Fatalf("Bo revoked Ana's key: %v", r)
 	}
-	if a.keys.count(keyOwner{Kind: actorUser, Name: "Ana"}) != 1 {
+	if keyCount(a.keys, keyOwner{Kind: actorUser, Name: "Ana"}) != 1 {
 		t.Fatal("key gone")
 	}
 	if r := send(t, a, ana, nextA, inMsg{T: "keyRevoke", ID: 2, KeyID: rec.ID}, "keyRevokeResult"); r["ok"] != true {
@@ -250,13 +250,13 @@ func TestUserKeysDieWithPinRenameRemoval(t *testing.T) {
 			if err := edit(a, adminClient(t, a)); err != nil {
 				t.Fatal(err)
 			}
-			if _, ok := a.keys.lookup(secA, time.Now()); ok {
+			if _, _, ok := a.keys.find(secA, time.Now()); ok {
 				t.Error("Ana's key survived")
 			}
-			if _, ok := a.keys.lookup(secB, time.Now()); !ok {
+			if _, _, ok := a.keys.find(secB, time.Now()); !ok {
 				t.Error("Bo's key died too")
 			}
-			if _, ok := a.keys.lookup(secBot, time.Now()); !ok {
+			if _, _, ok := a.keys.find(secBot, time.Now()); !ok {
 				t.Error("an API client key died with a user edit")
 			}
 			var found bool
@@ -280,20 +280,20 @@ func TestClientKeysSurviveUserPinsAndDieWithClient(t *testing.T) {
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Pin: "4321"}, {Name: "Bo", Pin: "135790"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := a.keys.lookup(sec, time.Now()); !ok {
+	if _, _, ok := a.keys.find(sec, time.Now()); !ok {
 		t.Fatal("client key died with user PINs")
 	}
 	// A save that leaves the client list unsent keeps the client and its keys.
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := a.keys.lookup(sec, time.Now()); !ok {
+	if _, _, ok := a.keys.find(sec, time.Now()); !ok {
 		t.Fatal("client key died when the save did not mention clients")
 	}
 	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana"}, {Name: "Bo"}}, APIClients: &[]config.APIClient{}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := a.keys.lookup(sec, time.Now()); ok {
+	if _, _, ok := a.keys.find(sec, time.Now()); ok {
 		t.Fatal("client key outlived its client")
 	}
 }

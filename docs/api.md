@@ -62,7 +62,7 @@ The worst case for one route is about 35 seconds: check 1 s, send queue up to 30
 
 A route the router confirms after the take gave up is a Late Result. The response already carries the entry ids, and the stream sends an `entryUpdate` for each, so match updates by `id`.
 
-**Idempotency-Key.** An optional header (1 to 128 printable characters). A repeat of the same request with the same key from the same API key within 10 minutes returns the first answer with `Idempotent-Replay: true`, so retrying after a timeout or a proxy cut does not take twice. The same key with a different request is 422 `idempotency_mismatch`. A request that did nothing (bad input, rate limit, take cap) is not remembered, except an `outside_rights` refusal, which a repeat with the same key replays for the same 10 minutes.
+**Idempotency-Key.** An optional header (1 to 128 printable characters). A repeat of the same request with the same key from the same API key within 10 minutes returns the first answer with `Idempotent-Replay: true`, so retrying after a timeout or a proxy cut does not take twice. The same key with a different request is 422 `idempotency_mismatch`. A request that did nothing (bad input, rate limit, take cap) is not remembered, except an `outside_rights` refusal, which a repeat with the same key replays for the same 10 minutes. A call without an API key (a keyless Guest) cannot send the header: guests behind one address would share answers, so it is 400 `bad_request`.
 
 **Large takes.** A take of 6 or more routes skips the Before check, to spare the router, and the response carries `checkSkipped: true`. Each entry's Prev then comes from Sode's cache, so a later Undo may restore less accurately. Send fewer than 6 routes per request to keep the check.
 

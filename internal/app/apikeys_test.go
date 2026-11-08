@@ -22,7 +22,7 @@ func TestKeyStoreLifecycle(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	s := loadKeys(cfgPath)
-	secret, rec, err := s.create(keyOwner{Kind: actorClient, Name: "PanelsBot"}, "Panel 43", time.Time{})
+	secret, rec, err := s.createCapped(keyOwner{Kind: actorClient, Name: "PanelsBot"}, "Panel 43", time.Time{}, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,11 +42,11 @@ func TestKeyStoreLifecycle(t *testing.T) {
 		t.Errorf("mode %v", fi.Mode().Perm())
 	}
 
-	got, ok := s.lookup(secret, time.Now())
+	got, _, ok := s.find(secret, time.Now())
 	if !ok || got.ID != rec.ID || got.Owner.Name != "PanelsBot" {
 		t.Fatalf("lookup %+v %v", got, ok)
 	}
-	if _, ok := s.lookup("sode_nope", time.Now()); ok {
+	if _, _, ok := s.find("sode_nope", time.Now()); ok {
 		t.Fatal("unknown key accepted")
 	}
 
@@ -58,14 +58,14 @@ func TestKeyStoreLifecycle(t *testing.T) {
 	if len(l) != 1 || l[0].Count != 2 || l[0].LastUsed.IsZero() {
 		t.Fatalf("after reload %+v", l)
 	}
-	if _, ok := again.lookup(secret, time.Now()); !ok {
+	if _, _, ok := again.find(secret, time.Now()); !ok {
 		t.Fatal("key lost on reload")
 	}
 
 	if !s.revoke(rec.ID) || s.revoke(rec.ID) {
 		t.Fatal("revoke result")
 	}
-	if _, ok := s.lookup(secret, time.Now()); ok {
+	if _, _, ok := s.find(secret, time.Now()); ok {
 		t.Fatal("revoked key still works")
 	}
 }
@@ -73,11 +73,11 @@ func TestKeyStoreLifecycle(t *testing.T) {
 func TestKeyExpiry(t *testing.T) {
 	s := loadKeys("")
 	now := time.Now()
-	secret, rec, _ := s.create(keyOwner{Kind: actorUser, Name: "Ana"}, "Desk", now.Add(time.Hour))
-	if _, ok := s.lookup(secret, now); !ok {
+	secret, rec, _ := s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, "Desk", now.Add(time.Hour), 0, "")
+	if _, _, ok := s.find(secret, now); !ok {
 		t.Fatal("live key refused")
 	}
-	if _, ok := s.lookup(secret, now.Add(2*time.Hour)); ok {
+	if _, _, ok := s.find(secret, now.Add(2*time.Hour)); ok {
 		t.Fatal("expired key accepted")
 	}
 	gone := s.expire(now.Add(2 * time.Hour))
@@ -89,10 +89,10 @@ func TestKeyExpiry(t *testing.T) {
 func TestKeyDropOwnerAndCaps(t *testing.T) {
 	s := loadKeys("")
 	for i := range 3 {
-		s.create(keyOwner{Kind: actorUser, Name: "Ana"}, string(rune('a'+i)), time.Time{})
+		s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, string(rune('a'+i)), time.Time{}, 0, "")
 	}
-	s.create(keyOwner{Kind: actorClient, Name: "Ana"}, "x", time.Time{})
-	if n := s.count(keyOwner{Kind: actorUser, Name: "ana"}); n != 3 {
+	s.createCapped(keyOwner{Kind: actorClient, Name: "Ana"}, "x", time.Time{}, 0, "")
+	if n := keyCount(s, keyOwner{Kind: actorUser, Name: "ana"}); n != 3 {
 		t.Fatalf("count %d (owner names compare ignoring case, kinds apart)", n)
 	}
 	if _, _, err := s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, "z", time.Time{}, 3, ""); err == nil {
@@ -112,4 +112,14 @@ func TestDamagedKeyFileIsForgotten(t *testing.T) {
 	if n := len(loadKeys(filepath.Join(dir, "config.yaml")).list()); n != 0 {
 		t.Fatal(n)
 	}
+}
+
+func keyCount(s *keyStore, o keyOwner) int {
+	n := 0
+	for _, k := range s.list() {
+		if k.Owner.is(o) {
+			n++
+		}
+	}
+	return n
 }

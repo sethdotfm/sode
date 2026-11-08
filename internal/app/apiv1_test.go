@@ -48,7 +48,7 @@ func apiTestApp(t *testing.T, mut func(*config.Config)) (*App, *fakeRouter) {
 
 func apiTestKey(t *testing.T, a *App, o keyOwner, name string, exp time.Time) string {
 	t.Helper()
-	secret, _, err := a.keys.create(o, name, exp)
+	secret, _, err := a.keys.createCapped(o, name, exp, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +405,7 @@ func TestAPINoCORSAndUnknownRoutes(t *testing.T) {
 	}
 }
 
-// The OpenAPI file is hand-written; this keeps it in step with the route table E and F extend.
+// The OpenAPI file is hand-written; this keeps it in step with the route table.
 func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
 	a, _ := apiTestApp(t, func(c *config.Config) { c.API.Enabled = false })
 	rec := apiDo(a, "GET", "/api/v1/openapi.yaml", "", nil)

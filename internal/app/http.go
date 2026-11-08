@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
-	"net"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -35,8 +34,9 @@ type client struct {
 	// sent: a /log page receiving sent-log entries. Guarded by App.mu.
 	sent bool
 
-	// api: set for a caller that is not a browser session (see apiCaller).
-	api *apiCaller
+	// api: set for a caller that is not a browser session; its Actor and Rights replace
+	// the lookup callerOf does for a browser.
+	api *apiCtx
 
 	u connUser // page type, unlocked user, session token (users.go)
 }
@@ -120,16 +120,13 @@ func (a *App) serveHealth(w http.ResponseWriter, r *http.Request) {
 // clientIP: a hop that isn't an address ends the search at the peer rather than trusting
 // what lies beyond.
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	host, ok := trustedPeer(r, trusted)
+	if !ok {
+		return host
+	}
 	parse := func(s string) (netip.Addr, bool) {
 		a, err := netip.ParseAddr(strings.TrimSpace(s))
 		return a.Unmap(), err == nil
-	}
-	isTrusted := func(a netip.Addr) bool {
-		return slices.ContainsFunc(trusted, func(p netip.Prefix) bool { return p.Contains(a) })
-	}
-	if a, ok := parse(host); !ok || !isTrusted(a) {
-		return host
 	}
 	lines := r.Header.Values("X-Forwarded-For")
 	if len(lines) == 0 {
@@ -143,7 +140,7 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 		if !ok {
 			return host
 		}
-		if !isTrusted(a) {
+		if !inPrefixes(a, trusted) {
 			return a.String()
 		}
 	}

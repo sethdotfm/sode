@@ -268,9 +268,9 @@ func TestAPIWTakeCap(t *testing.T) {
 	go func() { apiPost(a, "/api/v1/takes", key, body, nil); close(done) }()
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		a.apiS.take.mu.Lock()
-		in := a.apiS.take.inflight
-		a.apiS.take.mu.Unlock()
+		a.apiS.mu.Lock()
+		in := a.apiS.inflight
+		a.apiS.mu.Unlock()
 		if in == 1 {
 			break
 		}

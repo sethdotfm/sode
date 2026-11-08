@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,15 +20,15 @@ import (
 // REST writes: a take by routes or by preset, and Undo, Redo and Retry of a History entry.
 // Each request is synchronous: it returns once the router has answered or timed out every
 // route, with a Result per route and the History entry ids. Late Results reach the stream
-// (ticket F) as updates to those entries. Per ADR 0002 the request is its own Confirm.
+// as updates to those entries. Per ADR 0002 the request is its own Confirm.
 
 func init() {
 	registerAPI(
 		apiRoute{"POST", apiBase + "/takes", config.ScopeTake, (*App).apiTakeRoutes},
 		apiRoute{"POST", apiBase + "/presets/{scope}/{name}", config.ScopeTake, (*App).apiTakePreset},
-		apiRoute{"POST", apiBase + "/history/{id}/undo", config.ScopeTake + " " + config.ScopeHistory, (*App).apiHistoryAction},
-		apiRoute{"POST", apiBase + "/history/{id}/redo", config.ScopeTake + " " + config.ScopeHistory, (*App).apiHistoryAction},
-		apiRoute{"POST", apiBase + "/history/{id}/retry", config.ScopeTake + " " + config.ScopeHistory, (*App).apiHistoryAction},
+		apiRoute{"POST", apiBase + "/history/{id}/undo", config.ScopeTake + " " + config.ScopeHistory, historyVerb("undo")},
+		apiRoute{"POST", apiBase + "/history/{id}/redo", config.ScopeTake + " " + config.ScopeHistory, historyVerb("redo")},
+		apiRoute{"POST", apiBase + "/history/{id}/retry", config.ScopeTake + " " + config.ScopeHistory, historyVerb("retry")},
 	)
 }
 
@@ -40,30 +39,29 @@ const (
 	takeMargin = 10 * time.Second
 )
 
-// apiResp is a finished answer, written by one place so Idempotency-Key can store and replay it.
-type apiResp struct {
+// apiAnswer is a finished JSON answer. It is marshaled once so Idempotency-Key can store and
+// replay the same bytes.
+type apiAnswer struct {
 	Status int
 	Body   []byte
-	Keep   bool // an Idempotency-Key repeat gets this answer back
 }
 
-func respJSON(status int, v any, keep bool) apiResp {
+func jsonAnswer(status int, v any) apiAnswer {
 	b, _ := json.Marshal(v)
-	return apiResp{status, append(b, '\n'), keep}
+	return apiAnswer{status, append(b, '\n')}
 }
 
-func respProblem(p *apiProblem) apiResp {
-	return respJSON(p.Status, apiErrBody{apiErr{p.Code, p.Msg}}, false)
-}
-
-func writeResp(w http.ResponseWriter, rs apiResp, replay bool) {
+func (x apiAnswer) write(w http.ResponseWriter, replay bool) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
+	if x.Status == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", "Bearer")
+	}
 	if replay {
 		w.Header().Set("Idempotent-Replay", "true")
 	}
-	w.WriteHeader(rs.Status)
-	w.Write(rs.Body)
+	w.WriteHeader(x.Status)
+	w.Write(x.Body)
 }
 
 // takeDeadline is the worst case of n routes: per route check, queue wait, route and grace
@@ -133,9 +131,14 @@ func (a *App) apiTakePreset(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 	})
 }
 
-func (a *App) apiHistoryAction(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+func historyVerb(verb string) apiHandler {
+	return func(a *App, w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+		a.apiHistoryAction(verb, w, r, cl)
+	}
+}
+
+func (a *App) apiHistoryAction(verb string, w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	id, err := strconv.Atoi(r.PathValue("id"))
-	verb := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:] // undo, redo or retry
 	a.apiTakeRun(w, r, cl, func([]byte) (*takePlan, *apiProblem) {
 		if err != nil || id < 0 {
 			return nil, problem(http.StatusBadRequest, "bad_request", "the entry id must be a whole number")
@@ -199,23 +202,16 @@ func (s *sinkResults) put(b []byte) {
 	s.mu.Unlock()
 }
 
-func subjectOf(cl *apiCtx) string {
-	if cl.Key != nil {
-		return "key:" + cl.Key.ID
-	}
-	return "ip:" + cl.IP
-}
-
-// apiTakeRun is every write's one path: body, Idempotency-Key, plan, rights, take cap, take,
-// response. build turns the body into routes, or says why not.
+// apiTakeRun is every write's one path: body, Idempotency-Key, plan, take cap, take with its
+// rights check, response. build turns the body into routes, or says why not.
 func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, build func(body []byte) (*takePlan, *apiProblem)) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, apiTakeBody))
 	if err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
-			writeResp(w, respProblem(problem(http.StatusRequestEntityTooLarge, "too_large", "the request body is over %d bytes", apiTakeBody)), false)
+			problem(http.StatusRequestEntityTooLarge, "too_large", "the request body is over %d bytes", apiTakeBody).write(w)
 		} else {
-			writeResp(w, respProblem(problem(http.StatusBadRequest, "bad_request", "the request body could not be read")), false)
+			problem(http.StatusBadRequest, "bad_request", "the request body could not be read").write(w)
 		}
 		return
 	}
@@ -223,73 +219,87 @@ func (a *App) apiTakeRun(w http.ResponseWriter, r *http.Request, cl *apiCtx, bui
 	var slot *idemSlot
 	idem := r.Header.Get("Idempotency-Key")
 	if idem != "" {
-		if !validIdemKey(idem) {
-			writeResp(w, respProblem(problem(http.StatusBadRequest, "bad_request", "Idempotency-Key must be 1 to %d printable characters with no spaces", idemKeyMax)), false)
+		switch {
+		case !validIdemKey(idem):
+			problem(http.StatusBadRequest, "bad_request", "Idempotency-Key must be 1 to %d printable characters with no spaces", idemKeyMax).write(w)
+			return
+		case cl.Key == nil:
+			// Guests behind one NAT share an address, so there is no caller to tie the key to.
+			problem(http.StatusBadRequest, "bad_request", "Idempotency-Key needs an API key; a call without one has no caller of its own to keep the answer for").write(w)
 			return
 		}
 		sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
 		var owner, mismatch bool
-		slot, owner, mismatch = a.apiS.idemBegin(r.Context(), subjectOf(cl), idem, hex.EncodeToString(sum[:]), time.Now())
+		slot, owner, mismatch = a.apiS.idemBegin(r.Context(), "key:"+cl.Key.ID, idem, hex.EncodeToString(sum[:]), time.Now())
 		switch {
 		case mismatch:
-			writeResp(w, respProblem(problem(http.StatusUnprocessableEntity, "idempotency_mismatch", "this Idempotency-Key was used for a different request")), false)
+			problem(http.StatusUnprocessableEntity, "idempotency_mismatch", "this Idempotency-Key was used for a different request").write(w)
 			return
 		case slot == nil: // the repeat's own request ended while it waited
 			return
 		case !owner:
-			writeResp(w, apiResp{slot.status, slot.body, true}, true)
+			apiAnswer{slot.status, slot.body}.write(w, true)
 			return
 		}
 	}
 
-	rs := a.apiTakeExec(w, cl, body, build)
+	ans, keep := a.apiTakeExec(w, cl, body, build)
 	if slot != nil {
-		if rs.Keep {
-			a.apiS.idemCommit(slot, rs.Status, rs.Body)
+		if keep {
+			a.apiS.idemCommit(slot, ans.Status, ans.Body)
 		} else {
-			a.apiS.idemAbandon(subjectOf(cl), idem, slot)
+			a.apiS.idemAbandon("key:"+cl.Key.ID, idem, slot)
 		}
 	}
-	writeResp(w, rs, false)
+	ans.write(w, false)
 }
 
-func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build func([]byte) (*takePlan, *apiProblem)) apiResp {
-	refuse := func(p *apiProblem) apiResp {
-		a.apiEvent(cl.Actor, "refused", "refused", p.Code, fmt.Errorf("%s", p.Msg))
-		return respProblem(p)
-	}
+// apiTakeExec runs one write and returns its answer. keep says a repeat with the same
+// Idempotency-Key gets that answer back: only requests that reached the take or its rights check.
+func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build func([]byte) (*takePlan, *apiProblem)) (ans apiAnswer, keep bool) {
 	plan, p := build(body)
 	if p != nil {
-		return refuse(p)
+		a.apiEvent(cl.Actor, "refused", "refused", p.Code, fmt.Errorf("%s", p.Msg))
+		return p.answer(), false
 	}
 	rt := a.r()
-	c := cl.client()
-	sink := &sinkResults{by: map[int]routeResult{}}
-	c.api.sink = sink.put
 	for i := range plan.Items {
 		plan.Items[i].ID = i + 1
 		plan.Items[i].Preset = plan.Preset
 	}
-	if msg := a.outsideRights(rt, cl.Rights, plan.Items); msg != "" {
-		a.rightsPass(rt, c, plan.Items) // writes the refusal row
-		return respJSON(http.StatusForbidden, apiErrBody{apiErr{"outside_rights", msg}}, true)
-	}
-	if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
-		a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
-		return respJSON(http.StatusTooManyRequests, apiErrBody{apiErr{"take_cap",
-			fmt.Sprintf("%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap)}}, false)
-	}
-	defer a.apiS.takeEnd()
-
 	n := len(plan.Items)
-	note := fmt.Sprintf("%d %s", n, plural(n, "route", "routes"))
-	if plan.Preset != "" {
-		note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
+	sink := &sinkResults{by: map[int]routeResult{}}
+	cl.sink = sink.put
+	var capped, admitted bool
+	// take calls admit after its rights check, so a refused take holds no slot and logs no `sent` row.
+	cl.admit = func() bool {
+		if !a.apiS.takeStart(rt.cfg.API.TakeCap) {
+			capped = true
+			a.apiEvent(cl.Actor, takeWhy(plan.Items), "refused", "take cap", fmt.Errorf("%d API takes already in flight", rt.cfg.API.TakeCap))
+			return false
+		}
+		admitted = true
+		note := fmt.Sprintf("%d %s", n, plural(n, "route", "routes"))
+		if plan.Preset != "" {
+			note = fmt.Sprintf("preset %q, %s", plan.Preset, note)
+		}
+		a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
+		// A write deadline for this request only; the recorder in tests has none.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))
+		return true
 	}
-	a.apiEvent(cl.Actor, takeWhy(plan.Items), "sent", note, nil)
-	// A write deadline for this request only; the recorder in tests has none.
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(a.takeDeadline(n)))
-	a.take(c, plan.Items)
+	defer func() {
+		if admitted {
+			a.apiS.takeEnd()
+		}
+	}()
+	if msg := a.take(cl.client(), plan.Items); msg != "" {
+		return problem(http.StatusForbidden, "outside_rights", "%s", msg).answer(), true
+	}
+	if capped {
+		return problem(http.StatusTooManyRequests, "take_cap",
+			"%d API takes are already in flight; the router handles one message at a time. Try again in a moment", rt.cfg.API.TakeCap).answer(), false
+	}
 
 	out := apiTakeOut{OK: true, CheckSkipped: n >= bigTake, LeftOut: plan.LeftOut, Skipped: plan.Skipped, Untouched: plan.Untouched, Results: make([]apiRouteOut, n)}
 	sink.mu.Lock()
@@ -311,7 +321,7 @@ func (a *App) apiTakeExec(w http.ResponseWriter, cl *apiCtx, body []byte, build 
 		}
 		out.Results[i] = o
 	}
-	return respJSON(http.StatusOK, out, true)
+	return jsonAnswer(http.StatusOK, out), true
 }
 
 func distinct(ls []int) []int {

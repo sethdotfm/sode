@@ -56,11 +56,11 @@ func TestStartupEndsUserKeyWhosePinChangedWhileDown(t *testing.T) {
 	secret := fixOwnKey(t, a)
 
 	same := fixRestart(t, a, func(*config.Config) {})
-	if _, ok := same.keys.lookup(secret, time.Now()); !ok {
+	if _, _, ok := same.keys.find(secret, time.Now()); !ok {
 		t.Fatal("key ended though the PIN did not change")
 	}
 	changed := fixRestart(t, a, fixNewPin(t, "Ana", "9999"))
-	if _, ok := changed.keys.lookup(secret, time.Now()); ok {
+	if _, _, ok := changed.keys.find(secret, time.Now()); ok {
 		t.Fatal("key survived a PIN change made while Sode was down")
 	}
 	if n := len(changed.keys.list()); n != 0 {
@@ -72,7 +72,7 @@ func TestStartupKeepsClientKeysWhenUserPinsChange(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	secret := botKey(t, a)
 	b := fixRestart(t, a, fixNewPin(t, "Ana", "9999"))
-	if _, ok := b.keys.lookup(secret, time.Now()); !ok {
+	if _, _, ok := b.keys.find(secret, time.Now()); !ok {
 		t.Fatal("an API client's key ended with a user's PIN change")
 	}
 }
@@ -84,7 +84,7 @@ func TestStartupStampsLegacyUserKeys(t *testing.T) {
 	secret := apiTestKey(t, a, keyOwner{Kind: actorUser, Name: "Ana"}, "Old", time.Time{})
 
 	kept := fixRestart(t, a, func(*config.Config) {})
-	if _, ok := kept.keys.lookup(secret, time.Now()); !ok {
+	if _, _, ok := kept.keys.find(secret, time.Now()); !ok {
 		t.Fatal("legacy key not kept at first startup")
 	}
 	b, err := os.ReadFile(filepath.Join(filepath.Dir(a.cfgPath), "keys.json"))
@@ -95,7 +95,7 @@ func TestStartupStampsLegacyUserKeys(t *testing.T) {
 		t.Fatalf("fingerprint not stored: %s", b)
 	}
 	gone := fixRestart(t, a, fixNewPin(t, "Ana", "9999"))
-	if _, ok := gone.keys.lookup(secret, time.Now()); ok {
+	if _, _, ok := gone.keys.find(secret, time.Now()); ok {
 		t.Fatal("stamped key survived a PIN change while down")
 	}
 }
