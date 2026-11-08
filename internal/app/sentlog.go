@@ -42,6 +42,7 @@ const (
 	kindCommand = "command" // something a browser asked for that acts
 	kindLink    = "link"    // the router link came up, went down or was changed
 	kindServer  = "server"  // Sode started or stopped
+	// kindAPI is declared in apiaudit.go.
 )
 
 func event(kind, why, by, result string) Sent {

@@ -102,6 +102,7 @@ type App struct {
 	pin     pinPool
 	userPin pinPool
 	tokens  *tokenStore
+	keys    *keyStore
 	cfgMu   sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
@@ -179,6 +180,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.pin, a.userPin = settingsPool(), userPool()
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
+	a.keys = loadKeys(cfgPath)
 	a.up, _ = openUptime("", time.Now)
 	a.rt.Store(r)
 	a.sw = swp08.NewClient(cfg.Router, r.probe())

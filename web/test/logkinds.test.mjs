@@ -20,6 +20,11 @@ test('normalizeKinds: default, unknown ids and empty lists', () => {
   assert.deepEqual(normalizeKinds(['zzz'], [a]), KIND_IDS);
 });
 
+test('api rows are an event kind with their own chip', () => {
+  assert.ok(KIND_IDS.includes('api'));
+  assert.ok(EVENT_KINDS.has('api'));
+});
+
 test('All is every kind selected', () => {
   assert.equal(allKinds(KIND_IDS), true);
   assert.equal(allKinds([a, b]), false);

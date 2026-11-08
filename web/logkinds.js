@@ -11,10 +11,11 @@ export const KINDS = [
   // Events: not router messages, so no hex or command byte.
   { id: 'browser', label: 'Browsers', kinds: ['browser'] },
   { id: 'command', label: 'Commands', kinds: ['command'] },
+  { id: 'api', label: 'API', kinds: ['api'] },
   { id: 'link', label: 'Router link', kinds: ['link', 'server'] },
 ];
 export const KIND_IDS = KINDS.map((g) => g.id);
-export const EVENT_KINDS = new Set(['browser', 'command', 'link', 'server']);
+export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server']);
 // Saved lists of exactly these (pre-events) meant All.
 const LEGACY_IDS = ['connect', 'interrogate', 'keepalive', 'dump', 'names', 'other'];
 

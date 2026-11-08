@@ -36,6 +36,7 @@ const KIND_LABEL = {
   salvoGo: 'Router salvo go',
   browser: 'Browser',
   command: 'Command',
+  api: 'API',
   link: 'Router link',
   server: 'Sode',
 };
@@ -70,7 +71,7 @@ const isEvent = (e) => EVENT_KINDS.has(e.kind);
 function loadFilter() {
   const f = readJSON(FILTER_KEY) || {};
   return {
-    kinds: normalizeKinds(f.kinds, ['connect', 'command', 'link']),
+    kinds: normalizeKinds(f.kinds, ['connect', 'command', 'api', 'link']),
     problems: !!f.problems,
     src: typeof f.src === 'string' ? f.src : '',
     dst: typeof f.dst === 'string' ? f.dst : '',
@@ -86,7 +87,7 @@ function saveFilter() {
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], link: ['down'] };
+const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };
 const problem = (e) => (isEvent(e) ? !!EVENT_PROBLEM[e.kind]?.includes(e.result) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
