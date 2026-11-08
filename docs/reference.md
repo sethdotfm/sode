@@ -122,7 +122,7 @@ With users set up, each user has a **profile**. It holds their own This browser 
 
 ## API
 
-`/api/v1` lets other apps read names, tally, History and status, fire takes and presets, undo, redo and retry History entries, and follow live changes on a WebSocket stream. It is off until an administrator turns on *API enabled* (the `apiSettings` message, advanced). Send a key as `Authorization: Bearer <key>`. A call with no header is a Guest call, allowed only with *Guest API* on and limited to Guest's scopes (default `names`, `tally`, `protected`, `status`). A key belongs to a user (it acts as them and dies with their PIN) or to an API client (its own rights and scopes). Rights are allowlists of sources, destinations, levels and presets, and a take outside them is refused whole. Visibility, read-only or hidden, applies to API callers only. Each key has a rate limit per minute, keyless calls are limited per address, and ten bad keys from one address in a minute make it wait. *Log API reads* writes one `api` row per read. Numbers are the router's own, 0-based; add `numberOffset` to display them. [api.md](api.md) is the guide, and the contract is `/api/v1/openapi.yaml`, open even while the API is off.
+`/api/v1` lets other apps read names, tally, History and status, fire takes and presets, undo, redo and retry History entries, and follow live changes on a WebSocket stream. It is off until an administrator turns on *API enabled* in Settings (advanced); *Guest API* lets a call with no key in with Guest's scopes, and *Log API reads* writes one `api` row per read. Keys, scopes, rights, visibility and limits are in [api.md](api.md), and the contract is `/api/v1/openapi.yaml`, open even while the API is off.
 
 ## Monitoring (Uptime Kuma)
 
