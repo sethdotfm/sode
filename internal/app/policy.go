@@ -87,7 +87,12 @@ var policy = map[string]rule{
 		a.Lock(c)
 		a.command(c, "lock", "ok", "", nil)
 	}},
-	"history": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
+	// Own keys: a signed-in user only (checked in the handler). Creating asks the user's own
+	// PIN, in the change-PIN pool. Inline, like userSetPin.
+	"keyCreate":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreate(c, m) }},
+	"keyRevoke":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevoke(c, m) }},
+	"keyListOwn": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListOwn(c, m) }},
+	"history":    {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 
 	"batch": {need: needMain, why: "take",
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },
@@ -152,6 +157,11 @@ var policy = map[string]rule{
 			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
 		}(m.Name, m.ID)
 	}},
+	// Any key: the Advanced Settings PIN, even for a trusted user.
+	"keyListAll":   {need: needAdmin, op: "keyListAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListAll(c, m) }},
+	"keyCreateFor": {need: needAdmin, op: "keyCreateFor", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreateFor(c, m) }},
+	"keyRevokeAny": {need: needAdmin, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAny(c, m) }},
+	"keyRevokeAll": {need: needAdmin, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAll(c, m) }},
 	"usersList": {need: needAdmin, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
 	// and SaveUsers wants an Advanced Settings PIN to exist

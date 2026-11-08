@@ -330,9 +330,13 @@ type inMsg struct {
 	Old        string             `json:"old"`
 	New        string             `json:"new"`
 	UsersReq   *usersReq          `json:"usersReq"`
-	Pins       bool               `json:"pins"` // configExport: include the PIN hashes
-	YAML       string             `json:"yaml"` // configImport: the file
-	Size       int                `json:"size"` // configImportBegin: the file's size in bytes
+	Pins       bool               `json:"pins"`    // configExport: include the PIN hashes
+	YAML       string             `json:"yaml"`    // configImport: the file
+	Size       int                `json:"size"`    // configImportBegin: the file's size in bytes
+	KeyName    string             `json:"keyName"` // keyCreate, keyCreateFor
+	KeyID      string             `json:"keyId"`   // keyRevoke, keyRevokeAny
+	Expires    int64              `json:"expires"` // key expiry, unix ms; 0 = never
+	Owner      *keyOwner          `json:"owner"`   // keyCreateFor, keyRevokeAll
 }
 
 func plural(n int, one, many string) string {

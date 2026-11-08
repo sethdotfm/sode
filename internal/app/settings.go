@@ -88,6 +88,7 @@ func (a *App) update(mutate func(*config.Config) error) (old, nw *runtime, err e
 	// Revocation is durable: invalidated tokens are deleted so undoing the change can't
 	// revive them.
 	a.tokens.prune(cfg)
+	a.pruneKeys(old.cfg, cfg)
 	return old, nw, nil
 }
 
