@@ -38,7 +38,8 @@ export const DICT = {
     'profile',
     'follow',
   ],
-  me: [
+  'my-user': [
+    'me',
     'account',
     'logged in',
     'login',
@@ -72,8 +73,21 @@ export const DICT = {
   'level-colors': ['level colours', 'colour', 'color', 'colors', 'palette', 'hex', 'swatch', 'level', 'levels', 'rgb'],
   takes: ['take', 'patch', 'route', 'confirm', 'confirm dialog', 'lockout', 'letter', 'enter', 'default levels', 'resync', 'reread', 'delay', 'safety'],
   branding: ['brand', 'logo', 'name', 'title', 'border', 'colour', 'color', 'icon', 'identify', 'favicon', 'tab'],
-  router: ['ip', 'address', 'host', 'hostname', 'port', 'connection', 'connect', 'tcp', 'ultrix', 'swp08', 'sw-p-08', 'status', 'server'],
-  matrix: [
+  'router-matrix': [
+    'router',
+    'ip',
+    'address',
+    'host',
+    'hostname',
+    'port',
+    'connection',
+    'connect',
+    'tcp',
+    'ultrix',
+    'swp08',
+    'sw-p-08',
+    'status',
+    'server',
     'level',
     'levels',
     'offset',
@@ -112,8 +126,9 @@ export const DICT = {
     'login',
     'settings pin',
   ],
-  'sode-networking': [
+  proxy: [
     'audit',
+    'sode networking',
     'networking',
     'network',
     'proxy',
@@ -315,7 +330,6 @@ export const DICT = {
     'global filter',
     'panel',
     'external',
-    'external change',
     'external follow',
     'mv',
     'multiviewer',

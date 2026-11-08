@@ -8,6 +8,8 @@ import { mac, chord } from './keys.js';
 export function initToc({ form, sections, toc, isOpen }) {
   // A clicked section stays marked until the scroll ends or the user scrolls, since near the bottom it may stop short.
   let picked = -1;
+  // Set while Ctrl+J/K steps: those scroll instantly and keep `picked`, so a held or spammed key walks one section per press instead of re-reading the stale scroll position.
+  let stepping = false;
 
   // Phone: one section at a time; the page is the list, Back returns. Only CSS keyed on data-page hides (base.css).
   const phone = () => layout() === 'phone';
@@ -26,16 +28,18 @@ export function initToc({ form, sections, toc, isOpen }) {
     reveal(node);
     node.focus();
   };
+  function go(i, instant) {
+    if (phone()) return showPage(i);
+    picked = i;
+    stepping = instant;
+    mark(i);
+    sections[i].scrollIntoView({ behavior: instant || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
   toc.replaceChildren(
     ...sections.map((sec, i) => {
-      const b = el('button', 'pb-tab', sec.querySelector('legend').textContent);
+      const b = el('button', 'pb-tab', sec.dataset.toc || sec.querySelector('legend').textContent);
       b.type = 'button';
-      b.addEventListener('click', () => {
-        if (phone()) return showPage(i);
-        picked = i;
-        mark(i);
-        sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-      });
+      b.addEventListener('click', () => go(i, false));
       return b;
     }),
   );
@@ -64,27 +68,27 @@ export function initToc({ form, sections, toc, isOpen }) {
     },
     { passive: true },
   );
-  for (const ev of ['scrollend', 'wheel', 'touchstart', 'keydown']) {
+  // Ctrl+J/K (Cmd on a Mac) step sections, also from the search box; not while a dialog is over Settings.
+  const STEP = { 'ctrl+j': 1, 'ctrl+k': -1, ...(mac ? { 'meta+j': 1, 'meta+k': -1 } : {}) };
+  for (const ev of ['scrollend', 'wheel', 'touchstart', 'pointerdown', 'keydown']) {
     window.addEventListener(
       ev,
-      () => {
-        if (picked < 0) return;
+      (e) => {
+        if (picked < 0 || (stepping && (ev === 'scrollend' || STEP[chord(e)]))) return;
         picked = -1;
+        stepping = false;
         if (ev !== 'scrollend') markSection();
       },
       { passive: true },
     );
   }
-
-  // Ctrl+J/K (Cmd on a Mac) step sections, also from the search box; not while a dialog is over Settings.
-  const STEP = { 'ctrl+j': 1, 'ctrl+k': -1, ...(mac ? { 'meta+j': 1, 'meta+k': -1 } : {}) };
   document.addEventListener('keydown', (e) => {
     if (!isOpen() || e.defaultPrevented || form.hasAttribute('data-locked')) return;
     const step = STEP[chord(e)];
     if (!step || e.target.closest?.('dialog, [role="dialog"], .pb-modal')) return;
     e.preventDefault();
-    const at = [...toc.children].findIndex((b) => b.classList.contains('active'));
-    toc.children[Math.min(sections.length - 1, Math.max(0, at + step))].click();
+    const at = picked >= 0 ? picked : [...toc.children].findIndex((b) => b.classList.contains('active'));
+    go(Math.min(sections.length - 1, Math.max(0, at + step)), true);
   });
 
   return {

@@ -56,6 +56,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"folder"}, Re: wordRe(`(?i)folders?`)},
 	{Terms: []string{"sent log"}, Re: wordRe(`(?i)sent[ -]logs?`)},
 	{Terms: []string{"panel change"}, Re: wordRe(`(?i)panel[ -](?:changes?|entr(?:y|ies)|rows?)|changes? (?:from|on) (?:a |the )?(?:hardware )?panel`)},
+	{Terms: []string{"external change"}, Re: wordRe(`(?i)external changes?`)},
 	{Terms: []string{"outside change"}, Re: wordRe(`(?i)outside changes?`)},
 	{Terms: []string{"follows"}, Re: wordRe(`(?i)follows`)},
 	{Terms: []string{"automation"}, Re: wordRe(`(?i)automation`)},

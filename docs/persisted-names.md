@@ -23,7 +23,7 @@ The names `fireMode` (`native`), `salvoGroup` and `SODE_SALVO_GROUP` refer to th
 
 | Name | Retired word | Call | Why |
 | --- | --- | --- | --- |
-| `SIM_PANEL_DST`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT` | panel (change) | Keep | Simulator settings only, set in compose files and scripts. They make an External change. |
+| `SIM_PANEL_DST`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT` | panel (change) | Keep | Simulator settings only, set in compose files and scripts. They make an External. |
 | `SIM_FOLLOWS` | follows | Keep | Simulator setting that makes External follow cases. |
 | `SIM_NO_SALVO`, `SIM_SALVO_ANNOUNCE` | none | n/a | The router's own salvo. |
 

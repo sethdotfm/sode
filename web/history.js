@@ -177,8 +177,8 @@ export function groupStatus(f) {
 
 const extStatus = (found, title = '') =>
   found
-    ? { dot: 'warn', text: 'Found', title: title || 'An external change the router made without announcing it, found when Sode re-read the router' }
-    : { dot: 'info', text: 'External change', title: title || 'A change on the router that Sode did not make' };
+    ? { dot: 'warn', text: 'Found', title: title || 'An External the router made without announcing it, found when Sode re-read the router' }
+    : { dot: 'info', text: 'External', title: title || 'A change on the router that Sode did not make' };
 
 export function statusNode(row) {
   const st = row.f

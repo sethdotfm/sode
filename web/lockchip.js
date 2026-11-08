@@ -1,4 +1,4 @@
-// Lock screen's "Signed in as" chip: name and one lock button. Change PIN and logout live in Settings' Me section (bus 'changePin', 'logout');
+// Lock screen's "Signed in as" chip: name and one lock button. Change PIN and logout live in Settings' My user section (bus 'changePin', 'logout');
 // this owns the change-PIN dialog. lock.js owns the state.
 
 import { el, S, on, onMsg, icon, wsSend, sentence } from './core.js';
