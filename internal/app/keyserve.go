@@ -136,6 +136,7 @@ func (a *App) RevokeOwnKey(c *client, id string) (apiKey, error) {
 	}
 	me := keyOwner{Kind: actorUser, Name: u.Name}
 	if gone := a.keys.dropWhere(func(r keyRec) bool { return r.ID == id && r.Owner.is(me) }); len(gone) > 0 {
+		a.endStreams(gone, "key revoked")
 		return gone[0], nil
 	}
 	return apiKey{}, errors.New("no such key")
@@ -209,7 +210,9 @@ func (a *App) RevokeKeys(c *client, match func(keyRec) bool) ([]apiKey, error) {
 	if err := a.guardSave(c, false); err != nil {
 		return nil, err
 	}
-	return a.keys.dropWhere(match), nil
+	gone := a.keys.dropWhere(match)
+	a.endStreams(gone, "key revoked")
+	return gone, nil
 }
 
 func (a *App) serveKeyRevokeAny(c *client, m *inMsg) {
@@ -245,6 +248,7 @@ func (a *App) pruneKeys(was, now config.Config) {
 		}
 		return false
 	})
+	a.endStreams(gone, "key ended: its owner changed or was removed")
 	for _, k := range gone {
 		why := "its API client was removed or renamed"
 		if k.Owner.Kind == actorUser {
@@ -256,7 +260,9 @@ func (a *App) pruneKeys(was, now config.Config) {
 
 // expireKeys removes keys past their expiry, one row each. lookup already refuses them.
 func (a *App) expireKeys(now time.Time) {
-	for _, k := range a.keys.expire(now) {
+	exp := a.keys.expire(now)
+	a.endStreams(exp, "key expired")
+	for _, k := range exp {
 		a.apiEvent(sodeActor, "keyExpired", "ok", fmt.Sprintf("key %q of %s", k.Name, k.Owner.Name), nil)
 	}
 }

@@ -207,6 +207,13 @@ func (s *keyStore) flush() {
 	}
 }
 
+// alive reports whether the key id is still stored.
+func (s *keyStore) alive(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.ContainsFunc(s.recs, func(r keyRec) bool { return r.ID == id })
+}
+
 // list is every key, oldest first.
 func (s *keyStore) list() []apiKey {
 	s.mu.Lock()

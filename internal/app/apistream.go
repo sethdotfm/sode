@@ -61,6 +61,9 @@ type apiStream struct {
 	view   apiView
 	topics map[string]bool
 	send   chan []byte
+	keyID  string             // "" for a keyless Guest call
+	cancel context.CancelFunc // ends the connection; safe from any goroutine
+	ended  string             // why a key lifecycle path cut it, set under App.mu
 }
 
 func parseStreamTopics(q string) ([]string, error) {
@@ -104,12 +107,15 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	defer conn.CloseNow()
 	conn.SetReadLimit(1 << 10) // the stream takes no input
 
-	st := &apiStream{view: cl.view(), topics: map[string]bool{}, send: make(chan []byte, 256)}
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	st := &apiStream{view: cl.view(), topics: map[string]bool{}, send: make(chan []byte, 256), cancel: cancel}
+	if cl.Key != nil {
+		st.keyID = cl.Key.ID
+	}
 	for _, t := range topics {
 		st.topics[t] = true
 	}
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
 
 	// Register and queue the snapshots under one lock so no change arrives ahead of them.
 	a.mu.Lock()
@@ -133,6 +139,10 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		}
 	}
 	a.mu.Unlock()
+	// A key ended between auth and registering is not seen by endStreams.
+	if st.keyID != "" && !a.keys.alive(st.keyID) {
+		a.endStreams([]apiKey{*cl.Key}, "key ended")
+	}
 
 	connected := time.Now()
 	a.apiEvent(cl.Actor, "streamConnect", "ok", "topics "+strings.Join(topics, ", "), nil)
@@ -143,6 +153,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			delete(a.streams, st)
 			close(st.send)
 		}
+		ended := st.ended
 		a.mu.Unlock()
 		var cerr error
 		switch websocket.CloseStatus(gone) {
@@ -152,7 +163,11 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 				cerr = gone
 			}
 		}
-		a.apiEvent(cl.Actor, "streamDisconnect", "ok", "connected "+time.Since(connected).Round(time.Second).String(), cerr)
+		note := "connected " + time.Since(connected).Round(time.Second).String()
+		if ended != "" {
+			note += "; closed: " + ended
+		}
+		a.apiEvent(cl.Actor, "streamDisconnect", "ok", note, cerr)
 	}()
 
 	go func() {
@@ -197,6 +212,28 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		if _, _, err := conn.Read(ctx); err != nil {
 			gone = err
 			return
+		}
+	}
+}
+
+// endStreams closes the open streams of keys that just ended, so a stream cannot outlive its
+// key. Each closes through its own disconnect row, which carries why. Takes mu.
+func (a *App) endStreams(keys []apiKey, why string) {
+	if len(keys) == 0 {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for st := range a.streams {
+		if st.keyID == "" || st.ended != "" {
+			continue
+		}
+		for _, k := range keys {
+			if k.ID == st.keyID {
+				st.ended = why
+				st.cancel()
+				break
+			}
 		}
 	}
 }
