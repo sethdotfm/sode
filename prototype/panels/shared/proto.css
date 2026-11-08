@@ -40,7 +40,7 @@ body { background: var(--pb-surface-base); color: var(--pb-text); font-family: v
 .deck .stg { font-size: var(--pb-text-xs); font-weight: var(--pb-weight-bold); }
 .deck .take { font-size: var(--pb-text-xl); letter-spacing: var(--pb-tracking-label); }
 .deck .take .ring { background: var(--pb-text-strong); bottom: 0; height: var(--pb-space-3); left: 0; position: absolute; width: 0; }
-.deck .now { align-items: center; background: color-mix(in oklab, var(--panel-current) 55%, var(--pb-surface-control)); border: var(--pb-state-border-w) solid var(--panel-current); display: flex; justify-content: center; min-width: 0; padding: var(--pb-space-3); text-align: center; }
+.deck .now { flex-direction: column; gap: var(--pb-space-1); align-items: center; background: color-mix(in oklab, var(--panel-current) 55%, var(--pb-surface-control)); border: var(--pb-state-border-w) solid var(--panel-current); display: flex; justify-content: center; min-width: 0; padding: var(--pb-space-3); text-align: center; }
 .deck .now .name { color: var(--pb-text-strong); font-size: var(--pb-text-lg); font-weight: var(--pb-weight-bold); }
 
 /* Cell states. Viewed destination: solid orange. Current source: solid green. Staged destination and

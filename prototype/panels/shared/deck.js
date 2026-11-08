@@ -72,7 +72,7 @@ export function buildDeck(root, p, cells) {
     } else if (c.kind === 'clr') b.textContent = 'Clear'
     else if (c.kind === 'cur') {
       // Only the source now on the viewed destination, so it stays visible when the destination is off screen.
-      b.innerHTML = st.view != null ? `<span class="name">${name(st.tally[st.view])}</span>` : '<span class="pb-text-muted">&mdash;</span>'
+      b.innerHTML = st.view != null ? `<span class="pb-label">Currently</span><span class="name">${name(st.tally[st.view])}</span>` : '<span class="pb-label">Currently</span><span class="pb-text-muted">&mdash;</span>'
       b.title = st.view != null ? `Now on ${DESTS[st.view].name}` : 'No destination selected'
     } else if (c.kind === 'take') {
       b.querySelector('.lbl').textContent = st.mode === 'instant' ? 'Instant' : 'Take'
