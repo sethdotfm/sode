@@ -190,6 +190,7 @@ func persistentApp(t *testing.T) (*App, *client, string) {
 	a := userApp(t, true)
 	setFlags(t, a, "Ana", false, true)
 	c := &client{ip: "10.0.0.1"}
+	register(a, c) // sessions are shared among the connections the app knows
 	if err := a.UserUnlock(c, "1234"); err != nil {
 		t.Fatal(err)
 	}
@@ -273,10 +274,10 @@ func TestSessionTokenDiesOnLock(t *testing.T) {
 	a, c, tok := persistentApp(t)
 	twin := &client{ip: "10.0.0.2", send: make(chan []byte, 8)} // another tab of the same browser
 	c.send = make(chan []byte, 8)
-	a.Hi(twin, "main", tok)
 	a.mu.Lock()
-	a.clients[c], a.clients[twin] = struct{}{}, struct{}{}
+	a.clients[twin] = struct{}{} // the server registers a connection before its hi
 	a.mu.Unlock()
+	a.Hi(twin, "main", tok)
 	a.UserLock(c)
 	if a.pageAllowed(c, gateMain) || a.pageAllowed(twin, gateMain) {
 		t.Fatal("lock left a connection open")

@@ -111,8 +111,8 @@ let pending = null; // the share document waiting to be shown
 let access = null; // lock.js's lock state, once it has said
 let namesIn = false;
 
-let handUp = false; // lock.js's overlay is up (its 'handlock' event)
-const pageLocked = () => handUp;
+let lockUp = false; // lock.js's overlay is up (its 'lockcover' event)
+const pageLocked = () => lockUp;
 const clean = () => {
   const r = fmt.readLink(location.search, location.hash);
   if (r.doc || r.error) history.replaceState(null, '', location.pathname + r.search + r.hash);
@@ -150,8 +150,8 @@ export function applySharedLink() {
     access = l;
     tryOpen();
   });
-  on('handlock', ({ on: up }) => {
-    handUp = up;
+  on('lockcover', ({ on: up }) => {
+    lockUp = up;
     tryOpen();
   });
   window.addEventListener('hashchange', takeLink);

@@ -3,66 +3,127 @@ package app
 // Sessions: tokens issued to signed-in connections and the server-held Lock that rides them
 // (docs/adr/0001-server-held-lock.md). users.go has the access state they act on.
 
-// issueSession does disk I/O: never under mu. "" for a non-persistent user.
-func (a *App) issueSession(c *client) string { return a.issueSessionTab(c, false) }
+// session: the token and Lock that connections signed in with one token share, under
+// App.mu. A connection without a token has a session of its own. The signed-in user stays
+// per connection (connUser.user, read without mu).
+type session struct {
+	token  string
+	locked bool
+}
 
-// tab: a no-lock sign-in's token for a non-persistent user, marked tab in the store, kept in
-// sessionStorage.
-func (a *App) issueSessionTab(c *client, tab bool) string {
-	who := c.u.user.Load()
-	cfg := a.r().cfg
-	if who == nil {
+// sessMu: c's session, made on first use so a zero client works. Caller holds mu.
+func (c *client) sessMu() *session {
+	if c.u.sess == nil {
+		c.u.sess = &session{}
+	}
+	return c.u.sess
+}
+
+// Caller holds mu.
+func (u *connUser) tokenMu() string {
+	if u.sess == nil {
 		return ""
 	}
+	return u.sess.token
+}
+
+// Caller holds mu.
+func (u *connUser) lockedMu() bool { return u.sess != nil && u.sess.locked }
+
+// adoptMu: c joins the session another connection holds for tok, else starts one. Caller
+// holds mu.
+func (a *App) adoptMu(c *client, tok string, locked bool) {
+	for cl := range a.clients {
+		if cl != c && cl.u.sess != nil && cl.u.sess.token == tok {
+			c.u.sess = cl.u.sess
+			return
+		}
+	}
+	c.u.sess = &session{token: tok, locked: locked}
+}
+
+// eachOnSessionMu runs fn for every connection on c's session, c last (c may not be
+// registered). The one loop over connections sharing a token. Caller holds mu.
+func (a *App) eachOnSessionMu(c *client, fn func(*client)) {
+	s := c.sessMu()
+	for cl := range a.clients {
+		if cl != c && cl.u.sess == s {
+			fn(cl)
+		}
+	}
+	fn(c)
+}
+
+func (a *App) syncSessionMu(c *client) { a.eachOnSessionMu(c, a.syncAccessMu) }
+
+// Caller holds mu.
+func (a *App) signOutMu(cl *client) {
+	cl.u.user.Store(nil)
+	cl.u.sess = nil
+	a.syncAccessMu(cl)
+}
+
+// issueToken gives c's signed-in user a token, "" when none applies. wantTab: a tab
+// token for a non-persistent user's sign-in with no page lock. A locked session without a
+// token gets a tab token so a reload still shows the Lock (ADR 0001). Does disk I/O: never under mu.
+func (a *App) issueToken(c *client, wantTab bool) string {
 	a.mu.Lock()
-	held := c.u.locked
+	who := c.u.user.Load()
+	s := c.sessMu()
+	locked, page, had := s.locked, c.u.page, s.token != ""
+	cfg := a.r().cfg
 	a.mu.Unlock()
-	if held {
-		return "" // a locked session already has its token, or none to give
+	if who == nil {
+		return ""
 	}
 	u, ok := cfg.FindUser(who.Name)
 	if !ok || u.Pin != who.Pin {
 		return ""
 	}
-	if !u.Persistent {
-		a.mu.Lock()
-		page := c.u.page
-		a.mu.Unlock()
-		if !tab || pageGates[page].on(cfg.Locks) {
+	tab := false
+	switch {
+	case locked:
+		if u.Persistent || had {
+			return "" // a persistent user's Lock rides the ordinary token, or none to give
+		}
+		tab = true
+	case u.Persistent:
+	default:
+		if !wantTab || heldOnly(u, page, cfg.Locks) {
 			return ""
 		}
-	} else {
-		tab = false // a persistent user's token is the ordinary one
+		tab = true
 	}
-	t := a.tokens.issue(u, cfg, tab)
+	t := a.tokens.issue(u, cfg, tab, locked)
 	a.mu.Lock()
-	// Locked meanwhile, or a racing call already issued one: forgotten after mu goes (that
-	// writes the file).
-	stale := c.u.user.Load() != who || a.sessionGoodMu(c)
-	locked := c.u.locked
+	// Signed in again, locked or unlocked meanwhile, or a racing call already issued one:
+	// forgotten after mu goes (that writes the file).
+	stale := c.u.user.Load() != who || c.u.sess != s || s.locked != locked
 	if !stale {
-		c.u.token = t
 		if locked {
-			a.tokens.setLocked(t, true) // raised while the token was being issued
+			stale = s.token != ""
+		} else {
+			stale = a.sessionGoodMu(c)
 		}
+	}
+	if !stale {
+		c.u.sess = &session{token: t, locked: locked}
 	}
 	a.mu.Unlock()
 	if stale {
 		a.tokens.forget(t)
 		return ""
 	}
-	if locked {
-		a.tokens.persist()
-	}
 	return t
 }
 
 // Caller holds mu.
 func (a *App) sessionGoodMu(c *client) bool {
-	if c.u.token == "" {
+	tok := c.u.tokenMu()
+	if tok == "" {
 		return false
 	}
-	_, ok := a.tokens.user(c.u.token, a.r().cfg)
+	_, ok := a.tokens.user(tok, a.r().cfg)
 	return ok
 }
 
@@ -78,8 +139,8 @@ func (a *App) touchSessions() {
 	cfg := a.r().cfg
 	var held []string
 	for cl := range a.clients {
-		if cl.u.token != "" && a.userSameMu(cl, cfg) {
-			held = append(held, cl.u.token)
+		if tok := cl.u.tokenMu(); tok != "" && a.userSameMu(cl, cfg) {
+			held = append(held, tok)
 		}
 	}
 	a.mu.Unlock()
@@ -102,19 +163,14 @@ func (a *App) catchUpSessions() {
 	}
 	a.mu.Unlock()
 	for _, cl := range todo {
-		if t := a.issueSession(cl); t != "" {
+		if t := a.issueToken(cl, false); t != "" {
 			a.reply(cl, sessionMsg{T: "session", Token: t})
 		}
 	}
 }
 
-// UserLock raises the signed-in user's Lock and keeps the session (ADR 0001). With nobody
-// signed in it does nothing: that Lock is page-only.
-func (a *App) UserLock(c *client) {
-	a.setHeld(c, true)
-}
-
-// setHeld: the flag rides the token (ADR 0001), so a reload comes back locked.
+// setHeld raises (on) or ends the Lock of c's session for every connection on it; the flag
+// rides the token (ADR 0001), so a reload comes back locked. Ending it is a resume.
 func (a *App) setHeld(c *client, on bool) {
 	a.mu.Lock()
 	if !a.userSameMu(c, a.r().cfg) {
@@ -122,76 +178,60 @@ func (a *App) setHeld(c *client, on bool) {
 		a.mu.Unlock()
 		return
 	}
-	tok := c.u.token
-	c.u.locked = on
-	if tok != "" {
-		for cl := range a.clients {
-			if cl != c && cl.u.token == tok {
-				cl.u.locked = on
-				a.syncAccessMu(cl)
-			}
-		}
-		a.tokens.setLocked(tok, on)
-	}
-	a.syncAccessMu(c)
+	tok, drop := a.holdMu(c, on)
 	a.mu.Unlock()
-	if tok != "" {
-		a.tokens.persist()
-	} else if on {
-		a.issueHeldTab(c)
-	}
+	a.finishHold(c, on, tok, drop)
 }
 
-// issueHeldTab gives a held Lock without a token (non-persistent user) a tab token, so a
-// reload still shows it. Off mu: writes the token file.
-func (a *App) issueHeldTab(c *client) {
+// holdMu changes the session's Lock and tells its connections. drop: a resume under a PIN
+// lock ends a non-persistent token, which existed only to carry the Lock. Caller holds mu;
+// the caller then runs finishHold off it.
+func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
+	s := c.sessMu()
+	tok = s.token
 	cfg := a.r().cfg
-	a.mu.Lock()
-	who := c.u.user.Load()
-	ok := who != nil && c.u.locked && c.u.token == ""
-	a.mu.Unlock()
-	if !ok {
-		return
+	if who := c.u.user.Load(); !on && tok != "" && who != nil {
+		u, _ := cfg.FindUser(who.Name)
+		drop = heldOnly(u, c.u.page, cfg.Locks)
 	}
-	u, found := cfg.FindUser(who.Name)
-	if !found || u.Pin != who.Pin || u.Persistent {
-		return
+	s.locked = on
+	if drop {
+		// The token dies, so the connections sharing it part: each keeps its own
+		// tokenless session, and a later Lock or sign-out of one cannot reach the rest.
+		a.eachOnSessionMu(c, func(cl *client) {
+			cl.u.sess = &session{locked: on}
+			a.syncAccessMu(cl)
+		})
+		return tok, drop
 	}
-	t := a.tokens.issue(u, cfg, true)
-	a.mu.Lock()
-	stale := c.u.user.Load() != who || !c.u.locked || c.u.token != ""
-	if !stale {
-		c.u.token = t
-		a.tokens.setLocked(t, true)
+	if tok != "" {
+		a.tokens.setLocked(tok, on)
 	}
-	a.mu.Unlock()
-	if stale {
-		a.tokens.forget(t)
-		return
+	a.syncSessionMu(c)
+	return tok, drop
+}
+
+// finishHold: off mu, because it writes the file. A Lock without a token (non-persistent
+// user) gets a tab token here so a reload still shows it.
+func (a *App) finishHold(c *client, on bool, tok string, drop bool) {
+	switch {
+	case drop:
+		a.tokens.forget(tok)
+	case tok != "":
+		a.tokens.save()
+	case on:
+		if t := a.issueToken(c, true); t != "" {
+			a.reply(c, sessionMsg{T: "session", Token: t, Tab: true})
+		}
 	}
-	a.tokens.persist()
-	a.reply(c, sessionMsg{T: "session", Token: t, Tab: true})
 }
 
 // SignOut ends c's session. A reload cannot undo it: the token dies and connections
 // sharing it sign out too (ADR 0001).
 func (a *App) SignOut(c *client) {
 	a.mu.Lock()
-	tok := c.u.token
-	c.u.user.Store(nil)
-	c.u.token = ""
-	c.u.locked = false
-	if tok != "" {
-		for cl := range a.clients {
-			if cl != c && cl.u.token == tok {
-				cl.u.user.Store(nil)
-				cl.u.token = ""
-				cl.u.locked = false
-				a.syncAccessMu(cl)
-			}
-		}
-	}
-	a.syncAccessMu(c)
+	tok := c.u.tokenMu()
+	a.eachOnSessionMu(c, a.signOutMu)
 	a.mu.Unlock()
 	a.tokens.forget(tok)
 }

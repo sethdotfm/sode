@@ -107,6 +107,23 @@ test('the router salvo group is found by its words', () => {
   }
 });
 
+test('the fire mode setting is found by its words', () => {
+  assert.ok(DICT['cfg-firemode']?.length, "add DICT['cfg-firemode'] in settingsindex.js");
+  const index = buildIndex([
+    {
+      id: 'router',
+      title: 'Router',
+      settings: [{ id: 'cfg-firemode', label: 'Multi destination behavior' }],
+    },
+  ]);
+  for (const q of ['native', 'fire mode', 'router salvo', 'preset']) {
+    assert.ok(
+      find(index, q).some((h) => h.id === 'cfg-firemode'),
+      q,
+    );
+  }
+});
+
 test('typos still match', () => {
   assert.equal(top('pasword').sectionId === 'access' || top('pasword').sectionId === 'users', true);
   assert.equal(top('histroy').sectionId, 'history');

@@ -156,33 +156,76 @@ func TestChangingModeNeedsThePinAndKeepsEverything(t *testing.T) {
 	if err := a.SaveUsers(admin, req); err != nil {
 		t.Fatal(err)
 	}
-	back := usersReq{SignInMode: config.SignInPin, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
-	if err := a.SaveUsers(admin, back); err == nil {
-		t.Fatal("went back to PIN only")
+	// Going back needs a new PIN for each user and keeps everything but the mode and PINs.
+	back := backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "2222"})
+	if err := a.SaveUsers(admin, back); err != nil {
+		t.Fatal(err)
 	}
 	cfg = a.r().cfg
-	if cfg.SignInMode != config.SignInUsername || len(cfg.Users) != 2 || cfg.Users[0].Profile.Prefs["theme"] != "dark" || cfg.Users[0].Username != "ana" {
-		t.Fatalf("after the refused switch: %+v", cfg)
+	if cfg.SignInMode != config.SignInPin || len(cfg.Users) != 2 || cfg.Users[0].Profile.Prefs["theme"] != "dark" || cfg.Users[0].Username != "ana" {
+		t.Fatalf("after switching back: %+v", cfg)
 	}
 	c := &client{ip: "10.0.0.5"}
-	if err := a.UserUnlockAs(c, "bo", "567890"); err != nil || c.who() != "Bo" {
-		t.Fatalf("PINs after the refused switch: %v %q", err, c.who())
+	if err := a.UserUnlock(c, "2222"); err != nil || c.who() != "Bo" {
+		t.Fatalf("PINs after switching back: %v %q", err, c.who())
 	}
 }
 
-// Salted hashes can't show a shared PIN, so there is no way back to PIN only.
-func TestUsernameModeCannotGoBackToPinOnly(t *testing.T) {
+func backToPin(users ...userEdit) usersReq {
+	return usersReq{SignInMode: config.SignInPin, Users: users}
+}
+
+func TestUsernameModeBackToPinOnlyWithNewUniquePins(t *testing.T) {
 	a := usernameApp(t)
-	back := usersReq{SignInMode: config.SignInPin, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
-	if err := a.SaveUsers(adminClient(t, a), back); err == nil {
-		t.Fatal("went back to PIN only")
+	back := backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "2222"})
+	if err := a.SaveUsers(adminClient(t, a), back); err != nil {
+		t.Fatalf("new PINs for both: %v", err)
 	}
+	if a.r().cfg.SignInMode != config.SignInPin {
+		t.Fatal("the mode did not change")
+	}
+	for pin, want := range map[string]string{"1111": "Ana", "2222": "Bo"} {
+		c := &client{ip: "10.0.0.1"}
+		if err := a.UserUnlock(c, pin); err != nil || c.who() != want {
+			t.Fatalf("PIN alone %s: %v %q", pin, err, c.who())
+		}
+	}
+}
+
+func TestUsernameModeBackToPinOnlyRefusesUsersWithoutNewPin(t *testing.T) {
+	a := usernameApp(t)
+	// Ana and Bo share 1234, but the server can't see that: any user without a typed PIN is refused.
+	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo"}))
+	if err == nil || !strings.Contains(err.Error(), "Bo") || strings.Contains(err.Error(), "Ana") {
+		t.Fatalf("want a refusal naming only Bo, got %v", err)
+	}
+	err = a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana"}, userEdit{Name: "Bo", Was: "Bo"}))
+	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
+		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
+	}
+	assertNothingSaved(t, a)
+}
+
+func TestUsernameModeBackToPinOnlyRefusesEqualTypedPins(t *testing.T) {
+	a := usernameApp(t)
+	err := a.SaveUsers(adminClient(t, a), backToPin(userEdit{Name: "Ana", Was: "Ana", Pin: "1111"}, userEdit{Name: "Bo", Was: "Bo", Pin: "1111"}))
+	if err == nil || !strings.Contains(err.Error(), "Ana") || !strings.Contains(err.Error(), "Bo") {
+		t.Fatalf("want a refusal naming Ana and Bo, got %v", err)
+	}
+	assertNothingSaved(t, a)
+}
+
+// assertNothingSaved: still Username and PIN, and Ana and Bo still sign in with the old shared PIN.
+func assertNothingSaved(t *testing.T, a *App) {
+	t.Helper()
 	if a.r().cfg.SignInMode != config.SignInUsername {
 		t.Fatal("the mode changed")
 	}
-	same := usersReq{SignInMode: config.SignInUsername, Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}
-	if err := a.SaveUsers(adminClient(t, a), same); err != nil {
-		t.Fatalf("re-saving the same mode: %v", err)
+	for user, want := range map[string]string{"ana.k": "Ana", "bobby": "Bo"} {
+		c := &client{ip: "10.0.0.1"}
+		if err := a.UserUnlockAs(c, user, "1234"); err != nil || c.who() != want {
+			t.Fatalf("nothing should have been saved: %s %v %q", user, err, c.who())
+		}
 	}
 }
 
@@ -317,5 +360,22 @@ func TestWrongLengthPinCostsAsMuchAsARightLengthOne(t *testing.T) {
 	short, unknown := try("ana.k", "99"), try("nobody", "9999")
 	if short < unknown/2 {
 		t.Fatalf("a wrong-length PIN answered in %v, an unknown username in %v", short, unknown)
+	}
+}
+
+func TestEmptySignInModeKeepsTheCurrent(t *testing.T) {
+	a := userApp(t, true)
+	admin := adminClient(t, a)
+	err := a.SaveUsers(admin, usersReq{SignInMode: config.SignInUsername, Users: []userEdit{
+		{Name: "Ana", Was: "Ana", Username: sp("ana")}, {Name: "Bo", Was: "Bo", Username: sp("bo")},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SaveUsers(admin, usersReq{Users: []userEdit{{Name: "Ana", Was: "Ana"}, {Name: "Bo", Was: "Bo"}}}); err != nil {
+		t.Fatalf("a save with no mode: %v", err)
+	}
+	if got := a.r().cfg.SignInMode; got != config.SignInUsername {
+		t.Fatalf("an empty mode changed it to %q", got)
 	}
 }

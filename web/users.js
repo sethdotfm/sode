@@ -7,7 +7,7 @@ import { trusted, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
 import { trapDialog } from './widgets.js';
 import { canSeeProfiles, profileButtonOff } from './profilesrules.js';
-import { MODES, RENAME_HINT, modeOneWay, renameNotice, switchNeedsWarning, usernameColumn, usersReq } from './usersrules.js';
+import { MODES, RENAME_HINT, clashNotice, needsNewPins, pinClashes, prefillUsernames, renameNotice, usernameColumn, usersReq } from './usersrules.js';
 
 const form = $('settings-view');
 
@@ -71,8 +71,19 @@ const modeField = el(
   'sode__field',
   Object.assign(el('label', null, 'Sign-in mode'), { htmlFor: 'usr-mode' }),
   el('span', 'pb-select-wrap', modeSelect),
-  el('span', 'sode__hint', 'Username and PIN: each user has a username, and two users may share a PIN. This cannot be switched back to PIN only for now.'),
+  el(
+    'span',
+    'sode__hint',
+    'Username and PIN: each user has a username, and two users may share a PIN. Switching back to PIN only needs a new, different PIN for every user.',
+  ),
 );
+const fillBtn = btn('pb-btn--outline pb-btn--sm', 'Fill empty usernames', () => {
+  const r = readRows();
+  const names = prefillUsernames(r);
+  for (const [i, row] of [...rows.children].entries()) row.querySelector('input[data-field="username"]').value = names[i];
+  touched();
+});
+fillBtn.dataset.pbTip = 'Sets each empty username to the Name without spaces. You can edit them before saving.';
 const usernameHead = el('span', null, 'Username');
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), usernameHead, el('span', null, 'PIN')), rows);
 
@@ -102,7 +113,7 @@ dialog.append(
         RENAME_HINT,
     ),
     table,
-    addBtn,
+    el('div', 'sode__users-acts', addBtn, fillBtn),
     el('div', 'sode__users-opts', modeField, field('usr-maxpin', 'Longest PIN (digits)', maxInput, '4-12.')),
     err,
   ),
@@ -120,7 +131,6 @@ dialog.addEventListener('keydown', (e) => {
 
 let isOpen = false;
 let edited = false; // changed in the dialog since it filled
-let warned = false; // the one-way switch was warned about; the next Save sends it
 let discard = false; // warned once; the next close discards
 let back = null;
 let seq = 0;
@@ -138,7 +148,18 @@ const setNote = (text, error = false) => {
 function touched() {
   edited = true;
   discard = false;
-  setNote(renameNotice(readRows()));
+  const r = readRows();
+  const clashes = pinClashes(r, mode(), listedMode);
+  const bad = [...clashes.missing, ...clashes.same];
+  const asking = needsNewPins(mode(), listedMode);
+  for (const row of rows.children) {
+    const clash = bad.includes(row.querySelector('input[data-field="name"]').value.trim());
+    const pin = row.querySelector('input[data-field="pin"]');
+    row.toggleAttribute('data-clash', clash);
+    pin.classList.toggle('pb-input--invalid', clash);
+    pin.placeholder = asking || !row.dataset.was ? 'new PIN' : 'unchanged';
+  }
+  setNote(clashNotice(clashes) || renameNotice(r));
 }
 function fail(text) {
   err.textContent = sentence(text);
@@ -150,6 +171,7 @@ function paintMode() {
   const named = usernameColumn(mode());
   table.classList.toggle('sode__users-table--named', named);
   usernameHead.hidden = !named;
+  fillBtn.hidden = !named;
   for (const c of rows.querySelectorAll('.sode__users-name')) c.hidden = !named;
 }
 
@@ -265,8 +287,6 @@ onMsg('userSignOutAllResult', (m) => {
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
   modeSelect.value = listedMode;
-  modeSelect.options[0].disabled = modeOneWay(listedMode);
-  warned = false;
   rows.replaceChildren();
   paintMode();
   for (const u of listed) addRow(u);
@@ -367,18 +387,26 @@ function readRows() {
   return [...rows.children].map((row) => {
     const val = (k) => row.querySelector(`input[data-field="${k}"]`).value;
     const flag = (k) => row.querySelector(`input[data-flag="${k}"]`).checked;
-    return { name: val('name'), was: row.dataset.was, pin: val('pin'), trusted: flag('trusted'), persistent: flag('persistent'), username: val('username') };
+    return {
+      name: val('name'),
+      was: row.dataset.was,
+      pin: val('pin'),
+      trusted: flag('trusted'),
+      persistent: flag('persistent'),
+      username: val('username'),
+    };
   });
 }
 
 function doSave() {
   err.hidden = true;
   setNote('');
-  if (switchNeedsWarning(mode(), listedMode) && !warned) {
-    warned = true;
-    return setNote('Username and PIN cannot be switched back to PIN only. Save again to switch, or choose PIN only.', true);
-  }
   const users = readRows();
+  const clashes = pinClashes(users, mode(), listedMode);
+  if (clashes.missing.length || clashes.same.length) {
+    setNote(clashNotice(clashes), true);
+    return rows.querySelector('.sode__users-row[data-clash] input[data-field="pin"]')?.focus();
+  }
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode) }))
     return fail('Not connected to Sode.');
@@ -400,7 +428,6 @@ onMsg('usersResult', async (m) => {
 
 modeSelect.addEventListener('change', () => {
   touched();
-  warned = false;
   paintMode();
 });
 maxInput.addEventListener('input', () => {

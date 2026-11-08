@@ -80,8 +80,6 @@ func (c Config) FindUsername(username string) (User, bool) {
 	return User{}, false
 }
 
-func (u *User) TakePin(from User) { u.Pin, u.Len = from.Pin, from.Len }
-
 // KeepPins is c with PIN hashes it lacks taken from live (a user's hash and length together).
 // Hashes must look like hashes so a file can't stop the next start; a user with neither is an error.
 func (c Config) KeepPins(live Config) (Config, error) {
@@ -101,7 +99,7 @@ func (c Config) KeepPins(live Config) (Config, error) {
 			if !ok || keep.Pin == "" {
 				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep: export with PINs included, or add the user in Settings first", u.Name)
 			}
-			u.TakePin(keep)
+			u.Pin, u.Len = keep.Pin, keep.Len
 		}
 		users[i] = u
 	}

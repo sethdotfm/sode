@@ -2,7 +2,7 @@
 
 import { actorUser, groupActor } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
-import { mac } from './keys.js';
+import { mac, listStep } from './keys.js';
 import { levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels } from './levelview.js';
 import { srcRow, srcEnd } from './routes.js';
 import { fmtClock } from './device.js';
@@ -288,8 +288,7 @@ export function combobox(
     // Also swallows the keys with the list closed, so neither the browser's J/K shortcuts nor
     // macOS's Ctrl+K act.
     nav(e) {
-      const mod = (e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey);
-      const ctrlJK = mod && !e.altKey && !e.shiftKey && { KeyJ: 'ArrowDown', KeyK: 'ArrowUp' }[e.code];
+      const ctrlJK = { 1: 'ArrowDown', [-1]: 'ArrowUp' }[listStep(e)];
       const key = ctrlJK || e.key;
       if (!matches.length || !['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp'].includes(key)) {
         if (ctrlJK) e.preventDefault();

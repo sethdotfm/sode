@@ -1,5 +1,5 @@
 // Classic script in <head> (blocks) so there is no flash: theme, plus layout and flip on the main page (other pages: data-only="theme").
-// Repeats prefs.js resolve() inline: keep in step.
+// Repeats prefs.js resolve() and cachedProfile() inline; web/test/prepaint.test.mjs fails if they disagree.
 (() => {
   const root = document.documentElement;
   const themeOnly = document.currentScript?.dataset.only === 'theme';

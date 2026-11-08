@@ -205,13 +205,13 @@ func (w *waiter) register(a *App) {
 	}
 	a.waiters[w] = struct{}{}
 	a.ext.causes = append(a.ext.causes, w.cause)
-	// Connects may queue up to queueMax; sendRoute shortens the keys to ownFor once sent.
+	// Connects may queue up to a.queueMax; sendRoute shortens the keys to ownFor once sent.
 	w.ownKeys(a)
 }
 
 // Caller holds mu and has checked a.ext == w.ext.
 func (w *waiter) ownKeys(a *App) {
-	until := time.Now().Add(queueMax + ownFor)
+	until := time.Now().Add(a.queueMax + ownFor)
 	for _, l := range w.levels {
 		if !l.same {
 			a.ext.own[ownKey{w.dst, l.wire, w.src}] = until
@@ -305,26 +305,26 @@ func (a *App) checkTally(r *runtime, w *waiter) bool {
 	if err != nil {
 		return false // the link is down or full: no answers are coming
 	}
-	leftQueue(done)
+	a.leftQueue(done)
 	select {
 	case <-c.done:
 		return true
-	case <-time.After(checkTimeout):
+	case <-time.After(a.checkTimeout):
 		return false
 	}
 }
 
 const (
-	checkTimeout = time.Second
-	checkFresh   = 15 * time.Second
-	// queueMax: cap on waiting in the send queue (one message per ACK, shared by all
+	defaultCheckTimeout = time.Second
+	checkFresh          = 15 * time.Second
+	// defaultQueueMax: default for App.queueMax, the cap on waiting in the send queue (one message per ACK, shared by all
 	// takes); then timeouts start anyway.
-	queueMax = 30 * time.Second
+	defaultQueueMax = 30 * time.Second
 	// A tally of a route a take gave up on stays its own this long.
-	lateFor      = 15 * time.Second
-	routeTimeout = 3 * time.Second
+	lateFor             = 15 * time.Second
+	defaultRouteTimeout = 3 * time.Second
 	// After the timeout, unconfirmed levels are interrogated and get this long before failing.
-	routeGrace = time.Second
+	defaultRouteGrace = time.Second
 )
 
 func levelList(r *runtime, ls []int) string {
@@ -392,7 +392,7 @@ func (a *App) checkPhase(r *runtime, w *waiter, e *Entry, noCheck bool) {
 	// Prev from the router, not a cache that may have missed a change; differing answers
 	// are logged as found.
 	if !noCheck && !a.checkTally(r, w) {
-		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", w.dst, checkTimeout)
+		log.Printf("take: dst %d: routes not read from the router within %v; using cached routes", w.dst, a.checkTimeout)
 	}
 	a.flushFound(w.dst)
 	a.mu.Lock()
@@ -701,7 +701,7 @@ func (a *App) sendRoute(r *runtime, w *waiter) error {
 		last = done
 	}
 	// Confirm wait and own keys start once our messages have gone out.
-	leftQueue(last)
+	a.leftQueue(last)
 	a.mu.Lock()
 	w.cause.sent = time.Now()
 	until := w.cause.sent.Add(ownFor)
@@ -733,13 +733,13 @@ func (a *App) sendTracked(ext *extTracker, m []byte, why swp08.Why) (<-chan stru
 	return why.Done, nil
 }
 
-func leftQueue(done <-chan struct{}) {
+func (a *App) leftQueue(done <-chan struct{}) {
 	if done == nil {
 		return
 	}
 	select {
 	case <-done:
-	case <-time.After(queueMax):
+	case <-time.After(a.queueMax):
 	}
 }
 
@@ -768,7 +768,7 @@ func (a *App) awaitRoute(r *runtime, w *waiter) []*routeLevel {
 	select {
 	case <-w.done: // all confirmed, or the take was cut and these are the unanswered
 		return outstanding()
-	case <-time.After(routeTimeout):
+	case <-time.After(a.routeTimeout):
 	}
 	// Last chance: interrogate what is still unconfirmed (stale cache, lost Connected);
 	// not for a cut take.
@@ -777,11 +777,11 @@ func (a *App) awaitRoute(r *runtime, w *waiter) []*routeLevel {
 	a.mu.Unlock()
 	if !cut {
 		done, _ := a.interrogate(r, w, outstanding(), swp08.ReasonConfirm)
-		leftQueue(done)
+		a.leftQueue(done)
 	}
 	select {
 	case <-w.done:
-	case <-time.After(routeGrace):
+	case <-time.After(a.routeGrace):
 	}
 	return outstanding()
 }
