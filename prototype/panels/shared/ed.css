@@ -92,3 +92,9 @@ body { margin: 0; }
 
 .ed-h { font-size: var(--pb-text-sm); font-weight: var(--pb-weight-bold); letter-spacing: var(--pb-tracking-label); text-transform: uppercase; color: var(--pb-text-muted); margin: 0; }
 .ed-sec textarea { width: 100%; }
+
+/* A ghost is an opaque stand-in for the cell, so the old label never shows through. */
+.ed-ghost { background: var(--pb-surface-control); }
+.ed-ghost[data-k="src"] { background: var(--panel-src); }
+.ed-ghost[data-k="dst"] { background: var(--panel-dst); }
+.ed-ghost--bad { background: color-mix(in oklab, var(--pb-status-error) 35%, var(--pb-surface-control)); }

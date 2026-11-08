@@ -33,7 +33,7 @@ const DEFAULT_CFG = () => ({
 
 export function createEditor() {
   const E = { rows: 4, cols: 8, cells: [], anchor: null, head: null, tool: 'select', test: false, uploads: [], trusted: true, rights: 'all', dirty: false, ghost: null, curPanel: 0,
-    fill: { kind: 'src', text: '1-8', dir: 'across', keep: false },
+    fill: { kind: 'src', keys: [0, 1, 2, 3, 4, 5, 6, 7], text: '1-8', bad: [], dir: 'across', keep: false },
     panels: [{ name: 'Studio A', who: 'You', own: true, acts: 'user' }, { name: 'Replay desk', who: 'You', own: true, acts: 'api' }, { name: 'Master control', who: 'Dana', own: false }, { name: 'Edit bay 2', who: 'Priya', own: false }], notice: '', cfg: DEFAULT_CFG(), readonly: false, subs: new Set(), uid: 1 }
   E.on = (f) => (E.subs.add(f), f('init'))
   const emit = (topic, dirty = true) => { if (dirty && topic !== 'sel') E.dirty = true; E.subs.forEach((f) => f(topic)) }
@@ -158,8 +158,7 @@ export function createEditor() {
   E.fillPlan = () => {
     const q = E.rect(), F = E.fill
     if (!q) return null
-    const ord = order(F.kind), { out, bad } = parseRuns(F.text, F.kind)
-    const keys = out.map((i) => ord[i]).filter((k) => E.items(F.kind).some((i) => i.key === k))
+    const keys = F.keys.filter((k) => E.items(F.kind).some((i) => i.key === k)), bad = F.bad
     const queue = [...keys], slots = []
     const [o0, o1, i0, i1] = F.dir === 'across' ? [q.r1, q.r2, q.c1, q.c2] : [q.c1, q.c2, q.r1, q.r2]
     for (let o = o0; o <= o1; o++) for (let i = i0; i <= i1; i++) {
@@ -172,6 +171,18 @@ export function createEditor() {
     return { slots, dropped: queue.length, bad, kind: F.kind, picked: keys.length, squares: E.selSquares() }
   }
   E.setFill = (patch) => { Object.assign(E.fill, patch); emit('seq', false) }
+  // Typed text and the picked list are one selection: each rewrites the other.
+  E.setFillText = (text) => {
+    const F = E.fill, ord = order(F.kind), { out, bad } = parseRuns(text, F.kind)
+    E.setFill({ text, bad, keys: out.map((i) => ord[i]).filter((k) => E.items(F.kind).some((i) => i.key === k)) })
+  }
+  E.setFillKeys = (keys) => {
+    const F = E.fill, ord = order(F.kind), idx = [...new Set(keys.map((k) => ord.indexOf(k)))].sort((a, b) => a - b)
+    const runs = []
+    for (const i of idx) { const last = runs.at(-1); last && last[1] === i - 1 ? (last[1] = i) : runs.push([i, i]) }
+    E.setFill({ keys: idx.map((i) => ord[i]), bad: [], text: runs.map(([a, z]) => (a === z ? a + 1 : `${a + 1}-${z + 1}`)).join(', ') })
+  }
+  E.setFillKind = (kind) => { E.fill.kind = kind; E.setFillText(kind === 'pre' ? '1-3' : '1-8') }
   E.previewFill = () => { E.ghost = E.fillPlan(); emit('ghost', false) }
   E.applyFill = () => {
     const pl = E.fillPlan(); if (!pl || !pl.slots.length) return say('Nothing to place. Select squares and type some numbers.')
@@ -192,6 +203,24 @@ export function createEditor() {
     if (file.size > 1024 * 1024) return say('That file is over 1 MB.')
     const u = { id: 'u' + E.uid++, name: file.name, url: URL.createObjectURL(file) }
     E.uploads.push(u); emit('uploads'); return u
+  }
+
+  // Smart-cursor helpers: choose what the single selected square holds, then step on to the next square.
+  E.addCell = (c) => { add(c) }
+  E.dropCells = (list) => { E.cells = E.cells.filter((x) => !list.includes(x)) }
+  E.chooseAt = (kind, key) => {
+    if (E.selSquares() !== 1 && !E.single()) return
+    let x = E.single()
+    if (!x || x.kind !== kind) { E.setKind(kind); x = E.single() }
+    if (x && key != null) x[kind === 'pre' ? 'pid' : 'n'] = key
+    emit('layout')
+  }
+  E.advance = () => {
+    const q = E.rect(); if (!q) return
+    let r = q.r1, c = q.c2 + 1
+    if (c > E.cols) { c = 1; r = q.r2 + 1 }
+    if (r > E.rows) return
+    E.select(r, c)
   }
 
   E.openPanel = (i) => {
