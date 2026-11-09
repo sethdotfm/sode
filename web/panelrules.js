@@ -26,7 +26,7 @@ export const kioskOf = (hash, panel) => !!panel?.settings?.kiosk || /(?:^#|&)kio
 // A key in the link that the server refuses was rotated or revoked; only a new link helps.
 export function openFailText(status, hadKey) {
   if (status === 404) return 'No panel here that you can use.';
-  if (status === 401 && hadKey) return 'This link\'s key no longer works. It was rotated or revoked, so ask for a new link.';
+  if (status === 401 && hadKey) return "This link's key no longer works. It was rotated or revoked, so ask for a new link.";
   return 'This panel could not be opened.';
 }
 

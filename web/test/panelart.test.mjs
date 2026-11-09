@@ -13,11 +13,22 @@ test('artwork is fetched once per id from the panel route and returned as a blob
 });
 
 test('a refused or failed fetch gives null so the cell shows no artwork', async () => {
-  assert.equal(await createArt(async () => ({ ok: false }), 'p-1', () => 'blob:x').url('a-0123abcd'), null);
   assert.equal(
-    await createArt(async () => {
-      throw new Error('offline');
-    }, 'p-1', () => 'blob:x').url('a-0123abcd'),
+    await createArt(
+      async () => ({ ok: false }),
+      'p-1',
+      () => 'blob:x',
+    ).url('a-0123abcd'),
+    null,
+  );
+  assert.equal(
+    await createArt(
+      async () => {
+        throw new Error('offline');
+      },
+      'p-1',
+      () => 'blob:x',
+    ).url('a-0123abcd'),
     null,
   );
 });

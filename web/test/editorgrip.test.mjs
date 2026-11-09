@@ -28,7 +28,12 @@ test('a drag rectangle feeds extendPlan', () => {
 });
 
 test('the tip names the first and last and counts, and says so when nothing fits', () => {
-  const names = namesFrom({ sources: [{ n: 6, name: 'CAM 6' }, { n: 8, name: 'CAM 8' }] });
+  const names = namesFrom({
+    sources: [
+      { n: 6, name: 'CAM 6' },
+      { n: 8, name: 'CAM 8' },
+    ],
+  });
   const g = pick(grid([S(1, 1, 4), S(1, 2, 5)]), 1, 1, 1, 2);
   const p = extendPlan(g, dragRect(g, 1, 5));
   assert.equal(gripTip(p, names.of), '3 squares, CAM 6 to CAM 8');

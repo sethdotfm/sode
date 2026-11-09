@@ -4,7 +4,10 @@
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
 // A group is the panels whose names differ only by a trailing number: EVS 1 to EVS 4 are "EVS".
-export const groupKey = (name) => String(name).replace(/[\s_-]*\d+\s*$/, '').trim() || String(name).trim();
+export const groupKey = (name) =>
+  String(name)
+    .replace(/[\s_-]*\d+\s*$/, '')
+    .trim() || String(name).trim();
 
 // Panels the caller may push to: changeable, and not the one being pushed.
 export const pushCandidates = (panels, srcId) => panels.filter((p) => p.canEdit && p.id !== srcId);
@@ -76,7 +79,9 @@ export function pushSummary(result, panels) {
 
 // A checkpoint as one line: when, who, what it holds.
 export function checkpointLabel(cp) {
-  const when = String(cp.at || '').replace('T', ' ').slice(0, 16);
+  const when = String(cp.at || '')
+    .replace('T', ' ')
+    .slice(0, 16);
   return `${when}, ${cp.by}, ${cp.rows} by ${cp.cols}, ${cp.cells} ${cp.cells === 1 ? 'cell' : 'cells'}`;
 }
 

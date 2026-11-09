@@ -5,7 +5,9 @@ import { cellsIn } from './panelrules.js';
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
 export const matches = (p, q) => {
-  const s = String(q || '').trim().toLowerCase();
+  const s = String(q || '')
+    .trim()
+    .toLowerCase();
   return !s || p.name.toLowerCase().includes(s) || p.owner.toLowerCase().includes(s);
 };
 
@@ -57,7 +59,11 @@ export function shareChanged(share, draft) {
   const was = shareDraft(share);
   if (was.mode !== draft.mode) return true;
   if (draft.mode !== 'named') return false;
-  const key = (u) => u.map((n) => n.toLowerCase()).sort().join('\n');
+  const key = (u) =>
+    u
+      .map((n) => n.toLowerCase())
+      .sort()
+      .join('\n');
   return key(was.users) !== key(draft.users);
 }
 

@@ -57,7 +57,11 @@ function row(p) {
   // Empty hook for the online dot, so monitoring can fill it without reshaping the row.
   const online = el('span', 'sode-ov__online');
   online.dataset.online = p.id;
-  b.append(thumb(p, true), el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsLabel(p).toLowerCase()}`)), online);
+  b.append(
+    thumb(p, true),
+    el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsLabel(p).toLowerCase()}`)),
+    online,
+  );
   return b;
 }
 
@@ -100,10 +104,24 @@ function detail(p) {
   slot.id = 'panels-more';
   bar.append(slot);
   if (acts.includes('delete')) bar.append(button(S.armed === p.id ? 'Delete? Press again' : 'Delete', 'trash-2', 'pb-btn--ghost', 'delete', p.id));
-  const kv = el('dl', 'sode-ov__kv', el('dt', '', 'Owner'), el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')), el('dt', '', 'Acts as'), el('dd', '', actsLabel(p).replace('Acts as ', '') + (p.acts === 'api' ? ' (opens with its key)' : ' (asks for a PIN at launch)')), el('dt', '', 'Shared with'), el('dd', '', shareLabel(p.share)));
+  const kv = el(
+    'dl',
+    'sode-ov__kv',
+    el('dt', '', 'Owner'),
+    el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')),
+    el('dt', '', 'Acts as'),
+    el('dd', '', actsLabel(p).replace('Acts as ', '') + (p.acts === 'api' ? ' (opens with its key)' : ' (asks for a PIN at launch)')),
+    el('dt', '', 'Shared with'),
+    el('dd', '', shareLabel(p.share)),
+  );
   box.append(
     el('h1', 'sode-ov__title', p.name),
-    el('div', 'sode-ov__big', el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)), el('div', 'sode-ov__pane', link('Launch', 'play', 'pb-btn--ok sode-ov__launch', launchHref(p.id)), bar, kv, watchBox(p, setWatch), openNow(p))),
+    el(
+      'div',
+      'sode-ov__big',
+      el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)),
+      el('div', 'sode-ov__pane', link('Launch', 'play', 'pb-btn--ok sode-ov__launch', launchHref(p.id)), bar, kv, watchBox(p, setWatch), openNow(p)),
+    ),
   );
 }
 

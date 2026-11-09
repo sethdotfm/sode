@@ -1,7 +1,19 @@
 // Push target selection and the Push modal's wording. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupKey, pushCandidates, pushGroups, pushTargets, groupState, setGroup, pushBody, setTargets, pushSummary, checkpointLabel, canSaveSet } from '../panelpushrules.js';
+import {
+  groupKey,
+  pushCandidates,
+  pushGroups,
+  pushTargets,
+  groupState,
+  setGroup,
+  pushBody,
+  setTargets,
+  pushSummary,
+  checkpointLabel,
+  canSaveSet,
+} from '../panelpushrules.js';
 
 const P = (id, name, extra = {}) => ({ id, name, owner: 'Ana', canEdit: true, ...extra });
 const wall = [P('p-1', 'EVS 1'), P('p-2', 'EVS 2'), P('p-3', 'EVS 3'), P('p-4', 'EVS 4'), P('p-5', 'Studio B'), P('p-6', 'EVS 5', { canEdit: false })];
@@ -14,13 +26,22 @@ test('a group is the name without its trailing number', () => {
 });
 
 test('only panels the caller may change are offered, and never the source', () => {
-  assert.deepEqual(pushCandidates(wall, 'p-1').map((p) => p.id), ['p-2', 'p-3', 'p-4', 'p-5']);
+  assert.deepEqual(
+    pushCandidates(wall, 'p-1').map((p) => p.id),
+    ['p-2', 'p-3', 'p-4', 'p-5'],
+  );
 });
 
 test('panels group by name and a lone panel stands apart', () => {
   const { groups, single } = pushGroups(pushCandidates(wall, 'p-1'));
-  assert.deepEqual(groups.map((g) => [g.key, g.ids]), [['EVS', ['p-2', 'p-3', 'p-4']]]);
-  assert.deepEqual(single.map((p) => p.id), ['p-5']);
+  assert.deepEqual(
+    groups.map((g) => [g.key, g.ids]),
+    [['EVS', ['p-2', 'p-3', 'p-4']]],
+  );
+  assert.deepEqual(
+    single.map((p) => p.id),
+    ['p-5'],
+  );
 });
 
 test('numbers sort as numbers inside a group', () => {
@@ -63,8 +84,14 @@ test('a set pushes to its ticked panels, or to all of its panels when none is ti
 });
 
 test('the summary names the panels and says what was kept', () => {
-  assert.equal(pushSummary({ pushed: [{ panel: 'p-1' }, { panel: 'p-2' }, { panel: 'p-3' }] }, wall), 'Pushed to EVS 1, EVS 2 and EVS 3. A checkpoint of each was kept.');
-  assert.equal(pushSummary({ pushed: [{ panel: 'p-1' }], skipped: [{ panel: 'p-x' }] }, wall), 'Pushed to EVS 1. A checkpoint of each was kept. Skipped p-x, which no longer exists.');
+  assert.equal(
+    pushSummary({ pushed: [{ panel: 'p-1' }, { panel: 'p-2' }, { panel: 'p-3' }] }, wall),
+    'Pushed to EVS 1, EVS 2 and EVS 3. A checkpoint of each was kept.',
+  );
+  assert.equal(
+    pushSummary({ pushed: [{ panel: 'p-1' }], skipped: [{ panel: 'p-x' }] }, wall),
+    'Pushed to EVS 1. A checkpoint of each was kept. Skipped p-x, which no longer exists.',
+  );
   assert.equal(pushSummary({ pushed: [] }, wall), 'Nothing was pushed.');
 });
 

@@ -53,7 +53,11 @@ export async function runEditor() {
   let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each once edited
   const paintWatchers = []; // (grid, selection box) after every repaint, for things that sit over the squares
   const readOnly = () => !!loaded && !loaded.canEdit;
-  const fields = () => ({ settings: edits.settings ?? loaded?.settings ?? {}, acts: edits.acts ?? loaded?.acts ?? 'session', clientRights: edits.clientRights });
+  const fields = () => ({
+    settings: edits.settings ?? loaded?.settings ?? {},
+    acts: edits.acts ?? loaded?.acts ?? 'session',
+    clientRights: edits.clientRights,
+  });
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
 
   const nameBox = $('ed-name');
@@ -131,7 +135,8 @@ export async function runEditor() {
     const todo = countUnassigned(g);
     $('ed-todo').textContent = todo ? `${todo} unassigned` : 'All assigned';
     $('ed-next').disabled = ro || !todo;
-    $('ed-save').disabled = ro || !dirty();    $('ed-banner').hidden = !ro;
+    $('ed-save').disabled = ro || !dirty();
+    $('ed-banner').hidden = !ro;
     say('ed-state', ro ? '' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '');
     const open = $('ed-open');
     open.hidden = !loaded;

@@ -120,7 +120,9 @@ export function createPanelTab(ed) {
         input.disabled = ro || (key === 'wake' && !feel.wake && !input.checked) || (key === 'haptics' && !feel.haptics && !input.checked);
       }
       const unsupported = [!feel.wake && 'keeping the screen awake', !feel.haptics && 'vibration'].filter(Boolean);
-      deviceNote.textContent = unsupported.length ? `This browser has no support for ${unsupported.join(' or ')}. It is the panel's own browser that counts.` : '';
+      deviceNote.textContent = unsupported.length
+        ? `This browser has no support for ${unsupported.join(' or ')}. It is the panel's own browser that counts.`
+        : '';
       if (document.activeElement !== size) size.value = s.fontSize ? String(s.fontSize) : '';
       size.disabled = ro;
       mode.select.value = s.mode === 'instant' ? 'instant' : 'take';

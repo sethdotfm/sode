@@ -79,7 +79,12 @@ const keyReady = () => (key ? Promise.resolve(key) : new Promise((r) => waiting.
 export async function sessionFetch(path, init = {}) {
   const res = await fetch(path, withKey(init, await keyReady()));
   if (res.status !== 401) return res;
-  const code = (await res.clone().json().catch(() => ({})))?.error?.code;
+  const code = (
+    await res
+      .clone()
+      .json()
+      .catch(() => ({}))
+  )?.error?.code;
   if (!renewable(res.status, code)) return res;
   const old = key;
   setKey('');

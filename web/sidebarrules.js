@@ -7,7 +7,18 @@ export const ART_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml
 
 // Each panel setting's default. A value equal to it is dropped from the stored settings, as the panel page
 // reads a missing key as the default (panelmodel.js createState and panellook.js lookOf).
-const DEFAULTS = { titleBar: true, fontSize: 100, backdrop: '', wake: false, haptics: false, mode: 'take', multi: true, guard: 'none', resultText: false, kiosk: false };
+const DEFAULTS = {
+  titleBar: true,
+  fontSize: 100,
+  backdrop: '',
+  wake: false,
+  haptics: false,
+  mode: 'take',
+  multi: true,
+  guard: 'none',
+  resultText: false,
+  kiosk: false,
+};
 
 export function setSetting(settings, key, value) {
   const out = { ...settings };
@@ -38,9 +49,46 @@ export function levelsPatch(all, chosen) {
 }
 
 export const ART_ICONS = [
-  'video', 'tv', 'monitor', 'camera', 'clapperboard', 'film', 'projector', 'cast', 'mic', 'headphones', 'volume-2', 'speaker', 'radio', 'music',
-  'play', 'pause', 'square', 'circle', 'star', 'bookmark', 'flag', 'bell', 'zap', 'power', 'eye', 'lock', 'shield-check', 'triangle-alert',
-  'wifi', 'cable', 'globe', 'layers-3', 'layout-grid', 'users', 'user', 'house', 'sun', 'moon', 'clock', 'image',
+  'video',
+  'tv',
+  'monitor',
+  'camera',
+  'clapperboard',
+  'film',
+  'projector',
+  'cast',
+  'mic',
+  'headphones',
+  'volume-2',
+  'speaker',
+  'radio',
+  'music',
+  'play',
+  'pause',
+  'square',
+  'circle',
+  'star',
+  'bookmark',
+  'flag',
+  'bell',
+  'zap',
+  'power',
+  'eye',
+  'lock',
+  'shield-check',
+  'triangle-alert',
+  'wifi',
+  'cable',
+  'globe',
+  'layers-3',
+  'layout-grid',
+  'users',
+  'user',
+  'house',
+  'sun',
+  'moon',
+  'clock',
+  'image',
 ];
 
 export const MODE_HINT = {
@@ -53,7 +101,12 @@ const count = (list, one, many) => (!Array.isArray(list) ? `all ${many}` : list.
 // Sources and Destinations start the sentence, so their first letter stays upper case.
 export function rightsLine(rights) {
   const r = rights || {};
-  const parts = [count(r.sources, 'Source', 'Sources'), count(r.dsts, 'Destination', 'Destinations'), count(r.levels, 'level', 'levels'), count(r.presets, 'Preset', 'Presets')];
+  const parts = [
+    count(r.sources, 'Source', 'Sources'),
+    count(r.dsts, 'Destination', 'Destinations'),
+    count(r.levels, 'level', 'levels'),
+    count(r.presets, 'Preset', 'Presets'),
+  ];
   const head = parts.join(', ').replace(/^all /, 'All ').replace(/^no /, 'No ');
   const vis = r.visibility === 'hidden' ? 'hidden' : 'read-only';
   return rights && Object.keys(r).length ? `${head}, ${vis} visibility.` : 'All Sources, Destinations, levels and Presets, read-only visibility.';

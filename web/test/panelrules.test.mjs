@@ -1,7 +1,7 @@
 // What the panel page reads from the URL and the API (panelrules.js), and the text it shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { panelIdFrom, keyFromHash, kioskOf, openFailText,envFrom, namesFrom, cellsIn, errorText } from '../panelrules.js';
+import { panelIdFrom, keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from '../panelrules.js';
 import { createState, currentOfDestination } from '../panelmodel.js';
 
 test('the panel id is the last path segment of /panels/<id>, and the editor and list are not panels', () => {
@@ -23,8 +23,22 @@ test('a key in the URL fragment means the panel acts as its API client, no fragm
 
 test('the tally and Protected answers become the model env, with only the router levels', () => {
   const e = envFrom(
-    { levels: [{ level: 1, label: 'V' }, { level: 2, label: 'A' }], routes: [{ dst: 0, level: 1, src: 5 }, { dst: 0, level: 2, src: -1 }] },
-    { protected: [{ dst: 3, level: 1 }, { dst: 3, level: 2 }] },
+    {
+      levels: [
+        { level: 1, label: 'V' },
+        { level: 2, label: 'A' },
+      ],
+      routes: [
+        { dst: 0, level: 1, src: 5 },
+        { dst: 0, level: 2, src: -1 },
+      ],
+    },
+    {
+      protected: [
+        { dst: 3, level: 1 },
+        { dst: 3, level: 2 },
+      ],
+    },
   );
   assert.deepEqual(e.levels, [1, 2]);
   assert.equal(e.tally.get(0).get(1), 5);
@@ -76,12 +90,24 @@ test('error text names the Source and Destination the way the cells do', () => {
   assert.equal(errorText({ code: 'no-destination' }, n), 'Pick a destination first');
   assert.equal(errorText({ code: 'protected', dst: 0 }, n), 'MON A is protected');
   assert.equal(errorText({ code: 'no-common-levels', src: 4, dst: 0 }, n), 'CAM 5 and MON A have no level in common');
-  assert.equal(errorText({ code: 'refused', reason: 'outside_rights', message: 'destination 1 is outside the rights' }, n), 'destination 1 is outside the rights');
+  assert.equal(
+    errorText({ code: 'refused', reason: 'outside_rights', message: 'destination 1 is outside the rights' }, n),
+    'destination 1 is outside the rights',
+  );
   assert.equal(errorText(null, n), '');
 });
 
 test('a destination cell reads its own current source on the levels it and the panel share', () => {
-  const e = envFrom({ levels: [{ level: 1 }, { level: 2 }], routes: [{ dst: 1, level: 1, src: 6 }, { dst: 1, level: 2, src: 7 }] }, { protected: [] });
+  const e = envFrom(
+    {
+      levels: [{ level: 1 }, { level: 2 }],
+      routes: [
+        { dst: 1, level: 1, src: 6 },
+        { dst: 1, level: 2, src: 7 },
+      ],
+    },
+    { protected: [] },
+  );
   assert.equal(currentOfDestination(createState(), e, { kind: 'destination', n: 1 }), -1);
   assert.equal(currentOfDestination(createState(), e, { kind: 'destination', n: 1, levels: [1] }), 6);
   assert.equal(currentOfDestination(createState({ levels: [2] }), e, { kind: 'destination', n: 1 }), 7);

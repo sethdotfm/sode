@@ -8,7 +8,8 @@ import { envFrom, namesFrom, errorText } from '../panelrules.js';
 const env = (over = {}) => ({ levels: [1, 2], tally: new Map(), protectedDsts: new Set(), ...over });
 const T0 = 1000;
 const rights = (r) => env({ rights: r });
-const press = (e, d, s, settings) => pressSource(pressDestination(createState(settings), { kind: 'destination', n: d }, e, T0), { kind: 'source', n: s }, e, T0);
+const press = (e, d, s, settings) =>
+  pressSource(pressDestination(createState(settings), { kind: 'destination', n: d }, e, T0), { kind: 'source', n: s }, e, T0);
 
 test('a Destination outside the Rights refuses the Source press and never arms', () => {
   const e = rights({ dsts: [1] });

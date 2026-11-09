@@ -29,7 +29,13 @@ export function createCellTab(ed, levelList) {
   caption.autocomplete = 'off';
   const captionField = field('ed-cell-caption', 'Caption', caption, 'Replaces the Router name on this cell.');
   const levelBox = el('div', 'sode-side__checks');
-  const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Levels'), levelBox, el('span', 'sode__hint', 'None ticked means every level the panel allows.'));
+  const levelField = el(
+    'div',
+    'sode__field',
+    el('span', 'sode__field-label', 'Levels'),
+    levelBox,
+    el('span', 'sode__hint', 'None ticked means every level the panel allows.'),
+  );
   const size = el('input', 'pb-input sode-ed__num');
   size.id = 'ed-cell-size';
   size.type = 'number';
@@ -89,7 +95,12 @@ export function createCellTab(ed, levelList) {
       hint.hidden = !!c;
       form.hidden = !c;
       if (!c) {
-        hint.textContent = n > 1 ? 'Several cells are selected. Select one to change its settings.' : n === 1 ? 'Select the whole cell to change its settings.' : 'Select a square to change its settings. An empty square gets its type from the menu beside it.';
+        hint.textContent =
+          n > 1
+            ? 'Several cells are selected. Select one to change its settings.'
+            : n === 1
+              ? 'Select the whole cell to change its settings.'
+              : 'Select a square to change its settings. An empty square gets its type from the menu beside it.';
         return;
       }
       const key = `${c.r},${c.c}`;

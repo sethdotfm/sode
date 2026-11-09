@@ -46,7 +46,16 @@ export function createArtControl({ ed, icons = false, set }) {
     grid.append(b);
   }
   const bar = el('div', 'sode-side__row', up, ...(icons ? [choose] : []), clear);
-  const node = el('div', 'sode__field', el('span', 'sode__field-label', icons ? 'Artwork' : 'Backdrop image'), preview, bar, ...(icons ? [grid] : []), note, file);
+  const node = el(
+    'div',
+    'sode__field',
+    el('span', 'sode__field-label', icons ? 'Artwork' : 'Backdrop image'),
+    preview,
+    bar,
+    ...(icons ? [grid] : []),
+    note,
+    file,
+  );
 
   file.addEventListener('change', async () => {
     const f = file.files[0];

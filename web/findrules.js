@@ -22,7 +22,10 @@ export function findEntries(namesReply, presetsReply, rights) {
   };
   const numbered = (category, list) => {
     for (const x of [...(list || [])].sort((a, b) => a.n - b.n)) {
-      add({ category, key: `${category}:${x.n}`, label: x.name || `${category === 'source' ? 'Source' : 'Destination'} ${x.n + off}`, n: x.n, num: x.n + off }, x.n);
+      add(
+        { category, key: `${category}:${x.n}`, label: x.name || `${category === 'source' ? 'Source' : 'Destination'} ${x.n + off}`, n: x.n, num: x.n + off },
+        x.n,
+      );
     }
   };
   numbered('source', namesReply?.sources);
@@ -72,7 +75,7 @@ export function afterFill(g) {
   return g;
 }
 
-const subsequence =(text, word) => {
+const subsequence = (text, word) => {
   let i = 0;
   for (const ch of text) if (ch === word[i] && ++i === word.length) return true;
   return false;

@@ -51,8 +51,28 @@ test('wake lock and haptics report support from the browser object', () => {
 
 test('the wake lock is held while the page is visible and asked for again after it hides', async () => {
   const calls = [];
-  const nav = { wakeLock: { request: async () => ({ released: false, release: async function () { this.released = true; calls.push('release'); }, addEventListener() {} }) } };
-  const doc = { visibilityState: 'visible', listeners: {}, addEventListener(t, f) { this.listeners[t] = f; }, removeEventListener(t) { delete this.listeners[t]; } };
+  const nav = {
+    wakeLock: {
+      request: async () => ({
+        released: false,
+        release: async function () {
+          this.released = true;
+          calls.push('release');
+        },
+        addEventListener() {},
+      }),
+    },
+  };
+  const doc = {
+    visibilityState: 'visible',
+    listeners: {},
+    addEventListener(t, f) {
+      this.listeners[t] = f;
+    },
+    removeEventListener(t) {
+      delete this.listeners[t];
+    },
+  };
   const wake = createWake(nav, doc);
   await wake.on();
   assert.equal(wake.held(), true);
@@ -67,7 +87,16 @@ test('the wake lock is held while the page is visible and asked for again after 
 });
 
 test('a refused wake lock leaves the page working', async () => {
-  const wake = createWake({ wakeLock: { request: async () => { throw new Error('denied'); } } }, { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} });
+  const wake = createWake(
+    {
+      wakeLock: {
+        request: async () => {
+          throw new Error('denied');
+        },
+      },
+    },
+    { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} },
+  );
   await wake.on();
   assert.equal(wake.held(), false);
 });

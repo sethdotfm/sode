@@ -3,7 +3,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { actionsFor, shareDraft, pickList, toggleUser, shareBody, shareChanged } from '../panelsrules.js';
 
-const P = (extra = {}) => ({ id: 'p-1', name: 'Wall', owner: 'Ana', acts: 'session', share: { mode: 'me' }, rows: 4, cols: 8, cells: [], canEdit: true, ...extra });
+const P = (extra = {}) => ({
+  id: 'p-1',
+  name: 'Wall',
+  owner: 'Ana',
+  acts: 'session',
+  share: { mode: 'me' },
+  rows: 4,
+  cols: 8,
+  cells: [],
+  canEdit: true,
+  ...extra,
+});
 
 test('only a panel the caller may change offers Share', () => {
   assert.deepEqual(actionsFor(P()), ['launch', 'edit', 'share', 'push', 'delete']);
@@ -21,8 +32,15 @@ test('the draft starts from the stored share and never aliases it', () => {
 
 test('the picker lists everyone but the owner, ticks the named, and keeps a named user who has left the list', () => {
   const people = [{ name: 'Ana' }, { name: 'Bo' }, { name: 'Cy' }];
-  assert.deepEqual(pickList(people, 'ana', ['cy']), [{ name: 'Bo', on: false }, { name: 'Cy', on: true }]);
-  assert.deepEqual(pickList(people, 'Ana', ['Dee']), [{ name: 'Bo', on: false }, { name: 'Cy', on: false }, { name: 'Dee', on: true }]);
+  assert.deepEqual(pickList(people, 'ana', ['cy']), [
+    { name: 'Bo', on: false },
+    { name: 'Cy', on: true },
+  ]);
+  assert.deepEqual(pickList(people, 'Ana', ['Dee']), [
+    { name: 'Bo', on: false },
+    { name: 'Cy', on: false },
+    { name: 'Dee', on: true },
+  ]);
 });
 
 test('ticking adds a name once and unticking drops it, ignoring case', () => {

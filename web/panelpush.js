@@ -5,7 +5,20 @@ import { el, icon, on } from './core.js';
 import { check, opt } from './formbits.js';
 import { trapDialog } from './dialogkeys.js';
 import { makeTabs } from './tabs.js';
-import { pushCandidates, pushGroups, groupState, setGroup, pushBody, setBody, setTargets, pushSummary, checkpointLabel, setLabel, canSaveSet, ownerNote } from './panelpushrules.js';
+import {
+  pushCandidates,
+  pushGroups,
+  groupState,
+  setGroup,
+  pushBody,
+  setBody,
+  setTargets,
+  pushSummary,
+  checkpointLabel,
+  setLabel,
+  canSaveSet,
+  ownerNote,
+} from './panelpushrules.js';
 
 // The Lock covers the page, so an open modal must not stay in front of it.
 let closeOpen = null;
@@ -41,14 +54,27 @@ export function openPush(panel, ctx) {
   // Push tab
   const targets = el('div', 'sode-ov__people');
   const pushBtn = button('Push', 'send', 'pb-btn--ok');
-  const pushTab = el('div', null, el('p', 'sode__hint', `Copies the saved layout of ${panel.name} to the panels you tick. Each keeps its own name, id and sharing, and a checkpoint of it is kept first. Open panels update like a saved edit.`), targets, el('div', 'sode-ov__acts', pushBtn));
+  const pushTab = el(
+    'div',
+    null,
+    el(
+      'p',
+      'sode__hint',
+      `Copies the saved layout of ${panel.name} to the panels you tick. Each keeps its own name, id and sharing, and a checkpoint of it is kept first. Open panels update like a saved edit.`,
+    ),
+    targets,
+    el('div', 'sode-ov__acts', pushBtn),
+  );
 
   function paintTargets() {
     targets.replaceChildren();
     if (!cand.length) return targets.append(el('p', 'sode__hint', 'You have no other panels to push to.'));
     const { groups, single } = pushGroups(cand);
     const row = (p) => {
-      const c = check(p.name + ownerNote(p, ctx.me), { checked: selected.has(p.id), onChange: (v) => (v ? selected.add(p.id) : selected.delete(p.id), sync()) });
+      const c = check(p.name + ownerNote(p, ctx.me), {
+        checked: selected.has(p.id),
+        onChange: (v) => (v ? selected.add(p.id) : selected.delete(p.id), sync()),
+      });
       c.input.dataset.panel = p.id;
       return c.label;
     };
@@ -90,7 +116,11 @@ export function openPush(panel, ctx) {
   const setsTab = el(
     'div',
     null,
-    el('p', 'sode__hint', 'A checkpoint set keeps one saved layout per panel, so one Push gives each panel its own. Tick panels on the Push tab to pick some, or leave them unticked to push all of a set.'),
+    el(
+      'p',
+      'sode__hint',
+      'A checkpoint set keeps one saved layout per panel, so one Push gives each panel its own. Tick panels on the Push tab to pick some, or leave them unticked to push all of a set.',
+    ),
     el('div', 'sode-ov__acts', el('span', 'pb-select-wrap', setSel), setPush, setDel),
     setHint,
     el('h2', 'sode-ov__sub', 'Save the saved layouts of the ticked panels'),
@@ -103,7 +133,11 @@ export function openPush(panel, ctx) {
     if (sets?.some((s) => s.id === setId)) setSel.value = setId;
     else setId = setSel.value;
     const s = sets?.find((x) => x.id === setId);
-    setHint.textContent = s ? `Pushes to ${setTargets(s, selected).map((id) => everyone.find((p) => p.id === id)?.name || s.entries.find((e) => e.panel === id)?.name || id).join(', ')}.` : '';
+    setHint.textContent = s
+      ? `Pushes to ${setTargets(s, selected)
+          .map((id) => everyone.find((p) => p.id === id)?.name || s.entries.find((e) => e.panel === id)?.name || id)
+          .join(', ')}.`
+      : '';
     sync();
   }
 
@@ -112,7 +146,13 @@ export function openPush(panel, ctx) {
   restoreSel.setAttribute('aria-label', 'Panel to restore');
   restoreSel.append(...everyone.map((p) => opt(p.id, p.name + ownerNote(p, ctx.me))));
   const cpList = el('div', 'sode-ov__people');
-  const restoreTab = el('div', null, el('p', 'sode__hint', 'Each Push and restore keeps what it replaced, up to 10 per panel. Restoring puts a layout back and keeps the one it replaces.'), el('div', 'sode-ov__acts', el('span', 'pb-select-wrap', restoreSel)), cpList);
+  const restoreTab = el(
+    'div',
+    null,
+    el('p', 'sode__hint', 'Each Push and restore keeps what it replaced, up to 10 per panel. Restoring puts a layout back and keeps the one it replaces.'),
+    el('div', 'sode-ov__acts', el('span', 'pb-select-wrap', restoreSel)),
+    cpList,
+  );
 
   function paintCps() {
     cpList.replaceChildren();

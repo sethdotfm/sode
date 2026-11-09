@@ -76,7 +76,10 @@ test('restaging another source for the same destination replaces it', () => {
   const e = env();
   let st = pressDestination(createState(), D(0), e, T0);
   st = pressSource(pressSource(st, S(4), e, T0), S(3), e, T0);
-  assert.deepEqual(st.staged.map((x) => x.src), [3]);
+  assert.deepEqual(
+    st.staged.map((x) => x.src),
+    [3],
+  );
 });
 
 test('pressing the source a destination already has stages nothing and drops an earlier stage', () => {
@@ -106,7 +109,10 @@ test('pressing a staged destination again unstages only that one', () => {
   st = pressDestination(st, D(1), e, T0);
   st = pressSource(st, S(3), e, T0);
   st = pressDestination(st, D(1), e, T0);
-  assert.deepEqual(st.staged.map((x) => x.dst), [0]);
+  assert.deepEqual(
+    st.staged.map((x) => x.dst),
+    [0],
+  );
   assert.equal(st.view.dst, 1);
 });
 
@@ -125,7 +131,10 @@ test('unstage drops one destination and leaves the rest', () => {
   st = pressDestination(pressSource(st, S(4), e, T0), D(1), e, T0);
   st = pressSource(st, S(3), e, T0);
   st = unstage(st, 0);
-  assert.deepEqual(st.staged.map((x) => x.dst), [1]);
+  assert.deepEqual(
+    st.staged.map((x) => x.dst),
+    [1],
+  );
 });
 
 test('clear drops the plan, the view and any error', () => {
@@ -263,7 +272,10 @@ test('a failed route stays staged so Take can be pressed again', () => {
     },
     T0,
   );
-  assert.deepEqual(done.staged.map((x) => x.dst), [1]);
+  assert.deepEqual(
+    done.staged.map((x) => x.dst),
+    [1],
+  );
   assert.equal(resultOf(done, 1, T0), 'failed');
   assert.equal(armed(done, e), true);
 });

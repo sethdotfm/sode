@@ -24,7 +24,15 @@ test('a save sends the layout and, by default, neither settings nor contents', (
 });
 
 test('settings and contents go only when asked for', () => {
-  const b = saveTemplateBody({ name: 'Show', scope: 'everyone', grid: grid(), settings: { mode: 'instant' }, withSettings: true, withContents: true, pin: '1234' });
+  const b = saveTemplateBody({
+    name: 'Show',
+    scope: 'everyone',
+    grid: grid(),
+    settings: { mode: 'instant' },
+    withSettings: true,
+    withContents: true,
+    pin: '1234',
+  });
   assert.deepEqual(b.settings, { mode: 'instant' });
   assert.equal(b.contents, true);
   assert.equal(b.pin, '1234');
@@ -56,8 +64,14 @@ test('the list groups Me and Everyone, by name', () => {
     { id: 't-2', name: 'Z', scope: 'me' },
     { id: 't-3', name: 'a', scope: 'me' },
   ]);
-  assert.deepEqual(me.map((t) => t.id), ['t-3', 't-2']);
-  assert.deepEqual(everyone.map((t) => t.id), ['t-1']);
+  assert.deepEqual(
+    me.map((t) => t.id),
+    ['t-3', 't-2'],
+  );
+  assert.deepEqual(
+    everyone.map((t) => t.id),
+    ['t-1'],
+  );
 });
 
 test('the note says what a template carries', () => {

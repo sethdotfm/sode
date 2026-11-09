@@ -116,7 +116,13 @@ export async function runPanel(id) {
   let cells = cellsIn(panel);
   const stateOf = (p) => {
     const set = p.settings || {};
-    return createState({ mode: set.mode, multi: set.multi, guard: set.guard, resultText: set.resultText, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
+    return createState({
+      mode: set.mode,
+      multi: set.multi,
+      guard: set.guard,
+      resultText: set.resultText,
+      levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null,
+    });
   };
   let st = stateOf(panel);
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
@@ -140,7 +146,12 @@ export async function runPanel(id) {
     try {
       const wantNames = Date.now() - namesAt > NAMES_MS;
       // A key without the presets scope gets 403: its Preset cells then show as unavailable.
-      const [tally, prot, nm, pr] = await Promise.all([get('api/v1/tally'), get('api/v1/protected'), wantNames ? get('api/v1/names') : null, wantNames ? get('api/v1/presets').catch(() => ({})) : null]);
+      const [tally, prot, nm, pr] = await Promise.all([
+        get('api/v1/tally'),
+        get('api/v1/protected'),
+        wantNames ? get('api/v1/names') : null,
+        wantNames ? get('api/v1/presets').catch(() => ({})) : null,
+      ]);
       if (nm) {
         names = namesFrom(nm);
         presets = pr;
@@ -174,7 +185,9 @@ export async function runPanel(id) {
         body: JSON.stringify({ routes: started.routes }),
       });
       const body = await res.json().catch(() => ({}));
-      st = res.ok ? finishTake(st, body, Date.now()) : failTake(st, body.error?.code || String(res.status), body.error?.message || 'The take was refused', Date.now());
+      st = res.ok
+        ? finishTake(st, body, Date.now())
+        : failTake(st, body.error?.code || String(res.status), body.error?.message || 'The take was refused', Date.now());
     } catch {
       st = failTake(st, 'network', 'Sode did not answer, so the take may not have been sent', Date.now());
     }

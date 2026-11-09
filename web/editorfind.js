@@ -73,7 +73,11 @@ export function initFind(editor) {
   async function load(force = false) {
     if (data.loading || (!force && Date.now() - data.at < STALE_MS)) return;
     data.loading = true;
-    const get = (path) => sessionFetch(path).then((r) => (r.ok ? r.json() : null), () => null);
+    const get = (path) =>
+      sessionFetch(path).then(
+        (r) => (r.ok ? r.json() : null),
+        () => null,
+      );
     const [names, presets] = await Promise.all([get('api/v1/names'), get('api/v1/presets')]);
     data = { names, presets, at: Date.now(), loading: false };
     rebuild();
@@ -149,7 +153,13 @@ export function initFind(editor) {
     );
     list.replaceChildren(
       ...results.slice(0, SHOWN).map((e, i) => {
-        const li = el('li', `sode-find__row${e.off ? ' sode__menu-off' : ''}`, icon(CATEGORY_ICON[e.category]), el('span', 'sode__num', e.num === undefined ? '' : String(e.num)), el('span', 'sode-find__name', e.label));
+        const li = el(
+          'li',
+          `sode-find__row${e.off ? ' sode__menu-off' : ''}`,
+          icon(CATEGORY_ICON[e.category]),
+          el('span', 'sode__num', e.num === undefined ? '' : String(e.num)),
+          el('span', 'sode-find__name', e.label),
+        );
         if (e.off) li.append(el('span', 'sode__menu-tag', 'Outside rights'));
         li.dataset.i = String(i);
         li.setAttribute('role', 'option');
@@ -177,7 +187,11 @@ export function initFind(editor) {
     quiet = false;
     if (extend && anchor < 0) anchor = hi;
     hi = (hi + step + results.length) % results.length;
-    if (extend) picked = results.slice(Math.min(anchor, hi), Math.max(anchor, hi) + 1).filter(usable).map((e) => e.key);
+    if (extend)
+      picked = results
+        .slice(Math.min(anchor, hi), Math.max(anchor, hi) + 1)
+        .filter(usable)
+        .map((e) => e.key);
     else clearPicks();
     draw();
   }
@@ -217,7 +231,10 @@ export function initFind(editor) {
       quiet = false;
       if (anchor < 0) anchor = hi;
       hi = i;
-      picked = results.slice(Math.min(anchor, i), Math.max(anchor, i) + 1).filter(usable).map((x) => x.key);
+      picked = results
+        .slice(Math.min(anchor, i), Math.max(anchor, i) + 1)
+        .filter(usable)
+        .map((x) => x.key);
       draw();
     } else choose(i);
   });

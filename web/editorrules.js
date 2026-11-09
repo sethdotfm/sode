@@ -31,7 +31,8 @@ export function saveBody(loaded, name, grid, fields = {}) {
 // Compared through the grid, so a cell the model clips on load does not read as an edit. Keys are sorted because the
 // server stores cells with their keys in another order.
 const sorted = (c) => Object.fromEntries(Object.entries(c).sort(([a], [b]) => (a < b ? -1 : 1)));
-const shape = (name, g, f) => JSON.stringify([name.trim(), g.rows, g.cols, saved(g).cells.map(sorted), sorted(f.settings || {}), f.acts || 'session', f.clientRights ?? null]);
+const shape = (name, g, f) =>
+  JSON.stringify([name.trim(), g.rows, g.cols, saved(g).cells.map(sorted), sorted(f.settings || {}), f.acts || 'session', f.clientRights ?? null]);
 
 // A field not edited counts as what was loaded. clientRights has no loaded side here: any edit is a change.
 export function isDirty(loaded, name, grid, fields = {}) {

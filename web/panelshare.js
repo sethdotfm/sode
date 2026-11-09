@@ -127,7 +127,11 @@ export function openShare(panel, ctx) {
     sync();
     note.textContent = '';
     try {
-      const saved = await ctx.api(`api/v1/panels/${panel.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(shareBody(panel, draft)) });
+      const saved = await ctx.api(`api/v1/panels/${panel.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(shareBody(panel, draft)),
+      });
       close();
       ctx.onSaved(saved);
     } catch (e) {
