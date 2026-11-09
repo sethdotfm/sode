@@ -5,6 +5,7 @@ import './brand.js';
 import './lock.js';
 import { runPanel } from './panelrun.js';
 import { panelIdFrom } from './panelrules.js';
+import { runEditor } from './paneleditor.js';
 
 // 4x8 maps one to one onto a hardware key deck (docs/panels-design.md).
 export const DEFAULT_GRID = { panelRows: 4, panelCols: 8 };
@@ -18,6 +19,7 @@ on('brand', ({ text }) => {
 });
 
 if (id) runPanel(id);
+else if (document.getElementById('ed-grid')) runEditor();
 else $('panels-note').textContent = `Panels are not built yet. The default grid will be ${DEFAULT_GRID.panelRows} by ${DEFAULT_GRID.panelCols}.`;
 
 connect();
