@@ -63,7 +63,18 @@ Proposed, not prototyped.
 - Each open panel page is an instance with a device name given the first time it opens. It sends a keepalive every 15 seconds. Sode keeps the last seen time and state for each instance, and a panel is online while at least one instance is.
 - A user can watch panels. A user can watch the panels they own, and a Trusted user can watch any panel. The watch list is a set of checkboxes in the editor and in the My panels page.
 - When a watched panel loses its last instance, or its keepalive is missed for more than 45 seconds, every watcher is notified: a toast and a badge in Sode, and a browser notification if the user allowed them. A second notice goes out when it comes back. The notice names the panel, the device and how long it was missing.
-- Open questions: whether a panel can say how many instances it expects, so a drop below that count alerts, and whether watching also covers a panel's API client key being used from somewhere new.
+- Open questions, decided below: no expected instance count, and no alert for a key used from somewhere new.
+
+## Monitoring (as built)
+
+- Modules: `panelmon.go` (devices, watches, sweep, notices), `panelkeepalive.js` (device name form and the 15 s keepalive), `panelwatch.js` and `panelwatchrules.js` (toast, badge, browser notification, text), `panelsmon.js` (online mark, Open now list and Watch checkbox on the panels page), `panelmon.css`. Routes and fields are in docs/api.md.
+- An instance is a device name, ignoring case, so a reload or a rebooted kiosk with the same name is the same instance and raises nothing. The name is asked once per browser (`sode-panel-device`). There is no leave message: a closed page is noticed after the 45 s miss. A panel is online while any device was heard within 45 s. Devices live in memory only, so a restart of Sode alerts nothing. A lost device is dropped after 24 hours.
+- A sweep runs from `periodic` and tells each watcher once when a device passes 45 s, and once when it returns, naming panel, device and seconds, with `offline` true when no device is left. Each change is one `panelLost` or `panelBack` row in the Communication Log.
+- Watchers: the owner or a Trusted user, checked again when a notice goes out. The list is `panelwatch.yaml` beside the config, never in a panel file, and the API only sends the caller's own `watching`. Notices go to connections signed in as the watcher and not under the Lock. `panelsOffline` rebuilds the badge after a reload or sign-in; a notice sent while nobody was signed in is not kept.
+- Deleting a panel forgets its devices and watches. Making, rotating or revoking its key forgets its devices, so an ended kiosk does not alert.
+- A panel client's keys share one rate limit that scales with its live devices, since each page polls every 2 s. Its streams are capped at 64 per key and not counted per address.
+- Decided: no expected-instance count, and no alert for a key used from a new place.
+- Not built here: the Watch checkbox in the editor (the editor page has no script yet; mount `watchBox` from `panelsmon.js`), Push (P17) and live update (P15).
 
 ## Panel page (as built)
 
@@ -83,6 +94,13 @@ Proposed, not prototyped.
 - Colours: an idle Source is `--pb-current-idle`, an idle Destination `--pb-view-idle`, both the state colour muted into `--pb-surface-control`. Viewed and Current are solid. Staged, pending and an armed Take swell between 72% and 100% of the state colour on `--pulse`, and each also has a static inset ring, so reduced motion (which freezes `--pulse` at 0.6) still shows state.
 - Artwork: the route needs the Authorization header, so the page fetches it with the panel's key and shows a blob URL in an `<img>`. The backdrop is a CSS background from the same blob URL. SVG is never inlined. The CSP allows `blob:` for `img-src` only. A fetch that fails leaves the cell without artwork. An icon name missing from the vendored sprite draws nothing.
 - Keep the screen awake: Screen Wake Lock, requested when the page opens and again whenever it becomes visible, since a browser drops the lock when the page hides. A refusal is ignored. Haptics: one 15 ms `navigator.vibrate` on each press the page accepts. Browsers without the API (iOS has no vibrate) do nothing. `featureSupport(navigator)` in `panelfeel.js` says what the browser has, for the editor to hide or disable the two switches. Result of the spec's proposal: built as described, with no extra settings.
+
+## Push as built (P17)
+
+- Server: `panelpush.go` (layout, checkpoints, set store) and `apipush.go` (routes). A layout is `rows`, `cols`, `cells`, `settings` and unknown fields; id, name, owner, `share`, `acts`, the API client and its Rights are never copied, and missing artwork is. `panelStore.applyLocked` writes the checkpoint before the panel, so a checkpoint that cannot be saved stops the Push, and the panel write moves `Rev` for open panels (P15).
+- Reach: the pusher must be able to change the source and every target (`panelReach`); one refused target changes nothing. Checkpoints sit in `panels/<id>.checkpoints`, at most 10 per panel, and a restore keeps what it replaces. Sets are in `panelsets/` (`everyone.yaml`, `me-<hex of user>.yaml`); an Everyone set needs a Trusted user to save and to change someone else's.
+- A group is the panels whose names differ only by a trailing number (EVS 1 to EVS 4 are "EVS"), worked out by the page (`pushGroups` in `panelpushrules.js`); the server only knows ids. `pushTargets` is the tested selection rule.
+- Web: `panelpush.js` is the modal (Push, Checkpoint sets and Restore tabs), opened by Push to panels in the panels page's detail bar. The editor has no Push control yet.
 
 ## Build notes
 

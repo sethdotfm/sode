@@ -6,7 +6,7 @@ import { actionsFor, shareDraft, pickList, toggleUser, shareBody, shareChanged }
 const P = (extra = {}) => ({ id: 'p-1', name: 'Wall', owner: 'Ana', acts: 'session', share: { mode: 'me' }, rows: 4, cols: 8, cells: [], canEdit: true, ...extra });
 
 test('only a panel the caller may change offers Share', () => {
-  assert.deepEqual(actionsFor(P()), ['launch', 'edit', 'share', 'delete']);
+  assert.deepEqual(actionsFor(P()), ['launch', 'edit', 'share', 'push', 'delete']);
   assert.deepEqual(actionsFor(P({ canEdit: false })), ['launch', 'copy']);
 });
 

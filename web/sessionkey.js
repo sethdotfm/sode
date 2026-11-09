@@ -11,11 +11,16 @@ let started = false;
 let prompted = false; // the PIN pad is raised once per sign-out; a cancel is not re-asked
 let asking = false; // each request replaces the earlier key, so a second one would strand the answer to the first
 let seq = 0;
+let keyName = '';
 let waiting = [];
 const watchers = [];
 
 export const sessionKey = () => key;
 export const onSessionKey = (fn) => watchers.push(fn);
+// Names the key this page asks for, before startSession.
+export const nameSessionKey = (name) => {
+  keyName = name;
+};
 
 function setKey(k) {
   if (k === key) return;
@@ -35,7 +40,7 @@ function drive() {
     emit('login');
   } else if (step === 'request' && !asking) {
     asking = true;
-    wsSend(sessionKeyReq(++seq));
+    wsSend(sessionKeyReq(++seq, keyName));
   }
   return step;
 }
@@ -79,7 +84,7 @@ export async function sessionFetch(path, init = {}) {
   const old = key;
   setKey('');
   asking = true;
-  wsSend(sessionKeyReq(++seq));
+  wsSend(sessionKeyReq(++seq, keyName));
   const fresh = await Promise.race([keyReady(), new Promise((r) => setTimeout(r, RENEW_MS, ''))]);
   if (!fresh || fresh === old) return res;
   return fetch(path, withKey(init, fresh));

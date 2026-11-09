@@ -87,6 +87,7 @@ func (a *App) makeSetup(w http.ResponseWriter, cl *apiCtx, p Panel, owner keyOwn
 	token, exp := a.keys.createSetup(owner, time.Now())
 	a.cfgMu.Unlock()
 	a.endStreams(gone, "key rotated")
+	a.mon.forget(p.ID, false) // the key that ended carried the open instances
 	a.apiEvent(cl.Actor, "panelSetupLink", "ok", "panel "+p.ID+" "+p.Name, nil)
 	apiCreated(w, map[string]any{
 		"setup":   token,

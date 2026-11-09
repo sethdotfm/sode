@@ -90,7 +90,7 @@ type Panel struct {
 
 // panelKnown are the JSON names the struct owns. canEdit, hasKey and clientNetworks are output only and never stored,
 // so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks"}
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances"}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
@@ -181,12 +181,14 @@ type panelStore struct {
 	by    map[string]Panel
 	art   map[string][]byte // memory only: "<id>/<artID>"
 	probs []string
+	cps   map[string][]panelCheckpoint // checkpoints read so far, see panelpush.go
+	sets  *panelSetStore
 }
 
 // loadPanels runs once from New. A missing folder is empty. A file that does not parse, or
 // whose id differs from its name, is logged, kept in problems and skipped.
 func loadPanels(cfgPath string) *panelStore {
-	s := &panelStore{by: map[string]Panel{}, art: map[string][]byte{}}
+	s := &panelStore{by: map[string]Panel{}, art: map[string][]byte{}, sets: loadPanelSets(cfgPath)}
 	if cfgPath == "" {
 		return s
 	}
@@ -375,6 +377,7 @@ func (s *panelStore) delete(id string) (bool, error) {
 		delete(s.art, id+"/"+a.ID)
 	}
 	delete(s.by, id)
+	s.dropCheckpoints(id)
 	return true, nil
 }
 
