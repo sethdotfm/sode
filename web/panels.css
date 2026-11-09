@@ -141,7 +141,49 @@
 }
 .sode-panel__take--armed {
   background-color: color-mix(in oklab, var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-surface-control));
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
   color: var(--pb-text-strong);
+}
+
+/* Look: font size scales from the panel's --panel-fs and the cell's --cell-fs (both multipliers). Artwork sits
+   dimmed behind the caption so the state colour still reads; it is only ever an <img> or a CSS background. */
+.sode-panel__grid {
+  font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
+}
+.sode-panel__cell {
+  font-size: calc(var(--pb-text-md) * var(--panel-fs, 1) * var(--cell-fs, 1));
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+.sode-panel__cell small,
+.sode-panel__staged {
+  font-size: calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1));
+}
+.sode-panel__take {
+  font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
+}
+.sode-panel__art {
+  height: 100%;
+  inset: 0;
+  object-fit: contain;
+  opacity: 0.3;
+  padding: var(--pb-space-2);
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  z-index: -1;
+}
+.sode-panel__art--icon {
+  color: var(--pb-text-strong);
+}
+.sode-panels--backdrop {
+  background-position: center;
+  background-size: cover;
+}
+.sode-panels--backdrop .sode-panel__grid {
+  background-color: color-mix(in oklab, var(--pb-surface-base) 40%, transparent);
+  padding: var(--pb-space-3);
 }
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
@@ -244,6 +286,16 @@
 .sode-ov__kv dd {
   margin: 0;
 }
+.sode__scrim > .pb-modal.sode-ov__share {
+  width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode-ov__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: 18rem;
+  overflow-y: auto;
+}
 .sode-ov__thumb {
   background: var(--pb-surface-base);
   border: 1px solid var(--pb-border);
@@ -267,4 +319,94 @@
 }
 .sode-ov__thumb .sode-ov__k-take {
   background: var(--pb-commit);
+}
+
+/* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never colour alone. */
+.sode-ed__bar {
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-3) var(--pb-space-4);
+}
+.sode-ed__field {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: inline-flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-2);
+}
+.sode-ed__num {
+  text-align: center;
+  width: 4.5rem;
+}
+.sode-ed__state {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode-ed__grid {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: grid;
+  gap: var(--pb-space-2);
+  outline-offset: var(--pb-space-1);
+  padding: var(--pb-space-2);
+  touch-action: none;
+  user-select: none;
+  width: 100%;
+}
+.sode-ed__grid[data-readonly="1"] {
+  cursor: default;
+}
+.sode-ed__sq {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-1);
+  justify-content: center;
+  line-height: var(--pb-leading-tight);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--pb-space-2);
+  text-align: center;
+}
+.sode-ed__sq.has-cell {
+  border-color: var(--pb-edge-hard);
+}
+.sode-ed__sq--source {
+  background: var(--pb-current-idle);
+}
+.sode-ed__sq--destination {
+  background: var(--pb-view-idle);
+}
+.sode-ed__sq--take {
+  background: var(--pb-surface-control);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-ed__sq.is-unassigned {
+  border-style: dashed;
+}
+.sode-ed__sq.is-sel {
+  box-shadow: inset 0 0 0 var(--pb-state-border-w) var(--pb-accent);
+}
+.sode-ed__text {
+  overflow-wrap: anywhere;
+}
+
+.sode-ed__menu {
+  position: fixed;
+}
+.sode-ed__menu li:focus-within > .pb-menu__sub {
+  display: block;
+}
+[data-ed-drag] .sode-ed__menu {
+  opacity: 0;
+  pointer-events: none;
+}
+.sode-ed__menu:focus-within {
+  outline: var(--pb-state-border-w) solid var(--pb-accent);
 }

@@ -84,6 +84,8 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - Monitoring: `panelwatch.yaml` beside the config (a map of lowercased user name to panel ids, never part of a panel file). Panel read fields `online`, `watching` and `instances` (`device`, `seen`, `online`) are output only. Routes `POST /panels/{id}/instances` (body `device`) and `POST` and `DELETE /panels/{id}/watch`. Socket messages `panelNotice` (`state` `lost` or `back`, `panel`, `name`, `device`, `secs`, `offline`) and `panelsOffline` (`offline`: `panel`, `name`, `device`, `since`), sent only to an unlocked connection signed in as a watcher and never in the hello. `localStorage` key `sode-panel-device` (the screen's name). `api` row kinds `panelLost` and `panelBack`. The `Actor` field `owner`, set only for a panel's own API client.
 - A panel's key is a key-store entry owned by its client, named `Link`. History shows an action taken with it as "Seth (Panel <id>)", the creating user and the client's name; the verified `actor` is still the client with key `Link`. A Session mode panel asks for its session key named `Panel <id>`, so it reads the same way. The link is `panels/<id>#key=<secret>`; the page also reads `kiosk=1` in the fragment and panel `settings.kiosk` (true hides the header).
 
+- Panel look (stored in `settings` and `cells`): `settings.titleBar`, `settings.fontSize`, `settings.backdrop`, `settings.wake`, `settings.haptics`; cell `art` and `fontSize`. `art` holds `icon:<name>` or an artwork id.
+
 ## Enforcement
 
 `internal/app/vocabulary_test.go` keeps the lists below. Each entry names a real kept name, and `TestAllowlistsMatchSomething` fails on an entry that exempts no line.

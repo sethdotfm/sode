@@ -498,6 +498,35 @@ paths:
         "413": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/people:
+    get:
+      operationId: listPanelPeople
+      tags: [panels]
+      summary: Users a panel may be shared with
+      description: |
+        Scope `panels`. Needs a user's key (403 `user_required` for an API client or Guest). The
+        names of Sode's users, for the Share picker and nothing else: no PINs, flags or Rights.
+        Put the names in a panel's `share.users` with `PUT /panels/{id}`.
+      responses:
+        "200":
+          description: User names, in the order of the Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      required: [name]
+                      properties:
+                        name: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }

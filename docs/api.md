@@ -84,6 +84,7 @@ All paths are under `/api/v1`.
 | `POST /history/{id}/undo`, `/redo`, `/retry` | `take` and `history` | Undo, Redo or Retry one History entry |
 | `GET /stream` | per topic | A WebSocket of live changes, see Stream |
 | `GET /panels`, `GET /panels/{id}` | `panels` | The panels the caller owns or may use, or all of them for a Trusted user. `canEdit` is false for use only |
+| `GET /panels/people` | `panels` | The names of Sode's users, for the Share picker. A user's key only (403 `user_required`). Sharing itself is the `share` field of `PUT /panels/{id}`: `{mode: me\|named\|everyone, users[]}`, names kept only for `named`, and a change reaches a user's next list or launch |
 | `POST /panels` | `panelsmanage` | Create a panel. A user's key only: the user owns it |
 | `PUT /panels/{id}`, `DELETE /panels/{id}` | `panelsmanage` | Change or delete. The owner, or a Trusted user for anyone's |
 | `POST /panels/{id}/copy` | `panelsmanage` and `panels` | Save a copy: a private panel the caller owns, from any panel the caller may use |

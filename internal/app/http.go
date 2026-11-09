@@ -85,7 +85,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 // csp: same-origin scripts only (no inline bodies or on*= handlers; a test keeps it so);
 // 'unsafe-inline' for styles only.
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-	"img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
+	"img-src 'self' data: blob:;connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
 	"base-uri 'self'; frame-ancestors 'none'"
 
 func secureHeaders(next http.Handler) http.Handler {

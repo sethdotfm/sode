@@ -21,6 +21,7 @@ func init() {
 	registerAPI(
 		apiRoute{"GET", apiBase + "/panels", read, (*App).apiPanelList},
 		apiRoute{"POST", apiBase + "/panels", manage, (*App).apiPanelCreate},
+		apiRoute{"GET", apiBase + "/panels/people", read, (*App).apiPanelPeople},
 		apiRoute{"GET", apiBase + "/panels/{id}", read, (*App).apiPanelRead},
 		apiRoute{"PUT", apiBase + "/panels/{id}", manage, (*App).apiPanelUpdate},
 		apiRoute{"DELETE", apiBase + "/panels/{id}", manage, (*App).apiPanelDelete},
@@ -133,6 +134,21 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 		}
 	}
 	apiJSON(w, map[string]any{"panels": out})
+}
+
+// apiPanelPeople is the Share picker's list: names only, never PINs or flags, and only for a
+// user's key so an API client or Guest cannot enumerate people. "people" is not a panel id
+// (validPanelID), so this route hides no panel.
+func (a *App) apiPanelPeople(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+	if cl.Actor.Kind != actorUser {
+		apiFail(w, http.StatusForbidden, "user_required", "the list of people is for a user's key")
+		return
+	}
+	users := []map[string]string{}
+	for _, u := range a.r().cfg.Users {
+		users = append(users, map[string]string{"name": u.Name})
+	}
+	apiJSON(w, map[string]any{"users": users})
 }
 
 func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
