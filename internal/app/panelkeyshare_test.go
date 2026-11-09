@@ -188,9 +188,16 @@ func TestRefusedNetworkDoesNotCountAsUse(t *testing.T) {
 		return n
 	}
 	before := uses()
+	if rec := apiDoFrom(a, apiPeer, "GET", "/api/v1/tally", secret, nil); rec.Code != 200 {
+		t.Fatalf("inside: %d", rec.Code)
+	}
+	inside := uses()
+	if inside != before+1 {
+		t.Fatalf("a request from inside the networks should count once: %d to %d", before, inside)
+	}
 	wantErr(t, apiDoFrom(a, "198.51.100.9:4000", "GET", "/api/v1/tally", secret, nil), 403, "network_not_allowed")
-	if after := uses(); after != before {
-		t.Fatalf("a refused request counted as a use: %d to %d", before, after)
+	if after := uses(); after != inside {
+		t.Fatalf("a refused request counted as a use: %d to %d", inside, after)
 	}
 }
 

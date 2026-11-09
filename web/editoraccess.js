@@ -64,6 +64,8 @@ export function createAccessTab(ed, ctx) {
     try {
       await api(`api/v1/panels/${id}/watch`, { method: on ? 'POST' : 'DELETE' });
       known[id] = on;
+      const cur = ed.panel();
+      if (cur?.id === id) cur.watching = on; // the loaded copy is what watchView reads next
       watchKey = `${id}|${on}`;
       watchNote.textContent = '';
     } catch (e) {

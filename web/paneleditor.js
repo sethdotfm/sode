@@ -220,6 +220,7 @@ export async function runEditor() {
     try {
       panel = await edCall('The panel could not be opened')(`api/v1/panels/${id}`);
     } catch (e) {
+      if (e.status === undefined) throw e;
       say('ed-status', e.status === 404 ? 'No panel here that you can use.' : e.message);
       drawPicker();
       return;

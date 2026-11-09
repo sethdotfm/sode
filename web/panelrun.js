@@ -156,7 +156,7 @@ export async function runPanel(id) {
       ready = true;
       say('panels-note', '');
     } catch (e) {
-      const f = pollFail(e.status, e.code, e.message || undefined, !!key);
+      const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key);
       say('panels-note', f.text);
       if (f.stop) {
         ended = true;
