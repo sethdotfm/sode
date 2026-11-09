@@ -535,6 +535,7 @@
 }
 .sode__scrim > .pb-modal.sode-tpl {
   width: min(34rem, calc(100vw - var(--pb-space-8) * 2));
+}
 .sode-find__orders {
   display: flex;
   gap: var(--pb-space-2);
