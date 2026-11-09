@@ -961,7 +961,7 @@ components:
       type: object
       description: |
         A panel as sent. Unknown fields are kept and returned, so a newer client's data survives.
-        `id`, `owner`, `client`, `art` and `canEdit` are ignored here. `clientRights` is for a
+        `id`, `owner`, `client`, `art`, `rev` and `canEdit` are ignored here. `clientRights` is for a
         panel with `acts: api`.
       required: [name]
       additionalProperties: true
@@ -988,8 +988,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/PanelIn"
         - type: object
-          required: [id, owner, canEdit]
+          required: [id, owner, rev, canEdit]
           properties:
+            rev:
+              type: integer
+              minimum: 1
+              description: |
+                Counts the panel's stored changes (a save, artwork, a Push). A panel page that is open
+                reads the panel every 5 seconds and updates itself when `rev` moves.
             id: { type: string, pattern: "^p-[0-9a-f]{8}$" }
             owner: { type: string, description: The user who owns it }
             client: { type: string, description: The API client of a panel that acts as one }
