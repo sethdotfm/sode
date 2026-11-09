@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"maps"
 	"net/http"
@@ -307,20 +306,15 @@ func (a *App) apiTemplateList(w http.ResponseWriter, _ *http.Request, cl *apiCtx
 func (a *App) templateFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needEdit bool) (Template, bool) {
 	id := r.PathValue("id")
 	t, ok := a.templates.get(id)
-	if !ok || !validTemplateID(id) {
-		apiFail(w, http.StatusNotFound, "not_found", "no template "+id+" that this key may use")
+	read, edit := false, false
+	if ok && validTemplateID(id) {
+		read, edit = a.templateReach(cl, t)
+	}
+	if refuseReach(w, read, edit, needEdit, "no template "+id+" that this key may use",
+		"this template is use only for this key: only its owner or a Trusted user may delete it") {
 		return Template{}, false
 	}
-	read, edit := a.templateReach(cl, t)
-	switch {
-	case !read:
-		apiFail(w, http.StatusNotFound, "not_found", "no template "+id+" that this key may use")
-	case needEdit && !edit:
-		apiFail(w, http.StatusForbidden, "not_owner", "this template is use only for this key: only its owner or a Trusted user may delete it")
-	default:
-		return t, true
-	}
-	return Template{}, false
+	return t, true
 }
 
 func (a *App) apiTemplateRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -355,14 +349,8 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusForbidden, "user_required", "a template is owned by a user: use a user's key to save one")
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, panelBodyMax))
-	if err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "the template is over 256 KiB")
-		} else {
-			apiFail(w, http.StatusBadRequest, "bad_request", "the body could not be read")
-		}
+	body, ok := readBody(w, r, panelBodyMax, "template")
+	if !ok {
 		return
 	}
 	var in templateIn

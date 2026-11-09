@@ -86,33 +86,42 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 // not_owner when needEdit and cl may only use it.
 func (a *App) panelFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needEdit bool) (Panel, bool) {
 	id := r.PathValue("id")
-	p, ok := a.panels.get(id)
-	if !ok || !validPanelID(id) {
-		apiFail(w, http.StatusNotFound, "not_found", "no panel "+id+" that this key may use")
+	p, read, edit := a.reachPanel(cl, id)
+	if refuseReach(w, read, edit, needEdit, "no panel "+id+" that this key may use",
+		"this panel is use only for this key: only its owner or a Trusted user may change it") {
 		return Panel{}, false
 	}
-	read, edit := a.panelReach(cl, p)
+	return p, true
+}
+
+// reachPanel loads panel id and what cl may do with it. A missing or malformed id reaches nothing.
+func (a *App) reachPanel(cl *apiCtx, id string) (p Panel, read, edit bool) {
+	p, ok := a.panels.get(id)
+	if !ok || !validPanelID(id) {
+		return Panel{}, false, false
+	}
+	read, edit = a.panelReach(cl, p)
+	return p, read, edit
+}
+
+// refuseReach writes the refusal for a record cl may not use (404, so it does not say the record
+// exists) or, when needEdit, may only use (403 not_owner), and reports whether it refused.
+func refuseReach(w http.ResponseWriter, read, edit, needEdit bool, noRead, noEdit string) bool {
 	switch {
 	case !read:
-		apiFail(w, http.StatusNotFound, "not_found", "no panel "+id+" that this key may use")
+		apiFail(w, http.StatusNotFound, "not_found", noRead)
 	case needEdit && !edit:
-		apiFail(w, http.StatusForbidden, "not_owner", "this panel is use only for this key: only its owner or a Trusted user may change it")
+		apiFail(w, http.StatusForbidden, "not_owner", noEdit)
 	default:
-		return p, true
+		return false
 	}
-	return Panel{}, false
+	return true
 }
 
 // readPanelBody decodes a panel from the request. Fields left out stay at their zero value.
 func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Panel, bool) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, panelBodyMax))
-	if err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "the panel is over 256 KiB")
-		} else {
-			apiFail(w, http.StatusBadRequest, "bad_request", "the body could not be read")
-		}
+	body, ok := readBody(w, r, panelBodyMax, "panel")
+	if !ok {
 		return Panel{}, false
 	}
 	var p Panel
@@ -225,14 +234,6 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	a.apiEvent(cl.Actor, "panelCreate", "ok", "panel "+made.ID+" "+made.Name, nil)
 	apiCreated(w, a.panelOut(made, true))
-}
-
-// apiCreated is apiJSON with status 201; headers must precede the status line.
-func apiCreated(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(v)
 }
 
 // apiPanelUpdate replaces the panel with the body. Id, owner, client and artwork are the

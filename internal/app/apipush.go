@@ -3,7 +3,6 @@ package app
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -31,9 +30,8 @@ func init() {
 }
 
 func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, panelBodyMax))
-	if err != nil {
-		apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "the request is over 256 KiB")
+	body, ok := readBody(w, r, panelBodyMax, "request")
+	if !ok {
 		return false
 	}
 	if len(strings.TrimSpace(string(body))) == 0 {
@@ -56,17 +54,9 @@ func (a *App) editable(w http.ResponseWriter, cl *apiCtx, ids []string) ([]Panel
 			continue
 		}
 		seen[id] = true
-		p, ok := a.panels.get(id)
-		read, edit := false, false
-		if ok && validPanelID(id) {
-			read, edit = a.panelReach(cl, p)
-		}
-		switch {
-		case !read:
-			apiFail(w, http.StatusNotFound, "not_found", "no panel "+id+" that this key may use")
-			return nil, false
-		case !edit:
-			apiFail(w, http.StatusForbidden, "not_owner", "panel "+id+" is use only for this key: only its owner or a Trusted user may change it")
+		p, read, edit := a.reachPanel(cl, id)
+		if refuseReach(w, read, edit, true, "no panel "+id+" that this key may use",
+			"panel "+id+" is use only for this key: only its owner or a Trusted user may change it") {
 			return nil, false
 		}
 		out = append(out, p)
@@ -209,15 +199,11 @@ func (a *App) setFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needCha
 	if ok {
 		use, change = a.setReach(cl, set)
 	}
-	switch {
-	case !use:
-		apiFail(w, http.StatusNotFound, "not_found", "no checkpoint set "+r.PathValue("sid")+" that this key may use")
-	case needChange && !change:
-		apiFail(w, http.StatusForbidden, "not_owner", "this checkpoint set is use only for this key: only its owner or a Trusted user may change it")
-	default:
-		return set, true
+	if refuseReach(w, use, change, needChange, "no checkpoint set "+r.PathValue("sid")+" that this key may use",
+		"this checkpoint set is use only for this key: only its owner or a Trusted user may change it") {
+		return PanelSet{}, false
 	}
-	return PanelSet{}, false
+	return set, true
 }
 
 func (a *App) apiSetList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
