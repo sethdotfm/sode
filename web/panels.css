@@ -23,3 +23,110 @@
 .sode-panels__spacer {
   flex: 1 1 auto;
 }
+
+/* A panel's grid. One animated number on the root drives every pulse, so cells stay in phase. */
+@property --pulse {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@keyframes sode-panel-pulse {
+  0%,
+  100% {
+    --pulse: 0;
+  }
+  50% {
+    --pulse: 1;
+  }
+}
+:root {
+  --panel-pulse-s: 4s;
+  --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state colour */
+  animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    animation: none;
+    --pulse: 0.6;
+  }
+}
+
+.sode-panel__status {
+  color: var(--pb-status-error);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+.sode-panel__grid {
+  display: grid;
+  gap: var(--pb-space-3);
+  width: 100%;
+}
+.sode-panel__cell {
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  height: auto;
+  line-height: var(--pb-leading-tight);
+  min-height: 0;
+  min-width: 0;
+  padding: var(--pb-space-2);
+  text-align: center;
+  white-space: normal;
+  width: 100%;
+}
+.sode-panel__cell small {
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-normal);
+  opacity: 0.85;
+}
+.sode-panel__staged {
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-panel__take {
+  font-size: var(--pb-text-xl);
+  letter-spacing: var(--pb-tracking-label);
+}
+
+/* Cell states. Viewed destination: solid orange. Current source: solid green. Staged destination and
+   pending source: a static ring plus a fill that swells between the idle colour and the state colour. */
+.sode-panel__cell--source[data-s="idle"] {
+  background-color: var(--pb-current-idle);
+}
+.sode-panel__cell--destination[data-s="idle"] {
+  background-color: var(--pb-view-idle);
+}
+.sode-panel__cell[data-s="view"] {
+  background-color: var(--pb-view);
+  color: var(--pb-text-on-accent);
+}
+.sode-panel__cell[data-s="current"] {
+  background-color: var(--pb-status-ok);
+  color: var(--pb-text-on-accent);
+}
+.sode-panel__cell[data-s="staged"] {
+  background-color: color-mix(in oklab, var(--pb-view) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-view-idle));
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-view);
+  color: var(--pb-text-strong);
+}
+.sode-panel__cell[data-s="pending"] {
+  background-color: color-mix(in oklab, var(--pb-status-ok) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-current-idle));
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-ok);
+  color: var(--pb-text-strong);
+}
+.sode-panel__cell[data-v="1"] {
+  outline: var(--pb-state-border-w) solid var(--pb-text-strong);
+  outline-offset: calc(var(--pb-space-1) * -1);
+}
+.sode-panel__cell[data-result="connected"] {
+  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-ok);
+}
+.sode-panel__cell[data-result="already"] {
+  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle);
+}
+.sode-panel__cell[data-result="failed"] {
+  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
+}
+.sode-panel__take--armed {
+  background-color: color-mix(in oklab, var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-surface-control));
+  color: var(--pb-text-strong);
+}

@@ -61,6 +61,14 @@ Proposed, not prototyped.
 - When a watched panel loses its last instance, or its keepalive is missed for more than 45 seconds, every watcher is notified: a toast and a badge in Sode, and a browser notification if the user allowed them. A second notice goes out when it comes back. The notice names the panel, the device and how long it was missing.
 - Open questions: whether a panel can say how many instances it expects, so a drop below that count alerts, and whether watching also covers a panel's API client key being used from somewhere new.
 
+## Panel page (as built)
+
+- Modules: `panelmodel.js` (pure state model: view, stage, arm, Take, results, idle clear), `panelrules.js` (URL, API answers, cell checks, error text), `panelview.js` (draws the grid), `panelrun.js` (loads the panel, polls, sends the take), entry `panelpage.js`.
+- Stored cell: `{ r, c, rs?, cs?, kind: source | destination | take, n?, caption?, levels? }`, with `r` and `c` from 1. Cells that are outside the grid, unknown or overlapping an earlier cell are not drawn. Settings read: `mode`, `multi`, `levels`.
+- A browser cannot send a Bearer header on `/api/v1/stream`, so the page polls `/tally` and `/protected` every 2 seconds and `/names` every 30. A take is `POST /takes`, which is its own Confirm, with an `Idempotency-Key`.
+- The page cannot read a panel's mode before it has a key. A key in the URL fragment (`#key=`) means API mode. Without one the page starts a session key (Session mode) and, if the panel then turns out to act as an API client, asks for its link with the key instead of running.
+- A failed route stays staged after a take, so Take can be pressed again. A level with nothing routed is ignored when finding the current source. Rights are not checked in the page: the server refuses a route outside them and the page shows its message.
+
 ## Build notes
 
 - Vanilla ES modules and patchbay tokens only. The prototype used `pb-btn pb-xpt` cells, `pb-toolbar`, `pb-toast` and the Lucide sprite. Orange and the muted idle colours need new semantic tokens upstream, since `--pb-brand` is for navigation chrome.
