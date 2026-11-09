@@ -1,7 +1,8 @@
-// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js: nothing may
+// Shared state, the socket, and helpers for both layouts. Imports only tooltip.js and sprite.js: nothing may
 // cycle.
 
 import './tooltip.js';
+import { iconHref, adoptIcons } from './sprite.js';
 
 export const $ = (id) => document.getElementById(id);
 
@@ -436,7 +437,7 @@ export function icon(name, sm = true) {
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('aria-hidden', 'true');
   const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', `vendor/patchbay/icons/lucide.svg#${name}`);
+  use.setAttribute('href', iconHref(name));
   svg.append(use);
   return svg;
 }
@@ -445,6 +446,7 @@ export const chevron = (open) => icon(open ? 'chevron-down' : 'chevron-right');
 
 // Enter never submits the page. (An inline onsubmit would break the CSP, see http.go.)
 if (typeof document !== 'undefined') {
+  adoptIcons();
   document.addEventListener('submit', (e) => {
     if (e.target.matches?.('.sode__boxes, .sode-log__filters')) e.preventDefault();
   });
