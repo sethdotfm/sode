@@ -7,6 +7,7 @@ import { check } from './formbits.js';
 import { linkRow } from './panellinkrow.js';
 import { trapDialog } from './dialogkeys.js';
 import { makeTabs } from './tabs.js';
+import { firstShareTab } from './panelkeyrules.js';
 import { shareDraft, pickList, toggleUser, shareBody, shareChanged } from './panelsrules.js';
 
 export const shareTabs = [];
@@ -106,6 +107,7 @@ export function openShare(panel, ctx) {
     if (t) items.push(t);
   }
   const tabs = makeTabs(items);
+  if (items.some((i) => i.id === firstShareTab(panel))) tabs.select(firstShareTab(panel));
   dialog.append(
     el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `Share ${panel.name}`), { id: 'share-title' })),
     el('div', 'pb-modal__body', tabs.node, ...items.map((i) => i.panel)),

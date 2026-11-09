@@ -14,7 +14,7 @@ import (
 
 func setupLink(t *testing.T, a *App, owner, id string) (token string, body map[string]any) {
 	t.Helper()
-	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", owner, `{"setup":true}`)
+	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", owner, `{"setup":true,"instance":"Lobby"}`)
 	if rec.Code != 201 {
 		t.Fatalf("setup link: %d %s", rec.Code, rec.Body.String())
 	}
@@ -40,7 +40,7 @@ func exchangeSetup(a *App, peer, id, token string) *httptest.ResponseRecorder {
 func TestSetupLinkWorksOnceThenFails(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	token, body := setupLink(t, a, cy, id)
-	if want := "panels/" + id + "#setup=" + token; body["link"] != want {
+	if want := "panels/" + id + "?instance=Lobby#setup=" + token; body["link"] != want {
 		t.Fatalf("link %v, want %s", body["link"], want)
 	}
 	rec := exchangeSetup(a, apiPeer, id, token)
@@ -66,7 +66,7 @@ func TestSetupTokenIsNotAKey(t *testing.T) {
 	wantErr(t, apiSend(a, "GET", "/api/v1/tally", token, ""), 401, "invalid_key")
 	// A setup record never shows in a key list either.
 	for _, k := range a.keys.list() {
-		if k.Name == setupName {
+		if k.Name == "Setup link" {
 			t.Fatal("a setup link is listed as a key")
 		}
 	}
@@ -87,7 +87,7 @@ func TestSetupLinkReplacesTheKeyAndAnOlderLink(t *testing.T) {
 func TestSetupLinkEndsWithRevokeAndRotate(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	token, _ := setupLink(t, a, cy, id)
-	apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key", cy, "")
+	apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key?instance=Lobby", cy, "")
 	wantErr(t, exchangeSetup(a, apiPeer, id, token), 401, "invalid_setup")
 	token, _ = setupLink(t, a, cy, id)
 	mintKey(t, a, cy, id)

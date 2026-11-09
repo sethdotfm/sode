@@ -76,12 +76,10 @@ func TestChromeEditorSidebar(t *testing.T) {
 		}
 	}
 	b.eval(`const a = document.getElementById('ed-acts'); a.value = 'api'; a.dispatchEvent(new Event('change', { bubbles: true })); true`)
-	b.waitFor("the client is described", `document.getElementById('panel-ed-access').textContent.includes('Saving the panel makes its client')`)
+	b.waitFor("Acts as saves at once", `document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
 	b.waitFor("Watch stays checked after the Access tab repaints", `document.getElementById('panels-watch')?.checked === true`)
 	b.shot("access")
 
-	b.eval(`document.getElementById('ed-save').click(); true`)
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
 	b.waitFor("Watch stays checked after a save", `document.getElementById('panels-watch')?.checked === true`)
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)
 	body := rec.Body.String()

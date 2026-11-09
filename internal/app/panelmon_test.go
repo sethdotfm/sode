@@ -293,7 +293,7 @@ func TestDeletingOrRotatingForgetsInstances(t *testing.T) {
 	_, next := signedIn(t, a, "10.0.0.3", "4321")
 	next()
 	keepalive(a, id, cy, "Lobby")
-	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, "")
+	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, `{"instance":"Lobby"}`)
 	if rec.Code != 201 {
 		t.Fatalf("key: %d", rec.Code)
 	}
@@ -321,7 +321,7 @@ func TestManyInstancesShareOnePanelKey(t *testing.T) {
 	cy := userKey(t, a, "Cy")
 	rec := apiSend(a, "POST", "/api/v1/panels", cy, apiPanel+`}`)
 	id, name := apiBody(t, rec)["id"].(string), apiBody(t, rec)["client"].(string)
-	secret := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, panelKeyName, time.Time{})
+	secret := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, "Lobby", time.Time{})
 
 	const n = 12
 	for i := 0; i < n; i++ {
@@ -353,7 +353,7 @@ func TestManyStreamsOnOnePanelKey(t *testing.T) {
 	cy := userKey(t, a, "Cy")
 	rec := apiSend(a, "POST", "/api/v1/panels", cy, apiPanel+`}`)
 	name := apiBody(t, rec)["client"].(string)
-	secret := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, panelKeyName, time.Time{})
+	secret := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, "Lobby", time.Time{})
 	srv := strmServer(t, a)
 	for i := 0; i < apiStreamMaxPerKey+4; i++ {
 		c, resp, _, cancel, err := strmDialRaw(srv, secret, "tally")
@@ -388,7 +388,7 @@ func TestPanelClientActorNamesTheOwner(t *testing.T) {
 	cy := userKey(t, a, "Cy")
 	rec := apiSend(a, "POST", "/api/v1/panels", cy, apiPanel+`}`)
 	id, name := apiBody(t, rec)["id"].(string), apiBody(t, rec)["client"].(string)
-	secret := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, panelKeyName, time.Time{})
+	secret := apiTestKey(t, a, keyOwner{Kind: actorClient, Name: name}, "Lobby", time.Time{})
 	rec = apiPost(a, "/api/v1/takes", secret, `{"routes":[{"src":4,"dst":2,"levels":[1]}]}`, nil)
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())

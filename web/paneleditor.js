@@ -254,7 +254,8 @@ export async function runEditor() {
       );
     } catch (e) {
       say('ed-status', e.message);
-      return refresh();
+      refresh();
+      return e.message;
     }
     const made = !loaded;
     loaded = saved;
@@ -265,6 +266,7 @@ export async function runEditor() {
     await loadList().catch(() => {});
     refresh();
     fieldsChanged();
+    return '';
   }
   $('ed-save').addEventListener('click', save);
 
@@ -322,6 +324,8 @@ export async function runEditor() {
     setSize,
     panel: () => loaded,
     readOnly,
+    // Saves now; answers '' when stored, else the refusal text.
+    save,
     names: () => names,
     addMenuSection: (fn) => menuSections.push(fn),
     addKeyHook: (fn) => keyHooks.push(fn),

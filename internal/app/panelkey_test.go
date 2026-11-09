@@ -22,7 +22,7 @@ func keyedPanel(t *testing.T) (*App, *fakeRouter, string, string) {
 
 func mintKey(t *testing.T, a *App, owner, id string) (secret string, body map[string]any) {
 	t.Helper()
-	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", owner, "")
+	rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", owner, `{"instance":"Lobby"}`)
 	if rec.Code != 201 {
 		t.Fatalf("mint: %d %s", rec.Code, rec.Body.String())
 	}
@@ -37,7 +37,7 @@ func mintKey(t *testing.T, a *App, owner, id string) (secret string, body map[st
 func TestPanelKeyLinkRunsAsItsClientWithItsRights(t *testing.T) {
 	a, f, cy, id := keyedPanel(t)
 	secret, body := mintKey(t, a, cy, id)
-	if want := "panels/" + id + "#key=" + secret; body["link"] != want {
+	if want := "panels/" + id + "?instance=Lobby#key=" + secret; body["link"] != want {
 		t.Fatalf("link %v, want %s", body["link"], want)
 	}
 	f.seed(2, 1, 0)
@@ -61,7 +61,7 @@ func TestPanelKeyLinkRunsAsItsClientWithItsRights(t *testing.T) {
 func TestPanelKeyIsShownOnceAndStoredHashed(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	secret, body := mintKey(t, a, cy, id)
-	if rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, ""); !strings.HasPrefix(rec.Header().Get("Cache-Control"), "no-store") {
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, `{"instance":"Lobby"}`); !strings.HasPrefix(rec.Header().Get("Cache-Control"), "no-store") {
 		t.Fatalf("cache header %q", rec.Header().Get("Cache-Control"))
 	}
 	for _, r := range a.keys.recs {
@@ -105,7 +105,7 @@ func TestPanelKeyRotateKillsTheOldOne(t *testing.T) {
 func TestPanelKeyRevokeLeavesTheClient(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	secret, _ := mintKey(t, a, cy, id)
-	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key", cy, ""); rec.Code != 204 {
+	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key?instance=Lobby", cy, ""); rec.Code != 204 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	wantErr(t, apiSend(a, "GET", "/api/v1/tally", secret, ""), 401, "invalid_key")
@@ -113,7 +113,7 @@ func TestPanelKeyRevokeLeavesTheClient(t *testing.T) {
 	if _, ok := clientOfPanel(a.r().cfg, p); !ok || p.Acts != panelActsAPI {
 		t.Fatal("revoke removed the client")
 	}
-	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key", cy, ""); rec.Code != 204 {
+	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key?instance=Lobby", cy, ""); rec.Code != 204 {
 		t.Fatalf("second revoke: %d", rec.Code)
 	}
 	mintKey(t, a, cy, id)
@@ -138,8 +138,8 @@ func TestPanelKeyIsForOwnersAndTrustedOnly(t *testing.T) {
 func TestPanelKeyOnlyForAnAPIPanel(t *testing.T) {
 	a, _, cy, _ := keyedPanel(t)
 	id := makePanel(t, a, cy, `{"name":"Mine"}`)
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, ""), 409, "conflict")
-	wantErr(t, apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key", cy, ""), 409, "conflict")
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+id+"/key", cy, `{"instance":"Lobby"}`), 409, "conflict")
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key?instance=Lobby", cy, ""), 409, "conflict")
 }
 
 func TestPanelKeyNeverInALogLineAndNotAQueryCredential(t *testing.T) {

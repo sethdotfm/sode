@@ -1,17 +1,34 @@
-// The Link with key tab of the Share modal (panelshare.js shareTabs). A panel that acts as an API client has one key,
-// shown once when it is made, so a link opened later says so and offers Rotate. Rotate, Revoke and a setup link
-// that replaces a key each ask for a Confirm first (the churning letter and the short lockout).
+// The Link with key tab of the Share modal (panelshare.js shareTabs). A panel that acts as an API client holds one key
+// per named instance. The tab lists them, rotates or revokes one at a time, and makes a link for a name. A link is
+// shown once, when it is made. Rotate, Revoke and any make that replaces a key each ask for a Confirm first (the
+// churning letter and the short lockout). Server side: internal/app/panelkey.go.
 import { el, icon, S } from './core.js';
 import { btn, check, field } from './formbits.js';
 import { churnKey } from './lockrules.js';
 import { qrNode } from './keyview.js';
 import { shareTabs } from './panelshare.js';
-import { MODES, MODE_HINT, CONFIRM_TEXT, maskLink, makeAction, confirmKind, parseNetworks, networksText, networksChanged } from './panelkeyrules.js';
+import {
+  MODES,
+  MODE_HINT,
+  CONFIRM_TEXT,
+  INSTANCE_MAX,
+  SESSION_WARNING,
+  SESSION_NEXT,
+  maskLink,
+  makeAction,
+  confirmKind,
+  instanceCheck,
+  keyRow,
+  parseNetworks,
+  networksText,
+  networksChanged,
+} from './panelkeyrules.js';
 import { linkFor } from './panellink.js';
 import { linkRow } from './panellinkrow.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
+const REFRESH_MS = 5000; // how often the list asks again, so Online follows the screens
 const FAIL = Symbol('failed'); // a call that said why in the note
 
 const dot = (kind) => {
@@ -24,23 +41,16 @@ shareTabs.push(({ panel, api }) => {
   const root = el('div', 'sode-ov__keytab');
   const tab = { id: 'key', text: 'Link with key', panel: root };
   if (panel.acts !== 'api') {
-    root.append(
-      el(
-        'p',
-        'sode__hint',
-        'This panel acts as the signed-in user, so it has no key and its link is the same for everyone. It asks for a PIN when it is launched.',
-      ),
-      linkRow(panel),
-      el('p', 'sode__hint', 'To give it a link with a key, set Acts as to its own API client on the Access tab and save.'),
-    );
+    // Greyed, still readable: a Session panel has no key to make, rotate or revoke.
+    tab.muted = true;
+    root.append(el('p', 'sode__hint', SESSION_WARNING), linkRow(panel), el('p', 'sode__hint', SESSION_NEXT));
     return tab;
   }
 
   let mode = 'key';
-  let link = ''; // the absolute link, held only while this modal is open
-  let secret = ''; // what the server sent for it, so a screen name can change the link
-  let screen = ''; // the optional ?instance= name
-  let linkMode = 'key';
+  let keys = []; // the panel's instances as the server lists them
+  let max = 20;
+  let made = null; // {name, secret, mode, link}: held only while this modal is open
   let revealed = false;
   let confirming = null; // {kind, key, lock, ready}
   let busy = false;
@@ -52,6 +62,7 @@ shareTabs.push(({ panel, api }) => {
   };
 
   const status = el('p', 'sode__hint');
+  const list = el('ul', 'sode-ov__keys');
   const modes = el('div', 'pb-btn-group');
   modes.setAttribute('role', 'radiogroup');
   modes.setAttribute('aria-label', 'Kind of link');
@@ -61,29 +72,58 @@ shareTabs.push(({ panel, api }) => {
   confirmBox.hidden = true;
   confirmBox.tabIndex = -1;
   const linkBox = el('div', 'sode-ov__keylink');
-  const screenIn = el('input', 'pb-input');
-  screenIn.id = 'key-screen';
-  screenIn.maxLength = 40;
-  screenIn.autocomplete = 'off';
-  screenIn.placeholder = 'Lobby tablet';
-  screenIn.addEventListener('input', () => {
-    screen = screenIn.value;
-    link = buildLink();
-    paintLink();
+  const nameIn = el('input', 'pb-input');
+  nameIn.id = 'key-instance';
+  nameIn.maxLength = INSTANCE_MAX;
+  nameIn.autocomplete = 'off';
+  nameIn.placeholder = 'Lobby tablet';
+  nameIn.addEventListener('input', () => {
+    cancelAsk();
+    paintTop();
   });
-  const screenBox = field(
-    'key-screen',
-    'Screen name (optional)',
-    screenIn,
-    'Skips the question that screen asks the first time it opens the link. It is not a secret.',
+  const nameBox = field(
+    'key-instance',
+    'Instance name',
+    nameIn,
+    'Required. It names this screen in the list and is its device name, so the screen does not ask for one. It is not a secret.',
   );
-  screenBox.hidden = true;
+  const check1 = () => instanceCheck(nameIn.value, keys, max);
+
+  function paintList() {
+    const now = Date.now();
+    list.replaceChildren(
+      ...keys.map((k) => {
+        const row = keyRow(k, now);
+        const rotate = btn('pb-btn--outline pb-btn--sm', 'Rotate', () => {
+          nameIn.value = k.name;
+          mode = 'key';
+          paintTop();
+          ask('rotate', () => makeLink(k.name, false));
+        });
+        rotate.hidden = !!k.setup;
+        rotate.disabled = busy;
+        const revoke = btn('pb-btn--outline pb-btn--sm', 'Revoke', () => ask('revoke', () => revokeKey(k.name)));
+        revoke.disabled = busy;
+        rotate.setAttribute('aria-label', `Rotate ${k.name}`);
+        revoke.setAttribute('aria-label', `Revoke ${k.name}`);
+        return el(
+          'li',
+          'sode-ov__keyitem',
+          el('span', 'sode-ov__keyname', el('strong', null, k.name), el('span', 'sode-ov__muted', dot(row.state.kind), ` ${row.state.text}`)),
+          el('span', 'sode-ov__muted', `${row.created}. ${row.used}.`),
+          el('span', 'sode-ov__keyrow', rotate, revoke),
+        );
+      }),
+    );
+    if (!keys.length) list.append(el('li', 'sode-ov__muted', 'No instances yet. Name one below to make its link.'));
+  }
 
   function paintTop() {
-    const hasKey = !!panel.hasKey;
     status.replaceChildren(
-      dot(hasKey ? 'ok' : 'idle'),
-      hasKey ? ' This panel has a key. Its link was shown once, when it was made. Rotate makes a new one.' : ' This panel has no key.',
+      dot(keys.length ? 'ok' : 'idle'),
+      keys.length
+        ? ` ${keys.length} of ${max} instances. A link shows once, when it is made. Rotate makes a new one for that instance.`
+        : ' This panel has no instances.',
     );
     modes.replaceChildren(
       ...MODES.flatMap(([m, text]) => {
@@ -99,17 +139,15 @@ shareTabs.push(({ panel, api }) => {
       }),
     );
     modeHint.textContent = MODE_HINT[mode];
-    const act = makeAction(mode, hasKey);
-    const make = btn(hasKey && mode === 'key' ? 'pb-btn--outline' : 'pb-btn--ok', act.label, () =>
-      act.confirm ? ask(confirmKind(mode, 'make'), makeLink) : makeLink(),
+    const c = check1();
+    const act = makeAction(mode, c.held);
+    const make = btn(c.held && mode === 'key' ? 'pb-btn--outline' : 'pb-btn--ok', act.label, () =>
+      act.confirm ? ask(confirmKind(mode, 'make'), () => makeLink(c.name, mode === 'setup')) : makeLink(c.name, mode === 'setup'),
     );
-    make.disabled = busy;
+    make.disabled = busy || !!c.error;
     actions.replaceChildren(make);
-    if (hasKey) {
-      const revoke = btn('pb-btn--outline', 'Revoke', () => ask('revoke', revokeKey));
-      revoke.disabled = busy;
-      actions.append(revoke);
-    }
+    if (c.error && nameIn.value) actions.append(el('span', 'sode__hint', c.error));
+    panel.hasKey = keys.some((k) => !k.setup);
   }
 
   modes.addEventListener('change', (e) => {
@@ -163,10 +201,11 @@ shareTabs.push(({ panel, api }) => {
     confirming.go();
   });
 
-  // ---- link
+  // ---- calls
   async function call(path, init) {
     busy = true;
     paintTop();
+    paintList();
     say('');
     try {
       return await api(path, init);
@@ -176,50 +215,61 @@ shareTabs.push(({ panel, api }) => {
     } finally {
       busy = false;
       paintTop();
+      paintList();
       syncNets();
     }
   }
-  const buildLink = (kiosk = false) => linkFor(panel, { [linkMode === 'setup' ? 'setup' : 'key']: secret, instance: screen, kiosk, base: document.baseURI });
-  async function makeLink() {
+  async function loadKeys() {
+    try {
+      const res = await api(`api/v1/panels/${panel.id}/keys`);
+      keys = res.keys;
+      max = res.max;
+    } catch (e) {
+      say(e.message);
+    }
+    paintTop();
+    paintList();
+  }
+  const timer = setInterval(() => (root.isConnected ? !busy && loadKeys() : clearInterval(timer)), REFRESH_MS);
+
+  const buildLink = (kiosk = false) =>
+    linkFor(panel, { [made.mode === 'setup' ? 'setup' : 'key']: made.secret, instance: made.name, kiosk, base: document.baseURI });
+  async function makeLink(name, setup) {
     const res = await call(`api/v1/panels/${panel.id}/key`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ setup: mode === 'setup' }),
+      body: JSON.stringify({ instance: name, setup }),
     });
     if (res === FAIL) return;
-    secret = res.key || res.setup;
-    linkMode = mode;
-    link = buildLink();
+    made = { name: res.instance, secret: res.key || res.setup, mode: setup ? 'setup' : 'key' };
+    made.link = buildLink();
     revealed = false;
-    panel.hasKey = mode === 'key'; // a setup link is not a key until a browser trades it
-    paintTop();
+    await loadKeys();
     paintLink();
     say(
-      mode === 'setup'
-        ? 'The old key is ended. Open the link once on the device to set it up.'
+      setup
+        ? `${made.name}: the old key is ended. Open the link once on that device to set it up.`
         : res.rotated
-          ? 'Rotated. Open instances signed out and old links stopped working.'
-          : 'Link made.',
+          ? `${made.name} rotated. That screen signed out and its old link stopped working.`
+          : `Link made for ${made.name}.`,
     );
   }
-  async function revokeKey() {
-    if ((await call(`api/v1/panels/${panel.id}/key`, { method: 'DELETE' })) === FAIL) return;
-    link = secret = '';
-    panel.hasKey = false;
-    paintTop();
+  async function revokeKey(name) {
+    if ((await call(`api/v1/panels/${panel.id}/key?instance=${encodeURIComponent(name)}`, { method: 'DELETE' })) === FAIL) return;
+    if (made?.name.toLowerCase() === name.toLowerCase()) made = null;
+    await loadKeys();
     paintLink();
-    say('Revoked. The panel has no key.');
+    say(`Revoked ${name}. Other instances are not affected.`);
   }
 
   function paintLink() {
     linkBox.replaceChildren();
-    screenBox.hidden = !link;
-    if (!link) return;
+    if (!made) return;
     const input = el('input', 'pb-input sode__secret-key');
     input.readOnly = true;
     input.spellcheck = false;
-    input.value = revealed ? link : maskLink(link);
-    input.setAttribute('aria-label', linkMode === 'setup' ? 'Setup link' : 'Link with key');
+    input.value = revealed ? made.link : maskLink(made.link);
+    input.setAttribute('aria-label', made.mode === 'setup' ? `Setup link for ${made.name}` : `Link for ${made.name}`);
     input.addEventListener('focus', () => revealed && input.select());
     const reveal = check('Show link', {
       checked: revealed,
@@ -232,7 +282,7 @@ shareTabs.push(({ panel, api }) => {
     copy.type = 'button';
     copy.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(link);
+        await navigator.clipboard.writeText(made.link);
         say('Copied.');
         setTimeout(() => say(''), COPIED_MS);
       } catch {
@@ -243,9 +293,13 @@ shareTabs.push(({ panel, api }) => {
       }
     });
     const kiosk = btn('pb-btn--outline', 'Open as kiosk', () => window.open(buildLink(true), '_blank', 'noopener'));
-    linkBox.append(el('div', 'sode__secret-row', input, reveal.label), el('div', 'sode-ov__keyrow', copy, kiosk));
+    linkBox.append(
+      el('p', 'sode__hint', `Link for ${made.name}. It is shown only now. Closing this window loses it.`),
+      el('div', 'sode__secret-row', input, reveal.label),
+      el('div', 'sode-ov__keyrow', copy, kiosk),
+    );
     if (revealed) {
-      const qr = qrNode(link);
+      const qr = qrNode(made.link);
       linkBox.append(qr || el('p', 'sode__hint', 'This link is too long for a QR code. Copy it instead.'));
     }
   }
@@ -267,7 +321,7 @@ shareTabs.push(({ panel, api }) => {
     panel.clientNetworks = res.networks;
     nets.value = networksText(res.networks);
     syncNets();
-    say(res.networks.length ? 'Saved. The key works only from these networks.' : 'Saved. The key works from any address.');
+    say(res.networks.length ? 'Saved. Every key works only from these networks.' : 'Saved. Keys work from any address.');
   });
   const syncNets = () => {
     netSave.disabled = busy || !networksChanged(panel.clientNetworks, nets.value);
@@ -281,13 +335,15 @@ shareTabs.push(({ panel, api }) => {
     el(
       'p',
       'sode__hint',
-      "One address or CIDR such as 192.168.1.0/24 per line. A request with this panel's key from anywhere else is refused. Leave it empty to allow any address.",
+      "One address or CIDR such as 192.168.1.0/24 per line. A request with any of this panel's keys from anywhere else is refused. Leave it empty to allow any address.",
     ),
     netSave,
   );
 
-  root.append(status, modes, modeHint, actions, confirmBox, screenBox, linkBox, netBox, note);
+  root.append(status, list, el('h3', 'sode-side__h', 'New link'), nameBox, modes, modeHint, actions, confirmBox, linkBox, netBox, note);
   paintTop();
+  paintList();
   syncNets();
+  loadKeys();
   return tab;
 });

@@ -104,7 +104,7 @@ function detail(p) {
     el('dt', '', 'Owner'),
     el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')),
     el('dt', '', 'Acts as'),
-    el('dd', '', actsLabel(p).replace('Acts as ', '') + (p.acts === 'api' ? ' (opens with its key)' : ' (asks for a PIN at launch)')),
+    el('dd', '', actsLabel(p).replace('Acts as ', '') + (p.acts === 'api' ? '' : ' (asks for a PIN at launch)')),
     el('dt', '', 'Shared with'),
     el('dd', '', shareLabel(p.share)),
   );
