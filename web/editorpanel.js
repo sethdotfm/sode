@@ -82,7 +82,7 @@ export function createPanelTab(ed) {
   const deviceNote = el('p', 'sode__hint');
   device.append(deviceNote);
 
-  const updates = section('Updates', el('p', 'sode__hint', 'A panel that is open follows a saved change within a few seconds. It waits while someone is mid-route.'));
+  const updates = section('Updates', el('p', 'sode__hint', 'An open panel shows a saved change within a few seconds. It waits while someone is mid-route.'));
   node.append(identity, appearance, behaviour, device, updates);
 
   function drawLevels(chosen) {
