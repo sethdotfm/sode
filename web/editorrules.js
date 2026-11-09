@@ -64,6 +64,12 @@ export function placeMenu(rect, menu, vp, gap) {
   return { side: 'below', left: Math.max(0, Math.min(rect.left, vp.w - menu.w)), top: rect.bottom + gap };
 }
 
+// Alt+letter, by key position: plain letters start Find, and Option on a Mac types another character.
+const SHORTCUTS = { KeyM: 'merge', KeyT: 'type', KeyF: 'find' };
+export const menuShortcut = (e) => (e.altKey && !e.ctrlKey && !e.metaKey ? (SHORTCUTS[e.code] ?? null) : null);
+
+export const todoText = (n) => (n ? `${n} unassigned square${n > 1 ? 's' : ''}` : 'No unassigned squares');
+
 const WORDS = { source: 'Source', destination: 'Destination', take: 'Take', preset: 'Preset', clear: 'Clear', current: 'Current Destination', '': 'Empty' };
 export const kindLabel = (kind) => WORDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
 export const kindChoices = () => [...KINDS, ''].map((kind) => ({ kind, label: kindLabel(kind) }));

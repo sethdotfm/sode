@@ -111,3 +111,13 @@ export function errorText(err, names) {
       return '';
   }
 }
+
+// Offline is what the page shows over a blurred grid. Sode not answering wins: with no answer the router link is unknown.
+export function offlineOf({ failed, routerUp }) {
+  if (failed) return { title: 'Offline', detail: 'This page lost contact with Sode. Nothing you press will reach the router until it is back.' };
+  if (!routerUp) return { title: 'Offline', detail: 'Sode lost contact with the router. Nothing you press will reach it until it is back.' };
+  return null;
+}
+
+// The Current cell reads the viewed destination's name; a caption replaces the whole label.
+export const currentLabel = (cell, destName) => cell.caption || (destName ? `${destName} is currently:` : 'Currently');

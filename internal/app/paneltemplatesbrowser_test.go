@@ -59,7 +59,7 @@ func TestChromeEditorTemplates(t *testing.T) {
 	b.shot("pin")
 
 	b.eval(`document.querySelector('[data-apply]').click()`)
-	b.waitFor("applied with the cells unassigned", `!document.getElementById('tpl-save') && document.getElementById('ed-todo').textContent === '2 unassigned' && document.getElementById('ed-state').textContent === 'Unsaved changes'`)
+	b.waitFor("applied with the cells unassigned", `!document.getElementById('tpl-save') && document.getElementById('ed-todo').textContent === '2 unassigned squares' && document.getElementById('ed-state').textContent === 'Unsaved changes'`)
 	// The refused Everyone save is the one expected failed load.
 	for _, e := range b.problems() {
 		if !strings.Contains(e, "403") || !strings.Contains(e, "/api/v1/panel-templates") {

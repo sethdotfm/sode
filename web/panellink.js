@@ -15,8 +15,8 @@ export const fullSetup = (s) => (s && !s.startsWith(SETUP_PREFIX) ? SETUP_PREFIX
 export const pathFor = (panel) => `panels/${panel.slug || panel.id}`;
 
 // opts: kiosk, instance (device name), key or setup (the secret as the server sent it), base (document.baseURI, to
-// make the link absolute).
-export function linkFor(panel, { kiosk = false, instance = '', key = '', setup = '', base = '' } = {}) {
+// make the link absolute; the pages set <base href>, so a page gets an absolute link without passing it).
+export function linkFor(panel, { kiosk = false, instance = '', key = '', setup = '', base = globalThis.document?.baseURI } = {}) {
   const name = String(instance || '').trim();
   const frag = [key && `key=${shortSecret(key)}`, !key && setup && `setup=${shortSecret(setup)}`, kiosk && 'kiosk=1'].filter(Boolean).join('&');
   const link = `${pathFor(panel)}${name ? `?instance=${encodeURIComponent(name)}` : ''}${frag ? `#${frag}` : ''}`;

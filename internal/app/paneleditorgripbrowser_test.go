@@ -52,7 +52,7 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 		window.mid = (n) => { const r = n.getBoundingClientRect(); return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }; };
 		window.ptr = (el, type, at) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, ...at }));
 		true`)
-	b.waitFor("one unassigned counted", `document.getElementById('ed-todo').textContent === '1 unassigned'`)
+	b.waitFor("one unassigned counted", `document.getElementById('ed-todo').textContent === '1 unassigned square'`)
 
 	// Select the two Sources and drag the grip three squares right.
 	b.eval(`press(grid, { key: 'ArrowDown' }); press(grid, { key: 'ArrowRight', shiftKey: true })`)

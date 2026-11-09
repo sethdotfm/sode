@@ -8,6 +8,7 @@ import { qrNode } from './keyview.js';
 import { shareTabs } from './panelshare.js';
 import { MODES, MODE_HINT, CONFIRM_TEXT, maskLink, makeAction, confirmKind, parseNetworks, networksText, networksChanged } from './panelkeyrules.js';
 import { linkFor } from './panellink.js';
+import { linkRow } from './panellinkrow.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
@@ -27,8 +28,10 @@ shareTabs.push(({ panel, api }) => {
       el(
         'p',
         'sode__hint',
-        'This panel acts as the signed-in user, so it has no key. It asks for a PIN when it is launched. Make it act as an API client in the editor to give it a link with a key.',
+        'This panel acts as the signed-in user, so it has no key and its link is the same for everyone. It asks for a PIN when it is launched.',
       ),
+      linkRow(panel),
+      el('p', 'sode__hint', 'To give it a link with a key, set Acts as to its own API client on the Access tab and save.'),
     );
     return tab;
   }
