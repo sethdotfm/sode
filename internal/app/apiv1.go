@@ -26,6 +26,7 @@ type apiCtx struct {
 	Rights config.Rights
 	Scopes []string
 	Key    *apiKey // nil for a keyless Guest call
+	Panel  string  // the panel whose own API client this is, else ""
 	IP     string
 
 	// sink takes every reply of a take run for this request instead of a.clients: a REST

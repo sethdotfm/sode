@@ -128,7 +128,9 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	out := []map[string]any{}
 	for _, p := range a.panels.list() {
 		if read, edit := a.panelReach(cl, p); read {
-			out = append(out, a.panelOut(p, edit))
+			m := a.panelOut(p, edit)
+			a.monFields(m, cl, p, edit)
+			out = append(out, m)
 		}
 	}
 	apiJSON(w, map[string]any{"panels": out})
@@ -153,6 +155,7 @@ func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if p, ok := a.panelFor(w, r, cl, false); ok {
 		_, edit := a.panelReach(cl, p)
 		out := a.panelOut(p, edit)
+		a.monFields(out, cl, p, edit)
 		// The page mirrors these before arming a take; the server still enforces them.
 		out["rights"] = cl.Rights.Clone()
 		apiJSON(w, out)
@@ -292,6 +295,7 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		a.panelStoreFail(w, err)
 		return
 	}
+	a.mon.forget(p.ID, true)
 	if err := a.setPanelClient(p.ID, nil); err != nil {
 		log.Printf("panels: client of deleted panel %s not removed: %v", p.ID, err)
 	}

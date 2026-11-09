@@ -9,7 +9,8 @@ export function sessionStep(access, key) {
   return (access.lens?.length || 0) > 0 ? 'sign-in' : 'no-users';
 }
 
-export const sessionKeyReq = (id) => ({ t: 'sessionKey', id });
+// keyName shows in History as "Ana (Panel p-1a2b3c4d)"; left out, the server names it Session.
+export const sessionKeyReq = (id, keyName = '') => ({ t: 'sessionKey', id, ...(keyName ? { keyName } : {}) });
 
 export const keyFrom = (m) => (m.ok && m.key ? m.key : '');
 

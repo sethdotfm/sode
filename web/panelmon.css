@@ -1,0 +1,34 @@
+/* Monitoring: the device name form on a panel page, the online mark and the Open now list on the panels page. */
+.sode-panel__device {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-panel__device label {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+}
+.sode-ov__online:empty {
+  display: none;
+}
+.sode-ov__watch {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode-ov__open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  margin: 0;
+  padding: 0;
+}
+.sode-ov__open li {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  list-style: none;
+}
