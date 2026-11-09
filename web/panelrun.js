@@ -92,7 +92,7 @@ export async function runPanel(id) {
   if (look.wake) createWake(navigator, document).on();
 
   const cells = cellsIn(panel);
-  let st = createState({ mode: set.mode, multi: set.multi, guard: set.guard, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
+  let st = createState({ mode: set.mode, multi: set.multi, guard: set.guard, resultText: set.resultText, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
   let names = namesFrom({});
   let presets = {};
@@ -119,7 +119,7 @@ export async function runPanel(id) {
         presets = pr;
         namesAt = Date.now();
       }
-      env = envFrom(tally, prot, presets);
+      env = envFrom(tally, prot, presets, panel.rights);
       st = applyTally(st, env);
       ready = true;
       say('panels-note', '');

@@ -152,7 +152,10 @@ func (a *App) apiPanelPeople(w http.ResponseWriter, _ *http.Request, cl *apiCtx)
 func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if p, ok := a.panelFor(w, r, cl, false); ok {
 		_, edit := a.panelReach(cl, p)
-		apiJSON(w, a.panelOut(p, edit))
+		out := a.panelOut(p, edit)
+		// The page mirrors these before arming a take; the server still enforces them.
+		out["rights"] = cl.Rights.Clone()
+		apiJSON(w, out)
 	}
 }
 
