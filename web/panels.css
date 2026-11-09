@@ -196,28 +196,28 @@
 }
 .sode-panel__take[data-guard="holding"],
 .sode-panel__take[data-guard="waiting"] {
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-hue-red);
 }
 .sode-panel__take--armed {
   background-color: color-mix(
     in oklab,
-    var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
+    var(--pb-hue-red) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
     var(--pb-surface-control)
   );
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-hue-red);
   color: var(--pb-text-strong);
 }
 
 /* No staged route: the Take cell is solid, not faded like a disabled control. */
 .sode-panel__take:disabled {
-  background-color: var(--pb-surface-control);
-  color: var(--pb-text-muted);
+  background-color: color-mix(in oklab, var(--pb-hue-red) 40%, var(--pb-surface-control));
+  color: var(--pb-text-strong);
   opacity: 1;
 }
 /* The wait of a hold or double-press guard fills across the Take cell.
    A transition, since the shared --pulse must stay the only keyframes (panellook.test.mjs). */
 .sode-panel__take::after {
-  background-color: color-mix(in oklab, var(--pb-commit) 45%, transparent);
+  background-color: color-mix(in oklab, var(--pb-hue-red) 45%, transparent);
   content: "";
   inset: 0;
   position: absolute;
@@ -460,7 +460,7 @@
   background: var(--pb-view-idle);
 }
 .sode-ov__thumb .sode-ov__k-take {
-  background: var(--pb-commit);
+  background: var(--pb-hue-red);
 }
 
 /* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never colour alone. */
@@ -562,7 +562,7 @@
   background: var(--pb-view-idle);
 }
 .sode-ed__sq--take {
-  background: var(--pb-surface-control);
+  background: color-mix(in oklab, var(--pb-hue-red) 40%, var(--pb-surface-control));
   font-weight: var(--pb-weight-bold);
 }
 .sode-ed__sq.is-unassigned {
