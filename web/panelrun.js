@@ -34,7 +34,7 @@ import { createArt } from './panelart.js';
 import { createWake, buzz, enterFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
 import { instanceFrom } from './panellink.js';
-import { initFull } from './panelfull.js';
+import { initChrome } from './panelfull.js';
 import { initName } from './panelname.js';
 
 const POLL_MS = 2000;
@@ -133,12 +133,11 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (want) root.dataset.theme = want;
     else delete root.dataset.theme;
   };
+  const chrome = embedded ? null : initChrome(ui);
   const applyLook = (p) => {
     const look = lookOf(p.settings || {});
     if (!embedded) {
-      const kiosk = kioskOf(location.hash, p);
-      ui.head.hidden = kiosk || !look.titleBar;
-      document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
+      chrome.show(kioskOf(location.hash, p), look.titleBar);
       document.title = p.name;
     }
     ui.title.textContent = p.name;
@@ -148,7 +147,6 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   };
   let look = applyLook(panel);
   if (!embedded) {
-    initFull(ui.full, ui.main);
     if (look.wake) createWake(navigator, document).on();
   }
 

@@ -25,8 +25,9 @@
     <h1 class="sode-panels__title" id="panel-title">Sode Panel</h1>
     <span id="panel-instance" hidden></span>
     <span class="sode-panels__spacer"></span>
+    <button class="pb-btn pb-btn--outline pb-btn--sm pb-btn--icon pb-tip--end" id="panel-kiosk" type="button" aria-pressed="false" aria-label="Kiosk mode" data-pb-tip="Kiosk mode"></button>
+    <button class="pb-btn pb-btn--outline pb-btn--sm pb-btn--icon pb-tip--end" id="panel-screen" type="button" aria-pressed="false" aria-label="Full screen" data-pb-tip="Full screen"></button>
     <button class="pb-btn pb-btn--outline pb-btn--sm pb-btn--icon pb-tip--end" id="panel-full" type="button" aria-pressed="false" aria-label="Full width" data-pb-tip="Full width"></button>
-    <a class="pb-btn pb-btn--outline pb-btn--sm" href="panels">Panels</a>
   </header>
   <p class="sode__hint" id="panels-note"></p>
   <div class="sode-panel__device" id="panel-device" hidden>
@@ -53,6 +54,11 @@
     <p class="sode-panel__offline-title">Offline</p>
     <p class="sode-panel__offline-detail" id="panel-offline-detail"></p>
   </div>
+  <!-- The way home, bottom left like Sode's main page; a kiosk hides it. -->
+  <footer class="sode-panels__home" id="panel-home">
+    <a class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" href="panels" aria-label="Panels" data-pb-tip="Panels"><span class="sode-logo" aria-hidden="true"></span></a>
+  </footer>
+  <button class="pb-btn pb-btn--ghost pb-btn--sm pb-btn--icon pb-tip--end sode-panels__leave" id="panel-kiosk-leave" type="button" aria-label="Leave kiosk mode" data-pb-tip="Leave kiosk mode" hidden></button>
 </main>
 
 <script type="module" src="panelpage.js"></script>

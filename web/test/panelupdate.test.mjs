@@ -1,7 +1,7 @@
 // When an open panel applies a changed revision (panelupdate.js), with no DOM and no clock.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createUpdate, noticeRev, snooze, applyNow, updateStep, applied, bannerLine, COUNT_MS, SNOOZE_MS } from '../panelupdate.js';
+import { createUpdate, noticeRev, snooze, canSnooze, applyNow, updateStep, applied, bannerLine, COUNT_MS, SNOOZE_MS } from '../panelupdate.js';
 
 const idle = { staged: false, busy: false };
 const staging = { staged: true, busy: false };
@@ -48,11 +48,21 @@ test('Snooze keeps the banner up and counts 60 seconds down, then applies even o
   assert.equal(updateStep(u, idle, 2000 + SNOOZE_MS).step, 'apply');
 });
 
-test('a second Snooze starts the 60 seconds again', () => {
+test('a page snoozes once: a second Snooze changes nothing and canSnooze goes false', () => {
+  let u = noticeRev(createUpdate(3), 4, 1000);
+  assert.equal(canSnooze(u), true);
+  u = snooze(u, 2000);
+  assert.equal(canSnooze(u), false);
+  assert.deepEqual(snooze(u, 50000), u);
+  assert.equal(updateStep(snooze(u, 50000), idle, 50000).leftMs, SNOOZE_MS - 48000);
+  assert.equal(updateStep(u, idle, 2000 + SNOOZE_MS).step, 'apply');
+});
+
+test('Apply now stays allowed after a Snooze, and a newer revision noticed during it keeps the same countdown', () => {
   let u = snooze(noticeRev(createUpdate(3), 4, 1000), 2000);
-  u = snooze(u, 50000);
-  assert.equal(updateStep(u, idle, 50000).leftMs, SNOOZE_MS);
-  assert.equal(updateStep(u, idle, 50000 + SNOOZE_MS).step, 'apply');
+  u = noticeRev(u, 5, 9000);
+  assert.equal(updateStep(u, idle, 9000).leftMs, SNOOZE_MS - 7000);
+  assert.equal(updateStep(applyNow(u, 9000), staging, 9000).step, 'apply');
 });
 
 test('Apply now applies at once, staged routes or not', () => {
@@ -68,9 +78,10 @@ test('neither Snooze nor Apply now interrupts a take in flight; the copy applies
   assert.equal(updateStep(applyNow(u, 3000), staging, 3100).step, 'apply');
 });
 
-test('applying records the revision and the next change starts over, with no snooze carried', () => {
+test('applying records the revision and the next change starts over, with one Snooze back', () => {
   let u = snooze(noticeRev(createUpdate(3), 4, 1000), 2000);
   u = applied(u, 4);
+  assert.equal(canSnooze(u), true);
   assert.equal(updateStep(u, idle, 5000).step, 'none');
   u = noticeRev(u, 5, 6000);
   assert.equal(updateStep(u, idle, 6001).step, 'banner');
