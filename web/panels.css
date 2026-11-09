@@ -268,3 +268,93 @@
 .sode-ov__thumb .sode-ov__k-take {
   background: var(--pb-commit);
 }
+
+/* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never colour alone. */
+.sode-ed__bar {
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-3) var(--pb-space-4);
+}
+.sode-ed__field {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: inline-flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-2);
+}
+.sode-ed__num {
+  text-align: center;
+  width: 4.5rem;
+}
+.sode-ed__state {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode-ed__grid {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: grid;
+  gap: var(--pb-space-2);
+  outline-offset: var(--pb-space-1);
+  padding: var(--pb-space-2);
+  touch-action: none;
+  user-select: none;
+  width: 100%;
+}
+.sode-ed__grid[data-readonly="1"] {
+  cursor: default;
+}
+.sode-ed__sq {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-1);
+  justify-content: center;
+  line-height: var(--pb-leading-tight);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--pb-space-2);
+  text-align: center;
+}
+.sode-ed__sq.has-cell {
+  border-color: var(--pb-edge-hard);
+}
+.sode-ed__sq--source {
+  background: var(--pb-current-idle);
+}
+.sode-ed__sq--destination {
+  background: var(--pb-view-idle);
+}
+.sode-ed__sq--take {
+  background: var(--pb-surface-control);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-ed__sq.is-unassigned {
+  border-style: dashed;
+}
+.sode-ed__sq.is-sel {
+  box-shadow: inset 0 0 0 var(--pb-state-border-w) var(--pb-accent);
+}
+.sode-ed__text {
+  overflow-wrap: anywhere;
+}
+
+.sode-ed__menu {
+  position: fixed;
+}
+.sode-ed__menu li:focus-within > .pb-menu__sub {
+  display: block;
+}
+[data-ed-drag] .sode-ed__menu {
+  opacity: 0;
+  pointer-events: none;
+}
+.sode-ed__menu:focus-within {
+  outline: var(--pb-state-border-w) solid var(--pb-accent);
+}
