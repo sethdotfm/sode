@@ -3,7 +3,8 @@
 import { $, el, icon, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
-import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, shareLabel, launchHref, editHref } from './panelsrules.js';
+import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, shareLabel, launchHref, editHref, listKey, stepPanel } from './panelsrules.js';
+import { resultStep } from './keys.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
@@ -72,9 +73,10 @@ function button(label, ico, cls, act, id) {
   return b;
 }
 
-function link(label, ico, cls, href) {
+function link(label, ico, cls, href, key) {
   const a = el('a', `pb-btn ${cls}`, icon(ico), ` ${label}`);
   a.href = href;
+  if (key) a.append(el('kbd', 'sode-ov__kbd', key));
   return a;
 }
 
@@ -84,8 +86,8 @@ function detail(p) {
   if (!p) return;
   const acts = actionsFor(p);
   const bar = el('div', 'sode-ov__acts');
-  bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id)));
-  if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id)));
+  bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), 'Enter'));
+  if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id), 'e'));
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
@@ -212,6 +214,31 @@ export function runPanelsList() {
   $('panels-find').addEventListener('input', (e) => {
     S.filter = e.target.value;
     draw();
+  });
+  $('panels-find').addEventListener('keydown', (e) => {
+    const ids = groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((p) => p.id));
+    const step = resultStep(e, ids.length > 0);
+    if (step) {
+      e.preventDefault();
+      S.cur = stepPanel(ids, S.cur, step);
+      S.armed = '';
+      draw();
+      document.querySelector('.sode-ov__item[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && ids.length) {
+      // The highlighted panel is already the chosen one; Enter hands the keyboard to Launch, so the next Enter opens it.
+      e.preventDefault();
+      document.querySelector('#panels-detail a[href]')?.focus();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    // The Lock's dialog stays in the page while hidden, so only a rendered one counts.
+    if ([...document.querySelectorAll('[role="dialog"]')].some((d) => d.getClientRects().length)) return;
+    const what = listKey(e, e.target);
+    if (!what) return;
+    const p = S.panels.find((x) => x.id === S.cur);
+    if (!p || (what === 'edit' && !actionsFor(p).includes('edit'))) return;
+    e.preventDefault();
+    location.href = what === 'edit' ? editHref(p.id) : launchHref(p.id);
   });
   $('panels-new').addEventListener('click', () => {
     location.href = 'panels/editor';

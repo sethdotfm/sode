@@ -87,7 +87,7 @@ const subsequence = (text, word) => {
 };
 
 // How well one word matches an entry: 0 is no match. A typed number matches the number a person sees.
-function wordScore(e, word) {
+export function wordScore(e, word) {
   const label = e.label.toLowerCase();
   let best = 0;
   if (label === word) best = 100;

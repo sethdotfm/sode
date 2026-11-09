@@ -124,6 +124,10 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	b.waitFor("masked link", input+`?.value.includes('?instance=Lobby#key=') && !`+input+`.value.includes('sode_')`)
 	b.waitFor("no QR while masked", `!document.querySelector('.sode-ov__keylink .sode__qr')`)
 	lobby := keyOf()
+	// Copy kiosk link copies the link with kiosk=1 after the key, keeps ?instance=, and says Copied.
+	b.eval(`window.__copied = ''; navigator.clipboard.writeText = async (t) => { window.__copied = t; }`)
+	click("Copy kiosk link")
+	b.waitFor("kiosk link copied", `/\?instance=Lobby#key=[^&]+&kiosk=1$/.test(window.__copied) && `+tabText+`.includes('Copied.')`)
 	b.shot("share-key-link")
 	if status(lobby) != 200 {
 		t.Fatal("the made key does not work")

@@ -1,19 +1,42 @@
 // What the panels page (/panels) groups, labels and offers. Pure. Panels come from GET /api/v1/panels
 // with canEdit set by the server, which is the only place that decides who may change one.
 import { cellsIn } from './panelrules.js';
+import { wordScore } from './findrules.js';
 
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
-export const matches = (p, q) => {
-  const s = String(q || '')
-    .trim()
-    .toLowerCase();
-  return !s || p.name.toLowerCase().includes(s) || p.owner.toLowerCase().includes(s);
-};
+// Fuzzy score of a panel for a query, 0 when some word matches no field. Each word takes its best field
+// (name, short name, owner) with the editor Find's scoring; a name hit outranks an owner hit.
+export function panelScore(p, q) {
+  const words = String(q || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return 1;
+  let total = 0;
+  for (const w of words) {
+    const best = Math.max(wordScore({ label: p.name || '' }, w), wordScore({ label: p.slug || '' }, w) * 0.9, wordScore({ label: p.owner || '' }, w) * 0.8);
+    if (!best) return 0;
+    total += best;
+  }
+  return total;
+}
+
+export const matches = (p, q) => panelScore(p, q) > 0;
+
+// Best match first inside a group; the stable sort keeps the list's own order for equal scores and an empty query.
+const ranked = (panels, q) =>
+  String(q || '').trim()
+    ? panels
+        .map((p) => [p, panelScore(p, q)])
+        .filter(([, s]) => s > 0)
+        .sort((a, b) => b[1] - a[1])
+        .map(([p]) => p)
+    : panels;
 
 // A Trusted user is sent every panel, so grouping by owner is only a view over that list.
 export function groupPanels(panels, me, trusted, filter = '') {
-  const shown = panels.filter((p) => matches(p, filter));
+  const shown = ranked(panels, filter);
   const mine = shown.filter((p) => same(p.owner, me));
   const others = shown.filter((p) => !same(p.owner, me));
   const out = [];
@@ -91,3 +114,21 @@ export function shareLabel(share) {
 
 export const launchHref = (id) => `panels/${id}`;
 export const editHref = (id) => `panels/editor?panel=${id}`;
+
+// What a key does on the list page: 'launch' (Enter) or 'edit' (e) for the selected panel, else ''.
+// Text fields keep every key, and a button or link keeps Enter for itself.
+export function listKey(e, target) {
+  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return '';
+  const tag = String(target?.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return '';
+  if (e.key === 'e') return 'edit';
+  if (e.key === 'Enter' && tag !== 'button' && tag !== 'a') return 'launch';
+  return '';
+}
+
+// Ctrl/Cmd+J and K in the find box: the id the highlight moves to, stopping at the ends.
+export function stepPanel(ids, cur, step) {
+  if (!ids.length) return '';
+  const i = ids.indexOf(cur);
+  return ids[Math.min(ids.length - 1, Math.max(0, (i < 0 ? 0 : i) + step))];
+}
