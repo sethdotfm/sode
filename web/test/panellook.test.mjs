@@ -1,0 +1,102 @@
+// Panel look and device settings (panellook.js, panelfeel.js) and the pulse rules in panels.css.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { lookOf, artOf, cellScale, artUrlPath } from '../panellook.js';
+import { featureSupport, createWake, buzz } from '../panelfeel.js';
+
+const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'panels.css'), 'utf8');
+
+test('a panel with no look settings shows the title bar at normal size with no backdrop or device features', () => {
+  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, backdrop: '', wake: false, haptics: false });
+  assert.deepEqual(lookOf(undefined), lookOf({}));
+});
+
+test('look settings are read as stored, and odd values fall back', () => {
+  const l = lookOf({ titleBar: false, fontSize: 150, backdrop: 'a-0123abcd', wake: true, haptics: true });
+  assert.deepEqual(l, { titleBar: false, scale: 1.5, backdrop: 'a-0123abcd', wake: true, haptics: true });
+  assert.equal(lookOf({ fontSize: 'big' }).scale, 1);
+  assert.equal(lookOf({ fontSize: 5 }).scale, 0.5);
+  assert.equal(lookOf({ fontSize: 5000 }).scale, 2);
+  assert.equal(lookOf({ backdrop: '../x' }).backdrop, '');
+  assert.equal(lookOf({ wake: 'yes' }).wake, false);
+});
+
+test('cell artwork is a vendored icon or an uploaded artwork id, and nothing else', () => {
+  assert.deepEqual(artOf({ art: 'icon:video' }), { icon: 'video' });
+  assert.deepEqual(artOf({ art: 'a-0123abcd' }), { id: 'a-0123abcd' });
+  assert.equal(artOf({ art: 'icon:' }), null);
+  assert.equal(artOf({ art: 'icon:a b' }), null);
+  assert.equal(artOf({ art: 'https://x/y.svg' }), null);
+  assert.equal(artOf({}), null);
+});
+
+test('a cell font size multiplies the panel one, and a bad one counts as 1', () => {
+  assert.equal(cellScale({ fontSize: 50 }), 0.5);
+  assert.equal(cellScale({}), 1);
+  assert.equal(cellScale({ fontSize: -3 }), 0.5);
+});
+
+test('artwork is read from the panel route, with the id as a path segment', () => {
+  assert.equal(artUrlPath('p-1', 'a-0123abcd'), 'api/v1/panels/p-1/artwork/a-0123abcd');
+});
+
+test('wake lock and haptics report support from the browser object', () => {
+  assert.deepEqual(featureSupport({}), { wake: false, haptics: false });
+  assert.deepEqual(featureSupport({ wakeLock: { request() {} }, vibrate() {} }), { wake: true, haptics: true });
+  assert.deepEqual(featureSupport(undefined), { wake: false, haptics: false });
+});
+
+test('the wake lock is held while the page is visible and asked for again after it hides', async () => {
+  const calls = [];
+  const nav = { wakeLock: { request: async () => ({ released: false, release: async function () { this.released = true; calls.push('release'); }, addEventListener() {} }) } };
+  const doc = { visibilityState: 'visible', listeners: {}, addEventListener(t, f) { this.listeners[t] = f; }, removeEventListener(t) { delete this.listeners[t]; } };
+  const wake = createWake(nav, doc);
+  await wake.on();
+  assert.equal(wake.held(), true);
+  doc.visibilityState = 'hidden';
+  await doc.listeners.visibilitychange();
+  doc.visibilityState = 'visible';
+  await doc.listeners.visibilitychange();
+  assert.equal(wake.held(), true);
+  await wake.off();
+  assert.equal(wake.held(), false);
+  assert.equal(doc.listeners.visibilitychange, undefined);
+});
+
+test('a refused wake lock leaves the page working', async () => {
+  const wake = createWake({ wakeLock: { request: async () => { throw new Error('denied'); } } }, { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} });
+  await wake.on();
+  assert.equal(wake.held(), false);
+});
+
+test('a missing wake lock API makes on() do nothing', async () => {
+  const wake = createWake({}, { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} });
+  await wake.on();
+  assert.equal(wake.held(), false);
+});
+
+test('haptics buzz once where supported and do nothing elsewhere', () => {
+  const seen = [];
+  assert.equal(buzz({ vibrate: (ms) => seen.push(ms) }), true);
+  assert.equal(seen.length, 1);
+  assert.equal(buzz({}), false);
+});
+
+test('one animated root property drives every pulse, so no cell has an animation of its own', () => {
+  assert.equal([...css.matchAll(/animation\s*:/g)].length, 2); // the root, and none under reduced motion
+  assert.match(css, /:root\s*\{[^}]*animation:\s*sode-panel-pulse/);
+  assert.match(css, /--panel-pulse-s:\s*4s/);
+  assert.match(css, /--panel-pulse-floor:\s*72%/);
+});
+
+test('with reduced motion the pulse stops and the state is still carried by static rings', () => {
+  const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*?\}\s*\}/.exec(css)[0];
+  assert.match(reduced, /animation:\s*none/);
+  for (const sel of ['[data-s="staged"]', '[data-s="pending"]', '--armed']) {
+    const rule = new RegExp(`${sel.replace(/[[\]"-]/g, '\\$&')}[^{]*\\{[^}]*box-shadow: inset`).test(css);
+    assert.equal(rule, true, `${sel} has a ring`);
+  }
+});

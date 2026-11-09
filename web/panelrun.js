@@ -24,6 +24,9 @@ import {
   GUARD_HOLD_MS,
 } from './panelmodel.js';
 import { buildGrid, paintGrid } from './panelview.js';
+import { lookOf } from './panellook.js';
+import { createArt } from './panelart.js';
+import { createWake, buzz } from './panelfeel.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
@@ -71,12 +74,24 @@ export async function runPanel(id) {
     say('panels-note', 'This panel acts as its own API client. Open its link with the key.');
     return;
   }
-  document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, panel);
+  const set = panel.settings || {};
+  const look = lookOf(set);
+  const art = createArt(call, id);
+  document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, panel) || !look.titleBar;
   document.title = panel.name;
   $('panel-title').textContent = panel.name;
+  $('panel-grid').style.setProperty('--panel-fs', look.scale);
+  if (look.backdrop) {
+    art.url(look.backdrop).then((url) => {
+      if (!url) return;
+      const main = document.querySelector('.sode-panels');
+      main.classList.add('sode-panels--backdrop');
+      main.style.backgroundImage = `url("${url}")`;
+    });
+  }
+  if (look.wake) createWake(navigator, document).on();
 
   const cells = cellsIn(panel);
-  const set = panel.settings || {};
   let st = createState({ mode: set.mode, multi: set.multi, guard: set.guard, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
   let names = namesFrom({});
@@ -89,7 +104,7 @@ export async function runPanel(id) {
     paintGrid(grid, { st, env, names, now });
     say('panel-status', errorText(errorOf(st, now), names));
   };
-  const grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel });
+  const grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
 
   let polling = false;
   async function poll() {
@@ -155,6 +170,7 @@ export async function runPanel(id) {
 
   function onPress(cell) {
     if (!ready) return;
+    if (look.haptics) buzz(navigator);
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env, now)) return;
