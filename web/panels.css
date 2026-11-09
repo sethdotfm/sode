@@ -165,6 +165,66 @@
   color: var(--pb-text-strong);
 }
 
+/* No staged route: the Take cell is solid, not faded like a disabled control. */
+.sode-panel__take:disabled {
+  background-color: var(--pb-surface-control);
+  color: var(--pb-text-muted);
+  opacity: 1;
+}
+/* The wait of a hold or double-press guard fills across the Take cell.
+   A transition, since the shared --pulse must stay the only keyframes (panellook.test.mjs). */
+.sode-panel__take::after {
+  background-color: color-mix(in oklab, var(--pb-commit) 45%, transparent);
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: scaleX(0);
+  transform-origin: left;
+  z-index: -1;
+}
+.sode-panel__take[data-guard="holding"]::after,
+.sode-panel__take[data-guard="waiting"]::after {
+  transform: scaleX(1);
+  transition: transform var(--wait-ms, 800ms) linear;
+}
+
+/* Full width, and Offline: the grid blurs under a framed message. */
+.sode-panels--full {
+  max-width: none;
+  padding: var(--pb-space-3);
+}
+.sode-panels--offline > :not(.sode-panel__offline) {
+  filter: blur(0.5rem);
+  pointer-events: none;
+  user-select: none;
+}
+.sode-panel__offline {
+  align-items: center;
+  background-color: color-mix(in oklab, var(--pb-surface-base) 55%, transparent);
+  display: flex;
+  flex-direction: column;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 100;
+}
+.sode-panel__offline[hidden] {
+  display: none;
+}
+.sode-panel__offline-title {
+  color: var(--pb-status-error);
+  font-size: 6rem;
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+.sode-panel__offline-detail {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  margin: 0;
+  max-width: 40rem;
+  text-align: center;
+}
+
 /* Look: font size scales from the panel's --panel-fs and the cell's --cell-fs (both multipliers). Artwork sits
    dimmed behind the caption so the state colour still reads; it is only ever an <img> or a CSS background. */
 .sode-panel__grid {

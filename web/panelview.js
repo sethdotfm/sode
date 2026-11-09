@@ -2,7 +2,19 @@
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
 import { artOf, cellScale, textHidden } from './panellook.js';
-import { sourceState, destinationState, presetState, currentOfDestination, currentSource, armed, resultShown, guardWaiting } from './panelmodel.js';
+import { currentLabel } from './panelrules.js';
+import {
+  sourceState,
+  destinationState,
+  presetState,
+  currentOfDestination,
+  currentSource,
+  armed,
+  resultShown,
+  guardWaiting,
+  GUARD_HOLD_MS,
+  GUARD_DOUBLE_MS,
+} from './panelmodel.js';
 
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
 
@@ -92,7 +104,8 @@ function paintPreset(b, cell, { st, env, names }) {
 // Not pressable: it only reads the viewed destination.
 function paintCurrent(b, cell, { st, env, names }) {
   const src = currentSource(env, st);
-  b.replaceChildren(el('small', 'sode-panel__text', names.of(cell)), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
+  const label = currentLabel(cell, st.view ? names.destination(st.view.dst) : '');
+  b.replaceChildren(el('small', 'sode-panel__text', label), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
 }
 
 function takeLabel(st, cell, now) {
@@ -115,6 +128,7 @@ export function paintGrid(grid, ctx) {
     else {
       b.replaceChildren(el('span', 'sode-panel__text', takeLabel(ctx.st, cell, ctx.now)));
       b.dataset.guard = ctx.st.holdAt ? 'holding' : guardWaiting(ctx.st, ctx.now) ? 'waiting' : '';
+      b.style.setProperty('--wait-ms', `${ctx.st.holdAt ? GUARD_HOLD_MS : GUARD_DOUBLE_MS}ms`);
       b.disabled = !on;
       b.classList.toggle('sode-panel__take--armed', on);
     }

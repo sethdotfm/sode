@@ -1,7 +1,7 @@
 // What the panel page reads from the URL and the API (panelrules.js), and the text it shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { panelIdFrom, keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from '../panelrules.js';
+import { panelIdFrom, keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf, currentLabel } from '../panelrules.js';
 import { createState, currentOfDestination } from '../panelmodel.js';
 
 test('the panel id is the last path segment of /panels/<id>, and the editor and list are not panels', () => {
@@ -126,4 +126,20 @@ test('opening a panel fails with a reason that says what to do with the key', ()
   assert.match(openFailText(401, true), /rotated or revoked/);
   assert.match(openFailText(404, true), /No panel/);
   assert.match(openFailText(500, false), /could not be opened/);
+});
+
+test('the page is offline when Sode does not answer or the router link is down, and says which', () => {
+  assert.equal(offlineOf({ failed: false, routerUp: true }), null);
+  assert.match(offlineOf({ failed: true, routerUp: true }).detail, /Sode/);
+  const router = offlineOf({ failed: false, routerUp: false });
+  assert.match(router.detail, /router/);
+  assert.equal(router.title, 'Offline');
+  // Both down: the page cannot know about the router, so it blames Sode.
+  assert.match(offlineOf({ failed: true, routerUp: false }).detail, /Sode/);
+});
+
+test('the Current Destination cell names the viewed destination, and a caption still wins', () => {
+  assert.equal(currentLabel({ kind: 'current' }, 'CAM 1'), 'CAM 1 is currently:');
+  assert.equal(currentLabel({ kind: 'current' }, ''), 'Currently');
+  assert.equal(currentLabel({ kind: 'current', caption: 'Now on' }, 'CAM 1'), 'Now on');
 });
