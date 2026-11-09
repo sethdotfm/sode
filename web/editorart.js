@@ -5,7 +5,7 @@ import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn } from './formbits.js';
 import { artProblem, ART_ICONS } from './sidebarrules.js';
-import { artOf, ART_B_CHOICES } from './panellook.js';
+import { artOf, artBOf, ART_B_CHOICES } from './panellook.js';
 import { artNode } from './panelview.js';
 import { compressImage } from './artcompress.js';
 
@@ -57,11 +57,12 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   });
   choose.setAttribute('aria-expanded', 'false');
 
-  // Two panes: Icon A is the sprite, Icon B the glyphs. Choosing keeps the picker open, so "[camera] 2" is two clicks.
+  // Two columns shown at once, each with its own None and its own scroll: Icon A is the sprite, Icon B the glyphs.
+  // Choosing keeps the picker open, so "[camera] 2" is two clicks.
+  const column = (text, node) => el('div', 'sode-side__col', el('span', 'sode-side__col-h', text), node);
   const panes = [
     {
       id: 'a',
-      text: 'Icon A',
       node: pane(
         'Icon A',
         ART_ICONS,
@@ -73,7 +74,6 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       ? [
           {
             id: 'b',
-            text: 'Icon B',
             node: pane(
               'Icon B',
               ART_B_CHOICES,
@@ -84,25 +84,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
         ]
       : []),
   ];
-  const tabs = el('div', 'pb-btn-group sode-side__panes');
-  tabs.setAttribute('role', 'tablist');
-  let shownPane = 'a';
-  const showPane = (id) => {
-    shownPane = id;
-    for (const p of panes) {
-      p.node.hidden = p.id !== id;
-      p.tab.setAttribute('aria-selected', String(p.id === id));
-      p.tab.classList.toggle('pb-btn--outline', p.id !== id);
-    }
-  };
-  for (const p of panes) {
-    p.tab = btn('pb-btn--sm', p.text, () => showPane(p.id));
-    p.tab.setAttribute('role', 'tab');
-    p.tab.id = `ed-art-pane-${p.id}`;
-    tabs.append(p.tab);
-  }
-  picker.append(tabs, ...panes.map((p) => p.node));
-  showPane(shownPane);
+  for (const p of panes) p.col = column(p.id === 'a' ? 'Icon A' : 'Icon B', p.node);
+  picker.append(...panes.map((p) => p.col));
 
   let hidden = false;
   const hide = btn('pb-btn--outline pb-btn--sm', 'Hide text', () => setHideText(!hidden));
@@ -132,7 +115,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
     update(value, caption = '', hideText = false, artB = '') {
       const ro = ed.readOnly();
       const saved = !!ed.panel();
-      const any = !!value || !!artB;
+      const shownB = artBOf({ art: value, artB });
+      const any = !!value || !!shownB;
       up.disabled = ro || !saved;
       choose.disabled = ro;
       clear.disabled = ro || !any;
@@ -143,19 +127,21 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       for (const p of panes) for (const b of p.node.querySelectorAll('button')) b.disabled = ro;
       for (const b of panes[0].node.querySelectorAll('[aria-label]')) b.setAttribute('aria-pressed', String(value === `icon:${b.getAttribute('aria-label')}`));
       for (const b of panes[1]?.node.querySelectorAll('[aria-label]') || []) b.setAttribute('aria-pressed', String(artB === b.getAttribute('aria-label')));
+      // An uploaded image stands alone, so Icon B has no column; artB stays stored for a later vendored icon.
+      if (panes[1]) panes[1].col.hidden = !!artOf({ art: value })?.id;
       if (!saved && !note.textContent) note.textContent = 'Save the panel before uploading an image.';
       else if (saved && note.textContent === 'Save the panel before uploading an image.') note.textContent = '';
-      const key = `${value}|${artB}|${caption}|${hideText}`;
+      const key = `${value}|${shownB}|${caption}|${hideText}`;
       if (shown === key) return;
       shown = key;
       preview.replaceChildren();
       preview.hidden = !any;
       preview.toggleAttribute('data-hide-text', hideText); // full strength, as the cell (panels.css)
       if (!any) return;
-      const row = artNode({ art: value, artB }, ed.art());
+      const row = artNode({ art: value, artB: shownB }, ed.art());
       if (!row) return;
       preview.append(row);
-      if (!hideText) preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || artB ? 'Caption' : '')));
+      if (!hideText) preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || shownB ? 'Caption' : '')));
     },
   };
 }

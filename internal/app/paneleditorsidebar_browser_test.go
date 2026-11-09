@@ -54,9 +54,9 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon A"] button[aria-label="tv"]').click(); true`)
 	b.waitFor("Hide text appears with an icon", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].some((x) => x.textContent === 'Hide text' && !x.hidden)`)
 	b.waitFor("the square shows Icon A", `!!document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a')`)
-	// Icon B: the glyph pane, and the square shows "[tv] 2".
-	b.eval(`document.getElementById('ed-art-pane-b').click(); true`)
-	b.waitFor("the Icon B pane lists digits and letters", `!document.querySelector('.sode-side__icons[aria-label="Icon B"]').hidden && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="16"]') && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="Z"]')`)
+	// Icon B: the glyph column beside Icon A's, both shown at once, each with its own None; the square shows "[tv] 2".
+	b.waitFor("Icon A and Icon B sit side by side, each with None", `(() => { const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]'); const b = document.querySelector('.sode-side__icons[aria-label="Icon B"]'); const ra = a.getBoundingClientRect(); const rb = b.getBoundingClientRect(); return ra.width > 0 && rb.width > 0 && rb.left >= ra.right && Math.abs(rb.top - ra.top) < 2 && a.firstChild.textContent === 'None' && b.firstChild.textContent === 'None' && getComputedStyle(a).overflowY === 'auto' && getComputedStyle(b).overflowY === 'auto'; })()`)
+	b.waitFor("the Icon B column lists digits and letters", `!!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="16"]') && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="Z"]')`)
 	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="2"]').click(); true`)
 	b.waitFor("the square shows Icon B beside Icon A", `(() => { const a = document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a'); const b = document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-b'); return !!a && b?.textContent === '2' && b.getBoundingClientRect().left >= a.getBoundingClientRect().right; })()`)
 	b.eval(`[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Hide text').click(); true`)

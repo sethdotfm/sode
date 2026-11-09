@@ -67,9 +67,12 @@ on('access', (a) => {
   for (const fn of watchers) fn(key, step);
 });
 
+// A refusal reaches the watchers as step 'refused' with Sode's reason, so a page can say why it has no key.
 onMsg('sessionKeyResult', (m) => {
   asking = false;
-  if (!ended) setKey(keyFrom(m));
+  if (ended) return;
+  setKey(keyFrom(m));
+  if (!m.ok) for (const fn of watchers) fn('', 'refused', m.err || '');
 });
 on('wsclose', () => {
   asking = false;

@@ -4,9 +4,9 @@
 import { el, icon, onMsg, on, $ } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { resultStep } from './keys.js';
-import { selSquares, single } from './gridmodel.js';
+import { selSquares, single, selCells } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
-import { CHIP_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill } from './findrules.js';
+import { CHIP_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from './findrules.js';
 import { flyoutShift } from './editorrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
@@ -179,12 +179,26 @@ export function initFind(editor) {
         return li;
       }),
     );
-    if (!results.length) list.append(el('li', 'sode-find__none', data.names ? 'Nothing matches.' : 'Find needs a signed-in user.'));
+    if (!results.length && chip) {
+      const all = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Search all instead');
+      all.type = 'button';
+      all.addEventListener('click', searchAll);
+      list.append(el('li', 'sode-find__none', `No ${CATEGORY_LABEL[chip]} match. `, all));
+    } else if (!results.length) list.append(el('li', 'sode-find__none', data.names ? 'Nothing matches.' : 'Find needs a signed-in user.'));
     else if (results.length > SHOWN) list.append(el('li', 'sode-find__none', `${results.length - SHOWN} more. Keep typing to narrow.`));
     fill.hidden = picked.length < 2;
     list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
     showPreview();
     fit();
+  }
+
+  // Drops the chip and keeps the typed text (the row under an empty narrowed list, or Enter there).
+  function searchAll() {
+    chip = '';
+    hi = 0;
+    clearPicks();
+    draw();
+    input.focus({ preventScroll: true });
   }
 
   const clearPicks = () => {
@@ -278,7 +292,8 @@ export function initFind(editor) {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      place(hi);
+      if (!results.length && chip) searchAll();
+      else place(hi);
     }
   });
 
@@ -290,7 +305,17 @@ export function initFind(editor) {
     clearPreview();
     note.textContent = '';
   };
+  // Each opening starts on the kind the selection was given and not yet filled, so a Preset square lists Presets.
+  // Typing on the grid or choosing Find in the menu is an opening even if the flyout never closed (fresh); a fill
+  // that steps the selection on keeps focus in the box and is not, so a row of clicks keeps walking the list.
+  const scope = (fresh = false) => {
+    if (active() && !fresh) return;
+    chip = findScope(selCells(editor.grid()));
+    hi = 0;
+    clearPicks();
+  };
   panel.addEventListener('pointerenter', () => {
+    scope();
     hovered = true;
     load();
     showPreview();
@@ -301,6 +326,7 @@ export function initFind(editor) {
     if (!panel.contains(document.activeElement)) close();
   });
   panel.addEventListener('focusin', () => {
+    scope();
     panel.dataset.open = '1';
     load();
     showPreview();
@@ -313,6 +339,7 @@ export function initFind(editor) {
 
   // text null keeps the box as it is.
   function open(text) {
+    scope(!panel.contains(document.activeElement));
     panel.dataset.open = '1';
     if (text !== null) {
       input.value = text;

@@ -1,6 +1,7 @@
 // What the panel editor reads from its URL and from /api/v1/panels, and what it sends back. Pure.
 import { KINDS } from './panelrules.js';
 import { saved, createGrid, DEFAULT_ROWS, DEFAULT_COLS } from './gridmodel.js';
+import { chord } from './keys.js';
 
 // /panels/editor?panel=<id> edits one panel; anything else starts a new one.
 export function editorTarget(search) {
@@ -100,11 +101,43 @@ export function flyoutShift(rect, vp, gap) {
   return { x, y };
 }
 
-// The item a Ctrl or Cmd chord runs (item.chord is the letter): never a disabled one.
-export const menuChord = (items, e) =>
-  (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey ? (items.find((it) => it.chord === e.key.toLowerCase() && !it.disabled) ?? null) : null;
+// The item a Ctrl chord runs (item.chord is the letter): never a disabled one. Ctrl on a Mac too, since macOS takes
+// Cmd+M to minimise the window before the page sees it.
+export const menuChord = (items, e) => items.find((it) => it.chord && chord(e) === `ctrl+${it.chord}` && !it.disabled) ?? null;
 
-export const chordText = (letter, mac) => (mac ? `\u2318${letter.toUpperCase()}` : `Ctrl+${letter.toUpperCase()}`);
+// U+2303 is the Mac's Control sign.
+export const chordText = (letter, mac) => (mac ? `\u2303${letter.toUpperCase()}` : `Ctrl+${letter.toUpperCase()}`);
+
+// Ctrl or Cmd+S saves the panel instead of the browser saving the page. By e.code (chord), so any keyboard layout.
+export const saveChord = (e) => ['ctrl+s', 'meta+s'].includes(chord(e));
+
+// The note and button above the editor for a sign-in step (sessionStep, plus 'ended', 'refused' and 'offline').
+// err is Sode's reason when it refused the page's key. Steps with nothing to say ('ready', 'wait' behind the page
+// lock's own pad, 'request') give empty text.
+export function signInNote(step, err = '') {
+  switch (step) {
+    case 'sign-in':
+      return { text: 'Sign in with your PIN to edit panels.', button: 'Sign in' };
+    case 'no-users':
+      return { text: 'Panels need a user, and Sode has none. Add one in Settings, Users.', button: '' };
+    case 'ended':
+      return { text: "This page's sign-in key was ended. Sign in again to keep editing.", button: 'Sign in again' };
+    case 'refused':
+      return { text: `Sode would not open the editor for this sign-in${err ? `: ${err}` : ''}. Sign in again.`, button: 'Sign in again' };
+    case 'offline':
+      return { text: 'Sode is not answering. The page keeps trying; check the network if this stays.', button: '' };
+    default:
+      return { text: '', button: '' };
+  }
+}
+
+// Why a panel could not be opened, from jsonCall's error, and what to do about it.
+export function openFailNote(e) {
+  if (e.status === 0) return 'Sode did not answer, so the panel could not be opened. Check the network, then choose the panel again.';
+  if (e.status === 404) return 'No panel here that you can use. Choose another panel, or ask its owner to share it with you.';
+  if (e.status === 401) return 'Your sign-in for this page ended. Sign in again, then choose the panel again.';
+  return e.message || `The panel could not be opened (${e.status}).`;
+}
 
 export const todoText = (n) => (n ? `${n} unassigned square${n > 1 ? 's' : ''}` : 'No unassigned squares');
 

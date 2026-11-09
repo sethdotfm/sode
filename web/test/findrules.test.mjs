@@ -1,7 +1,7 @@
 // Find in the panel editor (findrules.js): what can be searched, who may see it, and how results rank. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findEntries, rankFind, fillRun, findPlan, applyFind, afterFill } from '../findrules.js';
+import { findEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
 import { createGrid, select, selCells, cellAt } from '../gridmodel.js';
 
 const names = {
@@ -26,7 +26,12 @@ const presets = {
 test('every Source, Destination, Preset, Take, Clear and Current is searchable, with the number a person sees', () => {
   const all = findEntries(names, presets, null);
   assert.equal(all.length, 10);
-  assert.deepEqual(rankFind(all, 'take').map((e) => e.category).slice(0, 1), ['take']);
+  assert.deepEqual(
+    rankFind(all, 'take')
+      .map((e) => e.category)
+      .slice(0, 1),
+    ['take'],
+  );
   assert.deepEqual(rankFind(all, 'clear')[0].category, 'clear');
   const cam = all.find((e) => e.label === 'Camera 2');
   assert.deepEqual([cam.category, cam.n, cam.num, cam.off], ['source', 1, 2, false]);
@@ -200,4 +205,16 @@ test('a result outside the rights ranks below one inside them that matches as we
     rankFind(list, 'camera').map((e) => e.label),
     ['Camera 2', 'Camera 1'],
   );
+});
+
+test('Find starts narrowed to the kind the selected squares were given and not yet filled', () => {
+  assert.equal(findScope([{ kind: 'preset' }]), 'preset');
+  assert.equal(findScope([{ kind: 'source' }, { kind: 'source' }]), 'source');
+  assert.equal(findScope([{ kind: 'destination' }]), 'destination');
+  assert.equal(findScope([{ kind: 'source', n: 3 }]), '', 'a chosen Source is not narrowed');
+  assert.equal(findScope([{ kind: 'preset', scope: 'everyone', name: 'Cam' }]), '');
+  assert.equal(findScope([{ kind: 'source' }, { kind: 'source', n: 1 }]), '', 'one already filled');
+  assert.equal(findScope([{ kind: 'source' }, { kind: 'preset' }]), '', 'mixed kinds');
+  assert.equal(findScope([{ kind: 'take' }]), '', 'Take has no list to narrow');
+  assert.equal(findScope([]), '', 'an empty square');
 });

@@ -12,6 +12,9 @@ import {
   kindChoices,
   menuChord,
   chordText,
+  saveChord,
+  signInNote,
+  openFailNote,
   typeLabel,
   todoText,
 } from '../editorrules.js';
@@ -170,7 +173,7 @@ test('a short name is an unsaved field: it dirties the editor, saves, and cleari
 });
 
 // The menu as the editor builds it for each selection: Merge reads Unmerge on a merged square, and is off on a
-// single square. Only Merge has a chord (Ctrl or Cmd+M).
+// single square. Only Merge has a chord, Ctrl+M on every platform (macOS keeps Cmd+M for minimising the window).
 const key = (k, mods = { ctrlKey: true }) => ({ key: k, ...mods });
 const variant = (merge) => [
   { name: 'Merge', label: merge.label, chord: 'm', disabled: merge.disabled, run: () => 'merge' },
@@ -178,9 +181,11 @@ const variant = (merge) => [
   { name: 'Find', label: 'Find', panel: {}, run: () => 'find' },
 ];
 
-test('Ctrl or Cmd+M runs Merge, or Unmerge on a merged square, and nothing else has a chord', () => {
+test('Ctrl+M runs Merge, or Unmerge on a merged square, and nothing else has a chord', () => {
   assert.equal(menuChord(variant({ label: 'Merge' }), key('m'))?.run(), 'merge');
-  assert.equal(menuChord(variant({ label: 'Merge' }), key('M', { metaKey: true }))?.run(), 'merge');
+  assert.equal(menuChord(variant({ label: 'Merge' }), key('M', { ctrlKey: true }))?.run(), 'merge');
+  assert.equal(menuChord(variant({ label: 'Merge' }), key('m', { metaKey: true })), null, 'Cmd+M is the window');
+  assert.equal(menuChord(variant({ label: 'Merge' }), key('m', { ctrlKey: true, metaKey: true })), null);
   assert.equal(menuChord(variant({ label: 'Unmerge' }), key('m'))?.label, 'Unmerge');
   for (const k of ['t', 'f']) assert.equal(menuChord(variant({ label: 'Merge' }), key(k)), null);
   assert.equal(menuChord(variant({ label: 'Merge' }), key('m', {})), null, 'bare M is typing');
@@ -191,9 +196,20 @@ test('a disabled Merge ignores its chord, and a read-only editor has no menu to 
   assert.equal(menuChord([], key('m')), null);
 });
 
-test('the chord reads Ctrl+M, or the Cmd sign on a Mac', () => {
+test('the chord reads Ctrl+M, or the Control sign on a Mac, never the Cmd sign', () => {
   assert.equal(chordText('m', false), 'Ctrl+M');
-  assert.equal(chordText('m', true), '\u2318M');
+  assert.equal(chordText('m', true), '\u2303M');
+});
+
+test('Ctrl or Cmd+S saves, in a field too; with Shift or Alt it is something else', () => {
+  assert.equal(saveChord({ key: 's', ctrlKey: true }), true);
+  assert.equal(saveChord({ key: 's', metaKey: true }), true);
+  assert.equal(saveChord({ key: 'S', metaKey: true }), true);
+  assert.equal(saveChord({ key: 's' }), false);
+  assert.equal(saveChord({ key: 's', metaKey: true, shiftKey: true }), false);
+  assert.equal(saveChord({ key: 's', ctrlKey: true, altKey: true }), false);
+  assert.equal(saveChord({ key: 'd', ctrlKey: true }), false);
+  assert.equal(saveChord({ key: 'ы', code: 'KeyS', ctrlKey: true }), true, 'a Cyrillic layout still saves');
 });
 
 test('the Type item names the kind of the selected squares', () => {
@@ -207,4 +223,27 @@ test('the unassigned count says what it counts', () => {
   assert.equal(todoText(0), 'No unassigned squares');
   assert.equal(todoText(1), '1 unassigned square');
   assert.equal(todoText(3), '3 unassigned squares');
+});
+
+// The editor never sits blank: every way it can fail to reach the panel says why and what to do.
+test('each sign-in state says what to do, with Sign in again where signing in is the fix', () => {
+  assert.deepEqual(signInNote('sign-in'), { text: 'Sign in with your PIN to edit panels.', button: 'Sign in' });
+  assert.deepEqual(signInNote('no-users'), { text: 'Panels need a user, and Sode has none. Add one in Settings, Users.', button: '' });
+  assert.equal(signInNote('ended').button, 'Sign in again');
+  assert.match(signInNote('ended').text, /ended/);
+  const refused = signInNote('refused', 'your PIN changed');
+  assert.equal(refused.button, 'Sign in again');
+  assert.match(refused.text, /your PIN changed/);
+  assert.match(signInNote('offline').text, /Sode is not answering/);
+  assert.equal(signInNote('offline').button, '');
+  assert.deepEqual(signInNote('ready'), { text: '', button: '' });
+  assert.deepEqual(signInNote('wait'), { text: '', button: '' }, 'the page lock draws its own pad');
+});
+
+test('a panel that cannot be opened says why and what to do', () => {
+  assert.match(openFailNote({ status: 404 }), /No panel here that you can use\. Choose another panel, or ask its owner to share it with you\./);
+  assert.match(openFailNote({ status: 0, message: 'Failed to fetch' }), /Sode did not answer/);
+  assert.match(openFailNote({ status: 401, message: 'key revoked' }), /sign in again/i);
+  assert.equal(openFailNote({ status: 403, message: 'This address may not use the API.' }), 'This address may not use the API.');
+  assert.match(openFailNote({ status: 500, message: '' }), /could not be opened \(500\)/);
 });

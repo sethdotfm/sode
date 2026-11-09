@@ -185,6 +185,16 @@ test('Icon B is one of the fixed glyphs, and anything else is dropped', async ()
   assert.equal(textHidden({ hideText: true, artB: 'bogus' }), false);
 });
 
+// An uploaded image fills Icon A on its own: Icon B is not drawn beside it, though the cell keeps artB, so going
+// back to a vendored icon brings it back.
+test('Icon B is not drawn beside an uploaded image, and comes back with an icon', async () => {
+  const { artBOf } = await import('../panellook.js');
+  assert.equal(artBOf({ art: 'a-0123abcd', artB: '2' }), '');
+  assert.equal(artBOf({ art: 'icon:camera', artB: '2' }), '2');
+  assert.equal(artBOf({ artB: '2' }), '2');
+  assert.equal(artBOf({ art: 'https://x/y.png', artB: '2' }), '2', 'a dropped art value is no image');
+});
+
 test('the artwork row sizes Icon B from the cell, so it scales with the square', () => {
   assert.match(css, /\.sode-panel__art \{[^}]*container-type: size/);
   assert.match(css, /\.sode-panel__art-b \{[^}]*cqh/);

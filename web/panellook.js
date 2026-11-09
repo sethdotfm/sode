@@ -31,8 +31,9 @@ export function lookOf(settings) {
 // Text is only hidden under artwork (Icon A or B), so a cell never ends up with neither.
 export const textHidden = (cell) => cell?.hideText === true && (!!artOf(cell) || !!artBOf(cell));
 
-// '' when the cell has no Icon B or holds something that is not one of the choices.
-export const artBOf = (cell) => (typeof cell?.artB === 'string' && ART_B_CHOICES.includes(cell.artB) ? cell.artB : '');
+// '' when the cell has no Icon B, holds something that is not one of the choices, or has an uploaded image as Icon A
+// (the image stands alone; artB stays stored, so a vendored icon brings it back).
+export const artBOf = (cell) => (typeof cell?.artB === 'string' && ART_B_CHOICES.includes(cell.artB) && !artOf(cell)?.id ? cell.artB : '');
 
 export const cellScale = (cell) => scaleOf(cell?.fontSize);
 
