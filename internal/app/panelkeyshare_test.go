@@ -175,6 +175,25 @@ func TestNetworksEmptyAllowsAnywhere(t *testing.T) {
 	}
 }
 
+func TestRefusedNetworkDoesNotCountAsUse(t *testing.T) {
+	a, _, cy, id := keyedPanel(t)
+	secret, _ := mintKey(t, a, cy, id)
+	putNetworks(a, cy, id, `["192.0.2.0/24"]`)
+	uses := func() (n int) {
+		for _, k := range a.keys.list() {
+			if k.Owner.Kind == actorClient {
+				n += k.Count
+			}
+		}
+		return n
+	}
+	before := uses()
+	wantErr(t, apiDoFrom(a, "198.51.100.9:4000", "GET", "/api/v1/tally", secret, nil), 403, "network_not_allowed")
+	if after := uses(); after != before {
+		t.Fatalf("a refused request counted as a use: %d to %d", before, after)
+	}
+}
+
 func TestSetupExchangeFromOutsideTheNetworksFails(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	putNetworks(a, cy, id, `["192.0.2.0/24"]`)
