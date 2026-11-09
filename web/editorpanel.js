@@ -55,7 +55,13 @@ export function createPanelTab(ed) {
     sizeNote.textContent = r.error || '';
     if (!r.error) set('fontSize', r.value);
   });
-  const sizeField = el('div', 'sode__field sode-side__inline', Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-set-font' }), size, el('span', 'sode__hint', '%'));
+  const sizeField = el(
+    'div',
+    'sode__field sode-side__inline',
+    Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-set-font' }),
+    size,
+    el('span', 'sode__hint', '%'),
+  );
   const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
   const backdrop = createArtControl({ ed, set: (v) => set('backdrop', v || '') });
   const appearance = section('Appearance', toggle('titleBar', 'Show the title bar'), sizeRow, backdrop.node);
