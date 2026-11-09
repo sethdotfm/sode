@@ -126,6 +126,19 @@
 .sode-panel__cell[data-result="failed"] {
   box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
 }
+.sode-panel__cell--current:disabled {
+  background-color: var(--pb-surface-control);
+  color: var(--pb-text-strong);
+  opacity: 1;
+}
+.sode-panel__cell--current span {
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-panel__take[data-guard="holding"],
+.sode-panel__take[data-guard="waiting"] {
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
+}
 .sode-panel__take--armed {
   background-color: color-mix(in oklab, var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-surface-control));
   color: var(--pb-text-strong);

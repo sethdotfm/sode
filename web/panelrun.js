@@ -5,7 +5,24 @@ import { $ } from './core.js';
 import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { withKey } from './sessionkeyrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from './panelrules.js';
-import { createState, pressDestination, pressSource, startTake, finishTake, failTake, applyTally, idleClear, errorOf } from './panelmodel.js';
+import {
+  createState,
+  pressDestination,
+  pressSource,
+  pressPreset,
+  pressClear,
+  startTake,
+  startInstant,
+  finishTake,
+  failTake,
+  applyTally,
+  idleClear,
+  errorOf,
+  guardDown,
+  guardHeld,
+  guardCancel,
+  GUARD_HOLD_MS,
+} from './panelmodel.js';
 import { buildGrid, paintGrid } from './panelview.js';
 
 const POLL_MS = 2000;
@@ -60,9 +77,10 @@ export async function runPanel(id) {
 
   const cells = cellsIn(panel);
   const set = panel.settings || {};
-  let st = createState({ mode: set.mode, multi: set.multi, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
+  let st = createState({ mode: set.mode, multi: set.multi, guard: set.guard, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
   let names = namesFrom({});
+  let presets = {};
   let namesAt = 0;
   let ready = false;
 
@@ -71,7 +89,7 @@ export async function runPanel(id) {
     paintGrid(grid, { st, env, names, now });
     say('panel-status', errorText(errorOf(st, now), names));
   };
-  const grid = buildGrid($('panel-grid'), panel, cells, onPress);
+  const grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel });
 
   let polling = false;
   async function poll() {
@@ -79,12 +97,14 @@ export async function runPanel(id) {
     polling = true;
     try {
       const wantNames = Date.now() - namesAt > NAMES_MS;
-      const [tally, prot, nm] = await Promise.all([get('api/v1/tally'), get('api/v1/protected'), wantNames ? get('api/v1/names') : null]);
+      // A key without the presets scope gets 403: its Preset cells then show as unavailable.
+      const [tally, prot, nm, pr] = await Promise.all([get('api/v1/tally'), get('api/v1/protected'), wantNames ? get('api/v1/names') : null, wantNames ? get('api/v1/presets').catch(() => ({})) : null]);
       if (nm) {
         names = namesFrom(nm);
+        presets = pr;
         namesAt = Date.now();
       }
-      env = envFrom(tally, prot);
+      env = envFrom(tally, prot, presets);
       st = applyTally(st, env);
       ready = true;
       say('panels-note', '');
@@ -95,8 +115,7 @@ export async function runPanel(id) {
     render();
   }
 
-  async function take() {
-    const started = startTake(st, env, Date.now());
+  async function send(started) {
     if (!started) return;
     st = started.state;
     render();
@@ -115,12 +134,45 @@ export async function runPanel(id) {
     poll();
   }
 
+  let holdTimer = 0;
+  function holdCancel() {
+    clearTimeout(holdTimer);
+    st = guardCancel(st);
+    render();
+  }
+  function holdDown() {
+    if (!ready || st.guard !== 'hold' || !startTake(st, env, Date.now())) return;
+    st = guardDown(st, Date.now()).state;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      const held = guardHeld(st, Date.now());
+      st = held.state;
+      if (held.go) send(startTake(st, env, Date.now()));
+      render();
+    }, GUARD_HOLD_MS);
+    render();
+  }
+
   function onPress(cell) {
     if (!ready) return;
     const now = Date.now();
+    if (cell.kind === 'take') {
+      if (st.guard === 'hold' || !startTake(st, env, now)) return;
+      const down = guardDown(st, now);
+      st = down.state;
+      if (down.go) send(startTake(st, env, now));
+      return render();
+    }
     if (cell.kind === 'destination') st = pressDestination(st, cell, env, now);
     else if (cell.kind === 'source') st = pressSource(st, cell, env, now);
-    else return void take();
+    else if (cell.kind === 'preset') st = pressPreset(st, cell, env, now);
+    else if (cell.kind === 'clear') st = pressClear(st, now);
+    else return;
+    // Instant mode: a Source or Preset press is the Confirm.
+    if (cell.kind === 'source' || cell.kind === 'preset') {
+      const started = startInstant(st, env, now);
+      if (started) return void send(started);
+    }
     render();
   }
 
