@@ -1,6 +1,6 @@
 // The sidebar's Cell tab: caption, levels, font size and artwork of the one cell selected. Fields are built once
 // and updated in place, so typing a caption keeps the caret while the grid repaints.
-import { el } from './core.js';
+import { el, S } from './core.js';
 import { field } from './formbits.js';
 import { single, setCell, selCells } from './gridmodel.js';
 import { kindLabel } from './editorrules.js';
@@ -16,12 +16,11 @@ const put = (input, value, force) => {
   if ((force || input !== document.activeElement) && input.value !== value) input.value = value;
 };
 
-export function createCellTab(ed, levelList) {
+export function createCellTab(ed) {
   const node = el('div', 'sode-side__tab');
   const hint = el('p', 'sode__hint');
   const form = el('div', 'sode-side__form');
   let at = '';
-  let levels = [];
 
   const kindLine = el('p', 'sode-side__kind');
   const caption = el('input', 'pb-input');
@@ -41,7 +40,13 @@ export function createCellTab(ed, levelList) {
   size.title = '50 to 200 percent of the panel font size.';
   const sizeNote = el('span', 'sode__hint');
   sizeNote.setAttribute('role', 'status');
-  const sizeField = el('div', 'sode__field sode-side__inline', Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-cell-size' }), size, el('span', 'sode__hint', '%'));
+  const sizeField = el(
+    'div',
+    'sode__field sode-side__inline',
+    Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-cell-size' }),
+    size,
+    el('span', 'sode__hint', '%'),
+  );
   const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
   const art = createArtControl({ ed, icons: true, set: (v) => patch({ art: v }), setHideText: (v) => patch({ hideText: v ? true : undefined }) });
   form.append(kindLine, captionField, levelField, sizeRow, art.node);
@@ -64,8 +69,7 @@ export function createCellTab(ed, levelList) {
 
   return {
     node,
-    setLevels(list) {
-      levels = list;
+    resetLevels() {
       at = '';
       levelBoxes.reset();
     },
@@ -89,9 +93,9 @@ export function createCellTab(ed, levelList) {
       if (fresh) levelBoxes.reset();
       kindLine.textContent = `${kindLabel(c.kind)} at row ${c.r}, column ${c.c}`;
       put(caption, c.caption || '', fresh);
-      put(size, c.fontSize ? String(c.fontSize) : '', fresh);
-      levelField.hidden = !LEVEL_KINDS.includes(c.kind) || !levels.length;
-      levelBoxes.draw(levels, c.levels);
+      put(size, String(c.fontSize || 100), fresh); // shown, so the arrows step from the default
+      levelField.hidden = !LEVEL_KINDS.includes(c.kind) || !S.levels.length;
+      levelBoxes.draw(c.levels);
       at = key;
       for (const i of [caption, size]) i.disabled = ed.readOnly();
       art.update(c.art || '', c.caption || '', c.hideText === true);
