@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -176,9 +175,7 @@ func validPanelID(id string) bool { return panelIDRe.MatchString(id) }
 // panelStore: Panel values held here are never mutated in place; every change stores a new
 // one, so a copy returned by get stays valid. Never call with App.mu held: changes write files.
 type panelStore struct {
-	mu    sync.Mutex
-	dir   string // "" = memory only
-	by    map[string]Panel
+	yamlDir[Panel]
 	art   map[string][]byte // memory only: "<id>/<artID>"
 	probs []string
 	cps   map[string][]panelCheckpoint // checkpoints read so far, see panelpush.go
@@ -188,40 +185,35 @@ type panelStore struct {
 // loadPanels runs once from New. A missing folder is empty. A file that does not parse, or
 // whose id differs from its name, is logged, kept in problems and skipped.
 func loadPanels(cfgPath string) *panelStore {
-	s := &panelStore{by: map[string]Panel{}, art: map[string][]byte{}, sets: loadPanelSets(cfgPath)}
+	s := &panelStore{art: map[string][]byte{}, sets: loadPanelSets(cfgPath)}
+	s.by = map[string]Panel{}
+	s.prefix = "p-"
+	s.idOf = func(p *Panel) *string { return &p.ID }
+	s.nameOf = func(p Panel) string { return p.Name }
+	s.pathOf = func(dir string, p Panel) string { return filepath.Join(dir, p.ID+".yaml") }
 	if cfgPath == "" {
 		return s
 	}
 	s.dir = filepath.Join(filepath.Dir(cfgPath), panelsDir)
-	ents, err := os.ReadDir(s.dir)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			s.problem("%s: %v", s.dir, err)
-		}
-		return s
-	}
-	for _, e := range ents {
-		id, ok := strings.CutSuffix(e.Name(), ".yaml")
-		if !ok || e.IsDir() {
-			continue
-		}
-		path := filepath.Join(s.dir, e.Name())
-		b, err := os.ReadFile(path)
+	err := s.loadDir(s.dir, func(path, id string, b []byte, err error) (Panel, bool) {
+		var p Panel
 		if err != nil {
 			s.problem("%s: %v", path, err)
-			continue
+			return p, false
 		}
-		var p Panel
 		if err := yaml.Unmarshal(b, &p); err != nil {
 			s.problem("%s: not valid YAML: %v", path, err)
-			continue
+			return p, false
 		}
 		if p.ID != id || !validPanelID(id) {
 			s.problem("%s: the file name and its id %q differ", path, p.ID)
-			continue
+			return p, false
 		}
 		p.normalize()
-		s.by[id] = p
+		return p, true
+	})
+	if err != nil && !os.IsNotExist(err) {
+		s.problem("%s: %v", s.dir, err)
 	}
 	return s
 }
@@ -238,67 +230,21 @@ func (s *panelStore) problems() []string {
 	return slices.Clone(s.probs)
 }
 
-func (s *panelStore) get(id string) (Panel, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	p, ok := s.by[id]
-	return p, ok
-}
-
-func (s *panelStore) list() []Panel {
-	s.mu.Lock()
-	out := make([]Panel, 0, len(s.by))
-	for _, p := range s.by {
-		out = append(out, p)
-	}
-	s.mu.Unlock()
-	slices.SortFunc(out, func(a, b Panel) int {
-		if c := strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)); c != 0 {
-			return c
-		}
-		return strings.Compare(a.ID, b.ID)
-	})
-	return out
-}
+func (s *panelStore) list() []Panel { return s.sorted(nil) }
 
 // writeLocked saves p before the map changes, so a failed write leaves memory as the file is.
 // Every stored change moves Rev, which open panels poll to know they are out of date.
 func (s *panelStore) writeLocked(p *Panel) error {
 	p.Rev++
-	if s.dir == "" {
-		return nil
-	}
-	b, err := yaml.Marshal(p)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(s.dir, 0o700); err != nil {
-		return err
-	}
-	return config.AtomicWrite(filepath.Join(s.dir, p.ID+".yaml"), b)
+	return s.yamlDir.writeLocked(*p)
 }
 
 // create stores p under a new id and returns it. Callers validate first.
 func (s *panelStore) create(p Panel) (Panel, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.by) >= panelMax {
-		return Panel{}, errPanelCap
-	}
-	for {
-		b := make([]byte, 4)
-		rand.Read(b)
-		p.ID = "p-" + hex.EncodeToString(b)
-		if _, taken := s.by[p.ID]; !taken {
-			break
-		}
-	}
-	p.normalize()
-	if err := s.writeLocked(&p); err != nil {
-		return Panel{}, err
-	}
-	s.by[p.ID] = p
-	return p, nil
+	return s.insert(p, panelMax, errPanelCap, nil, func(p *Panel) error {
+		p.normalize()
+		return s.writeLocked(p)
+	})
 }
 
 // replace stores p over the panel of the same id; it reports false if there is none.
@@ -361,24 +307,15 @@ func (s *panelStore) followUsers(renames map[string]string, removed map[string]b
 }
 
 func (s *panelStore) delete(id string) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	p, ok := s.by[id]
-	if !ok {
-		return false, nil
-	}
-	if s.dir != "" {
-		if err := os.Remove(filepath.Join(s.dir, id+".yaml")); err != nil && !os.IsNotExist(err) {
-			return true, err
+	return s.remove(id, func(p Panel) {
+		if s.dir != "" {
+			os.RemoveAll(filepath.Join(s.dir, id+".art"))
 		}
-		os.RemoveAll(filepath.Join(s.dir, id+".art"))
-	}
-	for _, a := range p.Art {
-		delete(s.art, id+"/"+a.ID)
-	}
-	delete(s.by, id)
-	s.dropCheckpoints(id)
-	return true, nil
+		for _, a := range p.Art {
+			delete(s.art, id+"/"+a.ID)
+		}
+		s.dropCheckpoints(id)
+	})
 }
 
 func (s *panelStore) artPath(id, art string) string {

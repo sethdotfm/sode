@@ -1,8 +1,6 @@
 package app
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,9 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
-	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -113,74 +109,42 @@ func dropArtwork(m map[string]any, key string) {
 }
 
 type templateStore struct {
-	mu  sync.Mutex
-	dir string // "" = memory only
-	by  map[string]Template
+	yamlDir[Template]
 }
 
 // loadTemplates runs once from New. A file that does not parse, or whose id or folder
 // differs from what it holds, is logged and skipped.
 func loadTemplates(cfgPath string) *templateStore {
-	s := &templateStore{by: map[string]Template{}}
+	s := &templateStore{}
+	s.by = map[string]Template{}
+	s.prefix = "t-"
+	s.idOf = func(t *Template) *string { return &t.ID }
+	s.nameOf = func(t Template) string { return t.Name }
+	s.pathOf = func(dir string, t Template) string { return filepath.Join(dir, t.Scope, t.ID+".yaml") }
 	if cfgPath == "" {
 		return s
 	}
 	s.dir = filepath.Join(filepath.Dir(cfgPath), templatesDir)
 	for _, scope := range []string{templateMe, templateEveryone} {
-		ents, err := os.ReadDir(filepath.Join(s.dir, scope))
-		if err != nil {
-			if !os.IsNotExist(err) {
-				log.Printf("templates: skipped %s: %v", s.dir, err)
-			}
-			continue
-		}
-		for _, e := range ents {
-			id, ok := strings.CutSuffix(e.Name(), ".yaml")
-			if !ok || e.IsDir() {
-				continue
-			}
-			path := filepath.Join(s.dir, scope, e.Name())
-			b, err := os.ReadFile(path)
+		err := s.loadDir(filepath.Join(s.dir, scope), func(path, id string, b []byte, err error) (Template, bool) {
 			var t Template
 			if err == nil {
 				err = yaml.Unmarshal(b, &t)
 			}
 			if err != nil || t.ID != id || !validTemplateID(id) || t.Scope != scope {
 				log.Printf("templates: skipped %s: not a template of this folder (%v)", path, err)
-				continue
+				return t, false
 			}
-			s.by[id] = t
+			return t, true
+		})
+		if err != nil && !os.IsNotExist(err) {
+			log.Printf("templates: skipped %s: %v", s.dir, err)
 		}
 	}
 	return s
 }
 
-func (s *templateStore) get(id string) (Template, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.by[id]
-	return t, ok
-}
-
-func (s *templateStore) list() []Template {
-	s.mu.Lock()
-	out := make([]Template, 0, len(s.by))
-	for _, t := range s.by {
-		out = append(out, t)
-	}
-	s.mu.Unlock()
-	slices.SortFunc(out, func(a, b Template) int {
-		if c := strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)); c != 0 {
-			return c
-		}
-		return strings.Compare(a.ID, b.ID)
-	})
-	return out
-}
-
-func (s *templateStore) path(t Template) string {
-	return filepath.Join(s.dir, t.Scope, t.ID+".yaml")
-}
+func (s *templateStore) list() []Template { return s.sorted(nil) }
 
 // sameBucket: one name once per place it is listed, Everyone for all or Me for one owner.
 func sameBucket(a, b Template) bool {
@@ -188,54 +152,19 @@ func sameBucket(a, b Template) bool {
 }
 
 func (s *templateStore) create(t Template) (Template, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.by) >= templateMax {
-		return Template{}, errTemplateCap
+	vet := func(t Template) error {
+		for _, o := range s.by {
+			if sameBucket(o, t) && strings.EqualFold(o.Name, t.Name) {
+				return errTemplateDup
+			}
+		}
+		return nil
 	}
-	for _, o := range s.by {
-		if sameBucket(o, t) && strings.EqualFold(o.Name, t.Name) {
-			return Template{}, errTemplateDup
-		}
-	}
-	for {
-		b := make([]byte, 4)
-		rand.Read(b)
-		t.ID = "t-" + hex.EncodeToString(b)
-		if _, taken := s.by[t.ID]; !taken {
-			break
-		}
-	}
-	if s.dir != "" {
-		b, err := yaml.Marshal(t)
-		if err != nil {
-			return Template{}, err
-		}
-		if err := os.MkdirAll(filepath.Join(s.dir, t.Scope), 0o700); err != nil {
-			return Template{}, err
-		}
-		if err := config.AtomicWrite(s.path(t), b); err != nil {
-			return Template{}, err
-		}
-	}
-	s.by[t.ID] = t
-	return t, nil
+	return s.insert(t, templateMax, errTemplateCap, vet, func(t *Template) error { return s.writeLocked(*t) })
 }
 
 func (s *templateStore) delete(id string) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.by[id]
-	if !ok {
-		return false, nil
-	}
-	if s.dir != "" {
-		if err := os.Remove(s.path(t)); err != nil && !os.IsNotExist(err) {
-			return true, err
-		}
-	}
-	delete(s.by, id)
-	return true, nil
+	return s.remove(id, nil)
 }
 
 // followUsers carries a Users rename to the owner of Me templates. A Me template of a removed
@@ -249,15 +178,9 @@ func (s *templateStore) followUsers(renames map[string]string) {
 			continue
 		}
 		t.Owner = to
-		if s.dir != "" {
-			b, err := yaml.Marshal(t)
-			if err == nil {
-				err = config.AtomicWrite(s.path(t), b)
-			}
-			if err != nil {
-				log.Printf("templates: owner of %s not renamed: %v", id, err)
-				continue
-			}
+		if err := s.writeLocked(t); err != nil {
+			log.Printf("templates: owner of %s not renamed: %v", id, err)
+			continue
 		}
 		s.by[id] = t
 	}

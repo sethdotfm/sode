@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -213,14 +212,17 @@ type panelSetFile struct {
 	Sets []PanelSet `yaml:"sets"`
 }
 
+// Sets keep several records to a file, so only the shared plumbing of yamlDir applies.
 type panelSetStore struct {
-	mu  sync.Mutex
-	dir string // "" = memory only
-	by  map[string]PanelSet
+	yamlDir[PanelSet]
 }
 
 func loadPanelSets(cfgPath string) *panelSetStore {
-	s := &panelSetStore{by: map[string]PanelSet{}}
+	s := &panelSetStore{}
+	s.by = map[string]PanelSet{}
+	s.prefix = "s-"
+	s.idOf = func(p *PanelSet) *string { return &p.ID }
+	s.nameOf = func(p PanelSet) string { return p.Name }
 	if cfgPath == "" {
 		return s
 	}
@@ -305,12 +307,7 @@ func (s *panelSetStore) create(set PanelSet) (PanelSet, error) {
 	if len(s.by) >= panelSetMax {
 		return PanelSet{}, errSetCap
 	}
-	for {
-		set.ID = newShortID("s-")
-		if _, taken := s.by[set.ID]; !taken {
-			break
-		}
-	}
+	set.ID = s.newIDLocked()
 	return set, s.putLocked(set)
 }
 
@@ -321,13 +318,6 @@ func (s *panelSetStore) replace(set PanelSet) error {
 		return errNoPanel
 	}
 	return s.putLocked(set)
-}
-
-func (s *panelSetStore) get(id string) (PanelSet, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	set, ok := s.by[id]
-	return set, ok
 }
 
 func (s *panelSetStore) delete(id string) error {
@@ -347,19 +337,5 @@ func (s *panelSetStore) delete(id string) error {
 
 // visible is every Everyone set and the user's own Me sets, by name.
 func (s *panelSetStore) visible(user string) []PanelSet {
-	s.mu.Lock()
-	var out []PanelSet
-	for _, set := range s.by {
-		if set.Scope == panelShareAll || strings.EqualFold(set.Owner, user) {
-			out = append(out, set)
-		}
-	}
-	s.mu.Unlock()
-	slices.SortFunc(out, func(a, b PanelSet) int {
-		if c := strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)); c != 0 {
-			return c
-		}
-		return strings.Compare(a.ID, b.ID)
-	})
-	return out
+	return s.sorted(func(set PanelSet) bool { return set.Scope == panelShareAll || strings.EqualFold(set.Owner, user) })
 }
