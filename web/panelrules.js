@@ -64,7 +64,7 @@ export function namesFrom(reply) {
     const p = plain[cell.kind];
     return typeof p === 'function' ? p(cell) : p || '';
   };
-  return { source, destination, of };
+  return { source, destination, of, off };
 }
 
 // The cells that are whole, known and inside the grid. Where two overlap the first one stays.

@@ -135,7 +135,7 @@ export function initTemplates(editor) {
 
     function applyTemplate(t) {
       editor.setGrid(templateGrid(t));
-      if (t.settings) editor.stageSettings(t.settings);
+      if (t.settings) editor.setFields({ settings: { ...editor.fields().settings, ...t.settings } });
       editor.status(t.contents ? `Applied ${t.name}. Save to keep it.` : `Applied ${t.name}. Fill the unassigned cells, then save.`);
       close();
       $('ed-grid').focus();
@@ -169,7 +169,7 @@ export function initTemplates(editor) {
               name: name.value,
               scope,
               grid: editor.grid(),
-              settings: editor.settings(),
+              settings: editor.fields().settings,
               withSettings: withSettings.input.checked,
               withContents: withContents.input.checked,
               pin: pin.value,

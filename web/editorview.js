@@ -3,6 +3,8 @@
 import { el, icon } from './core.js';
 import { cellAt, rectOf, isUnassigned } from './gridmodel.js';
 import { kindLabel } from './editorrules.js';
+import { artNode } from './panelview.js';
+import { cellScale } from './panellook.js';
 
 const KIND_ICON = { source: 'arrow-right-from-line', destination: 'arrow-right-to-line', take: 'zap', preset: 'bookmark', clear: 'eraser', current: 'eye' };
 
@@ -53,7 +55,8 @@ export function createEditorGrid(host, on) {
   host.addEventListener('keydown', (e) => on.key(e));
 
   return {
-    paint(g, names, { readOnly = false } = {}) {
+    // art is createArt's answer for the panel, for cells with uploaded artwork.
+    paint(g, names, { readOnly = false, art: artSource = null } = {}) {
       host.replaceChildren();
       host.style.gridTemplate = `repeat(${g.rows}, 1fr) / repeat(${g.cols}, 1fr)`;
       host.style.aspectRatio = `${g.cols} / ${g.rows}`;
@@ -76,6 +79,9 @@ export function createEditorGrid(host, on) {
             b.classList.add('has-cell', `sode-ed__sq--${cell.kind}`);
             if (isUnassigned(cell)) b.classList.add('is-unassigned');
             if (rs * cs > 1) b.classList.add('is-merged');
+            const art = artNode(cell, artSource);
+            if (art) b.append(art);
+            if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
             b.append(icon(KIND_ICON[cell.kind] || 'square-dashed'), el('span', 'sode-ed__text', cellText(cell, names)));
           }
           host.append(b);
