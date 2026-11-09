@@ -25,8 +25,41 @@ export function groupPanels(panels, me, trusted, filter = '') {
   return out;
 }
 
-// Share, Link with key and Push to panels join this list in their own tickets.
-export const actionsFor = (p) => (p.canEdit ? ['launch', 'edit', 'delete'] : ['launch', 'copy']);
+// Link with key and Push to panels join this list in their own tickets.
+export const actionsFor = (p) => (p.canEdit ? ['launch', 'edit', 'share', 'delete'] : ['launch', 'copy']);
+
+// The People tab. Sharing is only the share field of PUT /api/v1/panels/{id}; the server keeps
+// names for Named users only and applies the change to open lists and launches.
+export const shareDraft = (share) => ({ mode: share?.mode || 'me', users: share?.mode === 'named' ? [...(share.users || [])] : [] });
+
+// Every user but the owner, ticked when named. A named user missing from the list (a name the
+// Users list no longer has) stays shown so it can be unticked.
+export function pickList(people, owner, named) {
+  const on = new Set(named.map((n) => n.toLowerCase()));
+  const out = people.filter((u) => !same(u.name, owner)).map((u) => ({ name: u.name, on: on.has(u.name.toLowerCase()) }));
+  for (const n of named) if (!out.some((u) => same(u.name, n)) && !same(n, owner)) out.push({ name: n, on: true });
+  return out;
+}
+
+export function toggleUser(users, name, on) {
+  const rest = users.filter((u) => !same(u, name));
+  return on ? [...rest, users.find((u) => same(u, name)) ?? name] : rest;
+}
+
+// The panel as PUT wants it. canEdit is the server's answer, and clientRights left out keeps the
+// stored ones, so a share edit never touches the API client.
+export function shareBody(p, draft) {
+  const { canEdit, clientRights, ...rest } = p;
+  return { ...rest, share: draft.mode === 'named' ? { mode: 'named', users: [...draft.users] } : { mode: draft.mode } };
+}
+
+export function shareChanged(share, draft) {
+  const was = shareDraft(share);
+  if (was.mode !== draft.mode) return true;
+  if (draft.mode !== 'named') return false;
+  const key = (u) => u.map((n) => n.toLowerCase()).sort().join('\n');
+  return key(was.users) !== key(draft.users);
+}
 
 export function deleteStep(armed, id) {
   return armed === id ? { armed: '', go: true } : { armed: id, go: false };
