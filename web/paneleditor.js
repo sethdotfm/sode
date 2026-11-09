@@ -21,7 +21,7 @@ import {
   countTodo,
   nextTodo,
 } from './gridmodel.js';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, typeLabel, todoText } from './editorrules.js';
+import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, typeLabel, todoText, menuArea } from './editorrules.js';
 import { linkFor } from './panellink.js';
 import { copyText } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
@@ -79,7 +79,16 @@ export async function runEditor() {
     key: onKey,
   });
   const live = createLive($('ed-live-view'), document.querySelector('.sode-ed__body'), $('ed-live'));
-  const menu = createSmartMenu($('ed-grid'), { onEscape: () => $('ed-grid').focus() });
+  // The menu and its flyouts keep off the sidebar when it sits beside the grid (menuArea).
+  const menu = createSmartMenu($('ed-grid'), {
+    onEscape: () => $('ed-grid').focus(),
+    area: () =>
+      menuArea(
+        { w: document.documentElement.clientWidth, h: document.documentElement.clientHeight },
+        $('ed-side').getBoundingClientRect(),
+        $('ed-grid').getBoundingClientRect(),
+      ),
+  });
 
   // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar. The
   // sidebar edits the selected cell, so a click there keeps the selection and only puts the menu away (it sat over

@@ -18,8 +18,10 @@ import {
 
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
 
-// A cell's artwork lives outside the paint functions, which replace a cell's children; paintGrid puts it back first.
-// The row holds Icon A (sprite icon or image) and then Icon B (a glyph); null when the cell has neither.
+// A cell's artwork is built once with the grid and never touched by the paint functions (fill keeps it): a <use>
+// that is detached and re-attached re-resolves its sprite and blinks (TestChromePanelArtHolds). The row holds
+// Icon A (sprite icon or image) and then Icon B (a glyph); null when the cell has neither. Side by side the two
+// share the row 40 to 60 (panels.css); a two-character glyph is marked so its font fits the 60.
 export function artNode(cell, art) {
   const a = artOf(cell);
   const b = artBOf(cell);
@@ -41,8 +43,17 @@ export function artNode(cell, art) {
     });
     row.append(img);
   }
-  if (b) row.append(el('span', 'sode-panel__art-b', b));
+  if (b) row.append(el('span', `sode-panel__art-b${b.length > 1 ? ' sode-panel__art-b--wide' : ''}`, b));
   return row;
+}
+
+// Replaces a cell's children apart from its artwork, and only when they differ from the last paint, so an idle cell
+// is not touched by the one-second redraw.
+function fill(b, ...kids) {
+  const now = [...b.childNodes].filter((n) => n !== b._art);
+  if (now.length === kids.length && now.every((n, i) => n.isEqualNode(kids[i]))) return;
+  for (const n of now) n.remove();
+  b.append(...kids);
 }
 
 // hold is { down(cell), cancel() } for a Take cell with a hold guard: pointer or Enter and Space start it, leaving ends it.
@@ -58,6 +69,7 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
     b.disabled = cell.kind === 'current';
     if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
     b._art = artNode(cell, art);
+    if (b._art) b.append(b._art);
     if (textHidden(cell)) b.dataset.hideText = '1';
     b.style.gridArea = `${cell.r} / ${cell.c} / span ${cell.rs} / span ${cell.cs}`;
     b.addEventListener('click', () => onPress(cell));
@@ -76,8 +88,7 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
 function paintSource(b, cell, { st, env, names }) {
   const s = sourceState(st, cell.n, env);
   b.dataset.s = s;
-  b.replaceChildren(el('span', 'sode-panel__text', names.of(cell)));
-  if (s === 'current') b.append(icon('check'));
+  fill(b, el('span', 'sode-panel__text', names.of(cell)), ...(s === 'current' ? [icon('check')] : []));
 }
 
 function paintDestination(b, cell, { st, env, names, now }) {
@@ -99,12 +110,12 @@ function paintDestination(b, cell, { st, env, names, now }) {
   const kids = [name, el('small', 'sode-panel__text', under)];
   const staged = st.staged.find((x) => x.dst === cell.n);
   if (staged) kids.push(el('span', 'sode-panel__staged sode-panel__text', `→ ${names.source(staged.src)}`));
-  b.replaceChildren(...kids);
+  fill(b, ...kids);
 }
 
 function paintPreset(b, cell, { st, env, names }) {
   b.dataset.s = presetState(st, cell, env);
-  b.replaceChildren(el('span', 'sode-panel__text', names.of(cell)));
+  fill(b, el('span', 'sode-panel__text', names.of(cell)));
   b.disabled = !env.presets?.has(`${cell.scope}:${cell.name}`);
 }
 
@@ -112,7 +123,7 @@ function paintPreset(b, cell, { st, env, names }) {
 function paintCurrent(b, cell, { st, env, names }) {
   const src = currentSource(env, st);
   const label = currentLabel(cell, st.view ? names.destination(st.view.dst) : '');
-  b.replaceChildren(el('small', 'sode-panel__text', label), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
+  fill(b, el('small', 'sode-panel__text', label), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
 }
 
 function takeLabel(st, cell, now) {
@@ -131,14 +142,13 @@ export function paintGrid(grid, ctx) {
     else if (cell.kind === 'destination') paintDestination(b, cell, ctx);
     else if (cell.kind === 'preset') paintPreset(b, cell, ctx);
     else if (cell.kind === 'current') paintCurrent(b, cell, ctx);
-    else if (cell.kind === 'clear') b.replaceChildren(el('span', 'sode-panel__text', ctx.names.of(cell)));
+    else if (cell.kind === 'clear') fill(b, el('span', 'sode-panel__text', ctx.names.of(cell)));
     else {
-      b.replaceChildren(el('span', 'sode-panel__text', takeLabel(ctx.st, cell, ctx.now)));
+      fill(b, el('span', 'sode-panel__text', takeLabel(ctx.st, cell, ctx.now)));
       b.dataset.guard = ctx.st.holdAt ? 'holding' : guardWaiting(ctx.st, ctx.now) ? 'waiting' : '';
       b.style.setProperty('--wait-ms', `${ctx.st.holdAt ? GUARD_HOLD_MS : GUARD_DOUBLE_MS}ms`);
       b.disabled = !on;
       b.classList.toggle('sode-panel__take--armed', on);
     }
-    if (b._art) b.prepend(b._art);
   });
 }

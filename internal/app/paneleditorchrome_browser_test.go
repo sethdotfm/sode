@@ -1,6 +1,10 @@
 package app
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 // Toolbar and sidebar chrome: the state sits beside Save, Copy link shows for a user panel, the sidebar
 // shows the link, the unassigned count says what it counts, and bare letters work inside the smart menu.
@@ -77,5 +81,50 @@ func TestChromeEditorFindFitsViewport(t *testing.T) {
 	b.waitFor("Find open", `document.activeElement === document.querySelector('.sode-find input')`)
 	b.waitFor("the flyout sits inside the viewport", `(() => { const r = document.querySelector('.sode-find').getBoundingClientRect(); return r.height > 100 && r.top >= 0 && r.left >= 0 && r.bottom <= document.documentElement.clientHeight && r.right <= document.documentElement.clientWidth; })()`)
 	b.shot("find-fit")
+	b.check()
+}
+
+// With the sidebar beside the grid, the smart menu and its flyouts (Type, Find) keep off it and inside the viewport
+// from every column: the menu flips to the left of a selection in the last column, and a flyout flips to the other
+// side of the menu when its own side has no room.
+func TestChromeEditorMenuFlipsOffSidebar(t *testing.T) {
+	b, _, _, _ := editorTabPrep(t, `{"name":"Wide","rows":4,"cols":8,"cells":[]}`, func(b *tab, _ *App, _, _ string) {
+		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1600, "height": 900, "deviceScaleFactor": 1, "mobile": false})
+	})
+	b.waitFor("grid drawn", `document.querySelectorAll('#ed-grid .sode-ed__sq').length === 32`)
+	b.waitFor("the sidebar is beside the grid", `document.getElementById('ed-side').getBoundingClientRect().left >= document.getElementById('ed-grid').getBoundingClientRect().right`)
+	b.eval(`window.menu = document.querySelector('.sode-ed__menu');
+		window.sel = (c) => { const sq = document.querySelector('.sode-ed__sq[data-r="2"][data-c="' + c + '"]'); const r = sq.getBoundingClientRect(); sq.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 })); };
+		window.fits = (n) => { const r = n.getBoundingClientRect(); const side = document.getElementById('ed-side').getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.right <= side.left && r.top >= 0 && r.bottom <= document.documentElement.clientHeight; };
+		window.typeItem = () => [...menu.querySelectorAll(':scope > li')].find((li) => li.textContent.startsWith('Type'));
+		window.sides = {}; true`)
+	for c := 1; c <= 8; c++ {
+		col := fmt.Sprint(c)
+		b.eval(`sel(` + col + `); true`)
+		b.waitFor("column "+col+" selected with the menu beside it", `!menu.hidden && !!document.querySelector('.sode-ed__sq.is-sel[data-c="`+col+`"]')`)
+		b.waitFor("column "+col+": the menu keeps off the sidebar", `fits(menu)`)
+		b.eval(`typeItem().querySelector('.pb-menu__item').focus(); true`)
+		b.waitFor("column "+col+": the Type flyout keeps off the sidebar too", `(() => { const sub = typeItem().querySelector('.pb-menu__sub'); return getComputedStyle(sub).display !== 'none' && fits(sub); })()`)
+		b.eval(`sides[` + col + `] = menu.dataset.side + (typeItem().querySelector('.pb-menu__sub').classList.contains('pb-menu__sub--left') ? '/sub-left' : '/sub-right'); true`)
+	}
+	sides := fmt.Sprint(b.eval(`JSON.stringify(sides)`))
+	if !strings.Contains(sides, `"8":"left/sub-left"`) {
+		t.Errorf("the last column should flip the menu to its left, with its flyout opening left: %s", sides)
+	}
+	if !strings.Contains(sides, `"1":"right/sub-right"`) {
+		t.Errorf("the first column should open right, with its flyout opening right: %s", sides)
+	}
+	if !strings.Contains(sides, `right/sub-left`) {
+		t.Errorf("some column should fit the menu on the right while its flyout flips left: %s", sides)
+	}
+	// Find from the last column and from the middle: open, inside the viewport and off the sidebar.
+	for _, col := range []string{"8", "5"} {
+		b.eval(`sel(` + col + `); true`)
+		b.waitFor("column "+col+" selected again", `!!document.querySelector('.sode-ed__sq.is-sel[data-c="`+col+`"]')`)
+		b.eval(`document.getElementById('ed-grid').focus(); document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', bubbles: true, cancelable: true })); true`)
+		b.waitFor("Find open from column "+col, `document.activeElement === document.querySelector('.sode-find input')`)
+		b.waitFor("column "+col+": Find keeps off the sidebar", `(() => { const f = document.querySelector('.sode-find'); return f.getBoundingClientRect().height > 100 && fits(f); })()`)
+		b.shot("menu-flip-" + col)
+	}
 	b.check()
 }

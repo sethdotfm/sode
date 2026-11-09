@@ -189,3 +189,17 @@ test('the artwork row sizes Icon B from the cell, so it scales with the square',
   assert.match(css, /\.sode-panel__art \{[^}]*container-type: size/);
   assert.match(css, /\.sode-panel__art-b \{[^}]*cqh/);
 });
+
+// Side by side, Icon A takes 40% of the row and Icon B 60%; alone, either fills the row as before.
+test('Icon A and Icon B share the row 40 to 60, and each alone fills it', () => {
+  assert.match(css, /\.sode-panel__art-a:not\(:only-child\) \{[^}]*flex: 0 1 40%/);
+  assert.match(css, /\.sode-panel__art-b:not\(:only-child\) \{[^}]*flex: 0 1 60%/);
+  assert.match(css, /\.sode-panel__art-b--wide \{[^}]*font-size: min\(/);
+});
+
+// With the text hidden nothing sits over the artwork, so it is drawn at full strength in the cell, the editor square
+// and the sidebar preview alike.
+test('artwork is dimmed under text and at full strength when the text is hidden', () => {
+  assert.match(css, /\.sode-panel__art \{[^}]*opacity: 0\.3/);
+  assert.match(css, /\[data-hide-text\] > \.sode-panel__art \{[^}]*opacity: 1/);
+});

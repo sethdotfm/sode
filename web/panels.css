@@ -287,7 +287,9 @@
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
 /* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
-   The row is a size container so the glyph follows the square's height (cqh), as the icon does. */
+   The row is a size container so the glyph follows the square's height (cqh), as the icon does. Alone, either
+   fills the row; together Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap, so the ratio
+   holds). With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
 .sode-panel__art {
   align-items: center;
   color: var(--pb-text-strong);
@@ -302,6 +304,9 @@
   position: absolute;
   z-index: -1;
 }
+[data-hide-text] > .sode-panel__art {
+  opacity: 1;
+}
 .sode-panel__art-a {
   flex: 0 1 auto;
   height: 100%;
@@ -309,12 +314,27 @@
   object-fit: contain;
   width: auto;
 }
+.sode-panel__art-a:not(:only-child) {
+  flex: 0 1 40%;
+}
 .sode-panel__art-b {
   flex: 0 0 auto;
   font-family: var(--pb-font-num);
   font-size: 70cqh;
   font-weight: var(--pb-weight-bold);
   line-height: 1;
+  text-align: center;
+}
+.sode-panel__art-b--wide {
+  font-size: min(70cqh, 80cqw);
+}
+/* Beside Icon A the glyph fits its 60%: one character is about 0.6em wide, two about 1.1em. */
+.sode-panel__art-b:not(:only-child) {
+  flex: 0 1 60%;
+  font-size: min(70cqh, 60cqw);
+}
+.sode-panel__art-b--wide:not(:only-child) {
+  font-size: min(70cqh, 50cqw);
 }
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */

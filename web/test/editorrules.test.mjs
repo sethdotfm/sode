@@ -82,13 +82,43 @@ test('dirty means the name or the grid differs from what was loaded', () => {
   assert.equal(isDirty(null, 'New panel', createGrid()), false);
 });
 
-test('the menu goes right of the selection, else left, else below, and stays on screen', () => {
-  const vp = { w: 1000, h: 600 };
+test('the menu goes right of the selection, else left, else below, and stays inside its area', () => {
+  const vp = { left: 0, top: 0, right: 1000, bottom: 600 };
   const menu = { w: 200, h: 120 };
   assert.deepEqual(placeMenu({ left: 100, top: 50, right: 200, bottom: 100 }, menu, vp, 8), { side: 'right', left: 208, top: 50 });
   assert.deepEqual(placeMenu({ left: 700, top: 50, right: 900, bottom: 100 }, menu, vp, 8), { side: 'left', left: 492, top: 50 });
   assert.deepEqual(placeMenu({ left: 10, top: 50, right: 990, bottom: 100 }, menu, vp, 8), { side: 'below', left: 10, top: 108 });
   assert.equal(placeMenu({ left: 100, top: 550, right: 200, bottom: 590 }, menu, vp, 8).top, 480);
+  // The area ends where the sidebar starts: a selection in the last column flips the menu to its left.
+  const area = { left: 0, top: 0, right: 700, bottom: 600 };
+  assert.deepEqual(placeMenu({ left: 500, top: 50, right: 690, bottom: 100 }, menu, area, 8), { side: 'left', left: 292, top: 50 });
+  assert.equal(placeMenu({ left: 20, top: 50, right: 680, bottom: 100 }, menu, area, 8).side, 'below');
+});
+
+// The sidebar edits the selected cell, so the menu must not sit over it: beside the grid it bounds the menu's area,
+// under the grid (the narrow layout) it does not.
+test('the menu area is the viewport, cut at the sidebar when the sidebar is beside the grid', async () => {
+  const { menuArea } = await import('../editorrules.js');
+  const vp = { w: 1600, h: 900 };
+  const grid = { left: 40, top: 100, right: 1100, bottom: 640 };
+  assert.deepEqual(menuArea(vp, { left: 1140, top: 100, right: 1560, bottom: 800 }, grid), { left: 0, top: 0, right: 1140, bottom: 900 });
+  assert.deepEqual(menuArea(vp, { left: 40, top: 700, right: 1560, bottom: 1400 }, grid), { left: 0, top: 0, right: 1600, bottom: 900 });
+  assert.deepEqual(menuArea(vp, null, grid), { left: 0, top: 0, right: 1600, bottom: 900 });
+});
+
+// A flyout (Type, Find) opens away from the selection, so on the menu's own side; when that side has no room it
+// flips to the other, and when neither fits it takes the side with more room.
+test('a flyout opens on the menu side when it fits there, else on the other side', async () => {
+  const { subSide } = await import('../editorrules.js');
+  const area = { left: 0, top: 0, right: 1000, bottom: 600 };
+  assert.equal(subSide({ side: 'right', left: 300 }, 200, 300, area, 8), 'right');
+  assert.equal(subSide({ side: 'right', left: 600 }, 200, 300, area, 8), 'left');
+  assert.equal(subSide({ side: 'left', left: 310 }, 200, 300, area, 8), 'left');
+  assert.equal(subSide({ side: 'left', left: 100 }, 200, 300, area, 8), 'right');
+  assert.equal(subSide({ side: 'below', left: 100 }, 200, 300, area, 8), 'right');
+  // Neither side fits a 600 flyout from a menu at 300..500: the right has 492, the left 292.
+  assert.equal(subSide({ side: 'left', left: 300 }, 200, 600, area, 8), 'right');
+  assert.equal(subSide({ side: 'right', left: 600 }, 200, 700, area, 8), 'left');
 });
 
 // The Find flyout sits beside its menu item and is pulled back inside the viewport when it would run off the bottom or
