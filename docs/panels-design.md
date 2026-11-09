@@ -81,6 +81,13 @@ Proposed, not prototyped.
 - Artwork: the route needs the Authorization header, so the page fetches it with the panel's key and shows a blob URL in an `<img>`. The backdrop is a CSS background from the same blob URL. SVG is never inlined. The CSP allows `blob:` for `img-src` only. A fetch that fails leaves the cell without artwork. An icon name missing from the vendored sprite draws nothing.
 - Keep the screen awake: Screen Wake Lock, requested when the page opens and again whenever it becomes visible, since a browser drops the lock when the page hides. A refusal is ignored. Haptics: one 15 ms `navigator.vibrate` on each press the page accepts. Browsers without the API (iOS has no vibrate) do nothing. `featureSupport(navigator)` in `panelfeel.js` says what the browser has, for the editor to hide or disable the two switches. Result of the spec's proposal: built as described, with no extra settings.
 
+## Push as built (P17)
+
+- Server: `panelpush.go` (layout, checkpoints, set store) and `apipush.go` (routes). A layout is `rows`, `cols`, `cells`, `settings` and unknown fields; id, name, owner, `share`, `acts`, the API client and its Rights are never copied, and missing artwork is. `panelStore.applyLocked` writes the checkpoint before the panel, so a checkpoint that cannot be saved stops the Push, and the panel write moves `Rev` for open panels (P15).
+- Reach: the pusher must be able to change the source and every target (`panelReach`); one refused target changes nothing. Checkpoints sit in `panels/<id>.checkpoints`, at most 10 per panel, and a restore keeps what it replaces. Sets are in `panelsets/` (`everyone.yaml`, `me-<hex of user>.yaml`); an Everyone set needs a Trusted user to save and to change someone else's.
+- A group is the panels whose names differ only by a trailing number (EVS 1 to EVS 4 are "EVS"), worked out by the page (`pushGroups` in `panelpushrules.js`); the server only knows ids. `pushTargets` is the tested selection rule.
+- Web: `panelpush.js` is the modal (Push, Checkpoint sets and Restore tabs), opened by Push to panels in the panels page's detail bar. The editor has no Push control yet.
+
 ## Build notes
 
 - Editor Find: `findrules.js` is pure (entries with Rights and Visibility, ranking, the run a choice places, the plan and `applyFind`, which sets a Preset cell's `scope` and `name`). `editorfind.js` is the flyout in the smart menu: it plugs in through `addMenuSection` and `addKeyHook`, catches `myRights` at import time because the message can arrive before the editor loads, and previews by marking the grid's squares in place. Fill order is `setOrder(id)`, default `across`.

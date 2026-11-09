@@ -292,6 +292,22 @@
 .sode__scrim > .pb-modal.sode-ov__share {
   width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
 }
+.sode-ov__indent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding-left: var(--pb-space-6);
+}
+.sode-ov__sub {
+  font-size: var(--pb-text-md);
+  margin: var(--pb-space-5) 0 var(--pb-space-3);
+}
+.sode-ov__cp {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
 .sode-ov__people {
   display: flex;
   flex-direction: column;

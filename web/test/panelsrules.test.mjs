@@ -26,7 +26,7 @@ test('the filter matches name or owner, ignoring case', () => {
 });
 
 test('an editable panel offers Edit, Share and Delete, a use-only panel offers Save a copy and nothing destructive', () => {
-  assert.deepEqual(actionsFor(P('a', 'Ana', { canEdit: true })), ['launch', 'edit', 'share', 'delete']);
+  assert.deepEqual(actionsFor(P('a', 'Ana', { canEdit: true })), ['launch', 'edit', 'share', 'push', 'delete']);
   assert.deepEqual(actionsFor(P('a', 'Bo')), ['launch', 'copy']);
 });
 
