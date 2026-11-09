@@ -45,6 +45,7 @@ export async function runEditor() {
   let names = namesFrom({});
   let discardAsked = ''; // the panel the user tried to leave unsaved; asking again discards
   const menuSections = []; // (grid) => items: where Find and later actions plug in
+  const keyHooks = []; // (event) => true when a grid key was handled (Find takes typing and Enter)
   const changeWatchers = [];
   const readOnly = () => !!loaded && !loaded.canEdit;
 
@@ -69,6 +70,7 @@ export async function runEditor() {
 
   function onKey(e) {
     if (readOnly() || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (keyHooks.some((fn) => fn(e))) return;
     const arrow = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
     const q = rectOf(g);
     if (arrow) {
@@ -289,6 +291,7 @@ export async function runEditor() {
     readOnly,
     names: () => names,
     addMenuSection: (fn) => menuSections.push(fn),
+    addKeyHook: (fn) => keyHooks.push(fn),
     onChange: (fn) => changeWatchers.push(fn),
     refresh,
     status: (text) => say('ed-status', text),
