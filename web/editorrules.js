@@ -50,9 +50,26 @@ export function placeMenu(rect, menu, vp, gap) {
   return { side: 'below', left: Math.max(0, Math.min(rect.left, vp.w - menu.w)), top: rect.bottom + gap };
 }
 
-// Alt+letter, by key position: plain letters start Find, and Option on a Mac types another character.
-const SHORTCUTS = { KeyM: 'merge', KeyT: 'type', KeyF: 'find' };
-export const menuShortcut = (e) => (e.altKey && !e.ctrlKey && !e.metaKey ? (SHORTCUTS[e.code] ?? null) : null);
+// Alt+letter from the grid, by key position: plain letters there start Find, and Option on a Mac types another character.
+export const menuShortcut = (e) => {
+  const m = /^Key([A-Z])$/.exec(e.code || '');
+  return m && e.altKey && !e.ctrlKey && !e.metaKey ? m[1].toLowerCase() : null;
+};
+
+// One letter per menu item, from its name: the first of its letters no earlier item took, else the first free
+// letter of the alphabet. Names are stable (Merge keeps M while it reads Unmerge), so a letter never moves.
+export function menuLetters(names) {
+  const taken = new Set();
+  return names.map((name) => {
+    const pool = [...name.toLowerCase().replace(/[^a-z]/g, ''), ...'abcdefghijklmnopqrstuvwxyz'];
+    const l = pool.find((c) => !taken.has(c));
+    taken.add(l);
+    return l;
+  });
+}
+
+// The item a letter activates: never a disabled one.
+export const menuTarget = (items, letter) => items.find((it) => it.letter === letter && !it.disabled) ?? null;
 
 export const todoText = (n) => (n ? `${n} unassigned square${n > 1 ? 's' : ''}` : 'No unassigned squares');
 

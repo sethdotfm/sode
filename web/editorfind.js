@@ -327,7 +327,7 @@ export function initFind(editor) {
       if (had && !panel.contains(document.activeElement)) input.focus({ preventScroll: true });
       draw();
     });
-    return [{ label: 'Find', icon: 'search', keys: 'Alt+F', shortcut: 'find', panel, run: () => open(null) }];
+    return [{ label: 'Find', icon: 'search', name: 'Find', panel, run: () => open(null) }];
   });
   editor.refresh();
 

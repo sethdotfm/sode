@@ -1,7 +1,7 @@
 // What the panel editor reads from its URL and from /api/v1/panels (editorrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, placeMenu, kindLabel, kindChoices, menuShortcut, todoText } from '../editorrules.js';
+import { editorTarget, groupPanels, newPanel, saveBody, isDirty, placeMenu, kindLabel, kindChoices, menuShortcut, menuLetters, menuTarget, todoText } from '../editorrules.js';
 import { createGrid, merge, select } from '../gridmodel.js';
 
 test('the editor opens the panel in ?panel=, and anything else starts a new one', () => {
@@ -102,14 +102,56 @@ test('panel fields: edited settings are saved and make the panel dirty, in any k
   assert.deepEqual(saveBody(loaded, 'A', g).settings, loaded.settings);
 });
 
-test('Alt with M, T or F picks a menu action by key position, so Option on a Mac works too', () => {
+test('Alt with a letter names a menu letter by key position, so Option on a Mac works too', () => {
   const k = (code, extra = {}) => menuShortcut({ code, altKey: true, ctrlKey: false, metaKey: false, ...extra });
-  assert.equal(k('KeyM'), 'merge');
-  assert.equal(k('KeyT'), 'type');
-  assert.equal(k('KeyF'), 'find');
-  assert.equal(k('KeyX'), null);
+  assert.equal(k('KeyM'), 'm');
+  assert.equal(k('KeyF'), 'f');
+  assert.equal(k('Digit1'), null);
   assert.equal(k('KeyM', { altKey: false }), null);
   assert.equal(k('KeyM', { ctrlKey: true }), null);
+  assert.equal(k('KeyM', { metaKey: true }), null);
+});
+
+test('each menu item gets the first letter of its name that no earlier item took', () => {
+  assert.deepEqual(menuLetters(['Merge', 'Type', 'Find']), ['m', 't', 'f']);
+  assert.deepEqual(menuLetters(['Type', 'Tag', 'Tab']), ['t', 'a', 'b']);
+  // A name with every letter taken falls back to the first free letter of the alphabet, in order.
+  assert.deepEqual(menuLetters(['Aa', 'A', 'A']), ['a', 'b', 'c']);
+  assert.deepEqual(menuLetters(['Merge', 'Type', 'Find']), menuLetters(['Merge', 'Type', 'Find']));
+});
+
+// The menu as the editor builds it for each selection: Merge reads Unmerge on a merged square, and is off on a
+// single square. Find and Type are on whenever a square is selected.
+const variant = (merge) => [
+  { name: 'Merge', label: merge.label, disabled: merge.disabled, run: () => 'merge' },
+  { name: 'Type', label: 'Type', sub: [], run: () => 'type' },
+  { name: 'Find', label: 'Find', panel: {}, run: () => 'find' },
+];
+const VARIANTS = {
+  'single square': variant({ label: 'Merge', disabled: true }),
+  group: variant({ label: 'Merge', disabled: false }),
+  merged: variant({ label: 'Unmerge', disabled: false }),
+};
+
+test('in every menu variant the letters are distinct and a letter finds its item', () => {
+  for (const [what, items] of Object.entries(VARIANTS)) {
+    const letters = menuLetters(items.map((i) => i.name));
+    assert.equal(new Set(letters).size, letters.length, what);
+    items.forEach((it, i) => (it.letter = letters[i]));
+    assert.equal(menuTarget(items, 't')?.run(), 'type', what);
+    assert.equal(menuTarget(items, 'f')?.run(), 'find', what);
+    assert.equal(menuTarget(items, 'x'), null, what);
+  }
+  assert.equal(menuTarget(VARIANTS.group, 'm')?.run(), 'merge');
+  assert.equal(menuTarget(VARIANTS.merged, 'm')?.label, 'Unmerge');
+});
+
+test('a disabled item ignores its letter', () => {
+  assert.equal(menuTarget(VARIANTS['single square'], 'm'), null);
+});
+
+test('a read-only editor has no menu, so no letter finds anything', () => {
+  assert.equal(menuTarget([], 'm'), null);
 });
 
 test('the unassigned count says what it counts', () => {
