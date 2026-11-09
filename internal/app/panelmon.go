@@ -554,9 +554,9 @@ func (a *App) monNotify(ev monEvent) {
 		return
 	}
 	a.mon.unclear(ev.panel, ev.device)
-	why, note := "panelLost", fmt.Sprintf("panel %s %s: %s missed its keepalive for %ds", p.ID, p.Name, ev.device, ev.secs)
+	why, note := "panelLost", fmt.Sprintf("%s: missed its keepalive for %ds", panelTag(p, ev.device), ev.secs)
 	if ev.state == "back" {
-		why, note = "panelBack", fmt.Sprintf("panel %s %s: %s is back after %ds", p.ID, p.Name, ev.device, ev.secs)
+		why, note = "panelBack", fmt.Sprintf("%s: is back after %ds", panelTag(p, ev.device), ev.secs)
 	}
 	if ev.offline {
 		note += "; no device is online"
@@ -638,7 +638,7 @@ func (a *App) serveAlarm(c *client, m *inMsg) {
 	default:
 		return
 	}
-	a.command(c, "panelAlarm", "ok", strings.TrimSpace(m.Action+" "+p.ID+" "+m.Instance), nil)
+	a.command(c, "panelAlarm", "ok", m.Action+" "+panelTag(p, m.Instance), nil)
 	a.mu.Lock()
 	a.pushOfflineAllMu()
 	a.mu.Unlock()

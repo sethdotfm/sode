@@ -13,7 +13,7 @@ The API is off until an administrator ticks *API enabled* in Settings (advanced)
 
 ## Keys
 
-A key is `sode_` plus 43 URL-safe characters (32 random bytes). Treat it as opaque. Send it as `Authorization: Bearer <key>`. A key is never accepted in a query string. Sode shows it once when it is made and stores only a hash in `keys.json` beside `config.yaml`, so a leaked config file leaks no working key. Each key has a key name such as "Panel 21", an optional expiry, a created time, a last used time and a use count. History and the Communication Log show the actor with the key name, for example "PanelsBot (Panel 43)". A caller may also send `X-Sode-Via`, free text up to 32 characters that the log shows beside the key name marked unverified.
+A key is `sode_` plus 43 URL-safe characters (32 random bytes). Treat it as opaque. Send it as `Authorization: Bearer <key>`. A key is never accepted in a query string. Sode shows it once when it is made and stores only a hash in `keys.json` beside `config.yaml`, so a leaked config file leaks no working key. Each key has a key name such as "Panel 21", an optional expiry, a created time, a last used time and a use count. History and the Communication Log show the actor with the key name, for example "PanelsBot (Panel 43)". A caller may also send `X-Sode-Via`, free text up to 32 characters that the log shows beside the key name marked unverified. A panel page sends `X-Sode-Panel` (the panel id) and `X-Sode-Instance` (its screen name, up to 40 characters), so its rows read `panel <short name> (<name>), screen <screen>`; a panel's own key proves the panel, a user's key does not and the tag is marked unverified.
 
 Two kinds of owner:
 
@@ -186,4 +186,4 @@ Settings > Proxy > Require HTTPS (ADR 0005) refuses every request except `/healt
 
 ## The Communication Log
 
-Every API command, refusal, key made, revoked or expired, rights edit, stream connect and disconnect, and the API and Require HTTPS switches write an `api` row. Failed keys write one row per address per minute with a count. No key, key hash or PIN is ever written.
+Every API command, refusal, key made, revoked or expired, rights edit, stream connect and disconnect, and the API and Require HTTPS switches write an `api` row. Failed keys write one row per address per minute with a count. No key, key hash or PIN is ever written. A row a panel page caused, including a lost or returned screen, names the panel by its short name (else its id) and the screen in its note.

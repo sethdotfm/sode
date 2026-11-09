@@ -355,8 +355,8 @@ type inMsg struct {
 	Expires    int64              `json:"expires"` // key expiry, unix ms; 0 = never
 	Owner      *keyOwner          `json:"owner"`   // keyCreateFor, keyRevokeAll
 	APISet     *apiSettingsReq    `json:"apiSettings"`
-	Panel      string             `json:"panel"`  // panelAlarm: the panel id
-	Action     string             `json:"action"` // panelAlarm: clear | stop
+	Panel      string             `json:"panel"`    // panelAlarm: the panel id
+	Action     string             `json:"action"`   // panelAlarm: clear | stop
 	Instance   string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 }
 

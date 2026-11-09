@@ -20,7 +20,10 @@ info:
 
     Via note. Any request may carry `X-Sode-Via`, free text (32 printable characters at most)
     that Sode records beside the key name in the Communication Log, marked unverified. The key
-    name itself is set when the key is made, so it is verified.
+    name itself is set when the key is made, so it is verified. A panel page also sends
+    `X-Sode-Panel` (the panel id) and `X-Sode-Instance` (its screen name, 40 characters at
+    most), so its rows name the panel's short name and the screen; with a user's key the
+    panel is the page's word and is marked unverified.
 
     Throttles. Each key has a rate limit per minute (the API settings default 600). A keyless
     call is limited per source address. Ten bad keys from one address in a minute make that

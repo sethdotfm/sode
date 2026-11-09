@@ -25,6 +25,50 @@ type Actor struct {
 	// Owner is who made a panel's own API client; it only gives the label a person to read.
 	Owner string `json:"owner,omitempty"`
 	Via   string `json:"via,omitempty"`
+
+	// Which panel page made the call, for Communication Log rows only (unexported, so History keeps
+	// its label). panel is the id. A panel's own key proves the panel; panelSaid marks one the page
+	// named itself in `X-Sode-Panel`, with a user's key. screen is the page's word (`X-Sode-Instance`),
+	// as the keepalive's device name is.
+	panel, screen string
+	panelSaid     bool
+}
+
+// panelShort is how log rows name a panel: its short name, else its id.
+func panelShort(p Panel) string {
+	if p.Slug != "" {
+		return p.Slug
+	}
+	return p.ID
+}
+
+// panelTag is the one wording for a panel in a row's Note: "panel wall (Lobby Wall), screen Front desk".
+func panelTag(p Panel, screen string) string {
+	s := "panel " + panelShort(p)
+	if p.Name != "" {
+		s += " (" + p.Name + ")"
+	}
+	if screen != "" {
+		s += ", screen " + screen
+	}
+	return s
+}
+
+// panelNote is the actor's panel tag, or "" for a call no panel page made. A panel deleted since
+// auth is named by its id.
+func (a *App) panelNote(act Actor) string {
+	if act.panel == "" {
+		return ""
+	}
+	p, ok := a.panels.get(act.panel)
+	if !ok {
+		p = Panel{ID: act.panel}
+	}
+	tag := panelTag(p, act.screen)
+	if act.panelSaid {
+		tag = "unverified " + tag
+	}
+	return tag
 }
 
 // String is "Seth (Panel 21)", or the bare name with no key. Sode itself reads "Sode (system)".
@@ -55,16 +99,22 @@ var keyShape = regexp.MustCompile(keyPrefix + `[A-Za-z0-9_-]{20,}`)
 
 func redactKeys(s string) string { return keyShape.ReplaceAllString(s, "[key]") }
 
-// apiEvent is the one writer of `api` rows: By is the actor and key name, Note the detail.
-// Callers never pass a key, hash or PIN; keys are redacted anyway.
+// apiEvent is the one writer of `api` rows: By is the actor and key name, Note the detail, then
+// the panel tag, then the via text. Callers never pass a key, hash or PIN; keys are redacted anyway.
 func (a *App) apiEvent(act Actor, why, result, note string, err error) {
 	e := event(kindAPI, why, redactKeys(act.String()), result)
 	e.Note = redactKeys(note)
-	if act.Via != "" {
+	add := func(s string) {
 		if e.Note != "" {
 			e.Note += "; "
 		}
-		e.Note += "unverified via: " + redactKeys(act.Via)
+		e.Note += s
+	}
+	if tag := a.panelNote(act); tag != "" {
+		add(redactKeys(tag))
+	}
+	if act.Via != "" {
+		add("unverified via: " + redactKeys(act.Via))
 	}
 	if err != nil {
 		e.Err = redactKeys(err.Error())

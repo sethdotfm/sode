@@ -67,6 +67,15 @@ export const shouldNotify = (permission) => permission === 'granted';
 
 export const keepaliveBody = (device) => JSON.stringify({ device: deviceFrom(device) });
 
+// Headers that tie a page's /api/v1 call to its panel and screen for Communication Log rows (docs/agents/comm-log.md).
+// The server trusts them only as the page's own word; a panel's own key proves the panel by itself.
+export function fromPanel(init = {}, id, screen) {
+  if (!id) return init;
+  const headers = { ...init.headers, 'X-Sode-Panel': id };
+  if (screen) headers['X-Sode-Instance'] = deviceFrom(screen);
+  return { ...init, headers };
+}
+
 // What the browser allows. The Notification API is missing in some browsers and over plain HTTP.
 export function permissionText(permission) {
   if (permission === 'granted') return { state: 'on', text: 'Browser notifications are on.' };

@@ -6,6 +6,7 @@ import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSe
 import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey } from './sessionkeyrules.js';
+import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
 import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
@@ -83,7 +84,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   }
   const stored = !key && !embedded;
   if (stored) key = storedKey(seg);
-  const call = given || (key ? (path, init = {}) => fetch(path, withKey(init, key)) : sessionFetch);
+  // Every call names its panel and screen for the Communication Log; the editor's live test is no instance.
+  let screen = '';
+  const tag = (init) => fromPanel(init, id, screen);
+  const call = given || (key ? (path, init = {}) => fetch(path, withKey(tag(init), key)) : (path, init = {}) => sessionFetch(path, tag(init)));
   const callJSON = jsonCall(call);
 
   if (!key && !embedded) {
@@ -295,7 +299,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   let keep = null;
   if (!embedded) {
     const showName = initName(ui.name, (name) => keep.rename(name));
-    keep = startKeepalive(call, id, ui.device, instanceFrom(location.search), showName);
+    keep = startKeepalive(call, id, ui.device, instanceFrom(location.search), (name, editable) => {
+      screen = name;
+      showName(name, editable);
+    });
   }
   // A newer saved copy: rebuild the grid and the state from it, keeping the viewed destination. The watcher counts down and waits out staged routes first.
   stopWatch = watchPanel({

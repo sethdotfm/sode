@@ -110,7 +110,7 @@ func (a *App) apiPanelSetup(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 		apiFail(w, http.StatusInternalServerError, "internal", "the key could not be made: "+err.Error())
 		return
 	}
-	a.apiEvent(Actor{Kind: actorClient, Name: c.Name, Via: cleanText(r.Header.Get("X-Sode-Via"), apiViaMax)}, "panelSetup", "ok", "panel "+p.ID+" "+p.Name+", "+instance, nil)
+	a.apiEvent(Actor{Kind: actorClient, Name: c.Name, Via: cleanText(r.Header.Get("X-Sode-Via"), apiViaMax)}, "panelSetup", "ok", panelTag(p, instance), nil)
 	apiCreated(w, map[string]any{"key": secret, "id": rec.ID, "instance": instance})
 }
 

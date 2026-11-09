@@ -122,7 +122,7 @@ func TestChromePanelSessionTake(t *testing.T) {
 			t.Fatalf("the app never read names and tally from swp08sim: %.300s | %.300s", apiDo(a, "GET", "/api/v1/names", ana, nil).Body.String(), apiDo(a, "GET", "/api/v1/tally", ana, nil).Body.String())
 		}
 	}
-	b.open(srv.URL + "/panels/" + id)
+	b.open(srv.URL + "/panels/" + id + "?instance=Desk")
 
 	// Launch: nobody is signed in, so the page raises the PIN pad before anything else.
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
@@ -152,5 +152,12 @@ func TestChromePanelSessionTake(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), fmt.Sprintf(`"dst":%d,"level":1,"src":%d`, simDst, simSrc)) {
 		t.Errorf("tally after take: %d %s", rec.Code, rec.Body.String())
 	}
+	// The Communication Log names the panel and the screen; a user's key proves neither, so it says so.
+	if e := lastRow(t, a, "take"); !strings.Contains(e.Note, "unverified panel "+id+" (Browser panel), screen Desk") {
+		t.Errorf("take row %+v", e)
+	}
 	b.check()
+	// A named screen holds its instance stream, which would keep srv.Close waiting: leave the page first.
+	b.open("about:blank")
+	monWaitConns(t, a, id, 0)
 }

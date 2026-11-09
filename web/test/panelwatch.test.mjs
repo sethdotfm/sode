@@ -16,7 +16,18 @@ import {
   clearNote,
   lostText,
   renameTo,
+  fromPanel,
 } from '../panelwatchrules.js';
+
+test('a call from a panel page says its panel and screen in headers, and keeps the ones it had', () => {
+  assert.deepEqual(fromPanel({ headers: { 'Content-Type': 'application/json' } }, 'p-1', 'Lobby'), {
+    headers: { 'Content-Type': 'application/json', 'X-Sode-Panel': 'p-1', 'X-Sode-Instance': 'Lobby' },
+  });
+  // Before the screen is named only the panel goes; an id-less call sends nothing extra.
+  assert.deepEqual(fromPanel({ method: 'POST' }, 'p-1', ''), { method: 'POST', headers: { 'X-Sode-Panel': 'p-1' } });
+  assert.deepEqual(fromPanel({}, '', 'Lobby'), {});
+  assert.deepEqual(fromPanel(undefined, 'p-1', 'Lobby'), { headers: { 'X-Sode-Panel': 'p-1', 'X-Sode-Instance': 'Lobby' } });
+});
 
 test('durations read in the largest sensible unit', () => {
   assert.equal(durationText(1), '1 second');
