@@ -37,7 +37,9 @@
   flex: 1 1 auto;
 }
 
-/* A panel's grid. One animated number on the root drives every pulse, so cells stay in phase. */
+/* A panel's grid. One animated number on the grid drives every pulse, so cells stay in phase. It runs only while a
+   cell pulses: an inherited registered property animated higher up restyles everything under it every frame, and
+   on :root it cost the idle editor 27% CPU and growing renderer memory. */
 @property --pulse {
   syntax: "<number>";
   inherits: true;
@@ -55,10 +57,12 @@
 :root {
   --panel-pulse-s: 2s;
   --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state colour */
+}
+.sode-panel__grid:has([data-s="staged"], [data-s="pending"], .sode-panel__take--armed) {
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  .sode-panel__grid {
     animation: none;
     --pulse: 0.6;
   }
@@ -655,7 +659,7 @@
   flex-direction: column;
   gap: var(--pb-space-4);
 }
-.pb-tab[aria-disabled='true'] {
+.pb-tab[aria-disabled="true"] {
   color: var(--pb-text-disabled);
 }
 .sode-ov__keys {

@@ -116,11 +116,20 @@ test('haptics buzz once where supported and do nothing elsewhere', () => {
   assert.equal(buzz({}), false);
 });
 
-test('one animated root property drives every pulse, so no cell has an animation of its own', () => {
-  assert.equal([...css.matchAll(/animation\s*:/g)].length, 2); // the root, and none under reduced motion
-  assert.match(css, /:root\s*\{[^}]*animation:\s*sode-panel-pulse/);
+test('one animated grid property drives every pulse, so no cell has an animation of its own', () => {
+  assert.equal([...css.matchAll(/animation\s*:/g)].length, 2); // the grid, and none under reduced motion
   assert.match(css, /--panel-pulse-s:\s*2s/);
   assert.match(css, /--panel-pulse-floor:\s*72%/);
+});
+
+// An inherited registered property animated on :root restyles the whole document every frame, on every page that
+// loads panels.css (the editor idled at 27% CPU with renderer memory rising). The pulse runs on the grid, and only
+// while a cell is in a pulsing state.
+test('the pulse runs on a panel grid with a pulsing cell, never on the root', () => {
+  assert.doesNotMatch(css, /:root\s*\{[^}]*animation/);
+  const rule = /\.sode-panel__grid:has\(([^)]*)\)\s*\{[^}]*animation:\s*sode-panel-pulse[^;]*infinite/.exec(css);
+  assert.ok(rule, 'the animation is on .sode-panel__grid:has(...)');
+  for (const state of ['[data-s="staged"]', '[data-s="pending"]', '.sode-panel__take--armed']) assert.ok(rule[1].includes(state), `${state} starts the pulse`);
 });
 
 test('with reduced motion the pulse stops and the state is still carried by static rings', () => {

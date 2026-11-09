@@ -205,6 +205,7 @@ export async function runEditor() {
     live.stop();
     loaded = panel;
     edits = {};
+    art?.revoke();
     art = panel ? createArt(sessionFetch, panel.id) : null;
     g = createGrid(panel || newPanel());
     nameBox.value = (panel || newPanel()).name;

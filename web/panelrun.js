@@ -62,19 +62,22 @@ export function runPanel(seg, opts = {}) {
 async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {}, run) {
   const timers = [];
   let stopWatch = () => {};
-  let ended = false; // the key is gone or refused: only a new link helps
+  let ended = false; // the key is gone or refused, or an embedded run was stopped: only a new link or start helps
   let holdTimer = 0;
+  let art = null;
   run.stop = () => {
     ended = true;
     timers.forEach(clearInterval);
     stopWatch();
     clearTimeout(holdTimer);
+    art?.revoke();
   };
   let id = seg; // the id once the panel is read: the address may hold its short name
   let key = embedded ? null : keyFromHash(location.hash);
   const setup = embedded ? '' : setupFromHash(location.hash);
   if (!key && setup) {
     const got = await exchangeSetup(seg, setup);
+    if (ended) return;
     if (got.error) return say(ui.note, got.error);
     key = got.key;
   }
@@ -105,12 +108,14 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
     return;
   }
+  // Back to editing came before the panel did: nothing below may start a timer or a watch.
+  if (ended) return;
   if (panel.acts === 'api' && !key && !embedded) {
     say(ui.note, 'This panel acts as its own API client. Open its link with the key.');
     return;
   }
   id = panel.id;
-  const art = createArt(call, id);
+  art = createArt(call, id);
   // Title, header, font scale and theme come from the stored panel, so a live update runs it again.
   // Auto restores whatever the page started with (the browser's own choice or the device setting).
   const root = document.documentElement;

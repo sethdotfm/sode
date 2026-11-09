@@ -32,3 +32,25 @@ test('a refused or failed fetch gives null so the cell shows no artwork', async 
     null,
   );
 });
+
+// A blob URL holds its bytes until it is revoked or the page unloads, so every Test it live and every panel switch
+// would otherwise keep one more copy of each image.
+test('revoke lets go of every blob URL made, and a later url() fetches afresh', async () => {
+  const made = [];
+  const gone = [];
+  let n = 0;
+  const call = async () => ({ ok: true, blob: async () => ({ size: 3 }) });
+  const art = createArt(
+    call,
+    'p-1',
+    () => (made.push(`blob:${++n}`), `blob:${n}`),
+    (u) => gone.push(u),
+  );
+  await art.url('a-1');
+  await art.url('a-2');
+  const pending = art.url('a-3');
+  art.revoke();
+  await pending;
+  assert.deepEqual(gone.sort(), ['blob:1', 'blob:2', 'blob:3']);
+  assert.equal(await art.url('a-1'), 'blob:4');
+});

@@ -12,6 +12,11 @@ import (
 
 // editorTab starts the app and a browser signed in as Ana (Trusted) on the editor for a new panel.
 func editorTab(t *testing.T, body string) (*tab, *App, string, string) {
+	return editorTabPrep(t, body, nil)
+}
+
+// editorTabPrep is editorTab with a hook that runs once the panel exists and before the page opens.
+func editorTabPrep(t *testing.T, body string, prep func(b *tab, a *App, key, id string)) (*tab, *App, string, string) {
 	b := startBrowser(t)
 	sim := startSim(t)
 	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
@@ -23,6 +28,9 @@ func editorTab(t *testing.T, body string) (*tab, *App, string, string) {
 	t.Cleanup(srv.Close)
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, body)
+	if prep != nil {
+		prep(b, a, ana, id)
+	}
 	b.open(srv.URL + "/panels/editor?panel=" + id)
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	for _, d := range "1234" {
