@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><link rel="stylesheet" href="/shared/ov.css"><title>Panels overview B: gallery</title></head><body>
+<div id="app"></div>
+<script type="module">
+import { createOverview, frame, wire, act, thumb, status, shareLabel, actsLabel, roleSwitch, esc } from '/shared/ov.js'
+import { icon } from '/shared/edview.js'
+const OV = createOverview(), app = document.getElementById('app')
+frame(OV, app); wire(OV, app)
+const tile = (p) => `<article class="ovb-tile"><div class="ovb-tile__pic">${thumb(p)}<div class="ovb-go"><button class="pb-btn pb-btn--ok" data-act="launch" data-id="${p.id}">${icon('play')} Launch</button></div></div>
+  <div class="ovb-tile__meta"><strong class="ov-grow">${esc(p.name)}</strong>${status(OV, p)}</div>
+  <div class="ovb-tile__meta ov-muted"><span>${actsLabel(p)}</span><span>&middot;</span><span>${OV.mine(p) ? 'Shared: ' + shareLabel(p) : 'By ' + esc(p.owner)}</span></div>
+  <div class="ovb-tile__acts">${act(OV, p, { icons: true }).replace(/<button[^>]*data-act="launch"[^>]*>.*?<\/button>/, '')}${OV.canShare(p) && OV.role === 'trusted' && !OV.mine(p) ? '' : ''}<span class="ov-grow"></span>${OV.canEdit(p) ? `<button class="pb-btn pb-btn--sm pb-btn--ghost pb-btn--icon" data-act="delete" data-id="${p.id}" aria-label="Delete" data-pb-tip="Delete">${icon('trash-2')}</button>` : ''}</div></article>`
+const group = (title, list, add) => `<section><div class="ov-head"><h2 class="ed-h ov-grow">${title} <span class="pb-badge">${list.length}</span></h2></div><div class="ovb-grid">${list.map(tile).join('')}${add ? `<button class="ovb-add" data-act="new"><span>${icon('layout-grid', 'pb-icon--lg')}<br>New panel</span></button>` : ''}</div></section>`
+const draw = () => {
+  const t = OV.role === 'trusted', v = OV.visible()
+  const body = t ? OV.owners().map((o) => [o === OV.me ? 'Yours' : o, v.filter((p) => p.owner === o)]).filter(([, l]) => l.length).map(([h, l], i) => group(h, l, i === 0)).join('')
+    : group('My panels', v.filter(OV.mine), true) + (v.some((p) => !OV.mine(p)) ? group('Shared with me', v.filter((p) => !OV.mine(p))) : '')
+  app.innerHTML = `<div class="ov"><div class="ov-head"><h1>${t ? 'Everyone\'s panels' : 'Panels'}</h1><div class="pb-field ov-grow"><input class="pb-input" id="q" placeholder="Find a panel" value="${esc(OV.filter)}" aria-label="Find a panel"></div>${roleSwitch(OV)}</div>${body}
+  ${t ? `<p class="pb-hint">Grouped by owner. A Trusted user can edit, share and watch any panel here.</p>` : ''}</div>`
+  const q = document.getElementById('q'); q.oninput = () => { OV.filter = q.value; OV.emit('filter') }
+}
+OV.on((k) => { if (k === 'note') return; const f = document.activeElement && document.activeElement.id === 'q'; if (k === 'filter' && f) { const pos = document.getElementById('q').selectionStart; draw(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos, pos) } else draw() })
+</script></body></html>

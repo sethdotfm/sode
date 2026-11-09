@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><link rel="stylesheet" href="/shared/ov.css"><title>Panels overview C: list and detail</title></head><body>
+<div id="app"></div>
+<script type="module">
+import { createOverview, frame, wire, thumb, status, shareLabel, actsLabel, roleSwitch, esc } from '/shared/ov.js'
+import { icon } from '/shared/edview.js'
+const OV = createOverview(), app = document.getElementById('app')
+let cur = 'studio-a'
+frame(OV, app); wire(OV, app)
+const item = (p) => `<button class="ovc-item" data-pick="${p.id}" aria-current="${p.id === cur}">${thumb(p, 'ov-thumb--sm')}<span><strong>${esc(p.name)}</strong><br><span class="ov-muted">${OV.mine(p) ? 'You' : esc(p.owner)} &middot; ${actsLabel(p)}</span></span><span class="pb-dot pb-dot--${OV.online(p) ? 'ok' : 'idle'}" title="${OV.online(p) ? 'Online' : 'Offline'}"></span></button>`
+const draw = () => {
+  const t = OV.role === 'trusted', v = OV.visible()
+  if (!v.some((p) => p.id === cur) && v[0]) cur = v[0].id
+  const p = OV.get(cur) && v.some((x) => x.id === cur) ? OV.get(cur) : null
+  const g = (h, l) => l.length ? `<div class="ovc-grp ed-h">${h}</div>${l.map(item).join('')}` : ''
+  const list = t ? OV.owners().map((o) => g(o === OV.me ? 'Yours' : o, v.filter((x) => x.owner === o))).join('') : g('My panels', v.filter(OV.mine)) + g('Shared with me', v.filter((x) => !OV.mine(x)))
+  const d = !p ? '<p class="ov-muted">No panel matches.</p>' : `
+    <div class="ov-head"><h1 class="ov-grow">${esc(p.name)}</h1>${status(OV, p)}</div>
+    <div class="ovc-big"><div>${thumb(p)}<p class="pb-hint">${p.size} grid, ${p.mode}. Changed ${p.upd}.</p></div>
+      <div class="ov-pane">
+        <button class="pb-btn pb-btn--ok ovc-launch" data-act="launch" data-id="${p.id}">${icon('play')} Launch</button>
+        <div class="pb-row pb-row--wrap">${OV.canEdit(p) ? `<button class="pb-btn" data-act="edit" data-id="${p.id}">${icon('pencil')} Edit</button>` : `<button class="pb-btn" data-act="copy" data-id="${p.id}">${icon('copy')} Save a copy</button>`}${OV.canShare(p) ? `<button class="pb-btn" data-act="share" data-id="${p.id}">${icon('share-2')} Share</button>` : ''}${OV.canShare(p) && p.acts === 'api' ? `<button class="pb-btn" data-act="link" data-id="${p.id}">${icon('key-round')} Link with key</button>` : ''}${OV.canEdit(p) ? `<button class="pb-btn pb-btn--ghost" data-act="delete" data-id="${p.id}">${icon('trash-2')} Delete</button>` : ''}</div>
+        <dl class="ov-kv"><dt>Owner</dt><dd>${OV.mine(p) ? 'You' : esc(p.owner)}</dd><dt>Acts as</dt><dd>${actsLabel(p)}${p.acts === 'user' ? ' (asks for a PIN on launch)' : ' (opens with its key)'}</dd><dt>Shared with</dt><dd>${shareLabel(p)}${p.share === 'users' ? ': ' + p.with.map(esc).join(', ') : ''}</dd></dl>
+      </div></div>
+    <div class="ed-sec"><h3 class="ed-h">Open now</h3>${p.inst.length ? p.inst.map((i) => `<div class="pb-row"><span class="pb-dot pb-dot--ok"></span><span>${esc(i)}</span><span class="ov-muted">keepalive 3 s ago</span></div>`).join('') : '<p class="ov-muted">Nothing has this panel open.</p>'}
+      ${OV.canWatch(p) ? `<label class="pb-check"><input type="checkbox" class="pb-check__input" data-act="watch" data-id="${p.id}" ${p.watch ? 'checked' : ''}><span class="pb-check__label">Tell me when it goes offline or misses its keepalive</span></label>` : '<p class="pb-hint">You can only watch panels you own. A Trusted user can watch any.</p>'}</div>`
+  app.innerHTML = `<div class="ovc"><nav class="ovc-list" aria-label="Panels"><div class="ov-head" style="padding:var(--pb-space-3) var(--pb-space-4)"><input class="pb-input ov-grow" id="q" placeholder="Find a panel" value="${esc(OV.filter)}" aria-label="Find a panel"><button class="pb-btn pb-btn--sm pb-btn--ok pb-btn--icon" data-act="new" aria-label="New panel">${icon('layout-grid')}</button></div><div style="padding:0 var(--pb-space-4) var(--pb-space-3)">${roleSwitch(OV)}</div>${list}</nav><main class="ovc-detail">${d}</main></div>`
+  const q = document.getElementById('q'); q.oninput = () => { OV.filter = q.value; OV.emit('filter') }
+}
+app.addEventListener('click', (e) => { const b = e.target.closest('[data-pick]'); if (b) { cur = b.dataset.pick; draw() } })
+OV.on((k) => { if (k === 'note') return; const f = document.activeElement && document.activeElement.id === 'q'; if (k === 'filter' && f) { const pos = document.getElementById('q').selectionStart; draw(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos, pos) } else draw() })
+</script></body></html>

@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><link rel="stylesheet" href="/shared/ov.css"><title>Panels overview A: table</title></head><body>
+<div id="app"></div>
+<script type="module">
+import { createOverview, frame, wire, act, status, shareLabel, actsLabel, roleSwitch, esc } from '/shared/ov.js'
+import { icon } from '/shared/edview.js'
+const OV = createOverview(), app = document.getElementById('app')
+let tab = 'mine'
+frame(OV, app); wire(OV, app)
+const draw = () => {
+  const t = OV.role === 'trusted'
+  let rows = OV.visible()
+  if (!t) rows = rows.filter((p) => (tab === 'mine' ? OV.mine(p) : !OV.mine(p)))
+  const tabs = t ? '' : `<div class="pb-tabs" role="tablist">${[['mine', 'My panels'], ['shared', 'Shared with me']].map(([k, n]) => `<button class="pb-tab" role="tab" aria-selected="${tab === k}" data-tab="${k}">${n} <span class="pb-badge">${OV.visible().filter((p) => (k === 'mine') === OV.mine(p)).length}</span></button>`).join('')}</div>`
+  app.innerHTML = `<div class="ov"><div class="ov-head"><h1>${t ? 'All panels' : 'Panels'}</h1><span class="ov-grow"></span>${roleSwitch(OV)}</div>
+  <div class="ov-head">${tabs}<div class="pb-field ov-grow"><input class="pb-input" id="q" placeholder="Find a panel${t ? ' or owner' : ''}" value="${esc(OV.filter)}" aria-label="Find a panel"></div>
+  ${t ? `<span class="pb-select-wrap"><select class="pb-select" id="own" aria-label="Owner"><option value="">All owners</option>${OV.owners().map((o) => `<option ${OV.owner === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></span>` : ''}
+  <button class="pb-btn pb-btn--ok" data-act="new">${icon('layout-grid')} New panel</button></div>
+  <table class="pb-table pb-table--compact ova-table"><thead><tr>${t ? '<th></th>' : ''}<th>Panel</th><th>Status</th>${t || tab === 'shared' ? '<th>Owner</th>' : ''}<th>Acts as</th><th>Shared with</th><th>Changed</th><th></th></tr></thead><tbody>
+  ${rows.map((p) => `<tr>${t ? `<td><input type="checkbox" class="pb-check__input" data-sel="${p.id}" ${OV.sel.has(p.id) ? 'checked' : ''} aria-label="Select ${esc(p.name)}"></td>` : ''}<td><strong>${esc(p.name)}</strong></td><td>${status(OV, p)}</td>${t || tab === 'shared' ? `<td>${OV.mine(p) ? 'You' : esc(p.owner)}</td>` : ''}<td>${actsLabel(p)}</td><td>${shareLabel(p)}</td><td class="ov-muted">${p.upd}</td><td><div class="ova-acts">${act(OV, p, { icons: false })}</div></td></tr>`).join('') || `<tr><td colspan="8" class="ov-muted">Nothing here.</td></tr>`}
+  </tbody></table>
+  ${t && OV.sel.size ? `<div class="ova-bulk"><strong>${OV.sel.size} selected</strong><button class="pb-btn pb-btn--sm" data-bulk="push">${icon('copy')} Push a layout to them</button><button class="pb-btn pb-btn--sm" data-bulk="watch">${icon('bell')} Watch</button><button class="pb-btn pb-btn--sm pb-btn--ghost" data-bulk="clear">Clear</button></div>` : ''}
+  <p class="pb-hint">${t ? 'Trusted view: every user\'s panels, with an owner. You can edit, share, push to and watch any of them.' : 'Your own panels and the ones shared with you. You can edit your own. A shared one opens for use, or saves as a copy you can edit.'}</p></div>`
+  const q = document.getElementById('q'); q.oninput = () => { OV.filter = q.value; OV.emit('filter') }
+}
+app.addEventListener('click', (e) => {
+  const tb = e.target.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; draw() }
+  const s = e.target.closest('[data-sel]'); if (s) { s.checked ? OV.sel.add(s.dataset.sel) : OV.sel.delete(s.dataset.sel); draw() }
+  const b = e.target.closest('[data-bulk]'); if (b) { const k = b.dataset.bulk; if (k === 'clear') OV.sel.clear(); else if (k === 'watch') { OV.sel.forEach((id) => (OV.get(id).watch = true)); OV.say(`Watching ${OV.sel.size} panels.`) } else OV.say(`Opens Push with ${OV.sel.size} panels as targets. A checkpoint of each is kept first.`); OV.emit() }
+})
+app.addEventListener('change', (e) => { if (e.target.id === 'own') { OV.owner = e.target.value; OV.emit('filter') } })
+let last = ''
+OV.on((k) => { if (k === 'note') return; const f = document.activeElement && document.activeElement.id === 'q'; if (k === 'filter' && f) { const v = document.getElementById('q'), pos = v.selectionStart; draw(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(pos, pos) } else draw() })
+</script></body></html>

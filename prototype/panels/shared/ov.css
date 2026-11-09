@@ -1,0 +1,52 @@
+/* PROTOTYPE overview CSS: layout only; colours and sizes are patchbay tokens. */
+body { margin: 0; background: var(--pb-surface-base); color: var(--pb-text); font-family: var(--pb-font); }
+.ov { padding: var(--pb-space-5); display: flex; flex-direction: column; gap: var(--pb-space-4); max-width: 80rem; margin: 0 auto; }
+.ov-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pb-space-3); }
+.ov-head h1 { font-size: var(--pb-text-lg); margin: 0; }
+.ov-dlg { width: min(38rem, 94vw); }
+.ov-pane { margin-top: var(--pb-space-4); display: flex; flex-direction: column; gap: var(--pb-space-3); }
+.ov-radios { display: flex; flex-direction: column; gap: var(--pb-space-2); }
+.ov-kv { display: grid; grid-template-columns: max-content 1fr; gap: var(--pb-space-1) var(--pb-space-4); margin: 0; }
+.ov-kv dt { color: var(--pb-text-muted); } .ov-kv dd { margin: 0; }
+.pb-toast-stack { position: fixed; top: calc(var(--pb-toolbar-h) + var(--pb-space-3)); right: var(--pb-space-4); z-index: 50; }
+.pb-grow { flex: 1; }
+.ov-grow { flex: 1; }
+.ov-muted { color: var(--pb-text-muted); }
+/* mini grid */
+.ov-thumb { display: grid; grid-template: repeat(4, 1fr) / repeat(8, 1fr); gap: 2px; aspect-ratio: 2 / 1; width: 100%; padding: var(--pb-space-2); background: var(--pb-surface-base); border: 1px solid var(--pb-border); }
+.ov-thumb i { background: var(--pb-surface-control); border-radius: 1px; }
+.ov-thumb .k-s { background: var(--panel-src, color-mix(in oklab, var(--pb-status-ok) 40%, var(--pb-surface-control))); }
+.ov-thumb .k-d { background: var(--panel-dst, color-mix(in oklab, var(--pb-brand) 40%, var(--pb-surface-control))); }
+.ov-thumb .k-t { background: var(--pb-brand); }
+.ov-thumb .k-p { background: color-mix(in oklab, var(--pb-accent, var(--pb-text)) 35%, var(--pb-surface-control)); }
+.ov-thumb .k-c { background: color-mix(in oklab, var(--pb-status-info, var(--pb-text)) 35%, var(--pb-surface-control)); }
+.ov-thumb .k-x { background: var(--pb-text-muted); opacity: 0.5; }
+.ov-thumb--sm { width: 6rem; padding: 2px; }
+/* A: table */
+.ova-tabs { display: flex; gap: var(--pb-space-3); align-items: center; flex-wrap: wrap; }
+.ova-table td, .ova-table th { vertical-align: middle; }
+.ova-acts { display: flex; gap: var(--pb-space-1); justify-content: flex-end; align-items: center; }
+.ova-bulk { position: sticky; bottom: var(--pb-space-3); background: var(--pb-surface-raised, var(--pb-surface-control)); border: 1px solid var(--pb-border); padding: var(--pb-space-3); display: flex; gap: var(--pb-space-3); align-items: center; }
+/* B: gallery */
+.ovb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--pb-space-4); }
+.ovb-tile { display: flex; flex-direction: column; gap: var(--pb-space-3); padding: var(--pb-space-3); border: 1px solid var(--pb-border); background: var(--pb-surface-raised, var(--pb-surface-control)); }
+.ovb-tile__pic { position: relative; }
+.ovb-tile__pic .ovb-go { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in oklab, var(--pb-surface-base) 55%, transparent); opacity: 0; }
+.ovb-tile:hover .ovb-go, .ovb-tile:focus-within .ovb-go { opacity: 1; }
+.ovb-tile__meta { display: flex; flex-wrap: wrap; gap: var(--pb-space-2); align-items: center; }
+.ovb-tile__acts { display: flex; gap: var(--pb-space-1); align-items: center; }
+.ovb-add { display: grid; place-items: center; min-height: 12rem; border: 1px dashed var(--pb-border); color: var(--pb-text-muted); background: none; cursor: pointer; }
+/* C: master-detail */
+.ovc { display: grid; grid-template-columns: 20rem 1fr; height: calc(100vh - var(--pb-toolbar-h)); }
+.ovc-list { overflow: auto; border-right: 1px solid var(--pb-border); display: flex; flex-direction: column; }
+.ovc-item { display: grid; grid-template-columns: auto 1fr auto; gap: var(--pb-space-3); align-items: center; padding: var(--pb-space-3) var(--pb-space-4); background: none; border: 0; border-bottom: 1px solid var(--pb-border); color: inherit; text-align: left; cursor: pointer; width: 100%; }
+.ovc-item[aria-current="true"] { background: var(--pb-surface-raised, var(--pb-surface-control)); box-shadow: inset 3px 0 var(--pb-brand); }
+.ovc-grp { padding: var(--pb-space-2) var(--pb-space-4); }
+.ovc-detail { overflow: auto; padding: var(--pb-space-5); display: flex; flex-direction: column; gap: var(--pb-space-4); max-width: 56rem; }
+.ovc-big { display: grid; grid-template-columns: minmax(0, 24rem) 1fr; gap: var(--pb-space-5); align-items: start; }
+.ovc-launch { font-size: var(--pb-text-lg); padding: var(--pb-space-4) var(--pb-space-6); }
+@media (max-width: 52rem) { .ovc { grid-template-columns: 1fr; height: auto; } .ovc-big { grid-template-columns: 1fr; } }
+.ov-head .pb-select-wrap, .ov-head .pb-btn { width: auto; flex: none; }
+.ov-head .pb-field { margin: 0; }
+.ova-acts { min-width: 15rem; }
+.ova-acts [data-act="launch"] { margin-right: auto; }
