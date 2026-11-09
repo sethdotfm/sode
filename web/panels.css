@@ -56,6 +56,9 @@
   font-weight: var(--pb-weight-bold);
   margin: 0;
 }
+.sode-panel__update[hidden] {
+  display: none;
+}
 .sode-panel__grid {
   display: grid;
   gap: var(--pb-space-3);
@@ -141,7 +144,49 @@
 }
 .sode-panel__take--armed {
   background-color: color-mix(in oklab, var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-surface-control));
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
   color: var(--pb-text-strong);
+}
+
+/* Look: font size scales from the panel's --panel-fs and the cell's --cell-fs (both multipliers). Artwork sits
+   dimmed behind the caption so the state colour still reads; it is only ever an <img> or a CSS background. */
+.sode-panel__grid {
+  font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
+}
+.sode-panel__cell {
+  font-size: calc(var(--pb-text-md) * var(--panel-fs, 1) * var(--cell-fs, 1));
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+.sode-panel__cell small,
+.sode-panel__staged {
+  font-size: calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1));
+}
+.sode-panel__take {
+  font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
+}
+.sode-panel__art {
+  height: 100%;
+  inset: 0;
+  object-fit: contain;
+  opacity: 0.3;
+  padding: var(--pb-space-2);
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  z-index: -1;
+}
+.sode-panel__art--icon {
+  color: var(--pb-text-strong);
+}
+.sode-panels--backdrop {
+  background-position: center;
+  background-size: cover;
+}
+.sode-panels--backdrop .sode-panel__grid {
+  background-color: color-mix(in oklab, var(--pb-surface-base) 40%, transparent);
+  padding: var(--pb-space-3);
 }
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
@@ -243,6 +288,16 @@
 }
 .sode-ov__kv dd {
   margin: 0;
+}
+.sode__scrim > .pb-modal.sode-ov__share {
+  width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode-ov__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: 18rem;
+  overflow-y: auto;
 }
 .sode-ov__thumb {
   background: var(--pb-surface-base);

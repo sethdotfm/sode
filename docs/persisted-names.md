@@ -79,9 +79,12 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - Directory `panels/` beside the config: `<id>.yaml` per panel (id `p-` and 8 hex digits) and `<id>.art/<art id>` for artwork (`a-` and 8 hex digits). A file with a name and id that differ is skipped.
 - Panel fields (YAML and JSON): `id`, `name`, `owner`, `acts` (`session` or `api`), `client`, `share` (`mode` `me`, `named` or `everyone`, and `users`), `rows`, `cols`, `cells`, `settings`, `art`. `canEdit` is output only. Fields not listed are kept as they are.
 - Cell fields inside `cells` (stored by the panel page and the editor): `r` and `c` (from 1), `rs`, `cs`, `kind` (`source`, `destination`, `take`, `preset`, `clear`, `current`), `n` (the router's number), `scope` (`everyone` or `me`) and `name` on a `preset` cell, `caption`, `levels` (UI levels). Panel `settings` read so far: `mode` (`take` or `instant`), `multi`, `levels` and `guard` (`hold` or `double`). The page sends `Idempotency-Key` values that start with `panel-`.
+- Panel field `rev` (in the file, in the API and as the page's poll signal): the server's count of stored changes, omitted from the file while 0. A body's `rev` is ignored and a copy starts over.
 - A panel's API client is an `apiClients` entry in the config with a `panel` field (the panel id), named `Panel <id>`. `clientRights` is the panel's request and response field for its Rights; it is never stored in the panel file. The Manage users list sends `panelClients` per user.
 - API scopes `panels` and `panelsmanage`, API error codes `not_owner`, `user_required`, `trusted_required`, `unsupported_type` and `internal`, and `api` row kinds `panelCreate`, `panelUpdate`, `panelDelete`, `panelCopy`, `panelKey`, `panelKeyRotate` and `panelKeyRevoke`.
 - A panel's key is a key-store entry owned by its client, named `Link` (it shows in History as "Panel <id> (Link)"). The link is `panels/<id>#key=<secret>`; the page also reads `kiosk=1` in the fragment and panel `settings.kiosk` (true hides the header).
+
+- Panel look (stored in `settings` and `cells`): `settings.titleBar`, `settings.fontSize`, `settings.backdrop`, `settings.wake`, `settings.haptics`; cell `art` and `fontSize`. `art` holds `icon:<name>` or an artwork id.
 
 ## Enforcement
 

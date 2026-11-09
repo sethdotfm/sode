@@ -24,6 +24,10 @@ import {
   GUARD_HOLD_MS,
 } from './panelmodel.js';
 import { buildGrid, paintGrid } from './panelview.js';
+import { lookOf } from './panellook.js';
+import { createArt } from './panelart.js';
+import { createWake, buzz } from './panelfeel.js';
+import { watchPanel } from './panellive.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
@@ -66,18 +70,37 @@ export async function runPanel(id) {
     say('panels-note', openFailText(res.status, !!key));
     return;
   }
-  const panel = await res.json();
+  let panel = await res.json();
   if (panel.acts === 'api' && !key) {
     say('panels-note', 'This panel acts as its own API client. Open its link with the key.');
     return;
   }
-  document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, panel);
-  document.title = panel.name;
-  $('panel-title').textContent = panel.name;
+  const art = createArt(call, id);
+  // Title, header, font scale and backdrop come from the stored panel, so a live update runs it again.
+  const applyLook = (p) => {
+    const look = lookOf(p.settings || {});
+    document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, p) || !look.titleBar;
+    document.title = p.name;
+    $('panel-title').textContent = p.name;
+    $('panel-grid').style.setProperty('--panel-fs', look.scale);
+    const main = document.querySelector('.sode-panels');
+    main.classList.toggle('sode-panels--backdrop', !!look.backdrop);
+    main.style.backgroundImage = '';
+    if (look.backdrop) {
+      art.url(look.backdrop).then((url) => {
+        if (url) main.style.backgroundImage = `url("${url}")`;
+      });
+    }
+    return look;
+  };
+  if (applyLook(panel).wake) createWake(navigator, document).on();
 
-  const cells = cellsIn(panel);
-  const set = panel.settings || {};
-  let st = createState({ mode: set.mode, multi: set.multi, guard: set.guard, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
+  let cells = cellsIn(panel);
+  const stateOf = (p) => {
+    const set = p.settings || {};
+    return createState({ mode: set.mode, multi: set.multi, guard: set.guard, resultText: set.resultText, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
+  };
+  let st = stateOf(panel);
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
   let names = namesFrom({});
   let presets = {};
@@ -89,7 +112,7 @@ export async function runPanel(id) {
     paintGrid(grid, { st, env, names, now });
     say('panel-status', errorText(errorOf(st, now), names));
   };
-  const grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel });
+  let grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
 
   let polling = false;
   async function poll() {
@@ -104,7 +127,7 @@ export async function runPanel(id) {
         presets = pr;
         namesAt = Date.now();
       }
-      env = envFrom(tally, prot, presets);
+      env = envFrom(tally, prot, presets, panel.rights);
       st = applyTally(st, env);
       ready = true;
       say('panels-note', '');
@@ -155,6 +178,7 @@ export async function runPanel(id) {
 
   function onPress(cell) {
     if (!ready) return;
+    if (look.haptics) buzz(navigator);
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env, now)) return;
@@ -176,6 +200,22 @@ export async function runPanel(id) {
     render();
   }
 
+  // A newer saved copy: rebuild the grid and the state from it. The watcher waits for a quiet moment first.
+  watchPanel({
+    id,
+    rev: panel.rev,
+    get,
+    state: () => ({ viewed: !!st.view || st.staged.length > 0, busy: st.busy }),
+    apply(p) {
+      clearTimeout(holdTimer);
+      panel = p;
+      cells = cellsIn(p);
+      st = stateOf(p);
+      applyLook(p);
+      grid = buildGrid($('panel-grid'), p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
+      render();
+    },
+  });
   setInterval(poll, POLL_MS);
   setInterval(() => {
     st = idleClear(st, Date.now());

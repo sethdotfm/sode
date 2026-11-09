@@ -3,6 +3,7 @@
 import { $, el, icon, on } from './core.js';
 import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, shareLabel, launchHref, editHref } from './panelsrules.js';
+import { openShare } from './panelshare.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -89,7 +90,8 @@ function detail(p) {
   const bar = el('div', 'sode-ov__acts');
   if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id)));
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
-  // Share, Link with key and Push to panels go here.
+  if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
+  // Link with key and Push to panels go here.
   const slot = el('span', 'sode-ov__more');
   slot.id = 'panels-more';
   bar.append(slot);
@@ -132,6 +134,11 @@ async function act(kind, id) {
       await api(`api/v1/panels/${id}`, { method: 'DELETE' });
       S.cur = '';
       return load();
+    }
+    if (kind === 'share') {
+      const p = S.panels.find((x) => x.id === id);
+      if (p) openShare(p, { api, onSaved: (saved) => load(saved.id) });
+      return;
     }
     if (kind === 'copy') {
       const made = await api(`api/v1/panels/${id}/copy`, { method: 'POST' });

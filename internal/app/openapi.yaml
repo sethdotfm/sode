@@ -498,6 +498,35 @@ paths:
         "413": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/people:
+    get:
+      operationId: listPanelPeople
+      tags: [panels]
+      summary: Users a panel may be shared with
+      description: |
+        Scope `panels`. Needs a user's key (403 `user_required` for an API client or Guest). The
+        names of Sode's users, for the Share picker and nothing else: no PINs, flags or Rights.
+        Put the names in a panel's `share.users` with `PUT /panels/{id}`.
+      responses:
+        "200":
+          description: User names, in the order of the Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      required: [name]
+                      properties:
+                        name: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
@@ -932,7 +961,7 @@ components:
       type: object
       description: |
         A panel as sent. Unknown fields are kept and returned, so a newer client's data survives.
-        `id`, `owner`, `client`, `art` and `canEdit` are ignored here. `clientRights` is for a
+        `id`, `owner`, `client`, `art`, `rev` and `canEdit` are ignored here. `clientRights` is for a
         panel with `acts: api`.
       required: [name]
       additionalProperties: true
@@ -959,13 +988,30 @@ components:
       allOf:
         - $ref: "#/components/schemas/PanelIn"
         - type: object
-          required: [id, owner, canEdit]
+          required: [id, owner, rev, canEdit]
           properties:
+            rev:
+              type: integer
+              minimum: 1
+              description: |
+                Counts the panel's stored changes (a save, artwork, a Push). A panel page that is open
+                reads the panel every 5 seconds and updates itself when `rev` moves.
             id: { type: string, pattern: "^p-[0-9a-f]{8}$" }
             owner: { type: string, description: The user who owns it }
             client: { type: string, description: The API client of a panel that acts as one }
             art: { type: array, items: { $ref: "#/components/schemas/PanelArt" } }
             canEdit: { type: boolean, description: False when the caller may only use the panel }
+            rights:
+              type: object
+              description: |
+                The calling key's own Rights, so a panel page can refuse a route before arming
+                a take. Only on `GET /panels/{id}`. The server enforces them regardless.
+              properties:
+                sources: { type: array, items: { type: integer } }
+                dsts: { type: array, items: { type: integer } }
+                levels: { type: array, items: { type: integer }, description: UI levels }
+                presets: { type: array, items: { type: string } }
+                visibility: { type: string, enum: [readonly, hidden] }
     Name:
       type: object
       required: [n, name]

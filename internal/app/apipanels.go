@@ -21,6 +21,7 @@ func init() {
 	registerAPI(
 		apiRoute{"GET", apiBase + "/panels", read, (*App).apiPanelList},
 		apiRoute{"POST", apiBase + "/panels", manage, (*App).apiPanelCreate},
+		apiRoute{"GET", apiBase + "/panels/people", read, (*App).apiPanelPeople},
 		apiRoute{"GET", apiBase + "/panels/{id}", read, (*App).apiPanelRead},
 		apiRoute{"PUT", apiBase + "/panels/{id}", manage, (*App).apiPanelUpdate},
 		apiRoute{"DELETE", apiBase + "/panels/{id}", manage, (*App).apiPanelDelete},
@@ -133,10 +134,28 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	apiJSON(w, map[string]any{"panels": out})
 }
 
+// apiPanelPeople is the Share picker's list: names only, never PINs or flags, and only for a
+// user's key so an API client or Guest cannot enumerate people. "people" is not a panel id
+// (validPanelID), so this route hides no panel.
+func (a *App) apiPanelPeople(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
+	if cl.Actor.Kind != actorUser {
+		apiFail(w, http.StatusForbidden, "user_required", "the list of people is for a user's key")
+		return
+	}
+	users := []map[string]string{}
+	for _, u := range a.r().cfg.Users {
+		users = append(users, map[string]string{"name": u.Name})
+	}
+	apiJSON(w, map[string]any{"users": users})
+}
+
 func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if p, ok := a.panelFor(w, r, cl, false); ok {
 		_, edit := a.panelReach(cl, p)
-		apiJSON(w, a.panelOut(p, edit))
+		out := a.panelOut(p, edit)
+		// The page mirrors these before arming a take; the server still enforces them.
+		out["rights"] = cl.Rights.Clone()
+		apiJSON(w, out)
 	}
 }
 
@@ -158,7 +177,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = "", cl.Actor.Name, "", nil, nil
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.Name, "", nil, nil, 0
 	p.normalize()
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
@@ -214,7 +233,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = old.ID, old.Owner, old.Client, old.Art, nil
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
 	merged := maps.Clone(old.Extra)
 	if merged == nil {
 		merged = map[string]any{}
@@ -259,6 +278,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		a.panelStoreFail(w, err)
 		return
 	}
+	p, _ = a.panels.get(p.ID) // carries the new Rev
 	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
 	apiJSON(w, a.panelOut(p, true))
 }
@@ -299,7 +319,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
-	c.Art = nil
+	c.Art, c.Rev = nil, 0
 	if err := validatePanel(&c); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
