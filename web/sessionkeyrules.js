@@ -18,3 +18,22 @@ export const keyFrom = (m) => (m.ok && m.key ? m.key : '');
 export const renewable = (status, code) => status === 401 && (code === 'invalid_key' || code === 'key_expired');
 
 export const withKey = (init, key) => ({ ...init, headers: { ...init.headers, Authorization: `Bearer ${key}` } });
+
+// A JSON call over fetcher (sessionFetch, or fetch with a URL key): the body, null for 204, else an Error
+// carrying status, code and the server's message. failed(status) words an answer with no message, down a
+// dead network (status 0); without down the fetch error passes through. Callers keep their own texts.
+export function jsonCall(fetcher, { failed = () => '', down } = {}) {
+  return async (path, init) => {
+    let res;
+    try {
+      res = await fetcher(path, init);
+    } catch (e) {
+      if (down === undefined) throw e;
+      throw Object.assign(new Error(down), { status: 0 });
+    }
+    if (res.status === 204) return null;
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(body.error?.message || failed(res.status)), { status: res.status, code: body.error?.code });
+    return body;
+  };
+}

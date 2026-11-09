@@ -2,18 +2,17 @@
 // only). Stored values are an artwork id, or 'icon:<name>' for a cell. Type and size are checked before sending
 // (sidebarrules.js); the server checks again by content.
 import { el, icon } from './core.js';
-import { sessionFetch } from './sessionkey.js';
+import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn } from './formbits.js';
 import { artProblem, ART_ICONS } from './sidebarrules.js';
 import { artOf } from './panellook.js';
 import { artNode } from './panelview.js';
 
+const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the image was not uploaded.', failed: (s) => `The image was not uploaded (${s}).` });
+
 async function upload(panelId, file) {
-  const res = await sessionFetch(`api/v1/panels/${panelId}/artwork`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file }).catch(() => null);
-  if (!res) throw new Error('Sode did not answer, so the image was not uploaded.');
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error?.message || `The image was not uploaded (${res.status}).`);
-  return body.id;
+  const body = await send(`api/v1/panels/${panelId}/artwork`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
+  return body?.id;
 }
 
 // opts: {ed, icons, set(value)}. update(value, {caption}) repaints; the preview shows the artwork dimmed behind the caption.

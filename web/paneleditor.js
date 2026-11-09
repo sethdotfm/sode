@@ -2,7 +2,7 @@
 // the signed-in user. The grid rules are gridmodel.js and the page text is editorrules.js; this file wires
 // them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
 import { $, el } from './core.js';
-import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
+import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { namesFrom } from './panelrules.js';
 import {
   ROWS_MAX,
@@ -34,10 +34,8 @@ const say = (id, text) => {
   n.hidden = !text;
 };
 
-async function failText(res, what) {
-  const body = await res.json().catch(() => ({}));
-  return body.error?.message || `${what} (${res.status})`;
-}
+// One call whose failures read "<what> (status)" unless the server says why; down words a dead network.
+const edCall = (what, down) => jsonCall(sessionFetch, { failed: (s) => `${what} (${s})`, down });
 
 export async function runEditor() {
   let g = createGrid();
@@ -194,9 +192,7 @@ export async function runEditor() {
   }
 
   async function loadList() {
-    const res = await sessionFetch('api/v1/panels');
-    if (!res.ok) throw new Error(await failText(res, 'The panel list could not be read'));
-    list = (await res.json()).panels || [];
+    list = (await edCall('The panel list could not be read')('api/v1/panels')).panels || [];
     drawPicker();
   }
 
@@ -220,14 +216,16 @@ export async function runEditor() {
       if (push) history.pushState(null, '', 'panels/editor?new');
       return show(null);
     }
-    const res = await sessionFetch(`api/v1/panels/${id}`);
-    if (!res.ok) {
-      say('ed-status', res.status === 404 ? 'No panel here that you can use.' : await failText(res, 'The panel could not be opened'));
+    let panel;
+    try {
+      panel = await edCall('The panel could not be opened')(`api/v1/panels/${id}`);
+    } catch (e) {
+      say('ed-status', e.status === 404 ? 'No panel here that you can use.' : e.message);
       drawPicker();
       return;
     }
     if (push) history.pushState(null, '', `panels/editor?panel=${id}`);
-    show(await res.json());
+    show(panel);
   }
 
   $('ed-pick').addEventListener('change', (e) => {
@@ -249,17 +247,22 @@ export async function runEditor() {
     $('ed-save').disabled = true;
     say('ed-status', 'Saving.');
     const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, g, edits));
-    const res = await sessionFetch(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
-      method: loaded ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      say('ed-status', res ? await failText(res, 'The panel was not saved') : 'Sode did not answer, so the panel was not saved.');
+    let saved;
+    try {
+      saved = await edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(
+        loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels',
+        {
+          method: loaded ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        },
+      );
+    } catch (e) {
+      say('ed-status', e.message);
       return refresh();
     }
     const made = !loaded;
-    loaded = await res.json();
+    loaded = saved;
     edits = {};
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
     nameBox.value = loaded.name;
@@ -278,11 +281,16 @@ export async function runEditor() {
   });
 
   $('ed-copy').addEventListener('click', async () => {
-    const res = await sessionFetch(`api/v1/panels/${loaded.id}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(
-      () => null,
-    );
-    if (!res || !res.ok) return say('ed-status', res ? await failText(res, 'The copy was not saved') : 'Sode did not answer, so no copy was made.');
-    const copy = await res.json();
+    let copy;
+    try {
+      copy = await edCall('The copy was not saved', 'Sode did not answer, so no copy was made.')(`api/v1/panels/${loaded.id}/copy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+    } catch (e) {
+      return say('ed-status', e.message);
+    }
     history.pushState(null, '', `panels/editor?panel=${copy.id}`);
     await loadList().catch(() => {});
     show(copy);

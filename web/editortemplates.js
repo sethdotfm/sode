@@ -2,7 +2,7 @@
 // rules (what a save sends, how an apply fills the grid) are templaterules.js; the server is /api/v1/panel-templates.
 // initTemplates(editor) takes what runEditor returns.
 import { $, el, on } from './core.js';
-import { sessionFetch } from './sessionkey.js';
+import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check } from './formbits.js';
 import { trapDialog } from './dialogkeys.js';
 import { saveTemplateBody, templateGrid, groupTemplates, templateNote, pinNeeded } from './templaterules.js';
@@ -13,14 +13,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 let closeOpen = null;
 on('locking', () => closeOpen?.());
 
-async function call(path, init) {
-  const res = await sessionFetch(path, init).catch(() => null);
-  if (!res) throw Object.assign(new Error('Sode did not answer.'), { status: 0 });
-  if (res.status === 204) return null;
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error?.message || `The request failed (${res.status})`), { status: res.status, code: body.error?.code });
-  return body;
-}
+const call = jsonCall(sessionFetch, { down: 'Sode did not answer.', failed: (s) => `The request failed (${s})` });
 
 export function initTemplates(editor) {
   const open = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Templates');

@@ -2,7 +2,7 @@
 // the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
 // the DOM. initFind(editor) takes what runEditor returns.
 import { el, icon, onMsg, on, $ } from './core.js';
-import { sessionFetch } from './sessionkey.js';
+import { sessionFetch, jsonCall } from './sessionkey.js';
 import { resultStep } from './keys.js';
 import { selSquares, single } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
@@ -73,11 +73,7 @@ export function initFind(editor) {
   async function load(force = false) {
     if (data.loading || (!force && Date.now() - data.at < STALE_MS)) return;
     data.loading = true;
-    const get = (path) =>
-      sessionFetch(path).then(
-        (r) => (r.ok ? r.json() : null),
-        () => null,
-      );
+    const get = (path) => jsonCall(sessionFetch)(path).catch(() => null);
     const [names, presets] = await Promise.all([get('api/v1/names'), get('api/v1/presets')]);
     data = { names, presets, at: Date.now(), loading: false };
     rebuild();

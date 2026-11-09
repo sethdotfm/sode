@@ -1,7 +1,7 @@
 // The panels page (/panels): a list on the left, the chosen panel on the right. Calls go over /api/v1
 // with the user's session key. The server decides what a user may see and change (canEdit).
 import { $, el, icon, on } from './core.js';
-import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
+import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
 import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, shareLabel, launchHref, editHref } from './panelsrules.js';
 import { openShare } from './panelshare.js';
@@ -18,14 +18,7 @@ const say = (text) => {
   n.hidden = !text;
 };
 
-async function api(path, init) {
-  const res = await sessionFetch(path, init);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error?.message || `Sode answered ${res.status}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
+const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
 
 function thumb(p, small) {
   const box = el('div', `sode-ov__thumb${small ? ' sode-ov__thumb--sm' : ''}`);

@@ -2,7 +2,7 @@
 // The server decides who may set up a client (ADR 0006): a Trusted user, within their own Rights.
 // Sharing is the Share modal's job (panelshare.js).
 import { el, on } from './core.js';
-import { sessionFetch } from './sessionkey.js';
+import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn, check, opt } from './formbits.js';
 import { openShare } from './panelshare.js';
 import { shareLabel } from './panelsrules.js';
@@ -17,14 +17,7 @@ const LISTS = [
   ['presets', 'Presets', 'One name per line'],
 ];
 
-async function api(path, init) {
-  const res = await sessionFetch(path, init);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error?.message || `Sode answered ${res.status}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
+const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
 
 let me = { user: '', trusted: false };
 on('access', (a) => (me = { user: a.user || '', trusted: !!a.trusted && !!a.user }));

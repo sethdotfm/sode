@@ -4,6 +4,8 @@
 import { on, emit, onMsg, wsSend } from './core.js';
 import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey } from './sessionkeyrules.js';
 
+export { jsonCall } from './sessionkeyrules.js';
+
 const RENEW_MS = 5000;
 let key = '';
 let access = null;

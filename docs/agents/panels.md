@@ -10,6 +10,7 @@ All beside the config, under `/data` in the image.
 - `panelsets/`: Checkpoint sets, `everyone.yaml` and `me-<hex of user>.yaml`.
 - `templates/me/` and `templates/everyone/`: templates, apart from the panel files.
 - `panelwatch.yaml`: who watches which panel. Never part of a panel file, and the API only sends the caller's own `watching`.
+- `yamlDir` (`yamldir.go`) is the mutex, folder, id retry, atomic write and name sort that the panel, template and Checkpoint set stores share; file names and skip rules stay in each store. Sets keep several records per file, so they use only part of it.
 - A file whose id, name or directory disagrees with its content is skipped, not repaired.
 
 ## Keys
@@ -21,7 +22,7 @@ All beside the config, under `/data` in the image.
 
 ## Browser session key
 
-A Session-mode page trades its signed-in session for a user key over the socket: message `sessionKey`, answer `sessionKeyResult` (`internal/app/sessionkey.go`, `web/sessionkey.js`, rules in `sessionkeyrules.js`). The key is memory only, ends with the session, and `sessionFetch` adds the Bearer header and asks once more after `invalid_key` or `key_expired`. Use `sessionFetch` for every `/api/v1` call from a Sode page; never build the header by hand. Details are in docs/agents/users-locks.md.
+A Session-mode page trades its signed-in session for a user key over the socket: message `sessionKey`, answer `sessionKeyResult` (`internal/app/sessionkey.go`, `web/sessionkey.js`, rules in `sessionkeyrules.js`). The key is memory only, ends with the session, and `sessionFetch` adds the Bearer header and asks once more after `invalid_key` or `key_expired`. Use `sessionFetch` for every `/api/v1` call from a Sode page; never build the header by hand. For a JSON answer wrap it in `jsonCall(fetcher, { failed, down })` (`sessionkey.js`), which throws an Error with `status`, `code` and the server's message; a page with a URL key passes its own fetcher. Details are in docs/agents/users-locks.md.
 
 ## Seams
 

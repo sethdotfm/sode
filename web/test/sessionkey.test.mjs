@@ -1,6 +1,48 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey } from '../sessionkeyrules.js';
+import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey, jsonCall } from '../sessionkeyrules.js';
+
+const answer = (status, body) => async () => ({
+  status,
+  ok: status >= 200 && status < 300,
+  json: async () => (body === undefined ? Promise.reject(new Error('empty')) : body),
+});
+
+test('jsonCall returns the body, and null for 204', async () => {
+  assert.deepEqual(await jsonCall(answer(200, { a: 1 }))('p'), { a: 1 });
+  assert.equal(await jsonCall(answer(204))('p'), null);
+});
+
+test('jsonCall throws the server message with status and code', async () => {
+  const err = await jsonCall(answer(403, { error: { code: 'not_owner', message: 'no' } }), { failed: (s) => `It failed (${s})` })('p').catch((e) => e);
+  assert.equal(err.message, 'no');
+  assert.equal(err.status, 403);
+  assert.equal(err.code, 'not_owner');
+});
+
+test('jsonCall falls back to the caller text when the body has no message', async () => {
+  const err = await jsonCall(answer(500), { failed: (s) => `It failed (${s})` })('p').catch((e) => e);
+  assert.equal(err.message, 'It failed (500)');
+  assert.equal(err.status, 500);
+  assert.equal(err.code, undefined);
+});
+
+test('jsonCall words a dead network with the caller text and status 0, or rethrows without one', async () => {
+  const dead = async () => {
+    throw new TypeError('offline');
+  };
+  const err = await jsonCall(dead, { down: 'Sode did not answer.' })('p').catch((e) => e);
+  assert.equal(err.message, 'Sode did not answer.');
+  assert.equal(err.status, 0);
+  const raw = await jsonCall(dead)('p').catch((e) => e);
+  assert.ok(raw instanceof TypeError);
+});
+
+test('jsonCall passes the path and init to the fetcher', async () => {
+  let seen;
+  await jsonCall(async (...a) => ((seen = a), answer(200, {})()))('x', { method: 'PUT' });
+  assert.deepEqual(seen, ['x', { method: 'PUT' }]);
+});
 
 const IN = { user: 'Ana', locked: false, enforced: false, lens: [4] };
 

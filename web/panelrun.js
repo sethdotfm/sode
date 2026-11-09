@@ -2,7 +2,7 @@
 // model and draws it. Every call goes out with the panel's key: the user's session key, or the
 // key in the URL fragment for a panel that acts as its API client.
 import { $ } from './core.js';
-import { sessionFetch, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
+import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey } from './sessionkeyrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from './panelrules.js';
@@ -59,14 +59,7 @@ export async function runPanel(id) {
   const stored = !key;
   if (stored) key = storedKey(id);
   const call = key ? (path, init = {}) => fetch(path, withKey(init, key)) : sessionFetch;
-  const get = async (path) => {
-    const res = await call(path);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw Object.assign(new Error(`${path} ${res.status}`), { status: res.status, code: body.error?.code, detail: body.error?.message });
-    }
-    return res.json();
-  };
+  const callJSON = jsonCall(call);
 
   if (!key) {
     $('panels-signin').addEventListener('click', signInAgain);
@@ -80,14 +73,15 @@ export async function runPanel(id) {
     startSession();
   }
 
-  const res = await call(`api/v1/panels/${id}`);
-  if (!res.ok) {
-    if (res.status === 401 && stored && key) forgetKey(id);
-    const body = res.status === 403 ? await res.json().catch(() => ({})) : {};
-    say('panels-note', body.error?.code === 'network_not_allowed' ? body.error.message : openFailText(res.status, !!key));
+  let panel;
+  try {
+    panel = await callJSON(`api/v1/panels/${id}`);
+  } catch (e) {
+    if (e.status === undefined) throw e;
+    if (e.status === 401 && stored && key) forgetKey(id);
+    say('panels-note', e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
     return;
   }
-  let panel = await res.json();
   if (panel.acts === 'api' && !key) {
     say('panels-note', 'This panel acts as its own API client. Open its link with the key.');
     return;
@@ -147,10 +141,10 @@ export async function runPanel(id) {
       const wantNames = Date.now() - namesAt > NAMES_MS;
       // A key without the presets scope gets 403: its Preset cells then show as unavailable.
       const [tally, prot, nm, pr] = await Promise.all([
-        get('api/v1/tally'),
-        get('api/v1/protected'),
-        wantNames ? get('api/v1/names') : null,
-        wantNames ? get('api/v1/presets').catch(() => ({})) : null,
+        callJSON('api/v1/tally'),
+        callJSON('api/v1/protected'),
+        wantNames ? callJSON('api/v1/names') : null,
+        wantNames ? callJSON('api/v1/presets').catch(() => ({})) : null,
       ]);
       if (nm) {
         names = namesFrom(nm);
@@ -162,7 +156,7 @@ export async function runPanel(id) {
       ready = true;
       say('panels-note', '');
     } catch (e) {
-      const f = pollFail(e.status, e.code, e.detail, !!key);
+      const f = pollFail(e.status, e.code, e.message || undefined, !!key);
       say('panels-note', f.text);
       if (f.stop) {
         ended = true;
@@ -179,17 +173,17 @@ export async function runPanel(id) {
     st = started.state;
     render();
     try {
-      const res = await call('api/v1/takes', {
+      const body = await callJSON('api/v1/takes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': takeKey() },
         body: JSON.stringify({ routes: started.routes }),
       });
-      const body = await res.json().catch(() => ({}));
-      st = res.ok
-        ? finishTake(st, body, Date.now())
-        : failTake(st, body.error?.code || String(res.status), body.error?.message || 'The take was refused', Date.now());
-    } catch {
-      st = failTake(st, 'network', 'Sode did not answer, so the take may not have been sent', Date.now());
+      st = finishTake(st, body || {}, Date.now());
+    } catch (e) {
+      st =
+        e.status === undefined
+          ? failTake(st, 'network', 'Sode did not answer, so the take may not have been sent', Date.now())
+          : failTake(st, e.code || String(e.status), e.message || 'The take was refused', Date.now());
     }
     render();
     poll();
@@ -243,7 +237,7 @@ export async function runPanel(id) {
   watchPanel({
     id,
     rev: panel.rev,
-    get,
+    get: callJSON,
     state: () => ({ viewed: !!st.view || st.staged.length > 0, busy: st.busy }),
     apply(p) {
       clearTimeout(holdTimer);
