@@ -142,6 +142,7 @@ type keyStore struct {
 	dirty    bool
 	lastW    time.Time
 	endSeq   uint64 // bumped under mu when endedAt changes
+	endTaken uint64 // last endSeq marshalled for a write (under mu)
 	endWrote uint64 // last endSeq written (under fileMu)
 }
 
@@ -168,7 +169,7 @@ func loadKeys(cfgPath string) *keyStore {
 	for _, e := range ended {
 		s.noteEndedMu(e)
 	}
-	s.endWrote = s.endSeq
+	s.endTaken, s.endWrote = s.endSeq, s.endSeq
 	return s
 }
 
@@ -223,10 +224,12 @@ func (s *keyStore) save() {
 	}
 	s.mu.Lock()
 	b, _ := json.Marshal(s.recs)
+	// Only one snapshot carries each change to the ended keys, so its write is never skipped below.
 	var eb []byte
 	es := s.endSeq
-	if es != s.endWrote {
+	if es != s.endTaken {
 		eb, _ = json.Marshal(s.endedAt)
+		s.endTaken = es
 	}
 	s.seq++
 	n := s.seq
@@ -234,18 +237,18 @@ func (s *keyStore) save() {
 	s.mu.Unlock()
 	s.fileMu.Lock()
 	defer s.fileMu.Unlock()
+	if eb != nil && es > s.endWrote {
+		s.endWrote = es
+		if err := config.AtomicWrite(s.endedPath(), eb); err != nil {
+			log.Printf("api: ended keys not saved to %s: %v", s.endedPath(), err)
+		}
+	}
 	if n < s.wrote {
 		return
 	}
 	s.wrote = n
 	if err := config.AtomicWrite(s.path, b); err != nil {
 		log.Printf("api: keys not saved to %s: %v", s.path, err)
-	}
-	if eb != nil && es > s.endWrote {
-		s.endWrote = es
-		if err := config.AtomicWrite(s.endedPath(), eb); err != nil {
-			log.Printf("api: ended keys not saved to %s: %v", s.endedPath(), err)
-		}
 	}
 }
 
@@ -306,7 +309,9 @@ func (s *keyStore) createWith(secret string, o keyOwner, name string, expires ti
 func (s *keyStore) countMu(o keyOwner) int {
 	n := 0
 	for _, r := range s.recs {
-		if r.Owner.is(o) && !r.Setup {
+		// Session keys are bounded per session (sessionKeyMax) and end with it, so they leave the
+		// owner's cap for the keys they make themselves.
+		if r.Owner.is(o) && !r.Setup && r.Sess == "" {
 			n++
 		}
 	}

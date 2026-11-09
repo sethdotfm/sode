@@ -61,7 +61,7 @@ export function signInAgain() {
 
 on('access', (a) => {
   access = a;
-  if (!a.user || a.locked) setKey('');
+  if (!a.user || a.locked || ended) setKey('');
   if (a.user) prompted = false;
   const step = drive();
   for (const fn of watchers) fn(key, step);
@@ -69,7 +69,7 @@ on('access', (a) => {
 
 onMsg('sessionKeyResult', (m) => {
   asking = false;
-  setKey(keyFrom(m));
+  if (!ended) setKey(keyFrom(m));
 });
 on('wsclose', () => {
   asking = false;
@@ -113,6 +113,7 @@ export async function sessionFetch(path, init = {}) {
     if (!renewable(res.status, code)) return res;
     if (tries > 0 && (worked !== k || tries > 2)) {
       ended = res.clone();
+      key = ''; // watchers clear their note for any key, so none may reach them now
       for (const fn of watchers) fn('', 'ended');
       return res;
     }

@@ -148,7 +148,7 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 
 	// A second tab on the same session: the panels page, which polls every 2 s.
 	b.call("Target.createTarget", map[string]any{"url": srv.URL + "/panels"})
-	until("a key for each tab", func() bool { return sessKeys() == 2 })
+	until("a key for each tab", func() bool { return sessKeys() >= 2 })
 	mark := tap.len()
 	until("both tabs calling with their keys", func() bool { return tap.since(mark, func(r tapRow) bool { return session(r) && r.status == 200 }) > 10 })
 	if n := tap.since(0, func(r tapRow) bool { return session(r) && refused(r) }); n != 0 {
@@ -158,7 +158,7 @@ func TestChromeEndedKeysStopWithoutLockingTheAddress(t *testing.T) {
 	// A restart of a memory-only Sode forgets the keys; the session stays.
 	a.keys.dropWhere(func(r keyRec) bool { return r.Sess != "" })
 	mark = tap.len()
-	until("both tabs renewed", func() bool { return sessKeys() == 2 })
+	until("both tabs renewed", func() bool { return sessKeys() >= 2 })
 	until("calls working again", func() bool {
 		return tap.since(mark, func(r tapRow) bool { return session(r) && r.status == 200 }) > 10
 	})

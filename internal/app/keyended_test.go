@@ -223,6 +223,22 @@ func TestSessionKeysPerSessionAreCapped(t *testing.T) {
 	}
 }
 
+// Session keys come and go with tabs; they must not use up the keys a user makes in My API keys.
+func TestSessionKeysLeaveTheUsersKeyCap(t *testing.T) {
+	a := sessionKeyApp(t)
+	c, next := signedIn(t, a, "10.0.0.1", "1234")
+	for range sessionKeyMax {
+		sessionKeyOf(t, a, c, next)
+	}
+	if sessionKeyMax <= a.r().cfg.API.MaxUserKeys {
+		t.Fatalf("the cap %d does not test anything", a.r().cfg.API.MaxUserKeys)
+	}
+	r := send(t, a, c, next, inMsg{T: "keyCreate", ID: 9, Pin: "1234", KeyName: "Desk"}, "keyCreateResult")
+	if r["ok"] != true {
+		t.Fatalf("keyCreate refused: %v", r)
+	}
+}
+
 func TestEndedKeyCodeIsDocumented(t *testing.T) {
 	if !strings.Contains(string(openAPIFile), "- key_revoked\n") {
 		t.Error("the Error.code enum lacks key_revoked")
