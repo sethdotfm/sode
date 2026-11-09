@@ -56,12 +56,36 @@ export function isDirty(loaded, name, grid, fields = {}) {
   return was !== now;
 }
 
-// Where the smart menu goes. rect and vp are in pixels. Right of the selection, else left, else below.
-export function placeMenu(rect, menu, vp, gap) {
-  const top = (t) => Math.max(0, Math.min(t, vp.h - menu.h));
-  if (rect.right + gap + menu.w <= vp.w) return { side: 'right', left: rect.right + gap, top: top(rect.top) };
-  if (rect.left - gap - menu.w >= 0) return { side: 'left', left: rect.left - gap - menu.w, top: top(rect.top) };
-  return { side: 'below', left: Math.max(0, Math.min(rect.left, vp.w - menu.w)), top: rect.bottom + gap };
+// Where the smart menu goes. rect is the selection and area the box it must stay inside ({left, top, right,
+// bottom}, see menuArea), both in pixels. Right of the selection, else left, else below.
+export function placeMenu(rect, menu, area, gap) {
+  const top = (t) => Math.max(area.top, Math.min(t, area.bottom - menu.h));
+  if (rect.right + gap + menu.w <= area.right) return { side: 'right', left: rect.right + gap, top: top(rect.top) };
+  if (rect.left - gap - menu.w >= area.left) return { side: 'left', left: rect.left - gap - menu.w, top: top(rect.top) };
+  return { side: 'below', left: Math.max(area.left, Math.min(rect.left, area.right - menu.w)), top: rect.bottom + gap };
+}
+
+// The box the menu and its flyouts stay inside: the viewport, cut at the sidebar when the sidebar sits beside the
+// grid (it edits the selected cell, so the menu must not cover it). Under the grid, in the narrow layout, it does
+// not bound them. side and grid are screen rects; side may be null.
+export function menuArea(vp, side, grid) {
+  const area = { left: 0, top: 0, right: vp.w, bottom: vp.h };
+  if (side && grid && side.left >= grid.right) area.right = Math.min(area.right, side.left);
+  return area;
+}
+
+// Which side of the menu a flyout (Type, Find) opens on: the menu's own side, away from the selection, when it fits
+// there (below counts as right); else the other side when that fits; else whichever has more room. at is placeMenu's
+// answer and menuW the menu's width.
+export function subSide(at, menuW, subW, area, gap) {
+  const roomRight = area.right - gap - (at.left + menuW);
+  const roomLeft = at.left - gap - area.left;
+  const first = at.side === 'left' ? 'left' : 'right';
+  const room = { right: roomRight, left: roomLeft };
+  if (room[first] >= subW) return first;
+  const other = first === 'left' ? 'right' : 'left';
+  if (room[other] >= subW) return other;
+  return roomRight >= roomLeft ? 'right' : 'left';
 }
 
 // How far a flyout (Find) must move to sit inside the viewport, in pixels; {x: 0, y: 0} when it already does. The

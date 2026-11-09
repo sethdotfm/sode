@@ -150,6 +150,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       shown = key;
       preview.replaceChildren();
       preview.hidden = !any;
+      preview.toggleAttribute('data-hide-text', hideText); // full strength, as the cell (panels.css)
       if (!any) return;
       const row = artNode({ art: value, artB }, ed.art());
       if (!row) return;
