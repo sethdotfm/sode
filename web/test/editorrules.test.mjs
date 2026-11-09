@@ -85,3 +85,19 @@ test('Type offers every kind the panel page knows, then Empty', () => {
   assert.equal(kindLabel('destination'), 'Destination');
   assert.equal(kindLabel(''), 'Empty');
 });
+
+test('panel fields: edited settings are saved and make the panel dirty, in any key order', () => {
+  const loaded = { id: 'p-1', name: 'A', acts: 'session', share: { mode: 'me' }, rows: 1, cols: 1, cells: [], settings: { guard: 'hold', fontSize: 120 } };
+  const g = createGrid(loaded);
+  assert.equal(isDirty(loaded, 'A', g, { settings: { fontSize: 120, guard: 'hold' } }), false);
+  assert.equal(isDirty(loaded, 'A', g, { settings: { guard: 'hold' } }), true);
+  assert.equal(isDirty(loaded, 'A', g, { acts: 'api' }), true);
+  assert.equal(isDirty(loaded, 'A', g, { clientRights: { levels: [1] } }), true);
+  assert.equal(isDirty(loaded, 'A', g, {}), false);
+  const body = saveBody(loaded, 'A', g, { settings: { titleBar: false }, acts: 'api' });
+  assert.deepEqual(body.settings, { titleBar: false });
+  assert.equal(body.acts, 'api');
+  assert.equal('clientRights' in body, false);
+  assert.deepEqual(saveBody(loaded, 'A', g, { clientRights: { levels: [1] } }).clientRights, { levels: [1] });
+  assert.deepEqual(saveBody(loaded, 'A', g).settings, loaded.settings);
+});

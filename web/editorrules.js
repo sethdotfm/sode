@@ -19,17 +19,27 @@ export function groupPanels(list) {
 export const newPanel = () => ({ name: 'New panel', acts: 'session', share: { mode: 'me' }, rows: DEFAULT_ROWS, cols: DEFAULT_COLS, cells: [], settings: {} });
 
 // PUT replaces the panel, so what the editor does not own goes back as it came (settings, sharing, unknown fields).
-export function saveBody(loaded, name, grid) {
+// fields is the sidebar's edits: {settings, acts, clientRights}, each present only once edited. clientRights is
+// left out otherwise so the server keeps the stored Rights (an administrator may have widened them).
+export function saveBody(loaded, name, grid, fields = {}) {
   const { canEdit, clientRights, ...rest } = loaded;
-  return { ...rest, name: name.trim(), ...saved(grid) };
+  const edits = {};
+  for (const k of ['settings', 'acts', 'clientRights']) if (fields[k] !== undefined) edits[k] = fields[k];
+  return { ...rest, name: name.trim(), ...saved(grid), ...edits };
 }
 
 // Compared through the grid, so a cell the model clips on load does not read as an edit. Keys are sorted because the
 // server stores cells with their keys in another order.
 const sorted = (c) => Object.fromEntries(Object.entries(c).sort(([a], [b]) => (a < b ? -1 : 1)));
-const shape = (name, g) => JSON.stringify([name.trim(), g.rows, g.cols, saved(g).cells.map(sorted)]);
+const shape = (name, g, f) => JSON.stringify([name.trim(), g.rows, g.cols, saved(g).cells.map(sorted), sorted(f.settings || {}), f.acts || 'session', f.clientRights ?? null]);
 
-export const isDirty = (loaded, name, grid) => shape(name, grid) !== shape((loaded || newPanel()).name, createGrid(loaded || newPanel()));
+// A field not edited counts as what was loaded. clientRights has no loaded side here: any edit is a change.
+export function isDirty(loaded, name, grid, fields = {}) {
+  const base = loaded || newPanel();
+  const was = shape(base.name, createGrid(base), { settings: base.settings, acts: base.acts });
+  const now = shape(name, grid, { settings: fields.settings ?? base.settings, acts: fields.acts ?? base.acts, clientRights: fields.clientRights });
+  return was !== now;
+}
 
 // Where the smart menu goes. rect and vp are in pixels. Right of the selection, else left, else below.
 export function placeMenu(rect, menu, vp, gap) {

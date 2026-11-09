@@ -7,7 +7,7 @@ import { sourceState, destinationState, presetState, currentOfDestination, curre
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
 
 // A cell's artwork lives outside the paint functions, which replace a cell's children; paintGrid puts it back first.
-function artNode(cell, art) {
+export function artNode(cell, art) {
   const a = artOf(cell);
   if (!a) return null;
   if (a.icon) {
