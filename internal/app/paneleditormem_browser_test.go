@@ -138,7 +138,7 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		// Test it live, a poll and some ticks, Back to editing.
 		b.eval(`document.getElementById('ed-live').click()`)
 		b.waitFor("live cells", `document.querySelectorAll('#ed-live-view .sode-panel__cell').length === 3`)
-		b.waitFor("live art shown", `!document.querySelector('#ed-live-view .sode-panel__art')?.hidden`)
+		b.waitFor("live art shown", `!document.querySelector('#ed-live-view .sode-panel__art-a')?.hidden`)
 		time.Sleep(2500 * time.Millisecond)
 		step("live")
 		b.eval(`document.getElementById('ed-live-back').click()`)

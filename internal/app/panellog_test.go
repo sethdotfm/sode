@@ -8,7 +8,7 @@ import (
 	"github.com/coder/websocket"
 )
 
-// Communication Log rows from a panel name the panel's short name and the screen (docs/agents/comm-log.md).
+// Communication Log rows from a panel name the panel's short name and the instance (docs/agents/comm-log.md).
 
 const slugPanel = `{"name":"Wall","acts":"api","slug":"wall","clientRights":{"sources":[1,2,3],"dsts":[2,4]}}`
 
@@ -36,7 +36,7 @@ func lastRow(t *testing.T, a *App, why string, n ...int) Sent {
 	return Sent{}
 }
 
-func TestPanelClientTakeRowNamesPanelAndScreen(t *testing.T) {
+func TestPanelClientTakeRowNamesPanelAndInstance(t *testing.T) {
 	a, f := clientApp(t)
 	shortTimers(a)
 	defer startLog(t, a)()
@@ -45,13 +45,13 @@ func TestPanelClientTakeRowNamesPanelAndScreen(t *testing.T) {
 	secret, _ := mintKey(t, a, cy, id)
 	f.seed(2, 1, 0)
 
-	// The page says which screen it is; the key proves the panel.
+	// The page says which instance it is; the key proves the panel.
 	rec := apiPost(a, "/api/v1/takes", secret, `{"routes":[{"src":3,"dst":2,"levels":[1]}]}`, map[string]string{"X-Sode-Instance": "Front desk"})
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	e := lastRow(t, a, "take")
-	if !strings.Contains(e.Note, "panel wall (Wall), screen Front desk") || strings.Contains(e.Note, "unverified") {
+	if !strings.Contains(e.Note, "panel wall (Wall), instance Front desk") || strings.Contains(e.Note, "unverified") {
 		t.Fatalf("note %q", e.Note)
 	}
 	if strings.Contains(e.Note+e.By, secret) {
@@ -62,7 +62,7 @@ func TestPanelClientTakeRowNamesPanelAndScreen(t *testing.T) {
 	rec = apiPost(a, "/api/v1/takes", secret, `{"routes":[{"src":3,"dst":5,"levels":[1]}]}`, nil)
 	wantErr(t, rec, 403, "outside_rights")
 	e = lastRow(t, a, "take", 2)
-	if e.Result != "refused" || !strings.Contains(e.Note, "panel wall (Wall), screen Lobby") {
+	if e.Result != "refused" || !strings.Contains(e.Note, "panel wall (Wall), instance Lobby") {
 		t.Fatalf("refused row %+v", e)
 	}
 }
@@ -82,11 +82,11 @@ func TestSessionPanelTakeRowNamesPanelFromHeaders(t *testing.T) {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	e := lastRow(t, a, "take")
-	if !strings.Contains(e.Note, "unverified panel wall (Wall), screen Lobby") || e.By != "Cy (Desk Cy)" {
+	if !strings.Contains(e.Note, "unverified panel wall (Wall), instance Lobby") || e.By != "Cy (Desk Cy)" {
 		t.Fatalf("row %+v", e)
 	}
 
-	// An id that is no panel names nothing, and a screen alone is not shown.
+	// An id that is no panel names nothing, and a instance alone is not shown.
 	rec = apiPost(a, "/api/v1/takes", cy, `{"routes":[{"src":2,"dst":2,"levels":[1]}]}`, map[string]string{"X-Sode-Panel": "p-00000000", "X-Sode-Instance": "Lobby"})
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
@@ -109,12 +109,12 @@ func TestPanelWithoutASlugIsNamedByItsID(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	if e := lastRow(t, a, "take"); !strings.Contains(e.Note, "panel "+id+" (Wall), screen Lobby") {
+	if e := lastRow(t, a, "take"); !strings.Contains(e.Note, "panel "+id+" (Wall), instance Lobby") {
 		t.Fatalf("note %q", e.Note)
 	}
 }
 
-func TestPanelStreamRowsNamePanelAndScreen(t *testing.T) {
+func TestPanelStreamRowsNamePanelAndInstance(t *testing.T) {
 	a, _ := clientApp(t)
 	shortTimers(a)
 	defer startLog(t, a)()
@@ -127,16 +127,16 @@ func TestPanelStreamRowsNamePanelAndScreen(t *testing.T) {
 	}
 	defer cancel()
 	_, _, _ = c.Read(ctx) // hello
-	if e := lastRow(t, a, "streamConnect"); !strings.Contains(e.Note, "panel wall (Wall), screen Lobby") {
+	if e := lastRow(t, a, "streamConnect"); !strings.Contains(e.Note, "panel wall (Wall), instance Lobby") {
 		t.Fatalf("connect row %+v", e)
 	}
 	c.Close(websocket.StatusNormalClosure, "")
-	if e := lastRow(t, a, "streamDisconnect"); !strings.Contains(e.Note, "panel wall (Wall), screen Lobby") {
+	if e := lastRow(t, a, "streamDisconnect"); !strings.Contains(e.Note, "panel wall (Wall), instance Lobby") {
 		t.Fatalf("disconnect row %+v", e)
 	}
 }
 
-func TestPanelLostAndBackRowsNameShortNameAndScreen(t *testing.T) {
+func TestPanelLostAndBackRowsNameShortNameAndInstance(t *testing.T) {
 	a, clk := monApp(t)
 	defer startLog(t, a)()
 	ana := userKey(t, a, "Ana")
@@ -148,19 +148,19 @@ func TestPanelLostAndBackRowsNameShortNameAndScreen(t *testing.T) {
 	clk.advance(50 * time.Second)
 	a.monSweep()
 	e := lastRow(t, a, "panelLost")
-	if e.Kind != kindAPI || e.Note != "panel wall (Wall), screen Lobby: missed its keepalive for 50s; no device is online" {
+	if e.Kind != kindAPI || e.Note != "panel wall (Wall), instance Lobby: missed its keepalive for 50s; no device is online" {
 		t.Fatalf("lost row %+v", e)
 	}
 	if keepalive(a, id, ana, "Lobby") != 200 {
 		t.Fatal("keepalive")
 	}
 	e = lastRow(t, a, "panelBack")
-	if e.Note != "panel wall (Wall), screen Lobby: is back after 50s" {
+	if e.Note != "panel wall (Wall), instance Lobby: is back after 50s" {
 		t.Fatalf("back row %+v", e)
 	}
 }
 
-func TestPanelAlarmRowNamesPanelAndScreen(t *testing.T) {
+func TestPanelAlarmRowNamesPanelAndInstance(t *testing.T) {
 	a, clk := monApp(t)
 	defer startLog(t, a)()
 	ana := userKey(t, a, "Ana")
@@ -173,7 +173,7 @@ func TestPanelAlarmRowNamesPanelAndScreen(t *testing.T) {
 	clk.advance(50 * time.Second)
 	a.monSweep()
 	a.serveAlarm(c, &inMsg{T: "panelAlarm", Panel: id, Instance: "lobby", Action: "clear"})
-	if e := lastRow(t, a, "panelAlarm"); e.Note != "clear panel wall (Wall), screen lobby" {
+	if e := lastRow(t, a, "panelAlarm"); e.Note != "clear panel wall (Wall), instance lobby" {
 		t.Fatalf("clear row %+v", e)
 	}
 	a.serveAlarm(c, &inMsg{T: "panelAlarm", Panel: id, Action: "stop"})

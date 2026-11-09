@@ -654,7 +654,7 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 	}
 	device := cleanDevice(r.URL.Query().Get("device"))
 	if device == "" {
-		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed: ?device=<a name for this screen>")
+		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed: ?device=<a name for this instance>")
 		return
 	}
 	ctx, cancel := context.WithCancel(r.Context())
@@ -709,12 +709,12 @@ func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiC
 		Device string `json:"device"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&in); err != nil {
-		apiFail(w, http.StatusBadRequest, "bad_request", `send {"device":"<a name for this screen>"}`)
+		apiFail(w, http.StatusBadRequest, "bad_request", `send {"device":"<a name for this instance>"}`)
 		return
 	}
 	device := cleanDevice(in.Device)
 	if device == "" {
-		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed so the screens of one panel can be told apart")
+		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed so the instances of one panel can be told apart")
 		return
 	}
 	ev, err := a.mon.beat(p.ID, device)
@@ -754,7 +754,7 @@ func (a *App) setWatch(w http.ResponseWriter, r *http.Request, cl *apiCtx, on bo
 	inst := ""
 	if q, ok := r.URL.Query()["instance"]; ok {
 		if inst = cleanDevice(q[0]); inst == "" {
-			apiFail(w, http.StatusBadRequest, "bad_request", "instance is a device name: ?instance=<screen name>")
+			apiFail(w, http.StatusBadRequest, "bad_request", "instance is a device name: ?instance=<instance name>")
 			return
 		}
 	}

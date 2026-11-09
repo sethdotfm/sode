@@ -5,7 +5,7 @@ import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, opt } from './formbits.js';
 import { openShare } from './panelshare.js';
-import { shareLabel } from './panelsrules.js';
+import { shareLabel, hasClient } from './panelsrules.js';
 import { draftOf, rightsOf } from './rightsrules.js';
 import { rightsLine, watchView } from './sidebarrules.js';
 import { watchBox } from './panelsmon.js';
@@ -17,6 +17,19 @@ const LISTS = [
   ['presets', 'Presets', 'One name per line'],
 ];
 
+// What each choice means, under the select. Both: the page uses a key when its link or this browser holds one for the
+// panel, and otherwise runs as the signed-in user, with the page lock's sign-in if there is one.
+const ACTS_HINT = {
+  api: 'The panel has its own API client and keeps working after anyone signs out or their PIN changes. It only opens from a link with its key.',
+  both: 'Opened from a link with its key, or on a device that keeps one, the panel acts as its own API client. Opened without a key it acts as the signed-in user, so the plain link still works.',
+  session: 'The panel uses the Rights of the user who opens it.',
+};
+const SAVED_NOTE = {
+  api: 'Saved. The panel now has its own API client. Make its links under Share, Link with key.',
+  both: 'Saved. The panel has its own API client for links with a key, and the plain link opens it as the signed-in user.',
+  session: 'Saved. The panel acts as the signed-in user, and its API client and every key are gone.',
+};
+
 const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
 
 let me = { user: '', trusted: false };
@@ -25,7 +38,13 @@ on('access', (a) => (me = { user: a.user || '', trusted: !!a.trusted && !!a.user
 // offset is the router's numberOffset and levelCount how many levels exist, for typing Rights lists.
 export function createAccessTab(ed, ctx) {
   const node = el('div', 'sode-side__tab');
-  const acts = el('select', 'pb-select', opt('session', 'Whoever opens it (Session mode)'), opt('api', 'Its own API client'));
+  const acts = el(
+    'select',
+    'pb-select',
+    opt('session', 'Whoever opens it (Session mode)'),
+    opt('api', 'Its own API client'),
+    opt('both', 'Both: its API client with a key, else whoever opens it'),
+  );
   acts.id = 'ed-acts';
   const actsHint = el('p', 'sode__hint');
   const actsNote = el('p', 'sode__hint');
@@ -119,11 +138,7 @@ export function createAccessTab(ed, ctx) {
     ed.setFields({ acts: want });
     const refused = await ed.save();
     if (refused) ed.setFields({ acts: undefined });
-    actsNote.textContent = refused
-      ? refused
-      : want === 'api'
-        ? 'Saved. The panel now has its own API client. Make its links under Share, Link with key.'
-        : 'Saved. The panel acts as the signed-in user, and its API client and every key are gone.';
+    actsNote.textContent = refused || SAVED_NOTE[want];
   });
 
   function fill() {
@@ -142,16 +157,11 @@ export function createAccessTab(ed, ctx) {
       const f = ed.fields();
       acts.value = f.acts;
       // Switching to Session mode is open to the owner; setting up or widening a client needs a Trusted user (server rule).
-      acts.disabled = ro || (!me.trusted && (p?.acts ?? 'session') === 'session');
-      actsHint.textContent =
-        f.acts === 'api'
-          ? 'The panel has its own API client and keeps working after anyone signs out or their PIN changes.'
-          : me.trusted || ro
-            ? 'The panel uses the Rights of the user who opens it.'
-            : 'The panel uses the Rights of the user who opens it. Only a Trusted user can make it act as an API client.';
-      clientBox.hidden = f.acts !== 'api';
-      if (f.acts === 'api') {
-        const had = p?.acts === 'api' && p.client;
+      acts.disabled = ro || (!me.trusted && !hasClient(p));
+      actsHint.textContent = ACTS_HINT[f.acts] + (f.acts === 'session' && !me.trusted && !ro ? ' Only a Trusted user can make it act as an API client.' : '');
+      clientBox.hidden = !hasClient(f);
+      if (hasClient(f)) {
+        const had = hasClient(p) && p.client;
         current.textContent = had
           ? `Client ${p.client}. ${f.clientRights ? 'Unsaved Rights: ' : 'Rights: '}${rightsLine(f.clientRights || p.clientRights)}`
           : 'Saving the panel makes its client, with your own Rights unless you limit them below.';

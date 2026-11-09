@@ -68,13 +68,38 @@
   }
 }
 
+/* The status line and the update banner share one box between the header and the grid. Nothing shows: no box, so
+   the page's gap does not open for it. A kiosk fixes the box to the bottom of the viewport instead, so a refusal or
+   a countdown never moves the grid (TestChromePanelKioskAndRefusal). */
+.sode-panel__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-panel__foot:not(:has(> :not([hidden]))) {
+  display: none;
+}
+[data-sode-kiosk] .sode-panel__foot {
+  background: var(--pb-surface-base);
+  bottom: 0;
+  left: 0;
+  padding: var(--pb-space-3) var(--pb-space-4);
+  position: fixed;
+  right: 0;
+  z-index: var(--pb-z-sticky);
+}
 .sode-panel__status {
   color: var(--pb-status-error);
   font-weight: var(--pb-weight-bold);
   margin: 0;
 }
-.sode-panel__update[hidden] {
+.sode-panel__update[hidden],
+.sode-panel__update .sode__banner-time[hidden] {
   display: none;
+}
+.sode-panel__update .pb-alert {
+  align-items: center;
+  flex-wrap: wrap;
 }
 .sode-panel__grid {
   display: grid;
@@ -98,8 +123,9 @@
   font-weight: var(--pb-weight-normal);
   opacity: 0.85;
 }
-/* Hide text keeps the words for screen readers. */
-.sode-panel__cell[data-hide-text] .sode-panel__text {
+/* Hide text keeps the words for screen readers, on the panel page and in the editor's square alike. */
+.sode-panel__cell[data-hide-text] .sode-panel__text,
+.sode-ed__sq[data-hide-text] .sode-ed__text {
   block-size: 1px;
   clip-path: inset(50%);
   inline-size: 1px;
@@ -170,28 +196,28 @@
 }
 .sode-panel__take[data-guard="holding"],
 .sode-panel__take[data-guard="waiting"] {
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-hue-red);
 }
 .sode-panel__take--armed {
   background-color: color-mix(
     in oklab,
-    var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
+    var(--pb-hue-red) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
     var(--pb-surface-control)
   );
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-hue-red);
   color: var(--pb-text-strong);
 }
 
 /* No staged route: the Take cell is solid, not faded like a disabled control. */
 .sode-panel__take:disabled {
-  background-color: var(--pb-surface-control);
-  color: var(--pb-text-muted);
+  background-color: color-mix(in oklab, var(--pb-hue-red) 40%, var(--pb-surface-control));
+  color: var(--pb-text-strong);
   opacity: 1;
 }
 /* The wait of a hold or double-press guard fills across the Take cell.
    A transition, since the shared --pulse must stay the only keyframes (panellook.test.mjs). */
 .sode-panel__take::after {
-  background-color: color-mix(in oklab, var(--pb-commit) 45%, transparent);
+  background-color: color-mix(in oklab, var(--pb-hue-red) 45%, transparent);
   content: "";
   inset: 0;
   position: absolute;
@@ -260,19 +286,35 @@
 .sode-panel__take {
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
+/* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
+   The row is a size container so the glyph follows the square's height (cqh), as the icon does. */
 .sode-panel__art {
-  height: 100%;
+  align-items: center;
+  color: var(--pb-text-strong);
+  container-type: size;
+  display: flex;
+  gap: var(--pb-space-2);
   inset: 0;
-  object-fit: contain;
+  justify-content: center;
   opacity: 0.3;
   padding: var(--pb-space-2);
   pointer-events: none;
   position: absolute;
-  width: 100%;
   z-index: -1;
 }
-.sode-panel__art--icon {
-  color: var(--pb-text-strong);
+.sode-panel__art-a {
+  flex: 0 1 auto;
+  height: 100%;
+  min-width: 0;
+  object-fit: contain;
+  width: auto;
+}
+.sode-panel__art-b {
+  flex: 0 0 auto;
+  font-family: var(--pb-font-num);
+  font-size: 70cqh;
+  font-weight: var(--pb-weight-bold);
+  line-height: 1;
 }
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
@@ -418,7 +460,7 @@
   background: var(--pb-view-idle);
 }
 .sode-ov__thumb .sode-ov__k-take {
-  background: var(--pb-commit);
+  background: var(--pb-hue-red);
 }
 
 /* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never colour alone. */
@@ -520,7 +562,7 @@
   background: var(--pb-view-idle);
 }
 .sode-ed__sq--take {
-  background: var(--pb-surface-control);
+  background: color-mix(in oklab, var(--pb-hue-red) 40%, var(--pb-surface-control));
   font-weight: var(--pb-weight-bold);
 }
 .sode-ed__sq.is-unassigned {
@@ -840,6 +882,23 @@
 }
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
+}
+/* The icon picker: Icon A and Icon B panes under a two-button switch. */
+.sode-side__picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-side__panes {
+  align-self: flex-start;
+}
+.sode-side__icons {
+  max-height: 14rem;
+  overflow-y: auto;
+}
+.sode-side__glyph {
+  font-family: var(--pb-font-num);
+  font-weight: var(--pb-weight-bold);
 }
 .sode-find__orders {
   display: flex;

@@ -50,10 +50,10 @@ test('a list saved when All was the six message groups is still All', () => {
 });
 
 test('panel and stream rows read as words, not wire names', () => {
-  assert.equal(WHY_LABEL.panelLost, 'Panel screen lost');
-  assert.equal(WHY_LABEL.panelBack, 'Panel screen back');
+  assert.equal(WHY_LABEL.panelLost, 'Panel instance lost');
+  assert.equal(WHY_LABEL.panelBack, 'Panel instance back');
   assert.equal(WHY_LABEL.panelAlarm, 'Panel alarm');
-  assert.equal(WHY_LABEL.panelSetup, 'Panel screen set up');
+  assert.equal(WHY_LABEL.panelSetup, 'Panel instance set up');
   assert.equal(WHY_LABEL.streamConnect, 'Stream connected');
   assert.equal(WHY_LABEL.streamDisconnect, 'Stream dropped');
   for (const [k, v] of Object.entries(WHY_LABEL)) assert.match(v, /^[A-Z]/, k);

@@ -12,7 +12,8 @@ import (
 )
 
 // A saved edit reaches an open panel with a countdown banner, never at once, and waits out staged
-// routes until they are cleared. The screen's name in the header renames the instance.
+// routes until they are cleared. Snooze keeps the banner up with a 60 s bar and Apply now applies
+// over staged routes. The instance's name in the header renames the instance.
 func TestChromePanelLiveUpdate(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -64,16 +65,38 @@ func TestChromePanelLiveUpdate(t *testing.T) {
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body("After")); rec.Code != 200 {
 		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
 	}
-	b.waitFor("countdown banner", `/Refreshing in \d+ s/.test(document.getElementById('panel-update-text').textContent)`)
+	text := `document.getElementById('panel-update-text').textContent`
+	bar := `document.querySelector('#panel-update-bar .sode__banner-bar')`
+	b.waitFor("countdown banner", `/Refreshing in \d+ s\./.test(`+text+`)`)
+	b.waitFor("countdown bar runs", `!document.getElementById('panel-update-bar').hidden && getComputedStyle(`+bar+`).animationName === 'sode-countdown'`)
 	b.shot("update-banner")
 	b.waitFor("old panel still showing", `document.getElementById('panel-title').textContent === 'Before'`)
-	b.waitFor("banner waits for the staged route", `/take or clear/.test(document.getElementById('panel-update-text').textContent)`)
+	b.waitFor("banner waits for the staged route", `/take or clear/.test(`+text+`)`)
+	b.waitFor("no bar while it waits", `document.getElementById('panel-update-bar').hidden`)
 	b.waitFor("staged route survives", `document.getElementById('panel-title').textContent === 'Before' && document.querySelector('.sode-panel__cell--destination').dataset.s === 'staged'`)
 
 	b.eval(`document.querySelector('.sode-panel__cell--clear').click()`)
 	b.waitFor("new panel applied", `document.getElementById('panel-title').textContent === 'After'`)
 	b.waitFor("banner gone", `document.getElementById('panel-update').hidden`)
 	b.waitFor("grid rebuilt", `document.querySelector('.sode-panel__cell--destination')?.querySelector('span')?.textContent === 'DSM1'`)
+
+	// Snooze is the person's word: the banner stays, a 60 s bar runs, and staged routes no longer hold the copy.
+	b.eval(dst + `.click()`)
+	b.eval(`document.querySelector('.sode-panel__cell--source').click()`)
+	b.waitFor("route staged again", `document.querySelector('.sode-panel__cell--destination').dataset.s === 'staged'`)
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body("Third")); rec.Code != 200 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	b.waitFor("second banner", `!document.getElementById('panel-update').hidden`)
+	b.eval(`document.getElementById('panel-snooze').click()`)
+	b.waitFor("snooze keeps the banner up and says the staged routes go", `!document.getElementById('panel-update').hidden && /Refreshing in (?:60|59|58) s, dropping the staged routes\./.test(`+text+`)`)
+	b.waitFor("the bar counts the snooze", `!document.getElementById('panel-update-bar').hidden && parseFloat(getComputedStyle(`+bar+`).animationDuration) === 60`)
+	b.waitFor("the old panel stays for now", `document.getElementById('panel-title').textContent === 'After' && document.querySelector('.sode-panel__cell--destination').dataset.s === 'staged'`)
+	b.shot("update-snoozed")
+
+	b.eval(`document.getElementById('panel-apply').click()`)
+	b.waitFor("Apply now applies over the staged route", `document.getElementById('panel-title').textContent === 'Third' && document.querySelector('.sode-panel__cell--destination').dataset.s !== 'staged'`)
+	b.waitFor("banner gone again", `document.getElementById('panel-update').hidden`)
 	b.check()
 	b.call("Page.close", nil) // ends the page's held instance stream, which would otherwise block the server's Close for a minute
 }

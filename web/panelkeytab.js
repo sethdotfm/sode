@@ -25,10 +25,11 @@ import {
 } from './panelkeyrules.js';
 import { linkFor } from './panellink.js';
 import { linkRow } from './panellinkrow.js';
+import { hasClient } from './panelsrules.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
-const REFRESH_MS = 5000; // how often the list asks again, so Online follows the screens
+const REFRESH_MS = 5000; // how often the list asks again, so Online follows the instances
 const FAIL = Symbol('failed'); // a call that said why in the note
 
 const dot = (kind) => {
@@ -40,7 +41,7 @@ const dot = (kind) => {
 shareTabs.push(({ panel, api }) => {
   const root = el('div', 'sode-ov__keytab');
   const tab = { id: 'key', text: 'Link with key', panel: root };
-  if (panel.acts !== 'api') {
+  if (!hasClient(panel)) {
     // Greyed, still readable: a Session panel has no key to make, rotate or revoke.
     tab.muted = true;
     root.append(el('p', 'sode__hint', SESSION_WARNING), linkRow(panel), el('p', 'sode__hint', SESSION_NEXT));
@@ -85,7 +86,7 @@ shareTabs.push(({ panel, api }) => {
     'key-instance',
     'Instance name',
     nameIn,
-    'Required. It names this screen in the list and is its device name, so the screen does not ask for one. It is not a secret.',
+    'Required. It names this instance in the list and is its device name, so the page does not ask for one. It is not a secret.',
   );
   const check1 = () => instanceCheck(nameIn.value, keys, max);
 
@@ -250,7 +251,7 @@ shareTabs.push(({ panel, api }) => {
       setup
         ? `${made.name}: the old key is ended. Open the link once on that device to set it up.`
         : res.rotated
-          ? `${made.name} rotated. That screen signed out and its old link stopped working.`
+          ? `${made.name} rotated. That instance signed out and its old link stopped working.`
           : `Link made for ${made.name}.`,
     );
   }

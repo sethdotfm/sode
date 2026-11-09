@@ -1,7 +1,7 @@
 // Draws a panel's grid from the state model. Holds no state of its own: paintGrid is called after
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
-import { artOf, cellScale, textHidden } from './panellook.js';
+import { artOf, artBOf, cellScale, textHidden } from './panellook.js';
 import { currentLabel } from './panelrules.js';
 import {
   sourceState,
@@ -19,23 +19,30 @@ import {
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
 
 // A cell's artwork lives outside the paint functions, which replace a cell's children; paintGrid puts it back first.
+// The row holds Icon A (sprite icon or image) and then Icon B (a glyph); null when the cell has neither.
 export function artNode(cell, art) {
   const a = artOf(cell);
-  if (!a) return null;
-  if (a.icon) {
+  const b = artBOf(cell);
+  if (!a && !b) return null;
+  const row = el('div', 'sode-panel__art');
+  row.setAttribute('aria-hidden', 'true');
+  if (a?.icon) {
     const svg = icon(a.icon, false);
-    svg.setAttribute('class', 'pb-icon sode-panel__art sode-panel__art--icon');
-    return svg;
+    svg.setAttribute('class', 'pb-icon sode-panel__art-a');
+    row.append(svg);
+  } else if (a) {
+    const img = el('img', 'sode-panel__art-a');
+    img.alt = '';
+    img.hidden = true;
+    art?.url(a.id).then((url) => {
+      if (!url) return;
+      img.src = url;
+      img.hidden = false;
+    });
+    row.append(img);
   }
-  const img = el('img', 'sode-panel__art');
-  img.alt = '';
-  img.hidden = true;
-  art?.url(a.id).then((url) => {
-    if (!url) return;
-    img.src = url;
-    img.hidden = false;
-  });
-  return img;
+  if (b) row.append(el('span', 'sode-panel__art-b', b));
+  return row;
 }
 
 // hold is { down(cell), cancel() } for a Take cell with a hold guard: pointer or Enter and Space start it, leaving ends it.

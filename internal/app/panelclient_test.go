@@ -279,6 +279,58 @@ func TestPanelClientEndsWhenPanelStopsActingAsOne(t *testing.T) {
 	}
 }
 
+// Both: the panel has a client for its keyed links and still opens for a signed-in user.
+func TestPanelBothModeHasClientAndOpensForUsers(t *testing.T) {
+	a, _ := clientApp(t)
+	key := userKey(t, a, "Cy")
+	rec := apiSend(a, "POST", "/api/v1/panels", key, `{"name":"Wall","acts":"both","share":{"mode":"everyone"}}`)
+	if rec.Code != 201 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	body := apiBody(t, rec)
+	id, name := body["id"].(string), body["client"].(string)
+	if body["acts"] != "both" || name != "Panel "+id {
+		t.Fatalf("acts %v client %q", body["acts"], name)
+	}
+	if _, ok := clientOf(t, a, name); !ok {
+		t.Fatal("a both panel has no client")
+	}
+	secret, _ := mintKey(t, a, key, id)
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, secret, ""); rec.Code != 200 {
+		t.Fatalf("the client's key cannot read its panel: %d", rec.Code)
+	}
+	ana := userKey(t, a, "Ana")
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, ana, ""); rec.Code != 200 || apiBody(t, rec)["acts"] != "both" {
+		t.Fatalf("a signed-in user cannot read a shared both panel: %d %s", rec.Code, rec.Body.String())
+	}
+	// Back to session: the client and its keys go, as for an api panel.
+	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, `{"name":"Wall","acts":"session"}`)
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if _, ok := clientOf(t, a, name); ok {
+		t.Fatal("client kept after switching to session")
+	}
+	if rec := apiSend(a, "GET", "/api/v1/tally", secret, ""); rec.Code != 401 {
+		t.Fatalf("key alive after switching to session: %d", rec.Code)
+	}
+	// api to both keeps the same client.
+	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, apiPanel+`}`)
+	if rec.Code != 200 || apiBody(t, rec)["client"] != name {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	secret, _ = mintKey(t, a, key, id)
+	rec = apiSend(a, "PUT", "/api/v1/panels/"+id, key, `{"name":"Wall","acts":"both"}`)
+	if rec.Code != 200 || apiBody(t, rec)["client"] != name {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if rec := apiSend(a, "GET", "/api/v1/tally", secret, ""); rec.Code != 200 {
+		t.Fatalf("api to both ended the key: %d", rec.Code)
+	}
+	// An ordinary user cannot make one, as with api.
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, `{"name":"Mine","acts":"both"}`), 403, "trusted_required")
+}
+
 func TestPanelClientsDoNotCountAgainstTheClientLimit(t *testing.T) {
 	a, _ := clientApp(t)
 	key := userKey(t, a, "Cy")

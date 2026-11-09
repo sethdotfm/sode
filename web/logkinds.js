@@ -44,10 +44,10 @@ export const WHY_LABEL = {
   users: 'Users saved',
   streamConnect: 'Stream connected',
   streamDisconnect: 'Stream dropped',
-  panelLost: 'Panel screen lost',
-  panelBack: 'Panel screen back',
+  panelLost: 'Panel instance lost',
+  panelBack: 'Panel instance back',
   panelAlarm: 'Panel alarm',
-  panelSetup: 'Panel screen set up',
+  panelSetup: 'Panel instance set up',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server']);
 // Saved lists of exactly these (pre-events) meant All.

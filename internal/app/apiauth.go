@@ -114,23 +114,23 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 }
 
 // panelHeaders ties the call to the panel page that made it, for log rows. A panel client's key
-// proves its panel, and the key's name is the screen when the page sends none (a key is made per
+// proves its panel, and the key's name is the instance when the page sends none (a key is made per
 // instance, panelkey.go). A user's key proves nothing, so `X-Sode-Panel` must name a panel that
-// exists and is marked unverified; a screen with no panel is dropped.
+// exists and is marked unverified; a instance with no panel is dropped.
 func (a *App) panelHeaders(r *http.Request, cl *apiCtx, k apiKey) {
-	screen := cleanDevice(r.Header.Get("X-Sode-Instance"))
+	instance := cleanDevice(r.Header.Get("X-Sode-Instance"))
 	if cl.Panel != "" {
-		if screen == "" {
-			screen = k.Name
+		if instance == "" {
+			instance = k.Name
 		}
-		cl.Actor.panel, cl.Actor.screen = cl.Panel, screen
+		cl.Actor.panel, cl.Actor.instance = cl.Panel, instance
 		return
 	}
 	id := strings.TrimSpace(r.Header.Get("X-Sode-Panel"))
 	if _, ok := a.panels.get(id); !ok || id == "" {
 		return
 	}
-	cl.Actor.panel, cl.Actor.screen, cl.Actor.panelSaid = id, screen, true
+	cl.Actor.panel, cl.Actor.instance, cl.Actor.panelSaid = id, instance, true
 }
 
 // resolveKey reads the owner live from the config, so a rights edit applies at once. nil if

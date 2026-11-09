@@ -19,11 +19,11 @@ import {
   fromPanel,
 } from '../panelwatchrules.js';
 
-test('a call from a panel page says its panel and screen in headers, and keeps the ones it had', () => {
+test('a call from a panel page says its panel and instance in headers, and keeps the ones it had', () => {
   assert.deepEqual(fromPanel({ headers: { 'Content-Type': 'application/json' } }, 'p-1', 'Lobby'), {
     headers: { 'Content-Type': 'application/json', 'X-Sode-Panel': 'p-1', 'X-Sode-Instance': 'Lobby' },
   });
-  // Before the screen is named only the panel goes; an id-less call sends nothing extra.
+  // Before the instance is named only the panel goes; an id-less call sends nothing extra.
   assert.deepEqual(fromPanel({ method: 'POST' }, 'p-1', ''), { method: 'POST', headers: { 'X-Sode-Panel': 'p-1' } });
   assert.deepEqual(fromPanel({}, '', 'Lobby'), {});
   assert.deepEqual(fromPanel(undefined, 'p-1', 'Lobby'), { headers: { 'X-Sode-Panel': 'p-1', 'X-Sode-Instance': 'Lobby' } });
@@ -46,7 +46,7 @@ test('a notice names the panel, the device and how long', () => {
   assert.match(lost.text, /50 seconds/);
   const one = noticeText({ state: 'lost', name: 'Studio wall', device: 'Lobby', secs: 50, offline: false });
   assert.equal(one.kind, 'warn');
-  assert.match(one.title, /lost a screen/);
+  assert.match(one.title, /lost an instance/);
   const back = noticeText({ state: 'back', name: 'Studio wall', device: 'Lobby', secs: 130, offline: false });
   assert.equal(back.kind, 'ok');
   assert.match(back.text, /Lobby is back after 2 minutes 10 seconds/);
@@ -95,13 +95,13 @@ test('the banner names one panel, or counts several, and the Clear menu words fo
   assert.equal(clearNote(two).stop, 'Stop monitoring these panels');
 });
 
-test('a watched screen reads as a screen, and a mix is counted plainly', () => {
+test('a watched instance reads as an instance, and a mix is counted plainly', () => {
   const scr = { panel: 'p-1', name: 'Wall', device: 'Studio A', instance: 'studio a' };
   assert.equal(bannerText([scr]).title, 'Wall lost Studio A');
-  assert.equal(badgeText([scr]), '1 screen offline');
+  assert.equal(badgeText([scr]), '1 instance offline');
   const mix = [scr, { panel: 'p-2', name: 'Door', device: 'Hall' }];
   assert.equal(badgeText(mix), '2 offline');
-  assert.equal(bannerText(mix).title, '2 watched panels and screens are offline');
+  assert.equal(bannerText(mix).title, '2 watched panels and instances are offline');
   assert.equal(bannerText(mix).text, 'Wall: Studio A, Door');
 });
 

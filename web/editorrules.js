@@ -64,6 +64,18 @@ export function placeMenu(rect, menu, vp, gap) {
   return { side: 'below', left: Math.max(0, Math.min(rect.left, vp.w - menu.w)), top: rect.bottom + gap };
 }
 
+// How far a flyout (Find) must move to sit inside the viewport, in pixels; {x: 0, y: 0} when it already does. The
+// top and left edges win over the bottom and right, so the box at the top stays reachable when it is too tall.
+export function flyoutShift(rect, vp, gap) {
+  let x = 0;
+  let y = 0;
+  if (rect.right > vp.w - gap) x = vp.w - gap - rect.right;
+  if (rect.bottom > vp.h - gap) y = vp.h - gap - rect.bottom;
+  if (rect.left + x < gap) x = gap - rect.left;
+  if (rect.top + y < gap) y = gap - rect.top;
+  return { x, y };
+}
+
 // The item a Ctrl or Cmd chord runs (item.chord is the letter): never a disabled one.
 export const menuChord = (items, e) =>
   (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey ? (items.find((it) => it.chord === e.key.toLowerCase() && !it.disabled) ?? null) : null;

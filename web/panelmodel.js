@@ -8,7 +8,6 @@
 // preset's items [{ src, dsts, levels }], where levels [] means every level.
 import { presetKey, rightsAllow } from './panelrules.js';
 
-export const IDLE_MS = 30000;
 export const RESULT_MS = 1500;
 export const ERROR_MS = 4000;
 export const GUARD_DOUBLE_MS = 1500;
@@ -28,7 +27,6 @@ export function createState(settings = {}) {
     busy: false,
     results: {}, // dst -> { result, at }
     error: null,
-    touchedAt: 0,
   };
 }
 
@@ -58,13 +56,13 @@ export function currentOfDestination(st, env, cell) {
 
 export const currentSource = (env, st) => (st.view ? currentOfDestination(st, env, { n: st.view.dst, levels: st.view.levels }) : -1);
 
-const touch = (st, now) => ({ ...st, touchedAt: now });
-const fail = (st, error, now) => ({ ...touch(st, now), error: { ...error, at: now } });
+const fail = (st, error, now) => ({ ...st, error: { ...error, at: now } });
 
-export function pressDestination(st, cell, env, now) {
+// The view and the staged routes have no clock: they stay until a press, a take or Clear ends them.
+export function pressDestination(st, cell) {
   const own = st.staged.some((x) => x.dst === cell.n);
-  if (st.view?.dst === cell.n && own) return unstage(touch(st, now), cell.n);
-  return { ...touch(st, now), view: { dst: cell.n, levels: cell.levels || null }, error: null };
+  if (st.view?.dst === cell.n && own) return unstage(st, cell.n);
+  return { ...st, view: { dst: cell.n, levels: cell.levels || null }, error: null };
 }
 
 export function pressSource(st, cell, env, now) {
@@ -78,7 +76,7 @@ export function pressSource(st, cell, env, now) {
   // Instant mode takes on the press, so only a failed route can still be staged: a new press replaces it.
   const others = st.multi && st.mode === 'take' ? st.staged.filter((x) => x.dst !== dst) : [];
   const staged = cell.n === currentSource(env, st) ? others : [...others, { dst, src: cell.n, levels }];
-  return { ...touch(st, now), staged, error: null };
+  return { ...st, staged, error: null };
 }
 
 // A Preset stages every route it holds or none: one refused route refuses the whole preset.
@@ -102,13 +100,12 @@ export function pressPreset(st, cell, env, now) {
   const taken = new Set(routes.map((x) => x.dst));
   const others = st.multi && st.mode === 'take' ? st.staged.filter((x) => !taken.has(x.dst)) : [];
   const last = new Map(routes.map((x) => [x.dst, x]));
-  return { ...touch(st, now), staged: [...others, ...last.values()], view: { dst: routes[0].dst, levels: null }, error: null };
+  return { ...st, staged: [...others, ...last.values()], view: { dst: routes[0].dst, levels: null }, error: null };
 }
 
 export const unstage = (st, dst) => ({ ...st, staged: st.staged.filter((x) => x.dst !== dst) });
 
 export const clear = (st) => ({ ...st, view: null, staged: [], error: null, guardAt: 0, holdAt: 0 });
-export const pressClear = (st, now) => touch(clear(st), now);
 
 const valid = (st, env, x) => !env.protectedDsts.has(x.dst) && x.levels.length > 0;
 
@@ -119,15 +116,15 @@ export const armed = (st, env) => st.mode === 'take' && ready(st, env);
 export const plan = (st) => st.staged.map((x) => ({ src: x.src, dst: x.dst, levels: x.levels }));
 
 // The routes to send and the busy state, or null when a press must do nothing.
-export function startTake(st, env, now) {
+export function startTake(st, env) {
   if (!armed(st, env)) return null;
-  return { routes: plan(st), state: { ...touch(st, now), busy: true, error: null } };
+  return { routes: plan(st), state: { ...st, busy: true, error: null } };
 }
 
 // Instant mode: the press that staged the route is the Confirm, so the page calls this right after it.
-export function startInstant(st, env, now) {
+export function startInstant(st, env) {
   if (st.mode !== 'instant' || !ready(st, env)) return null;
-  return { routes: plan(st), state: { ...touch(st, now), busy: true, error: null } };
+  return { routes: plan(st), state: { ...st, busy: true, error: null } };
 }
 
 // Take guards. none: one press goes. double: a second press within GUARD_DOUBLE_MS goes.
@@ -173,11 +170,6 @@ export function applyTally(st, env) {
   return staged.length === st.staged.length ? st : { ...st, staged };
 }
 
-export function idleClear(st, now) {
-  if (st.busy || (!st.view && !st.staged.length) || now - st.touchedAt <= IDLE_MS) return st;
-  return clear(st);
-}
-
 export function sourceState(st, n, env) {
   if (!st.view) return 'idle';
   if (currentSource(env, st) === n) return 'current';
@@ -215,5 +207,5 @@ export const errorOf = (st, now) => (st.error && now - st.error.at <= ERROR_MS ?
 export function carryView(next, prev, cells) {
   if (!prev.view) return next;
   const cell = cells.find((c) => c.kind === 'destination' && c.n === prev.view.dst);
-  return cell ? { ...next, view: { dst: cell.n, levels: cell.levels || null }, touchedAt: prev.touchedAt } : next;
+  return cell ? { ...next, view: { dst: cell.n, levels: cell.levels || null } } : next;
 }

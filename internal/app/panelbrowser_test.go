@@ -103,7 +103,8 @@ func TestChromePanelSessionTake(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	// The named instance holds its stream for as long as the page lives, and the page outlives srv.
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Browser panel","rows":4,"cols":8,"cells":[
@@ -152,12 +153,9 @@ func TestChromePanelSessionTake(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), fmt.Sprintf(`"dst":%d,"level":1,"src":%d`, simDst, simSrc)) {
 		t.Errorf("tally after take: %d %s", rec.Code, rec.Body.String())
 	}
-	// The Communication Log names the panel and the screen; a user's key proves neither, so it says so.
-	if e := lastRow(t, a, "take"); !strings.Contains(e.Note, "unverified panel "+id+" (Browser panel), screen Desk") {
+	// The Communication Log names the panel and the instance; a user's key proves neither, so it says so.
+	if e := lastRow(t, a, "take"); !strings.Contains(e.Note, "unverified panel "+id+" (Browser panel), instance Desk") {
 		t.Errorf("take row %+v", e)
 	}
 	b.check()
-	// A named screen holds its instance stream, which would keep srv.Close waiting: leave the page first.
-	b.open("about:blank")
-	monWaitConns(t, a, id, 0)
 }

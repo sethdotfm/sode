@@ -60,6 +60,15 @@ test('every icon on offer is in the vendored sprite and reads back as cell artwo
   }
 });
 
+test('the standard cell kind icons are offered as artwork, type icons first', async () => {
+  const { CATEGORY_ICON } = await import('../findrules.js');
+  const kinds = Object.values(CATEGORY_ICON);
+  assert.deepEqual(ART_ICONS.slice(0, kinds.length), kinds);
+  for (const name of ['check', 'equal', 'x', 'search', 'undo-2', 'redo-2', 'refresh-cw', 'arrow-left-right', 'plus', 'minus'])
+    assert.ok(ART_ICONS.includes(name), name);
+  assert.equal(new Set(ART_ICONS).size, ART_ICONS.length, 'no icon is offered twice');
+});
+
 test('the Rights line says what a client may do in plain words', () => {
   assert.equal(rightsLine(null), 'All Sources, Destinations, levels and Presets, read-only visibility.');
   assert.equal(rightsLine({ sources: [1, 2], levels: [1], visibility: 'hidden' }), '2 Sources, all Destinations, 1 level, all Presets, hidden visibility.');

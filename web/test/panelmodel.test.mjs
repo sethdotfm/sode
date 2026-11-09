@@ -13,14 +13,12 @@ import {
   finishTake,
   failTake,
   applyTally,
-  idleClear,
   carryView,
   sourceState,
   destinationState,
   currentSource,
   resultOf,
   errorOf,
-  IDLE_MS,
   RESULT_MS,
   ERROR_MS,
 } from '../panelmodel.js';
@@ -296,22 +294,12 @@ test('an error shows for a few seconds', () => {
   assert.equal(errorOf(st, T0 + ERROR_MS + 1), null);
 });
 
-test('a pending selection clears after 30 idle seconds and a press resets the clock', () => {
+test('a viewed destination and staged routes carry no clock: only a press, a take or Clear ends them', () => {
   const e = env();
-  let st = pressDestination(createState(), D(0), e, T0);
-  assert.equal(idleClear(st, T0 + IDLE_MS - 1).view.dst, 0);
-  assert.equal(idleClear(st, T0 + IDLE_MS + 1).view, null);
-  st = pressSource(st, S(4), e, T0 + 20000);
-  assert.equal(idleClear(st, T0 + IDLE_MS + 1).staged.length, 1);
-  assert.equal(idleClear(st, T0 + 20000 + IDLE_MS + 1).staged.length, 0);
-});
-
-test('idle clear leaves a panel with nothing pending as it is, and never clears mid-take', () => {
-  const e = env();
-  const idle = createState();
-  assert.equal(idleClear(idle, T0 + 99 * IDLE_MS), idle);
-  const { state } = startTake(pressSource(pressDestination(createState(), D(0), e, T0), S(4), e, T0), e, T0);
-  assert.equal(idleClear(state, T0 + 99 * IDLE_MS).staged.length, 1);
+  const st = pressSource(pressDestination(createState(), D(0), e, T0), S(4), e, T0);
+  assert.equal(Object.values(st).some((v) => v === T0), false);
+  assert.equal(st.view.dst, 0);
+  assert.equal(st.staged.length, 1);
 });
 
 test('the model never mutates a state it was given', () => {
@@ -325,9 +313,8 @@ test('the model never mutates a state it was given', () => {
 
 test('a live update keeps the viewed destination when the new copy still has it, with the new cell levels', () => {
   const next = createState({});
-  const kept = carryView(next, { ...createState({}), view: { dst: 4, levels: null }, touchedAt: 77 }, [D(4, [2])]);
+  const kept = carryView(next, { ...createState({}), view: { dst: 4, levels: null } }, [D(4, [2])]);
   assert.deepEqual(kept.view, { dst: 4, levels: [2] });
-  assert.equal(kept.touchedAt, 77);
   assert.equal(carryView(next, { ...next, view: { dst: 4, levels: null } }, [D(5)]).view, null);
   assert.equal(carryView(next, next, [D(4)]), next);
 });

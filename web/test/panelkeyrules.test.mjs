@@ -83,6 +83,7 @@ test('a row says online or offline in words, and a pending setup link says when 
 
 test('the Share modal opens on the tab that fits how the panel acts', () => {
   assert.equal(firstShareTab({ acts: 'api' }), 'key');
+  assert.equal(firstShareTab({ acts: 'both' }), 'key');
   assert.equal(firstShareTab({ acts: 'session' }), 'people');
   assert.equal(firstShareTab({}), 'people');
   assert.ok(SESSION_WARNING.includes('sign-in'));

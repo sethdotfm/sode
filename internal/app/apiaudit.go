@@ -28,10 +28,10 @@ type Actor struct {
 
 	// Which panel page made the call, for Communication Log rows only (unexported, so History keeps
 	// its label). panel is the id. A panel's own key proves the panel; panelSaid marks one the page
-	// named itself in `X-Sode-Panel`, with a user's key. screen is the page's word (`X-Sode-Instance`),
+	// named itself in `X-Sode-Panel`, with a user's key. instance is the page's word (`X-Sode-Instance`),
 	// as the keepalive's device name is.
-	panel, screen string
-	panelSaid     bool
+	panel, instance string
+	panelSaid       bool
 }
 
 // panelShort is how log rows name a panel: its short name, else its id.
@@ -42,14 +42,14 @@ func panelShort(p Panel) string {
 	return p.ID
 }
 
-// panelTag is the one wording for a panel in a row's Note: "panel wall (Lobby Wall), screen Front desk".
-func panelTag(p Panel, screen string) string {
+// panelTag is the one wording for a panel in a row's Note: "panel wall (Lobby Wall), instance Front desk".
+func panelTag(p Panel, instance string) string {
 	s := "panel " + panelShort(p)
 	if p.Name != "" {
 		s += " (" + p.Name + ")"
 	}
-	if screen != "" {
-		s += ", screen " + screen
+	if instance != "" {
+		s += ", instance " + instance
 	}
 	return s
 }
@@ -64,7 +64,7 @@ func (a *App) panelNote(act Actor) string {
 	if !ok {
 		p = Panel{ID: act.panel}
 	}
-	tag := panelTag(p, act.screen)
+	tag := panelTag(p, act.instance)
 	if act.panelSaid {
 		tag = "unverified " + tag
 	}

@@ -15,6 +15,8 @@ export function pageUi() {
     update: $('panel-update'),
     updateText: $('panel-update-text'),
     snooze: $('panel-snooze'),
+    applyNow: $('panel-apply'),
+    bar: $('panel-update-bar'),
     grid: $('panel-grid'),
     offline: $('panel-offline'),
     offlineDetail: $('panel-offline-detail'),
@@ -36,20 +38,23 @@ export function liveUi(host, onBack) {
   const updateText = el('span');
   const snooze = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Snooze 60 s');
   snooze.type = 'button';
+  const applyNow = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Apply now');
+  applyNow.type = 'button';
+  const bar = el('div', 'pb-progress sode__banner-time');
   const update = el(
     'div',
-    'pb-alert pb-alert--warn sode-panel__update',
-    el('div', 'sode__banner-body', el('div', 'pb-alert__title', 'This panel was changed'), updateText),
-    snooze,
+    'sode-panel__update',
+    el('div', 'pb-alert pb-alert--warn', el('div', 'sode__banner-body', el('div', 'pb-alert__title', 'This panel was changed'), updateText), snooze, applyNow),
+    bar,
   );
   update.setAttribute('role', 'status');
   const grid = el('div', 'sode-panel__grid');
   const offlineDetail = el('p', 'sode-panel__offline-detail');
   const offline = el('div', 'sode-panel__offline pb-state-offline', el('p', 'sode-panel__offline-title', 'Offline'), offlineDetail);
   offline.setAttribute('role', 'alert');
-  for (const n of [status, update, offline]) n.hidden = true;
+  for (const n of [status, update, bar, offline]) n.hidden = true;
   note.hidden = true;
-  const main = el('div', 'sode-live', head, note, status, update, grid, offline);
+  const main = el('div', 'sode-live', head, note, el('div', 'sode-panel__foot', status, update), grid, offline);
   host.replaceChildren(main);
-  return { main, head, title, note, status, update, updateText, snooze, grid, offline, offlineDetail, back };
+  return { main, head, title, note, status, update, updateText, snooze, applyNow, bar, grid, offline, offlineDetail, back };
 }

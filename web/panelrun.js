@@ -15,13 +15,12 @@ import {
   pressDestination,
   pressSource,
   pressPreset,
-  pressClear,
+  clear,
   startTake,
   startInstant,
   finishTake,
   failTake,
   applyTally,
-  idleClear,
   carryView,
   errorOf,
   guardDown,
@@ -84,9 +83,9 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   }
   const stored = !key && !embedded;
   if (stored) key = storedKey(seg);
-  // Every call names its panel and screen for the Communication Log; the editor's live test is no instance.
-  let screen = '';
-  const tag = (init) => fromPanel(init, id, screen);
+  // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
+  let instance = '';
+  const tag = (init) => fromPanel(init, id, instance);
   const call = given || (key ? (path, init = {}) => fetch(path, withKey(tag(init), key)) : (path, init = {}) => sessionFetch(path, tag(init)));
   const callJSON = jsonCall(call);
 
@@ -259,13 +258,13 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     render();
   }
   function holdDown() {
-    if (!ready || st.guard !== 'hold' || !startTake(st, env, Date.now())) return;
+    if (!ready || st.guard !== 'hold' || !startTake(st, env)) return;
     st = guardDown(st, Date.now()).state;
     clearTimeout(holdTimer);
     holdTimer = setTimeout(() => {
       const held = guardHeld(st, Date.now());
       st = held.state;
-      if (held.go) send(startTake(st, env, Date.now()));
+      if (held.go) send(startTake(st, env));
       render();
     }, GUARD_HOLD_MS);
     render();
@@ -277,20 +276,20 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (look.fullscreen && !embedded) enterFullscreen(document);
     const now = Date.now();
     if (cell.kind === 'take') {
-      if (st.guard === 'hold' || !startTake(st, env, now)) return;
+      if (st.guard === 'hold' || !startTake(st, env)) return;
       const down = guardDown(st, now);
       st = down.state;
-      if (down.go) send(startTake(st, env, now));
+      if (down.go) send(startTake(st, env));
       return render();
     }
-    if (cell.kind === 'destination') st = pressDestination(st, cell, env, now);
+    if (cell.kind === 'destination') st = pressDestination(st, cell);
     else if (cell.kind === 'source') st = pressSource(st, cell, env, now);
     else if (cell.kind === 'preset') st = pressPreset(st, cell, env, now);
-    else if (cell.kind === 'clear') st = pressClear(st, now);
+    else if (cell.kind === 'clear') st = clear(st);
     else return;
     // Instant mode: a Source or Preset press is the Confirm.
     if (cell.kind === 'source' || cell.kind === 'preset') {
-      const started = startInstant(st, env, now);
+      const started = startInstant(st, env);
       if (started) return void send(started);
     }
     render();
@@ -300,7 +299,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   if (!embedded) {
     const showName = initName(ui.name, (name) => keep.rename(name));
     keep = startKeepalive(call, id, ui.device, instanceFrom(location.search), (name, editable) => {
-      screen = name;
+      instance = name;
       showName(name, editable);
     });
   }
@@ -321,12 +320,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       render();
     },
   });
-  timers.push(
-    setInterval(poll, POLL_MS),
-    setInterval(() => {
-      st = idleClear(st, Date.now());
-      render();
-    }, 1000),
-  );
+  // Results and errors fade on their own clocks (RESULT_MS, ERROR_MS), so the grid is redrawn every second.
+  timers.push(setInterval(poll, POLL_MS), setInterval(render, 1000));
   poll();
 }

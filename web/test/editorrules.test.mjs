@@ -1,7 +1,20 @@
 // What the panel editor reads from its URL and from /api/v1/panels (editorrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, placeMenu, kindLabel, kindChoices, menuChord, chordText, typeLabel, todoText } from '../editorrules.js';
+import {
+  editorTarget,
+  groupPanels,
+  newPanel,
+  saveBody,
+  isDirty,
+  placeMenu,
+  kindLabel,
+  kindChoices,
+  menuChord,
+  chordText,
+  typeLabel,
+  todoText,
+} from '../editorrules.js';
 import { createGrid, merge, select } from '../gridmodel.js';
 
 test('the editor opens the panel in ?panel=, and anything else starts a new one', () => {
@@ -76,6 +89,19 @@ test('the menu goes right of the selection, else left, else below, and stays on 
   assert.deepEqual(placeMenu({ left: 700, top: 50, right: 900, bottom: 100 }, menu, vp, 8), { side: 'left', left: 492, top: 50 });
   assert.deepEqual(placeMenu({ left: 10, top: 50, right: 990, bottom: 100 }, menu, vp, 8), { side: 'below', left: 10, top: 108 });
   assert.equal(placeMenu({ left: 100, top: 550, right: 200, bottom: 590 }, menu, vp, 8).top, 480);
+});
+
+// The Find flyout sits beside its menu item and is pulled back inside the viewport when it would run off the bottom or
+// the right; it never moves when it already fits.
+test('a flyout that runs off the viewport is shifted back inside, and one that fits stays put', async () => {
+  const { flyoutShift } = await import('../editorrules.js');
+  const vp = { w: 1000, h: 600 };
+  assert.deepEqual(flyoutShift({ left: 300, top: 100, right: 600, bottom: 400 }, vp, 8), { x: 0, y: 0 });
+  assert.deepEqual(flyoutShift({ left: 300, top: 400, right: 600, bottom: 700 }, vp, 8), { x: 0, y: -108 });
+  assert.deepEqual(flyoutShift({ left: 900, top: 100, right: 1200, bottom: 400 }, vp, 8), { x: -208, y: 0 });
+  assert.deepEqual(flyoutShift({ left: -50, top: -20, right: 250, bottom: 280 }, vp, 8), { x: 58, y: 28 });
+  // Taller than the viewport: the top edge wins, so the box and the first results stay reachable.
+  assert.deepEqual(flyoutShift({ left: 100, top: 100, right: 400, bottom: 900 }, vp, 8), { x: 0, y: -92 });
 });
 
 test('Type offers every kind the panel page knows, then Empty', () => {

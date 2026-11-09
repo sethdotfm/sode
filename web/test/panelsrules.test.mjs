@@ -1,7 +1,16 @@
 // What the panels page (/panels) groups, labels and offers. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, shareLabel, launchHref, editHref, matches } from '../panelsrules.js';
+import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, hasClient, shareLabel, launchHref, editHref, matches } from '../panelsrules.js';
+
+// Both: a client for keyed links, Session mode without one. Keep in step with actsHasClient in internal/app/panelstore.go.
+test('a panel holds a client when it acts as an API client or as both', () => {
+  assert.equal(hasClient({ acts: 'api' }), true);
+  assert.equal(hasClient({ acts: 'both' }), true);
+  assert.equal(hasClient({ acts: 'session' }), false);
+  assert.equal(hasClient({}), false);
+  assert.equal(hasClient(null), false);
+});
 
 const P = (id, owner, extra = {}) => ({
   id,
@@ -85,6 +94,8 @@ test('labels say who a panel acts as and who may use it', () => {
   assert.equal(actsLabel(P('a', 'Ana', { acts: 'api' })), 'Acts as an API client');
   assert.equal(actsShort(P('a', 'Ana')), 'signs in as the user');
   assert.equal(actsShort(P('a', 'Ana', { acts: 'api' })), 'API client');
+  assert.equal(actsLabel(P('a', 'Ana', { acts: 'both' })), 'Acts as an API client with a key, else as the user');
+  assert.equal(actsShort(P('a', 'Ana', { acts: 'both' })), 'API client or the user');
   assert.equal(shareLabel({ mode: 'me' }), 'Only the owner');
   assert.equal(shareLabel({ mode: 'everyone' }), 'Everyone');
   assert.equal(shareLabel({ mode: 'named', users: ['Bo', 'Cy'] }), 'Bo, Cy');

@@ -222,7 +222,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	var rights config.Rights
-	if p.Acts == panelActsAPI {
+	if actsHasClient(p.Acts) {
 		var err error
 		if rights, _, err = a.clientRightsFor(cl, want, nil); err != nil {
 			failWith(w, err)
@@ -234,7 +234,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		a.panelStoreFail(w, err)
 		return
 	}
-	if made.Acts == panelActsAPI {
+	if actsHasClient(made.Acts) {
 		made.Client = panelClientName(made.ID)
 		err := a.setPanelClient(made.ID, &rights)
 		if err == nil {
@@ -281,7 +281,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	// must leave the panel as it was.
 	cur, had := clientOfPanel(a.r().cfg, old)
 	switch {
-	case p.Acts == panelActsAPI:
+	case actsHasClient(p.Acts):
 		var curRights *config.Rights
 		if had {
 			curRights = &cur.Rights
