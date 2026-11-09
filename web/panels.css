@@ -14,6 +14,13 @@
   flex-wrap: wrap;
   gap: var(--pb-space-4);
 }
+/* lock.css fixes the Lock bar top left, over the page. Leave its height free (keep in step with .sode-lock__who and its bar), unless a kiosk hides it. */
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels {
+  padding-top: calc(var(--pb-space-4) + var(--sode-down-h, 0px) + var(--pb-control-h-sm) + var(--pb-space-2) * 3);
+}
+[data-sode-kiosk] .sode-lock__who {
+  display: none;
+}
 .sode-panels__title {
   color: var(--pb-text-strong);
   font-size: var(--pb-text-xl);
@@ -739,17 +746,23 @@
   flex-wrap: wrap;
   gap: var(--pb-space-2);
 }
-.sode-side__levels {
-  display: grid;
-  gap: var(--pb-space-1) var(--pb-space-3);
-  grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
-}
+/* Rows and Columns share four tracks (label, less, number, more), so the numbers and buttons line up. */
 .sode-side__steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-1) var(--pb-space-4);
+  align-items: center;
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-2);
+  grid-template-columns: auto auto auto auto;
+  justify-content: start;
 }
-.sode-side__step,
+.sode-side__step {
+  display: grid;
+  gap: inherit;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+.sode-side__step > label {
+  margin: 0;
+}
 .sode-side__inline,
 .sode-side__sizerow {
   align-items: center;

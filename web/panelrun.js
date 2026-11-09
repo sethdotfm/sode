@@ -103,7 +103,9 @@ export async function runPanel(seg) {
   };
   const applyLook = (p) => {
     const look = lookOf(p.settings || {});
-    document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, p) || !look.titleBar;
+    const kiosk = kioskOf(location.hash, p);
+    document.querySelector('.sode-panels__head').hidden = kiosk || !look.titleBar;
+    document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
     document.title = p.name;
     $('panel-title').textContent = p.name;
     $('panel-grid').style.setProperty('--panel-fs', look.scale);
