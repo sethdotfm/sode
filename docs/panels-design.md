@@ -94,6 +94,8 @@ Proposed, not prototyped.
 
 ## Build notes
 
+- Editor Find: `findrules.js` is pure (entries with Rights and Visibility, ranking, the run a choice places, the plan and `applyFind`, which sets a Preset cell's `scope` and `name`). `editorfind.js` is the flyout in the smart menu: it plugs in through `addMenuSection` and `addKeyHook`, catches `myRights` at import time because the message can arrive before the editor loads, and previews by marking the grid's squares in place. Fill order is `setOrder(id)`, default `across`.
+
 - Vanilla ES modules and patchbay tokens only. The prototype used `pb-btn pb-xpt` cells, `pb-toolbar`, `pb-toast` and the Lucide sprite. Orange and the muted idle colours need new semantic tokens upstream, since `--pb-brand` is for navigation chrome.
 - Status is icon first, with optional text. This is a documented exception to patchbay's "status always with text", and AGENTS.md has a line for it.
 - One animated root custom property (`@property --pulse`) drives every pulse, so cells stay in phase across re-renders.

@@ -20,7 +20,15 @@ export function createSmartMenu(host, { onEscape }) {
     if (e.key === 'Escape') {
       e.preventDefault();
       onEscape();
+    } else if (e.key === (root.dataset.side === 'left' ? 'ArrowLeft' : 'ArrowRight') && i >= 0) {
+      // The arrow toward the flyout goes into it.
+      const into = list[i].parentElement.querySelector(':scope > .pb-menu__sub input, :scope > .pb-menu__sub button');
+      if (into) {
+        e.preventDefault();
+        into.focus();
+      }
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (i < 0) return; // inside a flyout: it handles its own arrows
       e.preventDefault();
       list[(i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]?.focus();
     }
@@ -33,7 +41,14 @@ export function createSmartMenu(host, { onEscape }) {
     b.setAttribute('role', 'menuitem');
     b.disabled = !!it.disabled;
     b.append(icon(it.icon), el('span', '', it.label));
-    if (it.sub) {
+    if (it.panel) {
+      // A flyout the page owns and keeps between rebuilds (Find's box and list), so it carries its own classes.
+      b.setAttribute('aria-haspopup', 'true');
+      b.append(el('span', 'pb-menu__hint', icon(side === 'left' ? 'chevron-left' : 'chevron-right')));
+      it.panel.classList.toggle('pb-menu__sub--left', side === 'left');
+      b.addEventListener('click', it.run);
+      li.append(b, it.panel);
+    } else if (it.sub) {
       b.setAttribute('aria-haspopup', 'true');
       b.append(el('span', 'pb-menu__hint', icon(side === 'left' ? 'chevron-left' : 'chevron-right')));
       const sub = el('ul', `pb-menu pb-menu__sub${side === 'left' ? ' pb-menu__sub--left' : ''}`);

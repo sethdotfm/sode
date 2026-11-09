@@ -1,0 +1,201 @@
+// Find in the panel editor (findrules.js): what can be searched, who may see it, and how results rank. Pure.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { findEntries, rankFind, fillRun, findPlan, applyFind, afterFill } from '../findrules.js';
+import { createGrid, select, selCells, cellAt } from '../gridmodel.js';
+
+const names = {
+  numberOffset: 1,
+  sources: [
+    { n: 0, name: 'Camera 1' },
+    { n: 1, name: 'Camera 2' },
+    { n: 2, name: 'Graphics' },
+  ],
+  destinations: [
+    { n: 0, name: 'Monitor A' },
+    { n: 1, name: 'Monitor B' },
+  ],
+};
+const presets = {
+  presets: [
+    { scope: 'everyone', name: 'Show open' },
+    { scope: 'me', name: 'Night' },
+  ],
+};
+
+test('every Source, Destination and Preset is searchable, with the number a person sees', () => {
+  const all = findEntries(names, presets, null);
+  assert.equal(all.length, 7);
+  const cam = all.find((e) => e.label === 'Camera 2');
+  assert.deepEqual([cam.category, cam.n, cam.num, cam.off], ['source', 1, 2, false]);
+  const p = all.find((e) => e.label === 'Night');
+  assert.deepEqual([p.category, p.scope, p.n], ['preset', 'me', undefined]);
+});
+
+test('Read-only rights grey what is outside them and Hidden removes it', () => {
+  const rights = { sources: [0], dsts: [1], presets: ['Night'] };
+  const grey = findEntries(names, presets, rights);
+  assert.equal(grey.length, 7);
+  assert.deepEqual(
+    grey.filter((e) => e.off).map((e) => e.label),
+    ['Camera 2', 'Graphics', 'Monitor A', 'Show open'],
+  );
+  const gone = findEntries(names, presets, { ...rights, visibility: 'hidden' });
+  assert.deepEqual(
+    gone.map((e) => e.label),
+    ['Camera 1', 'Monitor B', 'Night'],
+  );
+  assert.ok(gone.every((e) => !e.off));
+});
+
+test('a kind with no list in the rights allows everything of that kind', () => {
+  const r = findEntries(names, presets, { sources: [2], visibility: 'hidden' });
+  assert.deepEqual(
+    r.filter((e) => e.category === 'source').map((e) => e.label),
+    ['Graphics'],
+  );
+  assert.equal(r.filter((e) => e.category === 'destination').length, 2);
+});
+
+test('ranking puts an exact name first, then a prefix, a word start, a substring and a loose match', () => {
+  const list = [
+    { category: 'source', key: 'a', label: 'Backup cam', num: 5, n: 4, off: false },
+    { category: 'source', key: 'b', label: 'Cam', num: 9, n: 8, off: false },
+    { category: 'source', key: 'c', label: 'Camera 1', num: 1, n: 0, off: false },
+    { category: 'source', key: 'd', label: 'Webcam', num: 7, n: 6, off: false },
+    { category: 'source', key: 'e', label: 'Charm', num: 3, n: 2, off: false },
+    { category: 'source', key: 'f', label: 'Lens', num: 4, n: 3, off: false },
+  ];
+  assert.deepEqual(
+    rankFind(list, 'cam').map((e) => e.key),
+    ['b', 'c', 'a', 'd', 'e'],
+  );
+});
+
+test('every word must match, in any order, and a number matches what a person sees', () => {
+  const list = findEntries(names, presets, null);
+  assert.deepEqual(
+    rankFind(list, 'mon b').map((e) => e.label),
+    ['Monitor B'],
+  );
+  assert.deepEqual(
+    rankFind(list, '2')
+      .map((e) => e.label)
+      .slice(0, 2),
+    ['Camera 2', 'Monitor B'],
+  );
+});
+
+test('chips narrow to categories, and with no text results come in number order by category', () => {
+  const list = findEntries(names, presets, null);
+  assert.deepEqual(
+    rankFind(list, '', ['destination']).map((e) => e.label),
+    ['Monitor A', 'Monitor B'],
+  );
+  assert.deepEqual(
+    rankFind(list, '').map((e) => e.label),
+    ['Camera 1', 'Camera 2', 'Graphics', 'Monitor A', 'Monitor B', 'Night', 'Show open'],
+  );
+});
+
+const find = (label, entries) => entries.find((e) => e.label === label);
+const sel = (r1, c1, r2, c2) => select(select(createGrid({ rows: 4, cols: 4 }), r1, c1), r2, c2, true);
+
+test('choosing a result fills from it onward in number order, of its own category', () => {
+  const all = findEntries(names, presets, null);
+  assert.deepEqual(
+    fillRun(all, find('Camera 2', all), null).map((e) => e.label),
+    ['Camera 2', 'Graphics'],
+  );
+  assert.deepEqual(
+    fillRun(all, find('Night', all), null).map((e) => e.label),
+    ['Night', 'Show open'],
+  );
+});
+
+test('a fill skips what the rights grey out, and a greyed start fills nothing', () => {
+  const all = findEntries(names, presets, { sources: [0, 2] });
+  assert.deepEqual(
+    fillRun(all, find('Camera 1', all), null).map((e) => e.label),
+    ['Camera 1', 'Graphics'],
+  );
+  assert.deepEqual(fillRun(all, find('Camera 2', all), null), []);
+});
+
+test('a picked set fills in the order picked, of the first pick category, without greyed entries', () => {
+  const all = findEntries(names, presets, { sources: [0, 2] });
+  const picks = [find('Graphics', all), find('Monitor A', all), find('Camera 2', all), find('Camera 1', all)];
+  assert.deepEqual(
+    fillRun(all, picks[0], picks).map((e) => e.label),
+    ['Graphics', 'Camera 1'],
+  );
+});
+
+test('the plan puts the run across the selection, and applying it matches the plan', () => {
+  const all = findEntries(names, presets, null);
+  const g = sel(1, 1, 2, 2);
+  const run = fillRun(all, find('Camera 1', all), null);
+  const plan = findPlan(g, run, 'across');
+  assert.deepEqual(
+    plan.slots.map((s) => [s.r, s.c, s.entry.label, s.replace]),
+    [
+      [1, 1, 'Camera 1', false],
+      [1, 2, 'Camera 2', false],
+      [2, 1, 'Graphics', false],
+    ],
+  );
+  const done = applyFind(g, plan);
+  assert.deepEqual(
+    plan.slots.map((s) => ({ r: s.r, c: s.c, kind: cellAt(done, s.r, s.c).kind, n: cellAt(done, s.r, s.c).n })),
+    [
+      { r: 1, c: 1, kind: 'source', n: 0 },
+      { r: 1, c: 2, kind: 'source', n: 1 },
+      { r: 2, c: 1, kind: 'source', n: 2 },
+    ],
+  );
+  assert.equal(cellAt(done, 2, 2), undefined);
+});
+
+test('the fill order is a parameter', () => {
+  const all = findEntries(names, presets, null);
+  const g = sel(1, 1, 2, 2);
+  const plan = findPlan(g, fillRun(all, find('Camera 1', all), null), 'down');
+  assert.deepEqual(
+    plan.slots.map((s) => [s.r, s.c]),
+    [
+      [1, 1],
+      [2, 1],
+      [1, 2],
+    ],
+  );
+});
+
+test('a Preset cell holds scope and name, and replacing one of another kind drops its old item', () => {
+  const all = findEntries(names, presets, null);
+  let g = sel(1, 1, 1, 2);
+  g = applyFind(g, findPlan(g, fillRun(all, find('Camera 1', all), null), 'across'));
+  const done = applyFind(g, findPlan(g, fillRun(all, find('Night', all), null), 'across'));
+  assert.deepEqual(
+    selCells(done).map(({ r, c, kind, scope, name, n }) => ({ r, c, kind, scope, name, n })),
+    [
+      { r: 1, c: 1, kind: 'preset', scope: 'me', name: 'Night', n: undefined },
+      { r: 1, c: 2, kind: 'preset', scope: 'everyone', name: 'Show open', n: undefined },
+    ],
+  );
+});
+
+test('after a click on one selected square the selection moves to the next square across', () => {
+  const g = select(createGrid({ rows: 2, cols: 3 }), 1, 3);
+  const next = afterFill(g);
+  assert.deepEqual(next.sel, { anchor: { r: 2, c: 1 }, head: { r: 2, c: 1 } });
+  const last = select(createGrid({ rows: 2, cols: 3 }), 2, 3);
+  assert.equal(afterFill(last), last);
+});
+
+test('a result outside the rights ranks below one inside them that matches as well', () => {
+  const list = findEntries(names, presets, { sources: [1] });
+  assert.deepEqual(
+    rankFind(list, 'camera').map((e) => e.label),
+    ['Camera 2', 'Camera 1'],
+  );
+});

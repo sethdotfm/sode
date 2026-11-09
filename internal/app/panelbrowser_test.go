@@ -56,12 +56,15 @@ func startSim(t *testing.T) string {
 
 // simApp is an app with user Ana (PIN 1234) and the API on, connected to the simulator through
 // the real SW-P-08 client (apiTestApp swaps in a fake router).
-func simApp(t *testing.T, router string) *App {
+func simApp(t *testing.T, router string, edit ...func(*config.Config)) *App {
 	t.Helper()
 	cfg := config.Defaults()
 	cfg.Router = router
 	cfg.API.Enabled = true
 	cfg.Users = []config.User{mkUser(t, "Ana", "1234")}
+	for _, fn := range edit {
+		fn(&cfg)
+	}
 	cfg.Normalize()
 	hist, _ := OpenHistory("")
 	sl, err := OpenSentLog(filepath.Join(t.TempDir(), "sent.jsonl"), 200_000)
