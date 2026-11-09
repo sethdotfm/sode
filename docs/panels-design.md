@@ -74,7 +74,7 @@ Proposed, not prototyped.
 - Deleting a panel forgets its devices and watches. Making, rotating or revoking its key forgets its devices, so an ended kiosk does not alert.
 - A panel client's keys share one rate limit that scales with its live devices, since each page polls every 2 s. Its streams are capped at 64 per key and not counted per address.
 - Decided: no expected-instance count, and no alert for a key used from a new place.
-- Not built here: the Watch checkbox in the editor (the editor page has no script yet; mount `watchBox` from `panelsmon.js`), Push (P17) and live update (P15).
+- Not built: the Watch checkbox in the editor (story 90; mount `watchBox` from `panelsmon.js` when wanted). It is on the panels page.
 
 ## Panel page (as built)
 
@@ -99,8 +99,8 @@ Proposed, not prototyped.
 
 - Server: `panelpush.go` (layout, checkpoints, set store) and `apipush.go` (routes). A layout is `rows`, `cols`, `cells`, `settings` and unknown fields; id, name, owner, `share`, `acts`, the API client and its Rights are never copied, and missing artwork is. `panelStore.applyLocked` writes the checkpoint before the panel, so a checkpoint that cannot be saved stops the Push, and the panel write moves `Rev` for open panels (P15).
 - Reach: the pusher must be able to change the source and every target (`panelReach`); one refused target changes nothing. Checkpoints sit in `panels/<id>.checkpoints`, at most 10 per panel, and a restore keeps what it replaces. Sets are in `panelsets/` (`everyone.yaml`, `me-<hex of user>.yaml`); an Everyone set needs a Trusted user to save and to change someone else's.
-- A group is the panels whose names differ only by a trailing number (EVS 1 to EVS 4 are "EVS"), worked out by the page (`pushGroups` in `panelpushrules.js`); the server only knows ids. `pushTargets` is the tested selection rule.
-- Web: `panelpush.js` is the modal (Push, Checkpoint sets and Restore tabs), opened by Push to panels in the panels page's detail bar. The editor has no Push control yet.
+- A group is the panels whose names differ only by a trailing number (EVS 1 to EVS 4 are "EVS"), worked out by the page (`pushGroups` in `panelpushrules.js`); the server only knows ids. Pending the owner's confirmation: this meaning of group was chosen in the build, not in the spec. `pushTargets` is the tested selection rule.
+- Web: `panelpush.js` is the modal (Push, Checkpoint sets and Restore tabs), opened by Push to panels in the panels page's detail bar. The editor toolbar has no Push control, although the Editor section lists one.
 
 ## Build notes
 
@@ -110,3 +110,12 @@ Proposed, not prototyped.
 - Status is icon first, with optional text. This is a documented exception to patchbay's "status always with text", and AGENTS.md has a line for it.
 - One animated root custom property (`@property --pulse`) drives every pulse, so cells stay in phase across re-renders.
 - The settings in the editor's sidebar are a first pass for the prototype. Several of them, such as keeping the screen awake, haptics and the networks allowed, are placeholders and may change.
+
+## Decisions where the build differs from the design
+
+- Monitoring: no expected-instance count, and no alert for a key used from a new place. Keepalive every 15 seconds, a device is missed after 45 seconds and forgotten after 24 hours.
+- Allowed networks are a CIDR list, at most 16 per panel client. A bare address is one host.
+- A setup link lasts one hour and works once.
+- Push group: panels whose names differ only by a trailing number. Pending the owner's confirmation.
+- Editor sidebar: the Panel tab has no colours or updates settings, because nothing reads them. The Updates section is a hint only, and the colours are the fixed state colours above.
+- Push has no control in the editor toolbar; it is on the panels page. The editor's Watch checkbox (story 90) is not wired.

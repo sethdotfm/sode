@@ -53,6 +53,7 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 - docs/agents/browser-checks.md: Browser checks (headless Chrome against swp08sim, `go test ./internal/app -run TestChrome`). Read before adding or changing one.
 - docs/agents/presets.md: Presets. Read before touching presets, pinning and pin order, the editor and popup, preset keys.
 - docs/agents/salvos.md: Native fire mode (#154). Read before touching fireMode native, the router's own salvos and the simulator's native-mode options.
+- docs/agents/panels.md: Panels storage, keys, the browser session key, seams, Push and live update, monitoring and gotchas. Read before touching panel files, panel API clients and keys, `web/sessionkey.js`, Push or the panel pages' tests.
 - docs/panels-design.md: Sode Panels (4x8 grid pages on `/panels`, driven over `/api/v1`). Read before touching panels, the panel editor, panel storage or panel sign-in. The prototype is only on branch `prototype/panels`, never main: `git switch prototype/panels && node prototype/panels/serve.mjs` serves variants A, B and C on :8101 to :8103 with stub data and no router. Panel status is an icon with optional text, an exception to patchbay's "status always with text". The editor prototype is `git switch prototype/panels && node prototype/panels/serve-editor.mjs` (variant F on :8116 is the chosen one). The panels page prototype is `node prototype/panels/serve-overview.mjs` (variant C on :8123). ADR 0006 covers panel API clients.
 
 ## Agent skills
