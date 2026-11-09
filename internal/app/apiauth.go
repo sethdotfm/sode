@@ -100,6 +100,10 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 		apiFail(w, http.StatusUnauthorized, "invalid_key", "this key is not valid")
 		return nil, false
 	}
+	if c, ok := cfg.FindAPIClient(k.Owner.Name); ok && k.Owner.Kind == actorClient && !networkAllowed(c.Networks, ip) {
+		refuseNetwork(w, ip) // the key is valid, so this is not a failed attempt
+		return nil, false
+	}
 	cl.Actor.Via = via
 	if !a.apiRateOK(w, k.subject(), cfg.API.RateLimit, now) {
 		return nil, false

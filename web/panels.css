@@ -484,3 +484,44 @@
 .sode-ed__sq.is-replaced {
   text-decoration: underline dotted;
 }
+
+/* Link with key tab of the Share modal. The QR is the one keyview.js builds; lock.css is not on this page. */
+.sode-ov__keytab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode-ov__keyrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-ov__keyconfirm {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4);
+}
+.sode-ov__keylink,
+.sode-ov__keynets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-ov__keylink .sode__secret-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-ov__keylink .sode__secret-key {
+  flex: 1 1 16rem;
+  font-family: var(--pb-font-mono);
+  min-width: 0;
+}
+.sode-ov__keylink .sode__qr {
+  align-self: flex-start;
+  height: auto;
+  width: 12rem;
+}

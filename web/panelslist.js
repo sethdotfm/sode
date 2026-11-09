@@ -4,6 +4,7 @@ import { $, el, icon, on } from './core.js';
 import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, shareLabel, launchHref, editHref } from './panelsrules.js';
 import { openShare } from './panelshare.js';
+import './panelkeytab.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
