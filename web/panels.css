@@ -112,7 +112,11 @@
   color: var(--pb-text-strong);
 }
 .sode-panel__cell[data-s="pending"] {
-  background-color: color-mix(in oklab, var(--pb-status-ok) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-current-idle));
+  background-color: color-mix(
+    in oklab,
+    var(--pb-status-ok) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
+    var(--pb-current-idle)
+  );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-ok);
   color: var(--pb-text-strong);
 }
@@ -143,7 +147,11 @@
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
 }
 .sode-panel__take--armed {
-  background-color: color-mix(in oklab, var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-surface-control));
+  background-color: color-mix(
+    in oklab,
+    var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
+    var(--pb-surface-control)
+  );
   box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-commit);
   color: var(--pb-text-strong);
 }
