@@ -306,6 +306,51 @@ func (s *panelStore) replace(p Panel) (bool, error) {
 	return true, nil
 }
 
+// followUsers applies a Users save: renames maps a lowercased old name to the new one (owner and
+// sharing), removed holds lowercased names that leave sharing. An owner who is removed stays on
+// their panels so a Trusted user can still reach them. Each panel is written on its own; the
+// count is of panels changed. A failed write skips that panel and returns the first error.
+func (s *panelStore) followUsers(renames map[string]string, removed map[string]bool) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	var first error
+	for id, p := range s.by {
+		q := p
+		changed := false
+		if to, ok := renames[strings.ToLower(p.Owner)]; ok && to != p.Owner {
+			q.Owner, changed = to, true
+		}
+		if len(p.Share.Users) > 0 {
+			users := make([]string, 0, len(p.Share.Users))
+			for _, u := range p.Share.Users {
+				k := strings.ToLower(u)
+				if removed[k] {
+					changed = true
+					continue
+				}
+				if to, ok := renames[k]; ok && to != u {
+					u, changed = to, true
+				}
+				users = append(users, u)
+			}
+			q.Share.Users = users
+		}
+		if !changed {
+			continue
+		}
+		if err := s.writeLocked(q); err != nil {
+			if first == nil {
+				first = err
+			}
+			continue
+		}
+		s.by[id] = q
+		n++
+	}
+	return n, first
+}
+
 func (s *panelStore) delete(id string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

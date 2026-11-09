@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"log"
 	"slices"
 	"strings"
 	"sync"
@@ -505,8 +506,41 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	})
 	if err == nil {
 		a.auditRights(c, before, a.r().cfg)
+		a.panelsFollowUsers(before.Users, req.Users)
 	}
 	return err
+}
+
+// panelsFollowUsers keeps panel owner and sharing in step with a saved Users list. Rows keep
+// a user by Was (or Name), like profiles above.
+func (a *App) panelsFollowUsers(before []config.User, rows []userEdit) {
+	renames := map[string]string{}
+	kept := map[string]bool{}
+	for _, e := range rows {
+		name := strings.TrimSpace(e.Name)
+		pk := strings.ToLower(strings.TrimSpace(cmp.Or(e.Was, e.Name)))
+		kept[pk] = true
+		if e.Was != "" && strings.TrimSpace(e.Was) != name {
+			renames[pk] = name
+		}
+	}
+	removed := map[string]bool{}
+	for _, u := range before {
+		if k := strings.ToLower(u.Name); !kept[k] {
+			removed[k] = true
+		}
+	}
+	if len(renames) == 0 && len(removed) == 0 {
+		return
+	}
+	n, err := a.panels.followUsers(renames, removed)
+	if err != nil {
+		log.Printf("panels: user change reached %d panels, then: %v", n, err)
+		return
+	}
+	if n > 0 {
+		log.Printf("panels: user change updated %d panels", n)
+	}
 }
 
 type userResult struct {
