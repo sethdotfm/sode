@@ -541,6 +541,87 @@
   height: auto;
   width: 12rem;
 }
+/* The editor's sidebar (editorside.js). Artwork in a square sits dimmed behind its caption, as on the panel page. */
+.sode-ed__body {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: minmax(0, 1fr) 22rem;
+}
+@media (max-width: 64rem) {
+  .sode-ed__body {
+    grid-template-columns: 1fr;
+  }
+}
+.sode-ed__main {
+  min-width: 0;
+}
+.sode-ed__sq.has-cell {
+  font-size: calc(var(--pb-text-sm) * var(--cell-fs, 1));
+  isolation: isolate;
+  position: relative;
+}
+.sode-ed__side {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+  padding: var(--pb-space-4);
+}
+.sode-side__tab,
+.sode-side__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode-side__sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-side__sec + .sode-side__sec {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  padding-top: var(--pb-space-4);
+}
+.sode-side__sec > .pb-btn {
+  align-self: flex-start;
+}
+.sode-side__h {
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+.sode-side__kind,
+.sode-side__rights {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin: 0;
+}
+.sode-side__row,
+.sode-side__checks,
+.sode-side__icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+.sode-side__checks {
+  flex-direction: column;
+}
+.sode-side__art {
+  align-items: center;
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  height: 5rem;
+  isolation: isolate;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.sode-side__art-text {
+  font-size: var(--pb-text-sm);
+}
 .sode-find__orders {
   display: flex;
   gap: var(--pb-space-2);

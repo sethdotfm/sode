@@ -25,6 +25,7 @@ import {
 } from './gridmodel.js';
 import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices } from './editorrules.js';
 import { createEditorGrid } from './editorview.js';
+import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
 
 const say = (id, text) => {
@@ -47,11 +48,16 @@ export async function runEditor() {
   const menuSections = []; // (grid) => items: where Find and later actions plug in
   const keyHooks = []; // (event) => true when a grid key was handled (Find takes typing and Enter)
   const changeWatchers = [];
+  const fieldWatchers = [];
+  let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork
+  let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each once edited
   const paintWatchers = []; // (grid, selection box) after every repaint, for things that sit over the squares
   const readOnly = () => !!loaded && !loaded.canEdit;
+  const fields = () => ({ settings: edits.settings ?? loaded?.settings ?? {}, acts: edits.acts ?? loaded?.acts ?? 'session', clientRights: edits.clientRights });
+  const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
 
   const nameBox = $('ed-name');
-  const dirty = () => isDirty(loaded, nameBox.value, g);
+  const dirty = () => isDirty(loaded, nameBox.value, g, edits);
 
   const setGrid = (next) => {
     if (next === g) return;
@@ -115,7 +121,7 @@ export async function runEditor() {
 
   function refresh() {
     const ro = readOnly();
-    grid.paint(g, names, { readOnly: ro });
+    grid.paint(g, names, { readOnly: ro, art });
     const box = ro ? null : grid.selectionBox();
     menu.show(box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
@@ -191,6 +197,8 @@ export async function runEditor() {
 
   function show(panel) {
     loaded = panel;
+    edits = {};
+    art = panel ? createArt(sessionFetch, panel.id) : null;
     g = createGrid(panel || newPanel());
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
@@ -199,6 +207,7 @@ export async function runEditor() {
     document.title = panel ? `${panel.name} (editor)` : 'Sode Panel Editor';
     refresh();
     for (const fn of changeWatchers) fn(g);
+    fieldsChanged();
   }
 
   async function openPanel(id, push) {
@@ -234,7 +243,7 @@ export async function runEditor() {
   async function save() {
     $('ed-save').disabled = true;
     say('ed-status', 'Saving.');
-    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, g));
+    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, g, edits));
     const res = await sessionFetch(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
       method: loaded ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -246,11 +255,13 @@ export async function runEditor() {
     }
     const made = !loaded;
     loaded = await res.json();
+    edits = {};
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
     nameBox.value = loaded.name;
     say('ed-status', 'Saved.');
     await loadList().catch(() => {});
     refresh();
+    fieldsChanged();
   }
   $('ed-save').addEventListener('click', save);
 
@@ -302,6 +313,22 @@ export async function runEditor() {
     addMenuSection: (fn) => menuSections.push(fn),
     addKeyHook: (fn) => keyHooks.push(fn),
     onChange: (fn) => changeWatchers.push(fn),
+    // The sidebar's panel fields. onFields runs when the panel loads, saves or a field changes.
+    fields,
+    art: () => art,
+    setFields(patch) {
+      edits = { ...edits, ...patch };
+      refresh();
+      fieldsChanged();
+    },
+    // A panel stored elsewhere (the Share modal): the grid and unsaved fields stay as they are.
+    replaceLoaded(panel) {
+      loaded = panel;
+      loadList().catch(() => {});
+      refresh();
+      fieldsChanged();
+    },
+    onFields: (fn) => fieldWatchers.push(fn),
     onPaint: (fn) => paintWatchers.push(fn),
     refresh,
     status: (text) => say('ed-status', text),

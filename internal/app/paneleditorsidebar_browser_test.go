@@ -1,0 +1,67 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/sethdotfm/sode/internal/config"
+	"github.com/sethdotfm/sode/web"
+)
+
+// The editor's sidebar: it opens on Panel, a selected square switches it to Cell, and what is set in the
+// three tabs is what the panel stores.
+func TestChromeEditorSidebar(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(srv.Close)
+
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, `{"name":"Side panel","rows":2,"cols":2,"cells":[{"r":1,"c":1,"rs":1,"cs":1,"kind":"take"}]}`)
+	b.open(srv.URL + "/panels/editor?panel=" + id)
+	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	for _, d := range "1234" {
+		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
+	}
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
+	b.waitFor("lock gone", `!document.documentElement.dataset.sodeLock`)
+	b.waitFor("panel loaded and the sidebar built", `document.getElementById('ed-name').value === 'Side panel' && !!document.querySelector('#ed-side .pb-tab')`)
+
+	tab := `document.querySelector('#ed-side .pb-tab[aria-selected="true"]')?.textContent`
+	b.waitFor("opens on Panel", tab+` === 'Panel'`)
+
+	b.eval(`document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').getBoundingClientRect().x + 4, clientY: document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').getBoundingClientRect().y + 4 }))`)
+	b.waitFor("a selected square switches to Cell", tab+` === 'Cell'`)
+	b.eval(`const c = document.getElementById('ed-cell-caption'); c.value = 'Go live'; c.dispatchEvent(new Event('input', { bubbles: true })); true`)
+	b.waitFor("the caption shows in the grid", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-ed__text')?.textContent === 'Go live'`)
+	b.eval(`const s = document.getElementById('ed-cell-size'); s.value = '150'; s.dispatchEvent(new Event('input', { bubbles: true })); true`)
+
+	b.eval(`document.getElementById('tab-ed-panel').click(); document.getElementById('ed-set-titleBar').click(); true`)
+	b.eval(`const m = document.getElementById('ed-set-guard'); m.value = 'hold'; m.dispatchEvent(new Event('change', { bubbles: true })); true`)
+	b.eval(`document.getElementById('tab-ed-access').click(); true`)
+	b.waitFor("Access says who it acts as", `document.getElementById('panel-ed-access').textContent.includes('Whoever opens it') && !document.getElementById('ed-acts').disabled`)
+	b.eval(`const a = document.getElementById('ed-acts'); a.value = 'api'; a.dispatchEvent(new Event('change', { bubbles: true })); true`)
+	b.waitFor("the client is described", `document.getElementById('panel-ed-access').textContent.includes('Saving the panel makes its client')`)
+	b.shot("access")
+
+	b.eval(`document.getElementById('ed-save').click(); true`)
+	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)
+	body := rec.Body.String()
+	for _, want := range []string{`"caption":"Go live"`, `"fontSize":150`, `"titleBar":false`, `"guard":"hold"`, `"acts":"api"`, `"client":"Panel ` + id + `"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the saved panel lacks %s: %s", want, body)
+		}
+	}
+	b.waitFor("Access names the client", `document.getElementById('panel-ed-access').textContent.includes('Client Panel `+id+`')`)
+	b.check()
+}
