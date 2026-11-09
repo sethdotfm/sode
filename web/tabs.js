@@ -1,5 +1,5 @@
 // A tab strip on patchbay's pb-tabs, with arrow, Home and End keys (stepTab).
-// items: [{id, text, panel}]. The panels are the caller's nodes; this shows one and hides the rest.
+// items: [{id, text, panel, muted?}]. The panels are the caller's nodes; this shows one and hides the rest.
 
 import { el } from './core.js';
 
@@ -35,6 +35,8 @@ export function makeTabs(items, onChange) {
     const t = el('button', 'pb-tab', it.text);
     t.type = 'button';
     t.id = `tab-${it.id}`;
+    // Greyed but still selectable, so its page can say why it does nothing (panels.css).
+    if (it.muted) t.setAttribute('aria-disabled', 'true');
     t.setAttribute('role', 'tab');
     t.setAttribute('aria-controls', `panel-${it.id}`);
     it.panel.id = `panel-${it.id}`;

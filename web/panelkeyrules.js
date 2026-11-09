@@ -1,16 +1,31 @@
 // Pure rules for a panel's Link with key tab and for a panel page that opens with a key or a setup link.
 // No DOM, no clock, no network, so Node tests them. Server side: internal/app/panelkey.go, panelsetup.go, panelnet.go.
 import { fullSetup } from './panellink.js';
+import { whenText } from './keyrules.js';
 
 export const MODES = [
-  ['key', 'Standing link'],
+  ['key', 'Named instance link'],
   ['setup', 'One-time setup link'],
 ];
 
 export const MODE_HINT = {
-  key: 'The key is in the link, so anyone who has it can use this panel. Rotate or Revoke ends it.',
-  setup: 'The link works once, for one hour. The page then keeps its own key in that browser and the link is spent.',
+  key: 'Makes a key for this instance. The link shows once, so copy it when it appears. Anyone with the link can use the panel as this instance. To get a link again, rotate the instance.',
+  setup: 'Makes a link that works once, for one hour. The device opens it and keeps its own key, so the link cannot be reused. This instance\'s old key ends now.',
 };
+
+// The instance name is required and becomes the device name (the page's ?instance=), so it has the monitor's limits.
+export const INSTANCE_MAX = 40;
+export const INSTANCE_HOLD = 'Name the instance, such as Lobby tablet.';
+
+// What a typed name means against the instances the panel already holds (names ignore case). max is the server's cap.
+export function instanceCheck(text, keys, max) {
+  const name = String(text || '').trim();
+  const held = keys.find((k) => k.name.toLowerCase() === name.toLowerCase()) || null;
+  if (!name) return { name, held, error: INSTANCE_HOLD };
+  if (name.length > INSTANCE_MAX) return { name, held, error: `Use at most ${INSTANCE_MAX} characters.` };
+  if (!held && keys.length >= max) return { name, held, error: `A panel has at most ${max} instances. Revoke one first.` };
+  return { name, held, error: '' };
+}
 
 // The server answers a link relative to Sode's root. Resolving against the page's base URL keeps it right at
 // /panels and /panels/ and behind a path prefix, since both pages set <base href="../">.
@@ -19,20 +34,41 @@ export const absoluteLink = (link, base) => new URL(link, base).href;
 // The secret in the fragment, hidden until the owner asks to see it.
 export const maskLink = (href) => href.replace(/(#(?:key|setup)=)[^&]+/, '$1••••••••');
 
-// What the make button says and whether it needs a Confirm first. Making a link replaces the panel's key, so it
-// asks whenever a key exists.
-export function makeAction(mode, hasKey) {
-  if (mode === 'setup') return { label: 'Make setup link', confirm: hasKey, verb: 'Replace the key' };
-  return hasKey ? { label: 'Rotate key', confirm: true, verb: 'Rotate' } : { label: 'Make link', confirm: false, verb: 'Make' };
+// What the make button says and whether it needs a Confirm first. Making a link for a name that holds a key or a
+// pending link ends that instance's, so it asks then.
+export function makeAction(mode, held) {
+  if (mode === 'setup') return { label: held ? 'Replace with setup link' : 'Make setup link', confirm: !!held, verb: 'Replace the key' };
+  return held ? { label: 'Rotate this instance', confirm: true, verb: 'Rotate' } : { label: 'Make link', confirm: false, verb: 'Make' };
 }
 
 export const CONFIRM_TEXT = {
-  rotate: 'Rotating ends the current key. Every open instance of this panel signs out and every old link stops working.',
-  setup: 'A setup link replaces the current key. Every open instance of this panel signs out and every old link stops working.',
-  revoke: 'Revoking ends the key. Every open instance of this panel signs out, and the panel stays without a key until you make one.',
+  rotate: "Rotating ends this instance's key. That screen signs out and its old link stops working. Other instances are not affected.",
+  setup: "A setup link replaces this instance's key. That screen signs out and its old link stops working. Other instances are not affected.",
+  revoke: 'Revoking ends this instance. That screen signs out and its link stops working. Other instances are not affected.',
 };
 
 export const confirmKind = (mode, which) => (which === 'revoke' ? 'revoke' : mode === 'setup' ? 'setup' : 'rotate');
+
+function whenUntil(iso, now) {
+  const m = Math.max(0, Math.round((Date.parse(iso) - now) / 60000));
+  return m < 1 ? 'in under a minute' : `in ${m} minute${m === 1 ? '' : 's'}`;
+}
+
+// One row of the instance list. state drives the dot and its word: a status always has text.
+export function keyRow(k, now) {
+  const state = k.setup ? { kind: 'idle', text: 'Setup link waiting' } : k.online ? { kind: 'ok', text: 'Online' } : { kind: 'idle', text: 'Offline' };
+  const used = k.setup ? `Expires ${whenUntil(k.expires, now)}` : `Last used ${whenText(k.lastUsed, now, 'never')}`;
+  return { id: k.id, name: k.name, state, created: `Made ${whenText(k.created, now, 'just now')}`, used };
+}
+
+// The Link with key tab on a panel that acts as the signed-in user: no key exists, and a link opened in another
+// tab asks for a sign-in. Said plainly, and the key actions are not offered.
+export const SESSION_WARNING =
+  'This panel acts as the signed-in user, so it has no key. A link to it asks for a sign-in in any tab or on any device that is not already signed in to Sode.';
+export const SESSION_NEXT = 'For a link that opens without a sign-in, set Acts as to its own API client on the Access tab. That saves the panel at once.';
+
+// The Share modal's first tab: the one that fits how the panel acts.
+export const firstShareTab = (panel) => (panel.acts === 'api' ? 'key' : 'people');
 
 // One address or CIDR per line or comma. The server validates and canonicalizes.
 export const parseNetworks = (text) =>

@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  MODES,
+  INSTANCE_MAX,
+  INSTANCE_HOLD,
+  SESSION_WARNING,
+  instanceCheck,
+  keyRow,
+  firstShareTab,
   absoluteLink,
   maskLink,
   makeAction,
@@ -30,15 +37,55 @@ test('the mask hides the secret and keeps the rest', () => {
   assert.ok(maskLink('http://h/panels/p-1#setup=sode_setup_abc&kiosk=1').endsWith('&kiosk=1'));
 });
 
-test('making a link asks first only when a key would end', () => {
-  assert.deepEqual(makeAction('key', false), { label: 'Make link', confirm: false, verb: 'Make' });
-  assert.equal(makeAction('key', true).confirm, true);
-  assert.equal(makeAction('key', true).label, 'Rotate key');
-  assert.equal(makeAction('setup', false).confirm, false);
-  assert.equal(makeAction('setup', true).confirm, true);
+test('making a link asks first only when an instance would end', () => {
+  assert.deepEqual(makeAction('key', null), { label: 'Make link', confirm: false, verb: 'Make' });
+  assert.equal(makeAction('key', { name: 'Lobby' }).confirm, true);
+  assert.equal(makeAction('key', { name: 'Lobby' }).label, 'Rotate this instance');
+  assert.equal(makeAction('setup', null).confirm, false);
+  assert.equal(makeAction('setup', { name: 'Lobby' }).confirm, true);
   assert.equal(confirmKind('key', 'make'), 'rotate');
   assert.equal(confirmKind('setup', 'make'), 'setup');
   assert.equal(confirmKind('setup', 'revoke'), 'revoke');
+});
+
+test('the two kinds of link say what they are', () => {
+  assert.deepEqual(
+    MODES.map(([, text]) => text),
+    ['Named instance link', 'One-time setup link'],
+  );
+  assert.ok(!JSON.stringify(MODES).includes('Standing'));
+});
+
+test('an instance name is required, unique ignoring case, and counts against the cap', () => {
+  const keys = [{ name: 'Lobby' }, { name: 'Studio' }];
+  assert.equal(instanceCheck('  ', keys, 20).error, INSTANCE_HOLD);
+  assert.equal(instanceCheck('', keys, 20).name, '');
+  assert.equal(instanceCheck(' lobby ', keys, 20).held.name, 'Lobby');
+  assert.equal(instanceCheck('lobby', keys, 20).error, '');
+  assert.equal(instanceCheck('Gym', keys, 20).held, null);
+  assert.ok(instanceCheck('x'.repeat(INSTANCE_MAX + 1), keys, 20).error.includes('40'));
+  assert.ok(instanceCheck('Gym', keys, 2).error.includes('at most 2'));
+  assert.equal(instanceCheck('lobby', keys, 2).error, '', 'rotating a held name is allowed at the cap');
+});
+
+test('a row says online or offline in words, and a pending setup link says when it ends', () => {
+  const now = Date.parse('2026-11-08T12:00:00Z');
+  const k = { id: 'a', name: 'Lobby', created: '2026-11-08T11:00:00Z', lastUsed: '2026-11-08T11:55:00Z', online: true };
+  assert.deepEqual(keyRow(k, now).state, { kind: 'ok', text: 'Online' });
+  assert.equal(keyRow(k, now).used, 'Last used 5 minutes ago');
+  assert.equal(keyRow(k, now).created, 'Made 1 hour ago');
+  assert.deepEqual(keyRow({ ...k, online: false, lastUsed: '0001-01-01T00:00:00Z' }, now).state, { kind: 'idle', text: 'Offline' });
+  assert.equal(keyRow({ ...k, online: false, lastUsed: '0001-01-01T00:00:00Z' }, now).used, 'Last used never');
+  const s = keyRow({ ...k, setup: true, expires: '2026-11-08T12:40:00Z' }, now);
+  assert.deepEqual(s.state, { kind: 'idle', text: 'Setup link waiting' });
+  assert.equal(s.used, 'Expires in 40 minutes');
+});
+
+test('the Share modal opens on the tab that fits how the panel acts', () => {
+  assert.equal(firstShareTab({ acts: 'api' }), 'key');
+  assert.equal(firstShareTab({ acts: 'session' }), 'people');
+  assert.equal(firstShareTab({}), 'people');
+  assert.ok(SESSION_WARNING.includes('sign-in'));
 });
 
 test('networks are split from lines and commas', () => {

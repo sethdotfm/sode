@@ -75,7 +75,6 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		b.waitFor("Share button", `!!document.querySelector('[data-act="share"]')`)
 		b.eval(`document.querySelector('[data-act="share"]').click()`)
 		b.waitFor("Link with key tab", `!!document.querySelector('.sode-ov__share #tab-key')`)
-		b.eval(`document.querySelector('.sode-ov__share #tab-key').click()`)
 	}
 	closeModal := func() {
 		b.eval(`document.querySelector('.sode-ov__share .pb-modal__footer .pb-btn--outline').click()`)
@@ -94,43 +93,77 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	}
 	input := `document.querySelector('.sode-ov__keylink input.pb-input')`
 
+	setName := func(name string) {
+		b.eval(`(() => { const n = document.getElementById('key-instance'); n.value = ` + strconv.Quote(name) + `; n.dispatchEvent(new Event('input', {bubbles: true})); })()`)
+	}
+	keyOf := func() string {
+		b.eval(`document.querySelector('.sode-ov__keylink .pb-check__input').click()`)
+		b.waitFor("full link and QR", input+`.value.startsWith(location.origin + '/panels/`+id+`?instance=') && !`+input+`.value.includes('sode_') && !!document.querySelector('.sode-ov__keylink .sode__qr')`)
+		link, _ := b.eval(input + `.value`).(string)
+		return keyPrefix + strings.TrimPrefix(link[strings.Index(link, "#key="):], "#key=")
+	}
+	status := func(secret string) int { return apiSend(a, "GET", "/api/v1/tally", secret, "").Code }
+
+	// A session panel opens on People, and its Link with key tab is greyed but readable, with no key action.
 	openTab(session)
-	b.waitFor("a session panel says it has no key", strings.ReplaceAll(tabText, "textContent", "textContent.includes('has no key')"))
+	b.waitFor("People is the first tab of a session panel", `document.querySelector('.sode-ov__share #tab-people').getAttribute('aria-selected') === 'true'`)
+	b.waitFor("the key tab is greyed", `document.querySelector('.sode-ov__share #tab-key').getAttribute('aria-disabled') === 'true'`)
+	b.eval(`document.querySelector('.sode-ov__share #tab-key').click()`)
+	b.waitFor("a session panel says it has no key", tabText+`.includes('has no key') && `+tabText+`.includes('asks for a sign-in')`)
+	b.waitFor("no key action is offered", `!document.querySelector('.sode-ov__share #panel-key button') || ![...document.querySelectorAll('.sode-ov__share #panel-key button')].some(x => /Make|Rotate|Revoke/.test(x.textContent))`)
 	closeModal()
 
+	// An API panel opens on Link with key. A link needs a name.
 	openTab(id)
-	b.waitFor("no key yet", tabText+`.includes('This panel has no key.')`)
+	b.waitFor("Link with key is the first tab of a client panel", `document.querySelector('.sode-ov__share #tab-key').getAttribute('aria-selected') === 'true'`)
+	b.waitFor("no instances yet", tabText+`.includes('This panel has no instances.')`)
+	b.waitFor("the kinds are named for what they do", tabText+`.includes('Named instance link') && `+tabText+`.includes('One-time setup link') && !`+tabText+`.includes('Standing')`)
+	b.waitFor("Make link waits for a name", `[...document.querySelectorAll('.sode-ov__share #panel-key button')].find(x => x.textContent.trim() === 'Make link').disabled`)
+	setName("Lobby")
 	click("Make link")
-	b.waitFor("masked link", input+`?.value.includes('#key=') && !`+input+`.value.includes('sode_')`)
+	b.waitFor("masked link", input+`?.value.includes('?instance=Lobby#key=') && !`+input+`.value.includes('sode_')`)
 	b.waitFor("no QR while masked", `!document.querySelector('.sode-ov__keylink .sode__qr')`)
-	b.eval(`document.querySelector('.sode-ov__keylink .pb-check__input').click()`)
-	b.waitFor("full link and QR", input+`.value.startsWith(location.origin + '/panels/`+id+`#key=') && !`+input+`.value.includes('sode_') && !!document.querySelector('.sode-ov__keylink .sode__qr')`)
-	link, _ := b.eval(input + `.value`).(string)
+	lobby := keyOf()
 	b.shot("share-key-link")
-	old := keyPrefix + strings.TrimPrefix(link[strings.Index(link, "#key="):], "#key=")
-	if rec := apiSend(a, "GET", "/api/v1/tally", old, ""); rec.Code != 200 {
-		t.Fatalf("the made key: %d", rec.Code)
+	if status(lobby) != 200 {
+		t.Fatal("the made key does not work")
 	}
+	b.waitFor("the list names the instance", `!!document.querySelector('.sode-ov__keyitem') && document.querySelector('.sode-ov__keyitem').textContent.includes('Lobby') && document.querySelector('.sode-ov__keyitem').textContent.includes('Offline')`)
 
-	click("Rotate key")
+	// A second instance has its own key, and rotating or revoking one leaves the other.
+	setName("Studio")
+	click("Make link")
+	b.waitFor("second masked link", input+`?.value.includes('?instance=Studio#key=')`)
+	studio := keyOf()
+	if status(lobby) != 200 || status(studio) != 200 {
+		t.Fatal("two instances do not both hold a key")
+	}
+	setName("lobby")
+	b.waitFor("a held name rotates", `!![...document.querySelectorAll('.sode-ov__share #panel-key button')].find(x => x.textContent.trim() === 'Rotate this instance')`)
+	b.eval(`document.querySelector('.sode-ov__share [aria-label="Rotate Lobby"]').click()`)
 	b.waitFor("Confirm shown", `!!document.querySelector('.sode-ov__keyconfirm:not([hidden]) kbd')`)
-	if rec := apiSend(a, "GET", "/api/v1/tally", old, ""); rec.Code != 200 {
+	if status(lobby) != 200 {
 		t.Fatal("rotating began before the Confirm")
 	}
 	confirm(false)
-	b.waitFor("rotated", tabText+`.includes('Rotated')`)
-	wantErr(t, apiSend(a, "GET", "/api/v1/tally", old, ""), 401, "invalid_key")
+	b.waitFor("rotated", tabText+`.includes('Lobby rotated')`)
+	if status(lobby) != 401 || status(studio) != 200 {
+		t.Fatalf("rotate Lobby: Lobby %d, Studio %d", status(lobby), status(studio))
+	}
 
-	click("Revoke")
+	b.eval(`document.querySelector('.sode-ov__share [aria-label="Revoke Studio"]').click()`)
 	confirm(true)
-	b.waitFor("revoked", tabText+`.includes('Revoked')`)
-	if a.keys.holds(keyOwner{Kind: actorClient, Name: panelClientName(id)}) {
-		t.Fatal("a key is left after Revoke")
+	b.waitFor("revoked", tabText+`.includes('Revoked Studio')`)
+	if status(studio) != 401 {
+		t.Fatal("Studio's key works after Revoke")
+	}
+	if n := len(keyList(t, a, ana, id)); n != 1 {
+		t.Fatalf("%d instances left, want 1", n)
 	}
 
 	b.eval(`(() => { const n = document.querySelector('.sode-ov__share #key-networks'); n.value = '192.0.2.0/24'; n.dispatchEvent(new Event('input', {bubbles: true})); })()`)
 	click("Save networks")
-	b.waitFor("networks saved", tabText+`.includes('works only from these networks')`)
+	b.waitFor("networks saved", tabText+`.includes('only from these networks')`)
 	if c, _ := clientOf(t, a, panelClientName(id)); len(c.Networks) != 1 || c.Networks[0] != "192.0.2.0/24" {
 		t.Fatalf("networks %v", c.Networks)
 	}
