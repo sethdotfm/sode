@@ -288,6 +288,22 @@ export function extendPlan(g, toRect) {
   return { slots, to, first: slots[0]?.n ?? -1, last: slots.at(-1)?.n ?? -1, count: slots.length };
 }
 
+// The rectangle a grip drag asks extendPlan for: the pointer's square decides which one side grows, the side it
+// is furthest past (a tie goes across). Null while the pointer is inside the selection.
+export function dragRect(g, r, c) {
+  const q = rectOf(g);
+  if (!q) return null;
+  const down = r > q.r2 ? r - q.r2 : 0;
+  const up = r < q.r1 ? q.r1 - r : 0;
+  const right = c > q.c2 ? c - q.c2 : 0;
+  const left = c < q.c1 ? q.c1 - c : 0;
+  const v = Math.max(down, up);
+  const h = Math.max(right, left);
+  if (!v && !h) return null;
+  if (h >= v) return right >= left ? { ...q, c2: c } : { ...q, c1: c };
+  return down >= up ? { ...q, r2: r } : { ...q, r1: r };
+}
+
 // The extension is placed per line, and the selection grows with it.
 export function applyExtend(g, plan) {
   if (!plan || !plan.slots.length) return g;
@@ -303,6 +319,8 @@ export function applyExtend(g, plan) {
 
 // A cell the live panel leaves out only for want of a Source or Destination.
 export const isUnassigned = (c) => !cellsIn({ rows: c.r + c.rs, cols: c.c + c.cs, cells: [c] }).length;
+// What a live panel shows of this grid: every cell it can use, so unassigned ones are left out.
+export const liveCells = (g) => cellsIn(g);
 export const unassigned = (g) => g.cells.filter(isUnassigned).sort(reading);
 export const countUnassigned = (g) => unassigned(g).length;
 

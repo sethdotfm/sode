@@ -582,3 +582,29 @@
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
 }
+.sode-find__orders {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-ed__grid {
+  position: relative;
+}
+.sode-ed__grip {
+  background: var(--pb-accent);
+  border: var(--pb-border-w) solid var(--pb-surface-raised);
+  cursor: crosshair;
+  height: 1rem;
+  position: absolute;
+  transform: translate(-60%, -60%);
+  width: 1rem;
+}
+.sode-ed__tip {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge-hard);
+  color: var(--pb-text);
+  font-size: var(--pb-text-sm);
+  padding: var(--pb-space-2) var(--pb-space-3);
+  pointer-events: none;
+  position: absolute;
+  white-space: nowrap;
+}

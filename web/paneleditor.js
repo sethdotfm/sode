@@ -51,6 +51,7 @@ export async function runEditor() {
   const fieldWatchers = [];
   let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork
   let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each once edited
+  const paintWatchers = []; // (grid, selection box) after every repaint, for things that sit over the squares
   const readOnly = () => !!loaded && !loaded.canEdit;
   const fields = () => ({ settings: edits.settings ?? loaded?.settings ?? {}, acts: edits.acts ?? loaded?.acts ?? 'session', clientRights: edits.clientRights });
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
@@ -121,15 +122,16 @@ export async function runEditor() {
   function refresh() {
     const ro = readOnly();
     grid.paint(g, names, { readOnly: ro, art });
-    menu.show(ro ? null : grid.selectionBox(), menuItems());
+    const box = ro ? null : grid.selectionBox();
+    menu.show(box, menuItems());
+    for (const fn of paintWatchers) fn(g, box);
     $('ed-rows').value = String(g.rows);
     $('ed-cols').value = String(g.cols);
     for (const id of ['ed-rows', 'ed-cols', 'ed-rows-dec', 'ed-rows-inc', 'ed-cols-dec', 'ed-cols-inc', 'ed-name']) $(id).disabled = ro;
     const todo = countUnassigned(g);
     $('ed-todo').textContent = todo ? `${todo} unassigned` : 'All assigned';
     $('ed-next').disabled = ro || !todo;
-    $('ed-save').disabled = ro || !dirty();
-    $('ed-banner').hidden = !ro;
+    $('ed-save').disabled = ro || !dirty();    $('ed-banner').hidden = !ro;
     say('ed-state', ro ? '' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '');
     const open = $('ed-open');
     open.hidden = !loaded;
@@ -263,6 +265,13 @@ export async function runEditor() {
   }
   $('ed-save').addEventListener('click', save);
 
+  // The live panel is the saved panel, and it leaves unassigned cells out (panelrules.js cellsIn), so unsaved
+  // edits are saved first. Open panels follow a save by themselves.
+  $('ed-live').addEventListener('click', async () => {
+    if (!readOnly() && dirty()) await save();
+    if (loaded && !dirty()) window.open(`panels/${loaded.id}`, '_blank');
+  });
+
   $('ed-copy').addEventListener('click', async () => {
     const res = await sessionFetch(`api/v1/panels/${loaded.id}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(
       () => null,
@@ -320,6 +329,7 @@ export async function runEditor() {
       fieldsChanged();
     },
     onFields: (fn) => fieldWatchers.push(fn),
+    onPaint: (fn) => paintWatchers.push(fn),
     refresh,
     status: (text) => say('ed-status', text),
   };

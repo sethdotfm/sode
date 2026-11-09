@@ -8,6 +8,7 @@ import { panelIdFrom } from './panelrules.js';
 import { runEditor } from './paneleditor.js';
 import { initFind } from './editorfind.js';
 import { initSidebar } from './editorside.js';
+import { initGrip } from './editorgrip.js';
 
 // 4x8 maps one to one onto a hardware key deck (docs/panels-design.md).
 export const DEFAULT_GRID = { panelRows: 4, panelCols: 8 };
@@ -21,9 +22,10 @@ on('brand', ({ text }) => {
 });
 
 if (id) runPanel(id);
-else if (document.getElementById('ed-grid')) runEditor().then((ed) => {
-    initFind(ed);
-    initSidebar(ed);
+else if (document.getElementById('ed-grid')) runEditor().then((editor) => {
+    initFind(editor);
+    initGrip(editor);
+    initSidebar(editor);
   });
 else runPanelsList();
 
