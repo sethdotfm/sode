@@ -619,9 +619,14 @@ paths:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
     get:
       operationId: getPanel
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
       tags: [panels]
       summary: Read a panel
-      description: Scope `panels`. A panel the caller may not use is 404 `not_found`, as if it did not exist.
+      description: |
+        Scope `panels`. `{id}` may also be the panel's short name (`slug`) on this route and on the
+        setup route only; every other route takes the id. A panel the caller may not use is 404
+        `not_found`, as if it did not exist, and an unknown short name answers the same way.
       responses:
         "200":
           description: The panel
@@ -979,7 +984,7 @@ paths:
                   key: { type: string, description: The secret, shown once. Not in a setup answer }
                   id: { type: string, description: The key's id in the key list. Not in a setup answer }
                   rotated: { type: boolean, description: True when an older key was ended }
-                  link: { type: string, description: "`panels/<id>#key=<secret>`, or with `setup` `panels/<id>#setup=<token>`, relative to Sode's root" }
+                  link: { type: string, description: "`panels/<id>#key=<secret>`, or with `setup` `panels/<id>#setup=<token>`, relative to Sode's root. Sode's own pages build a shorter link: the short name when there is one, and the secret without its `sode_` or `sode_setup_` prefix" }
                   setup: { type: string, description: The one-time token, shown once. Only in a setup answer }
                   expires: { type: string, format: date-time, description: When the setup link stops working. Only in a setup answer }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -1006,7 +1011,7 @@ paths:
         default: { $ref: "#/components/responses/Error" }
   /panels/{id}/setup:
     parameters:
-      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
     post:
       operationId: exchangePanelSetup
       tags: [panels]
@@ -1490,6 +1495,15 @@ components:
       additionalProperties: true
       properties:
         name: { type: string, maxLength: 60 }
+        slug:
+          type: string
+          maxLength: 32
+          pattern: "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$"
+          description: |
+            Optional short name. The panel also opens at `/panels/<slug>` and is read at
+            `GET /panels/<slug>`. Unique across panels (409 `conflict`), never `editor` or shaped
+            like an id. Leaving it out of a save clears it, and changing or clearing it stops every
+            link that used the old one; links by id keep working. A copy starts without one.
         acts: { type: string, enum: [session, api], default: session }
         share: { $ref: "#/components/schemas/PanelShare" }
         rows: { type: integer, minimum: 1, maximum: 24, default: 4 }

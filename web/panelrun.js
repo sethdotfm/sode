@@ -31,6 +31,7 @@ import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
 import { createWake, buzz, enterFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
+import { instanceFrom } from './panellink.js';
 import { initFull } from './panelfull.js';
 
 const POLL_MS = 2000;
@@ -49,16 +50,17 @@ function takeKey() {
   return `panel-${Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')}`;
 }
 
-export async function runPanel(id) {
+export async function runPanel(seg) {
+  let id = seg; // the id once the panel is read: the address may hold its short name
   let key = keyFromHash(location.hash);
   const setup = setupFromHash(location.hash);
   if (!key && setup) {
-    const got = await exchangeSetup(id, setup);
+    const got = await exchangeSetup(seg, setup);
     if (got.error) return say('panels-note', got.error);
     key = got.key;
   }
   const stored = !key;
-  if (stored) key = storedKey(id);
+  if (stored) key = storedKey(seg);
   const call = key ? (path, init = {}) => fetch(path, withKey(init, key)) : sessionFetch;
   const callJSON = jsonCall(call);
 
@@ -70,16 +72,17 @@ export async function runPanel(id) {
       else if (step === 'sign-in') say('panels-note', 'Sign in with your PIN to open this panel.');
       else if (step === 'no-users') say('panels-note', 'This panel needs a user, and Sode has none.');
     });
-    nameSessionKey(`Panel ${id}`);
+    nameSessionKey(`Panel ${seg}`);
     startSession();
   }
 
   let panel;
   try {
-    panel = await callJSON(`api/v1/panels/${id}`);
+    panel = await callJSON(`api/v1/panels/${seg}`);
   } catch (e) {
     if (e.status === undefined) throw e;
-    if (e.status === 401 && stored && key) forgetKey(id);
+    // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
+    if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
     say('panels-note', e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
     return;
   }
@@ -87,6 +90,7 @@ export async function runPanel(id) {
     say('panels-note', 'This panel acts as its own API client. Open its link with the key.');
     return;
   }
+  id = panel.id;
   const art = createArt(call, id);
   // Title, header, font scale and backdrop come from the stored panel, so a live update runs it again.
   const applyLook = (p) => {
@@ -182,7 +186,7 @@ export async function runPanel(id) {
       if (f.stop) {
         ended = true;
         ready = false;
-        if (stored) forgetKey(id);
+        if (stored) forgetKey(seg);
       }
     }
     polling = false;
@@ -254,7 +258,7 @@ export async function runPanel(id) {
     render();
   }
 
-  startKeepalive(call, id, $('panel-device'));
+  startKeepalive(call, id, $('panel-device'), instanceFrom(location.search));
   // A newer saved copy: rebuild the grid and the state from it. The watcher waits for a quiet moment first.
   watchPanel({
     id,

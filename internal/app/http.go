@@ -65,7 +65,16 @@ func (a *App) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("/panels", page("panels.html"))
 	mux.HandleFunc("/panels/{$}", page("panels.html"))
 	mux.HandleFunc("/panels/editor", page("paneleditor.html"))
-	mux.HandleFunc("/panels/{id}", page("panel.html"))
+	// Only a segment that could be an id or a short name reaches the page. Whether one exists is
+	// the panel read route's answer, which needs a key, so this route says nothing about panels.
+	panelPage := page("panel.html")
+	mux.HandleFunc("/panels/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if id := r.PathValue("id"); !validPanelID(id) && !validPanelSlug(id) {
+			http.NotFound(w, r)
+			return
+		}
+		panelPage(w, r)
+	})
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)

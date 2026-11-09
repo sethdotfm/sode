@@ -18,6 +18,7 @@ All beside the config, under `/data` in the image.
 - A panel that acts as an API client has an `apiClients` entry with `panel` set to the panel id. It is made and removed with its panel and does not count toward the 12-client limit. A Trusted user may make one, with Rights no wider than their own (`Rights.Within`, ADR 0006). The cap is checked only when a save sets Rights to something new, so a panel an administrator widened keeps saving.
 - Its key is a key-store entry named `Link`. Network limits are the client's `networks`, a CIDR list of at most 16, checked in the auth path so every route and the setup exchange are covered.
 - A setup link is a `keys.json` record with `"setup": true`. It lasts one hour and works once, and the page trades it at `/api/v1/panels/{id}/setup`. Making, rotating or revoking a key forgets that panel's devices.
+- A panel has an optional `slug` (unique, `validPanelSlug`). `panelStore` checks uniqueness under its lock. `GET /panels/{id}` and the setup route turn a slug into the id (`panelIDOf`); every other route takes the id only. Build links with `linkFor` (`web/panellink.js`), never by hand. Panel keys and setup tokens are 128 bits and the fragment drops their `sode_` prefix (`fullKey` and `fullSetup` put it back).
 - The panel page reads `#key=` (API mode), a stored `sode-panel-key-<id>` (secure mode) or starts a session key (Session mode). A key never rides a query string.
 
 ## Browser session key

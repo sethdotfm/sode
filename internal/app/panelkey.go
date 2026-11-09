@@ -58,7 +58,7 @@ func (a *App) apiPanelKeyMake(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	}
 	a.cfgMu.Lock()
 	gone := withoutSetups(a.keys.dropWhere(func(r keyRec) bool { return r.Owner.is(owner) }))
-	secret, rec, err := a.keys.createCapped(owner, panelKeyName, time.Time{}, 0, "")
+	secret, rec, err := a.keys.createWith(newShortSecret(), owner, panelKeyName, time.Time{}, 0, "", "")
 	a.cfgMu.Unlock()
 	a.endStreams(gone, "key rotated")
 	a.mon.forget(p.ID, false)

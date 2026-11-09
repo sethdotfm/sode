@@ -5,6 +5,7 @@ import { field, check, opt } from './formbits.js';
 import { featureSupport } from './panelfeel.js';
 import { setSetting, fontPercent, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createArtControl } from './editorart.js';
+import { createSlugField } from './editorslug.js';
 import { linkRow } from './panellinkrow.js';
 import { createLevelBoxes } from './editorlevels.js';
 import { createSizeFields } from './editorsize.js';
@@ -35,10 +36,11 @@ export function createPanelTab(ed) {
     $('ed-name').dispatchEvent(new Event('input'));
   });
   const ident = el('p', 'sode__hint');
+  const slug = createSlugField(ed);
   const linkBox = el('div');
   let linkOf = ''; // id and mode the link row was built for, so a refresh does not rebuild it under a hand
   const sizes = createSizeFields(ed);
-  const identity = section('Identity', field('ed-side-name', 'Name', name), sizes.node, ident, linkBox);
+  const identity = section('Identity', field('ed-side-name', 'Name', name), slug.node, sizes.node, ident, linkBox);
 
   const size = el('input', 'pb-input sode-ed__num');
   size.id = 'ed-set-font';
@@ -56,7 +58,13 @@ export function createPanelTab(ed) {
     sizeNote.textContent = r.error || '';
     if (!r.error) set('fontSize', r.value);
   });
-  const sizeField = el('div', 'sode__field sode-side__inline', Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-set-font' }), size, el('span', 'sode__hint', '%'));
+  const sizeField = el(
+    'div',
+    'sode__field sode-side__inline',
+    Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-set-font' }),
+    size,
+    el('span', 'sode__hint', '%'),
+  );
   const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
   const backdrop = createArtControl({ ed, set: (v) => set('backdrop', v || '') });
   const appearance = section('Appearance', toggle('titleBar', 'Show the title bar'), sizeRow, backdrop.node);
@@ -109,8 +117,9 @@ export function createPanelTab(ed) {
       const ro = ed.readOnly();
       if (document.activeElement !== name) name.value = $('ed-name').value;
       name.disabled = ro;
+      slug.update();
       ident.textContent = p ? `Id ${p.id}. Owner ${p.owner}.` : 'Not saved yet.';
-      const want = p ? `${p.id}|${p.acts}` : '';
+      const want = p ? `${p.id}|${p.acts}|${p.slug || ''}` : '';
       if (want !== linkOf) {
         linkOf = want;
         linkBox.replaceChildren(...(p ? [linkRow(p)] : []));

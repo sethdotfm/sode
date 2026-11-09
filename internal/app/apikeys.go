@@ -25,8 +25,21 @@ const keyPrefix = "sode_"
 // keyWriteEvery bounds how often use counts reach the disk; flush writes the rest.
 const keyWriteEvery = time.Minute
 
-func newKeySecret() string {
-	b := make([]byte, 32)
+func newKeySecret() string { return newSecret(32) }
+
+// newShortSecret is 128 bits, for a panel's link key: the key is throttled, revocable and one panel's
+// own, and every character of it is in the link.
+// Its body never starts with the prefix, so the page can tell a link that left the prefix off from one that kept it.
+func newShortSecret() string {
+	for {
+		if s := newSecret(16); !strings.HasPrefix(strings.TrimPrefix(s, keyPrefix), keyPrefix) {
+			return s
+		}
+	}
+}
+
+func newSecret(n int) string {
+	b := make([]byte, n)
 	rand.Read(b)
 	return keyPrefix + base64.RawURLEncoding.EncodeToString(b)
 }
@@ -140,11 +153,14 @@ func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max 
 // create is createCapped for a key that may ride a session: a new key for the same sess
 // replaces the old one, so a browser holds one.
 func (s *keyStore) create(o keyOwner, name string, expires time.Time, max int, fp, sess string) (string, apiKey, error) {
+	return s.createWith(newKeySecret(), o, name, expires, max, fp, sess)
+}
+
+func (s *keyStore) createWith(secret string, o keyOwner, name string, expires time.Time, max int, fp, sess string) (string, apiKey, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", apiKey{}, errors.New("a key needs a key name")
 	}
-	secret := newKeySecret()
 	id := make([]byte, 6)
 	rand.Read(id)
 	s.mu.Lock()

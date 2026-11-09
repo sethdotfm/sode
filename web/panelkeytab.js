@@ -2,24 +2,13 @@
 // shown once when it is made, so a link opened later says so and offers Rotate. Rotate, Revoke and a setup link
 // that replaces a key each ask for a Confirm first (the churning letter and the short lockout).
 import { el, icon, S } from './core.js';
-import { btn, check } from './formbits.js';
+import { btn, check, field } from './formbits.js';
 import { churnKey } from './lockrules.js';
 import { qrNode } from './keyview.js';
 import { shareTabs } from './panelshare.js';
+import { MODES, MODE_HINT, CONFIRM_TEXT, maskLink, makeAction, confirmKind, parseNetworks, networksText, networksChanged } from './panelkeyrules.js';
+import { linkFor } from './panellink.js';
 import { linkRow } from './panellinkrow.js';
-import {
-  MODES,
-  MODE_HINT,
-  CONFIRM_TEXT,
-  absoluteLink,
-  kioskLink,
-  maskLink,
-  makeAction,
-  confirmKind,
-  parseNetworks,
-  networksText,
-  networksChanged,
-} from './panelkeyrules.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
@@ -36,7 +25,11 @@ shareTabs.push(({ panel, api }) => {
   const tab = { id: 'key', text: 'Link with key', panel: root };
   if (panel.acts !== 'api') {
     root.append(
-      el('p', 'sode__hint', 'This panel acts as the signed-in user, so it has no key and its link is the same for everyone. It asks for a PIN when it is launched.'),
+      el(
+        'p',
+        'sode__hint',
+        'This panel acts as the signed-in user, so it has no key and its link is the same for everyone. It asks for a PIN when it is launched.',
+      ),
       linkRow(panel),
       el('p', 'sode__hint', 'To give it a link with a key, set Acts as to its own API client on the Access tab and save.'),
     );
@@ -45,6 +38,8 @@ shareTabs.push(({ panel, api }) => {
 
   let mode = 'key';
   let link = ''; // the absolute link, held only while this modal is open
+  let secret = ''; // what the server sent for it, so a screen name can change the link
+  let screen = ''; // the optional ?instance= name
   let linkMode = 'key';
   let revealed = false;
   let confirming = null; // {kind, key, lock, ready}
@@ -66,6 +61,23 @@ shareTabs.push(({ panel, api }) => {
   confirmBox.hidden = true;
   confirmBox.tabIndex = -1;
   const linkBox = el('div', 'sode-ov__keylink');
+  const screenIn = el('input', 'pb-input');
+  screenIn.id = 'key-screen';
+  screenIn.maxLength = 40;
+  screenIn.autocomplete = 'off';
+  screenIn.placeholder = 'Lobby tablet';
+  screenIn.addEventListener('input', () => {
+    screen = screenIn.value;
+    link = buildLink();
+    paintLink();
+  });
+  const screenBox = field(
+    'key-screen',
+    'Screen name (optional)',
+    screenIn,
+    'Skips the question that screen asks the first time it opens the link. It is not a secret.',
+  );
+  screenBox.hidden = true;
 
   function paintTop() {
     const hasKey = !!panel.hasKey;
@@ -167,6 +179,7 @@ shareTabs.push(({ panel, api }) => {
       syncNets();
     }
   }
+  const buildLink = (kiosk = false) => linkFor(panel, { [linkMode === 'setup' ? 'setup' : 'key']: secret, instance: screen, kiosk, base: document.baseURI });
   async function makeLink() {
     const res = await call(`api/v1/panels/${panel.id}/key`, {
       method: 'POST',
@@ -174,8 +187,9 @@ shareTabs.push(({ panel, api }) => {
       body: JSON.stringify({ setup: mode === 'setup' }),
     });
     if (res === FAIL) return;
-    link = absoluteLink(res.link, document.baseURI);
+    secret = res.key || res.setup;
     linkMode = mode;
+    link = buildLink();
     revealed = false;
     panel.hasKey = mode === 'key'; // a setup link is not a key until a browser trades it
     paintTop();
@@ -190,7 +204,7 @@ shareTabs.push(({ panel, api }) => {
   }
   async function revokeKey() {
     if ((await call(`api/v1/panels/${panel.id}/key`, { method: 'DELETE' })) === FAIL) return;
-    link = '';
+    link = secret = '';
     panel.hasKey = false;
     paintTop();
     paintLink();
@@ -199,6 +213,7 @@ shareTabs.push(({ panel, api }) => {
 
   function paintLink() {
     linkBox.replaceChildren();
+    screenBox.hidden = !link;
     if (!link) return;
     const input = el('input', 'pb-input sode__secret-key');
     input.readOnly = true;
@@ -227,7 +242,7 @@ shareTabs.push(({ panel, api }) => {
         say('Copy failed. The link is selected: copy it by hand.');
       }
     });
-    const kiosk = btn('pb-btn--outline', 'Open as kiosk', () => window.open(kioskLink(link), '_blank', 'noopener'));
+    const kiosk = btn('pb-btn--outline', 'Open as kiosk', () => window.open(buildLink(true), '_blank', 'noopener'));
     linkBox.append(el('div', 'sode__secret-row', input, reveal.label), el('div', 'sode-ov__keyrow', copy, kiosk));
     if (revealed) {
       const qr = qrNode(link);
@@ -271,7 +286,7 @@ shareTabs.push(({ panel, api }) => {
     netSave,
   );
 
-  root.append(status, modes, modeHint, actions, confirmBox, linkBox, netBox, note);
+  root.append(status, modes, modeHint, actions, confirmBox, screenBox, linkBox, netBox, note);
   paintTop();
   syncNets();
   return tab;

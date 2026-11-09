@@ -54,6 +54,7 @@ export async function runEditor() {
   const fields = () => ({
     settings: edits.settings ?? loaded?.settings ?? {},
     acts: edits.acts ?? loaded?.acts ?? 'session',
+    slug: edits.slug ?? loaded?.slug ?? '',
     clientRights: edits.clientRights,
   });
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());

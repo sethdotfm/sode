@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   absoluteLink,
-  kioskLink,
   maskLink,
   makeAction,
   confirmKind,
@@ -21,10 +20,6 @@ test('the link resolves the same from /panels and /panels/, at the root or behin
   assert.equal(absoluteLink('panels/p-1#key=sode_x', new URL('../', 'http://sode.lan/panels').href), 'http://sode.lan/panels/p-1#key=sode_x');
   assert.equal(absoluteLink('panels/p-1#key=sode_x', new URL('../', 'http://sode.lan/panels/').href), 'http://sode.lan/panels/p-1#key=sode_x');
   assert.equal(absoluteLink('panels/p-1#key=sode_x', new URL('../', 'http://sode.lan/studio/panels/').href), 'http://sode.lan/studio/panels/p-1#key=sode_x');
-});
-
-test('kiosk is added to the fragment', () => {
-  assert.equal(kioskLink('http://h/panels/p-1#key=sode_x'), 'http://h/panels/p-1#key=sode_x&kiosk=1');
 });
 
 test('the mask hides the secret and keeps the rest', () => {
@@ -56,7 +51,7 @@ test('networks are split from lines and commas', () => {
 
 test('a setup token comes out of the hash and is dropped from it', () => {
   assert.equal(setupFromHash('#setup=sode_setup_abc&kiosk=1'), 'sode_setup_abc');
-  assert.equal(setupFromHash('#kiosk=1&setup=t'), 't');
+  assert.equal(setupFromHash('#kiosk=1&setup=t'), 'sode_setup_t');
   assert.equal(setupFromHash('#key=sode_k'), '');
   assert.equal(withoutSetup('#setup=t&kiosk=1'), '#kiosk=1');
   assert.equal(withoutSetup('#setup=t'), '');

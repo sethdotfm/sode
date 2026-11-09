@@ -24,7 +24,7 @@ export const newPanel = () => ({ name: 'New panel', acts: 'session', share: { mo
 export function saveBody(loaded, name, grid, fields = {}) {
   const { canEdit, clientRights, ...rest } = loaded;
   const edits = {};
-  for (const k of ['settings', 'acts', 'clientRights']) if (fields[k] !== undefined) edits[k] = fields[k];
+  for (const k of ['settings', 'acts', 'slug', 'clientRights']) if (fields[k] !== undefined) edits[k] = fields[k];
   return { ...rest, name: name.trim(), ...saved(grid), ...edits };
 }
 
@@ -32,13 +32,27 @@ export function saveBody(loaded, name, grid, fields = {}) {
 // server stores cells with their keys in another order.
 const sorted = (c) => Object.fromEntries(Object.entries(c).sort(([a], [b]) => (a < b ? -1 : 1)));
 const shape = (name, g, f) =>
-  JSON.stringify([name.trim(), g.rows, g.cols, saved(g).cells.map(sorted), sorted(f.settings || {}), f.acts || 'session', f.clientRights ?? null]);
+  JSON.stringify([
+    name.trim(),
+    g.rows,
+    g.cols,
+    saved(g).cells.map(sorted),
+    sorted(f.settings || {}),
+    f.acts || 'session',
+    f.slug || '',
+    f.clientRights ?? null,
+  ]);
 
 // A field not edited counts as what was loaded. clientRights has no loaded side here: any edit is a change.
 export function isDirty(loaded, name, grid, fields = {}) {
   const base = loaded || newPanel();
-  const was = shape(base.name, createGrid(base), { settings: base.settings, acts: base.acts });
-  const now = shape(name, grid, { settings: fields.settings ?? base.settings, acts: fields.acts ?? base.acts, clientRights: fields.clientRights });
+  const was = shape(base.name, createGrid(base), { settings: base.settings, acts: base.acts, slug: base.slug });
+  const now = shape(name, grid, {
+    settings: fields.settings ?? base.settings,
+    acts: fields.acts ?? base.acts,
+    slug: fields.slug ?? base.slug,
+    clientRights: fields.clientRights,
+  });
   return was !== now;
 }
 

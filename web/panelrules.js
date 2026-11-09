@@ -3,6 +3,8 @@
 // counted from 1 and kind one of KINDS (docs/panels-design.md, Panel page). A Preset cell holds
 // scope ('everyone' | 'me') and name instead of n.
 
+import { fullKey } from './panellink.js';
+
 export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current'];
 const NEEDS_NUMBER = ['source', 'destination'];
 export const PRESET_SCOPES = ['everyone', 'me'];
@@ -18,7 +20,7 @@ export function panelIdFrom(pathname) {
 }
 
 // A key in the fragment never reaches a request line or a proxy log. Without one the panel runs as the signed-in user.
-export const keyFromHash = (hash) => /(?:^#|&)key=([^&]+)/.exec(hash)?.[1] || '';
+export const keyFromHash = (hash) => fullKey(/(?:^#|&)key=([^&]+)/.exec(hash)?.[1] || '');
 
 // Kiosk (GLOSSARY.md) is the panel's setting, or a link that asks for it without editing the panel.
 export const kioskOf = (hash, panel) => !!panel?.settings?.kiosk || /(?:^#|&)kiosk=1(?:&|$)/.test(hash);

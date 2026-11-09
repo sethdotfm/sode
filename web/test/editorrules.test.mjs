@@ -102,6 +102,17 @@ test('panel fields: edited settings are saved and make the panel dirty, in any k
   assert.deepEqual(saveBody(loaded, 'A', g).settings, loaded.settings);
 });
 
+test('a short name is an unsaved field: it dirties the editor, saves, and clearing it counts', () => {
+  const loaded = { ...newPanel(), id: 'p-0123abcd', name: 'A', slug: 'lobby' };
+  const g = createGrid(loaded);
+  assert.equal(isDirty(loaded, 'A', g, { slug: 'lobby' }), false);
+  assert.equal(isDirty(loaded, 'A', g, { slug: 'wall' }), true);
+  assert.equal(isDirty(loaded, 'A', g, { slug: '' }), true);
+  assert.equal(isDirty({ ...loaded, slug: undefined }, 'A', g, { slug: '' }), false);
+  assert.equal(saveBody(loaded, 'A', g, { slug: '' }).slug, '');
+  assert.equal(saveBody(loaded, 'A', g).slug, 'lobby');
+});
+
 test('Alt with a letter names a menu letter by key position, so Option on a Mac works too', () => {
   const k = (code, extra = {}) => menuShortcut({ code, altKey: true, ctrlKey: false, metaKey: false, ...extra });
   assert.equal(k('KeyM'), 'm');
