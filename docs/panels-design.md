@@ -118,4 +118,5 @@ Proposed, not prototyped.
 - A setup link lasts one hour and works once.
 - Push group: panels whose names differ only by a trailing number. Pending the owner's confirmation.
 - Editor sidebar: the Panel tab has no colours or updates settings, because nothing reads them. The Updates section is a hint only, and the colours are the fixed state colours above.
-- Push has no control in the editor toolbar; it is on the panels page. The editor's Watch checkbox (story 90) is not wired.
+- Push has no control in the editor toolbar; it is on the panels page. The editor's Watch checkbox (story 90) is on the Access tab, beside the one on the panels page.
+- Panel and cell levels and Visibility are conveniences of the page. The Rights of the user or API client are the only limit the server applies.

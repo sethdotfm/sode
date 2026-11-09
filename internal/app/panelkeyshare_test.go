@@ -175,6 +175,15 @@ func TestNetworksEmptyAllowsAnywhere(t *testing.T) {
 	}
 }
 
+func TestPanelClientKeyDoesNotReadHistory(t *testing.T) {
+	a, _, cy, id := keyedPanel(t)
+	secret, _ := mintKey(t, a, cy, id)
+	wantErr(t, apiSend(a, "GET", "/api/v1/history", secret, ""), 403, "scope")
+	if rec := apiSend(a, "GET", "/api/v1/tally", secret, ""); rec.Code != 200 {
+		t.Fatalf("tally: %d", rec.Code)
+	}
+}
+
 func TestRefusedNetworkDoesNotCountAsUse(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	secret, _ := mintKey(t, a, cy, id)
