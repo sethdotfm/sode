@@ -56,6 +56,9 @@
   font-weight: var(--pb-weight-bold);
   margin: 0;
 }
+.sode-panel__update[hidden] {
+  display: none;
+}
 .sode-panel__grid {
   display: grid;
   gap: var(--pb-space-3);

@@ -158,7 +158,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = "", cl.Actor.Name, "", nil, nil
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.Name, "", nil, nil, 0
 	p.normalize()
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
@@ -214,7 +214,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = old.ID, old.Owner, old.Client, old.Art, nil
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
 	merged := maps.Clone(old.Extra)
 	if merged == nil {
 		merged = map[string]any{}
@@ -259,6 +259,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		a.panelStoreFail(w, err)
 		return
 	}
+	p, _ = a.panels.get(p.ID) // carries the new Rev
 	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
 	apiJSON(w, a.panelOut(p, true))
 }
@@ -299,7 +300,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
-	c.Art = nil
+	c.Art, c.Rev = nil, 0
 	if err := validatePanel(&c); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return

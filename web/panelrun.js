@@ -24,6 +24,7 @@ import {
   GUARD_HOLD_MS,
 } from './panelmodel.js';
 import { buildGrid, paintGrid } from './panelview.js';
+import { watchPanel } from './panellive.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
@@ -66,7 +67,7 @@ export async function runPanel(id) {
     say('panels-note', openFailText(res.status, !!key));
     return;
   }
-  const panel = await res.json();
+  let panel = await res.json();
   if (panel.acts === 'api' && !key) {
     say('panels-note', 'This panel acts as its own API client. Open its link with the key.');
     return;
@@ -75,9 +76,12 @@ export async function runPanel(id) {
   document.title = panel.name;
   $('panel-title').textContent = panel.name;
 
-  const cells = cellsIn(panel);
-  const set = panel.settings || {};
-  let st = createState({ mode: set.mode, multi: set.multi, guard: set.guard, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
+  let cells = cellsIn(panel);
+  const stateOf = (p) => {
+    const set = p.settings || {};
+    return createState({ mode: set.mode, multi: set.multi, guard: set.guard, levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null });
+  };
+  let st = stateOf(panel);
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
   let names = namesFrom({});
   let presets = {};
@@ -89,7 +93,7 @@ export async function runPanel(id) {
     paintGrid(grid, { st, env, names, now });
     say('panel-status', errorText(errorOf(st, now), names));
   };
-  const grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel });
+  let grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel });
 
   let polling = false;
   async function poll() {
@@ -176,6 +180,24 @@ export async function runPanel(id) {
     render();
   }
 
+  // A newer saved copy: rebuild the grid and the state from it. The watcher waits for a quiet moment first.
+  watchPanel({
+    id,
+    rev: panel.rev,
+    get,
+    state: () => ({ viewed: !!st.view || st.staged.length > 0, busy: st.busy }),
+    apply(p) {
+      clearTimeout(holdTimer);
+      panel = p;
+      cells = cellsIn(p);
+      st = stateOf(p);
+      document.title = p.name;
+      $('panel-title').textContent = p.name;
+      document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, p);
+      grid = buildGrid($('panel-grid'), p, cells, onPress, { down: holdDown, cancel: holdCancel });
+      render();
+    },
+  });
   setInterval(poll, POLL_MS);
   setInterval(() => {
     st = idleClear(st, Date.now());
