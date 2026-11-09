@@ -30,11 +30,13 @@ type User struct {
 type Locks struct {
 	Main bool `yaml:"main" json:"main"`
 	Log  bool `yaml:"log" json:"log"`
+	// Panel covers the three panel pages: /panels, /panels/editor and /panels/<id>.
+	Panel bool `yaml:"panel" json:"panel"`
 	// Grid: ignored; kept so old files load.
 	LegacyGrid any `yaml:"grid,omitempty" json:"-"`
 }
 
-func (l Locks) Any() bool { return l.Main || l.Log }
+func (l Locks) Any() bool { return l.Main || l.Log || l.Panel }
 
 // Sign-in modes. Wire and file values.
 const (

@@ -26,21 +26,24 @@ type gate int
 const (
 	gateMain gate = iota
 	gateLog
+	gatePanel
 )
 
 func (l gate) on(k config.Locks) bool {
 	switch l {
 	case gateLog:
 		return k.Log
+	case gatePanel:
+		return k.Panel
 	}
 	return k.Main
 }
 
-var pageGates = map[string]gate{"main": gateMain, "log": gateLog}
+var pageGates = map[string]gate{"main": gateMain, "log": gateLog, "panel": gatePanel}
 
 // connUser: page and sess guarded by App.mu; user is atomic.
 type connUser struct {
-	page string // "main" (default) or "log", as the page declared
+	page string // "main" (default), "log" or "panel", as the page declared
 	// sess: the token (from hi or issued at sign-in) and the Lock, shared with connections
 	// on the same token. While locked the user stays set so only their PIN resumes it;
 	// every access check treats a locked connection as signed in to nothing.

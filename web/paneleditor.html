@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- /panels/editor sits one level down; ../ is Sode's root -->
+<base href="../">
+<title>Sode Panel Editor</title>
+<link rel="icon" type="image/png" href="icon.png?s=192">
+<script src="prepaint.js" data-only="theme"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="panels.css">
+<link rel="stylesheet" href="touch.css">
+</head>
+<body>
+
+<main class="sode-panels">
+  <header class="sode-panels__head">
+    <h1 class="sode-panels__title">Sode Panel Editor</h1>
+    <span class="sode-panels__spacer"></span>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" href="panels">Panels</a>
+  </header>
+  <p class="sode__hint" id="panels-note"></p>
+</main>
+
+<script type="module" src="panelpage.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@ Validated by prototype on branch `prototype/panels` (three variants, kept as the
 
 ## What a panel is
 
-A saved 4x8 grid of cells on its own URL (`/panels/<id>`), driving the router through `/api/v1` only. 4x8 is the default size, chosen so a panel maps one to one onto a hardware key deck later. Rows and columns become user settings, and merged cells stay inside the grid. The editor page `/panels` signs in like the rest of Sode, edits panels live and launches a user's panels.
+A saved 4x8 grid of cells on its own URL (`/panels/<id>`), driving the router through `/api/v1` only. 4x8 is the default size, chosen so a panel maps one to one onto a hardware key deck later. Rows and columns become user settings, and merged cells stay inside the grid. The panels page `/panels` signs in like the rest of Sode and launches a user's panels. The editor, at `/panels/editor`, edits them live.
 
 Storage: one YAML file per panel under `panels/`, with an `id` and a display name inside the file. A user makes their own panels with their existing Rights. A Trusted user may also make a panel that acts as its own API client, with Rights no wider than theirs. Panels can be shared use-only with named users or Everyone, and a user can save a copy to edit.
 
@@ -64,6 +64,6 @@ Proposed, not prototyped.
 ## Build notes
 
 - Vanilla ES modules and patchbay tokens only. The prototype used `pb-btn pb-xpt` cells, `pb-toolbar`, `pb-toast` and the Lucide sprite. Orange and the muted idle colours need new semantic tokens upstream, since `--pb-brand` is for navigation chrome.
-- Status is icon first, with optional text. This is a documented exception to patchbay's "status always with text", and AGENTS.md needs a line for it.
+- Status is icon first, with optional text. This is a documented exception to patchbay's "status always with text", and AGENTS.md has a line for it.
 - One animated root custom property (`@property --pulse`) drives every pulse, so cells stay in phase across re-renders.
 - The settings in the editor's sidebar are a first pass for the prototype. Several of them, such as keeping the screen awake, haptics and the networks allowed, are placeholders and may change.

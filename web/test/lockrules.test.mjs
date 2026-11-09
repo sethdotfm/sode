@@ -138,6 +138,10 @@ test('pageType', () => {
   assert.equal(pageType('/log'), 'log');
   assert.equal(pageType('/sode/log'), 'log');
   assert.equal(pageType('/log.html'), 'log');
+  for (const p of ['/panels', '/panels/', '/panels/editor', '/panels/p-1a2b', '/sode/panels/editor', '/sode/panels']) {
+    assert.equal(pageType(p), 'panel', p);
+  }
+  assert.equal(pageType('/panelsx'), 'main');
   assert.equal(pageType('/catalog'), 'main');
 });
 
@@ -212,6 +216,8 @@ test('guardedEdited: router, trusted proxies and the PIN limit need the PIN', ()
   assert.equal(guardedEdited({ ...cur, matrix: 2 }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: ['0.0.0.0/0'] }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: undefined }, { ...cur, trustedProxies: [] }), false);
+  assert.equal(guardedEdited({ ...cur, locks: { panel: true } }, { ...cur, locks: { panel: false } }), true);
+  assert.equal(guardedEdited({ ...cur, locks: { panel: false } }, cur), false);
 });
 
 test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text', () => {

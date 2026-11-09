@@ -1,0 +1,25 @@
+/* The panel pages (/panels, /panels/editor, /panels/<id>). Load after base.css. */
+
+.sode-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  margin: 0 auto;
+  max-width: 100rem;
+  padding: var(--pb-space-8);
+}
+.sode-panels__head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+.sode-panels__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+  margin: 0 var(--pb-space-4) 0 0;
+}
+.sode-panels__spacer {
+  flex: 1 1 auto;
+}

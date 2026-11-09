@@ -60,6 +60,7 @@ export const guardedEdited = (next, cur) =>
   (GUARDED.some((k) => next[k] !== cur[k]) ||
     !!next.locks?.main !== !!cur.locks?.main ||
     !!next.locks?.log !== !!cur.locks?.log ||
+    !!next.locks?.panel !== !!cur.locks?.panel ||
     (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
 
 // A low-risk settings save asks for the settings PIN first, except on a trusted user's
@@ -68,6 +69,8 @@ export const needsPin = (pinSet, unlocked, trusted) => !!pinSet && !unlocked && 
 
 export function pageType(pathname) {
   if (/\/log(\.html)?\/?$/.test(pathname)) return 'log';
+  // The panels page, the editor and a panel itself share one lock.
+  if (/\/panels(\/[^/]*)?$/.test(pathname)) return 'panel';
   return 'main';
 }
 

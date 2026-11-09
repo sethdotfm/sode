@@ -55,6 +55,17 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, static, "log.html")
 	})
+	page := func(name string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-cache")
+			http.ServeFileFS(w, r, static, name)
+		}
+	}
+	// {id} is any segment; the editor's pattern is more specific, so it wins.
+	mux.HandleFunc("/panels", page("panels.html"))
+	mux.HandleFunc("/panels/{$}", page("panels.html"))
+	mux.HandleFunc("/panels/editor", page("paneleditor.html"))
+	mux.HandleFunc("/panels/{id}", page("panel.html"))
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)

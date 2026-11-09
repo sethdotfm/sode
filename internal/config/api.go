@@ -64,6 +64,28 @@ func (r Rights) IsOpen() bool {
 	return r.Sources == nil && r.Dsts == nil && r.Levels == nil && r.Presets == nil && !r.Hidden()
 }
 
+func subset[T comparable](l, of *[]T) bool {
+	if of == nil {
+		return true
+	}
+	if l == nil {
+		return false
+	}
+	for _, v := range *l {
+		if !slices.Contains(*of, v) {
+			return false
+		}
+	}
+	return true
+}
+
+// Within: r grants nothing o does not (ADR 0006's cap). An unset list is everything. Hidden
+// shows less than read-only, so it is within both, and read-only is not within hidden.
+func (r Rights) Within(o Rights) bool {
+	return subset(r.Sources, o.Sources) && subset(r.Dsts, o.Dsts) && subset(r.Levels, o.Levels) &&
+		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden())
+}
+
 func cloneList[T any](l *[]T) *[]T {
 	if l == nil {
 		return nil

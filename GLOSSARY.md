@@ -194,6 +194,15 @@ Cancels the plan the panel has pending. It never changes the router.
 **Kiosk**:
 A panel setting that hides Sode's branding and settings so the page is only the grid.
 
+**Template**:
+A saved layout of a panel: its cell kinds, and optionally its settings and cell contents. By default cells come back unassigned. A template is saved to Me or Everyone.
+
+**Push**:
+Copies a panel's saved config to other panels. Each target keeps its own name, id and sharing, and a checkpoint of it is kept first so the Push can be put back.
+
+**Checkpoint set**:
+One saved layout per panel in a group, so a single Push gives each panel in the group its own layout.
+
 ### Interface
 
 **Patch boxes**:
