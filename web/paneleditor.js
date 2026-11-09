@@ -342,6 +342,7 @@ export async function runEditor() {
   onSessionKey((k, step) => {
     $('panels-signin').hidden = step !== 'sign-in';
     if (k) say('panels-note', '');
+    else if (step === 'ended') say('panels-note', "This page's sign-in key was ended. Reload the page to sign in again.");
     else if (step === 'sign-in') say('panels-note', 'Sign in with your PIN to edit panels.');
     else if (step === 'no-users') say('panels-note', 'Panels need a user, and Sode has none.');
   });

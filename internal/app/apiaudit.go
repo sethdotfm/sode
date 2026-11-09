@@ -95,7 +95,7 @@ func (e *Entry) setActor(a Actor) {
 const kindAPI = "api" // an API command, refusal, key event, stream attach or failed sign-in
 
 // keyShape matches a key anywhere in text; apiEvent redacts it as a last line of defence.
-var keyShape = regexp.MustCompile(keyPrefix + `[A-Za-z0-9_-]{20,}`)
+var keyShape = regexp.MustCompile(keyPrefix + `(?:ses\.)?[A-Za-z0-9_-]{20,}`)
 
 func redactKeys(s string) string { return keyShape.ReplaceAllString(s, "[key]") }
 

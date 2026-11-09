@@ -98,6 +98,7 @@ func (s *keyStore) replaceInstance(o keyOwner, name string, setup bool, now time
 		}
 		if !r.Setup {
 			m.gone = append(m.gone, r.apiKey)
+			s.endRecMu(r, now)
 		}
 		return true
 	})

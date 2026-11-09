@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey, jsonCall } from '../sessionkeyrules.js';
+import { sessionStep, sessionKeyReq, keyFrom, renewable, withKey, jsonCall, endedCode, retryAfterMs, guardFetch } from '../sessionkeyrules.js';
 
 const answer = (status, body) => async () => ({
   status,
@@ -85,4 +85,66 @@ test('withKey sets the Authorization header and keeps the rest of the request', 
   assert.equal(init.body, '{}');
   assert.equal(init.headers['Content-Type'], 'application/json');
   assert.equal(init.headers.Authorization, 'Bearer sode_x');
+});
+
+test('an ended key is final: key_revoked and key_expired, never a dropped link or a busy server', () => {
+  assert.equal(endedCode(401, 'key_revoked'), true);
+  assert.equal(endedCode(401, 'key_expired'), true);
+  assert.equal(endedCode(401, 'invalid_key'), false);
+  assert.equal(endedCode(429, 'rate_limited'), false);
+  assert.equal(renewable(401, 'key_revoked'), true);
+});
+
+test('Retry-After is read as seconds, and a missing or odd one is no wait', () => {
+  assert.equal(retryAfterMs('7'), 7000);
+  assert.equal(retryAfterMs(null), 0);
+  assert.equal(retryAfterMs('soon'), 0);
+  assert.equal(retryAfterMs('-3'), 0);
+});
+
+// A fake clock: sleep moves time on, so a gated call returns at once in the test.
+function clock() {
+  const c = { t: 0 };
+  c.now = () => c.t;
+  c.sleep = async (ms) => {
+    c.t += ms;
+  };
+  return c;
+}
+
+const reply = (status, code, headers = {}) =>
+  new Response(code ? JSON.stringify({ error: { code, message: code } }) : '{}', { status, headers: { 'Content-Type': 'application/json', ...headers } });
+
+test('after a 429 with Retry-After the next call waits that long first', async () => {
+  const c = clock();
+  const sent = [];
+  const answers = [reply(429, 'rate_limited', { 'Retry-After': '5' }), reply(200), reply(200)];
+  const f = guardFetch(async (p) => (sent.push([p, c.t]), answers.shift()), c);
+  assert.equal((await f('a')).status, 429);
+  assert.equal((await f('b')).status, 200);
+  assert.deepEqual(sent, [
+    ['a', 0],
+    ['b', 5000],
+  ]);
+  await f('c');
+  assert.equal(sent[2][1], 5000, 'no wait once it has passed');
+});
+
+test('a final answer is kept, and later calls get it without the network', async () => {
+  let n = 0;
+  const f = guardFetch(async () => (n++, reply(401, 'key_revoked')), { ...clock(), final: endedCode });
+  for (let i = 0; i < 5; i++) {
+    const r = await f('x');
+    assert.equal(r.status, 401);
+    assert.equal((await r.json()).error.code, 'key_revoked');
+  }
+  assert.equal(n, 1);
+});
+
+test('other refusals never stop the calls', async () => {
+  let n = 0;
+  const f = guardFetch(async () => (n++, reply(403, 'scope')), { ...clock(), final: endedCode });
+  await f('x');
+  await f('x');
+  assert.equal(n, 2);
 });

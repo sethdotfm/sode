@@ -5,7 +5,7 @@
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
-import { withKey } from './sessionkeyrules.js';
+import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
@@ -86,7 +86,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
   const tag = (init) => fromPanel(init, id, instance);
-  const call = given || (key ? (path, init = {}) => fetch(path, withKey(tag(init), key)) : (path, init = {}) => sessionFetch(path, tag(init)));
+  const keyed = key && guardFetch((path, init) => fetch(path, withKey(tag(init), key)), { final: (s) => s === 401 });
+  const call = given || (key ? (path, init = {}) => keyed(path, init) : (path, init = {}) => sessionFetch(path, tag(init)));
   const callJSON = jsonCall(call);
 
   if (!key && !embedded) {
@@ -225,6 +226,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
         ended = true;
         ready = false;
         if (stored) forgetKey(seg);
+        // Nothing may call Sode again: not the polls, the update check or the keepalive.
+        timers.forEach(clearInterval);
+        stopWatch();
+        keep?.stop();
       }
     }
     polling = false;

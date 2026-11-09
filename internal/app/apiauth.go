@@ -16,6 +16,7 @@ const (
 	actorAddress   = "address" // a source address, for rows no actor caused
 	apiWindow      = time.Minute
 	apiAuthFailMax = 10   // bad keys per address per window before that address waits
+	apiEndedMax    = 120  // answers to ended keys per address per window; more get 429
 	apiTrackMax    = 4096 // addresses tracked at once; further ones share one bucket
 	apiViaMax      = 32
 )
@@ -39,6 +40,7 @@ type rateWin struct {
 type apiState struct {
 	mu       sync.Mutex
 	fails    map[string]*authFail
+	ended    map[string]*authFail // answers to ended keys, apart from fails
 	rate     map[string]*rateWin
 	inflight int
 	idem     map[string]*idemSlot
@@ -71,29 +73,39 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 			Scopes: cfg.GuestAPIScopes, IP: ip}, true
 	}
 
+	secret, bearer := strings.CutPrefix(hdr, "Bearer ")
+	secret = strings.TrimSpace(secret)
+	var k apiKey
+	var cl *apiCtx
+	expired, ended := false, false
+	if bearer {
+		var found bool
+		k, expired, found = a.keys.find(secret, now)
+		if found {
+			cl = a.resolveKey(cfg, k, ip)
+			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.Name, cfg) {
+				cl = nil // its session ended; endSessionKeys has not yet swept the record
+			}
+			ended = cl == nil // a real key whose owner or session went, not yet swept
+		} else if !expired {
+			expired, ended = a.keys.endedAs(secret)
+		}
+	}
+	// A key that was real is answered for what it is, even during a lockout, and never counted:
+	// only unknown keys are guesses.
+	if expired || ended {
+		a.refuseEnded(w, ip, expired, now)
+		return nil, false
+	}
 	if wait := a.authWait(ip, now); wait > 0 {
 		a.authFailed(ip, now) // counted, so the row shows how hard the address kept trying
 		apiRetry(w, wait, "too many failed attempts from this address; wait before trying again")
 		return nil, false
 	}
-	secret, bearer := strings.CutPrefix(hdr, "Bearer ")
 	if !bearer {
 		a.authFailed(ip, now)
 		apiFail(w, http.StatusUnauthorized, "invalid_key", "send your key as Authorization: Bearer <key>")
 		return nil, false
-	}
-	k, expired, found := a.keys.find(strings.TrimSpace(secret), now)
-	if expired {
-		a.authFailed(ip, now)
-		apiFail(w, http.StatusUnauthorized, "key_expired", "this key has expired")
-		return nil, false
-	}
-	var cl *apiCtx
-	if found {
-		cl = a.resolveKey(cfg, k, ip)
-		if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.Name, cfg) {
-			cl = nil // its session ended; endSessionKeys has not yet swept the record
-		}
 	}
 	if cl == nil {
 		a.authFailed(ip, now)
@@ -260,6 +272,46 @@ func (a *App) writeAuthFail(ip string, f *authFail) {
 		fmt.Sprintf("%d failed %s in a minute", f.n, plural(f.n, "authentication", "authentications")), nil)
 }
 
+// refuseEnded answers a key that ended: final, so the client stops. Its own count per address
+// caps how often it is answered and gives one `endedKeyUsed` row per window; it never touches
+// the failed-key throttle, so a stale page does not lock out the others at its address.
+func (a *App) refuseEnded(w http.ResponseWriter, ip string, expired bool, now time.Time) {
+	s := &a.apiS
+	s.mu.Lock()
+	if s.ended == nil {
+		s.ended = map[string]*authFail{}
+	}
+	k := ip
+	if _, ok := s.ended[k]; !ok && len(s.ended) >= apiTrackMax {
+		k = "other"
+	}
+	f := s.ended[k]
+	if f != nil && now.Sub(f.start) >= apiWindow {
+		a.writeEndedUse(k, f)
+		f = nil
+	}
+	if f == nil {
+		f = &authFail{start: now}
+		s.ended[k] = f
+	}
+	f.n++
+	over, wait := f.n > apiEndedMax, apiWindow-now.Sub(f.start)
+	s.mu.Unlock()
+	switch {
+	case over:
+		apiRetry(w, wait, "this address keeps sending a key that ended; stop using it")
+	case expired:
+		apiFail(w, http.StatusUnauthorized, "key_expired", "this key has expired; stop using it and get a new key")
+	default:
+		apiFail(w, http.StatusUnauthorized, "key_revoked", "this key was ended (revoked, replaced, its session ended or its owner changed); stop using it and get a new key")
+	}
+}
+
+func (a *App) writeEndedUse(ip string, f *authFail) {
+	a.apiEvent(Actor{Kind: actorAddress, Name: ip}, "endedKeyUsed", "refused",
+		fmt.Sprintf("%d %s with a key that ended, in a minute", f.n, plural(f.n, "call", "calls")), nil)
+}
+
 // flushAuthFails writes the rows of windows that have ended and forgets idle throttle state.
 // Run from periodic; tests pass a later time.
 func (a *App) flushAuthFails(now time.Time) {
@@ -270,6 +322,12 @@ func (a *App) flushAuthFails(now time.Time) {
 		if now.Sub(f.start) >= apiWindow {
 			a.writeAuthFail(ip, f)
 			delete(s.fails, ip)
+		}
+	}
+	for ip, f := range s.ended {
+		if now.Sub(f.start) >= apiWindow {
+			a.writeEndedUse(ip, f)
+			delete(s.ended, ip)
 		}
 	}
 	s.pruneRate(now)

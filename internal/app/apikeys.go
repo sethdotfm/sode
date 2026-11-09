@@ -38,6 +38,30 @@ func newShortSecret() string {
 	}
 }
 
+// A session key's own prefix. '.' is outside base64url, so no other key can carry it, and a
+// key of this shape that Sode does not hold reads as ended (isSessionShape).
+const sessionKeyPrefix = keyPrefix + "ses."
+
+const sessionSecretBytes = 32
+
+func newSessionSecret() string {
+	b := make([]byte, sessionSecretBytes)
+	rand.Read(b)
+	return sessionKeyPrefix + base64.RawURLEncoding.EncodeToString(b)
+}
+
+// isSessionShape: a secret only newSessionSecret makes. A memory-only Sode forgets its session
+// keys on a restart, and the pages still holding one must hear that it ended. Answering such a
+// key without counting it toward the throttle costs nothing: a 256-bit guess never lands.
+func isSessionShape(secret string) bool {
+	body, ok := strings.CutPrefix(secret, sessionKeyPrefix)
+	if !ok || len(body) != base64.RawURLEncoding.EncodedLen(sessionSecretBytes) {
+		return false
+	}
+	b, err := base64.RawURLEncoding.Strict().DecodeString(body)
+	return err == nil && len(b) == sessionSecretBytes
+}
+
 func newSecret(n int) string {
 	b := make([]byte, n)
 	rand.Read(b)
@@ -92,18 +116,34 @@ func pinFP(pinHash string) string {
 	return hex.EncodeToString(h[:16])
 }
 
-// keyStore holds API keys beside the config in keys.json: sha256 only, mode 0600, atomic
-// write like tokens.json. With no config file it is memory only. Never call with App.mu
-// held: changes write the file.
+// endedKeyMax bounds the ended keys remembered; the oldest is forgotten first.
+const endedKeyMax = 1024
+
+// endedKey is a key that ended, by its hash, so a page still sending it hears `key_revoked`
+// instead of counting as a guess. Session keys are left out: their shape says it.
+type endedKey struct {
+	Hash    string    `json:"hash"`
+	At      time.Time `json:"at"`
+	Expired bool      `json:"expired,omitempty"`
+}
+
+// keyStore holds API keys beside the config in keys.json, and ended keys in keys-ended.json:
+// sha256 only, mode 0600, atomic write like tokens.json. With no config file it is memory
+// only. Never call with App.mu held: changes write the file.
 type keyStore struct {
-	mu     sync.Mutex
-	recs   []keyRec
-	path   string // "" = memory only
-	fileMu sync.Mutex
-	seq    uint64
-	wrote  uint64
-	dirty  bool
-	lastW  time.Time
+	mu       sync.Mutex
+	recs     []keyRec
+	ended    map[string]bool // hash: ended by its expiry
+	endedAt  []endedKey      // oldest first, at most endedKeyMax
+	path     string          // "" = memory only
+	fileMu   sync.Mutex
+	seq      uint64
+	wrote    uint64
+	dirty    bool
+	lastW    time.Time
+	endSeq   uint64 // bumped under mu when endedAt changes
+	endTaken uint64 // last endSeq marshalled for a write (under mu)
+	endWrote uint64 // last endSeq written (under fileMu)
 }
 
 // loadKeys: once, from New. A damaged file is forgotten, as tokens are.
@@ -119,7 +159,62 @@ func loadKeys(cfgPath string) *keyStore {
 			s.recs = nil
 		}
 	}
+	var ended []endedKey
+	if b, err := os.ReadFile(s.endedPath()); err == nil {
+		if err := json.Unmarshal(b, &ended); err != nil {
+			log.Printf("api: %s is damaged, ended keys forgotten: %v", s.endedPath(), err)
+			ended = nil
+		}
+	}
+	for _, e := range ended {
+		s.noteEndedMu(e)
+	}
+	s.endTaken, s.endWrote = s.endSeq, s.endSeq
 	return s
+}
+
+func (s *keyStore) endedPath() string { return filepath.Join(filepath.Dir(s.path), "keys-ended.json") }
+
+// noteEndedMu remembers e, forgetting the oldest past endedKeyMax. Caller holds mu (or owns s).
+func (s *keyStore) noteEndedMu(e endedKey) {
+	if s.ended == nil {
+		s.ended = map[string]bool{}
+	}
+	if _, ok := s.ended[e.Hash]; ok || e.Hash == "" {
+		return
+	}
+	s.ended[e.Hash] = e.Expired
+	s.endedAt = append(s.endedAt, e)
+	if n := len(s.endedAt) - endedKeyMax; n > 0 {
+		for _, old := range s.endedAt[:n] {
+			delete(s.ended, old.Hash)
+		}
+		s.endedAt = slices.Delete(s.endedAt, 0, n)
+	}
+	s.endSeq++
+}
+
+// endRecMu remembers r as ended when it was a key, not a setup link or a session key. Caller holds mu.
+func (s *keyStore) endRecMu(r keyRec, now time.Time) {
+	if r.Setup || r.Sess != "" {
+		return
+	}
+	s.noteEndedMu(endedKey{Hash: r.Hash, At: now.UTC(), Expired: !r.Expires.IsZero() && !now.Before(r.Expires)})
+}
+
+// endedAs says whether secret is a key that ended, and if so whether by its expiry.
+func (s *keyStore) endedAs(secret string) (expired, ended bool) {
+	if !strings.HasPrefix(secret, keyPrefix) {
+		return false, false
+	}
+	h := keyHash(secret)
+	s.mu.Lock()
+	expired, ended = s.ended[h]
+	s.mu.Unlock()
+	if !ended && isSessionShape(secret) {
+		return false, true
+	}
+	return expired, ended
 }
 
 // save writes the file after taking a snapshot under mu, so a slow disk blocks no lookup.
@@ -129,12 +224,25 @@ func (s *keyStore) save() {
 	}
 	s.mu.Lock()
 	b, _ := json.Marshal(s.recs)
+	// Only one snapshot carries each change to the ended keys, so its write is never skipped below.
+	var eb []byte
+	es := s.endSeq
+	if es != s.endTaken {
+		eb, _ = json.Marshal(s.endedAt)
+		s.endTaken = es
+	}
 	s.seq++
 	n := s.seq
 	s.dirty, s.lastW = false, time.Now()
 	s.mu.Unlock()
 	s.fileMu.Lock()
 	defer s.fileMu.Unlock()
+	if eb != nil && es > s.endWrote {
+		s.endWrote = es
+		if err := config.AtomicWrite(s.endedPath(), eb); err != nil {
+			log.Printf("api: ended keys not saved to %s: %v", s.endedPath(), err)
+		}
+	}
 	if n < s.wrote {
 		return
 	}
@@ -150,10 +258,17 @@ func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max 
 	return s.create(o, name, expires, max, fp, "")
 }
 
-// create is createCapped for a key that may ride a session: a new key for the same sess
-// replaces the old one, so a browser holds one.
+// sessionKeyMax bounds a session's keys. Tabs that share a session each hold one, so asking
+// again must not end another tab's key; past the bound the oldest ends.
+const sessionKeyMax = 16
+
+// create is createCapped for a key that may ride a session (sess set), which gets the session shape.
 func (s *keyStore) create(o keyOwner, name string, expires time.Time, max int, fp, sess string) (string, apiKey, error) {
-	return s.createWith(newKeySecret(), o, name, expires, max, fp, sess)
+	secret := newKeySecret()
+	if sess != "" {
+		secret = newSessionSecret()
+	}
+	return s.createWith(secret, o, name, expires, max, fp, sess)
 }
 
 func (s *keyStore) createWith(secret string, o keyOwner, name string, expires time.Time, max int, fp, sess string) (string, apiKey, error) {
@@ -165,7 +280,20 @@ func (s *keyStore) createWith(secret string, o keyOwner, name string, expires ti
 	rand.Read(id)
 	s.mu.Lock()
 	if sess != "" {
-		s.recs = slices.DeleteFunc(s.recs, func(r keyRec) bool { return r.Sess == sess })
+		n := 0
+		for _, r := range s.recs {
+			if r.Sess == sess {
+				n++
+			}
+		}
+		// recs is in creation order, so the session's first key is its oldest.
+		s.recs = slices.DeleteFunc(s.recs, func(r keyRec) bool {
+			if r.Sess != sess || n < sessionKeyMax {
+				return false
+			}
+			n--
+			return true
+		})
 	}
 	if max > 0 && s.countMu(o) >= max {
 		s.mu.Unlock()
@@ -181,7 +309,9 @@ func (s *keyStore) createWith(secret string, o keyOwner, name string, expires ti
 func (s *keyStore) countMu(o keyOwner) int {
 	n := 0
 	for _, r := range s.recs {
-		if r.Owner.is(o) && !r.Setup {
+		// Session keys are bounded per session (sessionKeyMax) and end with it, so they leave the
+		// owner's cap for the keys they make themselves.
+		if r.Owner.is(o) && !r.Setup && r.Sess == "" {
 			n++
 		}
 	}
@@ -265,11 +395,13 @@ func (s *keyStore) list() []apiKey {
 }
 
 func (s *keyStore) dropWhere(gone func(keyRec) bool) []apiKey {
+	now := time.Now()
 	s.mu.Lock()
 	var out []apiKey
 	s.recs = slices.DeleteFunc(s.recs, func(r keyRec) bool {
 		if gone(r) {
 			out = append(out, r.apiKey)
+			s.endRecMu(r, now)
 			return true
 		}
 		return false
@@ -305,6 +437,7 @@ func (s *keyStore) reconcile(cfg config.Config) []apiKey {
 			kept = append(kept, r)
 		} else {
 			out = append(out, r.apiKey)
+			s.endRecMu(r, time.Now())
 		}
 	}
 	s.recs = kept
