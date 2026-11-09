@@ -20,7 +20,7 @@ Storage: one YAML file per panel under `panels/`, with an `id` and a display nam
 - Idle cells are the active colours muted into the control surface, so user-chosen colours carry through. The pulse breathes between about 72% and 100% of the state colour on one shared 2-second cycle, with static rings so state survives reduced motion.
 - After a take, a destination shows its Result as an icon (connected, already, failed). Result text is optional and off by default.
 - Refused before arming, with an error: a Protected destination, a route outside the panel's Rights, and a Source and Destination with no common level. Levels are set per panel and per Source or Destination cell, and a take sends the intersection.
-- A pending selection clears after 30 idle seconds. A saved edit refreshes open panels after a 10 second countdown shown in a banner with a 60 second snooze. It never applies at once and never drops staged routes: it waits for a take or Clear, and a viewed destination is kept through the refresh.
+- The viewed destination and the staged routes have no clock: only a press, a take or Clear ends them. (An earlier build cleared them after 30 idle seconds; a wall tablet that forgot its destination mid-thought was worse than one that kept it.) A saved edit refreshes open panels after a 10 second countdown shown in a banner with Snooze 60 s and Apply now; the banner's own section below says what each does with staged routes. A viewed destination is kept through the refresh.
 
 ## Authentication
 
@@ -86,7 +86,7 @@ Proposed, not prototyped.
 
 ## Panel page (as built)
 
-- Modules: `panelmodel.js` (pure state model: view, stage, arm, Take, results, idle clear), `panelrules.js` (URL, API answers, cell checks, error text), `panelview.js` (draws the grid), `panelrun.js` (loads the panel, polls, sends the take), entry `panelpage.js`.
+- Modules: `panelmodel.js` (pure state model: view, stage, arm, Take, results), `panelrules.js` (URL, API answers, cell checks, error text), `panelview.js` (draws the grid), `panelrun.js` (loads the panel, polls, sends the take), entry `panelpage.js`.
 - Stored cell: `{ r, c, rs?, cs?, kind: source | destination | take | preset | clear | current, n?, scope?, name?, caption?, levels? }`, with `r` and `c` from 1. A Preset cell holds `scope` (`everyone` or `me`) and `name` instead of `n`; `current` is the Current Destination cell. Cells that are outside the grid, unknown, a Source or Destination without `n`, a Preset without both, or overlapping an earlier cell are not drawn. Settings read: `mode`, `multi`, `levels`, `guard` (`hold` or `double`, anything else is none).
 - A Preset cell stages every route of the preset (`GET /presets`, polled with names) and views its first destination. One refused route (Protected, no common level) refuses the whole preset. With `multi` off a preset with more than one destination is refused. A taken route is sent as an ordinary `POST /takes`, so History shows routes, not the preset name. Clear and Current Destination have no stored fields beyond `caption`; Current is disabled.
 - Instant mode: `startInstant` is called right after a Source or Preset press, and one route set is held at a time, so a new press replaces a failed one. The Take cell stays disabled. Guards apply to the Take cell only: `double` needs a second press within 1.5 s, `hold` 0.8 s of pointer or Enter and Space held (`guardDown`, `guardHeld`, `guardCancel`).

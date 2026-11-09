@@ -6,7 +6,7 @@ import {
   pressDestination,
   pressSource,
   pressPreset,
-  pressClear,
+  clear,
   startInstant,
   startTake,
   armed,
@@ -123,7 +123,7 @@ test('a Preset views its destination, so Current Destination shows what that des
 
 test('Clear drops the view, the plan and the error', () => {
   const e = env();
-  const st = pressClear(pressPreset(createState(), P('Studio A'), e, T0), T0);
+  const st = clear(pressPreset(createState(), P('Studio A'), e, T0));
   assert.equal(st.view, null);
   assert.equal(st.staged.length, 0);
   assert.equal(st.error, null);
