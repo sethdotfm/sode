@@ -5,8 +5,6 @@ import { $, el } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { namesFrom } from './panelrules.js';
 import {
-  ROWS_MAX,
-  COLS_MAX,
   createGrid,
   cellsLost,
   resize,
@@ -127,9 +125,7 @@ export async function runEditor() {
     const box = ro ? null : grid.selectionBox();
     menu.show(box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
-    $('ed-rows').value = String(g.rows);
-    $('ed-cols').value = String(g.cols);
-    for (const id of ['ed-rows', 'ed-cols', 'ed-rows-dec', 'ed-rows-inc', 'ed-cols-dec', 'ed-cols-inc', 'ed-name']) $(id).disabled = ro;
+    nameBox.disabled = ro;
     const todo = countUnassigned(g);
     $('ed-todo').textContent = todo ? `${todo} unassigned` : 'All assigned';
     $('ed-next').disabled = ro || !todo;
@@ -141,27 +137,14 @@ export async function runEditor() {
     if (loaded) open.href = `panels/${loaded.id}`;
   }
 
-  function stepSize(which, delta) {
-    const rows = which === 'rows' ? g.rows + delta : g.rows;
-    const cols = which === 'cols' ? g.cols + delta : g.cols;
-    typeSize(rows, cols);
-  }
-  function typeSize(rows, cols) {
+  // The Panel tab's Rows and Columns call this; a bad value keeps the current size.
+  function setSize(which, value) {
+    const rows = which === 'rows' ? value : g.rows;
+    const cols = which === 'cols' ? value : g.cols;
     const lost = cellsLost(g, rows, cols);
     setGrid(resize(g, rows, cols));
     say('ed-status', lost ? `Removed ${lost} cell${lost > 1 ? 's' : ''} that no longer fit.` : '');
-  }
-  for (const [which, max] of [
-    ['rows', ROWS_MAX],
-    ['cols', COLS_MAX],
-  ]) {
-    $(`ed-${which}-dec`).addEventListener('click', () => stepSize(which, -1));
-    $(`ed-${which}-inc`).addEventListener('click', () => stepSize(which, 1));
-    $(`ed-${which}`).max = String(max);
-    $(`ed-${which}`).addEventListener('change', (e) => {
-      const v = e.target.value;
-      typeSize(which === 'rows' ? v : g.rows, which === 'cols' ? v : g.cols);
-    });
+    refresh();
   }
   nameBox.addEventListener('input', refresh);
   $('ed-next').addEventListener('click', () => {
@@ -321,6 +304,7 @@ export async function runEditor() {
   return {
     grid: () => g,
     setGrid,
+    setSize,
     panel: () => loaded,
     readOnly,
     names: () => names,
