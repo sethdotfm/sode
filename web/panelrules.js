@@ -83,7 +83,7 @@ export function errorText(err, names) {
     case 'no-preset':
       return 'That preset is not available to this panel';
     case 'preset-multi':
-      return 'This panel changes one destination at a time, and that preset has more';
+      return 'This panel stages one destination at a time, and that preset has more';
     case 'refused':
       return err.message || 'The take was refused';
     default:

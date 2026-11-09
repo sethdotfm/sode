@@ -238,5 +238,5 @@ test('envFrom keys the presets by scope and name', () => {
 test('error text for the new refusals', () => {
   const n = namesFrom({});
   assert.equal(errorText({ code: 'no-preset' }, n), 'That preset is not available to this panel');
-  assert.equal(errorText({ code: 'preset-multi' }, n), 'This panel changes one destination at a time, and that preset has more');
+  assert.equal(errorText({ code: 'preset-multi' }, n), 'This panel stages one destination at a time, and that preset has more');
 });
