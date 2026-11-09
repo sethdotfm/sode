@@ -1077,3 +1077,9 @@ html:has(.sode__scrim:not([hidden])) {
     animation: none;
   }
 }
+
+/* The Panels logo is 2:1, so it sets its own width inside the square icon button. */
+.sode__panels-link img {
+  height: auto;
+  width: 1.5rem;
+}
