@@ -130,3 +130,128 @@
   background-color: color-mix(in oklab, var(--pb-commit) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-surface-control));
   color: var(--pb-text-strong);
 }
+
+/* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
+.sode-ov__cols {
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: 20rem minmax(0, 1fr);
+}
+@media (max-width: 52rem) {
+  .sode-ov__cols {
+    grid-template-columns: 1fr;
+  }
+}
+.sode-ov__list {
+  border-right: 1px solid var(--pb-border);
+  min-width: 0;
+}
+.sode-ov__find {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  padding-bottom: var(--pb-space-3);
+}
+.sode-ov__group {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  letter-spacing: var(--pb-tracking-label);
+  margin: var(--pb-space-4) 0 var(--pb-space-2);
+  text-transform: uppercase;
+}
+.sode-ov__item {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--pb-border);
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: auto 1fr auto;
+  padding: var(--pb-space-3);
+  text-align: left;
+  width: 100%;
+}
+.sode-ov__item[aria-current="true"] {
+  background: var(--pb-surface-control);
+  box-shadow: inset var(--pb-space-1) 0 var(--pb-view);
+}
+.sode-ov__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sode-ov__muted {
+  color: var(--pb-text-muted);
+}
+.sode-ov__empty {
+  padding: var(--pb-space-3);
+}
+.sode-ov__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  margin: 0 0 var(--pb-space-4);
+}
+.sode-ov__big {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: minmax(0, 24rem) 1fr;
+}
+@media (max-width: 52rem) {
+  .sode-ov__big {
+    grid-template-columns: 1fr;
+  }
+}
+.sode-ov__pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-ov__launch {
+  font-size: var(--pb-text-lg);
+  justify-content: center;
+  padding: var(--pb-space-4) var(--pb-space-6);
+}
+.sode-ov__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-ov__kv {
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-4);
+  grid-template-columns: max-content 1fr;
+  margin: 0;
+}
+.sode-ov__kv dt {
+  color: var(--pb-text-muted);
+}
+.sode-ov__kv dd {
+  margin: 0;
+}
+.sode-ov__thumb {
+  background: var(--pb-surface-base);
+  border: 1px solid var(--pb-border);
+  display: grid;
+  gap: var(--pb-space-1);
+  padding: var(--pb-space-2);
+  width: 100%;
+}
+.sode-ov__thumb--sm {
+  padding: var(--pb-space-1);
+  width: 6rem;
+}
+.sode-ov__thumb i {
+  background: var(--pb-surface-control);
+}
+.sode-ov__thumb .sode-ov__k-source {
+  background: var(--pb-current-idle);
+}
+.sode-ov__thumb .sode-ov__k-destination {
+  background: var(--pb-view-idle);
+}
+.sode-ov__thumb .sode-ov__k-take {
+  background: var(--pb-commit);
+}
