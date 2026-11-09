@@ -95,7 +95,8 @@ export async function runPanel(id) {
     }
     return look;
   };
-  if (applyLook(panel).wake) createWake(navigator, document).on();
+  let look = applyLook(panel);
+  if (look.wake) createWake(navigator, document).on();
 
   let cells = cellsIn(panel);
   const stateOf = (p) => {
@@ -214,7 +215,7 @@ export async function runPanel(id) {
       panel = p;
       cells = cellsIn(p);
       st = stateOf(p);
-      applyLook(p);
+      look = applyLook(p);
       grid = buildGrid($('panel-grid'), p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
       render();
     },
