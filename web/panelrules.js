@@ -30,7 +30,11 @@ export function openFailText(status, hadKey) {
   return 'This panel could not be opened.';
 }
 
-export function envFrom(tally, protectedReply, presetsReply = {}) {
+// rights is the caller's own Rights from GET /panels/<id>: an unset list allows everything, an empty one nothing.
+// Keep in step with config.Rights and outsideRights (internal/app/rights.go).
+export const rightsAllow = (rights, list, v) => !Array.isArray(rights?.[list]) || rights[list].includes(v);
+
+export function envFrom(tally, protectedReply, presetsReply = {}, rights = null) {
   const rows = new Map();
   for (const r of tally.routes || []) {
     if (!rows.has(r.dst)) rows.set(r.dst, new Map());
@@ -40,6 +44,7 @@ export function envFrom(tally, protectedReply, presetsReply = {}) {
     levels: (tally.levels || []).map((l) => l.level),
     tally: rows,
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
+    rights: rights || null,
     presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), p.items || []])),
   };
 }
@@ -90,6 +95,10 @@ export function errorText(err, names) {
       return `${names.destination(err.dst)} is protected`;
     case 'no-common-levels':
       return `${names.source(err.src)} and ${names.destination(err.dst)} have no level in common`;
+    case 'outside-rights': {
+      if (err.quiet) return "That is outside this panel's rights";
+      return `${err.what === 'source' ? names.source(err.src) : err.what === 'preset' ? err.name : names.destination(err.dst)} is outside this panel's rights`;
+    }
     case 'no-preset':
       return 'That preset is not available to this panel';
     case 'preset-multi':

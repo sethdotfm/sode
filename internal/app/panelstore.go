@@ -82,13 +82,15 @@ type Panel struct {
 	Cells        []map[string]any `yaml:"cells" json:"cells"`
 	Settings     map[string]any   `yaml:"settings" json:"settings"`
 	Art          []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
+	// Rev is the server's: it counts stored changes, and an open panel updates when it moves.
+	Rev int `yaml:"rev,omitempty" json:"rev"`
 
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // panelKnown are the JSON names the struct owns. canEdit is output only and never stored,
 // so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "canEdit", "clientRights", "online", "watching", "instances"}
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "online", "watching", "instances"}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
@@ -258,7 +260,9 @@ func (s *panelStore) list() []Panel {
 }
 
 // writeLocked saves p before the map changes, so a failed write leaves memory as the file is.
-func (s *panelStore) writeLocked(p Panel) error {
+// Every stored change moves Rev, which open panels poll to know they are out of date.
+func (s *panelStore) writeLocked(p *Panel) error {
+	p.Rev++
 	if s.dir == "" {
 		return nil
 	}
@@ -288,7 +292,7 @@ func (s *panelStore) create(p Panel) (Panel, error) {
 		}
 	}
 	p.normalize()
-	if err := s.writeLocked(p); err != nil {
+	if err := s.writeLocked(&p); err != nil {
 		return Panel{}, err
 	}
 	s.by[p.ID] = p
@@ -302,7 +306,7 @@ func (s *panelStore) replace(p Panel) (bool, error) {
 	if _, ok := s.by[p.ID]; !ok {
 		return false, nil
 	}
-	if err := s.writeLocked(p); err != nil {
+	if err := s.writeLocked(&p); err != nil {
 		return true, err
 	}
 	s.by[p.ID] = p
@@ -342,7 +346,7 @@ func (s *panelStore) followUsers(renames map[string]string, removed map[string]b
 		if !changed {
 			continue
 		}
-		if err := s.writeLocked(q); err != nil {
+		if err := s.writeLocked(&q); err != nil {
 			if first == nil {
 				first = err
 			}
@@ -403,7 +407,7 @@ func (s *panelStore) addArt(id string, data []byte, typ string) (PanelArt, bool,
 		s.art[id+"/"+art.ID] = data
 	}
 	p.Art = append(slices.Clone(p.Art), art)
-	if err := s.writeLocked(p); err != nil {
+	if err := s.writeLocked(&p); err != nil {
 		return PanelArt{}, true, err
 	}
 	s.by[id] = p
@@ -441,7 +445,7 @@ func (s *panelStore) delArt(id, art string) (bool, error) {
 		return false, nil
 	}
 	p.Art = slices.Delete(slices.Clone(p.Art), i, i+1)
-	if err := s.writeLocked(p); err != nil {
+	if err := s.writeLocked(&p); err != nil {
 		return true, err
 	}
 	s.by[id] = p
@@ -477,7 +481,7 @@ func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) {
 		s.art[id+"/"+art.ID] = data
 	}
 	p.Art = append(slices.Clone(p.Art), art)
-	if s.writeLocked(p) == nil {
+	if s.writeLocked(&p) == nil {
 		s.by[id] = p
 	}
 }

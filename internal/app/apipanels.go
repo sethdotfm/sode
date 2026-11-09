@@ -154,9 +154,11 @@ func (a *App) apiPanelPeople(w http.ResponseWriter, _ *http.Request, cl *apiCtx)
 func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if p, ok := a.panelFor(w, r, cl, false); ok {
 		_, edit := a.panelReach(cl, p)
-		m := a.panelOut(p, edit)
-		a.monFields(m, cl, p, edit)
-		apiJSON(w, m)
+		out := a.panelOut(p, edit)
+		a.monFields(out, cl, p, edit)
+		// The page mirrors these before arming a take; the server still enforces them.
+		out["rights"] = cl.Rights.Clone()
+		apiJSON(w, out)
 	}
 }
 
@@ -178,7 +180,7 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = "", cl.Actor.Name, "", nil, nil
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = "", cl.Actor.Name, "", nil, nil, 0
 	p.normalize()
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
@@ -234,7 +236,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	want := p.ClientRights
-	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = old.ID, old.Owner, old.Client, old.Art, nil
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
 	merged := maps.Clone(old.Extra)
 	if merged == nil {
 		merged = map[string]any{}
@@ -279,6 +281,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		a.panelStoreFail(w, err)
 		return
 	}
+	p, _ = a.panels.get(p.ID) // carries the new Rev
 	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
 	apiJSON(w, a.panelOut(p, true))
 }
@@ -320,7 +323,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
-	c.Art = nil
+	c.Art, c.Rev = nil, 0
 	if err := validatePanel(&c); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
