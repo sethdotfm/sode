@@ -118,6 +118,9 @@ type APIClient struct {
 	Scopes []string `yaml:"scopes" json:"scopes"`
 	Rights Rights   `yaml:"rights,omitempty" json:"rights"`
 	Panel  string   `yaml:"panel,omitempty" json:"panel,omitempty"`
+	// Networks limits where the client's keys work: CIDRs, empty means anywhere. Set through a
+	// panel's Share tab (panelnet.go).
+	Networks []string `yaml:"networks,omitempty" json:"networks,omitempty"`
 }
 
 // APISettings: advanced settings, saved apart from the Settings form (owned).

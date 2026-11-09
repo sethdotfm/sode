@@ -68,6 +68,9 @@ type keyRec struct {
 	// Sess is tokenKey of the session token a browser's key rides on (sessionkey.go); empty
 	// for every other key. The key is live only while that token is.
 	Sess string `json:"sess,omitempty"`
+	// Setup marks a one-time setup link (panelsetup.go): Hash is its token's. It is never a
+	// key, so find, list, count and expire pass over it.
+	Setup bool `json:"setup,omitempty"`
 }
 
 // pinFP is a one-way stamp of a user's PIN hash: stored in place of it, never the PIN or hash.
@@ -162,7 +165,7 @@ func (s *keyStore) create(o keyOwner, name string, expires time.Time, max int, f
 func (s *keyStore) countMu(o keyOwner) int {
 	n := 0
 	for _, r := range s.recs {
-		if r.Owner.is(o) {
+		if r.Owner.is(o) && !r.Setup {
 			n++
 		}
 	}
@@ -179,7 +182,7 @@ func (s *keyStore) find(secret string, now time.Time) (k apiKey, expired, ok boo
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, r := range s.recs {
-		if subtle.ConstantTimeCompare([]byte(r.Hash), []byte(h)) == 1 {
+		if !r.Setup && subtle.ConstantTimeCompare([]byte(r.Hash), []byte(h)) == 1 {
 			if !r.Expires.IsZero() && !now.Before(r.Expires) {
 				return apiKey{}, true, false
 			}
@@ -235,9 +238,11 @@ func (s *keyStore) sessionOf(id string) string {
 func (s *keyStore) list() []apiKey {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]apiKey, len(s.recs))
-	for i, r := range s.recs {
-		out[i] = r.apiKey
+	out := make([]apiKey, 0, len(s.recs))
+	for _, r := range s.recs {
+		if !r.Setup {
+			out = append(out, r.apiKey)
+		}
 	}
 	slices.SortStableFunc(out, func(a, b apiKey) int { return a.Created.Compare(b.Created) })
 	return out
@@ -306,5 +311,5 @@ func (s *keyStore) dropOwner(o keyOwner) int {
 
 // expire removes keys past their expiry and returns them, so the caller can log each.
 func (s *keyStore) expire(now time.Time) []apiKey {
-	return s.dropWhere(func(r keyRec) bool { return !r.Expires.IsZero() && !now.Before(r.Expires) })
+	return s.dropWhere(func(r keyRec) bool { return !r.Setup && !r.Expires.IsZero() && !now.Before(r.Expires) })
 }

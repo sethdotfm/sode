@@ -6,6 +6,8 @@ import { sessionFetch, startSession, signInAgain, onSessionKey, nameSessionKey }
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey } from './sessionkeyrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from './panelrules.js';
+import { setupFromHash, pollFail } from './panelkeyrules.js';
+import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
 import {
   createState,
   pressDestination,
@@ -47,11 +49,22 @@ function takeKey() {
 }
 
 export async function runPanel(id) {
-  const key = keyFromHash(location.hash);
+  let key = keyFromHash(location.hash);
+  const setup = setupFromHash(location.hash);
+  if (!key && setup) {
+    const got = await exchangeSetup(id, setup);
+    if (got.error) return say('panels-note', got.error);
+    key = got.key;
+  }
+  const stored = !key;
+  if (stored) key = storedKey(id);
   const call = key ? (path, init = {}) => fetch(path, withKey(init, key)) : sessionFetch;
   const get = async (path) => {
     const res = await call(path);
-    if (!res.ok) throw new Error(`${path} ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(`${path} ${res.status}`), { status: res.status, code: body.error?.code, detail: body.error?.message });
+    }
     return res.json();
   };
 
@@ -69,7 +82,9 @@ export async function runPanel(id) {
 
   const res = await call(`api/v1/panels/${id}`);
   if (!res.ok) {
-    say('panels-note', openFailText(res.status, !!key));
+    if (res.status === 401 && stored && key) forgetKey(id);
+    const body = res.status === 403 ? await res.json().catch(() => ({})) : {};
+    say('panels-note', body.error?.code === 'network_not_allowed' ? body.error.message : openFailText(res.status, !!key));
     return;
   }
   let panel = await res.json();
@@ -118,8 +133,9 @@ export async function runPanel(id) {
   let grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
 
   let polling = false;
+  let ended = false; // the key is gone or refused: only a new link helps
   async function poll() {
-    if (polling) return;
+    if (polling || ended) return;
     polling = true;
     try {
       const wantNames = Date.now() - namesAt > NAMES_MS;
@@ -134,8 +150,14 @@ export async function runPanel(id) {
       st = applyTally(st, env);
       ready = true;
       say('panels-note', '');
-    } catch {
-      say('panels-note', 'Lost contact with Sode. Retrying.');
+    } catch (e) {
+      const f = pollFail(e.status, e.code, e.detail, !!key);
+      say('panels-note', f.text);
+      if (f.stop) {
+        ended = true;
+        ready = false;
+        if (stored) forgetKey(id);
+      }
     }
     polling = false;
     render();

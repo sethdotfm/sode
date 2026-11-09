@@ -64,10 +64,15 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 		r := c.Rights.Clone()
 		p.ClientRights = &r
 	}
+	cl, hasClient := clientOfPanel(a.r().cfg, p)
 	b, _ := json.Marshal(p)
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
+	if edit && hasClient {
+		m["hasKey"] = a.keys.holds(keyOwner{Kind: actorClient, Name: cl.Name})
+		m["clientNetworks"] = append([]string{}, cl.Networks...)
+	}
 	return m
 }
 

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 
@@ -45,8 +47,17 @@ func (a *App) apiPanelKeyMake(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	if !ok {
 		return
 	}
+	body, _ := io.ReadAll(http.MaxBytesReader(w, r.Body, 1024))
+	var req struct {
+		Setup bool `json:"setup"`
+	}
+	json.Unmarshal(body, &req)
+	if req.Setup {
+		a.makeSetup(w, cl, p, owner)
+		return
+	}
 	a.cfgMu.Lock()
-	gone := a.keys.dropWhere(func(r keyRec) bool { return r.Owner.is(owner) })
+	gone := withoutSetups(a.keys.dropWhere(func(r keyRec) bool { return r.Owner.is(owner) }))
 	secret, rec, err := a.keys.createCapped(owner, panelKeyName, time.Time{}, 0, "")
 	a.cfgMu.Unlock()
 	a.endStreams(gone, "key rotated")

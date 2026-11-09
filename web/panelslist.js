@@ -5,6 +5,7 @@ import { sessionFetch, startSession, signInAgain, onSessionKey } from './session
 import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
 import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, shareLabel, launchHref, editHref } from './panelsrules.js';
 import { openShare } from './panelshare.js';
+import './panelkeytab.js';
 import { openPush } from './panelpush.js';
 
 const DISARM_MS = 5000;

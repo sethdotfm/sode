@@ -60,6 +60,10 @@ type apiRoute struct {
 	Handle              apiHandler
 }
 
+// scopeOpen as a route's Scope skips the key check: the handler gets a nil apiCtx and does its
+// own throttling. Only the setup-link exchange, which is how a tablet gets its key.
+const scopeOpen = "none"
+
 var apiRoutes []apiRoute
 
 func registerAPI(rs ...apiRoute) { apiRoutes = append(apiRoutes, rs...) }
@@ -124,6 +128,14 @@ func pathMatches(pattern, path string) bool {
 
 func (a *App) apiWrap(rt apiRoute) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if rt.Scope == scopeOpen {
+			if !a.r().cfg.API.Enabled {
+				apiFail(w, http.StatusServiceUnavailable, "api_off", "the API is off; an administrator turns it on in Settings")
+				return
+			}
+			rt.Handle(a, w, r, nil)
+			return
+		}
 		cl, ok := a.apiAuth(w, r)
 		if !ok {
 			return
