@@ -172,6 +172,11 @@ func validatePanel(p *Panel) error {
 	case len(p.Share.Users) > config.MaxUsers:
 		return errors.New("too many named users")
 	}
+	settings, err := cleanFixedDests(p.Settings)
+	if err != nil {
+		return err
+	}
+	p.Settings = settings
 	if p.Share.Mode != panelShareNamed {
 		p.Share.Users = nil
 	}

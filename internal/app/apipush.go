@@ -115,7 +115,7 @@ func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	var done []pushedOne
 	for _, t := range targets {
 		a.panels.artMissing(src, t.ID)
-		p, cp, err := a.panels.applyLayout(t.ID, layoutOf(src), cl.Actor.Name, why)
+		p, cp, err := a.panels.pushLayout(t.ID, layoutOf(src), cl.Actor.Name, why)
 		if err != nil {
 			a.pushFail(w, err)
 			return
