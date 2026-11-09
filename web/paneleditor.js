@@ -80,9 +80,10 @@ export async function runEditor() {
 
   // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar (which
   // edits the selected cell). Not a blur: the menu rebuilds itself on every change and drops focus for a moment.
-  const inEditor = (t) => t instanceof Node && [$('ed-grid'), menu.root, $('ed-side')].some((n) => n.contains(t));
+  // The event path, not the target: a click on a square repaints the grid, which detaches that target.
   const leave = (e) => {
-    if (g.sel && !inEditor(e.target)) setGrid(deselect(g));
+    const path = e.composedPath();
+    if (g.sel && ![$('ed-grid'), menu.root, $('ed-side')].some((n) => path.includes(n))) setGrid(deselect(g));
   };
   document.addEventListener('pointerdown', leave);
   document.addEventListener('focusin', leave);
