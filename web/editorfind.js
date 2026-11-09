@@ -5,6 +5,7 @@ import { el, icon, onMsg, on, $ } from './core.js';
 import { sessionFetch } from './sessionkey.js';
 import { resultStep } from './keys.js';
 import { selSquares, single } from './gridmodel.js';
+import { createOrderPicker } from './editororder.js';
 import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill } from './findrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
@@ -32,7 +33,7 @@ export function initFind(editor) {
   let hi = 0; // index into results
   let anchor = -1; // where Shift started a picked set
   let picked = []; // result keys picked with Shift, in list order
-  let order = 'across'; // one of gridmodel's FILL_ORDERS; the order picker (later) sets it
+  let order = 'across'; // one of gridmodel's FILL_ORDERS; the order picker sets it
   let hovered = false;
   let rebuilding = false;
   let preview = [];
@@ -55,7 +56,8 @@ export function initFind(editor) {
   const fill = el('button', 'pb-btn pb-btn--ok pb-btn--sm', 'Fill');
   fill.type = 'button';
   const foot = el('div', 'sode-find__foot', note, fill);
-  const panel = el('div', 'pb-menu pb-menu__sub sode-find', input, chips, list, foot);
+  const orders = createOrderPicker(order, (id) => api.setOrder(id));
+  const panel = el('div', 'pb-menu pb-menu__sub sode-find', input, chips, list, orders, foot);
 
   rightsChanged = () => {
     rights = myRights;
@@ -316,11 +318,14 @@ export function initFind(editor) {
   });
   editor.refresh();
 
-  return {
+  const api = {
     setOrder(id) {
       order = id;
+      orders.set(id);
       draw();
+      input.focus({ preventScroll: true });
     },
     order: () => order,
   };
+  return api;
 }
