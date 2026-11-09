@@ -711,6 +711,219 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/push:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: pushPanel
+      tags: [panels]
+      summary: Push a panel's saved layout to other panels
+      description: |
+        Scope `panelsmanage`. Copies the grid (`rows`, `cols`, `cells`), `settings` and unknown
+        fields of the saved panel onto each target. Each target keeps its own `name`, `id`, `owner`
+        and `share`. `acts`, the API client and its rights are never copied, so a Push cannot
+        make a session panel act as an API client or widen a client; artwork the target lacks is
+        copied. A checkpoint of each target is kept first. The caller must be able to change the
+        source and every target (the owner, or a Trusted user for anybody's); if any target is
+        refused, none is changed. Open panels update like a saved edit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targets]
+              properties:
+                targets: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      responses:
+        "200":
+          description: Each target, its new `rev` and the checkpoint kept first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/checkpoints:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    get:
+      operationId: listCheckpoints
+      tags: [panels]
+      summary: List a panel's checkpoints
+      description: |
+        Scope `panels`. Newest first, at most 10: the layouts the panel had before a Push or a
+        restore. For the owner or a Trusted user.
+      responses:
+        "200":
+          description: Checkpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checkpoints]
+                properties:
+                  checkpoints: { type: array, items: { $ref: "#/components/schemas/Checkpoint" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/checkpoints/{cp}/restore:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: cp, in: path, required: true, schema: { type: string, pattern: "^c-[0-9a-f]{8}$" } }
+    post:
+      operationId: restoreCheckpoint
+      tags: [panels]
+      summary: Put a checkpoint back
+      description: |
+        Scope `panelsmanage`. Restores the checkpoint's layout. What it replaces is kept as a new
+        checkpoint, so a restore can be undone too. Name, sharing and the API client are untouched.
+      responses:
+        "200":
+          description: The panel after the restore
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-sets:
+    get:
+      operationId: listCheckpointSets
+      tags: [panels]
+      summary: List checkpoint sets
+      description: |
+        Scope `panels`. The caller's own Me sets and every Everyone set. A user's key only; any
+        other key gets an empty list.
+      responses:
+        "200":
+          description: Checkpoint sets, without their cells
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sets]
+                properties:
+                  sets: { type: array, items: { $ref: "#/components/schemas/CheckpointSet" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createCheckpointSet
+      tags: [panels]
+      summary: Save a checkpoint set
+      description: |
+        Scope `panelsmanage`. Saves the listed panels' current saved layouts, one each. The caller
+        must be able to change every panel listed. A set for `everyone` needs a Trusted user
+        (403 `trusted_required`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, panels]
+              properties:
+                name: { type: string, maxLength: 60 }
+                scope: { type: string, enum: [me, everyone], default: me }
+                panels: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      responses:
+        "201":
+          description: The set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckpointSet" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-sets/{sid}:
+    parameters:
+      - { name: sid, in: path, required: true, schema: { type: string, pattern: "^s-[0-9a-f]{8}$" } }
+    put:
+      operationId: updateCheckpointSet
+      tags: [panels]
+      summary: Rename a checkpoint set or save its layouts again
+      description: |
+        Scope `panelsmanage`. `name` renames it. `panels` replaces its entries with those panels'
+        current saved layouts. The owner, or a Trusted user for an Everyone set.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 60 }
+                panels: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      responses:
+        "200":
+          description: The set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckpointSet" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteCheckpointSet
+      tags: [panels]
+      summary: Delete a checkpoint set
+      description: Scope `panelsmanage`. The owner, or a Trusted user for an Everyone set.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-sets/{sid}/push:
+    parameters:
+      - { name: sid, in: path, required: true, schema: { type: string, pattern: "^s-[0-9a-f]{8}$" } }
+    post:
+      operationId: pushCheckpointSet
+      tags: [panels]
+      summary: Push a checkpoint set
+      description: |
+        Scope `panelsmanage`. Gives each panel in the set its own saved layout, keeping a
+        checkpoint of each first, with the same rules as pushing a panel. The caller must be able
+        to change every panel pushed to. `targets` narrows it to some of the set's panels. A panel
+        that no longer exists is skipped and listed in `skipped`. The body may be empty.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targets: { type: array, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      responses:
+        "200":
+          description: Panels pushed to and panels skipped
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}/key:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
@@ -1212,6 +1425,59 @@ components:
                 levels: { type: array, items: { type: integer }, description: UI levels }
                 presets: { type: array, items: { type: string } }
                 visibility: { type: string, enum: [readonly, hidden] }
+    PushResult:
+      type: object
+      required: [pushed]
+      properties:
+        pushed:
+          type: array
+          items:
+            type: object
+            required: [panel, rev, checkpoint]
+            properties:
+              panel: { type: string }
+              rev: { type: integer }
+              checkpoint: { type: string, pattern: "^c-[0-9a-f]{8}$" }
+        skipped:
+          type: array
+          description: Only from a checkpoint set push
+          items:
+            type: object
+            required: [panel, reason]
+            properties:
+              panel: { type: string }
+              reason: { type: string }
+    Checkpoint:
+      type: object
+      required: [id, at, by, why, rows, cols, cells]
+      properties:
+        id: { type: string, pattern: "^c-[0-9a-f]{8}$" }
+        at: { type: string, format: date-time }
+        by: { type: string, description: The user who pushed or restored }
+        why: { type: string }
+        rows: { type: integer }
+        cols: { type: integer }
+        cells: { type: integer, description: How many cells the layout has }
+    CheckpointSet:
+      type: object
+      required: [id, name, scope, owner, entries, canEdit]
+      properties:
+        id: { type: string, pattern: "^s-[0-9a-f]{8}$" }
+        name: { type: string }
+        scope: { type: string, enum: [me, everyone] }
+        owner: { type: string }
+        canEdit: { type: boolean }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [panel, name, rows, cols, cells]
+            properties:
+              panel: { type: string, description: The panel this layout belongs to }
+              name: { type: string, description: The panel's name when saved }
+              rows: { type: integer }
+              cols: { type: integer }
+              cells: { type: integer }
     Name:
       type: object
       required: [n, name]

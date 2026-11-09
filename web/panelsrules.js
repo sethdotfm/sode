@@ -26,7 +26,7 @@ export function groupPanels(panels, me, trusted, filter = '') {
 }
 
 // Link with key and Push to panels join this list in their own tickets.
-export const actionsFor = (p) => (p.canEdit ? ['launch', 'edit', 'share', 'delete'] : ['launch', 'copy']);
+export const actionsFor = (p) => (p.canEdit ? ['launch', 'edit', 'share', 'push', 'delete'] : ['launch', 'copy']);
 
 // The People tab. Sharing is only the share field of PUT /api/v1/panels/{id}; the server keeps
 // names for Named users only and applies the change to open lists and launches.
