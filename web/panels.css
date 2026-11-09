@@ -452,6 +452,12 @@
   flex-wrap: wrap;
   gap: var(--pb-space-3);
 }
+.sode-ov__kbd {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-2xs);
+  margin-inline-start: var(--pb-space-2);
+}
 .sode-ov__kv {
   display: grid;
   gap: var(--pb-space-1) var(--pb-space-4);

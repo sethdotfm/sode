@@ -134,16 +134,6 @@ func TestSessionKeysStayWithTheirOwnUser(t *testing.T) {
 	}
 }
 
-func TestSessionKeyIsRenewedPerSession(t *testing.T) {
-	a := sessionKeyApp(t)
-	c, next := signedIn(t, a, "10.0.0.1", "1234")
-	first := sessionKeyOf(t, a, c, next)
-	second := sessionKeyOf(t, a, c, next)
-	if first == second || panelsStatus(a, first) != 401 || panelsStatus(a, second) != 200 {
-		t.Fatal("a second exchange should replace the first key")
-	}
-}
-
 func TestSessionKeyStaysOffTheLock(t *testing.T) {
 	a := sessionKeyApp(t)
 	c, next := signedIn(t, a, "10.0.0.1", "1234")

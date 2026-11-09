@@ -120,14 +120,17 @@ There are no settings, users, keys or lock endpoints.
 
 ## Errors
 
-Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: Bearer`, and a wrong method on a known path is 405 with `Allow`. 429 from the rate limit carries `Retry-After` in seconds.
+Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: Bearer`, and a wrong method on a known path is 405 with `Allow`. 429 from the rate limit carries `Retry-After` in seconds; make no call to Sode before it has passed.
+
+`key_revoked` and `key_expired` are final. Sode answers them for a key that worked once, so a client that gets one must stop sending that key: retrying cannot help. They do not count toward the ten bad keys per address, so a forgotten tablet or tab still sending an old key does not make every other page at its address wait. Sode remembers the last 1024 ended keys, in `keys-ended.json` beside the config, and knows a session key from Sode's own pages by its shape (`sode_ses.` and 43 characters), so those read as ended after a restart too. A session key is 256 random bits, so not counting a guess of one weakens nothing. An address that keeps sending ended keys gets 429 `rate_limited` past 120 in a minute.
 
 | Status | Code | Cause | What to do |
 | --- | --- | --- | --- |
 | 503 | `api_off` | The API switch is off | Ask an administrator |
 | 401 | `key_required` | No key, and Guest API is off | Send a key |
-| 401 | `invalid_key` | The key is unknown, malformed, or its owner is gone | Make a new key |
-| 401 | `key_expired` | The key's expiry has passed | Make a new key |
+| 401 | `invalid_key` | The key is unknown or malformed | Check the key; ten of these from one address in a minute make it wait |
+| 401 | `key_revoked` | The key worked once and was ended: revoked, rotated, its session ended, or its owner was removed or changed PIN | Stop using it and make a new key |
+| 401 | `key_expired` | The key's expiry has passed | Stop using it and make a new key |
 | 401 | `invalid_setup` | A setup link that was used, expired or replaced | Make a new setup link |
 | 403 | `network_not_allowed` | A panel's key used from outside its allowed networks | Use the key from an allowed network, or change the list |
 | 403 | `scope` | The key lacks the scope this path needs | Add the scope to the client |
@@ -186,4 +189,4 @@ Settings > Proxy > Require HTTPS (ADR 0005) refuses every request except `/healt
 
 ## The Communication Log
 
-Every API command, refusal, key made, revoked or expired, rights edit, stream connect and disconnect, and the API and Require HTTPS switches write an `api` row. Failed keys write one row per address per minute with a count. No key, key hash or PIN is ever written. A row a panel page caused, including a lost or returned instance, names the panel by its short name (else its id) and the instance in its note.
+Every API command, refusal, key made, revoked or expired, rights edit, stream connect and disconnect, and the API and Require HTTPS switches write an `api` row. Failed keys write one row per address per minute with a count (`authFailed`), and so do calls with a key that ended (`endedKeyUsed`). No key, key hash or PIN is ever written. A row a panel page caused, including a lost or returned instance, names the panel by its short name (else its id) and the instance in its note.

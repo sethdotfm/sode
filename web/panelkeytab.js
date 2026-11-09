@@ -279,21 +279,26 @@ shareTabs.push(({ panel, api }) => {
         paintLink();
       },
     });
-    const copy = el('button', 'pb-btn pb-btn--outline', icon('copy'), 'Copy link');
-    copy.type = 'button';
-    copy.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(made.link);
-        say('Copied.');
-        setTimeout(() => say(''), COPIED_MS);
-      } catch {
-        revealed = true;
-        paintLink();
-        linkBox.querySelector('input').select();
-        say('Copy failed. The link is selected: copy it by hand.');
-      }
-    });
-    const kiosk = btn('pb-btn--outline', 'Open as kiosk', () => window.open(buildLink(true), '_blank', 'noopener'));
+    // One copy button per link; the kiosk one adds `kiosk=1` after the key and keeps `?instance=`.
+    const copyBtn = (label, ico, link) => {
+      const b = el('button', 'pb-btn pb-btn--outline', icon(ico), label);
+      b.type = 'button';
+      b.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(link());
+          say('Copied.');
+          setTimeout(() => say(''), COPIED_MS);
+        } catch {
+          revealed = true;
+          paintLink();
+          linkBox.querySelector('input').select();
+          say('Copy failed. The link is selected: copy it by hand.');
+        }
+      });
+      return b;
+    };
+    const copy = copyBtn('Copy link', 'copy', () => made.link);
+    const kiosk = copyBtn('Copy kiosk link', 'monitor', () => buildLink(true));
     linkBox.append(
       el('p', 'sode__hint', `Link for ${made.name}. It is shown only now. Closing this window loses it.`),
       el('div', 'sode__secret-row', input, reveal.label),
