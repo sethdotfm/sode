@@ -32,7 +32,9 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}) {
   let gate = null;
   const beat = () =>
     call(`api/v1/panels/${id}/instances`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: keepaliveBody(device) }).catch(() => {});
+  let stopped = false;
   const run = () => {
+    if (stopped) return;
     clearInterval(timer);
     gate?.ctl.abort();
     gate = { ctl: new AbortController() };
@@ -49,7 +51,13 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}) {
     run();
     return true;
   };
-  const api = { rename };
+  // The page's key ended: no more beats or holds.
+  const stop = () => {
+    clearInterval(timer);
+    gate?.ctl.abort();
+    stopped = true;
+  };
+  const api = { rename, stop };
   if (device) {
     run();
     return api;

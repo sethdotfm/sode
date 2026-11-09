@@ -57,7 +57,7 @@ func TestPanelHoldsOneKeyPerInstance(t *testing.T) {
 	if rec.Code != 201 || body["rotated"] != true || body["instance"] != "LOBBY" {
 		t.Fatalf("rotate: %d %v", rec.Code, body)
 	}
-	wantErr(t, apiSend(a, "GET", "/api/v1/tally", lobby, ""), 401, "invalid_key")
+	wantErr(t, apiSend(a, "GET", "/api/v1/tally", lobby, ""), 401, "key_revoked")
 	if rec := apiSend(a, "GET", "/api/v1/tally", studio, ""); rec.Code != 200 {
 		t.Fatalf("Studio was rotated with Lobby: %d", rec.Code)
 	}
@@ -73,7 +73,7 @@ func TestPanelRevokeEndsOneInstance(t *testing.T) {
 	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key?instance=lobby", cy, ""); rec.Code != 204 {
 		t.Fatalf("revoke: %d", rec.Code)
 	}
-	wantErr(t, apiSend(a, "GET", "/api/v1/tally", lobby, ""), 401, "invalid_key")
+	wantErr(t, apiSend(a, "GET", "/api/v1/tally", lobby, ""), 401, "key_revoked")
 	if rec := apiSend(a, "GET", "/api/v1/tally", studio, ""); rec.Code != 200 {
 		t.Fatalf("Studio was revoked with Lobby: %d", rec.Code)
 	}

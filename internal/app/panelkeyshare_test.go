@@ -76,7 +76,7 @@ func TestSetupLinkReplacesTheKeyAndAnOlderLink(t *testing.T) {
 	a, _, cy, id := keyedPanel(t)
 	old, _ := mintKey(t, a, cy, id)
 	first, _ := setupLink(t, a, cy, id)
-	wantErr(t, apiSend(a, "GET", "/api/v1/tally", old, ""), 401, "invalid_key")
+	wantErr(t, apiSend(a, "GET", "/api/v1/tally", old, ""), 401, "key_revoked")
 	second, _ := setupLink(t, a, cy, id)
 	wantErr(t, exchangeSetup(a, apiPeer, id, first), 401, "invalid_setup")
 	if rec := exchangeSetup(a, apiPeer, id, second); rec.Code != 201 {

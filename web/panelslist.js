@@ -238,7 +238,8 @@ export function runPanelsList() {
         first = false;
         load();
       }
-    } else if (step === 'sign-in') say('Sign in with your PIN to see your panels.');
+    } else if (step === 'ended') say("This page's sign-in key was ended. Reload the page to sign in again.");
+    else if (step === 'sign-in') say('Sign in with your PIN to see your panels.');
     else if (step === 'no-users') say('Panels need a user, and Sode has none.');
   });
   setInterval(refreshOnline, MON_POLL_MS);
