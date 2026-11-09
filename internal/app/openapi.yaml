@@ -556,8 +556,9 @@ paths:
       description: |
         Scope `panelsmanage`. Needs a user's key (403 `user_required`). Saves a layout: rows,
         columns and each cell's type, levels and look. Cell contents (`n`, `scope`, `name`,
-        `caption`) are dropped unless `contents` is true, so by default every cell comes back
-        unassigned. `settings` are kept when sent. Artwork ids are never kept, since artwork
+        `caption`) are dropped unless asked for: `sources` keeps those of Source and Preset cells,
+        `dests` those of Destination cells, so by default every cell comes back unassigned. The
+        older `contents: true` still works and means both. `settings` are kept when sent. Artwork ids are never kept, since artwork
         belongs to one panel. A name is unique within Everyone, or within one user's Me
         templates, ignoring case (409 `conflict`); at most 200 templates exist.
 
@@ -1533,13 +1534,15 @@ components:
           type: array
           items: { type: object, additionalProperties: true, description: A cell as a panel stores it }
         settings: { type: object, additionalProperties: true, description: Panel settings to carry, left out for a layout only }
-        contents: { type: boolean, default: false, description: "Keep the cells' Sources, Destinations, Presets and captions" }
+        sources: { type: boolean, default: false, description: "Keep the Source and Preset cells' Sources, Presets and captions" }
+        dests: { type: boolean, default: false, description: "Keep the Destination cells' Destinations and captions" }
+        contents: { type: boolean, default: false, writeOnly: true, deprecated: true, description: "The single flag from before the split: true means both sources and dests. Never sent back" }
         pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for scope everyone by a user who is not Trusted" }
     PanelTemplate:
       allOf:
         - $ref: "#/components/schemas/PanelTemplateIn"
         - type: object
-          required: [id, owner, contents, canEdit]
+          required: [id, owner, sources, dests, canEdit]
           properties:
             id: { type: string, pattern: "^t-[0-9a-f]{8}$" }
             owner: { type: string, description: The user who saved it }

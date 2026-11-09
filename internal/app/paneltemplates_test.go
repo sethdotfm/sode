@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -37,7 +39,7 @@ func TestTemplateRoundTripLeavesCellsUnassigned(t *testing.T) {
 	}
 	made := apiBody(t, rec)
 	id, _ := made["id"].(string)
-	if !tplIDRe.MatchString(id) || made["owner"] != "Ana" || made["scope"] != "me" || made["contents"] != false {
+	if !tplIDRe.MatchString(id) || made["owner"] != "Ana" || made["scope"] != "me" || made["sources"] != false || made["dests"] != false || made["contents"] != nil {
 		t.Fatalf("template %v", made)
 	}
 
@@ -62,19 +64,85 @@ func TestTemplateRoundTripLeavesCellsUnassigned(t *testing.T) {
 	}
 }
 
-func TestTemplateWithContentsKeepsThem(t *testing.T) {
-	a := panelsApp(t)
-	ana := userKey(t, a, "Ana")
-	rec := apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Full","scope":"me","contents":true,"cells":[{"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":5,"caption":"CAM 5","art":"a-0000abcd"}]}`)
+const tplMixed = `{"name":"%s","scope":"me",%s"cells":[
+ {"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":5,"caption":"CAM 5","art":"a-0000abcd"},
+ {"r":1,"c":2,"rs":1,"cs":1,"kind":"destination","n":7,"caption":"MON 7"},
+ {"r":1,"c":3,"rs":1,"cs":1,"kind":"preset","scope":"everyone","name":"Opening"},
+ {"r":2,"c":1,"rs":1,"cs":1,"kind":"take","caption":"GO"}]}`
+
+// tplCells saves a template of tplMixed with the given flags and returns its cells by kind.
+func tplCells(t *testing.T, a *App, key, name, flags string) (map[string]map[string]any, map[string]any) {
+	t.Helper()
+	rec := apiSend(a, "POST", "/api/v1/panel-templates", key, fmt.Sprintf(tplMixed, name, flags))
 	if rec.Code != 201 {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
-	src := apiBody(t, rec)["cells"].([]any)[0].(map[string]any)
-	if src["n"] != 5.0 || src["caption"] != "CAM 5" {
-		t.Fatalf("contents lost: %v", src)
+	made := apiBody(t, rec)
+	out := map[string]map[string]any{}
+	for _, c := range made["cells"].([]any) {
+		m := c.(map[string]any)
+		out[m["kind"].(string)] = m
 	}
-	if src["art"] != nil {
-		t.Fatalf("artwork of another panel kept: %v", src)
+	return out, made
+}
+
+func TestTemplateSourcesAndDestsAreStoredApart(t *testing.T) {
+	a := panelsApp(t)
+	ana := userKey(t, a, "Ana")
+
+	both, made := tplCells(t, a, ana, "Both", `"sources":true,"dests":true,`)
+	if made["sources"] != true || made["dests"] != true {
+		t.Fatalf("flags %v", made)
+	}
+	if both["source"]["n"] != 5.0 || both["source"]["caption"] != "CAM 5" || both["destination"]["n"] != 7.0 || both["preset"]["name"] != "Opening" || both["take"]["caption"] != "GO" {
+		t.Fatalf("contents lost: %v", both)
+	}
+	if both["source"]["art"] != nil {
+		t.Fatalf("artwork of another panel kept: %v", both["source"])
+	}
+
+	// Presets follow Sources, since a Preset is chosen from the same list of what to route.
+	src, _ := tplCells(t, a, ana, "Sources", `"sources":true,`)
+	if src["source"]["n"] != 5.0 || src["preset"]["name"] != "Opening" || src["destination"]["n"] != nil || src["destination"]["caption"] != nil {
+		t.Fatalf("Sources only: %v", src)
+	}
+	dst, _ := tplCells(t, a, ana, "Dests", `"dests":true,`)
+	if dst["destination"]["n"] != 7.0 || dst["destination"]["caption"] != "MON 7" || dst["source"]["n"] != nil || dst["preset"]["name"] != nil {
+		t.Fatalf("Destinations only: %v", dst)
+	}
+	if dst["take"]["caption"] != "GO" {
+		t.Fatalf("a Take caption is layout and stays once either option is on: %v", dst["take"])
+	}
+}
+
+// A request from before the split sends contents:true and means both.
+func TestTemplateLegacyContentsMeansBoth(t *testing.T) {
+	a := panelsApp(t)
+	ana := userKey(t, a, "Ana")
+	cells, made := tplCells(t, a, ana, "Old", `"contents":true,`)
+	if made["sources"] != true || made["dests"] != true || made["contents"] != nil {
+		t.Fatalf("flags %v", made)
+	}
+	if cells["source"]["n"] != 5.0 || cells["destination"]["n"] != 7.0 {
+		t.Fatalf("contents lost: %v", cells)
+	}
+}
+
+// A template file written before the split holds contents: true; it loads as both.
+func TestTemplateStoredBeforeTheSplitLoadsAsBoth(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config.yaml")
+	if err := os.MkdirAll(filepath.Join(dir, "templates", "me"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := "id: t-0000abcd\nname: Old file\nscope: me\nowner: Ana\ncontents: true\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: source, n: 4}\n"
+	if err := os.WriteFile(filepath.Join(dir, "templates", "me", "t-0000abcd.yaml"), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := loadTemplates(cfg)
+	got, ok := s.get("t-0000abcd")
+	if !ok || !got.Sources || !got.Dests || got.Contents {
+		t.Fatalf("loaded %+v ok=%v", got, ok)
 	}
 }
 

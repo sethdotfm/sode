@@ -48,3 +48,5 @@ A Session-mode page trades its signed-in session for a user key over the socket:
 - In a worktree the lint hook's `go vet` prints noise about the package path. It is not a real failure; run `go vet ./...` from the worktree root.
 - Panel pages sit at different URL depths and use `<base href="../">`. They share the `panel` page lock.
 - Status on panel pages is an icon first, with optional text. This exception is in AGENTS.md and nowhere else in Sode.
+- Panel theme is `settings.theme`. The panel page sets `data-theme` on `html` (`setTheme` in `panelrun.js`) and `auto` restores what the page started with. The editor cannot do that for one panel inside its own page, so `editorpanel.js` sets `color-scheme` on `#ed-grid` instead: patchbay's tokens are `light-dark()`, so the preview switches and the rest of the editor keeps the user's theme.
+- The toolbar count and Next (`countTodo`, `nextTodo` in `gridmodel.js`) include squares with no cell; `unassigned` and `isUnassigned` stay cells only, since they style the dashed border and match `cellsIn`.

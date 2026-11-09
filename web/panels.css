@@ -257,14 +257,6 @@
 .sode-panel__art--icon {
   color: var(--pb-text-strong);
 }
-.sode-panels--backdrop {
-  background-position: center;
-  background-size: cover;
-}
-.sode-panels--backdrop .sode-panel__grid {
-  background-color: color-mix(in oklab, var(--pb-surface-base) 40%, transparent);
-  padding: var(--pb-space-3);
-}
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
 .sode-ov__cols {

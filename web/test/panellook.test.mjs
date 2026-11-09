@@ -9,18 +9,20 @@ import { featureSupport, createWake, buzz } from '../panelfeel.js';
 
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'panels.css'), 'utf8');
 
-test('a panel with no look settings shows the title bar at normal size with no backdrop or device features', () => {
-  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, backdrop: '', wake: false, haptics: false, fullscreen: false });
+test('a panel with no look settings shows the title bar at normal size, follows the browser theme and has no device features', () => {
+  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, theme: 'auto', wake: false, haptics: false, fullscreen: false });
   assert.deepEqual(lookOf(undefined), lookOf({}));
 });
 
 test('look settings are read as stored, and odd values fall back', () => {
-  const l = lookOf({ titleBar: false, fontSize: 150, backdrop: 'a-0123abcd', wake: true, haptics: true });
-  assert.deepEqual(l, { titleBar: false, scale: 1.5, backdrop: 'a-0123abcd', wake: true, haptics: true, fullscreen: false });
+  const l = lookOf({ titleBar: false, fontSize: 150, theme: 'dark', wake: true, haptics: true });
+  assert.deepEqual(l, { titleBar: false, scale: 1.5, theme: 'dark', wake: true, haptics: true, fullscreen: false });
   assert.equal(lookOf({ fontSize: 'big' }).scale, 1);
   assert.equal(lookOf({ fontSize: 5 }).scale, 0.5);
   assert.equal(lookOf({ fontSize: 5000 }).scale, 2);
-  assert.equal(lookOf({ backdrop: '../x' }).backdrop, '');
+  assert.equal(lookOf({ theme: 'light' }).theme, 'light');
+  assert.equal(lookOf({ theme: 'sepia' }).theme, 'auto');
+  assert.equal('backdrop' in lookOf({ backdrop: 'a-0123abcd' }), false);
   assert.equal(lookOf({ wake: 'yes' }).wake, false);
 });
 

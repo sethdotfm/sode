@@ -1,5 +1,4 @@
-// The artwork control shared by the Cell tab (a vendored icon or an upload) and the Panel tab (a backdrop, upload
-// only). Stored values are an artwork id, or 'icon:<name>' for a cell. Type and size are checked before sending
+// The artwork control of the Cell tab (a vendored icon or an upload). Stored values are an artwork id or 'icon:<name>'. Type and size are checked before sending
 // (sidebarrules.js); the server checks again by content.
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
@@ -54,7 +53,7 @@ export function createArtControl({ ed, icons = false, set, setHideText }) {
   const node = el(
     'div',
     'sode__field',
-    el('span', 'sode__field-label', icons ? 'Artwork' : 'Backdrop image'),
+    el('span', 'sode__field-label', 'Artwork'),
     preview,
     bar,
     ...(icons ? [grid] : []),
@@ -98,7 +97,6 @@ export function createArtControl({ ed, icons = false, set, setHideText }) {
       preview.replaceChildren();
       preview.hidden = !value;
       if (!value) return;
-      // The backdrop is a plain artwork id, a cell's art may also be an icon name.
       const node = artNode({ art: value }, ed.art());
       if (!node) return;
       preview.append(node);

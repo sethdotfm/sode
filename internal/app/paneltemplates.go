@@ -17,7 +17,7 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Templates of the panel editor: a saved layout, optionally with settings and cell contents.
+// Templates of the panel editor: a saved layout, optionally with settings and cell contents (Sources, Destinations).
 // Stored apart from panels, one YAML file per template under templates/everyone/ or
 // templates/me/ beside the config (memory only with no config path). Docs: docs/panels-design.md.
 
@@ -40,13 +40,17 @@ var (
 )
 
 // Template is a file's content. Owner is the user a Me template belongs to, and for an Everyone
-// template the user who saved it. Settings is nil when the template carries none.
+// template the user who saved it. Settings is nil when the template carries none. Sources keeps
+// Source and Preset contents, Dests keeps Destination contents. Contents is the single flag from
+// before the split: a save or file that sets it means both, and it is never stored or sent back.
 type Template struct {
 	ID       string           `yaml:"id" json:"id"`
 	Name     string           `yaml:"name" json:"name"`
 	Scope    string           `yaml:"scope" json:"scope"`
 	Owner    string           `yaml:"owner" json:"owner"`
-	Contents bool             `yaml:"contents" json:"contents"`
+	Sources  bool             `yaml:"sources" json:"sources"`
+	Dests    bool             `yaml:"dests" json:"dests"`
+	Contents bool             `yaml:"contents,omitempty" json:"contents,omitempty"`
 	Rows     int              `yaml:"rows" json:"rows"`
 	Cols     int              `yaml:"cols" json:"cols"`
 	Cells    []map[string]any `yaml:"cells" json:"cells"`
@@ -59,12 +63,33 @@ type templateIn struct {
 	Pin string `json:"pin"`
 }
 
+// keepsContents reports whether a cell of this kind keeps its Source, Destination or Preset and its
+// caption. A Take, Clear or Current caption is layout, so either option keeps it.
+func (t *Template) keepsContents(kind any) bool {
+	switch kind {
+	case "source", "preset":
+		return t.Sources
+	case "destination":
+		return t.Dests
+	}
+	return t.Sources || t.Dests
+}
+
+// migrate turns the old single flag into the two it became.
+func (t *Template) migrate() {
+	if t.Contents {
+		t.Sources, t.Dests = true, true
+	}
+	t.Contents = false
+}
+
 func validTemplateID(id string) bool { return tplIDRe.MatchString(id) }
 
 // clean fits a template to what the store keeps. Artwork ids belong to the panel they came
 // from, so they never travel; an icon does.
 func (t *Template) clean() error {
 	t.Name = cleanText(strings.TrimSpace(t.Name), templateNameMax)
+	t.migrate()
 	switch {
 	case t.Name == "":
 		return errors.New("a template needs a name")
@@ -86,7 +111,7 @@ func (t *Template) clean() error {
 	cells := make([]map[string]any, 0, len(t.Cells))
 	for _, c := range t.Cells {
 		c = maps.Clone(c)
-		if !t.Contents {
+		if !t.keepsContents(c["kind"]) {
 			for _, k := range contentKeys {
 				delete(c, k)
 			}
@@ -131,6 +156,7 @@ func loadTemplates(cfgPath string) *templateStore {
 			if err == nil {
 				err = yaml.Unmarshal(b, &t)
 			}
+			t.migrate()
 			if err != nil || t.ID != id || !validTemplateID(id) || t.Scope != scope {
 				log.Printf("templates: skipped %s: not a template of this folder (%v)", path, err)
 				return t, false

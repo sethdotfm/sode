@@ -10,7 +10,7 @@ export const ART_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml
 const DEFAULTS = {
   titleBar: true,
   fontSize: 100,
-  backdrop: '',
+  theme: 'auto',
   wake: false,
   haptics: false,
   fullscreen: false,

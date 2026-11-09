@@ -92,21 +92,22 @@ export async function runPanel(seg) {
   }
   id = panel.id;
   const art = createArt(call, id);
-  // Title, header, font scale and backdrop come from the stored panel, so a live update runs it again.
+  // Title, header, font scale and theme come from the stored panel, so a live update runs it again.
+  // Auto restores whatever the page started with (the browser's own choice or the device setting).
+  const root = document.documentElement;
+  const startTheme = root.dataset.theme;
+  const setTheme = (t) => {
+    const want = t === 'auto' ? startTheme : t;
+    if (want) root.dataset.theme = want;
+    else delete root.dataset.theme;
+  };
   const applyLook = (p) => {
     const look = lookOf(p.settings || {});
     document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, p) || !look.titleBar;
     document.title = p.name;
     $('panel-title').textContent = p.name;
     $('panel-grid').style.setProperty('--panel-fs', look.scale);
-    const main = document.querySelector('.sode-panels');
-    main.classList.toggle('sode-panels--backdrop', !!look.backdrop);
-    main.style.backgroundImage = '';
-    if (look.backdrop) {
-      art.url(look.backdrop).then((url) => {
-        if (url) main.style.backgroundImage = `url("${url}")`;
-      });
-    }
+    setTheme(look.theme);
     return look;
   };
   let look = applyLook(panel);

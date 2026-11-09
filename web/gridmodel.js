@@ -324,9 +324,18 @@ export const liveCells = (g) => cellsIn(g);
 export const unassigned = (g) => g.cells.filter(isUnassigned).sort(reading);
 export const countUnassigned = (g) => unassigned(g).length;
 
-// Selects the first unassigned cell after the selection in reading order, then wraps round.
-export function nextUnassigned(g) {
-  const list = unassigned(g);
+// Squares no cell covers. The toolbar counts them with the unassigned cells, since either one still needs a decision.
+export function emptySquares(g) {
+  const out = [];
+  for (let r = 1; r <= g.rows; r++) for (let c = 1; c <= g.cols; c++) if (!cellAt(g, r, c)) out.push({ r, c, rs: 1, cs: 1 });
+  return out;
+}
+const todo = (g) => [...unassigned(g), ...emptySquares(g)].sort(reading);
+export const countTodo = (g) => todo(g).length;
+
+// Selects the first square to fill (an unassigned cell or an empty square) after the selection in reading order, then wraps round.
+export function nextTodo(g) {
+  const list = todo(g);
   if (!list.length) return g;
   const q = rectOf(g);
   const after = q ? list.find((c) => c.r > q.r1 || (c.r === q.r1 && c.c > q.c1)) : null;

@@ -67,3 +67,54 @@ func TestChromeEditorTemplates(t *testing.T) {
 		}
 	}
 }
+
+// A template stored with Sources keeps the Sources and leaves the Destinations unassigned when applied to another panel,
+// storing with both brings both back, and the toolbar counts empty squares with the unassigned cells. The Panel tab's theme
+// reaches the editor's preview and the stored settings.
+func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
+	b, a, ana, id := editorTab(t, `{"name":"Full","rows":2,"cols":3,"cells":[
+		{"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":1,"caption":"Cam one"},
+		{"r":1,"c":2,"rs":1,"cs":1,"kind":"destination","n":2,"caption":"Mon two"},
+		{"r":2,"c":1,"rs":1,"cs":1,"kind":"take"}]}`)
+	b.waitFor("empty squares counted", `document.getElementById('ed-todo').textContent === '3 unassigned squares'`)
+
+	b.eval(`const s = document.getElementById('ed-set-theme'); s.value = 'dark'; s.dispatchEvent(new Event('change', { bubbles: true }))`)
+	b.waitFor("preview follows the theme", `document.getElementById('ed-grid').style.colorScheme === 'dark'`)
+	b.eval(`document.getElementById('ed-save').click()`)
+	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"theme":"dark"`) {
+		t.Fatalf("theme not stored: %s", body)
+	}
+
+	b.eval(`document.getElementById('ed-templates').click()`)
+	b.waitFor("dialog", `!!document.getElementById('tpl-save')`)
+	b.eval(`window.tplSave = (name, boxes) => {
+		document.getElementById('tpl-name').value = name;
+		for (const id of ['tpl-sources', 'tpl-dests']) { const c = document.getElementById(id); if (c.checked !== boxes.includes(id)) c.click(); }
+		document.getElementById('tpl-save').click();
+	}; true`)
+	b.eval(`tplSave('Src only', ['tpl-sources'])`)
+	b.waitFor("first saved", `document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Saved Src only to Me.')`)
+	b.eval(`tplSave('Both', ['tpl-sources', 'tpl-dests'])`)
+	b.waitFor("second saved", `document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Saved Both to Me.')`)
+	if body := apiDo(a, "GET", "/api/v1/panel-templates", ana, nil).Body.String(); !strings.Contains(body, `"dests":false`) || !strings.Contains(body, `"dests":true`) {
+		t.Fatalf("flags not stored: %s", body)
+	}
+
+	blank := makePanel(t, a, ana, `{"name":"Blank","rows":2,"cols":3}`)
+	b.eval(`location.href = location.origin + '/panels/editor?panel=` + blank + `'`)
+	b.waitFor("blank panel loaded", `document.getElementById('ed-name')?.value === 'Blank' && !!document.getElementById('ed-templates')`)
+	b.waitFor("six empty squares", `document.getElementById('ed-todo').textContent === '6 unassigned squares'`)
+
+	apply := func(name string) {
+		b.eval(`document.getElementById('ed-templates').click()`)
+		b.waitFor("dialog", `!!document.querySelector('[data-apply]')`)
+		b.eval(`document.querySelector('[aria-label="Apply ` + name + `"]').click()`)
+		b.waitFor("dialog closed", `!document.getElementById('tpl-save')`)
+	}
+	apply("Src only")
+	b.waitFor("Sources came back, Destinations did not", `document.getElementById('ed-todo').textContent === '4 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && !document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
+	apply("Both")
+	b.waitFor("both came back", `document.getElementById('ed-todo').textContent === '3 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
+	b.check()
+}

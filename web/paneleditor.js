@@ -18,8 +18,8 @@ import {
   merge,
   canUnmerge,
   unmerge,
-  countUnassigned,
-  nextUnassigned,
+  countTodo,
+  nextTodo,
 } from './gridmodel.js';
 import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, menuShortcut, todoText } from './editorrules.js';
 import { linkFor } from './panellink.js';
@@ -145,7 +145,7 @@ export async function runEditor() {
     menu.show(box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
     nameBox.disabled = ro;
-    const todo = countUnassigned(g);
+    const todo = countTodo(g);
     $('ed-todo').textContent = todoText(todo);
     $('ed-next').disabled = ro || !todo;
     $('ed-save').disabled = ro || !dirty();
@@ -170,7 +170,7 @@ export async function runEditor() {
   }
   nameBox.addEventListener('input', refresh);
   $('ed-next').addEventListener('click', () => {
-    setGrid(nextUnassigned(g));
+    setGrid(nextTodo(g));
     $('ed-grid').focus();
   });
 

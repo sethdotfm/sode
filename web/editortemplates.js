@@ -43,7 +43,8 @@ export function initTemplates(editor) {
     scopes.setAttribute('role', 'radiogroup');
     scopes.setAttribute('aria-label', 'Who sees this template');
     const withSettings = check('Include the panel settings', { id: 'tpl-settings' });
-    const withContents = check('Include the cell contents (Sources, Destinations and Presets)', { id: 'tpl-contents' });
+    const withSources = check('Store with Sources (and Presets)', { id: 'tpl-sources' });
+    const withDests = check('Store with Destinations', { id: 'tpl-dests' });
     const pin = el('input', 'pb-input');
     pin.type = 'password';
     pin.autocomplete = 'off';
@@ -63,9 +64,10 @@ export function initTemplates(editor) {
       el('h3', 'sode-tpl__head', 'Save this layout'),
       el('label', 'sode-tpl__field', 'Name', name),
       scopes,
-      el('p', 'sode__hint', 'A template keeps the rows, columns and button types. Cells come back unassigned unless you include the contents.'),
+      el('p', 'sode__hint', 'A template keeps the rows, columns and button types. Cells come back unassigned unless you store them with Sources or Destinations.'),
       withSettings.label,
-      withContents.label,
+      withSources.label,
+      withDests.label,
       pinRow,
       saveBtn,
     );
@@ -129,7 +131,7 @@ export function initTemplates(editor) {
     function applyTemplate(t) {
       editor.setGrid(templateGrid(t));
       if (t.settings) editor.setFields({ settings: { ...editor.fields().settings, ...t.settings } });
-      editor.status(t.contents ? `Applied ${t.name}. Save to keep it.` : `Applied ${t.name}. Fill the unassigned cells, then save.`);
+      editor.status(t.sources && t.dests ? `Applied ${t.name}. Save to keep it.` : `Applied ${t.name}. Fill the unassigned cells, then save.`);
       close();
       $('ed-grid').focus();
     }
@@ -164,7 +166,8 @@ export function initTemplates(editor) {
               grid: editor.grid(),
               settings: editor.fields().settings,
               withSettings: withSettings.input.checked,
-              withContents: withContents.input.checked,
+              withSources: withSources.input.checked,
+              withDests: withDests.input.checked,
               pin: pin.value,
             }),
           ),

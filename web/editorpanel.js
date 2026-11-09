@@ -2,9 +2,9 @@
 // one key of the panel's settings through setSetting (sidebarrules.js), so the stored file only holds choices.
 import { el, $ } from './core.js';
 import { field, check, opt } from './formbits.js';
+import { THEMES } from './panellook.js';
 import { featureSupport } from './panelfeel.js';
 import { setSetting, fontPercent, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
-import { createArtControl } from './editorart.js';
 import { createSlugField } from './editorslug.js';
 import { linkRow } from './panellinkrow.js';
 import { createLevelBoxes } from './editorlevels.js';
@@ -66,8 +66,18 @@ export function createPanelTab(ed) {
     el('span', 'sode__hint', '%'),
   );
   const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
-  const backdrop = createArtControl({ ed, set: (v) => set('backdrop', v || '') });
-  const appearance = section('Appearance', toggle('titleBar', 'Show the title bar'), sizeRow, backdrop.node);
+  const theme = select('ed-set-theme', [
+    ['auto', 'Follow the browser'],
+    ['light', 'Light'],
+    ['dark', 'Dark'],
+  ]);
+  theme.select.addEventListener('change', () => set('theme', theme.select.value));
+  const appearance = section(
+    'Appearance',
+    toggle('titleBar', 'Show the title bar'),
+    sizeRow,
+    el('div', 'sode__field', Object.assign(el('label', null, 'Theme'), { htmlFor: 'ed-set-theme' }), theme.node),
+  );
 
   const mode = select('ed-set-mode', [
     ['take', 'Stage, then Take'],
@@ -143,7 +153,10 @@ export function createPanelTab(ed) {
       guard.select.disabled = ro;
       levelBoxes.draw(levels, s.levels);
       sizes.update();
-      backdrop.update(s.backdrop || '');
+      theme.select.value = THEMES.includes(s.theme) ? s.theme : 'auto';
+      theme.select.disabled = ro;
+      // The grid is the preview: its tokens switch with color-scheme, so the page around it keeps the editor's own theme.
+      $('ed-grid').style.colorScheme = theme.select.value === 'auto' ? '' : theme.select.value;
     },
   };
 }

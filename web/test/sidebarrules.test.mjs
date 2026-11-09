@@ -22,13 +22,13 @@ test('a setting at its default is dropped, so a stored panel only holds what was
   assert.deepEqual(setSetting({ mode: 'instant' }, 'mode', 'take'), {});
   assert.deepEqual(setSetting({ levels: [1] }, 'levels', []), {});
   assert.deepEqual(setSetting({}, 'levels', [2, 1]), { levels: [1, 2] });
-  assert.deepEqual(setSetting({ backdrop: 'a-0123abcd' }, 'backdrop', ''), {});
+  assert.deepEqual(setSetting({ theme: 'dark' }, 'theme', 'auto'), {});
   assert.deepEqual(setSetting({ x: 1 }, 'wake', true), { x: 1, wake: true });
 });
 
 test('what the editor stores is what the panel page reads', () => {
-  const s = setSetting(setSetting(setSetting({}, 'titleBar', false), 'fontSize', 150), 'backdrop', 'a-0123abcd');
-  assert.deepEqual({ ...lookOf(s) }, { titleBar: false, scale: 1.5, backdrop: 'a-0123abcd', wake: false, haptics: false, fullscreen: false });
+  const s = setSetting(setSetting(setSetting({}, 'titleBar', false), 'fontSize', 150), 'theme', 'light');
+  assert.deepEqual({ ...lookOf(s) }, { titleBar: false, scale: 1.5, theme: 'light', wake: false, haptics: false, fullscreen: false });
 });
 
 test('font size is a whole percent from 50 to 200', () => {

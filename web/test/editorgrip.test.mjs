@@ -1,7 +1,7 @@
 // The corner grip's rules (gridmodel.js dragRect, editorrules.js gripTip) and what Test it live shows (liveCells).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGrid, select, extendPlan, dragRect, liveCells, countUnassigned, nextUnassigned, rectOf } from '../gridmodel.js';
+import { createGrid, select, extendPlan, dragRect, liveCells, countTodo, nextTodo, rectOf } from '../gridmodel.js';
 import { gripTip } from '../editorrules.js';
 import { namesFrom } from '../panelrules.js';
 
@@ -52,6 +52,6 @@ test('Test it live leaves unassigned cells out, and the toolbar count and Next s
       [2, 1],
     ],
   );
-  assert.equal(countUnassigned(g), 2);
-  assert.deepEqual(rectOf(nextUnassigned(g)), { r1: 1, c1: 2, r2: 1, c2: 2 });
+  assert.equal(countTodo(g), 2 + 28);
+  assert.deepEqual(rectOf(nextTodo(g)), { r1: 1, c1: 2, r2: 1, c2: 2 });
 });
