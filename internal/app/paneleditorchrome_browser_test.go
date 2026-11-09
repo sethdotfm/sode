@@ -17,17 +17,21 @@ func TestChromeEditorChrome(t *testing.T) {
 	b.eval(`window.grid = document.getElementById('ed-grid');
 		window.press = (init) => grid.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
 		press({ key: 'ArrowDown' }); press({ key: 'ArrowRight', shiftKey: true }); true`)
-	b.waitFor("menu shows its shortcuts", `[...document.querySelectorAll('.sode-ed__menu .sode-ed__keys')].map(n => n.textContent).join() === 'M,T,F'`)
-	// Inside the menu a bare letter acts. Merge reads Unmerge once merged, and the same M undoes it.
-	b.eval(`window.menuKey = (key) => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+	b.waitFor("only Merge shows a shortcut, Ctrl or Cmd+M", `/^(Ctrl\+|⌘)M$/.test([...document.querySelectorAll('.sode-ed__menu .sode-ed__keys')].map(n => n.textContent).join()) && document.querySelector('.sode-ed__menu').textContent.includes('Type: Source')`)
+	// Bare M does nothing in the menu. Ctrl+M merges, the item reads Unmerge, and Cmd+M on the grid undoes it.
+	b.eval(`window.menuKey = (key, mods = {}) => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...mods }));
 		document.querySelector('.sode-ed__menu .pb-menu__item').focus(); menuKey('m')`)
-	b.waitFor("merged by M in the menu", `document.querySelectorAll('.sode-ed__sq').length < 32 && document.querySelector('.sode-ed__menu .pb-menu__item').textContent.includes('Unmerge')`)
-	b.eval(`menuKey('x'); menuKey('m')`)
-	b.waitFor("unmerged by M, and X did nothing", `document.querySelectorAll('.sode-ed__sq').length === 32`)
-	b.eval(`menuKey('t')`)
-	b.waitFor("T moved into the Type flyout", `!!document.activeElement.closest('.pb-menu__sub') && document.activeElement.textContent.includes('Source')`)
-	b.eval(`document.querySelector('.sode-ed__menu .pb-menu__item').focus(); menuKey('f')`)
-	b.waitFor("F opened Find", `document.activeElement === document.querySelector('.sode-find input')`)
+	b.waitFor("bare M did nothing", `document.querySelectorAll('.sode-ed__sq').length === 32`)
+	b.eval(`menuKey('m', { ctrlKey: true })`)
+	b.waitFor("merged by Ctrl+M", `document.querySelectorAll('.sode-ed__sq').length < 32 && document.querySelector('.sode-ed__menu .pb-menu__item').textContent.includes('Unmerge')`)
+	b.eval(`press({ key: 'm', metaKey: true })`)
+	b.waitFor("unmerged by Cmd+M on the grid", `document.querySelectorAll('.sode-ed__sq').length === 32`)
+	b.eval(`document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))`)
+	b.waitFor("a click outside closed the menu", `document.querySelector('.sode-ed__menu').hidden`)
+	b.eval(`press({ key: 'ArrowDown' }); press({ key: 'ArrowRight', shiftKey: true }); document.querySelector('.sode-ed__menu .pb-menu__item').focus(); menuKey('f'); true`)
+	b.waitFor("bare F in the menu did not open Find", `document.activeElement !== document.querySelector('.sode-find input')`)
+	b.eval(`grid.focus(); press({ key: 'f' })`)
+	b.waitFor("bare typing on the grid still opens Find", `document.activeElement === document.querySelector('.sode-find input')`)
 	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', bubbles: true, cancelable: true }))`)
 	if n := b.eval(`document.querySelectorAll('.sode-ed__sq').length`); n != float64(32) {
 		t.Errorf("typing M in the Find box changed the grid: %v squares", n)
