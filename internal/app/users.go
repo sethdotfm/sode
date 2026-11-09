@@ -319,6 +319,7 @@ func (a *App) SignOutAll(c *client, name string) error {
 		return errors.New("no such user")
 	}
 	a.tokens.dropUser(name)
+	a.endSessionKeys()
 	a.mu.Lock()
 	for cl := range a.clients {
 		if u := cl.u.user.Load(); u != nil && strings.EqualFold(u.Name, name) {

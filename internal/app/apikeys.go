@@ -65,6 +65,9 @@ type keyRec struct {
 	// edited in config.yaml while Sode was down still ends the key. Empty in a keys.json
 	// from before it existed; reconcile stamps those.
 	PinFP string `json:"pinFp,omitempty"`
+	// Sess is tokenKey of the session token a browser's key rides on (sessionkey.go); empty
+	// for every other key. The key is live only while that token is.
+	Sess string `json:"sess,omitempty"`
 }
 
 // pinFP is a one-way stamp of a user's PIN hash: stored in place of it, never the PIN or hash.
@@ -128,6 +131,12 @@ func (s *keyStore) save() {
 // createCapped returns the secret, shown once and kept nowhere. It refuses once owner holds
 // max keys (0 = no cap). fp is pinFP of a user owner's PIN hash ("" for a client).
 func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max int, fp string) (string, apiKey, error) {
+	return s.create(o, name, expires, max, fp, "")
+}
+
+// create is createCapped for a key that may ride a session: a new key for the same sess
+// replaces the old one, so a browser holds one.
+func (s *keyStore) create(o keyOwner, name string, expires time.Time, max int, fp, sess string) (string, apiKey, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", apiKey{}, errors.New("a key needs a key name")
@@ -136,12 +145,15 @@ func (s *keyStore) createCapped(o keyOwner, name string, expires time.Time, max 
 	id := make([]byte, 6)
 	rand.Read(id)
 	s.mu.Lock()
+	if sess != "" {
+		s.recs = slices.DeleteFunc(s.recs, func(r keyRec) bool { return r.Sess == sess })
+	}
 	if max > 0 && s.countMu(o) >= max {
 		s.mu.Unlock()
 		return "", apiKey{}, fmt.Errorf("%s already has %d keys", o.Name, max)
 	}
 	k := apiKey{ID: hex.EncodeToString(id), Owner: o, Name: name, Created: time.Now().UTC(), Expires: expires}
-	s.recs = append(s.recs, keyRec{apiKey: k, Hash: keyHash(secret), PinFP: fp})
+	s.recs = append(s.recs, keyRec{apiKey: k, Hash: keyHash(secret), PinFP: fp, Sess: sess})
 	s.mu.Unlock()
 	s.save()
 	return secret, k, nil
@@ -206,6 +218,18 @@ func (s *keyStore) alive(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return slices.ContainsFunc(s.recs, func(r keyRec) bool { return r.ID == id })
+}
+
+// sessionOf is the session a key rides on, "" for any other key or an unknown id.
+func (s *keyStore) sessionOf(id string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, r := range s.recs {
+		if r.ID == id {
+			return r.Sess
+		}
+	}
+	return ""
 }
 
 func (s *keyStore) list() []apiKey {

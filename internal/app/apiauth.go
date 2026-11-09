@@ -91,6 +91,9 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 	var cl *apiCtx
 	if found {
 		cl = a.resolveKey(cfg, k, ip)
+		if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.Name, cfg) {
+			cl = nil // its session ended; endSessionKeys has not yet swept the record
+		}
 	}
 	if cl == nil {
 		a.authFailed(ip, now)
