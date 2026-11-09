@@ -22,13 +22,18 @@ type Actor struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
 	Key  string `json:"key,omitempty"`
-	Via  string `json:"via,omitempty"`
+	// Owner is who made a panel's own API client; it only gives the label a person to read.
+	Owner string `json:"owner,omitempty"`
+	Via   string `json:"via,omitempty"`
 }
 
 // String is "Seth (Panel 21)", or the bare name with no key. Sode itself reads "Sode (system)".
 func (a Actor) String() string {
 	if a.Kind == actorSode {
 		return a.Name + " (system)"
+	}
+	if a.Owner != "" {
+		return a.Owner + " (" + a.Name + ")"
 	}
 	if a.Key == "" {
 		return a.Name

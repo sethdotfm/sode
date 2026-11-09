@@ -2,7 +2,8 @@
 // model and draws it. Every call goes out with the panel's key: the user's session key, or the
 // key in the URL fragment for a panel that acts as its API client.
 import { $ } from './core.js';
-import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
+import { sessionFetch, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
+import { startKeepalive } from './panelkeepalive.js';
 import { withKey } from './sessionkeyrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from './panelrules.js';
 import {
@@ -58,6 +59,7 @@ export async function runPanel(id) {
       else if (step === 'sign-in') say('panels-note', 'Sign in with your PIN to open this panel.');
       else if (step === 'no-users') say('panels-note', 'This panel needs a user, and Sode has none.');
     });
+    nameSessionKey(`Panel ${id}`);
     startSession();
   }
 
@@ -176,6 +178,7 @@ export async function runPanel(id) {
     render();
   }
 
+  startKeepalive(call, id, $('panel-device'));
   setInterval(poll, POLL_MS);
   setInterval(() => {
     st = idleClear(st, Date.now());

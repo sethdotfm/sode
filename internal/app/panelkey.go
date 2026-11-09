@@ -50,6 +50,7 @@ func (a *App) apiPanelKeyMake(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	secret, rec, err := a.keys.createCapped(owner, panelKeyName, time.Time{}, 0, "")
 	a.cfgMu.Unlock()
 	a.endStreams(gone, "key rotated")
+	a.mon.forget(p.ID, false)
 	if err != nil {
 		apiFail(w, http.StatusInternalServerError, "internal", "the key could not be made: "+err.Error())
 		return
@@ -78,6 +79,7 @@ func (a *App) apiPanelKeyRevoke(w http.ResponseWriter, r *http.Request, cl *apiC
 	gone := a.keys.dropWhere(func(r keyRec) bool { return r.Owner.is(owner) })
 	a.cfgMu.Unlock()
 	a.endStreams(gone, "key revoked")
+	a.mon.forget(p.ID, false)
 	if len(gone) > 0 {
 		a.apiEvent(cl.Actor, "panelKeyRevoke", "ok", "panel "+p.ID+" "+p.Name, nil)
 	}

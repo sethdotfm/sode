@@ -54,6 +54,8 @@ type connUser struct {
 	profile string
 	// rights: last myRights message sent (under mu); "" = none, so no clear is sent.
 	rights string
+	// offline: last panelsOffline message sent (under mu); "" = none.
+	offline string
 }
 
 func (c *client) who() string {
@@ -174,6 +176,7 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	a.deliver(c, b)
 	a.pushProfileMu(c) // only to the user it belongs to
 	a.pushRightsMu(c)
+	a.pushPanelsOfflineMu(c)
 }
 
 func (a *App) syncAccess(c *client) {
@@ -531,6 +534,7 @@ func (a *App) panelsFollowUsers(before []config.User, rows []userEdit) {
 	if len(renames) == 0 && len(removed) == 0 {
 		return
 	}
+	a.mon.followUsers(renames, removed)
 	n, err := a.panels.followUsers(renames, removed)
 	if err != nil {
 		log.Printf("panels: user change reached %d panels, then: %v", n, err)

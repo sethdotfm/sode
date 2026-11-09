@@ -101,7 +101,7 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 		return nil, false
 	}
 	cl.Actor.Via = via
-	if !a.apiRateOK(w, k.subject(), cfg.API.RateLimit, now) {
+	if !a.apiRateOK(w, k.subject(), a.rateLimitFor(cfg.API.RateLimit, cl), now) {
 		return nil, false
 	}
 	a.keys.used(k.ID, now)
@@ -124,9 +124,22 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 		if !ok {
 			return nil
 		}
-		return &apiCtx{Actor: Actor{Kind: actorClient, Name: c.Name, Key: k.Name}, Rights: c.Rights, Scopes: c.Scopes, Key: &kc, IP: ip}
+		act := Actor{Kind: actorClient, Name: c.Name, Key: k.Name}
+		if p, ok := a.panels.get(c.Panel); ok && c.Panel != "" {
+			act.Owner = p.Owner
+		}
+		return &apiCtx{Actor: act, Rights: c.Rights, Scopes: c.Scopes, Key: &kc, IP: ip, Panel: c.Panel}
 	}
 	return nil
+}
+
+// rateLimitFor scales a panel client's limit by its live devices: they share one key, and each
+// polls the router every 2 s.
+func (a *App) rateLimitFor(limit int, cl *apiCtx) int {
+	if limit <= 0 || cl.Panel == "" {
+		return limit
+	}
+	return limit * max(1, a.mon.liveCount(cl.Panel))
 }
 
 func apiRetry(w http.ResponseWriter, wait time.Duration, msg string) {

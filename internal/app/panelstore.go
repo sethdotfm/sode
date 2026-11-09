@@ -88,7 +88,7 @@ type Panel struct {
 
 // panelKnown are the JSON names the struct owns. canEdit is output only and never stored,
 // so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "canEdit", "clientRights"}
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "canEdit", "clientRights", "online", "watching", "instances"}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
