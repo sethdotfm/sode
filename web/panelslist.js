@@ -3,7 +3,7 @@
 import { $, el, icon, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
-import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, shareLabel, launchHref, editHref } from './panelsrules.js';
+import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, shareLabel, launchHref, editHref } from './panelsrules.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
@@ -52,7 +52,7 @@ function row(p) {
   online.dataset.online = p.id;
   b.append(
     thumb(p, true),
-    el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsLabel(p).toLowerCase()}`)),
+    el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`)),
     online,
   );
   return b;
@@ -114,7 +114,7 @@ function detail(p) {
       'div',
       'sode-ov__big',
       el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)),
-      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p)),
+      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, setWatch)),
     ),
   );
 }
@@ -128,11 +128,16 @@ function draw() {
   paintOnline(S.panels);
 }
 
-async function setWatch(id, on) {
+async function setWatch(id, on, instance = '') {
   try {
-    await api(`api/v1/panels/${id}/watch`, { method: on ? 'POST' : 'DELETE' });
+    await api(`api/v1/panels/${id}/watch${instance ? `?instance=${encodeURIComponent(instance)}` : ''}`, { method: on ? 'POST' : 'DELETE' });
     const p = S.panels.find((x) => x.id === id);
-    if (p) p.watching = on;
+    if (!p) return;
+    if (!instance) p.watching = on;
+    else {
+      const name = instance.toLowerCase();
+      p.watchingInstances = (p.watchingInstances || []).filter((d) => d !== name).concat(on ? [name] : []);
+    }
   } catch (e) {
     say(e.message);
     draw();
@@ -149,7 +154,7 @@ async function refreshOnline() {
       if (old) Object.assign(old, { online: p.online, instances: p.instances });
     }
     paintOnline(S.panels);
-    paintOpenNow(S.panels.find((x) => x.id === S.cur));
+    paintOpenNow(S.panels.find((x) => x.id === S.cur), setWatch);
   } catch {}
 }
 

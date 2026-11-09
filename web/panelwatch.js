@@ -1,7 +1,7 @@
 // Monitoring in the browser: the `panelNotice` toast, the `panelsOffline` badge and, if allowed, a
 // browser notification. Imported by the Sode page and the panels pages, so a watcher is told on either.
 import { el, icon, onMsg, wsSend } from './core.js';
-import { noticeText, badgeText, bannerText, clearNote, shouldNotify } from './panelwatchrules.js';
+import { noticeText, badgeText, bannerText, clearNote, shouldNotify, lostText } from './panelwatchrules.js';
 
 const TOAST_MS = 20000;
 let stack = null;
@@ -20,8 +20,16 @@ function host() {
   return stack;
 }
 
+// Counters of open lost toasts by panel and device, so the return of the device freezes its count.
+const counters = new Map();
+const counterKey = (n) => `${n.panel}\n${String(n.device).toLowerCase()}`;
+
 function toast(n) {
   const t = noticeText(n);
+  if (n.state === 'back') counters.get(counterKey(n))?.();
+  const title = el('a', 'sode__toast-link', t.title);
+  title.href = `panels/${n.panel}`;
+  const msg = el('div', 'pb-toast__msg', t.text);
   const close = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm pb-toast__close', icon('x'));
   close.type = 'button';
   close.setAttribute('aria-label', 'Dismiss');
@@ -29,17 +37,36 @@ function toast(n) {
     'div',
     `pb-toast pb-toast--${t.kind === 'ok' ? 'ok' : t.kind}`,
     el('span', 'pb-toast__icon', icon(t.kind === 'ok' ? 'wifi' : 'wifi-off')),
-    el('div', 'pb-toast__body', el('div', 'pb-toast__title', t.title), el('div', 'pb-toast__msg', t.text)),
+    el('div', 'pb-toast__body', el('div', 'pb-toast__title', title), msg),
     close,
   );
   node.dataset.panelToast = n.state;
   if (t.kind === 'error') node.setAttribute('role', 'alert');
-  const drop = () => node.remove();
+  const stop = n.state === 'lost' ? count(n, msg) : () => {};
+  const drop = () => {
+    stop();
+    node.remove();
+  };
   close.addEventListener('click', drop);
   host().append(node);
   // A loss stays until dismissed, since the person may be away from the screen; a return fades.
   if (n.state === 'back') setTimeout(drop, TOAST_MS);
   return t;
+}
+
+// Counts the silence up while the toast is open, from when the notice arrived.
+function count(n, msg) {
+  const from = Date.now();
+  const timer = setInterval(() => {
+    msg.textContent = lostText(n.device, n.secs + (Date.now() - from) / 1000);
+  }, 1000);
+  const key = counterKey(n);
+  const stop = () => {
+    clearInterval(timer);
+    if (counters.get(key) === stop) counters.delete(key);
+  };
+  counters.set(key, stop);
+  return stop;
 }
 
 function browserNotice(t, n) {
@@ -67,7 +94,7 @@ function mountBanners() {
 }
 
 function alarm(action) {
-  for (const r of offline) wsSend({ t: 'panelAlarm', panel: r.panel, action });
+  for (const r of offline) wsSend({ t: 'panelAlarm', panel: r.panel, instance: r.instance || '', action });
   menuOpen = false;
 }
 

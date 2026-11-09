@@ -50,10 +50,22 @@ func TestChromePanelWatchToast(t *testing.T) {
 		t.Fatalf("keepalive %d", c)
 	}
 	b.waitFor("online mark", `document.querySelector('[data-online]')?.textContent === 'Online'`)
+	// Open now lists the screen with its own Watch box, which watches only that screen.
+	b.waitFor("screen watch box", `!!document.querySelector('[data-watch-instance="Lobby tablet"]')`)
+	b.eval(`document.querySelector('[data-watch-instance="Lobby tablet"]').click()`)
+	for deadline := time.Now().Add(10 * time.Second); !a.mon.watchingInst("Ana", id, "Lobby tablet"); time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the screen checkbox did not set the instance watch")
+		}
+	}
 
 	skew.Store(int64(time.Minute))
 	b.waitFor("lost toast", `/Wall panel is offline/.test(document.querySelector('[data-panel-toast="lost"]')?.textContent || '') && /Lobby tablet/.test(document.querySelector('[data-panel-toast="lost"]').textContent)`)
 	b.waitFor("badge", `document.querySelector('[data-panel-badge]')?.textContent === '1 panel offline' && !document.querySelector('[data-panel-badge]').hidden`)
+	b.waitFor("toast title links to the panel", fmt.Sprintf(`document.querySelector('[data-panel-toast="lost"] a')?.getAttribute('href') === 'panels/%s'`, id))
+	first, _ := b.eval(`document.querySelector('[data-panel-toast="lost"] .pb-toast__msg').textContent`).(string)
+	b.waitFor("the silence counts up", fmt.Sprintf(`document.querySelector('[data-panel-toast="lost"] .pb-toast__msg').textContent !== %q`, first))
+	b.waitFor("last seen wording", `/last seen/.test(document.getElementById('panels-open')?.textContent || '')`)
 	b.shot("lost")
 
 	skew.Store(0)
@@ -102,6 +114,7 @@ func TestChromePanelOutageBanner(t *testing.T) {
 	}
 	lose()
 	b.waitFor("banner", `/Wall panel is offline/.test(document.querySelector('[data-panel-outage]')?.textContent || '')`)
+	b.waitFor("banner is drawn on the page", `document.querySelector('[data-panel-outage]').getBoundingClientRect().height > 0`)
 	b.waitFor("no floating badge", `document.querySelector('[data-panel-badge]').hidden`)
 	b.waitFor("pad closed", `!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	b.shot("banner")

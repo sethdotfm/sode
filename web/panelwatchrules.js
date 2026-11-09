@@ -42,11 +42,20 @@ export function noticeText(n) {
   return {
     kind: n.offline ? 'error' : 'warn',
     title: n.offline ? `${n.name} is offline` : `${n.name} lost a screen`,
-    text: `${n.device} has not been heard from for ${dur}.`,
+    text: lostText(n.device, n.secs),
   };
 }
 
-export const badgeText = (rows) => (rows.length === 1 ? '1 panel offline' : `${rows.length} panels offline`);
+// The line of a lost notice; the toast calls it again every second with the time since the notice came.
+export const lostText = (device, secs) => `${device} has not been heard from for ${durationText(secs)}.`;
+
+// An alarm row with an `instance` is a watched screen, not a whole panel.
+const screens = (rows) => rows.length > 0 && rows.every((r) => r.instance);
+export const badgeText = (rows) => {
+  const noun = screens(rows) ? 'screen' : 'panel';
+  if (rows.some((r) => r.instance) && !screens(rows)) return `${rows.length} offline`;
+  return rows.length === 1 ? `1 ${noun} offline` : `${rows.length} ${noun}s offline`;
+};
 
 export const deviceFrom = (s) =>
   String(s || '')
@@ -76,6 +85,11 @@ export const clearNote = (rows) => ({ stop: rows.length === 1 ? 'Stop monitoring
 
 // Banner line for the panels that are offline and not cleared.
 export function bannerText(rows) {
-  if (rows.length === 1) return { title: `${rows[0].name} is offline`, text: `${rows[0].device} stopped responding.` };
-  return { title: `${rows.length} panels are offline`, text: rows.map((r) => r.name).join(', ') };
+  if (rows.length === 1) {
+    const [r] = rows;
+    return { title: r.instance ? `${r.name} lost ${r.device}` : `${r.name} is offline`, text: `${r.device} stopped responding.` };
+  }
+  const label = (r) => (r.instance ? `${r.name}: ${r.device}` : r.name);
+  const noun = screens(rows) ? 'screens' : rows.some((r) => r.instance) ? 'watched panels and screens' : 'panels';
+  return { title: `${rows.length} ${noun} are offline`, text: rows.map(label).join(', ') };
 }

@@ -1,7 +1,7 @@
 // What the panels page (/panels) groups, labels and offers. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, shareLabel, launchHref, editHref, matches } from '../panelsrules.js';
+import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, shareLabel, launchHref, editHref, matches } from '../panelsrules.js';
 
 const P = (id, owner, extra = {}) => ({
   id,
@@ -83,6 +83,8 @@ test('the mini picture draws whole cells only, with their kind', () => {
 test('labels say who a panel acts as and who may use it', () => {
   assert.equal(actsLabel(P('a', 'Ana')), 'Acts as the user');
   assert.equal(actsLabel(P('a', 'Ana', { acts: 'api' })), 'Acts as an API client');
+  assert.equal(actsShort(P('a', 'Ana')), 'signs in as the user');
+  assert.equal(actsShort(P('a', 'Ana', { acts: 'api' })), 'API client');
   assert.equal(shareLabel({ mode: 'me' }), 'Only the owner');
   assert.equal(shareLabel({ mode: 'everyone' }), 'Everyone');
   assert.equal(shareLabel({ mode: 'named', users: ['Bo', 'Cy'] }), 'Bo, Cy');

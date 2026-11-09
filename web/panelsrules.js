@@ -73,6 +73,9 @@ export function deleteStep(armed, id) {
 
 export const thumbCells = (p) => cellsIn(p).map(({ r, c, rs, cs, kind }) => ({ r, c, rs, cs, kind }));
 
+// The short form for a row, after the owner's name.
+export const actsShort = (p) => (p.acts === 'api' ? 'API client' : 'signs in as the user');
+
 export const actsLabel = (p) => (p.acts === 'api' ? 'Acts as an API client' : 'Acts as the user');
 
 export function shareLabel(share) {

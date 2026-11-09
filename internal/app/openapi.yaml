@@ -1177,9 +1177,15 @@ paths:
         told when a device of the panel is lost (a closed page after 8 seconds, a silent one
         after 45) and when it returns, through the Sode socket as a toast, a banner and, if the
         browser allows, a notification. The list lives in `panelwatch.yaml` beside the config. Watching twice is a
-        204 too.
+        204 too. With `instance` the watch is for that one device (compared ignoring case) and the user
+        hears only about it, as a lost or back notice that never calls the whole panel offline. A
+        user may hold the panel watch and any number of instance watches at once. The device need not
+        have been seen yet.
+      parameters:
+        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A device name. Blank is 400 `bad_request`" }
       responses:
         "204": { description: Watching }
+        "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
@@ -1189,9 +1195,12 @@ paths:
       operationId: unwatchPanel
       tags: [panels]
       summary: Stop watching a panel
-      description: Scope `panels`. Same caller rules as watching. Not watching is a 204 too.
+      description: Scope `panels`. Same caller rules as watching. With `instance` it ends only that device's watch and leaves the panel watch. Not watching is a 204 too.
+      parameters:
+        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 } }
       responses:
         "204": { description: Not watching }
+        "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
@@ -1567,7 +1576,8 @@ components:
               items: { type: string }
               description: "For an editor of an API panel: the allowed networks as CIDRs, empty = anywhere"
             online: { type: boolean, description: Output only. A device was heard in the last 45 seconds, on a list or a read }
-            watching: { type: boolean, description: Output only. The calling user watches it; never a list of watchers }
+            watching: { type: boolean, description: Output only. The calling user watches the whole panel; never a list of watchers }
+            watchingInstances: { type: array, items: { type: string }, description: Output only. The devices (lowercase) the calling user watches one by one }
             instances:
               type: array
               description: Output only, for an editor. The devices that have opened the panel since Sode started

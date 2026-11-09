@@ -4,7 +4,8 @@ import { el } from './core.js';
 import { askNotifyPermission, notifyPermission } from './panelwatch.js';
 import { durationText, permissionText } from './panelwatchrules.js';
 
-export const MON_POLL_MS = 10000;
+// Fast enough that the online mark follows a screen within a couple of seconds, with no push channel to the page.
+export const MON_POLL_MS = 2000;
 
 const badge = (online) => el('span', `pb-badge${online ? ' pb-badge--ok' : ''}`, online ? 'Online' : 'Offline');
 
@@ -16,21 +17,44 @@ export function paintOnline(panels) {
   }
 }
 
-// Who has the panel open. Only an editor is sent the names.
-export function openNow(p, now = Date.now()) {
+// Every screen of the list, then the screens the user watches that Sode has not heard from since it started.
+export function listed(p) {
+  const seen = new Set(p.instances.map((i) => i.device.toLowerCase()));
+  const gone = (p.watchingInstances || []).filter((d) => !seen.has(d)).map((d) => ({ device: d, online: false, seen: '' }));
+  return [...p.instances, ...gone];
+}
+
+// Who has the panel open. Only an editor is sent the names. Each screen has its own Watch checkbox.
+export function openNow(p, setWatch, now = Date.now()) {
   const box = el('section', 'sode-ov__opennow');
   box.id = 'panels-open';
   box.dataset.for = p.id;
   if (!p.instances) return box;
   box.append(el('h2', 'sode-ov__group', 'Open now'));
-  if (!p.instances.length) {
+  const rows = listed(p);
+  if (!rows.length) {
     box.append(el('p', 'sode-ov__muted', 'No screen has opened this panel since Sode started.'));
     return box;
   }
+  const watched = new Set(p.watchingInstances || []);
   const ul = el('ul', 'sode-ov__open');
-  for (const i of p.instances) {
-    const ago = i.online ? '' : `last heard ${durationText((now - Date.parse(i.seen)) / 1000)} ago`;
-    ul.append(el('li', '', badge(i.online), el('strong', '', i.device), ago && el('span', 'sode-ov__muted', ago)));
+  for (const i of rows) {
+    const ago = i.seen ? (i.online ? '' : `last seen ${durationText((now - Date.parse(i.seen)) / 1000)} ago`) : 'not seen since Sode started';
+    const input = el('input', 'pb-check__input');
+    input.type = 'checkbox';
+    input.checked = watched.has(i.device.toLowerCase());
+    input.dataset.watchInstance = i.device;
+    input.addEventListener('change', () => setWatch?.(p.id, input.checked, i.device));
+    ul.append(
+      el(
+        'li',
+        '',
+        badge(i.online),
+        el('strong', '', i.device),
+        ago && el('span', 'sode-ov__muted', ago),
+        el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Tell me when this screen drops offline')),
+      ),
+    );
   }
   box.append(ul);
   return box;
@@ -70,7 +94,9 @@ export function watchBox(p, setWatch) {
 }
 
 // Replaces the Open now list in place, so a refresh does not rebuild the detail pane under a hand.
-export function paintOpenNow(p) {
+// A checkbox under a hand is left alone until the next refresh.
+export function paintOpenNow(p, setWatch) {
   const old = document.getElementById('panels-open');
-  if (old && p && old.dataset.for === p.id) old.replaceWith(openNow(p));
+  if (!old || !p || old.dataset.for !== p.id || old.contains(document.activeElement)) return;
+  old.replaceWith(openNow(p, setWatch));
 }
