@@ -167,7 +167,9 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 	if last.urls != base.urls {
 		bad = append(bad, fmt.Sprintf("object URLs %.0f -> %.0f", base.urls, last.urls))
 	}
-	if last.nodes > base.nodes+50 {
+	// Some forced GCs leave a detached subtree of about 180 nodes and the next one takes it (2,683 or 2,862 in any
+	// order), so the margin is wider than that; a leaked modal or sprite copy is thousands.
+	if last.nodes > base.nodes+250 {
 		bad = append(bad, fmt.Sprintf("DOM nodes %.0f -> %.0f", base.nodes, last.nodes))
 	}
 	if last.listeners > base.listeners+20 {
