@@ -32,6 +32,12 @@ func init() {
 	)
 }
 
+// trusted reads the user's Trusted flag live from the config, so an edit applies at once.
+func (a *App) trusted(name string) bool {
+	u, ok := a.r().cfg.FindUser(name)
+	return ok && u.Trusted
+}
+
 // panelReach is what cl may do with p. A user owns a panel by name; a Trusted user (read
 // live from the config) reaches all. A client reaches the panel it is the API client of.
 func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
@@ -41,7 +47,7 @@ func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 		if strings.EqualFold(p.Owner, name) {
 			return true, true
 		}
-		if u, ok := a.r().cfg.FindUser(name); ok && u.Trusted {
+		if a.trusted(name) {
 			return true, true
 		}
 		for _, n := range p.Share.Users {

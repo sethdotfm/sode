@@ -325,8 +325,7 @@ func (a *App) mayWatch(user string, p Panel) bool {
 	if strings.EqualFold(p.Owner, user) {
 		return true
 	}
-	u, ok := a.r().cfg.FindUser(user)
-	return ok && u.Trusted
+	return a.trusted(user)
 }
 
 // offlineFor is the watched panels of user that are offline, newest loss first.

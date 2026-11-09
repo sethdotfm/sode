@@ -192,8 +192,7 @@ func (a *App) setReach(cl *apiCtx, set PanelSet) (use, change bool) {
 	if set.Scope != panelShareAll {
 		return false, false
 	}
-	u, ok := a.r().cfg.FindUser(cl.Actor.Name)
-	return true, ok && u.Trusted
+	return true, a.trusted(cl.Actor.Name)
 }
 
 func setOut(set PanelSet, change bool) map[string]any {
@@ -286,7 +285,7 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	if in.Scope == panelShareAll {
-		if u, ok := a.r().cfg.FindUser(cl.Actor.Name); !ok || !u.Trusted {
+		if !a.trusted(cl.Actor.Name) {
 			apiFail(w, http.StatusForbidden, "trusted_required", "only a Trusted user may save a checkpoint set for Everyone")
 			return
 		}

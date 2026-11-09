@@ -72,7 +72,7 @@ func (a *App) clientRightsFor(cl *apiCtx, want *config.Rights, cur *config.Right
 	if cur != nil && (want == nil || reflect.DeepEqual(clean(*want), *cur)) {
 		return *cur, false, nil
 	}
-	if u, ok := a.r().cfg.FindUser(cl.Actor.Name); !ok || !u.Trusted {
+	if !a.trusted(cl.Actor.Name) {
 		return config.Rights{}, false, &panelClientFail{http.StatusForbidden, "trusted_required", "only a Trusted user may make a panel act as an API client or change its rights"}
 	}
 	r := cl.Rights.Clone()

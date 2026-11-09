@@ -277,11 +277,7 @@ func init() {
 // templateReach: a Me template is its owner's; an Everyone template is for every caller to
 // use, and the owner or a Trusted user change it. Trusted is read live from the config.
 func (a *App) templateReach(cl *apiCtx, t Template) (read, edit bool) {
-	trusted := false
-	if cl.Actor.Kind == actorUser {
-		u, ok := a.r().cfg.FindUser(cl.Actor.Name)
-		trusted = ok && u.Trusted
-	}
+	trusted := cl.Actor.Kind == actorUser && a.trusted(cl.Actor.Name)
 	own := cl.Actor.Kind == actorUser && strings.EqualFold(t.Owner, cl.Actor.Name)
 	if t.Scope == templateMe {
 		return own, own
@@ -337,7 +333,7 @@ func (a *App) apiTemplateRead(w http.ResponseWriter, r *http.Request, cl *apiCtx
 // Settings PIN. A REST call has no connection to unlock, so the PIN rides in the body and
 // counts as a wrong try of the same pool as the Settings dialog's.
 func (a *App) mayShareEveryone(cl *apiCtx, pin string) error {
-	if u, ok := a.r().cfg.FindUser(cl.Actor.Name); ok && u.Trusted {
+	if a.trusted(cl.Actor.Name) {
 		return nil
 	}
 	const msg = "only a Trusted user, or the Advanced Settings PIN, may save a template to Everyone"
