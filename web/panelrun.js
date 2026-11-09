@@ -4,7 +4,7 @@
 import { $ } from './core.js';
 import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { withKey } from './sessionkeyrules.js';
-import { keyFromHash, envFrom, namesFrom, cellsIn, errorText } from './panelrules.js';
+import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from './panelrules.js';
 import {
   createState,
   pressDestination,
@@ -63,7 +63,7 @@ export async function runPanel(id) {
 
   const res = await call(`api/v1/panels/${id}`);
   if (!res.ok) {
-    say('panels-note', res.status === 404 ? 'No panel here that you can use.' : 'This panel could not be opened.');
+    say('panels-note', openFailText(res.status, !!key));
     return;
   }
   const panel = await res.json();
@@ -71,6 +71,7 @@ export async function runPanel(id) {
     say('panels-note', 'This panel acts as its own API client. Open its link with the key.');
     return;
   }
+  document.querySelector('.sode-panels__head').hidden = kioskOf(location.hash, panel);
   document.title = panel.name;
   $('panel-title').textContent = panel.name;
 
