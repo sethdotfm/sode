@@ -41,6 +41,17 @@ The editor is the page where a panel's grid and settings are made. It lives unde
 - Push: copies a panel's saved config to other panels. Each target keeps its own name, id and sharing, and updates the way a saved edit does. A checkpoint of each target is kept first. Targets are picked by group or one by one. A checkpoint set stores one saved layout per panel in a group, so one push gives EVS 1 its own and EVS 2 its own. A panel's owner can push to their own panels. A Trusted user can push to anybody's.
 - Artwork: a cell can show a vendored icon, or an uploaded JPEG, PNG, GIF or SVG up to 1 MB. Images are shown dimmed behind the caption so the state colour still reads. SVG is only ever used as an image, so scripts in it never run.
 
+## Panels page
+
+`/panels` lists panels and launches them. The editor (`/panels/editor`) and a panel itself (`/panels/[id]`) are separate pages. The prototype is `prototype/panels/overview/c` (:8123 with `serve-overview.mjs`). Variants A (table) and B (tile gallery) are history.
+
+- Layout: a list on the left, grouped under My panels and Shared with me, each row with a mini picture of the grid, its owner, whether it acts as a user or an API client, and an online dot. The right side shows the chosen panel: a large Launch button, Edit, Share, Link with key, Push to panels and Delete, then the instances open now and a Watch checkbox.
+- A panel shared with you opens for use. It shows Save a copy instead of Edit.
+- A Trusted user sees every user's panels, grouped by owner, and can edit, share, push to and watch any of them.
+- Delete needs a second press.
+- Share is a modal with two tabs. People sets Only me, Named users or Everyone. Link with key is for a panel that acts as an API client: the key sits in the URL fragment (`#key=`) so it never reaches a request line or proxy log, the link is masked until revealed, and the tab offers Copy link, a QR code, Open as kiosk, Rotate and Revoke (each confirmed). A panel that acts as a user has no key and asks for a PIN at launch.
+- Rotating a key signs out open instances and kills old links. Revoking leaves the panel without a key.
+
 ## Monitoring
 
 Proposed, not prototyped.
