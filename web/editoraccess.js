@@ -1,9 +1,9 @@
 // The sidebar's Access tab: who the panel acts as, the Rights limits of its own API client, and sharing.
 // The server decides who may set up a client (ADR 0006): a Trusted user, within their own Rights.
-// Sharing is the Share modal's job (panelshare.js).
-import { el, on } from './core.js';
+// Sharing is the Share modal's job (panelshare.js), opened from the toolbar's Share button.
+import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
-import { btn, check, opt } from './formbits.js';
+import { check, opt } from './formbits.js';
 import { openShare } from './panelshare.js';
 import { shareLabel } from './panelsrules.js';
 import { draftOf, rightsOf } from './rightsrules.js';
@@ -52,10 +52,11 @@ export function createAccessTab(ed, ctx) {
   clientBox.append(current, limit.label, limits, note);
 
   const shareLine = el('p', 'sode__hint');
-  const shareBtn = btn('pb-btn--outline pb-btn--sm', 'Share', () => {
+  const shareBtn = $('ed-share'); // in the toolbar
+  shareBtn.addEventListener('click', () => {
     openShare(ed.panel(), { api, onSaved: (p) => ed.replaceLoaded(p) });
   });
-  const share = el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Sharing'), shareLine, shareBtn);
+  const share = el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Sharing'), shareLine);
   const watch = el('section', 'sode-side__sec');
   watch.hidden = true;
   const watchNote = el('p', 'sode__hint');

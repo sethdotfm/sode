@@ -42,6 +42,7 @@ A Session-mode page trades its signed-in session for a user key over the socket:
 
 ## Gotchas
 
+- The editor's Test it live runs `runPanel` embedded (`editorlive.js`): `panelmount.js` builds the same elements as panel.html inside `#ed-live-view`, calls go through the editor's `sessionFetch`, and there is no keepalive, device name, kiosk, wake lock or title change, so it never shows as an instance. A panel that acts as an API client is tested with the user's own Rights, not the client's. The Share button is in the editor toolbar (`#ed-share`); `editoraccess.js` wires it.
 - Routes for sets and templates are `/panel-sets` and `/panel-templates`, not under `/panels/`. Go's mux reports a conflict between `DELETE /panels/templates/{id}` and `/panels/{id}/key`.
 - The glossary scan rejects every word on a `_Avoid_` line, in docs and UI strings alike, and only a few are exempt in backticks. Check GLOSSARY.md before choosing a word. It fails only in the full `go test ./...`, because `TestDocsUseGlossaryWords` and `TestUIStringsUseGlossaryWords` scan the whole tree; a `-run` on one panel test will not show it.
 - `panelRows` in `web/panelpage.js` is the rows of a grid. Its name collides with a retired phrase, so it has an `identAllow` entry; keep it when moving the code.

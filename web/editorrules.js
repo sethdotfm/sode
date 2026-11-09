@@ -64,25 +64,21 @@ export function placeMenu(rect, menu, vp, gap) {
   return { side: 'below', left: Math.max(0, Math.min(rect.left, vp.w - menu.w)), top: rect.bottom + gap };
 }
 
-// One letter per menu item, from its name: the first of its letters no earlier item took, else the first free
-// letter of the alphabet. Names are stable (Merge keeps M while it reads Unmerge), so a letter never moves.
-export function menuLetters(names) {
-  const taken = new Set();
-  return names.map((name) => {
-    const pool = [...name.toLowerCase().replace(/[^a-z]/g, ''), ...'abcdefghijklmnopqrstuvwxyz'];
-    const l = pool.find((c) => !taken.has(c));
-    taken.add(l);
-    return l;
-  });
-}
+// The item a Ctrl or Cmd chord runs (item.chord is the letter): never a disabled one.
+export const menuChord = (items, e) =>
+  (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey ? (items.find((it) => it.chord === e.key.toLowerCase() && !it.disabled) ?? null) : null;
 
-// The item a letter activates: never a disabled one.
-export const menuTarget = (items, letter) => items.find((it) => it.letter === letter && !it.disabled) ?? null;
+export const chordText = (letter, mac) => (mac ? `\u2318${letter.toUpperCase()}` : `Ctrl+${letter.toUpperCase()}`);
 
 export const todoText = (n) => (n ? `${n} unassigned square${n > 1 ? 's' : ''}` : 'No unassigned squares');
 
 const WORDS = { source: 'Source', destination: 'Destination', take: 'Take', preset: 'Preset', clear: 'Clear', current: 'Current Destination', '': 'Empty' };
 export const kindLabel = (kind) => WORDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
+// The Type item's label: the one kind the selected squares share, else Mixed.
+export function typeLabel(cells) {
+  const kinds = new Set(cells.map((c) => c.kind));
+  return `Type: ${kinds.size > 1 ? 'Mixed' : kindLabel(cells[0]?.kind ?? '')}`;
+}
 export const kindChoices = () => [...KINDS, ''].map((kind) => ({ kind, label: kindLabel(kind) }));
 
 // The tip beside the grip while it is dragged: how many squares, and the first and last name placed.

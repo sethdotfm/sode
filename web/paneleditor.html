@@ -49,9 +49,10 @@
     </div>
     <span class="sode-panels__spacer"></span>
     <div class="sode-ed__grp">
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-share" type="button" disabled>Share</button>
       <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" hidden>Copy link</button>
       <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
-      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Opens the saved panel as it runs, without unassigned squares. Saves first.">Test it live</button>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Runs the saved panel here, without unassigned squares. Saves first.">Test it live</button>
     </div>
     <div class="sode-ed__grp">
       <span class="sode-ed__state" id="ed-state" role="status" hidden></span>
@@ -59,6 +60,8 @@
     </div>
   </div>
   <p class="sode__hint" id="ed-status" role="status" hidden></p>
+
+  <div class="sode-ed__live" id="ed-live-view" hidden></div>
 
   <div class="sode-ed__body">
     <div class="sode-ed__main">

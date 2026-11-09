@@ -3,10 +3,12 @@
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select } from './gridmodel.js';
 
-export const CATEGORIES = ['source', 'destination', 'preset'];
-export const CATEGORY_LABEL = { source: 'Sources', destination: 'Destinations', preset: 'Presets' };
+export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current'];
+// The kinds with a list behind them get a chip; Take, Clear and Current are one entry each and show under All.
+export const CHIP_CATEGORIES = ['source', 'destination', 'preset'];
+export const CATEGORY_LABEL = { source: 'Sources', destination: 'Destinations', preset: 'Presets', take: 'Take', clear: 'Clear', current: 'Current Destination' };
 // Not log-in and log-out: the glossary UI test refuses those words.
-export const CATEGORY_ICON = { source: 'arrow-right-from-line', destination: 'arrow-right-to-line', preset: 'bookmark' };
+export const CATEGORY_ICON = { source: 'arrow-right-from-line', destination: 'arrow-right-to-line', preset: 'bookmark', take: 'zap', clear: 'eraser', current: 'eye' }; // keep in step with editorview.js KIND_ICON
 const RIGHTS_KIND = { source: 'sources', destination: 'dsts', preset: 'presets' };
 
 // Everything a user can pick, as { category, key, label, n?, num?, scope?, off }. Numbers in Rights are
@@ -33,6 +35,8 @@ export function findEntries(namesReply, presetsReply, rights) {
   // A preset has no number, so "onward" follows the name.
   const byName = [...(presetsReply?.presets || [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   for (const p of byName) add({ category: 'preset', key: `preset:${p.scope}:${p.name}`, label: p.name, scope: p.scope }, p.name);
+  // The numberless kinds are always placeable: Rights limit Sources, Destinations and Presets only.
+  for (const category of ['take', 'clear', 'current']) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
   return out;
 }
 
@@ -56,12 +60,13 @@ export function findPlan(g, run, order = 'across') {
   return { ...plan, slots: plan.slots.map((s) => ({ r: s.r, c: s.c, replace: s.replace, entry: run[s.n] })) };
 }
 
-// fillPlan stores a router number per slot; a Preset has none, so it goes in as scope and name afterwards.
+// fillPlan stores a router number per slot; only Sources and Destinations have one, so n is removed afterwards, and a Preset gets scope and name.
 export function applyFind(g, plan) {
   if (!plan || !plan.slots.length) return g;
   let out = applyFill(g, { ...plan, slots: plan.slots.map((s) => ({ ...s, n: s.entry.n ?? 0 })) });
-  if (plan.kind === 'preset') {
-    for (const s of plan.slots) out = setCell(out, s, { n: undefined, scope: s.entry.scope, name: s.entry.label });
+  if (plan.kind !== 'source' && plan.kind !== 'destination') {
+    const preset = plan.kind === 'preset';
+    for (const s of plan.slots) out = setCell(out, s, { n: undefined, scope: preset ? s.entry.scope : undefined, name: preset ? s.entry.label : undefined });
   }
   return out;
 }

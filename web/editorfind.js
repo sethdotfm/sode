@@ -1,4 +1,4 @@
-// Find in the panel editor's smart menu: one search over Sources, Destinations and Presets, with a preview of
+// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets, Take, Clear, Current), with a preview of
 // the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
 // the DOM. initFind(editor) takes what runEditor returns.
 import { el, icon, onMsg, on, $ } from './core.js';
@@ -6,7 +6,7 @@ import { sessionFetch, jsonCall } from './sessionkey.js';
 import { resultStep } from './keys.js';
 import { selSquares, single } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
-import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill } from './findrules.js';
+import { CHIP_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill } from './findrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
 const STALE_MS = 5000;
@@ -41,7 +41,7 @@ export function initFind(editor) {
 
   const input = el('input', 'pb-input');
   input.type = 'search';
-  input.placeholder = 'Find a Source, Destination or Preset';
+  input.placeholder = 'Find a Source, Destination, Preset, Take, Clear or Current';
   input.setAttribute('aria-label', 'Find');
   input.autocomplete = 'off';
   const chips = el('div', 'sode-find__chips');
@@ -133,7 +133,7 @@ export function initFind(editor) {
     hi = Math.max(0, Math.min(hi, results.length - 1));
     picked = picked.filter((k) => results.some((e) => e.key === k));
     chips.replaceChildren(
-      ...['', ...CATEGORIES].map((c) => {
+      ...['', ...CHIP_CATEGORIES].map((c) => {
         const b = el('button', 'pb-chip', c ? icon(CATEGORY_ICON[c]) : null, c ? CATEGORY_LABEL[c] : 'All');
         b.type = 'button';
         b.setAttribute('aria-pressed', String(chip === c));
@@ -327,7 +327,7 @@ export function initFind(editor) {
       if (had && !panel.contains(document.activeElement)) input.focus({ preventScroll: true });
       draw();
     });
-    return [{ label: 'Find', icon: 'search', name: 'Find', panel, run: () => open(null) }];
+    return [{ label: 'Find', icon: 'search', panel, run: () => open(null) }];
   });
   editor.refresh();
 

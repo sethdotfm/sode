@@ -714,6 +714,20 @@
   height: auto;
   width: 12rem;
 }
+/* Test it live: the panel runs in the editor's page, in place of the grid and sidebar (paneleditor.js, panelmount.js). */
+.sode-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  min-height: 24rem;
+  position: relative;
+}
+.sode-live .sode-panel__offline {
+  position: absolute;
+}
+.sode-live .sode-panel__offline-title {
+  font-size: 3rem;
+}
 /* The editor's sidebar (editorside.js). Artwork in a square sits dimmed behind its caption, as on the panel page. */
 .sode-ed__body {
   align-items: start;
