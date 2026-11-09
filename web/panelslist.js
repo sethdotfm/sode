@@ -2,6 +2,7 @@
 // with the user's session key. The server decides what a user may see and change (canEdit).
 import { $, el, icon, on } from './core.js';
 import { sessionFetch, startSession, signInAgain, onSessionKey } from './sessionkey.js';
+import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
 import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, shareLabel, launchHref, editHref } from './panelsrules.js';
 import { openShare } from './panelshare.js';
 
@@ -99,7 +100,7 @@ function detail(p) {
   const kv = el('dl', 'sode-ov__kv', el('dt', '', 'Owner'), el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')), el('dt', '', 'Acts as'), el('dd', '', actsLabel(p).replace('Acts as ', '') + (p.acts === 'api' ? ' (opens with its key)' : ' (asks for a PIN at launch)')), el('dt', '', 'Shared with'), el('dd', '', shareLabel(p.share)));
   box.append(
     el('h1', 'sode-ov__title', p.name),
-    el('div', 'sode-ov__big', el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)), el('div', 'sode-ov__pane', link('Launch', 'play', 'pb-btn--ok sode-ov__launch', launchHref(p.id)), bar, kv)),
+    el('div', 'sode-ov__big', el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)), el('div', 'sode-ov__pane', link('Launch', 'play', 'pb-btn--ok sode-ov__launch', launchHref(p.id)), bar, kv, watchBox(p, setWatch), openNow(p))),
   );
 }
 
@@ -109,6 +110,32 @@ function draw() {
   if (!shown.some((p) => p.id === S.cur)) S.cur = shown[0]?.id || '';
   list(groups);
   detail(shown.find((p) => p.id === S.cur));
+  paintOnline(S.panels);
+}
+
+async function setWatch(id, on) {
+  try {
+    await api(`api/v1/panels/${id}/watch`, { method: on ? 'POST' : 'DELETE' });
+    const p = S.panels.find((x) => x.id === id);
+    if (p) p.watching = on;
+  } catch (e) {
+    say(e.message);
+    draw();
+  }
+}
+
+// Online marks and the Open now list change without a redraw, so a button being pressed is not rebuilt.
+async function refreshOnline() {
+  if (!S.loaded || document.hidden) return;
+  try {
+    const next = (await api('api/v1/panels')).panels;
+    for (const p of next) {
+      const old = S.panels.find((x) => x.id === p.id);
+      if (old) Object.assign(old, { online: p.online, instances: p.instances });
+    }
+    paintOnline(S.panels);
+    paintOpenNow(S.panels.find((x) => x.id === S.cur));
+  } catch {}
 }
 
 async function load(pick) {
@@ -185,5 +212,6 @@ export function runPanelsList() {
     } else if (step === 'sign-in') say('Sign in with your PIN to see your panels.');
     else if (step === 'no-users') say('Panels need a user, and Sode has none.');
   });
+  setInterval(refreshOnline, MON_POLL_MS);
   startSession();
 }

@@ -13,6 +13,7 @@ import { applySharedLink } from './transfer.js';
 import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
+import './panelwatch.js';
 
 on('brand', ({ text }) => {
   document.title = text;

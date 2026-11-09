@@ -977,3 +977,9 @@ html:has(.sode__scrim:not([hidden])) {
   font-size: var(--pb-text-xs);
   white-space: nowrap;
 }
+
+/* The offline badge in the toast stack (panelwatch.js) */
+.pb-toast-stack [data-panel-badge] {
+  pointer-events: auto;
+  text-decoration: none;
+}
