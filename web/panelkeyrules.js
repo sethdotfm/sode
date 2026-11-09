@@ -16,8 +16,6 @@ export const MODE_HINT = {
 // /panels and /panels/ and behind a path prefix, since both pages set <base href="../">.
 export const absoluteLink = (link, base) => new URL(link, base).href;
 
-export const kioskLink = (href) => `${href}&kiosk=1`;
-
 // The secret in the fragment, hidden until the owner asks to see it.
 export const maskLink = (href) => href.replace(/(#(?:key|setup)=)[^&]+/, '$1••••••••');
 

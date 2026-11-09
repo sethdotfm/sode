@@ -50,13 +50,14 @@ test('ticking adds a name once and unticking drops it, ignoring case', () => {
 });
 
 test('the save body is the panel with the new share, minus what the server owns', () => {
-  const p = P({ clientRights: { visibility: 'hidden' }, art: [{ id: 'a' }], future: 7 });
+  const p = P({ clientRights: { visibility: 'hidden' }, art: [{ id: 'a' }], future: 7, slug: 'wall' });
   const b = shareBody(p, { mode: 'named', users: ['Bo'] });
   assert.deepEqual(b.share, { mode: 'named', users: ['Bo'] });
   assert.equal('canEdit' in b, false);
   assert.equal('clientRights' in b, false);
   assert.equal(b.name, 'Wall');
   assert.equal(b.future, 7);
+  assert.equal(b.slug, 'wall'); // a PUT without it would clear the short name
   assert.deepEqual(p.share, { mode: 'me' });
 });
 

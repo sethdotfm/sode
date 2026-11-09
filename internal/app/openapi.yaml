@@ -1011,7 +1011,7 @@ paths:
         default: { $ref: "#/components/responses/Error" }
   /panels/{id}/setup:
     parameters:
-      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
     post:
       operationId: exchangePanelSetup
       tags: [panels]

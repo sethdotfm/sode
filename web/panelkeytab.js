@@ -6,7 +6,7 @@ import { btn, check, field } from './formbits.js';
 import { churnKey } from './lockrules.js';
 import { qrNode } from './keyview.js';
 import { shareTabs } from './panelshare.js';
-import { MODES, MODE_HINT, CONFIRM_TEXT, kioskLink, maskLink, makeAction, confirmKind, parseNetworks, networksText, networksChanged } from './panelkeyrules.js';
+import { MODES, MODE_HINT, CONFIRM_TEXT, maskLink, makeAction, confirmKind, parseNetworks, networksText, networksChanged } from './panelkeyrules.js';
 import { linkFor } from './panellink.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
@@ -176,7 +176,7 @@ shareTabs.push(({ panel, api }) => {
       syncNets();
     }
   }
-  const buildLink = () => linkFor(panel, { [linkMode === 'setup' ? 'setup' : 'key']: secret, instance: screen, base: document.baseURI });
+  const buildLink = (kiosk = false) => linkFor(panel, { [linkMode === 'setup' ? 'setup' : 'key']: secret, instance: screen, kiosk, base: document.baseURI });
   async function makeLink() {
     const res = await call(`api/v1/panels/${panel.id}/key`, {
       method: 'POST',
@@ -239,7 +239,7 @@ shareTabs.push(({ panel, api }) => {
         say('Copy failed. The link is selected: copy it by hand.');
       }
     });
-    const kiosk = btn('pb-btn--outline', 'Open as kiosk', () => window.open(kioskLink(link), '_blank', 'noopener'));
+    const kiosk = btn('pb-btn--outline', 'Open as kiosk', () => window.open(buildLink(true), '_blank', 'noopener'));
     linkBox.append(el('div', 'sode__secret-row', input, reveal.label), el('div', 'sode-ov__keyrow', copy, kiosk));
     if (revealed) {
       const qr = qrNode(link);

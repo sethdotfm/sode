@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   absoluteLink,
-  kioskLink,
   maskLink,
   makeAction,
   confirmKind,
@@ -21,10 +20,6 @@ test('the link resolves the same from /panels and /panels/, at the root or behin
   assert.equal(absoluteLink('panels/p-1#key=sode_x', new URL('../', 'http://sode.lan/panels').href), 'http://sode.lan/panels/p-1#key=sode_x');
   assert.equal(absoluteLink('panels/p-1#key=sode_x', new URL('../', 'http://sode.lan/panels/').href), 'http://sode.lan/panels/p-1#key=sode_x');
   assert.equal(absoluteLink('panels/p-1#key=sode_x', new URL('../', 'http://sode.lan/studio/panels/').href), 'http://sode.lan/studio/panels/p-1#key=sode_x');
-});
-
-test('kiosk is added to the fragment', () => {
-  assert.equal(kioskLink('http://h/panels/p-1#key=sode_x'), 'http://h/panels/p-1#key=sode_x&kiosk=1');
 });
 
 test('the mask hides the secret and keeps the rest', () => {

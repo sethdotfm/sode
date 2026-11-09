@@ -80,7 +80,8 @@ export async function runPanel(seg) {
     panel = await callJSON(`api/v1/panels/${seg}`);
   } catch (e) {
     if (e.status === undefined) throw e;
-    if (e.status === 401 && stored && key) forgetKey(seg);
+    // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
+    if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
     say('panels-note', e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
     return;
   }
