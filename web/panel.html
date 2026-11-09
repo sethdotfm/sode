@@ -30,15 +30,22 @@
   </header>
   <p class="sode__hint" id="panels-note"></p>
   <div class="sode-panel__device" id="panel-device" hidden>
-    <label for="panel-device-name">Name this screen, so its owner can tell it from the others
+    <label for="panel-device-name">Name this instance, so its owner can tell it from the others
       <input class="pb-input" id="panel-device-name" type="text" maxlength="40" autocomplete="off" placeholder="Lobby tablet">
     </label>
     <button class="pb-btn pb-btn--ok" type="button">Save</button>
   </div>
-  <p class="sode-panel__status" id="panel-status" role="status" hidden></p>
-  <div class="pb-alert pb-alert--warn sode-panel__update" id="panel-update" role="status" hidden>
-    <div class="sode__banner-body"><div class="pb-alert__title">This panel was changed</div><span id="panel-update-text"></span></div>
-    <button class="pb-btn pb-btn--outline pb-btn--sm" id="panel-snooze" type="button">Snooze 60 s</button>
+  <!-- A kiosk fixes this box to the bottom of the viewport (panels.css), so nothing here moves the grid. -->
+  <div class="sode-panel__foot" id="panel-foot">
+    <p class="sode-panel__status" id="panel-status" role="status" hidden></p>
+    <div class="sode-panel__update" id="panel-update" role="status" hidden>
+      <div class="pb-alert pb-alert--warn">
+        <div class="sode__banner-body"><div class="pb-alert__title">This panel was changed</div><span id="panel-update-text"></span></div>
+        <button class="pb-btn pb-btn--outline pb-btn--sm" id="panel-snooze" type="button">Snooze 60 s</button>
+        <button class="pb-btn pb-btn--ok pb-btn--sm" id="panel-apply" type="button">Apply now</button>
+      </div>
+      <div class="pb-progress sode__banner-time" id="panel-update-bar" hidden></div>
+    </div>
   </div>
   <div class="sode-panel__grid" id="panel-grid"></div>
   <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
