@@ -14,6 +14,16 @@ export function panelIdFrom(pathname) {
 // A key in the fragment never reaches a request line or a proxy log. Without one the panel runs as the signed-in user.
 export const keyFromHash = (hash) => /(?:^#|&)key=([^&]+)/.exec(hash)?.[1] || '';
 
+// Kiosk (GLOSSARY.md) is the panel's setting, or a link that asks for it without editing the panel.
+export const kioskOf = (hash, panel) => !!panel?.settings?.kiosk || /(?:^#|&)kiosk=1(?:&|$)/.test(hash);
+
+// A key in the link that the server refuses was rotated or revoked; only a new link helps.
+export function openFailText(status, hadKey) {
+  if (status === 404) return 'No panel here that you can use.';
+  if (status === 401 && hadKey) return 'This link\'s key no longer works. It was rotated or revoked, so ask for a new link.';
+  return 'This panel could not be opened.';
+}
+
 export function envFrom(tally, protectedReply) {
   const rows = new Map();
   for (const r of tally.routes || []) {
