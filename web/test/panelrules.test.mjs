@@ -1,7 +1,7 @@
 // What the panel page reads from the URL and the API (panelrules.js), and the text it shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { panelIdFrom, keyFromHash, envFrom, namesFrom, cellsIn, errorText } from '../panelrules.js';
+import { panelIdFrom, keyFromHash, kioskOf, openFailText,envFrom, namesFrom, cellsIn, errorText } from '../panelrules.js';
 import { createState, currentOfDestination } from '../panelmodel.js';
 
 test('the panel id is the last path segment of /panels/<id>, and the editor and list are not panels', () => {
@@ -85,4 +85,19 @@ test('a destination cell reads its own current source on the levels it and the p
   assert.equal(currentOfDestination(createState(), e, { kind: 'destination', n: 1 }), -1);
   assert.equal(currentOfDestination(createState(), e, { kind: 'destination', n: 1, levels: [1] }), 6);
   assert.equal(currentOfDestination(createState({ levels: [2] }), e, { kind: 'destination', n: 1 }), 7);
+});
+
+test('a panel runs as a kiosk when its settings or its link say so', () => {
+  assert.equal(kioskOf('', { settings: { kiosk: true } }), true);
+  assert.equal(kioskOf('#key=sode_abc&kiosk=1', { settings: {} }), true);
+  assert.equal(kioskOf('#kiosk=1', {}), true);
+  assert.equal(kioskOf('#key=sode_abc', { settings: {} }), false);
+  assert.equal(kioskOf('#kiosk=0', null), false);
+  assert.equal(kioskOf('', null), false);
+});
+
+test('opening a panel fails with a reason that says what to do with the key', () => {
+  assert.match(openFailText(401, true), /rotated or revoked/);
+  assert.match(openFailText(404, true), /No panel/);
+  assert.match(openFailText(500, false), /could not be opened/);
 });
