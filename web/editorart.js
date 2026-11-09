@@ -7,16 +7,19 @@ import { btn } from './formbits.js';
 import { artProblem, ART_ICONS } from './sidebarrules.js';
 import { artOf } from './panellook.js';
 import { artNode } from './panelview.js';
+import { compressImage } from './artcompress.js';
 
 const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the image was not uploaded.', failed: (s) => `The image was not uploaded (${s}).` });
 
 async function upload(panelId, file) {
-  const body = await send(`api/v1/panels/${panelId}/artwork`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
+  const sent = await compressImage(file);
+  const body = await send(`api/v1/panels/${panelId}/artwork`, { method: 'POST', headers: { 'Content-Type': sent.type || file.type }, body: sent });
   return body?.id;
 }
 
-// opts: {ed, icons, set(value)}. update(value, {caption}) repaints; the preview shows the artwork dimmed behind the caption.
-export function createArtControl({ ed, icons = false, set }) {
+// opts: {ed, icons, set(value), setHideText(on)}. update(value, caption, hideText) repaints; the preview shows the artwork dimmed behind the caption.
+// Hide text shows only for a cell that has artwork.
+export function createArtControl({ ed, icons = false, set, setHideText }) {
   const preview = el('div', 'sode-side__art');
   const note = el('p', 'sode__hint');
   note.setAttribute('role', 'status');
@@ -44,7 +47,10 @@ export function createArtControl({ ed, icons = false, set }) {
     b.append(icon(name));
     grid.append(b);
   }
-  const bar = el('div', 'sode-side__row', up, ...(icons ? [choose] : []), clear);
+  let hidden = false;
+  const hide = btn('pb-btn--outline pb-btn--sm', 'Hide text', () => setHideText(!hidden));
+  hide.hidden = true;
+  const bar = el('div', 'sode-side__row', up, ...(icons ? [choose] : []), clear, ...(setHideText ? [hide] : []));
   const node = el(
     'div',
     'sode__field',
@@ -75,22 +81,28 @@ export function createArtControl({ ed, icons = false, set }) {
   let shown = '';
   return {
     node,
-    update(value, caption = '') {
+    update(value, caption = '', hideText = false) {
       const ro = ed.readOnly();
       const saved = !!ed.panel();
       up.disabled = ro || !saved;
       choose.disabled = ro;
       clear.disabled = ro || !value;
+      hidden = hideText;
+      hide.hidden = !value;
+      hide.disabled = ro;
+      hide.textContent = hideText ? 'Show text' : 'Hide text';
       if (!saved && !note.textContent) note.textContent = 'Save the panel before uploading an image.';
       else if (saved && note.textContent === 'Save the panel before uploading an image.') note.textContent = '';
-      if (shown === `${value}|${caption}`) return;
-      shown = `${value}|${caption}`;
+      if (shown === `${value}|${caption}|${hideText}`) return;
+      shown = `${value}|${caption}|${hideText}`;
       preview.replaceChildren();
       preview.hidden = !value;
       if (!value) return;
       // The backdrop is a plain artwork id, a cell's art may also be an icon name.
       const node = artNode({ art: value }, ed.art());
-      if (node) preview.append(node, el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon ? 'Caption' : '')));
+      if (!node) return;
+      preview.append(node);
+      if (!hideText) preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon ? 'Caption' : '')));
     },
   };
 }
