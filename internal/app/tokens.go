@@ -191,6 +191,18 @@ func (s *tokenStore) user(t string, cfg config.Config) (config.User, bool) {
 	return valid(r, cfg)
 }
 
+// live: the token with this sha256 key still exists, is valid and was issued to owner.
+func (s *tokenStore) live(hash, owner string, cfg config.Config) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.toks[hash]
+	if !ok || !strings.EqualFold(r.User, owner) {
+		return false
+	}
+	_, ok = valid(r, cfg)
+	return ok
+}
+
 // issue: locked is the session's Lock now, so the one write carries it.
 func (s *tokenStore) issue(u config.User, cfg config.Config, tab, locked bool) string {
 	b := make([]byte, 32)
