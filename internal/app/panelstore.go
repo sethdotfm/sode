@@ -181,12 +181,14 @@ type panelStore struct {
 	by    map[string]Panel
 	art   map[string][]byte // memory only: "<id>/<artID>"
 	probs []string
+	cps   map[string][]panelCheckpoint // checkpoints read so far, see panelpush.go
+	sets  *panelSetStore
 }
 
 // loadPanels runs once from New. A missing folder is empty. A file that does not parse, or
 // whose id differs from its name, is logged, kept in problems and skipped.
 func loadPanels(cfgPath string) *panelStore {
-	s := &panelStore{by: map[string]Panel{}, art: map[string][]byte{}}
+	s := &panelStore{by: map[string]Panel{}, art: map[string][]byte{}, sets: loadPanelSets(cfgPath)}
 	if cfgPath == "" {
 		return s
 	}
@@ -375,6 +377,7 @@ func (s *panelStore) delete(id string) (bool, error) {
 		delete(s.art, id+"/"+a.ID)
 	}
 	delete(s.by, id)
+	s.dropCheckpoints(id)
 	return true, nil
 }
 
