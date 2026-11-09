@@ -1346,20 +1346,22 @@ paths:
         scopes is refused with 403 `scope`, an unknown or missing topic with 400.
 
         The stream only sends; anything the client writes is ignored. Every frame is JSON
-        `{"t", "topic"?, "data"?}`. `ping` is a heartbeat every 5 seconds, ignore it.
+        `{"t", "topic", "data"?}`. Every frame but `hello` and `ping` has `topic`, so a client can
+        match on it alone. `ping` is a heartbeat every 5 seconds, ignore it.
 
         - `hello`: first frame. `data` has `v` (1), `topics` and `numberOffset`.
         - `snapshot`: one each for `names`, `tally` and `status`, with `topic` set and `data`
           shaped like the REST read, so a client starts from a full state. There is none for
           `history`: read `GET /history` first and bridge by id.
-        - `names`: the full names again, after a refresh.
-        - `tally`: `data.routes`, only the routes that changed.
-        - `status`: `data` has `router`, `routerUp` and `error`, plus `address` and `err` for a
+        - `names` (topic `names`): the full names again, after a refresh.
+        - `tally` (topic `tally`): `data.routes`, only the routes that changed.
+        - `status` (topic `status`): `data` has `router`, `routerUp` and `error`, plus `address` and `err` for a
           caller with the scope `log`.
         - `entry`: a new History entry (topic `history`). `data` is an Entry.
         - `entryUpdate`: an entry changed after it was sent, for example a Late Result (a route
           confirmed after the take gave up). `data` is the whole Entry. Sent once for a
-          connection with `history`, `results` or both; `results` alone suits a client that
+          connection with `history`, `results` or both. Its topic is `history` when the client chose
+          it, otherwise `results`; `results` alone suits a client that
           fires takes and wants only Late Results. Match updates by `id`.
         - `historyCleared`: History was emptied (topic `history`).
 

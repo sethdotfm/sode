@@ -167,7 +167,7 @@ A route the router confirms after the take gave up is a Late Result. The respons
 
 `GET /stream?topics=names,tally,status,history,results` upgrades to a WebSocket that only sends: anything the client writes is ignored. A browser page cannot set the Bearer header, so use a client library. Each topic needs the scope of the same read (`results` needs `history`); a topic outside the key's scopes is 403 `scope`, and an unknown or missing topic is 400.
 
-Every frame is JSON `{"t","topic","data"}`. The first is `hello`, then one `snapshot` each for `names`, `tally` and `status`, with `data` shaped like the REST read. A `history` subscriber gets no snapshot: call `GET /history` first and bridge by id. `results` sends only `entryUpdate`, which suits a panel that fires takes and wants nothing but Late Results.
+Every frame is JSON `{"t","topic","data"}`, and every frame but `hello` and `ping` carries `topic`, so match on it alone. Changes use the topic they belong to: `names`, `tally`, `status`, and `history` for `entry` and `historyCleared`. `entryUpdate` has `history` when you chose it, otherwise `results`. The first frame is `hello`, then one `snapshot` each for `names`, `tally` and `status`, with `data` shaped like the REST read. A `history` subscriber gets no snapshot: call `GET /history` first and bridge by id. `results` sends only `entryUpdate`, which suits a panel that fires takes and wants nothing but Late Results.
 
 ```json
 {"t":"hello","data":{"v":1,"topics":["tally","results"],"numberOffset":1}}
