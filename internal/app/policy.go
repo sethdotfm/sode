@@ -92,6 +92,8 @@ var policy = map[string]rule{
 	"keyCreate":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreate(c, m) }},
 	"keyRevoke":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevoke(c, m) }},
 	"sessionKey": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveSessionKey(c, m) }},
+	// the banner's Clear menu; a signed-in user only, checked in the handler
+	"panelAlarm": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveAlarm(c, m) }},
 	"keyListOwn": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListOwn(c, m) }},
 	"history":    {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 

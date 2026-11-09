@@ -344,11 +344,6 @@
   flex-direction: column;
   gap: var(--pb-space-3);
 }
-.sode-ov__launch {
-  font-size: var(--pb-text-lg);
-  justify-content: center;
-  padding: var(--pb-space-4) var(--pb-space-6);
-}
 .sode-ov__acts {
   display: flex;
   flex-wrap: wrap;
@@ -817,4 +812,9 @@
   pointer-events: none;
   position: absolute;
   white-space: nowrap;
+}
+
+.sode-panels__logo {
+  margin-right: var(--pb-space-4);
+  vertical-align: middle;
 }

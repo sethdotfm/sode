@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 78 38" width="156" height="76" role="img" aria-label="Sode Panels">
+  <style>
+    .idle{fill:#8a867d;fill-opacity:.45}
+    .idle2{fill:#8a867d;fill-opacity:.45}
+    .cur{fill:#2f9e63}
+    .view{fill:#e8673c}
+    .take{fill:#e8673c;fill-opacity:.9}
+    @media (prefers-color-scheme: dark){.idle,.idle2{fill:#9b958c;fill-opacity:.4}.cur{fill:#5ccf8f}}
+  </style>
+  <rect class="idle" x="0" y="0" width="8" height="8"/>
+  <rect class="cur" x="10" y="0" width="8" height="8"/>
+  <rect class="idle" x="20" y="0" width="8" height="8"/>
+  <rect class="idle" x="30" y="0" width="8" height="8"/>
+  <rect class="view" x="40" y="0" width="8" height="8"/>
+  <rect class="idle" x="50" y="0" width="8" height="8"/>
+  <rect class="idle" x="60" y="0" width="8" height="8"/>
+  <rect class="idle" x="70" y="0" width="8" height="8"/>
+  <rect class="idle" x="0" y="10" width="8" height="8"/>
+  <rect class="idle" x="10" y="10" width="8" height="8"/>
+  <rect class="idle" x="20" y="10" width="8" height="8"/>
+  <rect class="idle" x="30" y="10" width="8" height="8"/>
+  <rect class="idle" x="40" y="10" width="8" height="8"/>
+  <rect class="idle" x="50" y="10" width="8" height="8"/>
+  <rect class="idle" x="60" y="10" width="8" height="8"/>
+  <rect class="idle" x="70" y="10" width="8" height="8"/>
+  <rect class="idle" x="0" y="20" width="8" height="8"/>
+  <rect class="idle" x="10" y="20" width="8" height="8"/>
+  <rect class="idle" x="20" y="20" width="8" height="8"/>
+  <rect class="idle" x="30" y="20" width="8" height="8"/>
+  <rect class="idle" x="40" y="20" width="8" height="8"/>
+  <rect class="idle" x="50" y="20" width="8" height="8"/>
+  <rect class="take" x="60" y="20" width="18" height="18"/>
+  <rect class="idle" x="0" y="30" width="8" height="8"/>
+  <rect class="idle2" x="10" y="30" width="8" height="8"/>
+  <rect class="idle" x="20" y="30" width="8" height="8"/>
+  <rect class="idle" x="30" y="30" width="8" height="8"/>
+  <rect class="idle" x="40" y="30" width="8" height="8"/>
+  <rect class="idle" x="50" y="30" width="8" height="8"/>
+</svg>

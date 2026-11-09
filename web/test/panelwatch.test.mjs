@@ -1,7 +1,20 @@
 // Monitoring text and timing. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { durationText, noticeText, badgeText, deviceFrom, shouldNotify, keepaliveBody, KEEPALIVE_MS } from '../panelwatchrules.js';
+import {
+  durationText,
+  noticeText,
+  badgeText,
+  deviceFrom,
+  shouldNotify,
+  keepaliveBody,
+  KEEPALIVE_MS,
+  permissionText,
+  streamPath,
+  retryMs,
+  bannerText,
+  clearNote,
+} from '../panelwatchrules.js';
 
 test('durations read in the largest sensible unit', () => {
   assert.equal(durationText(1), '1 second');
@@ -44,4 +57,27 @@ test('a browser notification fires whenever the person allowed them', () => {
   assert.equal(shouldNotify('granted'), true);
   assert.equal(shouldNotify('denied'), false);
   assert.equal(shouldNotify('default'), false);
+});
+
+test('the notification state tells the person what the browser allows', () => {
+  assert.equal(permissionText('granted').state, 'on');
+  assert.equal(permissionText('default').state, 'ask');
+  assert.equal(permissionText('denied').state, 'blocked');
+  assert.match(permissionText('denied').text, /blocked/);
+  assert.equal(permissionText('unsupported').state, 'none');
+});
+
+test('the stream path carries the device and a retry backs off to 10 seconds', () => {
+  assert.equal(streamPath('p-1', ' Lobby tablet '), 'api/v1/panels/p-1/instances/stream?device=Lobby%20tablet');
+  assert.deepEqual([0, 1, 2, 3, 4, 9].map(retryMs), [1000, 2000, 4000, 8000, 10000, 10000]);
+});
+
+test('the banner names one panel, or counts several, and the Clear menu words follow', () => {
+  const one = [{ panel: 'p-1', name: 'Wall', device: 'Lobby' }];
+  assert.equal(bannerText(one).title, 'Wall is offline');
+  assert.match(bannerText(one).text, /Lobby/);
+  const two = [...one, { panel: 'p-2', name: 'Door', device: 'Hall' }];
+  assert.equal(bannerText(two).title, '2 panels are offline');
+  assert.equal(clearNote(one).stop, 'Stop monitoring this panel');
+  assert.equal(clearNote(two).stop, 'Stop monitoring these panels');
 });

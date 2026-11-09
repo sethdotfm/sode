@@ -65,3 +65,65 @@ func TestChromePanelWatchToast(t *testing.T) {
 	b.shot("back")
 	b.check()
 }
+
+// The Sode page: a watcher signed in there sees a banner for a panel that went offline, clears it
+// for now, sees it again for the next outage, and stops monitoring from the same menu.
+func TestChromePanelOutageBanner(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+
+	a := simApp(t, sim)
+	var skew atomic.Int64
+	a.mon.now = func() time.Time { return time.Now().Add(time.Duration(skew.Load())) }
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(srv.Close)
+
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, `{"name":"Wall panel"}`)
+	watchPanel(t, a, id, ana)
+
+	b.open(srv.URL + "/")
+	// The Sode page is not locked here, so raise the sign-in pad the way the user chip does.
+	// The offer waits for the server's lock state, so it is repeated until the pad is up.
+	b.waitFor("PIN pad", `(import('/core.js').then((m) => m.emit('login')), !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent)`)
+	for _, d := range "1234" {
+		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
+	}
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
+
+	lose := func() {
+		keepalive(a, id, ana, "Lobby tablet")
+		skew.Add(int64(time.Minute))
+		a.monSweep()
+	}
+	lose()
+	b.waitFor("banner", `/Wall panel is offline/.test(document.querySelector('[data-panel-outage]')?.textContent || '')`)
+	b.waitFor("no floating badge", `document.querySelector('[data-panel-badge]').hidden`)
+	b.waitFor("pad closed", `!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.shot("banner")
+
+	b.eval(`document.querySelector('[data-panel-outage] [data-panel-alarm="menu"]').click()`)
+	b.waitFor("clear menu", `!!document.querySelector('[data-panel-alarm="clear"]') && /Stop monitoring this panel/.test(document.querySelector('[data-panel-alarm="stop"]').textContent)`)
+	b.shot("menu")
+	b.eval(`document.querySelector('[data-panel-alarm="clear"]').click()`)
+	b.waitFor("banner cleared", `!document.querySelector('[data-panel-outage]').textContent`)
+	if !a.mon.watching("Ana", id) {
+		t.Fatal("Clear alarm for now ended the watch")
+	}
+
+	keepalive(a, id, ana, "Lobby tablet") // back
+	lose()                                // lost again
+	b.waitFor("banner again", `/Wall panel is offline/.test(document.querySelector('[data-panel-outage]')?.textContent || '')`)
+	b.eval(`document.querySelector('[data-panel-alarm="menu"]').click()`)
+	b.waitFor("stop button", `!!document.querySelector('[data-panel-alarm="stop"]')`)
+	b.eval(`document.querySelector('[data-panel-alarm="stop"]').click()`)
+	b.waitFor("banner gone", `!document.querySelector('[data-panel-outage]').textContent`)
+	if a.mon.watching("Ana", id) {
+		t.Fatal("Stop monitoring kept the watch")
+	}
+	b.check()
+}
