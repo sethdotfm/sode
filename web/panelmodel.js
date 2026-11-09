@@ -6,7 +6,7 @@
 // level subset. Settings: { mode: 'take' | 'instant', multi: bool, levels: [UI levels] | null, guard: 'none' | 'hold' | 'double' }.
 // A Preset cell is { kind: 'preset', scope, name }; env.presets maps presetKey(scope, name) to the
 // preset's items [{ src, dsts, levels }], where levels [] means every level.
-import { presetKey } from './panelrules.js';
+import { presetKey, rightsAllow } from './panelrules.js';
 
 export const IDLE_MS = 30000;
 export const RESULT_MS = 1500;
@@ -19,6 +19,7 @@ export function createState(settings = {}) {
     mode: settings.mode || 'take',
     multi: settings.multi !== false,
     levels: settings.levels || null,
+    resultText: !!settings.resultText,
     guard: settings.guard === 'hold' || settings.guard === 'double' ? settings.guard : 'none',
     guardAt: 0, // first press of a double-press guard
     holdAt: 0, // start of a hold, 0 when none is running
@@ -35,7 +36,15 @@ const inSet = (levels, set) => (set ? levels.filter((l) => set.includes(l)) : le
 
 // A take sends the levels the panel, the Source cell and the Destination cell all allow.
 function shared(st, env, srcLevels, dstLevels) {
-  return inSet(inSet(inSet(env.levels, st.levels), srcLevels), dstLevels);
+  return inSet(inSet(inSet(inSet(env.levels, env.rights?.levels), st.levels), srcLevels), dstLevels);
+}
+
+const quiet = (env) => env.rights?.visibility === 'hidden';
+
+// The first route piece the Rights refuse, as an error, or null. Hidden Visibility makes it quiet.
+function outsideRights(env, src, dst) {
+  const what = !rightsAllow(env.rights, 'dsts', dst) ? 'destination' : !rightsAllow(env.rights, 'sources', src) ? 'source' : '';
+  return what ? { code: 'outside-rights', what, src, dst, quiet: quiet(env) } : null;
 }
 
 // The one source on every routed level the panel and the cell send, or -1 when there is none or the levels differ.
@@ -62,6 +71,8 @@ export function pressSource(st, cell, env, now) {
   if (!st.view) return fail(st, { code: 'no-destination' }, now);
   const dst = st.view.dst;
   if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
+  const denied = outsideRights(env, cell.n, dst);
+  if (denied) return fail(st, denied, now);
   const levels = shared(st, env, cell.levels, st.view.levels);
   if (!levels.length) return fail(st, { code: 'no-common-levels', src: cell.n, dst }, now);
   // Instant mode takes on the press, so only a failed route can still be staged: a new press replaces it.
@@ -74,12 +85,15 @@ export function pressSource(st, cell, env, now) {
 export function pressPreset(st, cell, env, now) {
   const items = env.presets?.get(presetKey(cell.scope, cell.name));
   if (!items?.length) return fail(st, { code: 'no-preset', name: cell.name }, now);
+  if (!rightsAllow(env.rights, 'presets', cell.name)) return fail(st, { code: 'outside-rights', what: 'preset', name: cell.name, quiet: quiet(env) }, now);
   const dsts = new Set(items.flatMap((it) => it.dsts));
   if (!st.multi && dsts.size > 1) return fail(st, { code: 'preset-multi', name: cell.name }, now);
   const routes = [];
   for (const it of items) {
     for (const dst of it.dsts) {
       if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
+      const denied = outsideRights(env, it.src, dst);
+      if (denied) return fail(st, denied, now);
       const levels = shared(st, env, inSet(env.levels, it.levels?.length ? it.levels : null), cell.levels);
       if (!levels.length) return fail(st, { code: 'no-common-levels', src: it.src, dst }, now);
       routes.push({ dst, src: it.src, levels });
@@ -185,6 +199,14 @@ export function destinationState(st, n) {
 export function resultOf(st, dst, now) {
   const r = st.results[dst];
   return r && now - r.at <= RESULT_MS ? r.result : null;
+}
+
+const RESULT_WORD = { connected: 'Connected', already: 'Already', failed: 'Failed' };
+
+// What a destination shows after a take: the icon's result and word, and the text only when the panel turned it on.
+export function resultShown(st, dst, now) {
+  const result = resultOf(st, dst, now);
+  return result ? { result, word: RESULT_WORD[result], text: st.resultText ? RESULT_WORD[result] : '' } : null;
 }
 
 export const errorOf = (st, now) => (st.error && now - st.error.at <= ERROR_MS ? st.error : null);

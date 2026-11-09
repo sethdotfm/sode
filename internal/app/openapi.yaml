@@ -966,6 +966,17 @@ components:
             client: { type: string, description: The API client of a panel that acts as one }
             art: { type: array, items: { $ref: "#/components/schemas/PanelArt" } }
             canEdit: { type: boolean, description: False when the caller may only use the panel }
+            rights:
+              type: object
+              description: |
+                The calling key's own Rights, so a panel page can refuse a route before arming
+                a take. Only on `GET /panels/{id}`. The server enforces them regardless.
+              properties:
+                sources: { type: array, items: { type: integer } }
+                dsts: { type: array, items: { type: integer } }
+                levels: { type: array, items: { type: integer }, description: UI levels }
+                presets: { type: array, items: { type: string } }
+                visibility: { type: string, enum: [readonly, hidden] }
     Name:
       type: object
       required: [n, name]

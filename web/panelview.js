@@ -1,10 +1,9 @@
 // Draws a panel's grid from the state model. Holds no state of its own: paintGrid is called after
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
-import { sourceState, destinationState, presetState, currentOfDestination, currentSource, armed, resultOf, guardWaiting } from './panelmodel.js';
+import { sourceState, destinationState, presetState, currentOfDestination, currentSource, armed, resultShown, guardWaiting } from './panelmodel.js';
 
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
-const RESULT_WORD = { connected: 'Connected', already: 'Already', failed: 'Failed' };
 
 // hold is { down(cell), cancel() } for a Take cell with a hold guard: pointer or Enter and Space start it, leaving ends it.
 export function buildGrid(host, panel, cells, onPress, hold) {
@@ -42,14 +41,15 @@ function paintDestination(b, cell, { st, env, names, now }) {
   b.dataset.v = st.view?.dst === cell.n ? '1' : '';
   b.classList.toggle('pb-xpt--protected', env.protectedDsts.has(cell.n));
   const name = el('span', '', names.of(cell));
-  const result = resultOf(st, cell.n, now);
-  if (result) {
-    const mark = icon(RESULT_ICON[result]);
+  const shown = resultShown(st, cell.n, now);
+  if (shown) {
+    const mark = icon(RESULT_ICON[shown.result]);
     mark.setAttribute('role', 'img');
-    mark.setAttribute('aria-label', RESULT_WORD[result]);
+    mark.setAttribute('aria-label', shown.word);
     name.append(' ', mark);
+    if (shown.text) name.append(' ', el('small', 'sode-panel__result', shown.text));
   }
-  b.dataset.result = result || '';
+  b.dataset.result = shown?.result || '';
   const cur = currentOfDestination(st, env, cell);
   const under = env.protectedDsts.has(cell.n) ? 'Protected' : cur >= 0 ? names.source(cur) : '';
   const kids = [name, el('small', '', under)];
