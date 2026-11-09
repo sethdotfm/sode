@@ -59,7 +59,7 @@ func TestChromeEditorFind(t *testing.T) {
 	b.eval(`press(grid, { key: 'ArrowRight', shiftKey: true }); press(grid, { key: 'z' })`)
 	b.waitFor("Find open with the typed letter", `box() === document.activeElement && box().value === 'z'`)
 	b.eval(`find('zoom')`)
-	b.waitFor("Sources first, then Destinations", `rows()[0].includes('Zoom 1') && rows()[1].includes('Zoom 2') && rows()[2].includes('Zoom Return')`)
+	b.waitFor("Sources first, then Destinations", `rows()[0]?.includes('Zoom 1') && rows()[1]?.includes('Zoom 2') && rows()[2]?.includes('Zoom Return')`)
 	b.waitFor("the fill previewed in the grid", `document.querySelectorAll('.sode-ed__sq.is-preview').length === 2 && document.querySelectorAll('.sode-ed__sq--source').length === 0`)
 	b.shot("preview")
 	b.eval(`press(box(), { key: 'Enter' })`)
