@@ -65,26 +65,36 @@ func startBrowser(t *testing.T) *tab {
 	if bin == "" {
 		t.Skip("browser checks skipped: no Chrome or Chromium found (install one or set SODE_CHROME)")
 	}
-	dir := t.TempDir()
-	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, bin, "--headless=new", "--remote-debugging-port=0", "--user-data-dir="+dir,
-		"--no-first-run", "--no-default-browser-check", "--disable-gpu", "--window-size=1280,800", "about:blank")
-	if err := cmd.Start(); err != nil {
-		cancel()
-		t.Skipf("browser checks skipped: cannot start %s: %v", bin, err)
-	}
-	t.Cleanup(func() { cancel(); _ = cmd.Wait() })
-
-	// Chrome writes the port it chose into the profile directory.
+	// Chrome sometimes exits at start-up when other Chrome processes are busy, so a missing port gets a fresh
+	// profile and process, up to three times.
 	var port string
-	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
-		if b, err := os.ReadFile(filepath.Join(dir, "DevToolsActivePort")); err == nil {
-			port = strings.SplitN(string(b), "\n", 2)[0]
-			break
+	var ctx context.Context
+	var cancel context.CancelFunc
+	for try := 0; try < 3 && port == ""; try++ {
+		dir := t.TempDir()
+		ctx, cancel = context.WithCancel(context.Background())
+		cmd := exec.CommandContext(ctx, bin, "--headless=new", "--remote-debugging-port=0", "--user-data-dir="+dir,
+			"--no-first-run", "--no-default-browser-check", "--disable-gpu", "--window-size=1280,800", "about:blank")
+		if err := cmd.Start(); err != nil {
+			cancel()
+			t.Skipf("browser checks skipped: cannot start %s: %v", bin, err)
+		}
+		c := cancel
+		t.Cleanup(func() { c(); _ = cmd.Wait() })
+
+		// Chrome writes the port it chose into the profile directory.
+		for deadline := time.Now().Add(6 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+			if b, err := os.ReadFile(filepath.Join(dir, "DevToolsActivePort")); err == nil {
+				port = strings.SplitN(string(b), "\n", 2)[0]
+				break
+			}
+		}
+		if port == "" {
+			c()
 		}
 	}
 	if port == "" {
-		t.Fatalf("%s did not report a DevTools port", bin)
+		t.Fatalf("%s did not report a DevTools port after 3 tries", bin)
 	}
 	var ws string
 	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline) && ws == ""; time.Sleep(50 * time.Millisecond) {
