@@ -813,3 +813,8 @@
   position: absolute;
   white-space: nowrap;
 }
+
+.sode-panels__logo {
+  margin-right: var(--pb-space-4);
+  vertical-align: middle;
+}
