@@ -1077,3 +1077,13 @@ html:has(.sode__scrim:not([hidden])) {
     animation: none;
   }
 }
+
+/* The Panels logo is white strokes on transparent, so it is a mask: the colour is the text colour, as the icons' is. */
+.sode-logo {
+  background-color: currentColor;
+  display: inline-block;
+  height: 1.25rem;
+  mask: url("panels-logo.svg") center / contain no-repeat;
+  vertical-align: middle;
+  width: 1.25rem;
+}
