@@ -87,7 +87,7 @@ func TestPanelKeyRotateKillsTheOldOne(t *testing.T) {
 	if b1["rotated"] == true || b2["rotated"] != true {
 		t.Fatalf("rotated flags %v %v", b1["rotated"], b2["rotated"])
 	}
-	wantErr(t, apiSend(a, "GET", "/api/v1/tally", first, ""), 401, "invalid_key")
+	wantErr(t, apiSend(a, "GET", "/api/v1/tally", first, ""), 401, "key_revoked")
 	if rec := apiSend(a, "GET", "/api/v1/tally", second, ""); rec.Code != 200 {
 		t.Fatalf("new key: %d %s", rec.Code, rec.Body.String())
 	}
@@ -108,7 +108,7 @@ func TestPanelKeyRevokeLeavesTheClient(t *testing.T) {
 	if rec := apiSend(a, "DELETE", "/api/v1/panels/"+id+"/key?instance=Lobby", cy, ""); rec.Code != 204 {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
-	wantErr(t, apiSend(a, "GET", "/api/v1/tally", secret, ""), 401, "invalid_key")
+	wantErr(t, apiSend(a, "GET", "/api/v1/tally", secret, ""), 401, "key_revoked")
 	p, _ := a.panels.get(id)
 	if _, ok := clientOfPanel(a.r().cfg, p); !ok || p.Acts != panelActsAPI {
 		t.Fatal("revoke removed the client")

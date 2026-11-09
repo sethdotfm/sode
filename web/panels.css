@@ -21,6 +21,38 @@
 [data-sode-kiosk] .sode-lock__who {
   display: none;
 }
+/* The Panels link sits bottom left as the main page's footer does (desktop.css .sode__footer): fixed on the desktop
+   layout, with the page padded so it never covers the grid, and in the flow on a phone. A kiosk hides it. */
+.sode-panels__home {
+  display: flex;
+  padding-top: var(--pb-space-6);
+}
+:root:not([data-layout="phone"]) .sode-panels__home {
+  background: var(--pb-surface-base);
+  bottom: var(--pb-space-4);
+  left: var(--pb-space-5);
+  padding: var(--pb-space-2) var(--pb-space-3);
+  position: fixed;
+  z-index: var(--pb-z-sticky);
+}
+:root:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels {
+  padding-bottom: calc(var(--pb-space-4) + var(--pb-control-h) + var(--pb-space-2) * 2);
+}
+/* The way out of a kiosk for a touch screen, since its header is gone: top right, faint until looked for. Esc does the same. */
+.sode-panels__leave {
+  opacity: 0.25;
+  position: fixed;
+  right: var(--pb-space-2);
+  top: var(--pb-space-2);
+  z-index: var(--pb-z-sticky);
+}
+.sode-panels__leave[hidden] {
+  display: none;
+}
+.sode-panels__leave:hover,
+.sode-panels__leave:focus-visible {
+  opacity: 1;
+}
 .sode-panels__title {
   color: var(--pb-text-strong);
   font-size: var(--pb-text-xl);
@@ -419,6 +451,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
+}
+.sode-ov__kbd {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-2xs);
+  margin-inline-start: var(--pb-space-2);
 }
 .sode-ov__kv {
   display: grid;

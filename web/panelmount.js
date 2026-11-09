@@ -21,6 +21,10 @@ export function pageUi() {
     offline: $('panel-offline'),
     offlineDetail: $('panel-offline-detail'),
     full: $('panel-full'),
+    screen: $('panel-screen'),
+    kiosk: $('panel-kiosk'),
+    leave: $('panel-kiosk-leave'),
+    home: $('panel-home'),
   };
 }
 

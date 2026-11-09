@@ -6,7 +6,8 @@ export const SNOOZE_MS = 60000;
 
 // seen: the rev on screen. since: when a newer one was first noticed (0 = none). from and deadline bound the
 // countdown that is running. force: Snooze or Apply now was pressed, so staged routes no longer hold the copy.
-export const createUpdate = (rev) => ({ seen: rev, since: 0, from: 0, deadline: 0, force: false });
+// snoozed: the one Snooze this copy gets was used.
+export const createUpdate = (rev) => ({ seen: rev, since: 0, from: 0, deadline: 0, force: false, snoozed: false });
 
 // A server without rev sends none: nothing ever differs then.
 export function noticeRev(u, rev, now) {
@@ -15,8 +16,9 @@ export function noticeRev(u, rev, now) {
 }
 
 // Snooze leaves the banner up and counts 60 s down. Pressing it is the person's word that the copy may come
-// then, staged routes or not; pressing it again starts the 60 s over.
-export const snooze = (u, now) => ({ ...u, from: now, deadline: now + SNOOZE_MS, force: true });
+// then, staged routes or not. An open page snoozes once; applying starts a fresh state, so the next update gets one again.
+export const canSnooze = (u) => !u.snoozed;
+export const snooze = (u, now) => (u.snoozed ? u : { ...u, from: now, deadline: now + SNOOZE_MS, force: true, snoozed: true });
 
 export const applyNow = (u, now) => ({ ...u, from: now, deadline: now, force: true });
 

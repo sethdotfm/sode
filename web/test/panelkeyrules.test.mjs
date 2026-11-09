@@ -116,6 +116,18 @@ test('a polling failure stops the page for a dead key or a refused network, not 
   assert.equal(pollFail(503, 'api_off').stop, false);
 });
 
+test('a session key that ended stops the page and says how to go on; a wait from Sode does not', () => {
+  for (const code of ['key_revoked', 'key_expired']) {
+    const f = pollFail(401, code, 'ended', false);
+    assert.equal(f.stop, true);
+    assert.match(f.text, /Reload/);
+    assert.match(pollFail(401, code, 'ended', true).text, /ask for a new link/);
+  }
+  const wait = pollFail(429, 'rate_limited', 'slow down', false);
+  assert.equal(wait.stop, false);
+  assert.match(wait.text, /wait/);
+});
+
 test('a refused setup says why', () => {
   assert.match(setupFailText(401), /already used/);
   assert.equal(setupFailText(403, 'outside'), 'outside');

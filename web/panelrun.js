@@ -5,7 +5,7 @@
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
-import { withKey } from './sessionkeyrules.js';
+import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
@@ -34,7 +34,7 @@ import { createArt } from './panelart.js';
 import { createWake, buzz, enterFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
 import { instanceFrom } from './panellink.js';
-import { initFull } from './panelfull.js';
+import { initChrome } from './panelfull.js';
 import { initName } from './panelname.js';
 
 const POLL_MS = 2000;
@@ -86,7 +86,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
   const tag = (init) => fromPanel(init, id, instance);
-  const call = given || (key ? (path, init = {}) => fetch(path, withKey(tag(init), key)) : (path, init = {}) => sessionFetch(path, tag(init)));
+  const keyed = key && guardFetch((path, init) => fetch(path, withKey(tag(init), key)), { final: (s) => s === 401 });
+  const call = given || (key ? (path, init = {}) => keyed(path, init) : (path, init = {}) => sessionFetch(path, tag(init)));
   const callJSON = jsonCall(call);
 
   if (!key && !embedded) {
@@ -133,12 +134,11 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (want) root.dataset.theme = want;
     else delete root.dataset.theme;
   };
+  const chrome = embedded ? null : initChrome(ui);
   const applyLook = (p) => {
     const look = lookOf(p.settings || {});
     if (!embedded) {
-      const kiosk = kioskOf(location.hash, p);
-      ui.head.hidden = kiosk || !look.titleBar;
-      document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
+      chrome.show(kioskOf(location.hash, p), look.titleBar);
       document.title = p.name;
     }
     ui.title.textContent = p.name;
@@ -148,7 +148,6 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   };
   let look = applyLook(panel);
   if (!embedded) {
-    initFull(ui.full, ui.main);
     if (look.wake) createWake(navigator, document).on();
   }
 
@@ -225,6 +224,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
         ended = true;
         ready = false;
         if (stored) forgetKey(seg);
+        // Nothing may call Sode again: not the polls, the update check or the keepalive.
+        timers.forEach(clearInterval);
+        stopWatch();
+        keep?.stop();
       }
     }
     polling = false;

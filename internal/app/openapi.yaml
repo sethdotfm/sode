@@ -27,8 +27,12 @@ info:
 
     Throttles. Each key has a rate limit per minute (the API settings default 600). A keyless
     call is limited per source address. Ten bad keys from one address in a minute make that
-    address wait. Both answer 429 `rate_limited` with `Retry-After` in seconds. CORS is off:
-    no cross-origin headers are sent.
+    address wait. Both answer 429 `rate_limited` with `Retry-After` in seconds; wait that long
+    before the next call. A key that worked and then ended (revoked, rotated, its session
+    ended, its owner or the owner's PIN changed) is 401 `key_revoked`, and one past its expiry
+    is 401 `key_expired`. Both are final: stop using the key. They do not count as bad keys,
+    so a forgotten page still sending one does not make its address wait. CORS is off: no
+    cross-origin headers are sent.
 
     Writes. A take request is its own Confirm: nothing asks a person, so guard the button on
     your side. The request is synchronous and returns when the router has answered or timed out
@@ -1443,7 +1447,7 @@ components:
             checkSkipped: false
             results: [{ id: 1, src: 1, dst: 0, levels: [1], result: connected, ok: true, entry: 412 }]
     Unauthorized:
-      description: "`key_required`, `invalid_key` or `key_expired`; carries `WWW-Authenticate: Bearer`"
+      description: "`key_required`, `invalid_key`, `key_revoked` or `key_expired`; carries `WWW-Authenticate: Bearer`. `key_revoked` and `key_expired` are final: stop using the key"
       headers:
         WWW-Authenticate: { schema: { type: string, enum: [Bearer] } }
       content:
@@ -1505,6 +1509,7 @@ components:
                 - api_off
                 - key_required
                 - invalid_key
+                - key_revoked
                 - key_expired
                 - rate_limited
                 - scope
@@ -1527,7 +1532,8 @@ components:
                 - network_not_allowed
                 - internal
               description: |
-                503 api_off (the API switch is off). 401 key_required, invalid_key, key_expired,
+                503 api_off (the API switch is off). 401 key_required, invalid_key, key_revoked
+                (the key worked once and was ended; stop using it), key_expired,
                 invalid_setup (a setup link that was used, expired or replaced).
                 403 network_not_allowed (the key's address is outside the panel's allowed networks),
                 scope, outside_rights, https_required, not_owner (a panel the caller may only

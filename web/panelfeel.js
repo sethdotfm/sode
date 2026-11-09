@@ -51,3 +51,9 @@ export function enterFullscreen(doc) {
   root.requestFullscreen().catch(() => {}); // refused (iOS Safari, an embedded frame): the panel still works
   return true;
 }
+
+export function exitFullscreen(doc) {
+  if (!doc?.fullscreenElement) return false;
+  doc.exitFullscreen().catch(() => {});
+  return true;
+}

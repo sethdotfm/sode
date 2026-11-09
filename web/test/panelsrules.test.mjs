@@ -1,7 +1,22 @@
 // What the panels page (/panels) groups, labels and offers. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, hasClient, shareLabel, launchHref, editHref, matches } from '../panelsrules.js';
+import {
+  groupPanels,
+  actionsFor,
+  deleteStep,
+  thumbCells,
+  actsLabel,
+  actsShort,
+  hasClient,
+  shareLabel,
+  launchHref,
+  editHref,
+  matches,
+  panelScore,
+  listKey,
+  stepPanel,
+} from '../panelsrules.js';
 
 // Both: a client for keyed links, Session mode without one. Keep in step with actsHasClient in internal/app/panelstore.go.
 test('a panel holds a client when it acts as an API client or as both', () => {
@@ -105,4 +120,44 @@ test('labels say who a panel acts as and who may use it', () => {
 test('Launch opens the panel and Edit opens the editor on it, both relative to Sode root', () => {
   assert.equal(launchHref('p-1'), 'panels/p-1');
   assert.equal(editHref('p-1'), 'panels/editor?panel=p-1');
+});
+
+test('the filter is fuzzy over name, short name and owner, best match first inside each group', () => {
+  const list = [P('a', 'Ana', { name: 'Studio B' }), P('b', 'Ana', { name: 'Bstudio' }), P('c', 'Ana', { name: 'Lobby', slug: 'wall' })];
+  assert.equal(matches(list[0], 'stdo'), true);
+  assert.equal(matches(list[2], 'wal'), true);
+  assert.equal(matches(list[0], 'zq'), false);
+  assert.ok(panelScore(list[0], 'stu') > panelScore(list[1], 'stu'));
+  assert.deepEqual(
+    groupPanels(list, 'Ana', false, 'stu')[0].panels.map((p) => p.id),
+    ['a', 'b'],
+  );
+  assert.deepEqual(
+    groupPanels(list, 'Ana', false, '')[0].panels.map((p) => p.id),
+    ['a', 'b', 'c'],
+  );
+  assert.equal(groupPanels([P('a', 'Bo', { name: 'X' })], 'Ana', false, 'bo')[0].title, 'Shared with me');
+});
+
+test('Enter launches and e edits unless the key belongs to a field, a button or a modifier', () => {
+  const k = (key, tagName = 'BODY', extra = {}) => listKey({ key, ...extra }, { tagName });
+  assert.equal(k('Enter'), 'launch');
+  assert.equal(k('e'), 'edit');
+  assert.equal(k('Enter', 'INPUT'), '');
+  assert.equal(k('e', 'INPUT'), '');
+  assert.equal(k('e', 'TEXTAREA'), '');
+  assert.equal(k('Enter', 'BUTTON'), '');
+  assert.equal(k('Enter', 'A'), '');
+  assert.equal(k('e', 'BUTTON'), 'edit');
+  assert.equal(k('e', 'BODY', { ctrlKey: true }), '');
+  assert.equal(k('Enter', 'BODY', { metaKey: true }), '');
+  assert.equal(k('e', 'BODY', { defaultPrevented: true }), '');
+});
+
+test('stepping moves the highlight and stops at the ends', () => {
+  assert.equal(stepPanel(['a', 'b', 'c'], 'a', 1), 'b');
+  assert.equal(stepPanel(['a', 'b', 'c'], 'c', 1), 'c');
+  assert.equal(stepPanel(['a', 'b', 'c'], 'a', -1), 'a');
+  assert.equal(stepPanel(['a', 'b'], 'zz', 1), 'b');
+  assert.equal(stepPanel([], 'a', 1), '');
 });

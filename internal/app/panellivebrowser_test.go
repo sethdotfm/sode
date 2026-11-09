@@ -92,11 +92,16 @@ func TestChromePanelLiveUpdate(t *testing.T) {
 	b.waitFor("snooze keeps the banner up and says the staged routes go", `!document.getElementById('panel-update').hidden && /Refreshing in (?:60|59|58) s, dropping the staged routes\./.test(`+text+`)`)
 	b.waitFor("the bar counts the snooze", `!document.getElementById('panel-update-bar').hidden && parseFloat(getComputedStyle(`+bar+`).animationDuration) === 60`)
 	b.waitFor("the old panel stays for now", `document.getElementById('panel-title').textContent === 'After' && document.querySelector('.sode-panel__cell--destination').dataset.s === 'staged'`)
+	b.waitFor("one Snooze per instance: the button is gone, Apply now stays", `document.getElementById('panel-snooze').getClientRects().length === 0 && document.getElementById('panel-apply').getClientRects().length > 0`)
 	b.shot("update-snoozed")
 
 	b.eval(`document.getElementById('panel-apply').click()`)
 	b.waitFor("Apply now applies over the staged route", `document.getElementById('panel-title').textContent === 'Third' && document.querySelector('.sode-panel__cell--destination').dataset.s !== 'staged'`)
 	b.waitFor("banner gone again", `document.getElementById('panel-update').hidden`)
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body("Fourth")); rec.Code != 200 {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
+	}
+	b.waitFor("a new update after the apply brings Snooze back", `!document.getElementById('panel-update').hidden && document.getElementById('panel-snooze').getClientRects().length > 0`)
 	b.check()
 	b.call("Page.close", nil) // ends the page's held instance stream, which would otherwise block the server's Close for a minute
 }
