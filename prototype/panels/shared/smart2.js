@@ -13,8 +13,10 @@ export function smartMenu(host, E) {
   host.style.position = 'relative'
   const layer = document.createElement('div'); layer.className = 'sc-layer'; host.append(layer)
   const tip = document.createElement('div'); tip.className = 'sc-tip'; tip.hidden = true; document.body.append(tip)
-  let down = false, drag = null, open = null, findKind = 'all', q = '', picks = [], active = 0, cur = [], timer = 0, focusNext = null
+  let session = null, pending = null, lastRow = null, down = false, drag = null, open = null, findKind = 'all', q = '', picks = [], active = 0, cur = [], timer = 0, focusNext = null
   const el = (cls, html = '', tag = 'div') => Object.assign(document.createElement(tag), { className: cls, innerHTML: html })
+  // Ctrl+J/K (Cmd+J/K on Mac) step a list, as in the rest of Sode; keep in step with keys.js.
+  const jk = (e) => (e.ctrlKey !== e.metaKey && !e.altKey && !e.shiftKey && { KeyJ: 1, KeyK: -1 }[e.code]) || 0
   const same = (a, b) => a.kind === b.kind && a.key === b.key
 
   const geo = () => {
@@ -46,8 +48,10 @@ export function smartMenu(host, E) {
       const hit = E.cellAt(s.r, s.c); if (hit) E.dropCells([hit])
       E.addCell({ r: s.r, c: s.c, rs: s.rs, cs: s.cs, kind: s.kind, ...(s.kind === 'pre' ? { pid: s.key } : { n: s.key }), fs: hit?.fs })
     }
-    E.ghost = null; picks = []; q = ''; active = 0
-    open = single && kbd ? 'find' : null; focusNext = open ? 'input' : null
+    E.ghost = null; picks = []; active = 0
+    // A click on a single square keeps the menu where it is and moves the highlight to the next row, so clicking the same spot fills the next square.
+    if (single && !kbd) { session = session || { R: E.rect() }; open = 'find' } else { q = ''; session = null; open = single && kbd ? 'find' : null }
+    focusNext = open && kbd ? 'input' : null
     E.emit('layout')
     if (single) E.nextUnbound() || E.advance()
   }
@@ -59,8 +63,10 @@ export function smartMenu(host, E) {
       return `<div class="sm-row${k === active ? ' is-active' : ''}${on ? ' is-on' : ''}${i.ok ? '' : ' is-out'}" data-k="${k}"><input type="checkbox" class="pb-check__input" data-pick aria-label="Pick" ${on ? 'checked' : ''}><button class="sm-main" data-main>${icon(catIcon(i.kind))}<span class="pb-num">${i.num ?? ''}</span><span>${esc(i.name)}</span></button></div>`
     }).join('') || '<p class="pb-text-muted">No match.</p>'
     fly.querySelectorAll('[data-fk]').forEach((b) => b.classList.toggle('pb-btn--selected', b.dataset.fk === findKind))
-    fly.querySelector('[data-foot]').innerHTML = picks.length ? `<button class="pb-btn pb-btn--sm pb-btn--commit" data-fillpicks>Fill with ${picks.length} picked</button>` : '<span class="pb-hint">Enter fills from the highlighted item onward. Tick items to choose your own.</span>'
-    fly.querySelector('.sm-row.is-active')?.scrollIntoView({ block: 'nearest' })
+    fly.querySelector('[data-foot]').innerHTML = picks.length ? `<button class="pb-btn pb-btn--sm pb-btn--commit" data-fillpicks>Fill with ${picks.length} picked</button>` : '<span class="pb-hint">Enter or a click fills from the highlighted item onward. Shift-click or Shift+arrows pick your own. Ctrl/Cmd+J/K step the list.</span>'
+    const box = fly.querySelector('.sm-results')
+    if (pending) { active = Math.min(pending.idx, cur.length - 1); fly.querySelectorAll('.sm-row').forEach((r, k) => r.classList.toggle('is-active', k === active)); const row = fly.querySelector('.sm-row.is-active'); if (row) box.scrollTop = row.offsetTop - pending.off; pending = null }
+    else fly.querySelector('.sm-row.is-active')?.scrollIntoView({ block: 'nearest' })
   }
 
   const drawFly = (wrap, fly, place) => {
@@ -112,7 +118,17 @@ export function smartMenu(host, E) {
       if (t.dataset.fk) { findKind = t.dataset.fk; active = 0; drawRows(fly); return }
       if (t.dataset.dir) { E.setFill({ dir: t.dataset.dir }); fly.querySelector('.sm-order').innerHTML = `<span class="pb-hint">Fill order</span>${orderButtons(E.fill.dir)}`; return }
       if ('fillpicks' in t.dataset) return fillWith(picks)
-      if ('main' in t.dataset) fillWith(cascade(cur[+t.closest('.sm-row').dataset.k]))
+      if ('main' in t.dataset) {
+        const row = t.closest('.sm-row'), k = +row.dataset.k
+        if (e.shiftKey) {
+          const a = lastRow == null ? k : lastRow
+          for (let i = Math.min(a, k); i <= Math.max(a, k); i++) if (!picks.some((p) => same(p, cur[i]))) picks.push({ kind: cur[i].kind, key: cur[i].key })
+          lastRow = k; drawRows(fly); return preview(picks)
+        }
+        lastRow = k
+        if (E.selSquares() === 1) pending = { idx: k + 1, off: row.offsetTop - row.parentElement.scrollTop }
+        fillWith(cascade(cur[k]))
+      }
     }
     fly.onchange = (e) => {
       if (!('pick' in e.target.dataset)) return
@@ -126,13 +142,21 @@ export function smartMenu(host, E) {
     fly.onkeydown = (e) => {
       const t = e.target
       if (t.tagName === 'INPUT' && t.type !== 'checkbox') {
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { active = Math.max(0, Math.min(cur.length - 1, active + (e.key === 'ArrowDown' ? 1 : -1))); drawRows(fly); cur[active] && preview(cascade(cur[active])); e.preventDefault() }
-        if (e.key === 'Enter' && cur[active]) { e.preventDefault(); fillWith(e.shiftKey && picks.length ? picks : cascade(cur[active]), true) }
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); wrap.querySelector('[data-id="find"]').focus() }
+        const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : jk(e)
+        if (step) {
+          e.preventDefault()
+          // Shift+arrows pick each row they pass, like a list multi-select.
+          if (e.shiftKey && cur[active] && !picks.some((p) => same(p, cur[active]))) picks.push({ kind: cur[active].kind, key: cur[active].key })
+          active = Math.max(0, Math.min(cur.length - 1, active + step))
+          if (e.shiftKey && cur[active] && !picks.some((p) => same(p, cur[active]))) picks.push({ kind: cur[active].kind, key: cur[active].key })
+          drawRows(fly); preview(picks.length ? picks : cur[active] ? cascade(cur[active]) : null)
+        }
+        if (e.key === 'Enter' && (cur[active] || picks.length)) { e.preventDefault(); fillWith(picks.length ? picks : cascade(cur[active]), true) }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (picks.length) { picks = []; drawRows(fly); preview(null) } else wrap.querySelector('[data-id="find"]').focus() }
       } else if (t.classList.contains('sm-kind')) {
         const b = [...fly.querySelectorAll('.sm-kind')], i = b.indexOf(t)
-        if (e.key === 'ArrowDown') { b[(i + 1) % b.length].focus(); e.preventDefault() }
-        if (e.key === 'ArrowUp') { b[(i + b.length - 1) % b.length].focus(); e.preventDefault() }
+        if (e.key === 'ArrowDown' || jk(e) === 1) { b[(i + 1) % b.length].focus(); e.preventDefault() }
+        if (e.key === 'ArrowUp' || jk(e) === -1) { b[(i + b.length - 1) % b.length].focus(); e.preventDefault() }
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); wrap.querySelector('[data-id="type"]').focus() }
       }
     }
@@ -169,13 +193,13 @@ export function smartMenu(host, E) {
     const sel = E.rect()
     if (!sel) { open = null; picks = []; q = '' }
     if (E.test || down || drag || !sel || E.readonly || !host.querySelector('.ed-grid')) return
-    const g = geo(), R = g.rect(sel.r1, sel.c1, sel.r2, sel.c2)
+    const g = geo(), R = g.rect(sel.r1, sel.c1, sel.r2, sel.c2), P = session ? g.rect(session.R.r1, session.R.c1, session.R.r2, session.R.c2) : R
     if (E.selCells().length) layer.append(grip(R))
-    menu(R, host.getBoundingClientRect())
+    menu(P, host.getBoundingClientRect())
     if (focusNext === 'input') { focusNext = null; setTimeout(() => { const i = layer.querySelector('.sm-finder input'); i && (i.focus(), i.setSelectionRange(i.value.length, i.value.length)) }, 0) }
   }
 
-  host.addEventListener('pointerdown', (e) => { if (!e.target.closest('.sc-layer')) down = true }, true)
+  host.addEventListener('pointerdown', (e) => { if (!e.target.closest('.sc-layer')) { down = true; session = null } }, true)
   document.addEventListener('pointerup', () => { if (down) { down = false; setTimeout(render, 0) } })
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && drag) { drag.cancel = true; return }
@@ -185,6 +209,7 @@ export function smartMenu(host, E) {
     const seed = (ch) => { open = 'find'; q = ch; active = 0; focusNext = 'input'; render() }
     if (!inWrap) {
       if (typing) return
+      session = null
       if (e.key === 'Escape') return E.deselect()
       if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); return wrap.querySelector('.sm-item:not([disabled])')?.focus() }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); return E.remove() }

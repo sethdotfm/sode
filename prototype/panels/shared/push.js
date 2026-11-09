@@ -38,7 +38,7 @@ export function pushUI(E) {
   const draw = () => {
     dlg.innerHTML = `<div class="pb-row"><h3 class="ed-h pb-grow">Push to other panels</h3><button class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" data-close aria-label="Close">${icon('x')}</button></div>
       <div class="pb-tabs" role="tablist">${['Copy this panel', 'Checkpoint sets'].map((t, i) => `<button class="pb-tab" role="tab" aria-selected="${tab === i}" data-tab="${i}">${t}</button>`).join('')}</div>
-      <div class="pb-tabpanel active ed-tabpane">${tab ? setsTab() : copyTab()}</div><p class="pb-hint">Only panels you own, or may edit, can receive a push. Copying to everyone's panels needs a Trusted user.</p>`
+      <div class="pb-tabpanel active ed-tabpane">${tab ? setsTab() : copyTab()}</div><p class="pb-hint">A panel's owner can push to their own panels. A Trusted user can push to anybody's.</p>`
   }
   dlg.onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return
