@@ -21,15 +21,20 @@ func TestChromeEditorChrome(t *testing.T) {
 	b.eval(`window.grid = document.getElementById('ed-grid');
 		window.press = (init) => grid.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
 		press({ key: 'ArrowDown' }); press({ key: 'ArrowRight', shiftKey: true }); true`)
-	b.waitFor("only Merge shows a shortcut, Ctrl or Cmd+M", `/^(Ctrl\+|⌘)M$/.test([...document.querySelectorAll('.sode-ed__menu .sode-ed__keys')].map(n => n.textContent).join()) && document.querySelector('.sode-ed__menu').textContent.includes('Type: Source')`)
-	// Bare M does nothing in the menu. Ctrl+M merges, the item reads Unmerge, and Cmd+M on the grid undoes it.
+	b.waitFor("only Merge shows a shortcut, Ctrl+M (the Control sign on a Mac)", `/^(Ctrl\+|⌃)M$/.test([...document.querySelectorAll('.sode-ed__menu .sode-ed__keys')].map(n => n.textContent).join()) && document.querySelector('.sode-ed__menu').textContent.includes('Type: Source')`)
+	// Bare M does nothing in the menu. Ctrl+M merges, the item reads Unmerge, and Ctrl+M on the grid undoes it. Cmd+M
+	// is left to macOS, which minimises the window with it.
 	b.eval(`window.menuKey = (key, mods = {}) => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...mods }));
 		document.querySelector('.sode-ed__menu .pb-menu__item').focus(); menuKey('m')`)
 	b.waitFor("bare M did nothing", `document.querySelectorAll('.sode-ed__sq').length === 32`)
 	b.eval(`menuKey('m', { ctrlKey: true })`)
 	b.waitFor("merged by Ctrl+M", `document.querySelectorAll('.sode-ed__sq').length < 32 && document.querySelector('.sode-ed__menu .pb-menu__item').textContent.includes('Unmerge')`)
 	b.eval(`press({ key: 'm', metaKey: true })`)
-	b.waitFor("unmerged by Cmd+M on the grid", `document.querySelectorAll('.sode-ed__sq').length === 32`)
+	if n := b.eval(`document.querySelectorAll('.sode-ed__sq').length`); n == float64(32) {
+		t.Errorf("Cmd+M on the grid unmerged; it belongs to macOS")
+	}
+	b.eval(`press({ key: 'm', ctrlKey: true })`)
+	b.waitFor("unmerged by Ctrl+M on the grid", `document.querySelectorAll('.sode-ed__sq').length === 32`)
 	b.eval(`document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))`)
 	b.waitFor("a click outside closed the menu", `document.querySelector('.sode-ed__menu').hidden`)
 	b.eval(`press({ key: 'ArrowDown' }); press({ key: 'ArrowRight', shiftKey: true }); document.querySelector('.sode-ed__menu .pb-menu__item').focus(); menuKey('f'); true`)

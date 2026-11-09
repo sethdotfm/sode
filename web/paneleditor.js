@@ -1,7 +1,7 @@
 // Runs /panels/editor: the panel picker, the toolbar, the grid and the smart menu, over /api/v1/panels as
 // the signed-in user. The grid rules are gridmodel.js and the page text is editorrules.js; this file wires
 // them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
-import { $, el } from './core.js';
+import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { namesFrom } from './panelrules.js';
 import {
@@ -21,7 +21,20 @@ import {
   countTodo,
   nextTodo,
 } from './gridmodel.js';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, typeLabel, todoText, menuArea } from './editorrules.js';
+import {
+  editorTarget,
+  groupPanels,
+  newPanel,
+  saveBody,
+  isDirty,
+  kindChoices,
+  typeLabel,
+  todoText,
+  menuArea,
+  saveChord,
+  signInNote,
+  openFailNote,
+} from './editorrules.js';
 import { linkFor } from './panellink.js';
 import { copyText } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
@@ -144,7 +157,7 @@ export async function runEditor() {
   function menuItems() {
     const cells = selCells(g);
     const items = [
-      // One item that toggles, so Ctrl or Cmd+M merges a group and unmerges a merged square.
+      // One item that toggles, so Ctrl+M merges a group and unmerges a merged square.
       canUnmerge(g)
         ? { chord: 'm', label: 'Unmerge', icon: 'split', run: () => setGrid(unmerge(g)) }
         : { chord: 'm', label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g)) },
@@ -174,7 +187,8 @@ export async function runEditor() {
     $('ed-next').disabled = ro || !todo;
     $('ed-save').disabled = ro || !dirty();
     $('ed-banner').hidden = !ro;
-    say('ed-state', ro ? '' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '');
+    // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).
+    $('ed-state').textContent = ro ? '' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '';
     const open = $('ed-open');
     open.hidden = !loaded;
     if (loaded) open.href = `panels/${loaded.id}`;
@@ -221,7 +235,13 @@ export async function runEditor() {
   }
 
   async function loadList() {
-    list = (await edCall('The panel list could not be read')('api/v1/panels')).panels || [];
+    list =
+      (
+        await edCall(
+          'The panel list could not be read',
+          'Sode did not answer, so the panel list could not be read. Check the network, then reload.',
+        )('api/v1/panels')
+      ).panels || [];
     drawPicker();
   }
 
@@ -249,10 +269,10 @@ export async function runEditor() {
     }
     let panel;
     try {
-      panel = await edCall('The panel could not be opened')(`api/v1/panels/${id}`);
+      panel = await edCall('The panel could not be opened', '')(`api/v1/panels/${id}`);
     } catch (e) {
       if (e.status === undefined) throw e;
-      say('ed-status', e.status === 404 ? 'No panel here that you can use.' : e.message);
+      say('ed-status', openFailNote(e));
       drawPicker();
       return;
     }
@@ -306,6 +326,16 @@ export async function runEditor() {
     return '';
   }
   $('ed-save').addEventListener('click', save);
+  // Capture, so it also works with focus in a field; the browser's own Save page never opens here.
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (!saveChord(e)) return;
+      e.preventDefault();
+      if (!$('ed-save').disabled) save();
+    },
+    true,
+  );
 
   // The live panel is the saved panel, and it leaves unassigned cells out (panelrules.js cellsIn), so unsaved
   // edits are saved first. Open panels follow a save by themselves.
@@ -338,23 +368,38 @@ export async function runEditor() {
 
   // ---- start
 
-  $('panels-signin').addEventListener('click', signInAgain);
-  onSessionKey((k, step) => {
-    $('panels-signin').hidden = step !== 'sign-in';
-    if (k) say('panels-note', '');
-    else if (step === 'ended') say('panels-note', "This page's sign-in key was ended. Reload the page to sign in again.");
-    else if (step === 'sign-in') say('panels-note', 'Sign in with your PIN to edit panels.');
-    else if (step === 'no-users') say('panels-note', 'Panels need a user, and Sode has none.');
-  });
+  // The editor never sits blank: each way it cannot reach the panel puts a note and, where it helps, a button.
+  let signInFix = signInAgain;
+  let bootFail = ''; // why the panel list or panel did not load; a later sign-in event must not wipe it
+  let lastStep = '';
+  const note = (step, err) => {
+    lastStep = step;
+    const { text, button } = signInNote(step, err);
+    say('panels-note', text || bootFail);
+    const b = $('panels-signin');
+    b.hidden = !button;
+    b.textContent = button || 'Sign in';
+    signInFix = step === 'ended' ? () => location.reload() : signInAgain;
+  };
+  $('panels-signin').addEventListener('click', () => signInFix());
+  onSessionKey((k, step, err) => note(k ? 'ready' : step, err));
+  on('wsclose', () => note('offline'));
   startSession();
   show(null);
-  try {
-    await loadList();
-    names = namesFrom(await sessionFetch('api/v1/names').then((r) => (r.ok ? r.json() : {})));
-    await openPanel(editorTarget(location.search).id, false);
-  } catch (err) {
-    say('panels-note', err.message);
-  }
+  // Not awaited: the seams below must exist while the page still waits for a sign-in, so the sidebar and Find are
+  // built and nothing is left half drawn.
+  (async () => {
+    try {
+      await loadList();
+      names = namesFrom(await sessionFetch('api/v1/names').then((r) => (r.ok ? r.json() : {})));
+      await openPanel(editorTarget(location.search).id, false);
+    } catch (err) {
+      // An ended or refused key already has its note from onSessionKey.
+      if (lastStep === 'ended' || lastStep === 'refused') return;
+      bootFail = openFailNote(err.status === undefined ? { status: 0 } : err);
+      say('panels-note', bootFail);
+    }
+  })();
 
   // Seams for later tickets: Find adds menu items, the sidebars and live update read and replace the grid.
   return {

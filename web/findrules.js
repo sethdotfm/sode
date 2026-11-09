@@ -1,14 +1,28 @@
 // Find in the panel editor, pure: what can be searched, which of it the signed-in user's Rights allow,
 // how results rank, and how a chosen result fills the selection. The page side is editorfind.js.
 import { allowed } from './rightsrules.js';
-import { fillPlan, applyFill, setCell, rectOf, select } from './gridmodel.js';
+import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned } from './gridmodel.js';
 
 export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current'];
 // The kinds with a list behind them get a chip; Take, Clear and Current are one entry each and show under All.
 export const CHIP_CATEGORIES = ['source', 'destination', 'preset'];
-export const CATEGORY_LABEL = { source: 'Sources', destination: 'Destinations', preset: 'Presets', take: 'Take', clear: 'Clear', current: 'Current Destination' };
+export const CATEGORY_LABEL = {
+  source: 'Sources',
+  destination: 'Destinations',
+  preset: 'Presets',
+  take: 'Take',
+  clear: 'Clear',
+  current: 'Current Destination',
+};
 // Not log-in and log-out: the glossary UI test refuses those words.
-export const CATEGORY_ICON = { source: 'arrow-right-from-line', destination: 'arrow-right-to-line', preset: 'bookmark', take: 'zap', clear: 'eraser', current: 'eye' }; // keep in step with editorview.js KIND_ICON
+export const CATEGORY_ICON = {
+  source: 'arrow-right-from-line',
+  destination: 'arrow-right-to-line',
+  preset: 'bookmark',
+  take: 'zap',
+  clear: 'eraser',
+  current: 'eye',
+}; // keep in step with editorview.js KIND_ICON
 const RIGHTS_KIND = { source: 'sources', destination: 'dsts', preset: 'presets' };
 
 // Everything a user can pick, as { category, key, label, n?, num?, scope?, off }. Numbers in Rights are
@@ -38,6 +52,14 @@ export function findEntries(namesReply, presetsReply, rights) {
   // The numberless kinds are always placeable: Rights limit Sources, Destinations and Presets only.
   for (const category of ['take', 'clear', 'current']) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
   return out;
+}
+
+// The chip Find opens on: the kind every selected cell was given while none has its Source, Destination or Preset
+// chosen yet; else '' (All).
+export function findScope(cells) {
+  const kind = cells[0]?.kind;
+  if (!CHIP_CATEGORIES.includes(kind)) return '';
+  return cells.every((c) => c.kind === kind && isUnassigned({ r: 1, c: 1, rs: 1, cs: 1, ...c })) ? kind : '';
 }
 
 // The entries a choice places, in order. With picks (a set chosen in the list) those, of the first pick's

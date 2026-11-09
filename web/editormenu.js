@@ -1,13 +1,13 @@
 // The smart menu: a small list beside the selection (right, else left, else below). It knows nothing about
 // cells. The page gives it items, so Find, fill orders and later actions are added by handing it more.
 // An item is { label, icon, run, chord?, disabled?, sub?: [{ label, run, current? }] }; chord is the letter that,
-// with Ctrl or Cmd, runs it, and is shown beside it. Esc and the arrows are the menu's own.
+// with Ctrl (on a Mac too), runs it, and is shown beside it. Esc and the arrows are the menu's own.
 // area() is the box the menu and its flyouts stay inside (editorrules.js menuArea); the viewport when not given.
 import { el, icon } from './core.js';
+import { mac } from './keys.js';
 import { placeMenu, subSide, flyoutShift, menuChord, chordText } from './editorrules.js';
 
 const GAP = 8; // keep in step with EDGE_GAP in editorfind.js
-const MAC = /Mac|iPhone|iPad/.test(navigator.platform || '');
 const viewport = () => ({ left: 0, top: 0, right: document.documentElement.clientWidth, bottom: document.documentElement.clientHeight });
 
 export function createSmartMenu(host, { onEscape, area = viewport }) {
@@ -19,7 +19,7 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
   let current = [];
   let bounds = viewport();
 
-  // Ctrl or Cmd+letter: true when it ran an item. The grid's keydown calls this too.
+  // Ctrl+letter: true when it ran an item. The grid's keydown calls this too.
   const run = (e) => {
     const it = menuChord(current, e);
     if (it) it.run();
@@ -67,7 +67,7 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
     b.setAttribute('role', 'menuitem');
     b.disabled = !!it.disabled;
     b.append(icon(it.icon), el('span', '', it.label));
-    if (it.chord) b.append(el('span', 'pb-menu__hint sode-ed__keys', chordText(it.chord, MAC)));
+    if (it.chord) b.append(el('span', 'pb-menu__hint sode-ed__keys', chordText(it.chord, mac)));
     if (it.panel) {
       // A flyout the page owns and keeps between rebuilds (Find's box and list), so it carries its own classes.
       b.setAttribute('aria-haspopup', 'true');

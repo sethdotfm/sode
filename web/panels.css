@@ -576,7 +576,18 @@
 }
 .sode-ed__state {
   color: var(--pb-text-muted);
+  display: inline-grid;
   font-size: var(--pb-text-sm);
+  justify-items: end;
+  white-space: nowrap;
+}
+/* A hidden copy of the longest state holds the slot's width, so the toolbar never re-wraps when the state changes.
+   Keep in step with refresh() in paneleditor.js. */
+.sode-ed__state::before {
+  content: "Unsaved changes";
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
 }
 .sode-ed__grid {
   background: var(--pb-surface-sunken);
@@ -941,16 +952,31 @@
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
 }
-/* The icon picker: Icon A and Icon B panes under a two-button switch. */
+/* The icon picker: Icon A and Icon B side by side, each scrolling on its own. B is narrower (one glyph per button). */
 .sode-side__picker {
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+.sode-side__col {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-2);
+  min-width: 0;
 }
-.sode-side__panes {
-  align-self: flex-start;
+.sode-side__col[hidden] {
+  display: none;
+}
+.sode-side__col:only-child,
+.sode-side__col:has(+ .sode-side__col[hidden]) {
+  grid-column: 1 / -1;
+}
+.sode-side__col-h {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
 }
 .sode-side__icons {
+  align-content: flex-start;
   max-height: 14rem;
   overflow-y: auto;
 }
