@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
 <link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="panels.css">
+<link rel="stylesheet" href="panelmon.css">
 <link rel="stylesheet" href="touch.css">
 </head>
 <body>
@@ -25,6 +26,12 @@
     <a class="pb-btn pb-btn--outline pb-btn--sm" href="panels">Panels</a>
   </header>
   <p class="sode__hint" id="panels-note"></p>
+  <div class="sode-panel__device" id="panel-device" hidden>
+    <label for="panel-device-name">Name this screen, so its owner can tell it from the others
+      <input class="pb-input" id="panel-device-name" type="text" maxlength="40" autocomplete="off" placeholder="Lobby tablet">
+    </label>
+    <button class="pb-btn pb-btn--ok" type="button">Save</button>
+  </div>
   <p class="sode-panel__status" id="panel-status" role="status" hidden></p>
   <div class="pb-alert pb-alert--warn sode-panel__update" id="panel-update" role="status" hidden>
     <div class="sode__banner-body"><div class="pb-alert__title">This panel was changed</div><span id="panel-update-text"></span></div>
