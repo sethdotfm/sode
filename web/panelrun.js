@@ -1,8 +1,9 @@
-// Runs one panel page (/panels/<id>): loads the panel, polls the router over /api/v1, keeps the state
-// model and draws it. Every call goes out with the panel's key: the user's session key, or the
-// key in the URL fragment for a panel that acts as its API client.
-import { $ } from './core.js';
+// Runs one panel (the page /panels/<id>, or the editor's live test): loads the panel, polls the router over
+// /api/v1, keeps the state model and draws it. Every call goes out with the panel's key: the user's session
+// key, or the key in the URL fragment for a panel that acts as its API client. The editor's live test passes
+// its own ui and call, and is not an instance of the panel: no keepalive, no device name.
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
+import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey } from './sessionkeyrules.js';
 import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf } from './panelrules.js';
@@ -38,8 +39,7 @@ const POLL_MS = 2000;
 const NAMES_MS = 30000;
 const ID_BYTES = 8;
 
-const say = (id, text) => {
-  const n = $(id);
+const say = (n, text) => {
   n.textContent = text;
   n.hidden = !text;
 };
@@ -50,27 +50,44 @@ function takeKey() {
   return `panel-${Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')}`;
 }
 
-export async function runPanel(seg) {
+// Returns { stop } at once; stop ends every timer, for an embedded run that goes away.
+export function runPanel(seg, opts = {}) {
+  const run = { stop: () => {} };
+  start(seg, opts, run);
+  return run;
+}
+
+async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {}, run) {
+  const timers = [];
+  let stopWatch = () => {};
+  let ended = false; // the key is gone or refused: only a new link helps
+  let holdTimer = 0;
+  run.stop = () => {
+    ended = true;
+    timers.forEach(clearInterval);
+    stopWatch();
+    clearTimeout(holdTimer);
+  };
   let id = seg; // the id once the panel is read: the address may hold its short name
-  let key = keyFromHash(location.hash);
-  const setup = setupFromHash(location.hash);
+  let key = embedded ? null : keyFromHash(location.hash);
+  const setup = embedded ? '' : setupFromHash(location.hash);
   if (!key && setup) {
     const got = await exchangeSetup(seg, setup);
-    if (got.error) return say('panels-note', got.error);
+    if (got.error) return say(ui.note, got.error);
     key = got.key;
   }
-  const stored = !key;
+  const stored = !key && !embedded;
   if (stored) key = storedKey(seg);
-  const call = key ? (path, init = {}) => fetch(path, withKey(init, key)) : sessionFetch;
+  const call = given || (key ? (path, init = {}) => fetch(path, withKey(init, key)) : sessionFetch);
   const callJSON = jsonCall(call);
 
-  if (!key) {
-    $('panels-signin').addEventListener('click', signInAgain);
+  if (!key && !embedded) {
+    ui.signin.addEventListener('click', signInAgain);
     onSessionKey((k, step) => {
-      $('panels-signin').hidden = step !== 'sign-in';
-      if (k) say('panels-note', '');
-      else if (step === 'sign-in') say('panels-note', 'Sign in with your PIN to open this panel.');
-      else if (step === 'no-users') say('panels-note', 'This panel needs a user, and Sode has none.');
+      ui.signin.hidden = step !== 'sign-in';
+      if (k) say(ui.note, '');
+      else if (step === 'sign-in') say(ui.note, 'Sign in with your PIN to open this panel.');
+      else if (step === 'no-users') say(ui.note, 'This panel needs a user, and Sode has none.');
     });
     nameSessionKey(`Panel ${seg}`);
     startSession();
@@ -83,11 +100,11 @@ export async function runPanel(seg) {
     if (e.status === undefined) throw e;
     // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
     if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
-    say('panels-note', e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
+    say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
     return;
   }
-  if (panel.acts === 'api' && !key) {
-    say('panels-note', 'This panel acts as its own API client. Open its link with the key.');
+  if (panel.acts === 'api' && !key && !embedded) {
+    say(ui.note, 'This panel acts as its own API client. Open its link with the key.');
     return;
   }
   id = panel.id;
@@ -97,24 +114,33 @@ export async function runPanel(seg) {
   const root = document.documentElement;
   const startTheme = root.dataset.theme;
   const setTheme = (t) => {
+    // Embedded, the panel's tokens switch with color-scheme and the editor around it keeps its own theme.
+    if (embedded) {
+      ui.main.style.colorScheme = t === 'auto' ? '' : t;
+      return;
+    }
     const want = t === 'auto' ? startTheme : t;
     if (want) root.dataset.theme = want;
     else delete root.dataset.theme;
   };
   const applyLook = (p) => {
     const look = lookOf(p.settings || {});
-    const kiosk = kioskOf(location.hash, p);
-    document.querySelector('.sode-panels__head').hidden = kiosk || !look.titleBar;
-    document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
-    document.title = p.name;
-    $('panel-title').textContent = p.name;
-    $('panel-grid').style.setProperty('--panel-fs', look.scale);
+    if (!embedded) {
+      const kiosk = kioskOf(location.hash, p);
+      ui.head.hidden = kiosk || !look.titleBar;
+      document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
+      document.title = p.name;
+    }
+    ui.title.textContent = p.name;
+    ui.grid.style.setProperty('--panel-fs', look.scale);
     setTheme(look.theme);
     return look;
   };
   let look = applyLook(panel);
-  initFull($('panel-full'), document.querySelector('.sode-panels'));
-  if (look.wake) createWake(navigator, document).on();
+  if (!embedded) {
+    initFull(ui.full, ui.main);
+    if (look.wake) createWake(navigator, document).on();
+  }
 
   let cells = cellsIn(panel);
   const stateOf = (p) => {
@@ -137,19 +163,18 @@ export async function runPanel(seg) {
   const render = () => {
     const now = Date.now();
     paintGrid(grid, { st, env, names, now });
-    say('panel-status', errorText(errorOf(st, now), names));
+    say(ui.status, errorText(errorOf(st, now), names));
   };
-  let grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
+  let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
 
   // Blur the whole panel and say Offline, so nobody takes a stale grid for a working one.
   const showOffline = (o) => {
-    document.querySelector('.sode-panels').classList.toggle('sode-panels--offline', !!o);
-    $('panel-offline').hidden = !o;
-    if (o) $('panel-offline-detail').textContent = o.detail;
+    ui.main.classList.toggle('sode-panels--offline', !!o);
+    ui.offline.hidden = !o;
+    if (o) ui.offlineDetail.textContent = o.detail;
   };
 
   let polling = false;
-  let ended = false; // the key is gone or refused: only a new link helps
   async function poll() {
     if (polling || ended) return;
     polling = true;
@@ -177,10 +202,10 @@ export async function runPanel(seg) {
       const off = offlineOf({ failed: false, routerUp: link ? link.routerUp : true });
       showOffline(off);
       ready = !off;
-      say('panels-note', '');
+      say(ui.note, '');
     } catch (e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key);
-      say('panels-note', f.text);
+      say(ui.note, f.text);
       if (!f.stop) {
         ready = false;
         // A refusal (a session not signed in yet) is not a lost link.
@@ -217,7 +242,6 @@ export async function runPanel(seg) {
     poll();
   }
 
-  let holdTimer = 0;
   function holdCancel() {
     clearTimeout(holdTimer);
     st = guardCancel(st);
@@ -238,8 +262,8 @@ export async function runPanel(seg) {
 
   function onPress(cell) {
     if (!ready) return;
-    if (look.haptics) buzz(navigator);
-    if (look.fullscreen) enterFullscreen(document);
+    if (look.haptics && !embedded) buzz(navigator);
+    if (look.fullscreen && !embedded) enterFullscreen(document);
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env, now)) return;
@@ -261,9 +285,10 @@ export async function runPanel(seg) {
     render();
   }
 
-  startKeepalive(call, id, $('panel-device'), instanceFrom(location.search));
+  if (!embedded) startKeepalive(call, id, ui.device, instanceFrom(location.search));
   // A newer saved copy: rebuild the grid and the state from it. The watcher waits for a quiet moment first.
-  watchPanel({
+  stopWatch = watchPanel({
+    ui,
     id,
     rev: panel.rev,
     get: callJSON,
@@ -274,14 +299,16 @@ export async function runPanel(seg) {
       cells = cellsIn(p);
       st = stateOf(p);
       look = applyLook(p);
-      grid = buildGrid($('panel-grid'), p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
+      grid = buildGrid(ui.grid, p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
       render();
     },
   });
-  setInterval(poll, POLL_MS);
-  setInterval(() => {
-    st = idleClear(st, Date.now());
-    render();
-  }, 1000);
+  timers.push(
+    setInterval(poll, POLL_MS),
+    setInterval(() => {
+      st = idleClear(st, Date.now());
+      render();
+    }, 1000),
+  );
   poll();
 }

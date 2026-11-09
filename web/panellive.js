@@ -1,18 +1,18 @@
 // Keeps an open panel current: polls the panel's rev, shows the banner while an update waits and calls
 // apply(panel) when panelupdate.js says so. Polled because a browser cannot send Bearer on an event stream.
-import { $ } from './core.js';
 import { createUpdate, noticeRev, snooze, updateStep, applied } from './panelupdate.js';
 
 const CHECK_MS = 5000;
 
-// get(path) reads JSON with the panel's key; state() is { viewed, busy }.
-export function watchPanel({ id, rev, get, state, apply }) {
+// get(path) reads JSON with the panel's key; state() is { viewed, busy }; ui is { update, updateText, snooze }.
+// Returns a function that stops the watch.
+export function watchPanel({ id, rev, get, state, apply, ui }) {
   let u = createUpdate(rev);
   let checking = false;
 
   const show = (text) => {
-    $('panel-update').hidden = !text;
-    $('panel-update-text').textContent = text;
+    ui.update.hidden = !text;
+    ui.updateText.textContent = text;
   };
 
   let latest = null; // the changed copy fetched, applied when the rules allow
@@ -44,10 +44,10 @@ export function watchPanel({ id, rev, get, state, apply }) {
     tick();
   }
 
-  $('panel-snooze').addEventListener('click', () => {
+  ui.snooze.addEventListener('click', () => {
     u = snooze(u, Date.now());
     tick();
   });
-  setInterval(check, CHECK_MS);
-  setInterval(tick, 1000);
+  const timers = [setInterval(check, CHECK_MS), setInterval(tick, 1000)];
+  return () => timers.forEach(clearInterval);
 }

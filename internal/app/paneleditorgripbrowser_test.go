@@ -73,10 +73,12 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 	b.waitFor("down order previewed", `sq(4, 1)?.textContent.includes('Zoom 2') && !sq(3, 2)?.textContent.includes('Zoom 2') && !!document.querySelector('.sode-find__orders [data-order="down"][aria-pressed="true"]')`)
 	b.shot("order")
 
-	// Test it live saves the edits, then opens the saved panel; the unassigned cell is not on it.
+	// Test it live saves the edits, then runs the saved panel in the editor; the unassigned cell is not on it.
 	b.eval(`window.opened = ''; window.open = (u) => { window.opened = u; return null }; document.getElementById('ed-live').click()`)
-	b.waitFor("live opened after saving", fmt.Sprintf(`window.opened === 'panels/%s' && document.getElementById('ed-save').disabled`, id))
-	b.open(srv.URL + "/panels/" + id) // the session outlives the reload, so no PIN pad
-	b.waitFor("only assigned cells live", `document.querySelectorAll('.sode-panel__cell').length === 5`)
+	b.waitFor("live shown after saving", `document.getElementById('ed-save').disabled && !document.getElementById('ed-live-view').hidden`)
+	b.waitFor("only assigned cells live", `document.querySelectorAll('#ed-live-view .sode-panel__cell').length === 5`)
+	if got := b.eval(`window.opened`); got != "" {
+		t.Errorf("a window was opened: %v", got)
+	}
 	b.check()
 }

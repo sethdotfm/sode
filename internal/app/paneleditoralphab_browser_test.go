@@ -40,8 +40,8 @@ func TestChromeEditorKeyTab(t *testing.T) {
 		t.Run(acts, func(t *testing.T) {
 			b, _, _, id := editorTab(t, `{"name":"Wall","acts":"`+acts+`"}`)
 			b.eval(`document.getElementById('tab-ed-access').click()`)
-			b.waitFor("Share button", `!![...document.querySelectorAll('#ed-side .pb-btn')].find(x => x.textContent === 'Share')`)
-			b.eval(`[...document.querySelectorAll('#ed-side .pb-btn')].find(x => x.textContent === 'Share').click()`)
+			b.waitFor("Share button", `!document.getElementById('ed-share').disabled`)
+			b.eval(`document.getElementById('ed-share').click()`)
 			b.waitFor("key tab", `!!document.querySelector('.sode-ov__share #tab-key')`)
 			first := map[string]string{"session": "people", "api": "key"}[acts]
 			b.waitFor("the modal opens on the tab that fits", `document.querySelector('.sode-ov__share #tab-`+first+`').getAttribute('aria-selected') === 'true'`)

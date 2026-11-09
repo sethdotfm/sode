@@ -27,6 +27,7 @@ import { copyText } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
 import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
+import { createLive } from './editorlive.js';
 
 const say = (id, text) => {
   const n = $(id);
@@ -76,6 +77,7 @@ export async function runEditor() {
     },
     key: onKey,
   });
+  const live = createLive($('ed-live-view'), document.querySelector('.sode-ed__body'), $('ed-live'));
   const menu = createSmartMenu($('ed-grid'), { onEscape: () => $('ed-grid').focus() });
 
   function onKey(e) {
@@ -191,6 +193,7 @@ export async function runEditor() {
   }
 
   function show(panel) {
+    live.stop();
     loaded = panel;
     edits = {};
     art = panel ? createArt(sessionFetch, panel.id) : null;
@@ -273,8 +276,9 @@ export async function runEditor() {
   // The live panel is the saved panel, and it leaves unassigned cells out (panelrules.js cellsIn), so unsaved
   // edits are saved first. Open panels follow a save by themselves.
   $('ed-live').addEventListener('click', async () => {
+    if (live.on()) return live.stop();
     if (!readOnly() && dirty()) await save();
-    if (loaded && !dirty()) window.open(`panels/${loaded.id}`, '_blank');
+    if (loaded && !dirty()) live.start(loaded.id);
   });
 
   $('ed-copylink').addEventListener('click', async () => {
