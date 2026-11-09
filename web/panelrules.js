@@ -1,9 +1,15 @@
 // What a panel page reads from its URL and from /api/v1, and the text it shows. Pure.
-// A stored panel's cells are { r, c, rs?, cs?, kind: 'source' | 'destination' | 'take', n?, caption?, levels? }
-// with r and c counted from 1 (docs/panels-design.md, Stored panel).
+// A stored panel's cells are { r, c, rs?, cs?, kind, n?, scope?, name?, caption?, levels? } with r and c
+// counted from 1 and kind one of KINDS (docs/panels-design.md, Panel page). A Preset cell holds
+// scope ('everyone' | 'me') and name instead of n.
 
-export const KINDS = ['source', 'destination', 'take'];
+export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current'];
 const NEEDS_NUMBER = ['source', 'destination'];
+export const PRESET_SCOPES = ['everyone', 'me'];
+
+// The scope is a fixed word, so a colon in the name cannot make two presets collide.
+export const presetKey = (scope, name) => `${scope}:${name}`;
+const hasPreset = (c) => PRESET_SCOPES.includes(c.scope) && typeof c.name === 'string' && c.name !== '';
 
 // /panels/<id>. The list and the editor are other pages.
 export function panelIdFrom(pathname) {
@@ -14,7 +20,7 @@ export function panelIdFrom(pathname) {
 // A key in the fragment never reaches a request line or a proxy log. Without one the panel runs as the signed-in user.
 export const keyFromHash = (hash) => /(?:^#|&)key=([^&]+)/.exec(hash)?.[1] || '';
 
-export function envFrom(tally, protectedReply) {
+export function envFrom(tally, protectedReply, presetsReply = {}) {
   const rows = new Map();
   for (const r of tally.routes || []) {
     if (!rows.has(r.dst)) rows.set(r.dst, new Map());
@@ -24,6 +30,7 @@ export function envFrom(tally, protectedReply) {
     levels: (tally.levels || []).map((l) => l.level),
     tally: rows,
     protectedDsts: new Set((protectedReply.protected || []).map((p) => p.dst)),
+    presets: new Map((presetsReply.presets || []).map((p) => [presetKey(p.scope, p.name), p.items || []])),
   };
 }
 
@@ -34,7 +41,14 @@ export function namesFrom(reply) {
   const dst = by(reply.destinations);
   const source = (n) => src.get(n) || `Source ${n + off}`;
   const destination = (n) => dst.get(n) || `Destination ${n + off}`;
-  const of = (cell) => cell.caption || (cell.kind === 'source' ? source(cell.n) : cell.kind === 'destination' ? destination(cell.n) : '');
+  const plain = { clear: 'Clear', current: 'Currently', preset: (c) => c.name };
+  const of = (cell) => {
+    if (cell.caption) return cell.caption;
+    if (cell.kind === 'source') return source(cell.n);
+    if (cell.kind === 'destination') return destination(cell.n);
+    const p = plain[cell.kind];
+    return typeof p === 'function' ? p(cell) : p || '';
+  };
   return { source, destination, of };
 }
 
@@ -45,6 +59,7 @@ export function cellsIn(panel) {
   for (const c of panel.cells || []) {
     if (!c || !KINDS.includes(c.kind)) continue;
     if (NEEDS_NUMBER.includes(c.kind) && !Number.isInteger(c.n)) continue;
+    if (c.kind === 'preset' && !hasPreset(c)) continue;
     const rs = c.rs || 1;
     const cs = c.cs || 1;
     if (!(c.r >= 1 && c.c >= 1 && rs >= 1 && cs >= 1 && c.r + rs - 1 <= panel.rows && c.c + cs - 1 <= panel.cols)) continue;
@@ -65,6 +80,10 @@ export function errorText(err, names) {
       return `${names.destination(err.dst)} is protected`;
     case 'no-common-levels':
       return `${names.source(err.src)} and ${names.destination(err.dst)} have no level in common`;
+    case 'no-preset':
+      return 'That preset is not available to this panel';
+    case 'preset-multi':
+      return 'This panel changes one destination at a time, and that preset has more';
     case 'refused':
       return err.message || 'The take was refused';
     default:
