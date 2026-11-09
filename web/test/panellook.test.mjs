@@ -119,7 +119,7 @@ test('haptics buzz once where supported and do nothing elsewhere', () => {
 test('one animated root property drives every pulse, so no cell has an animation of its own', () => {
   assert.equal([...css.matchAll(/animation\s*:/g)].length, 2); // the root, and none under reduced motion
   assert.match(css, /:root\s*\{[^}]*animation:\s*sode-panel-pulse/);
-  assert.match(css, /--panel-pulse-s:\s*4s/);
+  assert.match(css, /--panel-pulse-s:\s*2s/);
   assert.match(css, /--panel-pulse-floor:\s*72%/);
 });
 

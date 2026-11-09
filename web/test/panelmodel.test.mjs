@@ -14,6 +14,7 @@ import {
   failTake,
   applyTally,
   idleClear,
+  carryView,
   sourceState,
   destinationState,
   currentSource,
@@ -320,4 +321,13 @@ test('the model never mutates a state it was given', () => {
   pressSource(a, S(4), e, T0);
   clear(a);
   assert.equal(JSON.stringify(a), frozen);
+});
+
+test('a live update keeps the viewed destination when the new copy still has it, with the new cell levels', () => {
+  const next = createState({});
+  const kept = carryView(next, { ...createState({}), view: { dst: 4, levels: null }, touchedAt: 77 }, [D(4, [2])]);
+  assert.deepEqual(kept.view, { dst: 4, levels: [2] });
+  assert.equal(kept.touchedAt, 77);
+  assert.equal(carryView(next, { ...next, view: { dst: 4, levels: null } }, [D(5)]).view, null);
+  assert.equal(carryView(next, next, [D(4)]), next);
 });

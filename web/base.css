@@ -1044,3 +1044,36 @@ html:has(.sode__scrim:not([hidden])) {
   color: inherit;
   text-decoration: underline;
 }
+
+/* Dismiss countdown on a toast's close box (panelwatch.js sets --toast-ms to the dismiss time): a ring that sweeps away.
+   Under reduced motion the ring stays whole, since the toast still goes on its own. */
+@property --toast-left {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 360deg;
+}
+.sode__toast-timed {
+  position: relative;
+}
+.sode__toast-timed::after {
+  animation: sode-toast-ring var(--toast-ms) linear forwards;
+  background: conic-gradient(var(--pb-status-ok) var(--toast-left), transparent 0);
+  content: '';
+  inset: 0;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  padding: calc(var(--pb-border-w) * 2);
+  pointer-events: none;
+  position: absolute;
+}
+@keyframes sode-toast-ring {
+  to {
+    --toast-left: 0deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sode__toast-timed::after {
+    animation: none;
+  }
+}

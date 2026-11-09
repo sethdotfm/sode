@@ -27,6 +27,12 @@
   font-weight: var(--pb-weight-bold);
   margin: 0 var(--pb-space-4) 0 0;
 }
+.sode-panels__device {
+  color: var(--pb-text-muted);
+}
+.sode-panels__device-input {
+  width: 14rem;
+}
 .sode-panels__spacer {
   flex: 1 1 auto;
 }
@@ -47,7 +53,7 @@
   }
 }
 :root {
-  --panel-pulse-s: 4s;
+  --panel-pulse-s: 2s;
   --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state colour */
   animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
 }

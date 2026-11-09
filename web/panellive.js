@@ -1,11 +1,11 @@
 // Keeps an open panel current: polls the panel's rev, shows the banner while an update waits and calls
 // apply(panel) when panelupdate.js says so. Polled because a browser cannot send Bearer on an event stream.
 import { $ } from './core.js';
-import { createUpdate, noticeRev, snooze, updateStep, applied } from './panelupdate.js';
+import { createUpdate, noticeRev, snooze, updateStep, applied, bannerLine } from './panelupdate.js';
 
 const CHECK_MS = 5000;
 
-// get(path) reads JSON with the panel's key; state() is { viewed, busy }.
+// get(path) reads JSON with the panel's key; state() is { staged, busy }.
 export function watchPanel({ id, rev, get, state, apply }) {
   let u = createUpdate(rev);
   let checking = false;
@@ -26,8 +26,7 @@ export function watchPanel({ id, rev, get, state, apply }) {
       u = applied(u, fresh.rev);
       show('');
       apply(fresh);
-    } else if (s.step !== 'banner') show('');
-    else show(state().busy ? 'It updates after the take.' : `It updates when you finish, or in ${Math.ceil(s.leftMs / 1000)} s.`);
+    } else show(s.step === 'banner' ? bannerLine(s) : '');
   }
 
   async function check() {

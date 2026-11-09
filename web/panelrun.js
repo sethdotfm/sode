@@ -20,6 +20,7 @@ import {
   failTake,
   applyTally,
   idleClear,
+  carryView,
   errorOf,
   guardDown,
   guardHeld,
@@ -33,6 +34,7 @@ import { createWake, buzz, enterFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
 import { instanceFrom } from './panellink.js';
 import { initFull } from './panelfull.js';
+import { initName } from './panelname.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
@@ -261,18 +263,20 @@ export async function runPanel(seg) {
     render();
   }
 
-  startKeepalive(call, id, $('panel-device'), instanceFrom(location.search));
-  // A newer saved copy: rebuild the grid and the state from it. The watcher waits for a quiet moment first.
+  let keep = null;
+  const showName = initName($('panel-instance'), (name) => keep.rename(name));
+  keep = startKeepalive(call, id, $('panel-device'), instanceFrom(location.search), showName);
+  // A newer saved copy: rebuild the grid and the state from it, keeping the viewed destination. The watcher counts down and waits out staged routes first.
   watchPanel({
     id,
     rev: panel.rev,
     get: callJSON,
-    state: () => ({ viewed: !!st.view || st.staged.length > 0, busy: st.busy }),
+    state: () => ({ staged: st.staged.length > 0, busy: st.busy }),
     apply(p) {
       clearTimeout(holdTimer);
       panel = p;
       cells = cellsIn(p);
-      st = stateOf(p);
+      st = carryView(stateOf(p), st, cells);
       look = applyLook(p);
       grid = buildGrid($('panel-grid'), p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
       render();

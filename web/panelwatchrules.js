@@ -93,3 +93,9 @@ export function bannerText(rows) {
   const noun = screens(rows) ? 'screens' : rows.some((r) => r.instance) ? 'watched panels and screens' : 'panels';
   return { title: `${rows.length} ${noun} are offline`, text: rows.map(label).join(', ') };
 }
+
+// What a rename asks for: the new name, or empty when there is nothing to change (blank or the same name).
+export function renameTo(current, input) {
+  const name = deviceFrom(input);
+  return name && name !== current ? name : '';
+}

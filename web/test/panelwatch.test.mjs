@@ -15,6 +15,7 @@ import {
   bannerText,
   clearNote,
   lostText,
+  renameTo,
 } from '../panelwatchrules.js';
 
 test('durations read in the largest sensible unit', () => {
@@ -96,4 +97,11 @@ test('a watched screen reads as a screen, and a mix is counted plainly', () => {
 test('the lost line counts the silence up from the notice', () => {
   assert.equal(lostText('Lobby', 8), 'Lobby has not been heard from for 8 seconds.');
   assert.equal(lostText('Lobby', 8 + 55.4), 'Lobby has not been heard from for 1 minute 3 seconds.');
+});
+
+test('a rename is the trimmed name when it is new and not empty, else nothing', () => {
+  assert.equal(renameTo('Lobby', '  Bar '), 'Bar');
+  assert.equal(renameTo('Lobby', 'lobby'), 'lobby');
+  assert.equal(renameTo('Lobby', ' Lobby '), '');
+  assert.equal(renameTo('Lobby', '   '), '');
 });

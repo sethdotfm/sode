@@ -210,3 +210,10 @@ export function resultShown(st, dst, now) {
 }
 
 export const errorOf = (st, now) => (st.error && now - st.error.at <= ERROR_MS ? st.error : null);
+
+// A live update builds a fresh state; the destination being viewed survives it when the new copy still has that cell.
+export function carryView(next, prev, cells) {
+  if (!prev.view) return next;
+  const cell = cells.find((c) => c.kind === 'destination' && c.n === prev.view.dst);
+  return cell ? { ...next, view: { dst: cell.n, levels: cell.levels || null }, touchedAt: prev.touchedAt } : next;
+}
