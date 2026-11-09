@@ -52,6 +52,13 @@ info:
     Rights. A take with any route outside the key's rights is refused whole, before anything is
     sent: 403 `outside_rights`, no results, no History entry, an `api` row in the Communication
     Log. Undo checks the destination and level but not the source it restores.
+
+    Panels. Panels need the API switch: they use the same switch, scopes, rate limit and error
+    shape as the rest of v1, and nothing under `/panels` answers while the API is off. A user's
+    key has both panel scopes. An API client or Guest has them only if set. A panel belongs to
+    a user. Its owner, or a Trusted user for anyone's, may change, delete and add artwork to it.
+    Everyone else it is shared with, by name or as Everyone, may only read it and Save a copy.
+    A panel the caller may not use is 404, never 403.
 servers:
   - url: /api/v1
 security:
@@ -62,6 +69,8 @@ tags:
     description: Current state and History
   - name: writes
     description: Takes, presets, Undo, Redo and Retry; scope `take`
+  - name: panels
+    description: Panels, their sharing and artwork; scopes `panels` and `panelsmanage`
   - name: stream
     description: Live changes over a WebSocket
 paths:
@@ -430,6 +439,220 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels:
+    get:
+      operationId: listPanels
+      tags: [panels]
+      summary: Panels this key may use
+      description: |
+        Scope `panels`. The panels the caller owns, the ones shared with it by name or with
+        Everyone, and, for a Trusted user, every panel. A client also sees the panel it is the
+        API client of. `canEdit` is false for a panel the caller may only use.
+      responses:
+        "200":
+          description: Panels, by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [panels]
+                properties:
+                  panels: { type: array, items: { $ref: "#/components/schemas/Panel" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createPanel
+      tags: [panels]
+      summary: Create a panel
+      description: |
+        Scope `panelsmanage`. Needs a user's key: the user becomes the owner (403 `user_required`
+        for a client or Guest). Id, owner and artwork are set by Sode. Rows and columns default
+        to 4 and 8, `acts` to `session` and `share` to `me`. At most 500 panels exist (409
+        `conflict`). The body is at most 256 KiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PanelIn" }
+            example: { name: Studio A, rows: 4, cols: 8, cells: [], settings: {} }
+      responses:
+        "201":
+          description: The new panel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    get:
+      operationId: getPanel
+      tags: [panels]
+      summary: Read a panel
+      description: Scope `panels`. A panel the caller may not use is 404 `not_found`, as if it did not exist.
+      responses:
+        "200":
+          description: The panel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updatePanel
+      tags: [panels]
+      summary: Update a panel
+      description: |
+        Scope `panelsmanage`. Replaces the panel with the body. Only the owner, or a Trusted user
+        for anyone's, may (403 `not_owner` for a panel the caller may only use). Id, owner, API
+        client and artwork cannot be changed here. A field Sode does not know that is stored on
+        the panel and left out of the body is kept.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PanelIn" }
+      responses:
+        "200":
+          description: The panel as saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePanel
+      tags: [panels]
+      summary: Delete a panel
+      description: Scope `panelsmanage`. The owner, or a Trusted user for anyone's. Its artwork goes with it.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/copy:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: copyPanel
+      tags: [panels]
+      summary: Save a copy
+      description: |
+        Scopes `panelsmanage` and `panels`. Needs a user's key and a panel the caller may use.
+        Makes a panel the caller owns: private, acting as a session user, with the grid,
+        settings and artwork of the source. The body is optional, `{"name":"..."}`; the default
+        name is the source's name plus " copy".
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: The copy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/artwork:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: uploadPanelArtwork
+      tags: [panels]
+      summary: Add artwork to a panel
+      description: |
+        Scope `panelsmanage`, owner or Trusted. The body is the image itself, at most 1 MB
+        (413 `too_large`), a JPEG, PNG, GIF or SVG. The type is decided by the bytes, never by the
+        request's Content-Type or a file name; anything else is 415 `unsupported_type`. A panel
+        holds at most 40 files (409 `conflict`).
+      requestBody:
+        required: true
+        content:
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/gif: { schema: { type: string, format: binary } }
+          image/svg+xml: { schema: { type: string, format: binary } }
+          application/octet-stream: { schema: { type: string, format: binary } }
+      responses:
+        "201":
+          description: The stored artwork; cells name it by `id`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PanelArt" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/artwork/{art}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: art, in: path, required: true, schema: { type: string, pattern: "^a-[0-9a-f]{8}$" } }
+    get:
+      operationId: getPanelArtwork
+      tags: [panels]
+      summary: Fetch artwork
+      description: |
+        Scope `panels`. Serves the stored type with `X-Content-Type-Options: nosniff` and a
+        Content-Security-Policy of `default-src 'none'; style-src 'unsafe-inline'; sandbox`, so a
+        script in an SVG never runs. Show it as an image, never inline. The key goes in the
+        Authorization header, so fetch it and show the bytes, not a bare image URL.
+      responses:
+        "200":
+          description: The image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePanelArtwork
+      tags: [panels]
+      summary: Remove artwork
+      description: Scope `panelsmanage`, owner or Trusted.
+      responses:
+        "204": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /stream:
     get:
       operationId: openStream
@@ -541,7 +764,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent) or `https_required`"
+      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent), `https_required`, `not_owner` (a panel the caller may only use) or `user_required` (a panel needs a user's key to own it)"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -610,14 +833,61 @@ components:
                 - idempotency_mismatch
                 - not_found
                 - method_not_allowed
+                - not_owner
+                - user_required
+                - unsupported_type
+                - internal
               description: |
                 503 api_off (the API switch is off). 401 key_required, invalid_key, key_expired.
-                403 scope, outside_rights, https_required. 400 bad_request. 413 too_large (body over
-                64 KiB). 404 not_found (no such path, entry or visible preset). 405
-                method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of a
-                successful one). 422 nothing_to_do (no route left to run), idempotency_mismatch.
-                429 rate_limited, take_cap, too_many_streams.
+                403 scope, outside_rights, https_required, not_owner (a panel the caller may only
+                use), user_required (a panel needs a user's key). 400 bad_request. 413 too_large
+                (body over 64 KiB for a take, 256 KiB for a panel, 1 MB for artwork). 415
+                unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
+                such path, entry, visible preset, or a panel or artwork the caller may not use).
+                405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
+                a successful one, or a full panel or artwork limit). 422 nothing_to_do (no route
+                left to run), idempotency_mismatch. 429 rate_limited, take_cap, too_many_streams.
+                500 internal (a panel could not be written to disk).
             message: { type: string }
+    PanelShare:
+      type: object
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [me, named, everyone], description: "Only me, named users, or Everyone; all of them use only" }
+        users: { type: array, items: { type: string }, description: Only with `named` }
+    PanelArt:
+      type: object
+      required: [id, type, size]
+      properties:
+        id: { type: string, pattern: "^a-[0-9a-f]{8}$" }
+        type: { type: string, enum: [image/png, image/jpeg, image/gif, image/svg+xml] }
+        size: { type: integer, description: Bytes }
+    PanelIn:
+      type: object
+      description: |
+        A panel as sent. Unknown fields are kept and returned, so a newer client's data survives.
+        `id`, `owner`, `client`, `art` and `canEdit` are ignored here.
+      required: [name]
+      additionalProperties: true
+      properties:
+        name: { type: string, maxLength: 60 }
+        acts: { type: string, enum: [session, api], default: session }
+        share: { $ref: "#/components/schemas/PanelShare" }
+        rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
+        cols: { type: integer, minimum: 1, maximum: 24, default: 8 }
+        cells: { type: array, items: { type: object, additionalProperties: true }, maxItems: 576 }
+        settings: { type: object, additionalProperties: true }
+    Panel:
+      allOf:
+        - $ref: "#/components/schemas/PanelIn"
+        - type: object
+          required: [id, owner, canEdit]
+          properties:
+            id: { type: string, pattern: "^p-[0-9a-f]{8}$" }
+            owner: { type: string, description: The user who owns it }
+            client: { type: string, description: The API client of a panel that acts as one }
+            art: { type: array, items: { $ref: "#/components/schemas/PanelArt" } }
+            canEdit: { type: boolean, description: False when the caller may only use the panel }
     Name:
       type: object
       required: [n, name]

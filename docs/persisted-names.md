@@ -74,6 +74,12 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
 - `signInMode` (`pin` or `username`, also in `lockState` as `mode` and in `usersListResult`), a user's `username`, and the `user` field of `userUnlock`. The Sign-in mode, the username and the name a username signs in with. New names, no retired word.
 
+## Panel names (new in Panels, no retired word)
+
+- Directory `panels/` beside the config: `<id>.yaml` per panel (id `p-` and 8 hex digits) and `<id>.art/<art id>` for artwork (`a-` and 8 hex digits). A file with a name and id that differ is skipped.
+- Panel fields (YAML and JSON): `id`, `name`, `owner`, `acts` (`session` or `api`), `client`, `share` (`mode` `me`, `named` or `everyone`, and `users`), `rows`, `cols`, `cells`, `settings`, `art`. `canEdit` is output only. Fields not listed are kept as they are.
+- API scopes `panels` and `panelsmanage`, API error codes `not_owner`, `user_required`, `unsupported_type` and `internal`, and `api` row kinds `panelCreate`, `panelUpdate`, `panelDelete` and `panelCopy`.
+
 ## Enforcement
 
 `internal/app/vocabulary_test.go` keeps the lists below. Each entry names a real kept name, and `TestAllowlistsMatchSomething` fails on an entry that exempts no line.

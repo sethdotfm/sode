@@ -21,7 +21,7 @@ test('apiProblem uses the server limits: rate limit 0-100000, take cap 1-64', ()
 test('the scope list matches the server', () => {
   assert.deepEqual(
     SCOPES.map((s) => s.id),
-    ['names', 'tally', 'protected', 'status', 'presets', 'history', 'layouts', 'log', 'take'],
+    ['names', 'tally', 'protected', 'status', 'presets', 'history', 'layouts', 'log', 'take', 'panels', 'panelsmanage'],
   );
 });
 

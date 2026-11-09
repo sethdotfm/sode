@@ -57,7 +57,7 @@ Read `results[].result` (`connected`, `already` or `failed`), not just the statu
 
 ## Scopes, rights and visibility
 
-**Scopes** say which areas a caller may use: `names`, `tally`, `protected`, `status`, `presets`, `history`, `layouts`, `log` and `take`. A user's key has all but `log`, always: the log scope can be given only to an API client or Guest. An API client and Guest have the scopes set for them, and Guest starts with `names`, `tally`, `protected` and `status`. A call without the scope gets 403 `scope`.
+**Scopes** say which areas a caller may use: `names`, `tally`, `protected`, `status`, `presets`, `history`, `layouts`, `log`, `take`, `panels` (read panels) and `panelsmanage` (create, change and delete panels, and artwork). A user's key has all but `log`, always: the log scope can be given only to an API client or Guest. An API client and Guest have the scopes set for them, and Guest starts with `names`, `tally`, `protected` and `status`. A call without the scope gets 403 `scope`.
 
 **Rights** say which routes a caller may command: allowlists of sources, destinations, levels and presets, set on each user, each API client and Guest. An unset list means everything, so an old file changes nothing. A take with any route outside the rights is refused whole before anything is sent (403 `outside_rights`, no results, no History entry, an `api` row). The browser obeys the same check, with a failed Result per route. Undo checks the destination and level but not the Before source it restores. Protected destinations are still refused per route.
 
@@ -83,6 +83,13 @@ All paths are under `/api/v1`.
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |
 | `POST /history/{id}/undo`, `/redo`, `/retry` | `take` and `history` | Undo, Redo or Retry one History entry |
 | `GET /stream` | per topic | A WebSocket of live changes, see Stream |
+| `GET /panels`, `GET /panels/{id}` | `panels` | The panels the caller owns or may use, or all of them for a Trusted user. `canEdit` is false for use only |
+| `POST /panels` | `panelsmanage` | Create a panel. A user's key only: the user owns it |
+| `PUT /panels/{id}`, `DELETE /panels/{id}` | `panelsmanage` | Change or delete. The owner, or a Trusted user for anyone's |
+| `POST /panels/{id}/copy` | `panelsmanage` and `panels` | Save a copy: a private panel the caller owns, from any panel the caller may use |
+| `POST /panels/{id}/artwork`, `GET` and `DELETE /panels/{id}/artwork/{art}` | `panelsmanage` (`panels` to read) | Artwork: the raw image as the body, JPEG, PNG, GIF or SVG up to 1 MB, its type decided by the bytes |
+
+Panels need the API switch and use the same scopes, rate limit and errors as every other call. A panel the caller may not use is 404, never 403. Artwork is served with headers that stop a script in an SVG from running; show it as an image.
 
 There are no settings, users, keys or lock endpoints.
 
@@ -99,8 +106,12 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 | 403 | `scope` | The key lacks the scope this path needs | Add the scope to the client |
 | 403 | `outside_rights` | A route or preset is outside the key's rights; nothing was sent | Change the request or the rights |
 | 403 | `https_required` | Require HTTPS is on and the request did not arrive securely | Use the HTTPS URL |
+| 403 | `not_owner` | A panel the caller may only use | Save a copy, or ask the owner |
+| 403 | `user_required` | Creating or copying a panel with a key that is not a user's | Use a user's key |
 | 400 | `bad_request` | A parameter or body is not valid | Fix the request |
-| 413 | `too_large` | The body is over 64 KiB | Send fewer routes |
+| 413 | `too_large` | The body is over 64 KiB (256 KiB for a panel, 1 MB for artwork) | Send less |
+| 415 | `unsupported_type` | Artwork that is not a JPEG, PNG, GIF or SVG | Send one of those |
+| 500 | `internal` | A panel could not be written to disk | Check the disk and the logs |
 | 404 | `not_found` | No such path, History entry or visible preset, or scope `me` on a client or Guest key | Check the id, name or scope |
 | 405 | `method_not_allowed` | The path does not take this method | Use a method in `Allow` |
 | 409 | `conflict` | Redo of a failed entry, or Retry of one that succeeded | Use the other verb |

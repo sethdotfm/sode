@@ -19,9 +19,13 @@ const (
 	ScopeLayouts   = "layouts"
 	ScopeLog       = "log"
 	ScopeTake      = "take"
+	// Panels: reading is for any panel the caller may use; managing is create, update, delete,
+	// Save a copy and artwork uploads, and needs a user's key to own what it makes.
+	ScopePanels       = "panels"
+	ScopePanelsManage = "panelsmanage"
 )
 
-var AllScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeLog, ScopeTake}
+var AllScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeLog, ScopeTake, ScopePanels, ScopePanelsManage}
 
 // DefaultGuestScopes is what a call with no key may read until an administrator widens it.
 var DefaultGuestScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus}

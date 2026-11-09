@@ -104,6 +104,7 @@ type App struct {
 	userPin pinPool
 	tokens  *tokenStore
 	keys    *keyStore
+	panels  *panelStore
 	cfgMu   sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
@@ -186,6 +187,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.tokens = loadTokens(cfgPath) // read here, so no request reads the file under mu
 	a.tokens.prune(cfg)
 	a.keys = loadKeys(cfgPath)
+	a.panels = loadPanels(cfgPath)
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
 	}
