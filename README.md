@@ -4,7 +4,7 @@ DISCLOSURE: This was written by an LLM.
 
 [![CI](https://github.com/sethdotfm/sode/actions/workflows/ci.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/ci.yml) [![rc](https://github.com/sethdotfm/sode/actions/workflows/rc.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/rc.yml) [![Release](https://img.shields.io/github/v/release/sethdotfm/sode?include_prereleases)](https://github.com/sethdotfm/sode/releases) [![Go version](https://img.shields.io/github/go-mod/go-version/sethdotfm/sode)](go.mod) [![License](https://img.shields.io/github/license/sethdotfm/sode)](LICENSE)
 
-**Version:** Beta 1.8.0
+**Version:** Beta 1.8.1
 
 Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It is for people who want to make routes fast from any browser on the network, on a desktop keyboard or a phone. You type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key.
 
