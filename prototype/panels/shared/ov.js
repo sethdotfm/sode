@@ -69,7 +69,6 @@ export function shareModal(OV) {
       <div class="ov-radios" role="radiogroup" aria-label="Who can use it">
         ${[['private', 'lock', 'Only me', 'Nobody else sees it in their list.'], ['users', 'users', 'Named users', 'Pick people below.'], ['everyone', 'globe', 'Everyone', 'Every signed-in user sees it. Guests do not.']].map(([k, ic, t, d]) => `<label class="pb-check ov-radio"><input type="radio" class="pb-check__input" name="share" data-share="${k}" ${x.share === k ? 'checked' : ''}><span class="pb-check__label">${icon(ic)} <strong>${t}</strong> <span class="pb-text-muted">${d}</span></span></label>`).join('')}
       </div>
-      ${x.share === 'users' || (x.share === 'private' && false) ? '' : ''}
       <div class="ed-sec ov-users" ${x.share === 'everyone' ? 'hidden' : ''}><h3 class="ed-h">People</h3>
         <div class="ed-picklist">${USERS.filter((u) => u !== x.owner).map((u) => `<label class="pb-check"><input type="checkbox" class="pb-check__input" data-with="${esc(u)}" ${x.with.includes(u) ? 'checked' : ''}><span class="pb-check__label">${esc(u)}</span></label>`).join('')}</div></div>
       <p class="pb-hint">${x.acts === 'user' ? 'This panel acts as whoever signs in to it, so each person is held to their own Rights. Sharing it never widens anyone\'s Rights.' : 'This panel acts as its own API client. Sharing it lets people open it, and what it can do stays within its own Rights.'}</p>`
@@ -137,6 +136,6 @@ export function wire(OV, root) {
     const id = t.dataset.id, a = t.dataset.act
     if (a === 'launch') OV.launch(id); else if (a === 'edit') OV.edit(id); else if (a === 'copy') OV.copy(id)
     else if (a === 'share') OV.openShare(id); else if (a === 'link') OV.openShare(id, 'link'); else if (a === 'watch') OV.toggleWatch(id)
-    else if (a === 'delete') OV.remove(id); else if (a === 'new') OV.newPanel()
+    else if (a === 'push') OV.say('Opens Push with ' + OV.get(id).name + ' as the source. A checkpoint of each target is kept first.'); else if (a === 'delete') { if (OV.armed === id) { OV.armed = null; OV.remove(id) } else { OV.armed = id; OV.say('Press Delete again to remove ' + OV.get(id).name + '. Its key and links stop working.'); OV.emit() } } else if (a === 'new') OV.newPanel()
   })
 }
