@@ -79,7 +79,8 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - Directory `panels/` beside the config: `<id>.yaml` per panel (id `p-` and 8 hex digits) and `<id>.art/<art id>` for artwork (`a-` and 8 hex digits). A file with a name and id that differ is skipped.
 - Panel fields (YAML and JSON): `id`, `name`, `owner`, `acts` (`session` or `api`), `client`, `share` (`mode` `me`, `named` or `everyone`, and `users`), `rows`, `cols`, `cells`, `settings`, `art`. `canEdit` is output only. Fields not listed are kept as they are.
 - Cell fields inside `cells` (stored by the panel page and the editor): `r` and `c` (from 1), `rs`, `cs`, `kind` (`source`, `destination`, `take`), `n` (the router's number), `caption`, `levels` (UI levels). Panel `settings` read so far: `mode` (`take` or `instant`), `multi` and `levels`. The page sends `Idempotency-Key` values that start with `panel-`.
-- API scopes `panels` and `panelsmanage`, API error codes `not_owner`, `user_required`, `unsupported_type` and `internal`, and `api` row kinds `panelCreate`, `panelUpdate`, `panelDelete` and `panelCopy`.
+- A panel's API client is an `apiClients` entry in the config with a `panel` field (the panel id), named `Panel <id>`. `clientRights` is the panel's request and response field for its Rights; it is never stored in the panel file. The Manage users list sends `panelClients` per user.
+- API scopes `panels` and `panelsmanage`, API error codes `not_owner`, `user_required`, `trusted_required`, `unsupported_type` and `internal`, and `api` row kinds `panelCreate`, `panelUpdate`, `panelDelete` and `panelCopy`.
 
 ## Enforcement
 

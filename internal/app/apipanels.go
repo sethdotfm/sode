@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"maps"
 	"net/http"
 	"strings"
@@ -55,8 +56,13 @@ func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 	return p.Share.Mode == panelShareAll, false
 }
 
-// panelOut is a panel as sent: its fields plus canEdit.
-func panelOut(p Panel, edit bool) map[string]any {
+// panelOut is a panel as sent: its fields plus canEdit, and for an editor the Rights of its
+// API client.
+func (a *App) panelOut(p Panel, edit bool) map[string]any {
+	if c, ok := clientOfPanel(a.r().cfg, p); ok && edit {
+		r := c.Rights.Clone()
+		p.ClientRights = &r
+	}
 	b, _ := json.Marshal(p)
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
@@ -121,7 +127,7 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 	out := []map[string]any{}
 	for _, p := range a.panels.list() {
 		if read, edit := a.panelReach(cl, p); read {
-			out = append(out, panelOut(p, edit))
+			out = append(out, a.panelOut(p, edit))
 		}
 	}
 	apiJSON(w, map[string]any{"panels": out})
@@ -130,7 +136,7 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if p, ok := a.panelFor(w, r, cl, false); ok {
 		_, edit := a.panelReach(cl, p)
-		apiJSON(w, panelOut(p, edit))
+		apiJSON(w, a.panelOut(p, edit))
 	}
 }
 
@@ -151,19 +157,41 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if !ok {
 		return
 	}
-	p.ID, p.Owner, p.Client, p.Art = "", cl.Actor.Name, "", nil
+	want := p.ClientRights
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = "", cl.Actor.Name, "", nil, nil
 	p.normalize()
 	if err := validatePanel(&p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
+	}
+	var rights config.Rights
+	if p.Acts == panelActsAPI {
+		var err error
+		if rights, _, err = a.clientRightsFor(cl, want, nil); err != nil {
+			failWith(w, err)
+			return
+		}
 	}
 	made, err := a.panels.create(p)
 	if err != nil {
 		a.panelStoreFail(w, err)
 		return
 	}
+	if made.Acts == panelActsAPI {
+		made.Client = panelClientName(made.ID)
+		err := a.setPanelClient(made.ID, &rights)
+		if err == nil {
+			_, err = a.panels.replace(made)
+		}
+		if err != nil {
+			a.panels.delete(made.ID)
+			a.setPanelClient(made.ID, nil)
+			failWith(w, err)
+			return
+		}
+	}
 	a.apiEvent(cl.Actor, "panelCreate", "ok", "panel "+made.ID+" "+made.Name, nil)
-	apiCreated(w, panelOut(made, true))
+	apiCreated(w, a.panelOut(made, true))
 }
 
 // apiCreated is apiJSON with status 201; headers must precede the status line.
@@ -185,7 +213,8 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if !ok {
 		return
 	}
-	p.ID, p.Owner, p.Client, p.Art = old.ID, old.Owner, old.Client, old.Art
+	want := p.ClientRights
+	p.ID, p.Owner, p.Client, p.Art, p.ClientRights = old.ID, old.Owner, old.Client, old.Art, nil
 	merged := maps.Clone(old.Extra)
 	if merged == nil {
 		merged = map[string]any{}
@@ -199,12 +228,39 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+	// The client change goes first: it is the part that can be refused, and a refused save
+	// must leave the panel as it was.
+	cur, had := clientOfPanel(a.r().cfg, old)
+	switch {
+	case p.Acts == panelActsAPI:
+		var curRights *config.Rights
+		if had {
+			curRights = &cur.Rights
+		}
+		rights, changed, err := a.clientRightsFor(cl, want, curRights)
+		if err == nil && (!had || changed) {
+			err = a.setPanelClient(p.ID, &rights)
+		}
+		if err != nil {
+			failWith(w, err)
+			return
+		}
+		p.Client = panelClientName(p.ID)
+	case had:
+		if err := a.setPanelClient(p.ID, nil); err != nil {
+			failWith(w, err)
+			return
+		}
+		p.Client = ""
+	default:
+		p.Client = ""
+	}
 	if _, err := a.panels.replace(p); err != nil {
 		a.panelStoreFail(w, err)
 		return
 	}
 	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
-	apiJSON(w, panelOut(p, true))
+	apiJSON(w, a.panelOut(p, true))
 }
 
 func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -215,6 +271,9 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if _, err := a.panels.delete(p.ID); err != nil {
 		a.panelStoreFail(w, err)
 		return
+	}
+	if err := a.setPanelClient(p.ID, nil); err != nil {
+		log.Printf("panels: client of deleted panel %s not removed: %v", p.ID, err)
 	}
 	a.apiEvent(cl.Actor, "panelDelete", "ok", "panel "+p.ID+" "+p.Name, nil)
 	w.WriteHeader(http.StatusNoContent)
@@ -253,7 +312,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	a.panels.copyArt(src, made.ID)
 	made, _ = a.panels.get(made.ID)
 	a.apiEvent(cl.Actor, "panelCopy", "ok", "panel "+made.ID+" copied from "+src.ID, nil)
-	apiCreated(w, panelOut(made, true))
+	apiCreated(w, a.panelOut(made, true))
 }
 
 // apiArtUpload takes the image as the raw body. Its type is decided by its content: the

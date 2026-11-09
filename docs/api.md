@@ -89,6 +89,8 @@ All paths are under `/api/v1`.
 | `POST /panels/{id}/copy` | `panelsmanage` and `panels` | Save a copy: a private panel the caller owns, from any panel the caller may use |
 | `POST /panels/{id}/artwork`, `GET` and `DELETE /panels/{id}/artwork/{art}` | `panelsmanage` (`panels` to read) | Artwork: the raw image as the body, JPEG, PNG, GIF or SVG up to 1 MB, its type decided by the bytes |
 
+A panel with `acts: api` has an API client of its own, `Panel <id>`, made with the panel by a Trusted user (403 `trusted_required` otherwise). Its `clientRights` default to the creator's and can be no wider than the creator's rights (403 `outside_rights`, nothing created or changed); the check runs whenever a save sets them to something other than what is stored, so a panel an administrator widened still saves. Its scopes start as `names`, `tally`, `protected`, `status`, `presets`, `history`, `layouts`, `take` and `panels`. Only the Advanced Settings PIN widens it, in Manage users, where it shows on the API clients tab with its panel and does not count toward the 12-client limit. Switching the panel to `session` or deleting it removes the client and ends its keys and streams. In History its actions read like any client's, "Panel p-1a2b3c4d (Wall tablet)"; a user's key named "Panel 21" reads "Seth (Panel 21)". Changing a user's Rights lists the panel clients they created, in the Manage users list (`panelClients`, with `wider` when the client now exceeds the user) and in the `rightsEdit` row.
+
 Panels need the API switch and use the same scopes, rate limit and errors as every other call. A panel the caller may not use is 404, never 403. Artwork is served with headers that stop a script in an SVG from running; show it as an image.
 
 There are no settings, users, keys or lock endpoints.
@@ -108,6 +110,7 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 | 403 | `https_required` | Require HTTPS is on and the request did not arrive securely | Use the HTTPS URL |
 | 403 | `not_owner` | A panel the caller may only use | Save a copy, or ask the owner |
 | 403 | `user_required` | Creating or copying a panel with a key that is not a user's | Use a user's key |
+| 403 | `trusted_required` | Making a panel an API client, or changing its rights, as a user who is not Trusted | Ask a Trusted user |
 | 400 | `bad_request` | A parameter or body is not valid | Fix the request |
 | 413 | `too_large` | The body is over 64 KiB (256 KiB for a panel, 1 MB for artwork) | Send less |
 | 415 | `unsupported_type` | Artwork that is not a JPEG, PNG, GIF or SVG | Send one of those |

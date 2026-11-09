@@ -68,24 +68,27 @@ type PanelArt struct {
 // the panel page and editor, and Extra keeps any field this version does not know, so an
 // older Sode never drops what a newer one wrote.
 type Panel struct {
-	ID       string           `yaml:"id" json:"id"`
-	Name     string           `yaml:"name" json:"name"`
-	Owner    string           `yaml:"owner" json:"owner"`
-	Acts     string           `yaml:"acts" json:"acts"`
-	Client   string           `yaml:"client,omitempty" json:"client,omitempty"` // the API client of an api panel
-	Share    PanelShare       `yaml:"share" json:"share"`
-	Rows     int              `yaml:"rows" json:"rows"`
-	Cols     int              `yaml:"cols" json:"cols"`
-	Cells    []map[string]any `yaml:"cells" json:"cells"`
-	Settings map[string]any   `yaml:"settings" json:"settings"`
-	Art      []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
+	ID     string `yaml:"id" json:"id"`
+	Name   string `yaml:"name" json:"name"`
+	Owner  string `yaml:"owner" json:"owner"`
+	Acts   string `yaml:"acts" json:"acts"`
+	Client string `yaml:"client,omitempty" json:"client,omitempty"` // the API client of an api panel
+	// ClientRights rides the API only: sent by an editor, read from the client in the config,
+	// never stored in the panel file.
+	ClientRights *config.Rights   `yaml:"-" json:"clientRights,omitempty"`
+	Share        PanelShare       `yaml:"share" json:"share"`
+	Rows         int              `yaml:"rows" json:"rows"`
+	Cols         int              `yaml:"cols" json:"cols"`
+	Cells        []map[string]any `yaml:"cells" json:"cells"`
+	Settings     map[string]any   `yaml:"settings" json:"settings"`
+	Art          []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
 
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // panelKnown are the JSON names the struct owns. canEdit is output only and never stored,
 // so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "canEdit"}
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "canEdit", "clientRights"}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
