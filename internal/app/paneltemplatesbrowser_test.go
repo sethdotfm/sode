@@ -90,12 +90,12 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b.waitFor("dialog", `!!document.getElementById('tpl-save')`)
 	b.eval(`window.tplSave = (name, boxes) => {
 		document.getElementById('tpl-name').value = name;
-		for (const id of ['tpl-sources', 'tpl-dests']) { const c = document.getElementById(id); if (c.checked !== boxes.includes(id)) c.click(); }
+		for (const id of ['tpl-sources', 'tpl-dests', 'tpl-settings']) { const c = document.getElementById(id); if (c.checked !== boxes.includes(id)) c.click(); }
 		document.getElementById('tpl-save').click();
 	}; true`)
 	b.eval(`tplSave('Src only', ['tpl-sources'])`)
 	b.waitFor("first saved", `document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Saved Src only to Me.')`)
-	b.eval(`tplSave('Both', ['tpl-sources', 'tpl-dests'])`)
+	b.eval(`tplSave('Both', ['tpl-sources', 'tpl-dests', 'tpl-settings'])`)
 	b.waitFor("second saved", `document.querySelector('.sode-tpl .pb-modal__footer').textContent.includes('Saved Both to Me.')`)
 	if body := apiDo(a, "GET", "/api/v1/panel-templates", ana, nil).Body.String(); !strings.Contains(body, `"dests":false`) || !strings.Contains(body, `"dests":true`) {
 		t.Fatalf("flags not stored: %s", body)
@@ -116,5 +116,23 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b.waitFor("Sources came back, Destinations did not", `document.getElementById('ed-todo').textContent === '4 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && !document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
 	apply("Both")
 	b.waitFor("both came back", `document.getElementById('ed-todo').textContent === '3 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
+	// The settings stored with it (theme dark) came with the cells.
+	b.waitFor("settings applied with the contents", `document.getElementById('ed-set-theme').value === 'dark' && document.getElementById('ed-grid').style.colorScheme === 'dark'`)
+
+	b.eval(`document.getElementById('ed-save').click()`)
+	b.waitFor("blank panel saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+
+	// Applying it back onto the first panel after a cell was removed restores the cell.
+	b.eval(`location.href = location.origin + '/panels/editor?panel=` + id + `'`)
+	b.waitFor("first panel loaded", `document.getElementById('ed-name')?.value === 'Full' && !!document.getElementById('ed-templates')`)
+	b.eval(`const g = document.getElementById('ed-grid'); const k = (key) => g.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); k('ArrowDown'); k('ArrowDown'); k('Delete')`)
+	apply("Both")
+	b.waitFor("Sources and Destinations restored", `document.getElementById('ed-todo').textContent === '3 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
+
+	b.eval(`document.getElementById('ed-save').click()`)
+	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	// The panel page sets data-theme from the stored panel, with no device settings code to undo it.
+	b.eval(`location.href = location.origin + '/panels/` + id + `'`)
+	b.waitFor("panel page runs in the stored theme", `document.documentElement.dataset.theme === 'dark' && !!document.querySelector('#panel-grid > *')`)
 	b.check()
 }
