@@ -24,8 +24,10 @@ export function saveBody(loaded, name, grid) {
   return { ...rest, name: name.trim(), ...saved(grid) };
 }
 
-// Compared through the grid, so a cell the model clips on load does not read as an edit.
-const shape = (name, g) => JSON.stringify([name.trim(), g.rows, g.cols, saved(g).cells]);
+// Compared through the grid, so a cell the model clips on load does not read as an edit. Keys are sorted because the
+// server stores cells with their keys in another order.
+const sorted = (c) => Object.fromEntries(Object.entries(c).sort(([a], [b]) => (a < b ? -1 : 1)));
+const shape = (name, g) => JSON.stringify([name.trim(), g.rows, g.cols, saved(g).cells.map(sorted)]);
 
 export const isDirty = (loaded, name, grid) => shape(name, grid) !== shape((loaded || newPanel()).name, createGrid(loaded || newPanel()));
 
@@ -37,6 +39,6 @@ export function placeMenu(rect, menu, vp, gap) {
   return { side: 'below', left: Math.max(0, Math.min(rect.left, vp.w - menu.w)), top: rect.bottom + gap };
 }
 
-const WORDS = { source: 'Source', destination: 'Destination', take: 'Take', '': 'Empty' };
+const WORDS = { source: 'Source', destination: 'Destination', take: 'Take', preset: 'Preset', clear: 'Clear', current: 'Current Destination', '': 'Empty' };
 export const kindLabel = (kind) => WORDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
 export const kindChoices = () => [...KINDS, ''].map((kind) => ({ kind, label: kindLabel(kind) }));

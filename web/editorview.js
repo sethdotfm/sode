@@ -4,12 +4,14 @@ import { el, icon } from './core.js';
 import { cellAt, rectOf, isUnassigned } from './gridmodel.js';
 import { kindLabel } from './editorrules.js';
 
-const KIND_ICON = { source: 'log-in', destination: 'log-out', take: 'zap' };
+const KIND_ICON = { source: 'arrow-right-from-line', destination: 'arrow-right-to-line', take: 'zap', preset: 'bookmark', clear: 'eraser', current: 'eye' };
 
 // A cell's text in the editor: the caption, else the router name, else what is still to be chosen.
 export function cellText(cell, names) {
   if (cell.caption) return cell.caption;
-  if (cell.kind === 'take') return 'Take';
+  if (cell.kind === 'take' || cell.kind === 'clear') return kindLabel(cell.kind);
+  if (cell.kind === 'current') return 'Currently';
+  if (cell.kind === 'preset') return cell.name || 'Choose a preset';
   if (!Number.isInteger(cell.n)) return `Choose a ${kindLabel(cell.kind).toLowerCase()}`;
   return names.of(cell);
 }
@@ -31,6 +33,7 @@ export function createEditorGrid(host, on) {
     const q = squareAt(e.clientX, e.clientY);
     if (!q) return;
     dragging = true;
+    document.body.dataset.edDrag = '1'; // the menu sits over neighbouring squares and would swallow the drag
     last = `${q.r},${q.c}`;
     on.select(q.r, q.c, e.shiftKey);
   });
@@ -43,9 +46,10 @@ export function createEditorGrid(host, on) {
   });
   const stop = () => {
     dragging = false;
+    delete document.body.dataset.edDrag;
   };
-  host.addEventListener('pointerup', stop);
-  host.addEventListener('pointercancel', stop);
+  document.addEventListener('pointerup', stop);
+  document.addEventListener('pointercancel', stop);
   host.addEventListener('keydown', (e) => on.key(e));
 
   return {

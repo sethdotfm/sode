@@ -34,7 +34,14 @@ const range = (a, z) => Array.from({ length: z - a + 1 }, (_, i) => a + i);
 
 // A cell the panel page would leave out only because it has no number is still valid here.
 function normalCells(rows, cols, cells) {
-  const probe = (cells || []).map((c, i) => ({ ...c, rs: c?.rs || 1, cs: c?.cs || 1, n: Number.isInteger(c?.n) ? c.n : 0, ix: i }));
+  const probe = (cells || []).map((c, i) => ({
+    ...c,
+    rs: c?.rs || 1,
+    cs: c?.cs || 1,
+    n: Number.isInteger(c?.n) ? c.n : 0,
+    ...(c?.kind === 'preset' && !c.name ? { scope: 'me', name: '-' } : {}),
+    ix: i,
+  }));
   return cellsIn({ rows, cols, cells: probe }).map((p) => {
     const orig = cells[p.ix];
     return { ...orig, rs: p.rs, cs: p.cs };
@@ -117,7 +124,7 @@ export function single(g) {
 const selectRect = (g, q) => ({ ...g, sel: { anchor: { r: q.r1, c: q.c1 }, head: { r: q.r2, c: q.c2 } } });
 
 // Fields that describe the router item and so do not survive a change of kind.
-const ITEM_FIELDS = ['n'];
+const ITEM_FIELDS = ['n', 'scope', 'name'];
 const dropItem = (c) => {
   const out = { ...c };
   for (const f of ITEM_FIELDS) delete out[f];

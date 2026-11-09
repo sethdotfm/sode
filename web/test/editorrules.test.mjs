@@ -62,6 +62,8 @@ test('dirty means the name or the grid differs from what was loaded', () => {
   const loaded = { name: 'A', rows: 2, cols: 2, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: 'take' }] };
   const g = createGrid(loaded);
   assert.equal(isDirty(loaded, 'A', g), false);
+  const reordered = { ...loaded, cells: [{ kind: 'take', rs: 1, cs: 1, c: 1, r: 1 }] };
+  assert.equal(isDirty(reordered, 'A', g), false);
   assert.equal(isDirty(loaded, 'B', g), true);
   assert.equal(isDirty(loaded, 'A', merge(select(select(g, 1, 1), 2, 2, true))), true);
   assert.equal(isDirty(null, 'New panel', createGrid()), false);
