@@ -1,11 +1,13 @@
-// The sidebar's Panel tab: identity, appearance, behaviour, device and feedback, updates. Every control writes
+// The sidebar's Panel tab: identity and size, appearance, behavior, device and feedback. Every control writes
 // one key of the panel's settings through setSetting (sidebarrules.js), so the stored file only holds choices.
 import { el, $ } from './core.js';
 import { field, check, opt } from './formbits.js';
 import { featureSupport } from './panelfeel.js';
-import { setSetting, fontPercent, levelsPatch, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
+import { setSetting, fontPercent, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createArtControl } from './editorart.js';
 import { createSlugField } from './editorslug.js';
+import { createLevelBoxes } from './editorlevels.js';
+import { createSizeFields } from './editorsize.js';
 
 const section = (title, ...kids) => el('section', 'sode-side__sec', el('h3', 'sode-side__h', title), ...kids);
 const select = (id, options) => {
@@ -34,7 +36,8 @@ export function createPanelTab(ed) {
   });
   const ident = el('p', 'sode__hint');
   const slug = createSlugField(ed);
-  const identity = section('Identity', field('ed-side-name', 'Name', name), slug.node, ident);
+  const sizes = createSizeFields(ed);
+  const identity = section('Identity', field('ed-side-name', 'Name', name), slug.node, sizes.node, ident);
 
   const size = el('input', 'pb-input sode-ed__num');
   size.id = 'ed-set-font';
@@ -42,6 +45,8 @@ export function createPanelTab(ed) {
   size.min = String(FONT_MIN);
   size.max = String(FONT_MAX);
   size.inputMode = 'numeric';
+  size.placeholder = '100';
+  size.title = `${FONT_MIN} to ${FONT_MAX}. Each cell can scale from this.`;
   const sizeNote = el('span', 'sode__hint');
   sizeNote.setAttribute('role', 'status');
   size.addEventListener('input', () => {
@@ -50,10 +55,10 @@ export function createPanelTab(ed) {
     sizeNote.textContent = r.error || '';
     if (!r.error) set('fontSize', r.value);
   });
-  const sizeField = field('ed-set-font', 'Font size, percent', size, `${FONT_MIN} to ${FONT_MAX}. Each cell can scale from this.`);
-  sizeField.append(sizeNote);
+  const sizeField = el('div', 'sode__field sode-side__inline', Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-set-font' }), size, el('span', 'sode__hint', '%'));
+  const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
   const backdrop = createArtControl({ ed, set: (v) => set('backdrop', v || '') });
-  const appearance = section('Appearance', toggle('titleBar', 'Show the title bar'), sizeField, backdrop.node);
+  const appearance = section('Appearance', toggle('titleBar', 'Show the title bar'), sizeRow, backdrop.node);
 
   const mode = select('ed-set-mode', [
     ['take', 'Stage, then Take'],
@@ -67,46 +72,35 @@ export function createPanelTab(ed) {
     ['double', 'Press the Take cell twice'],
   ]);
   guard.select.addEventListener('change', () => set('guard', guard.select.value));
-  const levelBox = el('div', 'sode-side__checks');
   let levels = [];
-  const behaviour = section(
-    'Behaviour',
+  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', v || []) });
+  const behavior = section(
+    'Behavior',
     el('div', 'sode__field', el('label', null, 'Mode'), mode.node, modeHint),
+    el('div', 'sode__field', el('label', null, 'Take button behavior'), guard.node),
     toggle('multi', 'Stage several Destinations at once', 'Off lets one Destination be staged at a time.'),
-    el('div', 'sode__field', el('span', 'sode__field-label', 'Levels'), levelBox, el('span', 'sode__hint', 'None ticked means every level.')),
-    el('div', 'sode__field', el('label', null, 'Guard'), guard.node, el('span', 'sode__hint', 'A guard on the Take cell stops an accidental press.')),
-    toggle('resultText', 'Show the result as text on a Destination', 'Off shows only the colour and icon.'),
+    el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node),
+    toggle('resultText', 'Show the result as text on a Destination', 'Off shows only the color and icon.'),
     toggle('kiosk', 'Hide the header (kiosk)', 'For a wall tablet. The link can also add kiosk=1.'),
   );
 
   const feel = featureSupport(navigator);
-  const device = section('Device and feedback', toggle('wake', 'Keep the screen awake', ''), toggle('haptics', 'Vibrate on a press', ''));
+  const device = section(
+    'Device and feedback',
+    toggle('wake', 'Keep the screen awake', ''),
+    toggle('haptics', 'Enable haptics', ''),
+    toggle('fullscreen', 'Enter fullscreen at once', 'The first press on the panel goes fullscreen, as a browser needs a touch first.'),
+  );
   const deviceNote = el('p', 'sode__hint');
   device.append(deviceNote);
 
-  const updates = section('Updates', el('p', 'sode__hint', 'An open panel shows a saved change within a few seconds. It waits while someone is mid-route.'));
-  node.append(identity, appearance, behaviour, device, updates);
-
-  function drawLevels(chosen) {
-    const all = levels.map((l) => l.level);
-    levelBox.replaceChildren(
-      ...levels.map((l) => {
-        const c = check(l.label || `Level ${l.level}`, {
-          checked: chosen.includes(l.level),
-          onChange: (on) => set('levels', levelsPatch(all, on ? [...chosen, l.level] : chosen.filter((x) => x !== l.level)) || []),
-        });
-        c.input.disabled = ed.readOnly();
-        return c.label;
-      }),
-    );
-    levelBox.dataset.shown = chosen.join(',');
-  }
+  node.append(identity, appearance, behavior, device);
 
   return {
     node,
     setLevels(list) {
       levels = list;
-      levelBox.dataset.shown = '?';
+      levelBoxes.reset();
     },
     update() {
       const p = ed.panel();
@@ -133,8 +127,8 @@ export function createPanelTab(ed) {
       modeHint.textContent = MODE_HINT[mode.select.value];
       guard.select.value = s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none';
       guard.select.disabled = ro;
-      const chosen = Array.isArray(s.levels) ? s.levels : [];
-      if (levelBox.dataset.shown !== chosen.join(',')) drawLevels(chosen);
+      levelBoxes.draw(levels, s.levels);
+      sizes.update();
       backdrop.update(s.backdrop || '');
     },
   };
