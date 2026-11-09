@@ -5,6 +5,7 @@ import { field, check, opt } from './formbits.js';
 import { featureSupport } from './panelfeel.js';
 import { setSetting, fontPercent, levelsPatch, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createArtControl } from './editorart.js';
+import { createSlugField } from './editorslug.js';
 
 const section = (title, ...kids) => el('section', 'sode-side__sec', el('h3', 'sode-side__h', title), ...kids);
 const select = (id, options) => {
@@ -32,7 +33,8 @@ export function createPanelTab(ed) {
     $('ed-name').dispatchEvent(new Event('input'));
   });
   const ident = el('p', 'sode__hint');
-  const identity = section('Identity', field('ed-side-name', 'Name', name), ident);
+  const slug = createSlugField(ed);
+  const identity = section('Identity', field('ed-side-name', 'Name', name), slug.node, ident);
 
   const size = el('input', 'pb-input sode-ed__num');
   size.id = 'ed-set-font';
@@ -112,6 +114,7 @@ export function createPanelTab(ed) {
       const ro = ed.readOnly();
       if (document.activeElement !== name) name.value = $('ed-name').value;
       name.disabled = ro;
+      slug.update();
       ident.textContent = p ? `Id ${p.id}. Owner ${p.owner}.` : 'Not saved yet.';
       for (const { key, input } of toggles) {
         const dflt = key === 'titleBar' || key === 'multi';

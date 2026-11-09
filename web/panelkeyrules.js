@@ -1,5 +1,6 @@
 // Pure rules for a panel's Link with key tab and for a panel page that opens with a key or a setup link.
 // No DOM, no clock, no network, so Node tests them. Server side: internal/app/panelkey.go, panelsetup.go, panelnet.go.
+import { fullSetup } from './panellink.js';
 
 export const MODES = [
   ['key', 'Standing link'],
@@ -49,7 +50,7 @@ export const networksChanged = (saved, text) => JSON.stringify(parseNetworks(net
 // ---- the panel page
 
 // A one-time setup link in the fragment; the page trades it for a key and drops the fragment.
-export const setupFromHash = (hash) => /(?:^#|&)setup=([^&]+)/.exec(hash)?.[1] || '';
+export const setupFromHash = (hash) => fullSetup(/(?:^#|&)setup=([^&]+)/.exec(hash)?.[1] || '');
 
 // A key the page keeps after a setup link. localStorage name, kept per panel; docs/persisted-names.md.
 export const storedKeyName = (id) => `sode-panel-key-${id}`;

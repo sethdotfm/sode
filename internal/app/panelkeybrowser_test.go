@@ -104,10 +104,10 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	b.waitFor("masked link", input+`?.value.includes('#key=') && !`+input+`.value.includes('sode_')`)
 	b.waitFor("no QR while masked", `!document.querySelector('.sode-ov__keylink .sode__qr')`)
 	b.eval(`document.querySelector('.sode-ov__keylink .pb-check__input').click()`)
-	b.waitFor("full link and QR", input+`.value.startsWith(location.origin + '/panels/`+id+`#key=sode_') && !!document.querySelector('.sode-ov__keylink .sode__qr')`)
+	b.waitFor("full link and QR", input+`.value.startsWith(location.origin + '/panels/`+id+`#key=') && !`+input+`.value.includes('sode_') && !!document.querySelector('.sode-ov__keylink .sode__qr')`)
 	link, _ := b.eval(input + `.value`).(string)
 	b.shot("share-key-link")
-	old := strings.TrimPrefix(link[strings.Index(link, "#key="):], "#key=")
+	old := keyPrefix + strings.TrimPrefix(link[strings.Index(link, "#key="):], "#key=")
 	if rec := apiSend(a, "GET", "/api/v1/tally", old, ""); rec.Code != 200 {
 		t.Fatalf("the made key: %d", rec.Code)
 	}

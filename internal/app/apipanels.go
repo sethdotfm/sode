@@ -137,7 +137,7 @@ func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Pan
 
 func (a *App) panelStoreFail(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, errPanelCap), errors.Is(err, errArtCap):
+	case errors.Is(err, errPanelCap), errors.Is(err, errArtCap), errors.Is(err, errSlugTaken):
 		apiFail(w, http.StatusConflict, "conflict", err.Error())
 	default:
 		apiFail(w, http.StatusInternalServerError, "internal", "the panel could not be saved: "+err.Error())
@@ -172,14 +172,29 @@ func (a *App) apiPanelPeople(w http.ResponseWriter, _ *http.Request, cl *apiCtx)
 }
 
 func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	if p, ok := a.panelFor(w, r, cl, false); ok {
-		_, edit := a.panelReach(cl, p)
-		out := a.panelOut(p, edit)
-		a.monFields(out, cl, p, edit)
-		// The page mirrors these before arming a take; the server still enforces them.
-		out["rights"] = cl.Rights.Clone()
-		apiJSON(w, out)
+	// The refusal names the segment as sent, never the id a short name resolved to.
+	seg := r.PathValue("id")
+	p, read, edit := a.reachPanel(cl, a.panelIDOf(seg))
+	if refuseReach(w, read, edit, false, "no panel "+seg+" that this key may use", "") {
+		return
 	}
+	out := a.panelOut(p, edit)
+	a.monFields(out, cl, p, edit)
+	// The page mirrors these before arming a take; the server still enforces them.
+	out["rights"] = cl.Rights.Clone()
+	apiJSON(w, out)
+}
+
+// panelIDOf turns a short name into its panel's id. Anything else comes back as given, so an unknown
+// name fails the same way as an id nobody may use.
+func (a *App) panelIDOf(seg string) string {
+	if validPanelID(seg) {
+		return seg
+	}
+	if p, ok := a.panels.bySlug(seg); ok {
+		return p.ID
+	}
+	return seg
 }
 
 // ownerOnly answers 403 user_required: a panel needs a user to own it.
@@ -335,7 +350,7 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if strings.TrimSpace(c.Name) == "" {
 		c.Name = cleanText(src.Name, panelNameMax-len(" copy")) + " copy"
 	}
-	c.Art, c.Rev = nil, 0
+	c.Art, c.Rev, c.Slug = nil, 0, ""
 	if err := validatePanel(&c); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
 		return

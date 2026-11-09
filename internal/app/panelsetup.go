@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -28,11 +29,16 @@ func init() {
 	registerAPI(apiRoute{Method: "POST", Path: apiBase + "/panels/{id}/setup", Scope: scopeOpen, Handle: (*App).apiPanelSetup})
 }
 
-// 24 random bytes: one hour and one use need no more, and a shorter link still fits web/qr.js.
+// 16 random bytes: one hour and one use need no more, and a shorter link still fits web/qr.js.
 func newSetupToken() string {
-	b := make([]byte, 24)
-	rand.Read(b)
-	return setupPrefix + base64.RawURLEncoding.EncodeToString(b)
+	for {
+		b := make([]byte, 16)
+		rand.Read(b)
+		// The body never starts with the prefix, so the page can tell a short link from a full one.
+		if body := base64.RawURLEncoding.EncodeToString(b); !strings.HasPrefix(body, setupPrefix) {
+			return setupPrefix + body
+		}
+	}
 }
 
 // holds says the owner has a live key; a pending setup link is not one.
@@ -113,7 +119,7 @@ func (a *App) apiPanelSetup(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	}
 	body, _ := io.ReadAll(http.MaxBytesReader(w, r.Body, 1024))
 	json.Unmarshal(body, &req)
-	p, ok := a.panels.get(r.PathValue("id"))
+	p, ok := a.panels.get(a.panelIDOf(r.PathValue("id")))
 	c, has := clientOfPanel(rt.cfg, p)
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
 	if !ok || !has || p.Acts != panelActsAPI || !a.keys.hasSetup(owner, req.Setup, now) {
@@ -131,7 +137,7 @@ func (a *App) apiPanelSetup(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 		return
 	}
 	a.cfgMu.Lock()
-	secret, rec, err := a.keys.createCapped(owner, panelKeyName, time.Time{}, 0, "")
+	secret, rec, err := a.keys.createWith(newShortSecret(), owner, panelKeyName, time.Time{}, 0, "", "")
 	a.cfgMu.Unlock()
 	if err != nil {
 		apiFail(w, http.StatusInternalServerError, "internal", "the key could not be made: "+err.Error())

@@ -56,7 +56,7 @@ test('networks are split from lines and commas', () => {
 
 test('a setup token comes out of the hash and is dropped from it', () => {
   assert.equal(setupFromHash('#setup=sode_setup_abc&kiosk=1'), 'sode_setup_abc');
-  assert.equal(setupFromHash('#kiosk=1&setup=t'), 't');
+  assert.equal(setupFromHash('#kiosk=1&setup=t'), 'sode_setup_t');
   assert.equal(setupFromHash('#key=sode_k'), '');
   assert.equal(withoutSetup('#setup=t&kiosk=1'), '#kiosk=1');
   assert.equal(withoutSetup('#setup=t'), '');

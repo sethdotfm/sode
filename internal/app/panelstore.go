@@ -43,10 +43,13 @@ const (
 
 var (
 	panelIDRe = regexp.MustCompile(`^p-[0-9a-f]{8}$`)
-	artIDRe   = regexp.MustCompile(`^a-[0-9a-f]{8}$`)
+	// A slug is the panel's short name in /panels/<slug>. It never looks like an id or the editor's path.
+	panelSlugRe = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$`)
+	artIDRe     = regexp.MustCompile(`^a-[0-9a-f]{8}$`)
 
-	errPanelCap = errors.New("too many panels")
-	errArtCap   = errors.New("too many artwork files on this panel")
+	errPanelCap  = errors.New("too many panels")
+	errSlugTaken = errors.New("another panel already has that short name")
+	errArtCap    = errors.New("too many artwork files on this panel")
 )
 
 // PanelShare: Mode is panelShareMe, panelShareNamed (Users) or panelShareAll. Everyone it
@@ -72,6 +75,8 @@ type Panel struct {
 	Owner  string `yaml:"owner" json:"owner"`
 	Acts   string `yaml:"acts" json:"acts"`
 	Client string `yaml:"client,omitempty" json:"client,omitempty"` // the API client of an api panel
+	// Slug is the optional short name that opens the panel at /panels/<slug>. Unique across panels.
+	Slug string `yaml:"slug,omitempty" json:"slug,omitempty"`
 	// ClientRights rides the API only: sent by an editor, read from the client in the config,
 	// never stored in the panel file.
 	ClientRights *config.Rights   `yaml:"-" json:"clientRights,omitempty"`
@@ -89,7 +94,7 @@ type Panel struct {
 
 // panelKnown are the JSON names the struct owns. canEdit, hasKey and clientNetworks are output only and never stored,
 // so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances"}
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances"}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
@@ -153,6 +158,8 @@ func validatePanel(p *Panel) error {
 	switch {
 	case p.Name == "":
 		return errors.New("a panel needs a name")
+	case p.Slug != "" && !validPanelSlug(p.Slug):
+		return errors.New("a short name is 1 to 32 lowercase letters, digits and dashes, and starts and ends with a letter or digit")
 	case p.Rows < 1 || p.Rows > panelRowsMax || p.Cols < 1 || p.Cols > panelColsMax:
 		return fmt.Errorf("rows and columns are 1 to %d and 1 to %d", panelRowsMax, panelColsMax)
 	case p.Acts != panelActsSession && p.Acts != panelActsAPI:
@@ -171,6 +178,38 @@ func validatePanel(p *Panel) error {
 }
 
 func validPanelID(id string) bool { return panelIDRe.MatchString(id) }
+
+// validPanelSlug leaves out "editor" (its own page) and anything shaped like an id, so a slug never shadows either.
+func validPanelSlug(s string) bool {
+	return len(s) <= 32 && panelSlugRe.MatchString(s) && s != "editor" && !validPanelID(s)
+}
+
+// slugTakenLocked says another panel than id holds slug.
+func (s *panelStore) slugTakenLocked(slug, id string) bool {
+	if slug == "" {
+		return false
+	}
+	for _, q := range s.by {
+		if q.Slug == slug && q.ID != id {
+			return true
+		}
+	}
+	return false
+}
+
+// bySlug is the panel with that short name.
+func (s *panelStore) bySlug(slug string) (Panel, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if slug != "" {
+		for _, q := range s.by {
+			if q.Slug == slug {
+				return q, true
+			}
+		}
+	}
+	return Panel{}, false
+}
 
 // panelStore: Panel values held here are never mutated in place; every change stores a new
 // one, so a copy returned by get stays valid. Never call with App.mu held: changes write files.
@@ -195,6 +234,7 @@ func loadPanels(cfgPath string) *panelStore {
 		return s
 	}
 	s.dir = filepath.Join(filepath.Dir(cfgPath), panelsDir)
+	slugSeen := map[string]bool{}
 	err := s.loadDir(s.dir, func(path, id string, b []byte, err error) (Panel, bool) {
 		var p Panel
 		if err != nil {
@@ -210,6 +250,11 @@ func loadPanels(cfgPath string) *panelStore {
 			return p, false
 		}
 		p.normalize()
+		if p.Slug != "" && (!validPanelSlug(p.Slug) || slugSeen[p.Slug]) {
+			s.problem("%s: short name %q is not valid or is used by an earlier panel, so it was dropped", path, p.Slug)
+			p.Slug = ""
+		}
+		slugSeen[p.Slug] = true
 		return p, true
 	})
 	if err != nil && !os.IsNotExist(err) {
@@ -241,7 +286,13 @@ func (s *panelStore) writeLocked(p *Panel) error {
 
 // create stores p under a new id and returns it. Callers validate first.
 func (s *panelStore) create(p Panel) (Panel, error) {
-	return s.insert(p, panelMax, errPanelCap, nil, func(p *Panel) error {
+	vet := func(p Panel) error {
+		if s.slugTakenLocked(p.Slug, "") {
+			return errSlugTaken
+		}
+		return nil
+	}
+	return s.insert(p, panelMax, errPanelCap, vet, func(p *Panel) error {
 		p.normalize()
 		return s.writeLocked(p)
 	})
@@ -253,6 +304,9 @@ func (s *panelStore) replace(p Panel) (bool, error) {
 	defer s.mu.Unlock()
 	if _, ok := s.by[p.ID]; !ok {
 		return false, nil
+	}
+	if s.slugTakenLocked(p.Slug, p.ID) {
+		return true, errSlugTaken
 	}
 	if err := s.writeLocked(&p); err != nil {
 		return true, err

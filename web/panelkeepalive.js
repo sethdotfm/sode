@@ -5,9 +5,10 @@ import { KEEPALIVE_MS, deviceFrom, keepaliveBody } from './panelwatchrules.js';
 
 export const DEVICE_KEY = 'sode-panel-device';
 
-// call(path, init) is the page's keyed fetch; form holds the name input and its Save button.
-export function startKeepalive(call, id, form) {
-  let device = deviceFrom(readStr(DEVICE_KEY));
+// call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
+// ?instance= name: it stands in for the stored name and the question, and is never stored, so the link stays the authority.
+export function startKeepalive(call, id, form, preset = '') {
+  let device = deviceFrom(preset) || deviceFrom(readStr(DEVICE_KEY));
   let timer = 0;
   const beat = () =>
     call(`api/v1/panels/${id}/instances`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: keepaliveBody(device) }).catch(() => {});
