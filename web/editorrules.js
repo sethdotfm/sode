@@ -42,3 +42,12 @@ export function placeMenu(rect, menu, vp, gap) {
 const WORDS = { source: 'Source', destination: 'Destination', take: 'Take', preset: 'Preset', clear: 'Clear', current: 'Current Destination', '': 'Empty' };
 export const kindLabel = (kind) => WORDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
 export const kindChoices = () => [...KINDS, ''].map((kind) => ({ kind, label: kindLabel(kind) }));
+
+// The tip beside the grip while it is dragged: how many squares, and the first and last name placed.
+export function gripTip(plan, nameOf) {
+  if (!plan) return '';
+  const n = plan.slots.length;
+  if (!n) return 'Nothing to add here';
+  const name = (s) => nameOf({ kind: s.kind, n: s.n });
+  return `${n} square${n > 1 ? 's' : ''}, ${n > 1 ? `${name(plan.slots[0])} to ${name(plan.slots[n - 1])}` : name(plan.slots[0])}`;
+}
