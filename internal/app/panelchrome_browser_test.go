@@ -54,7 +54,7 @@ func TestChromePanelHeaderChrome(t *testing.T) {
 			const r = ids.map((i) => document.getElementById(i).getBoundingClientRect());
 			const sameSize = r.every((x) => x.width > 0 && Math.abs(x.width - r[2].width) < 1 && Math.abs(x.height - r[2].height) < 1);
 			const ordered = r[0].left < r[1].left && r[1].left < r[2].left;
-			const icons = ids.every((i) => document.querySelector('#' + i + ' use')?.getAttribute('href').endsWith('#' + {'panel-kiosk': 'monitor', 'panel-screen': 'maximize', 'panel-full': 'chevrons-left-right'}[i]));
+			const icons = ids.every((i) => document.querySelector('#' + i + ' use')?.getAttribute('href') === '#pb-i-' + ({'panel-kiosk': 'monitor', 'panel-screen': 'maximize', 'panel-full': 'chevrons-left-right'}[i]));
 			return sameSize && ordered && icons && !document.querySelector('.sode-panels__head a');
 		})()`)
 	b.waitFor("the Panels link is an icon at the bottom left of the window",

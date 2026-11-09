@@ -110,8 +110,9 @@ func TestChromeRunPageHoldsNoMemory(t *testing.T) {
 	}
 	base, last := samples[0], samples[rounds-1]
 	var bad []string
-	if last.documents != 1 {
-		bad = append(bad, fmt.Sprintf("documents %.0f after GC, want only the page", last.documents))
+	// The page and the logo's mask image.
+	if last.documents > 2 || last.documents != base.documents {
+		bad = append(bad, fmt.Sprintf("documents %.0f -> %.0f after GC", base.documents, last.documents))
 	}
 	if last.intervals != base.intervals || last.docL != base.docL || last.urls != base.urls {
 		bad = append(bad, fmt.Sprintf("intervals %.0f -> %.0f, document listeners %.0f -> %.0f, object URLs %.0f -> %.0f",
