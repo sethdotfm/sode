@@ -163,7 +163,7 @@
   opacity: 1;
 }
 /* The wait of a hold or double-press guard fills across the Take cell.
-   A transition, not a keyframe animation: the shared --pulse is the only animation (panellook.test.mjs). */
+   A transition, since the shared --pulse must stay the only keyframes (panellook.test.mjs). */
 .sode-panel__take::after {
   background-color: color-mix(in oklab, var(--pb-commit) 45%, transparent);
   content: "";
