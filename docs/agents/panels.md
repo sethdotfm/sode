@@ -48,3 +48,5 @@ A Session-mode page trades its signed-in session for a user key over the socket:
 - In a worktree the lint hook's `go vet` prints noise about the package path. It is not a real failure; run `go vet ./...` from the worktree root.
 - Panel pages sit at different URL depths and use `<base href="../">`. They share the `panel` page lock.
 - Status on panel pages is an icon first, with optional text. This exception is in AGENTS.md and nowhere else in Sode.
+- The editor's level picker (`editorlevels.js`) is the main page's: `pickButtons` from `levelview.js` over `S.levels`, which the page's socket fills from the hello (not `/api/v1/tally`), with its CSS in `base.css`. The sidebar redraws it on the `hello` event.
+- The Lock button bar is `position: fixed` top left on every page. `panels.css` pads `.sode-panels` under it (`data-sode-chip`) and hides it for a kiosk (`data-sode-kiosk`, set by `applyLook` in `panelrun.js`); keep the padding in step with the bar's size in `lock.css`.
