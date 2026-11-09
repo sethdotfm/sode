@@ -48,9 +48,10 @@ export async function runEditor() {
   const keyHooks = []; // (event) => true when a grid key was handled (Find takes typing and Enter)
   const changeWatchers = [];
   const readOnly = () => !!loaded && !loaded.canEdit;
+  let staged = null; // settings an applied template brings, merged into the next save
 
   const nameBox = $('ed-name');
-  const dirty = () => isDirty(loaded, nameBox.value, g);
+  const dirty = () => !!staged || isDirty(loaded, nameBox.value, g);
 
   const setGrid = (next) => {
     if (next === g) return;
@@ -192,6 +193,7 @@ export async function runEditor() {
     g = createGrid(panel || newPanel());
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
+    staged = null;
     say('ed-status', '');
     $('ed-pick').value = panel?.id || '';
     document.title = panel ? `${panel.name} (editor)` : 'Sode Panel Editor';
@@ -232,7 +234,9 @@ export async function runEditor() {
   async function save() {
     $('ed-save').disabled = true;
     say('ed-status', 'Saving.');
-    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, g));
+    const sent = saveBody(loaded || newPanel(), nameBox.value, g);
+    if (staged) sent.settings = { ...sent.settings, ...staged };
+    const body = JSON.stringify(sent);
     const res = await sessionFetch(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
       method: loaded ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -244,6 +248,7 @@ export async function runEditor() {
     }
     const made = !loaded;
     loaded = await res.json();
+    staged = null;
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
     nameBox.value = loaded.name;
     say('ed-status', 'Saved.');
@@ -288,6 +293,11 @@ export async function runEditor() {
     grid: () => g,
     setGrid,
     panel: () => loaded,
+    settings: () => ({ ...loaded?.settings, ...staged }),
+    stageSettings: (s) => {
+      staged = { ...staged, ...s };
+      refresh();
+    },
     readOnly,
     names: () => names,
     addMenuSection: (fn) => menuSections.push(fn),

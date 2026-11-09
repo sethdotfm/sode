@@ -88,6 +88,9 @@ All paths are under `/api/v1`.
 | `POST /panels` | `panelsmanage` | Create a panel. A user's key only: the user owns it |
 | `PUT /panels/{id}`, `DELETE /panels/{id}` | `panelsmanage` | Change or delete. The owner, or a Trusted user for anyone's |
 | `POST /panels/{id}/copy` | `panelsmanage` and `panels` | Save a copy: a private panel the caller owns, from any panel the caller may use |
+| `GET /panel-templates`, `GET /panel-templates/{id}` | `panels` | Templates: the Everyone ones, plus a user's own Me ones. Another user's Me template is 404 |
+| `POST /panel-templates` | `panelsmanage` | Save a template of a layout: rows, columns and each cell's type, levels and look. Cell contents (`n`, `scope`, `name`, `caption`) are dropped unless `contents` is true, so cells come back unassigned; `settings` are kept when sent. Scope `me` or `everyone`; `everyone` needs a Trusted user, or the Advanced Settings PIN as `pin` in the body (403 `trusted_required`, a wrong PIN counts toward its lockout). A user's key only. Names are unique per place (409 `conflict`) |
+| `DELETE /panel-templates/{id}` | `panelsmanage` | The user who saved it, or a Trusted user for an Everyone template |
 | `POST /panels/{id}/key`, `DELETE /panels/{id}/key` | `panelsmanage` | Make or rotate, or revoke, the key of a panel that acts as an API client. Owner or Trusted, a user's key. The secret comes back once, with `link` (`panels/<id>#key=<secret>`, relative to Sode's root) |
 | `POST /panels/{id}/artwork`, `GET` and `DELETE /panels/{id}/artwork/{art}` | `panelsmanage` (`panels` to read) | Artwork: the raw image as the body, JPEG, PNG, GIF or SVG up to 1 MB, its type decided by the bytes |
 
@@ -114,7 +117,7 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 | 403 | `https_required` | Require HTTPS is on and the request did not arrive securely | Use the HTTPS URL |
 | 403 | `not_owner` | A panel the caller may only use | Save a copy, or ask the owner |
 | 403 | `user_required` | Creating or copying a panel with a key that is not a user's | Use a user's key |
-| 403 | `trusted_required` | Making a panel an API client, or changing its rights, as a user who is not Trusted | Ask a Trusted user |
+| 403 | `trusted_required` | Making a panel an API client, or changing its rights, or saving a template to Everyone without the Advanced Settings PIN, as a user who is not Trusted | Ask a Trusted user |
 | 400 | `bad_request` | A parameter or body is not valid | Fix the request |
 | 413 | `too_large` | The body is over 64 KiB (256 KiB for a panel, 1 MB for artwork) | Send less |
 | 415 | `unsupported_type` | Artwork that is not a JPEG, PNG, GIF or SVG | Send one of those |

@@ -84,6 +84,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - API scopes `panels` and `panelsmanage`, API error codes `not_owner`, `user_required`, `trusted_required`, `unsupported_type` and `internal`, and `api` row kinds `panelCreate`, `panelUpdate`, `panelDelete`, `panelCopy`, `panelKey`, `panelKeyRotate` and `panelKeyRevoke`.
 - A panel's key is a key-store entry owned by its client, named `Link` (it shows in History as "Panel <id> (Link)"). The link is `panels/<id>#key=<secret>`; the page also reads `kiosk=1` in the fragment and panel `settings.kiosk` (true hides the header).
 
+- Directory `templates/` beside the config: `me/<id>.yaml` and `everyone/<id>.yaml` per template (id `t-` and 8 hex digits), apart from the panel files. A file whose id or directory differs from its content is skipped. Template fields: `id`, `name`, `scope` (`me` or `everyone`), `owner`, `contents` (cells keep their Sources, Destinations, Presets and captions), `rows`, `cols`, `cells`, `settings`. Routes `/api/v1/panel-templates`, body field `pin` (never stored), and `api` row kinds `templateCreate` and `templateDelete`.
 - Panel look (stored in `settings` and `cells`): `settings.titleBar`, `settings.fontSize`, `settings.backdrop`, `settings.wake`, `settings.haptics`; cell `art` and `fontSize`. `art` holds `icon:<name>` or an artwork id.
 
 ## Enforcement

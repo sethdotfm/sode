@@ -527,6 +527,93 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panel-templates:
+    get:
+      operationId: listPanelTemplates
+      tags: [panels]
+      summary: Templates this key may use
+      description: |
+        Scope `panels`. The Everyone templates, plus the caller's own Me templates for a user's
+        key. By name.
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates]
+                properties:
+                  templates: { type: array, items: { $ref: "#/components/schemas/PanelTemplate" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createPanelTemplate
+      tags: [panels]
+      summary: Save a template
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`). Saves a layout: rows,
+        columns and each cell's type, levels and look. Cell contents (`n`, `scope`, `name`,
+        `caption`) are dropped unless `contents` is true, so by default every cell comes back
+        unassigned. `settings` are kept when sent. Artwork ids are never kept, since artwork
+        belongs to one panel. A name is unique within Everyone, or within one user's Me
+        templates, ignoring case (409 `conflict`); at most 200 templates exist.
+
+        Scope `everyone` needs a Trusted user, or the Advanced Settings PIN sent as `pin` in the
+        body (403 `trusted_required`, also for a wrong PIN, which counts toward the PIN's
+        lockout). The PIN is never stored. The body is at most 256 KiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PanelTemplateIn" }
+            example: { name: Studio layout, scope: me, rows: 4, cols: 8, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: source }] }
+      responses:
+        "201":
+          description: The template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PanelTemplate" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-templates/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^t-[0-9a-f]{8}$" } }
+    get:
+      operationId: getPanelTemplate
+      tags: [panels]
+      summary: Read a template
+      description: Scope `panels`. Another user's Me template is 404 `not_found`, as if it did not exist.
+      responses:
+        "200":
+          description: The template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PanelTemplate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePanelTemplate
+      tags: [panels]
+      summary: Delete a template
+      description: Scope `panelsmanage`. The user who saved it, or a Trusted user for an Everyone template (403 `not_owner` otherwise).
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
@@ -857,7 +944,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent), `https_required`, `not_owner` (a panel the caller may only use), `user_required` (a panel needs a user's key to own it) or `trusted_required` (only a Trusted user may make a panel an API client or change its rights)"
+      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent), `https_required`, `not_owner` (a panel the caller may only use), `user_required` (a panel needs a user's key to own it) or `trusted_required` (only a Trusted user may make a panel an API client or change its rights, or save a template to Everyone without the Advanced Settings PIN)"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -984,6 +1071,29 @@ components:
             levels: { type: array, items: { type: integer }, description: UI levels }
             presets: { type: array, items: { type: string } }
             visibility: { type: string, enum: [readonly, hidden] }
+    PanelTemplateIn:
+      type: object
+      required: [name, scope]
+      properties:
+        name: { type: string, maxLength: 60 }
+        scope: { type: string, enum: [me, everyone] }
+        rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
+        cols: { type: integer, minimum: 1, maximum: 24, default: 8 }
+        cells:
+          type: array
+          items: { type: object, additionalProperties: true, description: A cell as a panel stores it }
+        settings: { type: object, additionalProperties: true, description: Panel settings to carry, left out for a layout only }
+        contents: { type: boolean, default: false, description: "Keep the cells' Sources, Destinations, Presets and captions" }
+        pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for scope everyone by a user who is not Trusted" }
+    PanelTemplate:
+      allOf:
+        - $ref: "#/components/schemas/PanelTemplateIn"
+        - type: object
+          required: [id, owner, contents, canEdit]
+          properties:
+            id: { type: string, pattern: "^t-[0-9a-f]{8}$" }
+            owner: { type: string, description: The user who saved it }
+            canEdit: { type: boolean, description: True when the caller may delete it }
     Panel:
       allOf:
         - $ref: "#/components/schemas/PanelIn"

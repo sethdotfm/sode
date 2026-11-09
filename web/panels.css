@@ -484,3 +484,39 @@
 .sode-ed__sq.is-replaced {
   text-decoration: underline dotted;
 }
+
+.sode-tpl__list,
+.sode-tpl__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-tpl__list {
+  max-height: 16rem;
+  overflow-y: auto;
+  margin-bottom: var(--pb-space-4);
+}
+.sode-tpl__head {
+  font-size: 1rem;
+  margin: var(--pb-space-2) 0 0;
+}
+.sode-tpl__row {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode-tpl__name {
+  font-weight: 600;
+}
+.sode-tpl__row > .pb-btn:first-of-type {
+  margin-left: auto;
+}
+.sode-tpl__field,
+.sode-tpl__pin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+}
+.sode__scrim > .pb-modal.sode-tpl {
+  width: min(34rem, calc(100vw - var(--pb-space-8) * 2));
+}

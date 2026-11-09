@@ -531,6 +531,7 @@ func (a *App) panelsFollowUsers(before []config.User, rows []userEdit) {
 	if len(renames) == 0 && len(removed) == 0 {
 		return
 	}
+	a.templates.followUsers(renames)
 	n, err := a.panels.followUsers(renames, removed)
 	if err != nil {
 		log.Printf("panels: user change reached %d panels, then: %v", n, err)
