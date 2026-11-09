@@ -195,6 +195,9 @@ The panel setting that decides when a panel's plan is confirmed. In Take mode th
 **Clear** (cell kind):
 Cancels the plan the panel has pending. It never changes the router.
 
+**Fixed destination**:
+A panel setting that holds a list of destinations the panel always patches to, at most 16. A panel with it set has no viewed destination to choose: a Source press stages a route to each one. An empty list turns it off.
+
 **Kiosk**:
 A panel setting that hides Sode's branding and settings so the page is only the grid.
 
@@ -202,7 +205,7 @@ A panel setting that hides Sode's branding and settings so the page is only the 
 A saved layout of a panel: its cell kinds, and optionally its settings and cell contents. By default cells come back unassigned. A template is saved to Me or Everyone.
 
 **Push**:
-Copies a panel's saved config to other panels. Each target keeps its own name, id and sharing, and a checkpoint of it is kept first so the Push can be put back.
+Copies a panel's saved config to other panels. Each target keeps its own name, id, sharing and fixed destinations, and a checkpoint of it is kept first so the Push can be put back.
 
 **Checkpoint set**:
 One saved layout per panel in a group, so a single Push gives each panel in the group its own layout.

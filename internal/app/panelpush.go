@@ -131,7 +131,14 @@ func (s *panelStore) applyLocked(id string, lay panelLayout, by, why string) (Pa
 	return q, cp, nil
 }
 
-// applyLayout is a Push to one panel.
+// pushLayout is a Push to one panel. The target keeps its own fixed destinations.
+func (s *panelStore) pushLayout(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.applyLocked(id, keepFixedDests(lay, s.by[id]), by, why)
+}
+
+// applyLayout puts a whole layout on one panel, as a Checkpoint set does.
 func (s *panelStore) applyLayout(id string, lay panelLayout, by, why string) (Panel, panelCheckpoint, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

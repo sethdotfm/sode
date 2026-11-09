@@ -123,6 +123,14 @@ func (t *Template) clean() error {
 	if t.Settings != nil {
 		t.Settings = maps.Clone(t.Settings)
 		dropArtwork(t.Settings, "backdrop")
+		if !t.Dests {
+			delete(t.Settings, panelFixedKey)
+		}
+		settings, err := cleanFixedDests(t.Settings)
+		if err != nil {
+			return err
+		}
+		t.Settings = settings
 	}
 	return nil
 }

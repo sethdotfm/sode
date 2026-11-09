@@ -37,7 +37,7 @@ Ended keys (the throttle lockout a stale tab caused): Sode answers a key that wo
 
 ## Push, Rev and live update
 
-`panelStore.applyLocked` writes the checkpoint, then the panel. A checkpoint that cannot be saved stops the Push. Open pages poll `GET /panels/{id}` every 5 seconds and compare `rev` (`panelupdate.js`, `panellive.js`; a 10 s countdown banner with a bar, Snooze 60 s (once per open page) and Apply now; staged routes hold the plain countdown but not a Snooze or Apply now, see docs/panels-design.md), so a Push, an editor save and a restore all reach them through the same store write. Push and import never copy `acts`, `client` or `clientRights`, nor id, name, owner or `share`. A new route that stores a panel must not widen that list. The group for Push is worked out in the page (`pushGroups`); the server only sees ids.
+`panelStore.applyLocked` writes the checkpoint, then the panel. A checkpoint that cannot be saved stops the Push. Open pages poll `GET /panels/{id}` every 5 seconds and compare `rev` (`panelupdate.js`, `panellive.js`; a 10 s countdown banner with a bar, Snooze 60 s (once per open page) and Apply now; staged routes hold the plain countdown but not a Snooze or Apply now, see docs/panels-design.md), so a Push, an editor save and a restore all reach them through the same store write. Push and import never copy `acts`, `client` or `clientRights`, nor id, name, owner or `share`. A Push also keeps the target's `settings.fixedDests` (`pushLayout`); a Checkpoint set and a restore put the whole layout back, list included. A template keeps the list only with `dests`. A new route that stores a panel must not widen that list. The group for Push is worked out in the page (`pushGroups`); the server only sees ids.
 
 ## Monitoring
 
