@@ -71,6 +71,14 @@ Proposed, not prototyped.
 - The page cannot read a panel's mode before it has a key. A key in the URL fragment (`#key=`) means API mode. Without one the page starts a session key (Session mode) and, if the panel then turns out to act as an API client, asks for its link with the key instead of running.
 - A failed route stays staged after a take, so Take can be pressed again. A level with nothing routed is ignored when finding the current source. Rights are not checked in the page: the server refuses a route outside them and the page shows its message.
 
+## Look and device settings (as built)
+
+- Modules: `panellook.js` (pure: reads settings and cell artwork), `panelart.js` (artwork fetch), `panelfeel.js` (wake lock, haptics), with the page wiring in `panelrun.js` and `panelview.js`. Tests in `web/test/panellook.test.mjs` and `panelart.test.mjs`.
+- Panel `settings`: `titleBar` (false hides the title bar, the header with the name and the Panels link; kiosk hides it too), `fontSize` (percent, 50 to 200, default 100), `backdrop` (an artwork id), `wake`, `haptics` (both true to switch on). Cell fields: `art` (`icon:<vendored icon name>` or an artwork id) and `fontSize` (percent, multiplies the panel's).
+- Colours: an idle Source is `--pb-current-idle`, an idle Destination `--pb-view-idle`, both the state colour muted into `--pb-surface-control`. Viewed and Current are solid. Staged, pending and an armed Take swell between 72% and 100% of the state colour on `--pulse`, and each also has a static inset ring, so reduced motion (which freezes `--pulse` at 0.6) still shows state.
+- Artwork: the route needs the Authorization header, so the page fetches it with the panel's key and shows a blob URL in an `<img>`. The backdrop is a CSS background from the same blob URL. SVG is never inlined. The CSP allows `blob:` for `img-src` only. A fetch that fails leaves the cell without artwork. An icon name missing from the vendored sprite draws nothing.
+- Keep the screen awake: Screen Wake Lock, requested when the page opens and again whenever it becomes visible, since a browser drops the lock when the page hides. A refusal is ignored. Haptics: one 15 ms `navigator.vibrate` on each press the page accepts. Browsers without the API (iOS has no vibrate) do nothing. `featureSupport(navigator)` in `panelfeel.js` says what the browser has, for the editor to hide or disable the two switches. Result of the spec's proposal: built as described, with no extra settings.
+
 ## Build notes
 
 - Vanilla ES modules and patchbay tokens only. The prototype used `pb-btn pb-xpt` cells, `pb-toolbar`, `pb-toast` and the Lucide sprite. Orange and the muted idle colours need new semantic tokens upstream, since `--pb-brand` is for navigation chrome.

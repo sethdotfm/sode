@@ -1,13 +1,35 @@
 // Draws a panel's grid from the state model. Holds no state of its own: paintGrid is called after
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
+import { artOf, cellScale } from './panellook.js';
 import { sourceState, destinationState, presetState, currentOfDestination, currentSource, armed, resultOf, guardWaiting } from './panelmodel.js';
 
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
 const RESULT_WORD = { connected: 'Connected', already: 'Already', failed: 'Failed' };
 
+// A cell's artwork lives outside the paint functions, which replace a cell's children; paintGrid puts it back first.
+function artNode(cell, art) {
+  const a = artOf(cell);
+  if (!a) return null;
+  if (a.icon) {
+    const svg = icon(a.icon, false);
+    svg.setAttribute('class', 'pb-icon sode-panel__art sode-panel__art--icon');
+    return svg;
+  }
+  const img = el('img', 'sode-panel__art');
+  img.alt = '';
+  img.hidden = true;
+  art?.url(a.id).then((url) => {
+    if (!url) return;
+    img.src = url;
+    img.hidden = false;
+  });
+  return img;
+}
+
 // hold is { down(cell), cancel() } for a Take cell with a hold guard: pointer or Enter and Space start it, leaving ends it.
-export function buildGrid(host, panel, cells, onPress, hold) {
+// art is createArt's answer, for cells with uploaded artwork.
+export function buildGrid(host, panel, cells, onPress, hold, art) {
   host.replaceChildren();
   host.style.gridTemplate = `repeat(${panel.rows}, 1fr) / repeat(${panel.cols}, 1fr)`;
   host.style.aspectRatio = `${panel.cols} / ${panel.rows}`;
@@ -16,6 +38,8 @@ export function buildGrid(host, panel, cells, onPress, hold) {
     const b = el('button', `sode-panel__cell sode-panel__cell--${cell.kind} ${cls}`);
     b.type = 'button';
     b.disabled = cell.kind === 'current';
+    if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
+    b._art = artNode(cell, art);
     b.style.gridArea = `${cell.r} / ${cell.c} / span ${cell.rs} / span ${cell.cs}`;
     b.addEventListener('click', () => onPress(cell));
     if (cell.kind === 'take' && hold) {
@@ -93,5 +117,6 @@ export function paintGrid(grid, ctx) {
       b.disabled = !on;
       b.classList.toggle('sode-panel__take--armed', on);
     }
+    if (b._art) b.prepend(b._art);
   });
 }
