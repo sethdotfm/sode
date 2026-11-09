@@ -13,6 +13,7 @@ const DEFAULTS = {
   backdrop: '',
   wake: false,
   haptics: false,
+  fullscreen: false,
   mode: 'take',
   multi: true,
   guard: 'none',
@@ -47,6 +48,24 @@ export function levelsPatch(all, chosen) {
   const pick = all.filter((l) => chosen.includes(l));
   return !pick.length || pick.length === all.length ? undefined : pick;
 }
+
+// A level box shows what the panel or cell does: no stored subset means every level, so every box is ticked.
+export function levelsShown(all, stored) {
+  const pick = Array.isArray(stored) ? all.filter((l) => stored.includes(l)) : [];
+  return pick.length ? pick : all;
+}
+
+// The patch after ticking or unticking one level. Unticking the last one is refused by the boxes (levelLocked), as
+// nothing ticked would store the same as every level.
+export function levelsToggle(all, stored, level, on) {
+  const now = levelsShown(all, stored);
+  return levelsPatch(all, on ? [...now, level] : now.filter((x) => x !== level));
+}
+
+export const levelLocked = (all, stored, level) => {
+  const now = levelsShown(all, stored);
+  return now.length === 1 && now[0] === level;
+};
 
 export const ART_ICONS = [
   'video',

@@ -29,7 +29,7 @@ import {
 import { buildGrid, paintGrid } from './panelview.js';
 import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
-import { createWake, buzz } from './panelfeel.js';
+import { createWake, buzz, enterFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
 
 const POLL_MS = 2000;
@@ -211,6 +211,7 @@ export async function runPanel(id) {
   function onPress(cell) {
     if (!ready) return;
     if (look.haptics) buzz(navigator);
+    if (look.fullscreen) enterFullscreen(document);
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env, now)) return;

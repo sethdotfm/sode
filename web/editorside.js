@@ -56,6 +56,7 @@ export function initSidebar(ed) {
     if (now !== sel && now) tabs.select('ed-cell');
     sel = now;
     cell.update();
+    panel.update();
   });
   ed.onFields(() => {
     paint();

@@ -10,13 +10,13 @@ import { featureSupport, createWake, buzz } from '../panelfeel.js';
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'panels.css'), 'utf8');
 
 test('a panel with no look settings shows the title bar at normal size with no backdrop or device features', () => {
-  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, backdrop: '', wake: false, haptics: false });
+  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, backdrop: '', wake: false, haptics: false, fullscreen: false });
   assert.deepEqual(lookOf(undefined), lookOf({}));
 });
 
 test('look settings are read as stored, and odd values fall back', () => {
   const l = lookOf({ titleBar: false, fontSize: 150, backdrop: 'a-0123abcd', wake: true, haptics: true });
-  assert.deepEqual(l, { titleBar: false, scale: 1.5, backdrop: 'a-0123abcd', wake: true, haptics: true });
+  assert.deepEqual(l, { titleBar: false, scale: 1.5, backdrop: 'a-0123abcd', wake: true, haptics: true, fullscreen: false });
   assert.equal(lookOf({ fontSize: 'big' }).scale, 1);
   assert.equal(lookOf({ fontSize: 5 }).scale, 0.5);
   assert.equal(lookOf({ fontSize: 5000 }).scale, 2);
@@ -128,4 +128,31 @@ test('with reduced motion the pulse stops and the state is still carried by stat
     const rule = new RegExp(`${sel.replace(/[[\]"-]/g, '\\$&')}[^{]*\\{[^}]*box-shadow: inset`).test(css);
     assert.equal(rule, true, `${sel} has a ring`);
   }
+});
+
+test('fullscreen is a stored switch, and hide text only counts with artwork', async () => {
+  const { textHidden } = await import('../panellook.js');
+  assert.equal(lookOf({ fullscreen: true }).fullscreen, true);
+  assert.equal(lookOf({ fullscreen: 'yes' }).fullscreen, false);
+  assert.equal(textHidden({ hideText: true, art: 'icon:tv' }), true);
+  assert.equal(textHidden({ hideText: true, art: 'a-0123abcd' }), true);
+  assert.equal(textHidden({ hideText: true }), false);
+  assert.equal(textHidden({ hideText: true, art: 'https://x/y.png' }), false);
+  assert.equal(textHidden({ art: 'icon:tv' }), false);
+});
+
+test('enterFullscreen asks once from a press and does nothing where it is missing or already on', async () => {
+  const { enterFullscreen } = await import('../panelfeel.js');
+  let asked = 0;
+  const doc = { fullscreenEnabled: true, documentElement: { requestFullscreen: () => (asked++, Promise.reject(new Error('refused'))) } };
+  assert.equal(enterFullscreen(doc), true);
+  assert.equal(asked, 1);
+  assert.equal(enterFullscreen({ ...doc, fullscreenElement: {} }), false);
+  assert.equal(enterFullscreen({ ...doc, fullscreenEnabled: false }), false);
+  assert.equal(enterFullscreen({}), false);
+  assert.equal(enterFullscreen(undefined), false);
+});
+
+test('hidden text stays readable by screen readers', () => {
+  assert.match(css, /\.sode-panel__cell\[data-hide-text\] \.sode-panel__text \{[^}]*clip-path: inset\(50%\)/);
 });

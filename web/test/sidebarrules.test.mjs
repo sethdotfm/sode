@@ -28,7 +28,7 @@ test('a setting at its default is dropped, so a stored panel only holds what was
 
 test('what the editor stores is what the panel page reads', () => {
   const s = setSetting(setSetting(setSetting({}, 'titleBar', false), 'fontSize', 150), 'backdrop', 'a-0123abcd');
-  assert.deepEqual({ ...lookOf(s) }, { titleBar: false, scale: 1.5, backdrop: 'a-0123abcd', wake: false, haptics: false });
+  assert.deepEqual({ ...lookOf(s) }, { titleBar: false, scale: 1.5, backdrop: 'a-0123abcd', wake: false, haptics: false, fullscreen: false });
 });
 
 test('font size is a whole percent from 50 to 200', () => {
@@ -82,4 +82,20 @@ test('a saved panel response has no watching, so the last known state stands', (
 
 test('each mode has a hint', () => {
   assert.ok(MODE_HINT.take && MODE_HINT.instant);
+});
+
+test('level boxes show every level ticked until a subset is stored, and the last one stays on', async () => {
+  const { levelsShown, levelsToggle, levelLocked } = await import('../sidebarrules.js');
+  const all = [1, 2, 3];
+  assert.deepEqual(levelsShown(all, undefined), [1, 2, 3]);
+  assert.deepEqual(levelsShown(all, []), [1, 2, 3]);
+  assert.deepEqual(levelsShown(all, [3, 1]), [1, 3]);
+  assert.deepEqual(levelsShown(all, [9]), [1, 2, 3]);
+  assert.deepEqual(levelsToggle(all, undefined, 2, false), [1, 3]);
+  assert.equal(levelsToggle(all, [1, 3], 2, true), undefined);
+  assert.deepEqual(levelsToggle(all, [1, 3], 3, false), [1]);
+  assert.equal(levelLocked(all, [1], 1), true);
+  assert.equal(levelLocked(all, [1, 3], 1), false);
+  assert.equal(levelLocked([1], undefined, 1), true);
+  assert.equal(levelLocked(all, undefined, 1), false);
 });
