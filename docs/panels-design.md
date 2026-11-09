@@ -51,6 +51,7 @@ The editor is the page where a panel's grid and settings are made. It lives unde
 - Delete needs a second press.
 - Share is a modal with two tabs. People sets Only me, Named users or Everyone. Link with key is for a panel that acts as an API client: the key sits in the URL fragment (`#key=`) so it never reaches a request line or proxy log, the link is masked until revealed, and the tab offers Copy link, a QR code, Open as kiosk, Rotate and Revoke (each confirmed). A panel that acts as a user has no key and asks for a PIN at launch.
 - Rotating a key signs out open instances and kills old links. Revoking leaves the panel without a key.
+- Share as built: `panelshare.js` opens the modal (`openShare(panel, {api, onSaved})`); another tab joins by pushing a function onto `shareTabs` that returns `{id, text, panel}` or null. People saves only the `share` field through `PUT /api/v1/panels/{id}`. The picker reads `GET /api/v1/panels/people` (names only, a user's key only). Pure rules (`shareDraft`, `pickList`, `shareBody`, `shareChanged`) are in `panelsrules.js`.
 
 ## Monitoring
 

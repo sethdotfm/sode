@@ -244,6 +244,16 @@
 .sode-ov__kv dd {
   margin: 0;
 }
+.sode__scrim > .pb-modal.sode-ov__share {
+  width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode-ov__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: 18rem;
+  overflow-y: auto;
+}
 .sode-ov__thumb {
   background: var(--pb-surface-base);
   border: 1px solid var(--pb-border);
