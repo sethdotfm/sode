@@ -1035,6 +1035,12 @@ html:has(.sode__scrim:not([hidden])) {
 
 /* The offline badge in the toast stack (panelwatch.js) */
 .pb-toast-stack [data-panel-badge] {
+  font-size: calc(var(--pb-text-xs) * 2);
+  padding: calc(var(--pb-space-2) * 2) calc(var(--pb-space-4) * 2);
   pointer-events: auto;
   text-decoration: none;
+}
+.sode__toast-link {
+  color: inherit;
+  text-decoration: underline;
 }

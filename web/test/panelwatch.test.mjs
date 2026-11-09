@@ -14,6 +14,7 @@ import {
   retryMs,
   bannerText,
   clearNote,
+  lostText,
 } from '../panelwatchrules.js';
 
 test('durations read in the largest sensible unit', () => {
@@ -80,4 +81,19 @@ test('the banner names one panel, or counts several, and the Clear menu words fo
   assert.equal(bannerText(two).title, '2 panels are offline');
   assert.equal(clearNote(one).stop, 'Stop monitoring this panel');
   assert.equal(clearNote(two).stop, 'Stop monitoring these panels');
+});
+
+test('a watched screen reads as a screen, and a mix is counted plainly', () => {
+  const scr = { panel: 'p-1', name: 'Wall', device: 'Studio A', instance: 'studio a' };
+  assert.equal(bannerText([scr]).title, 'Wall lost Studio A');
+  assert.equal(badgeText([scr]), '1 screen offline');
+  const mix = [scr, { panel: 'p-2', name: 'Door', device: 'Hall' }];
+  assert.equal(badgeText(mix), '2 offline');
+  assert.equal(bannerText(mix).title, '2 watched panels and screens are offline');
+  assert.equal(bannerText(mix).text, 'Wall: Studio A, Door');
+});
+
+test('the lost line counts the silence up from the notice', () => {
+  assert.equal(lostText('Lobby', 8), 'Lobby has not been heard from for 8 seconds.');
+  assert.equal(lostText('Lobby', 8 + 55.4), 'Lobby has not been heard from for 1 minute 3 seconds.');
 });

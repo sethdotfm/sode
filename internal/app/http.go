@@ -357,6 +357,7 @@ type inMsg struct {
 	APISet     *apiSettingsReq    `json:"apiSettings"`
 	Panel      string             `json:"panel"`  // panelAlarm: the panel id
 	Action     string             `json:"action"` // panelAlarm: clear | stop
+	Instance   string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 }
 
 func plural(n int, one, many string) string {

@@ -78,6 +78,9 @@ Proposed, not prototyped.
 - Watchers: the owner or a Trusted user, checked again when a notice goes out. The list is `panelwatch.yaml` beside the config, never in a panel file, and the API only sends the caller's own `watching`. Notices go to connections signed in as the watcher and not under the Lock. `panelsOffline` rebuilds the badge after a reload or sign-in; a notice sent while nobody was signed in is not kept.
 - Deleting a panel forgets its devices and watches. Making, rotating or revoking an instance's key forgets that device, so an ended kiosk does not alert.
 - A panel client's keys share one rate limit that scales with its live devices, since each page polls every 2 s. Its streams are capped at 64 per key and not counted per address.
+- Watch is per panel and per screen (alpha G). The panels page's Open now list has a checkbox on each screen, and a user may hold both. A whole-panel watcher hears about every device as before. A screen-only watcher hears only about that screen: a lost or back toast that never says the panel is offline, an alarm row `Wall lost Studio A`, and Stop monitoring on that row removes only that screen's watch. The editor's checkbox stays whole-panel.
+- Dead peers: the server turns on TCP keepalive for every accepted connection (2 s idle, 1 s apart, 3 misses), so a device that vanished without a FIN ends its stream in about 5 s and is lost 8 s later, inside 15 s. A proxy that keeps its upstream connection open hides this, and the 45 s miss applies. The panels page refreshes the online marks and Open now every 2 s.
+- The offline toast's title links to the panel, and its "has not been heard from for" time counts up while the toast is open until the device returns.
 - Decided: no expected-instance count, and no alert for a key used from a new place.
 - Not built: the Watch checkbox in the editor (story 90; mount `watchBox` from `panelsmon.js` when wanted). It is on the panels page.
 

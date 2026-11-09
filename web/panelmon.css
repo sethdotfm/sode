@@ -25,6 +25,9 @@
   flex-direction: column;
   gap: var(--pb-space-2);
 }
+.sode-ov__watchone {
+  margin-inline-start: auto;
+}
 .sode-ov__notify {
   margin: 0;
 }

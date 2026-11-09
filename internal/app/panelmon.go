@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"maps"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -83,8 +84,8 @@ type panelMon struct {
 	now   func() time.Time // a test seam
 	path  string           // "" = memory only
 	inst  map[string]map[string]*monInst
-	watch map[string]map[string]bool // lowercased user -> panel ids
-	clear map[string]map[string]bool // lowercased user -> panel ids whose current outage was cleared
+	watch map[string]map[string]bool // lowercased user -> watch keys, see watchKey
+	clear map[string]map[string]bool // lowercased user -> watch keys whose current outage was cleared
 }
 
 func loadPanelMon(cfgPath string) *panelMon {
@@ -105,11 +106,11 @@ func loadPanelMon(cfgPath string) *panelMon {
 		log.Printf("panels: %s is not valid YAML, watches skipped: %v", m.path, err)
 		return m
 	}
-	for u, ids := range by {
+	for u, keys := range by {
 		m.watch[strings.ToLower(u)] = map[string]bool{}
-		for _, id := range ids {
-			if validPanelID(id) {
-				m.watch[strings.ToLower(u)][id] = true
+		for _, k := range keys {
+			if id, inst := splitWatchKey(k); validPanelID(id) {
+				m.watch[strings.ToLower(u)][watchKey(id, inst)] = true
 			}
 		}
 	}
@@ -134,35 +135,72 @@ func (m *panelMon) saveLocked() error {
 	return config.AtomicWrite(m.path, b)
 }
 
-func (m *panelMon) watching(user, id string) bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.watch[strings.ToLower(user)][id]
+// watchKey names one watch: a panel id alone for the whole panel, or "<id>/<device lowercased>" for
+// one instance. A panel id has no slash, so the first one splits them. Stored as is in panelwatch.yaml,
+// which is why an older file of plain ids still loads.
+func watchKey(id, inst string) string {
+	if inst = strings.ToLower(strings.TrimSpace(inst)); inst != "" {
+		return id + "/" + inst
+	}
+	return id
 }
 
-func (m *panelMon) setWatch(user, id string, on bool) error {
+func splitWatchKey(k string) (id, inst string) {
+	id, inst, _ = strings.Cut(k, "/")
+	return id, inst
+}
+
+// watching is the whole-panel watch.
+func (m *panelMon) watching(user, id string) bool { return m.watchingInst(user, id, "") }
+
+func (m *panelMon) watchingInst(user, id, inst string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	k := strings.ToLower(user)
-	if on {
-		if m.watch[k] == nil {
-			m.watch[k] = map[string]bool{}
+	return m.watch[strings.ToLower(user)][watchKey(id, inst)]
+}
+
+// watchedInstances lists the lowercased device names the user watches on the panel.
+func (m *panelMon) watchedInstances(user, id string) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := []string{}
+	for k := range m.watch[strings.ToLower(user)] {
+		if wid, inst := splitWatchKey(k); wid == id && inst != "" {
+			out = append(out, inst)
 		}
-		m.watch[k][id] = true
+	}
+	slices.Sort(out)
+	return out
+}
+
+func (m *panelMon) setWatch(user, id string, on bool) error { return m.setWatchInst(user, id, "", on) }
+
+func (m *panelMon) setWatchInst(user, id, inst string, on bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	u, k := strings.ToLower(user), watchKey(id, inst)
+	if on {
+		if m.watch[u] == nil {
+			m.watch[u] = map[string]bool{}
+		}
+		m.watch[u][k] = true
 	} else {
-		delete(m.watch[k], id)
+		delete(m.watch[u], k)
 	}
 	return m.saveLocked()
 }
 
-// watchedBy lists, lowercased, who watches panel id.
-func (m *panelMon) watchedBy(id string) []string {
+// watchersOf maps, by lowercased name, who is told about a device of panel id. The value is true for
+// a whole-panel watch and false for one that names only this device.
+func (m *panelMon) watchersOf(id, device string) map[string]bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var out []string
+	out := map[string]bool{}
 	for u, set := range m.watch {
 		if set[id] {
-			out = append(out, u)
+			out[u] = true
+		} else if set[watchKey(id, device)] {
+			out[u] = false
 		}
 	}
 	return out
@@ -179,15 +217,17 @@ func (m *panelMon) forget(id string, watches bool) {
 		}
 	}
 	delete(m.inst, id)
-	m.unclearLocked(id)
+	m.unclearLocked(id, "")
 	if !watches {
 		return
 	}
 	changed := false
 	for _, set := range m.watch {
-		if set[id] {
-			delete(set, id)
-			changed = true
+		for k := range set {
+			if wid, _ := splitWatchKey(k); wid == id {
+				delete(set, k)
+				changed = true
+			}
 		}
 	}
 	if changed {
@@ -197,27 +237,38 @@ func (m *panelMon) forget(id string, watches bool) {
 	}
 }
 
-// clearAlarm hides the panel's current outage from the user's banner and badge until the next
+// clearAlarm hides one watch's current outage from the user's banner and badge until the next
 // notice about that panel.
-func (m *panelMon) clearAlarm(user, id string) {
+func (m *panelMon) clearAlarm(user, id, inst string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	k := strings.ToLower(user)
 	if m.clear[k] == nil {
 		m.clear[k] = map[string]bool{}
 	}
-	m.clear[k][id] = true
+	m.clear[k][watchKey(id, inst)] = true
 }
 
-func (m *panelMon) unclear(id string) {
+// unclear makes a new notice show again: the panel's own outage, and the device's when it has one.
+func (m *panelMon) unclear(id, device string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.unclearLocked(id)
+	m.unclearLocked(id, device)
 }
 
-func (m *panelMon) unclearLocked(id string) {
+// unclearLocked with no device drops every clear of the panel.
+func (m *panelMon) unclearLocked(id, device string) {
 	for _, set := range m.clear {
+		if device == "" {
+			for k := range set {
+				if wid, _ := splitWatchKey(k); wid == id {
+					delete(set, k)
+				}
+			}
+			continue
+		}
 		delete(set, id)
+		delete(set, watchKey(id, device))
 	}
 }
 
@@ -376,19 +427,35 @@ func (m *panelMon) sweep(now time.Time) []monEvent {
 	return out
 }
 
+// offlineRow is one alarm of the banner. Instance is the watched device (lowercased) of an instance
+// watch and empty for a whole-panel one; the page sends it back with panelAlarm.
 type offlineRow struct {
-	Panel  string    `json:"panel"`
-	Name   string    `json:"name"`
-	Device string    `json:"device"`
-	Since  time.Time `json:"since"`
+	Panel    string    `json:"panel"`
+	Name     string    `json:"name"`
+	Device   string    `json:"device"`
+	Instance string    `json:"instance,omitempty"`
+	Since    time.Time `json:"since"`
 }
 
-// offlineIDs: panels with no device online and one that was lost, with the latest lost device.
-func (m *panelMon) offlineIDs(ids map[string]bool) map[string]*monInst {
+// offlineKeys turns a user's uncleared watch keys into rows. A whole-panel watch is offline when no
+// device counts and one was lost, with the latest lost device; an instance watch when that device
+// was lost and does not count.
+func (m *panelMon) offlineKeys(user string) []offlineRow {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	now, out := m.now(), map[string]*monInst{}
-	for id := range ids {
+	u, now := strings.ToLower(user), m.now()
+	var rows []offlineRow
+	for k := range m.watch[u] {
+		if m.clear[u][k] {
+			continue
+		}
+		id, inst := splitWatchKey(k)
+		if inst != "" {
+			if in := m.inst[id][inst]; in != nil && in.lost && !in.live(now) {
+				rows = append(rows, offlineRow{Panel: id, Device: in.device, Instance: inst, Since: in.seen.UTC()})
+			}
+			continue
+		}
 		if m.onlineLocked(id, now) {
 			continue
 		}
@@ -399,11 +466,10 @@ func (m *panelMon) offlineIDs(ids map[string]bool) map[string]*monInst {
 			}
 		}
 		if last != nil {
-			c := *last
-			out[id] = &c
+			rows = append(rows, offlineRow{Panel: id, Device: last.device, Since: last.seen.UTC()})
 		}
 	}
-	return out
+	return rows
 }
 
 // mayWatch: the owner, or a Trusted user (read live), may watch a panel.
@@ -414,21 +480,32 @@ func (a *App) mayWatch(user string, p Panel) bool {
 	return a.trusted(user)
 }
 
-// offlineFor is the watched panels of user that are offline, newest loss first.
+// offlineFor is the alarms of user, newest loss first. A device already named by the user's
+// whole-panel alarm is not listed twice.
 func (a *App) offlineFor(user string) []offlineRow {
-	a.mon.mu.Lock()
-	ids := maps.Clone(a.mon.watch[strings.ToLower(user)])
-	for id := range a.mon.clear[strings.ToLower(user)] {
-		delete(ids, id)
-	}
-	a.mon.mu.Unlock()
 	rows := []offlineRow{}
-	for id, in := range a.mon.offlineIDs(ids) {
-		if p, ok := a.panels.get(id); ok && a.mayWatch(user, p) {
-			rows = append(rows, offlineRow{id, p.Name, in.device, in.seen.UTC()})
+	whole := map[string]string{}
+	all := a.mon.offlineKeys(user)
+	for _, r := range all {
+		if r.Instance == "" {
+			whole[r.Panel] = strings.ToLower(r.Device)
 		}
 	}
-	slices.SortFunc(rows, func(x, y offlineRow) int { return y.Since.Compare(x.Since) })
+	for _, r := range all {
+		if r.Instance != "" && whole[r.Panel] == r.Instance {
+			continue
+		}
+		if p, ok := a.panels.get(r.Panel); ok && a.mayWatch(user, p) {
+			r.Name = p.Name
+			rows = append(rows, r)
+		}
+	}
+	slices.SortFunc(rows, func(x, y offlineRow) int {
+		if c := y.Since.Compare(x.Since); c != 0 {
+			return c
+		}
+		return strings.Compare(x.Panel+x.Instance, y.Panel+y.Instance)
+	})
 	return rows
 }
 
@@ -476,7 +553,7 @@ func (a *App) monNotify(ev monEvent) {
 		a.mon.forget(ev.panel, true)
 		return
 	}
-	a.mon.unclear(ev.panel)
+	a.mon.unclear(ev.panel, ev.device)
 	why, note := "panelLost", fmt.Sprintf("panel %s %s: %s missed its keepalive for %ds", p.ID, p.Name, ev.device, ev.secs)
 	if ev.state == "back" {
 		why, note = "panelBack", fmt.Sprintf("panel %s %s: %s is back after %ds", p.ID, p.Name, ev.device, ev.secs)
@@ -485,20 +562,29 @@ func (a *App) monNotify(ev monEvent) {
 		note += "; no device is online"
 	}
 	a.apiEvent(sodeActor, why, "ok", note, nil)
-	b, _ := json.Marshal(panelNoticeMsg{T: "panelNotice", State: ev.state, Panel: p.ID, Name: p.Name, Device: ev.device, Secs: ev.secs, Offline: ev.offline})
-	watchers := a.mon.watchedBy(p.ID)
-	allowed := map[string]bool{}
-	for _, w := range watchers {
+	notice := func(offline bool) []byte {
+		b, _ := json.Marshal(panelNoticeMsg{T: "panelNotice", State: ev.state, Panel: p.ID, Name: p.Name, Device: ev.device, Secs: ev.secs, Offline: offline})
+		return b
+	}
+	// Someone who watches only this device is told about the device, never that the panel is offline.
+	whole, one := notice(ev.offline), notice(false)
+	allowed := map[string][]byte{}
+	for w, all := range a.mon.watchersOf(p.ID, ev.device) {
 		if u, ok := a.r().cfg.FindUser(w); ok && a.mayWatch(u.Name, p) {
-			allowed[strings.ToLower(u.Name)] = true
+			allowed[strings.ToLower(u.Name)] = one
+			if all {
+				allowed[strings.ToLower(u.Name)] = whole
+			}
 		}
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	cfg := a.r().cfg
 	for c := range a.clients {
-		if u := c.u.user.Load(); u != nil && allowed[strings.ToLower(u.Name)] && a.userOKMu(c, cfg) {
-			a.deliver(c, b)
+		if u := c.u.user.Load(); u != nil && a.userOKMu(c, cfg) {
+			if b, ok := allowed[strings.ToLower(u.Name)]; ok {
+				a.deliver(c, b)
+			}
 		}
 	}
 	a.pushOfflineAllMu()
@@ -521,35 +607,38 @@ func (a *App) monSweep() {
 func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	m["online"] = a.mon.online(p.ID)
 	m["watching"] = cl.Actor.Kind == actorUser && a.mon.watching(cl.Actor.Name, p.ID)
+	if cl.Actor.Kind == actorUser {
+		m["watchingInstances"] = a.mon.watchedInstances(cl.Actor.Name, p.ID)
+	}
 	if edit {
 		m["instances"] = a.mon.instances(p.ID)
 	}
 }
 
-// serveAlarm is the banner's Clear menu: {"t":"panelAlarm","panel":id,"action":"clear"|"stop"}.
-// clear hides the panel's current outage from the user's banner until the panel's next notice; stop
-// ends the watch. A signed-in user, not under the Lock, and only a panel they may watch.
+// serveAlarm is the banner's Clear menu: {"t":"panelAlarm","panel":id,"instance":device,"action":"clear"|"stop"}.
+// instance is empty for a whole-panel alarm. clear hides that outage from the user's banner until the
+// panel's next notice; stop ends that watch. A signed-in user, not under the Lock, and only a panel they may watch.
 func (a *App) serveAlarm(c *client, m *inMsg) {
 	u, err := a.ownUser(c)
 	if err != nil {
 		return
 	}
 	p, ok := a.panels.get(m.Panel)
-	if !ok || !a.mayWatch(u.Name, p) || !a.mon.watching(u.Name, p.ID) {
+	if !ok || !a.mayWatch(u.Name, p) || !a.mon.watchingInst(u.Name, p.ID, m.Instance) {
 		return
 	}
 	switch m.Action {
 	case "clear":
-		a.mon.clearAlarm(u.Name, p.ID)
+		a.mon.clearAlarm(u.Name, p.ID, m.Instance)
 	case "stop":
-		if err := a.mon.setWatch(u.Name, p.ID, false); err != nil {
+		if err := a.mon.setWatchInst(u.Name, p.ID, m.Instance, false); err != nil {
 			log.Printf("panels: watches not saved: %v", err)
 			return
 		}
 	default:
 		return
 	}
-	a.command(c, "panelAlarm", "ok", m.Action+" "+p.ID, nil)
+	a.command(c, "panelAlarm", "ok", strings.TrimSpace(m.Action+" "+p.ID+" "+m.Instance), nil)
 	a.mu.Lock()
 	a.pushOfflineAllMu()
 	a.mu.Unlock()
@@ -662,7 +751,14 @@ func (a *App) setWatch(w http.ResponseWriter, r *http.Request, cl *apiCtx, on bo
 	if !ok {
 		return
 	}
-	if err := a.mon.setWatch(cl.Actor.Name, p.ID, on); err != nil {
+	inst := ""
+	if q, ok := r.URL.Query()["instance"]; ok {
+		if inst = cleanDevice(q[0]); inst == "" {
+			apiFail(w, http.StatusBadRequest, "bad_request", "instance is a device name: ?instance=<screen name>")
+			return
+		}
+	}
+	if err := a.mon.setWatchInst(cl.Actor.Name, p.ID, inst, on); err != nil {
 		apiFail(w, http.StatusInternalServerError, "internal", "the watch list could not be saved: "+err.Error())
 		return
 	}
@@ -670,4 +766,19 @@ func (a *App) setWatch(w http.ResponseWriter, r *http.Request, cl *apiCtx, on bo
 	a.pushOfflineAllMu()
 	a.mu.Unlock()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// KeepAliveListener probes an idle connection after 2 s, every 1 s, and drops it after 3 misses, so a
+// peer that vanished without a FIN (power cut, lost Wi-Fi) ends its stream in about 5 s instead of
+// the kernel default of 2 hours. A proxy in front only gets this on its own leg of the connection.
+func KeepAliveListener(ln net.Listener) net.Listener { return keepAliveLn{ln} }
+
+type keepAliveLn struct{ net.Listener }
+
+func (l keepAliveLn) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if tc, ok := c.(*net.TCPConn); ok && err == nil {
+		_ = tc.SetKeepAliveConfig(net.KeepAliveConfig{Enable: true, Idle: 2 * time.Second, Interval: time.Second, Count: 3})
+	}
+	return c, err
 }
