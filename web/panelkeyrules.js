@@ -2,6 +2,7 @@
 // No DOM, no clock, no network, so Node tests them. Server side: internal/app/panelkey.go, panelsetup.go, panelnet.go.
 import { fullSetup } from './panellink.js';
 import { whenText } from './keyrules.js';
+import { hasClient } from './panelsrules.js';
 
 export const MODES = [
   ['key', 'Named instance link'],
@@ -10,7 +11,8 @@ export const MODES = [
 
 export const MODE_HINT = {
   key: 'Makes a key for this instance. The link shows once, so copy it when it appears. Anyone with the link can use the panel as this instance. To get a link again, rotate the instance.',
-  setup: 'Makes a link that works once, for one hour. The device opens it and keeps its own key, so the link cannot be reused. This instance\'s old key ends now.',
+  setup:
+    "Makes a link that works once, for one hour. The device opens it and keeps its own key, so the link cannot be reused. This instance's old key ends now.",
 };
 
 // The instance name is required and becomes the device name (the page's ?instance=), so it has the monitor's limits.
@@ -65,10 +67,11 @@ export function keyRow(k, now) {
 // tab asks for a sign-in. Said plainly, and the key actions are not offered.
 export const SESSION_WARNING =
   'This panel acts as the signed-in user, so it has no key. A link to it asks for a sign-in in any tab or on any device that is not already signed in to Sode.';
-export const SESSION_NEXT = 'For a link that opens without a sign-in, set Acts as to its own API client on the Access tab. That saves the panel at once.';
+export const SESSION_NEXT =
+  'For a link that opens without a sign-in, set Acts as to its own API client, or to both, on the Access tab. That saves the panel at once.';
 
 // The Share modal's first tab: the one that fits how the panel acts.
-export const firstShareTab = (panel) => (panel.acts === 'api' ? 'key' : 'people');
+export const firstShareTab = (panel) => (hasClient(panel) ? 'key' : 'people');
 
 // One address or CIDR per line or comma. The server validates and canonicalizes.
 export const parseNetworks = (text) =>

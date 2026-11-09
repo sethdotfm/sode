@@ -98,8 +98,9 @@
   font-weight: var(--pb-weight-normal);
   opacity: 0.85;
 }
-/* Hide text keeps the words for screen readers. */
-.sode-panel__cell[data-hide-text] .sode-panel__text {
+/* Hide text keeps the words for screen readers, on the panel page and in the editor's square alike. */
+.sode-panel__cell[data-hide-text] .sode-panel__text,
+.sode-ed__sq[data-hide-text] .sode-ed__text {
   block-size: 1px;
   clip-path: inset(50%);
   inline-size: 1px;
@@ -260,19 +261,35 @@
 .sode-panel__take {
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
 }
+/* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
+   The row is a size container so the glyph follows the square's height (cqh), as the icon does. */
 .sode-panel__art {
-  height: 100%;
+  align-items: center;
+  color: var(--pb-text-strong);
+  container-type: size;
+  display: flex;
+  gap: var(--pb-space-2);
   inset: 0;
-  object-fit: contain;
+  justify-content: center;
   opacity: 0.3;
   padding: var(--pb-space-2);
   pointer-events: none;
   position: absolute;
-  width: 100%;
   z-index: -1;
 }
-.sode-panel__art--icon {
-  color: var(--pb-text-strong);
+.sode-panel__art-a {
+  flex: 0 1 auto;
+  height: 100%;
+  min-width: 0;
+  object-fit: contain;
+  width: auto;
+}
+.sode-panel__art-b {
+  flex: 0 0 auto;
+  font-family: var(--pb-font-num);
+  font-size: 70cqh;
+  font-weight: var(--pb-weight-bold);
+  line-height: 1;
 }
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
@@ -840,6 +857,23 @@
 }
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
+}
+/* The icon picker: Icon A and Icon B panes under a two-button switch. */
+.sode-side__picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-side__panes {
+  align-self: flex-start;
+}
+.sode-side__icons {
+  max-height: 14rem;
+  overflow-y: auto;
+}
+.sode-side__glyph {
+  font-family: var(--pb-font-num);
+  font-weight: var(--pb-weight-bold);
 }
 .sode-find__orders {
   display: flex;

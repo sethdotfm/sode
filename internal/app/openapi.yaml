@@ -473,7 +473,8 @@ paths:
         `conflict`). The body is at most 256 KiB.
 
         `acts: api` makes the panel an API client of its own, named `Panel <id>` and made with
-        the panel. Only a Trusted user may (403 `trusted_required`). `clientRights` are its
+        the panel; `acts: both` does the same and the page falls back to Session mode (a
+        sign-in) when opened without a key. Only a Trusted user may (403 `trusted_required`). `clientRights` are its
         rights and default to the creator's; any list wider than the creator's own is 403
         `outside_rights`, and nothing is created. Its scopes start as names, tally, protected,
         status, presets, history, layouts, take and panels. Its keys are made elsewhere. It
@@ -649,8 +650,8 @@ paths:
         client and artwork cannot be changed here. A field Sode does not know that is stored on
         the panel and left out of the body is kept.
 
-        `acts` decides the API client: `api` makes one if the panel has none, and `session`
-        removes it with its keys. `clientRights` left out, or equal to the stored ones, change
+        `acts` decides the API client: `api` or `both` makes one if the panel has none (and
+        switching between the two keeps it), and `session` removes it with its keys. `clientRights` left out, or equal to the stored ones, change
         nothing. Any other value needs a Trusted caller and must be within the caller's own
         rights (403 `trusted_required`, `outside_rights`), and the panel is left as it was when
         refused. Only the Advanced Settings PIN widens a client past its creator.
@@ -1553,7 +1554,7 @@ components:
       description: |
         A panel as sent. Unknown fields are kept and returned, so a newer client's data survives.
         `id`, `owner`, `client`, `art`, `rev` and `canEdit` are ignored here. `clientRights` is for a
-        panel with `acts: api`.
+        panel with `acts: api` or `acts: both`.
       required: [name]
       additionalProperties: true
       properties:
@@ -1567,7 +1568,7 @@ components:
             `GET /panels/<slug>`. Unique across panels (409 `conflict`), never `editor` or shaped
             like an id. Leaving it out of a save clears it, and changing or clearing it stops every
             link that used the old one; links by id keep working. A copy starts without one.
-        acts: { type: string, enum: [session, api], default: session }
+        acts: { type: string, enum: [session, api, both], default: session }
         share: { $ref: "#/components/schemas/PanelShare" }
         rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
         cols: { type: integer, minimum: 1, maximum: 24, default: 8 }

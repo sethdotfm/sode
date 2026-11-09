@@ -164,6 +164,28 @@ test('enterFullscreen asks once from a press and does nothing where it is missin
   assert.equal(enterFullscreen(undefined), false);
 });
 
-test('hidden text stays readable by screen readers', () => {
-  assert.match(css, /\.sode-panel__cell\[data-hide-text\] \.sode-panel__text \{[^}]*clip-path: inset\(50%\)/);
+test('hidden text stays readable by screen readers, on the panel page and in the editor square', () => {
+  assert.match(
+    css,
+    /\.sode-panel__cell\[data-hide-text\] \.sode-panel__text,\s*\.sode-ed__sq\[data-hide-text\] \.sode-ed__text \{[^}]*clip-path: inset\(50%\)/,
+  );
+});
+
+// Icon B is a digit 0 to 16 or a letter A to Z drawn beside Icon A, so a cell can read "[camera] 2".
+test('Icon B is one of the fixed glyphs, and anything else is dropped', async () => {
+  const { artBOf, textHidden, ART_B_CHOICES } = await import('../panellook.js');
+  assert.deepEqual(ART_B_CHOICES.slice(0, 3), ['0', '1', '2']);
+  assert.equal(ART_B_CHOICES.length, 17 + 26);
+  assert.equal(ART_B_CHOICES.at(-1), 'Z');
+  for (const g of ART_B_CHOICES) assert.equal(artBOf({ artB: g }), g);
+  for (const bad of ['17', 'a', 'AB', '', 7, null, '<b>']) assert.equal(artBOf({ artB: bad }), '', String(bad));
+  assert.equal(artBOf({}), '');
+  // Icon B alone counts as artwork, so Hide text can apply to it.
+  assert.equal(textHidden({ hideText: true, artB: '2' }), true);
+  assert.equal(textHidden({ hideText: true, artB: 'bogus' }), false);
+});
+
+test('the artwork row sizes Icon B from the cell, so it scales with the square', () => {
+  assert.match(css, /\.sode-panel__art \{[^}]*container-type: size/);
+  assert.match(css, /\.sode-panel__art-b \{[^}]*cqh/);
 });

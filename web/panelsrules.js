@@ -73,10 +73,15 @@ export function deleteStep(armed, id) {
 
 export const thumbCells = (p) => cellsIn(p).map(({ r, c, rs, cs, kind }) => ({ r, c, rs, cs, kind }));
 
-// The short form for a row, after the owner's name.
-export const actsShort = (p) => (p.acts === 'api' ? 'API client' : 'signs in as the user');
+// `acts` `api` and `both` own an API client and hold keys; `both` falls back to Session mode when the page has no key.
+// Keep in step with actsHasClient in internal/app/panelstore.go.
+export const hasClient = (p) => p?.acts === 'api' || p?.acts === 'both';
 
-export const actsLabel = (p) => (p.acts === 'api' ? 'Acts as an API client' : 'Acts as the user');
+// The short form for a row, after the owner's name.
+export const actsShort = (p) => (p.acts === 'api' ? 'API client' : p.acts === 'both' ? 'API client or the user' : 'signs in as the user');
+
+export const actsLabel = (p) =>
+  p.acts === 'api' ? 'Acts as an API client' : p.acts === 'both' ? 'Acts as an API client with a key, else as the user' : 'Acts as the user';
 
 export function shareLabel(share) {
   if (share?.mode === 'everyone') return 'Everyone';

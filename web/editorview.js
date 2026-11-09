@@ -4,7 +4,7 @@ import { el, icon } from './core.js';
 import { cellAt, rectOf, isUnassigned } from './gridmodel.js';
 import { kindLabel } from './editorrules.js';
 import { artNode } from './panelview.js';
-import { cellScale } from './panellook.js';
+import { cellScale, textHidden } from './panellook.js';
 
 const KIND_ICON = { source: 'arrow-right-from-line', destination: 'arrow-right-to-line', take: 'zap', preset: 'bookmark', clear: 'eraser', current: 'eye' };
 
@@ -82,6 +82,7 @@ export function createEditorGrid(host, on) {
             const art = artNode(cell, artSource);
             if (art) b.append(art);
             if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
+            if (textHidden(cell)) b.dataset.hideText = '1'; // the square hides its words as the panel page will (panels.css)
             b.append(icon(KIND_ICON[cell.kind] || 'square-dashed'), el('span', 'sode-ed__text', cellText(cell, names)));
           }
           host.append(b);

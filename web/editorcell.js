@@ -48,7 +48,13 @@ export function createCellTab(ed) {
     el('span', 'sode__hint', '%'),
   );
   const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
-  const art = createArtControl({ ed, icons: true, set: (v) => patch({ art: v }), setHideText: (v) => patch({ hideText: v ? true : undefined }) });
+  const art = createArtControl({
+    ed,
+    icons: true,
+    set: (v) => patch({ art: v }),
+    setB: (v) => patch({ artB: v }),
+    setHideText: (v) => patch({ hideText: v ? true : undefined }),
+  });
   form.append(kindLine, captionField, levelField, sizeRow, art.node);
   node.append(hint, form);
 
@@ -98,7 +104,7 @@ export function createCellTab(ed) {
       levelBoxes.draw(c.levels);
       at = key;
       for (const i of [caption, size]) i.disabled = ed.readOnly();
-      art.update(c.art || '', c.caption || '', c.hideText === true);
+      art.update(c.art || '', c.caption || '', c.hideText === true, c.artB || '');
     },
   };
 }

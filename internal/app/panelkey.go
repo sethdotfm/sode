@@ -46,7 +46,7 @@ func (a *App) panelKeyFor(w http.ResponseWriter, r *http.Request, cl *apiCtx) (P
 		return Panel{}, keyOwner{}, false
 	}
 	c, has := clientOfPanel(a.r().cfg, p)
-	if p.Acts != panelActsAPI || !has {
+	if !actsHasClient(p.Acts) || !has {
 		apiFail(w, http.StatusConflict, "conflict", "only a panel that acts as an API client has a key; a session panel signs in with a PIN")
 		return Panel{}, keyOwner{}, false
 	}

@@ -7,9 +7,11 @@ import { resultStep } from './keys.js';
 import { selSquares, single } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
 import { CHIP_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill } from './findrules.js';
+import { flyoutShift } from './editorrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
 const STALE_MS = 5000;
+const EDGE_GAP = 8; // keep in step with GAP in editormenu.js
 
 // The user's Rights arrive as soon as they sign in, which can be before the editor has loaded, so they are
 // caught at import time and handed to the editor when it starts.
@@ -64,6 +66,17 @@ export function initFind(editor) {
     rebuild();
   };
   rights = myRights;
+
+  // The flyout sits beside its menu item (patchbay's pb-menu__sub), which can hang off the bottom or the right when
+  // the selection is low or far right. Measured where CSS put it, then pulled back inside the viewport.
+  function fit() {
+    if (!panel.isConnected) return;
+    panel.style.translate = '';
+    const rect = panel.getBoundingClientRect();
+    if (!rect.width) return; // display: none, nothing to fit
+    const { x, y } = flyoutShift(rect, { w: document.documentElement.clientWidth, h: document.documentElement.clientHeight }, EDGE_GAP);
+    if (x || y) panel.style.translate = `${x}px ${y}px`;
+  }
 
   function rebuild() {
     entries = findEntries(data.names, data.presets, rights);
@@ -171,6 +184,7 @@ export function initFind(editor) {
     fill.hidden = picked.length < 2;
     list.querySelector('.is-hi')?.scrollIntoView({ block: 'nearest' });
     showPreview();
+    fit();
   }
 
   const clearPicks = () => {
@@ -280,6 +294,7 @@ export function initFind(editor) {
     hovered = true;
     load();
     showPreview();
+    fit();
   });
   panel.addEventListener('pointerleave', () => {
     hovered = false;
@@ -289,6 +304,7 @@ export function initFind(editor) {
     panel.dataset.open = '1';
     load();
     showPreview();
+    fit();
   });
   panel.addEventListener('focusout', (e) => {
     if (rebuilding || (e.relatedTarget && panel.contains(e.relatedTarget))) return;
@@ -306,6 +322,7 @@ export function initFind(editor) {
     load();
     draw();
     input.focus();
+    fit();
   }
 
   editor.addKeyHook((e) => {

@@ -1,12 +1,14 @@
 // What a panel's look settings and a cell's artwork mean. Pure. Stored names are in docs/persisted-names.md.
 // Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, haptics, fullscreen.
-// Cell: art ('icon:<vendored icon name>' or an artwork id), fontSize (percent) and hideText.
+// Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph drawn beside it), fontSize (percent) and hideText.
 
 const SCALE_MIN = 50;
 const SCALE_MAX = 200;
 export const THEMES = ['auto', 'light', 'dark'];
 const ART_ID = /^a-[0-9a-f]{8}$/;
 const ICON = /^icon:([a-z0-9-]+)$/;
+// Icon B: a digit 0 to 16 or a capital letter, so "[camera] 2" is two picks. Text, not a sprite icon: Lucide has no digits.
+export const ART_B_CHOICES = [...Array.from({ length: 17 }, (_, i) => String(i)), ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i))];
 
 // Percent to a multiplier. Anything that is not a number counts as 100.
 function scaleOf(percent) {
@@ -26,8 +28,11 @@ export function lookOf(settings) {
   };
 }
 
-// Text is only hidden under artwork, so a cell never ends up with neither.
-export const textHidden = (cell) => cell?.hideText === true && !!artOf(cell);
+// Text is only hidden under artwork (Icon A or B), so a cell never ends up with neither.
+export const textHidden = (cell) => cell?.hideText === true && (!!artOf(cell) || !!artBOf(cell));
+
+// '' when the cell has no Icon B or holds something that is not one of the choices.
+export const artBOf = (cell) => (typeof cell?.artB === 'string' && ART_B_CHOICES.includes(cell.artB) ? cell.artB : '');
 
 export const cellScale = (cell) => scaleOf(cell?.fontSize);
 

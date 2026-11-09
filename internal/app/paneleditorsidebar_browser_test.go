@@ -49,10 +49,19 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`const s = document.getElementById('ed-cell-size'); s.value = '150'; s.dispatchEvent(new Event('input', { bubbles: true })); true`)
 
 	b.waitFor("Hide text is offered only once the cell has artwork", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].every((x) => x.textContent !== 'Hide text' || x.hidden)`)
-	b.eval(`[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Choose icon').click(); document.querySelector('.sode-side__icons button[aria-label="tv"]').click(); true`)
+	b.eval(`[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Choose icon').click(); true`)
+	b.waitFor("the picker offers the cell kind icons in Icon A", `!!document.querySelector('.sode-side__icons[aria-label="Icon A"] button[aria-label="arrow-right-from-line"]') && !!document.querySelector('.sode-side__icons[aria-label="Icon A"] button[aria-label="eraser"]')`)
+	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon A"] button[aria-label="tv"]').click(); true`)
 	b.waitFor("Hide text appears with an icon", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].some((x) => x.textContent === 'Hide text' && !x.hidden)`)
+	b.waitFor("the square shows Icon A", `!!document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a')`)
+	// Icon B: the glyph pane, and the square shows "[tv] 2".
+	b.eval(`document.getElementById('ed-art-pane-b').click(); true`)
+	b.waitFor("the Icon B pane lists digits and letters", `!document.querySelector('.sode-side__icons[aria-label="Icon B"]').hidden && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="16"]') && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="Z"]')`)
+	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="2"]').click(); true`)
+	b.waitFor("the square shows Icon B beside Icon A", `(() => { const a = document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a'); const b = document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-b'); return !!a && b?.textContent === '2' && b.getBoundingClientRect().left >= a.getBoundingClientRect().right; })()`)
 	b.eval(`[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Hide text').click(); true`)
 	b.waitFor("the button flips to Show text", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].some((x) => x.textContent === 'Show text' && !x.hidden)`)
+	b.waitFor("the editor square hides its text as the panel will", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').dataset.hideText === '1' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-ed__text').getBoundingClientRect().width <= 1`)
 
 	b.eval(`document.getElementById('tab-ed-panel').click(); document.getElementById('ed-set-titleBar').click(); true`)
 	b.waitFor("Rows and Columns are in the Panel tab, not the toolbar", `!!document.querySelector('#panel-ed-panel #ed-rows') && !!document.querySelector('#panel-ed-panel #ed-cols') && !document.querySelector('.sode-ed__bar #ed-rows')`)
@@ -86,7 +95,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	if !regexp.MustCompile(`"settings":\{[^}]*"levels":\[2,`).MatchString(body) {
 		t.Errorf("the saved panel lacks the level subset without level 1: %s", body)
 	}
-	for _, want := range []string{`"caption":"Go live"`, `"fontSize":150`, `"titleBar":false`, `"guard":"hold"`, `"fullscreen":true`, `"hideText":true`, `"art":"icon:tv"`, `"rows":3`, `"cols":3`, `"acts":"api"`, `"client":"Panel ` + id + `"`} {
+	for _, want := range []string{`"caption":"Go live"`, `"fontSize":150`, `"titleBar":false`, `"guard":"hold"`, `"fullscreen":true`, `"hideText":true`, `"art":"icon:tv"`, `"artB":"2"`, `"rows":3`, `"cols":3`, `"acts":"api"`, `"client":"Panel ` + id + `"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the saved panel lacks %s: %s", want, body)
 		}

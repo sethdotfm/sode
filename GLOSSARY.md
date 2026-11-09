@@ -159,7 +159,7 @@ Someone who is not signed in. A guest sees This browser and Everyone values and 
 ### Panels
 
 **Panel**:
-A saved grid of tappable cells that patches the router from its own page, made for a wall tablet or a phone. It has an id, a display name and an owner. A panel acts either as a user, with that user's Rights, or as an API client of its own, with Rights no wider than its creator's.
+A saved grid of tappable cells that patches the router from its own page, made for a wall tablet or a phone. It has an id, a display name and an owner. A panel acts either as a user, with that user's Rights, or as an API client of its own, with Rights no wider than its creator's, or as both: the client when the page has a key, else the user who opens it.
 
 **Hardware panel**:
 A physical router panel. Sode does not make these. Changes from one arrive as an External.

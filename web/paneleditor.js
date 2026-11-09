@@ -73,25 +73,40 @@ export async function runEditor() {
   const grid = createEditorGrid($('ed-grid'), {
     select(r, c, extend) {
       if (readOnly()) return;
-      setGrid(select(g, r, c, extend));
+      menuAway = false;
+      setGrid(select(g, r, c, extend)); // always a new grid, so the menu comes back
     },
     key: onKey,
   });
   const live = createLive($('ed-live-view'), document.querySelector('.sode-ed__body'), $('ed-live'));
   const menu = createSmartMenu($('ed-grid'), { onEscape: () => $('ed-grid').focus() });
 
-  // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar (which
-  // edits the selected cell). Not a blur: the menu rebuilds itself on every change and drops focus for a moment.
-  // The event path, not the target: a click on a square repaints the grid, which detaches that target.
+  // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar. The
+  // sidebar edits the selected cell, so a click there keeps the selection and only puts the menu away (it sat over
+  // the sidebar's fields); the next grid click or key brings it back. Not a blur: the menu rebuilds itself on every
+  // change and drops focus for a moment. The event path, not the target: a click on a square repaints the grid,
+  // which detaches that target.
+  let menuAway = false;
   const leave = (e) => {
+    if (!g.sel) return;
     const path = e.composedPath();
-    if (g.sel && ![$('ed-grid'), menu.root, $('ed-side')].some((n) => path.includes(n))) setGrid(deselect(g));
+    if ([$('ed-grid'), menu.root].some((n) => path.includes(n))) return;
+    if (path.includes($('ed-side'))) {
+      if (menuAway) return;
+      menuAway = true;
+      return refresh();
+    }
+    setGrid(deselect(g));
   };
   document.addEventListener('pointerdown', leave);
   document.addEventListener('focusin', leave);
 
   function onKey(e) {
     if (readOnly()) return;
+    if (menuAway) {
+      menuAway = false;
+      refresh();
+    }
     if (menu.run(e)) return void e.preventDefault();
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (keyHooks.some((fn) => fn(e))) return;
@@ -142,7 +157,7 @@ export async function runEditor() {
     const ro = readOnly();
     grid.paint(g, names, { readOnly: ro, art });
     const box = ro ? null : grid.selectionBox();
-    menu.show(box, menuItems());
+    menu.show(menuAway ? null : box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
     nameBox.disabled = ro;
     const todo = countTodo(g);
@@ -154,7 +169,7 @@ export async function runEditor() {
     const open = $('ed-open');
     open.hidden = !loaded;
     if (loaded) open.href = `panels/${loaded.id}`;
-    // A panel with its own API client has no link without its key (Share, Link with key).
+    // A panel that only acts as its API client has no link without its key (Share, Link with key); a Both panel's plain link opens in Session mode.
     const copy = $('ed-copylink');
     copy.hidden = !loaded || loaded.acts === 'api';
   }

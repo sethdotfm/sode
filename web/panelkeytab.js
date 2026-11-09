@@ -25,6 +25,7 @@ import {
 } from './panelkeyrules.js';
 import { linkFor } from './panellink.js';
 import { linkRow } from './panellinkrow.js';
+import { hasClient } from './panelsrules.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
@@ -40,7 +41,7 @@ const dot = (kind) => {
 shareTabs.push(({ panel, api }) => {
   const root = el('div', 'sode-ov__keytab');
   const tab = { id: 'key', text: 'Link with key', panel: root };
-  if (panel.acts !== 'api') {
+  if (!hasClient(panel)) {
     // Greyed, still readable: a Session panel has no key to make, rotate or revoke.
     tab.muted = true;
     root.append(el('p', 'sode__hint', SESSION_WARNING), linkRow(panel), el('p', 'sode__hint', SESSION_NEXT));

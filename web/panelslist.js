@@ -50,11 +50,7 @@ function row(p) {
   // Empty hook for the online dot, so monitoring can fill it without reshaping the row.
   const online = el('span', 'sode-ov__online');
   online.dataset.online = p.id;
-  b.append(
-    thumb(p, true),
-    el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`)),
-    online,
-  );
+  b.append(thumb(p, true), el('span', 'sode-ov__who', el('strong', '', p.name), el('span', 'sode-ov__muted', `${owner(p)}, ${actsShort(p)}`)), online);
   return b;
 }
 
@@ -104,7 +100,12 @@ function detail(p) {
     el('dt', '', 'Owner'),
     el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')),
     el('dt', '', 'Acts as'),
-    el('dd', '', actsLabel(p).replace('Acts as ', '') + (p.acts === 'api' ? '' : ' (asks for a PIN at launch)')),
+    el(
+      'dd',
+      '',
+      actsLabel(p).replace('Acts as ', '') +
+        (p.acts === 'api' ? '' : p.acts === 'both' ? ' (a link without a key asks for a PIN)' : ' (asks for a PIN at launch)'),
+    ),
     el('dt', '', 'Shared with'),
     el('dd', '', shareLabel(p.share)),
   );
@@ -154,7 +155,10 @@ async function refreshOnline() {
       if (old) Object.assign(old, { online: p.online, instances: p.instances });
     }
     paintOnline(S.panels);
-    paintOpenNow(S.panels.find((x) => x.id === S.cur), setWatch);
+    paintOpenNow(
+      S.panels.find((x) => x.id === S.cur),
+      setWatch,
+    );
   } catch {}
 }
 
