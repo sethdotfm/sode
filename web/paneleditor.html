@@ -18,13 +18,51 @@
 </head>
 <body>
 
-<main class="sode-panels">
+<main class="sode-panels sode-ed">
   <header class="sode-panels__head">
     <h1 class="sode-panels__title">Sode Panel Editor</h1>
     <span class="sode-panels__spacer"></span>
     <a class="pb-btn pb-btn--outline pb-btn--sm" href="panels">Panels</a>
   </header>
   <p class="sode__hint" id="panels-note"></p>
+  <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
+
+  <div class="pb-banner pb-banner--info" id="ed-banner" hidden>
+    <span>This panel is shared with you for use only. To change it, save a copy.</span>
+    <button class="pb-btn pb-btn--sm" id="ed-copy" type="button">Save a copy</button>
+  </div>
+
+  <div class="pb-toolbar sode-ed__bar" role="toolbar" aria-label="Panel editor">
+    <label class="sode-ed__field" for="ed-pick">Panel
+      <span class="pb-select-wrap"><select class="pb-select" id="ed-pick"></select></span>
+    </label>
+    <label class="sode-ed__field" for="ed-name">Name
+      <input class="pb-input" id="ed-name" type="text" maxlength="64" autocomplete="off">
+    </label>
+    <div class="sode-ed__field" role="group" aria-label="Rows">
+      <label for="ed-rows">Rows</label>
+      <button class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" id="ed-rows-dec" type="button" aria-label="Fewer rows"><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#minus"/></svg></button>
+      <input class="pb-input sode-ed__num" id="ed-rows" type="number" min="1" value="4" inputmode="numeric">
+      <button class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" id="ed-rows-inc" type="button" aria-label="More rows"><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#plus"/></svg></button>
+    </div>
+    <div class="sode-ed__field" role="group" aria-label="Columns">
+      <label for="ed-cols">Columns</label>
+      <button class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" id="ed-cols-dec" type="button" aria-label="Fewer columns"><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#minus"/></svg></button>
+      <input class="pb-input sode-ed__num" id="ed-cols" type="number" min="1" value="8" inputmode="numeric">
+      <button class="pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm" id="ed-cols-inc" type="button" aria-label="More columns"><svg class="pb-icon pb-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><use href="vendor/patchbay/icons/lucide.svg#plus"/></svg></button>
+    </div>
+    <span class="sode-ed__field"><span id="ed-todo"></span>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-next" type="button">Next</button>
+    </span>
+    <span class="sode-panels__spacer"></span>
+    <span class="sode-ed__state" id="ed-state" role="status" hidden></span>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
+    <button class="pb-btn pb-btn--ok pb-btn--sm" id="ed-save" type="button">Save</button>
+  </div>
+  <p class="sode__hint" id="ed-status" role="status" hidden></p>
+
+  <div class="sode-ed__grid" id="ed-grid" aria-label="Panel grid"></div>
+  <p class="sode__hint">Click a square, or drag across several. Arrow keys move the selection and Shift extends it. Delete empties it. The menu beside the selection sets the type and merges squares.</p>
 </main>
 
 <script type="module" src="panelpage.js"></script>

@@ -1,10 +1,11 @@
-// Entry for the panel pages (/panels and /panels/<id>; the editor has its own). Sign-in and the page lock come from lock.js, as on /log.
+// Entry for the panel pages (/panels, /panels/editor and /panels/<id>). Sign-in and the page lock come from lock.js, as on /log.
 import { on, connect } from './core.js';
 import './brand.js';
 import './lock.js';
 import { runPanel } from './panelrun.js';
 import { runPanelsList } from './panelslist.js';
 import { panelIdFrom } from './panelrules.js';
+import { runEditor } from './paneleditor.js';
 
 // 4x8 maps one to one onto a hardware key deck (docs/panels-design.md).
 export const DEFAULT_GRID = { panelRows: 4, panelCols: 8 };
@@ -18,6 +19,7 @@ on('brand', ({ text }) => {
 });
 
 if (id) runPanel(id);
+else if (document.getElementById('ed-grid')) runEditor();
 else runPanelsList();
 
 connect();
