@@ -16,8 +16,8 @@ import (
 )
 
 // The stream: GET /api/v1/stream upgrades to a WebSocket that only sends. The caller names
-// its topics in ?topics=a,b at connect; every frame is {"t","topic"?,"data"?}. Keep docs in
-// step: openapi.yaml.
+// its topics in ?topics=a,b at connect; every frame but hello and ping is {"t","topic","data"?}, so a client can match on
+// topic alone. Keep docs in step: docs/api.md, openapi.yaml.
 //
 //	hello          {v, topics, numberOffset}, always first
 //	snapshot       one per names, tally and status topic, topic set, data as the REST read
@@ -25,7 +25,7 @@ import (
 //	tally          {routes:[{dst,level,src}]} changed routes only
 //	status         {router, routerUp, error}, plus address and err for a caller with the log scope
 //	entry          a new History entry (topic history)
-//	entryUpdate    a changed entry, such as a Late Result (topics history and results, sent once)
+//	entryUpdate    a changed entry, such as a Late Result (sent once; topic history, or results when history was not chosen)
 //	historyCleared (topic history)
 //	ping           heartbeat, ignore
 //
@@ -363,15 +363,15 @@ func (a *App) streamFan(v any) {
 				rows = append(rows, apiRouteRow{c.Dst, c.Level, c.Src})
 			}
 			if len(rows) > 0 {
-				a.streamQueue(st, streamMsg{T: "tally", Data: map[string]any{"routes": rows}})
+				a.streamQueue(st, streamMsg{T: "tally", Topic: "tally", Data: map[string]any{"routes": rows}})
 			}
 		case namesMsg:
 			if st.topics["names"] {
-				a.streamQueue(st, streamMsg{T: "names", Data: a.namesSnapshot(st.view)})
+				a.streamQueue(st, streamMsg{T: "names", Topic: "names", Data: a.namesSnapshot(st.view)})
 			}
 		case statusMsg:
 			if st.topics["status"] {
-				a.streamQueue(st, streamMsg{T: "status", Data: linkStatus(m, st.detail)})
+				a.streamQueue(st, streamMsg{T: "status", Topic: "status", Data: linkStatus(m, st.detail)})
 			}
 		case recentMsg:
 			if m.E == nil {
@@ -385,14 +385,17 @@ func (a *App) streamFan(v any) {
 			if !ok {
 				continue
 			}
-			t := "entry"
+			t, topic := "entry", "history"
 			if m.Update {
 				t = "entryUpdate"
+				if !st.topics["history"] {
+					topic = "results"
+				}
 			}
-			a.streamQueue(st, streamMsg{T: t, Data: e})
+			a.streamQueue(st, streamMsg{T: t, Topic: topic, Data: e})
 		case simpleMsg:
 			if m.T == "historyCleared" && st.topics["history"] {
-				a.streamQueue(st, streamMsg{T: "historyCleared"})
+				a.streamQueue(st, streamMsg{T: "historyCleared", Topic: "history"})
 			}
 		}
 	}

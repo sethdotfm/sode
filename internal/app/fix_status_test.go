@@ -65,7 +65,7 @@ func TestStreamStatusHidesRouterAddressWithoutLogScope(t *testing.T) {
 				continue
 			}
 			m := c.next()
-			strmWantType(t, m, "status", "")
+			strmWantType(t, m, "status", "status")
 			has := strings.Contains(string(m.Data), "172.17")
 			if has != (name == "log") {
 				t.Errorf("%s frame %s", name, m.Data)
