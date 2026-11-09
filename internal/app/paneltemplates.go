@@ -246,14 +246,14 @@ func (a *App) apiTemplateRead(w http.ResponseWriter, r *http.Request, cl *apiCtx
 	}
 }
 
-// mayShareEveryone is the rule of story 80: a Trusted user, or whoever holds the Advanced
-// Settings PIN. A REST call has no connection to unlock, so the PIN rides in the body and
-// counts as a wrong try of the same pool as the Settings dialog's.
-func (a *App) mayShareEveryone(cl *apiCtx, pin string) error {
+// mayEveryone is the rule of story 80, for Everyone templates and Checkpoint sets: a Trusted
+// user, or whoever holds the Advanced Settings PIN. A REST call has no connection to unlock,
+// so the PIN rides in the body and counts as a wrong try of the same pool as the Settings
+// dialog's. msg is the refusal when no PIN is set or sent.
+func (a *App) mayEveryone(cl *apiCtx, pin, msg string) error {
 	if a.trusted(cl.Actor.Name) {
 		return nil
 	}
-	const msg = "only a Trusted user, or the Advanced Settings PIN, may save a template to Everyone"
 	hash := a.r().cfg.SettingsPin
 	if hash == "" || pin == "" {
 		return &panelClientFail{http.StatusForbidden, "trusted_required", msg}
@@ -288,7 +288,7 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		return
 	}
 	if t.Scope == templateEveryone {
-		if err := a.mayShareEveryone(cl, in.Pin); err != nil {
+		if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, may save a template to Everyone"); err != nil {
 			failWith(w, err)
 			return
 		}

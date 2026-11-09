@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// yamlDir is what the panel, template and Checkpoint set stores share: a mutex, a folder
+// yamlDir is what the panel, template and Checkpoint set stores share: a mutex, a directory
 // ("" means memory only), the records by id, and the file work. File names, id formats and
 // which files are skipped stay with each store. Methods ending in Locked need mu held.
 type yamlDir[T any] struct {

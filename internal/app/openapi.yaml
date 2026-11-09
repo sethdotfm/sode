@@ -823,8 +823,9 @@ paths:
       summary: Save a checkpoint set
       description: |
         Scope `panelsmanage`. Saves the listed panels' current saved layouts, one each. The caller
-        must be able to change every panel listed. A set for `everyone` needs a Trusted user
-        (403 `trusted_required`).
+        must be able to change every panel listed. A set for `everyone` needs a Trusted user, or
+        the Advanced Settings PIN sent as `pin` in the body (403 `trusted_required`, also for a
+        wrong PIN, which counts toward the PIN's lockout). The PIN is never stored.
       requestBody:
         required: true
         content:
@@ -836,6 +837,7 @@ paths:
                 name: { type: string, maxLength: 60 }
                 scope: { type: string, enum: [me, everyone], default: me }
                 panels: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+                pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for an Everyone set by a user who is not Trusted. Never stored" }
       responses:
         "201":
           description: The set
@@ -858,7 +860,9 @@ paths:
       summary: Rename a checkpoint set or save its layouts again
       description: |
         Scope `panelsmanage`. `name` renames it. `panels` replaces its entries with those panels'
-        current saved layouts. The owner, or a Trusted user for an Everyone set.
+        current saved layouts. The owner, or a Trusted user for an Everyone set, or anyone who sends
+        the Advanced Settings PIN as `pin` for an Everyone set (403 `trusted_required` for a wrong
+        one). The PIN is never stored.
       requestBody:
         required: true
         content:
@@ -868,6 +872,7 @@ paths:
               properties:
                 name: { type: string, maxLength: 60 }
                 panels: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+                pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for an Everyone set by a user who is not Trusted. Never stored" }
       responses:
         "200":
           description: The set
@@ -884,7 +889,18 @@ paths:
       operationId: deleteCheckpointSet
       tags: [panels]
       summary: Delete a checkpoint set
-      description: Scope `panelsmanage`. The owner, or a Trusted user for an Everyone set.
+      description: |
+        Scope `panelsmanage`. The owner, or a Trusted user for an Everyone set, or anyone who sends
+        the Advanced Settings PIN as `pin` in a JSON body for an Everyone set (403
+        `trusted_required` for a wrong one).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for an Everyone set by a user who is not Trusted. Never stored" }
       responses:
         "204": { description: Deleted }
         "401": { $ref: "#/components/responses/Unauthorized" }

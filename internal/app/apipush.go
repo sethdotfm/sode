@@ -193,6 +193,24 @@ func setOut(set PanelSet, change bool) map[string]any {
 	return map[string]any{"id": set.ID, "name": set.Name, "scope": set.Scope, "owner": set.Owner, "entries": entries, "canEdit": change}
 }
 
+const setEveryoneMsg = "only a Trusted user, or the Advanced Settings PIN, may save or change a checkpoint set for Everyone"
+
+// mayChangeSet settles a change the caller named in pin: the owner, or a Trusted user for an
+// Everyone set, as setReach says, or whoever sends the Advanced Settings PIN for an Everyone set.
+// Without a PIN the refusal is the plain 403 not_owner of setFor.
+func (a *App) mayChangeSet(w http.ResponseWriter, cl *apiCtx, set PanelSet, pin string) bool {
+	use, change := a.setReach(cl, set)
+	if !change && set.Scope == panelShareAll && pin != "" {
+		if err := a.mayEveryone(cl, pin, setEveryoneMsg); err != nil {
+			failWith(w, err)
+			return false
+		}
+		return true
+	}
+	return !refuseReach(w, use, change, true, "no checkpoint set "+set.ID+" that this key may use",
+		"this checkpoint set is use only for this key: only its owner or a Trusted user may change it")
+}
+
 func (a *App) setFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needChange bool) (PanelSet, bool) {
 	set, ok := a.panels.sets.get(r.PathValue("sid"))
 	use, change := false, false
@@ -251,6 +269,7 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		Name   string   `json:"name"`
 		Scope  string   `json:"scope"`
 		Panels []string `json:"panels"`
+		Pin    string   `json:"pin"` // only read for Everyone, never stored
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -271,8 +290,8 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		return
 	}
 	if in.Scope == panelShareAll {
-		if !a.trusted(cl.Actor.Name) {
-			apiFail(w, http.StatusForbidden, "trusted_required", "only a Trusted user may save a checkpoint set for Everyone")
+		if err := a.mayEveryone(cl, in.Pin, setEveryoneMsg); err != nil {
+			failWith(w, err)
 			return
 		}
 	}
@@ -291,15 +310,16 @@ func (a *App) apiSetCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 
 // apiSetUpdate renames a set, and with panels saves their current layouts over its entries.
 func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	set, ok := a.setFor(w, r, cl, true)
+	set, ok := a.setFor(w, r, cl, false)
 	if !ok {
 		return
 	}
 	var in struct {
 		Name   *string  `json:"name"`
 		Panels []string `json:"panels"`
+		Pin    string   `json:"pin"` // opens an Everyone set, never stored
 	}
-	if !readJSON(w, r, &in) {
+	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set, in.Pin) {
 		return
 	}
 	if in.Name != nil {
@@ -327,8 +347,14 @@ func (a *App) apiSetUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 }
 
 func (a *App) apiSetDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
-	set, ok := a.setFor(w, r, cl, true)
+	set, ok := a.setFor(w, r, cl, false)
 	if !ok {
+		return
+	}
+	var in struct {
+		Pin string `json:"pin"` // opens an Everyone set, never stored
+	}
+	if !readJSON(w, r, &in) || !a.mayChangeSet(w, cl, set, in.Pin) {
 		return
 	}
 	if err := a.panels.sets.delete(set.ID); err != nil {

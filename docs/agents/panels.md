@@ -10,7 +10,7 @@ All beside the config, under `/data` in the image.
 - `panelsets/`: Checkpoint sets, `everyone.yaml` and `me-<hex of user>.yaml`.
 - `templates/me/` and `templates/everyone/`: templates, apart from the panel files.
 - `panelwatch.yaml`: who watches which panel. Never part of a panel file, and the API only sends the caller's own `watching`.
-- `yamlDir` (`yamldir.go`) is the mutex, folder, id retry, atomic write and name sort that the panel, template and Checkpoint set stores share; file names and skip rules stay in each store. Sets keep several records per file, so they use only part of it.
+- `yamlDir` (`yamldir.go`) is the mutex, directory, id retry, atomic write and name sort that the panel, template and Checkpoint set stores share; file names and skip rules stay in each store. Sets keep several records per file, so they use only part of it.
 - A file whose id, name or directory disagrees with its content is skipped, not repaired.
 
 ## Keys
