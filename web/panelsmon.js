@@ -4,7 +4,7 @@ import { el } from './core.js';
 import { askNotifyPermission, notifyPermission } from './panelwatch.js';
 import { durationText, permissionText } from './panelwatchrules.js';
 
-// Fast enough that the online mark follows a screen within a couple of seconds, with no push channel to the page.
+// Fast enough that the online mark follows an instance within a couple of seconds, with no push channel to the page.
 export const MON_POLL_MS = 2000;
 
 const badge = (online) => el('span', `pb-badge${online ? ' pb-badge--ok' : ''}`, online ? 'Online' : 'Offline');
@@ -17,14 +17,14 @@ export function paintOnline(panels) {
   }
 }
 
-// Every screen of the list, then the screens the user watches that Sode has not heard from since it started.
+// Every instance of the list, then the instances the user watches that Sode has not heard from since it started.
 export function listed(p) {
   const seen = new Set(p.instances.map((i) => i.device.toLowerCase()));
   const gone = (p.watchingInstances || []).filter((d) => !seen.has(d)).map((d) => ({ device: d, online: false, seen: '' }));
   return [...p.instances, ...gone];
 }
 
-// Who has the panel open. Only an editor is sent the names. Each screen has its own Watch checkbox.
+// Who has the panel open. Only an editor is sent the names. Each instance has its own Watch checkbox.
 export function openNow(p, setWatch, now = Date.now()) {
   const box = el('section', 'sode-ov__opennow');
   box.id = 'panels-open';
@@ -33,7 +33,7 @@ export function openNow(p, setWatch, now = Date.now()) {
   box.append(el('h2', 'sode-ov__group', 'Open now'));
   const rows = listed(p);
   if (!rows.length) {
-    box.append(el('p', 'sode-ov__muted', 'No screen has opened this panel since Sode started.'));
+    box.append(el('p', 'sode-ov__muted', 'No instance has opened this panel since Sode started.'));
     return box;
   }
   const watched = new Set(p.watchingInstances || []);
@@ -52,7 +52,7 @@ export function openNow(p, setWatch, now = Date.now()) {
         badge(i.online),
         el('strong', '', i.device),
         ago && el('span', 'sode-ov__muted', ago),
-        el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Tell me when this screen drops offline')),
+        el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Tell me when this instance drops offline')),
       ),
     );
   }

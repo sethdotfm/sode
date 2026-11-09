@@ -6,6 +6,6 @@ Considered: Trusted users with no cap, which lets a Trusted user mint access bey
 
 Consequences: a creator's later loss of Rights does not shrink an existing client, so a Rights change for a user should list the panel clients they created. A panel in Session mode needs none of this and uses the user's own Rights.
 
-A panel client holds several keys, one per named instance (at most 20 on a panel), so a link can be made again for one kiosk and one screen can be ended without signing out the others. Each link is made for a required name, which is also the instance's device name. A key's secret is still shown once and stored only as a hash. The Rights cap is the client's, so every instance has the same Rights.
+A panel client holds several keys, one per named instance (at most 20 on a panel), so a link can be made again for one kiosk and one instance can be ended without signing out the others. Each link is made for a required name, which is also the instance's device name. A key's secret is still shown once and stored only as a hash. The Rights cap is the client's, so every instance has the same Rights.
 
 The limit of 12 API clients bounds the administrator's own clients only. Panel clients are bounded by the 500 panels, because a wall of tablets would otherwise fill the 12 and leave the administrator none. The cap is checked when a save sets the client's Rights to something new, not on a save that leaves them as stored, so a panel an administrator widened keeps saving.

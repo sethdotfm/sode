@@ -8,8 +8,8 @@ export function initName(box, rename) {
     if (!editable) return box.replaceChildren(el('span', 'sode-panels__device', name));
     const b = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-panels__device', name, icon('pencil'));
     b.type = 'button';
-    b.dataset.pbTip = 'Rename this screen';
-    b.setAttribute('aria-label', `Screen name ${name}. Rename`);
+    b.dataset.pbTip = 'Rename this instance';
+    b.setAttribute('aria-label', `Instance name ${name}. Rename`);
     b.addEventListener('click', () => edit(name));
     box.replaceChildren(b);
   };
@@ -19,7 +19,7 @@ export function initName(box, rename) {
     input.maxLength = 40;
     input.value = name;
     input.autocomplete = 'off';
-    input.setAttribute('aria-label', 'Screen name');
+    input.setAttribute('aria-label', 'Instance name');
     let done = false;
     const finish = (save) => {
       if (done) return;

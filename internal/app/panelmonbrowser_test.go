@@ -50,12 +50,12 @@ func TestChromePanelWatchToast(t *testing.T) {
 		t.Fatalf("keepalive %d", c)
 	}
 	b.waitFor("online mark", `document.querySelector('[data-online]')?.textContent === 'Online'`)
-	// Open now lists the screen with its own Watch box, which watches only that screen.
-	b.waitFor("screen watch box", `!!document.querySelector('[data-watch-instance="Lobby tablet"]')`)
+	// Open now lists the instance with its own Watch box, which watches only that instance.
+	b.waitFor("instance watch box", `!!document.querySelector('[data-watch-instance="Lobby tablet"]')`)
 	b.eval(`document.querySelector('[data-watch-instance="Lobby tablet"]').click()`)
 	for deadline := time.Now().Add(10 * time.Second); !a.mon.watchingInst("Ana", id, "Lobby tablet"); time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
-			t.Fatal("the screen checkbox did not set the instance watch")
+			t.Fatal("the instance checkbox did not set the instance watch")
 		}
 	}
 

@@ -164,6 +164,10 @@ A saved grid of tappable cells that patches the router from its own page, made f
 **Hardware panel**:
 A physical router panel. Sode does not make these. Changes from one arrive as an External.
 
+**Instance**:
+One open page of a panel, named once in its browser (its device name) or by the link's `?instance=`. A panel is online while at least one instance is. A key, a watch and a Lost notice can each be for one instance.
+_Avoid_: screen (for an open panel page)
+
 **Cell**:
 One square of a panel's grid. It has a cell kind and may be a merged cell.
 
@@ -171,7 +175,7 @@ One square of a panel's grid. It has a cell kind and may be a merged cell.
 What a cell does: Source, Destination, Preset, Take, Clear or Current Destination. A Source or Destination cell is bound to a router number and shows the Router name.
 
 **Current Destination** (cell kind):
-A cell that shows, under the caption "Currently", the source now on the viewed destination. It cannot be pressed. It stays useful when that source is not on screen.
+A cell that shows, under the caption "Currently", the source now on the viewed destination. It cannot be pressed. It stays useful when that source has no cell in the grid.
 
 **Viewed destination**:
 The destination whose current and staged source a panel's Source cells show. Pressing a Destination cell views it.

@@ -9,7 +9,7 @@ All beside the config, under `/data` in the image.
 - `panels/<id>.yaml`: one file per panel. `<id>.art/<art id>` holds its artwork and `<id>.checkpoints` its Push checkpoints (at most 10). `panelStore` (`panelstore.go`) owns all three; every write goes through `writeLocked`, which moves `Rev`.
 - `panelsets/`: Checkpoint sets, `everyone.yaml` and `me-<hex of user>.yaml`.
 - `templates/me/` and `templates/everyone/`: templates, apart from the panel files.
-- `panelwatch.yaml`: who watches what, as watch keys: a panel id, or `<id>/<device lowercased>` for one screen (`watchKey` in `panelmon.go`; keep per-instance watches keyed by the device name, since #293 makes named instances first class). Never part of a panel file, and the API only sends the caller's own `watching` and `watchingInstances`.
+- `panelwatch.yaml`: who watches what, as watch keys: a panel id, or `<id>/<device lowercased>` for one instance (`watchKey` in `panelmon.go`; keep per-instance watches keyed by the device name, since #293 makes named instances first class). Never part of a panel file, and the API only sends the caller's own `watching` and `watchingInstances`.
 - `yamlDir` (`yamldir.go`) is the mutex, directory, id retry, atomic write and name sort that the panel, template and Checkpoint set stores share; file names and skip rules stay in each store. Sets keep several records per file, so they use only part of it.
 - A file whose id, name or directory disagrees with its content is skipped, not repaired.
 
@@ -34,7 +34,7 @@ A Session-mode page trades its signed-in session for a user key over the socket:
 
 ## Push, Rev and live update
 
-`panelStore.applyLocked` writes the checkpoint, then the panel. A checkpoint that cannot be saved stops the Push. Open pages poll `GET /panels/{id}` every 5 seconds and compare `rev` (`panelupdate.js`, `panellive.js`; a 10 s countdown banner, staged routes hold the refresh), so a Push, an editor save and a restore all reach them through the same store write. Push and import never copy `acts`, `client` or `clientRights`, nor id, name, owner or `share`. A new route that stores a panel must not widen that list. The group for Push is worked out in the page (`pushGroups`); the server only sees ids.
+`panelStore.applyLocked` writes the checkpoint, then the panel. A checkpoint that cannot be saved stops the Push. Open pages poll `GET /panels/{id}` every 5 seconds and compare `rev` (`panelupdate.js`, `panellive.js`; a 10 s countdown banner with a bar, Snooze 60 s and Apply now; staged routes hold the plain countdown but not a Snooze or Apply now, see docs/panels-design.md), so a Push, an editor save and a restore all reach them through the same store write. Push and import never copy `acts`, `client` or `clientRights`, nor id, name, owner or `share`. A new route that stores a panel must not widen that list. The group for Push is worked out in the page (`pushGroups`); the server only sees ids.
 
 ## Monitoring
 

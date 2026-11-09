@@ -1,5 +1,5 @@
 // An open panel page is an instance of the panel (docs/panels-design.md, Monitoring). The device name is asked
-// once per browser, then a keepalive goes out every 15 seconds so Sode knows the screen is alive. A held stream
+// once per browser, then a keepalive goes out every 15 seconds so Sode knows the instance is alive. A held stream
 // tells Sode at once when the page closes; the keepalive is the fallback when a proxy or browser will not hold it.
 import { readStr, writeStr } from './store.js';
 import { KEEPALIVE_MS, deviceFrom, keepaliveBody, streamPath, retryMs, renameTo } from './panelwatchrules.js';
@@ -25,7 +25,7 @@ async function hold(call, id, device, gate) {
 // call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
 // ?instance= name: it stands in for the stored name and the question, and is never stored, so the link stays the authority.
 // onName(device, editable) hears the name once it is known and after a rename. Returns { rename(name) }; a preset
-// name cannot be renamed. The old name's screen goes quiet and is lost after the usual grace, as any closed page is.
+// name cannot be renamed. The old name's instance goes quiet and is lost after the usual grace, as any closed page is.
 export function startKeepalive(call, id, form, preset = '', onName = () => {}) {
   let device = deviceFrom(preset) || deviceFrom(readStr(DEVICE_KEY));
   let timer = 0;

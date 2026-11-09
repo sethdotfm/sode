@@ -42,9 +42,9 @@ export function makeAction(mode, held) {
 }
 
 export const CONFIRM_TEXT = {
-  rotate: "Rotating ends this instance's key. That screen signs out and its old link stops working. Other instances are not affected.",
-  setup: "A setup link replaces this instance's key. That screen signs out and its old link stops working. Other instances are not affected.",
-  revoke: 'Revoking ends this instance. That screen signs out and its link stops working. Other instances are not affected.',
+  rotate: "Rotating ends this instance's key. That instance signs out and its old link stops working. Other instances are not affected.",
+  setup: "A setup link replaces this instance's key. That instance signs out and its old link stops working. Other instances are not affected.",
+  revoke: 'Revoking ends this instance. It signs out and its link stops working. Other instances are not affected.',
 };
 
 export const confirmKind = (mode, which) => (which === 'revoke' ? 'revoke' : mode === 'setup' ? 'setup' : 'rotate');

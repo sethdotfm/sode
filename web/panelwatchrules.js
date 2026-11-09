@@ -29,7 +29,7 @@ export function durationText(secs) {
   return plural(d, 'day') + (h ? ` ${plural(h, 'hour')}` : '');
 }
 
-// A notice names the panel, the device and how long it was missing. offline says the panel has no screen left.
+// A notice names the panel, the device and how long it was missing. offline says the panel has no instance left.
 export function noticeText(n) {
   const dur = durationText(n.secs);
   if (n.state === 'back') {
@@ -41,7 +41,7 @@ export function noticeText(n) {
   }
   return {
     kind: n.offline ? 'error' : 'warn',
-    title: n.offline ? `${n.name} is offline` : `${n.name} lost a screen`,
+    title: n.offline ? `${n.name} is offline` : `${n.name} lost an instance`,
     text: lostText(n.device, n.secs),
   };
 }
@@ -49,11 +49,11 @@ export function noticeText(n) {
 // The line of a lost notice; the toast calls it again every second with the time since the notice came.
 export const lostText = (device, secs) => `${device} has not been heard from for ${durationText(secs)}.`;
 
-// An alarm row with an `instance` is a watched screen, not a whole panel.
-const screens = (rows) => rows.length > 0 && rows.every((r) => r.instance);
+// An alarm row with an `instance` is a watched instance, not a whole panel.
+const instances = (rows) => rows.length > 0 && rows.every((r) => r.instance);
 export const badgeText = (rows) => {
-  const noun = screens(rows) ? 'screen' : 'panel';
-  if (rows.some((r) => r.instance) && !screens(rows)) return `${rows.length} offline`;
+  const noun = instances(rows) ? 'instance' : 'panel';
+  if (rows.some((r) => r.instance) && !instances(rows)) return `${rows.length} offline`;
   return rows.length === 1 ? `1 ${noun} offline` : `${rows.length} ${noun}s offline`;
 };
 
@@ -62,7 +62,7 @@ export const deviceFrom = (s) =>
     .trim()
     .slice(0, DEVICE_MAX);
 
-// Sent even with the page in front, so the person gets the same alert on every screen they watch from.
+// Sent even with the page in front, so the person gets the same alert in every browser they watch from.
 export const shouldNotify = (permission) => permission === 'granted';
 
 export const keepaliveBody = (device) => JSON.stringify({ device: deviceFrom(device) });
@@ -90,7 +90,7 @@ export function bannerText(rows) {
     return { title: r.instance ? `${r.name} lost ${r.device}` : `${r.name} is offline`, text: `${r.device} stopped responding.` };
   }
   const label = (r) => (r.instance ? `${r.name}: ${r.device}` : r.name);
-  const noun = screens(rows) ? 'screens' : rows.some((r) => r.instance) ? 'watched panels and screens' : 'panels';
+  const noun = instances(rows) ? 'instances' : rows.some((r) => r.instance) ? 'watched panels and instances' : 'panels';
   return { title: `${rows.length} ${noun} are offline`, text: rows.map(label).join(', ') };
 }
 
