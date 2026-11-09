@@ -28,7 +28,9 @@ export function createAccessTab(ed, ctx) {
   const acts = el('select', 'pb-select', opt('session', 'Whoever opens it (Session mode)'), opt('api', 'Its own API client'));
   acts.id = 'ed-acts';
   const actsHint = el('p', 'sode__hint');
-  const actsField = el('div', 'sode__field', el('label', null, 'Acts as'), el('span', 'pb-select-wrap', acts), actsHint);
+  const actsNote = el('p', 'sode__hint');
+  actsNote.setAttribute('role', 'status');
+  const actsField = el('div', 'sode__field', el('label', null, 'Acts as'), el('span', 'pb-select-wrap', acts), actsHint, actsNote);
 
   const clientBox = el('div', 'sode-side__sec');
   const current = el('p', 'sode-side__rights');
@@ -107,7 +109,21 @@ export function createAccessTab(ed, ctx) {
       ed.setFields({ clientRights: undefined });
     }
   });
-  acts.addEventListener('change', () => ed.setFields({ acts: acts.value }));
+  // Acts as makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
+  // save carries the panel's other unsaved changes with it. A refusal puts the choice back and says why.
+  acts.addEventListener('change', async () => {
+    const want = acts.value;
+    acts.disabled = true;
+    actsNote.textContent = 'Saving.';
+    ed.setFields({ acts: want });
+    const refused = await ed.save();
+    if (refused) ed.setFields({ acts: undefined });
+    actsNote.textContent = refused
+      ? refused
+      : want === 'api'
+        ? 'Saved. The panel now has its own API client. Make its links under Share, Link with key.'
+        : 'Saved. The panel acts as the signed-in user, and its API client and every key are gone.';
+  });
 
   function fill() {
     for (const l of lists) {

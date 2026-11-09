@@ -952,27 +952,34 @@ paths:
     post:
       operationId: makePanelKey
       tags: [panels]
-      summary: Make or rotate a panel's key
+      summary: Make or rotate the key of a named instance of a panel
       description: |
         Scope `panelsmanage`. Needs a user's key, and the panel's owner or a Trusted user. Only for
-        a panel that acts as an API client (409 `conflict` otherwise). The panel holds one key, so
-        this ends any older key and its open streams and returns the new secret, which is shown
-        this once and stored only as a hash. The key never expires. `link` is relative to Sode's
-        root and carries the key in the URL fragment (`#key=`), so it never reaches a request line,
-        a proxy log or a Referer. Opening it runs the panel as its API client with no sign-in.
-        A key in a query string is not a credential.
+        a panel that acts as an API client (409 `conflict` otherwise). A panel holds one key per
+        named instance, at most 20 (keys and pending setup links together; 409 `conflict` past
+        that). `instance` is required (400 `bad_request`) and is also the instance's device name.
+        Names are unique on the panel ignoring case, so a name that already holds a key rotates
+        that instance only: its old key and open streams end and the other instances keep theirs.
+        The new secret is shown this once and stored only as a hash. The key never expires. `link`
+        is relative to Sode's root and carries the name in the query and the key in the URL
+        fragment (`#key=`), so the key never reaches a request line, a proxy log or a Referer.
+        Opening it runs the panel as its API client with no sign-in. A key in a query string is
+        not a credential.
 
-        With `{"setup": true}` in the body (secure mode) it ends the panel's key the same way and
-        returns a one-time setup link instead of a key. The panel page posts the token to
-        `POST /panels/{id}/setup` and keeps the key it gets in the browser, so the link works
-        once and for one hour. A newer link, a new key, a revoke or deleting the panel ends it.
+        With `{"setup": true}` in the body (secure mode) it ends that instance's key the same way
+        and returns a one-time setup link instead of a key. The panel page posts the token to
+        `POST /panels/{id}/setup` and keeps the key it gets in the browser, named for the
+        instance, so the link works once and for one hour. A newer link or key for the same name,
+        a revoke of it or deleting the panel ends it.
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [instance]
               properties:
+                instance: { type: string, maxLength: 40, description: The instance's name, also its device name }
                 setup: { type: boolean, description: Make a one-time setup link, not a key }
       responses:
         "201":
@@ -984,8 +991,9 @@ paths:
                 properties:
                   key: { type: string, description: The secret, shown once. Not in a setup answer }
                   id: { type: string, description: The key's id in the key list. Not in a setup answer }
-                  rotated: { type: boolean, description: True when an older key was ended }
-                  link: { type: string, description: "`panels/<id>#key=<secret>`, or with `setup` `panels/<id>#setup=<token>`, relative to Sode's root. Sode's own pages build a shorter link: the short name when there is one, and the secret without its `sode_` or `sode_setup_` prefix" }
+                  instance: { type: string, description: The instance's name as stored }
+                  rotated: { type: boolean, description: True when this instance's older key was ended }
+                  link: { type: string, description: "`panels/<id>?instance=<name>#key=<secret>`, or with `setup` `panels/<id>?instance=<name>#setup=<token>`, relative to Sode's root. Sode's own pages build a shorter link: the short name when there is one, and the secret without its `sode_` or `sode_setup_` prefix" }
                   setup: { type: string, description: The one-time token, shown once. Only in a setup answer }
                   expires: { type: string, format: date-time, description: When the setup link stops working. Only in a setup answer }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -997,13 +1005,57 @@ paths:
     delete:
       operationId: revokePanelKey
       tags: [panels]
-      summary: Revoke a panel's key
+      summary: Revoke one instance's key
       description: |
-        Scope `panelsmanage`, owner or Trusted, a user's key. Ends the panel's key and its open
-        streams. The panel and its API client stay, without a key. Revoking when there is no key
-        is a 204 too.
+        Scope `panelsmanage`, owner or Trusted, a user's key. Ends the named instance's key, any
+        pending setup link for it and its open streams. The panel, its API client and the other
+        instances stay. Revoking an instance that has none is a 204 too.
+      parameters:
+        - { name: instance, in: query, required: true, schema: { type: string, maxLength: 40 }, description: The instance's name, ignoring case }
       responses:
         "204": { description: Revoked }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/keys:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    get:
+      operationId: listPanelKeys
+      tags: [panels]
+      summary: List a panel's instances
+      description: |
+        Scope `panelsmanage`, owner or Trusted, a user's key, a panel that acts as an API client
+        (409 `conflict` otherwise). One row per named instance: a key, or a one-time setup link
+        that has not been used. Never a secret. `online` is true while a screen with that device
+        name counts as online.
+      responses:
+        "200":
+          description: The instances, by name, and the limit
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys, max]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, created, online]
+                      properties:
+                        id: { type: string }
+                        name: { type: string, description: The instance's name }
+                        created: { type: string, format: date-time }
+                        lastUsed: { type: string, format: date-time, description: Absent until the key is first used }
+                        online: { type: boolean }
+                        setup: { type: boolean, description: True when only a one-time setup link is pending }
+                        expires: { type: string, format: date-time, description: When a pending setup link stops working }
+                  max: { type: integer, description: The most instances a panel may hold }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/Error" }
@@ -1016,11 +1068,11 @@ paths:
     post:
       operationId: exchangePanelSetup
       tags: [panels]
-      summary: Trade a one-time setup link for the panel's key
+      summary: Trade a one-time setup link for an instance's key
       security: []
       description: |
         Needs no key (route scope `none`): the token is the credential. It works once, for an hour.
-        The answer is a new key for the panel's API client, shown this once. A token that was used,
+        The answer is a new key for the instance the link was made for, shown this once. A token that was used,
         expired or replaced is 401 `invalid_setup`. Wrong tokens count against the same
         per-address limit as wrong keys (429 `rate_limited`). From outside the panel's allowed
         networks it is 403 `network_not_allowed` and the link stays usable.
@@ -1044,6 +1096,7 @@ paths:
                 properties:
                   key: { type: string }
                   id: { type: string }
+                  instance: { type: string, description: The instance's name, which is also the key's name }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
