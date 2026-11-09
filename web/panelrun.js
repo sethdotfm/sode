@@ -5,7 +5,7 @@ import { $ } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey } from './sessionkeyrules.js';
-import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText } from './panelrules.js';
+import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
 import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
 import {
@@ -31,6 +31,7 @@ import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
 import { createWake, buzz, enterFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
+import { initFull } from './panelfull.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
@@ -105,6 +106,7 @@ export async function runPanel(id) {
     return look;
   };
   let look = applyLook(panel);
+  initFull($('panel-full'), document.querySelector('.sode-panels'));
   if (look.wake) createWake(navigator, document).on();
 
   let cells = cellsIn(panel);
@@ -132,6 +134,13 @@ export async function runPanel(id) {
   };
   let grid = buildGrid($('panel-grid'), panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
 
+  // Blur the whole panel and say Offline, so nobody takes a stale grid for a working one.
+  const showOffline = (o) => {
+    document.querySelector('.sode-panels').classList.toggle('sode-panels--offline', !!o);
+    $('panel-offline').hidden = !o;
+    if (o) $('panel-offline-detail').textContent = o.detail;
+  };
+
   let polling = false;
   let ended = false; // the key is gone or refused: only a new link helps
   async function poll() {
@@ -140,11 +149,16 @@ export async function runPanel(id) {
     try {
       const wantNames = Date.now() - namesAt > NAMES_MS;
       // A key without the presets scope gets 403: its Preset cells then show as unavailable.
-      const [tally, prot, nm, pr] = await Promise.all([
+      const [tally, prot, nm, pr, link] = await Promise.all([
         callJSON('api/v1/tally'),
         callJSON('api/v1/protected'),
         wantNames ? callJSON('api/v1/names') : null,
         wantNames ? callJSON('api/v1/presets').catch(() => ({})) : null,
+        // A key without the status scope gets 403: the router link is then unknown, not down.
+        callJSON('api/v1/status').catch((e) => {
+          if (e.status === undefined || e.status >= 500) throw e;
+          return null;
+        }),
       ]);
       if (nm) {
         names = namesFrom(nm);
@@ -153,11 +167,18 @@ export async function runPanel(id) {
       }
       env = envFrom(tally, prot, presets, panel.rights);
       st = applyTally(st, env);
-      ready = true;
+      const off = offlineOf({ failed: false, routerUp: link ? link.routerUp : true });
+      showOffline(off);
+      ready = !off;
       say('panels-note', '');
     } catch (e) {
       const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key);
       say('panels-note', f.text);
+      if (!f.stop) {
+        ready = false;
+        // A refusal (a session not signed in yet) is not a lost link.
+        if (e.status === undefined || e.status >= 500) showOffline(offlineOf({ failed: true, routerUp: true }));
+      }
       if (f.stop) {
         ended = true;
         ready = false;

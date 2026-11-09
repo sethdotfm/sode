@@ -6,6 +6,7 @@ import { btn, check } from './formbits.js';
 import { churnKey } from './lockrules.js';
 import { qrNode } from './keyview.js';
 import { shareTabs } from './panelshare.js';
+import { linkRow } from './panellinkrow.js';
 import {
   MODES,
   MODE_HINT,
@@ -35,11 +36,9 @@ shareTabs.push(({ panel, api }) => {
   const tab = { id: 'key', text: 'Link with key', panel: root };
   if (panel.acts !== 'api') {
     root.append(
-      el(
-        'p',
-        'sode__hint',
-        'This panel acts as the signed-in user, so it has no key. It asks for a PIN when it is launched. Make it act as an API client in the editor to give it a link with a key.',
-      ),
+      el('p', 'sode__hint', 'This panel acts as the signed-in user, so it has no key and its link is the same for everyone. It asks for a PIN when it is launched.'),
+      linkRow(panel),
+      el('p', 'sode__hint', 'To give it a link with a key, set Acts as to its own API client on the Access tab and save.'),
     );
     return tab;
   }

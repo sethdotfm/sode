@@ -19,6 +19,12 @@ import (
 // startSim builds cmd/swp08sim and runs it on a free port, returning its address. Never a
 // live Ultrix: the only router a browser check may reach is this one.
 func startSim(t *testing.T) string {
+	addr, _ := startSimStoppable(t)
+	return addr
+}
+
+// startSimStoppable also returns a func that kills the simulator mid-test.
+func startSimStoppable(t *testing.T) (string, func()) {
 	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("browser checks skipped: go is not on PATH, so swp08sim cannot be built")
@@ -47,11 +53,11 @@ func startSim(t *testing.T) string {
 	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
 		if c, err := net.Dial("tcp", addr); err == nil {
 			c.Close()
-			return addr
+			return addr, cancel
 		}
 	}
 	t.Fatal("swp08sim did not start listening")
-	return ""
+	return "", nil
 }
 
 // simApp is an app with user Ana (PIN 1234) and the API on, connected to the simulator through

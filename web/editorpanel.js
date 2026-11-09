@@ -5,6 +5,7 @@ import { field, check, opt } from './formbits.js';
 import { featureSupport } from './panelfeel.js';
 import { setSetting, fontPercent, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createArtControl } from './editorart.js';
+import { linkRow } from './panellinkrow.js';
 import { createLevelBoxes } from './editorlevels.js';
 import { createSizeFields } from './editorsize.js';
 
@@ -34,8 +35,10 @@ export function createPanelTab(ed) {
     $('ed-name').dispatchEvent(new Event('input'));
   });
   const ident = el('p', 'sode__hint');
+  const linkBox = el('div');
+  let linkOf = ''; // id and mode the link row was built for, so a refresh does not rebuild it under a hand
   const sizes = createSizeFields(ed);
-  const identity = section('Identity', field('ed-side-name', 'Name', name), sizes.node, ident);
+  const identity = section('Identity', field('ed-side-name', 'Name', name), sizes.node, ident, linkBox);
 
   const size = el('input', 'pb-input sode-ed__num');
   size.id = 'ed-set-font';
@@ -107,6 +110,11 @@ export function createPanelTab(ed) {
       if (document.activeElement !== name) name.value = $('ed-name').value;
       name.disabled = ro;
       ident.textContent = p ? `Id ${p.id}. Owner ${p.owner}.` : 'Not saved yet.';
+      const want = p ? `${p.id}|${p.acts}` : '';
+      if (want !== linkOf) {
+        linkOf = want;
+        linkBox.replaceChildren(...(p ? [linkRow(p)] : []));
+      }
       for (const { key, input } of toggles) {
         const dflt = key === 'titleBar' || key === 'multi';
         input.checked = dflt ? s[key] !== false : s[key] === true;

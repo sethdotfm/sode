@@ -33,20 +33,29 @@
   </div>
 
   <div class="pb-toolbar sode-ed__bar" role="toolbar" aria-label="Panel editor">
-    <label class="sode-ed__field" for="ed-pick">Panel
-      <span class="pb-select-wrap"><select class="pb-select" id="ed-pick"></select></span>
-    </label>
-    <label class="sode-ed__field" for="ed-name">Name
-      <input class="pb-input" id="ed-name" type="text" maxlength="64" autocomplete="off">
-    </label>
-    <span class="sode-ed__field"><span id="ed-todo"></span>
-      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-next" type="button">Next</button>
-    </span>
+    <div class="sode-ed__grp sode-ed__grp--pick">
+      <label class="sode-ed__field" for="ed-pick">Panel
+        <span class="pb-select-wrap"><select class="pb-select sode-ed__pick" id="ed-pick"></select></span>
+      </label>
+      <label class="sode-ed__field" for="ed-name">Name
+        <input class="pb-input" id="ed-name" type="text" maxlength="64" autocomplete="off">
+      </label>
+    </div>
+    <div class="sode-ed__grp">
+      <span class="sode-ed__field"><span id="ed-todo" data-pb-tip="Squares that have a button type but no Source, Destination or Preset yet. Next selects the next one."></span>
+        <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-next" type="button">Next</button>
+      </span>
+    </div>
     <span class="sode-panels__spacer"></span>
-    <span class="sode-ed__state" id="ed-state" role="status" hidden></span>
-    <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
-    <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Opens the saved panel as it runs, without unassigned squares. Saves first.">Test it live</button>
-    <button class="pb-btn pb-btn--ok pb-btn--sm" id="ed-save" type="button">Save</button>
+    <div class="sode-ed__grp">
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" hidden>Copy link</button>
+      <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Opens the saved panel as it runs, without unassigned squares. Saves first.">Test it live</button>
+    </div>
+    <div class="sode-ed__grp">
+      <span class="sode-ed__state" id="ed-state" role="status" hidden></span>
+      <button class="pb-btn pb-btn--ok pb-btn--sm" id="ed-save" type="button">Save</button>
+    </div>
   </div>
   <p class="sode__hint" id="ed-status" role="status" hidden></p>
 
