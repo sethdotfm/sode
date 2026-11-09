@@ -1,11 +1,12 @@
 // The smart menu: a small list beside the selection (right, else left, else below). It knows nothing about
 // cells. The page gives it items, so Find, fill orders and later actions are added by handing it more.
-// An item is { label, icon, run, letter?, disabled?, hint?, sub?: [{ label, run, current? }] }; letter is the key that
-// activates it while focus is on the menu, and is shown beside it. Esc and the arrows are the menu's own.
+// An item is { label, icon, run, chord?, disabled?, sub?: [{ label, run, current? }] }; chord is the letter that,
+// with Ctrl or Cmd, runs it, and is shown beside it. Esc and the arrows are the menu's own.
 import { el, icon } from './core.js';
-import { placeMenu, menuTarget } from './editorrules.js';
+import { placeMenu, menuChord, chordText } from './editorrules.js';
 
 const GAP = 8;
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform || '');
 
 export function createSmartMenu(host, { onEscape }) {
   const root = el('ul', 'pb-menu sode-ed__menu');
@@ -13,15 +14,14 @@ export function createSmartMenu(host, { onEscape }) {
   root.hidden = true;
   document.body.append(root);
 
-  // Opening a flyout means going into it; anything else runs.
-  function activate(it) {
-    if (!it.sub) return it.run();
-    // The flyout shows on focus-within, so the item takes focus before its first entry can.
-    const b = root.querySelector(`[data-letter="${it.letter}"]`);
-    b?.focus();
-    b?.parentElement.querySelector(':scope > .pb-menu__sub button')?.focus();
-  }
   let current = [];
+
+  // Ctrl or Cmd+letter: true when it ran an item. The grid's keydown calls this too.
+  const run = (e) => {
+    const it = menuChord(current, e);
+    if (it) it.run();
+    return !!it;
+  };
 
   const buttons = () => [...root.querySelectorAll(':scope > li > .pb-menu__item')];
 
@@ -38,13 +38,8 @@ export function createSmartMenu(host, { onEscape }) {
         e.preventDefault();
         into.focus();
       }
-    } else if (i >= 0 && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      // Only with an item focused: inside Find's box or a flyout, letters are typing.
-      const it = menuTarget(current, e.key.toLowerCase());
-      if (it) {
-        e.preventDefault();
-        activate(it);
-      }
+    } else if (run(e)) {
+      e.preventDefault();
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       if (i < 0) return; // inside a flyout: it handles its own arrows
       e.preventDefault();
@@ -59,10 +54,7 @@ export function createSmartMenu(host, { onEscape }) {
     b.setAttribute('role', 'menuitem');
     b.disabled = !!it.disabled;
     b.append(icon(it.icon), el('span', '', it.label));
-    if (it.letter) {
-      b.dataset.letter = it.letter;
-      b.append(el('span', 'pb-menu__hint sode-ed__keys', it.letter.toUpperCase()));
-    }
+    if (it.chord) b.append(el('span', 'pb-menu__hint sode-ed__keys', chordText(it.chord, MAC)));
     if (it.panel) {
       // A flyout the page owns and keeps between rebuilds (Find's box and list), so it carries its own classes.
       b.setAttribute('aria-haspopup', 'true');
@@ -93,6 +85,7 @@ export function createSmartMenu(host, { onEscape }) {
 
   return {
     root,
+    run,
     // box is the selection's screen box from the grid view; null hides the menu.
     show(box, items) {
       if (!box || !items.length) return void this.hide();

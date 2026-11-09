@@ -21,7 +21,7 @@ import {
   countTodo,
   nextTodo,
 } from './gridmodel.js';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, menuLetters, todoText } from './editorrules.js';
+import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, typeLabel, todoText } from './editorrules.js';
 import { linkFor } from './panellink.js';
 import { copyText } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
@@ -78,8 +78,19 @@ export async function runEditor() {
   });
   const menu = createSmartMenu($('ed-grid'), { onEscape: () => $('ed-grid').focus() });
 
+  // The menu goes with the selection when a click or Tab lands outside the grid, the menu and the sidebar (which
+  // edits the selected cell). Not a blur: the menu rebuilds itself on every change and drops focus for a moment.
+  const inEditor = (t) => t instanceof Node && [$('ed-grid'), menu.root, $('ed-side')].some((n) => n.contains(t));
+  const leave = (e) => {
+    if (g.sel && !inEditor(e.target)) setGrid(deselect(g));
+  };
+  document.addEventListener('pointerdown', leave);
+  document.addEventListener('focusin', leave);
+
   function onKey(e) {
-    if (readOnly() || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (readOnly()) return;
+    if (menu.run(e)) return void e.preventDefault();
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (keyHooks.some((fn) => fn(e))) return;
     const arrow = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
     const q = rectOf(g);
@@ -106,14 +117,13 @@ export async function runEditor() {
   function menuItems() {
     const cells = selCells(g);
     const items = [
-      // One item that toggles, so M merges a group and unmerges a merged square.
+      // One item that toggles, so Ctrl or Cmd+M merges a group and unmerges a merged square.
       canUnmerge(g)
-        ? { name: 'Merge', label: 'Unmerge', icon: 'split', run: () => setGrid(unmerge(g)) }
-        : { name: 'Merge', label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g)) },
+        ? { chord: 'm', label: 'Unmerge', icon: 'split', run: () => setGrid(unmerge(g)) }
+        : { chord: 'm', label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g)) },
       {
-        label: 'Type',
+        label: typeLabel(cells),
         icon: 'type',
-        name: 'Type',
         sub: kindChoices().map(({ kind, label }) => ({
           label,
           current: kind === '' ? !cells.length : cells.length > 0 && cells.every((c) => c.kind === kind),
@@ -122,8 +132,6 @@ export async function runEditor() {
       },
     ];
     for (const section of menuSections) items.push(...section(g));
-    const letters = menuLetters(items.map((it) => it.name || it.label));
-    items.forEach((it, i) => (it.letter = letters[i]));
     return items;
   }
 
