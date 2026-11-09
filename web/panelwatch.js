@@ -11,7 +11,7 @@ function host() {
   if (stack) return stack;
   stack = el('div', 'pb-toast-stack');
   stack.setAttribute('aria-live', 'polite');
-  badge = el('a', 'pb-badge pb-badge--error');
+  badge = el('a', 'pb-badge pb-badge--error pb-tip--end');
   badge.href = 'panels';
   badge.hidden = true;
   badge.dataset.panelBadge = '';
@@ -44,7 +44,7 @@ function toast(n) {
 
 function browserNotice(t, n) {
   if (typeof Notification === 'undefined') return;
-  if (!shouldNotify(Notification.permission, document.hidden, document.hasFocus())) return;
+  if (!shouldNotify(Notification.permission)) return;
   try {
     new Notification(t.title, { body: t.text, tag: `sode-panel-${n.panel}` });
   } catch {}
@@ -54,7 +54,7 @@ export function setBadge(rows) {
   host();
   badge.hidden = rows.length === 0;
   badge.textContent = rows.length ? badgeText(rows) : '';
-  badge.title = rows.map((r) => `${r.name}: ${r.device}`).join('\n');
+  badge.dataset.pbTip = rows.map((r) => `${r.name}: ${r.device}`).join('\n');
 }
 
 // Asked from a click on Watch: a browser only shows its permission prompt for a gesture.

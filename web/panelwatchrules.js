@@ -45,7 +45,7 @@ export const deviceFrom = (s) =>
     .trim()
     .slice(0, DEVICE_MAX);
 
-// A browser notification is only worth sending when the page is not in front of the person.
-export const shouldNotify = (permission, hidden, focused) => permission === 'granted' && (hidden || !focused);
+// Sent even with the page in front, so the person gets the same alert on every screen they watch from.
+export const shouldNotify = (permission) => permission === 'granted';
 
 export const keepaliveBody = (device) => JSON.stringify({ device: deviceFrom(device) });

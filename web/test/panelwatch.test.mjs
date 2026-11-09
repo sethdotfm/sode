@@ -40,10 +40,8 @@ test('a device name is trimmed and capped as the server caps it', () => {
 
 test('the keepalive is 15 seconds', () => assert.equal(KEEPALIVE_MS, 15000));
 
-test('a browser notification waits for the page to be out of sight', () => {
-  assert.equal(shouldNotify('granted', true, false), true);
-  assert.equal(shouldNotify('granted', false, false), true);
-  assert.equal(shouldNotify('granted', false, true), false);
-  assert.equal(shouldNotify('denied', true, false), false);
-  assert.equal(shouldNotify('default', true, false), false);
+test('a browser notification fires whenever the person allowed them', () => {
+  assert.equal(shouldNotify('granted'), true);
+  assert.equal(shouldNotify('denied'), false);
+  assert.equal(shouldNotify('default'), false);
 });
