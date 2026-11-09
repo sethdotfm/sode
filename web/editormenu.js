@@ -1,6 +1,6 @@
 // The smart menu: a small list beside the selection (right, else left, else below). It knows nothing about
 // cells. The page gives it items, so Find, fill orders and later actions are added by handing it more.
-// An item is { label, icon, run, disabled?, hint?, sub?: [{ label, run, current? }] }.
+// An item is { label, icon, run, disabled?, hint?, keys?, sub?: [{ label, run, current? }] }; keys is shown as its shortcut.
 import { el, icon } from './core.js';
 import { placeMenu } from './editorrules.js';
 
@@ -41,6 +41,7 @@ export function createSmartMenu(host, { onEscape }) {
     b.setAttribute('role', 'menuitem');
     b.disabled = !!it.disabled;
     b.append(icon(it.icon), el('span', '', it.label));
+    if (it.keys) b.append(el('span', 'pb-menu__hint sode-ed__keys', it.keys));
     if (it.panel) {
       // A flyout the page owns and keeps between rebuilds (Find's box and list), so it carries its own classes.
       b.setAttribute('aria-haspopup', 'true');
@@ -92,9 +93,9 @@ export function createSmartMenu(host, { onEscape }) {
     hide() {
       root.hidden = true;
     },
-    focus() {
+    focus(label) {
       buttons()
-        .find((b) => !b.disabled)
+        .find((b) => !b.disabled && (!label || b.querySelector('span')?.textContent === label))
         ?.focus();
     },
   };

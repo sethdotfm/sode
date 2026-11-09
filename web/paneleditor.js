@@ -23,7 +23,9 @@ import {
   countUnassigned,
   nextUnassigned,
 } from './gridmodel.js';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices } from './editorrules.js';
+import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, menuShortcut, todoText } from './editorrules.js';
+import { linkFor } from './panellink.js';
+import { copyText } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
 import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
@@ -77,7 +79,21 @@ export async function runEditor() {
   });
   const menu = createSmartMenu($('ed-grid'), { onEscape: () => $('ed-grid').focus() });
 
+  // Merge is one key that toggles, so Alt+M on a merged cell unmerges it.
+  function shortcut(act) {
+    if (!rectOf(g)) return;
+    if (act === 'merge') return setGrid(canUnmerge(g) ? unmerge(g) : canMerge(g) ? merge(g) : g);
+    const it = menuItems().find((x) => x.shortcut === act);
+    if (it?.sub) menu.focus(it.label);
+    else it?.run?.();
+  }
+
   function onKey(e) {
+    const act = menuShortcut(e);
+    if (act && !readOnly()) {
+      e.preventDefault();
+      return shortcut(act);
+    }
     if (readOnly() || e.ctrlKey || e.metaKey || e.altKey) return;
     if (keyHooks.some((fn) => fn(e))) return;
     const arrow = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
@@ -105,11 +121,13 @@ export async function runEditor() {
   function menuItems() {
     const cells = selCells(g);
     const items = [
-      { label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g)) },
-      { label: 'Unmerge', icon: 'split', disabled: !canUnmerge(g), run: () => setGrid(unmerge(g)) },
+      { label: 'Merge', icon: 'combine', keys: 'Alt+M', disabled: !canMerge(g), run: () => setGrid(merge(g)) },
+      { label: 'Unmerge', icon: 'split', keys: 'Alt+M', disabled: !canUnmerge(g), run: () => setGrid(unmerge(g)) },
       {
         label: 'Type',
         icon: 'type',
+        keys: 'Alt+T',
+        shortcut: 'type',
         sub: kindChoices().map(({ kind, label }) => ({
           label,
           current: kind === '' ? !cells.length : cells.length > 0 && cells.every((c) => c.kind === kind),
@@ -131,7 +149,7 @@ export async function runEditor() {
     $('ed-cols').value = String(g.cols);
     for (const id of ['ed-rows', 'ed-cols', 'ed-rows-dec', 'ed-rows-inc', 'ed-cols-dec', 'ed-cols-inc', 'ed-name']) $(id).disabled = ro;
     const todo = countUnassigned(g);
-    $('ed-todo').textContent = todo ? `${todo} unassigned` : 'All assigned';
+    $('ed-todo').textContent = todoText(todo);
     $('ed-next').disabled = ro || !todo;
     $('ed-save').disabled = ro || !dirty();
     $('ed-banner').hidden = !ro;
@@ -139,6 +157,9 @@ export async function runEditor() {
     const open = $('ed-open');
     open.hidden = !loaded;
     if (loaded) open.href = `panels/${loaded.id}`;
+    // A panel with its own API client has no link without its key (Share, Link with key).
+    const copy = $('ed-copylink');
+    copy.hidden = !loaded || loaded.acts === 'api';
   }
 
   function stepSize(which, delta) {
@@ -279,6 +300,10 @@ export async function runEditor() {
   $('ed-live').addEventListener('click', async () => {
     if (!readOnly() && dirty()) await save();
     if (loaded && !dirty()) window.open(`panels/${loaded.id}`, '_blank');
+  });
+
+  $('ed-copylink').addEventListener('click', async () => {
+    say('ed-status', (await copyText(linkFor(loaded))) ? 'Link copied.' : 'Copy failed. Use the Link field in Share instead.');
   });
 
   $('ed-copy').addEventListener('click', async () => {

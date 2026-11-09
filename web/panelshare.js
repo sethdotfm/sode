@@ -4,6 +4,7 @@
 // null when it does not apply to that panel (ctx: {panel, api, close}).
 import { el, on } from './core.js';
 import { check } from './formbits.js';
+import { linkRow } from './panellinkrow.js';
 import { trapDialog } from './dialogkeys.js';
 import { makeTabs } from './tabs.js';
 import { shareDraft, pickList, toggleUser, shareBody, shareChanged } from './panelsrules.js';
@@ -43,7 +44,7 @@ export function openShare(panel, ctx) {
   modes.setAttribute('aria-label', 'Who may use this panel');
   const hint = el('p', 'sode__hint');
   const picker = el('div', 'sode-ov__people');
-  const peopleTab = el('div', null, modes, hint, picker);
+  const peopleTab = el('div', 'sode-ov__sharebody', modes, hint, picker, linkRow(panel));
 
   function paint() {
     modes.replaceChildren(
