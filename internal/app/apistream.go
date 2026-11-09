@@ -48,6 +48,8 @@ const apiStreamVersion = 1
 var (
 	apiStreamMaxPerKey  = 8
 	apiStreamMaxPerAddr = 8
+
+	apiStreamMaxPerPanelKey = 64
 )
 
 // streamTopics maps a topic to the scope that allows it. results (entry updates only) rides
@@ -72,6 +74,7 @@ type apiStream struct {
 	topics map[string]bool
 	send   chan []byte
 	detail bool               // the caller has the log scope: status frames carry address and err
+	panel  bool               // the key is a panel's own: its kiosks share it, so the caps differ
 	keyID  string             // "" for a keyless Guest call
 	ip     string             // the caller's address, for the per-address cap
 	owner  keyOwner           // who the key acts as, re-read on every config commit
@@ -135,13 +138,19 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		if st.keyID != "" && o.keyID == st.keyID {
 			perKey++
 		}
-		if o.ip == st.ip {
+		if o.ip == st.ip && !o.panel {
 			perAddr++
 		}
 	}
-	if perKey >= apiStreamMaxPerKey || perAddr >= apiStreamMaxPerAddr {
+	// A panel's kiosks share one key and often one address, so its streams get a higher cap of
+	// their own and do not count against an address's.
+	keyMax, addrMax := apiStreamMaxPerKey, apiStreamMaxPerAddr
+	if st.panel = cl.Panel != ""; st.panel {
+		keyMax, addrMax = apiStreamMaxPerPanelKey, perAddr+1
+	}
+	if perKey >= keyMax || perAddr >= addrMax {
 		a.mu.Unlock()
-		msg := fmt.Sprintf("too many open streams: %d for a key and %d for an address at most", apiStreamMaxPerKey, apiStreamMaxPerAddr)
+		msg := fmt.Sprintf("too many open streams: %d for a key and %d for an address at most", keyMax, apiStreamMaxPerAddr)
 		a.apiEvent(cl.Actor, "refused", "refused", "stream "+strings.Join(topics, ","), fmt.Errorf("%s", msg))
 		apiFail(w, http.StatusTooManyRequests, "too_many_streams", msg)
 		return

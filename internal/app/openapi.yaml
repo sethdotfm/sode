@@ -674,6 +674,83 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: panelKeepalive
+      tags: [panels]
+      summary: Report an open panel page (keepalive)
+      description: |
+        Scope `panels`. Anyone who may use the panel counts. Each open panel page is an
+        instance named by its device, and sends this every 15 seconds. A panel is online while
+        any device was heard in the last 45 seconds. A device that is silent for more than 45
+        seconds raises a notice for the panel's watchers, and a second one when it returns
+        (see the `panelNotice` frame of the Sode socket in docs/api.md). Devices are kept in
+        memory only and told apart by name, ignoring case, so two screens that share a name are
+        one instance. A panel holds at most 100 devices (409 `conflict`). Deleting the panel, and
+        making, rotating or revoking its key, forgets its devices without a notice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device]
+              properties:
+                device: { type: string, maxLength: 40, description: A name for this screen }
+      responses:
+        "200":
+          description: Heard
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [online, keepaliveSeconds, missSeconds]
+                properties:
+                  online: { type: boolean }
+                  keepaliveSeconds: { type: integer, description: How often to send this }
+                  missSeconds: { type: integer, description: How long a silence may last }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/watch:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: watchPanel
+      tags: [panels]
+      summary: Watch a panel
+      description: |
+        Scope `panels`. Needs a user's key (403 `user_required`). A user watches the panels they
+        own and a Trusted user any panel (403 `not_owner` for a use-only panel). A watcher is
+        told when a device of the panel misses its keepalive for more than 45 seconds and when
+        it returns, through the Sode socket as a toast, a badge and, if the browser allows, a
+        notification. The list lives in `panelwatch.yaml` beside the config. Watching twice is a
+        204 too.
+      responses:
+        "204": { description: Watching }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: unwatchPanel
+      tags: [panels]
+      summary: Stop watching a panel
+      description: Scope `panels`. Same caller rules as watching. Not watching is a 204 too.
+      responses:
+        "204": { description: Not watching }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}/artwork:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
@@ -791,7 +868,8 @@ paths:
         closed.
 
         Lifetime. A key or an address can hold 8 streams at a time, and a ninth is refused
-        with 429 `too_many_streams`. A client is dropped when a frame write stalls for 5
+        with 429 `too_many_streams`. A panel's own API client key may hold 64, since its
+        kiosks share it, and those streams do not count toward an address's 8. A client is dropped when a frame write stalls for 5
         seconds or 256 frames are queued. Connects and disconnects are `api` rows in the
         Communication Log with the key name and, for a disconnect, the reason.
       parameters:
@@ -1001,6 +1079,18 @@ components:
             client: { type: string, description: The API client of a panel that acts as one }
             art: { type: array, items: { $ref: "#/components/schemas/PanelArt" } }
             canEdit: { type: boolean, description: False when the caller may only use the panel }
+            online: { type: boolean, description: Output only. A device was heard in the last 45 seconds, on a list or a read }
+            watching: { type: boolean, description: Output only. The calling user watches it; never a list of watchers }
+            instances:
+              type: array
+              description: Output only, for an editor. The devices that have opened the panel since Sode started
+              items:
+                type: object
+                required: [device, seen, online]
+                properties:
+                  device: { type: string }
+                  seen: { type: string, format: date-time }
+                  online: { type: boolean }
             rights:
               type: object
               description: |
@@ -1053,6 +1143,7 @@ components:
         kind: { type: string, enum: [user, client, guest] }
         name: { type: string }
         key: { type: string, description: The key name, verified }
+        owner: { type: string, description: "For a panel's own API client, the user who made it; `client` then reads \"Seth (Panel p-1a2b3c4d)\"" }
         via: { type: string, description: The caller's own note, unverified }
     Entry:
       type: object
