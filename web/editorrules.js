@@ -64,12 +64,6 @@ export function placeMenu(rect, menu, vp, gap) {
   return { side: 'below', left: Math.max(0, Math.min(rect.left, vp.w - menu.w)), top: rect.bottom + gap };
 }
 
-// Alt+letter from the grid, by key position: plain letters there start Find, and Option on a Mac types another character.
-export const menuShortcut = (e) => {
-  const m = /^Key([A-Z])$/.exec(e.code || '');
-  return m && e.altKey && !e.ctrlKey && !e.metaKey ? m[1].toLowerCase() : null;
-};
-
 // One letter per menu item, from its name: the first of its letters no earlier item took, else the first free
 // letter of the alphabet. Names are stable (Merge keeps M while it reads Unmerge), so a letter never moves.
 export function menuLetters(names) {

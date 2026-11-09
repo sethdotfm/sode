@@ -21,7 +21,7 @@ import {
   countUnassigned,
   nextUnassigned,
 } from './gridmodel.js';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, menuShortcut, menuLetters, menuTarget, todoText } from './editorrules.js';
+import { editorTarget, groupPanels, newPanel, saveBody, isDirty, kindChoices, menuLetters, todoText } from './editorrules.js';
 import { linkFor } from './panellink.js';
 import { copyText } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
@@ -78,20 +78,7 @@ export async function runEditor() {
   });
   const menu = createSmartMenu($('ed-grid'), { onEscape: () => $('ed-grid').focus() });
 
-  // From the grid, where plain letters start Find, Alt+letter reaches the same menu items.
-  function shortcut(letter) {
-    if (!rectOf(g)) return;
-    const it = menuTarget(menuItems(), letter);
-    if (it?.sub) menu.focus(it.label);
-    else it?.run?.();
-  }
-
   function onKey(e) {
-    const act = menuShortcut(e);
-    if (act && !readOnly() && rectOf(g) && menuTarget(menuItems(), act)) {
-      e.preventDefault();
-      return shortcut(act);
-    }
     if (readOnly() || e.ctrlKey || e.metaKey || e.altKey) return;
     if (keyHooks.some((fn) => fn(e))) return;
     const arrow = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];

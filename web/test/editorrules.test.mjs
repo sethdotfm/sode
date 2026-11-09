@@ -1,7 +1,7 @@
 // What the panel editor reads from its URL and from /api/v1/panels (editorrules.js). Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { editorTarget, groupPanels, newPanel, saveBody, isDirty, placeMenu, kindLabel, kindChoices, menuShortcut, menuLetters, menuTarget, todoText } from '../editorrules.js';
+import { editorTarget, groupPanels, newPanel, saveBody, isDirty, placeMenu, kindLabel, kindChoices, menuLetters, menuTarget, todoText } from '../editorrules.js';
 import { createGrid, merge, select } from '../gridmodel.js';
 
 test('the editor opens the panel in ?panel=, and anything else starts a new one', () => {
@@ -111,16 +111,6 @@ test('a short name is an unsaved field: it dirties the editor, saves, and cleari
   assert.equal(isDirty({ ...loaded, slug: undefined }, 'A', g, { slug: '' }), false);
   assert.equal(saveBody(loaded, 'A', g, { slug: '' }).slug, '');
   assert.equal(saveBody(loaded, 'A', g).slug, 'lobby');
-});
-
-test('Alt with a letter names a menu letter by key position, so Option on a Mac works too', () => {
-  const k = (code, extra = {}) => menuShortcut({ code, altKey: true, ctrlKey: false, metaKey: false, ...extra });
-  assert.equal(k('KeyM'), 'm');
-  assert.equal(k('KeyF'), 'f');
-  assert.equal(k('Digit1'), null);
-  assert.equal(k('KeyM', { altKey: false }), null);
-  assert.equal(k('KeyM', { ctrlKey: true }), null);
-  assert.equal(k('KeyM', { metaKey: true }), null);
 });
 
 test('each menu item gets the first letter of its name that no earlier item took', () => {
