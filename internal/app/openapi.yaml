@@ -595,6 +595,56 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/key:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: makePanelKey
+      tags: [panels]
+      summary: Make or rotate a panel's key
+      description: |
+        Scope `panelsmanage`. Needs a user's key, and the panel's owner or a Trusted user. Only for
+        a panel that acts as an API client (409 `conflict` otherwise). The panel holds one key, so
+        this ends any older key and its open streams and returns the new secret, which is shown
+        this once and stored only as a hash. The key never expires. `link` is relative to Sode's
+        root and carries the key in the URL fragment (`#key=`), so it never reaches a request line,
+        a proxy log or a Referer. Opening it runs the panel as its API client with no sign-in.
+        A key in a query string is not a credential.
+      responses:
+        "201":
+          description: The new key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, id, rotated, link]
+                properties:
+                  key: { type: string, description: The secret, shown once }
+                  id: { type: string, description: The key's id in the key list }
+                  rotated: { type: boolean, description: True when an older key was ended }
+                  link: { type: string, description: "`panels/<id>#key=<secret>`, relative to Sode's root" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: revokePanelKey
+      tags: [panels]
+      summary: Revoke a panel's key
+      description: |
+        Scope `panelsmanage`, owner or Trusted, a user's key. Ends the panel's key and its open
+        streams. The panel and its API client stay, without a key. Revoking when there is no key
+        is a 204 too.
+      responses:
+        "204": { description: Revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}/artwork:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }

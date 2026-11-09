@@ -87,9 +87,12 @@ All paths are under `/api/v1`.
 | `POST /panels` | `panelsmanage` | Create a panel. A user's key only: the user owns it |
 | `PUT /panels/{id}`, `DELETE /panels/{id}` | `panelsmanage` | Change or delete. The owner, or a Trusted user for anyone's |
 | `POST /panels/{id}/copy` | `panelsmanage` and `panels` | Save a copy: a private panel the caller owns, from any panel the caller may use |
+| `POST /panels/{id}/key`, `DELETE /panels/{id}/key` | `panelsmanage` | Make or rotate, or revoke, the key of a panel that acts as an API client. Owner or Trusted, a user's key. The secret comes back once, with `link` (`panels/<id>#key=<secret>`, relative to Sode's root) |
 | `POST /panels/{id}/artwork`, `GET` and `DELETE /panels/{id}/artwork/{art}` | `panelsmanage` (`panels` to read) | Artwork: the raw image as the body, JPEG, PNG, GIF or SVG up to 1 MB, its type decided by the bytes |
 
 A panel with `acts: api` has an API client of its own, `Panel <id>`, made with the panel by a Trusted user (403 `trusted_required` otherwise). Its `clientRights` default to the creator's and can be no wider than the creator's rights (403 `outside_rights`, nothing created or changed); the check runs whenever a save sets them to something other than what is stored, so a panel an administrator widened still saves. Its scopes start as `names`, `tally`, `protected`, `status`, `presets`, `history`, `layouts`, `take` and `panels`. Only the Advanced Settings PIN widens it, in Manage users, where it shows on the API clients tab with its panel and does not count toward the 12-client limit. Switching the panel to `session` or deleting it removes the client and ends its keys and streams. In History its actions read like any client's, "Panel p-1a2b3c4d (Wall tablet)"; a user's key named "Panel 21" reads "Seth (Panel 21)". Changing a user's Rights lists the panel clients they created, in the Manage users list (`panelClients`, with `wider` when the client now exceeds the user) and in the `rightsEdit` row.
+
+A panel's key is one key on its client: making a new one ends the old key and its streams (`rotated: true`), and revoking leaves the panel and client without a key. Open the `link` and the page uses the key as its Bearer key with no sign-in, and takes as `Panel <id>` with the client's Rights. The fragment is never sent to Sode, so the key is in no request line or log row; a key in a query string is ignored. A panel with `settings.kiosk` set, or a link ending `&kiosk=1`, hides Sode's header.
 
 Panels need the API switch and use the same scopes, rate limit and errors as every other call. A panel the caller may not use is 404, never 403. Artwork is served with headers that stop a script in an SVG from running; show it as an image.
 
@@ -117,7 +120,7 @@ Every error is `{"error":{"code","message"}}`. A 401 carries `WWW-Authenticate: 
 | 500 | `internal` | A panel could not be written to disk | Check the disk and the logs |
 | 404 | `not_found` | No such path, History entry or visible preset, or scope `me` on a client or Guest key | Check the id, name or scope |
 | 405 | `method_not_allowed` | The path does not take this method | Use a method in `Allow` |
-| 409 | `conflict` | Redo of a failed entry, or Retry of one that succeeded | Use the other verb |
+| 409 | `conflict` | Redo of a failed entry, or Retry of one that succeeded; a panel over its limits; a key for a panel that does not act as an API client | Use the other verb, or switch the panel to `api` |
 | 422 | `nothing_to_do` | The plan has no route left to run: nothing to undo, a Redo of a route with no source, or a preset whose parts are all gone from the router | Nothing to do |
 | 422 | `idempotency_mismatch` | The Idempotency-Key was used for a different request | Use a new key |
 | 429 | `rate_limited` | Too many requests, or ten bad keys from this address in a minute | Wait `Retry-After` seconds |

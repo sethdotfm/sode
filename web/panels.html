@@ -18,13 +18,24 @@
 </head>
 <body>
 
-<main class="sode-panels">
+<main class="sode-panels sode-ov">
   <header class="sode-panels__head">
     <h1 class="sode-panels__title">Sode Panels</h1>
     <span class="sode-panels__spacer"></span>
     <a class="pb-btn pb-btn--outline pb-btn--sm" href="./">Back to Sode</a>
   </header>
-  <p class="sode__hint" id="panels-note"></p>
+  <p class="sode__hint" id="panels-note" role="status" hidden></p>
+  <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
+  <div class="sode-ov__cols">
+    <nav class="sode-ov__list" aria-label="Panels">
+      <div class="sode-ov__find">
+        <input class="pb-input" id="panels-find" type="search" placeholder="Find a panel" aria-label="Find a panel" autocomplete="off">
+        <button class="pb-btn pb-btn--ok pb-btn--sm" id="panels-new" type="button">New panel</button>
+      </div>
+      <div id="panels-list"></div>
+    </nav>
+    <section class="sode-ov__detail" id="panels-detail" aria-live="polite"></section>
+  </div>
 </main>
 
 <script type="module" src="panelpage.js"></script>
