@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/patchbay/css/bootstrap.min.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.tokens.css"><link rel="stylesheet" href="/vendor/patchbay/css/patchbay.css"><link rel="stylesheet" href="/shared/proto.css"><link rel="stylesheet" href="/shared/ed.css"><title>Editor prototype F: smart menu</title></head><body><div class="ed-app f"><div class="ed-body">
+<main class="ed-main"><div id="ro"></div><div id="canvas"></div><p class="pb-hint">Click a square, or drag across several. Type to search. Tab moves into the menu, arrows move around it, Enter chooses, Esc backs out. Drag the corner grip to extend a run.</p></main><aside class="ed-side" id="side"></aside></div></div>
+<script type="module">
+import { createEditor } from '/shared/ed.js'
+import { canvas, inspector, settings, tabs, toolbar, icon } from '/shared/edview.js'
+import { smartMenu } from '/shared/smart2.js'
+import { templatesUI } from '/shared/templates.js'
+import { pushUI } from '/shared/push.js'
+const E = createEditor()
+toolbar(E, 'Panel editor', { steppers: true, panels: true })
+templatesUI(E)
+pushUI(E)
+const ro = document.getElementById('ro')
+E.on((t) => { if (t === 'init' || t === 'panel') { const p = E.panels[E.curPanel]; ro.innerHTML = p.own ? '' : `<div class="pb-banner pb-banner--info"><span>${p.who} shared this panel. You can use it. To change it, save a copy.</span> <button class="pb-btn pb-btn--sm" id="copy">${icon('copy')} Save a copy</button></div>`; const c = document.getElementById('copy'); if (c) c.onclick = () => E.copyPanel() } })
+const cv = document.getElementById('canvas')
+canvas(cv, E)
+smartMenu(cv, E)
+const side = tabs(document.getElementById('side'), [
+  { text: 'Cell', render: (n) => inspector(n, E) },
+  { text: 'Panel', render: (n) => settings(n, E, ['identity', 'appearance', 'behaviour', 'display', 'colours', 'updates']) },
+  { text: 'Access', render: (n) => settings(n, E, ['access', 'limits', 'sharing']) },
+], 1)
+E.on((t) => { if (t === 'layout' && E.single()) return })
+</script></body></html>

@@ -1,9 +1,25 @@
 // PROTOTYPE: shared editor views. Variants differ in how they arrange these, not in what they edit.
 import { SOURCES, DESTS, PRESETS, createPanel } from './model.js'
 import { buildDeck, decorate } from './deck.js'
-import { KINDS, kindName, labelOf, POOL, FS, FS_NAMES, ART_ICONS, fuzzy } from './ed.js'
+import { KINDS, kindName, labelOf, POOL, FS, FS_NAMES, ART_ICONS, DIRS, fuzzy } from './ed.js'
 
 export const icon = (id, cls = 'pb-icon--sm') => `<svg class="pb-icon ${cls}" viewBox="0 0 24 24" aria-hidden="true"><use href="/vendor/patchbay/icons/lucide.svg#${id}"/></svg>`
+// A 3x3 dot diagram of the order a fill walks the squares: a line through the dots from the filled start dot to the arrowhead.
+export function orderIcon(dir) {
+  const P = [5, 12, 19], at = (r, c) => [P[c], P[r]]
+  const R = [0, 1, 2], rev = (a) => [...a].reverse(), pts = []
+  const rows = dir.includes('across') ? R : null
+  if (dir === 'across') R.forEach((r) => R.forEach((c) => pts.push(at(r, c))))
+  else if (dir === 'across-rev') R.forEach((r) => rev(R).forEach((c) => pts.push(at(r, c))))
+  else if (dir === 'snake-across') R.forEach((r, i) => (i % 2 ? rev(R) : R).forEach((c) => pts.push(at(r, c))))
+  else if (dir === 'down') R.forEach((c) => R.forEach((r) => pts.push(at(r, c))))
+  else if (dir === 'down-rev') R.forEach((c) => rev(R).forEach((r) => pts.push(at(r, c))))
+  else R.forEach((c, i) => (i % 2 ? rev(R) : R).forEach((r) => pts.push(at(r, c))))
+  const [x1, y1] = pts.at(-2), [x2, y2] = pts.at(-1), a = Math.atan2(y2 - y1, x2 - x1), h = (t) => `${(x2 + 4 * Math.cos(a + t)).toFixed(1)},${(y2 + 4 * Math.sin(a + t)).toFixed(1)}`
+  return `<svg class="pb-icon ed-order" viewBox="0 0 24 24" aria-hidden="true"><polyline points="${pts.map((p) => p.join(',')).join(' ')}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.8"/><polyline points="${h(2.7)} ${x2},${y2} ${h(-2.7)}" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="${pts[0][0]}" cy="${pts[0][1]}" r="2.4" fill="currentColor"/></svg>`
+}
+export const orderButtons = (cur, attr = 'data-dir') => `<div class="ed-orders" role="group" aria-label="Fill order">${DIRS.map(([d, t]) => `<button class="pb-btn pb-btn--sm pb-btn--icon${cur === d ? ' pb-btn--selected' : ''}" ${attr}="${d}" data-pb-tip="${t}" aria-label="${t}">${orderIcon(d)}</button>`).join('')}</div>`
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 const kindIcon = (k) => KINDS.find((x) => x.k === k).icon
 const opts = (list, cur) => list.map(([v, t]) => `<option value="${v}"${v === cur ? ' selected' : ''}>${esc(t)}</option>`).join('')
@@ -211,7 +227,7 @@ export function sequencer(host, E) {
     <div class="ed-opts ed-seqlist"></div>
     <div class="pb-row pb-row--tight"><button class="pb-btn pb-btn--sm" data-all>All shown</button><button class="pb-btn pb-btn--sm pb-btn--ghost" data-none>None</button></div>
     <div class="pb-field"><label class="pb-label" for="q-text">Or type numbers and names</label><input id="q-text" class="pb-input" data-text placeholder="1-8, 12, cam"><span class="pb-hint">Router numbers (1-8, 12) or names (cam, replay), separated by commas. It stays in step with the list.</span></div>
-    <div class="pb-field"><label class="pb-label" for="q-dir">Fill</label><span class="pb-select-wrap"><select id="q-dir" class="pb-select" data-o="dir"><option value="across">Across, then down</option><option value="down">Down, then across</option></select></span></div>
+    <div class="pb-field"><span class="pb-label">Fill order</span><div data-orders></div></div>
     <label class="pb-check"><input type="checkbox" class="pb-check__input" data-o="keep"><span class="pb-check__label">Keep cells already there</span></label>
     <p class="pb-hint" data-names></p>
     <button class="pb-btn pb-btn--sm pb-btn--commit" data-apply>Fill</button>`
@@ -225,6 +241,7 @@ export function sequencer(host, E) {
   const draw = () => {
     const F = E.fill, g = E.fillPlan(), n = E.selSquares()
     host.querySelectorAll('[data-sk]').forEach((b) => b.classList.toggle('pb-btn--selected', b.dataset.sk === F.kind))
+    $('[data-orders]').innerHTML = orderButtons(F.dir)
     $('[data-sel]').textContent = n ? `${n} square${n > 1 ? 's' : ''} selected. The grid previews the result.` : 'Drag across the squares to fill, or shift-click the two corners.'
     if (document.activeElement !== $('[data-text]')) $('[data-text]').value = F.text
     const names = g ? g.slots.slice(0, 3).map((s) => labelOf({ kind: F.kind, n: s.key, pid: s.key })) : []
@@ -235,6 +252,7 @@ export function sequencer(host, E) {
   }
   host.onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return
+    if (b.dataset.dir) return E.setFill({ dir: b.dataset.dir })
     if (b.dataset.sk) { $('[data-q]').value = ''; last = null; return E.setFillKind(b.dataset.sk) }
     if ('all' in b.dataset) return E.setFillKeys(shown.map((i) => i.key))
     if ('none' in b.dataset) return E.setFillKeys([])

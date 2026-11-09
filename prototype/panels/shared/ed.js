@@ -15,6 +15,7 @@ export const FS = { sm: 0.85, md: 1, lg: 1.3, xl: 1.7 }
 export const FS_NAMES = [['', 'Panel default'], ['sm', 'Small'], ['md', 'Normal'], ['lg', 'Large'], ['xl', 'Huge']]
 // Vendored Lucide icons that suit sources, destinations and presets.
 export const ART_ICONS = 'video camera clapperboard film tv tv-minimal monitor monitor-play projector webcam mic mic-vocal headphones speaker volume-2 audio-lines music podcast radio radio-tower satellite satellite-dish antenna wifi signal cast airplay globe cloud server hard-drive disc router cable plug play pause circle-play square-play circle-dot rewind fast-forward list-video image images layers layout-grid presentation captions type megaphone newspaper user user-round users briefcase mountain sun moon star flag flame trophy house building warehouse car plane map-pin clock timer zap eye scan-line'.split(' ')
+export const DIRS = [['across', 'Across, then down'], ['across-rev', 'Right to left, then down'], ['snake-across', 'Snake across'], ['down', 'Down, then across'], ['down-rev', 'Bottom to top, then across'], ['snake-down', 'Snake down']]
 export const POOL = { src: SOURCES, dst: DESTS }
 
 // Fuzzy match: query letters in order, with a bonus for runs and word starts. -1 is no match, 0 is an empty query.
@@ -155,14 +156,23 @@ export function createEditor() {
     }
     return { out, bad }
   }
+  E.squareOrder = (q, dir) => {
+    const rng = (a, z) => Array.from({ length: z - a + 1 }, (_, i) => a + i)
+    const rows = rng(q.r1, q.r2), cols = rng(q.c1, q.c2), out = [], rev = (a) => [...a].reverse()
+    if (dir === 'across') rows.forEach((r) => cols.forEach((c) => out.push([r, c])))
+    else if (dir === 'across-rev') rows.forEach((r) => rev(cols).forEach((c) => out.push([r, c])))
+    else if (dir === 'snake-across') rows.forEach((r, i) => (i % 2 ? rev(cols) : cols).forEach((c) => out.push([r, c])))
+    else if (dir === 'down') cols.forEach((c) => rows.forEach((r) => out.push([r, c])))
+    else if (dir === 'down-rev') cols.forEach((c) => rev(rows).forEach((r) => out.push([r, c])))
+    else cols.forEach((c, i) => (i % 2 ? rev(rows) : rows).forEach((r) => out.push([r, c])))
+    return out
+  }
   E.fillPlan = () => {
     const q = E.rect(), F = E.fill
     if (!q) return null
     const keys = F.keys.filter((k) => E.items(F.kind).some((i) => i.key === k)), bad = F.bad
     const queue = [...keys], slots = []
-    const [o0, o1, i0, i1] = F.dir === 'across' ? [q.r1, q.r2, q.c1, q.c2] : [q.c1, q.c2, q.r1, q.r2]
-    for (let o = o0; o <= o1; o++) for (let i = i0; i <= i1; i++) {
-      const [r, c] = F.dir === 'across' ? [o, i] : [i, o]
+    for (const [r, c] of E.squareOrder(q, F.dir)) {
       const hit = E.cellAt(r, c)
       if (hit && (hit.r !== r || hit.c !== c || F.keep)) continue
       if (!queue.length) continue

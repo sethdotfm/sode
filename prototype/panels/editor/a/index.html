@@ -6,9 +6,11 @@
 import { createEditor } from '/shared/ed.js'
 import { canvas, inspector, settings, sequencer, tabs, toolbar, icon } from '/shared/edview.js'
 import { templatesUI } from '/shared/templates.js'
+import { pushUI } from '/shared/push.js'
 const E = createEditor()
 toolbar(E, 'Panel editor', { steppers: true, panels: true })
 templatesUI(E)
+pushUI(E)
 const ro = document.getElementById('ro')
 E.on((t) => { if (t === 'init' || t === 'panel') { const p = E.panels[E.curPanel]; ro.innerHTML = p.own ? '' : `<div class="pb-banner pb-banner--info"><span>${p.who} shared this panel. You can use it. To change it, save a copy.</span> <button class="pb-btn pb-btn--sm" id="copy">${icon('copy')} Save a copy</button></div>`; const c = document.getElementById('copy'); if (c) c.onclick = () => E.copyPanel() } })
 canvas(document.getElementById('canvas'), E)
