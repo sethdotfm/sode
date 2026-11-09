@@ -355,6 +355,8 @@ type inMsg struct {
 	Expires    int64              `json:"expires"` // key expiry, unix ms; 0 = never
 	Owner      *keyOwner          `json:"owner"`   // keyCreateFor, keyRevokeAll
 	APISet     *apiSettingsReq    `json:"apiSettings"`
+	Panel      string             `json:"panel"`  // panelAlarm: the panel id
+	Action     string             `json:"action"` // panelAlarm: clear | stop
 }
 
 func plural(n int, one, many string) string {

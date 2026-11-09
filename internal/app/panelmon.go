@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,16 +21,19 @@ import (
 )
 
 // Panel monitoring (docs/panels-design.md). An open panel page is an instance named by its device
-// and sends a keepalive; a panel is online while any instance was heard within monMiss. Instances
+// and sends a keepalive and holds a stream open; a panel is online while any instance has a stream
+// and was heard within monMiss, or was heard within monGrace of its last stream closing. Instances
 // live in memory only: after a restart nothing is known, so nothing is alerted. Watches are a
 // user's list of panel ids in panelwatch.yaml beside the config, never part of a panel file, so a
 // save of the panel cannot drop another user's watch.
 
 const (
 	monKeepalive = 15 * time.Second // what the panel page sends; documented, not enforced
-	monMiss      = 45 * time.Second
-	monForget    = 24 * time.Hour // a lost instance is dropped so a retired tablet stops showing
-	monDevices   = 100            // per panel
+	monMiss      = 45 * time.Second // the fallback: a page without a stream, or a stream that went quiet
+	monGrace     = 8 * time.Second  // a page that held a stream is lost this long after it closes
+	monBeat      = 10 * time.Second // a write on the stream, so a dead peer shows up as a failed write
+	monForget    = 24 * time.Hour   // a lost instance is dropped so a retired tablet stops showing
+	monDevices   = 100              // per panel
 	monDeviceMax = 40
 	watchFile    = "panelwatch.yaml"
 )
@@ -40,16 +44,31 @@ func init() {
 	const read = config.ScopePanels
 	registerAPI(
 		apiRoute{"POST", apiBase + "/panels/{id}/instances", read, (*App).apiPanelKeepalive},
+		apiRoute{"GET", apiBase + "/panels/{id}/instances/stream", read, (*App).apiPanelInstanceStream},
 		apiRoute{"POST", apiBase + "/panels/{id}/watch", read, (*App).apiPanelWatch},
 		apiRoute{"DELETE", apiBase + "/panels/{id}/watch", read, (*App).apiPanelUnwatch},
 	)
 }
 
 type monInst struct {
-	device string
-	seen   time.Time
-	lost   bool // a lost notice went out
+	device   string
+	seen     time.Time // the last keepalive, stream open or stream close
+	lost     bool      // a lost notice went out
+	streamed bool      // it held a stream and no keepalive has come since the last one closed
+	conns    map[int]context.CancelFunc
+	next     int
 }
+
+// limit is how long after seen the instance still counts: short once its stream is gone, since a
+// closed page sends no more keepalives.
+func (in *monInst) limit() time.Duration {
+	if in.streamed && len(in.conns) == 0 {
+		return monGrace
+	}
+	return monMiss
+}
+
+func (in *monInst) live(now time.Time) bool { return now.Sub(in.seen) <= in.limit() }
 
 // monEvent is a transition to tell watchers about.
 type monEvent struct {
@@ -65,10 +84,11 @@ type panelMon struct {
 	path  string           // "" = memory only
 	inst  map[string]map[string]*monInst
 	watch map[string]map[string]bool // lowercased user -> panel ids
+	clear map[string]map[string]bool // lowercased user -> panel ids whose current outage was cleared
 }
 
 func loadPanelMon(cfgPath string) *panelMon {
-	m := &panelMon{now: time.Now, inst: map[string]map[string]*monInst{}, watch: map[string]map[string]bool{}}
+	m := &panelMon{now: time.Now, inst: map[string]map[string]*monInst{}, watch: map[string]map[string]bool{}, clear: map[string]map[string]bool{}}
 	if cfgPath == "" {
 		return m
 	}
@@ -153,7 +173,13 @@ func (m *panelMon) watchedBy(id string) []string {
 func (m *panelMon) forget(id string, watches bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	for _, in := range m.inst[id] {
+		for _, cancel := range in.conns {
+			cancel()
+		}
+	}
 	delete(m.inst, id)
+	m.unclearLocked(id)
 	if !watches {
 		return
 	}
@@ -168,6 +194,30 @@ func (m *panelMon) forget(id string, watches bool) {
 		if err := m.saveLocked(); err != nil {
 			log.Printf("panels: watches not saved: %v", err)
 		}
+	}
+}
+
+// clearAlarm hides the panel's current outage from the user's banner and badge until the next
+// notice about that panel.
+func (m *panelMon) clearAlarm(user, id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	k := strings.ToLower(user)
+	if m.clear[k] == nil {
+		m.clear[k] = map[string]bool{}
+	}
+	m.clear[k][id] = true
+}
+
+func (m *panelMon) unclear(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unclearLocked(id)
+}
+
+func (m *panelMon) unclearLocked(id string) {
+	for _, set := range m.clear {
+		delete(set, id)
 	}
 }
 
@@ -195,7 +245,7 @@ func (m *panelMon) followUsers(renames map[string]string, removed map[string]boo
 
 func (m *panelMon) onlineLocked(id string, now time.Time) bool {
 	for _, in := range m.inst[id] {
-		if now.Sub(in.seen) <= monMiss {
+		if in.live(now) {
 			return true
 		}
 	}
@@ -208,13 +258,13 @@ func (m *panelMon) online(id string) bool {
 	return m.onlineLocked(id, m.now())
 }
 
-// liveCount is how many devices were heard within monMiss.
+// liveCount is how many devices count as online.
 func (m *panelMon) liveCount(id string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now, n := m.now(), 0
 	for _, in := range m.inst[id] {
-		if now.Sub(in.seen) <= monMiss {
+		if in.live(now) {
 			n++
 		}
 	}
@@ -233,7 +283,7 @@ func (m *panelMon) instances(id string) []instOut {
 	now := m.now()
 	out := []instOut{}
 	for _, in := range m.inst[id] {
-		out = append(out, instOut{in.device, in.seen.UTC(), now.Sub(in.seen) <= monMiss})
+		out = append(out, instOut{in.device, in.seen.UTC(), in.live(now)})
 	}
 	slices.SortFunc(out, func(a, b instOut) int { return strings.Compare(strings.ToLower(a.Device), strings.ToLower(b.Device)) })
 	return out
@@ -243,6 +293,42 @@ func (m *panelMon) instances(id string) []instOut {
 func (m *panelMon) beat(id, device string) (*monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	in, ev, err := m.touchLocked(id, device)
+	if err == nil && len(in.conns) == 0 {
+		// A page alive without its stream falls back to the keepalive timing instead of flapping.
+		in.streamed = false
+	}
+	return ev, err
+}
+
+// openStream registers a held connection of a device; cancel ends it. The returned func drops it.
+func (m *panelMon) openStream(id, device string, cancel context.CancelFunc) (func(), *monEvent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	in, ev, err := m.touchLocked(id, device)
+	if err != nil {
+		return nil, nil, err
+	}
+	if in.conns == nil {
+		in.conns = map[int]context.CancelFunc{}
+	}
+	in.next++
+	n := in.next
+	in.conns[n] = cancel
+	in.streamed = true
+	closeFn := func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		delete(in.conns, n)
+		if len(in.conns) == 0 {
+			in.seen = m.now()
+		}
+	}
+	return closeFn, ev, nil
+}
+
+// touchLocked finds or adds the device and marks it heard. A device that was lost yields "back".
+func (m *panelMon) touchLocked(id, device string) (*monInst, *monEvent, error) {
 	now := m.now()
 	k := strings.ToLower(device)
 	set := m.inst[id]
@@ -253,7 +339,7 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 	in, known := set[k]
 	if !known {
 		if len(set) >= monDevices {
-			return nil, errMonCap
+			return nil, nil, errMonCap
 		}
 		in = &monInst{}
 		set[k] = in
@@ -261,12 +347,12 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 	was, lost := in.seen, in.lost
 	in.device, in.seen, in.lost = device, now, false
 	if !lost {
-		return nil, nil
+		return in, nil, nil
 	}
-	return &monEvent{panel: id, device: device, state: "back", secs: int(now.Sub(was).Seconds())}, nil
+	return in, &monEvent{panel: id, device: device, state: "back", secs: int(now.Sub(was).Seconds())}, nil
 }
 
-// sweep marks the devices that missed monMiss and returns what to tell.
+// sweep marks the devices that are past their limit and returns what to tell.
 func (m *panelMon) sweep(now time.Time) []monEvent {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -277,7 +363,7 @@ func (m *panelMon) sweep(now time.Time) []monEvent {
 			switch {
 			case in.lost && age > monForget:
 				delete(set, k)
-			case !in.lost && age > monMiss:
+			case !in.lost && age > in.limit():
 				in.lost = true
 				out = append(out, monEvent{panel: id, device: in.device, state: "lost", secs: int(age.Seconds()), offline: !m.onlineLocked(id, now)})
 			}
@@ -332,6 +418,9 @@ func (a *App) mayWatch(user string, p Panel) bool {
 func (a *App) offlineFor(user string) []offlineRow {
 	a.mon.mu.Lock()
 	ids := maps.Clone(a.mon.watch[strings.ToLower(user)])
+	for id := range a.mon.clear[strings.ToLower(user)] {
+		delete(ids, id)
+	}
 	a.mon.mu.Unlock()
 	rows := []offlineRow{}
 	for id, in := range a.mon.offlineIDs(ids) {
@@ -387,6 +476,7 @@ func (a *App) monNotify(ev monEvent) {
 		a.mon.forget(ev.panel, true)
 		return
 	}
+	a.mon.unclear(ev.panel)
 	why, note := "panelLost", fmt.Sprintf("panel %s %s: %s missed its keepalive for %ds", p.ID, p.Name, ev.device, ev.secs)
 	if ev.state == "back" {
 		why, note = "panelBack", fmt.Sprintf("panel %s %s: %s is back after %ds", p.ID, p.Name, ev.device, ev.secs)
@@ -436,6 +526,87 @@ func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	}
 }
 
+// serveAlarm is the banner's Clear menu: {"t":"panelAlarm","panel":id,"action":"clear"|"stop"}.
+// clear hides the panel's current outage from the user's banner until the panel's next notice; stop
+// ends the watch. A signed-in user, not under the Lock, and only a panel they may watch.
+func (a *App) serveAlarm(c *client, m *inMsg) {
+	u, err := a.ownUser(c)
+	if err != nil {
+		return
+	}
+	p, ok := a.panels.get(m.Panel)
+	if !ok || !a.mayWatch(u.Name, p) || !a.mon.watching(u.Name, p.ID) {
+		return
+	}
+	switch m.Action {
+	case "clear":
+		a.mon.clearAlarm(u.Name, p.ID)
+	case "stop":
+		if err := a.mon.setWatch(u.Name, p.ID, false); err != nil {
+			log.Printf("panels: watches not saved: %v", err)
+			return
+		}
+	default:
+		return
+	}
+	a.command(c, "panelAlarm", "ok", m.Action+" "+p.ID, nil)
+	a.mu.Lock()
+	a.pushOfflineAllMu()
+	a.mu.Unlock()
+}
+
+// apiPanelInstanceStream: GET ?device=Lobby holds a connection open so Sode sees a closed page at
+// once instead of after the keepalive miss. It writes a line every monBeat; the page reads and
+// ignores it. The keepalive stays as the fallback for a page whose stream cannot stay open.
+func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	p, ok := a.panelFor(w, r, cl, false)
+	if !ok {
+		return
+	}
+	device := cleanDevice(r.URL.Query().Get("device"))
+	if device == "" {
+		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed: ?device=<a name for this screen>")
+		return
+	}
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	done, ev, err := a.mon.openStream(p.ID, device, cancel)
+	if err != nil {
+		apiFail(w, http.StatusConflict, "conflict", err.Error())
+		return
+	}
+	defer done()
+	if ev != nil {
+		a.monNotify(*ev)
+	}
+	rc := http.NewResponseController(w)
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Accel-Buffering", "no")
+	line := func() bool {
+		_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		if _, err := fmt.Fprintf(w, "{\"online\":true,\"graceSeconds\":%d}\n", int(monGrace.Seconds())); err != nil {
+			return false
+		}
+		return rc.Flush() == nil
+	}
+	if !line() {
+		return
+	}
+	t := time.NewTicker(monBeat)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if !line() {
+				return
+			}
+		}
+	}
+}
+
 func cleanDevice(s string) string { return cleanText(strings.TrimSpace(s), monDeviceMax) }
 
 // apiPanelKeepalive: {"device": "Lobby"}. Anyone who may use the panel counts, so a tablet signed
@@ -465,7 +636,7 @@ func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiC
 	if ev != nil {
 		a.monNotify(*ev)
 	}
-	apiJSON(w, map[string]any{"online": true, "keepaliveSeconds": int(monKeepalive.Seconds()), "missSeconds": int(monMiss.Seconds())})
+	apiJSON(w, map[string]any{"online": true, "keepaliveSeconds": int(monKeepalive.Seconds()), "missSeconds": int(monMiss.Seconds()), "graceSeconds": int(monGrace.Seconds())})
 }
 
 // watchFor is panelFor for a user who may watch the panel: its owner, or a Trusted user.

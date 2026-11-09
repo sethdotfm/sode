@@ -1,8 +1,8 @@
 // Monitoring on the panels page: the online mark of each row, the Watch checkbox and the Open now list of the
 // chosen panel. Kept out of panelslist.js so that file only calls three functions.
 import { el } from './core.js';
-import { askNotifyPermission } from './panelwatch.js';
-import { durationText } from './panelwatchrules.js';
+import { askNotifyPermission, notifyPermission } from './panelwatch.js';
+import { durationText, permissionText } from './panelwatchrules.js';
 
 export const MON_POLL_MS = 10000;
 
@@ -43,11 +43,30 @@ export function watchBox(p, setWatch) {
   input.type = 'checkbox';
   input.id = 'panels-watch';
   input.checked = !!p.watching;
+  // A browser asks for notification permission only after a click, so Watch (and the button) ask.
+  const note = el('p', 'pb-hint sode-ov__notify');
+  note.dataset.notify = '';
+  const allow = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Allow notifications');
+  allow.type = 'button';
+  const paint = () => {
+    const t = permissionText(notifyPermission());
+    note.textContent = t.text;
+    note.dataset.notify = t.state;
+    allow.hidden = t.state !== 'ask';
+  };
+  allow.addEventListener('click', () => askNotifyPermission().then(paint));
   input.addEventListener('change', () => {
-    if (input.checked) askNotifyPermission();
+    if (input.checked) askNotifyPermission().then(paint);
     setWatch(p.id, input.checked);
   });
-  return el('label', 'pb-check sode-ov__watch', input, el('span', 'pb-check__label', 'Tell me when this panel drops offline'));
+  paint();
+  return el(
+    'div',
+    'sode-ov__watchbox',
+    el('label', 'pb-check sode-ov__watch', input, el('span', 'pb-check__label', 'Tell me when this panel drops offline')),
+    note,
+    allow,
+  );
 }
 
 // Replaces the Open now list in place, so a refresh does not rebuild the detail pane under a hand.

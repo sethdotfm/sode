@@ -65,14 +65,15 @@ Proposed, not prototyped.
 
 - Each open panel page is an instance with a device name given the first time it opens. It sends a keepalive every 15 seconds. Sode keeps the last seen time and state for each instance, and a panel is online while at least one instance is.
 - A user can watch panels. A user can watch the panels they own, and a Trusted user can watch any panel. The watch list is a set of checkboxes in the editor and in the My panels page.
-- When a watched panel loses its last instance, or its keepalive is missed for more than 45 seconds, every watcher is notified: a toast and a badge in Sode, and a browser notification if the user allowed them. A second notice goes out when it comes back. The notice names the panel, the device and how long it was missing.
+- When a watched panel loses its last instance, or its keepalive is missed for more than 45 seconds (8 seconds once its stream closes, see the as-built notes below), every watcher is notified: a toast and a badge in Sode, and a browser notification if the user allowed them. A second notice goes out when it comes back. The notice names the panel, the device and how long it was missing.
 - Open questions, decided below: no expected instance count, and no alert for a key used from somewhere new.
 
 ## Monitoring (as built)
 
 - Modules: `panelmon.go` (devices, watches, sweep, notices), `panelkeepalive.js` (device name form and the 15 s keepalive), `panelwatch.js` and `panelwatchrules.js` (toast, badge, browser notification, text), `panelsmon.js` (online mark, Open now list and Watch checkbox on the panels page; the editor Access tab mounts the same checkbox), `panelmon.css`. Routes and fields are in docs/api.md.
-- An instance is a device name, ignoring case, so a reload or a rebooted kiosk with the same name is the same instance and raises nothing. The name is asked once per browser (`sode-panel-device`). There is no leave message: a closed page is noticed after the 45 s miss. A panel is online while any device was heard within 45 s. Devices live in memory only, so a restart of Sode alerts nothing. A lost device is dropped after 24 hours.
-- A sweep runs from `periodic` and tells each watcher once when a device passes 45 s, and once when it returns, naming panel, device and seconds, with `offline` true when no device is left. Each change is one `panelLost` or `panelBack` row in the Communication Log.
+- An instance is a device name, ignoring case, so a reload or a rebooted kiosk with the same name is the same instance and raises nothing. The name is asked once per browser (`sode-panel-device`). A page also holds a stream (`GET /panels/{id}/instances/stream`, fetch with the Authorization header, which also covers Session mode), so Sode sees a closed page at once and counts the device lost after an 8 s grace; a reload with the same name inside the grace raises nothing. The 45 s keepalive miss stays as the fallback for a page without a stream or whose stream went quiet. A panel is online while any device counts. Devices live in memory only, so a restart of Sode alerts nothing. A lost device is dropped after 24 hours.
+- The Sode page shows a banner at the top for the watched panels that are offline, with Open panels and a Clear button. Clear expands to "Clear alarm for now" (hides that outage for the user until the panel's next notice, memory only) and "Stop monitoring this panel" (ends the watch); both go as the `panelAlarm` socket message. Pages without a banner keep the badge. The Watch checkbox shows what the browser allows for notifications, asks when Watch is turned on, has an Allow notifications button while the answer is open, and says when the browser has blocked them.
+- A sweep runs from `periodic` and tells each watcher once when a device passes its limit (45 s, or 8 s after a closed stream), and once when it returns, naming panel, device and seconds, with `offline` true when no device is left. Each change is one `panelLost` or `panelBack` row in the Communication Log.
 - Watchers: the owner or a Trusted user, checked again when a notice goes out. The list is `panelwatch.yaml` beside the config, never in a panel file, and the API only sends the caller's own `watching`. Notices go to connections signed in as the watcher and not under the Lock. `panelsOffline` rebuilds the badge after a reload or sign-in; a notice sent while nobody was signed in is not kept.
 - Deleting a panel forgets its devices and watches. Making, rotating or revoking its key forgets its devices, so an ended kiosk does not alert.
 - A panel client's keys share one rate limit that scales with its live devices, since each page polls every 2 s. Its streams are capped at 64 per key and not counted per address.
@@ -120,7 +121,7 @@ Proposed, not prototyped.
 
 ## Decisions where the build differs from the design
 
-- Monitoring: no expected-instance count, and no alert for a key used from a new place. Keepalive every 15 seconds, a device is missed after 45 seconds and forgotten after 24 hours.
+- Monitoring: no expected-instance count, and no alert for a key used from a new place. Keepalive every 15 seconds and a held stream; a device is lost 8 seconds after its stream closes, or 45 seconds after its last keepalive when it has none, and forgotten after 24 hours.
 - Allowed networks are a CIDR list, at most 16 per panel client. A bare address is one host.
 - A setup link lasts one hour and works once.
 - Push group: panels whose names differ only by a trailing number. Pending the owner's confirmation.

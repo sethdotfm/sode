@@ -1,7 +1,7 @@
 // Monitoring in the browser: the `panelNotice` toast, the `panelsOffline` badge and, if allowed, a
 // browser notification. Imported by the Sode page and the panels pages, so a watcher is told on either.
-import { el, icon, onMsg } from './core.js';
-import { noticeText, badgeText, shouldNotify } from './panelwatchrules.js';
+import { el, icon, onMsg, wsSend } from './core.js';
+import { noticeText, badgeText, bannerText, clearNote, shouldNotify } from './panelwatchrules.js';
 
 const TOAST_MS = 20000;
 let stack = null;
@@ -50,19 +50,86 @@ function browserNotice(t, n) {
   } catch {}
 }
 
+// The Sode page has a banner at the top of each layout. The badge is for pages without one.
+const banners = [];
+let offline = [];
+let menuOpen = false;
+
+function mountBanners() {
+  if (banners.length || !document.getElementById('conn')) return;
+  for (const next of [document.getElementById('conn'), document.getElementById('m-result')]) {
+    if (!next) continue;
+    const box = el('div', 'sode__outage');
+    box.dataset.panelOutage = '';
+    next.before(box);
+    banners.push(box);
+  }
+}
+
+function alarm(action) {
+  for (const r of offline) wsSend({ t: 'panelAlarm', panel: r.panel, action });
+  menuOpen = false;
+}
+
+function bannerNode() {
+  const t = bannerText(offline);
+  const act = (label, action) => {
+    const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', label);
+    b.type = 'button';
+    b.dataset.panelAlarm = action;
+    b.addEventListener('click', () => alarm(action));
+    return b;
+  };
+  const toggle = el('button', 'pb-btn pb-btn--outline pb-btn--sm', 'Clear', icon(menuOpen ? 'chevron-left' : 'chevron-right'));
+  toggle.type = 'button';
+  toggle.dataset.panelAlarm = 'menu';
+  toggle.setAttribute('aria-expanded', String(menuOpen));
+  toggle.addEventListener('click', () => {
+    menuOpen = !menuOpen;
+    drawBanners();
+  });
+  const link = el('a', 'pb-btn pb-btn--sm', 'Open panels');
+  link.href = 'panels';
+  const acts = el('div', 'sode__outage-acts', link, toggle);
+  if (menuOpen) acts.append(act('Clear alarm for now', 'clear'), act(clearNote(offline).stop, 'stop'));
+  return el(
+    'div',
+    'sode__banner-in',
+    el('div', 'pb-alert pb-alert--error', icon('wifi-off'), el('div', 'sode__banner-body', el('div', 'pb-alert__title', t.title), t.text), acts),
+  );
+}
+
+// The sliding wrapper stays across redraws so only the first appearance animates.
+function drawBanners() {
+  for (const box of banners) {
+    if (!offline.length) box.replaceChildren();
+    else if (box.firstChild) box.firstChild.replaceChildren(bannerNode());
+    else box.append(el('div', 'sode__banner', bannerNode()));
+  }
+}
+
 export function setBadge(rows) {
   host();
-  badge.hidden = rows.length === 0;
+  mountBanners();
+  offline = rows;
+  if (!rows.length) menuOpen = false;
+  drawBanners();
+  badge.hidden = rows.length === 0 || banners.length > 0;
   badge.textContent = rows.length ? badgeText(rows) : '';
   badge.dataset.pbTip = rows.map((r) => `${r.name}: ${r.device}`).join('\n');
 }
 
-// Asked from a click on Watch: a browser only shows its permission prompt for a gesture.
-export function askNotifyPermission() {
-  if (typeof Notification === 'undefined' || Notification.permission !== 'default') return;
-  try {
-    Notification.requestPermission();
-  } catch {}
+// 'granted', 'denied', 'default', or 'unsupported' where the browser has no Notification.
+export const notifyPermission = () => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
+
+// Asked from a click: a browser only shows its permission prompt for a gesture. Resolves to the answer.
+export async function askNotifyPermission() {
+  if (notifyPermission() === 'default') {
+    try {
+      await Notification.requestPermission();
+    } catch {}
+  }
+  return notifyPermission();
 }
 
 onMsg('panelNotice', (n) => browserNotice(toast(n), n));
