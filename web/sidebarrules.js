@@ -111,3 +111,11 @@ export function rightsLine(rights) {
   const vis = r.visibility === 'hidden' ? 'hidden' : 'read-only';
   return rights && Object.keys(r).length ? `${head}, ${vis} visibility.` : 'All Sources, Destinations, levels and Presets, read-only visibility.';
 }
+
+// Watch in the editor: for a saved panel the user may edit, with the state the server last told us.
+// `known` outlives a save, because the save's answer carries no `watching`.
+export function watchView(p, known) {
+  if (!p || !p.canEdit) return null;
+  if ('watching' in p) known[p.id] = !!p.watching;
+  return { id: p.id, on: !!known[p.id] };
+}

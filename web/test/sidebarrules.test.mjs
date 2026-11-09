@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { setSetting, fontPercent, artProblem, levelsPatch, ART_ICONS, rightsLine, MODE_HINT } from '../sidebarrules.js';
+import { setSetting, fontPercent, artProblem, levelsPatch, ART_ICONS, rightsLine, MODE_HINT, watchView } from '../sidebarrules.js';
 import { artOf, lookOf } from '../panellook.js';
 
 test('a setting at its default is dropped, so a stored panel only holds what was chosen', () => {
@@ -64,6 +64,20 @@ test('the Rights line says what a client may do in plain words', () => {
   assert.equal(rightsLine(null), 'All Sources, Destinations, levels and Presets, read-only visibility.');
   assert.equal(rightsLine({ sources: [1, 2], levels: [1], visibility: 'hidden' }), '2 Sources, all Destinations, 1 level, all Presets, hidden visibility.');
   assert.match(rightsLine({ dsts: [], presets: ['A'] }), /no Destinations.*1 Preset,/);
+});
+
+test('Watch is offered for a saved panel the user may edit', () => {
+  assert.equal(watchView(null, {}), null);
+  assert.equal(watchView({ id: 'a', canEdit: false, watching: true }, {}), null);
+  assert.deepEqual(watchView({ id: 'a', canEdit: true, watching: true }, {}), { id: 'a', on: true });
+  assert.deepEqual(watchView({ id: 'a', canEdit: true, watching: false }, {}), { id: 'a', on: false });
+});
+
+test('a saved panel response has no watching, so the last known state stands', () => {
+  const known = {};
+  watchView({ id: 'a', canEdit: true, watching: true }, known);
+  assert.deepEqual(watchView({ id: 'a', canEdit: true }, known), { id: 'a', on: true });
+  assert.deepEqual(watchView({ id: 'b', canEdit: true }, known), { id: 'b', on: false });
 });
 
 test('each mode has a hint', () => {

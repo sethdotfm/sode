@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
@@ -49,6 +50,13 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`const m = document.getElementById('ed-set-guard'); m.value = 'hold'; m.dispatchEvent(new Event('change', { bubbles: true })); true`)
 	b.eval(`document.getElementById('tab-ed-access').click(); true`)
 	b.waitFor("Access says who it acts as", `document.getElementById('panel-ed-access').textContent.includes('Whoever opens it') && !document.getElementById('ed-acts').disabled`)
+	b.waitFor("Watch is offered to the owner", `!!document.getElementById('panels-watch')`)
+	b.eval(`document.getElementById('panels-watch').click(); true`)
+	for deadline := time.Now().Add(10 * time.Second); !a.mon.watching("Ana", id); time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the editor checkbox did not set the watch")
+		}
+	}
 	b.eval(`const a = document.getElementById('ed-acts'); a.value = 'api'; a.dispatchEvent(new Event('change', { bubbles: true })); true`)
 	b.waitFor("the client is described", `document.getElementById('panel-ed-access').textContent.includes('Saving the panel makes its client')`)
 	b.shot("access")

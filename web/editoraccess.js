@@ -7,7 +7,8 @@ import { btn, check, opt } from './formbits.js';
 import { openShare } from './panelshare.js';
 import { shareLabel } from './panelsrules.js';
 import { draftOf, rightsOf } from './rightsrules.js';
-import { rightsLine } from './sidebarrules.js';
+import { rightsLine, watchView } from './sidebarrules.js';
+import { watchBox } from './panelsmon.js';
 
 const LISTS = [
   ['sources', 'Sources', 'Router numbers, such as 1-8, 12'],
@@ -60,7 +61,34 @@ export function createAccessTab(ed, ctx) {
     openShare(ed.panel(), { api, onSaved: (p) => ed.replaceLoaded(p) });
   });
   const share = el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Sharing'), shareLine, shareBtn);
-  node.append(el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Identity of the panel'), actsField), clientBox, share);
+  const watch = el('section', 'sode-side__sec');
+  watch.hidden = true;
+  const watchNote = el('p', 'sode__hint');
+  watchNote.setAttribute('role', 'status');
+  const known = {};
+  let watchKey = '';
+  const setWatch = async (id, on) => {
+    try {
+      await api(`api/v1/panels/${id}/watch`, { method: on ? 'POST' : 'DELETE' });
+      known[id] = on;
+      watchKey = `${id}|${on}`;
+      watchNote.textContent = '';
+    } catch (e) {
+      watchNote.textContent = e.message;
+      watchKey = '';
+      paintWatch();
+    }
+  };
+  // Rebuilt only when what it shows changes, so a refresh does not take the checkbox from under a hand.
+  function paintWatch() {
+    const v = watchView(ed.panel(), known);
+    watch.hidden = !v;
+    const key = v ? `${v.id}|${v.on}` : '';
+    if (!v || key === watchKey) return;
+    watchKey = key;
+    watch.replaceChildren(el('h3', 'sode-side__h', 'Monitoring'), watchBox({ id: v.id, canEdit: true, watching: v.on }, setWatch), watchNote);
+  }
+  node.append(el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Identity of the panel'), actsField), clientBox, share, watch);
 
   // Typing a list sends the Rights as written. A bad list keeps the last good Rights and says why.
   function sendRights() {
@@ -124,6 +152,7 @@ export function createAccessTab(ed, ctx) {
       const stored = !!p && !ro;
       shareLine.textContent = p ? `Who may use it: ${shareLabel(p.share)}.` : 'Save the panel first, then choose who may use it.';
       shareBtn.disabled = !stored;
+      paintWatch();
     },
   };
 }
