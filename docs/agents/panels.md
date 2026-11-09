@@ -36,7 +36,7 @@ A Session-mode page trades its signed-in session for a user key over the socket:
 
 ## Monitoring
 
-`panelmon.go` keeps devices in memory, so a restart alerts nothing. A device is dropped after 24 hours and a panel is online while any device was heard within 45 seconds. Notices go only to connections signed in as a watcher and not under the Lock, and are never in the hello.
+`panelmon.go` keeps devices in memory, so a restart alerts nothing. A device is dropped after 24 hours. A page holds `GET /panels/{id}/instances/stream` (a `fetch` with the Authorization header, in `panelkeepalive.js`), so a closed page is seen at once and lost 8 seconds later (`monGrace`); a device that never held a stream, or beat again with none open, keeps the 45 second keepalive miss (`monMiss`). A panel is online while any device counts. Notices go only to connections signed in as a watcher and not under the Lock, and are never in the hello. The Sode page shows a banner for the offline panels (`panelwatch.js`, the badge on pages without one). Its Clear menu sends `panelAlarm`: `clear` hides the outage for that user until the panel's next notice (memory only), `stop` removes the watch. The tests use `a.mon.now`, and `monHold` in `panelmonstream_test.go` for a real held connection.
 
 ## Gotchas
 

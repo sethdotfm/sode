@@ -978,6 +978,26 @@ html:has(.sode__scrim:not([hidden])) {
   white-space: nowrap;
 }
 
+/* The offline banner at the top of the Sode page (panelwatch.js); the banner rules above do the sliding. */
+.sode__outage:empty {
+  display: none;
+}
+.sode__outage {
+  padding-bottom: var(--pb-space-3);
+  width: 100%;
+}
+.sode__outage-acts {
+  align-items: center;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  justify-content: flex-end;
+}
+.sode-m__head ~ .sode__outage {
+  padding: var(--pb-space-3) var(--pb-space-5) 0;
+}
+
 /* The offline badge in the toast stack (panelwatch.js) */
 .pb-toast-stack [data-panel-badge] {
   pointer-events: auto;

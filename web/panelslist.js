@@ -88,6 +88,7 @@ function detail(p) {
   if (!p) return;
   const acts = actionsFor(p);
   const bar = el('div', 'sode-ov__acts');
+  bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id)));
   if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id)));
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
@@ -113,7 +114,7 @@ function detail(p) {
       'div',
       'sode-ov__big',
       el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)),
-      el('div', 'sode-ov__pane', link('Launch', 'play', 'pb-btn--ok sode-ov__launch', launchHref(p.id)), bar, kv, watchBox(p, setWatch), openNow(p)),
+      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p)),
     ),
   );
 }
