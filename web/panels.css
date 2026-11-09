@@ -68,13 +68,38 @@
   }
 }
 
+/* The status line and the update banner share one box between the header and the grid. Nothing shows: no box, so
+   the page's gap does not open for it. A kiosk fixes the box to the bottom of the viewport instead, so a refusal or
+   a countdown never moves the grid (TestChromePanelKioskAndRefusal). */
+.sode-panel__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-panel__foot:not(:has(> :not([hidden]))) {
+  display: none;
+}
+[data-sode-kiosk] .sode-panel__foot {
+  background: var(--pb-surface-base);
+  bottom: 0;
+  left: 0;
+  padding: var(--pb-space-3) var(--pb-space-4);
+  position: fixed;
+  right: 0;
+  z-index: var(--pb-z-sticky);
+}
 .sode-panel__status {
   color: var(--pb-status-error);
   font-weight: var(--pb-weight-bold);
   margin: 0;
 }
-.sode-panel__update[hidden] {
+.sode-panel__update[hidden],
+.sode-panel__update .sode__banner-time[hidden] {
   display: none;
+}
+.sode-panel__update .pb-alert {
+  align-items: center;
+  flex-wrap: wrap;
 }
 .sode-panel__grid {
   display: grid;

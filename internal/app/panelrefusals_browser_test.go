@@ -13,7 +13,7 @@ import (
 )
 
 // A kiosk panel draws only the grid, and a route outside the user's Rights is refused on the
-// page before Take arms.
+// page before Take arms. The refusal shows at the bottom of the viewport and never moves the grid.
 func TestChromePanelKioskAndRefusal(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -60,10 +60,18 @@ func TestChromePanelKioskAndRefusal(t *testing.T) {
 	b.waitFor("the grid is shown", `!!document.getElementById('panel-grid').offsetParent`)
 
 	// Outside the Rights: refused with a message, and Take stays disabled.
+	gridTop := `document.getElementById('panel-grid').getBoundingClientRect().top`
+	b.eval(`window.__gridTop = ` + gridTop)
 	b.eval(cell("destination", 1) + `.click()`)
 	b.eval(cell("source", 0) + `.click()`)
 	b.waitFor("refusal shown", `document.getElementById('panel-status').textContent.includes("outside this panel's rights")`)
 	b.waitFor("Take not armed", cell("take", 0)+`.disabled`)
+	b.waitFor("the grid did not move", gridTop+` === window.__gridTop`)
+	b.waitFor("the refusal sits at the bottom of the viewport", `(() => {
+		const foot = document.getElementById('panel-foot');
+		const r = foot.getBoundingClientRect();
+		return getComputedStyle(foot).position === 'fixed' && Math.abs(r.bottom - innerHeight) < 1 && r.top > `+gridTop+`;
+	})()`)
 	b.shot("refused")
 
 	// Inside the Rights: arms, and the server takes it.
