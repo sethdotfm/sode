@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -81,7 +82,15 @@ func (a *App) auditRights(c *client, was, now config.Config) {
 	for _, u := range now.Users {
 		ou, existed := was.FindUser(u.Name)
 		if !reflect.DeepEqual(ou.Rights, u.Rights) && (existed || !u.Rights.IsOpen()) {
-			row("rightsEdit", "rights of user "+u.Name)
+			note := "rights of user " + u.Name
+			if pc := a.panelClientsOf(now, u); len(pc) > 0 {
+				var l []string
+				for _, n := range pc {
+					l = append(l, n.Client+" ("+n.Name+")")
+				}
+				note += "; panel clients they created: " + strings.Join(l, ", ")
+			}
+			row("rightsEdit", note)
 		}
 		if ou.NoAutoLock != u.NoAutoLock {
 			row("noAutoLockEdit", fmt.Sprintf("No auto-lock of %s is now %v", u.Name, u.NoAutoLock))

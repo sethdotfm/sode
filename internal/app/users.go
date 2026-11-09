@@ -492,10 +492,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		cur.Users = out
 		if req.APIClients != nil {
-			cur.APIClients = slices.Clone(*req.APIClients)
-			for i := range cur.APIClients {
-				cur.APIClients[i].Rights = cur.APIClients[i].Rights.Clone()
-			}
+			cur.APIClients = keepPanelClients(cur.APIClients, *req.APIClients)
 		}
 		if req.GuestRights != nil {
 			cur.GuestRights = req.GuestRights.Clone()
@@ -606,6 +603,8 @@ type userView struct {
 	NoAutoLock bool   `json:"noAutoLock,omitempty"`
 	// Rights has no omitempty: an unset list is "all", an empty one "none".
 	Rights config.Rights `json:"rights"`
+	// PanelClients are the panel clients this user's panels have, for the Rights editor to list.
+	PanelClients []panelClientNote `json:"panelClients"`
 }
 
 func (a *App) usersList(id int) usersListMsg {
@@ -616,7 +615,11 @@ func (a *App) usersList(id int) usersListMsg {
 		m.APIClients = []config.APIClient{}
 	}
 	for _, u := range cfg.Users {
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights})
+		pc := a.panelClientsOf(cfg, u)
+		if pc == nil {
+			pc = []panelClientNote{}
+		}
+		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights, pc})
 	}
 	return m
 }

@@ -5,3 +5,5 @@
 Considered: Trusted users with no cap, which lets a Trusted user mint access beyond their own and so weakens the advanced-setting line. Also admin-only creation, which keeps 1.8.0's rule and makes the panel editor useless to the people who run the walls.
 
 Consequences: a creator's later loss of Rights does not shrink an existing client, so a Rights change for a user should list the panel clients they created. A panel in Session mode needs none of this and uses the user's own Rights.
+
+The limit of 12 API clients bounds the administrator's own clients only. Panel clients are bounded by the 500 panels, because a wall of tablets would otherwise fill the 12 and leave the administrator none. The cap is checked when a save sets the client's Rights to something new, not on a save that leaves them as stored, so a panel an administrator widened keeps saving.

@@ -106,11 +106,18 @@ func (r Rights) Clone() Rights {
 	return r
 }
 
-// APIClient is a non-person actor. Its keys live in the key store, not here.
+// PanelClientScopes is what a panel's own API client starts with: reading, tally and taking,
+// never `log` or `panelsmanage`. Only an administrator widens it.
+var PanelClientScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeTake, ScopePanels}
+
+// APIClient is a non-person actor. Its keys live in the key store, not here. Panel is the id of
+// the panel that owns a panel's own client (ADR 0006): such a client is made and removed with
+// its panel and does not count toward MaxAPIClients, which bounds the administrator's own.
 type APIClient struct {
 	Name   string   `yaml:"name" json:"name"`
 	Scopes []string `yaml:"scopes" json:"scopes"`
 	Rights Rights   `yaml:"rights,omitempty" json:"rights"`
+	Panel  string   `yaml:"panel,omitempty" json:"panel,omitempty"`
 }
 
 // APISettings: advanced settings, saved apart from the Settings form (owned).
@@ -198,7 +205,13 @@ func (c Config) validateAPI() []error {
 	for _, u := range c.Users {
 		u.Rights.validate("rights of "+u.Name, c.Levels, bad)
 	}
-	if len(c.APIClients) > MaxAPIClients {
+	own := 0
+	for _, cl := range c.APIClients {
+		if cl.Panel == "" {
+			own++
+		}
+	}
+	if own > MaxAPIClients {
 		bad("at most %d API clients", MaxAPIClients)
 	}
 	seen := map[string]bool{}
