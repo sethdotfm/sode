@@ -1,10 +1,11 @@
 // The sidebar's Cell tab: caption, levels, font size and artwork of the one cell selected. Fields are built once
 // and updated in place, so typing a caption keeps the caret while the grid repaints.
 import { el } from './core.js';
-import { field, check } from './formbits.js';
+import { field } from './formbits.js';
 import { single, setCell, selCells } from './gridmodel.js';
 import { kindLabel } from './editorrules.js';
-import { fontPercent, levelsPatch } from './sidebarrules.js';
+import { fontPercent } from './sidebarrules.js';
+import { createLevelBoxes } from './editorlevels.js';
 import { createArtControl } from './editorart.js';
 
 const CAPTION_MAX = 40;
@@ -28,26 +29,22 @@ export function createCellTab(ed, levelList) {
   caption.maxLength = CAPTION_MAX;
   caption.autocomplete = 'off';
   const captionField = field('ed-cell-caption', 'Caption', caption, 'Replaces the Router name on this cell.');
-  const levelBox = el('div', 'sode-side__checks');
-  const levelField = el(
-    'div',
-    'sode__field',
-    el('span', 'sode__field-label', 'Levels'),
-    levelBox,
-    el('span', 'sode__hint', 'None ticked means every level the panel allows.'),
-  );
+  const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => patch({ levels: v }) });
+  const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Levels'), levelBoxes.node);
   const size = el('input', 'pb-input sode-ed__num');
   size.id = 'ed-cell-size';
   size.type = 'number';
   size.min = '50';
   size.max = '200';
   size.inputMode = 'numeric';
-  const sizeNote = el('span', 'sode__hint', '50 to 200 percent of the panel font size.');
+  size.placeholder = '100';
+  size.title = '50 to 200 percent of the panel font size.';
+  const sizeNote = el('span', 'sode__hint');
   sizeNote.setAttribute('role', 'status');
-  const sizeField = field('ed-cell-size', 'Font size, percent', size, '');
-  sizeField.append(sizeNote);
-  const art = createArtControl({ ed, icons: true, set: (v) => patch({ art: v }) });
-  form.append(kindLine, captionField, levelField, sizeField, art.node);
+  const sizeField = el('div', 'sode__field sode-side__inline', Object.assign(el('label', null, 'Font size'), { htmlFor: 'ed-cell-size' }), size, el('span', 'sode__hint', '%'));
+  const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
+  const art = createArtControl({ ed, icons: true, set: (v) => patch({ art: v }), setHideText: (v) => patch({ hideText: v ? true : undefined }) });
+  form.append(kindLine, captionField, levelField, sizeRow, art.node);
   node.append(hint, form);
 
   const cell = () => single(ed.grid());
@@ -59,34 +56,18 @@ export function createCellTab(ed, levelList) {
   caption.addEventListener('input', () => patch({ caption: caption.value.trim() ? caption.value : undefined }));
   size.addEventListener('input', () => {
     const t = size.value.trim();
-    if (t === '') return void ((sizeNote.textContent = '50 to 200 percent of the panel font size.'), patch({ fontSize: undefined }));
+    if (t === '') return void ((sizeNote.textContent = ''), patch({ fontSize: undefined }));
     const r = fontPercent(t);
-    sizeNote.textContent = r.error || '50 to 200 percent of the panel font size.';
+    sizeNote.textContent = r.error || '';
     if (!r.error) patch({ fontSize: r.value === 100 ? undefined : r.value });
   });
-
-  function drawLevels(chosen) {
-    const all = levels.map((l) => l.level);
-    levelBox.replaceChildren(
-      ...levels.map((l) => {
-        const c = check(l.label || `Level ${l.level}`, {
-          checked: chosen.includes(l.level),
-          onChange: (on) => {
-            const now = on ? [...chosen, l.level] : chosen.filter((x) => x !== l.level);
-            patch({ levels: levelsPatch(all, now) });
-          },
-        });
-        c.input.disabled = ed.readOnly();
-        return c.label;
-      }),
-    );
-  }
 
   return {
     node,
     setLevels(list) {
       levels = list;
-      at = ''; // redraw the ticks for the cell on show
+      at = '';
+      levelBoxes.reset();
     },
     update() {
       const g = ed.grid();
@@ -105,18 +86,15 @@ export function createCellTab(ed, levelList) {
       }
       const key = `${c.r},${c.c}`;
       const fresh = key !== at;
-      const chosen = Array.isArray(c.levels) ? c.levels : [];
+      if (fresh) levelBoxes.reset();
       kindLine.textContent = `${kindLabel(c.kind)} at row ${c.r}, column ${c.c}`;
       put(caption, c.caption || '', fresh);
       put(size, c.fontSize ? String(c.fontSize) : '', fresh);
       levelField.hidden = !LEVEL_KINDS.includes(c.kind) || !levels.length;
-      if (fresh || levelBox.dataset.shown !== chosen.join(',')) {
-        drawLevels(chosen);
-        levelBox.dataset.shown = chosen.join(',');
-      }
+      levelBoxes.draw(levels, c.levels);
       at = key;
       for (const i of [caption, size]) i.disabled = ed.readOnly();
-      art.update(c.art || '', c.caption || '');
+      art.update(c.art || '', c.caption || '', c.hideText === true);
     },
   };
 }

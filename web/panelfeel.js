@@ -43,3 +43,11 @@ export function createWake(nav, doc) {
     },
   };
 }
+
+// Browsers only allow fullscreen from a user gesture, so a panel with the setting on asks on its first press.
+export function enterFullscreen(doc) {
+  const root = doc?.documentElement;
+  if (doc?.fullscreenElement || !doc?.fullscreenEnabled || !root?.requestFullscreen) return false;
+  root.requestFullscreen().catch(() => {}); // refused (iOS Safari, an embedded frame): the panel still works
+  return true;
+}

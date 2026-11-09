@@ -1,7 +1,7 @@
 // Draws a panel's grid from the state model. Holds no state of its own: paintGrid is called after
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
-import { artOf, cellScale } from './panellook.js';
+import { artOf, cellScale, textHidden } from './panellook.js';
 import { currentLabel } from './panelrules.js';
 import {
   sourceState,
@@ -51,6 +51,7 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
     b.disabled = cell.kind === 'current';
     if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
     b._art = artNode(cell, art);
+    if (textHidden(cell)) b.dataset.hideText = '1';
     b.style.gridArea = `${cell.r} / ${cell.c} / span ${cell.rs} / span ${cell.cs}`;
     b.addEventListener('click', () => onPress(cell));
     if (cell.kind === 'take' && hold) {
@@ -68,7 +69,7 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
 function paintSource(b, cell, { st, env, names }) {
   const s = sourceState(st, cell.n, env);
   b.dataset.s = s;
-  b.replaceChildren(el('span', '', names.of(cell)));
+  b.replaceChildren(el('span', 'sode-panel__text', names.of(cell)));
   if (s === 'current') b.append(icon('check'));
 }
 
@@ -76,27 +77,27 @@ function paintDestination(b, cell, { st, env, names, now }) {
   b.dataset.s = destinationState(st, cell.n);
   b.dataset.v = st.view?.dst === cell.n ? '1' : '';
   b.classList.toggle('pb-xpt--protected', env.protectedDsts.has(cell.n));
-  const name = el('span', '', names.of(cell));
+  const name = el('span', '', el('span', 'sode-panel__text', names.of(cell)));
   const shown = resultShown(st, cell.n, now);
   if (shown) {
     const mark = icon(RESULT_ICON[shown.result]);
     mark.setAttribute('role', 'img');
     mark.setAttribute('aria-label', shown.word);
     name.append(' ', mark);
-    if (shown.text) name.append(' ', el('small', 'sode-panel__result', shown.text));
+    if (shown.text) name.append(' ', el('small', 'sode-panel__result sode-panel__text', shown.text));
   }
   b.dataset.result = shown?.result || '';
   const cur = currentOfDestination(st, env, cell);
   const under = env.protectedDsts.has(cell.n) ? 'Protected' : cur >= 0 ? names.source(cur) : '';
-  const kids = [name, el('small', '', under)];
+  const kids = [name, el('small', 'sode-panel__text', under)];
   const staged = st.staged.find((x) => x.dst === cell.n);
-  if (staged) kids.push(el('span', 'sode-panel__staged', `→ ${names.source(staged.src)}`));
+  if (staged) kids.push(el('span', 'sode-panel__staged sode-panel__text', `→ ${names.source(staged.src)}`));
   b.replaceChildren(...kids);
 }
 
 function paintPreset(b, cell, { st, env, names }) {
   b.dataset.s = presetState(st, cell, env);
-  b.replaceChildren(el('span', '', names.of(cell)));
+  b.replaceChildren(el('span', 'sode-panel__text', names.of(cell)));
   b.disabled = !env.presets?.has(`${cell.scope}:${cell.name}`);
 }
 
@@ -104,7 +105,7 @@ function paintPreset(b, cell, { st, env, names }) {
 function paintCurrent(b, cell, { st, env, names }) {
   const src = currentSource(env, st);
   const label = currentLabel(cell, st.view ? names.destination(st.view.dst) : '');
-  b.replaceChildren(el('small', '', label), el('span', '', src >= 0 ? names.source(src) : ''));
+  b.replaceChildren(el('small', 'sode-panel__text', label), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
 }
 
 function takeLabel(st, cell, now) {
@@ -123,9 +124,9 @@ export function paintGrid(grid, ctx) {
     else if (cell.kind === 'destination') paintDestination(b, cell, ctx);
     else if (cell.kind === 'preset') paintPreset(b, cell, ctx);
     else if (cell.kind === 'current') paintCurrent(b, cell, ctx);
-    else if (cell.kind === 'clear') b.textContent = ctx.names.of(cell);
+    else if (cell.kind === 'clear') b.replaceChildren(el('span', 'sode-panel__text', ctx.names.of(cell)));
     else {
-      b.textContent = takeLabel(ctx.st, cell, ctx.now);
+      b.replaceChildren(el('span', 'sode-panel__text', takeLabel(ctx.st, cell, ctx.now)));
       b.dataset.guard = ctx.st.holdAt ? 'holding' : guardWaiting(ctx.st, ctx.now) ? 'waiting' : '';
       b.style.setProperty('--wait-ms', `${ctx.st.holdAt ? GUARD_HOLD_MS : GUARD_DOUBLE_MS}ms`);
       b.disabled = !on;
