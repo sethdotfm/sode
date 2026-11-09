@@ -1,7 +1,6 @@
 // The panel editor's sidebar: Cell, Panel and Access tabs beside the grid. It opens on Panel and switches to Cell
 // when the selection moves to a new square. initSidebar(editor) takes what runEditor returns.
-import { $ } from './core.js';
-import { sessionFetch } from './sessionkey.js';
+import { $, S, on } from './core.js';
 import { makeTabs } from './tabs.js';
 import { rectOf } from './gridmodel.js';
 import { createCellTab } from './editorcell.js';
@@ -10,10 +9,8 @@ import { createAccessTab } from './editoraccess.js';
 
 export function initSidebar(ed) {
   const host = $('ed-side');
-  let levels = []; // [{level, label}] from the router, UI numbers; empty until the first read answers
-  let reading = false;
 
-  const ctx = { offset: () => ed.names().off || 0, levelCount: () => levels.length };
+  const ctx = { offset: () => ed.names().off || 0, levelCount: () => S.levels.length };
   const cell = createCellTab(ed);
   const panel = createPanelTab(ed);
   const access = createAccessTab(ed, ctx);
@@ -26,21 +23,15 @@ export function initSidebar(ed) {
   tabs.select('ed-panel');
   host.append(tabs.node, cell.node, panel.node, access.node);
 
-  async function readLevels() {
-    if (levels.length || reading) return;
-    reading = true;
-    try {
-      const res = await sessionFetch('api/v1/tally');
-      levels = res.ok ? (await res.json()).levels || [] : [];
-    } catch {
-      levels = [];
-    }
-    reading = false;
-    if (levels.length) {
-      cell.setLevels(levels);
-      panel.setLevels(levels);
-      paint();
-    }
+  // Levels come from the hello the page's socket gets (S.levels), which carries each level's label and color.
+  let seen = '';
+  function readLevels() {
+    const now = S.levels.map((l) => `${l.ui}${l.label}${l.color || l.swatch}`).join();
+    if (now === seen) return;
+    seen = now;
+    cell.resetLevels();
+    panel.resetLevels();
+    paint();
   }
 
   const paint = () => {
@@ -63,6 +54,7 @@ export function initSidebar(ed) {
     readLevels();
   });
   $('ed-name').addEventListener('input', () => panel.update());
+  on('hello', readLevels);
   paint();
   readLevels();
 }

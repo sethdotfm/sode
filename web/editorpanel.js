@@ -1,6 +1,6 @@
 // The sidebar's Panel tab: identity and size, appearance, behavior, device and feedback. Every control writes
 // one key of the panel's settings through setSetting (sidebarrules.js), so the stored file only holds choices.
-import { el, $ } from './core.js';
+import { el, $, S } from './core.js';
 import { field, check, opt } from './formbits.js';
 import { featureSupport } from './panelfeel.js';
 import { setSetting, fontPercent, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
@@ -81,14 +81,14 @@ export function createPanelTab(ed) {
     ['double', 'Press the Take cell twice'],
   ]);
   guard.select.addEventListener('change', () => set('guard', guard.select.value));
-  let levels = [];
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', v || []) });
+  const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
   const behavior = section(
     'Behavior',
     el('div', 'sode__field', el('label', null, 'Mode'), mode.node, modeHint),
     el('div', 'sode__field', el('label', null, 'Take button behavior'), guard.node),
     toggle('multi', 'Stage several Destinations at once', 'Off lets one Destination be staged at a time.'),
-    el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node),
+    levelField,
     toggle('resultText', 'Show the result as text on a Destination', 'Off shows only the color and icon.'),
     toggle('kiosk', 'Hide the header (kiosk)', 'For a wall tablet. The link can also add kiosk=1.'),
   );
@@ -107,10 +107,7 @@ export function createPanelTab(ed) {
 
   return {
     node,
-    setLevels(list) {
-      levels = list;
-      levelBoxes.reset();
-    },
+    resetLevels: () => levelBoxes.reset(),
     update() {
       const p = ed.panel();
       const s = ed.fields().settings;
@@ -134,14 +131,15 @@ export function createPanelTab(ed) {
       deviceNote.textContent = unsupported.length
         ? `This browser has no support for ${unsupported.join(' or ')}. It is the panel's own browser that counts.`
         : '';
-      if (document.activeElement !== size) size.value = s.fontSize ? String(s.fontSize) : '';
+      if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
       mode.select.value = s.mode === 'instant' ? 'instant' : 'take';
       mode.select.disabled = ro;
       modeHint.textContent = MODE_HINT[mode.select.value];
       guard.select.value = s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none';
       guard.select.disabled = ro;
-      levelBoxes.draw(levels, s.levels);
+      levelField.hidden = !S.levels.length;
+      levelBoxes.draw(s.levels);
       sizes.update();
       backdrop.update(s.backdrop || '');
     },
