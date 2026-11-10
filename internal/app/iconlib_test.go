@@ -263,3 +263,27 @@ func TestIconLibraryDeleteAndUses(t *testing.T) {
 		t.Fatalf("PIN delete: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+// A hand-edited icons.yaml: an entry whose type is not PNG or SVG, or whose name is empty, too long or holds control
+// characters, is dropped, since the type becomes the Content-Type and the name reaches every page.
+func TestIconLibraryLoadDropsBadEntries(t *testing.T) {
+	dir := t.TempDir()
+	file := "rev: 2\nicons:\n" +
+		"  - {id: 0000000a, name: Good, type: image/png, size: 4}\n" +
+		"  - {id: 0000000b, name: Page, type: text/html, size: 4}\n" +
+		"  - {id: 0000000c, name: Photo, type: image/jpeg, size: 4}\n" +
+		"  - {id: 0000000d, name: \"\", type: image/png, size: 4}\n" +
+		"  - {id: 0000000e, name: \"" + strings.Repeat("x", iconNameMax+1) + "\", type: image/png, size: 4}\n" +
+		"  - {id: 0000000f, name: \"Bell\\a\", type: image/svg+xml, size: 4}\n" +
+		"  - {id: 00000010, name: Vector, type: image/svg+xml, size: 4}\n"
+	if err := os.WriteFile(filepath.Join(dir, iconLibFile), []byte(file), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, ic := range loadIconLib(filepath.Join(dir, "config.yaml")).list() {
+		names = append(names, ic.Name)
+	}
+	if got := strings.Join(names, ","); got != "Good,Vector" {
+		t.Fatalf("icons %s", got)
+	}
+}

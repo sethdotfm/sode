@@ -15,7 +15,11 @@ import (
 // The Icon library's drop-in directory, icons/drop-in: PNG and SVG files put there are added at start and on a Rescan,
 // then removed from the directory. A skipped file stays and is reported each time. Docs: docs/reference.md.
 
-const iconDropDir = "drop-in"
+const (
+	iconDropDir = "drop-in"
+	// A file name may hold control characters; reports carry it cut and cleaned, never raw.
+	dropFileMax = 255
+)
 
 type iconSkip struct {
 	File   string `json:"file"`
@@ -96,12 +100,12 @@ func (s *iconLib) rescan() iconRescanResult {
 		}
 		ic, err := s.dropOne(root, e)
 		if err != nil {
-			out.Skipped = append(out.Skipped, iconSkip{name, err.Error()})
+			out.Skipped = append(out.Skipped, iconSkip{cleanText(name, dropFileMax), err.Error()})
 			continue
 		}
 		out.Added = append(out.Added, ic)
 		if err := root.Remove(name); err != nil {
-			log.Printf("icon library: added %s but could not remove it from the drop-in directory: %v", name, err)
+			log.Printf("icon library: added %s but could not remove it from the drop-in directory: %v", cleanText(name, dropFileMax), err)
 		}
 	}
 	return out
@@ -139,7 +143,6 @@ func (s *iconLib) dropOne(root *os.Root, e os.DirEntry) (LibIcon, error) {
 	return ic, err
 }
 
-// skippedText is the report of a rescan's skipped files, or "".
 func (r iconRescanResult) skippedText() string {
 	var parts []string
 	for _, s := range r.Skipped {
@@ -148,7 +151,7 @@ func (r iconRescanResult) skippedText() string {
 	return strings.Join(parts, "; ")
 }
 
-// rescanIcons runs a rescan and logs it as an `iconRescan` row when it added or skipped anything.
+// A rescan that finds nothing logs no row, so the start and every Rescan of an empty directory stay quiet.
 func (a *App) rescanIcons(act Actor) iconRescanResult {
 	res := a.icons.rescan()
 	if len(res.Added) == 0 && len(res.Skipped) == 0 {

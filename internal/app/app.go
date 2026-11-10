@@ -100,18 +100,16 @@ type App struct {
 	namesDirt  bool
 	dumpAt     time.Time
 
-	pin       pinPool
-	userPin   pinPool
-	tokens    *tokenStore
-	keys      *keyStore
-	panels    *panelStore
-	templates *templateStore
-	// artDefaults is Default artwork (artdefaults.go).
+	pin         pinPool
+	userPin     pinPool
+	tokens      *tokenStore
+	keys        *keyStore
+	panels      *panelStore
+	templates   *templateStore
 	artDefaults *artDefaultStore
-	// icons is the Icon library (iconlib.go).
-	icons *iconLib
-	mon   *panelMon
-	cfgMu sync.Mutex
+	icons       *iconLib
+	mon         *panelMon
+	cfgMu       sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 

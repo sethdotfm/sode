@@ -82,6 +82,8 @@ func TestArtDefaultValidation(t *testing.T) {
 		`{"kind":"source","n":1}`,
 		`{"kind":"source","n":1,"art":"https://example.com/x.png"}`,
 		`{"kind":"source","n":1,"artB":"17"}`,
+		// No Me scope: one shared set, so a Me preset's default would reach every user's preset of that name.
+		`{"kind":"preset","scope":"me","name":"X","art":"icon:camera"}`,
 	} {
 		wantErr(t, apiSend(a, "PUT", "/api/v1/default-artwork", cy, body), 400, "bad_request")
 	}
@@ -129,6 +131,57 @@ func TestArtDefaultCopiesPanelImage(t *testing.T) {
 		t.Fatalf("old image kept: %v", err)
 	}
 	wantErr(t, apiDo(a, "GET", "/api/v1/default-artwork/images/"+img, bo, nil), 404, "not_found")
+}
+
+// The copied image is served as the type its bytes show, never the panel record's.
+func TestArtDefaultStoresTheSniffedType(t *testing.T) {
+	a := panelsApp(t)
+	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
+	id := makePanel(t, a, ana, `{"name":"Art"}`)
+	if !a.panels.putArtAs(id, PanelArt{ID: "a-0000000c", Type: "text/html"}, b64(t, tinyPNG)) {
+		t.Fatal("seed")
+	}
+	rec := apiSend(a, "PUT", "/api/v1/default-artwork", cy, `{"kind":"source","n":1,"art":"a-0000000c","panel":"`+id+`"}`)
+	if rec.Code != 200 {
+		t.Fatalf("set: %d %s", rec.Code, rec.Body.String())
+	}
+	img := apiBody(t, rec)["art"].(string)
+	if got := apiDo(a, "GET", "/api/v1/default-artwork/images/"+img, ana, nil).Header().Get("Content-Type"); got != "image/png" {
+		t.Fatalf("served as %q", got)
+	}
+}
+
+// A hand-edited artdefaults.yaml: an image whose type is not an allowed image type, a default whose art is not one
+// of the stored forms, a bad Icon B and a Me scope preset are each dropped.
+func TestArtDefaultLoadDropsBadEntries(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	file := `rev: 3
+defaults:
+  - {kind: source, n: 1, name: CAM 1, art: icon:camera}
+  - {kind: source, n: 2, name: CAM 2, art: "https://example.com/x.png"}
+  - {kind: source, n: 3, name: CAM 3, art: icon:tv, artB: "99"}
+  - {kind: preset, scope: me, name: Mine, art: icon:tv}
+  - {kind: destination, n: 1, name: MON, art: d-0000000a}
+  - {kind: destination, n: 2, name: MON 2, art: lib:0000000b}
+images:
+  - {id: d-0000000a, type: image/png, size: 4}
+  - {id: d-0000000b, type: text/html, size: 4}
+`
+	if err := os.WriteFile(filepath.Join(dir, artDefaultsFile), []byte(file), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := loadArtDefaults(cfgPath)
+	var keys []string
+	for _, d := range s.list() {
+		keys = append(keys, d.key())
+	}
+	if got := strings.Join(keys, ","); got != "source/1,destination/1,destination/2" {
+		t.Fatalf("defaults %s", got)
+	}
+	if len(s.data.Images) != 1 || s.data.Images[0].ID != "d-0000000a" {
+		t.Fatalf("images %v", s.data.Images)
+	}
 }
 
 // Hidden: a default for an item outside the Rights is not in the list, the panel read or the image route.

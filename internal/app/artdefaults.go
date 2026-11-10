@@ -79,8 +79,9 @@ func (d *ArtDefault) check() error {
 	case artKindPreset:
 		d.N = nil
 		d.Name = cleanText(strings.TrimSpace(d.Name), panelNameMax)
-		if d.Scope != "everyone" && d.Scope != "me" || d.Name == "" {
-			return errors.New(`a Preset default needs scope "everyone" or "me" and the preset's name`)
+		// No "me": the set is shared, so a Me default would reach every user's Me preset of that name.
+		if d.Scope != "everyone" || d.Name == "" {
+			return errors.New(`a Preset default needs scope "everyone" and the preset's name; Me presets have no Default artwork`)
 		}
 	default:
 		return fmt.Errorf("kind is %q, %q or %q", artKindSource, artKindDst, artKindPreset)
@@ -122,7 +123,7 @@ func loadArtDefaults(cfgPath string) *artDefaultStore {
 	}
 	seen := map[string]bool{}
 	for _, x := range d.Defaults {
-		if x.check() != nil || seen[x.key()] {
+		if x.check() != nil || !storedArtOK(x) || seen[x.key()] {
 			log.Printf("default artwork: skipped a default that is not valid or repeats an item: %+v", x)
 			continue
 		}
@@ -131,11 +132,20 @@ func loadArtDefaults(cfgPath string) *artDefaultStore {
 	}
 	s.data.Rev = d.Rev
 	for _, im := range d.Images {
-		if artDefaultIDRe.MatchString(im.ID) {
-			s.data.Images = append(s.data.Images, im)
+		if !artDefaultIDRe.MatchString(im.ID) || !artTypeOK(im.Type) {
+			log.Printf("default artwork: skipped an image with a bad id or type: %+v", im)
+			continue
 		}
+		s.data.Images = append(s.data.Images, im)
 	}
 	return s
+}
+
+// storedArtOK: the forms set stores, so a hand edit cannot name a URL or another panel's artwork.
+func storedArtOK(d ArtDefault) bool {
+	art := d.Art == "" || artIconRe.MatchString(d.Art) || artDefaultIDRe.MatchString(d.Art) ||
+		strings.HasPrefix(d.Art, "lib:") && iconIDRe.MatchString(d.Art[len("lib:"):])
+	return art && (d.ArtB == "" || artBRe.MatchString(d.ArtB))
 }
 
 func (s *artDefaultStore) list() []ArtDefault {
@@ -238,7 +248,7 @@ func (s *artDefaultStore) set(d ArtDefault, img *artImage) (ArtDefault, error) {
 	return d, s.writeLocked(next)
 }
 
-// clear removes the default for d's item; false when there was none.
+// false: d's item had no default.
 func (s *artDefaultStore) clear(d ArtDefault) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

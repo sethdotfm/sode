@@ -90,6 +90,11 @@ func loadIconLib(cfgPath string) *iconLib {
 			log.Printf("icon library: skipped an entry with a bad or repeated id: %+v", ic)
 			continue
 		}
+		// The type becomes the Content-Type and the name reaches every page, so a hand edit gets the upload's rules.
+		if ic.Type != "image/png" && ic.Type != "image/svg+xml" || !iconNameOK(ic.Name) {
+			log.Printf("icon library: skipped an entry with a bad type or name: %+v", ic)
+			continue
+		}
 		s.data.Icons = append(s.data.Icons, ic)
 	}
 	return s
@@ -103,11 +108,15 @@ func (s *iconLib) list() []LibIcon {
 	return slices.Clone(s.data.Icons)
 }
 
+func iconNameOK(name string) bool {
+	return name != "" && utf8.RuneCountInString(name) <= iconNameMax && cleanText(name, iconNameMax) == name
+}
+
 // freeName is name, or name with " 2", " 3" and so on when another icon has it ignoring case. The base is cut so
 // the result still fits iconNameMax. "" with errIconBadName when name is empty or too long.
 func freeName(name string, icons []LibIcon) (string, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || utf8.RuneCountInString(name) > iconNameMax || cleanText(name, iconNameMax) != name {
+	if !iconNameOK(name) {
 		return "", errIconBadName
 	}
 	taken := func(n string) bool {

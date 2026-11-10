@@ -480,27 +480,30 @@ func (s *panelStore) copyArt(src Panel, dst string) []string {
 	for _, a := range t.Art {
 		have[a.ID] = true
 	}
-	used := artBytes(t)
 	var left []string
 	for _, a := range src.Art {
 		if have[a.ID] {
 			continue
 		}
 		b, _, ok := s.artData(src.ID, a.ID)
-		if !ok || used+len(b) > panelArtTotal || !s.putArtAs(dst, a, b) {
+		if !ok || !s.putArtAs(dst, a, b) {
 			left = append(left, a.ID)
-			continue
 		}
-		used += len(b)
 	}
 	return left
 }
 
+// putArtAs checks the total under the lock, since an upload or another copy may land between
+// copyArt's reads. Only the total: older artwork past 2 MB or 1024 by 1024 still copies.
 func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.by[id]
 	if !ok {
+		return false
+	}
+	art.Size = len(data)
+	if artBytes(p)+art.Size > panelArtTotal {
 		return false
 	}
 	if s.dir != "" {
@@ -530,6 +533,15 @@ func sniffArt(data []byte) string {
 		return "image/svg+xml"
 	}
 	return ""
+}
+
+// artTypeOK is a stored type sniffArt could have given. A hand-edited index must not choose the Content-Type.
+func artTypeOK(t string) bool {
+	switch t {
+	case "image/png", "image/jpeg", "image/gif", "image/svg+xml":
+		return true
+	}
+	return false
 }
 
 // isSVG: the first element is svg, after only a declaration, comments, a doctype and blanks.
