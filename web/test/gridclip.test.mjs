@@ -134,7 +134,7 @@ test('the pasted cells are copies, so editing the grid never changes the block',
   assert.deepEqual(b.cells[0].levels, [1]);
 });
 
-test('a paste past the edge does not fit and changes nothing, with the counts S5 needs', () => {
+test('a paste past the edge does not fit and changes nothing, with the counts a Clip or Wrap choice needs', () => {
   const g = pick(grid([{ r: 4, c: 8, rs: 1, cs: 1, kind: 'take' }]), 4, 7);
   const b = block(
     [
