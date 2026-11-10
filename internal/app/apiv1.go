@@ -77,6 +77,7 @@ type apiErrBody struct {
 type apiErr struct {
 	Code    string `json:"code"` // machine-readable reason, listed in openapi.yaml
 	Message string `json:"message"`
+	Suggest string `json:"suggest,omitempty"` // name_taken only: a free name to send instead
 }
 
 func apiFail(w http.ResponseWriter, status int, code, msg string) {

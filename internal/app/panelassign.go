@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -75,6 +78,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	var in struct {
 		From     string `json:"from"`
 		Instance string `json:"instance"`
+		Name     string `json:"name"` // its name on the target, after a name_taken; "" keeps its own
 		Pin      string `json:"pin"`
 	}
 	if err := json.Unmarshal(body, &in); err != nil {
@@ -114,26 +118,46 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", "no instance "+device+" of "+from.Name+" is open now")
 		return
 	}
+	as := name
+	if in.Name != "" {
+		as = instanceName(strings.TrimSpace(in.Name))
+	}
+	if as == "" {
+		apiFail(w, http.StatusBadRequest, "bad_request", "give the instance a name on "+to.Name)
+		return
+	}
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
 	a.cfgMu.Lock()
-	for _, k := range a.keys.instanceKeys(owner) {
-		if sameInstance(k, name) {
+	held := a.keys.instanceKeys(owner)
+	// The cap comes first: at it, a new name would be refused as well.
+	if len(held) >= panelKeyMax {
+		a.cfgMu.Unlock()
+		apiFail(w, http.StatusConflict, "conflict", fmt.Sprintf("%s already has %d instances, the most a panel holds; revoke one first", to.Name, panelKeyMax))
+		return
+	}
+	taken := make([]string, len(held))
+	for i, k := range held {
+		taken[i] = k.Name
+	}
+	for _, k := range held {
+		if sameInstance(k, as) {
 			a.cfgMu.Unlock()
-			apiFail(w, http.StatusConflict, "conflict", to.Name+" already has an instance named "+k.Name)
+			e := apiErr{Code: "name_taken", Message: to.Name + " already has an instance named " + k.Name, Suggest: suggestInstance(as, taken)}
+			jsonAnswer(http.StatusConflict, apiErrBody{e}).write(w, false)
 			return
 		}
 	}
-	made, err := a.keys.replaceInstance(owner, name, false, time.Now())
+	made, err := a.keys.replaceInstance(owner, as, false, time.Now())
 	a.cfgMu.Unlock()
 	if errors.Is(err, errKeyCap) {
-		apiFail(w, http.StatusConflict, "conflict", fmt.Sprintf("%s already has %d instances; revoke one first", to.Name, panelKeyMax))
+		apiFail(w, http.StatusConflict, "conflict", fmt.Sprintf("%s already has %d instances, the most a panel holds; revoke one first", to.Name, panelKeyMax))
 		return
 	}
 	if err != nil {
 		apiFail(w, http.StatusInternalServerError, "internal", "the key could not be made: "+err.Error())
 		return
 	}
-	line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: name, Key: made.secret})
+	line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: as, Key: made.secret})
 	if a.mon.sendLast(from.ID, name, line) == 0 {
 		// It closed between the check and the send: no key may outlive a message nobody got.
 		a.cfgMu.Lock()
@@ -142,6 +166,36 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", "instance "+name+" closed before it could be assigned")
 		return
 	}
-	a.apiEvent(cl.Actor, "assign", "ok", panelTag(from, name)+" to "+panelTag(to, ""), nil)
-	apiJSON(w, map[string]any{"from": from.ID, "panel": to.ID, "instance": name})
+	note := panelTag(from, name) + " to " + panelTag(to, "")
+	if as != name {
+		note += " as " + as
+	}
+	a.apiEvent(cl.Actor, "assign", "ok", note, nil)
+	apiJSON(w, map[string]any{"from": from.ID, "panel": to.ID, "instance": as})
+}
+
+var trailingNumber = regexp.MustCompile(`^(.*\S)\s+(\d+)$`)
+
+// suggestInstance is name plus 2, or the next number free of taken (ignoring case), trimmed to fit
+// panelInstanceMax. A name already ending in a number counts on from it. The page offers it, editable.
+func suggestInstance(name string, taken []string) string {
+	free := func(s string) bool {
+		return !slices.ContainsFunc(taken, func(t string) bool { return strings.EqualFold(t, s) })
+	}
+	base, n := name, 2
+	if m := trailingNumber.FindStringSubmatch(name); m != nil {
+		if k, err := strconv.Atoi(m[2]); err == nil {
+			base, n = m[1], k+1
+		}
+	}
+	for ; ; n++ {
+		end := " " + strconv.Itoa(n)
+		r := []rune(base)
+		if keep := panelInstanceMax - len(end); len(r) > keep {
+			r = r[:max(keep, 0)]
+		}
+		if s := strings.TrimSpace(string(r)) + end; free(s) {
+			return s
+		}
+	}
 }
