@@ -159,7 +159,7 @@ func TestSeamArtworkLimitsHoldAcrossPushCopyTemplateAndDefaults(t *testing.T) {
 // The idle Lock reaches a panel page signed in over its page socket, as an assigned-to-sign-in or keyless page is.
 // Known limit (docs/agents/users-locks.md): the Session-mode panel's session key still answers while the Lock is
 // up, since apiAuth checks only tokens.live; the page itself drops the key on the Lock (sessionkey.js).
-func TestSeamIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
+func TestIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
 	for _, panelLock := range []bool{false, true} {
 		a := sessionKeyApp(t)
 		if panelLock {
@@ -205,7 +205,6 @@ func TestSeamIdleLockCoversAPanelPageSessionKeyStillAnswers(t *testing.T) {
 		// Under the page lock a resume drops the tab token, which ends its session keys; the page asks again.
 		want := 200
 		if panelLock {
-			a.endSessionKeys()
 			want = 401
 		}
 		if got := panelsStatus(a, key); got != want {
