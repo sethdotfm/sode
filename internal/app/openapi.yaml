@@ -2105,7 +2105,10 @@ components:
           description: |
             The Page's cells. A `goToPage` cell names its target in `page`, a Page id of this panel: one
             that is not a string or not shaped like an id is 400 `bad_request`, and one that names no Page
-            is kept and reads as unassigned. `nextPage` and `previousPage` cells have no target.
+            is kept and reads as unassigned. `nextPage` and `previousPage` cells have no target. A
+            `pageName` or `info` cell may hold `show`, a list without repeats of what it shows: `number`
+            and `name` for `pageName` (absent means `name`), `panel`, `number`, `page` and `instance`
+            for `info` (absent means all but `number`); anything else is 400 `bad_request`.
     PanelIn:
       type: object
       description: |
