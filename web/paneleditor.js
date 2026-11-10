@@ -18,8 +18,6 @@ import {
   merge,
   canUnmerge,
   unmerge,
-  countTodo,
-  nextTodo,
   setAside,
   putBack,
   heldThatFit,
@@ -32,7 +30,6 @@ import {
   isDirty,
   kindChoices,
   typeLabel,
-  todoText,
   menuArea,
   saveChord,
   signInNote,
@@ -214,9 +211,6 @@ export async function runEditor() {
     menu.show(menuAway ? null : box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
     nameBox.disabled = ro;
-    const todo = countTodo(g);
-    $('ed-todo').textContent = todoText(todo);
-    $('ed-next').disabled = ro || !todo;
     $('ed-save').disabled = ro || !dirty();
     $('ed-banner').hidden = !ro;
     // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).
@@ -238,10 +232,6 @@ export async function runEditor() {
     refresh();
   }
   nameBox.addEventListener('input', refresh);
-  $('ed-next').addEventListener('click', () => {
-    setGrid(nextTodo(g));
-    $('ed-grid').focus();
-  });
 
   // ---- panels
 

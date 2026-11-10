@@ -139,7 +139,6 @@ export function openFailNote(e) {
   return e.message || `The panel could not be opened (${e.status}).`;
 }
 
-export const todoText = (n) => (n ? `${n} unassigned square${n > 1 ? 's' : ''}` : 'No unassigned squares');
 
 const WORDS = { source: 'Source', destination: 'Destination', take: 'Take', preset: 'Preset', clear: 'Clear', current: 'Current Source', '': 'Empty' };
 export const kindLabel = (kind) => WORDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);

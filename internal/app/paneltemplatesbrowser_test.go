@@ -59,7 +59,7 @@ func TestChromeEditorTemplates(t *testing.T) {
 	b.shot("pin")
 
 	b.eval(`document.querySelector('[data-apply]').click()`)
-	b.waitFor("applied with the cells unassigned", `!document.getElementById('tpl-save') && document.getElementById('ed-todo').textContent === '2 unassigned squares' && document.getElementById('ed-state').textContent === 'Unsaved changes'`)
+	b.waitFor("applied with the cells unassigned", `!document.getElementById('tpl-save') && document.getElementById('ed-state').textContent === 'Unsaved changes'`)
 	// The refused Everyone save is the one expected failed load.
 	for _, e := range b.problems() {
 		if !strings.Contains(e, "403") || !strings.Contains(e, "/api/v1/panel-templates") {
@@ -76,7 +76,6 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 		{"r":1,"c":1,"rs":1,"cs":1,"kind":"source","n":1,"caption":"Cam one"},
 		{"r":1,"c":2,"rs":1,"cs":1,"kind":"destination","n":2,"caption":"Mon two"},
 		{"r":2,"c":1,"rs":1,"cs":1,"kind":"take"}]}`)
-	b.waitFor("empty squares counted", `document.getElementById('ed-todo').textContent === '3 unassigned squares'`)
 
 	b.eval(`const s = document.getElementById('ed-set-theme'); s.value = 'dark'; s.dispatchEvent(new Event('change', { bubbles: true }))`)
 	b.waitFor("preview follows the theme", `document.getElementById('ed-grid').style.colorScheme === 'dark'`)
@@ -104,7 +103,6 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	blank := makePanel(t, a, ana, `{"name":"Blank","rows":2,"cols":3}`)
 	b.eval(`location.href = location.origin + '/panels/editor?panel=` + blank + `'`)
 	b.waitFor("blank panel loaded", `document.getElementById('ed-name')?.value === 'Blank' && !!document.getElementById('ed-templates')`)
-	b.waitFor("six empty squares", `document.getElementById('ed-todo').textContent === '6 unassigned squares'`)
 
 	apply := func(name string) {
 		b.eval(`document.getElementById('ed-templates').click()`)
@@ -113,9 +111,9 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 		b.waitFor("dialog closed", `!document.getElementById('tpl-save')`)
 	}
 	apply("Src only")
-	b.waitFor("Sources came back, Destinations did not", `document.getElementById('ed-todo').textContent === '4 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && !document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
+	b.waitFor("Sources came back, Destinations did not", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && !document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
 	apply("Both")
-	b.waitFor("both came back", `document.getElementById('ed-todo').textContent === '3 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
+	b.waitFor("both came back", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
 	// The settings stored with it (theme dark) came with the cells.
 	b.waitFor("settings applied with the contents", `document.getElementById('ed-set-theme').value === 'dark' && document.getElementById('ed-grid').style.colorScheme === 'dark'`)
 
@@ -127,7 +125,7 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b.waitFor("first panel loaded", `document.getElementById('ed-name')?.value === 'Full' && !!document.getElementById('ed-templates')`)
 	b.eval(`const g = document.getElementById('ed-grid'); const k = (key) => g.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); k('ArrowDown'); k('ArrowDown'); k('Delete')`)
 	apply("Both")
-	b.waitFor("Sources and Destinations restored", `document.getElementById('ed-todo').textContent === '3 unassigned squares' && document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
+	b.waitFor("Sources and Destinations restored", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)

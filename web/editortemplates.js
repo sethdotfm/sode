@@ -20,7 +20,7 @@ export function initTemplates(editor) {
   open.type = 'button';
   open.id = 'ed-templates';
   open.setAttribute('aria-haspopup', 'dialog');
-  $('ed-next').parentNode.after(open);
+  $('ed-name').closest('.sode-ed__grp').after(el('div', 'sode-ed__grp', open));
   open.addEventListener('click', openDialog);
 
   function openDialog() {

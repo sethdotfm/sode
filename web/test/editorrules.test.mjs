@@ -16,7 +16,6 @@ import {
   signInNote,
   openFailNote,
   typeLabel,
-  todoText,
 } from '../editorrules.js';
 import { createGrid, merge, select } from '../gridmodel.js';
 
@@ -239,12 +238,6 @@ test('the Type item names the kind of the selected squares', () => {
   assert.equal(typeLabel([{ kind: 'take' }, { kind: 'take' }]), 'Type: Take');
   assert.equal(typeLabel([{ kind: 'take' }, { kind: 'clear' }]), 'Type: Mixed');
   assert.equal(typeLabel([]), 'Type: Empty');
-});
-
-test('the unassigned count says what it counts', () => {
-  assert.equal(todoText(0), 'No unassigned squares');
-  assert.equal(todoText(1), '1 unassigned square');
-  assert.equal(todoText(3), '3 unassigned squares');
 });
 
 // The editor never sits blank: every way it can fail to reach the panel says why and what to do.
