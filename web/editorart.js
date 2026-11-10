@@ -11,13 +11,14 @@ import { prepareArt } from './artcompress.js';
 
 const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the image was not uploaded.', failed: (s) => `The image was not uploaded (${s}).` });
 
-async function upload(panelId, file, sent) {
+export async function uploadArt(panelId, file, sent) {
   const body = await send(`api/v1/panels/${panelId}/artwork`, { method: 'POST', headers: { 'Content-Type': sent.type || file.type }, body: sent });
   return body?.id;
 }
 
 // A pane of the picker: a grid of choices, and a None button for the column header. pick(value) gets undefined for None.
-function pane(name, choices, draw, pick) {
+// The smart menu's Artwork tool builds its picker from these too (editorarttool.js).
+export function artPane(name, choices, draw, pick) {
   const grid = el('div', 'sode-side__icons');
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', name);
@@ -65,7 +66,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   const panes = [
     {
       id: 'a',
-      ...pane(
+      ...artPane(
         'Icon A',
         ART_ICONS,
         (n) => icon(n),
@@ -76,7 +77,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       ? [
           {
             id: 'b',
-            ...pane(
+            ...artPane(
               'Icon B',
               ART_B_CHOICES,
               (g) => el('span', 'sode-side__glyph', g),
@@ -115,7 +116,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
         note.textContent = problem;
         return;
       }
-      const id = await upload(ed.panel().id, f, blob);
+      const id = await uploadArt(ed.panel().id, f, blob);
       note.textContent = '';
       set(id);
     } catch (e) {
