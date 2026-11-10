@@ -218,3 +218,41 @@ test('Find starts narrowed to the kind the selected squares were given and not y
   assert.equal(findScope([{ kind: 'take' }]), '', 'Take has no list to narrow');
   assert.equal(findScope([]), '', 'an empty square');
 });
+
+test('while Fixed destination is on, Find greys every Destination with its own reason and places none', async () => {
+  const { offTag } = await import('../findrules.js');
+  const list = findEntries(names, presets, { sources: [1] }, { fixed: true });
+  const dsts = list.filter((e) => e.category === 'destination');
+  assert.equal(dsts.length, 2);
+  assert.ok(dsts.every((e) => e.off && offTag(e) === 'Fixed destination is on'));
+  assert.equal(offTag(list.find((e) => e.label === 'Camera 1')), 'Outside rights');
+  assert.equal(offTag(list.find((e) => e.label === 'Camera 2')), '');
+  assert.deepEqual(fillRun(list, dsts[0], null), []);
+  const hidden = findEntries(names, presets, { sources: [1], visibility: 'hidden' }, { fixed: true });
+  assert.equal(hidden.filter((e) => e.category === 'destination').length, 2, 'hidden is about Rights only');
+});
+
+test('the fixed destination picker searches Destinations only, leaves out those chosen and honours Rights and Visibility', async () => {
+  const { fixedPick } = await import('../findrules.js');
+  const all = findEntries(names, presets, { dsts: [1] });
+  assert.deepEqual(
+    fixedPick(all, 'mon', []).map((e) => [e.label, e.off]),
+    [
+      ['Monitor B', false],
+      ['Monitor A', true],
+    ],
+  );
+  assert.deepEqual(
+    fixedPick(all, '', [1]).map((e) => e.label),
+    ['Monitor A'],
+  );
+  assert.deepEqual(
+    fixedPick(findEntries(names, presets, { dsts: [1], visibility: 'hidden' }), 'mon', []).map((e) => e.label),
+    ['Monitor B'],
+  );
+  assert.deepEqual(
+    fixedPick(all, '2', []).map((e) => e.label),
+    ['Monitor B'],
+    'a typed number is the one a person sees',
+  );
+});

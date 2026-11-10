@@ -1,6 +1,6 @@
 // The smart menu: a small list beside the selection (right, else left, else below). It knows nothing about
 // cells. The page gives it items, so Find, fill orders and later actions are added by handing it more.
-// An item is { label, icon, run, chord?, disabled?, sub?: [{ label, run, current? }] }; chord is the letter that,
+// An item is { label, icon, run, chord?, disabled?, sub?: [{ label, run, current?, disabled?, hint? }] }; chord is the letter that,
 // with Ctrl (on a Mac too), runs it, and is shown beside it. Esc and the arrows are the menu's own.
 // area() is the box the menu and its flyouts stay inside (editorrules.js menuArea); the viewport when not given.
 import { el, icon } from './core.js';
@@ -86,6 +86,9 @@ export function createSmartMenu(host, { onEscape, area = viewport }) {
         const sb = el('button', 'pb-menu__item', s.icon ? icon(s.icon) : null, el('span', '', s.label));
         sb.type = 'button';
         sb.setAttribute('role', 'menuitem');
+        sb.disabled = !!s.disabled;
+        // A disabled button gets no pointer events, so a tip would never show: the reason is text beside it.
+        if (s.hint) sb.append(el('span', 'pb-menu__hint', s.hint));
         if (s.current) sb.setAttribute('aria-current', 'true');
         sb.addEventListener('click', s.run);
         sub.append(el('li', '', sb));

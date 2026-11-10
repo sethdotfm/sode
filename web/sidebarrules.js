@@ -30,6 +30,25 @@ export function setSetting(settings, key, value) {
   return out;
 }
 
+// Fixed destination (settings.fixedDests). The order is kept: the first one is what the Current Destination cell reads.
+export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go
+const fixedOf = (settings) => (Array.isArray(settings?.fixedDests) ? settings.fixedDests : []);
+const withFixed = (settings, list) => {
+  const out = { ...settings };
+  if (list.length) out.fixedDests = list;
+  else delete out.fixedDests;
+  return out;
+};
+export function addFixed(settings, n) {
+  const list = fixedOf(settings);
+  return list.includes(n) || list.length >= FIXED_MAX ? settings : withFixed(settings, [...list, n]);
+}
+export const dropFixed = (settings, n) =>
+  withFixed(
+    settings,
+    fixedOf(settings).filter((x) => x !== n),
+  );
+
 export function fontPercent(text) {
   const t = String(text).trim();
   if (!/^\d+$/.test(t)) return { error: `Use a whole number from ${FONT_MIN} to ${FONT_MAX}.` };

@@ -25,16 +25,20 @@ export const CATEGORY_ICON = {
 }; // keep in step with editorview.js KIND_ICON
 const RIGHTS_KIND = { source: 'sources', destination: 'dsts', preset: 'presets' };
 
-// Everything a user can pick, as { category, key, label, n?, num?, scope?, off }. Numbers in Rights are
+// Everything a user can pick, as { category, key, label, n?, num?, scope?, off, why? }. Numbers in Rights are
 // the router's own (n); num is what a person sees. Hidden removes what the Rights exclude, Read-only
-// (the default) keeps it with off set. Names and presets are the /api/v1 replies.
-export function findEntries(namesReply, presetsReply, rights) {
+// (the default) keeps it with off set. Names and presets are the /api/v1 replies. With fixed (the panel's
+// Fixed destination is on) every Destination is off too, whatever the Rights, since its cell would not be drawn.
+export function findEntries(namesReply, presetsReply, rights, { fixed = false } = {}) {
   const off = namesReply?.numberOffset || 0;
   const hide = rights?.visibility === 'hidden';
   const out = [];
   const add = (e, value) => {
     e.off = !allowed(rights, RIGHTS_KIND[e.category], value);
-    if (!(e.off && hide)) out.push(e);
+    if (e.off && hide) return;
+    if (e.off) e.why = 'rights';
+    if (fixed && e.category === 'destination') Object.assign(e, { off: true, why: 'fixed' });
+    out.push(e);
   };
   const numbered = (category, list) => {
     for (const x of [...(list || [])].sort((a, b) => a.n - b.n)) {
@@ -53,6 +57,13 @@ export function findEntries(namesReply, presetsReply, rights) {
   for (const category of ['take', 'clear', 'current']) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
   return out;
 }
+
+const OFF_TAG = { rights: 'Outside rights', fixed: 'Fixed destination is on' };
+// Why an entry cannot be placed, '' when it can.
+export const offTag = (e) => (e?.off ? OFF_TAG[e.why] || OFF_TAG.rights : '');
+
+// The Panel tab's picker for Fixed destination: Destinations only, those already chosen left out.
+export const fixedPick = (entries, query, chosen) => rankFind(entries, query, ['destination']).filter((e) => !chosen.includes(e.n));
 
 // The chip Find opens on: the kind every selected cell was given while none has its Source, Destination or Preset
 // chosen yet; else '' (All).

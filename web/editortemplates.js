@@ -64,7 +64,11 @@ export function initTemplates(editor) {
       el('h3', 'sode-tpl__head', 'Save this layout'),
       el('label', 'sode-tpl__field', 'Name', name),
       scopes,
-      el('p', 'sode__hint', 'A template keeps the rows, columns and button types. Cells come back unassigned unless you store them with Sources or Destinations.'),
+      el(
+        'p',
+        'sode__hint',
+        'A template keeps the rows, columns and button types. Cells come back unassigned unless you store them with Sources or Destinations.',
+      ),
       withSettings.label,
       withSources.label,
       withDests.label,
@@ -129,7 +133,7 @@ export function initTemplates(editor) {
     }
 
     function applyTemplate(t) {
-      editor.setGrid(templateGrid(t));
+      editor.setGrid(templateGrid(t), { fresh: true });
       if (t.settings) editor.setFields({ settings: { ...editor.fields().settings, ...t.settings } });
       editor.status(t.sources && t.dests ? `Applied ${t.name}. Save to keep it.` : `Applied ${t.name}. Fill the unassigned cells, then save.`);
       close();
@@ -163,7 +167,7 @@ export function initTemplates(editor) {
             saveTemplateBody({
               name: name.value,
               scope,
-              grid: editor.grid(),
+              grid: editor.storedGrid(),
               settings: editor.fields().settings,
               withSettings: withSettings.input.checked,
               withSources: withSources.input.checked,
