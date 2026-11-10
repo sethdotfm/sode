@@ -5,7 +5,7 @@
 // lock a Lock with nobody signed in (churning letter, behind the confirm lockout) can still be put up as a guard
 // against keyboard mashing: page-local state, a reload clears it.
 
-import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, emit, onMsg, wsSend } from './core.js';
 import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, keepSignInToken, forgetTokens, forgetSignIn, onSessionToken } from './signin.js';
 import {
   padKey,
@@ -47,7 +47,6 @@ import {
   remembers,
   prefillName,
   focusName,
-  wantsTab,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { createOwed } from './owed.js';

@@ -36,6 +36,11 @@ web/*.js | web/test/*.mjs | web/*.css)
       echo "$out" >&2
       exit 2
     }
+    out=$(npx --yes eslint@10.14.0 "$f" 2>&1) || {
+      echo "eslint failed on $rel:" >&2
+      echo "$out" >&2
+      exit 2
+    }
     ;;
   esac
   ;;
