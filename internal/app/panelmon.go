@@ -56,9 +56,21 @@ type monInst struct {
 	seen     time.Time // the last keepalive, stream open or stream close
 	lost     bool      // a lost notice went out
 	streamed bool      // it held a stream and no keepalive has come since the last one closed
-	conns    map[int]context.CancelFunc
+	conns    map[int]monConn
 	next     int
 	trans    []UptimeTrans // up and down changes for the uptime strip, see mark
+
+	// Set by the last stream to open and kept after it closes, for the Assign to list. page is not
+	// streamed: a keepalive clears streamed, and a timed-out page must still be told from an API client.
+	page        bool
+	who         streamWho
+	streamSince time.Time // when conns last went from none to one; zero while it holds none
+}
+
+// streamWho is who opened a stream and from where. signIn is "client" or "user" ("none" for a guest),
+// and user names the user.
+type streamWho struct {
+	addr, signIn, user string
 }
 
 // limit is how long after seen the instance still counts: short once its stream is gone, since a
@@ -71,6 +83,62 @@ func (in *monInst) limit() time.Duration {
 }
 
 func (in *monInst) live(now time.Time) bool { return now.Sub(in.seen) <= in.limit() }
+
+// monConn is one held stream: cancel ends it, and out carries its last line, an Assign or a rename.
+type monConn struct {
+	cancel context.CancelFunc
+	out    chan lastLine
+}
+
+// lastLine is a stream's last line. got (buffered 1) answers whether the handler wrote it, false when the
+// stream closed with it still queued.
+type lastLine struct {
+	b   []byte
+	got chan bool
+}
+
+// lastWait outlasts the stream handlers' 5s write deadline twice: a beat being written, then the line.
+const lastWait = 11 * time.Second
+
+// offer queues b without blocking and answers the channel that says whether it was written; nil when a line
+// is already queued.
+func (c monConn) offer(b []byte) <-chan bool {
+	l := lastLine{b, make(chan bool, 1)}
+	select {
+	case c.out <- l:
+		return l.got
+	default:
+		return nil
+	}
+}
+
+// newestConn is the stream opened last. conns must not be empty.
+func newestConn(conns map[int]monConn) monConn {
+	return conns[slices.Max(slices.Collect(maps.Keys(conns)))]
+}
+
+// written waits for a stream's answer to an offer. Call it with no lock held.
+func written(got <-chan bool) bool {
+	if got == nil {
+		return false
+	}
+	select {
+	case ok := <-got:
+		return ok
+	case <-time.After(lastWait):
+		return false
+	}
+}
+
+// unsent answers false for a line still queued on a closing stream. Caller holds mu, after removing the conn, so
+// nothing more is queued on it.
+func unsent(out chan lastLine) {
+	select {
+	case l := <-out:
+		l.got <- false
+	default:
+	}
+}
 
 // monEvent is a transition to tell watchers about.
 type monEvent struct {
@@ -88,6 +156,9 @@ type panelMon struct {
 	watch map[string]map[string]bool // lowercased user -> watch keys, see watchKey
 	clear map[string]map[string]bool // lowercased user -> watch keys whose current outage was cleared
 	hide  map[string]map[string]bool // lowercased user -> watch keys of instances hidden on the panels page
+
+	keyless map[string]*keylessInst // panelkeyless.go, by keylessKey
+	addrs   map[string]addrName     // the last name a stream from each address carried
 }
 
 func loadPanelMon(cfgPath string) *panelMon {
@@ -214,8 +285,8 @@ func (m *panelMon) forget(id string, watches bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, in := range m.inst[id] {
-		for _, cancel := range in.conns {
-			cancel()
+		for _, c := range in.conns {
+			c.cancel()
 		}
 	}
 	delete(m.inst, id)
@@ -329,7 +400,15 @@ type instOut struct {
 	Device string     `json:"device"`
 	Seen   time.Time  `json:"seen"`
 	Online bool       `json:"online"`
+	Stream bool       `json:"stream"` // it holds a stream now, so it is one of Sode's own panel pages and can be assigned
 	Uptime instUptime `json:"uptime"`
+	// From the last stream it opened, only for one of Sode's own panel pages (page).
+	Page        bool       `json:"page,omitempty"`
+	Addr        string     `json:"addr,omitempty"`
+	SignIn      string     `json:"signIn,omitempty"`
+	User        string     `json:"user,omitempty"`
+	Trusted     bool       `json:"trusted,omitempty"` // User's flag, live: a Trusted user may open every panel
+	StreamSince *time.Time `json:"streamSince,omitempty"`
 }
 
 func (m *panelMon) instances(id string) []instOut {
@@ -338,7 +417,15 @@ func (m *panelMon) instances(id string) []instOut {
 	now := m.now()
 	out := []instOut{}
 	for _, in := range m.inst[id] {
-		out = append(out, instOut{in.device, in.seen.UTC(), in.live(now), in.uptime(now)})
+		o := instOut{Device: in.device, Seen: in.seen.UTC(), Online: in.live(now), Stream: len(in.conns) > 0, Uptime: in.uptime(now)}
+		if in.page {
+			o.Page, o.Addr, o.SignIn, o.User = true, in.who.addr, in.who.signIn, in.who.user
+		}
+		if o.Stream {
+			s := in.streamSince.UTC()
+			o.StreamSince = &s
+		}
+		out = append(out, o)
 	}
 	slices.SortFunc(out, func(a, b instOut) int { return strings.Compare(strings.ToLower(a.Device), strings.ToLower(b.Device)) })
 	return out
@@ -356,30 +443,36 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 	return ev, err
 }
 
-// openStream registers a held connection of a device; cancel ends it. The returned func drops it.
-func (m *panelMon) openStream(id, device string, cancel context.CancelFunc) (func(), *monEvent, error) {
+// openStream registers a held connection of a device; cancel ends it and out is what to write on it.
+// The returned func drops it.
+func (m *panelMon) openStream(id, device string, who streamWho, cancel context.CancelFunc) (func(), <-chan lastLine, *monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	in, ev, err := m.touchLocked(id, device)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	if in.conns == nil {
-		in.conns = map[int]context.CancelFunc{}
+	if len(in.conns) == 0 {
+		in.conns = map[int]monConn{}
+		in.streamSince = m.now()
 	}
+	in.page, in.who = true, who
+	m.noteAddrLocked(who.addr, device)
 	in.next++
 	n := in.next
-	in.conns[n] = cancel
+	out := make(chan lastLine, 1)
+	in.conns[n] = monConn{cancel, out}
 	in.streamed = true
 	closeFn := func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		delete(in.conns, n)
+		unsent(out)
 		if len(in.conns) == 0 {
 			in.seen = m.now()
 		}
 	}
-	return closeFn, ev, nil
+	return closeFn, out, ev, nil
 }
 
 // touchLocked finds or adds the device and marks it heard. A device that was lost yields "back".
@@ -416,6 +509,7 @@ func (m *panelMon) sweep(now time.Time) []monEvent {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []monEvent
+	m.sweepKeylessLocked(now)
 	for id, set := range m.inst {
 		for k, in := range set {
 			age := now.Sub(in.seen)
@@ -624,7 +718,12 @@ func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	}
 	m["instancesOnline"], m["instancesKnown"] = a.mon.counts(user, p.ID)
 	if edit {
-		m["instances"] = a.mon.instances(p.ID)
+		rows := a.mon.instances(p.ID)
+		for i := range rows {
+			rows[i].Trusted = rows[i].SignIn == "user" && a.trusted(rows[i].User)
+		}
+		m["instances"] = rows
+		m["keyless"] = a.mon.keylessOf(p)
 	}
 }
 
@@ -672,7 +771,7 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	done, ev, err := a.mon.openStream(p.ID, device, cancel)
+	done, out, ev, err := a.mon.openStream(p.ID, device, streamWhoOf(cl), cancel)
 	if err != nil {
 		apiFail(w, http.StatusConflict, "conflict", err.Error())
 		return
@@ -705,8 +804,28 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 			if !line() {
 				return
 			}
+		case l := <-out:
+			_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			_, err := w.Write(append(l.b, '\n'))
+			ok := err == nil && rc.Flush() == nil
+			l.got <- ok
+			if ok {
+				// The page leaves for the target panel: a deliberate move is no lost alarm here.
+				a.mon.forgetDevice(p.ID, device)
+			}
+			return
 		}
 	}
+}
+
+func streamWhoOf(cl *apiCtx) streamWho {
+	switch cl.Actor.Kind {
+	case actorClient:
+		return streamWho{addr: cl.IP, signIn: "client"}
+	case actorUser:
+		return streamWho{addr: cl.IP, signIn: "user", user: cl.Actor.Name}
+	}
+	return streamWho{addr: cl.IP, signIn: "none"}
 }
 
 func cleanDevice(s string) string { return cleanText(strings.TrimSpace(s), monDeviceMax) }

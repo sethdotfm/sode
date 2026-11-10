@@ -16,6 +16,7 @@ import {
   networksChanged,
   setupFromHash,
   withoutSetup,
+  withoutKey,
   storedKeyName,
   pollFail,
   setupFailText,
@@ -104,6 +105,17 @@ test('a setup token comes out of the hash and is dropped from it', () => {
   assert.equal(withoutSetup('#setup=t&kiosk=1'), '#kiosk=1');
   assert.equal(withoutSetup('#setup=t'), '');
   assert.equal(storedKeyName('p-1'), 'sode-panel-key-p-1');
+});
+
+test('a link key leaves the hash and every other part stays', () => {
+  assert.equal(withoutKey('#key=abc'), '');
+  assert.equal(withoutKey('#key=abc&kiosk=1'), '#kiosk=1');
+  assert.equal(withoutKey('#kiosk=1&key=abc'), '#kiosk=1');
+  assert.equal(withoutKey('#kiosk=1&key=abc&x=2'), '#kiosk=1&x=2');
+  assert.equal(withoutKey('#kiosk=1'), '#kiosk=1');
+  assert.equal(withoutKey('#monkey=1&key=a'), '#monkey=1');
+  assert.equal(withoutKey(''), '');
+  assert.equal(withoutSetup('#key=a&setup=t'), '#key=a');
 });
 
 test('a polling failure stops the page for a dead key or a refused network, not for a dropped connection', () => {

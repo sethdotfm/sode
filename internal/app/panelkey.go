@@ -162,8 +162,8 @@ func (m *panelMon) forgetDevice(id, device string) {
 	defer m.mu.Unlock()
 	k := strings.ToLower(device)
 	if in := m.inst[id][k]; in != nil {
-		for _, cancel := range in.conns {
-			cancel()
+		for _, c := range in.conns {
+			c.cancel()
 		}
 		delete(m.inst[id], k)
 	}

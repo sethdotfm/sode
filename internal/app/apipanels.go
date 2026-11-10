@@ -45,7 +45,8 @@ func (a *App) trusted(name string) bool {
 }
 
 // panelReach is what cl may do with p. A user owns a panel by name; a Trusted user (read
-// live from the config) reaches all. A client reaches the panel it is the API client of.
+// live from the config) reaches all. A client reaches the panel it is the API client of. The Assign to warning
+// repeats the user part (opens in web/panelassignrules.js); keep in step.
 func (a *App) panelReach(cl *apiCtx, p Panel) (read, edit bool) {
 	name := cl.Actor.Name
 	switch cl.Actor.Kind {

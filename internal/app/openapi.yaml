@@ -1527,10 +1527,176 @@ paths:
             application/x-ndjson:
               schema:
                 type: object
-                required: [online, graceSeconds]
+                description: |
+                  Every line but an Assign's is `{"online":true,"graceSeconds":8}`. An Assign
+                  (`POST /panels/{id}/assign`) sends one last line and the stream ends:
+                  `{"t":"assign","panel":"<target id>","slug":"<its short name, if any>","instance":"<name>","key":"<secret>"}`.
+                  The key is the target panel's, named for the instance, and is sent only here.
+                  A target that acts as a user sends `"signIn":"user"` and no key, and the page
+                  shows that panel's sign-in. A rename (`POST /panels/{id}/instances/rename`) sends
+                  `{"t":"rename","instance":"<new name>"}` as the last line instead, and the page
+                  reopens the stream under that name
                 properties:
                   online: { type: boolean }
                   graceSeconds: { type: integer }
+                  t: { type: string, enum: [assign, rename] }
+                  panel: { type: string }
+                  slug: { type: string }
+                  instance: { type: string }
+                  key: { type: string }
+                  signIn: { type: string, enum: [user] }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/keyless:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" }, description: The panel id or short name in the page's address }
+    get:
+      operationId: panelKeylessStream
+      tags: [panels]
+      summary: Announce a panel page that has no working key
+      security: []
+      description: |
+        Needs no key (route scope `none`): a panel page with no working key, a Keyless instance
+        (ADR 0008), holds it so a Trusted user can find and assign it. It grants nothing and the
+        answer is the same whether or not the panel exists. Sode records the address it sees and
+        keeps at most 1000 such pages in memory for 24 hours, the oldest dropped. Only an Assign
+        (`POST /panels/{id}/assign` with `keyless`) sends anything on it but the beat.
+      parameters:
+        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: The device name the page holds, if any }
+        - { name: ended, in: query, required: false, schema: { type: string, enum: ["1"] }, description: "The page's key answered `key_revoked` or `key_expired`" }
+      responses:
+        "200":
+          description: Held; one JSON line at once and one every 10 seconds
+          content:
+            application/x-ndjson:
+              schema:
+                type: object
+                description: |
+                  Every line but an Assign's is `{"keyless":true}`. An Assign sends one last line,
+                  the same as on `/panels/{id}/instances/stream`, and the stream ends
+                properties:
+                  keyless: { type: boolean }
+                  t: { type: string, enum: [assign] }
+                  panel: { type: string }
+                  slug: { type: string }
+                  instance: { type: string }
+                  key: { type: string }
+                  signIn: { type: string, enum: [user] }
+        "400": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/assign:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" }, description: The target panel }
+    post:
+      operationId: assignPanelInstance
+      tags: [panels]
+      summary: Assign an open instance to another panel
+      description: |
+        Scope `panelsmanage`. Needs a user's key, and a Trusted user or the Advanced Settings PIN in
+        `pin` (403 `trusted_required`; a wrong PIN counts toward the same lockout as the Settings
+        dialog). `from` and `instance` name an instance that holds `/panels/{id}/instances/stream`
+        now, so only Sode's own panel pages can be assigned (409 `conflict` otherwise). `as` says
+        how the instance opens the target: `client`, with a key, or `user`, with the device's own
+        sign-in. Left out it is `client` for a panel with an API client and `user` for one that acts
+        as the signed-in user; the other choice on a panel that does not act as both is 409
+        `conflict`. For `user` Sode makes no key and checks no name or instance count: the last
+        line carries `"signIn":"user"` and no key, and the person at the device types their own
+        PIN (a device already signed in as a user who cannot open the target says so). For
+        `client` the target must not be at its 20 instances (409 `conflict`, checked first). A target that already
+        holds an instance of that name answers 409 `name_taken` with `error.suggest`, a free name;
+        send it, or another, as `name` and the instance takes it as its device name on the target.
+        The held name's key is never rotated. Sode makes a key for the target's client named for
+        the instance, so it carries the
+        target's rights, and sends it as the last line of that instance's stream only; the answer
+        never carries it. The page stores the key, rewrites its address and opens the target with
+        no prompt. The instance's key for the old panel stays valid, and the old panel forgets the
+        instance without a lost notice. The target panel is not changed. One `api` row `assign`
+        names the user, the instance and both panels. A keyless instance is named by `keyless`
+        in place of `from` and `instance`; it may be assigned to the panel it shows, and it gets a
+        key only from an address inside the target client's allowed networks (403
+        `network_not_allowed`; an empty list allows any address).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from: { type: string, description: "The panel the instance shows now; required unless `keyless` is sent" }
+                keyless: { type: string, description: "A keyless instance's id from a panel read's `keyless` rows, in place of `from` and `instance`" }
+                instance: { type: string, maxLength: 40, description: "The instance's device name, ignoring case; required unless `keyless` is sent" }
+                name: { type: string, maxLength: 40, description: "Its name on the target, after a `name_taken`; left out, it keeps its own" }
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted }
+                as: { type: string, enum: [client, user], description: "A key for the target's API client, or the device's own sign-in; left out, the client where the target has one" }
+      responses:
+        "200":
+          description: Sent to the instance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [from, panel, instance]
+                properties:
+                  from: { type: string }
+                  panel: { type: string, description: The target panel }
+                  instance: { type: string, description: "The instance's name on the target: `name` when sent, else its name as the monitor holds it" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/rename:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: renamePanelInstance
+      tags: [panels]
+      summary: Rename an open instance
+      description: |
+        Scope `panelsmanage`. Needs a user's key: the panel's owner, a Trusted user, or anyone with
+        the Advanced Settings PIN in `pin` (403 `trusted_required`; a wrong PIN counts toward the
+        same lockout as the Settings dialog). The instance must hold
+        `/panels/{id}/instances/stream` now (409 `conflict` for one that timed out, since nothing
+        would hear the name). The new name is its device name, not a label: up to 40 characters
+        and unique on the panel ignoring case, counting key names and every instance Sode holds,
+        offline ones included. A held name answers 409 `name_taken` with `error.suggest`, a free
+        name. A change of case alone is allowed; the same name is 400 `bad_request`. Sode renames
+        the instance's key (or pending setup link) of that name, moves per-instance watches to
+        the new name and sends `{"t":"rename","instance":"<new name>"}` as the stream's last
+        line; the page takes the name, rewrites its `?instance=` when its address has one, and
+        reopens its stream under it. The old name leaves the list without a lost notice. Writes
+        one `api` row `rename` naming the user, the old name and the new one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instance, name]
+              properties:
+                instance: { type: string, maxLength: 40, description: "The instance's device name now, ignoring case" }
+                name: { type: string, maxLength: 40, description: Its new device name }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is neither the owner nor Trusted" }
+      responses:
+        "200":
+          description: Sent to the instance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [panel, from, instance]
+                properties:
+                  panel: { type: string }
+                  from: { type: string, description: "Its old name, as the monitor held it" }
+                  instance: { type: string, description: Its new name }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1869,6 +2035,7 @@ components:
                 - take_cap
                 - too_many_streams
                 - conflict
+                - name_taken
                 - nothing_to_do
                 - idempotency_mismatch
                 - not_found
@@ -1892,10 +2059,12 @@ components:
                 unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
                 such path, entry, visible preset, or a panel or artwork the caller may not use).
                 405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
-                a successful one, or a full panel or artwork limit). 422 nothing_to_do (no route
-                left to run), idempotency_mismatch. 429 rate_limited, take_cap, too_many_streams.
-                500 internal (a panel could not be written to disk).
+                a successful one, or a full panel or artwork limit), name_taken (an Assign's target, or
+                a renamed instance's panel, already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
+                (no route left to run), idempotency_mismatch. 429 rate_limited, take_cap,
+                too_many_streams. 500 internal (a panel could not be written to disk).
             message: { type: string }
+            suggest: { type: string, description: "With `name_taken` only: a free name for the instance on that panel, its name plus 2 or the next free number" }
     PanelShare:
       type: object
       required: [mode]
@@ -2062,11 +2231,18 @@ components:
               description: Output only, for an editor. The devices that have opened the panel since Sode started
               items:
                 type: object
-                required: [device, seen, online, uptime]
+                required: [device, seen, online, stream, uptime]
                 properties:
                   device: { type: string }
                   seen: { type: string, format: date-time }
                   online: { type: boolean }
+                  stream: { type: boolean, description: "It holds `/panels/{id}/instances/stream` now, so it is one of Sode's own panel pages and can be assigned" }
+                  page: { type: boolean, description: "It has held `/panels/{id}/instances/stream` since Sode started. Only then are the fields below sent, from the last stream it opened" }
+                  addr: { type: string, description: The address the stream came from }
+                  signIn: { type: string, enum: [client, user, none], description: "Who opened it: the panel's API client, a user, or nobody signed in" }
+                  user: { type: string, description: The user's name, when `signIn` is `user` }
+                  trusted: { type: boolean, description: "That user is Trusted now, so they may open every panel. Sent only when true" }
+                  streamSince: { type: string, format: date-time, description: When its current stream connected. Sent only while `stream` is true }
                   uptime:
                     type: object
                     description: |
@@ -2086,6 +2262,22 @@ components:
                           properties:
                             t: { type: integer, format: int64 }
                             s: { type: string, enum: [up, down] }
+            keyless:
+              type: array
+              description: |
+                Output only, for an editor. The panel pages with no working key that hold
+                `/panels/{id}/instances/keyless` for this panel, by id or short name, or did in the last 24 hours
+              items:
+                type: object
+                required: [keyless, device, addr, signIn, stream, seen]
+                properties:
+                  keyless: { type: string, description: "The id an Assign names in `keyless`" }
+                  device: { type: string, description: "Its own name, else the last name a stream from its address carried, else the address" }
+                  addr: { type: string }
+                  signIn: { type: string, enum: [none, ended], description: "`ended`: its key answered `key_revoked` or `key_expired`" }
+                  stream: { type: boolean, description: It holds the announcement now and can be assigned }
+                  seen: { type: string, format: date-time }
+                  streamSince: { type: string, format: date-time, description: Sent only while `stream` is true }
             rights:
               type: object
               description: |

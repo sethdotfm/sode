@@ -56,6 +56,7 @@ test('panel and stream rows read as words, not wire names', () => {
   assert.equal(WHY_LABEL.panelSetup, 'Panel instance set up');
   assert.equal(WHY_LABEL.streamConnect, 'Stream connected');
   assert.equal(WHY_LABEL.streamDisconnect, 'Stream dropped');
+  assert.equal(WHY_LABEL.rename, 'Instance renamed');
   for (const [k, v] of Object.entries(WHY_LABEL)) assert.match(v, /^[A-Z]/, k);
 });
 

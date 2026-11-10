@@ -4,12 +4,12 @@
 // its own ui and call, and is not an instance of the panel: no keepalive, no device name.
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
-import { startKeepalive } from './panelkeepalive.js';
+import { startKeepalive, announceKeyless } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
-import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
+import { exchangeSetup, storedKey, forgetKey, keepLinkKey, followAssign } from './panelsetup.js';
 import {
   createState,
   pressDestination,
@@ -66,24 +66,50 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   let holdTimer = 0;
   let art = null;
   let wake = null;
+  // While the page has no working key it is a Keyless instance: listed for an Assign, never sent anything else.
+  let keyless = null;
+  const unannounce = () => {
+    keyless?.stop();
+    keyless = null;
+  };
   run.stop = () => {
     ended = true;
     timers.forEach(clearInterval);
     stopWatch();
     clearTimeout(holdTimer);
     art?.revoke();
+    unannounce();
   };
+  const announce = (keyEnded) => {
+    if (embedded || (keyless && keyless.keyEnded === keyEnded)) return;
+    unannounce();
+    keyless = {
+      keyEnded,
+      ...announceKeyless(seg, keyEnded, (msg) => {
+        run.stop();
+        followAssign(msg);
+      }),
+    };
+  };
+  const endedCode = (code) => code === 'key_revoked' || code === 'key_expired';
   let id = seg; // the id once the panel is read: the address may hold its short name
   let key = embedded ? null : keyFromHash(location.hash);
   const setup = embedded ? '' : setupFromHash(location.hash);
   if (!key && setup) {
     const got = await exchangeSetup(seg, setup);
     if (ended) return;
-    if (got.error) return say(ui.note, got.error);
+    if (got.error) {
+      announce(false);
+      return say(ui.note, got.error);
+    }
     key = got.key;
   }
-  const stored = !key && !embedded;
+  const linked = !!key;
+  // A key that sits in this browser's storage, so an ended one is forgotten there.
+  let stored = !key && !embedded;
   if (stored) key = storedKey(seg);
+  // Before the first read: a Session-mode page waits there for a sign-in that may never come.
+  if (!key) announce(false);
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
   const tag = (init) => fromPanel(init, id, instance);
@@ -94,6 +120,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   if (!key && !embedded) {
     ui.signin.addEventListener('click', signInAgain);
     onSessionKey((k, step, err) => {
+      if (step === 'ended') announce(true);
       const n = sessionNote(step, err);
       ui.signin.hidden = !n.retry;
       if (k) say(ui.note, '');
@@ -110,11 +137,14 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (e.status === undefined) throw e;
     // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
     if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
+    if (e.status === 401) announce(endedCode(e.code));
     say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
     return;
   }
   // Back to editing came before the panel did: nothing below may start a timer or a watch.
   if (ended) return;
+  // Kept only once it worked, so a mistyped or ended key never replaces a stored one.
+  if (linked) stored = keepLinkKey(seg, key);
   if (panel.acts === 'api' && !key && !embedded) {
     say(ui.note, 'This panel acts as its own API client. Open its link with the key.');
     return;
@@ -236,6 +266,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
         timers.forEach(clearInterval);
         stopWatch();
         keep?.stop();
+        // Only the keyless announcement, which carries no key.
+        if (e.status === 401) announce(endedCode(e.code));
       }
     }
     polling = false;
@@ -308,12 +340,24 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
 
   let keep = null;
   if (!embedded) {
+    // The page runs with a key now and is an instance, so it is no longer listed as keyless.
+    unannounce();
     const showName = initName(ui.name, (name) => keep.rename(name));
-    keep = startKeepalive(call, id, ui.device, instanceFrom(location.search), (name, editable) => {
-      instance = name;
-      showName(name, editable);
-      render();
-    });
+    keep = startKeepalive(
+      call,
+      id,
+      ui.device,
+      instanceFrom(location.search),
+      (name, editable) => {
+        instance = name;
+        showName(name, editable);
+        render();
+      },
+      (msg) => {
+        run.stop();
+        followAssign(msg);
+      },
+    );
   }
   // A newer saved copy: rebuild the grid and the state from it, keeping the viewed destination. The watcher counts down and waits out staged routes first.
   stopWatch = watchPanel({
