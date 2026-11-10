@@ -63,18 +63,19 @@ export function createCellTab(ed) {
   node.append(hint, form);
 
   const cell = () => single(ed.grid());
-  function patch(p) {
+  // join: typing in one field of one cell is one undo step, not one per key.
+  function patch(p, join) {
     const c = cell();
-    if (c) ed.setGrid(setCell(ed.grid(), { r: c.r, c: c.c }, p));
+    if (c) ed.setGrid(setCell(ed.grid(), { r: c.r, c: c.c }, p), { what: 'cell edit', join: join && `${join} ${c.r} ${c.c}` });
   }
 
-  caption.addEventListener('input', () => patch({ caption: caption.value.trim() ? caption.value : undefined }));
+  caption.addEventListener('input', () => patch({ caption: caption.value.trim() ? caption.value : undefined }, 'caption'));
   size.addEventListener('input', () => {
     const t = size.value.trim();
-    if (t === '') return void ((sizeNote.textContent = ''), patch({ fontSize: undefined }));
+    if (t === '') return void ((sizeNote.textContent = ''), patch({ fontSize: undefined }, 'size'));
     const r = fontPercent(t);
     sizeNote.textContent = r.error || '';
-    if (!r.error) patch({ fontSize: r.value === 100 ? undefined : r.value });
+    if (!r.error) patch({ fontSize: r.value === 100 ? undefined : r.value }, 'size');
   });
 
   return {

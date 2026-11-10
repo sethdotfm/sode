@@ -80,7 +80,7 @@ export function initGrip(editor) {
     delete document.body.dataset.edDrag;
     const plan = apply ? planAt(e.clientX, e.clientY) : null;
     clearPreview();
-    if (plan?.slots.length) editor.setGrid(applyExtend(editor.grid(), plan));
+    if (plan?.slots.length) editor.setGrid(applyExtend(editor.grid(), plan), { what: 'extend' });
   };
   document.addEventListener('pointerup', (e) => finish(e, true));
   document.addEventListener('pointercancel', (e) => finish(e, false));

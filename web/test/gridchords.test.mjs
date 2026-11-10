@@ -56,3 +56,14 @@ test('Cmd or Ctrl+X is cut on the grid, and a focused text field keeps its own',
   assert.equal(gridCommand(k('x', 'KeyX', { metaKey: true, shiftKey: true })), null);
   assert.equal(gridCommand({ ...k('x', 'KeyX', { ctrlKey: true }), target: { tagName: 'INPUT', type: 'text' } }), null);
 });
+
+test('Cmd or Ctrl+Z undoes and Cmd or Ctrl+Shift+Z redoes; Ctrl+Y is not redo', () => {
+  assert.equal(gridCommand(k('z', 'KeyZ', { ctrlKey: true })), 'undo');
+  assert.equal(gridCommand(k('z', 'KeyZ', { metaKey: true })), 'undo');
+  assert.equal(gridCommand(k('Z', 'KeyZ', { ctrlKey: true, shiftKey: true })), 'redo');
+  assert.equal(gridCommand(k('Z', 'KeyZ', { metaKey: true, shiftKey: true })), 'redo');
+  assert.equal(gridCommand(k('y', 'KeyY', { ctrlKey: true })), null);
+  assert.equal(gridCommand(k('z', 'KeyZ', { ctrlKey: true, altKey: true })), null);
+  assert.equal(gridCommand(k('z', 'KeyZ', { metaKey: true }, { tagName: 'INPUT', type: 'text' })), null);
+  assert.equal(gridCommand(k('Z', 'KeyZ', { metaKey: true, shiftKey: true }, { tagName: 'TEXTAREA' })), null);
+});

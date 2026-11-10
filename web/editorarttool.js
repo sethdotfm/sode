@@ -157,7 +157,7 @@ export function initArtTool(editor, find) {
     quiet = true;
     note.textContent = describe(plan, choice, true);
     editor.status(note.textContent);
-    if (plan.slots.length) editor.setGrid(applyArtTool(editor.grid(), plan));
+    if (plan.slots.length) editor.setGrid(applyArtTool(editor.grid(), plan), { what: 'artwork' });
   }
 
   file.addEventListener('change', async () => {

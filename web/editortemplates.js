@@ -133,7 +133,7 @@ export function initTemplates(editor) {
     }
 
     function applyTemplate(t) {
-      editor.setGrid(templateGrid(t), { fresh: true });
+      editor.setGrid(templateGrid(t), { fresh: true, what: 'template' });
       if (t.settings) editor.setFields({ settings: { ...editor.fields().settings, ...t.settings } });
       editor.status(t.sources && t.dests ? `Applied ${t.name}. Save to keep it.` : `Applied ${t.name}. Fill the unassigned cells, then save.`);
       close();
