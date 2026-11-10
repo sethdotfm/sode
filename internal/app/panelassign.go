@@ -163,7 +163,8 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", to.Name+" has no API client to give a key for")
 		return
 	}
-	as := name
+	// A keyless page's label may be its raw address.
+	as := instanceName(name)
 	if in.Name != "" {
 		as = instanceName(strings.TrimSpace(in.Name))
 	}

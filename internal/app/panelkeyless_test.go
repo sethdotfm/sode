@@ -249,6 +249,25 @@ func TestKeylessPageAssignedToAUserModePanelGetsNoKey(t *testing.T) {
 	}
 }
 
+func TestKeylessPageNamedByAnIPv6AddressGetsAKey(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	addr := "2001:db8:85a3:1234:5678:8a2e:370:7334%eth0"
+	done, out := a.mon.openKeyless(from, addr, "", false, func() {})
+	defer done()
+	kid := keylessRow(t, a, from, cy, addr)["keyless"].(string)
+	if code, m := keylessAssign(a, to, cy, kid, ""); code != 200 {
+		t.Fatalf("assign: %d %v", code, m)
+	}
+	var msg map[string]any
+	json.Unmarshal(<-out, &msg)
+	if msg["key"] == nil || msg["instance"] != instanceName(addr) {
+		t.Fatalf("message %v", msg)
+	}
+}
+
 func TestKeylessAssignNeedsAnOpenPage(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
