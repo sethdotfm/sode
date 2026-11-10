@@ -1081,6 +1081,24 @@
   font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-bold);
 }
+/* Uploaded (the Icon library) above the vendored icons in Icon A's column. */
+.sode-side__lib-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-side__lib-sec[hidden],
+.sode-side__lib[hidden] {
+  display: none;
+}
+.sode-side__lib-sec .sode-side__icons {
+  max-height: 7rem;
+}
+.sode-side__lib-img {
+  height: 1.25rem;
+  object-fit: contain;
+  width: 1.25rem;
+}
 .sode-find__orders {
   display: flex;
   gap: var(--pb-space-2);

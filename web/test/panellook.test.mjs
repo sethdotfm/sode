@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { lookOf, artOf, cellScale, artUrlPath } from '../panellook.js';
+import { lookOf, artOf, artBBadge, cellScale, artUrlPath } from '../panellook.js';
 import { featureSupport, createWake } from '../panelfeel.js';
 
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'panels.css'), 'utf8');
@@ -33,6 +33,14 @@ test('cell artwork is a vendored icon or an uploaded artwork id, and nothing els
   assert.equal(artOf({ art: 'icon:a b' }), null);
   assert.equal(artOf({ art: 'https://x/y.svg' }), null);
   assert.equal(artOf({}), null);
+});
+
+test('a library icon is an image, never a sprite icon, so Icon B draws as its corner badge', () => {
+  assert.deepEqual(artOf({ art: 'lib:0123abcd' }), { id: 'lib:0123abcd', lib: true });
+  assert.equal(artOf({ art: 'lib:0123ABCD' }), null);
+  assert.equal(artOf({ art: 'lib:../x' }), null);
+  assert.equal(artBBadge({ art: 'lib:0123abcd', artB: '2' }), true);
+  assert.equal(artUrlPath('p-1', 'lib:0123abcd'), 'api/v1/icon-library/0123abcd');
 });
 
 test('a cell font size multiplies the panel one, and a bad one counts as 1', () => {
