@@ -16,7 +16,8 @@ import (
 
 // Assign (GLOSSARY.md, docs/panels-design.md): a Trusted user, or whoever sends the Advanced Settings PIN,
 // sends one instance to another panel. The target's client gets a key named for the instance, and the key goes
-// only down that instance's held stream, never in the answer. Only pages that hold a stream are Sode's own panel
+// only down that instance's held stream, never in the answer. A target that acts as a user gets no key: the device
+// shows its own sign-in, so nobody types a PIN for the person there. Only pages that hold a stream are Sode's own panel
 // pages, so only they can be assigned. The target panel is read, never written: its settings, Fixed destination
 // list and Authentication mode stay as they are.
 
@@ -32,7 +33,24 @@ type assignLine struct {
 	Panel    string `json:"panel"`
 	Slug     string `json:"slug,omitempty"`
 	Instance string `json:"instance"`
-	Key      string `json:"key"`
+	Key      string `json:"key,omitempty"`
+	SignIn   string `json:"signIn,omitempty"` // "user": no key, the page signs in as whoever is at the device
+}
+
+// assignBySignIn says whether an Assign to a panel that acts as acts sends the device to its sign-in. as is the
+// trusted user's choice, "client" or "user"; "" means the client where the panel has one.
+func assignBySignIn(name, acts, as string) (bool, error) {
+	switch {
+	case (as == "" || as == "client") && actsHasClient(acts):
+		return false, nil
+	case (as == "" || as == "user") && acts != panelActsAPI:
+		return true, nil
+	case as == "client":
+		return false, &panelClientFail{http.StatusConflict, "conflict", name + " acts as the signed-in user, so it has no key to give"}
+	case as == "user":
+		return false, &panelClientFail{http.StatusConflict, "conflict", name + " acts as its own API client only, so it has no sign-in"}
+	}
+	return false, &panelClientFail{http.StatusBadRequest, "bad_request", `as is "client" or "user"`}
 }
 
 // streamDevice is the device's name as the monitor holds it, when it holds a stream now.
@@ -80,6 +98,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		Instance string `json:"instance"`
 		Name     string `json:"name"` // its name on the target, after a name_taken; "" keeps its own
 		Pin      string `json:"pin"`
+		As       string `json:"as"` // "client" or "user", for a target that acts as both
 	}
 	if err := json.Unmarshal(body, &in); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"from":"<panel id>","instance":"<instance name>"}`)
@@ -108,9 +127,14 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", "the instance already shows "+to.Name)
 		return
 	}
+	bySignIn, err := assignBySignIn(to.Name, to.Acts, in.As)
+	if err != nil {
+		failWith(w, err)
+		return
+	}
 	c, has := clientOfPanel(a.r().cfg, to)
-	if !actsHasClient(to.Acts) || !has {
-		apiFail(w, http.StatusConflict, "conflict", to.Name+" acts as the signed-in user, so it has no key to give; assign to a panel that acts as an API client")
+	if !bySignIn && !has {
+		apiFail(w, http.StatusConflict, "conflict", to.Name+" has no API client to give a key for")
 		return
 	}
 	name, live := a.mon.streamDevice(from.ID, device)
@@ -124,6 +148,15 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	if as == "" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "give the instance a name on "+to.Name)
+		return
+	}
+	if bySignIn {
+		line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: as, SignIn: "user"})
+		if a.mon.sendLast(from.ID, name, line) == 0 {
+			apiFail(w, http.StatusConflict, "conflict", "instance "+name+" closed before it could be assigned")
+			return
+		}
+		a.assignDone(w, cl, from, to, name, as, ", to its own sign-in")
 		return
 	}
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
@@ -166,11 +199,15 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", "instance "+name+" closed before it could be assigned")
 		return
 	}
+	a.assignDone(w, cl, from, to, name, as, "")
+}
+
+func (a *App) assignDone(w http.ResponseWriter, cl *apiCtx, from, to Panel, name, as, how string) {
 	note := panelTag(from, name) + " to " + panelTag(to, "")
 	if as != name {
 		note += " as " + as
 	}
-	a.apiEvent(cl.Actor, "assign", "ok", note, nil)
+	a.apiEvent(cl.Actor, "assign", "ok", note+how, nil)
 	apiJSON(w, map[string]any{"from": from.ID, "panel": to.ID, "instance": as})
 }
 

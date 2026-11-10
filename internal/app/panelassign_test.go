@@ -177,7 +177,9 @@ func TestAssignRefusals(t *testing.T) {
 		status             int
 		code               string
 	}{
-		{"session target", session, assignBody(from, "Lobby", ""), 409, "conflict"},
+		{"client key from a session target", session, `{"from":"` + from + `","instance":"Lobby","as":"client"}`, 409, "conflict"},
+		{"sign-in on an api target", to, `{"from":"` + from + `","instance":"Lobby","as":"user"}`, 409, "conflict"},
+		{"unknown choice", to, `{"from":"` + from + `","instance":"Lobby","as":"guest"}`, 400, "bad_request"},
 		{"same panel", from, assignBody(from, "Lobby", ""), 409, "conflict"},
 		{"no stream", to, assignBody(from, "Hall", ""), 409, "conflict"},
 		{"unknown instance", to, assignBody(from, "Nobody", ""), 409, "conflict"},
@@ -351,19 +353,24 @@ func instanceRows(t *testing.T, a *App, id, key string) map[string]map[string]an
 func TestInstanceRowsSayWhoHoldsTheStreamFromWhereAndSince(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
-	id := makePanel(t, a, cy, `{"name":"Studio A","acts":"both"}`)
+	id := makePanel(t, a, cy, `{"name":"Studio A","acts":"both","share":{"mode":"everyone"}}`)
 	before := time.Now().Add(-time.Second)
 	monHold(t, a, id, instanceKey(t, a, id, cy, "Wall"), "Wall")
 	monHold(t, a, id, cy, "Desk")
+	monHold(t, a, id, userKey(t, a, "Ana"), "Bench")
 	keepalive(a, id, cy, "Hall")
 
 	rows := instanceRows(t, a, id, cy)
 	wall, desk, hall := rows["Wall"], rows["Desk"], rows["Hall"]
-	if wall["signIn"] != "client" || wall["user"] != nil || wall["addr"] != "127.0.0.1" || wall["page"] != true {
+	if wall["signIn"] != "client" || wall["user"] != nil || wall["addr"] != "127.0.0.1" || wall["page"] != true || wall["trusted"] != nil {
 		t.Fatalf("wall %v", wall)
 	}
-	if desk["signIn"] != "user" || desk["user"] != "Cy" {
+	// trusted is read live, so the Assign to list can tell which panels the user may open.
+	if desk["signIn"] != "user" || desk["user"] != "Cy" || desk["trusted"] != true {
 		t.Fatalf("desk %v", desk)
+	}
+	if bench := rows["Bench"]; bench["user"] != "Ana" || bench["trusted"] != nil {
+		t.Fatalf("bench %v", bench)
 	}
 	since, err := time.Parse(time.RFC3339Nano, fmt.Sprint(wall["streamSince"]))
 	if err != nil || since.Before(before) || since.After(time.Now()) {
@@ -391,5 +398,77 @@ func TestATimedOutInstanceIsListedButCannotBeAssigned(t *testing.T) {
 	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")), 409, "conflict")
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); strings.Contains(rec.Body.String(), "Lobby") {
 		t.Fatalf("a key was made: %s", rec.Body.String())
+	}
+}
+
+// assignLine waits for the instance's assign line.
+func assignLineOf(t *testing.T, ch <-chan map[string]any) map[string]any {
+	t.Helper()
+	select {
+	case m := <-ch:
+		return m
+	case <-time.After(5 * time.Second):
+		t.Fatal("the instance heard nothing")
+	}
+	return nil
+}
+
+// A panel that acts as a user gets no key: the device opens it and shows its own sign-in.
+func TestAssignToAUserModePanelMakesNoKey(t *testing.T) {
+	a := panelsApp(t)
+	defer startLog(t, a)()
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
+	to := makePanel(t, a, cy, `{"name":"Desk","slug":"desk","settings":{"mode":"take","fixedDests":[2]}}`)
+	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
+	before, keys := panelOf(t, a, to, cy), len(a.keys.list())
+
+	rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", ""))
+	if rec.Code != 200 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	msg := assignLineOf(t, lobby)
+	if msg["panel"] != to || msg["slug"] != "desk" || msg["instance"] != "Lobby" || msg["signIn"] != "user" || msg["key"] != nil {
+		t.Fatalf("message %v", msg)
+	}
+	if n := len(a.keys.list()); n != keys {
+		t.Fatalf("keys %d -> %d", keys, n)
+	}
+	after := panelOf(t, a, to, cy)
+	if after["rev"] != before["rev"] || after["acts"] != "session" || fmt.Sprint(after["settings"].(map[string]any)["fixedDests"]) != "[2]" {
+		t.Fatalf("the target changed: %v -> %v", before, after)
+	}
+	if row := lastRow(t, a, "assign"); !strings.Contains(row.Note, "Desk") || !strings.Contains(row.Note, "sign-in") {
+		t.Fatalf("row %+v", row)
+	}
+}
+
+// A panel that acts as both gives a key unless the Assign asks for the sign-in.
+func TestAssignToABothPanelHonoursTheChoice(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
+	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"both"}`)
+	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
+	hall := assignHold(t, a, from, instanceKey(t, a, from, cy, "Hall"), "Hall")
+
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")); rec.Code != 200 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	if m := assignLineOf(t, lobby); m["key"] == nil || m["signIn"] != nil {
+		t.Fatalf("default %v", m)
+	}
+	keys := len(a.keys.list())
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, `{"from":"`+from+`","instance":"Hall","as":"user"}`); rec.Code != 200 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	if m := assignLineOf(t, hall); m["key"] != nil || m["signIn"] != "user" {
+		t.Fatalf("sign-in %v", m)
+	}
+	if n := len(a.keys.list()); n != keys {
+		t.Fatalf("keys %d -> %d", keys, n)
+	}
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); strings.Contains(rec.Body.String(), "Hall") {
+		t.Fatalf("keys: %s", rec.Body.String())
 	}
 }

@@ -55,15 +55,19 @@ export async function exchangeSetup(id, token) {
 }
 
 // An Assign: keep the target's key under the address the page will open, then open it. A full load drops the staged
-// routes and every timer of the old panel, and a reload lands on the same address and key.
+// routes and every timer of the old panel, and a reload lands on the same address and key. With no key the target
+// signs in a user, and a key stored earlier for that address would open it as its client instead, so it goes.
 export function followAssign(msg) {
   const { seg } = assignAddress(msg, location, true);
-  let stored = false;
-  try {
-    localStorage.setItem(storedKeyName(seg), msg.key);
-    stored = localStorage.getItem(storedKeyName(seg)) === msg.key;
-  } catch {
-    /* the key rides the fragment instead */
+  let stored = !msg.key;
+  if (stored) forgetKey(seg);
+  else {
+    try {
+      localStorage.setItem(storedKeyName(seg), msg.key);
+      stored = localStorage.getItem(storedKeyName(seg)) === msg.key;
+    } catch {
+      /* the key rides the fragment instead */
+    }
   }
   // A name chosen after a clash: with no ?instance= to carry it, the stored device name does.
   if (!instanceFrom(location.search)) writeStr(DEVICE_KEY, msg.instance);

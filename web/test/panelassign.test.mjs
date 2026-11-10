@@ -7,7 +7,7 @@ import {
   stepRow,
   enterRow,
   assignRows,
-  canAssignTo,
+  assignWays,
   splitLines,
   assignOf,
   assignAddress,
@@ -59,11 +59,39 @@ test('a row shows the address, uptime since its stream and the sign-in state in 
     device: 'Lobby',
     addr: '192.0.2.7',
     state: 'Signed in as Ana',
+    user: 'Ana',
     uptime: 'up 2 minutes',
     here: false,
     timedOut: false,
     assignable: true,
+    notShared: false,
   });
+});
+
+test('a user who cannot open the target is warned only when the device will sign in', () => {
+  const panels = (share, owner = 'Cy') => [
+    { id: 'p-1', name: 'Studio A', instances: [inst('Lobby', { signIn: 'user', user: 'ana' }), inst('Wall'), inst('Boss', { signIn: 'user', user: 'Bo', trusted: true })] },
+    { id: 'p-2', name: 'Desk', owner, share },
+  ];
+  const warned = (share, bySignIn, owner) =>
+    assignRows(panels(share, owner), 'p-2', NOW, bySignIn)
+      .filter((r) => r.notShared)
+      .map((r) => r.device);
+  assert.deepEqual(warned({ mode: 'me' }, true), ['Lobby']);
+  assert.deepEqual(warned({ mode: 'me' }, false), []);
+  assert.deepEqual(warned({ mode: 'me' }, true, 'Ana'), []);
+  assert.deepEqual(warned({ mode: 'everyone' }, true), []);
+  assert.deepEqual(warned({ mode: 'named', users: ['Bo', 'Ana'] }, true), []);
+  assert.deepEqual(warned({ mode: 'named', users: ['Bo'] }, true), ['Lobby']);
+  // A share list left over from named mode reaches nobody.
+  assert.deepEqual(warned({ mode: 'me', users: ['Ana'] }, true), ['Lobby']);
+});
+
+test('how a target is assigned: its key, its sign-in, or a choice of the two with the key first', () => {
+  assert.deepEqual(assignWays({ acts: 'api' }), ['client']);
+  assert.deepEqual(assignWays({ acts: 'session' }), ['user']);
+  assert.deepEqual(assignWays({}), ['user']);
+  assert.deepEqual(assignWays({ acts: 'both' }), ['client', 'user']);
 });
 
 test('sign-in state words', () => {
@@ -100,12 +128,6 @@ test('a page whose stream ended is greyed with last seen and cannot be assigned'
   assert.deepEqual([g.timedOut, g.assignable, g.uptime], [true, false, 'last seen under a minute ago']);
 });
 
-test('only a panel that acts as an API client can be assigned to', () => {
-  assert.equal(canAssignTo({ acts: 'api' }), true);
-  assert.equal(canAssignTo({ acts: 'both' }), true);
-  assert.equal(canAssignTo({ acts: 'session' }), false);
-});
-
 test('stream lines split across chunks', () => {
   assert.deepEqual(splitLines('', '{"a":1}\n{"b"'), { lines: ['{"a":1}'], rest: '{"b"' });
   assert.deepEqual(splitLines('{"b"', ':2}\n\n'), { lines: ['{"b":2}'], rest: '' });
@@ -116,8 +138,16 @@ test('an assign line is read, anything else is not', () => {
   const line = JSON.stringify({ t: 'assign', panel: 'p-0000000b', slug: 'studio-b', instance: 'Lobby', key: 'sode_abc' });
   assert.deepEqual(assignOf(line), { panel: 'p-0000000b', slug: 'studio-b', instance: 'Lobby', key: 'sode_abc' });
   assert.deepEqual(assignOf(JSON.stringify({ t: 'assign', panel: 'p-0000000b', instance: 'Lobby', key: 'sode_abc' })).slug, '');
+  // A panel that acts as a user sends no key: the page opens it and signs in there.
+  assert.deepEqual(assignOf(JSON.stringify({ t: 'assign', panel: 'p-0000000b', instance: 'Lobby', signIn: 'user' })), {
+    panel: 'p-0000000b',
+    slug: '',
+    instance: 'Lobby',
+    key: '',
+  });
   assert.equal(assignOf('{"online":true,"graceSeconds":8}'), null);
   assert.equal(assignOf('{"t":"assign","panel":"p-0000000b"}'), null);
+  assert.equal(assignOf('{"t":"assign","panel":"p-0000000b","instance":"Lobby"}'), null);
   assert.equal(assignOf('not json'), null);
 });
 
@@ -130,6 +160,8 @@ test('the new address keeps the instance name and kiosk, and drops the old key',
   assert.deepEqual(assignAddress({ ...msg, slug: '' }, { search: '', hash: '#setup=t' }, true), { seg: 'p-0000000b', href: 'panels/p-0000000b' });
   // Storage that does not keep the key leaves it in the fragment, the only place a reload can find it.
   assert.deepEqual(assignAddress(msg, { search: '', hash: '#kiosk=1' }, false), { seg: 'studio-b', href: 'panels/studio-b#key=abc&kiosk=1' });
+  // No key to carry: the address drops the old one and the page signs in.
+  assert.equal(assignAddress({ ...msg, key: '' }, { search: '', hash: '#key=old&kiosk=1' }, false).href, 'panels/studio-b#kiosk=1');
 });
 
 test('a name chosen after a clash replaces the address name, so a reload keeps it', () => {
