@@ -3,6 +3,7 @@
 import { el, icon } from './core.js';
 import { artOf, artBOf, artBBadge, cellScale, textHidden } from './panellook.js';
 import { currentLabel, nameCellText, SHOW_KINDS } from './panelrules.js';
+import { PAGE_KINDS, pageCellText } from './pagecells.js';
 import {
   sourceState,
   destinationState,
@@ -155,6 +156,13 @@ function paintName(b, cell, ctx) {
   fill(b, ...(t.caption ? [el('small', 'sode-panel__text', t.caption)] : []), el('span', 'sode-panel__text', t.value));
 }
 
+// Not pressable: the Page this grid shows (st.page), so a copy on another Page names that Page.
+function paintPageCell(b, cell, ctx) {
+  const t = pageCellText(cell, { ...ctx, page: ctx.st.page });
+  const cap = t.caption ? [el('small', 'sode-panel__text', t.caption)] : [];
+  fill(b, ...cap, ...t.lines.map((l) => el('span', 'sode-panel__text', l)));
+}
+
 // Greyed and unpressable when the press would go nowhere: a disabled or deleted target, or an end without wrap.
 function paintNav(b, cell, { st, pages = [], wrap = true }) {
   b.disabled = navTarget(pages, st.page, cell, wrap) === null;
@@ -178,6 +186,7 @@ export function paintGrid(grid, ctx) {
     else if (cell.kind === 'preset') paintPreset(b, cell, ctx);
     else if (cell.kind === 'current') paintCurrent(b, cell, ctx);
     else if (cell.kind === 'panelName' || cell.kind === 'instanceName') paintName(b, cell, ctx);
+    else if (PAGE_KINDS.includes(cell.kind)) paintPageCell(b, cell, ctx);
     else if (cell.kind === 'clear') fill(b, el('span', 'sode-panel__text', ctx.names.of(cell)));
     else if (NAV_KINDS.includes(cell.kind)) paintNav(b, cell, ctx);
     else {

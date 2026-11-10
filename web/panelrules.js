@@ -6,9 +6,9 @@
 import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
 
-export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current', 'panelName', 'instanceName', 'goToPage', 'nextPage', 'previousPage'];
+export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // Kinds that only show something and are never pressed.
-export const SHOW_KINDS = ['current', 'panelName', 'instanceName'];
+export const SHOW_KINDS = ['current', 'panelName', 'instanceName', 'pageName', 'info'];
 const NEEDS_NUMBER = ['source', 'destination'];
 export const PRESET_SCOPES = ['everyone', 'me'];
 
@@ -85,6 +85,8 @@ export function namesFrom(reply) {
     current: 'Currently',
     panelName: 'Panel Name',
     instanceName: 'Instance Name',
+    pageName: 'Page Name',
+    info: 'Info',
     goToPage: 'Go to Page',
     nextPage: 'Next Page',
     previousPage: 'Previous Page',

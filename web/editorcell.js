@@ -9,6 +9,7 @@ import { createLevelBoxes } from './editorlevels.js';
 import { createArtControl } from './editorart.js';
 import { createDefaultRow } from './editordefault.js';
 import { createPageTarget } from './editorpagetarget.js';
+import { createShowBoxes } from './editorshow.js';
 import { defaultFor, withDefault } from './panellook.js';
 
 const CAPTION_MAX = 40;
@@ -61,7 +62,8 @@ export function createCellTab(ed) {
   });
   const deflt = createDefaultRow({ ed, patch, done: () => update() });
   const target = createPageTarget({ ed, patch });
-  form.append(kindLine, target.node, captionField, sizeRow, levelField, art.node, deflt.node);
+  const show = createShowBoxes({ ed, patch });
+  form.append(kindLine, target.node, show.node, captionField, sizeRow, levelField, art.node, deflt.node);
   node.append(hint, form);
 
   const cell = () => single(ed.grid());
@@ -113,6 +115,7 @@ export function createCellTab(ed) {
     levelField.hidden = !LEVEL_KINDS.includes(c.kind) || !S.levels.length;
     levelBoxes.draw(c.levels);
     target.update(c);
+    show.update(c);
     at = key;
     for (const i of [caption, size]) i.disabled = ed.readOnly();
     // The controls edit what the cell sets; Hide text shows as drawn, so a default that hides the text reads as hidden.

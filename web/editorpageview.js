@@ -53,7 +53,7 @@ export function createPageView(frame, title, on) {
         slot.head.textContent = heading(pages, p.id);
         slot.grid.setAttribute('aria-label', `${heading(pages, p.id)} grid`);
         const g = createGrid({ rows, cols, cells: p.cells });
-        slot.view.paint(fixed ? setAside(g, 'destination').grid : g, names, { ...look, pages });
+        slot.view.paint(fixed ? setAside(g, 'destination').grid : g, names, { ...look, pages, page: p.id });
       });
     },
   };

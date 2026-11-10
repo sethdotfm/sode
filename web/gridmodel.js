@@ -126,7 +126,7 @@ export function single(g) {
 const selectRect = (g, q) => ({ ...g, sel: { anchor: { r: q.r1, c: q.c1 }, head: { r: q.r2, c: q.c2 } } });
 
 // Fields that describe the router item and so do not survive a change of kind.
-const ITEM_FIELDS = ['n', 'scope', 'name', 'page'];
+const ITEM_FIELDS = ['n', 'scope', 'name', 'page', 'show'];
 const dropItem = (c) => {
   const out = { ...c };
   for (const f of ITEM_FIELDS) delete out[f];

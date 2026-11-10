@@ -428,7 +428,7 @@ export async function runEditor() {
   function refresh() {
     const ro = readOnly();
     const live = livePages();
-    grid.paint(g, names, { readOnly: ro, art, defaults, pages: live });
+    grid.paint(g, names, { readOnly: ro, art, defaults, pages: live, page: focus });
     openView.paint(live, open, focus, { rows: g.rows, cols: g.cols, names, fixed: fixedOn(), readOnly: ro, art, defaults });
     bar.paint({ pages: live, open, focus, readOnly: ro });
     const box = ro ? null : grid.selectionBox();

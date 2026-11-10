@@ -3,9 +3,9 @@
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned } from './gridmodel.js';
 
-export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'goToPage', 'nextPage', 'previousPage'];
+export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // One entry each, placed with nothing chosen: a Go to Page cell gets its Page in the Cell tab.
-const NUMBERLESS = ['take', 'clear', 'current', 'panelName', 'instanceName', 'goToPage', 'nextPage', 'previousPage'];
+const NUMBERLESS = ['take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // The kinds with a list behind them get a chip; the others are one entry each and show under All.
 export const CHIP_CATEGORIES = ['source', 'destination', 'preset'];
 export const CATEGORY_LABEL = {
@@ -17,6 +17,8 @@ export const CATEGORY_LABEL = {
   current: 'Current Source',
   panelName: 'Panel Name',
   instanceName: 'Instance Name',
+  pageName: 'Page Name',
+  info: 'Info',
   goToPage: 'Go to Page',
   nextPage: 'Next Page',
   previousPage: 'Previous Page',
@@ -31,6 +33,8 @@ export const CATEGORY_ICON = {
   current: 'eye',
   panelName: 'panels-top-left',
   instanceName: 'tablet-smartphone',
+  pageName: 'file-type',
+  info: 'info',
   goToPage: 'file-symlink',
   nextPage: 'chevron-right',
   previousPage: 'chevron-left',

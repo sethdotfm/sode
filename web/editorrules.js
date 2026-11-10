@@ -196,6 +196,8 @@ const WORDS = {
   current: 'Current Source',
   panelName: 'Panel Name',
   instanceName: 'Instance Name',
+  pageName: 'Page Name',
+  info: 'Info',
   goToPage: 'Go to Page',
   nextPage: 'Next Page',
   previousPage: 'Previous Page',
