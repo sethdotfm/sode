@@ -1,7 +1,7 @@
 // What a panel's look settings and a cell's artwork mean. Pure. Stored names are in docs/persisted-names.md.
 // Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, fullscreen, landscape.
 // Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph beside an icon, a corner badge on an image), fontSize (percent) and
-// hideText (true or false; unset follows the item's Default artwork).
+// hideText (true or false; unset takes the item's Default artwork).
 
 const SCALE_MIN = 50;
 const SCALE_MAX = 200;
@@ -66,7 +66,7 @@ export const defaultsBy = (list) => new Map((Array.isArray(list) ? list : []).ma
 
 export const defaultFor = (cell, defaults) => defaults?.get(itemKey(cell)) || null;
 
-// The cell as drawn: its own artwork wins whole, else its item's default fills both icons. Hide text follows the
+// The cell as drawn: its own artwork wins whole, else its item's default fills both icons. Hide text comes from the
 // default unless the cell sets true or false itself. A copy: the stored cell never holds a default, so a save, a
 // Push or a template carries only what the cell sets.
 export function withDefault(cell, defaults) {

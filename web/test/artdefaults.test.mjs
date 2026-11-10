@@ -38,7 +38,7 @@ test("a cell's own artwork wins whole: neither icon of the default fills in", ()
   assert.equal(artBOf(d), '');
 });
 
-test('Hide text follows the default unless the cell sets its own, on or off', () => {
+test('Hide text comes from the default unless the cell sets its own, on or off', () => {
   assert.equal(textHidden(withDefault({ kind: 'source', n: 3, art: 'icon:mic' }, defs)), true);
   assert.equal(textHidden(withDefault({ kind: 'source', n: 3, hideText: false }, defs)), false);
   assert.equal(textHidden(withDefault({ kind: 'source', n: 3, art: 'icon:mic', hideText: false }, defs)), false);
