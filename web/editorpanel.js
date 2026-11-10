@@ -82,10 +82,15 @@ export function createPanelTab(ed) {
     el('div', 'sode__field', Object.assign(el('label', null, 'Theme'), { htmlFor: 'ed-set-theme' }), theme.node),
   );
 
-  const mode = check('', { id: 'ed-set-mode', onChange: (on) => set('mode', on ? 'instant' : 'take') });
-  mode.input.className = 'pb-switch__input';
-  mode.input.setAttribute('role', 'switch');
-  mode.input.setAttribute('aria-label', 'Instant')
+  const mode = segmented(
+    'ed-set-mode',
+    'Mode',
+    [
+      ['take', 'Stage, then Take'],
+      ['instant', 'Instant'],
+    ],
+    (v) => set('mode', v),
+  );
   const guard = segmented(
     'ed-set-guard',
     'Take button behavior',
@@ -105,7 +110,7 @@ export function createPanelTab(ed) {
   multi.append(multiNote);
   const behavior = section(
     'Behavior',
-    el('div', 'sode__field sode-side__inline', el('span', 'sode__field-label', 'Mode'), 'Stage, then Take', mode.input, 'Instant'),
+    el('div', 'sode__field', el('span', 'sode__field-label', 'Mode'), mode.node),
     el('div', 'sode__field', el('span', 'sode__field-label', 'Take button behavior'), guard.node),
     fixed.node,
     multi,
@@ -156,8 +161,8 @@ export function createPanelTab(ed) {
       deviceNote.textContent = feel.wake ? '' : "This browser has no support for keeping the screen awake. It is the panel's own browser that counts.";
       if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
-      mode.input.checked = s.mode === 'instant';
-      mode.input.disabled = ro;
+      mode.set(s.mode === 'instant' ? 'instant' : 'take');
+      mode.disable(ro);
       guard.set(s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none');
       guard.disable(ro);
       levelField.hidden = !S.levels.length;

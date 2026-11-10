@@ -85,10 +85,16 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
   return { cells, nodes };
 }
 
+const markIcon = () => {
+  const i = icon('check');
+  i.classList.add('sode-panel__mark');
+  return i;
+};
+
 function paintSource(b, cell, { st, env, names }) {
   const s = sourceState(st, cell.n, env);
   b.dataset.s = s;
-  fill(b, el('span', 'sode-panel__text', names.of(cell)), ...(s === 'current' ? [icon('check')] : []));
+  fill(b, el('span', 'sode-panel__text', names.of(cell)), ...(s === 'current' ? [markIcon()] : []));
 }
 
 function paintDestination(b, cell, { st, env, names, now }) {
@@ -128,7 +134,7 @@ function paintCurrent(b, cell, { st, env, names }) {
 
 function takeLabel(st, cell, now) {
   if (cell.caption) return cell.caption;
-  if (st.mode === 'instant') return 'Instant';
+  if (st.mode === 'instant') return 'Take';
   if (st.holdAt) return 'Keep holding';
   if (guardWaiting(st, now)) return 'Press again';
   return st.guard === 'hold' ? 'Hold to take' : 'Take';
