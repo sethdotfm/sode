@@ -429,3 +429,22 @@ test('the model never changes the grid it was given', () => {
   applyFill(g, fillPlan(g, { kind: 'source', items: [5, 6], order: 'down' }));
   assert.equal(JSON.stringify(g), frozen);
 });
+
+test('Destination cells set aside while Fixed destination is on come back where their squares are still free', async () => {
+  const { setAside, putBack } = await import('../gridmodel.js');
+  const g = createGrid({ rows: 2, cols: 4, cells: [D(1, 1, 3), S(1, 2, 1), { ...D(2, 1, 4), cs: 2 }, D(2, 4, 5)] });
+  const { grid, held } = setAside(g, 'destination');
+  assert.deepEqual(
+    grid.cells.map((c) => c.kind),
+    ['source'],
+  );
+  assert.equal(held.length, 3);
+  assert.deepEqual(saved(putBack(grid, held)), saved(g));
+  // A square filled meanwhile wins, and a cell that no longer fits is dropped, as on load.
+  const taken = setKind(select(grid, 2, 2), 'take');
+  assert.deepEqual(
+    saved(putBack(resize(taken, 2, 3), held)).cells.map((c) => `${c.r},${c.c} ${c.kind}`),
+    ['1,1 destination', '1,2 source', '2,2 take'],
+  );
+  assert.equal(putBack(grid, []), grid);
+});

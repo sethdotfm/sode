@@ -1,30 +1,18 @@
 // Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets, Take, Clear, Current), with a preview of
 // the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
 // the DOM. initFind(editor) takes what runEditor returns.
-import { el, icon, onMsg, on, $ } from './core.js';
+import { el, icon, $ } from './core.js';
+import { myRights, onMyRights } from './editorrights.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { resultStep } from './keys.js';
 import { selSquares, single, selCells } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
-import { CHIP_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from './findrules.js';
+import { CHIP_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope, offTag } from './findrules.js';
 import { flyoutShift } from './editorrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
 const STALE_MS = 5000;
 const EDGE_GAP = 8; // keep in step with GAP in editormenu.js
-
-// The user's Rights arrive as soon as they sign in, which can be before the editor has loaded, so they are
-// caught at import time and handed to the editor when it starts.
-let myRights = null;
-let rightsChanged = () => {};
-onMsg('myRights', (m) => {
-  myRights = m.rights || null;
-  rightsChanged();
-});
-on('wsclose', () => {
-  myRights = null;
-  rightsChanged();
-});
 
 export function initFind(editor) {
   let rights = null;
@@ -61,11 +49,18 @@ export function initFind(editor) {
   const orders = createOrderPicker(order, (id) => api.setOrder(id));
   const panel = el('div', 'pb-menu pb-menu__sub sode-find', input, chips, list, orders, foot);
 
-  rightsChanged = () => {
-    rights = myRights;
+  onMyRights((r) => {
+    rights = r;
     rebuild();
-  };
-  rights = myRights;
+  });
+  rights = myRights();
+  // Fixed destination turning on or off changes which Destinations can be placed.
+  let fixed = editor.fixedOn();
+  editor.onFields(() => {
+    if (fixed === editor.fixedOn()) return;
+    fixed = editor.fixedOn();
+    rebuild();
+  });
 
   // The flyout sits beside its menu item (patchbay's pb-menu__sub), which can hang off the bottom or the right when
   // the selection is low or far right. Measured where CSS put it, then pulled back inside the viewport.
@@ -79,7 +74,7 @@ export function initFind(editor) {
   }
 
   function rebuild() {
-    entries = findEntries(data.names, data.presets, rights);
+    entries = findEntries(data.names, data.presets, rights, { fixed: editor.fixedOn() });
     draw();
   }
 
@@ -131,7 +126,7 @@ export function initFind(editor) {
     }
   }
   function describe(plan) {
-    if (!plan) return picked.length > 1 ? '' : results[hi]?.off ? 'Outside your rights, so it cannot be placed.' : '';
+    if (!plan) return picked.length > 1 || !results[hi]?.off ? '' : `${offTag(results[hi])}, so it cannot be placed.`;
     const n = plan.slots.length;
     const first = plan.slots[0].entry.label;
     const last = plan.slots[n - 1].entry.label;
@@ -169,7 +164,7 @@ export function initFind(editor) {
           el('span', 'sode__num', e.num === undefined ? '' : String(e.num)),
           el('span', 'sode-find__name', e.label),
         );
-        if (e.off) li.append(el('span', 'sode__menu-tag', 'Outside rights'));
+        if (e.off) li.append(el('span', 'sode__menu-tag', offTag(e)));
         li.dataset.i = String(i);
         li.setAttribute('role', 'option');
         li.setAttribute('aria-selected', String(i === hi || picked.includes(e.key)));

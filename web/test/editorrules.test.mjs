@@ -143,6 +143,24 @@ test('Type offers every kind the panel page knows, then Empty', () => {
   assert.ok(c.some((x) => x.kind === 'take'));
   assert.equal(kindLabel('destination'), 'Destination');
   assert.equal(kindLabel(''), 'Empty');
+  assert.ok(c.every((x) => !x.disabled));
+});
+
+test('while Fixed destination is on, Type offers Destination greyed with the reason beside it', () => {
+  const d = kindChoices({ fixed: true }).find((x) => x.kind === 'destination');
+  assert.equal(d.disabled, true);
+  assert.equal(d.label, 'Destination');
+  assert.equal(d.hint, 'Fixed destination is on');
+  assert.ok(kindChoices({ fixed: true }).filter((x) => x.kind !== 'destination').every((x) => !x.disabled));
+});
+
+test('a change to the fixed destinations is an unsaved change and is saved, in its own order', () => {
+  const loaded = { ...newPanel(), id: 'p-0123abcd', settings: { fixedDests: [4, 2] } };
+  const g = createGrid(loaded);
+  assert.equal(isDirty(loaded, loaded.name, g, { settings: { fixedDests: [4, 2] } }), false);
+  assert.equal(isDirty(loaded, loaded.name, g, { settings: { fixedDests: [2, 4] } }), true);
+  assert.equal(isDirty(loaded, loaded.name, g, { settings: {} }), true);
+  assert.deepEqual(saveBody(loaded, loaded.name, g, { settings: { fixedDests: [9] } }).settings, { fixedDests: [9] });
 });
 
 test('panel fields: edited settings are saved and make the panel dirty, in any key order', () => {

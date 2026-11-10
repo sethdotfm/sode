@@ -344,4 +344,19 @@ export function nextTodo(g) {
 }
 
 // The grid as a panel stores it: reading order, no selection. Unassigned cells are kept.
+// Fixed destination keeps Destination cells out of the editor's grid but in the stored panel, so no edit can touch a
+// square nobody sees. putBack drops a held cell whose squares were filled meanwhile or that no longer fits.
+export function setAside(g, kind) {
+  const held = g.cells.filter((c) => c.kind === kind);
+  return held.length ? { grid: withCells(g, g.cells.filter((c) => c.kind !== kind)), held } : { grid: g, held };
+}
+export function putBack(g, held) {
+  if (!held.length) return g;
+  const fits = held.filter((h) => {
+    const { r2, c2 } = span(h);
+    return r2 <= g.rows && c2 <= g.cols && !g.cells.some((x) => touches(x, { r1: h.r, c1: h.c, r2, c2 }));
+  });
+  return fits.length ? withCells(g, [...g.cells, ...fits]) : g;
+}
+
 export const saved = (g) => ({ rows: g.rows, cols: g.cols, cells: g.cells.map((c) => ({ ...c })).sort(reading) });

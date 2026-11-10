@@ -108,3 +108,17 @@ test('level boxes show every level ticked until a subset is stored, and the last
   assert.equal(levelLocked([1], undefined, 1), true);
   assert.equal(levelLocked(all, undefined, 1), false);
 });
+
+test('fixed destinations keep the order they were added in, at most 16, and an empty list turns the setting off', async () => {
+  const { addFixed, dropFixed, FIXED_MAX } = await import('../sidebarrules.js');
+  let s = addFixed({ mode: 'instant' }, 7);
+  s = addFixed(s, 2);
+  s = addFixed(s, 7);
+  assert.deepEqual(s, { mode: 'instant', fixedDests: [7, 2] });
+  assert.deepEqual(dropFixed(s, 7), { mode: 'instant', fixedDests: [2] });
+  assert.deepEqual(dropFixed(dropFixed(s, 7), 2), { mode: 'instant' });
+  assert.equal(FIXED_MAX, 16);
+  let full = {};
+  for (let n = 0; n < 20; n++) full = addFixed(full, n);
+  assert.equal(full.fixedDests.length, 16);
+});

@@ -9,6 +9,8 @@ import { createSlugField } from './editorslug.js';
 import { linkRow } from './panellinkrow.js';
 import { createLevelBoxes } from './editorlevels.js';
 import { createSizeFields } from './editorsize.js';
+import { createFixedField } from './editorfixed.js';
+import { fixedDestsOf } from './panelrules.js';
 
 const section = (title, ...kids) => el('section', 'sode-side__sec', el('h3', 'sode-side__h', title), ...kids);
 const select = (id, options) => {
@@ -93,11 +95,17 @@ export function createPanelTab(ed) {
   guard.select.addEventListener('change', () => set('guard', guard.select.value));
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', v || []) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
+  const fixed = createFixedField(ed);
+  const multi = toggle('multi', 'Stage several Destinations at once', 'Off lets one Destination be staged at a time.');
+  const multiNote = el('span', 'sode__hint');
+  multiNote.id = 'ed-multi-note';
+  multi.append(multiNote);
   const behavior = section(
     'Behavior',
     el('div', 'sode__field', el('label', null, 'Mode'), mode.node, modeHint),
     el('div', 'sode__field', el('label', null, 'Take button behavior'), guard.node),
-    toggle('multi', 'Stage several Destinations at once', 'Off lets one Destination be staged at a time.'),
+    fixed.node,
+    multi,
     levelField,
     toggle('resultText', 'Show the result as text on a Destination', 'Off shows only the color and icon.'),
     toggle('kiosk', 'Hide the header (kiosk)', 'For a wall tablet. The link can also add kiosk=1.'),
@@ -137,6 +145,11 @@ export function createPanelTab(ed) {
         // A switch the editor's own browser cannot honour still shows what the tablet will do; only turning it on is blocked.
         input.disabled = ro || (key === 'wake' && !feel.wake && !input.checked) || (key === 'haptics' && !feel.haptics && !input.checked);
       }
+      // The fixed set is always staged together, so the stored choice stays but has no effect.
+      const fixedOn = fixedDestsOf({ settings: s }).length > 0;
+      toggles.find((x) => x.key === 'multi').input.disabled = ro || fixedOn;
+      multiNote.textContent = fixedOn ? 'No effect while Fixed destination is on: every press stages all of them together.' : '';
+      fixed.update();
       const unsupported = [!feel.wake && 'keeping the screen awake', !feel.haptics && 'vibration'].filter(Boolean);
       deviceNote.textContent = unsupported.length
         ? `This browser has no support for ${unsupported.join(' or ')}. It is the panel's own browser that counts.`

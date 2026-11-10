@@ -752,6 +752,31 @@
 .sode-find__name {
   overflow-wrap: anywhere;
 }
+
+/* The Panel tab's Fixed destination field: chosen Destinations, then the picker's box and results. */
+.sode-fixed__chosen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sode-fixed__dst {
+  align-items: center;
+  background: var(--pb-view-idle);
+  border: var(--pb-border-w) solid var(--pb-edge-hard);
+  display: flex;
+  gap: var(--pb-space-3);
+  padding-inline-start: var(--pb-space-3);
+}
+.sode-fixed__dst .pb-btn {
+  margin-inline-start: auto;
+}
+.sode-fixed__results {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+}
 .sode-find__none {
   color: var(--pb-text-muted);
   padding: var(--pb-space-2) var(--pb-space-3);

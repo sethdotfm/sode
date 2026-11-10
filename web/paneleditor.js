@@ -3,7 +3,7 @@
 // them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
 import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
-import { namesFrom } from './panelrules.js';
+import { namesFrom, fixedDestsOf } from './panelrules.js';
 import {
   createGrid,
   cellsLost,
@@ -20,6 +20,8 @@ import {
   unmerge,
   countTodo,
   nextTodo,
+  setAside,
+  putBack,
 } from './gridmodel.js';
 import {
   editorTarget,
@@ -73,10 +75,27 @@ export async function runEditor() {
   });
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
 
+  // While Fixed destination is on, Destination cells live in held, out of every grid edit, and go back into the
+  // grid when it turns off. whole() is the grid as stored; saves and the dirty check use it.
+  let held = [];
+  const fixedOn = () => fixedDestsOf({ settings: fields().settings }).length > 0;
+  const holdOrPutBack = (next) => {
+    if (!fixedOn()) {
+      const back = putBack(next, held);
+      held = [];
+      return back;
+    }
+    const aside = setAside(next, 'destination');
+    held = [...held, ...aside.held];
+    return aside.grid;
+  };
+  const whole = () => putBack(g, held);
+
   const nameBox = $('ed-name');
-  const dirty = () => isDirty(loaded, nameBox.value, g, edits);
+  const dirty = () => isDirty(loaded, nameBox.value, whole(), edits);
 
   const setGrid = (next) => {
+    next = holdOrPutBack(next);
     if (next === g) return;
     g = next;
     refresh();
@@ -164,8 +183,10 @@ export async function runEditor() {
       {
         label: typeLabel(cells),
         icon: 'type',
-        sub: kindChoices().map(({ kind, label }) => ({
+        sub: kindChoices({ fixed: fixedOn() }).map(({ kind, label, disabled, hint }) => ({
           label,
+          disabled,
+          hint,
           current: kind === '' ? !cells.length : cells.length > 0 && cells.every((c) => c.kind === kind),
           run: () => setGrid(setKind(g, kind)),
         })),
@@ -251,7 +272,8 @@ export async function runEditor() {
     edits = {};
     art?.revoke();
     art = panel ? createArt(sessionFetch, panel.id) : null;
-    g = createGrid(panel || newPanel());
+    held = [];
+    g = holdOrPutBack(createGrid(panel || newPanel()));
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
     say('ed-status', '');
@@ -298,7 +320,7 @@ export async function runEditor() {
   async function save() {
     $('ed-save').disabled = true;
     say('ed-status', 'Saving.');
-    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, g, edits));
+    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, whole(), edits));
     let saved;
     try {
       saved = await edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(
@@ -404,6 +426,8 @@ export async function runEditor() {
   // Seams for later tickets: Find adds menu items, the sidebars and live update read and replace the grid.
   return {
     grid: () => g,
+    // The grid as stored, with any Destination cells Fixed destination set aside.
+    storedGrid: whole,
     setGrid,
     setSize,
     panel: () => loaded,
@@ -419,9 +443,15 @@ export async function runEditor() {
     art: () => art,
     setFields(patch) {
       edits = { ...edits, ...patch };
+      const next = holdOrPutBack(g);
+      if (next !== g) {
+        g = next;
+        for (const fn of changeWatchers) fn(g);
+      }
       refresh();
       fieldsChanged();
     },
+    fixedOn,
     // A panel stored elsewhere (the Share modal): the grid and unsaved fields stay as they are.
     replaceLoaded(panel) {
       loaded = panel;

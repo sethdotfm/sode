@@ -163,7 +163,7 @@ export function initTemplates(editor) {
             saveTemplateBody({
               name: name.value,
               scope,
-              grid: editor.grid(),
+              grid: editor.storedGrid(),
               settings: editor.fields().settings,
               withSettings: withSettings.input.checked,
               withSources: withSources.input.checked,

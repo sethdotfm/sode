@@ -148,7 +148,11 @@ export function typeLabel(cells) {
   const kinds = new Set(cells.map((c) => c.kind));
   return `Type: ${kinds.size > 1 ? 'Mixed' : kindLabel(cells[0]?.kind ?? '')}`;
 }
-export const kindChoices = () => [...KINDS, ''].map((kind) => ({ kind, label: kindLabel(kind) }));
+// With fixed (the panel's Fixed destination is on) a Destination cell would not be drawn, so it cannot be chosen.
+export const kindChoices = ({ fixed = false } = {}) =>
+  [...KINDS, ''].map((kind) =>
+    fixed && kind === 'destination' ? { kind, label: kindLabel(kind), disabled: true, hint: 'Fixed destination is on' } : { kind, label: kindLabel(kind) },
+  );
 
 // The tip beside the grip while it is dragged: how many squares, and the first and last name placed.
 export function gripTip(plan, nameOf) {
