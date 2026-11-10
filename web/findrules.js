@@ -3,8 +3,8 @@
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned } from './gridmodel.js';
 
-export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current'];
-// The kinds with a list behind them get a chip; Take, Clear and Current are one entry each and show under All.
+export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName'];
+// The kinds with a list behind them get a chip; the others are one entry each and show under All.
 export const CHIP_CATEGORIES = ['source', 'destination', 'preset'];
 export const CATEGORY_LABEL = {
   source: 'Sources',
@@ -13,6 +13,8 @@ export const CATEGORY_LABEL = {
   take: 'Take',
   clear: 'Clear',
   current: 'Current Source',
+  panelName: 'Panel Name',
+  instanceName: 'Instance Name',
 };
 // Not log-in and log-out: the glossary UI test refuses those words.
 export const CATEGORY_ICON = {
@@ -22,6 +24,8 @@ export const CATEGORY_ICON = {
   take: 'zap',
   clear: 'eraser',
   current: 'eye',
+  panelName: 'panels-top-left',
+  instanceName: 'tablet-smartphone',
 }; // keep in step with editorview.js KIND_ICON
 const RIGHTS_KIND = { source: 'sources', destination: 'dsts', preset: 'presets' };
 
@@ -54,7 +58,7 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
   const byName = [...(presetsReply?.presets || [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   for (const p of byName) add({ category: 'preset', key: `preset:${p.scope}:${p.name}`, label: p.name, scope: p.scope }, p.name);
   // The numberless kinds are always placeable: Rights limit Sources, Destinations and Presets only.
-  for (const category of ['take', 'clear', 'current']) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
+  for (const category of ['take', 'clear', 'current', 'panelName', 'instanceName']) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
   return out;
 }
 

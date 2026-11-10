@@ -140,7 +140,17 @@ export function openFailNote(e) {
 }
 
 
-const WORDS = { source: 'Source', destination: 'Destination', take: 'Take', preset: 'Preset', clear: 'Clear', current: 'Current Source', '': 'Empty' };
+const WORDS = {
+  source: 'Source',
+  destination: 'Destination',
+  take: 'Take',
+  preset: 'Preset',
+  clear: 'Clear',
+  current: 'Current Source',
+  panelName: 'Panel Name',
+  instanceName: 'Instance Name',
+  '': 'Empty',
+};
 export const kindLabel = (kind) => WORDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
 // The Type item's label: the one kind the selected squares share, else Mixed.
 export function typeLabel(cells) {

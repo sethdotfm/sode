@@ -208,12 +208,16 @@
 .sode-panel__cell[data-result="failed"] {
   box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
 }
-.sode-panel__cell--current:disabled {
+.sode-panel__cell--current:disabled,
+.sode-panel__cell--panelName:disabled,
+.sode-panel__cell--instanceName:disabled {
   background-color: var(--pb-surface-control);
   color: var(--pb-text-strong);
   opacity: 1;
 }
-.sode-panel__cell--current span {
+.sode-panel__cell--current span,
+.sode-panel__cell--panelName span,
+.sode-panel__cell--instanceName span {
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
 }
@@ -372,7 +376,22 @@
 }
 .sode-panel__cell small,
 .sode-panel__staged {
-  font-size: calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1));
+  font-size: min(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), 14cqi);
+}
+/* Text never runs past its square. Each cell and editor square is an inline-size container: text is held to its
+   width, breaks anywhere, and shrinks with the square (cqi) when the font size would not fit a word or two. */
+.sode-panel__cell,
+.sode-ed__sq {
+  container-type: inline-size;
+  overflow-wrap: anywhere;
+}
+.sode-panel__cell > :not(.sode-panel__art),
+.sode-ed__sq > :not(.sode-panel__art) {
+  max-inline-size: 100%;
+}
+.sode-panel__cell span.sode-panel__text,
+.sode-ed__text {
+  font-size: min(1em, 20cqi);
 }
 .sode-panel__take {
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
