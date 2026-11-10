@@ -45,7 +45,8 @@ export function createAccessTab(ed, ctx) {
       // and Cancel puts the old mode back.
       guard.cancel();
       const was = ed.fields().acts;
-      if (!actsSwitch(was, want)) {
+      const sw = actsSwitch(was, want);
+      if (!sw) {
         asking = null;
         acts.set(was || 'session');
         return;
@@ -67,7 +68,8 @@ export function createAccessTab(ed, ctx) {
       ed.setFields({ acts: want });
       const refused = await ed.save();
       if (refused) ed.setFields({ acts: undefined });
-      actsNote.textContent = refused || SAVED_NOTE[want];
+      // A switch with no Confirm still says what it kept.
+      actsNote.textContent = refused || (sw.confirm ? SAVED_NOTE[want] : `Saved. ${sw.text}`);
     },
   );
   let asking = null; // the mode an open Confirm is for; update() shows it until the answer
