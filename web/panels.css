@@ -956,7 +956,110 @@
   }
 }
 .sode-ed__main {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: 12rem minmax(0, 1fr);
   min-width: 0;
+}
+@media (max-width: 48rem) {
+  .sode-ed__main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* The Pages bar (editorpagebar.js) and the open Pages side by side (editorpageview.js). Frames sit at their Page's
+   place through order, set in code. */
+.sode-pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  min-width: 0;
+}
+.sode-pages__title,
+.sode-ed__frame-title {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  font-weight: 600;
+  margin: 0;
+}
+.sode-pages__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sode-pages__row {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  padding: var(--pb-space-2);
+}
+.sode-pages__row.is-open {
+  border-color: var(--pb-edge);
+}
+.sode-pages__row.is-focus {
+  border-color: var(--pb-accent);
+}
+.sode-pages__row.is-drop {
+  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+}
+.sode-pages__row.is-off .sode-pages__name {
+  color: var(--pb-text-disabled);
+}
+.sode-pages__open {
+  gap: var(--pb-space-3);
+  justify-content: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+.sode-pages__num {
+  font-family: var(--pb-font-num);
+  min-width: 1.25rem;
+}
+.sode-pages__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-pages__tools {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-1);
+}
+.sode-pages__on {
+  margin-right: auto;
+}
+.sode-pages__add {
+  align-self: flex-start;
+  gap: var(--pb-space-2);
+}
+.sode-ed__open {
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.sode-ed__open:not([data-open="1"]) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 64rem) {
+  .sode-ed__open:not([data-open="1"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.sode-ed__frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode-ed__frame.is-focus .sode-ed__grid {
+  border-color: var(--pb-accent);
 }
 .sode-ed__sq.has-cell {
   font-size: calc(var(--pb-text-sm) * var(--cell-fs, 1));

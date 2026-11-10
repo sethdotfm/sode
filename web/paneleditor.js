@@ -23,6 +23,7 @@ import {
   setAside,
   putBack,
   heldThatFit,
+  saved,
 } from './gridmodel.js';
 import {
   editorTarget,
@@ -46,10 +47,14 @@ import { gridCommand } from './gridchords.js';
 import { createLive } from './editorlive.js';
 import { copyBlock, blockText, readBlock, pastePlan, applyPaste, pasteNote } from './gridclip.js';
 import { writeClip, createPasteReader } from './editorclip.js';
-import { emptyUndo, record, undo, redo, sameCells } from './gridundo.js';
+import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeyUndo } from './gridundo.js';
 import { edgeChoices, edgeNote } from './gridedge.js';
 import { askPasteEdge } from './editorpasteedge.js';
-import { pagesOf, pageView, lostOnOtherPages } from './panelpages.js';
+import { pagesOf, pageView, fitPages } from './panelpages.js';
+import { addPage, movePage, renamePage, enablePage, deletePage, copyPage, openClick } from './editorpagerules.js';
+import { createPageBar } from './editorpagebar.js';
+import { createPageView } from './editorpageview.js';
+import { askCopyTo } from './editorpagecopy.js';
 
 const say = (id, text) => {
   const n = $(id);
@@ -63,9 +68,11 @@ const edCall = (what, down) => jsonCall(sessionFetch, { failed: (s) => `${what} 
 export async function runEditor() {
   let g = createGrid();
   let loaded = null; // the stored panel being edited; null for a new one
-  // The panel's Pages as loaded or applied. g is Page 1, so its cells here are stale; a save takes them from g and
-  // fits the other Pages to g's size.
+  // The panel's Pages. g is the focused Page (focus, its id), so that entry's cells here are stale: livePages() has
+  // them fresh. open is the ids of the Pages shown side by side. Only an unsaved Page 1 has id ''.
   let pages = pagesOf(newPanel());
+  let focus = '';
+  let open = [''];
   let list = [];
   let names = namesFrom({});
   let discardAsked = ''; // the panel the user tried to leave unsaved; asking again discards
@@ -106,40 +113,151 @@ export async function runEditor() {
   const droppedNote = (n) => (n ? `Removed ${n} Destination cell${n > 1 ? 's' : ''} set aside by Fixed destination, as other cells now fill the squares.` : '');
   const sayDropped = (n) => n && say('ed-status', droppedNote(n));
   const whole = () => putBack(g, held);
+  const fi = () => Math.max(0, pages.findIndex((p) => p.id === focus));
+  const livePages = () => pages.map((p, i) => (i === fi() ? { ...p, cells: saved(whole()).cells } : p));
+  // Page 1 as stored, which saves, the dirty check and templates read beside the Page list.
+  const firstGrid = () => createGrid({ rows: g.rows, cols: g.cols, cells: livePages()[0].cells });
+  // g from the focused Page's stored cells. held starts empty so holdOrPutBack sets its Destination cells aside again.
+  const showFocused = () => {
+    held = [];
+    g = holdOrPutBack(createGrid({ rows: g.rows, cols: g.cols, cells: pages[fi()].cells })).shown;
+  };
+  const changed = () => {
+    refresh();
+    for (const fn of changeWatchers) fn(g);
+  };
 
   const nameBox = $('ed-name');
-  const dirty = () => isDirty(loaded, nameBox.value, whole(), edits, pages);
+  const dirty = () => isDirty(loaded, nameBox.value, firstGrid(), edits, livePages());
 
-  // Every cell edit passes here, so this is where undo records (gridundo.js): what names the step on the status
-  // line, join makes a run of edits one step. A selection move stores nothing, so it records nothing. fresh: next
-  // is a whole new layout (a template), so cells held from the old one do not come back. Returns how many held
-  // cells it dropped.
+  // Every cell edit, on any Page, passes here, so this is where undo records (gridundo.js): one stack for the
+  // panel. what names the step on the status line, join makes a run of edits one step, list marks a step that
+  // replaces the Page list (a template). A selection move or a Page op changes no cells, so it records nothing.
   let steps = emptyUndo();
-  const setGrid = (next, { fresh = false, what = 'edit', join } = {}) => {
-    const before = whole();
-    if (fresh) held = [];
-    const { shown, dropped } = holdOrPutBack(next);
-    sayDropped(dropped);
-    const moved = shown !== g;
-    g = shown;
-    if (!sameCells(before, whole())) steps = record(steps, { what, before, join });
-    if (!moved) return dropped;
-    refresh();
-    for (const fn of changeWatchers) fn(g);
+  const snap = (list = false) => pageSnap(livePages(), g.rows, g.cols, { list, focus, sel: g.sel });
+  function edit(what, run, { join, list = false } = {}) {
+    const before = snap(list);
+    const out = run();
+    if (!samePages(before, snap())) steps = record(steps, { what, before, join });
+    return out;
+  }
+  // An edit of the focused Page. Returns how many held cells it dropped.
+  const setGrid = (next, { what = 'edit', join } = {}) => {
+    const was = g;
+    const dropped = edit(
+      what,
+      () => {
+        const { shown, dropped } = holdOrPutBack(next);
+        sayDropped(dropped);
+        g = shown;
+        return dropped;
+      },
+      { join },
+    );
+    if (g !== was) changed();
     return dropped;
   };
-  // Not through setGrid, which would record the step back. held starts empty so holdOrPutBack sets the stored
-  // grid's Destination cells aside again: none lost, none twice.
+  // Not through edit, which would record the step back. Cells go back by Page id, so Page names, order and
+  // deletions stay as they are; the focused Page stays focused while it exists.
   function step(back) {
-    const s = (back ? undo : redo)(steps, whole());
-    if (!s) return say('ed-status', back ? 'Nothing to undo.' : 'Nothing to redo.');
+    const top = (back ? steps.past : steps.future).at(-1);
+    if (!top) return say('ed-status', back ? 'Nothing to undo.' : 'Nothing to redo.');
+    const s = (back ? undo : redo)(steps, snap(!!top.grid.list));
     steps = s.undo;
-    held = [];
-    g = holdOrPutBack(s.grid).shown;
-    refresh();
-    for (const fn of changeWatchers) fn(g);
+    pages = restorePages(livePages(), s.grid);
+    if (!pages.some((p) => p.id === focus)) focus = pages[0].id;
+    open = open.filter((id) => pages.some((p) => p.id === id));
+    if (!open.includes(focus)) open = [focus];
+    g = createGrid({ rows: s.grid.rows, cols: s.grid.cols });
+    showFocused();
+    if (s.grid.focus === focus && s.grid.sel) g = { ...g, sel: s.grid.sel };
+    changed();
     say('ed-status', `${back ? 'Undid' : 'Redid'} ${s.what}.`);
   }
+
+  // ---- Pages (editorpagebar.js). Only Copy to is an undo step.
+
+  function focusPage(id) {
+    if (id === focus) return;
+    pages = livePages();
+    focus = id;
+    if (!open.includes(id)) open = [id];
+    showFocused();
+    menuAway = false;
+  }
+  const pageActs = {
+    open(id, multi) {
+      const next = openClick(open, id, multi);
+      const added = !open.includes(id);
+      open = next;
+      if (!multi || added) focusPage(id);
+      else if (!open.includes(focus)) focusPage(open[0]);
+      changed();
+    },
+    add() {
+      const next = addPage(livePages());
+      if (next.length === pages.length) return;
+      pages = next;
+      focusPage(next.at(-1).id);
+      open = [focus];
+      changed();
+      say('ed-status', `Added Page ${next.length}.`);
+    },
+    rename(i, text) {
+      pages = renamePage(livePages(), i, text);
+      refresh();
+    },
+    enable(i, on) {
+      pages = enablePage(livePages(), i, on);
+      refresh();
+    },
+    move(i, to) {
+      pages = movePage(livePages(), i, to);
+      refresh();
+    },
+    remove(i) {
+      const live = livePages();
+      const gone = live[i].id;
+      pages = deletePage(live, i);
+      if (pages === live) return;
+      open = open.filter((id) => id !== gone);
+      if (focus === gone) focus = (open.length ? pages.find((p) => open.includes(p.id)) : pages[Math.min(i, pages.length - 1)]).id;
+      if (!open.length) open = [focus];
+      showFocused();
+      changed();
+      say('ed-status', `Deleted Page ${i + 1}.`);
+    },
+    async copyTo(i) {
+      const to = await askCopyTo(livePages(), i, document.activeElement);
+      if (to === null || readOnly()) return;
+      edit('Copy to', () => {
+        const c = copyPage(livePages(), i, to);
+        if (!c) return;
+        pages = c.pages;
+        if (to === fi()) showFocused();
+      });
+      changed();
+      say('ed-status', `Copied Page ${i + 1} to Page ${to + 1}.`);
+    },
+  };
+  const bar = createPageBar($('ed-pages'), pageActs);
+  // A press on another open Page focuses it, then acts as a press on #ed-grid, which now draws that Page.
+  const openView = createPageView($('ed-frame'), $('ed-frame-title'), {
+    focus(id, r, c) {
+      if (readOnly()) return;
+      focusPage(id);
+      setGrid(select(g, r, c));
+      changed();
+      $('ed-grid').focus({ preventScroll: true });
+    },
+    key(id, e) {
+      if (readOnly()) return;
+      focusPage(id);
+      changed();
+      $('ed-grid').focus({ preventScroll: true });
+      onKey(e);
+    },
+  });
 
   const grid = createEditorGrid($('ed-grid'), {
     select(r, c, extend) {
@@ -171,7 +289,8 @@ export async function runEditor() {
     if (!g.sel) return;
     const path = e.composedPath();
     // The paste past the edge dialog answers for the selection, so focus in it is not leaving the grid.
-    if ([$('ed-grid'), menu.root].some((n) => path.includes(n)) || path.some((n) => n.id === 'ed-edge')) return;
+    // A press on another open Page moves the selection there itself.
+    if ([$('ed-open-pages'), menu.root].some((n) => path.includes(n)) || path.some((n) => n.id === 'ed-edge')) return;
     if (path.includes($('ed-side'))) {
       if (menuAway) return;
       menuAway = true;
@@ -308,7 +427,10 @@ export async function runEditor() {
 
   function refresh() {
     const ro = readOnly();
-    grid.paint(g, names, { readOnly: ro, art, defaults, pages });
+    const live = livePages();
+    grid.paint(g, names, { readOnly: ro, art, defaults, pages: live });
+    openView.paint(live, open, focus, { rows: g.rows, cols: g.cols, names, fixed: fixedOn(), readOnly: ro, art, defaults });
+    bar.paint({ pages: live, open, focus, readOnly: ro });
     const box = ro ? null : grid.selectionBox();
     menu.show(menuAway ? null : box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
@@ -317,9 +439,9 @@ export async function runEditor() {
     $('ed-banner').hidden = !ro;
     // Not say(): the slot keeps its size whatever it holds, so the toolbar never re-wraps (panels.css).
     $('ed-state').textContent = ro ? '' : dirty() ? 'Unsaved changes' : loaded ? 'Saved' : '';
-    const open = $('ed-open');
-    open.hidden = !loaded;
-    if (loaded) open.href = `panels/${loaded.id}`;
+    const link = $('ed-open');
+    link.hidden = !loaded;
+    if (loaded) link.href = `panels/${loaded.id}`;
     // A panel that only acts as its API client has no link without its key (Share, Link with key); a Both panel's plain link opens in Session mode.
     const copy = $('ed-copylink');
     copy.hidden = !loaded || loaded.acts === 'api';
@@ -330,10 +452,22 @@ export async function runEditor() {
     const rows = which === 'rows' ? value : g.rows;
     const cols = which === 'cols' ? value : g.cols;
     const next = resize(g, rows, cols);
-    // The other Pages lose theirs when the panel is saved at this size.
-    const lost = cellsLost(g, rows, cols) + lostOnOtherPages(pages, next.rows, next.cols) + setGrid(next, { what: 'resize' });
+    // Every Page at once, one undo step.
+    const lost = edit('resize', () => {
+      const f = fi();
+      const here = cellsLost(g, rows, cols); // held cells that no longer fit come in kept.dropped
+      const fit = fitPages(
+        pages.map((p, i) => (i === f ? { ...p, cells: [] } : p)),
+        next.rows,
+        next.cols,
+      );
+      pages = fit.pages.map((p, i) => (i === f ? pages[i] : p));
+      const kept = holdOrPutBack(next);
+      g = kept.shown;
+      return here + fit.lost + kept.dropped;
+    });
     say('ed-status', lost ? `Removed ${lost} cell${lost > 1 ? 's' : ''} that no longer fit.` : '');
-    refresh();
+    changed();
   }
   nameBox.addEventListener('input', refresh);
 
@@ -379,6 +513,8 @@ export async function runEditor() {
     held = [];
     steps = emptyUndo();
     pages = pagesOf(panel || newPanel());
+    focus = pages[0].id;
+    open = [focus];
     g = holdOrPutBack(createGrid(pageView(panel || newPanel()))).shown;
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
@@ -426,10 +562,11 @@ export async function runEditor() {
   async function save() {
     $('ed-save').disabled = true;
     say('ed-status', 'Saving.');
-    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, whole(), edits, pages));
-    let saved;
+    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, firstGrid(), edits, livePages()));
+    const at = { focus: fi(), open: open.map((id) => pages.findIndex((p) => p.id === id)) };
+    let stored;
     try {
-      saved = await edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(
+      stored = await edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(
         loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels',
         {
           method: loaded ? 'PUT' : 'POST',
@@ -443,8 +580,14 @@ export async function runEditor() {
       return e.message;
     }
     const made = !loaded;
-    loaded = saved;
-    pages = pagesOf(saved);
+    loaded = stored;
+    // The first save gives an unsaved Page 1 its id; the place in the list is what stays.
+    const was = focus;
+    pages = pagesOf(stored);
+    focus = pages[at.focus]?.id ?? pages[0].id;
+    if (was !== focus) steps = rekeyUndo(steps, was, focus);
+    open = at.open.map((i) => pages[i]?.id).filter((id) => id !== undefined);
+    if (!open.includes(focus)) open = [focus];
     edits = {};
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
     nameBox.value = loaded.name;
@@ -533,15 +676,28 @@ export async function runEditor() {
 
   // Seams for later tickets: Find adds menu items, the sidebars and live update read and replace the grid.
   return {
+    // The focused Page's grid; Find, the grip, the art tool and the Cell tab work on it.
     grid: () => g,
-    // The grid as stored, with any Destination cells Fixed destination set aside.
-    storedGrid: whole,
+    // Page 1 as stored, with any Destination cells Fixed destination set aside, for templates and the Cell tab's
+    // Go to Page warning beside pages().
+    storedGrid: firstGrid,
     setGrid,
-    // The Page list; Page 1's cells are g's, not these. setPages replaces it, as a template apply does.
-    pages: () => pages,
-    setPages(next) {
-      pages = next;
-      refresh();
+    // The Page list with every Page's cells as they stand.
+    pages: livePages,
+    // A template apply: the whole Page list and Page 1's grid at once, one undo step that brings the old list back.
+    replacePages(list, first) {
+      edit(
+        'template',
+        () => {
+          pages = list;
+          focus = list[0].id;
+          open = [focus];
+          held = [];
+          g = holdOrPutBack(first).shown;
+        },
+        { list: true },
+      );
+      changed();
     },
     setSize,
     panel: () => loaded,
