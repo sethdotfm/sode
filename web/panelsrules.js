@@ -115,15 +115,13 @@ export function shareLabel(share) {
 export const launchHref = (id) => `panels/${id}`;
 export const editHref = (id) => `panels/editor?panel=${id}`;
 
-// What a key does on the list page: 'launch' (Enter) or 'edit' (e) for the selected panel, else ''.
-// Text fields keep every key, and a button or link keeps Enter for itself.
-export function listKey(e, target) {
-  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return '';
-  const tag = String(target?.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return '';
-  if (e.key === 'e') return 'edit';
-  if (e.key === 'Enter' && tag !== 'button' && tag !== 'a') return 'launch';
-  return '';
+// What a key does on the list page, for the selected panel: 'launch' (Ctrl/Cmd+Enter), 'edit' (Ctrl/Cmd+E), 'next' or
+// 'prev' (Ctrl/Cmd+J, K), else ''. Ctrl on any platform, Cmd only on a Mac (as listStep in keys.js), so the shortcuts work in a field too.
+export function listKey(e, mac = false) {
+  if (e.defaultPrevented || e.altKey || e.shiftKey) return '';
+  if (!((e.ctrlKey && !e.metaKey) || (mac && e.metaKey && !e.ctrlKey))) return '';
+  const key = e.code === 'Enter' || e.key === 'Enter' ? 'Enter' : String(e.key || '').toLowerCase();
+  return { e: 'edit', Enter: 'launch', j: 'next', k: 'prev' }[key] || '';
 }
 
 // Ctrl/Cmd+J and K in the find box: the id the highlight moves to, stopping at the ends.

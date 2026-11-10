@@ -1168,3 +1168,11 @@
   border-inline-start: var(--pb-border-w) solid var(--pb-edge);
   padding-inline-start: var(--pb-space-5);
 }
+
+.sode-ed__name {
+  min-width: 14rem;
+  justify-content: space-between;
+}
+.sode-ed__name-text {
+  font-size: var(--pb-text-md);
+}

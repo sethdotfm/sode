@@ -139,19 +139,19 @@ test('the filter is fuzzy over name, short name and owner, best match first insi
   assert.equal(groupPanels([P('a', 'Bo', { name: 'X' })], 'Ana', false, 'bo')[0].title, 'Shared with me');
 });
 
-test('Enter launches and e edits unless the key belongs to a field, a button or a modifier', () => {
-  const k = (key, tagName = 'BODY', extra = {}) => listKey({ key, ...extra }, { tagName });
-  assert.equal(k('Enter'), 'launch');
-  assert.equal(k('e'), 'edit');
-  assert.equal(k('Enter', 'INPUT'), '');
-  assert.equal(k('e', 'INPUT'), '');
-  assert.equal(k('e', 'TEXTAREA'), '');
-  assert.equal(k('Enter', 'BUTTON'), '');
-  assert.equal(k('Enter', 'A'), '');
-  assert.equal(k('e', 'BUTTON'), 'edit');
-  assert.equal(k('e', 'BODY', { ctrlKey: true }), '');
-  assert.equal(k('Enter', 'BODY', { metaKey: true }), '');
-  assert.equal(k('e', 'BODY', { defaultPrevented: true }), '');
+test('Ctrl/Cmd+Enter launches, Ctrl/Cmd+E edits, and Ctrl/Cmd+J and K step', () => {
+  const k = (key, extra = {}, mac = false) => listKey({ key, ...extra }, mac);
+  assert.equal(k('Enter', { ctrlKey: true }), 'launch');
+  assert.equal(k('e', { ctrlKey: true }), 'edit');
+  assert.equal(k('j', { ctrlKey: true }), 'next');
+  assert.equal(k('k', { ctrlKey: true }), 'prev');
+  assert.equal(k('e', { metaKey: true }, true), 'edit');
+  assert.equal(k('e', { metaKey: true }), '', 'Cmd counts on a Mac only');
+  assert.equal(k('e'), '', 'a bare key belongs to the page');
+  assert.equal(k('Enter'), '');
+  assert.equal(k('e', { ctrlKey: true, shiftKey: true }), '');
+  assert.equal(k('e', { ctrlKey: true, altKey: true }), '');
+  assert.equal(k('e', { ctrlKey: true, defaultPrevented: true }), '');
 });
 
 test('stepping moves the highlight and stops at the ends', () => {

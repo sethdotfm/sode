@@ -4,7 +4,7 @@ import { $, el, icon, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
 import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, shareLabel, launchHref, editHref, listKey, stepPanel } from './panelsrules.js';
-import { resultStep } from './keys.js';
+import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
@@ -86,8 +86,8 @@ function detail(p) {
   if (!p) return;
   const acts = actionsFor(p);
   const bar = el('div', 'sode-ov__acts');
-  bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), 'Enter'));
-  if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id), 'e'));
+  bar.append(link('Launch', 'play', 'pb-btn--ok', launchHref(p.id), mac ? '⌘↵' : 'Ctrl+Enter'));
+  if (acts.includes('edit')) bar.append(link('Edit', 'pencil', '', editHref(p.id), mac ? '⌘E' : 'Ctrl+E'));
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
@@ -233,8 +233,17 @@ export function runPanelsList() {
   document.addEventListener('keydown', (e) => {
     // The Lock's dialog stays in the page while hidden, so only a rendered one counts.
     if ([...document.querySelectorAll('[role="dialog"]')].some((d) => d.getClientRects().length)) return;
-    const what = listKey(e, e.target);
+    const what = listKey(e, mac);
     if (!what) return;
+    if (what === 'next' || what === 'prev') {
+      const ids = groupPanels(S.panels, S.me, S.trusted, S.filter).flatMap((g) => g.panels.map((x) => x.id));
+      e.preventDefault();
+      S.cur = stepPanel(ids, S.cur, what === 'next' ? 1 : -1);
+      S.armed = '';
+      draw();
+      document.querySelector('.sode-ov__item[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     const p = S.panels.find((x) => x.id === S.cur);
     if (!p || (what === 'edit' && !actionsFor(p).includes('edit'))) return;
     e.preventDefault();

@@ -9,7 +9,7 @@ import (
 )
 
 // The panels page's keyboard: the Find box is fuzzy and Ctrl+J and K move the highlight, Enter hands
-// focus to Launch, and outside a field Enter launches and e edits the highlighted panel.
+// focus to Launch, and Ctrl+E edits and Ctrl+Enter launches the highlighted panel from anywhere.
 func TestChromePanelsListKeys(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -58,17 +58,17 @@ func TestChromePanelsListKeys(t *testing.T) {
 	b.waitFor("Ctrl+J moves down", cur+` === '`+first+`'`)
 	key(find, "Enter", "Enter", false)
 	b.waitFor("Enter focuses Launch", `document.activeElement?.textContent.includes('Launch')`)
-	b.waitFor("hints on the buttons", `document.querySelector('#panels-detail a[href] kbd')?.textContent === 'Enter'`)
+	b.waitFor("hints on the buttons", `document.querySelector('#panels-detail a[href] kbd')?.textContent.endsWith('Enter') || document.querySelector('#panels-detail a[href] kbd')?.textContent === '⌘↵'`)
 
-	// Outside a field: e edits, Enter launches.
+	// Anywhere: Ctrl+E edits, Ctrl+Enter launches, Ctrl+J and K step.
 	b.eval(`document.activeElement.blur()`)
-	key(`document.body`, "e", "KeyE", false)
-	b.waitFor("e opens the editor", `location.pathname.startsWith('/panels/editor')`)
+	key(`document.body`, "e", "KeyE", true)
+	b.waitFor("Ctrl+E opens the editor", `location.pathname.startsWith('/panels/editor')`)
 	b.open(srv.URL + "/panels")
 	b.waitFor("rows again", `document.querySelectorAll('.sode-ov__item').length === 3`)
 	b.eval(`document.querySelector('.sode-ov__item').click()`)
 	b.waitFor("selected", `!!`+cur)
 	want, _ := b.eval(cur).(string)
-	key(`document.body`, "Enter", "Enter", false)
-	b.waitFor("Enter launches", `location.pathname === '/panels/`+want+`'`)
+	key(`document.body`, "Enter", "Enter", true)
+	b.waitFor("Ctrl+Enter launches", `location.pathname === '/panels/`+want+`'`)
 }

@@ -54,7 +54,7 @@ The editor is the page where a panel's grid and settings are made. It lives unde
 
 `/panels` lists panels and launches them. The editor (`/panels/editor`) and a panel itself (`/panels/[id]`) are separate pages. The prototype is `prototype/panels/overview/c` (:8123 with `serve-overview.mjs`). Variants A (table) and B (tile gallery) are history.
 
-The Find box on `/panels` is a fuzzy find over name, short name and owner (the editor Find's scoring, `panelScore` in `panelsrules.js`), best match first inside each group. Ctrl or Cmd with J and K, or the arrow keys, move the highlighted panel; Enter moves focus to Launch. Outside a field, Enter launches and `e` edits the highlighted panel (`listKey`), and the buttons show the keys. An open modal turns both off.
+The Find box on `/panels` is a fuzzy find over name, short name and owner (the editor Find's scoring, `panelScore` in `panelsrules.js`), best match first inside each group. Ctrl or Cmd with J and K, or the arrow keys, move the highlighted panel; Enter in the Find box moves focus to Launch. Anywhere on the page, Ctrl or Cmd with Enter launches and with E edits the highlighted panel, and J and K step (`listKey`; Cmd counts on a Mac only), and the buttons show the keys. An open modal turns them off.
 
 - Layout: a list on the left, grouped under My panels and Shared with me, each row with a mini picture of the grid, its owner, whether it acts as a user or an API client, and an online dot. The right side shows the chosen panel: a large Launch button, Edit, Share, Link with key, Push to panels and Delete, then the instances open now and a Watch checkbox.
 - A panel shared with you opens for use. It shows Save a copy instead of Edit.

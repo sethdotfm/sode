@@ -9,6 +9,7 @@ import { runEditor } from './paneleditor.js';
 import { initFind } from './editorfind.js';
 import { initTemplates } from './editortemplates.js';
 import { initSidebar } from './editorside.js';
+import { initNameEdit } from './editorname.js';
 import { initGrip } from './editorgrip.js';
 
 // 4x8 maps one to one onto a hardware key deck (docs/panels-design.md).
@@ -26,6 +27,7 @@ if (id) runPanel(id);
 else if (document.getElementById('ed-grid'))
   runEditor().then((editor) => {
     initFind(editor);
+    initNameEdit();
     initTemplates(editor);
     initGrip(editor);
     initSidebar(editor);
