@@ -937,19 +937,25 @@
   border: var(--pb-border-w) solid var(--pb-edge);
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-4);
-  padding: var(--pb-space-8) var(--pb-space-4);
+  gap: var(--pb-space-7);
+  /* The toolbar above wraps to any height, so the sidebar pins near the top of the window as the page scrolls. */
+  max-height: calc(100dvh - 2 * var(--pb-space-5));
+  min-width: 0;
+  overflow: hidden auto;
+  padding: var(--pb-space-9) var(--pb-space-5);
+  position: sticky;
+  top: var(--pb-space-5);
 }
 .sode-side__tab,
 .sode-side__form {
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-3);
+  gap: var(--pb-space-7);
 }
 .sode-side__sec {
   display: flex;
   flex-direction: column;
-  gap: var(--pb-space-2);
+  gap: var(--pb-space-4);
 }
 .sode-side__sec[hidden],
 .sode-side__sec .sode__hint:empty {
@@ -957,7 +963,7 @@
 }
 .sode-side__sec + .sode-side__sec {
   border-top: var(--pb-border-w) solid var(--pb-edge);
-  padding-top: var(--pb-space-3);
+  padding-top: var(--pb-space-7);
 }
 .sode-side__sec > .pb-btn {
   align-self: flex-start;
@@ -977,7 +983,7 @@
 .sode-side__icons {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pb-space-2);
+  gap: var(--pb-space-4);
 }
 /* Rows and Columns sit on one line; each is a label with a less button, the number and a more button. */
 .sode-side__steps {
@@ -1125,6 +1131,11 @@
   display: inline-flex;
   vertical-align: middle;
 }
+/* The sidebar scrolls, so a one-line tip this long would be cut off at its edge. */
+.sode-fixed__help[data-pb-tip]::after {
+  white-space: normal;
+  width: 12rem;
+}
 .sode-ed__side .sode__tabs {
   gap: var(--pb-space-4);
 }
@@ -1163,14 +1174,21 @@
   padding-inline-start: var(--pb-space-3);
   width: 14rem;
 }
-.sode-ed__grp--pick > .sode-ed__field + .sode-ed__field {
+.sode-ed__grp--pick > .sode-ed__field + .sode-ed__field,
+.sode-ed__grp--pick > .sode-ed__name {
   border-inline-start: var(--pb-border-w) solid var(--pb-edge);
   padding-inline-start: var(--pb-space-5);
 }
 
 .sode-ed__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pb-space-3);
   min-width: 14rem;
   justify-content: space-between;
+}
+.sode-ed__name[hidden] {
+  display: none;
 }
 .sode-ed__name-text {
   font-size: var(--pb-text-md);

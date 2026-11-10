@@ -5,7 +5,9 @@ import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
-import { shareLabel, hasClient } from './panelsrules.js';
+import { shareLabel, hasClient, actsSwitch } from './panelsrules.js';
+import { confirmBox } from './confirmbox.js';
+import { guardActs } from './actsguard.js';
 import { draftOf, rightsOf } from './rightsrules.js';
 import { rightsRows } from './sidebarrules.js';
 
@@ -39,6 +41,26 @@ export function createAccessTab(ed, ctx) {
       ['api', 'API'],
     ],
     async (want) => {
+      // A switch that makes or ends the client waits for the Confirm (actsguard.js). A newer choice cancels an open one,
+      // and Cancel puts the old mode back.
+      guard.cancel();
+      const was = ed.fields().acts;
+      const sw = actsSwitch(was, want);
+      if (!sw) {
+        asking = null;
+        acts.set(was || 'session');
+        return;
+      }
+      asking = want;
+      askedFor = ed.panel()?.id;
+      actsNote.textContent = '';
+      const go = await guardActs(guard, was, want);
+      if (asking !== want) return;
+      asking = null;
+      if (!go) {
+        acts.set(ed.fields().acts);
+        return;
+      }
       // Acts as makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
       // save carries the panel's other unsaved changes with it. A refusal puts the choice back and says why.
       acts.disable(true);
@@ -46,13 +68,17 @@ export function createAccessTab(ed, ctx) {
       ed.setFields({ acts: want });
       const refused = await ed.save();
       if (refused) ed.setFields({ acts: undefined });
-      actsNote.textContent = refused || SAVED_NOTE[want];
+      // A switch with no Confirm still says what it kept.
+      actsNote.textContent = refused || (sw.confirm ? SAVED_NOTE[want] : `Saved. ${sw.text}`);
     },
   );
+  let asking = null; // the mode an open Confirm is for; update() shows it until the answer
+  let askedFor; // the panel it was asked on: opening another panel cancels it
+  const guard = confirmBox(node);
   const actsHint = el('p', 'sode__hint');
   const actsNote = el('p', 'sode__hint');
   actsNote.setAttribute('role', 'status');
-  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, actsHint, actsNote);
+  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, actsHint, guard.node, actsNote);
 
   const clientBox = el('div', 'sode-side__sec');
   const current = el('p', 'sode-side__rights');
@@ -119,7 +145,11 @@ export function createAccessTab(ed, ctx) {
       const p = ed.panel();
       const ro = ed.readOnly();
       const f = ed.fields();
-      acts.set(f.acts);
+      if (asking && p?.id !== askedFor) {
+        asking = null;
+        guard.cancel();
+      }
+      acts.set(asking ?? f.acts);
       // Switching to Session mode is open to the owner; setting up or widening a client needs a Trusted user (server rule).
       acts.disable(ro || (!me.trusted && !hasClient(p)));
       actsHint.textContent = f.acts === 'session' && !me.trusted && !ro ? 'Only a Trusted user can make it act as an API client.' : '';

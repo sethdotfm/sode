@@ -171,6 +171,14 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		t.Fatalf("rotate Lobby: Lobby %d, Studio %d", status(lobby), status(studio))
 	}
 
+	// Cancel on the shared Confirm (confirmbox.js) leaves the key alone.
+	b.eval(`document.querySelector('.sode-ov__share [aria-label="Revoke Studio"]').click()`)
+	b.waitFor("Confirm shown", `!!document.querySelector('.sode-ov__keyconfirm:not([hidden]) kbd')`)
+	b.eval(`[...document.querySelectorAll('.sode-ov__keyconfirm button')].find(x => x.textContent === 'Cancel').click()`)
+	b.waitFor("Cancel hides the Confirm", `document.querySelector('.sode-ov__keyconfirm').hidden`)
+	if status(studio) != 200 {
+		t.Fatal("Studio's key stopped working after a cancelled Revoke")
+	}
 	b.eval(`document.querySelector('.sode-ov__share [aria-label="Revoke Studio"]').click()`)
 	confirm(true)
 	b.waitFor("revoked", tabText+`.includes('Revoked Studio')`)

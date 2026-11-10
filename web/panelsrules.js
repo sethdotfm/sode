@@ -102,6 +102,30 @@ export const thumbCells = (p) => cellsIn(p).map(({ r, c, rs, cs, kind }) => ({ r
 // Keep in step with actsHasClient in internal/app/panelstore.go.
 export const hasClient = (p) => p?.acts === 'api' || p?.acts === 'both';
 
+const MODE_NAME = { session: 'User', both: 'Both', api: 'API' };
+
+// What switching Authentication mode does to the panel's client and keys, as apiPanelUpdate and pruneKeys do it.
+// confirm: the switch makes or ends the client (docs/agents/panels.md). null: no switch.
+export function actsSwitch(from, to) {
+  const was = from || 'session';
+  if (was === to) return null;
+  const name = MODE_NAME[to];
+  if (to === 'session') {
+    return {
+      confirm: true,
+      name,
+      text: `${name} ends the panel's API client, every instance key and every setup link. Each instance opened with a key signs out and its link stops working. This cannot be undone. Switching back makes a new client with no keys.`,
+    };
+  }
+  const plain = to === 'api' ? 'The plain link stops opening the panel.' : 'The plain link opens it as the signed-in user as well.';
+  if (hasClient({ acts: was })) return { confirm: false, name, text: `${name} keeps the panel's API client and every instance key. ${plain}` };
+  const next =
+    to === 'api'
+      ? 'Each instance needs a link made under Share, Link with key, and the plain link stops opening the panel.'
+      : 'Links with a key are made under Share, Link with key, and the plain link still opens it as the signed-in user.';
+  return { confirm: true, name, text: `${name} makes the panel its own API client, with no keys yet. ${next}` };
+}
+
 // The short form for a row, after the owner's name.
 export const actsShort = (p) => (p.acts === 'api' ? 'API client' : p.acts === 'both' ? 'API client or the user' : 'signs in as the user');
 

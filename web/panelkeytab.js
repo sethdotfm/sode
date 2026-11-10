@@ -2,9 +2,9 @@
 // per named instance. The tab lists them, rotates or revokes one at a time, and makes a link for a name. A link is
 // shown once, when it is made. Rotate, Revoke and any make that replaces a key each ask for a Confirm first (the
 // churning letter and the short lockout). Server side: internal/app/panelkey.go.
-import { el, icon, S, on } from './core.js';
+import { el, icon, on } from './core.js';
 import { btn, check, field } from './formbits.js';
-import { churnKey } from './lockrules.js';
+import { confirmBox } from './confirmbox.js';
 import { qrNode, secretNode } from './keyview.js';
 import { trapDialog } from './dialogkeys.js';
 import { shareTabs } from './panelshare.js';
@@ -29,7 +29,6 @@ import { linkBase, shareHostField } from './sharehost.js';
 import { linkRow } from './panellinkrow.js';
 import { hasClient } from './panelsrules.js';
 
-const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
 const REFRESH_MS = 5000; // how often the list asks again, so Online follows the instances
 const FAIL = Symbol('failed'); // a call that said why in the note
@@ -60,7 +59,6 @@ shareTabs.push(({ panel, api }) => {
   let max = 20;
   let made = null; // {name, secret, mode, link}: held only while this modal is open
   let revealed = false;
-  let confirming = null; // {kind, key, lock, ready}
   let busy = false;
 
   const note = el('p', 'sode__hint');
@@ -76,9 +74,7 @@ shareTabs.push(({ panel, api }) => {
   modes.setAttribute('aria-label', 'Kind of link');
   const modeHint = el('p', 'sode__hint');
   const actions = el('div', 'sode-ov__keyrow');
-  const confirmBox = el('div', 'sode-ov__keyconfirm');
-  confirmBox.hidden = true;
-  confirmBox.tabIndex = -1;
+  const guard = confirmBox(root);
   const linkBox = el('div', 'sode-ov__keylink');
   const nameIn = el('input', 'pb-input');
   nameIn.id = 'key-instance';
@@ -86,7 +82,7 @@ shareTabs.push(({ panel, api }) => {
   nameIn.autocomplete = 'off';
   nameIn.placeholder = 'Lobby tablet';
   nameIn.addEventListener('input', () => {
-    cancelAsk();
+    guard.cancel();
     paintTop();
   });
   const nameBox = field(
@@ -160,54 +156,17 @@ shareTabs.push(({ panel, api }) => {
 
   modes.addEventListener('change', (e) => {
     mode = e.target.dataset.mode;
-    cancelAsk();
+    guard.cancel();
     say('');
     paintTop();
     modes.querySelector(`[data-mode="${mode}"]`).focus();
   });
 
   // ---- Confirm
-  function cancelAsk() {
-    confirming?.lock && clearTimeout(confirming.lock);
-    confirming = null;
-    confirmBox.hidden = true;
-    confirmBox.replaceChildren();
-  }
   function ask(kind, run) {
-    cancelAsk();
-    const key = churnKey();
-    const keyEl = el('kbd', 'sode__key sode__key--locked', key.toUpperCase());
     const verb = kind === 'revoke' ? 'Revoke' : kind === 'setup' ? 'Replace the key' : 'Rotate';
-    const ok = btn('pb-btn--ok', `${verb} (${key.toUpperCase()})`, () => go());
-    ok.disabled = true;
-    const cancel = btn('pb-btn--outline', 'Cancel', () => {
-      cancelAsk();
-      paintTop();
-    });
-    const c = { kind, key, ready: false, lock: 0 };
-    c.lock = setTimeout(() => {
-      c.ready = true;
-      keyEl.classList.remove('sode__key--locked');
-      ok.disabled = false;
-    }, S.cfg?.confirmLockoutMs ?? LOCKOUT_FALLBACK_MS);
-    function go() {
-      if (!c.ready || confirming !== c) return;
-      cancelAsk();
-      run();
-    }
-    c.go = go;
-    confirming = c;
-    confirmBox.replaceChildren(el('p', null, CONFIRM_TEXT[kind]), el('div', 'sode__prompt', 'Press', keyEl, 'to confirm', ok, cancel));
-    confirmBox.hidden = false;
-    confirmBox.focus();
+    guard.ask(CONFIRM_TEXT[kind], verb).then((ok) => (ok ? run() : paintTop()));
   }
-  // The letter key answers the Confirm, as in the main page.
-  root.addEventListener('keydown', (e) => {
-    if (!confirming || e.ctrlKey || e.metaKey || e.altKey || e.key.toLowerCase() !== confirming.key) return;
-    e.preventDefault();
-    e.stopPropagation();
-    confirming.go();
-  });
 
   // ---- calls
   async function call(path, init) {
@@ -414,7 +373,7 @@ shareTabs.push(({ panel, api }) => {
     netSave,
   );
 
-  root.append(status, list, el('h3', 'sode-side__h', 'New link'), nameBox, modes, modeHint, actions, confirmBox, linkBox, netBox, note);
+  root.append(status, list, el('h3', 'sode-side__h', 'New link'), nameBox, modes, modeHint, actions, guard.node, linkBox, netBox, note);
   paintTop();
   paintList();
   syncNets();
