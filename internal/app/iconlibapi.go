@@ -22,6 +22,7 @@ func init() {
 		apiRoute{"PATCH", apiBase + "/icon-library/{icon}", manage, (*App).apiIconRename},
 		apiRoute{"DELETE", apiBase + "/icon-library/{icon}", manage, (*App).apiIconDelete},
 		apiRoute{"GET", apiBase + "/icon-library/{icon}/uses", manage, (*App).apiIconUses},
+		apiRoute{"POST", apiBase + "/icon-library/rescan", manage, (*App).apiIconRescan},
 	)
 }
 
@@ -47,6 +48,15 @@ func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return in, false
 	}
 	return in, true
+}
+
+// apiIconRescan answers 200 with what was added and skipped, even when nothing was, since a skip is the file's
+// problem, not the request's.
+func (a *App) apiIconRescan(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	if _, ok := a.readIconChange(w, r, cl); !ok {
+		return
+	}
+	apiJSON(w, a.rescanIcons(cl.Actor))
 }
 
 func (a *App) apiIconRename(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -136,13 +146,9 @@ func (a *App) apiIconUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) 
 		failWith(w, err)
 		return
 	}
-	typ, err := checkArtBytes(in.Data)
+	typ, err := checkLibBytes(in.Data)
 	if err != nil {
 		failWith(w, err)
-		return
-	}
-	if typ != "image/png" && typ != "image/svg+xml" {
-		apiFail(w, http.StatusUnsupportedMediaType, "unsupported_type", "a library icon is a PNG or SVG image")
 		return
 	}
 	ic, err := a.icons.add(in.Name, in.Data, typ)

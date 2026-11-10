@@ -1,7 +1,7 @@
 // The Icon library's pure rules (iconlibrules.js): names and the Choose icon picker's sections.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { libNameProblem, libNameOf, pickerSections, libDeleteText, LIB_NAME_MAX, LIB_TYPES } from '../iconlibrules.js';
+import { libNameProblem, libNameOf, pickerSections, libDeleteText, libRescanText, LIB_NAME_MAX, LIB_TYPES } from '../iconlibrules.js';
 
 test('a library icon name is 1 to 40 characters, counted as characters, not UTF-16 units', () => {
   assert.equal(LIB_NAME_MAX, 40);
@@ -64,4 +64,25 @@ test('the delete Confirm says how many cells on how many panels lose Icon A, and
   );
   // The count could not be read: the Confirm still asks, without a number.
   assert.equal(libDeleteText('Logo', null), 'Delete Logo from the Icon library? Cells that use it will draw no Icon A; their Icon B and text stay.');
+});
+
+test('a Rescan says what it added and names each skipped file with its reason', () => {
+  assert.equal(libRescanText({ added: [], skipped: [] }), 'Rescan found no files in icons/drop-in.');
+  assert.equal(libRescanText({ added: [{ name: 'Logo' }], skipped: [] }), 'Added 1 icon: Logo.');
+  assert.equal(libRescanText({ added: [{ name: 'Logo' }, { name: 'Cam 2' }], skipped: [] }), 'Added 2 icons: Logo, Cam 2.');
+  assert.equal(
+    libRescanText({ added: [], skipped: [{ file: 'Wide.png', reason: 'artwork is at most 1024 by 1024 pixels' }] }),
+    'Skipped 1 file: Wide.png (artwork is at most 1024 by 1024 pixels).',
+  );
+  assert.equal(
+    libRescanText({
+      added: [{ name: 'Logo' }],
+      skipped: [
+        { file: 'a.jpg', reason: 'x' },
+        { file: 'b.svg', reason: 'y' },
+      ],
+    }),
+    'Added 1 icon: Logo. Skipped 2 files: a.jpg (x), b.svg (y).',
+  );
+  assert.equal(libRescanText(null), 'Rescan found no files in icons/drop-in.');
 });

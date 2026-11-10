@@ -59,10 +59,11 @@ type iconLibData struct {
 
 // iconLib: values handed out are copies; every change writes the index before memory moves.
 type iconLib struct {
-	mu   sync.Mutex
-	path string // "" = memory only
-	data iconLibData
-	mem  map[string][]byte
+	mu     sync.Mutex
+	scanMu sync.Mutex // one rescan at a time, so two never add the same file
+	path   string     // "" = memory only
+	data   iconLibData
+	mem    map[string][]byte
 }
 
 func loadIconLib(cfgPath string) *iconLib {

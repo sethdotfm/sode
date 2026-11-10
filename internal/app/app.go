@@ -199,6 +199,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.templates = loadTemplates(cfgPath)
 	a.artDefaults = loadArtDefaults(cfgPath)
 	a.icons = loadIconLib(cfgPath)
+	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
