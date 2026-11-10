@@ -188,6 +188,7 @@ func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	a.monFields(out, cl, p, edit)
 	// The page mirrors these before arming a take; the server still enforces them.
 	out["rights"] = cl.Rights.Clone()
+	out["artDefaults"] = a.panelArtDefaults(cl, p)
 	apiJSON(w, out)
 }
 
@@ -393,22 +394,10 @@ func (a *App) apiArtUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		}
 		return
 	}
-	typ := sniffArt(data)
-	if typ == "" {
-		apiFail(w, http.StatusUnsupportedMediaType, "unsupported_type", "artwork is a JPEG, PNG, GIF or SVG image")
+	typ, f := checkArtBytes(data)
+	if f != nil {
+		failWith(w, f)
 		return
-	}
-	if typ != "image/svg+xml" {
-		// DecodeConfig reads the header only, so a huge image costs no pixel memory here.
-		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-		if err != nil {
-			apiFail(w, http.StatusBadRequest, "bad_request", "the image header could not be read")
-			return
-		}
-		if cfg.Width > panelArtSide || cfg.Height > panelArtSide {
-			apiFail(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("artwork is at most %d by %d pixels, this one is %d by %d", panelArtSide, panelArtSide, cfg.Width, cfg.Height))
-			return
-		}
 	}
 	art, _, err := a.panels.addArt(p.ID, data, typ)
 	if err != nil {
@@ -418,9 +407,44 @@ func (a *App) apiArtUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	apiCreated(w, art)
 }
 
-// apiArtGet serves the stored type, never one the uploader named. The headers keep a script in
-// an SVG from running even if someone opens the URL directly: sandbox without allow-scripts,
-// nothing loadable, no sniffing. Pages must show it as an image, never inline.
+// checkArtBytes judges artwork by its content: the type, and a raster's sides. Panel uploads and
+// Default artwork both pass through it.
+func checkArtBytes(data []byte) (string, error) {
+	if len(data) > panelArtBytes {
+		return "", &panelClientFail{http.StatusRequestEntityTooLarge, "too_large", "artwork is at most 2 MB"}
+	}
+	typ := sniffArt(data)
+	if typ == "" {
+		return "", &panelClientFail{http.StatusUnsupportedMediaType, "unsupported_type", "artwork is a JPEG, PNG, GIF or SVG image"}
+	}
+	if typ != "image/svg+xml" {
+		// DecodeConfig reads the header only, so a huge image costs no pixel memory here.
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+		if err != nil {
+			return "", &panelClientFail{http.StatusBadRequest, "bad_request", "the image header could not be read"}
+		}
+		if cfg.Width > panelArtSide || cfg.Height > panelArtSide {
+			msg := fmt.Sprintf("artwork is at most %d by %d pixels, this one is %d by %d", panelArtSide, panelArtSide, cfg.Width, cfg.Height)
+			return "", &panelClientFail{http.StatusBadRequest, "bad_request", msg}
+		}
+	}
+	return typ, nil
+}
+
+// serveArtBytes writes stored artwork. The headers keep a script in an SVG from running even if
+// someone opens the URL directly: sandbox without allow-scripts, nothing loadable, no sniffing.
+// Pages must show it as an image, never inline.
+func serveArtBytes(w http.ResponseWriter, typ string, data []byte) {
+	h := w.Header()
+	h.Set("Content-Type", typ)
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	h.Set("Cross-Origin-Resource-Policy", "same-origin")
+	h.Set("Cache-Control", "private, no-cache")
+	w.Write(data)
+}
+
+// apiArtGet serves the stored type, never one the uploader named.
 func (a *App) apiArtGet(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	p, ok := a.panelFor(w, r, cl, false)
 	if !ok {
@@ -431,13 +455,7 @@ func (a *App) apiArtGet(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		apiFail(w, http.StatusNotFound, "not_found", "no such artwork on this panel")
 		return
 	}
-	h := w.Header()
-	h.Set("Content-Type", art.Type)
-	h.Set("X-Content-Type-Options", "nosniff")
-	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
-	h.Set("Cross-Origin-Resource-Policy", "same-origin")
-	h.Set("Cache-Control", "private, no-cache")
-	w.Write(data)
+	serveArtBytes(w, art.Type, data)
 }
 
 func (a *App) apiArtDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
