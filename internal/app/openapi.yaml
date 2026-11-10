@@ -1806,6 +1806,8 @@ components:
         group: { type: string, description: Entries of one take of several routes share it }
         groupN: { type: integer, description: Routes in the Group; absent for a hidden caller }
         preset: { type: string, description: The preset this take was fired from }
+        panel: { type: string, description: "The panel whose page made the take: its name, else its short name. A Session-mode page names itself" }
+        instance: { type: string, description: The instance of that panel, its device name }
         ext: { type: boolean, description: An External change }
         found: { type: boolean, description: External only, changed without a Connected and seen when Sode re-read the router }
         follow: { type: integer, description: External only, the id of the take this seems to follow }

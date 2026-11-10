@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/sethdotfm/sode/internal/swp08"
 )
 
 // Communication Log rows from a panel name the panel's short name and the instance (docs/agents/comm-log.md).
@@ -64,6 +65,74 @@ func TestPanelClientTakeRowNamesPanelAndInstance(t *testing.T) {
 	e = lastRow(t, a, "take", 2)
 	if e.Result != "refused" || !strings.Contains(e.Note, "panel wall (Wall), instance Lobby") {
 		t.Fatalf("refused row %+v", e)
+	}
+}
+
+// The router messages of a panel's take carry the panel tag too, and its History entry names the panel and the
+// instance, with a panel key and with a Session-mode page's headers alike.
+func TestPanelTakeWireRowsAndHistoryNameInstance(t *testing.T) {
+	a, f := clientApp(t)
+	shortTimers(a)
+	defer startLog(t, a)()
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, slugPanel)
+	secret, _ := mintKey(t, a, cy, id)
+	f.seed(2, 1, 0)
+
+	// Every message the take sent (connect and interrogate) carries the tag, and the row shows it in Note.
+	sentNote := func() string {
+		t.Helper()
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		note := ""
+		for _, w := range f.whys {
+			if w.why.Reason != swp08.ReasonTake && w.why.Reason != swp08.ReasonCheck && w.why.Reason != swp08.ReasonConfirm {
+				continue
+			}
+			if note != "" && w.why.Note != note {
+				t.Fatalf("messages of one take disagree: %q, %q", note, w.why.Note)
+			}
+			note = w.why.Note
+		}
+		f.whys = nil
+		return note
+	}
+
+	rec := apiPost(a, "/api/v1/takes", secret, `{"routes":[{"src":3,"dst":2,"levels":[1]}]}`, map[string]string{"X-Sode-Instance": "Front desk"})
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if n := sentNote(); n != "panel wall (Wall), instance Front desk" {
+		t.Fatalf("router messages %q", n)
+	}
+	if row := a.describe(swp08.TxEvent{Msg: []byte{0x02}, Why: swp08.Why{Reason: swp08.ReasonTake, Note: "panel wall (Wall), instance Front desk"}}); row.Note != "panel wall (Wall), instance Front desk" {
+		t.Fatalf("row note %q", row.Note)
+	}
+	es, _ := a.hist.Page(-1, 1)
+	if len(es) != 1 || es[0].Panel != "Wall" || es[0].Instance != "Front desk" {
+		t.Fatalf("history %+v", es)
+	}
+
+	// Session mode: the page names itself; a user's take with no panel names none.
+	other := makePanel(t, a, cy, `{"name":"Desk"}`)
+	rec = apiPost(a, "/api/v1/takes", cy, `{"routes":[{"src":2,"dst":2,"levels":[1]}]}`, map[string]string{"X-Sode-Panel": other, "X-Sode-Instance": "Lobby"})
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if n := sentNote(); n != "unverified panel "+other+" (Desk), instance Lobby" {
+		t.Fatalf("router messages %q", n)
+	}
+	es, _ = a.hist.Page(-1, 1)
+	if len(es) != 1 || es[0].Panel != "Desk" || es[0].Instance != "Lobby" {
+		t.Fatalf("history %+v", es)
+	}
+	rec = apiPost(a, "/api/v1/takes", cy, `{"routes":[{"src":3,"dst":2,"levels":[1]}]}`, nil)
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	es, _ = a.hist.Page(-1, 1)
+	if len(es) != 1 || es[0].Panel != "" || es[0].Instance != "" {
+		t.Fatalf("history %+v", es)
 	}
 }
 

@@ -47,6 +47,8 @@ const (
 type Why struct {
 	Reason Reason
 	By     string
+	// Note goes in the Communication Log row's Note, after any of its own (a panel page's tag).
+	Note string
 	// Done, if set, is closed once the message's fate is known, so callers count timeouts from when the router could have seen it.
 	Done chan struct{}
 }

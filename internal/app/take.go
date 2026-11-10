@@ -375,6 +375,9 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 		return nil, nil, err
 	}
 	w.why = swp08.Why{Reason: swp08.ReasonTake, By: c.who()}
+	if c.api != nil {
+		w.why.Note = a.panelNote(c.api.Actor)
+	}
 	if req.Undo != nil {
 		w.why.Reason = swp08.ReasonUndo
 	} else if req.Retry != nil {
@@ -383,6 +386,7 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 	e := &Entry{Time: time.Now(), Client: c.who(), Src: req.Src, Dst: req.Dst, Levels: uis(w.levels), Undo: req.Undo, Retry: req.Retry, Group: req.Group, GroupN: req.GroupN, Preset: req.Preset, Prev: [][2]int{}}
 	if c.api != nil {
 		e.setActor(c.api.Actor)
+		e.Panel, e.Instance = a.panelNames(c.api.Actor)
 	}
 	return w, e, nil
 }
@@ -760,7 +764,7 @@ func (a *App) leftQueue(done <-chan struct{}) {
 }
 
 func (a *App) interrogate(r *runtime, w *waiter, ls []*routeLevel, reason swp08.Reason) (<-chan struct{}, error) {
-	why := swp08.Why{Reason: reason, By: w.why.By}
+	why := swp08.Why{Reason: reason, By: w.why.By, Note: w.why.Note}
 	var last <-chan struct{}
 	for _, l := range ls {
 		done, err := a.sendTracked(w.ext, swp08.ExtInterrogate(r.cfg.Matrix, l.wire, w.dst), why)

@@ -113,6 +113,12 @@ func (a *App) describe(ev swp08.TxEvent) Sent {
 	case q.Kind == "salvoGo":
 		e.Note = fmt.Sprintf("salvo %d: set", q.Group)
 	}
+	if ev.Why.Note != "" {
+		if e.Note != "" {
+			e.Note += "; "
+		}
+		e.Note += ev.Why.Note
+	}
 	if ev.Why.Reason == swp08.ReasonKeepalive {
 		// A link check; whatever it asks about is beside the point.
 		e.Kind = "keepalive"

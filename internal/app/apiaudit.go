@@ -54,6 +54,22 @@ func panelTag(p Panel, instance string) string {
 	return s
 }
 
+// panelNames is what History shows for a take from a panel page: the panel's name (its short name when it has
+// none) and the instance, both "" for a call no panel page made. Taken at the take, so a later rename leaves it.
+func (a *App) panelNames(act Actor) (panel, instance string) {
+	if act.panel == "" {
+		return "", ""
+	}
+	p, ok := a.panels.get(act.panel)
+	if !ok {
+		p = Panel{ID: act.panel}
+	}
+	if p.Name != "" {
+		return p.Name, act.instance
+	}
+	return panelShort(p), act.instance
+}
+
 // panelNote is the actor's panel tag, or "" for a call no panel page made. A panel deleted since
 // auth is named by its id.
 func (a *App) panelNote(act Actor) string {

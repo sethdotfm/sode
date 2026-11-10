@@ -1,6 +1,6 @@
 // Widgets both layouts build the same way; each layout passes its own elements.
 
-import { actorUser, groupActor } from './lockrules.js';
+import { byText } from './lockrules.js';
 import { el, S, needsLink, srcItem, dstItem, tallyText, dstLabel, chevron, icon } from './core.js';
 import { mac, listStep } from './keys.js';
 import { levelBar, levelText, parseLevels, levelInput, defaultLevelsHint, relabelLevels, pickButtons, allLevels } from './levelview.js';
@@ -598,10 +598,8 @@ export { lockout } from './lockout.js';
 
 export { trapDialog } from './dialogkeys.js';
 
-// "by Ana": a Sode take by a configured user (never an address; ext and found entries have
-// none). A folder shows it when all its takes share one.
+// Who made a take: a configured user (never an address; ext and found entries have none) and the panel page.
 export function byLabel(x) {
-  const users = S.userNames;
-  const name = x.entries ? groupActor(x.entries, users) : actorUser(x.client, users);
-  return name ? el('span', 'sode__hist-by', `by ${name}`) : null;
+  const text = byText(x, S.userNames);
+  return text ? el('span', 'sode__hist-by', text) : null;
 }
