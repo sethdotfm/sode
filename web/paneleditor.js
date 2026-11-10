@@ -614,7 +614,7 @@ export async function runEditor() {
   $('ed-live').addEventListener('click', async () => {
     if (live.on()) return live.stop();
     if (!readOnly() && dirty()) await save();
-    if (loaded && !dirty()) live.start(loaded.id);
+    if (loaded && !dirty()) live.start(loaded.id, focus);
   });
 
   $('ed-copylink').addEventListener('click', async () => {
