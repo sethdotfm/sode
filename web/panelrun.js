@@ -65,6 +65,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   let ended = false; // the key is gone or refused, or an embedded run was stopped: only a new link or start helps
   let holdTimer = 0;
   let art = null;
+  let wake = null;
   run.stop = () => {
     ended = true;
     timers.forEach(clearInterval);
@@ -148,7 +149,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   };
   let look = applyLook(panel);
   if (!embedded) {
-    if (look.wake) createWake(navigator, document).on();
+    if (look.wake) {
+      wake = createWake(navigator, document);
+      wake.on();
+    }
     const notes = featureNotes(look, navigator, window.isSecureContext);
     if (notes.length) say(ui.note, notes.join(' '));
   }
@@ -279,6 +283,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
 
   function onPress(cell) {
     if (!ready) return;
+    wake?.retry();
     if (look.haptics && !embedded) buzz(navigator);
     if ((look.fullscreen || look.landscape) && !embedded) enterFullscreen(document, look.landscape);
     const now = Date.now();

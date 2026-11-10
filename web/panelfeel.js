@@ -2,7 +2,8 @@
 // Both are missing in some browsers (iOS has no vibrate), so the editor asks featureSupport and hides or disables
 // the switch, and the panel page does nothing for a switch that is on anyway.
 
-const HAPTIC_MS = 15;
+// Android motors often cannot start under about 30 ms, so a shorter pulse is dropped silently.
+const HAPTIC_MS = 40;
 
 export const featureSupport = (nav) => ({ wake: !!nav?.wakeLock?.request, haptics: typeof nav?.vibrate === 'function' });
 
@@ -38,6 +39,8 @@ export function createWake(nav, doc) {
   };
   return {
     held: () => !!sentinel,
+    // Safari may refuse a request made without a touch, so a press asks again.
+    retry: request,
     async on() {
       if (wanted) return;
       wanted = true;
