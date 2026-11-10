@@ -1,7 +1,7 @@
 // The grid model with the Preset, Clear and Current Source cell kinds.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGrid, select, setKind, unassigned, cellAt } from '../gridmodel.js';
+import { createGrid, select, setKind, isUnassigned, cellAt } from '../gridmodel.js';
 
 const grid = (cells) => createGrid({ rows: 4, cols: 8, cells });
 
@@ -14,7 +14,7 @@ test('a Preset cell is unassigned until it names a preset, and Clear and Current
   ]);
   assert.equal(g.cells.length, 4);
   assert.deepEqual(
-    unassigned(g).map((c) => c.c),
+    g.cells.filter(isUnassigned).map((c) => c.c),
     [1],
   );
 });

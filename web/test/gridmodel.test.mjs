@@ -27,11 +27,7 @@ import {
   applyFill,
   extendPlan,
   applyExtend,
-  unassigned,
-  countUnassigned,
-  nextTodo,
-  countTodo,
-  emptySquares,
+  isUnassigned,
   saved,
 } from '../gridmodel.js';
 import { cellsIn } from '../panelrules.js';
@@ -137,7 +133,7 @@ test('Type to another kind keeps caption, levels and span but drops the number',
 test('Type ignores a kind the panel page does not know, and a Take cell needs no number', () => {
   const g = pick(grid(), 1, 1);
   assert.equal(setKind(g, 'nonsense'), g);
-  assert.equal(countUnassigned(setKind(g, 'take')), 0);
+  assert.equal(setKind(g, 'take').cells.filter(isUnassigned).length, 0);
 });
 
 test('Type Empty and Delete remove the cells in the selection', () => {
@@ -350,57 +346,12 @@ test('the grip needs a target that grows the selection on exactly one side', () 
 test('a cell with a kind but no number is unassigned, in reading order, and a Take is not', () => {
   const g = grid([S(2, 1, 0), { r: 1, c: 5, kind: 'destination' }, { r: 1, c: 2, kind: 'source' }, { r: 3, c: 3, kind: 'take' }]);
   assert.deepEqual(
-    unassigned(g).map((c) => [c.r, c.c]),
+    g.cells.filter(isUnassigned).map((c) => [c.r, c.c]).sort((a, b) => a[0] - b[0] || a[1] - b[1]),
     [
       [1, 2],
       [1, 5],
     ],
   );
-  assert.equal(countUnassigned(g), 2);
-});
-
-test('squares with no cell count as unassigned too, so a panel with gaps is never reported complete', () => {
-  const g = grid([S(1, 1, 0), S(1, 2, 1), { r: 2, c: 1, rs: 2, cs: 1, kind: 'destination' }], 3, 3);
-  assert.deepEqual(
-    emptySquares(g).map((c) => [c.r, c.c]),
-    [
-      [1, 3],
-      [2, 2],
-      [2, 3],
-      [3, 2],
-      [3, 3],
-    ],
-  );
-  // One unassigned cell (the merged destination) and five empty squares; a merged cell counts once.
-  assert.equal(countUnassigned(g), 1);
-  assert.equal(countTodo(g), 6);
-  assert.equal(countTodo(grid([S(1, 1, 0), S(1, 2, 1)], 1, 2)), 0);
-  assert.equal(countTodo(grid()), 32);
-});
-
-test('the count follows typing, merging, fills and loading a saved panel', () => {
-  let g = grid([], 2, 2);
-  assert.equal(countTodo(g), 4);
-  g = setKind(pick(g, 1, 1, 2, 2), 'source');
-  assert.equal(countTodo(g), 4);
-  g = merge(g);
-  assert.equal(countTodo(g), 1);
-  const loaded = createGrid({ rows: 2, cols: 2, cells: [S(1, 1, 5), { r: 1, c: 2, kind: 'source' }] });
-  assert.equal(countTodo(loaded), 3);
-});
-
-test('Next selects the first square to fill after the selection, empty squares included, and wraps round', () => {
-  let g = grid([S(1, 1, 0), { r: 1, c: 2, kind: 'source' }, S(2, 1, 1)], 2, 3);
-  g = nextTodo(g);
-  assert.deepEqual(rectOf(g), { r1: 1, c1: 2, r2: 1, c2: 2 });
-  g = nextTodo(g);
-  assert.deepEqual(rectOf(g), { r1: 1, c1: 3, r2: 1, c2: 3 });
-  g = nextTodo(g);
-  g = nextTodo(g);
-  assert.deepEqual(rectOf(g), { r1: 2, c1: 3, r2: 2, c2: 3 });
-  g = nextTodo(g);
-  assert.deepEqual(rectOf(g), { r1: 1, c1: 2, r2: 1, c2: 2 });
-  assert.equal(nextTodo(grid([S(1, 1, 0)], 1, 1)).sel, null);
 });
 
 test('saved panel cells are in reading order with spans, and unassigned cells stay (the page leaves them out)', () => {

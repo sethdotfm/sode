@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { saveTemplateBody, templateGrid, groupTemplates, templateNote, pinNeeded } from '../templaterules.js';
-import { createGrid, select, setKind, countUnassigned, saved } from '../gridmodel.js';
+import { createGrid, select, setKind, isUnassigned, saved } from '../gridmodel.js';
 
 const grid = () => {
   let g = createGrid({ rows: 2, cols: 3 });
@@ -55,14 +55,14 @@ test('an applied template brings its cells back unassigned', () => {
   const g = templateGrid(stored);
   assert.deepEqual([g.rows, g.cols], [2, 3]);
   assert.equal(g.cells.length, 3);
-  assert.equal(countUnassigned(g), 2);
+  assert.equal(g.cells.filter(isUnassigned).length, 2);
   assert.equal(g.sel, null);
 });
 
 test('a template with contents keeps them', () => {
   const g = templateGrid({ rows: 1, cols: 2, sources: true, dests: true, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: 'source', n: 4 }] });
   assert.equal(g.cells[0].n, 4);
-  assert.equal(countUnassigned(g), 0);
+  assert.equal(g.cells.filter(isUnassigned).length, 0);
 });
 
 test('the list groups Me and Everyone, by name', () => {

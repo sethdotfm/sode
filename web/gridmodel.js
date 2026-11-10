@@ -321,27 +321,6 @@ export function applyExtend(g, plan) {
 export const isUnassigned = (c) => !cellsIn({ rows: c.r + c.rs, cols: c.c + c.cs, cells: [c] }).length;
 // What a live panel shows of this grid: every cell it can use, so unassigned ones are left out.
 export const liveCells = (g) => cellsIn(g);
-export const unassigned = (g) => g.cells.filter(isUnassigned).sort(reading);
-export const countUnassigned = (g) => unassigned(g).length;
-
-// Squares no cell covers. The toolbar counts them with the unassigned cells, since either one still needs a decision.
-export function emptySquares(g) {
-  const out = [];
-  for (let r = 1; r <= g.rows; r++) for (let c = 1; c <= g.cols; c++) if (!cellAt(g, r, c)) out.push({ r, c, rs: 1, cs: 1 });
-  return out;
-}
-const todo = (g) => [...unassigned(g), ...emptySquares(g)].sort(reading);
-export const countTodo = (g) => todo(g).length;
-
-// Selects the first square to fill (an unassigned cell or an empty square) after the selection in reading order, then wraps round.
-export function nextTodo(g) {
-  const list = todo(g);
-  if (!list.length) return g;
-  const q = rectOf(g);
-  const after = q ? list.find((c) => c.r > q.r1 || (c.r === q.r1 && c.c > q.c1)) : null;
-  const pick = after || list[0];
-  return selectRect(g, { r1: pick.r, c1: pick.c, r2: pick.r, c2: pick.c });
-}
 
 // The grid as a panel stores it: reading order, no selection. Unassigned cells are kept.
 // Fixed destination keeps Destination cells out of the editor's grid but in the stored panel, so no edit can touch a
