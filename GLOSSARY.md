@@ -192,6 +192,27 @@ Describes a change a panel holds for one destination until Take. Each destinatio
 **Merged cell**:
 A cell that spans several squares of the grid, such as a large Take cell.
 
+**Page**:
+One of up to 16 grids a panel holds, in order, each with an optional name. All pages of a panel are the same size and share one plan. A page's number is its position and changes when pages are reordered. A Page can be disabled, which greys out every cell that leads to it.
+
+**Browser page**:
+The web page a person opens, such as a panel's own page or the editor. Not a Page of a panel.
+
+**Go to Page** (cell kind):
+A cell that shows another Page of the panel. It is bound to that Page itself, so reordering or renaming the Page does not change its target. It still works when the target Page has no cells.
+
+**Next Page** / **Previous Page** (cell kinds):
+Cells that show the Page one after or one before the current one, skipping disabled Pages. Past the last or first Page they go to the other end, unless the panel's wrap setting is off.
+
+**Fill cascade**:
+What a fill or paste does when it runs past the last square of a Page: it continues on the next enabled Page, and stops at the last Page without returning to the first.
+
+**Page Name** (cell kind):
+A cell that shows the name, the number or both of the Page it sits on. It cannot be pressed.
+
+**Info** (cell kind):
+A cell that combines the panel's name, its Page's number, its Page's name and the instance's name, each switched on or off. It cannot be pressed.
+
 **Armed**:
 Describes a Take cell once a Source and a Destination are selected. It lights or blinks until pressed, and pressing it is the Confirm.
 
