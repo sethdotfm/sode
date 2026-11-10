@@ -44,8 +44,8 @@ func TestIconLibraryRefsSurvivePushCopyAndTemplate(t *testing.T) {
 		t.Errorf("push reported a library icon as skipped artwork: %s", rec.Body.String())
 	}
 	got, _ := a.panels.get(dst)
-	if arts := cellArts(t, got.Cells); len(arts) != 2 || arts[0] != ref || arts[1] != "lib:0badc0de" || got.Cells[0]["artB"] != "2" {
-		t.Fatalf("pushed cells %v", got.Cells)
+	if arts := cellArts(t, got.Pages[0].Cells); len(arts) != 2 || arts[0] != ref || arts[1] != "lib:0badc0de" || got.Pages[0].Cells[0]["artB"] != "2" {
+		t.Fatalf("pushed cells %v", got.Pages[0].Cells)
 	}
 	if len(got.Art) != 0 {
 		t.Errorf("push stored artwork for library icons: %v", got.Art)
@@ -59,7 +59,7 @@ func TestIconLibraryRefsSurvivePushCopyAndTemplate(t *testing.T) {
 	if cp["artSkipped"] != nil {
 		t.Errorf("copy skipped %v", cp["artSkipped"])
 	}
-	if c := cp["cells"].([]any)[0].(map[string]any); c["art"] != ref {
+	if c := page1Cells(cp)[0].(map[string]any); c["art"] != ref {
 		t.Fatalf("copied cell %v", c)
 	}
 
@@ -68,7 +68,7 @@ func TestIconLibraryRefsSurvivePushCopyAndTemplate(t *testing.T) {
 		t.Fatalf("template: %d %s", rec.Code, rec.Body.String())
 	}
 	tid := apiBody(t, rec)["id"].(string)
-	tc := apiBody(t, apiDo(a, "GET", "/api/v1/panel-templates/"+tid, ana, nil))["cells"].([]any)
+	tc := page1Cells(apiBody(t, apiDo(a, "GET", "/api/v1/panel-templates/"+tid, ana, nil)))
 	if tc[0].(map[string]any)["art"] != ref || tc[1].(map[string]any)["art"] != "lib:0badc0de" {
 		t.Fatalf("template cells %v", tc)
 	}
@@ -124,12 +124,12 @@ func TestIconLibraryRefsRoundTripWithoutTheLibrary(t *testing.T) {
 	if defs, _ := json.Marshal(out["artDefaults"]); !strings.Contains(string(defs), ref) {
 		t.Fatalf("panel read lacks the default: %s", defs)
 	}
-	body, _ := json.Marshal(map[string]any{"name": "Wall", "cells": out["cells"], "settings": out["settings"]})
+	body, _ := json.Marshal(map[string]any{"name": "Wall", "pages": out["pages"], "settings": out["settings"]})
 
 	b := panelsApp(t)
 	bo := userKey(t, b, "Ana")
 	id := makePanel(t, b, bo, string(body))
-	cells := apiBody(t, apiDo(b, "GET", "/api/v1/panels/"+id, bo, nil))["cells"].([]any)
+	cells := page1Cells(apiBody(t, apiDo(b, "GET", "/api/v1/panels/"+id, bo, nil)))
 	if cells[0].(map[string]any)["art"] != ref || cells[1].(map[string]any)["art"] != nil {
 		t.Fatalf("imported cells %v", cells)
 	}

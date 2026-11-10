@@ -251,7 +251,7 @@ func TestArtDefaultRidesPanelRead(t *testing.T) {
 		t.Fatalf("artDefaults %v", ds)
 	}
 	// Stored cells never take the default: a save of the read leaves the cell bare.
-	if c := p["cells"].([]any)[0].(map[string]any); c["art"] != nil {
+	if c := page1Cells(p)[0].(map[string]any); c["art"] != nil {
 		t.Fatalf("cell froze the default: %v", c)
 	}
 	back, _ := json.Marshal(p)
@@ -259,7 +259,7 @@ func TestArtDefaultRidesPanelRead(t *testing.T) {
 		t.Fatalf("save the read back: %d %s", rec.Code, rec.Body.String())
 	}
 	got, _ := a.panels.get(id)
-	if _, ok := got.Extra["artDefaults"]; ok || got.Cells[0]["art"] != nil {
+	if _, ok := got.Extra["artDefaults"]; ok || got.Pages[0].Cells[0]["art"] != nil {
 		t.Fatalf("stored %+v", got)
 	}
 }
@@ -277,15 +277,15 @@ func TestArtDefaultNotFrozenByPushOrTemplate(t *testing.T) {
 		t.Fatalf("push: %d %s", rec.Code, rec.Body.String())
 	}
 	got, _ := a.panels.get(dst)
-	if len(got.Cells) != 2 || got.Cells[0]["art"] != nil || got.Cells[0]["hideText"] != nil || got.Cells[1]["art"] != "icon:mic" {
-		t.Fatalf("pushed cells %v", got.Cells)
+	if len(got.Pages[0].Cells) != 2 || got.Pages[0].Cells[0]["art"] != nil || got.Pages[0].Cells[0]["hideText"] != nil || got.Pages[0].Cells[1]["art"] != "icon:mic" {
+		t.Fatalf("pushed cells %v", got.Pages[0].Cells)
 	}
 
 	rec := apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"T","scope":"me","sources":true,"cells":`+cells+`}`)
 	if rec.Code != 201 {
 		t.Fatalf("template: %d %s", rec.Code, rec.Body.String())
 	}
-	tc := apiBody(t, rec)["cells"].([]any)
+	tc := page1Cells(apiBody(t, rec))
 	if tc[0].(map[string]any)["art"] != nil || tc[1].(map[string]any)["art"] != "icon:mic" {
 		t.Fatalf("template cells %v", tc)
 	}

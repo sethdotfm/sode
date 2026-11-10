@@ -101,7 +101,7 @@ func (a *App) apiIconUses(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	cells, panels := 0, 0
 	for _, p := range a.panels.list() {
 		n := 0
-		for _, c := range p.Cells {
+		for c := range allCells(p.Pages) {
 			if c["art"] == ref {
 				n++
 			}

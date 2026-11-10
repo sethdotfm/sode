@@ -53,8 +53,10 @@ type Template struct {
 	Contents bool             `yaml:"contents,omitempty" json:"contents,omitempty"`
 	Rows     int              `yaml:"rows" json:"rows"`
 	Cols     int              `yaml:"cols" json:"cols"`
-	Cells    []map[string]any `yaml:"cells" json:"cells"`
-	Settings map[string]any   `yaml:"settings,omitempty" json:"settings,omitempty"`
+	Pages    []PanelPage      `yaml:"pages" json:"pages"`
+	// LegacyCells is a template from before Pages; migrate makes it one Page.
+	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
+	Settings    map[string]any   `yaml:"settings,omitempty" json:"settings,omitempty"`
 }
 
 // templateIn is the body of a save. Pin is only read for Everyone, and never stored.
@@ -75,12 +77,14 @@ func (t *Template) keepsContents(kind any) bool {
 	return t.Sources || t.Dests
 }
 
-// migrate turns the old single flag into the two it became.
+// migrate turns the old single flag into the two it became, and an old grid into one Page.
 func (t *Template) migrate() {
 	if t.Contents {
 		t.Sources, t.Dests = true, true
 	}
 	t.Contents = false
+	t.Pages = normalPages(t.Pages, t.LegacyCells, t.ID)
+	t.LegacyCells = nil
 }
 
 func validTemplateID(id string) bool { return tplIDRe.MatchString(id) }
@@ -105,21 +109,25 @@ func (t *Template) clean() error {
 	if t.Rows < 1 || t.Rows > panelRowsMax || t.Cols < 1 || t.Cols > panelColsMax {
 		return fmt.Errorf("rows and columns are 1 to %d and 1 to %d", panelRowsMax, panelColsMax)
 	}
-	if len(t.Cells) > panelRowsMax*panelColsMax {
-		return errors.New("too many cells for the grid")
+	pages, err := checkPages(t.Pages, t.Rows, t.Cols)
+	if err != nil {
+		return err
 	}
-	cells := make([]map[string]any, 0, len(t.Cells))
-	for _, c := range t.Cells {
-		c = maps.Clone(c)
-		if !t.keepsContents(c["kind"]) {
-			for _, k := range contentKeys {
-				delete(c, k)
+	for i, g := range pages {
+		cells := make([]map[string]any, 0, len(g.Cells))
+		for _, c := range g.Cells {
+			c = maps.Clone(c)
+			if !t.keepsContents(c["kind"]) {
+				for _, k := range contentKeys {
+					delete(c, k)
+				}
 			}
+			dropArtwork(c, "art")
+			cells = append(cells, c)
 		}
-		dropArtwork(c, "art")
-		cells = append(cells, c)
+		pages[i].Cells = cells
 	}
-	t.Cells = cells
+	t.Pages = pages
 	if t.Settings != nil {
 		t.Settings = maps.Clone(t.Settings)
 		dropArtwork(t.Settings, "backdrop")
@@ -306,7 +314,7 @@ func (a *App) apiTemplateCreate(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusForbidden, "user_required", "a template is owned by a user: use a user's key to save one")
 		return
 	}
-	body, ok := readBody(w, r, panelBodyMax, "template")
+	body, ok := readBody(w, r, panelLayoutBodyMax, "template")
 	if !ok {
 		return
 	}

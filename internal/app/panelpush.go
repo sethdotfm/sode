@@ -16,8 +16,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Push and checkpoints (docs/panels-design.md). A layout is what a Push copies: the grid, its
-// settings and fields this version does not know. Identity (id, name, owner, sharing), the API
+// Push and checkpoints (docs/panels-design.md). A layout is what a Push copies: the grid with every
+// Page and its id, its settings and fields this version does not know. Identity (id, name, owner, sharing), the API
 // client, acts and artwork stay with the target.
 
 const panelCheckpointMax = 10 // per panel, oldest dropped first
@@ -30,19 +30,21 @@ var (
 type panelLayout struct {
 	Rows     int              `yaml:"rows" json:"rows"`
 	Cols     int              `yaml:"cols" json:"cols"`
-	Cells    []map[string]any `yaml:"cells" json:"cells"`
-	Settings map[string]any   `yaml:"settings" json:"settings"`
-	Extra    map[string]any   `yaml:"extra,omitempty" json:"extra,omitempty"`
+	Pages    []PanelPage      `yaml:"pages,omitempty" json:"pages,omitempty"`
+	// LegacyCells is a checkpoint or set entry saved before Pages; withLayout hands it to normalize.
+	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
+	Settings    map[string]any   `yaml:"settings" json:"settings"`
+	Extra       map[string]any   `yaml:"extra,omitempty" json:"extra,omitempty"`
 }
 
 func layoutOf(p Panel) panelLayout {
-	return panelLayout{Rows: p.Rows, Cols: p.Cols, Cells: p.Cells, Settings: p.Settings, Extra: p.Extra}
+	return panelLayout{Rows: p.Rows, Cols: p.Cols, Pages: p.Pages, Settings: p.Settings, Extra: p.Extra}
 }
 
 // withLayout is p with the layout swapped in. Stored values are never mutated, so sharing
 // the layout's slices and maps between panels is safe.
 func (p Panel) withLayout(l panelLayout) Panel {
-	p.Rows, p.Cols, p.Cells, p.Settings, p.Extra = l.Rows, l.Cols, l.Cells, l.Settings, l.Extra
+	p.Rows, p.Cols, p.Pages, p.LegacyCells, p.Settings, p.Extra = l.Rows, l.Cols, l.Pages, l.LegacyCells, l.Settings, l.Extra
 	return p
 }
 

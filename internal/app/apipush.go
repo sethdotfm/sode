@@ -137,7 +137,8 @@ func idList(ps []Panel) string {
 }
 
 func checkpointOut(c panelCheckpoint) map[string]any {
-	return map[string]any{"id": c.ID, "at": c.At, "by": c.By, "why": c.Why, "rows": c.Layout.Rows, "cols": c.Layout.Cols, "cells": len(c.Layout.Cells)}
+	cells, pages := pageCellCount(c.Layout.Pages, c.Layout.LegacyCells)
+	return map[string]any{"id": c.ID, "at": c.At, "by": c.By, "why": c.Why, "rows": c.Layout.Rows, "cols": c.Layout.Cols, "cells": cells, "pages": pages}
 }
 
 // apiCheckpointList is newest first.
@@ -190,7 +191,8 @@ func (a *App) setReach(cl *apiCtx, set PanelSet) (use, change bool) {
 func setOut(set PanelSet, change bool) map[string]any {
 	entries := make([]map[string]any, len(set.Entries))
 	for i, e := range set.Entries {
-		entries[i] = map[string]any{"panel": e.Panel, "name": e.Name, "rows": e.Rows, "cols": e.Cols, "cells": len(e.Cells)}
+		cells, pages := pageCellCount(e.Pages, e.LegacyCells)
+		entries[i] = map[string]any{"panel": e.Panel, "name": e.Name, "rows": e.Rows, "cols": e.Cols, "cells": cells, "pages": pages}
 	}
 	return map[string]any{"id": set.ID, "name": set.Name, "scope": set.Scope, "owner": set.Owner, "entries": entries, "canEdit": change}
 }

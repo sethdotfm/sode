@@ -123,15 +123,15 @@ func TestSeamArtworkLimitsHoldAcrossPushCopyTemplateAndDefaults(t *testing.T) {
 	if artBytes(got) > panelArtTotal {
 		t.Errorf("the target holds %d bytes", artBytes(got))
 	}
-	if got.Cells[0]["art"] != ref || got.Cells[0]["artB"] != "2" || got.Cells[1]["art"] != nil || got.Cells[1]["artB"] != "A" {
-		t.Errorf("pushed cells %v", got.Cells)
+	if got.Pages[0].Cells[0]["art"] != ref || got.Pages[0].Cells[0]["artB"] != "2" || got.Pages[0].Cells[1]["art"] != nil || got.Pages[0].Cells[1]["artB"] != "A" {
+		t.Errorf("pushed cells %v", got.Pages[0].Cells)
 	}
 
 	cp := apiBody(t, apiSend(a, "POST", "/api/v1/panels/"+src+"/copy", ana, ""))
 	if cp["artSkipped"] != nil || len(cp["art"].([]any)) != 1 {
 		t.Errorf("copy: %v %v", cp["artSkipped"], cp["art"])
 	}
-	if c := cp["cells"].([]any)[1].(map[string]any); c["art"] != nil {
+	if c := page1Cells(cp)[1].(map[string]any); c["art"] != nil {
 		t.Errorf("the copy froze the default: %v", c)
 	}
 
