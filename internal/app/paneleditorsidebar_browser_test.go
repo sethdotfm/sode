@@ -78,8 +78,19 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`document.getElementById('ed-set-guard-hold').click(); true`)
 	b.eval(`document.getElementById('tab-ed-access').click(); true`)
 	b.waitFor("Access says who it acts as", `document.getElementById('panel-ed-access').textContent.includes('Authentication mode') && !document.getElementById('ed-acts-api').disabled`)
+	// Making the client asks for the Confirm first, and Cancel puts the old mode back without a save.
+	box := `document.querySelector('#panel-ed-access .sode-ov__keyconfirm')`
 	b.eval(`document.getElementById('ed-acts-api').click(); true`)
-	b.waitFor("Acts as saves at once", `document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
+	b.waitFor("the switch warns what it does to keys and asks for the Confirm", `!`+box+`.hidden && `+box+`.textContent.includes('makes the panel its own API client, with no keys yet') && !!`+box+`.querySelector('.sode__key--locked')`)
+	b.eval(`[...` + box + `.querySelectorAll('button')].find((x) => x.textContent === 'Cancel').click(); true`)
+	b.waitFor("Cancel puts User back and saves nothing", box+`.hidden && document.getElementById('ed-acts-session').checked && !document.getElementById('ed-acts-api').checked`)
+	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); strings.Contains(body, `"acts":"api"`) {
+		t.Errorf("a cancelled switch was saved: %s", body)
+	}
+	b.eval(`document.getElementById('ed-acts-api').click(); true`)
+	b.waitFor("the letter is live after the lockout", `!`+box+`.hidden && !`+box+`.querySelector('.sode__key--locked')`)
+	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
+	b.waitFor("the Confirm applies the switch and saves at once", `document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
 	b.shot("access")
 
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)
