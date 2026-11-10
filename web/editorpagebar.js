@@ -1,6 +1,6 @@
-// The editor's Pages bar, left of the grid: a row per Page with its number, name, enabled checkbox (a checkbox, not
-// a switch: the change waits for Save), rename, Copy to, Move up, Move down and Delete Page, rows dragged to reorder,
-// and Add Page. Rules are editorpagerules.js; paneleditor.js holds the list and does each act.
+// The editor's Pages bar, left of the grid: a card per Page. Its title row holds the number, name and the On switch
+// (asked for by the user, though the change still waits for Save); one row of icons below holds rename, Copy to,
+// Move up, Move down and Delete Page. Cards are dragged to reorder, and Add Page ends the list. Rules are editorpagerules.js; paneleditor.js holds the list and does each act.
 import { el, icon } from './core.js';
 import { btn } from './formbits.js';
 import { confirmBox } from './confirmbox.js';
@@ -73,20 +73,20 @@ export function createPageBar(host, act) {
       e.preventDefault();
       act.open(p.id, true);
     });
-    const on = el('input', 'pb-check__input');
+    const on = el('input', 'pb-switch__input');
     on.type = 'checkbox';
+    on.setAttribute('role', 'switch');
     on.checked = p.enabled !== false;
     on.disabled = s.readOnly;
     on.dataset.act = 'enable';
     on.setAttribute('aria-label', `Page ${i + 1} enabled`);
-    // A refused change (the last enabled Page) may not repaint the bar, so the box is put back here.
+    // A refused change (the last enabled Page) may not repaint the bar, so the switch is put back here.
     on.addEventListener('change', () => {
       if (act.enable(i, on.checked) === false) on.checked = true;
     });
     const tools = el(
       'div',
       'sode-pages__tools',
-      el('label', 'pb-check sode-pages__on', on, el('span', 'pb-check__label', 'On')),
       iconBtn('pencil', 'Rename', 'rename', () => {
         renaming = i;
         paint(last, true);
@@ -101,7 +101,8 @@ export function createPageBar(host, act) {
       const d = b.dataset.act;
       b.disabled = s.readOnly || (d === 'up' && i === 0) || (d === 'down' && i === n - 1) || ((d === 'delete' || d === 'copy') && n < 2);
     }
-    const li = el('li', 'sode-pages__row', open, renaming === i ? nameField(p, i) : null, tools);
+    const head = el('div', 'sode-pages__head', open, el('label', 'pb-check sode-pages__on', on, el('span', 'pb-check__label', 'On')));
+    const li = el('li', 'sode-pages__row', head, renaming === i ? nameField(p, i) : null, tools);
     li.dataset.id = p.id;
     li.classList.toggle('is-open', isOpen);
     li.classList.toggle('is-focus', p.id === s.focus);

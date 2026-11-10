@@ -3,11 +3,11 @@
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned } from './gridmodel.js';
 
-export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
+export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage', 'page'];
 // One entry each, placed with nothing chosen: a Go to Page cell gets its Page in the Cell tab.
 const NUMBERLESS = ['take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // The kinds with a list behind them get a chip; the others are one entry each and show under All.
-export const CHIP_CATEGORIES = ['source', 'destination', 'preset'];
+export const CHIP_CATEGORIES = ['source', 'destination', 'preset', 'page'];
 export const CATEGORY_LABEL = {
   source: 'Sources',
   destination: 'Destinations',
@@ -22,6 +22,7 @@ export const CATEGORY_LABEL = {
   goToPage: 'Go to Page',
   nextPage: 'Next Page',
   previousPage: 'Previous Page',
+  page: 'Pages',
 };
 // Not log-in and log-out: the glossary UI test refuses those words.
 export const CATEGORY_ICON = {
@@ -38,7 +39,9 @@ export const CATEGORY_ICON = {
   goToPage: 'file-symlink',
   nextPage: 'chevron-right',
   previousPage: 'chevron-left',
-}; // keep in step with editorview.js KIND_ICON
+};
+// Not in CATEGORY_ICON: that list is the cell kinds, which the artwork picker offers, and a Page is not a cell kind.
+export const findIcon = (category) => (category === 'page' ? 'file' : CATEGORY_ICON[category]); // keep in step with editorview.js KIND_ICON
 const RIGHTS_KIND = { source: 'sources', destination: 'dsts', preset: 'presets' };
 
 // Everything a user can pick, as { category, key, label, n?, num?, scope?, off, why? }. Numbers in Rights are
@@ -74,6 +77,11 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
   return out;
 }
 
+// The panel's Pages as entries. Choosing one goes to that Page and places nothing, so Rights do not apply.
+// alias lets "page 3" match a named Page.
+export const pageEntries = (pages) =>
+  (pages || []).map((p, i) => ({ category: 'page', key: `page:${p.id}`, id: p.id, label: p.name?.trim() || `Page ${i + 1}`, num: i + 1, alias: `page ${i + 1}`, off: false }));
+
 const OFF_TAG = { rights: 'Outside rights', fixed: 'Fixed destination is on' };
 // Why an entry cannot be placed, '' when it can.
 export const offTag = (e) => (e?.off ? OFF_TAG[e.why] || OFF_TAG.rights : '');
@@ -93,7 +101,7 @@ export function findScope(cells) {
 // category; otherwise start and every later one of its category in the order findEntries gave. Entries the
 // Rights grey out are never placed: a cell for one could not be used.
 export function fillRun(entries, start, picks) {
-  if (!start || start.off) return [];
+  if (!start || start.off || start.category === 'page') return [];
   const category = start.category;
   if (picks?.length) return picks.filter((e) => e.category === category && !e.off);
   const from = entries.findIndex((e) => e.key === start.key);
@@ -144,6 +152,7 @@ export function wordScore(e, word) {
   else if (label.split(/[\s\-_.]+/).some((w) => w.startsWith(word))) best = 60;
   else if (label.includes(word)) best = 40;
   else if (word.length > 1 && subsequence(label, word)) best = 15;
+  if (e.alias?.includes(word)) best = Math.max(best, 40);
   if (/^\d+$/.test(word) && e.num !== undefined) {
     const num = String(e.num);
     if (num === word) best = Math.max(best, 70);

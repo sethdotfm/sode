@@ -1010,7 +1010,13 @@
 .sode-pages__row.is-off .sode-pages__name {
   color: var(--pb-text-disabled);
 }
+.sode-pages__head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
 .sode-pages__open {
+  flex: 1 1 auto;
   gap: var(--pb-space-3);
   justify-content: flex-start;
   min-width: 0;
@@ -1028,11 +1034,11 @@
 .sode-pages__tools {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--pb-space-1);
 }
 .sode-pages__on {
-  margin-right: auto;
+  flex: 0 0 auto;
 }
 .sode-pages__add {
   align-self: flex-start;

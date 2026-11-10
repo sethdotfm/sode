@@ -1,7 +1,7 @@
 // Find in the panel editor (findrules.js): what can be searched, who may see it, and how results rank. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
+import { findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
 import { createGrid, select, selCells, cellAt } from '../gridmodel.js';
 
 const names = {
@@ -273,4 +273,13 @@ test('the fixed destination picker searches Destinations only, leaves out those 
     ['Monitor B'],
     'a typed number is the one a person sees',
   );
+});
+
+test('Pages are found by name and by number, and place nothing', () => {
+  const pages = [{ id: 'aa' }, { id: 'bb', name: 'Studio B' }, { id: 'cc' }];
+  const list = pageEntries(pages);
+  assert.deepEqual(rankFind(list, 'studio').map((e) => e.id), ['bb']);
+  assert.deepEqual(rankFind(list, 'page 2').map((e) => e.id), ['bb']);
+  assert.deepEqual(rankFind(list, '3').map((e) => e.id), ['cc']);
+  assert.deepEqual(fillRun(list, list[0], null), []);
 });

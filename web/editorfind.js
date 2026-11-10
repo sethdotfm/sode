@@ -11,7 +11,9 @@ import {
   CHIP_CATEGORIES,
   CATEGORY_LABEL,
   CATEGORY_ICON,
+  findIcon,
   findEntries,
+  pageEntries,
   rankFind,
   fillRun,
   findPlan,
@@ -45,7 +47,7 @@ export function initFind(editor) {
 
   const input = el('input', 'pb-input');
   input.type = 'search';
-  input.placeholder = 'Find a Source, Destination, Preset, Take, Clear or Current';
+  input.placeholder = 'Find a Source, Destination, Preset, Page, Take, Clear or Current';
   input.setAttribute('aria-label', 'Find');
   input.autocomplete = 'off';
   const chips = el('div', 'sode-find__chips');
@@ -103,13 +105,15 @@ export function initFind(editor) {
 
   const active = () => panel.dataset.open === '1' || hovered;
   const usable = (e) => e && !e.off;
-  const picks = () => picked.map((k) => entries.find((e) => e.key === k)).filter(Boolean);
+  // Pages are read fresh, since the bar renames and reorders them without telling Find.
+  const everything = () => [...entries, ...pageEntries(editor.pages())];
+  const picks = () => picked.map((k) => everything().find((e) => e.key === k)).filter(Boolean);
 
   // The entries a choice would place: the picked set, else the result at index i and every later one by number.
   function runFor(i) {
     const p = picks();
-    if (p.length > 1) return fillRun(entries, p[0], p);
-    return fillRun(entries, results[i], null);
+    if (p.length > 1) return fillRun(everything(), p[0], p);
+    return fillRun(everything(), results[i], null);
   }
   function planFor(i) {
     const g = editor.grid();
@@ -140,6 +144,7 @@ export function initFind(editor) {
     }
   }
   function describe(plan) {
+    if (!plan && results[hi]?.category === 'page' && picked.length < 2) return `Goes to ${results[hi].label}.`;
     if (!plan) return picked.length > 1 || !results[hi]?.off ? '' : `${offTag(results[hi])}, so it cannot be placed.`;
     const n = plan.slots.length;
     const first = plan.slots[0].entry.label;
@@ -152,12 +157,12 @@ export function initFind(editor) {
 
   function draw() {
     moved = false;
-    results = rankFind(entries, input.value, chip ? [chip] : []);
+    results = rankFind(everything(), input.value, chip ? [chip] : []);
     hi = Math.max(0, Math.min(hi, results.length - 1));
     picked = picked.filter((k) => results.some((e) => e.key === k));
     chips.replaceChildren(
       ...['', ...CHIP_CATEGORIES].map((c) => {
-        const b = el('button', 'pb-chip', c ? icon(CATEGORY_ICON[c]) : null, c ? CATEGORY_LABEL[c] : 'All');
+        const b = el('button', 'pb-chip', c ? icon(findIcon(c)) : null, c ? CATEGORY_LABEL[c] : 'All');
         b.type = 'button';
         b.setAttribute('aria-pressed', String(chip === c));
         b.addEventListener('click', () => {
@@ -175,7 +180,7 @@ export function initFind(editor) {
         const li = el(
           'li',
           `sode-find__row${e.off ? ' sode__menu-off' : ''}`,
-          icon(CATEGORY_ICON[e.category]),
+          icon(findIcon(e.category)),
           el('span', 'sode__num', e.num === undefined ? '' : String(e.num)),
           el('span', 'sode-find__name', e.label),
         );
@@ -245,7 +250,14 @@ export function initFind(editor) {
     if (!usable(e)) return;
     hi = i;
     clearPicks();
+    if (e.category === 'page') return go(e);
     place(i);
+  }
+  function go(e) {
+    clearPreview();
+    editor.openPage(e.id);
+    close();
+    $('ed-grid')?.focus({ preventScroll: true });
   }
   function place(i) {
     const g = editor.grid();
@@ -280,7 +292,7 @@ export function initFind(editor) {
       draw();
     } else {
       choose(i);
-      keepOpen();
+      if (results[i]?.category !== 'page') keepOpen();
     }
   });
   list.addEventListener('pointerdown', (e) => {
@@ -322,6 +334,7 @@ export function initFind(editor) {
       e.preventDefault();
       e.stopPropagation();
       if (!results.length && chip) searchAll();
+      else if (results[hi]?.category === 'page') go(results[hi]);
       else place(hi);
     }
   });
