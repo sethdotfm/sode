@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
@@ -23,7 +24,8 @@ func TestChromePanelSetupLink(t *testing.T) {
 	go func() { a.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
 	srv := httptest.NewServer(a.Handler(web.FS))
-	t.Cleanup(srv.Close)
+	// The page ends on a held keyless announcement, which Close alone waits on forever.
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","acts":"api"}`)
@@ -37,9 +39,22 @@ func TestChromePanelSetupLink(t *testing.T) {
 
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("a reload opens it again", `document.getElementById('panel-title')?.textContent === 'Wall' && document.getElementById('panels-note')?.hidden`)
+	p, _ := a.panels.get(id)
+	if rows := a.mon.keylessOf(p); len(rows) != 0 {
+		t.Fatalf("a page with a working key is listed as keyless: %v", rows)
+	}
 
 	mintKey(t, a, ana, id)
 	b.waitFor("the open page says its key is gone", `document.getElementById('panels-note')?.textContent.includes('rotated or revoked')`)
+	for deadline := time.Now().Add(15 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		rows := a.mon.keylessOf(p)
+		if len(rows) == 1 && rows[0].SignIn == "ended" && rows[0].Stream {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the ended page is not one keyless row with its key ended: %v", rows)
+		}
+	}
 	// No b.check(): the 401 that ended the page is a console line by design.
 }
 
