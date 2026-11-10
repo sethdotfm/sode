@@ -528,6 +528,10 @@
   gap: var(--pb-space-3);
   justify-content: space-between;
 }
+.sode-ov__cp[aria-current="true"] {
+  background: var(--pb-surface-control);
+  box-shadow: inset var(--pb-space-1) 0 var(--pb-view);
+}
 .sode-ov__people {
   display: flex;
   flex-direction: column;

@@ -1,7 +1,7 @@
 // Assign: the panels page's list rows and the panel page's switch. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assignRows, canAssignTo, splitLines, assignOf, assignAddress, assignChangesMode, signInText, uptimeText } from '../panelassignrules.js';
+import { rankAssign, curRow, stepRow, enterRow, assignRows, canAssignTo, splitLines, assignOf, assignAddress, assignChangesMode, signInText, uptimeText } from '../panelassignrules.js';
 
 const NOW = Date.parse('2026-11-10T12:00:00Z');
 const at = (secsAgo) => new Date(NOW - secsAgo * 1000).toISOString();
@@ -38,6 +38,7 @@ test('rows are the Sode panel pages, sorted by current panel then name', () => {
 test('a row shows the address, uptime since its stream and the sign-in state in words', () => {
   const [r] = assignRows([{ id: 'p-1', name: 'Studio A', instances: [inst('Lobby', { signIn: 'user', user: 'Ana' })] }], 'p-2', NOW);
   assert.deepEqual(r, {
+    key: 'p-1\nLobby',
     panel: 'p-1',
     panelName: 'Studio A',
     device: 'Lobby',
@@ -120,4 +121,50 @@ test('an assign that lands on another Authentication mode is told apart', () => 
   assert.equal(assignChangesMode({ acts: 'session' }, { acts: 'api' }), true);
   assert.equal(assignChangesMode({ acts: 'api' }, { acts: 'api' }), false);
   assert.equal(assignChangesMode(undefined, { acts: 'both' }), true);
+});
+
+const FIND = [
+  { id: 'p-1', name: 'Studio A', instances: [inst('Lobby', { addr: '10.1.2.3' }), inst('Hall', { signIn: 'user', user: 'Ana', addr: '10.9.9.9' })] },
+  { id: 'p-2', name: 'Master', instances: [inst('Wall', { addr: '10.4.4.4', signIn: 'ended', stream: false, seen: at(60) })] },
+];
+const rows = () => assignRows(FIND, 'p-3', NOW);
+const names = (rs) => rs.map((r) => r.device);
+
+test('Find ranks by instance name, current panel, address and sign-in state', () => {
+  assert.deepEqual(names(rankAssign(rows(), 'lob')), ['Lobby']);
+  assert.deepEqual(names(rankAssign(rows(), 'master')), ['Wall']);
+  assert.deepEqual(names(rankAssign(rows(), '10.9')), ['Hall']);
+  assert.deepEqual(names(rankAssign(rows(), 'ana')), ['Hall']);
+  assert.deepEqual(names(rankAssign(rows(), 'key ended')), ['Wall']);
+  assert.deepEqual(names(rankAssign(rows(), 'zzzz')), []);
+});
+
+test('Find needs every word to hit and puts a name hit first', () => {
+  assert.deepEqual(names(rankAssign(rows(), 'studio ana')), ['Hall']);
+  assert.deepEqual(names(rankAssign(rows(), 'studio zzz')), []);
+  const two = assignRows([{ id: 'p-1', name: 'Wall', instances: [inst('Lobby')] }, { id: 'p-2', name: 'Studio', instances: [inst('Wall')] }], 'p-3', NOW);
+  assert.deepEqual(names(rankAssign(two, 'wall')), ['Wall', 'Lobby']);
+});
+
+test('an empty Find keeps the list order', () => {
+  assert.deepEqual(rankAssign(rows(), '  '), rows());
+});
+
+test('J and K step the highlight and stop at the ends; the first row is the default', () => {
+  const r = rows();
+  assert.equal(curRow(r, ''), r[0].key);
+  assert.equal(curRow(r, 'gone'), r[0].key);
+  assert.equal(stepRow(r, '', 1), r[1].key);
+  assert.equal(stepRow(r, r.at(-1).key, 1), r.at(-1).key);
+  assert.equal(stepRow(r, r[0].key, -1), r[0].key);
+  assert.equal(stepRow([], '', 1), '');
+});
+
+test('Enter picks the highlighted row only when it can be assigned', () => {
+  const r = rows();
+  const wall = r.find((x) => x.device === 'Wall');
+  assert.equal(enterRow(r, wall.key), null);
+  assert.equal(enterRow(r, r.find((x) => x.device === 'Lobby').key).device, 'Lobby');
+  assert.equal(enterRow(assignRows(FIND, 'p-1', NOW), assignRows(FIND, 'p-1', NOW).find((x) => x.device === 'Hall').key), null);
+  assert.equal(enterRow([], ''), null);
 });
