@@ -331,6 +331,26 @@
   position: fixed;
   z-index: 100;
 }
+.sode-panel__turn {
+  display: none;
+}
+@media (orientation: portrait) {
+  html[data-sode-landscape] .sode-panel__turn {
+    align-items: center;
+    background-color: var(--pb-surface-base);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: var(--pb-space-6);
+    position: fixed;
+    text-align: center;
+    z-index: 110;
+  }
+}
+.sode-panel__turn-text {
+  font-size: 1.5rem;
+  font-weight: var(--pb-weight-bold);
+}
 .sode-panel__offline[hidden] {
   display: none;
 }

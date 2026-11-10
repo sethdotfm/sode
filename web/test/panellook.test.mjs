@@ -229,3 +229,7 @@ test('a wake lock the browser cannot honour gets a note, and https is named', as
   assert.match(featureNotes(on, {}, true)[0], /cannot keep the screen awake/);
   assert.equal(featureNotes(on, { wakeLock: { request() {} } }, true).length, 0);
 });
+
+test('a portrait page with Keep landscape on is covered, since iOS cannot lock the turn', () => {
+  assert.match(css, /@media \(orientation: portrait\) \{\s*html\[data-sode-landscape\] \.sode-panel__turn \{[^}]*display: flex/);
+});

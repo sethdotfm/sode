@@ -8,6 +8,12 @@
 <title>Sode Panel</title>
 <link rel="icon" type="image/svg+xml" href="panels-logo.svg">
 <link rel="icon" type="image/png" href="icon.png?s=192">
+<link rel="apple-touch-icon" href="icon.png?s=180">
+<!-- Added to the iOS Home Screen, the panel opens without Safari's bars; iOS has no Fullscreen API on iPhone. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Sode Panel">
 <script src="prepaint.js" data-only="theme"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
@@ -54,6 +60,10 @@
   <div class="sode-panel__offline pb-state-offline" id="panel-offline" role="alert" hidden>
     <p class="sode-panel__offline-title">Offline</p>
     <p class="sode-panel__offline-detail" id="panel-offline-detail"></p>
+  </div>
+  <!-- Landscape setting: iOS cannot lock the turn, so portrait gets this cover (panels.css). -->
+  <div class="sode-panel__turn" id="panel-turn" role="alert">
+    <p class="sode-panel__turn-text">Turn your device sideways to use this panel.</p>
   </div>
   <!-- The way home, bottom left like Sode's main page; a kiosk hides it. -->
   <footer class="sode-panels__home" id="panel-home">

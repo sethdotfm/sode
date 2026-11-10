@@ -141,6 +141,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (!embedded) {
       chrome.show(kioskOf(location.hash, p), look.titleBar);
       document.title = p.name;
+      document.documentElement.toggleAttribute('data-sode-landscape', look.landscape);
     }
     ui.title.textContent = p.name;
     ui.grid.style.setProperty('--panel-fs', look.scale);
