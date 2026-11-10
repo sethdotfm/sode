@@ -189,8 +189,8 @@ export function assignNameProblem(text, clashed) {
   return '';
 }
 
-// The seam for the editor's Authentication mode Confirm: an Assign never edits a panel, but the instance may land on a
-// panel whose mode differs from the one it shows now. Where that Confirm should also cover an Assign, it hooks in here.
+// Whether the instance lands on a panel whose Authentication mode differs from the one it shows now. An Assign never
+// edits a panel; send() asks confirmModeChange when this is true.
 export const assignChangesMode = (from, to) => (from?.acts || '') !== (to?.acts || '');
 
 // The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename): '' for none, since only a Sode panel

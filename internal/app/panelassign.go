@@ -219,7 +219,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
-	// Read before cfgMu: the monitor's lock is never taken while cfgMu is held.
+	// Read before cfgMu: the monitor never locks while cfgMu is held.
 	devs := a.mon.deviceNames(to.ID)
 	a.cfgMu.Lock()
 	// The cap comes first: at it, a new name would be refused as well.
@@ -263,24 +263,24 @@ func (a *App) assignDone(w http.ResponseWriter, cl *apiCtx, from, to Panel, name
 	apiJSON(w, map[string]any{"from": from.ID, "panel": to.ID, "instance": as})
 }
 
-// nameTaken answers 409 name_taken with a free name when as is in taken, ignoring case, and says whether it did.
-func nameTaken(w http.ResponseWriter, panel, as string, taken []string) bool {
-	i := slices.IndexFunc(taken, func(t string) bool { return strings.EqualFold(t, as) })
+// nameTaken answers 409 name_taken with a free name when as is in held, ignoring case, and says whether it did.
+func nameTaken(w http.ResponseWriter, panel, as string, held []string) bool {
+	i := slices.IndexFunc(held, func(t string) bool { return strings.EqualFold(t, as) })
 	if i < 0 {
 		return false
 	}
-	e := apiErr{Code: "name_taken", Message: panel + " already has an instance named " + taken[i], Suggest: suggestInstance(as, taken)}
+	e := apiErr{Code: "name_taken", Message: panel + " already has an instance named " + held[i], Suggest: suggestInstance(as, held)}
 	jsonAnswer(http.StatusConflict, apiErrBody{e}).write(w, false)
 	return true
 }
 
 var trailingNumber = regexp.MustCompile(`^(.*\S)\s+(\d+)$`)
 
-// suggestInstance is name plus 2, or the next number free of taken (ignoring case), trimmed to fit
+// suggestInstance is name plus 2, or the next number free of held (ignoring case), trimmed to fit
 // panelInstanceMax. A name already ending in a number counts on from it. The page offers it, editable.
-func suggestInstance(name string, taken []string) string {
+func suggestInstance(name string, held []string) string {
 	free := func(s string) bool {
-		return !slices.ContainsFunc(taken, func(t string) bool { return strings.EqualFold(t, s) })
+		return !slices.ContainsFunc(held, func(t string) bool { return strings.EqualFold(t, s) })
 	}
 	base, n := name, 2
 	if m := trailingNumber.FindStringSubmatch(name); m != nil {

@@ -17,8 +17,7 @@ on('locking', () => {
   closeOpen?.();
 });
 
-// Where the editor's Authentication mode Confirm would ask before an Assign that lands on another mode. Nothing asks
-// yet: an Assign never edits a panel, so it goes ahead.
+// A stub that always answers true: no Confirm runs before an Assign that lands on another Authentication mode.
 export const confirmModeChange = async () => true;
 
 // The name clash dialog, over the Assign to modal or the panels page's rename: the server's suggestion, editable.
@@ -55,7 +54,7 @@ export function askName(panel, clashed, suggest, go, kind = 'assign') {
       el(
         'p',
         'sode__hint',
-        `${panel.name} already has an instance named ${clashed}. The instance takes this name as its device name${renaming ? '' : ' there'}.`,
+        `${panel.name} already has an instance named ${clashed}. The instance uses this name as its device name${renaming ? '' : ' there'}.`,
       ),
       input,
       err,

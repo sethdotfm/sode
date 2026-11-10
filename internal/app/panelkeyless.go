@@ -237,7 +237,7 @@ func (m *panelMon) dropKeyless(id string) {
 }
 
 // apiPanelKeyless: GET ?instance=Lobby&ended=1 with no key. The answer is the same whether or not the panel exists,
-// so the route tells a stranger nothing; only a well-formed id or short name is taken.
+// so the route tells a stranger nothing; only a well-formed id or short name gets through.
 func (a *App) apiPanelKeyless(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	ref := r.PathValue("id")
 	if len(ref) > keylessRef || !(validPanelID(ref) || validPanelSlug(ref)) {

@@ -124,11 +124,11 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
 	// Offline names count: reusing a lost instance's name would read as that instance coming back.
 	devs := a.mon.deviceNames(p.ID)
-	// cfgMu is never held while the monitor's lock is taken, as in an Assign.
+	// cfgMu is never held while the monitor locks, as in an Assign.
 	a.cfgMu.Lock()
-	taken := a.heldNames(devs, owner, has)
-	others := taken[:0:0]
-	for _, t := range taken {
+	held := a.heldNames(devs, owner, has)
+	others := held[:0:0]
+	for _, t := range held {
 		if !strings.EqualFold(t, old) {
 			others = append(others, t)
 		}
