@@ -27,6 +27,9 @@ type tokenStore struct {
 	fileMu sync.Mutex          // one writer of the file at a time
 	seq    uint64              // bumped under mu per save; fileMu holders skip stale ones
 	wrote  uint64              // last seq written (under fileMu)
+	// seen: last activity per token key for the idle sweep (idle.go). Memory only, so a
+	// restart starts every clock over; a missing entry is stamped when first looked at.
+	seen map[string]time.Time
 }
 
 type tokenRec struct {
@@ -59,7 +62,7 @@ func tokenKey(t string) string {
 // loadTokens: once, from New (callers hold App.mu: no other file I/O). A damaged file is
 // forgotten.
 func loadTokens(cfgPath string) *tokenStore {
-	s := &tokenStore{toks: map[string]tokenRec{}}
+	s := &tokenStore{toks: map[string]tokenRec{}, seen: map[string]time.Time{}}
 	if cfgPath == "" {
 		return s
 	}
@@ -257,6 +260,60 @@ func (s *tokenStore) setLocked(t string, on bool) {
 		r.Locked = on
 		s.toks[k] = r
 	}
+}
+
+// seenAt records activity on t. Cheap: safe under App.mu.
+func (s *tokenStore) seenAt(t string, at time.Time) {
+	if t == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if k := tokenKey(t); s.toks[k].User != "" {
+		s.seen[k] = at
+	}
+}
+
+// lastSeen: t's last activity, zero when unknown.
+func (s *tokenStore) lastSeen(t string) time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.seen[tokenKey(t)]
+}
+
+// lockIdle raises the Lock on every token no open connection holds (open: token keys)
+// whose user's idle limit has passed. Memory only; true when the caller must save. Safe
+// under App.mu, which the caller holds so a racing Hi sees the flag.
+func (s *tokenStore) lockIdle(cfg config.Config, now time.Time, open map[string]bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	changed := false
+	for k := range s.seen {
+		if _, ok := s.toks[k]; !ok {
+			delete(s.seen, k)
+		}
+	}
+	for k, r := range s.toks {
+		if r.Locked || open[k] {
+			continue
+		}
+		u, ok := valid(r, cfg)
+		lim := idleLimit(cfg, u)
+		if !ok || lim == 0 {
+			continue
+		}
+		at, ok := s.seen[k]
+		if !ok {
+			s.seen[k] = now
+			continue
+		}
+		if now.Sub(at) >= lim {
+			r.Locked = true
+			s.toks[k] = r
+			changed = true
+		}
+	}
+	return changed
 }
 
 func (s *tokenStore) forget(t string) {

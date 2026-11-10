@@ -10,6 +10,7 @@ import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, kee
 import {
   padKey,
   idleLock,
+  pingDue,
   pageType,
   liftFrom,
   shouldFly,
@@ -661,8 +662,10 @@ const idle = createIdleShare(typeof BroadcastChannel === 'function' ? new Broadc
 const touch = idle.touch;
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
+let lastPing = 0;
 setInterval(() => {
   const minutes = S.cfg?.autoLockMinutes || 0;
+  if (pingDue(L, lastPing, idle.lastActive(), Date.now()) && wsSend({ t: 'activity' })) lastPing = Date.now();
   if (idleLock(L, idle.lastActive(), Date.now(), minutes)) lockNow();
   else if (S.cfg && localIdleLock(L, !!letterLock, idle.lastActive(), Date.now(), minutes)) localLock();
 }, 5000);

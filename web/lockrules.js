@@ -53,6 +53,11 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 // (the server tells only that user, in lockState); the Lock button still works for them.
 export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user && !s.noAutoLock) && idleDue(lastActive, now, minutes);
 
+// The `activity` ping keeps the server's idle clock (internal/app/idle.go) behind this page's. A locked
+// or signed-out page sends none: the server would ignore it.
+export const PING_MS = 30_000;
+export const pingDue = (s, lastPing, lastActive, now) => !!(!s.locked && s.user) && lastActive > lastPing && now - lastPing >= PING_MS;
+
 // A held Lock has no user in the browser's state but is not a letter Lock: the pad stays.
 export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enforced && !s.locked && !s.user && !letterUp && idleDue(lastActive, now, minutes);
 
