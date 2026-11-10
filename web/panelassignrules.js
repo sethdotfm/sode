@@ -5,6 +5,7 @@ import { shortSecret } from './panellink.js';
 import { durationText } from './panelwatchrules.js';
 import { wordScore } from './findrules.js';
 import { stepPanel } from './panelsrules.js';
+import { INSTANCE_MAX, INSTANCE_HOLD } from './panelkeyrules.js';
 
 // Only a panel that acts as an API client has a key to give an instance.
 export const canAssignTo = (panel) => hasClient(panel);
@@ -79,7 +80,12 @@ export function rankAssign(rows, q) {
 export const curRow = (rows, cur) => (rows.some((r) => r.key === cur) ? cur : rows[0]?.key || '');
 
 // Ctrl/Cmd+J, K (as the panels list) move the highlight, stopping at the ends.
-export const stepRow = (rows, cur, step) => stepPanel(rows.map((r) => r.key), curRow(rows, cur), step);
+export const stepRow = (rows, cur, step) =>
+  stepPanel(
+    rows.map((r) => r.key),
+    curRow(rows, cur),
+    step,
+  );
 
 // Enter assigns the highlighted row; a greyed or timed-out one does nothing.
 export const enterRow = (rows, cur) => {
@@ -115,7 +121,25 @@ export function assignAddress(msg, { search, hash }, stored) {
     .split('&')
     .filter((p) => p && !p.startsWith('key=') && !p.startsWith('setup='));
   const frag = [...(stored ? [] : [`key=${shortSecret(msg.key)}`]), ...keep].join('&');
-  return { seg, href: `panels/${seg}${search || ''}${frag ? `#${frag}` : ''}` };
+  // The keepalive reads ?instance= before the stored name, so a name chosen after a clash replaces it here.
+  const q = new URLSearchParams(search || '');
+  if (q.has('instance')) q.set('instance', msg.instance);
+  const qs = q.toString();
+  return { seg, href: `panels/${seg}${qs ? `?${qs}` : ''}${frag ? `#${frag}` : ''}` };
+}
+
+// A name clash answers 409 name_taken with the server's suggestion (its name plus 2, or the next free number); null
+// for any other failure, which has no name to offer.
+export const clashOf = (err) => (err?.code === 'name_taken' ? err.suggest || '' : null);
+
+// What is wrong with a name typed in the clash dialog, or ''. A name the server still finds taken comes back as
+// another clash with a new suggestion.
+export function assignNameProblem(text, clashed) {
+  const name = String(text || '').trim();
+  if (!name) return INSTANCE_HOLD;
+  if (name.length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
+  if (name.toLowerCase() === String(clashed || '').toLowerCase()) return `The panel already has an instance named ${name}.`;
+  return '';
 }
 
 // The seam for the editor's Authentication mode Confirm: an Assign never edits a panel, but the instance may land on a

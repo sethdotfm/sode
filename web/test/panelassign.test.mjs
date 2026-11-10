@@ -1,7 +1,22 @@
 // Assign: the panels page's list rows and the panel page's switch. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rankAssign, curRow, stepRow, enterRow, assignRows, canAssignTo, splitLines, assignOf, assignAddress, assignChangesMode, signInText, uptimeText } from '../panelassignrules.js';
+import {
+  rankAssign,
+  curRow,
+  stepRow,
+  enterRow,
+  assignRows,
+  canAssignTo,
+  splitLines,
+  assignOf,
+  assignAddress,
+  assignChangesMode,
+  signInText,
+  uptimeText,
+  clashOf,
+  assignNameProblem,
+} from '../panelassignrules.js';
 
 const NOW = Date.parse('2026-11-10T12:00:00Z');
 const at = (secsAgo) => new Date(NOW - secsAgo * 1000).toISOString();
@@ -117,6 +132,27 @@ test('the new address keeps the instance name and kiosk, and drops the old key',
   assert.deepEqual(assignAddress(msg, { search: '', hash: '#kiosk=1' }, false), { seg: 'studio-b', href: 'panels/studio-b#key=abc&kiosk=1' });
 });
 
+test('a name chosen after a clash replaces the address name, so a reload keeps it', () => {
+  const msg = { panel: 'p-0000000b', slug: 'studio-b', instance: 'Lobby 2', key: 'sode_abc' };
+  assert.equal(assignAddress(msg, { search: '?instance=Lobby&x=1', hash: '' }, true).href, 'panels/studio-b?instance=Lobby+2&x=1');
+  assert.equal(new URLSearchParams(assignAddress(msg, { search: '?instance=Lobby', hash: '' }, true).href.split('?')[1]).get('instance'), 'Lobby 2');
+  assert.equal(assignAddress(msg, { search: '', hash: '' }, true).href, 'panels/studio-b');
+});
+
+test('a name clash offers the suggested name, and an edit is checked before it is sent', () => {
+  assert.equal(clashOf({ status: 409, code: 'name_taken', suggest: 'Lobby 2' }), 'Lobby 2');
+  assert.equal(clashOf({ status: 409, code: 'name_taken' }), '');
+  assert.equal(clashOf({ status: 409, code: 'conflict', suggest: 'Lobby 2' }), null);
+  assert.equal(clashOf(new Error('down')), null);
+
+  assert.equal(assignNameProblem('Lobby 2', 'Lobby'), '');
+  assert.equal(assignNameProblem('  Lobby 2 ', 'Lobby'), '');
+  assert.match(assignNameProblem('  ', 'Lobby'), /Name the instance/);
+  assert.match(assignNameProblem('LOBBY', 'Lobby'), /already/);
+  assert.equal(assignNameProblem('x'.repeat(40), 'Lobby'), '');
+  assert.match(assignNameProblem('x'.repeat(41), 'Lobby'), /40/);
+});
+
 test('an assign that lands on another Authentication mode is told apart', () => {
   assert.equal(assignChangesMode({ acts: 'session' }, { acts: 'api' }), true);
   assert.equal(assignChangesMode({ acts: 'api' }, { acts: 'api' }), false);
@@ -142,7 +178,14 @@ test('Find ranks by instance name, current panel, address and sign-in state', ()
 test('Find needs every word to hit and puts a name hit first', () => {
   assert.deepEqual(names(rankAssign(rows(), 'studio ana')), ['Hall']);
   assert.deepEqual(names(rankAssign(rows(), 'studio zzz')), []);
-  const two = assignRows([{ id: 'p-1', name: 'Wall', instances: [inst('Lobby')] }, { id: 'p-2', name: 'Studio', instances: [inst('Wall')] }], 'p-3', NOW);
+  const two = assignRows(
+    [
+      { id: 'p-1', name: 'Wall', instances: [inst('Lobby')] },
+      { id: 'p-2', name: 'Studio', instances: [inst('Wall')] },
+    ],
+    'p-3',
+    NOW,
+  );
   assert.deepEqual(names(rankAssign(two, 'wall')), ['Wall', 'Lobby']);
 });
 

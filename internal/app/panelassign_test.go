@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -189,12 +190,135 @@ func TestAssignRefusals(t *testing.T) {
 			wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+c.target+"/assign", cy, c.body), c.status, c.code)
 		})
 	}
+}
+
+func assignAs(from, instance, name string) string {
+	return fmt.Sprintf(`{"from":%q,"instance":%q,"name":%q}`, from, instance, name)
+}
+
+func suggestOf(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	e, _ := apiBody(t, rec)["error"].(map[string]any)
+	s, _ := e["suggest"].(string)
+	return s
+}
+
+func TestAssignNameClashAnswersASuggestionAndTakesTheChosenName(t *testing.T) {
+	a := panelsApp(t)
+	defer startLog(t, a)()
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
+	held := instanceKey(t, a, to, cy, "lobby")
+	instanceKey(t, a, to, cy, "Lobby 2")
 
 	// A name the target already holds is another device's: its key is not rotated away.
-	held := instanceKey(t, a, to, cy, "Lobby")
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")), 409, "conflict")
+	rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", ""))
+	wantErr(t, rec, 409, "name_taken")
+	if got := suggestOf(t, rec); got != "Lobby 3" {
+		t.Fatalf("suggest %q", got)
+	}
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+to, held, ""); rec.Code != 200 {
 		t.Fatalf("the held key ended: %d", rec.Code)
+	}
+	// A chosen name that clashes too is answered the same way.
+	rec = apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignAs(from, "Lobby", "LOBBY 2"))
+	wantErr(t, rec, 409, "name_taken")
+	if got := suggestOf(t, rec); got != "LOBBY 3" {
+		t.Fatalf("suggest %q", got)
+	}
+
+	rec = apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignAs(from, "lobby", " Lobby desk "))
+	if rec.Code != 200 || apiBody(t, rec)["instance"] != "Lobby desk" {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	var msg map[string]any
+	select {
+	case msg = <-lobby:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the instance heard nothing")
+	}
+	if msg["instance"] != "Lobby desk" {
+		t.Fatalf("message %v", msg)
+	}
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); !strings.Contains(rec.Body.String(), `"name":"Lobby desk"`) {
+		t.Fatalf("keys: %s", rec.Body.String())
+	}
+	row := lastRow(t, a, "assign")
+	if !strings.Contains(row.Note, "instance Lobby") || !strings.Contains(row.Note, "as Lobby desk") {
+		t.Fatalf("row %+v", row)
+	}
+}
+
+// The panel an instance left still holds its old key, so assigning it back is a name clash, and the old key stays.
+func TestAssignBackOffersANewName(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	lobbyKey := instanceKey(t, a, from, cy, "Lobby")
+	lobby := assignHold(t, a, from, lobbyKey, "Lobby")
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")); rec.Code != 200 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	msg := <-lobby
+	assignHold(t, a, to, msg["key"].(string), "Lobby")
+
+	rec := apiSend(a, "POST", "/api/v1/panels/"+from+"/assign", cy, assignBody(to, "Lobby", ""))
+	wantErr(t, rec, 409, "name_taken")
+	if got := suggestOf(t, rec); got != "Lobby 2" {
+		t.Fatalf("suggest %q", got)
+	}
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+from, lobbyKey, ""); rec.Code != 200 {
+		t.Fatalf("the old key ended: %d", rec.Code)
+	}
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+from+"/assign", cy, assignAs(to, "Lobby", "Lobby 2")); rec.Code != 200 {
+		t.Fatalf("assign back: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAssignRefusedAtTheInstanceCap(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	assignHold(t, a, from, cy, "Lobby")
+	for i := 1; i < panelKeyMax; i++ {
+		instanceKey(t, a, to, cy, fmt.Sprintf("Wall %d", i))
+	}
+	instanceKey(t, a, to, cy, "Lobby")
+	// At the cap a clash offers no new name, since none would fit.
+	for _, body := range []string{assignBody(from, "Lobby", ""), assignAs(from, "Lobby", "Lobby desk")} {
+		rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, body)
+		wantErr(t, rec, 409, "conflict")
+		if !strings.Contains(rec.Body.String(), "20 instances") {
+			t.Fatalf("no reason: %s", rec.Body.String())
+		}
+	}
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); strings.Contains(rec.Body.String(), "Lobby desk") {
+		t.Fatalf("a key was made: %s", rec.Body.String())
+	}
+}
+
+func TestSuggestInstanceName(t *testing.T) {
+	long := strings.Repeat("x", panelInstanceMax)
+	cases := []struct {
+		name  string
+		taken []string
+		want  string
+	}{
+		{"Lobby", []string{"Lobby"}, "Lobby 2"},
+		{"Lobby", []string{"lobby", "LOBBY 2", "Lobby 4"}, "Lobby 3"},
+		{"Lobby 2", []string{"Lobby 2"}, "Lobby 3"},
+		{"Lobby 9", []string{"Lobby 9", "Lobby 10"}, "Lobby 11"},
+		{"Cam2", []string{"Cam2"}, "Cam2 2"},
+		{long, []string{long}, long[:panelInstanceMax-2] + " 2"},
+	}
+	for _, c := range cases {
+		if got := suggestInstance(c.name, c.taken); got != c.want {
+			t.Errorf("suggestInstance(%q, %v) = %q, want %q", c.name, c.taken, got, c.want)
+		}
 	}
 }
 

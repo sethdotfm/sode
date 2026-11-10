@@ -1249,8 +1249,11 @@ paths:
         dialog). `from` and `instance` name an instance that holds `/panels/{id}/instances/stream`
         now, so only Sode's own panel pages can be assigned (409 `conflict` otherwise). The target
         must act as an API client (409 `conflict` for a panel that acts as the signed-in user), and
-        must not already hold an instance of that name or be at its 20 instances (409 `conflict`).
-        Sode makes a key for the target's client named for the instance, so it carries the
+        must not be at its 20 instances (409 `conflict`, checked first). A target that already
+        holds an instance of that name answers 409 `name_taken` with `error.suggest`, a free name;
+        send it, or another, as `name` and the instance takes it as its device name on the target.
+        The held name's key is never rotated. Sode makes a key for the target's client named for
+        the instance, so it carries the
         target's rights, and sends it as the last line of that instance's stream only; the answer
         never carries it. The page stores the key, rewrites its address and opens the target with
         no prompt. The instance's key for the old panel stays valid, and the old panel forgets the
@@ -1266,6 +1269,7 @@ paths:
               properties:
                 from: { type: string, description: The panel the instance shows now }
                 instance: { type: string, maxLength: 40, description: The instance's device name, ignoring case }
+                name: { type: string, maxLength: 40, description: "Its name on the target, after a `name_taken`; left out, it keeps its own" }
                 pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted }
       responses:
         "200":
@@ -1278,7 +1282,7 @@ paths:
                 properties:
                   from: { type: string }
                   panel: { type: string, description: The target panel }
-                  instance: { type: string, description: The instance's name as the monitor holds it }
+                  instance: { type: string, description: "The instance's name on the target: `name` when sent, else its name as the monitor holds it" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1614,6 +1618,7 @@ components:
                 - take_cap
                 - too_many_streams
                 - conflict
+                - name_taken
                 - nothing_to_do
                 - idempotency_mismatch
                 - not_found
@@ -1637,10 +1642,12 @@ components:
                 unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
                 such path, entry, visible preset, or a panel or artwork the caller may not use).
                 405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
-                a successful one, or a full panel or artwork limit). 422 nothing_to_do (no route
-                left to run), idempotency_mismatch. 429 rate_limited, take_cap, too_many_streams.
-                500 internal (a panel could not be written to disk).
+                a successful one, or a full panel or artwork limit), name_taken (an Assign's target
+                already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
+                (no route left to run), idempotency_mismatch. 429 rate_limited, take_cap,
+                too_many_streams. 500 internal (a panel could not be written to disk).
             message: { type: string }
+            suggest: { type: string, description: "With `name_taken` only: a free name for the instance on the target, its name plus 2 or the next free number" }
     PanelShare:
       type: object
       required: [mode]

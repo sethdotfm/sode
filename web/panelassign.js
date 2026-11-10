@@ -2,17 +2,88 @@
 // The server checks who may (a Trusted user or the Advanced Settings PIN) and sends the key to the instance alone.
 import { el, icon, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
-import { assignRows, assignChangesMode, rankAssign, curRow, stepRow, enterRow } from './panelassignrules.js';
+import { assignRows, assignChangesMode, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
 import { pinNeeded } from './templaterules.js';
 import { MON_POLL_MS } from './panelsmon.js';
 import { resultStep } from './keys.js';
 
 let closeOpen = null;
-on('locking', () => closeOpen?.());
+let closeName = null;
+on('locking', () => {
+  closeName?.();
+  closeOpen?.();
+});
 
 // Where the editor's Authentication mode Confirm would ask before an Assign that lands on another mode. Nothing asks
 // yet: an Assign never edits a panel, so it goes ahead.
 export const confirmModeChange = async () => true;
+
+// The name clash dialog over the Assign to modal: the server's suggestion, editable. go(name) sends again under it;
+// Cancel and Escape close only this dialog.
+function askName(panel, clashed, suggest, go) {
+  const opener = document.activeElement;
+  const input = el('input', 'pb-input');
+  input.id = 'assign-name';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.value = suggest;
+  input.setAttribute('aria-label', `Instance name on ${panel.name}`);
+  const err = el('div', 'pb-note pb-note--error');
+  err.setAttribute('role', 'alert');
+  err.hidden = true;
+  const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
+  cancel.type = 'button';
+  const ok = el('button', 'pb-btn pb-btn--ok', icon('send'), ' Assign');
+  ok.type = 'button';
+  ok.id = 'assign-name-go';
+
+  const root = el('div', 'pb-modal-backdrop sode__scrim');
+  const dialog = el('div', 'pb-modal');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'assign-name-title');
+  dialog.tabIndex = -1;
+  dialog.append(
+    el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', 'Choose another name'), { id: 'assign-name-title' })),
+    el(
+      'div',
+      'pb-modal__body',
+      el('p', 'sode__hint', `${panel.name} already has an instance named ${clashed}. The instance takes this name as its device name there.`),
+      input,
+      err,
+    ),
+    el('div', 'pb-modal__footer', cancel, ok),
+  );
+  root.append(dialog);
+  document.body.append(root);
+  const dlg = trapDialog(root, dialog, close);
+  function close() {
+    closeName = null;
+    dlg.hide();
+    root.remove();
+    if (opener?.isConnected) opener.focus();
+  }
+  closeName = close;
+  function submit() {
+    const problem = assignNameProblem(input.value, clashed);
+    err.textContent = problem;
+    err.hidden = !problem;
+    if (problem) return input.focus();
+    close();
+    go(input.value.trim());
+  }
+  cancel.addEventListener('click', close);
+  ok.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    }
+  });
+  dlg.show();
+  input.focus();
+  input.select();
+}
 
 // ctx: {api, panels() (every panel the page has, with instances where the user may edit them), onDone() (re-reads them)}.
 export function openAssign(panel, ctx) {
@@ -112,31 +183,36 @@ export function openAssign(panel, ctx) {
   closeOpen = close;
   closeBtn.addEventListener('click', close);
 
-  async function send(row) {
+  // name is the instance's name on the target, chosen in the clash dialog; '' keeps its own.
+  async function send(row, name = '') {
     if (!row.assignable || busy) return;
     const from = ctx.panels().find((p) => p.id === row.panel);
-    if (assignChangesMode(from, panel) && !(await confirmModeChange(from, panel))) return;
+    if (!name && assignChangesMode(from, panel) && !(await confirmModeChange(from, panel))) return;
     busy = true;
     paint();
     say('');
+    let clash = null;
     try {
       const r = await ctx.api(`api/v1/panels/${panel.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: row.panel, instance: row.device, pin: pin.value }),
+        body: JSON.stringify({ from: row.panel, instance: row.device, name, pin: pin.value }),
       });
       pin.value = '';
       say(`Sent ${r.instance} to ${panel.name}.`);
       await ctx.onDone();
     } catch (err) {
-      say(err.message);
+      clash = clashOf(err);
+      say(clash === null ? err.message : '');
       if (pinNeeded(err.status, err.code)) {
         pinRow.hidden = false;
         pin.focus();
       }
     }
     busy = false;
-    if (root.isConnected) paint();
+    if (!root.isConnected) return;
+    paint();
+    if (clash !== null) askName(panel, name || row.device, clash, (chosen) => send(row, chosen));
   }
 
   list.addEventListener('click', (e) => {

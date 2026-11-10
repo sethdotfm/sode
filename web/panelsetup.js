@@ -2,6 +2,9 @@
 // Server side: POST /api/v1/panels/{id}/setup (internal/app/panelsetup.go). The stored name is in docs/persisted-names.md.
 import { setupFailText, storedKeyName, withoutKey, withoutSetup } from './panelkeyrules.js';
 import { assignAddress } from './panelassignrules.js';
+import { instanceFrom } from './panellink.js';
+import { writeStr } from './store.js';
+import { DEVICE_KEY } from './panelkeepalive.js';
 
 export function storedKey(id) {
   try {
@@ -62,5 +65,7 @@ export function followAssign(msg) {
   } catch {
     /* the key rides the fragment instead */
   }
+  // A name chosen after a clash: with no ?instance= to carry it, the stored device name does.
+  if (!instanceFrom(location.search)) writeStr(DEVICE_KEY, msg.instance);
   location.replace(new URL(assignAddress(msg, location, stored).href, document.baseURI).href);
 }
