@@ -64,7 +64,7 @@ export async function copyLink(ui) {
   try {
     await navigator.clipboard.writeText(ui.input.value);
     ok = true;
-  } catch (e) {
+  } catch {
     /* no clipboard */
   }
   if (!ok) {
@@ -347,7 +347,7 @@ async function convert(url, body, type) {
     const text = await r.text();
     if (!r.ok) return { ok: false, text: '', err: sentence(text) || 'The file could not be converted.' };
     return { ok: true, text, err: '' };
-  } catch (e) {
+  } catch {
     return { ok: false, text: '', err: 'Could not reach Sode.' };
   }
 }
@@ -386,7 +386,7 @@ async function review() {
     if (f.size > 1 << 20) return setNote('That file is over 1 MiB.', true);
     try {
       text = await f.text();
-    } catch (e) {
+    } catch {
       return setNote('Could not read that file.', true);
     }
   }
@@ -397,7 +397,7 @@ async function review() {
   let doc;
   try {
     doc = JSON.parse(r.text);
-  } catch (e) {
+  } catch {
     return setNote('The file could not be read.', true);
   }
   const bad = fmt.checkDoc(doc);

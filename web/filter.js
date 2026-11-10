@@ -77,7 +77,7 @@ export function parseFilter(text) {
       while (i < n && /[a-z]/i.test(text[i])) flags += text[i++];
       try {
         new RegExp(s, stateless(flags) || 'i');
-      } catch (e) {
+      } catch {
         return { error: `Bad regex /${s}/${flags}`, at: start };
       }
       rule = { not, kind: 're', text: s, flags };

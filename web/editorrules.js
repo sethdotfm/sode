@@ -23,7 +23,9 @@ export const newPanel = () => ({ name: 'New panel', acts: 'session', share: { mo
 // fields is the sidebar's edits: {settings, acts, clientRights}, each present only once edited. clientRights is
 // left out otherwise so the server keeps the stored Rights (an administrator may have widened them).
 export function saveBody(loaded, name, grid, fields = {}) {
-  const { canEdit, clientRights, ...rest } = loaded;
+  const rest = { ...loaded };
+  delete rest.canEdit;
+  delete rest.clientRights;
   const edits = {};
   for (const k of ['settings', 'acts', 'slug', 'clientRights']) if (fields[k] !== undefined) edits[k] = fields[k];
   return { ...rest, name: name.trim(), ...saved(grid), ...edits };
@@ -138,7 +140,6 @@ export function openFailNote(e) {
   if (e.status === 401) return 'Your sign-in for this page ended. Sign in again, then choose the panel again.';
   return e.message || `The panel could not be opened (${e.status}).`;
 }
-
 
 const WORDS = {
   source: 'Source',
