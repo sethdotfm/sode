@@ -8,6 +8,9 @@ import (
 	"go/parser"
 	"go/token"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -41,9 +44,41 @@ func TestPolicyCoversEveryMessage(t *testing.T) {
 			t.Errorf("policy lists %q without a handler", m)
 		}
 	}
-	for _, m := range []string{"hi", "batch", "unlock", "userUnlock", "configImportBegin", "users", "usersList", "apiSettings"} {
-		if _, ok := policy[m]; !ok {
-			t.Errorf("policy lost %q", m)
+	webMsgTypes(t, func(name string) {
+		if _, ok := policy[name]; !ok && webNotMessage[name] == "" {
+			t.Errorf("web sends t: %q, which is no policy rule; add a rule or allowlist it", name)
+		}
+	})
+	seen := map[string]bool{}
+	webMsgTypes(t, func(name string) { seen[name] = true })
+	for m := range policy {
+		if !seen[m] {
+			t.Errorf("policy rule %q is sent by no web/*.js file", m)
+		}
+	}
+}
+
+// Literals that look like a message type in web/*.js but never reach the socket.
+var webNotMessage = map[string]string{
+	"save": "exportfmt.js size probe, never sent",
+}
+
+// webMsgTypes calls fn for each t: '<name>' literal in web/*.js. The messages are built in
+// several files (globalsave.js, lock.js, plans.js too), not only inside wsSend.
+func webMsgTypes(t *testing.T, fn func(name string)) {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(repoRoot(), "web", "*.js"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no web/*.js files: %v", err)
+	}
+	re := regexp.MustCompile(`\bt: '([A-Za-z]+)'`)
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
+			fn(m[1])
 		}
 	}
 }
