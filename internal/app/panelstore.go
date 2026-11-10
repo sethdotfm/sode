@@ -27,7 +27,7 @@ import (
 const (
 	panelsDir     = "panels"
 	panelMax      = 500
-	panelArtMax   = 40      // artwork files per panel
+	panelArtTotal = 64 << 20 // artwork bytes per panel; an image used by many cells is stored once, by id
 	panelArtBytes = 2 << 20 // 2 MB
 	panelArtSide  = 1024    // longest raster side in pixels; SVG has no pixel size
 	panelRowsMax  = 24
@@ -51,7 +51,7 @@ var (
 
 	errPanelCap  = errors.New("too many panels")
 	errSlugTaken = errors.New("another panel already has that short name")
-	errArtCap    = errors.New("too many artwork files on this panel")
+	errArtCap    = errors.New("this panel's artwork would pass the 64 MB total; delete some artwork first")
 )
 
 // PanelShare: Mode is panelShareMe, panelShareNamed (Users) or panelShareAll. Everyone it
@@ -382,6 +382,14 @@ func (s *panelStore) delete(id string) (bool, error) {
 	})
 }
 
+func artBytes(p Panel) int {
+	n := 0
+	for _, a := range p.Art {
+		n += a.Size
+	}
+	return n
+}
+
 func (s *panelStore) artPath(id, art string) string {
 	return filepath.Join(s.dir, id+".art", art)
 }
@@ -394,7 +402,7 @@ func (s *panelStore) addArt(id string, data []byte, typ string) (PanelArt, bool,
 	if !ok {
 		return PanelArt{}, false, nil
 	}
-	if len(p.Art) >= panelArtMax {
+	if artBytes(p)+len(data) > panelArtTotal {
 		return PanelArt{}, true, errArtCap
 	}
 	b := make([]byte, 4)
@@ -460,34 +468,54 @@ func (s *panelStore) delArt(id, art string) (bool, error) {
 	return true, nil
 }
 
-// copyArt gives dst a copy of every artwork file of src, under the same ids, so cells that
-// name an artwork id keep working in the copy. Caller holds no lock.
-func (s *panelStore) copyArt(src Panel, dst string) {
-	for _, a := range src.Art {
-		if b, _, ok := s.artData(src.ID, a.ID); ok {
-			s.putArtAs(dst, a, b)
-		}
+// copyArt gives dst a copy of src's artwork under the same ids, so cells that name an artwork
+// id keep working in the copy. It copies what fits under panelArtTotal, in order, and returns
+// the ids that did not fit (or could not be read or written). Caller holds no lock.
+func (s *panelStore) copyArt(src Panel, dst string) []string {
+	t, ok := s.get(dst)
+	if !ok {
+		return nil
 	}
+	have := map[string]bool{}
+	for _, a := range t.Art {
+		have[a.ID] = true
+	}
+	used := artBytes(t)
+	var left []string
+	for _, a := range src.Art {
+		if have[a.ID] {
+			continue
+		}
+		b, _, ok := s.artData(src.ID, a.ID)
+		if !ok || used+len(b) > panelArtTotal || !s.putArtAs(dst, a, b) {
+			left = append(left, a.ID)
+			continue
+		}
+		used += len(b)
+	}
+	return left
 }
 
-func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) {
+func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.by[id]
 	if !ok {
-		return
+		return false
 	}
 	if s.dir != "" {
 		if os.MkdirAll(filepath.Join(s.dir, id+".art"), 0o700) != nil || config.AtomicWrite(s.artPath(id, art.ID), data) != nil {
-			return
+			return false
 		}
 	} else {
 		s.art[id+"/"+art.ID] = data
 	}
 	p.Art = append(slices.Clone(p.Art), art)
-	if s.writeLocked(&p) == nil {
-		s.by[id] = p
+	if s.writeLocked(&p) != nil {
+		return false
 	}
+	s.by[id] = p
+	return true
 }
 
 const svgNS = "http://www.w3.org/2000/svg"
