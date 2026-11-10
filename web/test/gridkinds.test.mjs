@@ -1,4 +1,4 @@
-// The grid model with the Preset, Clear and Current Destination cell kinds.
+// The grid model with the Preset, Clear and Current Source cell kinds.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGrid, select, setKind, unassigned, cellAt } from '../gridmodel.js';

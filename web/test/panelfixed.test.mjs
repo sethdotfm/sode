@@ -189,7 +189,7 @@ test('Clear drops the staged routes and keeps the fixed destinations', () => {
   );
 });
 
-test('the Current Destination and Source states read the first fixed destination', () => {
+test('the Current Source and the Source states read the first fixed destination', () => {
   const st = fixed([1, 0]);
   assert.equal(currentSource(env(), st), 6);
   assert.equal(sourceState(st, 6, env()), 'current');

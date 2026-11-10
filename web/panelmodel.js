@@ -7,7 +7,7 @@
 // A Preset cell is { kind: 'preset', scope, name }; env.presets maps presetKey(scope, name) to the
 // preset's items [{ src, dsts, levels }], where levels [] means every level.
 // settings.fixedDests (Fixed destination) makes the list the panel's destinations for the life of the page: the
-// first one is the view, so Current Destination and the Source states read it, and Clear keeps it.
+// first one is the view, so Current Source and the Source states read it, and Clear keeps it.
 import { presetKey, rightsAllow, fixedDestsOf } from './panelrules.js';
 
 export const RESULT_MS = 1500;

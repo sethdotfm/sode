@@ -278,7 +278,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   function onPress(cell) {
     if (!ready) return;
     if (look.haptics && !embedded) buzz(navigator);
-    if (look.fullscreen && !embedded) enterFullscreen(document);
+    if ((look.fullscreen || look.landscape) && !embedded) enterFullscreen(document, look.landscape);
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env)) return;

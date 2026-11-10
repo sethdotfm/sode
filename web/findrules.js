@@ -12,7 +12,7 @@ export const CATEGORY_LABEL = {
   preset: 'Presets',
   take: 'Take',
   clear: 'Clear',
-  current: 'Current Destination',
+  current: 'Current Source',
 };
 // Not log-in and log-out: the glossary UI test refuses those words.
 export const CATEGORY_ICON = {

@@ -17,6 +17,7 @@ const DEFAULTS = {
   wake: false,
   haptics: false,
   fullscreen: false,
+  landscape: false,
   mode: 'take',
   multi: true,
   guard: 'none',
@@ -33,7 +34,7 @@ export function setSetting(settings, key, value) {
   return out;
 }
 
-// Fixed destination (settings.fixedDests). The order is kept: the first one is what the Current Destination cell reads.
+// Fixed destination (settings.fixedDests). The order is kept: the first one is what the Current Source cell reads.
 const withFixed = (settings, list) => {
   const out = { ...settings };
   if (list.length) out.fixedDests = list;

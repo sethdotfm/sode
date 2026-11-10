@@ -28,7 +28,7 @@ test('a setting at its default is dropped, so a stored panel only holds what was
 
 test('what the editor stores is what the panel page reads', () => {
   const s = setSetting(setSetting(setSetting({}, 'titleBar', false), 'fontSize', 150), 'theme', 'light');
-  assert.deepEqual({ ...lookOf(s) }, { titleBar: false, scale: 1.5, theme: 'light', wake: false, haptics: false, fullscreen: false });
+  assert.deepEqual({ ...lookOf(s) }, { titleBar: false, scale: 1.5, theme: 'light', wake: false, haptics: false, fullscreen: false, landscape: false });
 });
 
 test('font size is a whole percent from 50 to 200', () => {

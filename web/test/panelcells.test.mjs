@@ -1,4 +1,4 @@
-// Preset, Clear and Current Destination cells, Instant mode and the Take guards (panelmodel.js, panelrules.js).
+// Preset, Clear and Current Source cells, Instant mode and the Take guards (panelmodel.js, panelrules.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -115,7 +115,7 @@ test('Preset cells read pending while the plan holds all of their routes', () =>
   assert.equal(presetState(createState(), P('Studio A'), e), 'idle');
 });
 
-test('a Preset views its destination, so Current Destination shows what that destination has now', () => {
+test('a Preset views its destination, so Current Source shows what that destination has now', () => {
   const e = env();
   const st = pressPreset(createState(), P('Video'), e, T0);
   assert.equal(currentSource(e, st), 5);
@@ -220,7 +220,7 @@ test('the new cell kinds are drawn when whole: Preset needs a scope and a name, 
   );
 });
 
-test('names: Clear and Current Destination have default captions, a Preset shows its name, a caption wins', () => {
+test('names: Clear and Current Source have default captions, a Preset shows its name, a caption wins', () => {
   const n = namesFrom({ sources: [], destinations: [] });
   assert.equal(n.of({ kind: 'clear' }), 'Clear');
   assert.equal(n.of({ kind: 'current' }), 'Currently');

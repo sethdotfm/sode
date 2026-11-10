@@ -65,12 +65,14 @@ export async function runEditor() {
   const changeWatchers = [];
   const fieldWatchers = [];
   let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork
+  let trusted = false; // only a Trusted user can make a client, so a new panel starts as Both for them and Session for the rest
+  on('access', (a) => (trusted = !!a.trusted && !!a.user));
   let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each once edited
   const paintWatchers = []; // (grid, selection box) after every repaint, for things that sit over the squares
   const readOnly = () => !!loaded && !loaded.canEdit;
   const fields = () => ({
     settings: edits.settings ?? loaded?.settings ?? {},
-    acts: edits.acts ?? loaded?.acts ?? 'session',
+    acts: edits.acts ?? loaded?.acts ?? (trusted ? 'both' : 'session'),
     slug: edits.slug ?? loaded?.slug ?? '',
     clientRights: edits.clientRights,
   });

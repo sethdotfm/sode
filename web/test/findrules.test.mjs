@@ -50,7 +50,7 @@ test('Read-only rights grey what is outside them and Hidden removes it', () => {
   const gone = findEntries(names, presets, { ...rights, visibility: 'hidden' });
   assert.deepEqual(
     gone.map((e) => e.label),
-    ['Camera 1', 'Monitor B', 'Night', 'Take', 'Clear', 'Current Destination'],
+    ['Camera 1', 'Monitor B', 'Night', 'Take', 'Clear', 'Current Source'],
   );
   assert.ok(gone.every((e) => !e.off));
 });
@@ -101,7 +101,7 @@ test('chips narrow to categories, and with no text results come in number order 
   );
   assert.deepEqual(
     rankFind(list, '').map((e) => e.label),
-    ['Camera 1', 'Camera 2', 'Graphics', 'Monitor A', 'Monitor B', 'Night', 'Show open', 'Take', 'Clear', 'Current Destination'],
+    ['Camera 1', 'Camera 2', 'Graphics', 'Monitor A', 'Monitor B', 'Night', 'Show open', 'Take', 'Clear', 'Current Source'],
   );
 });
 

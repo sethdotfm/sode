@@ -10,13 +10,13 @@ import { featureSupport, createWake, buzz } from '../panelfeel.js';
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'panels.css'), 'utf8');
 
 test('a panel with no look settings shows the title bar at normal size, follows the browser theme and has no device features', () => {
-  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, theme: 'auto', wake: false, haptics: false, fullscreen: false });
+  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, theme: 'auto', wake: false, haptics: false, fullscreen: false, landscape: false });
   assert.deepEqual(lookOf(undefined), lookOf({}));
 });
 
 test('look settings are read as stored, and odd values fall back', () => {
   const l = lookOf({ titleBar: false, fontSize: 150, theme: 'dark', wake: true, haptics: true });
-  assert.deepEqual(l, { titleBar: false, scale: 1.5, theme: 'dark', wake: true, haptics: true, fullscreen: false });
+  assert.deepEqual(l, { titleBar: false, scale: 1.5, theme: 'dark', wake: true, haptics: true, fullscreen: false, landscape: false });
   assert.equal(lookOf({ fontSize: 'big' }).scale, 1);
   assert.equal(lookOf({ fontSize: 5 }).scale, 0.5);
   assert.equal(lookOf({ fontSize: 5000 }).scale, 2);
@@ -162,6 +162,20 @@ test('enterFullscreen asks once from a press and does nothing where it is missin
   assert.equal(enterFullscreen({ ...doc, fullscreenEnabled: false }), false);
   assert.equal(enterFullscreen({}), false);
   assert.equal(enterFullscreen(undefined), false);
+});
+
+test('landscape locks the turn once fullscreen starts, and a refused lock changes nothing', async () => {
+  const { enterFullscreen } = await import('../panelfeel.js');
+  const locked = [];
+  const scr = { orientation: { lock: (v) => (locked.push(v), Promise.reject(new Error('refused'))) } };
+  const doc = { fullscreenEnabled: true, documentElement: { requestFullscreen: () => Promise.resolve() } };
+  assert.equal(enterFullscreen(doc, true, scr), true);
+  await new Promise((r) => setTimeout(r));
+  assert.deepEqual(locked, ['landscape']);
+  enterFullscreen(doc, false, scr);
+  await new Promise((r) => setTimeout(r));
+  assert.deepEqual(locked, ['landscape']);
+  assert.equal(enterFullscreen(doc, true, {}), true); // iOS: no orientation.lock
 });
 
 test('hidden text stays readable by screen readers, on the panel page and in the editor square', () => {

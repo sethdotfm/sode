@@ -150,7 +150,7 @@ test('the page is offline when Sode does not answer or the router link is down, 
   assert.match(offlineOf({ failed: true, routerUp: false }).detail, /Sode/);
 });
 
-test('the Current Destination cell names the viewed destination, and a caption still wins', () => {
+test('the Current Source cell names the viewed destination, and a caption still wins', () => {
   assert.equal(currentLabel({ kind: 'current' }, 'CAM 1'), 'CAM 1 is currently:');
   assert.equal(currentLabel({ kind: 'current' }, ''), 'Currently');
   assert.equal(currentLabel({ kind: 'current', caption: 'Now on' }, 'CAM 1'), 'Now on');

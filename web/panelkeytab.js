@@ -49,6 +49,7 @@ shareTabs.push(({ panel, api }) => {
   }
 
   let mode = 'key';
+  let kioskLink = false; // the link shown, its copy and its QR code all follow this switch
   let keys = []; // the panel's instances as the server lists them
   let max = 20;
   let made = null; // {name, secret, mode, link}: held only while this modal is open
@@ -243,7 +244,7 @@ shareTabs.push(({ panel, api }) => {
     });
     if (res === FAIL) return;
     made = { name: res.instance, secret: res.key || res.setup, mode: setup ? 'setup' : 'key' };
-    made.link = buildLink();
+    made.link = buildLink(kioskLink);
     revealed = false;
     await loadKeys();
     paintLink();
@@ -279,30 +280,51 @@ shareTabs.push(({ panel, api }) => {
         paintLink();
       },
     });
-    // One copy button per link; the kiosk one adds `kiosk=1` after the key and keeps `?instance=`.
-    const copyBtn = (label, ico, link) => {
-      const b = el('button', 'pb-btn pb-btn--outline', icon(ico), label);
-      b.type = 'button';
-      b.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(link());
-          say('Copied.');
-          setTimeout(() => say(''), COPIED_MS);
-        } catch {
-          revealed = true;
-          paintLink();
-          linkBox.querySelector('input').select();
-          say('Copy failed. The link is selected: copy it by hand.');
-        }
-      });
-      return b;
-    };
-    const copy = copyBtn('Copy link', 'copy', () => made.link);
-    const kiosk = copyBtn('Copy kiosk link', 'monitor', () => buildLink(true));
+    const copy = el('button', 'pb-btn pb-btn--outline', icon('copy'), 'Copy link');
+    copy.type = 'button';
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(made.link);
+        say('Copied.');
+        setTimeout(() => say(''), COPIED_MS);
+      } catch {
+        revealed = true;
+        paintLink();
+        linkBox.querySelector('input').select();
+        say('Copy failed. The link is selected: copy it by hand.');
+      }
+    });
+    // Kiosk adds `kiosk=1` after the key and keeps `?instance=`.
+    const view = el('div', 'pb-btn-group');
+    view.setAttribute('role', 'radiogroup');
+    view.setAttribute('aria-label', 'How the link opens');
+    view.replaceChildren(
+      ...[
+        ['regular', 'Regular'],
+        ['kiosk', 'Kiosk'],
+      ].flatMap(([v, text]) => {
+        const r = el('input', 'pb-btn-check');
+        r.type = 'radio';
+        r.name = 'key-view';
+        r.id = `key-view-${v}`;
+        r.dataset.view = v;
+        r.checked = (v === 'kiosk') === kioskLink;
+        const l = el('label', 'pb-btn pb-btn--outline', text);
+        l.htmlFor = r.id;
+        return [r, l];
+      }),
+    );
+    view.addEventListener('change', (e) => {
+      kioskLink = e.target.dataset.view === 'kiosk';
+      made.link = buildLink(kioskLink);
+      paintLink();
+      linkBox.querySelector(`[data-view="${kioskLink ? 'kiosk' : 'regular'}"]`).focus();
+    });
     linkBox.append(
       el('p', 'sode__hint', `Link for ${made.name}. It is shown only now. Closing this window loses it.`),
       el('div', 'sode__secret-row', input, reveal.label),
-      el('div', 'sode-ov__keyrow', copy, kiosk),
+      view,
+      el('div', 'sode-ov__keyrow', copy),
     );
     if (revealed) {
       const qr = qrNode(made.link);
@@ -313,7 +335,7 @@ shareTabs.push(({ panel, api }) => {
   // ---- allowed networks
   const nets = el('textarea', 'pb-textarea');
   nets.id = 'key-networks';
-  nets.rows = 3;
+  nets.rows = 2;
   nets.spellcheck = false;
   nets.placeholder = '192.168.1.0/24';
   nets.value = networksText(panel.clientNetworks);

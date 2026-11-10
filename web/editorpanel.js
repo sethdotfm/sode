@@ -117,6 +117,7 @@ export function createPanelTab(ed) {
     toggle('wake', 'Keep the screen awake', ''),
     toggle('haptics', 'Enable haptics', ''),
     toggle('fullscreen', 'Enter fullscreen at once', 'The first press on the panel goes fullscreen, as a browser needs a touch first.'),
+    toggle('landscape', 'Keep landscape', 'For a phone or tablet. The first press goes fullscreen and locks the screen turn. iPhone and iPad browsers do not allow the lock.'),
   );
   const deviceNote = el('p', 'sode__hint');
   device.append(deviceNote);
