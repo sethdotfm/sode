@@ -209,13 +209,9 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	for i, k := range held {
 		taken[i] = k.Name
 	}
-	for _, k := range held {
-		if sameInstance(k, as) {
-			a.cfgMu.Unlock()
-			e := apiErr{Code: "name_taken", Message: to.Name + " already has an instance named " + k.Name, Suggest: suggestInstance(as, taken)}
-			jsonAnswer(http.StatusConflict, apiErrBody{e}).write(w, false)
-			return
-		}
+	if nameTaken(w, to.Name, as, taken) {
+		a.cfgMu.Unlock()
+		return
 	}
 	made, err := a.keys.replaceInstance(owner, as, false, time.Now())
 	a.cfgMu.Unlock()
@@ -246,6 +242,17 @@ func (a *App) assignDone(w http.ResponseWriter, cl *apiCtx, from, to Panel, name
 	}
 	a.apiEvent(cl.Actor, "assign", "ok", note+how, nil)
 	apiJSON(w, map[string]any{"from": from.ID, "panel": to.ID, "instance": as})
+}
+
+// nameTaken answers 409 name_taken with a free name when as is in taken, ignoring case, and says whether it did.
+func nameTaken(w http.ResponseWriter, panel, as string, taken []string) bool {
+	i := slices.IndexFunc(taken, func(t string) bool { return strings.EqualFold(t, as) })
+	if i < 0 {
+		return false
+	}
+	e := apiErr{Code: "name_taken", Message: panel + " already has an instance named " + taken[i], Suggest: suggestInstance(as, taken)}
+	jsonAnswer(http.StatusConflict, apiErrBody{e}).write(w, false)
+	return true
 }
 
 var trailingNumber = regexp.MustCompile(`^(.*\S)\s+(\d+)$`)

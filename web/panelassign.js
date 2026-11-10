@@ -21,9 +21,10 @@ on('locking', () => {
 // yet: an Assign never edits a panel, so it goes ahead.
 export const confirmModeChange = async () => true;
 
-// The name clash dialog over the Assign to modal: the server's suggestion, editable. go(name) sends again under it;
-// Cancel and Escape close only this dialog.
-function askName(panel, clashed, suggest, go) {
+// The name clash dialog, over the Assign to modal or the panels page's rename: the server's suggestion, editable.
+// go(name) sends again under it; Cancel and Escape close only this dialog.
+export function askName(panel, clashed, suggest, go, kind = 'assign') {
+  const renaming = kind === 'rename';
   const opener = document.activeElement;
   const input = el('input', 'pb-input');
   input.id = 'assign-name';
@@ -36,7 +37,7 @@ function askName(panel, clashed, suggest, go) {
   err.hidden = true;
   const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
   cancel.type = 'button';
-  const ok = el('button', 'pb-btn pb-btn--ok', icon('send'), ' Assign');
+  const ok = el('button', 'pb-btn pb-btn--ok', icon(renaming ? 'pencil' : 'send'), renaming ? ' Rename' : ' Assign');
   ok.type = 'button';
   ok.id = 'assign-name-go';
 
@@ -51,7 +52,11 @@ function askName(panel, clashed, suggest, go) {
     el(
       'div',
       'pb-modal__body',
-      el('p', 'sode__hint', `${panel.name} already has an instance named ${clashed}. The instance takes this name as its device name there.`),
+      el(
+        'p',
+        'sode__hint',
+        `${panel.name} already has an instance named ${clashed}. The instance takes this name as its device name${renaming ? '' : ' there'}.`,
+      ),
       input,
       err,
     ),
@@ -105,11 +110,19 @@ function askAnyway(panel, row) {
     dialog.setAttribute('aria-labelledby', 'assign-anyway-title');
     dialog.tabIndex = -1;
     dialog.append(
-      el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `${panel.name} is not shared with ${row.user}`), { id: 'assign-anyway-title' })),
+      el(
+        'div',
+        'pb-modal__header',
+        Object.assign(el('span', 'pb-modal__title', `${panel.name} is not shared with ${row.user}`), { id: 'assign-anyway-title' }),
+      ),
       el(
         'div',
         'pb-modal__body',
-        el('p', 'sode__hint', `${row.device} is signed in as ${row.user}, who cannot open ${panel.name}. It will open it and say there is no panel there to use.`),
+        el(
+          'p',
+          'sode__hint',
+          `${row.device} is signed in as ${row.user}, who cannot open ${panel.name}. It will open it and say there is no panel there to use.`,
+        ),
       ),
       el('div', 'pb-modal__footer', cancel, ok),
     );
@@ -169,14 +182,19 @@ export function openAssign(panel, ctx) {
   sayIntro();
   const choice =
     ways.length > 1
-      ? segmented('assign-way', 'How the instance opens it', [
-          ['client', 'Its own key'],
-          ['user', 'Sign in'],
-        ], (v) => {
-          way = v;
-          sayIntro();
-          paint();
-        })
+      ? segmented(
+          'assign-way',
+          'How the instance opens it',
+          [
+            ['client', 'Its own key'],
+            ['user', 'Sign in'],
+          ],
+          (v) => {
+            way = v;
+            sayIntro();
+            paint();
+          },
+        )
       : null;
   choice?.set(way);
 
@@ -225,15 +243,7 @@ export function openAssign(panel, ctx) {
   dialog.tabIndex = -1;
   dialog.append(
     el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `Assign to ${panel.name}`), { id: 'assign-title' })),
-    el(
-      'div',
-      'pb-modal__body',
-      intro,
-      ...(choice ? [choice.node] : []),
-      find,
-      list,
-      pinRow,
-    ),
+    el('div', 'pb-modal__body', intro, ...(choice ? [choice.node] : []), find, list, pinRow),
     el('div', 'pb-modal__footer', note, closeBtn),
   );
   root.append(dialog);
