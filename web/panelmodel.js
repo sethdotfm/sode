@@ -8,7 +8,9 @@
 // preset's items [{ src, dsts, levels }], where levels [] means every level.
 // settings.fixedDests (Fixed destination) makes the list the panel's destinations for the life of the page: the
 // first one is the view, so Current Source and the Source states read it, and Clear keeps it.
+// page is the current Page's id (panelnav.js). The plan is panel-wide, so a Page change leaves the view and staged alone.
 import { presetKey, rightsAllow, fixedDestsOf } from './panelrules.js';
+import { navTarget } from './panelnav.js';
 
 export const RESULT_MS = 1500;
 export const ERROR_MS = 4000;
@@ -33,7 +35,16 @@ export function createState(settings = {}) {
     busy: false,
     results: {}, // dst -> { result, at }
     error: null,
+    page: '',
   };
+}
+
+export const showPage = (st, page) => ({ ...st, page });
+
+// A Go to Page, Next Page or Previous Page press. One that goes nowhere (greyed) returns st itself.
+export function pressPage(st, cell, pages, wrap) {
+  const to = navTarget(pages, st.page, cell, wrap);
+  return to === null ? st : { ...st, page: to, guardAt: 0, holdAt: 0 };
 }
 
 const inSet = (levels, set) => (set ? levels.filter((l) => set.includes(l)) : levels);

@@ -115,9 +115,20 @@ func checkPages(pages []PanelPage, rows, cols int) ([]PanelPage, error) {
 	return out, nil
 }
 
-// checkPageTargets is where Go to Page cells will be checked once they exist. A target that is missing is stored as is
-// and read as unassigned, so only a malformed one is refused.
-func checkPageTargets([]PanelPage) error { return nil }
+// checkPageTargets judges each Go to Page cell's `page`, a Page id. A target that is missing is stored as is and read as
+// unassigned (web/panelnav.js goToState), so only a malformed one is refused; "" or no field is unassigned.
+func checkPageTargets(pages []PanelPage) error {
+	for c := range allCells(pages) {
+		v, has := c["page"]
+		if c["kind"] != "goToPage" || !has {
+			continue
+		}
+		if s, ok := v.(string); !ok || s != "" && !pageIDRe.MatchString(s) {
+			return errors.New("a Go to Page cell's page is a Page id: 1 to 16 letters, digits, dashes and underscores")
+		}
+	}
+	return nil
+}
 
 // fitCells drops cells that start outside rows by cols and clips a span that only reaches outside, as resize in
 // web/gridmodel.js does. A cell with no whole r and c is left as it is; the pages ignore it. Changed cells are copies.

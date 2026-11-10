@@ -23,9 +23,9 @@ const presets = {
   ],
 };
 
-test('every Source, Destination, Preset, Take, Clear, Current, Panel Name and Instance Name is searchable, with the number a person sees', () => {
+test('every Source, Destination, Preset, Take, Clear, Current, Panel Name, Instance Name and Page cell kind is searchable, with the number a person sees', () => {
   const all = findEntries(names, presets, null);
-  assert.equal(all.length, 12);
+  assert.equal(all.length, 15);
   assert.deepEqual(
     rankFind(all, 'take')
       .map((e) => e.category)
@@ -42,7 +42,7 @@ test('every Source, Destination, Preset, Take, Clear, Current, Panel Name and In
 test('Read-only rights grey what is outside them and Hidden removes it', () => {
   const rights = { sources: [0], dsts: [1], presets: ['Night'] };
   const grey = findEntries(names, presets, rights);
-  assert.equal(grey.length, 12);
+  assert.equal(grey.length, 15);
   assert.deepEqual(
     grey.filter((e) => e.off).map((e) => e.label),
     ['Camera 2', 'Graphics', 'Monitor A', 'Show open'],
@@ -50,7 +50,7 @@ test('Read-only rights grey what is outside them and Hidden removes it', () => {
   const gone = findEntries(names, presets, { ...rights, visibility: 'hidden' });
   assert.deepEqual(
     gone.map((e) => e.label),
-    ['Camera 1', 'Monitor B', 'Night', 'Take', 'Clear', 'Current Source', 'Panel Name', 'Instance Name'],
+    ['Camera 1', 'Monitor B', 'Night', 'Take', 'Clear', 'Current Source', 'Panel Name', 'Instance Name', 'Go to Page', 'Next Page', 'Previous Page'],
   );
   assert.ok(gone.every((e) => !e.off));
 });
@@ -101,7 +101,23 @@ test('chips narrow to categories, and with no text results come in number order 
   );
   assert.deepEqual(
     rankFind(list, '').map((e) => e.label),
-    ['Camera 1', 'Camera 2', 'Graphics', 'Monitor A', 'Monitor B', 'Night', 'Show open', 'Take', 'Clear', 'Current Source', 'Panel Name', 'Instance Name'],
+    [
+      'Camera 1',
+      'Camera 2',
+      'Graphics',
+      'Monitor A',
+      'Monitor B',
+      'Night',
+      'Show open',
+      'Take',
+      'Clear',
+      'Current Source',
+      'Panel Name',
+      'Instance Name',
+      'Go to Page',
+      'Next Page',
+      'Previous Page',
+    ],
   );
 });
 

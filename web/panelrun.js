@@ -22,6 +22,8 @@ import {
   failTake,
   applyTally,
   carryView,
+  showPage,
+  pressPage,
   errorOf,
   guardDown,
   guardHeld,
@@ -36,6 +38,9 @@ import { watchPanel } from './panellive.js';
 import { instanceFrom } from './panellink.js';
 import { initChrome } from './panelfull.js';
 import { initName } from './panelname.js';
+import { pagesOf } from './panelpages.js';
+import { NAV_KINDS, landingPage, pageIndex, wrapOf } from './panelnav.js';
+import { savedPage, keepPage } from './pagekeep.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
@@ -188,7 +193,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (notes.length) say(ui.note, notes.join(' '));
   }
 
-  let cells = drawnCells(panel).map((c) => withDefault(c, defaultsBy(panel.artDefaults)));
+  // The current Page's cells; a live update or a Page change makes them again.
+  const cellsOf = (p, page) => drawnCells(p, pageIndex(pagesOf(p), page)).map((c) => withDefault(c, defaultsBy(p.artDefaults)));
+  // Every Page's cells, so a live update keeps a Destination viewed on another Page.
+  const everyCell = (p) => pagesOf(p).flatMap((_, i) => drawnCells(p, i));
   const stateOf = (p) => {
     const set = p.settings || {};
     return createState({
@@ -200,7 +208,13 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       fixedDests: set.fixedDests,
     });
   };
-  let st = stateOf(panel);
+  // The Test it live run is no instance, so it neither reads nor writes the browser's saved Page.
+  let st = showPage(stateOf(panel), landingPage(pagesOf(panel), embedded ? '' : savedPage(id)));
+  let cells = cellsOf(panel, st.page);
+  const notePage = () => {
+    if (!embedded) keepPage(id, st.page);
+  };
+  notePage();
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
   let names = namesFrom({});
   let presets = {};
@@ -209,7 +223,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
 
   const render = () => {
     const now = Date.now();
-    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance });
+    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance, pages: pagesOf(panel), wrap: wrapOf(panel) });
     say(ui.status, errorText(errorOf(st, now), names));
   };
   let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
@@ -314,9 +328,12 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   }
 
   function onPress(cell) {
-    if (!ready) return;
+    // A Page change sends nothing, so it works while the router or Sode is away.
+    const nav = NAV_KINDS.includes(cell.kind);
+    if (!ready && !nav) return;
     wake?.retry();
     if (wantsFullscreen(look) && !embedded) enterFullscreen(document, look.landscape);
+    if (nav) return showNewPage(pressPage(st, cell, pagesOf(panel), wrapOf(panel)));
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env)) return;
@@ -335,6 +352,17 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       const started = startInstant(st, env);
       if (started) return void send(started);
     }
+    render();
+  }
+
+  // A Page change keeps the plan and rebuilds the grid from the new Page's cells.
+  function showNewPage(next) {
+    if (next === st) return;
+    clearTimeout(holdTimer);
+    st = next;
+    notePage();
+    cells = cellsOf(panel, st.page);
+    grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
     render();
   }
 
@@ -369,8 +397,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     apply(p) {
       clearTimeout(holdTimer);
       panel = p;
-      cells = drawnCells(p).map((c) => withDefault(c, defaultsBy(p.artDefaults)));
-      st = carryView(stateOf(p), st, cells);
+      // The current Page stays unless the edit disabled or deleted it, then the first enabled Page shows.
+      st = showPage(carryView(stateOf(p), st, everyCell(p)), landingPage(pagesOf(p), st.page));
+      notePage();
+      cells = cellsOf(p, st.page);
       look = applyLook(p);
       grid = buildGrid(ui.grid, p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
       render();

@@ -22,6 +22,7 @@ const DEFAULTS = {
   guard: 'none',
   resultText: false,
   kiosk: false,
+  wrapPages: true,
 };
 
 export function setSetting(settings, key, value) {
@@ -97,6 +98,9 @@ export const ART_ICONS = [
   'eye',
   'panels-top-left',
   'tablet-smartphone',
+  'file-symlink',
+  'chevron-right',
+  'chevron-left',
   'check',
   'equal',
   'x',
@@ -156,7 +160,6 @@ export const ART_ICONS = [
   'image',
 ];
 
-
 const amount = (list) => (!Array.isArray(list) ? 'All' : list.length ? String(list.length) : 'None');
 
 // The Rights table of a client: one [name, value] row per list, then Visibility. No Rights means everything.
@@ -173,6 +176,9 @@ export function rightsRows(rights) {
 
 // The picker's icon search: names that contain every typed word, in the order given.
 export const artFilter = (names, text) => {
-  const words = String(text).toLowerCase().split(/[\s-]+/).filter(Boolean);
+  const words = String(text)
+    .toLowerCase()
+    .split(/[\s-]+/)
+    .filter(Boolean);
   return names.filter((n) => words.every((w) => n.includes(w)));
 };
