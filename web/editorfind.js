@@ -7,7 +7,19 @@ import { sessionFetch, jsonCall } from './sessionkey.js';
 import { resultStep } from './keys.js';
 import { selSquares, single, selCells } from './gridmodel.js';
 import { createOrderPicker } from './editororder.js';
-import { CHIP_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, findEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope, offTag } from './findrules.js';
+import {
+  CHIP_CATEGORIES,
+  CATEGORY_LABEL,
+  CATEGORY_ICON,
+  findEntries,
+  rankFind,
+  fillRun,
+  findPlan,
+  applyFind,
+  afterFill,
+  findScope,
+  offTag,
+} from './findrules.js';
 import { flyoutShift } from './editorrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest

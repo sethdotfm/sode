@@ -94,7 +94,9 @@ export async function runEditor() {
   const nameBox = $('ed-name');
   const dirty = () => isDirty(loaded, nameBox.value, whole(), edits);
 
-  const setGrid = (next) => {
+  // fresh: next is a whole new layout (a template), so cells held from the old one do not come back.
+  const setGrid = (next, { fresh = false } = {}) => {
+    if (fresh) held = [];
     next = holdOrPutBack(next);
     if (next === g) return;
     g = next;

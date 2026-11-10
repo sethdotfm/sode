@@ -151,7 +151,11 @@ test('while Fixed destination is on, Type offers Destination greyed with the rea
   assert.equal(d.disabled, true);
   assert.equal(d.label, 'Destination');
   assert.equal(d.hint, 'Fixed destination is on');
-  assert.ok(kindChoices({ fixed: true }).filter((x) => x.kind !== 'destination').every((x) => !x.disabled));
+  assert.ok(
+    kindChoices({ fixed: true })
+      .filter((x) => x.kind !== 'destination')
+      .every((x) => !x.disabled),
+  );
 });
 
 test('a change to the fixed destinations is an unsaved change and is saved, in its own order', () => {

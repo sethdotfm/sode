@@ -61,9 +61,9 @@ export function createFixedField(ed) {
 
   function add(e) {
     if (!e || e.off) return;
-    set((s) => addFixed(s, e.n));
     input.value = '';
     hi = 0;
+    set((s) => addFixed(s, e.n));
     input.focus({ preventScroll: true });
   }
 

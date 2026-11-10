@@ -43,7 +43,11 @@ export function addFixed(settings, n) {
   const list = fixedOf(settings);
   return list.includes(n) || list.length >= FIXED_MAX ? settings : withFixed(settings, [...list, n]);
 }
-export const dropFixed = (settings, n) => withFixed(settings, fixedOf(settings).filter((x) => x !== n));
+export const dropFixed = (settings, n) =>
+  withFixed(
+    settings,
+    fixedOf(settings).filter((x) => x !== n),
+  );
 
 export function fontPercent(text) {
   const t = String(text).trim();

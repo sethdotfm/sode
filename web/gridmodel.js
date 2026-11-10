@@ -348,15 +348,24 @@ export function nextTodo(g) {
 // square nobody sees. putBack drops a held cell whose squares were filled meanwhile or that no longer fits.
 export function setAside(g, kind) {
   const held = g.cells.filter((c) => c.kind === kind);
-  return held.length ? { grid: withCells(g, g.cells.filter((c) => c.kind !== kind)), held } : { grid: g, held };
+  return held.length
+    ? {
+        grid: withCells(
+          g,
+          g.cells.filter((c) => c.kind !== kind),
+        ),
+        held,
+      }
+    : { grid: g, held };
 }
 export function putBack(g, held) {
   if (!held.length) return g;
-  const fits = held.filter((h) => {
+  const cells = [...g.cells];
+  for (const h of held) {
     const { r2, c2 } = span(h);
-    return r2 <= g.rows && c2 <= g.cols && !g.cells.some((x) => touches(x, { r1: h.r, c1: h.c, r2, c2 }));
-  });
-  return fits.length ? withCells(g, [...g.cells, ...fits]) : g;
+    if (r2 <= g.rows && c2 <= g.cols && !cells.some((x) => touches(x, { r1: h.r, c1: h.c, r2, c2 }))) cells.push(h);
+  }
+  return cells.length > g.cells.length ? withCells(g, cells) : g;
 }
 
 export const saved = (g) => ({ rows: g.rows, cols: g.cols, cells: g.cells.map((c) => ({ ...c })).sort(reading) });

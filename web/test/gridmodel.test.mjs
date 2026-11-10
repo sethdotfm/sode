@@ -447,4 +447,14 @@ test('Destination cells set aside while Fixed destination is on come back where 
     ['1,1 destination', '1,2 source', '2,2 take'],
   );
   assert.equal(putBack(grid, []), grid);
+  // Two held cells on one square: the first wins, so the stored panel never has overlapping cells.
+  assert.deepEqual(
+    saved(
+      putBack(
+        grid,
+        [3, 9].map((n) => ({ ...D(1, 1, n), rs: 1, cs: 1 })),
+      ),
+    ).cells.map((c) => `${c.r},${c.c} ${c.n}`),
+    ['1,1 3', '1,2 1'],
+  );
 });

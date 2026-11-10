@@ -127,6 +127,10 @@ func TestChromeEditorFixedDests(t *testing.T) {
 		t.Errorf("the set-aside Destination cell was not kept: %s", raw)
 	}
 
+	b.eval(`document.getElementById('ed-live').click()`)
+	b.waitFor("Test it live shows both fixed destinations", `[...document.querySelectorAll('#ed-live-view .sode-panel__fixed-dst')].map((li) => li.dataset.n).join() === '`+fmt.Sprintf("%d,%d", simDst, other)+`'`)
+	b.eval(`document.getElementById('ed-live').click()`)
+
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the panel or its PIN pad", `!!document.querySelector('#panel-fixed .sode-panel__fixed-dst') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == "true" {
