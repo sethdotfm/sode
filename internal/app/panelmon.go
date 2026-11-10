@@ -58,6 +58,7 @@ type monInst struct {
 	streamed bool      // it held a stream and no keepalive has come since the last one closed
 	conns    map[int]context.CancelFunc
 	next     int
+	trans    []UptimeTrans // up and down changes for the uptime strip, see mark
 }
 
 // limit is how long after seen the instance still counts: short once its stream is gone, since a
@@ -86,10 +87,11 @@ type panelMon struct {
 	inst  map[string]map[string]*monInst
 	watch map[string]map[string]bool // lowercased user -> watch keys, see watchKey
 	clear map[string]map[string]bool // lowercased user -> watch keys whose current outage was cleared
+	hide  map[string]map[string]bool // lowercased user -> watch keys of instances hidden on the panels page
 }
 
 func loadPanelMon(cfgPath string) *panelMon {
-	m := &panelMon{now: time.Now, inst: map[string]map[string]*monInst{}, watch: map[string]map[string]bool{}, clear: map[string]map[string]bool{}}
+	m := &panelMon{now: time.Now, inst: map[string]map[string]*monInst{}, watch: map[string]map[string]bool{}, clear: map[string]map[string]bool{}, hide: map[string]map[string]bool{}}
 	if cfgPath == "" {
 		return m
 	}
@@ -218,6 +220,7 @@ func (m *panelMon) forget(id string, watches bool) {
 	}
 	delete(m.inst, id)
 	m.unclearLocked(id, "")
+	m.unhideLocked(id, "")
 	if !watches {
 		return
 	}
@@ -323,9 +326,10 @@ func (m *panelMon) liveCount(id string) int {
 }
 
 type instOut struct {
-	Device string    `json:"device"`
-	Seen   time.Time `json:"seen"`
-	Online bool      `json:"online"`
+	Device string     `json:"device"`
+	Seen   time.Time  `json:"seen"`
+	Online bool       `json:"online"`
+	Uptime instUptime `json:"uptime"`
 }
 
 func (m *panelMon) instances(id string) []instOut {
@@ -334,7 +338,7 @@ func (m *panelMon) instances(id string) []instOut {
 	now := m.now()
 	out := []instOut{}
 	for _, in := range m.inst[id] {
-		out = append(out, instOut{in.device, in.seen.UTC(), in.live(now)})
+		out = append(out, instOut{in.device, in.seen.UTC(), in.live(now), in.uptime(now)})
 	}
 	slices.SortFunc(out, func(a, b instOut) int { return strings.Compare(strings.ToLower(a.Device), strings.ToLower(b.Device)) })
 	return out
@@ -397,6 +401,10 @@ func (m *panelMon) touchLocked(id, device string) (*monInst, *monEvent, error) {
 	}
 	was, lost := in.seen, in.lost
 	in.device, in.seen, in.lost = device, now, false
+	in.mark(upUp, now)
+	if !known || lost {
+		m.unhideLocked(id, device)
+	}
 	if !lost {
 		return in, nil, nil
 	}
@@ -416,6 +424,7 @@ func (m *panelMon) sweep(now time.Time) []monEvent {
 				delete(set, k)
 			case !in.lost && age > in.limit():
 				in.lost = true
+				in.mark(upDown, in.seen.Add(in.limit()))
 				out = append(out, monEvent{panel: id, device: in.device, state: "lost", secs: int(age.Seconds()), offline: !m.onlineLocked(id, now)})
 			}
 		}
@@ -603,13 +612,17 @@ func (a *App) monSweep() {
 	}
 }
 
-// monFields adds online, watching and, for an editor, the devices to a panel as sent.
+// monFields adds online, the instance counts, watching and, for an editor, the devices to a panel as sent.
 func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	m["online"] = a.mon.online(p.ID)
 	m["watching"] = cl.Actor.Kind == actorUser && a.mon.watching(cl.Actor.Name, p.ID)
+	user := ""
 	if cl.Actor.Kind == actorUser {
-		m["watchingInstances"] = a.mon.watchedInstances(cl.Actor.Name, p.ID)
+		user = cl.Actor.Name
+		m["watchingInstances"] = a.mon.watchedInstances(user, p.ID)
+		m["hiddenInstances"] = a.mon.hiddenInstances(user, p.ID)
 	}
+	m["instancesOnline"], m["instancesKnown"] = a.mon.counts(user, p.ID)
 	if edit {
 		m["instances"] = a.mon.instances(p.ID)
 	}

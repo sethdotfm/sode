@@ -167,6 +167,7 @@ func (m *panelMon) forgetDevice(id, device string) {
 		}
 		delete(m.inst[id], k)
 	}
+	m.unhideLocked(id, k)
 }
 
 // panelKeyOut is one instance in the key list. Setup says only a one-time link is pending.
