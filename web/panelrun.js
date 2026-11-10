@@ -9,7 +9,7 @@ import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
-import { exchangeSetup, storedKey, forgetKey, keepLinkKey } from './panelsetup.js';
+import { exchangeSetup, storedKey, forgetKey, keepLinkKey, followAssign } from './panelsetup.js';
 import {
   createState,
   pressDestination,
@@ -313,11 +313,21 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   let keep = null;
   if (!embedded) {
     const showName = initName(ui.name, (name) => keep.rename(name));
-    keep = startKeepalive(call, id, ui.device, instanceFrom(location.search), (name, editable) => {
-      instance = name;
-      showName(name, editable);
-      render();
-    });
+    keep = startKeepalive(
+      call,
+      id,
+      ui.device,
+      instanceFrom(location.search),
+      (name, editable) => {
+        instance = name;
+        showName(name, editable);
+        render();
+      },
+      (msg) => {
+        run.stop();
+        followAssign(msg);
+      },
+    );
   }
   // A newer saved copy: rebuild the grid and the state from it, keeping the viewed destination. The watcher counts down and waits out staged routes first.
   stopWatch = watchPanel({

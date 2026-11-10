@@ -8,6 +8,8 @@ import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
+import { openAssign } from './panelassign.js';
+import { canAssignTo } from './panelassignrules.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -91,6 +93,8 @@ function detail(p) {
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
+  // The server decides: a Trusted user, or the Advanced Settings PIN the modal asks for.
+  if (canAssignTo(p) && (S.trusted || p.canEdit)) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
   // Link with key goes here.
   const slot = el('span', 'sode-ov__more');
   slot.id = 'panels-more';
@@ -215,6 +219,11 @@ async function act(kind, id) {
     if (kind === 'push') {
       const p = S.panels.find((x) => x.id === id);
       if (p) openPush(p, { api, panels: S.panels, me: S.me, trusted: S.trusted, onDone: () => load(id) });
+      return;
+    }
+    if (kind === 'assign') {
+      const p = S.panels.find((x) => x.id === id);
+      if (p) openAssign(p, { api, panels: () => S.panels, onDone: refreshOnline });
       return;
     }
     if (kind === 'copy') {
