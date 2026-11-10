@@ -5,7 +5,8 @@
 import { el, icon, S } from './core.js';
 import { btn, check, field } from './formbits.js';
 import { churnKey } from './lockrules.js';
-import { qrNode } from './keyview.js';
+import { qrNode, secretNode } from './keyview.js';
+import { trapDialog } from './dialogkeys.js';
 import { shareTabs } from './panelshare.js';
 import {
   MODES,
@@ -248,6 +249,7 @@ shareTabs.push(({ panel, api }) => {
     revealed = false;
     await loadKeys();
     paintLink();
+    if (!setup) showKey(made.name, res.key);
     say(
       setup
         ? `${made.name}: the old key is ended. Open the link once on that device to set it up.`
@@ -262,6 +264,39 @@ shareTabs.push(({ panel, api }) => {
     await loadKeys();
     paintLink();
     say(`Revoked ${name}. Other instances are not affected.`);
+  }
+
+  // The key itself, for a client that takes it apart from the link (a Bearer header). Built per make and removed on
+  // close, so the secret lives no longer than the modal; trapDialog drops it from the Esc stack once hidden.
+  function showKey(name, secret) {
+    const back = document.activeElement;
+    const keyRoot = el('div', 'pb-modal-backdrop sode__scrim');
+    const dialog = el('div', 'pb-modal sode-ov__keyshow');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'key-show-title');
+    dialog.tabIndex = -1;
+    const done = btn('pb-btn--ok', 'Done', () => shut());
+    dialog.append(
+      el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `API key for ${name}`), { id: 'key-show-title' })),
+      el(
+        'div',
+        'pb-modal__body',
+        el('p', 'sode__hint', 'The link already holds this key. Use the key on its own where an app asks for one, in an Authorization: Bearer header.'),
+        secretNode(secret),
+      ),
+      el('div', 'pb-modal__footer', done),
+    );
+    keyRoot.append(dialog);
+    document.body.append(keyRoot);
+    const dlg = trapDialog(keyRoot, dialog, () => shut());
+    function shut() {
+      dlg.hide();
+      keyRoot.remove();
+      if (back?.isConnected) back.focus({ preventScroll: true });
+    }
+    dlg.show();
+    done.focus();
   }
 
   function paintLink() {

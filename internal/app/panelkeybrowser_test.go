@@ -103,6 +103,14 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		return keyPrefix + strings.TrimPrefix(link[strings.Index(link, "#key="):], "#key=")
 	}
 	status := func(secret string) int { return apiSend(a, "GET", "/api/v1/tally", secret, "").Code }
+	// A make that gives a key shows it in its own dialog, whole with its prefix; Done removes the dialog and the key.
+	shownKey := func() string {
+		b.waitFor("the key dialog", `document.querySelector('.sode-ov__keyshow .sode__secret-key')?.value.startsWith('`+keyPrefix+`') && !!document.querySelector('.sode-ov__keyshow .sode__qr')`)
+		k, _ := b.eval(`document.querySelector('.sode-ov__keyshow .sode__secret-key').value`).(string)
+		b.eval(`[...document.querySelectorAll('.sode-ov__keyshow button')].find(x => x.textContent.trim() === 'Done').click()`)
+		b.waitFor("the key dialog is gone", `!document.querySelector('.sode-ov__keyshow')`)
+		return k
+	}
 
 	// A session panel opens on People, and its Link with key tab is greyed but readable, with no key action.
 	openTab(session)
@@ -121,9 +129,13 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	b.waitFor("Make link waits for a name", `[...document.querySelectorAll('.sode-ov__share #panel-key button')].find(x => x.textContent.trim() === 'Make link').disabled`)
 	setName("Lobby")
 	click("Make link")
+	shown := shownKey()
 	b.waitFor("masked link", input+`?.value.includes('?instance=Lobby#key=') && !`+input+`.value.includes('sode_')`)
 	b.waitFor("no QR while masked", `!document.querySelector('.sode-ov__keylink .sode__qr')`)
 	lobby := keyOf()
+	if shown != lobby {
+		t.Fatal("the key dialog does not show the key in the link")
+	}
 	// The Kiosk switch puts kiosk=1 after the key, keeps ?instance=, and Copy link copies that link.
 	b.eval(`window.__copied = ''; navigator.clipboard.writeText = async (t) => { window.__copied = t; }`)
 	b.eval(`document.getElementById('key-view-kiosk').click()`)
@@ -139,6 +151,7 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	// A second instance has its own key, and rotating or revoking one leaves the other.
 	setName("Studio")
 	click("Make link")
+	shownKey()
 	b.waitFor("second masked link", input+`?.value.includes('?instance=Studio#key=')`)
 	studio := keyOf()
 	if status(lobby) != 200 || status(studio) != 200 {
@@ -152,6 +165,7 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 		t.Fatal("rotating began before the Confirm")
 	}
 	confirm(false)
+	shownKey()
 	b.waitFor("rotated", tabText+`.includes('Lobby rotated')`)
 	if status(lobby) != 401 || status(studio) != 200 {
 		t.Fatalf("rotate Lobby: Lobby %d, Studio %d", status(lobby), status(studio))

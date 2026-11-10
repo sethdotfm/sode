@@ -532,6 +532,15 @@
 .sode__scrim > .pb-modal.sode-ov__share {
   width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
 }
+/* The key shown once after a make (panelkeytab.js showKey); lock.css is not loaded on panel pages. */
+.sode__scrim > .pb-modal.sode-ov__keyshow {
+  width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode-ov__keyshow .sode__secret {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
 .sode-ov__indent {
   display: flex;
   flex-direction: column;
@@ -863,6 +872,8 @@
   gap: var(--pb-space-3);
   list-style: none;
   margin: 0;
+  max-height: 20rem;
+  overflow-y: auto;
   padding: 0;
 }
 .sode-ov__keyitem {
@@ -897,18 +908,21 @@
   flex-direction: column;
   gap: var(--pb-space-3);
 }
-.sode-ov__keylink .sode__secret-row {
+.sode-ov__keylink .sode__secret-row,
+.sode-ov__keyshow .sode__secret-row {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
 }
-.sode-ov__keylink .sode__secret-key {
+.sode-ov__keylink .sode__secret-key,
+.sode-ov__keyshow .sode__secret-key {
   flex: 1 1 16rem;
   font-family: var(--pb-font-mono);
   min-width: 0;
 }
-.sode-ov__keylink .sode__qr {
+.sode-ov__keylink .sode__qr,
+.sode-ov__keyshow .sode__qr {
   align-self: flex-start;
   height: auto;
   width: 12rem;
