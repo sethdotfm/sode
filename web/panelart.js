@@ -11,28 +11,32 @@ export function createArt(call, panelId, make = URL.createObjectURL, drop = URL.
   const look = (id) => {
     if (!seen.has(id)) {
       const mine = seen;
-      seen.set(
-        id,
-        call(artUrlPath(panelId, id))
-          .then((res) => (res.ok ? res.blob() : null))
-          .then((blob) => {
-            if (!blob) return null;
-            const u = make(blob);
-            // Revoked while the fetch was in flight: nothing shows it any more.
-            if (mine !== seen) {
-              drop(u);
-              return null;
-            }
-            return { url: u, type: blob.type || '' };
-          })
-          .catch(() => null),
-      );
+      const p = call(artUrlPath(panelId, id))
+        .then((res) => (res.ok ? res.blob() : null))
+        .then((blob) => {
+          if (!blob) return null;
+          const u = make(blob);
+          // Revoked or forgotten while the fetch was in flight: nothing shows it any more.
+          if (mine !== seen || seen.get(id) !== p) {
+            drop(u);
+            return null;
+          }
+          return { url: u, type: blob.type || '' };
+        })
+        .catch(() => null);
+      seen.set(id, p);
     }
     return seen.get(id);
   };
   return {
     look,
     url: (id) => look(id).then((l) => l?.url ?? null),
+    // One id only, as when a library icon is deleted; the next look fetches it again.
+    forget(id) {
+      const p = seen.get(id);
+      seen.delete(id);
+      p?.then((l) => l && drop(l.url));
+    },
     revoke() {
       const old = seen;
       seen = new Map();

@@ -165,3 +165,101 @@ func TestIconLibraryUnknownRefSaves(t *testing.T) {
 	}
 	wantErr(t, apiDo(a, "GET", "/api/v1/icon-library/0badc0de", ana, nil), 404, "not_found")
 }
+
+// Rename keeps the id, so a cell's `lib:<id>` still draws; a case-only rename is not a clash with itself.
+func TestIconLibraryRename(t *testing.T) {
+	a := panelsApp(t)
+	ana, cy := userKey(t, a, "Ana"), userKey(t, a, "Cy")
+	png := b64(t, tinyPNG)
+	add := func(n string) string {
+		t.Helper()
+		rec := apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload(n, png, ""))
+		if rec.Code != 201 {
+			t.Fatalf("upload %q: %d %s", n, rec.Code, rec.Body.String())
+		}
+		return apiBody(t, rec)["id"].(string)
+	}
+	id := add("Logo")
+	add("Camera")
+	rename := func(key, n, pin string) *httptest.ResponseRecorder {
+		b, _ := json.Marshal(map[string]string{"name": n, "pin": pin})
+		return apiSend(a, "PATCH", "/api/v1/icon-library/"+id, key, string(b))
+	}
+
+	wantErr(t, rename(ana, "Mark", ""), 403, "trusted_required")
+	for _, c := range [][2]string{{"logo", "logo"}, {" Station ", "Station"}, {"camera", "camera 2"}} {
+		rec := rename(cy, c[0], "")
+		got := apiBody(t, rec)
+		if rec.Code != 200 || got["name"] != c[1] || got["id"] != id {
+			t.Fatalf("rename %q: %d %s, want %q", c[0], rec.Code, rec.Body.String(), c[1])
+		}
+	}
+	setSettingsPin(t, a, "9999")
+	if rec := rename(ana, "By PIN", "9999"); rec.Code != 200 {
+		t.Fatalf("PIN rename: %d %s", rec.Code, rec.Body.String())
+	}
+	wantErr(t, rename(cy, "", ""), 400, "bad_request")
+	wantErr(t, apiSend(a, "PATCH", "/api/v1/icon-library/0badc0de", cy, `{"name":"X"}`), 404, "not_found")
+
+	if rec := apiDo(a, "GET", "/api/v1/icon-library/"+id, ana, nil); rec.Code != 200 || !bytes.Equal(rec.Body.Bytes(), png) {
+		t.Fatalf("file after rename: %d", rec.Code)
+	}
+	if got := loadIconLib(a.cfgPath).list(); got[0].ID != id || got[0].Name != "By PIN" {
+		t.Fatalf("reloaded %+v", got)
+	}
+}
+
+// Delete needs a Trusted user or the PIN. Cells that named the icon keep `lib:<id>` and draw no Icon A, as any
+// reference the library does not hold; their Icon B stays. The use count spans every owner's panels.
+func TestIconLibraryDeleteAndUses(t *testing.T) {
+	a := panelsApp(t)
+	ana, bo, cy := userKey(t, a, "Ana"), userKey(t, a, "Bo"), userKey(t, a, "Cy")
+	rec := apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Logo", b64(t, tinyPNG), ""))
+	id := apiBody(t, rec)["id"].(string)
+	lib := "lib:" + id
+	makePanel(t, a, ana, `{"name":"A","rows":2,"cols":2,"cells":[{"r":1,"c":1,"kind":"source","n":1,"art":"`+lib+`","artB":"2"},{"r":1,"c":2,"kind":"source","n":2,"art":"`+lib+`"},{"r":2,"c":1,"kind":"source","n":3,"art":"icon:camera"}]}`)
+	pb := makePanel(t, a, bo, `{"name":"B","cells":[{"r":1,"c":1,"kind":"dest","n":1,"art":"`+lib+`"}]}`)
+	makePanel(t, a, bo, `{"name":"C","cells":[{"r":1,"c":1,"kind":"dest","n":1}]}`)
+
+	uses := func(key, icon string) map[string]any {
+		t.Helper()
+		rec := apiDo(a, "GET", "/api/v1/icon-library/"+icon+"/uses", key, nil)
+		if rec.Code != 200 {
+			t.Fatalf("uses: %d %s", rec.Code, rec.Body.String())
+		}
+		return apiBody(t, rec)
+	}
+	if got := uses(cy, id); got["cells"] != 3.0 || got["panels"] != 2.0 {
+		t.Fatalf("uses %v, want 3 cells on 2 panels", got)
+	}
+
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id, ana, ``), 403, "trusted_required")
+	setSettingsPin(t, a, "9999")
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id, ana, `{"pin":"1111"}`), 403, "trusted_required")
+	if len(a.icons.list()) != 1 {
+		t.Fatal("a refused delete removed the icon")
+	}
+	if rec := apiSend(a, "DELETE", "/api/v1/icon-library/"+id, cy, ``); rec.Code != 204 {
+		t.Fatalf("Trusted delete: %d %s", rec.Code, rec.Body.String())
+	}
+	wantErr(t, apiDo(a, "GET", "/api/v1/icon-library/"+id, ana, nil), 404, "not_found")
+	wantErr(t, apiSend(a, "DELETE", "/api/v1/icon-library/"+id, cy, ``), 404, "not_found")
+	if _, err := os.Stat(filepath.Join(filepath.Dir(a.cfgPath), iconLibDir, id+".png")); !os.IsNotExist(err) {
+		t.Errorf("file left behind: %v", err)
+	}
+	if len(loadIconLib(a.cfgPath).list()) != 0 {
+		t.Error("the index still holds it")
+	}
+	if got := uses(cy, id); got["cells"] != 3.0 {
+		t.Errorf("cells still naming it %v", got)
+	}
+	if p, _ := a.panels.get(pb); p.Cells[0]["art"] != lib {
+		t.Errorf("cell art %v, want %s kept", p.Cells[0]["art"], lib)
+	}
+
+	// The PIN deletes too.
+	id2 := apiBody(t, apiSend(a, "POST", "/api/v1/icon-library", cy, iconUpload("Mark", b64(t, tinyPNG), "")))["id"].(string)
+	if rec := apiSend(a, "DELETE", "/api/v1/icon-library/"+id2, ana, `{"pin":"9999"}`); rec.Code != 204 {
+		t.Fatalf("PIN delete: %d %s", rec.Code, rec.Body.String())
+	}
+}

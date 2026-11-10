@@ -60,7 +60,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   });
   const picker = el('div', 'sode-side__picker');
   picker.hidden = true;
-  const lib = icons ? createLibSection({ ed, set }) : null;
+  // gone: a library icon was deleted, so the preview draws again even though the cell's value is the same.
+  const lib = icons ? createLibSection({ ed, set, gone: () => ((shown = ''), last && control.update(...last)) }) : null;
   const choose = btn('pb-btn--outline pb-btn--sm', 'Choose icon', () => {
     picker.hidden = !picker.hidden;
     if (!picker.hidden) lib?.load();
@@ -139,10 +140,12 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   });
 
   let shown = '';
-  return {
+  let last = null; // update's arguments, so a library delete can draw the preview again
+  const control = {
     node,
     // drawn: the cell shows artwork, its own or its item's default, so Hide text applies.
     update(value, caption = '', hideText = false, artB = '', drawn = false) {
+      last = [value, caption, hideText, artB, drawn];
       const ro = ed.readOnly();
       const saved = !!ed.panel();
       const shownB = artBOf({ art: value, artB });
@@ -177,4 +180,5 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
         preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || artOf({ art: value })?.lib || shownB ? 'Caption' : '')));
     },
   };
+  return control;
 }

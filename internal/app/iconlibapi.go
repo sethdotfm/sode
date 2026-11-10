@@ -19,7 +19,89 @@ func init() {
 		apiRoute{"GET", apiBase + "/icon-library", read, (*App).apiIconList},
 		apiRoute{"POST", apiBase + "/icon-library", manage, (*App).apiIconUpload},
 		apiRoute{"GET", apiBase + "/icon-library/{icon}", read, (*App).apiIconFile},
+		apiRoute{"PATCH", apiBase + "/icon-library/{icon}", manage, (*App).apiIconRename},
+		apiRoute{"DELETE", apiBase + "/icon-library/{icon}", manage, (*App).apiIconDelete},
+		apiRoute{"GET", apiBase + "/icon-library/{icon}/uses", manage, (*App).apiIconUses},
 	)
+}
+
+// readIconChange reads {name?, pin?} and checks the caller may change the library. A DELETE may send no body.
+func (a *App) readIconChange(w http.ResponseWriter, r *http.Request, cl *apiCtx) (iconIn, bool) {
+	var in iconIn
+	if cl.Actor.Kind != actorUser {
+		apiFail(w, http.StatusForbidden, "user_required", "the Icon library is changed with a user's key")
+		return in, false
+	}
+	body, ok := readBody(w, r, panelBodyMax, "icon")
+	if !ok {
+		return in, false
+	}
+	if len(body) > 0 {
+		if err := json.Unmarshal(body, &in); err != nil {
+			apiFail(w, http.StatusBadRequest, "bad_request", `send {"name", "pin"} as JSON: `+err.Error())
+			return in, false
+		}
+	}
+	if err := a.mayEveryone(cl, in.Pin, "only a Trusted user, or the Advanced Settings PIN, may change the Icon library"); err != nil {
+		failWith(w, err)
+		return in, false
+	}
+	return in, true
+}
+
+func (a *App) apiIconRename(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	in, ok := a.readIconChange(w, r, cl)
+	if !ok {
+		return
+	}
+	ic, found, err := a.icons.rename(r.PathValue("icon"), in.Name)
+	switch {
+	case !found:
+		apiFail(w, http.StatusNotFound, "not_found", "no such icon in the Icon library")
+	case errors.Is(err, errIconBadName):
+		apiFail(w, http.StatusBadRequest, "bad_request", err.Error())
+	case err != nil:
+		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be renamed: "+err.Error())
+	default:
+		a.apiEvent(cl.Actor, "iconRename", "ok", "Icon library: renamed "+ic.ID+" to "+ic.Name, nil)
+		apiJSON(w, ic)
+	}
+}
+
+func (a *App) apiIconDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
+	if _, ok := a.readIconChange(w, r, cl); !ok {
+		return
+	}
+	ic, found, err := a.icons.remove(r.PathValue("icon"))
+	switch {
+	case !found:
+		apiFail(w, http.StatusNotFound, "not_found", "no such icon in the Icon library")
+	case err != nil:
+		apiFail(w, http.StatusInternalServerError, "internal", "the icon could not be deleted: "+err.Error())
+	default:
+		a.apiEvent(cl.Actor, "iconDelete", "ok", "Icon library: deleted "+ic.Name, nil)
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// apiIconUses counts across every panel, not only the caller's, since a delete reaches them all. Counts only, so
+// nothing of another user's panel is shown.
+func (a *App) apiIconUses(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
+	ref := "lib:" + r.PathValue("icon")
+	cells, panels := 0, 0
+	for _, p := range a.panels.list() {
+		n := 0
+		for _, c := range p.Cells {
+			if c["art"] == ref {
+				n++
+			}
+		}
+		cells += n
+		if n > 0 {
+			panels++
+		}
+	}
+	apiJSON(w, map[string]int{"cells": cells, "panels": panels})
 }
 
 // The file rides base64 in JSON so the PIN can ride in the body, as every other Everyone change has it.
