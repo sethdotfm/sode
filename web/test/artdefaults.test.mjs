@@ -4,7 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withDefault, defaultsBy, defaultFor, itemKey, artOf, artBOf, artBBadge, textHidden, artUrlPath, nameMismatch } from '../panellook.js';
 import { revOf, noticeRev, createUpdate } from '../panelupdate.js';
-import { defaultNote, defaultBody } from '../editorrules.js';
+import { defaultNote, defaultBody, saveBody } from '../editorrules.js';
+import { createGrid, setCell } from '../gridmodel.js';
 
 const defs = defaultsBy([
   { kind: 'source', n: 3, name: 'CAM 3', art: 'icon:camera', artB: '2', hideText: true },
@@ -57,6 +58,14 @@ test('a default image is an image to artNode: never .icon, so Icon B is a badge,
   assert.equal(artBBadge({ ...c, artB: '3' }), true);
   assert.equal(artUrlPath('p-11111111', 'd-0123abcd'), 'api/v1/default-artwork/images/d-0123abcd');
   assert.equal(artUrlPath('p-11111111', 'a-0123abcd'), 'api/v1/panels/p-11111111/artwork/a-0123abcd');
+});
+
+test('Hide text set off against a default is saved as false, and Use default removes it', () => {
+  let g = createGrid({ rows: 1, cols: 1, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: 'source', n: 3 }] });
+  g = setCell(g, { r: 1, c: 1 }, { hideText: false });
+  assert.equal(saveBody({ id: 'p-1', canEdit: true }, 'Wall', g).cells[0].hideText, false);
+  g = setCell(g, { r: 1, c: 1 }, { art: undefined, artB: undefined, hideText: undefined });
+  assert.equal('hideText' in saveBody({ id: 'p-1' }, 'Wall', g).cells[0], false);
 });
 
 test('the stored cell is never changed', () => {
