@@ -25,7 +25,7 @@ export function createDefaultRow({ ed, patch, done }) {
   pin.autocomplete = 'off';
   pin.id = 'ed-default-pin';
   pin.setAttribute('aria-label', 'Advanced Settings PIN');
-  const pinRow = el('label', 'sode-tpl__pin', 'Changing Default artwork needs a Trusted user or the Advanced Settings PIN', pin);
+  const pinRow = el('label', 'sode-side__pin', 'Changing Default artwork needs a Trusted user or the Advanced Settings PIN', pin);
   pinRow.hidden = true;
   let cell = null;
 

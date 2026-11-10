@@ -838,7 +838,8 @@
   margin-left: auto;
 }
 .sode-tpl__field,
-.sode-tpl__pin {
+.sode-tpl__pin,
+.sode-side__pin {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-1);

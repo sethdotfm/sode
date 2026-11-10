@@ -161,6 +161,28 @@ func TestArtDefaultHiddenFromHiddenKey(t *testing.T) {
 		if got := artDefaultList(t, a, bot); len(got) != want {
 			t.Errorf("%q: list %v", vis, got)
 		}
+
+		// An image named only by a hidden item's default is not served, and a panel read carries only visible ones.
+		dst := 7
+		if _, err := a.artDefaults.set(ArtDefault{Kind: artKindDst, N: &dst, Name: "SECRET DST"}, &artImage{b64(t, tinyPNG), "image/png"}); err != nil {
+			t.Fatal(err)
+		}
+		img := a.artDefaults.list()[2].Art
+		code := 200
+		if vis == config.VisHidden {
+			code = 404
+		}
+		if rec := apiDo(a, "GET", "/api/v1/default-artwork/images/"+img, bot, nil); rec.Code != code {
+			t.Errorf("%q: image %d", vis, rec.Code)
+		}
+		id := makePanel(t, a, ana, `{"name":"Wall","share":{"mode":"everyone"},"cells":[{"kind":"source","n":1},{"kind":"destination","n":7}]}`)
+		want = 2
+		if vis == config.VisHidden {
+			want = 1
+		}
+		if got := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, bot, nil))["artDefaults"].([]any); len(got) != want {
+			t.Errorf("%q: panel read %v", vis, got)
+		}
 	}
 }
 
