@@ -27,7 +27,7 @@ export function createCellTab(ed) {
   caption.id = 'ed-cell-caption';
   caption.maxLength = CAPTION_MAX;
   caption.autocomplete = 'off';
-  const captionField = field('ed-cell-caption', 'Caption', caption, 'Replaces the Router name on this cell.');
+  const captionField = field('ed-cell-caption', 'Text override', caption);
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => patch({ levels: v }) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Levels'), levelBoxes.node);
   const size = el('input', 'pb-input sode-ed__num');
@@ -55,7 +55,7 @@ export function createCellTab(ed) {
     setB: (v) => patch({ artB: v }),
     setHideText: (v) => patch({ hideText: v ? true : undefined }),
   });
-  form.append(kindLine, captionField, levelField, sizeRow, art.node);
+  form.append(kindLine, captionField, sizeRow, levelField, art.node);
   node.append(hint, form);
 
   const cell = () => single(ed.grid());

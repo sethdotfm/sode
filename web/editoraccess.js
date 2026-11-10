@@ -3,12 +3,11 @@
 // Sharing is the Share modal's job (panelshare.js), opened from the toolbar's Share button.
 import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
-import { check, opt } from './formbits.js';
+import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
 import { shareLabel, hasClient } from './panelsrules.js';
 import { draftOf, rightsOf } from './rightsrules.js';
-import { rightsLine, watchView } from './sidebarrules.js';
-import { watchBox } from './panelsmon.js';
+import { rightsRows } from './sidebarrules.js';
 
 const LISTS = [
   ['sources', 'Sources', 'Router numbers, such as 1-8, 12'],
@@ -17,13 +16,6 @@ const LISTS = [
   ['presets', 'Presets', 'One name per line'],
 ];
 
-// What each choice means, under the select. Both: the page uses a key when its link or this browser holds one for the
-// panel, and otherwise runs as the signed-in user, with the page lock's sign-in if there is one.
-const ACTS_HINT = {
-  api: 'The panel has its own API client and keeps working after anyone signs out or their PIN changes. It only opens from a link with its key.',
-  both: 'Opened from a link with its key, or on a device that keeps one, the panel acts as its own API client. Opened without a key it acts as the signed-in user, so the plain link still works.',
-  session: 'The panel uses the Rights of the user who opens it.',
-};
 const SAVED_NOTE = {
   api: 'Saved. The panel now has its own API client. Make its links under Share, Link with key.',
   both: 'Saved. The panel has its own API client for links with a key, and the plain link opens it as the signed-in user.',
@@ -38,22 +30,34 @@ on('access', (a) => (me = { user: a.user || '', trusted: !!a.trusted && !!a.user
 // offset is the router's numberOffset and levelCount how many levels exist, for typing Rights lists.
 export function createAccessTab(ed, ctx) {
   const node = el('div', 'sode-side__tab');
-  const acts = el(
-    'select',
-    'pb-select',
-    opt('session', 'Whoever opens it (Session mode)'),
-    opt('api', 'Its own API client'),
-    opt('both', 'Both: its API client with a key, else whoever opens it'),
+  const acts = segmented(
+    'ed-acts',
+    'Authentication mode',
+    [
+      ['session', 'User'],
+      ['both', 'Both'],
+      ['api', 'API'],
+    ],
+    async (want) => {
+      // Acts as makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
+      // save carries the panel's other unsaved changes with it. A refusal puts the choice back and says why.
+      acts.disable(true);
+      actsNote.textContent = 'Saving.';
+      ed.setFields({ acts: want });
+      const refused = await ed.save();
+      if (refused) ed.setFields({ acts: undefined });
+      actsNote.textContent = refused || SAVED_NOTE[want];
+    },
   );
-  acts.id = 'ed-acts';
   const actsHint = el('p', 'sode__hint');
   const actsNote = el('p', 'sode__hint');
   actsNote.setAttribute('role', 'status');
-  const actsField = el('div', 'sode__field', el('label', null, 'Acts as'), el('span', 'pb-select-wrap', acts), actsHint, actsNote);
+  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, actsHint, actsNote);
 
   const clientBox = el('div', 'sode-side__sec');
   const current = el('p', 'sode-side__rights');
-  const limit = check('Limit its Rights below mine', { id: 'ed-limit' });
+  const table = el('table', 'pb-table pb-table--compact sode-side__table');
+  const limit = check("Limit this panel's access", { id: 'ed-limit' });
   const note = el('p', 'sode__hint');
   note.setAttribute('role', 'status');
   const lists = LISTS.map(([kind, name, hint]) => {
@@ -68,44 +72,16 @@ export function createAccessTab(ed, ctx) {
   const hidden = check('Hide what the client may not use', { id: 'ed-rl-hidden' });
   const limits = el('div', 'sode-side__form', ...lists.map((l) => l.node), hidden.label);
   limits.hidden = true;
-  clientBox.append(current, limit.label, limits, note);
+  clientBox.append(current, table, limit.label, limits, note);
 
   const shareLine = el('p', 'sode__hint');
+  const shareList = el('ul', 'sode-side__people');
   const shareBtn = $('ed-share'); // in the toolbar
   shareBtn.addEventListener('click', () => {
     openShare(ed.panel(), { api, onSaved: (p) => ed.replaceLoaded(p) });
   });
-  const share = el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Sharing'), shareLine);
-  const watch = el('section', 'sode-side__sec');
-  watch.hidden = true;
-  const watchNote = el('p', 'sode__hint');
-  watchNote.setAttribute('role', 'status');
-  const known = {};
-  let watchKey = '';
-  const setWatch = async (id, on) => {
-    try {
-      await api(`api/v1/panels/${id}/watch`, { method: on ? 'POST' : 'DELETE' });
-      known[id] = on;
-      const cur = ed.panel();
-      if (cur?.id === id) cur.watching = on; // the loaded copy is what watchView reads next
-      watchKey = `${id}|${on}`;
-      watchNote.textContent = '';
-    } catch (e) {
-      watchNote.textContent = e.message;
-      watchKey = '';
-      paintWatch();
-    }
-  };
-  // Rebuilt only when what it shows changes, so a refresh does not take the checkbox from under a hand.
-  function paintWatch() {
-    const v = watchView(ed.panel(), known);
-    watch.hidden = !v;
-    const key = v ? `${v.id}|${v.on}` : '';
-    if (!v || key === watchKey) return;
-    watchKey = key;
-    watch.replaceChildren(el('h3', 'sode-side__h', 'Monitoring'), watchBox({ id: v.id, canEdit: true, watching: v.on }, setWatch), watchNote);
-  }
-  node.append(el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Identity of the panel'), actsField), clientBox, share, watch);
+  const share = el('section', 'sode-side__sec', el('h3', 'sode-side__h', 'Sharing'), shareLine, shareList);
+  node.append(el('section', 'sode-side__sec', actsField), clientBox, share);
 
   // Typing a list sends the Rights as written. A bad list keeps the last good Rights and says why.
   function sendRights() {
@@ -129,18 +105,6 @@ export function createAccessTab(ed, ctx) {
       ed.setFields({ clientRights: undefined });
     }
   });
-  // Acts as makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
-  // save carries the panel's other unsaved changes with it. A refusal puts the choice back and says why.
-  acts.addEventListener('change', async () => {
-    const want = acts.value;
-    acts.disabled = true;
-    actsNote.textContent = 'Saving.';
-    ed.setFields({ acts: want });
-    const refused = await ed.save();
-    if (refused) ed.setFields({ acts: undefined });
-    actsNote.textContent = refused || SAVED_NOTE[want];
-  });
-
   function fill() {
     for (const l of lists) {
       l.only.checked = !draft[l.kind].all;
@@ -155,16 +119,21 @@ export function createAccessTab(ed, ctx) {
       const p = ed.panel();
       const ro = ed.readOnly();
       const f = ed.fields();
-      acts.value = f.acts;
+      acts.set(f.acts);
       // Switching to Session mode is open to the owner; setting up or widening a client needs a Trusted user (server rule).
-      acts.disabled = ro || (!me.trusted && !hasClient(p));
-      actsHint.textContent = ACTS_HINT[f.acts] + (f.acts === 'session' && !me.trusted && !ro ? ' Only a Trusted user can make it act as an API client.' : '');
+      acts.disable(ro || (!me.trusted && !hasClient(p)));
+      actsHint.textContent = f.acts === 'session' && !me.trusted && !ro ? 'Only a Trusted user can make it act as an API client.' : '';
       clientBox.hidden = !hasClient(f);
       if (hasClient(f)) {
         const had = hasClient(p) && p.client;
         current.textContent = had
-          ? `Client ${p.client}. ${f.clientRights ? 'Unsaved Rights: ' : 'Rights: '}${rightsLine(f.clientRights || p.clientRights)}`
+          ? `Client ${p.client}. ${f.clientRights ? 'Unsaved Rights.' : 'Rights.'}`
           : 'Saving the panel makes its client, with your own Rights unless you limit them below.';
+        table.hidden = !had;
+        if (had) {
+          const rows = rightsRows(f.clientRights || p.clientRights);
+          table.replaceChildren(el('tbody', null, ...rows.map(([k, v]) => el('tr', null, el('th', null, k), el('td', null, v)))));
+        }
         limit.input.disabled = ro;
         limit.input.checked = !!f.clientRights;
         limits.hidden = !limit.input.checked;
@@ -172,9 +141,10 @@ export function createAccessTab(ed, ctx) {
         hidden.input.disabled = ro;
       }
       const stored = !!p && !ro;
-      shareLine.textContent = p ? `Who may use it: ${shareLabel(p.share)}.` : 'Save the panel first, then choose who may use it.';
+      shareLine.textContent = p ? 'Who may use it:' : 'Save the panel first, then choose who may use it.';
+      const who = p?.share?.mode === 'named' && p.share.users?.length ? p.share.users : p ? [shareLabel(p.share)] : [];
+      shareList.replaceChildren(...who.map((u) => el('li', null, u)));
       shareBtn.disabled = !stored;
-      paintWatch();
     },
   };
 }

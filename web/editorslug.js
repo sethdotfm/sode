@@ -2,7 +2,7 @@
 // with the rest. Rules and wording: slugrules.js.
 import { el } from './core.js';
 import { field } from './formbits.js';
-import { cleanSlug, slugProblem, SLUG_HINT } from './slugrules.js';
+import { cleanSlug, slugProblem } from './slugrules.js';
 
 export function createSlugField(ed) {
   const input = el('input', 'pb-input');
@@ -23,7 +23,7 @@ export function createSlugField(ed) {
     // A bad short name stays out of the unsaved fields; the server would refuse it.
     if (!slugProblem(clean)) ed.setFields({ slug: clean });
   });
-  const node = field('ed-side-slug', 'Short name', input, SLUG_HINT);
+  const node = field('ed-side-slug', 'Short name', input);
   node.append(note);
   return {
     node,

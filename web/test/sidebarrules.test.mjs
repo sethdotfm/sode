@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { setSetting, fontPercent, artProblem, levelsPatch, ART_ICONS, rightsLine, MODE_HINT, watchView } from '../sidebarrules.js';
+import { setSetting, fontPercent, artProblem, levelsPatch, ART_ICONS, artFilter, rightsRows } from '../sidebarrules.js';
 import { artOf, lookOf } from '../panellook.js';
 
 test('a setting at its default is dropped, so a stored panel only holds what was chosen', () => {
@@ -69,28 +69,10 @@ test('the standard cell kind icons are offered as artwork, type icons first', as
   assert.equal(new Set(ART_ICONS).size, ART_ICONS.length, 'no icon is offered twice');
 });
 
-test('the Rights line says what a client may do in plain words', () => {
-  assert.equal(rightsLine(null), 'All Sources, Destinations, levels and Presets, read-only visibility.');
-  assert.equal(rightsLine({ sources: [1, 2], levels: [1], visibility: 'hidden' }), '2 Sources, all Destinations, 1 level, all Presets, hidden visibility.');
-  assert.match(rightsLine({ dsts: [], presets: ['A'] }), /no Destinations.*1 Preset,/);
-});
-
-test('Watch is offered for a saved panel the user may edit', () => {
-  assert.equal(watchView(null, {}), null);
-  assert.equal(watchView({ id: 'a', canEdit: false, watching: true }, {}), null);
-  assert.deepEqual(watchView({ id: 'a', canEdit: true, watching: true }, {}), { id: 'a', on: true });
-  assert.deepEqual(watchView({ id: 'a', canEdit: true, watching: false }, {}), { id: 'a', on: false });
-});
-
-test('a saved panel response has no watching, so the last known state stands', () => {
-  const known = {};
-  watchView({ id: 'a', canEdit: true, watching: true }, known);
-  assert.deepEqual(watchView({ id: 'a', canEdit: true }, known), { id: 'a', on: true });
-  assert.deepEqual(watchView({ id: 'b', canEdit: true }, known), { id: 'b', on: false });
-});
-
-test('each mode has a hint', () => {
-  assert.ok(MODE_HINT.take && MODE_HINT.instant);
+test('the Rights table says what a client may do', () => {
+  assert.deepEqual(rightsRows(null), [['Sources', 'All'], ['Destinations', 'All'], ['Levels', 'All'], ['Presets', 'All'], ['Visibility', 'Read-only']]);
+  const r = rightsRows({ sources: [1, 2], dsts: [], visibility: 'hidden' });
+  assert.deepEqual(r.map((x) => x[1]), ['2', 'None', 'All', 'All', 'Hidden']);
 });
 
 test('level boxes show every level ticked until a subset is stored, and the last one stays on', async () => {
@@ -127,4 +109,10 @@ test('adding to a stored list the server would refuse starts a new list', async 
   const { addFixed, dropFixed } = await import('../sidebarrules.js');
   assert.deepEqual(addFixed({ fixedDests: [3, 3] }, 5), { fixedDests: [5] });
   assert.deepEqual(dropFixed({ fixedDests: [-1, 4] }, 4), {});
+});
+
+test('the icon search keeps names that contain every typed word', () => {
+  assert.deepEqual(artFilter(['arrow-left', 'arrow-right', 'tv'], ' Arrow '), ['arrow-left', 'arrow-right']);
+  assert.deepEqual(artFilter(['arrow-left', 'tv'], 'arrow left'), ['arrow-left']);
+  assert.deepEqual(artFilter(['tv'], ''), ['tv']);
 });

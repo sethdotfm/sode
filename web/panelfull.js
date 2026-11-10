@@ -51,13 +51,11 @@ function initScreen(button) {
   button.addEventListener('click', () => (document.fullscreenElement ? exitFullscreen(document) : enterFullscreen(document)));
 }
 
-// Kiosk for this open page only: the header button turns it on, and with the header gone Esc or the faint corner
-// button (top right, ui.leave) turns it off. The panel setting and #kiosk=1 only give the starting state; a reload
+// Kiosk for this open page only: the header button turns it on, and with the header gone Esc turns it off. The panel setting and #kiosk=1 only give the starting state; a reload
 // goes back to them. apply() is the one place that hides the header, the Panels link and the Lock bar.
 export function initChrome(ui) {
   initWidth(ui.full, ui.main);
   initScreen(ui.screen);
-  setIcon(ui.leave, kioskWords(true));
   let override = null;
   let base = false;
   let titleBar = true;
@@ -65,7 +63,6 @@ export function initChrome(ui) {
     const kiosk = kioskNow(override, base);
     ui.head.hidden = headHidden(kiosk, titleBar);
     ui.home.hidden = kiosk;
-    ui.leave.hidden = !kiosk;
     document.documentElement.toggleAttribute('data-sode-kiosk', kiosk); // hides the Lock bar too (panels.css)
     setIcon(ui.kiosk, kioskWords(kiosk));
     ui.kiosk.setAttribute('aria-pressed', String(kiosk));
@@ -76,7 +73,6 @@ export function initChrome(ui) {
     apply();
   };
   ui.kiosk.addEventListener('click', toggle);
-  ui.leave.addEventListener('click', toggle);
   document.addEventListener('keydown', (e) => {
     if (leavesKiosk(e, kioskNow(override, base))) toggle();
   });

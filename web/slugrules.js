@@ -18,5 +18,3 @@ export function slugProblem(slug) {
   return '';
 }
 
-export const SLUG_HINT =
-  'Lowercase letters, digits and dashes, up to 32. The panel opens at panels/<short name> as well as by its id. Changing or clearing it stops every link that uses the old short name; links by id keep working.';

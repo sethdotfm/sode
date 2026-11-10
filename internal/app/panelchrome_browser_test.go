@@ -69,16 +69,11 @@ func TestChromePanelHeaderChrome(t *testing.T) {
 	b.waitFor("the page leaves room under the grid for the Panels link", `document.querySelector('.sode-panels').getBoundingClientRect().bottom <= innerHeight || parseFloat(getComputedStyle(document.querySelector('.sode-panels')).paddingBottom) > 40`)
 
 	b.eval(`document.getElementById('panel-kiosk').click(); true`)
-	b.waitFor("Kiosk hides the header and the Panels link and shows the faint corner button",
-		kiosk+` && document.querySelector('.sode-panels__head').getClientRects().length === 0 && document.getElementById('panel-home').getClientRects().length === 0 && document.getElementById('panel-kiosk-leave').getClientRects().length > 0 && document.querySelector('.sode-lock__who').getClientRects().length === 0`)
+	b.waitFor("Kiosk hides the header and the Panels link",
+		kiosk+` && document.querySelector('.sode-panels__head').getClientRects().length === 0 && document.getElementById('panel-home').getClientRects().length === 0 && document.querySelector('.sode-lock__who').getClientRects().length === 0`)
 	b.shot("chrome-kiosk")
 	pressEsc()
-	b.waitFor("Esc leaves the kiosk", `!(`+kiosk+`) && document.querySelector('.sode-panels__head').getClientRects().length > 0 && document.getElementById('panel-home').getClientRects().length > 0 && document.getElementById('panel-kiosk-leave').getClientRects().length === 0`)
-
-	b.eval(`document.getElementById('panel-kiosk').click(); true`)
-	b.waitFor("kiosk again", kiosk)
-	b.eval(`document.getElementById('panel-kiosk-leave').click(); true`)
-	b.waitFor("the corner button leaves the kiosk", `!(`+kiosk+`) && document.querySelector('.sode-panels__head').getClientRects().length > 0`)
+	b.waitFor("Esc leaves the kiosk", `!(`+kiosk+`) && document.querySelector('.sode-panels__head').getClientRects().length > 0 && document.getElementById('panel-home').getClientRects().length > 0`)
 
 	// A kiosk from the link starts on, can be left, and comes back after a reload.
 	b.open(srv.URL + "/panels/" + id + "#kiosk=1")

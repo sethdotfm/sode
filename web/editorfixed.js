@@ -22,6 +22,10 @@ export function createFixedField(ed) {
   const set = (fn) => ed.setFields({ settings: fn(ed.fields().settings) });
   const chosen = () => fixedDestsOf({ settings: ed.fields().settings });
 
+  const help = el('span', 'sode-fixed__help', icon('circle-help'));
+  help.tabIndex = 0;
+  help.setAttribute('aria-label', 'About fixed destinations');
+  help.setAttribute('data-pb-tip', 'A Source or Preset press patches to these, with no Destination cell to press first. Empty is off.');
   const list = el('ul', 'sode-fixed__chosen');
   list.id = 'ed-fixed-list';
   list.setAttribute('aria-label', 'Fixed destinations');
@@ -30,7 +34,7 @@ export function createFixedField(ed) {
   input.type = 'search';
   input.setAttribute('aria-label', 'Fixed destination');
   input.autocomplete = 'off';
-  input.placeholder = 'Add a Destination';
+  input.placeholder = 'Add fixed panel destinations';
   input.setAttribute('role', 'combobox');
   input.setAttribute('aria-controls', 'ed-fixed-results');
   input.setAttribute('aria-expanded', 'false');
@@ -44,7 +48,12 @@ export function createFixedField(ed) {
   const node = el(
     'div',
     'sode__field sode-fixed',
-    el('span', 'sode__hint', 'Fixed destination: a Source or Preset press patches to these, with no Destination cell to press first. Empty is off.'),
+    el(
+      'span',
+      'sode__field-label',
+      'Fixed destinations ',
+      help,
+    ),
     list,
     input,
     found,

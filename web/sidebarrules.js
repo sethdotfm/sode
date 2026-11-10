@@ -154,31 +154,23 @@ export const ART_ICONS = [
   'image',
 ];
 
-export const MODE_HINT = {
-  take: 'A press stages the route. The Take cell sends it.',
-  instant: 'A press sends the route at once, with no Take cell.',
-};
 
-const count = (list, one, many) => (!Array.isArray(list) ? `all ${many}` : list.length ? `${list.length} ${list.length === 1 ? one : many}` : `no ${many}`);
+const amount = (list) => (!Array.isArray(list) ? 'All' : list.length ? String(list.length) : 'None');
 
-// Sources and Destinations start the sentence, so their first letter stays upper case.
-export function rightsLine(rights) {
+// The Rights table of a client: one [name, value] row per list, then Visibility. No Rights means everything.
+export function rightsRows(rights) {
   const r = rights || {};
-  const parts = [
-    count(r.sources, 'Source', 'Sources'),
-    count(r.dsts, 'Destination', 'Destinations'),
-    count(r.levels, 'level', 'levels'),
-    count(r.presets, 'Preset', 'Presets'),
+  return [
+    ['Sources', amount(r.sources)],
+    ['Destinations', amount(r.dsts)],
+    ['Levels', amount(r.levels)],
+    ['Presets', amount(r.presets)],
+    ['Visibility', r.visibility === 'hidden' ? 'Hidden' : 'Read-only'],
   ];
-  const head = parts.join(', ').replace(/^all /, 'All ').replace(/^no /, 'No ');
-  const vis = r.visibility === 'hidden' ? 'hidden' : 'read-only';
-  return rights && Object.keys(r).length ? `${head}, ${vis} visibility.` : 'All Sources, Destinations, levels and Presets, read-only visibility.';
 }
 
-// Watch in the editor: for a saved panel the user may edit, with the state the server last told us.
-// `known` outlives a save, because the save's answer carries no `watching`.
-export function watchView(p, known) {
-  if (!p || !p.canEdit) return null;
-  if ('watching' in p) known[p.id] = !!p.watching;
-  return { id: p.id, on: !!known[p.id] };
-}
+// The picker's icon search: names that contain every typed word, in the order given.
+export const artFilter = (names, text) => {
+  const words = String(text).toLowerCase().split(/[\s-]+/).filter(Boolean);
+  return names.filter((n) => words.every((w) => n.includes(w)));
+};

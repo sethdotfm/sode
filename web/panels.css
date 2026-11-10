@@ -38,21 +38,6 @@
 :root:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels {
   padding-bottom: calc(var(--pb-space-4) + var(--pb-control-h) + var(--pb-space-2) * 2);
 }
-/* The way out of a kiosk for a touch screen, since its header is gone: top right, faint until looked for. Esc does the same. */
-.sode-panels__leave {
-  opacity: 0.25;
-  position: fixed;
-  right: var(--pb-space-2);
-  top: var(--pb-space-2);
-  z-index: var(--pb-z-sticky);
-}
-.sode-panels__leave[hidden] {
-  display: none;
-}
-.sode-panels__leave:hover,
-.sode-panels__leave:focus-visible {
-  opacity: 1;
-}
 .sode-panels__title {
   color: var(--pb-text-strong);
   font-size: var(--pb-text-xl);
@@ -999,19 +984,20 @@
   flex-wrap: wrap;
   gap: var(--pb-space-2);
 }
-/* Rows and Columns share four tracks (label, less, number, more), so the numbers and buttons line up. */
+/* Rows and Columns sit on one line; each is a label with a less button, the number and a more button. */
 .sode-side__steps {
   align-items: center;
-  display: grid;
-  gap: var(--pb-space-1) var(--pb-space-2);
-  grid-template-columns: auto auto auto auto;
-  justify-content: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-5);
 }
 .sode-side__step {
-  display: grid;
-  gap: inherit;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-1);
+}
+.sode-side__step .sode-ed__num {
+  width: 3rem;
 }
 .sode-side__step > label {
   margin: 0;
@@ -1107,4 +1093,78 @@
 .sode-panels__logo {
   margin-right: var(--pb-space-4);
   vertical-align: middle;
+}
+
+/* Sidebar additions */
+.sode-side__head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+.sode-side__ident {
+  margin: 0;
+  text-align: end;
+}
+.sode-side__kind {
+  text-align: center;
+}
+.sode-side__table {
+  width: auto;
+}
+.sode-side__table th {
+  font-weight: var(--pb-weight-regular);
+  padding-inline-end: var(--pb-space-5);
+}
+.sode-side__people {
+  margin: 0;
+  padding-inline-start: var(--pb-space-5);
+}
+.sode-fixed__help {
+  color: var(--pb-text-muted);
+  cursor: help;
+  display: inline-flex;
+  vertical-align: middle;
+}
+.sode-ed__side .sode__tabs {
+  gap: var(--pb-space-4);
+}
+.sode-side__col-top {
+  align-items: center;
+  min-height: 2.5rem;
+  display: flex;
+  gap: var(--pb-space-2);
+  justify-content: space-between;
+}
+.sode-side__find {
+  flex: 1 1 4rem;
+  font-size: var(--pb-text-sm);
+  min-width: 0;
+  padding-block: var(--pb-space-1);
+}
+/* Classic scroll bars, so the lists show that they scroll even where the system hides overlay bars. */
+.sode-side__icons {
+  overflow-y: scroll;
+  scrollbar-color: var(--pb-edge-hard) var(--pb-surface-sunken);
+}
+.sode-side__icons::-webkit-scrollbar {
+  width: 0.75rem;
+}
+.sode-side__icons::-webkit-scrollbar-track {
+  background: var(--pb-surface-sunken);
+}
+.sode-side__icons::-webkit-scrollbar-thumb {
+  background: var(--pb-edge-hard);
+}
+/* Panel picker and Name in the toolbar: equal width, and a rule left of Name. */
+.sode-ed__pick {
+  padding-inline-start: var(--pb-space-3);
+}
+#ed-name {
+  padding-inline-start: var(--pb-space-3);
+  width: 14rem;
+}
+.sode-ed__grp--pick > .sode-ed__field + .sode-ed__field {
+  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
+  padding-inline-start: var(--pb-space-5);
 }

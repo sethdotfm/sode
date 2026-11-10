@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 	"github.com/sethdotfm/sode/web"
@@ -55,7 +54,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.waitFor("Hide text appears with an icon", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].some((x) => x.textContent === 'Hide text' && !x.hidden)`)
 	b.waitFor("the square shows Icon A", `!!document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a')`)
 	// Icon B: the glyph column beside Icon A's, both shown at once, each with its own None; the square shows "[tv] 2".
-	b.waitFor("Icon A and Icon B sit side by side, each with None", `(() => { const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]'); const b = document.querySelector('.sode-side__icons[aria-label="Icon B"]'); const ra = a.getBoundingClientRect(); const rb = b.getBoundingClientRect(); return ra.width > 0 && rb.width > 0 && rb.left >= ra.right && Math.abs(rb.top - ra.top) < 2 && a.firstChild.textContent === 'None' && b.firstChild.textContent === 'None' && getComputedStyle(a).overflowY === 'auto' && getComputedStyle(b).overflowY === 'auto'; })()`)
+	b.waitFor("Icon A and Icon B sit side by side, each with None in its header", `(() => { const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]'); const b = document.querySelector('.sode-side__icons[aria-label="Icon B"]'); const ra = a.getBoundingClientRect(); const rb = b.getBoundingClientRect(); return ra.width > 0 && rb.width > 0 && rb.left >= ra.right && Math.abs(rb.top - ra.top) < 2 && a.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && b.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && getComputedStyle(a).overflowY === 'scroll' && getComputedStyle(b).overflowY === 'scroll'; })()`)
 	b.waitFor("the Icon B column lists digits and letters", `!!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="16"]') && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="Z"]')`)
 	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="2"]').click(); true`)
 	b.waitFor("the square shows Icon B beside Icon A", `(() => { const a = document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a'); const b = document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-b'); return !!a && b?.textContent === '2' && b.getBoundingClientRect().left >= a.getBoundingClientRect().right; })()`)
@@ -65,7 +64,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 
 	b.eval(`document.getElementById('tab-ed-panel').click(); document.getElementById('ed-set-titleBar').click(); true`)
 	b.waitFor("Rows and Columns are in the Panel tab, not the toolbar", `!!document.querySelector('#panel-ed-panel #ed-rows') && !!document.querySelector('#panel-ed-panel #ed-cols') && !document.querySelector('.sode-ed__bar #ed-rows')`)
-	b.waitFor("Rows and Columns line up", `(() => { const q = (id) => document.getElementById(id).getBoundingClientRect().left; return q('ed-rows') === q('ed-cols') && q('ed-rows-dec') === q('ed-cols-dec') && q('ed-rows-inc') === q('ed-cols-inc'); })()`)
+	b.waitFor("Rows and Columns share one line", `(() => { const q = (id) => document.getElementById(id).getBoundingClientRect(); return Math.abs(q('ed-rows').top - q('ed-cols').top) < 2 && q('ed-cols').left > q('ed-rows-inc').right; })()`)
 	b.waitFor("an unset panel font size shows 100, so the arrows start there", `(() => { const f = document.getElementById('ed-set-font'); f.stepUp(); const up = f.value; f.stepDown(); return up === '101' && f.value === '100'; })()`)
 	b.eval(`const r = document.getElementById('ed-rows'); r.value = '3'; r.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('ed-cols-inc').click(); true`)
 	b.waitFor("the grid took the new size", `document.getElementById('ed-rows').value === '3' && document.getElementById('ed-cols').value === '3'`)
@@ -74,22 +73,13 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.waitFor("with no subset stored every level box is ticked", `(() => { const l = [...document.querySelectorAll('#panel-ed-panel .sode__picker .sode__pick')]; return l.length > 0 && l.every((x) => x.getAttribute('aria-pressed') === 'true'); })()`)
 	b.eval(`document.querySelector('#panel-ed-panel .sode__picker .sode__pick').click(); true`)
 	b.waitFor("the first level goes off and All is offered again", `(() => { const p = document.querySelector('#panel-ed-panel .sode__picker .sode__pick'); return p.getAttribute('aria-pressed') === 'false' && !document.querySelector('#panel-ed-panel .sode__all').disabled; })()`)
-	b.eval(`const m = document.getElementById('ed-set-guard'); m.value = 'hold'; m.dispatchEvent(new Event('change', { bubbles: true })); true`)
+	b.eval(`document.getElementById('ed-set-guard-hold').click(); true`)
 	b.eval(`document.getElementById('tab-ed-access').click(); true`)
-	b.waitFor("Access says who it acts as", `document.getElementById('panel-ed-access').textContent.includes('Whoever opens it') && !document.getElementById('ed-acts').disabled`)
-	b.waitFor("Watch is offered to the owner", `!!document.getElementById('panels-watch')`)
-	b.eval(`document.getElementById('panels-watch').click(); true`)
-	for deadline := time.Now().Add(10 * time.Second); !a.mon.watching("Ana", id); time.Sleep(50 * time.Millisecond) {
-		if time.Now().After(deadline) {
-			t.Fatal("the editor checkbox did not set the watch")
-		}
-	}
-	b.eval(`const a = document.getElementById('ed-acts'); a.value = 'api'; a.dispatchEvent(new Event('change', { bubbles: true })); true`)
+	b.waitFor("Access says who it acts as", `document.getElementById('panel-ed-access').textContent.includes('Authentication mode') && !document.getElementById('ed-acts-api').disabled`)
+	b.eval(`document.getElementById('ed-acts-api').click(); true`)
 	b.waitFor("Acts as saves at once", `document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
-	b.waitFor("Watch stays checked after the Access tab repaints", `document.getElementById('panels-watch')?.checked === true`)
 	b.shot("access")
 
-	b.waitFor("Watch stays checked after a save", `document.getElementById('panels-watch')?.checked === true`)
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)
 	body := rec.Body.String()
 	if !regexp.MustCompile(`"settings":\{[^}]*"levels":\[2,`).MatchString(body) {

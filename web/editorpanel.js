@@ -1,10 +1,10 @@
 // The sidebar's Panel tab: identity and size, appearance, behavior, device and feedback. Every control writes
 // one key of the panel's settings through setSetting (sidebarrules.js), so the stored file only holds choices.
 import { el, $, S } from './core.js';
-import { field, check, opt } from './formbits.js';
+import { field, check, opt, segmented } from './formbits.js';
 import { THEMES } from './panellook.js';
 import { featureSupport } from './panelfeel.js';
-import { setSetting, fontPercent, MODE_HINT, FONT_MAX, FONT_MIN } from './sidebarrules.js';
+import { setSetting, fontPercent, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createSlugField } from './editorslug.js';
 import { linkRow } from './panellinkrow.js';
 import { createLevelBoxes } from './editorlevels.js';
@@ -37,12 +37,13 @@ export function createPanelTab(ed) {
     $('ed-name').value = name.value;
     $('ed-name').dispatchEvent(new Event('input'));
   });
-  const ident = el('p', 'sode__hint');
+  const ident = el('p', 'sode__hint sode-side__ident');
   const slug = createSlugField(ed);
   const linkBox = el('div');
   let linkOf = ''; // id and mode the link row was built for, so a refresh does not rebuild it under a hand
   const sizes = createSizeFields(ed);
-  const identity = section('Identity', field('ed-side-name', 'Name', name), slug.node, sizes.node, ident, linkBox);
+  const identity = section('Identity', field('ed-side-name', 'Name', name), slug.node, sizes.node, linkBox);
+  identity.firstChild.replaceWith(el('div', 'sode-side__head', el('h3', 'sode-side__h', 'Identity'), ident));
 
   const size = el('input', 'pb-input sode-ed__num');
   size.id = 'ed-set-font';
@@ -67,7 +68,8 @@ export function createPanelTab(ed) {
     size,
     el('span', 'sode__hint', '%'),
   );
-  const sizeRow = el('div', 'sode-side__sizerow', sizeField, sizeNote);
+  const titleBar = toggle('titleBar', 'Show the title bar');
+  const sizeRow = el('div', 'sode-side__sizerow', titleBar, sizeField, sizeNote);
   const theme = select('ed-set-theme', [
     ['auto', 'Follow the browser'],
     ['light', 'Light'],
@@ -76,23 +78,24 @@ export function createPanelTab(ed) {
   theme.select.addEventListener('change', () => set('theme', theme.select.value));
   const appearance = section(
     'Appearance',
-    toggle('titleBar', 'Show the title bar'),
     sizeRow,
     el('div', 'sode__field', Object.assign(el('label', null, 'Theme'), { htmlFor: 'ed-set-theme' }), theme.node),
   );
 
-  const mode = select('ed-set-mode', [
-    ['take', 'Stage, then Take'],
-    ['instant', 'Instant'],
-  ]);
-  mode.select.addEventListener('change', () => set('mode', mode.select.value));
-  const modeHint = el('span', 'sode__hint');
-  const guard = select('ed-set-guard', [
-    ['none', 'None'],
-    ['hold', 'Hold the Take cell'],
-    ['double', 'Press the Take cell twice'],
-  ]);
-  guard.select.addEventListener('change', () => set('guard', guard.select.value));
+  const mode = check('', { id: 'ed-set-mode', onChange: (on) => set('mode', on ? 'instant' : 'take') });
+  mode.input.className = 'pb-switch__input';
+  mode.input.setAttribute('role', 'switch');
+  mode.input.setAttribute('aria-label', 'Instant')
+  const guard = segmented(
+    'ed-set-guard',
+    'Take button behavior',
+    [
+      ['none', 'None'],
+      ['hold', 'Hold'],
+      ['double', 'Twice'],
+    ],
+    (v) => set('guard', v),
+  );
   const levelBoxes = createLevelBoxes({ ed, onPatch: (v) => set('levels', v || []) });
   const levelField = el('div', 'sode__field', el('span', 'sode__field-label', 'Default levels'), levelBoxes.node);
   const fixed = createFixedField(ed);
@@ -102,21 +105,21 @@ export function createPanelTab(ed) {
   multi.append(multiNote);
   const behavior = section(
     'Behavior',
-    el('div', 'sode__field', el('label', null, 'Mode'), mode.node, modeHint),
-    el('div', 'sode__field', el('label', null, 'Take button behavior'), guard.node),
+    el('div', 'sode__field sode-side__inline', el('span', 'sode__field-label', 'Mode'), 'Stage, then Take', mode.input, 'Instant'),
+    el('div', 'sode__field', el('span', 'sode__field-label', 'Take button behavior'), guard.node),
     fixed.node,
     multi,
     levelField,
-    toggle('resultText', 'Show the result as text on a Destination', 'Off shows only the color and icon.'),
-    toggle('kiosk', 'Hide the header (kiosk)', 'For a wall tablet. The link can also add kiosk=1.'),
+    toggle('resultText', 'Show the result as text on a Destination'),
+    toggle('kiosk', 'Kiosk mode'),
   );
 
   const feel = featureSupport(navigator);
   const device = section(
     'Device and feedback',
     toggle('wake', 'Keep the screen awake', ''),
-    toggle('fullscreen', 'Enter fullscreen at once', 'The first press on the panel goes fullscreen, as a browser needs a touch first.'),
-    toggle('landscape', 'Keep landscape', 'For a phone or tablet. The first press goes fullscreen and locks the screen turn. iPhone and iPad browsers do not allow the lock.'),
+    toggle('fullscreen', 'Automatically enter fullscreen'),
+    toggle('landscape', 'Enforce landscape orientation'),
   );
   const deviceNote = el('p', 'sode__hint');
   device.append(deviceNote);
@@ -133,11 +136,11 @@ export function createPanelTab(ed) {
       if (document.activeElement !== name) name.value = $('ed-name').value;
       name.disabled = ro;
       slug.update();
-      ident.textContent = p ? `Id ${p.id}. Owner ${p.owner}.` : 'Not saved yet.';
+      ident.replaceChildren(...(p ? [`Id ${p.id}`, el('br'), `Owned by user "${p.owner}"`] : ['Not saved yet.']));
       const want = p ? `${p.id}|${p.acts}|${p.slug || ''}` : '';
       if (want !== linkOf) {
         linkOf = want;
-        linkBox.replaceChildren(...(p ? [linkRow(p)] : []));
+        linkBox.replaceChildren(...(p ? [linkRow(p, { withHost: false })] : []));
       }
       for (const { key, input } of toggles) {
         const dflt = key === 'titleBar' || key === 'multi';
@@ -153,11 +156,10 @@ export function createPanelTab(ed) {
       deviceNote.textContent = feel.wake ? '' : "This browser has no support for keeping the screen awake. It is the panel's own browser that counts.";
       if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
-      mode.select.value = s.mode === 'instant' ? 'instant' : 'take';
-      mode.select.disabled = ro;
-      modeHint.textContent = MODE_HINT[mode.select.value];
-      guard.select.value = s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none';
-      guard.select.disabled = ro;
+      mode.input.checked = s.mode === 'instant';
+      mode.input.disabled = ro;
+      guard.set(s.guard === 'hold' || s.guard === 'double' ? s.guard : 'none');
+      guard.disable(ro);
       levelField.hidden = !S.levels.length;
       levelBoxes.draw(s.levels);
       sizes.update();
