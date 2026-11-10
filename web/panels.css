@@ -403,6 +403,14 @@
   flex: 1 1 100%;
   width: 100%;
 }
+/* An Icon library SVG (artImage in panelview.js): its shape in the text colour, as the Panels logo in base.css. */
+.sode-panel__art-mask {
+  background-color: currentColor;
+  display: inline-block;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
 /* Icon B over an image (artBBadge in panellook.js): sized from the row like the glyph, on a plate so it reads over
    any image. */
 .sode-panel__art > .sode-panel__art-b--badge {

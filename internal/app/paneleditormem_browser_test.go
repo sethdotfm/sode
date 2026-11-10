@@ -87,10 +87,15 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 			t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 		}
 		art = apiBody(t, rec)["id"].(string)
+		// An Icon library SVG, drawn as a mask over its own blob URL, which the same revoke must free.
+		ic, err := a.icons.add("Mark", []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>`), "image/svg+xml")
+		if err != nil {
+			t.Fatal(err)
+		}
 		rec = apiSend(a, "PUT", "/api/v1/panels/"+id, ana, fmt.Sprintf(`{"name":"Wall","rows":4,"cols":8,"cells":[
 		{"r":1,"c":1,"kind":"destination","n":%d,"art":%q},
-		{"r":1,"c":2,"kind":"source","n":%d},
-		{"r":1,"c":3,"kind":"take"}],"settings":{"mode":"take"}}`, simDst, art, simSrc))
+		{"r":1,"c":2,"kind":"source","n":%d,"art":"lib:%s"},
+		{"r":1,"c":3,"kind":"take"}],"settings":{"mode":"take"}}`, simDst, art, simSrc, ic.ID))
 		if rec.Code != 200 {
 			t.Fatalf("art cell: %d %s", rec.Code, rec.Body.String())
 		}

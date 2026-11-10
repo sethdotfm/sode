@@ -35,18 +35,32 @@ export function artNode(cell, art) {
     svg.setAttribute('class', 'pb-icon sode-panel__art-a');
     row.append(svg);
   } else if (a) {
-    const img = el('img', 'sode-panel__art-a');
-    img.alt = '';
-    img.hidden = true;
-    art?.url(a.id).then((url) => {
-      if (!url) return;
-      img.src = url;
-      img.hidden = false;
-    });
-    row.append(img);
+    row.append(artImage('sode-panel__art-a', art, a.id, a.lib));
   }
   if (b) row.append(el('span', `sode-panel__art-b${b.length > 1 ? ' sode-panel__art-b--wide' : ''}${badge ? ' sode-panel__art-b--badge' : ''}`, b));
   return row;
+}
+
+// An uploaded image from createArt, hidden until it loads. An Icon library SVG becomes a mask in the text colour, as a
+// sprite icon is drawn, so it changes with the theme and a multi-colour file draws in one; a mask, like an <img>, never runs
+// the file's script. Anything else is an <img> in its own colours. The swap needs the node in place by then, which a
+// resolved promise's later turn gives.
+export function artImage(cls, art, id, lib) {
+  const img = el('img', cls);
+  img.alt = '';
+  img.hidden = true;
+  art?.look(id).then((l) => {
+    if (!l) return;
+    if (lib && l.type.startsWith('image/svg+xml')) {
+      const mask = el('span', `${cls} sode-panel__art-mask`);
+      mask.style.maskImage = `url("${l.url}")`;
+      img.replaceWith(mask);
+      return;
+    }
+    img.src = l.url;
+    img.hidden = false;
+  });
+  return img;
 }
 
 // Replaces a cell's children apart from its artwork, and only when they differ from the last paint, so an idle cell
