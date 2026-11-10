@@ -14,7 +14,7 @@ const three = () => [
 ];
 const ids = (pages) => pages.map((p) => p.id);
 
-test('Add page appends an enabled empty Page with a new id and stops at 16', () => {
+test('Add Page appends an enabled empty Page with a new id and stops at 16', () => {
   const p = addPage(three(), 'd');
   assert.deepEqual(p.at(-1), { id: 'd', enabled: true, cells: [] });
   assert.equal(p.length, 4);
@@ -55,7 +55,7 @@ test('enable turns a Page on or off and leaves its cells', () => {
   assert.equal(enablePage(three(), 0, false)[0].enabled, false);
 });
 
-test('Delete page drops the Page, leaves Go to Page cells to it as they are, and never drops the last Page', () => {
+test('Delete Page drops the Page, leaves Go to Page cells to it as they are, and never drops the last Page', () => {
   assert.equal(leadsTo(three(), 'c'), 1);
   assert.equal(leadsTo(three(), 'b'), 0);
   const p = deletePage(three(), 2);

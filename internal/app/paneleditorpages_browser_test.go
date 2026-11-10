@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// The editor's Pages bar on a 3-Page panel: Add page twice, Cmd-click and a Mac Ctrl-click (contextmenu) open all
+// The editor's Pages bar on a 3-Page panel: Add Page twice, Cmd-click and a Mac Ctrl-click (contextmenu) open all
 // three side by side, a copy on Page 1 pastes onto Page 2 and Page 3, Copy to over the used Page 3 asks before it
 // replaces, and an undo pressed on Page 1 takes back the Copy to on Page 3. The save stores every Page, and the copied
 // Go to Page cell keeps its target. The Info cell copied to Page 3 names Page 3, and Test it live opens on Page 3.

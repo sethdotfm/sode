@@ -77,8 +77,8 @@ export const targetChoices = (pages) =>
     return { value: p.id, text: isOn(p) ? text : `${text} (disabled)`, disabled: false };
   });
 
-// The Cell tab's warning for a Go to Page cell, '' when none. first is Page 1's cells as the editor holds them, since
-// the Page list's copy is stale while Page 1 is the grid.
+// The Cell tab's warning for a Go to Page cell, '' when none. first is Page 1's cells as stored (the editor's storedGrid),
+// put in place of the list's Page 1 so a caller with an older list still judges the cells now on Page 1.
 export function targetWarning(pages, cell, first) {
   const now = pages.map((p, i) => (i === 0 ? { ...p, cells: first } : p));
   const n = pages.findIndex((p) => p.id === cell.page) + 1;

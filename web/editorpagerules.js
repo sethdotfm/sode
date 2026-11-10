@@ -1,4 +1,4 @@
-// The editor's Pages bar rules: Add page, Move up and down, rename, enable, Delete page, Copy to and which Pages are
+// The editor's Pages bar rules: Add Page, Move up and down, rename, enable, Delete Page, Copy to and which Pages are
 // open. Pure; editorpagebar.js draws them and paneleditor.js holds the list. None of these is an undo step except
 // Copy to (docs/panels-design.md). Pages are named by id, which never changes, so Go to Page cells keep their target.
 import { PAGE_MAX, PAGE_NAME_MAX, newPageId } from './panelpages.js';
