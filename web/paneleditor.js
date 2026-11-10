@@ -455,7 +455,7 @@ export async function runEditor() {
     // Every Page at once, one undo step.
     const lost = edit('resize', () => {
       const f = fi();
-      const here = cellsLost(whole(), rows, cols);
+      const here = cellsLost(g, rows, cols); // held cells that no longer fit come in kept.dropped
       const fit = fitPages(
         pages.map((p, i) => (i === f ? { ...p, cells: [] } : p)),
         next.rows,
@@ -466,7 +466,7 @@ export async function runEditor() {
       g = kept.shown;
       return here + fit.lost + kept.dropped;
     });
-    say('ed-status', lost ? `Removed ${lost} cell${lost > 1 ? 's' : ''} that no longer fit, on every Page.` : '');
+    say('ed-status', lost ? `Removed ${lost} cell${lost > 1 ? 's' : ''} that no longer fit.` : '');
     changed();
   }
   nameBox.addEventListener('input', refresh);
