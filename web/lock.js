@@ -5,11 +5,12 @@
 // lock a Lock with nobody signed in (churning letter, behind the confirm lockout) can still be put up as a guard
 // against keyboard mashing: page-local state, a reload clears it.
 
-import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
+import { el, S, on, emit, onMsg, wsSend } from './core.js';
 import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, keepSignInToken, forgetTokens, forgetSignIn, onSessionToken } from './signin.js';
 import {
   padKey,
   idleLock,
+  pingDue,
   pageType,
   liftFrom,
   shouldFly,
@@ -46,7 +47,6 @@ import {
   remembers,
   prefillName,
   focusName,
-  wantsTab,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { createOwed } from './owed.js';
@@ -662,8 +662,10 @@ const idle = createIdleShare(typeof BroadcastChannel === 'function' ? new Broadc
 const touch = idle.touch;
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
+let lastPing = 0;
 setInterval(() => {
   const minutes = S.cfg?.autoLockMinutes || 0;
+  if (pingDue(L, lastPing, idle.lastActive(), Date.now()) && wsSend({ t: 'activity' })) lastPing = Date.now();
   if (idleLock(L, idle.lastActive(), Date.now(), minutes)) lockNow();
   else if (S.cfg && localIdleLock(L, !!letterLock, idle.lastActive(), Date.now(), minutes)) localLock();
 }, 5000);

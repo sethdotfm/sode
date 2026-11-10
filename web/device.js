@@ -1,8 +1,7 @@
 // Per-browser prefs (prefs.js): follow cfg.deviceDefaults (cached here for the next load) until this browser picks its own.
 // applyPrefs tells the views ('prefs', 'flip'); layout.js follows.
 
-import { $, el, on, emit } from './core.js';
-import { mac } from './keys.js';
+import { el, on, emit } from './core.js';
 import { PREFS, CACHE_KEY, PROFILE_CACHE_KEY, resolve, own, mine, cachedProfile } from './prefs.js';
 import { readJSON, writeJSON, readStr, writeStr, readTab } from './store.js';
 

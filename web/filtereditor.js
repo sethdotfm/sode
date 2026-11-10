@@ -21,7 +21,7 @@ function complete(r) {
     try {
       new RegExp(r.text, 'i');
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }

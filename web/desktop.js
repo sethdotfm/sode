@@ -410,7 +410,7 @@ for (const input of [boxes.src.input, boxes.dst.input, lvlInput]) {
   });
 }
 
-desktopKeys({ boxes, sel, dsts: () => dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally });
+desktopKeys({ boxes, dsts: () => dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally });
 
 $('dst-add').addEventListener('mousedown', (e) => e.preventDefault());
 $('dst-add').addEventListener('click', () => addDst());

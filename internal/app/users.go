@@ -198,12 +198,20 @@ func (a *App) Hi(c *client, page, token string) {
 	if ok && heldOnly(u, page, cfg.Locks) && !a.tokens.locked(token) {
 		ok = false
 	}
+	held := ""
 	if ok && c.u.user.Load() == nil {
 		c.u.user.Store(&u)
 		a.adoptMu(c, token, a.tokens.locked(token))
+		// A browser back after the idle limit meets the Lock even before the next sweep.
+		if a.overdueMu(c, cfg, a.now()) {
+			held, _ = a.holdMu(c, true)
+		}
 	}
 	a.pushAccessMu(c, true)
 	a.mu.Unlock()
+	if held != "" {
+		a.tokens.save()
+	}
 	if ok {
 		a.tokens.touch(cfg, token) // a used token's age starts over
 	}
@@ -306,7 +314,7 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 	}
 	defer a.mu.Unlock()
 	// A token-X connection signing in as Y leaves X's session, or Y's Lock would end X's.
-	c.u.sess = &session{}
+	c.u.sess = &session{seen: a.now()}
 	c.u.user.Store(hit)
 	a.syncAccessMu(c)
 	return nil
