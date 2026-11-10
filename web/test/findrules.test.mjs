@@ -1,7 +1,7 @@
 // Find in the panel editor (findrules.js): what can be searched, who may see it, and how results rank. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
+import { pairPlan, chipKinds, findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
 import { createGrid, select, selCells, cellAt } from '../gridmodel.js';
 
 const names = {
@@ -273,4 +273,46 @@ test('the fixed destination picker searches Destinations only, leaves out those 
     ['Monitor B'],
     'a typed number is the one a person sees',
   );
+});
+
+test('Pages are found by name and by number, and place Go to Page cells down the grid', () => {
+  const pages = [{ id: 'aa' }, { id: 'bb', name: 'Studio B' }, { id: 'cc' }];
+  const list = pageEntries(pages);
+  assert.deepEqual(rankFind(list, 'studio').map((e) => e.id), ['bb']);
+  assert.deepEqual(rankFind(list, 'page 2').map((e) => e.id), ['bb']);
+  assert.deepEqual(rankFind(list, '3').map((e) => e.id), ['cc']);
+  const g = select(select(createGrid({ rows: 2, cols: 2, cells: [] }), 1, 1), 1, 2, true);
+  const out = applyFind(g, findPlan(g, fillRun(list, list[1], null)));
+  assert.deepEqual(out.cells.map((c) => [c.r, c.c, c.kind, c.page, c.n]), [[1, 1, 'goToPage', 'bb', undefined], [1, 2, 'goToPage', 'cc', undefined]]);
+});
+
+test('the Pages chip holds the Pages and every Page kind, Pages first', () => {
+  const list = [...findEntries({ sources: [], destinations: [] }, { presets: [] }, null), ...pageEntries([{ id: 'aa' }])];
+  assert.deepEqual(rankFind(list, '', chipKinds('page')).map((e) => e.category), ['page', 'pageName', 'goToPage', 'nextPage', 'previousPage']);
+  assert.deepEqual(chipKinds('source'), ['source']);
+  assert.deepEqual(chipKinds(''), []);
+});
+
+test('two squares side by side take Previous then Next Page, and one above the other too', () => {
+  const all = findEntries({ sources: [], destinations: [] }, { presets: [] }, null);
+  const next = all.find((e) => e.category === 'nextPage');
+  const sel = (r2, c2) => select(select(createGrid({ rows: 3, cols: 3, cells: [] }), 1, 1), r2, c2, true);
+  const kinds = (g) => applyFind(g, pairPlan(g, next, all)).cells.map((c) => [c.r, c.c, c.kind, c.n]);
+  assert.deepEqual(kinds(sel(1, 2)), [[1, 1, 'previousPage', undefined], [1, 2, 'nextPage', undefined]]);
+  assert.deepEqual(kinds(sel(2, 1)), [[1, 1, 'previousPage', undefined], [2, 1, 'nextPage', undefined]]);
+  assert.equal(pairPlan(sel(2, 2), next, all), null);
+  assert.equal(pairPlan(sel(1, 2), all.find((e) => e.category === 'take'), all), null);
+});
+
+test('the pair also takes two merged cells, or a merged cell and an empty square', () => {
+  const all = findEntries({ sources: [], destinations: [] }, { presets: [] }, null);
+  const next = all.find((e) => e.category === 'nextPage');
+  const cell = (r, c, rs, cs) => ({ r, c, rs, cs, kind: 'take' });
+  const run = (cells, r2, c2) => {
+    const g = select(select(createGrid({ rows: 4, cols: 4, cells }), 1, 1), r2, c2, true);
+    return applyFind(g, pairPlan(g, next, all)).cells.map((c) => [c.r, c.c, c.rs, c.cs, c.kind]);
+  };
+  assert.deepEqual(run([cell(1, 1, 2, 1), cell(1, 2, 2, 1)], 2, 2), [[1, 1, 2, 1, 'previousPage'], [1, 2, 2, 1, 'nextPage']]);
+  assert.deepEqual(run([cell(1, 1, 1, 2), cell(2, 1, 1, 2)], 2, 2), [[1, 1, 1, 2, 'previousPage'], [2, 1, 1, 2, 'nextPage']]);
+  assert.deepEqual(run([cell(1, 1, 1, 2)], 1, 3), [[1, 1, 1, 2, 'previousPage'], [1, 3, 1, 1, 'nextPage']]);
 });
