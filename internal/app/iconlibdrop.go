@@ -17,8 +17,9 @@ import (
 
 const (
 	iconDropDir = "drop-in"
-	// A file name may hold control characters; reports carry it cut and cleaned, never raw.
+	// A file name may hold control characters, and an os error quotes it, so reports carry both cut and cleaned.
 	dropFileMax = 255
+	dropWhyMax  = 600
 )
 
 type iconSkip struct {
@@ -100,12 +101,12 @@ func (s *iconLib) rescan() iconRescanResult {
 		}
 		ic, err := s.dropOne(root, e)
 		if err != nil {
-			out.Skipped = append(out.Skipped, iconSkip{cleanText(name, dropFileMax), err.Error()})
+			out.Skipped = append(out.Skipped, iconSkip{cleanText(name, dropFileMax), cleanText(err.Error(), dropWhyMax)})
 			continue
 		}
 		out.Added = append(out.Added, ic)
 		if err := root.Remove(name); err != nil {
-			log.Printf("icon library: added %s but could not remove it from the drop-in directory: %v", cleanText(name, dropFileMax), err)
+			log.Printf("icon library: added %s but could not remove it from the drop-in directory: %s", cleanText(name, dropFileMax), cleanText(err.Error(), dropWhyMax))
 		}
 	}
 	return out
