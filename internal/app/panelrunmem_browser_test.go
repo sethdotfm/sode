@@ -30,7 +30,8 @@ func TestChromeRunPageHoldsNoMemory(t *testing.T) {
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","rows":2,"cols":4,"cells":[]}`)
-	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, b64(t, tinyPNG))
+	// The largest artwork the server takes (1024 by 1024), so the counts include its decoded size.
+	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, imgBytes("png", panelArtSide, panelArtSide))
 	if rec.Code != 201 {
 		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 	}
@@ -65,6 +66,8 @@ func TestChromeRunPageHoldsNoMemory(t *testing.T) {
 	b.eval(`(() => { const f = document.getElementById('panel-device'); if (!f.hidden) { f.querySelector('input').value = 'Wall'; f.querySelector('button').click(); } })()`)
 	b.waitFor("destination named", `document.querySelector('.sode-panel__cell--destination .sode-panel__text')?.textContent === 'DSM1'`)
 	b.waitFor("art shown", `!document.querySelector('img.sode-panel__art-a')?.hidden`)
+	b.waitFor("the artwork decoded", artDecoded+` !== ''`)
+	t.Logf("artwork: %v", b.eval(artDecoded))
 	b.eval(`document.querySelector('.sode-panel__cell--destination').click()`)
 	b.waitFor("the viewed destination's source is ticked", `!!document.querySelector('.sode-panel__cell--source[data-s="current"] > svg use')`)
 	b.waitFor("the tick and the icon draw", `[...document.querySelectorAll('.sode-panel__cell use')].every((u) => u.getBBox().width > 0)`)

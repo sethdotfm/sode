@@ -1,24 +1,32 @@
-// The artwork control of the Cell tab. Icon A is `art` (a vendored icon or an upload), Icon B is `artB` (a digit or
-// letter glyph drawn beside it, panellook.js ART_B_CHOICES). Upload type and size are checked before sending
-// (sidebarrules.js); the server checks again by content.
+// The artwork control of the Cell tab. Icon A is `art` (a vendored icon, an Icon library icon or an upload), Icon B is `artB` (a digit or
+// letter glyph beside an icon or a corner badge on an image, panellook.js ART_B_CHOICES). An upload is resized and
+// checked before sending (artcompress.js prepareArt); the server checks again by content.
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn } from './formbits.js';
-import { artProblem, artFilter, ART_ICONS } from './sidebarrules.js';
+import { ART_ICONS } from './sidebarrules.js';
 import { artOf, artBOf, ART_B_CHOICES } from './panellook.js';
 import { artNode } from './panelview.js';
-import { compressImage } from './artcompress.js';
+import { prepareArt } from './artcompress.js';
+import { createLibSection } from './editorlib.js';
+import { pickerSections } from './iconlibrules.js';
+
+// A panel's own picture or a Default artwork image, as opposed to an icon (vendored or from the Icon library).
+const panelImage = (value) => {
+  const a = artOf({ art: value });
+  return !!a?.id && !a.lib;
+};
 
 const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the image was not uploaded.', failed: (s) => `The image was not uploaded (${s}).` });
 
-async function upload(panelId, file) {
-  const sent = await compressImage(file);
+export async function uploadArt(panelId, file, sent) {
   const body = await send(`api/v1/panels/${panelId}/artwork`, { method: 'POST', headers: { 'Content-Type': sent.type || file.type }, body: sent });
   return body?.id;
 }
 
 // A pane of the picker: a grid of choices, and a None button for the column header. pick(value) gets undefined for None.
-function pane(name, choices, draw, pick) {
+// The smart menu's Artwork tool builds its picker from these too (editorarttool.js).
+export function artPane(name, choices, draw, pick) {
   const grid = el('div', 'sode-side__icons');
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', name);
@@ -44,16 +52,19 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   file.accept = 'image/jpeg,image/png,image/gif,image/svg+xml';
   file.hidden = true;
   const up = btn('pb-btn--outline pb-btn--sm', 'Upload image', () => file.click());
-  // An upload is `art` without the icon: prefix (artOf tells them apart); Icon A and B are the other kind of artwork.
+  // Remove Image clears a panel's own picture (panelImage); Remove Icon clears an icon, vendored or from the library, and Icon B.
   const clearImage = btn('pb-btn--outline pb-btn--sm', 'Remove Image', () => set(undefined));
   const clearIcon = btn('pb-btn--outline pb-btn--sm', 'Remove Icon', () => {
-    if (!artOf({ art: shownValue })?.id) set(undefined);
+    if (!panelImage(shownValue)) set(undefined);
     setB?.(undefined);
   });
   const picker = el('div', 'sode-side__picker');
   picker.hidden = true;
+  // gone: a library icon was deleted, so the preview draws again even though the cell's value is the same.
+  const lib = icons ? createLibSection({ ed, set, gone: () => ((shown = ''), last && control.update(...last)) }) : null;
   const choose = btn('pb-btn--outline pb-btn--sm', 'Choose icon', () => {
     picker.hidden = !picker.hidden;
+    if (!picker.hidden) lib?.load();
     choose.setAttribute('aria-expanded', String(!picker.hidden));
   });
   choose.setAttribute('aria-expanded', 'false');
@@ -66,7 +77,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   const panes = [
     {
       id: 'a',
-      ...pane(
+      ...artPane(
         'Icon A',
         ART_ICONS,
         (n) => icon(n),
@@ -77,7 +88,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       ? [
           {
             id: 'b',
-            ...pane(
+            ...artPane(
               'Icon B',
               ART_B_CHOICES,
               (g) => el('span', 'sode-side__glyph', g),
@@ -87,33 +98,40 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
         ]
       : []),
   ];
-    const find = el('input', 'pb-input sode-side__find');
+  const find = el('input', 'pb-input sode-side__find');
   find.type = 'search';
   find.placeholder = 'Search icons';
   find.autocomplete = 'off';
   find.setAttribute('aria-label', 'Search icons by name');
   find.addEventListener('input', () => {
-    const shown = new Set(artFilter(ART_ICONS, find.value));
+    const shown = new Set(pickerSections(null, ART_ICONS, find.value)[1].tiles.map((t) => t.name));
     for (const b of panes[0].grid.querySelectorAll('[aria-label]')) b.hidden = !shown.has(b.getAttribute('aria-label'));
+    lib?.filter(find.value);
   });
   for (const p of panes) p.col = column(p.id === 'a' ? 'Icon A' : 'Icon B', p, p.id === 'a' ? find : null);
+  // Uploaded (the Icon library) sits above the vendored icons in Icon A's column.
+  if (lib) panes[0].grid.before(lib.node, el('span', 'sode-side__col-h', 'Icons'));
   picker.append(...panes.map((p) => p.col));
 
   let hidden = false;
   const hide = btn('pb-btn--outline pb-btn--sm', 'Hide text', () => setHideText(!hidden));
   hide.hidden = true;
   const bar = el('div', 'sode-side__row', up, ...(icons ? [choose] : []), clearImage, clearIcon, ...(setHideText ? [hide] : []));
-  const node = el('div', 'sode__field', el('span', 'sode__field-label', 'Artwork'), preview, bar, ...(icons ? [picker] : []), note, file);
+  // The cell's own file input comes before the Uploaded section's, so it is the Cell tab's first.
+  const node = el('div', 'sode__field', el('span', 'sode__field-label', 'Artwork'), preview, bar, file, ...(icons ? [picker] : []), note);
 
   file.addEventListener('change', async () => {
     const f = file.files[0];
     file.value = '';
     if (!f) return;
-    note.textContent = artProblem(f);
-    if (note.textContent) return;
     note.textContent = 'Uploading.';
     try {
-      const id = await upload(ed.panel().id, f);
+      const { blob, problem } = await prepareArt(f);
+      if (problem) {
+        note.textContent = problem;
+        return;
+      }
+      const id = await uploadArt(ed.panel().id, f, blob);
       note.textContent = '';
       set(id);
     } catch (e) {
@@ -122,9 +140,12 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   });
 
   let shown = '';
-  return {
+  let last = null; // update's arguments, so a library delete can draw the preview again
+  const control = {
     node,
-    update(value, caption = '', hideText = false, artB = '') {
+    // drawn: the cell shows artwork, its own or its item's default, so Hide text applies.
+    update(value, caption = '', hideText = false, artB = '', drawn = false) {
+      last = [value, caption, hideText, artB, drawn];
       const ro = ed.readOnly();
       const saved = !!ed.panel();
       const shownB = artBOf({ art: value, artB });
@@ -132,18 +153,17 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       up.disabled = ro || !saved;
       choose.disabled = ro;
       shownValue = value;
-      const upload = !!artOf({ art: value })?.id;
+      const upload = panelImage(value);
       clearImage.disabled = ro || !upload;
       clearIcon.disabled = ro || !(shownB || (value && !upload));
       hidden = hideText;
-      hide.hidden = !any;
+      hide.hidden = !any && !drawn;
       hide.disabled = ro;
       hide.textContent = hideText ? 'Show text' : 'Hide text';
       for (const p of panes) for (const b of [p.none, ...p.grid.querySelectorAll('button')]) b.disabled = ro;
       for (const b of panes[0].grid.querySelectorAll('[aria-label]')) b.setAttribute('aria-pressed', String(value === `icon:${b.getAttribute('aria-label')}`));
+      lib?.update(value);
       for (const b of panes[1]?.grid.querySelectorAll('[aria-label]') || []) b.setAttribute('aria-pressed', String(artB === b.getAttribute('aria-label')));
-      // An uploaded image stands alone, so Icon B has no column; artB stays stored for a later vendored icon.
-      if (panes[1]) panes[1].col.hidden = !!artOf({ art: value })?.id;
       if (!saved && !note.textContent) note.textContent = 'Save the panel before uploading an image.';
       else if (saved && note.textContent === 'Save the panel before uploading an image.') note.textContent = '';
       const key = `${value}|${shownB}|${caption}|${hideText}`;
@@ -156,7 +176,9 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       const row = artNode({ art: value, artB: shownB }, ed.art());
       if (!row) return;
       preview.append(row);
-      if (!hideText) preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || shownB ? 'Caption' : '')));
+      if (!hideText)
+        preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || artOf({ art: value })?.lib || shownB ? 'Caption' : '')));
     },
   };
+  return control;
 }

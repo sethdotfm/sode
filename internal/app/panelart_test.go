@@ -3,6 +3,10 @@ package app
 import (
 	"bytes"
 	"encoding/base64"
+	"image"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,8 +31,21 @@ func b64(t *testing.T, s string) []byte {
 	return b
 }
 
-func jpegBytes() []byte {
-	return append([]byte{0xff, 0xd8, 0xff, 0xe0, 0, 16, 'J', 'F', 'I', 'F', 0}, make([]byte, 20)...)
+func jpegBytes() []byte { return imgBytes("jpeg", 1, 1) }
+
+// imgBytes encodes a blank image; a side over 1024 stays small because the pixels are flat.
+func imgBytes(kind string, w, h int) []byte {
+	img := image.NewGray(image.Rect(0, 0, w, h))
+	var b bytes.Buffer
+	switch kind {
+	case "png":
+		png.Encode(&b, img)
+	case "gif":
+		gif.Encode(&b, img, nil)
+	default:
+		jpeg.Encode(&b, img, nil)
+	}
+	return b.Bytes()
 }
 
 func TestPanelArtworkTypesAreDecidedByContent(t *testing.T) {
@@ -80,9 +97,29 @@ func TestPanelArtworkRefusals(t *testing.T) {
 			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
 		}
 	}
-	// Over 1 MB is refused whatever it is.
-	big := append(b64(t, tinyPNG), make([]byte, 1<<20)...)
-	wantErr(t, apiSendRaw(a, "POST", up, ana, big), 413, "too_large")
+	// Over 2 MB is refused whatever it is; 1 MB to 2 MB is allowed.
+	wantErr(t, apiSendRaw(a, "POST", up, ana, append(b64(t, tinyPNG), make([]byte, 2<<20)...)), 413, "too_large")
+	if rec := apiSendRaw(a, "POST", up, ana, []byte(`<svg xmlns="http://www.w3.org/2000/svg">`+strings.Repeat(" ", 1<<20+10)+`</svg>`)); rec.Code != 201 {
+		t.Errorf("1 MB svg: %d %s", rec.Code, rec.Body.String())
+	}
+	// A side over 1024 is refused for a raster image, at any aspect ratio.
+	for _, c := range []struct {
+		kind string
+		w, h int
+	}{{"png", 1025, 10}, {"jpeg", 10, 1025}, {"gif", 2000, 2000}} {
+		rec := apiSendRaw(a, "POST", up, ana, imgBytes(c.kind, c.w, c.h))
+		if wantErr(t, rec, 400, "bad_request"); !strings.Contains(rec.Body.String(), "1024") {
+			t.Errorf("%s %dx%d: error does not state the limit: %s", c.kind, c.w, c.h, rec.Body.String())
+		}
+	}
+	for _, c := range []struct {
+		kind string
+		w, h int
+	}{{"png", 1024, 1024}, {"jpeg", 1024, 1}, {"gif", 1, 1024}} {
+		if rec := apiSendRaw(a, "POST", up, ana, imgBytes(c.kind, c.w, c.h)); rec.Code != 201 {
+			t.Errorf("%s %dx%d: %d %s", c.kind, c.w, c.h, rec.Code, rec.Body.String())
+		}
+	}
 	// A user of a shared panel may fetch artwork but not add it.
 	ok := apiSendRaw(a, "POST", up, ana, b64(t, tinyPNG))
 	art := apiBody(t, ok)["id"].(string)

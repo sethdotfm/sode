@@ -27,8 +27,9 @@ import (
 const (
 	panelsDir     = "panels"
 	panelMax      = 500
-	panelArtMax   = 40      // artwork files per panel
-	panelArtBytes = 1 << 20 // 1 MB
+	panelArtTotal = 64 << 20 // artwork bytes per panel; an image used by many cells is stored once, by id
+	panelArtBytes = 2 << 20  // 2 MB
+	panelArtSide  = 1024     // longest raster side in pixels; SVG has no pixel size
 	panelRowsMax  = 24
 	panelColsMax  = 24
 	panelNameMax  = 60
@@ -50,7 +51,7 @@ var (
 
 	errPanelCap  = errors.New("too many panels")
 	errSlugTaken = errors.New("another panel already has that short name")
-	errArtCap    = errors.New("too many artwork files on this panel")
+	errArtCap    = errors.New("this panel's artwork would pass the 64 MB total; delete some artwork first")
 )
 
 // PanelShare: Mode is panelShareMe, panelShareNamed (Users) or panelShareAll. Everyone it
@@ -93,9 +94,9 @@ type Panel struct {
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
-// panelKnown are the JSON names the struct owns. canEdit, hasKey and clientNetworks are output only and never stored,
-// so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances"}
+// panelKnown are the JSON names the struct owns. canEdit, hasKey, clientNetworks and artDefaults are output only and
+// never stored, so a client that echoes a read back does not plant it in Extra.
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults"}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
@@ -381,6 +382,14 @@ func (s *panelStore) delete(id string) (bool, error) {
 	})
 }
 
+func artBytes(p Panel) int {
+	n := 0
+	for _, a := range p.Art {
+		n += a.Size
+	}
+	return n
+}
+
 func (s *panelStore) artPath(id, art string) string {
 	return filepath.Join(s.dir, id+".art", art)
 }
@@ -393,7 +402,7 @@ func (s *panelStore) addArt(id string, data []byte, typ string) (PanelArt, bool,
 	if !ok {
 		return PanelArt{}, false, nil
 	}
-	if len(p.Art) >= panelArtMax {
+	if artBytes(p)+len(data) > panelArtTotal {
 		return PanelArt{}, true, errArtCap
 	}
 	b := make([]byte, 4)
@@ -459,34 +468,57 @@ func (s *panelStore) delArt(id, art string) (bool, error) {
 	return true, nil
 }
 
-// copyArt gives dst a copy of every artwork file of src, under the same ids, so cells that
-// name an artwork id keep working in the copy. Caller holds no lock.
-func (s *panelStore) copyArt(src Panel, dst string) {
+// copyArt gives dst a copy of src's artwork under the same ids, so cells that name an artwork
+// id keep working in the copy. It copies what fits under panelArtTotal, in order, and returns
+// the ids that did not fit (or could not be read or written). Caller holds no lock.
+func (s *panelStore) copyArt(src Panel, dst string) []string {
+	t, ok := s.get(dst)
+	if !ok {
+		return nil
+	}
+	have := map[string]bool{}
+	for _, a := range t.Art {
+		have[a.ID] = true
+	}
+	var left []string
 	for _, a := range src.Art {
-		if b, _, ok := s.artData(src.ID, a.ID); ok {
-			s.putArtAs(dst, a, b)
+		if have[a.ID] {
+			continue
+		}
+		b, _, ok := s.artData(src.ID, a.ID)
+		if !ok || !s.putArtAs(dst, a, b) {
+			left = append(left, a.ID)
 		}
 	}
+	return left
 }
 
-func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) {
+// putArtAs checks the total under the lock, since an upload or another copy may land between
+// copyArt's reads. Only the total: older artwork past 2 MB or 1024 by 1024 still copies.
+func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.by[id]
 	if !ok {
-		return
+		return false
+	}
+	art.Size = len(data)
+	if artBytes(p)+art.Size > panelArtTotal {
+		return false
 	}
 	if s.dir != "" {
 		if os.MkdirAll(filepath.Join(s.dir, id+".art"), 0o700) != nil || config.AtomicWrite(s.artPath(id, art.ID), data) != nil {
-			return
+			return false
 		}
 	} else {
 		s.art[id+"/"+art.ID] = data
 	}
 	p.Art = append(slices.Clone(p.Art), art)
-	if s.writeLocked(&p) == nil {
-		s.by[id] = p
+	if s.writeLocked(&p) != nil {
+		return false
 	}
+	s.by[id] = p
+	return true
 }
 
 const svgNS = "http://www.w3.org/2000/svg"
@@ -501,6 +533,15 @@ func sniffArt(data []byte) string {
 		return "image/svg+xml"
 	}
 	return ""
+}
+
+// artTypeOK is a stored type sniffArt could have given. A hand-edited index must not choose the Content-Type.
+func artTypeOK(t string) bool {
+	switch t {
+	case "image/png", "image/jpeg", "image/gif", "image/svg+xml":
+		return true
+	}
+	return false
 }
 
 // isSVG: the first element is svg, after only a declaration, comments, a doctype and blanks.

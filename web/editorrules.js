@@ -2,6 +2,31 @@
 import { KINDS } from './panelrules.js';
 import { saved, createGrid, DEFAULT_ROWS, DEFAULT_COLS } from './gridmodel.js';
 import { chord } from './keys.js';
+import { nameMismatch } from './panellook.js';
+
+// The Cell tab's lines about Default artwork. d is the item's default or null, own whether the cell sets artwork of
+// its own, routerName the router's name for the cell's number now ('' when not known).
+export function defaultNote(d, own, routerName) {
+  if (!d) return { text: '', warn: '' };
+  const what = d.kind === 'preset' ? 'preset' : d.kind;
+  const text = own ? `This cell's own artwork shows instead of the Default artwork of its ${what}.` : `This cell shows the Default artwork of its ${what}.`;
+  const warn = nameMismatch(d, routerName)
+    ? `This default may be for another item: it was set for ${d.name}, and the router now names this ${what} ${routerName}.`
+    : '';
+  return { text, warn };
+}
+
+// Whether a cell's item can carry Default artwork. Me presets cannot: the set is shared, so the server refuses them.
+export const takesDefault = (c) =>
+  !!c && (c.kind === 'preset' ? c.scope === 'everyone' && !!c.name : (c.kind === 'source' || c.kind === 'destination') && Number.isInteger(c.n));
+
+// The body of PUT (set) or DELETE (clear) /default-artwork for a cell's item. Set sends the cell's own artwork and
+// Hide text, and the panel an uploaded image is on, which the server copies.
+export function defaultBody(cell, panelId, set) {
+  const item = cell.kind === 'preset' ? { kind: cell.kind, scope: cell.scope, name: cell.name } : { kind: cell.kind, n: cell.n };
+  if (!set) return item;
+  return { ...item, art: cell.art || '', artB: cell.artB || '', hideText: cell.hideText === true, panel: panelId };
+}
 
 // /panels/editor?panel=<id> edits one panel; anything else starts a new one.
 export function editorTarget(search) {

@@ -4,7 +4,7 @@ import { el, icon } from './core.js';
 import { cellAt, rectOf, isUnassigned } from './gridmodel.js';
 import { kindLabel } from './editorrules.js';
 import { artNode } from './panelview.js';
-import { cellScale, textHidden } from './panellook.js';
+import { cellScale, textHidden, withDefault } from './panellook.js';
 
 // keep in step with findrules.js CATEGORY_ICON
 const KIND_ICON = {
@@ -65,8 +65,8 @@ export function createEditorGrid(host, on) {
   host.addEventListener('keydown', (e) => on.key(e));
 
   return {
-    // art is createArt's answer for the panel, for cells with uploaded artwork.
-    paint(g, names, { readOnly = false, art: artSource = null } = {}) {
+    // art is createArt's answer for the panel, for cells with uploaded artwork; defaults is Default artwork by item.
+    paint(g, names, { readOnly = false, art: artSource = null, defaults = null } = {}) {
       host.replaceChildren();
       host.style.gridTemplate = `repeat(${g.rows}, 1fr) / repeat(${g.cols}, 1fr)`;
       host.style.aspectRatio = `${g.cols} / ${g.rows}`;
@@ -89,10 +89,11 @@ export function createEditorGrid(host, on) {
             b.classList.add('has-cell', `sode-ed__sq--${cell.kind}`);
             if (isUnassigned(cell)) b.classList.add('is-unassigned');
             if (rs * cs > 1) b.classList.add('is-merged');
-            const art = artNode(cell, artSource);
+            const drawn = withDefault(cell, defaults);
+            const art = artNode(drawn, artSource);
             if (art) b.append(art);
             if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
-            if (textHidden(cell)) b.dataset.hideText = '1'; // the square hides its words as the panel page will (panels.css)
+            if (textHidden(drawn)) b.dataset.hideText = '1'; // the square hides its words as the panel page will (panels.css)
             b.append(icon(KIND_ICON[cell.kind] || 'square-dashed'), el('span', 'sode-ed__text', cellText(cell, names)));
           }
           host.append(b);

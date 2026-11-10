@@ -105,14 +105,16 @@ type App struct {
 	namesDirt  bool
 	dumpAt     time.Time
 
-	pin       pinPool
-	userPin   pinPool
-	tokens    *tokenStore
-	keys      *keyStore
-	panels    *panelStore
-	templates *templateStore
-	mon       *panelMon
-	cfgMu     sync.Mutex
+	pin         pinPool
+	userPin     pinPool
+	tokens      *tokenStore
+	keys        *keyStore
+	panels      *panelStore
+	templates   *templateStore
+	artDefaults *artDefaultStore
+	icons       *iconLib
+	mon         *panelMon
+	cfgMu       sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
@@ -200,6 +202,9 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.keys = loadKeys(cfgPath)
 	a.panels = panels
 	a.templates = loadTemplates(cfgPath)
+	a.artDefaults = loadArtDefaults(cfgPath)
+	a.icons = loadIconLib(cfgPath)
+	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)

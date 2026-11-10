@@ -350,8 +350,9 @@
 }
 /* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
    The row is a size container so the glyph follows the square's height (cqh), as the icon does. Alone, either
-   fills the row; together Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap, so the ratio
-   holds). With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
+   fills the row; beside a sprite icon Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap,
+   so the ratio holds). An image fills the row (--fill, always contain) and Icon B is a corner badge over it.
+   With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
 .sode-panel__art {
   align-items: center;
   color: var(--pb-text-strong);
@@ -397,6 +398,31 @@
 }
 .sode-panel__art-b--wide:not(:only-child) {
   font-size: min(70cqh, 50cqw);
+}
+.sode-panel__art--fill > .sode-panel__art-a {
+  flex: 1 1 100%;
+  width: 100%;
+}
+/* An Icon library SVG (artImage in panelview.js): its shape in the text colour, as the Panels logo in base.css. */
+.sode-panel__art-mask {
+  background-color: currentColor;
+  display: inline-block;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+/* Icon B over an image (artBBadge in panellook.js): sized from the row like the glyph, on a plate so it reads over
+   any image. */
+.sode-panel__art > .sode-panel__art-b--badge {
+  background-color: var(--pb-surface-raised);
+  font-size: min(30cqh, 30cqw);
+  inset-block-start: var(--pb-space-1);
+  inset-inline-end: var(--pb-space-1);
+  padding: var(--pb-space-1) var(--pb-space-2);
+  position: absolute;
+}
+.sode-panel__art > .sode-panel__art-b--badge.sode-panel__art-b--wide {
+  font-size: min(30cqh, 18cqw);
 }
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
@@ -820,7 +846,8 @@
   margin-left: auto;
 }
 .sode-tpl__field,
-.sode-tpl__pin {
+.sode-tpl__pin,
+.sode-side__pin {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-1);
@@ -1068,9 +1095,48 @@
   font-family: var(--pb-font-num);
   font-weight: var(--pb-weight-bold);
 }
+/* Uploaded (the Icon library) above the vendored icons in Icon A's column. */
+.sode-side__lib-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-side__lib-sec[hidden],
+.sode-side__lib[hidden] {
+  display: none;
+}
+.sode-side__lib-sec .sode-side__icons {
+  max-height: 7rem;
+}
+.sode-side__lib-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  justify-content: space-between;
+}
+.sode-side__lib-confirm {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  padding: var(--pb-space-3);
+}
+.sode-side__lib-confirm[hidden],
+.sode-side__lib-sec .sode-side__row[hidden] {
+  display: none;
+}
+.sode-side__lib-img {
+  height: 1.25rem;
+  object-fit: contain;
+  width: 1.25rem;
+}
 .sode-find__orders {
   display: flex;
   gap: var(--pb-space-2);
+}
+/* The smart menu's Artwork flyout: the Cell tab's two picker columns at Find's width, kept short so it fits beside a low selection. */
+.sode-arttool .sode-side__icons {
+  max-height: 10rem;
 }
 .sode-ed__grid {
   position: relative;

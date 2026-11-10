@@ -3,7 +3,8 @@
 // them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
 import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
-import { namesFrom, fixedDestsOf } from './panelrules.js';
+import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
+import { defaultsBy } from './panellook.js';
 import {
   createGrid,
   cellsLost,
@@ -62,6 +63,7 @@ export async function runEditor() {
   const changeWatchers = [];
   const fieldWatchers = [];
   let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork
+  let defaults = new Map(); // Default artwork by item (defaultsBy): drawn only, never put into g
   let trusted = false; // only a Trusted user can make a client, so a new panel starts as Both for them and Session for the rest
   on('access', (a) => (trusted = !!a.trusted && !!a.user));
   let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each once edited
@@ -204,9 +206,17 @@ export async function runEditor() {
     return items;
   }
 
+  // A key without the panels scope, or a failed read, leaves the defaults as they were.
+  async function loadDefaults() {
+    const r = await sessionFetch('api/v1/default-artwork').catch(() => null);
+    if (!r?.ok) return;
+    defaults = defaultsBy((await r.json()).defaults);
+    refresh();
+  }
+
   function refresh() {
     const ro = readOnly();
-    grid.paint(g, names, { readOnly: ro, art });
+    grid.paint(g, names, { readOnly: ro, art, defaults });
     const box = ro ? null : grid.selectionBox();
     menu.show(menuAway ? null : box, menuItems());
     for (const fn of paintWatchers) fn(g, box);
@@ -385,7 +395,7 @@ export async function runEditor() {
     history.pushState(null, '', `panels/editor?panel=${copy.id}`);
     await loadList().catch(() => {});
     show(copy);
-    say('ed-status', 'Saved a copy. You own it and can change it.');
+    say('ed-status', `Saved a copy. You own it and can change it. ${artLeftOut(copy.artSkipped)}`.trim());
   });
 
   // ---- start
@@ -414,6 +424,7 @@ export async function runEditor() {
     try {
       await loadList();
       names = namesFrom(await sessionFetch('api/v1/names').then((r) => (r.ok ? r.json() : {})));
+      await loadDefaults();
       await openPanel(editorTarget(location.search).id, false);
     } catch (err) {
       // An ended or refused key already has its note from onSessionKey.
@@ -441,6 +452,8 @@ export async function runEditor() {
     // The sidebar's panel fields. onFields runs when the panel loads, saves or a field changes.
     fields,
     art: () => art,
+    defaults: () => defaults,
+    loadDefaults,
     setFields(patch) {
       edits = { ...edits, ...patch };
       const { shown, dropped } = holdOrPutBack(g);

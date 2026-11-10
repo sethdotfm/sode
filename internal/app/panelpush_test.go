@@ -119,8 +119,7 @@ func TestPushCopiesMissingArtwork(t *testing.T) {
 	ana := userKey(t, a, "Ana")
 	src := makePanel(t, a, ana, `{"name":"Src"}`)
 	dst := makePanel(t, a, ana, `{"name":"Dst"}`)
-	png := []byte("\x89PNG\r\n\x1a\n" + strings.Repeat("x", 20))
-	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+src+"/artwork", ana, png)
+	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+src+"/artwork", ana, b64(t, tinyPNG))
 	if rec.Code != 201 {
 		t.Fatalf("art: %d %s", rec.Code, rec.Body.String())
 	}

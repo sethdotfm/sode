@@ -128,6 +128,9 @@ func TestChromeEditorMenuFlipsOffSidebar(t *testing.T) {
 		b.eval(`document.getElementById('ed-grid').focus(); document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', bubbles: true, cancelable: true })); true`)
 		b.waitFor("Find open from column "+col, `document.activeElement === document.querySelector('.sode-find input')`)
 		b.waitFor("column "+col+": Find keeps off the sidebar", `(() => { const f = document.querySelector('.sode-find'); return f.getBoundingClientRect().height > 100 && fits(f); })()`)
+		b.eval(`document.querySelector('.sode-arttool').parentElement.querySelector(':scope > .pb-menu__item').click(); true`)
+		b.waitFor("Artwork open from column "+col, `document.activeElement === document.querySelector('.sode-arttool input[type=search]')`)
+		b.waitFor("column "+col+": Artwork keeps off the sidebar", `(() => { const f = document.querySelector('.sode-arttool'); return f.getBoundingClientRect().height > 100 && fits(f); })()`)
 		b.shot("menu-flip-" + col)
 	}
 	b.check()

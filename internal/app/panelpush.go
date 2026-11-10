@@ -168,28 +168,6 @@ func (s *panelStore) dropCheckpoints(id string) {
 	}
 }
 
-// artMissing copies artwork the target lacks, so cells that name an artwork id keep working.
-func (s *panelStore) artMissing(src Panel, dst string) {
-	t, ok := s.get(dst)
-	if !ok {
-		return
-	}
-	have := map[string]bool{}
-	for _, a := range t.Art {
-		have[a.ID] = true
-	}
-	room := panelArtMax - len(t.Art)
-	for _, a := range src.Art {
-		if have[a.ID] || room <= 0 {
-			continue
-		}
-		if b, _, ok := s.artData(src.ID, a.ID); ok {
-			s.putArtAs(dst, a, b)
-			room--
-		}
-	}
-}
-
 // Checkpoint sets: one saved layout per panel in a group. Files sit in panelsets/ beside the
 // config, one for Everyone and one per user for Me, never inside a panel file.
 

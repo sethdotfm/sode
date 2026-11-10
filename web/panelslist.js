@@ -8,6 +8,7 @@ import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
+import { artLeftOut } from './panelrules.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -219,7 +220,8 @@ async function act(kind, id) {
     }
     if (kind === 'copy') {
       const made = await api(`api/v1/panels/${id}/copy`, { method: 'POST' });
-      return load(made.id);
+      await load(made.id);
+      return say(artLeftOut(made.artSkipped));
     }
   } catch (e) {
     S.armed = '';

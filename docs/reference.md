@@ -120,6 +120,12 @@ With users set up, each user has a **profile**. It holds their own This browser 
 
 **Server configuration backup.** Settings > Server backup has **Export** and **Import** for the whole `config.yaml`, and both need the Advanced Settings PIN. PINs are left out unless you tick *Include Secrets (private backup)*, which makes a secret file, so keep it private. Importing replaces everything. If the file has no PINs, each user keeps their current PIN by name, and Sode refuses a new user in the file until it carries a PIN.
 
+## Icon library files
+
+The Icon library is the `icons/` directory and its index, `icons.yaml`, both beside `config.yaml` (in `/data` in the image). Neither the server configuration backup nor any export carries it. To back it up or move it to another install, copy `icons.yaml` and the `icons/` directory together with `config.yaml`, then start Sode. A cell names an icon by its id (`lib:<id>`), and Push, Copy and Templates keep that reference, since they stay on one install. A cell whose icon is not in the library draws no Icon A.
+
+To add many icons at once, put SVG and PNG files in `icons/drop-in/`. Sode makes that directory on start. It reads the files at start and when a Trusted user presses **Rescan** in the Uploaded section of Choose icon (the API's `POST /icon-library/rescan`, which also takes the Advanced Settings PIN). Each file is checked as an upload is: PNG or SVG, at most 2 MB, a PNG at most 1024 by 1024 pixels, and 64 MB for the whole library. The file name without its extension becomes the icon name, cut to 40 characters, and a name another icon has becomes "Name 2". Sode removes each file it adds from `icons/drop-in/`. A file it skips stays there, and Sode reports it with the reason in the Rescan's status line and in an `iconRescan` row of the Communication Log. Sode never reads through a link: a linked file is skipped, and a `drop-in` that is itself a link is not read. Hidden files such as `.DS_Store` are ignored.
+
 ## API
 
 `/api/v1` lets other apps read names, tally, History and status, fire takes and presets, undo, redo and retry History entries, and follow live changes on a WebSocket stream. It is off until an administrator turns on *API enabled* in Settings (advanced); *Guest API* lets a call with no key in with Guest's scopes, and *Log API reads* writes one `api` row per read. Keys, scopes, rights, visibility and limits are in [api.md](api.md), and the contract is `/api/v1/openapi.yaml`, open even while the API is off.
