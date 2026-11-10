@@ -458,3 +458,24 @@ test('Destination cells set aside while Fixed destination is on come back where 
     ['1,1 3', '1,2 1'],
   );
 });
+
+test('the held Destination cells that still fit are the ones putBack keeps, so the editor can count the rest', async () => {
+  const { setAside, heldThatFit } = await import('../gridmodel.js');
+  const g = createGrid({ rows: 2, cols: 4, cells: [D(1, 1, 3), S(1, 2, 1), { ...D(2, 1, 4), cs: 2 }, D(2, 4, 5)] });
+  const { grid, held } = setAside(g, 'destination');
+  assert.equal(heldThatFit(grid, held).length, 3);
+  // A square filled meanwhile and a span that reaches past a shrunk edge each lose one.
+  const n = (cells) => cells.map((c) => c.n);
+  assert.deepEqual(n(heldThatFit(setKind(select(grid, 2, 2), 'take'), held)), [3, 5]);
+  assert.deepEqual(n(heldThatFit(resize(grid, 2, 1), held)), [3]);
+  // Two held cells on one square: the first is kept.
+  assert.deepEqual(
+    n(
+      heldThatFit(
+        grid,
+        [3, 9].map((x) => ({ ...D(1, 1, x), rs: 1, cs: 1 })),
+      ),
+    ),
+    [3],
+  );
+});

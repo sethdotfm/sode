@@ -170,3 +170,61 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	}
 	b.check()
 }
+
+// A Destination cell set aside by Fixed destination is dropped when the grid shrinks past it or a merge covers its
+// square, and the status note counts it, so a save never loses a cell without a word.
+func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(srv.Close)
+
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":3,"cells":[
+		{"r":1,"c":1,"kind":"destination","n":8},
+		{"r":1,"c":2,"kind":"take"},
+		{"r":2,"c":3,"kind":"destination","n":5}],"settings":{"fixedDests":[%d]}}`, simDst))
+
+	b.open(srv.URL + "/panels/editor?panel=" + id)
+	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	for _, d := range "1234" {
+		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
+	}
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
+	b.waitFor("lock gone", `!document.documentElement.dataset.sodeLock`)
+	b.waitFor("panel loaded with its Destination cells set aside", `document.getElementById('ed-name').value === 'Wall' && !document.querySelector('#ed-grid .sode-ed__sq--destination')`)
+	status := `document.getElementById('ed-status').textContent`
+
+	b.eval(`document.getElementById('tab-ed-panel').click(); const c = document.getElementById('ed-cols'); c.value = '2'; c.dispatchEvent(new Event('change', { bubbles: true })); true`)
+	b.waitFor("shrinking past a set-aside cell counts it", status+` === 'Removed 1 cell that no longer fit.'`)
+
+	b.eval(`const sq = document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]'); const r = sq.getBoundingClientRect();
+		sq.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 }));
+		const grid = document.getElementById('ed-grid');
+		grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
+		grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', code: 'KeyM', ctrlKey: true, bubbles: true })); true`)
+	b.waitFor("a merge over a set-aside cell says it was removed", `/^Removed 1 Destination cell /.test(`+status+`)`)
+
+	b.eval(`document.getElementById('ed-save').click()`)
+	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	var stored struct {
+		Cols  int `json:"cols"`
+		Cells []struct {
+			Kind string `json:"kind"`
+			Cs   int    `json:"cs"`
+		} `json:"cells"`
+	}
+	raw := apiSend(a, "GET", "/api/v1/panels/"+id, ana, "").Body.Bytes()
+	if err := json.Unmarshal(raw, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Cols != 2 || len(stored.Cells) != 1 || stored.Cells[0].Kind != "take" || stored.Cells[0].Cs != 2 {
+		t.Errorf("stored %s", raw)
+	}
+	b.check()
+}

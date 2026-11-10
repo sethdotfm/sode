@@ -1,4 +1,7 @@
 // What the panel editor's sidebar stores and says. Pure. Stored names are in docs/persisted-names.md.
+import { fixedDestsOf, FIXED_MAX } from './panelrules.js';
+
+export { FIXED_MAX };
 
 export const FONT_MIN = 50;
 export const FONT_MAX = 200;
@@ -31,8 +34,6 @@ export function setSetting(settings, key, value) {
 }
 
 // Fixed destination (settings.fixedDests). The order is kept: the first one is what the Current Destination cell reads.
-export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go
-const fixedOf = (settings) => (Array.isArray(settings?.fixedDests) ? settings.fixedDests : []);
 const withFixed = (settings, list) => {
   const out = { ...settings };
   if (list.length) out.fixedDests = list;
@@ -40,13 +41,13 @@ const withFixed = (settings, list) => {
   return out;
 };
 export function addFixed(settings, n) {
-  const list = fixedOf(settings);
+  const list = fixedDestsOf({ settings });
   return list.includes(n) || list.length >= FIXED_MAX ? settings : withFixed(settings, [...list, n]);
 }
 export const dropFixed = (settings, n) =>
   withFixed(
     settings,
-    fixedOf(settings).filter((x) => x !== n),
+    fixedDestsOf({ settings }).filter((x) => x !== n),
   );
 
 export function fontPercent(text) {

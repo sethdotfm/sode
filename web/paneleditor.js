@@ -22,6 +22,7 @@ import {
   nextTodo,
   setAside,
   putBack,
+  heldThatFit,
 } from './gridmodel.js';
 import {
   editorTarget,
@@ -76,32 +77,38 @@ export async function runEditor() {
   const fieldsChanged = () => fieldWatchers.forEach((fn) => fn());
 
   // While Fixed destination is on, Destination cells live in held, out of every grid edit, and go back into the
-  // grid when it turns off. whole() is the grid as stored; saves and the dirty check use it.
+  // grid when it turns off. whole() is the grid as stored; saves and the dirty check use it. A held cell whose
+  // squares get filled or that no longer fits is dropped at once and counted, as resize drops a visible cell.
   let held = [];
   const fixedOn = () => fixedDestsOf({ settings: fields().settings }).length > 0;
   const holdOrPutBack = (next) => {
+    const all = held;
     if (!fixedOn()) {
-      const back = putBack(next, held);
       held = [];
-      return back;
+      return { shown: putBack(next, all), dropped: all.length - heldThatFit(next, all).length };
     }
     const aside = setAside(next, 'destination');
-    held = [...held, ...aside.held];
-    return aside.grid;
+    held = heldThatFit(aside.grid, [...all, ...aside.held]);
+    return { shown: aside.grid, dropped: all.length + aside.held.length - held.length };
   };
+  const sayDropped = (n) =>
+    n && say('ed-status', `Removed ${n} Destination cell${n > 1 ? 's' : ''} set aside by Fixed destination, as other cells now fill the squares.`);
   const whole = () => putBack(g, held);
 
   const nameBox = $('ed-name');
   const dirty = () => isDirty(loaded, nameBox.value, whole(), edits);
 
   // fresh: next is a whole new layout (a template), so cells held from the old one do not come back.
+  // Returns how many held cells it dropped.
   const setGrid = (next, { fresh = false } = {}) => {
     if (fresh) held = [];
-    next = holdOrPutBack(next);
-    if (next === g) return;
-    g = next;
+    const { shown, dropped } = holdOrPutBack(next);
+    sayDropped(dropped);
+    if (shown === g) return dropped;
+    g = shown;
     refresh();
     for (const fn of changeWatchers) fn(g);
+    return dropped;
   };
 
   const grid = createEditorGrid($('ed-grid'), {
@@ -224,8 +231,7 @@ export async function runEditor() {
   function setSize(which, value) {
     const rows = which === 'rows' ? value : g.rows;
     const cols = which === 'cols' ? value : g.cols;
-    const lost = cellsLost(g, rows, cols);
-    setGrid(resize(g, rows, cols));
+    const lost = cellsLost(g, rows, cols) + setGrid(resize(g, rows, cols));
     say('ed-status', lost ? `Removed ${lost} cell${lost > 1 ? 's' : ''} that no longer fit.` : '');
     refresh();
   }
@@ -275,7 +281,7 @@ export async function runEditor() {
     art?.revoke();
     art = panel ? createArt(sessionFetch, panel.id) : null;
     held = [];
-    g = holdOrPutBack(createGrid(panel || newPanel()));
+    g = holdOrPutBack(createGrid(panel || newPanel())).shown;
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
     say('ed-status', '');
@@ -445,9 +451,10 @@ export async function runEditor() {
     art: () => art,
     setFields(patch) {
       edits = { ...edits, ...patch };
-      const next = holdOrPutBack(g);
-      if (next !== g) {
-        g = next;
+      const { shown, dropped } = holdOrPutBack(g);
+      sayDropped(dropped);
+      if (shown !== g) {
+        g = shown;
         for (const fn of changeWatchers) fn(g);
       }
       refresh();

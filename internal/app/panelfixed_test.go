@@ -1,7 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -28,6 +31,33 @@ func TestFixedDestsSaveAndRead(t *testing.T) {
 	plain := makePanel(t, a, ana, `{"name":"Plain","settings":{"mode":"take"}}`)
 	if f := fixedOf(readPanel(t, a, ana, plain)); f != nil {
 		t.Fatalf("a panel with none stored reads %v", f)
+	}
+}
+
+// A panel file written before Fixed destination has no fixedDests; it loads as it was and the file is not touched.
+func TestFixedDestsOldPanelFileLoadsUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "panels"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := []byte("id: p-0000abcd\nname: Old wall\nowner: Ana\nacts: session\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: destination, n: 7}\n    - {r: 1, c: 2, rs: 1, cs: 1, kind: source, n: 4}\nsettings:\n    mode: instant\n    levels: [1, 2]\n")
+	path := filepath.Join(dir, "panels", "p-0000abcd.yaml")
+	if err := os.WriteFile(path, old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := loadPanels(filepath.Join(dir, "config.yaml"))
+	p, ok := s.get("p-0000abcd")
+	if !ok || len(s.problems()) != 0 {
+		t.Fatalf("not loaded: ok=%v problems %v", ok, s.problems())
+	}
+	if _, has := p.Settings[panelFixedKey]; has || fmt.Sprint(p.Settings) != "map[levels:[1 2] mode:instant]" {
+		t.Fatalf("settings %v", p.Settings)
+	}
+	if got := fmt.Sprint(p.Cells); got != "[map[c:1 cs:1 kind:destination n:7 r:1 rs:1] map[c:2 cs:1 kind:source n:4 r:1 rs:1]]" {
+		t.Fatalf("cells %s", got)
+	}
+	if b, _ := os.ReadFile(path); !bytes.Equal(b, old) {
+		t.Fatalf("the file was rewritten:\n%s", b)
 	}
 }
 

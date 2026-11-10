@@ -62,6 +62,9 @@ export function currentOfDestination(st, env, cell) {
 
 export const currentSource = (env, st) => (st.view ? currentOfDestination(st, env, { n: st.view.dst, levels: st.view.levels }) : -1);
 
+// The router already has the route on every level it sends; a level with no tally yet counts as different.
+const routed = (env, x) => x.levels.every((l) => env.tally.get(x.dst)?.get(l) === x.src);
+
 const fail = (st, error, now) => ({ ...st, error: { ...error, at: now } });
 
 // The view and the staged routes have no clock: they stay until a press, a take or Clear ends them.
@@ -71,7 +74,8 @@ export function pressDestination(st, cell) {
   return { ...st, view: { dst: cell.n, levels: cell.levels || null }, error: null };
 }
 
-// A refusal on any one fixed destination refuses the whole press. One that already has the source is left out.
+// A refusal on any one fixed destination refuses the whole press. One that already has the source on every level
+// the route sends is left out.
 function pressSourceFixed(st, cell, env, now) {
   const routes = [];
   for (const dst of st.fixed) {
@@ -80,7 +84,8 @@ function pressSourceFixed(st, cell, env, now) {
     if (denied) return fail(st, denied, now);
     const levels = shared(st, env, cell.levels, null);
     if (!levels.length) return fail(st, { code: 'no-common-levels', src: cell.n, dst }, now);
-    if (currentOfDestination(st, env, { n: dst }) !== cell.n) routes.push({ dst, src: cell.n, levels });
+    const route = { dst, src: cell.n, levels };
+    if (!routed(env, route)) routes.push(route);
   }
   return { ...st, staged: routes, error: null };
 }
@@ -191,11 +196,7 @@ export const failTake = (st, reason, message, now) => ({ ...st, busy: false, err
 
 // The router moved: a stage it now satisfies has nothing left to take.
 export function applyTally(st, env) {
-  const probe = (x) => {
-    const row = env.tally.get(x.dst);
-    return x.levels.every((l) => row?.get(l) === x.src);
-  };
-  const staged = st.staged.filter((x) => !probe(x));
+  const staged = st.staged.filter((x) => !routed(env, x));
   return staged.length === st.staged.length ? st : { ...st, staged };
 }
 

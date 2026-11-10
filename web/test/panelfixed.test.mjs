@@ -55,6 +55,26 @@ test('a fixed destination that already has the source is left out', () => {
   assert.deepEqual(plan(st), [{ src: 5, dst: 1, levels: [1, 2] }]);
 });
 
+// Destination 3 has source 5 on Level 1 and 6 on Level 2; destination 4 has source 5 on Level 1 and nothing known on Level 2.
+const split = (over = {}) => env({ tally: tally({ 3: { 1: 5, 2: 6 }, 4: { 1: 5 } }), ...over });
+
+test('a panel limited to Level 1 leaves out a fixed destination that has the source on Level 1 only', () => {
+  const st = pressSource(fixed([3], { levels: [1] }), S(5), split(), T0);
+  assert.deepEqual(plan(st), []);
+});
+
+test('a Source cell or Rights limited to Level 1 leave out a fixed destination that has the source on Level 1 only', () => {
+  assert.deepEqual(plan(pressSource(fixed([3]), S(5, [1]), split(), T0)), []);
+  assert.deepEqual(plan(pressSource(fixed([3]), S(5), split({ rights: { levels: [1] } }), T0)), []);
+});
+
+test('a fixed destination is staged when the route would change any level it sends, an unknown one included', () => {
+  assert.deepEqual(plan(pressSource(fixed([3, 4]), S(5), split(), T0)), [
+    { src: 5, dst: 3, levels: [1, 2] },
+    { src: 5, dst: 4, levels: [1, 2] },
+  ]);
+});
+
 test('a Source every fixed destination already has drops the staged routes and arms nothing', () => {
   let st = pressSource(fixed([0, 2]), S(4), env(), T0);
   assert.equal(plan(st).length, 2);
@@ -228,4 +248,15 @@ test('Destination cells are not drawn while the panel has fixed destinations, an
   assert.deepEqual(kinds({ fixedDests: [1] }), ['source', 'take']);
   assert.deepEqual(kinds({ fixedDests: [] }), ['destination', 'source', 'take']);
   assert.deepEqual(kinds(undefined), ['destination', 'source', 'take']);
+});
+
+test('a stored list the server would refuse turns the setting off, so the panel still works', async () => {
+  const { fixedDestsOf } = await import('../panelrules.js');
+  const of = (fixedDests) => fixedDestsOf({ settings: { fixedDests } });
+  assert.deepEqual(of([12, 0, 65535]), [12, 0, 65535]);
+  for (const bad of [[1.5], ['3'], [-1], [4, 4], [65536], [null], Array.from({ length: 17 }, (_, i) => i), 7]) {
+    assert.deepEqual(of(bad), [], JSON.stringify(bad));
+  }
+  assert.deepEqual(of(Array.from({ length: 16 }, (_, i) => i)).length, 16);
+  assert.deepEqual(createState({ fixedDests: [2, 2] }).fixed, null);
 });
