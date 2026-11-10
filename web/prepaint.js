@@ -7,23 +7,23 @@
   const get = (k) => {
     try {
       return localStorage.getItem(k);
-    } catch (e) {
+    } catch {
       return null;
     }
   };
   try {
     g = JSON.parse(get('sode-device-defaults')) || {};
-  } catch (e) {}
+  } catch {}
   let mine = {};
   try {
     // Only with a session token kept (else this load is a guest): as cachedProfile() in prefs.js.
     let tab = null;
     try {
       tab = sessionStorage.getItem('sode-tab-session');
-    } catch (e) {}
+    } catch {}
     const c = JSON.parse(get('sode-profile-prefs'));
     if ((get('sode-session') || tab) && c && typeof c.user === 'string' && c.user && c.prefs && typeof c.prefs === 'object') mine = c.prefs;
-  } catch (e) {}
+  } catch {}
   const word = (v) => (typeof v === 'boolean' ? (v ? 'on' : 'off') : v);
   const pick = (key, name, ok, def) => {
     const own = get(key);

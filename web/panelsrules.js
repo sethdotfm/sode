@@ -74,7 +74,9 @@ export function toggleUser(users, name, on) {
 // The panel as PUT wants it. canEdit is the server's answer, and clientRights left out keeps the
 // stored ones, so a share edit never touches the API client.
 export function shareBody(p, draft) {
-  const { canEdit, clientRights, ...rest } = p;
+  const rest = { ...p };
+  delete rest.canEdit;
+  delete rest.clientRights;
   return { ...rest, share: draft.mode === 'named' ? { mode: 'named', users: [...draft.users] } : { mode: draft.mode } };
 }
 

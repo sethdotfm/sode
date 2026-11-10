@@ -1,7 +1,7 @@
 // Recent's Filters dialog, shared by both layouts. Applies as you type; kept per browser
 // (filterstore.js). Share link: transfer.js reads it back through a review sheet.
 
-import { $, el, S, on, emit, nameProblem } from './core.js';
+import { $, el, S, on, nameProblem } from './core.js';
 import { readStr, writeStr } from './store.js';
 import {
   filterState,
