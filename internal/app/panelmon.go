@@ -59,6 +59,18 @@ type monInst struct {
 	conns    map[int]monConn
 	next     int
 	trans    []UptimeTrans // up and down changes for the uptime strip, see mark
+
+	// Set by the last stream to open and kept after it closes, for the Assign to list. page is not
+	// streamed: a keepalive clears streamed, and a timed-out page must still be told from an API client.
+	page        bool
+	who         streamWho
+	streamSince time.Time // when conns last went from none to one; zero while it holds none
+}
+
+// streamWho is who opened a stream and from where. signIn is "client" or "user" ("none" for a guest),
+// and user names the user.
+type streamWho struct {
+	addr, signIn, user string
 }
 
 // limit is how long after seen the instance still counts: short once its stream is gone, since a
@@ -337,6 +349,12 @@ type instOut struct {
 	Online bool       `json:"online"`
 	Stream bool       `json:"stream"` // it holds a stream now, so it is one of Sode's own panel pages and can be assigned
 	Uptime instUptime `json:"uptime"`
+	// From the last stream it opened, only for one of Sode's own panel pages (page).
+	Page        bool       `json:"page,omitempty"`
+	Addr        string     `json:"addr,omitempty"`
+	SignIn      string     `json:"signIn,omitempty"`
+	User        string     `json:"user,omitempty"`
+	StreamSince *time.Time `json:"streamSince,omitempty"`
 }
 
 func (m *panelMon) instances(id string) []instOut {
@@ -345,7 +363,15 @@ func (m *panelMon) instances(id string) []instOut {
 	now := m.now()
 	out := []instOut{}
 	for _, in := range m.inst[id] {
-		out = append(out, instOut{in.device, in.seen.UTC(), in.live(now), len(in.conns) > 0, in.uptime(now)})
+		o := instOut{Device: in.device, Seen: in.seen.UTC(), Online: in.live(now), Stream: len(in.conns) > 0, Uptime: in.uptime(now)}
+		if in.page {
+			o.Page, o.Addr, o.SignIn, o.User = true, in.who.addr, in.who.signIn, in.who.user
+		}
+		if o.Stream {
+			s := in.streamSince.UTC()
+			o.StreamSince = &s
+		}
+		out = append(out, o)
 	}
 	slices.SortFunc(out, func(a, b instOut) int { return strings.Compare(strings.ToLower(a.Device), strings.ToLower(b.Device)) })
 	return out
@@ -365,16 +391,18 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 
 // openStream registers a held connection of a device; cancel ends it and out is what to write on it.
 // The returned func drops it.
-func (m *panelMon) openStream(id, device string, cancel context.CancelFunc) (func(), <-chan []byte, *monEvent, error) {
+func (m *panelMon) openStream(id, device string, who streamWho, cancel context.CancelFunc) (func(), <-chan []byte, *monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	in, ev, err := m.touchLocked(id, device)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if in.conns == nil {
+	if len(in.conns) == 0 {
 		in.conns = map[int]monConn{}
+		in.streamSince = m.now()
 	}
+	in.page, in.who = true, who
 	in.next++
 	n := in.next
 	out := make(chan []byte, 1)
@@ -681,7 +709,7 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	done, out, ev, err := a.mon.openStream(p.ID, device, cancel)
+	done, out, ev, err := a.mon.openStream(p.ID, device, streamWhoOf(cl), cancel)
 	if err != nil {
 		apiFail(w, http.StatusConflict, "conflict", err.Error())
 		return
@@ -723,6 +751,16 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 			return
 		}
 	}
+}
+
+func streamWhoOf(cl *apiCtx) streamWho {
+	switch cl.Actor.Kind {
+	case actorClient:
+		return streamWho{addr: cl.IP, signIn: "client"}
+	case actorUser:
+		return streamWho{addr: cl.IP, signIn: "user", user: cl.Actor.Name}
+	}
+	return streamWho{addr: cl.IP, signIn: "none"}
 }
 
 func cleanDevice(s string) string { return cleanText(strings.TrimSpace(s), monDeviceMax) }

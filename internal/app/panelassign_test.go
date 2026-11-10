@@ -213,3 +213,59 @@ func TestPanelReadSaysWhichInstancesHoldAStream(t *testing.T) {
 		t.Fatalf("stream %v", stream)
 	}
 }
+
+func instanceRows(t *testing.T, a *App, id, key string) map[string]map[string]any {
+	t.Helper()
+	rows := map[string]map[string]any{}
+	for _, in := range panelOf(t, a, id, key)["instances"].([]any) {
+		m := in.(map[string]any)
+		rows[m["device"].(string)] = m
+	}
+	return rows
+}
+
+func TestInstanceRowsSayWhoHoldsTheStreamFromWhereAndSince(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, `{"name":"Studio A","acts":"both"}`)
+	before := time.Now().Add(-time.Second)
+	monHold(t, a, id, instanceKey(t, a, id, cy, "Wall"), "Wall")
+	monHold(t, a, id, cy, "Desk")
+	keepalive(a, id, cy, "Hall")
+
+	rows := instanceRows(t, a, id, cy)
+	wall, desk, hall := rows["Wall"], rows["Desk"], rows["Hall"]
+	if wall["signIn"] != "client" || wall["user"] != nil || wall["addr"] != "127.0.0.1" || wall["page"] != true {
+		t.Fatalf("wall %v", wall)
+	}
+	if desk["signIn"] != "user" || desk["user"] != "Cy" {
+		t.Fatalf("desk %v", desk)
+	}
+	since, err := time.Parse(time.RFC3339Nano, fmt.Sprint(wall["streamSince"]))
+	if err != nil || since.Before(before) || since.After(time.Now()) {
+		t.Fatalf("streamSince %v %v", wall["streamSince"], err)
+	}
+	// A keepalive alone is no Sode panel page.
+	if hall["page"] == true || hall["streamSince"] != nil || hall["signIn"] != nil {
+		t.Fatalf("hall %v", hall)
+	}
+}
+
+func TestATimedOutInstanceIsListedButCannotBeAssigned(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	stop := monHold(t, a, from, cy, "Lobby")
+	stop()
+	monWaitConns(t, a, from, 0)
+
+	lobby := instanceRows(t, a, from, cy)["Lobby"]
+	if lobby["page"] != true || lobby["stream"] == true || lobby["streamSince"] != nil || lobby["addr"] != "127.0.0.1" || lobby["signIn"] != "user" {
+		t.Fatalf("lobby %v", lobby)
+	}
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")), 409, "conflict")
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); strings.Contains(rec.Body.String(), "Lobby") {
+		t.Fatalf("a key was made: %s", rec.Body.String())
+	}
+}

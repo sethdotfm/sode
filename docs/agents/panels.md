@@ -54,6 +54,7 @@ Panels page extras (`panelmonup.go`, `panelsmon.js`, rules in `panelsrules.js`):
 
 - The key goes down the stream, never in the REST answer, and is made only once the stream is known to be held; if no stream takes the line the key is dropped again. A name the target already holds is refused with 409, because `replaceInstance` would rotate another device's key away.
 - The page stores the key under the segment of the address it opens (`assignAddress` in `panelassignrules.js` returns it), since `storedKey` reads by address segment, not by panel id. With storage that does not read back, the key rides `#key=` instead, as `keepLinkKey` does.
+- Instance rows carry `page`, `addr`, `signIn`, `user` and `streamSince` from the last stream the device opened (`openStream`). `page` is kept apart from `streamed`, because a keepalive clears `streamed` and a timed-out page must still be told from a keepalive-only API client. `streamSince` is set when the device goes from no stream to one, so a second tab does not reset it and a reload does. The list shows uptime in whole minutes (`uptimeText`), since `paint` redraws only when a row's text changes.
 - An Assign reads the target and never writes it, so `settings.fixedDests`, `acts` and `rev` stay. The editor's Authentication mode Confirm does not run for an Assign; `assignChangesMode` and `confirmModeChange` (`panelassign.js`) are where it would hook in.
 
 ## Gotchas
