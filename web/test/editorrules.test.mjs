@@ -16,6 +16,7 @@ import {
   signInNote,
   openFailNote,
   typeLabel,
+  pointerMoved,
 } from '../editorrules.js';
 import { createGrid, merge, select } from '../gridmodel.js';
 
@@ -261,4 +262,11 @@ test('a panel that cannot be opened says why and what to do', () => {
   assert.match(openFailNote({ status: 401, message: 'key revoked' }), /sign in again/i);
   assert.equal(openFailNote({ status: 403, message: 'This address may not use the API.' }), 'This address may not use the API.');
   assert.match(openFailNote({ status: 500, message: '' }), /could not be opened \(500\)/);
+});
+
+test('Find hover waits for a real move: the first event and a redraw under a still pointer do not count', () => {
+  assert.equal(pointerMoved(null, { clientX: 10, clientY: 20 }), false);
+  assert.equal(pointerMoved({ x: 10, y: 20 }, { clientX: 10, clientY: 20 }), false);
+  assert.equal(pointerMoved({ x: 10, y: 20 }, { clientX: 11, clientY: 20 }), true);
+  assert.equal(pointerMoved({ x: 10, y: 20 }, { clientX: 10, clientY: 19 }), true);
 });
