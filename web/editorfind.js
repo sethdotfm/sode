@@ -232,6 +232,14 @@ export function initFind(editor) {
 
   // ---- choosing
 
+  // A fill moves the selection, so the menu redraws and its new Find item takes the box out of the page: focus is
+  // lost and with it data-open. Hover cannot hold the flyout, since the menu moves away from the pointer.
+  function keepOpen() {
+    if (panel.contains(document.activeElement)) return;
+    panel.dataset.open = '1'; // a hidden box cannot take focus
+    input.focus({ preventScroll: true });
+    if (document.activeElement !== input) delete panel.dataset.open;
+  }
   function choose(i) {
     const e = results[i];
     if (!usable(e)) return;
@@ -270,7 +278,10 @@ export function initFind(editor) {
         .filter(usable)
         .map((x) => x.key);
       draw();
-    } else choose(i);
+    } else {
+      choose(i);
+      keepOpen();
+    }
   });
   list.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.sode-find__row')) e.preventDefault(); // keeps focus in the box
@@ -291,7 +302,10 @@ export function initFind(editor) {
     li.classList.add('is-hi');
     showPreview();
   });
-  fill.addEventListener('click', () => place(hi));
+  fill.addEventListener('click', () => {
+    place(hi);
+    keepOpen();
+  });
 
   input.addEventListener('input', () => {
     hi = 0;

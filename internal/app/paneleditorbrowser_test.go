@@ -73,6 +73,7 @@ func TestChromeEditorFind(t *testing.T) {
 	b.eval(`press(box(), { key: 'k', code: 'KeyK', ctrlKey: true }); document.querySelector('.sode-find__row.is-hi').click()`)
 	b.waitFor("one square filled and the selection moved on", `document.querySelector('.sode-ed__sq[data-r="2"][data-c="1"]')?.textContent.includes('Zoom 1') && !!document.querySelector('.is-sel[data-r="2"][data-c="2"]')`)
 	b.waitFor("the next result highlighted and Find kept open", `document.querySelector('.sode-find__row.is-hi')?.textContent.includes('Zoom 2') && box() === document.activeElement`)
+	b.waitFor("the flyout is still showing after the click", `getComputedStyle(document.querySelector('.sode-find')).display !== 'none'`)
 	b.eval(`document.querySelector('.sode-find__row.is-hi').click()`)
 	b.waitFor("the next square filled", `document.querySelector('.sode-ed__sq[data-r="2"][data-c="2"]')?.textContent.includes('Zoom 2')`)
 
