@@ -345,6 +345,23 @@ func TestAssignNameClashAnswersASuggestionAndTakesTheChosenName(t *testing.T) {
 	}
 }
 
+// The clash counts every instance the target holds, as a rename does, not only its keys: here one open without a key
+// of that name.
+func TestAssignNameClashCountsTheTargetsOpenInstances(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
+	assignHold(t, a, to, instanceKey(t, a, to, cy, "Desk"), "lobby")
+
+	rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", ""))
+	wantErr(t, rec, 409, "name_taken")
+	if got := suggestOf(t, rec); got != "Lobby 2" {
+		t.Fatalf("suggest %q", got)
+	}
+}
+
 // The panel an instance left still holds its old key, so assigning it back is a name clash, and the old key stays.
 func TestAssignBackOffersANewName(t *testing.T) {
 	a := panelsApp(t)
