@@ -28,8 +28,8 @@ const (
 	panelsDir     = "panels"
 	panelMax      = 500
 	panelArtTotal = 64 << 20 // artwork bytes per panel; an image used by many cells is stored once, by id
-	panelArtBytes = 2 << 20 // 2 MB
-	panelArtSide  = 1024    // longest raster side in pixels; SVG has no pixel size
+	panelArtBytes = 2 << 20  // 2 MB
+	panelArtSide  = 1024     // longest raster side in pixels; SVG has no pixel size
 	panelRowsMax  = 24
 	panelColsMax  = 24
 	panelNameMax  = 60
