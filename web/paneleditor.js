@@ -162,6 +162,18 @@ export async function runEditor() {
     const n = block.cells.length;
     const ok = await writeClip(blockText(block));
     say('ed-status', ok ? `Copied ${n} cell${n > 1 ? 's' : ''}.` : 'Nothing copied: the browser did not let Sode use the clipboard.');
+    return ok;
+  }
+
+  // Copy, then one setGrid removes the selection, the step an undo wraps. Held Destination cells are not in g, so
+  // they are neither copied nor removed. A failed copy or a grid that moved during the write keeps every cell.
+  async function cutCells() {
+    const snap = g;
+    const n = copyBlock(g, loaded?.id)?.cells.length;
+    if (!(await copyCells())) return;
+    if (g !== snap) return say('ed-status', 'Copied, but the grid changed meanwhile, so nothing was removed.');
+    setGrid(clearSelection(g));
+    say('ed-status', `Cut ${n} cell${n > 1 ? 's' : ''}.`);
   }
 
   // One paste is one setGrid, the step an undo wraps. Text that is not a Sode block changes nothing.
@@ -185,6 +197,7 @@ export async function runEditor() {
   const gridCommands = {
     selectAll: () => setGrid(selectAll(g)),
     copy: () => void copyCells(),
+    cut: () => void cutCells(),
     paste: () => (paste.key(), false),
   };
 

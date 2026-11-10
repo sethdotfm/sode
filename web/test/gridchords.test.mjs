@@ -49,3 +49,10 @@ test('every table key is spelled the way chord() names it', () => {
     assert.equal(chord(e), name);
   }
 });
+
+test('Cmd or Ctrl+X is cut on the grid, and a focused text field keeps its own', () => {
+  assert.equal(gridCommand(k('x', 'KeyX', { ctrlKey: true })), 'cut');
+  assert.equal(gridCommand(k('x', 'KeyX', { metaKey: true })), 'cut');
+  assert.equal(gridCommand(k('x', 'KeyX', { metaKey: true, shiftKey: true })), null);
+  assert.equal(gridCommand({ ...k('x', 'KeyX', { ctrlKey: true }), target: { tagName: 'INPUT', type: 'text' } }), null);
+});

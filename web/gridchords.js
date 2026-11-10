@@ -8,6 +8,8 @@ export const GRID_CHORDS = {
   'meta+a': 'selectAll',
   'ctrl+c': 'copy',
   'meta+c': 'copy',
+  'ctrl+x': 'cut',
+  'meta+x': 'cut',
   'ctrl+v': 'paste',
   'meta+v': 'paste',
 };
