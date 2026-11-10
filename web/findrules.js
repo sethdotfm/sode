@@ -120,22 +120,28 @@ export function findPlan(g, run, order = 'across') {
   return { ...plan, slots: plan.slots.map((s) => ({ r: s.r, c: s.c, replace: s.replace, entry: run[s.n] })) };
 }
 
-// Two squares side by side take Previous Page then Next Page, left to right; one above the other, Previous on top.
-// Chosen with either kind. null for any other selection, or when a merged or spanning cell is in the way.
+// Two units in the selection, a unit being a cell (merged ones included) or an empty square: side by side they take
+// Previous Page then Next Page, left to right; one above the other, Previous on top. Chosen with either kind. null for
+// any other selection.
 export function pairPlan(g, start, all) {
   if (!start || start.off || !['nextPage', 'previousPage'].includes(start.category)) return null;
   const q = rectOf(g);
   if (!q) return null;
-  const h = q.r2 - q.r1 + 1;
-  const w = q.c2 - q.c1 + 1;
-  if (h * w !== 2) return null;
-  const squares = w === 2 ? [[q.r1, q.c1], [q.r1, q.c2]] : [[q.r1, q.c1], [q.r2, q.c1]];
-  const hits = squares.map(([r, c]) => cellAt(g, r, c));
-  if (hits.some((h) => h && (h.rs > 1 || h.cs > 1))) return null;
+  const units = [];
+  for (let r = q.r1; r <= q.r2; r++)
+    for (let c = q.c1; c <= q.c2; c++) {
+      const hit = cellAt(g, r, c);
+      const u = hit ? { r: hit.r, c: hit.c, cs: hit.cs || 1, replace: true } : { r, c, cs: 1, replace: false };
+      if (!units.some((x) => x.r === u.r && x.c === u.c)) units.push(u);
+    }
+  if (units.length !== 2) return null;
+  const [a, b] = units;
+  const stacked = a.c < b.c + b.cs && b.c < a.c + a.cs;
+  units.sort((x, y) => (stacked ? x.r - y.r : x.c - y.c));
   const prev = all.find((e) => e.category === 'previousPage');
   const next = all.find((e) => e.category === 'nextPage');
   if (!prev || !next) return null;
-  return { kind: 'pair', pair: true, dropped: 0, slots: squares.map(([r, c], i) => ({ r, c, replace: !!hits[i], entry: i ? next : prev })) };
+  return { kind: 'pair', pair: true, dropped: 0, slots: units.map((u, i) => ({ r: u.r, c: u.c, replace: u.replace, entry: i ? next : prev })) };
 }
 
 // fillPlan stores a router number per slot; only Sources and Destinations have one, so n is removed afterwards, and a Preset gets scope and name.

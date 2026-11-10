@@ -303,3 +303,16 @@ test('two squares side by side take Previous then Next Page, and one above the o
   assert.equal(pairPlan(sel(2, 2), next, all), null);
   assert.equal(pairPlan(sel(1, 2), all.find((e) => e.category === 'take'), all), null);
 });
+
+test('the pair also takes two merged cells, or a merged cell and an empty square', () => {
+  const all = findEntries({ sources: [], destinations: [] }, { presets: [] }, null);
+  const next = all.find((e) => e.category === 'nextPage');
+  const cell = (r, c, rs, cs) => ({ r, c, rs, cs, kind: 'take' });
+  const run = (cells, r2, c2) => {
+    const g = select(select(createGrid({ rows: 4, cols: 4, cells }), 1, 1), r2, c2, true);
+    return applyFind(g, pairPlan(g, next, all)).cells.map((c) => [c.r, c.c, c.rs, c.cs, c.kind]);
+  };
+  assert.deepEqual(run([cell(1, 1, 2, 1), cell(1, 2, 2, 1)], 2, 2), [[1, 1, 2, 1, 'previousPage'], [1, 2, 2, 1, 'nextPage']]);
+  assert.deepEqual(run([cell(1, 1, 1, 2), cell(2, 1, 1, 2)], 2, 2), [[1, 1, 1, 2, 'previousPage'], [2, 1, 1, 2, 'nextPage']]);
+  assert.deepEqual(run([cell(1, 1, 1, 2)], 1, 3), [[1, 1, 1, 2, 'previousPage'], [1, 3, 1, 1, 'nextPage']]);
+});
