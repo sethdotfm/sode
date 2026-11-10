@@ -938,10 +938,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-7);
-  max-height: calc(100dvh - 8rem);
+  /* The toolbar above wraps to any height, so the sidebar pins near the top of the window as the page scrolls. */
+  max-height: calc(100dvh - 2 * var(--pb-space-5));
   min-width: 0;
   overflow: hidden auto;
   padding: var(--pb-space-9) var(--pb-space-5);
+  position: sticky;
+  top: var(--pb-space-5);
 }
 .sode-side__tab,
 .sode-side__form {
@@ -1127,6 +1130,11 @@
   cursor: help;
   display: inline-flex;
   vertical-align: middle;
+}
+/* The sidebar scrolls, so a one-line tip this long would be cut off at its edge. */
+.sode-fixed__help[data-pb-tip]::after {
+  white-space: normal;
+  width: 12rem;
 }
 .sode-ed__side .sode__tabs {
   gap: var(--pb-space-4);

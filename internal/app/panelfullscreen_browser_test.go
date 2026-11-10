@@ -75,7 +75,7 @@ func TestChromePanelFullscreenFollowsSettings(t *testing.T) {
 	b.waitFor("fullscreen on: a press enters fullscreen", `!!document.fullscreenElement`)
 	leave()
 
-	// The report: on, then off and saved, then a reload.
+	// On, then off and saved, then a reload.
 	put("Off", false, false)
 	b.eval(`location.reload(); true`)
 	ready("Off")
