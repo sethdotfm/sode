@@ -1,4 +1,4 @@
-// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets, Take, Clear, Current), with a preview of
+// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets and the one-entry kinds), with a preview of
 // the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
 // the DOM. initFind(editor) takes what runEditor returns.
 import { el, icon, $ } from './core.js';

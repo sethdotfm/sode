@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -111,6 +112,11 @@ func TestPanelTakeWireRowsAndHistoryNameInstance(t *testing.T) {
 	es, _ := a.hist.Page(-1, 1)
 	if len(es) != 1 || es[0].Panel != "Wall" || es[0].Instance != "Front desk" {
 		t.Fatalf("history %+v", es)
+	}
+	// The history file keeps them across a restart.
+	var back Entry
+	if b, err := json.Marshal(es[0]); err != nil || json.Unmarshal(b, &back) != nil || back.Panel != "Wall" || back.Instance != "Front desk" {
+		t.Fatalf("round trip %+v (%v)", back, err)
 	}
 
 	// Session mode: the page names itself; a user's take with no panel names none.

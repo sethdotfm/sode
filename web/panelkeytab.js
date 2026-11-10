@@ -2,7 +2,7 @@
 // per named instance. The tab lists them, rotates or revokes one at a time, and makes a link for a name. A link is
 // shown once, when it is made. Rotate, Revoke and any make that replaces a key each ask for a Confirm first (the
 // churning letter and the short lockout). Server side: internal/app/panelkey.go.
-import { el, icon, S } from './core.js';
+import { el, icon, S, on } from './core.js';
 import { btn, check, field } from './formbits.js';
 import { churnKey } from './lockrules.js';
 import { qrNode, secretNode } from './keyview.js';
@@ -33,6 +33,10 @@ const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can b
 const COPIED_MS = 2000;
 const REFRESH_MS = 5000; // how often the list asks again, so Online follows the instances
 const FAIL = Symbol('failed'); // a call that said why in the note
+
+// The open key dialog's close. The Lock closes it, as it does the Share modal, so the key is not left on screen.
+let shutKey = null;
+on('locking', () => shutKey?.());
 
 const dot = (kind) => {
   const d = el('span', `pb-dot pb-dot--${kind}`);
@@ -291,10 +295,12 @@ shareTabs.push(({ panel, api }) => {
     document.body.append(keyRoot);
     const dlg = trapDialog(keyRoot, dialog, () => shut());
     function shut() {
+      shutKey = null;
       dlg.hide();
       keyRoot.remove();
       if (back?.isConnected) back.focus({ preventScroll: true });
     }
+    shutKey = shut;
     dlg.show();
     done.focus();
   }
