@@ -32,6 +32,23 @@ export function openFailText(status, hadKey) {
   return 'This panel could not be opened.';
 }
 
+// The note above a Session-mode panel for a session key step. A refused or ended key gets text, or the page stays blank.
+// retry shows the Sign in button; an ended module only a reload revives.
+export function sessionNote(step, err = '') {
+  switch (step) {
+    case 'sign-in':
+      return { text: 'Sign in with your PIN to open this panel.', retry: true };
+    case 'no-users':
+      return { text: 'This panel needs a user, and Sode has none.', retry: false };
+    case 'refused':
+      return { text: `Sode would not open this panel for this sign-in${err ? `: ${err}` : ''}. Sign in again.`, retry: true };
+    case 'ended':
+      return { text: "This page's sign-in key was ended. Reload the page to sign in again.", retry: false };
+    default:
+      return { text: '', retry: false };
+  }
+}
+
 // rights is the caller's own Rights from GET /panels/<id>: an unset list allows everything, an empty one nothing.
 // Keep in step with config.Rights and outsideRights (internal/app/rights.go).
 export const rightsAllow = (rights, list, v) => !Array.isArray(rights?.[list]) || rights[list].includes(v);

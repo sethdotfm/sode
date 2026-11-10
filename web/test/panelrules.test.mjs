@@ -1,7 +1,19 @@
 // What the panel page reads from the URL and the API (panelrules.js), and the text it shows.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { panelIdFrom, keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf, currentLabel } from '../panelrules.js';
+import {
+  panelIdFrom,
+  keyFromHash,
+  kioskOf,
+  openFailText,
+  sessionNote,
+  envFrom,
+  namesFrom,
+  cellsIn,
+  errorText,
+  offlineOf,
+  currentLabel,
+} from '../panelrules.js';
 import { createState, currentOfDestination } from '../panelmodel.js';
 
 test('the panel id is the last path segment of /panels/<id>, and the editor and list are not panels', () => {
@@ -142,4 +154,12 @@ test('the Current Destination cell names the viewed destination, and a caption s
   assert.equal(currentLabel({ kind: 'current' }, 'CAM 1'), 'CAM 1 is currently:');
   assert.equal(currentLabel({ kind: 'current' }, ''), 'Currently');
   assert.equal(currentLabel({ kind: 'current', caption: 'Now on' }, 'CAM 1'), 'Now on');
+});
+
+test('sessionNote says something for a refused or ended key', () => {
+  assert.match(sessionNote('refused', 'too many keys').text, /too many keys/);
+  assert.equal(sessionNote('refused').retry, true);
+  assert.match(sessionNote('ended').text, /Reload/);
+  assert.equal(sessionNote('ended').retry, false);
+  assert.equal(sessionNote('request').text, '');
 });

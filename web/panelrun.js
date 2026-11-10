@@ -7,7 +7,7 @@ import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
-import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
+import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
 import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
 import {
@@ -92,11 +92,11 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
 
   if (!key && !embedded) {
     ui.signin.addEventListener('click', signInAgain);
-    onSessionKey((k, step) => {
-      ui.signin.hidden = step !== 'sign-in';
+    onSessionKey((k, step, err) => {
+      const n = sessionNote(step, err);
+      ui.signin.hidden = !n.retry;
       if (k) say(ui.note, '');
-      else if (step === 'sign-in') say(ui.note, 'Sign in with your PIN to open this panel.');
-      else if (step === 'no-users') say(ui.note, 'This panel needs a user, and Sode has none.');
+      else if (n.text) say(ui.note, n.text);
     });
     nameSessionKey(`Panel ${seg}`);
     startSession();
