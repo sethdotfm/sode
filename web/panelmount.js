@@ -18,6 +18,7 @@ export function pageUi() {
     applyNow: $('panel-apply'),
     bar: $('panel-update-bar'),
     grid: $('panel-grid'),
+    strip: $('panel-fixed'),
     offline: $('panel-offline'),
     offlineDetail: $('panel-offline-detail'),
     full: $('panel-full'),
@@ -53,12 +54,14 @@ export function liveUi(host, onBack) {
   );
   update.setAttribute('role', 'status');
   const grid = el('div', 'sode-panel__grid');
+  const strip = el('ul', 'sode-panel__fixed');
+  strip.setAttribute('aria-label', 'Fixed destinations');
   const offlineDetail = el('p', 'sode-panel__offline-detail');
   const offline = el('div', 'sode-panel__offline pb-state-offline', el('p', 'sode-panel__offline-title', 'Offline'), offlineDetail);
   offline.setAttribute('role', 'alert');
-  for (const n of [status, update, bar, offline]) n.hidden = true;
+  for (const n of [status, update, bar, offline, strip]) n.hidden = true;
   note.hidden = true;
-  const main = el('div', 'sode-live', head, note, el('div', 'sode-panel__foot', status, update), grid, offline);
+  const main = el('div', 'sode-live', head, note, el('div', 'sode-panel__foot', status, update), strip, grid, offline);
   host.replaceChildren(main);
-  return { main, head, title, note, status, update, updateText, snooze, applyNow, bar, grid, offline, offlineDetail, back };
+  return { main, head, title, note, status, update, updateText, snooze, applyNow, bar, grid, strip, offline, offlineDetail, back };
 }

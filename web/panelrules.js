@@ -89,6 +89,16 @@ export function cellsIn(panel) {
   return out;
 }
 
+// The panel's fixed destinations (settings.fixedDests), [] when the setting is off.
+export const fixedDestsOf = (panel) => (Array.isArray(panel?.settings?.fixedDests) ? panel.settings.fixedDests.filter(Number.isInteger) : []);
+
+// What the panel page draws. A panel with fixed destinations leaves its Destination cells out; they stay stored, so
+// the editor and the thumbnails keep using cellsIn.
+export const drawnCells = (panel) => {
+  const cells = cellsIn(panel);
+  return fixedDestsOf(panel).length ? cells.filter((c) => c.kind !== 'destination') : cells;
+};
+
 export function errorText(err, names) {
   switch (err?.code) {
     case 'no-destination':
@@ -103,6 +113,8 @@ export function errorText(err, names) {
     }
     case 'no-preset':
       return 'That preset is not available to this panel';
+    case 'preset-no-fixed':
+      return `${err.name} has no route to this panel's destinations`;
     case 'preset-multi':
       return 'This panel stages one destination at a time, and that preset has more';
     case 'refused':
