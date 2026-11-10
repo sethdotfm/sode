@@ -104,3 +104,10 @@ test('a set needs a name and at least one ticked panel', () => {
   assert.equal(canSaveSet('Show', new Set()), false);
   assert.equal(canSaveSet('Show', new Set(['p-1'])), true);
 });
+
+test('a Push names each target whose artwork did not all fit', () => {
+  assert.equal(
+    pushSummary({ pushed: [{ panel: 'p-1', artSkipped: ['a-1', 'a-2'] }, { panel: 'p-2' }, { panel: 'p-3', artSkipped: ['a-3'] }] }, wall),
+    'Pushed to EVS 1, EVS 2 and EVS 3. A checkpoint of each was kept. 2 images did not fit under the 64 MB artwork total of EVS 1 and were left out. 1 image did not fit under the 64 MB artwork total of EVS 3 and was left out.',
+  );
+});

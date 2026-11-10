@@ -16,6 +16,10 @@ export function defaultNote(d, own, routerName) {
   return { text, warn };
 }
 
+// Whether a cell's item can carry Default artwork. Me presets cannot: the set is shared, so the server refuses them.
+export const takesDefault = (c) =>
+  !!c && (c.kind === 'preset' ? c.scope === 'everyone' && !!c.name : (c.kind === 'source' || c.kind === 'destination') && Number.isInteger(c.n));
+
 // The body of PUT (set) or DELETE (clear) /default-artwork for a cell's item. Set sends the cell's own artwork and
 // Hide text, and the panel an uploaded image is on, which the server copies.
 export function defaultBody(cell, panelId, set) {
@@ -159,7 +163,6 @@ export function openFailNote(e) {
   if (e.status === 401) return 'Your sign-in for this page ended. Sign in again, then choose the panel again.';
   return e.message || `The panel could not be opened (${e.status}).`;
 }
-
 
 const WORDS = {
   source: 'Source',

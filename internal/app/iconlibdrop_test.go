@@ -205,3 +205,51 @@ func TestIconDropName(t *testing.T) {
 		}
 	}
 }
+
+// A skipped file's name reaches the API answer, the log and the Communication Log with no control characters.
+func TestIconLibraryDropInSkippedNameIsCleaned(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	dropFile(t, a, "bad\x1b[2Jname\n.txt", []byte("junk"))
+	for len(a.evq) > 0 {
+		<-a.evq
+	}
+	_, skipped := rescanBody(t, a, cy, "")
+	if len(skipped) != 1 || skipped[0].File != "bad[2Jname.txt" {
+		t.Fatalf("skipped %q", skipped)
+	}
+	var row string
+	for len(a.evq) > 0 {
+		if e := <-a.evq; e.Kind == kindAPI && e.Why == "iconRescan" {
+			row = e.Note + " " + e.Err
+		}
+	}
+	if !strings.Contains(row, "bad[2Jname.txt") || strings.ContainsAny(row, "\x1b\n") {
+		t.Fatalf("Communication Log row %q", row)
+	}
+}
+
+// An open error carries the raw name inside its text, so the reason is cleaned too.
+func TestIconLibraryDropInSkippedReasonIsCleaned(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root opens an unreadable file")
+	}
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	dropFile(t, a, "bad\x1bname\n.png", b64(t, tinyPNG))
+	if err := os.Chmod(filepath.Join(dropDir(a), "bad\x1bname\n.png"), 0); err != nil {
+		t.Fatal(err)
+	}
+	for len(a.evq) > 0 {
+		<-a.evq
+	}
+	_, skipped := rescanBody(t, a, cy, "")
+	if len(skipped) != 1 || strings.ContainsAny(skipped[0].Reason, "\x1b\n") {
+		t.Fatalf("skipped %q", skipped)
+	}
+	for len(a.evq) > 0 {
+		if e := <-a.evq; e.Kind == kindAPI && strings.ContainsAny(e.Note+e.Err, "\x1b\n") {
+			t.Fatalf("Communication Log row %q %q", e.Note, e.Err)
+		}
+	}
+}

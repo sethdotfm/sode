@@ -3,7 +3,7 @@
 // them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
 import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
-import { namesFrom, fixedDestsOf } from './panelrules.js';
+import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
 import { defaultsBy } from './panellook.js';
 import {
   createGrid,
@@ -395,7 +395,7 @@ export async function runEditor() {
     history.pushState(null, '', `panels/editor?panel=${copy.id}`);
     await loadList().catch(() => {});
     show(copy);
-    say('ed-status', 'Saved a copy. You own it and can change it.');
+    say('ed-status', `Saved a copy. You own it and can change it. ${artLeftOut(copy.artSkipped)}`.trim());
   });
 
   // ---- start

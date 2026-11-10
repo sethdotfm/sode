@@ -7,7 +7,7 @@ import { el, icon } from './core.js';
 import { mac } from './keys.js';
 import { placeMenu, subSide, flyoutShift, menuChord, chordText } from './editorrules.js';
 
-const GAP = 8; // keep in step with EDGE_GAP in editorfind.js
+const GAP = 8; // keep in step with EDGE_GAP in editorfind.js and editorarttool.js
 const viewport = () => ({ left: 0, top: 0, right: document.documentElement.clientWidth, bottom: document.documentElement.clientHeight });
 
 export function createSmartMenu(host, { onEscape, area = viewport }) {

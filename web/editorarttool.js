@@ -13,7 +13,7 @@ import { createOrderPicker } from './editororder.js';
 import { flyoutShift } from './editorrules.js';
 import { artToolPlan, applyArtTool } from './arttoolrules.js';
 
-const EDGE_GAP = 8; // keep in step with GAP in editormenu.js
+const EDGE_GAP = 8; // keep in step with GAP in editormenu.js and EDGE_GAP in editorfind.js
 const UNSAVED = 'Save the panel before uploading an image.';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

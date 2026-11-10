@@ -32,7 +32,6 @@ type artDefaultIn struct {
 	Pin   string `json:"pin"`
 }
 
-// artDefaultVisible applies the caller's Visibility to one default.
 func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
 	v := cl.view()
 	if !v.Hidden() {
@@ -45,15 +44,8 @@ func (a *App) artDefaultVisible(cl *apiCtx, d ArtDefault) bool {
 		return d.N != nil && v.Destination(*d.N)
 	}
 	// A preset's items would teach hidden numbers, so a hidden caller needs the whole preset in view.
-	cfg := a.r().cfg
-	list := cfg.Presets
-	if d.Scope == "me" {
-		list = nil
-		if u, ok := cfg.FindUser(cl.Actor.Name); ok && cl.Actor.Kind == actorUser {
-			list = u.Profile.Presets
-		}
-	}
-	for _, p := range list {
+	// Only Everyone presets have defaults (check).
+	for _, p := range a.r().cfg.Presets {
 		if p.Name == d.Name {
 			return v.WholePreset(p)
 		}
@@ -111,7 +103,6 @@ func (a *App) apiArtDefaults(w http.ResponseWriter, _ *http.Request, cl *apiCtx)
 	apiJSON(w, map[string]any{"defaults": a.artDefaultsFor(cl, nil)})
 }
 
-// readArtDefault reads a set or clear body and checks the caller may change Default artwork.
 func (a *App) readArtDefault(w http.ResponseWriter, r *http.Request, cl *apiCtx) (artDefaultIn, bool) {
 	var in artDefaultIn
 	if cl.Actor.Kind != actorUser {
@@ -163,16 +154,17 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 	case artIDRe.MatchString(d.Art):
 		// A panel's own image: copied, so the default outlives the panel and its artwork.
 		p, read, _ := a.reachPanel(cl, in.Panel)
-		data, art, found := a.panels.artData(p.ID, d.Art)
+		data, _, found := a.panels.artData(p.ID, d.Art)
 		if !read || !found {
 			apiFail(w, http.StatusNotFound, "not_found", "no artwork "+d.Art+" on a panel this key may use")
 			return
 		}
-		if _, err := checkArtBytes(data); err != nil {
+		typ, err := checkArtBytes(data)
+		if err != nil {
 			failWith(w, err)
 			return
 		}
-		img = &artImage{data, art.Type}
+		img = &artImage{data, typ}
 	default:
 		apiFail(w, http.StatusBadRequest, "bad_request", "art is a vendored icon (icon:<name>), an Icon library icon (lib:<id>) or an artwork id")
 		return

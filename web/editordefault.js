@@ -5,7 +5,7 @@ import { el } from './core.js';
 import { btn } from './formbits.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { defaultFor, artOf, artBOf } from './panellook.js';
-import { defaultNote, defaultBody } from './editorrules.js';
+import { defaultNote, defaultBody, takesDefault } from './editorrules.js';
 import { pinNeeded } from './templaterules.js';
 
 const send = jsonCall(sessionFetch, {
@@ -73,7 +73,7 @@ export function createDefaultRow({ ed, patch, done }) {
     update(c) {
       if (c !== cell && (c?.kind !== cell?.kind || c?.n !== cell?.n || c?.name !== cell?.name)) said.textContent = '';
       cell = c;
-      const item = c && ['source', 'destination', 'preset'].includes(c.kind) && (c.kind === 'preset' ? !!c.name : Number.isInteger(c.n));
+      const item = takesDefault(c);
       node.hidden = !item;
       if (!item) return;
       const d = defaultFor(c, ed.defaults());
