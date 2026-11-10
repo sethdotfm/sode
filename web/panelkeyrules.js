@@ -92,14 +92,19 @@ export const setupFromHash = (hash) => fullSetup(/(?:^#|&)setup=([^&]+)/.exec(ha
 // A key the page keeps after a setup link. localStorage name, kept per panel; docs/persisted-names.md.
 export const storedKeyName = (id) => `sode-panel-key-${id}`;
 
-// The hash without its setup part, so a reload or a copied address no longer carries the spent token.
-export function withoutSetup(hash) {
+function withoutPart(hash, name) {
   const rest = hash
     .replace(/^#/, '')
     .split('&')
-    .filter((p) => p && !p.startsWith('setup='));
+    .filter((p) => p && !p.startsWith(`${name}=`));
   return rest.length ? `#${rest.join('&')}` : '';
 }
+
+// The hash without its setup part, so a reload or a copied address no longer carries the spent token.
+export const withoutSetup = (hash) => withoutPart(hash, 'setup');
+
+// The hash without a link key the browser has stored, so the address, history and a copied URL hold no key.
+export const withoutKey = (hash) => withoutPart(hash, 'key');
 
 export function setupFailText(status, message) {
   if (status === 401) return 'This setup link was already used, has expired or was replaced. Ask for a new one.';

@@ -9,7 +9,7 @@ import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
-import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
+import { exchangeSetup, storedKey, forgetKey, keepLinkKey } from './panelsetup.js';
 import {
   createState,
   pressDestination,
@@ -82,7 +82,9 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (got.error) return say(ui.note, got.error);
     key = got.key;
   }
-  const stored = !key && !embedded;
+  const linked = !!key;
+  // A key that sits in this browser's storage, so an ended one is forgotten there.
+  let stored = !key && !embedded;
   if (stored) key = storedKey(seg);
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
@@ -115,6 +117,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   }
   // Back to editing came before the panel did: nothing below may start a timer or a watch.
   if (ended) return;
+  // Kept only once it worked, so a mistyped or ended key never replaces a stored one.
+  if (linked) stored = keepLinkKey(seg, key);
   if (panel.acts === 'api' && !key && !embedded) {
     say(ui.note, 'This panel acts as its own API client. Open its link with the key.');
     return;

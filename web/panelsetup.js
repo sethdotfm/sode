@@ -1,6 +1,6 @@
-// Secure mode on the panel page: trade a one-time setup link for a key and keep it in this browser.
+// Keys the panel page keeps in this browser: the one a setup link trades for, and a link key that worked.
 // Server side: POST /api/v1/panels/{id}/setup (internal/app/panelsetup.go). The stored name is in docs/persisted-names.md.
-import { setupFailText, storedKeyName, withoutSetup } from './panelkeyrules.js';
+import { setupFailText, storedKeyName, withoutKey, withoutSetup } from './panelkeyrules.js';
 
 export function storedKey(id) {
   try {
@@ -16,6 +16,19 @@ export function forgetKey(id) {
   } catch {
     /* nothing was kept */
   }
+}
+
+// A link key that worked: keep it and drop it from the address. Read back before the address loses it, since
+// with storage blocked or full a reload has nothing else to use. Answers whether it was kept.
+export function keepLinkKey(id, key) {
+  try {
+    localStorage.setItem(storedKeyName(id), key);
+    if (localStorage.getItem(storedKeyName(id)) !== key) return false;
+  } catch {
+    return false;
+  }
+  history.replaceState(null, '', `${location.pathname}${location.search}${withoutKey(location.hash)}`);
+  return true;
 }
 
 // {key} or {error}. The spent token leaves the address either way, so a reload does not try it again.
