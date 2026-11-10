@@ -28,6 +28,7 @@ export function createFixedField(ed) {
   const input = el('input', 'pb-input');
   input.id = 'ed-fixed-find';
   input.type = 'search';
+  input.setAttribute('aria-label', 'Fixed destination');
   input.autocomplete = 'off';
   input.placeholder = 'Add a Destination';
   input.setAttribute('role', 'combobox');
@@ -43,8 +44,7 @@ export function createFixedField(ed) {
   const node = el(
     'div',
     'sode__field sode-fixed',
-    Object.assign(el('label', null, 'Fixed destination'), { htmlFor: 'ed-fixed-find' }),
-    el('span', 'sode__hint', 'A Source or Preset press patches to these, with no Destination cell to press first. Empty is off.'),
+    el('span', 'sode__hint', 'Fixed destination: a Source or Preset press patches to these, with no Destination cell to press first. Empty is off.'),
     list,
     input,
     found,

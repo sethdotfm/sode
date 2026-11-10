@@ -227,3 +227,13 @@ test('artwork is dimmed under text and at full strength when the text is hidden'
   assert.match(css, /\.sode-panel__art \{[^}]*opacity: 0\.3/);
   assert.match(css, /\[data-hide-text\] > \.sode-panel__art \{[^}]*opacity: 1/);
 });
+
+test('a switch the browser cannot honour gets a note, and https is named for the wake lock', async () => {
+  const { featureNotes } = await import('../panelfeel.js');
+  const on = { wake: true, haptics: true };
+  assert.equal(featureNotes({}, {}, false).length, 0);
+  assert.match(featureNotes(on, {}, false)[0], /https/);
+  assert.match(featureNotes(on, {}, true)[0], /cannot keep the screen awake/);
+  assert.match(featureNotes(on, {}, true)[1], /no vibration/);
+  assert.equal(featureNotes(on, { wakeLock: { request() {} }, vibrate() {} }, true).length, 0);
+});

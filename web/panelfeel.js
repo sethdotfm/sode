@@ -6,6 +6,16 @@ const HAPTIC_MS = 15;
 
 export const featureSupport = (nav) => ({ wake: !!nav?.wakeLock?.request, haptics: typeof nav?.vibrate === 'function' });
 
+// What a switched-on feature cannot do here and why, for the note on the panel page. Wake lock exists only in a
+// secure context, so a LAN panel over plain http loses it silently.
+export function featureNotes(look, nav, secure) {
+  const f = featureSupport(nav);
+  const out = [];
+  if (look.wake && !f.wake) out.push(secure ? 'This browser cannot keep the screen awake.' : 'The screen cannot be kept awake: the browser allows it only over https, and this page is open over http.');
+  if (look.haptics && !f.haptics) out.push('This browser has no vibration, so presses will not buzz (iPhone and iPad browsers never do).');
+  return out;
+}
+
 export function buzz(nav) {
   return featureSupport(nav).haptics ? nav.vibrate(HAPTIC_MS) !== false : false;
 }

@@ -3,6 +3,7 @@
 // Both panel's plain link opens in Session mode, with the keyed links under Share.
 import { el, icon } from './core.js';
 import { linkFor } from './panellink.js';
+import { linkBase, shareHostField } from './sharehost.js';
 
 const COPIED_MS = 2000;
 
@@ -22,7 +23,7 @@ export function linkRow(panel) {
     box.append(el('p', 'sode__hint', 'This panel acts as its own API client, so its link needs the key. Use Link with key in Share.'));
     return box;
   }
-  const link = linkFor(panel);
+  let link = linkFor(panel, { base: linkBase() });
   const input = el('input', 'pb-input sode-linkrow__text');
   input.readOnly = true;
   input.spellcheck = false;
@@ -44,6 +45,10 @@ export function linkRow(panel) {
       note.textContent = 'Copy failed. The link is selected: copy it by hand.';
     }
   });
-  box.append(el('span', 'sode__field-label', 'Link'), el('div', 'sode-linkrow__row', input, copy), note);
+  const host = shareHostField(() => {
+    link = linkFor(panel, { base: linkBase() });
+    input.value = link;
+  });
+  box.append(el('span', 'sode__field-label', 'Link'), el('div', 'sode-linkrow__row', input, copy), note, ...(host ? [host] : []));
   return box;
 }

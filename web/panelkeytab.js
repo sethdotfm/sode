@@ -24,6 +24,7 @@ import {
   networksChanged,
 } from './panelkeyrules.js';
 import { linkFor } from './panellink.js';
+import { linkBase, shareHostField } from './sharehost.js';
 import { linkRow } from './panellinkrow.js';
 import { hasClient } from './panelsrules.js';
 
@@ -234,8 +235,7 @@ shareTabs.push(({ panel, api }) => {
   }
   const timer = setInterval(() => (root.isConnected ? !busy && loadKeys() : clearInterval(timer)), REFRESH_MS);
 
-  const buildLink = (kiosk = false) =>
-    linkFor(panel, { [made.mode === 'setup' ? 'setup' : 'key']: made.secret, instance: made.name, kiosk, base: document.baseURI });
+  const buildLink = (kiosk = false) => linkFor(panel, { [made.mode === 'setup' ? 'setup' : 'key']: made.secret, instance: made.name, kiosk, base: linkBase() });
   async function makeLink(name, setup) {
     const res = await call(`api/v1/panels/${panel.id}/key`, {
       method: 'POST',
@@ -290,7 +290,7 @@ shareTabs.push(({ panel, api }) => {
       } catch {
         revealed = true;
         paintLink();
-        linkBox.querySelector('input').select();
+        linkBox.querySelector('.sode__secret-key').select();
         say('Copy failed. The link is selected: copy it by hand.');
       }
     });
@@ -320,11 +320,16 @@ shareTabs.push(({ panel, api }) => {
       paintLink();
       linkBox.querySelector(`[data-view="${kioskLink ? 'kiosk' : 'regular'}"]`).focus();
     });
+    const host = shareHostField(() => {
+      made.link = buildLink(kioskLink);
+      paintLink();
+    });
     linkBox.append(
       el('p', 'sode__hint', `Link for ${made.name}. It is shown only now. Closing this window loses it.`),
       el('div', 'sode__secret-row', input, reveal.label),
       view,
       el('div', 'sode-ov__keyrow', copy),
+      ...(host ? [host] : []),
     );
     if (revealed) {
       const qr = qrNode(made.link);
