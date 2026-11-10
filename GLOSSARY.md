@@ -231,6 +231,12 @@ A panel setting that hides Sode's branding and settings so the page is only the 
 **Template**:
 A saved layout of a panel: its cell kinds, and optionally its settings and cell contents. By default cells come back unassigned. A template is saved to Me or Everyone.
 
+**Artwork**:
+The icon or image on a panel cell. A cell has Icon A (an icon or uploaded image) and Icon B (a number 0 to 16 or a letter A to Z). Artwork a cell sets itself wins over Default artwork.
+
+**Default artwork**:
+Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell showing it that sets none of its own. One shared set for everyone; setting or clearing one needs a trusted user or the Advanced Settings PIN.
+
 **Push**:
 Copies a panel's saved config to other panels. Each target keeps its own name, id, sharing and fixed destinations, and a checkpoint of it is kept first so the Push can be put back.
 
