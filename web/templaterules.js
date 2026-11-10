@@ -2,16 +2,19 @@
 // The server keeps a Source's or Preset's contents only when `sources` is true and a Destination's only when `dests` is
 // (internal/app/paneltemplates.go), so a stored template is already unassigned; nothing here strips it again.
 import { createGrid, saved } from './gridmodel.js';
+import { pagesOf, pageCells, storedPages } from './panelpages.js';
 
-export function saveTemplateBody({ name, scope, grid, settings, withSettings = false, withSources = false, withDests = false, pin = '' }) {
-  const body = { name: name.trim(), scope, sources: withSources, dests: withDests, ...saved(grid) };
+// grid is Page 1 and pages the panel's Page list: a template carries every Page with its id.
+export function saveTemplateBody({ name, scope, grid, pages = pagesOf({}), settings, withSettings = false, withSources = false, withDests = false, pin = '' }) {
+  const { rows, cols, cells } = saved(grid);
+  const body = { name: name.trim(), scope, sources: withSources, dests: withDests, rows, cols, pages: storedPages(pages, cells, rows, cols) };
   if (withSettings) body.settings = settings || {};
   if (scope === 'everyone' && pin) body.pin = pin;
   return body;
 }
 
-// A grid with no selection. Rows and columns come from the template, so applying resizes the panel.
-export const templateGrid = (t) => createGrid({ rows: t.rows, cols: t.cols, cells: t.cells });
+// Page 1 as a grid with no selection. Rows and columns come from the template, so applying resizes the panel.
+export const templateGrid = (t) => createGrid({ rows: t.rows, cols: t.cols, cells: pageCells(t) });
 
 const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 

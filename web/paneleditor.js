@@ -49,6 +49,7 @@ import { writeClip, createPasteReader } from './editorclip.js';
 import { emptyUndo, record, undo, redo, sameCells } from './gridundo.js';
 import { edgeChoices, edgeNote } from './gridedge.js';
 import { askPasteEdge } from './editorpasteedge.js';
+import { pagesOf, pageView, lostOnOtherPages } from './panelpages.js';
 
 const say = (id, text) => {
   const n = $(id);
@@ -62,6 +63,9 @@ const edCall = (what, down) => jsonCall(sessionFetch, { failed: (s) => `${what} 
 export async function runEditor() {
   let g = createGrid();
   let loaded = null; // the stored panel being edited; null for a new one
+  // The panel's Pages as loaded or applied. g is Page 1, so its cells here are stale; a save takes them from g and
+  // fits the other Pages to g's size.
+  let pages = pagesOf(newPanel());
   let list = [];
   let names = namesFrom({});
   let discardAsked = ''; // the panel the user tried to leave unsaved; asking again discards
@@ -104,7 +108,7 @@ export async function runEditor() {
   const whole = () => putBack(g, held);
 
   const nameBox = $('ed-name');
-  const dirty = () => isDirty(loaded, nameBox.value, whole(), edits);
+  const dirty = () => isDirty(loaded, nameBox.value, whole(), edits, pages);
 
   // Every cell edit passes here, so this is where undo records (gridundo.js): what names the step on the status
   // line, join makes a run of edits one step. A selection move stores nothing, so it records nothing. fresh: next
@@ -325,7 +329,9 @@ export async function runEditor() {
   function setSize(which, value) {
     const rows = which === 'rows' ? value : g.rows;
     const cols = which === 'cols' ? value : g.cols;
-    const lost = cellsLost(g, rows, cols) + setGrid(resize(g, rows, cols), { what: 'resize' });
+    const next = resize(g, rows, cols);
+    // The other Pages lose theirs when the panel is saved at this size.
+    const lost = cellsLost(g, rows, cols) + lostOnOtherPages(pages, next.rows, next.cols) + setGrid(next, { what: 'resize' });
     say('ed-status', lost ? `Removed ${lost} cell${lost > 1 ? 's' : ''} that no longer fit.` : '');
     refresh();
   }
@@ -372,7 +378,8 @@ export async function runEditor() {
     art = panel ? createArt(sessionFetch, panel.id) : null;
     held = [];
     steps = emptyUndo();
-    g = holdOrPutBack(createGrid(panel || newPanel())).shown;
+    pages = pagesOf(panel || newPanel());
+    g = holdOrPutBack(createGrid(pageView(panel || newPanel()))).shown;
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
     say('ed-status', '');
@@ -419,7 +426,7 @@ export async function runEditor() {
   async function save() {
     $('ed-save').disabled = true;
     say('ed-status', 'Saving.');
-    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, whole(), edits));
+    const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, whole(), edits, pages));
     let saved;
     try {
       saved = await edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(
@@ -437,6 +444,7 @@ export async function runEditor() {
     }
     const made = !loaded;
     loaded = saved;
+    pages = pagesOf(saved);
     edits = {};
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
     nameBox.value = loaded.name;
@@ -529,6 +537,12 @@ export async function runEditor() {
     // The grid as stored, with any Destination cells Fixed destination set aside.
     storedGrid: whole,
     setGrid,
+    // The Page list; Page 1's cells are g's, not these. setPages replaces it, as a template apply does.
+    pages: () => pages,
+    setPages(next) {
+      pages = next;
+      refresh();
+    },
     setSize,
     panel: () => loaded,
     readOnly,

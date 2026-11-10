@@ -73,9 +73,9 @@ test('a default image is an image to artNode: never .icon, so Icon B is a badge,
 test('Hide text set off against a default is saved as false, and Use default removes it', () => {
   let g = createGrid({ rows: 1, cols: 1, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: 'source', n: 3 }] });
   g = setCell(g, { r: 1, c: 1 }, { hideText: false });
-  assert.equal(saveBody({ id: 'p-1', canEdit: true }, 'Wall', g).cells[0].hideText, false);
+  assert.equal(saveBody({ id: 'p-1', canEdit: true }, 'Wall', g).pages[0].cells[0].hideText, false);
   g = setCell(g, { r: 1, c: 1 }, { art: undefined, artB: undefined, hideText: undefined });
-  assert.equal('hideText' in saveBody({ id: 'p-1' }, 'Wall', g).cells[0], false);
+  assert.equal('hideText' in saveBody({ id: 'p-1' }, 'Wall', g).pages[0].cells[0], false);
 });
 
 test('the stored cell is never changed', () => {

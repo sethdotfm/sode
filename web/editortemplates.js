@@ -6,6 +6,7 @@ import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check } from './formbits.js';
 import { trapDialog } from './dialogkeys.js';
 import { saveTemplateBody, templateGrid, groupTemplates, templateNote, pinNeeded } from './templaterules.js';
+import { pagesOf } from './panelpages.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
@@ -20,7 +21,9 @@ export function initTemplates(editor) {
   open.type = 'button';
   open.id = 'ed-templates';
   open.setAttribute('aria-haspopup', 'dialog');
-  $('ed-name').closest('.sode-ed__grp').after(el('div', 'sode-ed__grp', open));
+  $('ed-name')
+    .closest('.sode-ed__grp')
+    .after(el('div', 'sode-ed__grp', open));
   open.addEventListener('click', openDialog);
 
   function openDialog() {
@@ -133,6 +136,7 @@ export function initTemplates(editor) {
     }
 
     function applyTemplate(t) {
+      editor.setPages(pagesOf(t));
       editor.setGrid(templateGrid(t), { fresh: true, what: 'template' });
       if (t.settings) editor.setFields({ settings: { ...editor.fields().settings, ...t.settings } });
       editor.status(t.sources && t.dests ? `Applied ${t.name}. Save to keep it.` : `Applied ${t.name}. Fill the unassigned cells, then save.`);
@@ -168,6 +172,7 @@ export function initTemplates(editor) {
               name: name.value,
               scope,
               grid: editor.storedGrid(),
+              pages: editor.pages(),
               settings: editor.fields().settings,
               withSettings: withSettings.input.checked,
               withSources: withSources.input.checked,

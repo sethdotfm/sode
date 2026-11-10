@@ -3,6 +3,7 @@
 // counted from 1 and kind one of KINDS (docs/panels-design.md, Panel page). A Preset cell holds
 // scope ('everyone' | 'me') and name instead of n.
 
+import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
 
 export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current', 'panelName', 'instanceName'];
@@ -90,11 +91,12 @@ export function namesFrom(reply) {
   return { source, destination, of, off, routerName };
 }
 
-// The cells that are whole, known and inside the grid. Where two overlap the first one stays.
+// The cells that are whole, known and inside the grid. Where two overlap the first one stays. A stored panel shows its
+// first Page (pageCells).
 export function cellsIn(panel) {
   const used = new Set();
   const out = [];
-  for (const c of panel.cells || []) {
+  for (const c of pageCells(panel)) {
     if (!c || !KINDS.includes(c.kind)) continue;
     if (NEEDS_NUMBER.includes(c.kind) && !Number.isInteger(c.n)) continue;
     if (c.kind === 'preset' && !hasPreset(c)) continue;
