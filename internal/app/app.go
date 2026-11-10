@@ -92,7 +92,7 @@ type App struct {
 	// Take timers; only tests shorten them (shortTimers).
 	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
-	// Idle sweep (idle.go): the clock and the sweep period; tests change both.
+	// Idle sweep (idle.go): the clock and the sweep period; tests change both (lock_idle_test.go).
 	now       func() time.Time
 	idleEvery time.Duration
 	idleAt    time.Time

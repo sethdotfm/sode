@@ -92,7 +92,6 @@ func TestTallyDumpSetsCrosspoints(t *testing.T) {
 	// Another matrix is ignored.
 	a.onRouterMsg(swp08.ExtTallyDump(1, 1, 8, []int{4}))
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	for dst, want := range map[int]int{3: 7, 4: -1, 5: 9} {
 		if got, ok := a.router.tally[dst][2]; !ok || got != want {
 			t.Errorf("dst %d level 2: %d (known %v), want %d", dst, got, ok, want)
@@ -107,12 +106,54 @@ func TestTallyDumpSetsCrosspoints(t *testing.T) {
 	if _, ok := a.router.tally[8]; ok {
 		t.Error("dump for another matrix applied")
 	}
+	a.mu.Unlock()
+	// A dump carries no command set, so a route this app never saw is no ext change.
+	endBurst(a)
+	if n := a.hist.Len(); n != 0 {
+		t.Errorf("dump of unseen routes recorded %d entries", n)
+	}
+}
+
+func TestTallyDumpDifferingFromKnownRouteIsFound(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeRouter(t, a)
+	f.seed(3, 1, 1) // dst 3 on wire level 1 (UI 2) routed from source 1
+	a.onRouterMsg(swp08.ExtTallyDump(0, 1, 3, []int{7}))
+	endBurst(a)
+	es, _ := a.hist.Page(-1, 10)
+	if len(es) != 1 || !es[0].Found || !es[0].Ext || es[0].Dst != 3 {
+		t.Fatalf("entries %+v, want one found entry for dst 3", es)
+	}
+	leftovers(t, a)
 }
 
 // recorder notes every request the App sends.
 type recorder struct {
 	mu   sync.Mutex
 	cmds []byte
+	why  []swp08.Reason
+}
+
+// reasons returns the reasons sent with cmd.
+func (r *recorder) reasons(cmd byte) []swp08.Reason {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []swp08.Reason
+	for i, c := range r.cmds {
+		if c == cmd {
+			out = append(out, r.why[i])
+		}
+	}
+	return out
+}
+
+func (r *recorder) wantReason(t *testing.T, cmd byte, want swp08.Reason) {
+	t.Helper()
+	for _, got := range r.reasons(cmd) {
+		if got != want {
+			t.Errorf("cmd 0x%02X sent with reason %q, want %q", cmd, got, want)
+		}
+	}
 }
 
 func (r *recorder) count(cmd byte) int {
@@ -135,7 +176,7 @@ func (r *recorder) total() int {
 
 func (r *recorder) reset() {
 	r.mu.Lock()
-	r.cmds = nil
+	r.cmds, r.why = nil, nil
 	r.mu.Unlock()
 }
 
@@ -144,6 +185,7 @@ func newRecorder(a *App) *recorder {
 	a.sendMsg = func(m []byte, why swp08.Why) error {
 		rec.mu.Lock()
 		rec.cmds = append(rec.cmds, m[0])
+		rec.why = append(rec.why, why.Reason)
 		rec.mu.Unlock()
 		if why.Done != nil {
 			close(why.Done)
@@ -170,6 +212,12 @@ func TestRouterUpRequestsNamesAndDumps(t *testing.T) {
 		if got := rec.count(cmd); got != want {
 			t.Errorf("cmd 0x%02X sent %d times, want %d", cmd, got, want)
 		}
+	}
+	for _, cmd := range []byte{srcReq, dstReq} {
+		rec.wantReason(t, cmd, swp08.ReasonNames)
+	}
+	for _, cmd := range []byte{swp08.CmdExtTallyDumpReq, swp08.CmdExtProtectDumpReq} {
+		rec.wantReason(t, cmd, swp08.ReasonResync)
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -200,6 +248,10 @@ func TestPeriodicRepollsWhenDue(t *testing.T) {
 	if rec.count(srcReq) != 1 || rec.count(dstReq) != 1 || rec.count(swp08.CmdExtTallyDumpReq) != n || rec.count(swp08.CmdExtProtectDumpReq) != n {
 		t.Fatalf("due poll sent % X", rec.cmds)
 	}
+	rec.wantReason(t, srcReq, swp08.ReasonNames)
+	rec.wantReason(t, dstReq, swp08.ReasonNames)
+	rec.wantReason(t, swp08.CmdExtTallyDumpReq, swp08.ReasonResync)
+	rec.wantReason(t, swp08.CmdExtProtectDumpReq, swp08.ReasonResync)
 
 	rec.reset()
 	a.periodic()
