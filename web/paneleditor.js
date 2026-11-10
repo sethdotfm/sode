@@ -44,6 +44,8 @@ import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
 import { gridCommand } from './gridchords.js';
 import { createLive } from './editorlive.js';
+import { copyBlock, blockText, readBlock, pastePlan, applyPaste, pasteNote } from './gridclip.js';
+import { writeClip, createPasteReader } from './editorclip.js';
 
 const say = (id, text) => {
   const n = $(id);
@@ -94,8 +96,8 @@ export async function runEditor() {
     held = heldThatFit(aside.grid, [...all, ...aside.held]);
     return { shown: aside.grid, dropped: all.length + aside.held.length - held.length };
   };
-  const sayDropped = (n) =>
-    n && say('ed-status', `Removed ${n} Destination cell${n > 1 ? 's' : ''} set aside by Fixed destination, as other cells now fill the squares.`);
+  const droppedNote = (n) => (n ? `Removed ${n} Destination cell${n > 1 ? 's' : ''} set aside by Fixed destination, as other cells now fill the squares.` : '');
+  const sayDropped = (n) => n && say('ed-status', droppedNote(n));
   const whole = () => putBack(g, held);
 
   const nameBox = $('ed-name');
@@ -154,9 +156,36 @@ export async function runEditor() {
   document.addEventListener('pointerdown', leave);
   document.addEventListener('focusin', leave);
 
-  // One entry per command name in gridchords.js GRID_CHORDS.
+  async function copyCells() {
+    const block = copyBlock(g, loaded?.id);
+    if (!block) return say('ed-status', 'Nothing copied: the selection holds no cells.');
+    const n = block.cells.length;
+    const ok = await writeClip(blockText(block));
+    say('ed-status', ok ? `Copied ${n} cell${n > 1 ? 's' : ''}.` : 'Nothing copied: the browser did not let Sode use the clipboard.');
+  }
+
+  // One paste is one setGrid, the step an undo wraps. Text that is not a Sode block changes nothing.
+  function pasteText(text) {
+    if (readOnly()) return;
+    if (text === null) return say('ed-status', 'Nothing pasted: the browser did not let Sode read the clipboard.');
+    const block = readBlock(text);
+    if (!block) return say('ed-status', 'Nothing pasted: the clipboard holds no Sode cells.');
+    const plan = pastePlan(g, block, { panel: loaded?.id, fixed: fixedOn() });
+    if (!plan) return say('ed-status', 'Nothing pasted: select the square to paste at first.');
+    if (!plan.fits) return pasteOverflow(plan);
+    const dropped = setGrid(applyPaste(g, plan.placed));
+    say('ed-status', `${pasteNote(plan)} ${droppedNote(dropped)}`.trim());
+  }
+  // A paste that runs past the grid's edge: the grid stays as it is and the status line says why. The Clip and
+  // Wrap dialog takes over here.
+  const pasteOverflow = (plan) => say('ed-status', pasteNote(plan));
+  const paste = createPasteReader($('ed-grid'), pasteText);
+
+  // One entry per command name in gridchords.js GRID_CHORDS. One that returns false leaves its key to the browser.
   const gridCommands = {
     selectAll: () => setGrid(selectAll(g)),
+    copy: () => void copyCells(),
+    paste: () => (paste.key(), false),
   };
 
   function onKey(e) {
@@ -168,8 +197,8 @@ export async function runEditor() {
     if (menu.run(e)) return void e.preventDefault();
     const run = gridCommands[gridCommand(e)];
     if (run) {
-      e.preventDefault();
-      return void run();
+      if (run() !== false) e.preventDefault();
+      return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (keyHooks.some((fn) => fn(e))) return;
