@@ -1129,12 +1129,12 @@
   flex-wrap: wrap;
   gap: var(--pb-space-4);
 }
-/* Rows and Columns sit on one line; each is a label with a less button, the number and a more button. */
+/* Rows and Columns share one line (TestChromeEditorSidebar). The sidebar had about 4px spare; keep the gap and inputs small so a wider font cannot wrap them. */
 .sode-side__steps {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--pb-space-2) var(--pb-space-5);
+  gap: var(--pb-space-2) var(--pb-space-3);
 }
 .sode-side__step {
   align-items: center;
@@ -1142,7 +1142,7 @@
   gap: var(--pb-space-1);
 }
 .sode-side__step .sode-ed__num {
-  width: 3rem;
+  width: 2.5rem;
 }
 .sode-side__step > label {
   margin: 0;
