@@ -234,6 +234,16 @@ func (b *tab) open(url string) {
 // eval runs a JS expression in the page (promises are awaited) and returns its JSON value.
 func (b *tab) eval(expr string) any {
 	b.t.Helper()
+	v, err := b.evalTry(expr)
+	if err != "" {
+		b.t.Fatalf("eval %q: %s", expr, err)
+	}
+	return v
+}
+
+// evalTry reports a page exception as a string instead of failing the test.
+func (b *tab) evalTry(expr string) (any, string) {
+	b.t.Helper()
 	raw := b.call("Runtime.evaluate", map[string]any{"expression": expr, "returnByValue": true, "awaitPromise": true})
 	var r struct {
 		Result           struct{ Value any }
@@ -241,22 +251,29 @@ func (b *tab) eval(expr string) any {
 	}
 	_ = json.Unmarshal(raw, &r)
 	if r.ExceptionDetails != nil {
-		b.t.Fatalf("eval %q: %s", expr, r.ExceptionDetails.Text)
+		return nil, r.ExceptionDetails.Text
 	}
-	return r.Result.Value
+	return r.Result.Value, ""
 }
 
 // waitFor polls a JS expression until it is truthy. A miss fails the test, naming the check
 // and any page errors, so a missing element reads as what it is.
 func (b *tab) waitFor(what, expr string) {
 	b.t.Helper()
+	var last string
 	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
-		if v := b.eval(expr); v != nil && v != false && v != "" {
+		// A poll that lands mid-reload throws because the page has no DOM yet; keep polling.
+		v, exc := b.evalTry(expr)
+		if exc != "" {
+			last = exc
+			continue
+		}
+		if v != nil && v != false && v != "" {
 			return
 		}
 	}
 	b.shot("timeout")
-	b.t.Fatalf("timed out waiting for %s (%s); page errors: %v", what, expr, b.problems())
+	b.t.Fatalf("timed out waiting for %s (%s); last exception %q; page errors: %v", what, expr, last, b.problems())
 }
 
 func (b *tab) problems() []string {
