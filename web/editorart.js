@@ -1,18 +1,17 @@
 // The artwork control of the Cell tab. Icon A is `art` (a vendored icon or an upload), Icon B is `artB` (a digit or
-// letter glyph drawn beside it, panellook.js ART_B_CHOICES). Upload type and size are checked before sending
-// (sidebarrules.js); the server checks again by content.
+// letter glyph drawn beside it, panellook.js ART_B_CHOICES). An upload is resized and checked before sending
+// (artcompress.js prepareArt); the server checks again by content.
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn } from './formbits.js';
-import { artProblem, artFilter, ART_ICONS } from './sidebarrules.js';
+import { artFilter, ART_ICONS } from './sidebarrules.js';
 import { artOf, artBOf, ART_B_CHOICES } from './panellook.js';
 import { artNode } from './panelview.js';
-import { compressImage } from './artcompress.js';
+import { prepareArt } from './artcompress.js';
 
 const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the image was not uploaded.', failed: (s) => `The image was not uploaded (${s}).` });
 
-async function upload(panelId, file) {
-  const sent = await compressImage(file);
+async function upload(panelId, file, sent) {
   const body = await send(`api/v1/panels/${panelId}/artwork`, { method: 'POST', headers: { 'Content-Type': sent.type || file.type }, body: sent });
   return body?.id;
 }
@@ -87,7 +86,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
         ]
       : []),
   ];
-    const find = el('input', 'pb-input sode-side__find');
+  const find = el('input', 'pb-input sode-side__find');
   find.type = 'search';
   find.placeholder = 'Search icons';
   find.autocomplete = 'off';
@@ -109,11 +108,14 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
     const f = file.files[0];
     file.value = '';
     if (!f) return;
-    note.textContent = artProblem(f);
-    if (note.textContent) return;
     note.textContent = 'Uploading.';
     try {
-      const id = await upload(ed.panel().id, f);
+      const { blob, problem } = await prepareArt(f);
+      if (problem) {
+        note.textContent = problem;
+        return;
+      }
+      const id = await upload(ed.panel().id, f, blob);
       note.textContent = '';
       set(id);
     } catch (e) {

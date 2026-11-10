@@ -5,7 +5,7 @@ export { FIXED_MAX };
 
 export const FONT_MIN = 50;
 export const FONT_MAX = 200;
-export const ART_MAX_BYTES = 1 << 20; // keep in step with panelArtBytes in internal/app/panelstore.go
+export const ART_MAX_BYTES = 2 << 20; // keep in step with panelArtBytes in internal/app/panelstore.go and docs/api.md
 export const ART_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
 
 // Each panel setting's default. A value equal to it is dropped from the stored settings, as the panel page
@@ -59,7 +59,7 @@ export function fontPercent(text) {
 
 export function artProblem(file) {
   if (!ART_TYPES.includes(file.type)) return 'Artwork is a JPEG, PNG, GIF or SVG image.';
-  if (file.size > ART_MAX_BYTES) return 'Artwork is at most 1 MB.';
+  if (file.size > ART_MAX_BYTES) return 'Artwork is at most 2 MB.';
   return '';
 }
 

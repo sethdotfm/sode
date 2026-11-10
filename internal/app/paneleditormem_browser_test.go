@@ -35,6 +35,9 @@ const leakProbe = `(() => {
 // The running CSS animations (not transitions, which end by themselves), each as name@target class, or ” for none.
 const animList = `document.getAnimations().filter((a) => a instanceof CSSAnimation).map((a) => (a.animationName || a.transitionProperty || 'animation') + '@' + String(a.effect?.target?.getAttribute?.('class') || a.effect?.target?.tagName)).join(' ')`
 
+// The decoded size of the artwork shown, which the heap and DOM counters leave out: 4 bytes a pixel.
+const artDecoded = `[...document.querySelectorAll('img.sode-panel__art-a')].filter((i) => i.complete && i.naturalWidth).map((i) => i.naturalWidth + 'x' + i.naturalHeight + ', ' + (i.naturalWidth * i.naturalHeight * 4 / 1e6).toFixed(1) + ' MB decoded').join('; ')`
+
 type leakSample struct {
 	heap      float64 // bytes after a forced GC
 	documents float64 // documents alive in the renderer, the page and resource documents such as the icon sprite
@@ -78,7 +81,8 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		{"r":1,"c":2,"kind":"source","n":%d},
 		{"r":1,"c":3,"kind":"take"}],"settings":{"mode":"take"}}`, simDst, simSrc), func(b *tab, a *App, ana, id string) {
 		b.call("Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": leakProbe})
-		rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, b64(t, tinyPNG))
+		// The largest artwork the server takes (1024 by 1024), so the counts include its decoded size.
+		rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, imgBytes("png", panelArtSide, panelArtSide))
 		if rec.Code != 201 {
 			t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 		}
@@ -92,6 +96,8 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		}
 	})
 	b.waitFor("editor grid", `document.querySelectorAll('#ed-grid .sode-ed__sq').length === 32`)
+	b.waitFor("the artwork decoded", artDecoded+` !== ''`)
+	t.Logf("artwork: %v", b.eval(artDecoded))
 	b.eval(`window.press = (el, init) => el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })); true`)
 	b.waitFor("Find attached", `(document.querySelector('.is-sel') || press(document.getElementById('ed-grid'), { key: 'ArrowDown' }), !!document.querySelector('.sode-find'))`)
 	b.eval(`press(document.getElementById('ed-grid'), { key: 'Escape' })`)
