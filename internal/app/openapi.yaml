@@ -477,7 +477,12 @@ paths:
         Scope `panelsmanage`. Needs a user's key: the user becomes the owner (403 `user_required`
         for a client or Guest). Id, owner and artwork are set by Sode. Rows and columns default
         to 4 and 8, `acts` to `session` and `share` to `me`. At most 500 panels exist (409
-        `conflict`). The body is at most 256 KiB.
+        `conflict`). The body is at most 4 MB.
+
+        The grid is `pages`, 1 to 16 Pages in order (ADR 0007). A Page's number is its place in
+        the list and its `id` never changes; a Page sent without one gets one. A body with `cells`
+        and no `pages`, from a client written before Pages, makes one Page of them; one with both
+        is 400 `bad_request`.
 
         `acts: api` makes the panel an API client of its own, named `Panel <id>` and made with
         the panel; `acts: both` does the same and the page falls back to Session mode (a
@@ -492,7 +497,7 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/PanelIn" }
-            example: { name: Studio A, rows: 4, cols: 8, cells: [], settings: {} }
+            example: { name: Studio A, rows: 4, cols: 8, pages: [{ id: 1a2b3c4d, name: Cameras, enabled: true, cells: [] }], settings: {} }
       responses:
         "201":
           description: The new panel
@@ -884,13 +889,14 @@ paths:
 
         Scope `everyone` needs a Trusted user, or the Advanced Settings PIN sent as `pin` in the
         body (403 `trusted_required`, also for a wrong PIN, which counts toward the PIN's
-        lockout). The PIN is never stored. The body is at most 256 KiB.
+        lockout). The PIN is never stored. The body is at most 4 MB. A template carries every Page
+        with its id, as a panel does; `cells` alone makes one Page.
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/PanelTemplateIn" }
-            example: { name: Studio layout, scope: me, rows: 4, cols: 8, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: source }] }
+            example: { name: Studio layout, scope: me, rows: 4, cols: 8, pages: [{ id: 1a2b3c4d, enabled: true, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: source }] }] }
       responses:
         "201":
           description: The template
@@ -974,6 +980,8 @@ paths:
         nothing. Any other value needs a Trusted caller and must be within the caller's own
         rights (403 `trusted_required`, `outside_rights`), and the panel is left as it was when
         refused. Only the Advanced Settings PIN widens a client past its creator.
+
+        A body with `cells` and no `pages` changes only Page 1's cells and keeps the other Pages.
       requestBody:
         required: true
         content:
@@ -1045,7 +1053,7 @@ paths:
       tags: [panels]
       summary: Push a panel's saved layout to other panels
       description: |
-        Scope `panelsmanage`. Copies the grid (`rows`, `cols`, `cells`), `settings` and unknown
+        Scope `panelsmanage`. Copies the grid (`rows`, `cols`, and `pages`, every Page with its id), `settings` and unknown
         fields of the saved panel onto each target. Each target keeps its own `name`, `id`, `owner`,
         `share` and `settings.fixedDests`. `acts`, the API client and its rights are never copied, so a Push cannot
         make a session panel act as an API client or widen a client; artwork the target lacks is
@@ -2055,7 +2063,7 @@ components:
                 scope, outside_rights, https_required, not_owner (a panel the caller may only
                 use), user_required (a panel needs a user's key), trusted_required (only a Trusted
                 user may make a panel an API client or change its rights). 400 bad_request. 413 too_large
-                (body over 64 KiB for a take, 256 KiB for a panel, 2 MB for artwork). 415
+                (body over 64 KiB for a take, 4 MB for a panel or template, 2 MB for artwork). 415
                 unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
                 such path, entry, visible preset, or a panel or artwork the caller may not use).
                 405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
@@ -2078,6 +2086,19 @@ components:
         id: { type: string, pattern: "^a-[0-9a-f]{8}$" }
         type: { type: string, enum: [image/png, image/jpeg, image/gif, image/svg+xml] }
         size: { type: integer, description: Bytes }
+    PanelPage:
+      type: object
+      description: One Page of a panel (ADR 0007).
+      properties:
+        id:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,16}$"
+          description: |
+            Never changes, so a reorder or rename keeps what names it. Unique in the panel (400
+            `bad_request`). Left out, Sode makes one of 8 hex digits.
+        name: { type: string, maxLength: 40, description: Optional; shown as "Page N" when empty. Longer is 400 `bad_request` }
+        enabled: { type: boolean, default: true }
+        cells: { type: array, items: { type: object, additionalProperties: true }, maxItems: 576 }
     PanelIn:
       type: object
       description: |
@@ -2101,7 +2122,21 @@ components:
         share: { $ref: "#/components/schemas/PanelShare" }
         rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
         cols: { type: integer, minimum: 1, maximum: 24, default: 8 }
-        cells: { type: array, items: { type: object, additionalProperties: true }, maxItems: 576 }
+        pages:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: { $ref: "#/components/schemas/PanelPage" }
+          description: |
+            The Pages in order; the number of a Page is its place. Cells that no longer fit `rows`
+            by `cols` are dropped from every Page on a save. Left out, the panel has one empty Page.
+        cells:
+          type: array
+          writeOnly: true
+          deprecated: true
+          items: { type: object, additionalProperties: true }
+          maxItems: 576
+          description: The one grid from before Pages, read as Page 1's cells. Never sent back; not with `pages`.
         settings:
           type: object
           additionalProperties: true
@@ -2135,9 +2170,17 @@ components:
         scope: { type: string, enum: [me, everyone] }
         rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
         cols: { type: integer, minimum: 1, maximum: 24, default: 8 }
+        pages:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: { $ref: "#/components/schemas/PanelPage" }
         cells:
           type: array
+          writeOnly: true
+          deprecated: true
           items: { type: object, additionalProperties: true, description: A cell as a panel stores it }
+          description: The one grid from before Pages, read as one Page. Never sent back
         settings: { type: object, additionalProperties: true, description: "Panel settings to carry, left out for a layout only. `fixedDests` is kept only with `dests`" }
         sources: { type: boolean, default: false, description: "Keep the Source and Preset cells' Sources, Presets and captions" }
         dests: { type: boolean, default: false, description: "Keep the Destination cells' Destinations and captions" }
@@ -2317,7 +2360,7 @@ components:
               reason: { type: string }
     Checkpoint:
       type: object
-      required: [id, at, by, why, rows, cols, cells]
+      required: [id, at, by, why, rows, cols, cells, pages]
       properties:
         id: { type: string, pattern: "^c-[0-9a-f]{8}$" }
         at: { type: string, format: date-time }
@@ -2325,7 +2368,8 @@ components:
         why: { type: string }
         rows: { type: integer }
         cols: { type: integer }
-        cells: { type: integer, description: How many cells the layout has }
+        cells: { type: integer, description: How many cells the layout has, over every Page }
+        pages: { type: integer, description: How many Pages the layout has }
     CheckpointSet:
       type: object
       required: [id, name, scope, owner, entries, canEdit]
@@ -2339,13 +2383,14 @@ components:
           type: array
           items:
             type: object
-            required: [panel, name, rows, cols, cells]
+            required: [panel, name, rows, cols, cells, pages]
             properties:
               panel: { type: string, description: The panel this layout belongs to }
               name: { type: string, description: The panel's name when saved }
               rows: { type: integer }
               cols: { type: integer }
-              cells: { type: integer }
+              cells: { type: integer, description: How many cells, over every Page }
+              pages: { type: integer }
     Name:
       type: object
       required: [n, name]

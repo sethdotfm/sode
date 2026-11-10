@@ -159,7 +159,7 @@ func TestIconLibraryUnknownRefSaves(t *testing.T) {
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 200 {
 		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
 	}
-	cells := apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil))["cells"].([]any)
+	cells := page1Cells(apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)))
 	if art := cells[0].(map[string]any)["art"]; art != "lib:0badc0de" {
 		t.Fatalf("art %v", art)
 	}
@@ -253,8 +253,8 @@ func TestIconLibraryDeleteAndUses(t *testing.T) {
 	if got := uses(cy, id); got["cells"] != 3.0 {
 		t.Errorf("cells still naming it %v", got)
 	}
-	if p, _ := a.panels.get(pb); p.Cells[0]["art"] != lib {
-		t.Errorf("cell art %v, want %s kept", p.Cells[0]["art"], lib)
+	if p, _ := a.panels.get(pb); p.Pages[0].Cells[0]["art"] != lib {
+		t.Errorf("cell art %v, want %s kept", p.Pages[0].Cells[0]["art"], lib)
 	}
 
 	// The PIN deletes too.

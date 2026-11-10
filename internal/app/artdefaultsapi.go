@@ -67,7 +67,7 @@ func (a *App) artDefaultsFor(cl *apiCtx, keep func(ArtDefault) bool) []ArtDefaul
 // /panels/{id} carries them, so a changed default reaches an open panel through its update check.
 func (a *App) panelArtDefaults(cl *apiCtx, p Panel) []ArtDefault {
 	shown := map[string]bool{}
-	for _, c := range p.Cells {
+	for c := range allCells(p.Pages) {
 		if d, ok := cellItem(c); ok {
 			shown[d.key()] = true
 		}

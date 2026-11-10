@@ -122,7 +122,7 @@ func TestKeylessRowsInAnOldLayoutAreNotStored(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
 	id := makePanel(t, a, cy, `{"name":"Studio A"}`)
-	lay := panelLayout{Rows: 4, Cols: 8, Cells: []map[string]any{}, Settings: map[string]any{},
+	lay := panelLayout{Rows: 4, Cols: 8, Settings: map[string]any{},
 		Extra: map[string]any{"keyless": []any{map[string]any{"addr": "10.0.0.9"}}, "future": 7}}
 	if _, _, err := a.panels.pushLayout(id, lay, "Cy", "test"); err != nil {
 		t.Fatal(err)

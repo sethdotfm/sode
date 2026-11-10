@@ -13,6 +13,7 @@ import (
 	"log"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -127,7 +128,7 @@ func refuseReach(w http.ResponseWriter, read, edit, needEdit bool, noRead, noEdi
 
 // readPanelBody decodes a panel from the request. Fields left out stay at their zero value.
 func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Panel, bool) {
-	body, ok := readBody(w, r, panelBodyMax, "panel")
+	body, ok := readBody(w, r, panelLayoutBodyMax, "panel")
 	if !ok {
 		return Panel{}, false
 	}
@@ -137,6 +138,10 @@ func readPanelBody(w http.ResponseWriter, r *http.Request, allowEmpty bool) (Pan
 	}
 	if err := json.Unmarshal(body, &p); err != nil {
 		apiFail(w, http.StatusBadRequest, "bad_request", "send a panel as JSON: "+err.Error())
+		return Panel{}, false
+	}
+	if p.Pages != nil && p.LegacyCells != nil {
+		apiFail(w, http.StatusBadRequest, "bad_request", "send pages, or cells for Page 1 alone, not both")
 		return Panel{}, false
 	}
 	return p, true
@@ -260,7 +265,8 @@ func (a *App) apiPanelCreate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 }
 
 // apiPanelUpdate replaces the panel with the body. Id, owner, client and artwork are the
-// server's, and an unknown stored field the body leaves out is kept.
+// server's, and an unknown stored field the body leaves out is kept. A body with cells and no
+// pages changes Page 1 only.
 func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	old, ok := a.panelFor(w, r, cl, true)
 	if !ok {
@@ -272,6 +278,11 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	want := p.ClientRights
 	p.ID, p.Owner, p.Client, p.Art, p.ClientRights, p.Rev = old.ID, old.Owner, old.Client, old.Art, nil, old.Rev
+	if p.Pages == nil && p.LegacyCells != nil {
+		// A client from before Pages: its cells are Page 1's, and the other Pages stay.
+		p.Pages = slices.Clone(old.Pages)
+		p.Pages[0].Cells, p.LegacyCells = p.LegacyCells, nil
+	}
 	merged := maps.Clone(old.Extra)
 	if merged == nil {
 		merged = map[string]any{}

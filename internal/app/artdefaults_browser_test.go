@@ -39,8 +39,8 @@ func TestChromeArtDefaultEditorAndLiveUpdate(t *testing.T) {
 	b.waitFor("Set as default is offered", `!document.getElementById('ed-default-set').disabled && document.getElementById('ed-default-warn').hidden`)
 	b.eval(`document.getElementById('ed-default-set').click(); true`)
 	b.waitFor("the other cell of the source draws the default", sq(2)+`.querySelector('.sode-panel__art use')?.getAttribute('href') === '#pb-i-camera'`)
-	if p, _ := a.panels.get(id); p.Cells[1]["art"] != nil {
-		t.Fatalf("the default was stored in the cell: %v", p.Cells[1])
+	if p, _ := a.panels.get(id); p.Pages[0].Cells[1]["art"] != nil {
+		t.Fatalf("the default was stored in the cell: %v", p.Pages[0].Cells[1])
 	}
 
 	b.open(b.eval(`location.origin`).(string) + "/panels/" + id)

@@ -87,7 +87,7 @@ func TestPanelRoundTrip(t *testing.T) {
 	if p["name"] != "Studio A" || p["owner"] != "Ana" || p["rows"] != 2.0 || p["cols"] != 3.0 || p["canEdit"] != true {
 		t.Fatalf("panel %v", p)
 	}
-	if p["nextVersionField"] != "keep me" || p["cells"].([]any)[0].(map[string]any)["future"].(map[string]any)["x"] != 1.0 {
+	if p["nextVersionField"] != "keep me" || page1Cells(p)[0].(map[string]any)["future"].(map[string]any)["x"] != 1.0 {
 		t.Fatalf("unknown fields lost: %v", p)
 	}
 	if sh, _ := p["share"].(map[string]any); sh["mode"] != "me" {
@@ -127,7 +127,7 @@ func TestPanelCreateDefaultsAndValidation(t *testing.T) {
 	for _, body := range []string{`{}`, `{"name":"  "}`, `{"name":"x","rows":99}`, `{"name":"x","share":{"mode":"bogus"}}`, `not json`, `{"name":"x","acts":"robot"}`} {
 		wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, body), 400, "bad_request")
 	}
-	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, `{"name":"`+strings.Repeat("x", 300_000)+`"}`), 413, "too_large")
+	wantErr(t, apiSend(a, "POST", "/api/v1/panels", ana, `{"name":"`+strings.Repeat("x", panelLayoutBodyMax+1)+`"}`), 413, "too_large")
 	wantErr(t, apiDo(a, "GET", "/api/v1/panels/p-nope", ana, nil), 404, "not_found")
 	wantErr(t, apiDo(a, "GET", "/api/v1/panels/..%2Fconfig", ana, nil), 404, "not_found")
 }

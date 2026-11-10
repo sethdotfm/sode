@@ -34,6 +34,8 @@ const (
 	panelColsMax  = 24
 	panelNameMax  = 60
 	panelBodyMax  = 256 << 10
+	// A panel or template body: 16 Pages of up to 576 cells each.
+	panelLayoutBodyMax = 4 << 20
 
 	panelActsSession = "session"
 	panelActsAPI     = "api"
@@ -81,13 +83,15 @@ type Panel struct {
 	Slug string `yaml:"slug,omitempty" json:"slug,omitempty"`
 	// ClientRights rides the API only: sent by an editor, read from the client in the config,
 	// never stored in the panel file.
-	ClientRights *config.Rights   `yaml:"-" json:"clientRights,omitempty"`
-	Share        PanelShare       `yaml:"share" json:"share"`
-	Rows         int              `yaml:"rows" json:"rows"`
-	Cols         int              `yaml:"cols" json:"cols"`
-	Cells        []map[string]any `yaml:"cells" json:"cells"`
-	Settings     map[string]any   `yaml:"settings" json:"settings"`
-	Art          []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
+	ClientRights *config.Rights `yaml:"-" json:"clientRights,omitempty"`
+	Share        PanelShare     `yaml:"share" json:"share"`
+	Rows         int            `yaml:"rows" json:"rows"`
+	Cols         int            `yaml:"cols" json:"cols"`
+	Pages        []PanelPage    `yaml:"pages" json:"pages"`
+	// LegacyCells is the one grid of a file or body from before Pages; normalize moves it into Pages and it is never written.
+	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
+	Settings    map[string]any   `yaml:"settings" json:"settings"`
+	Art         []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
 	// Rev is the server's: it counts stored changes, and an open panel updates when it moves.
 	Rev int `yaml:"rev,omitempty" json:"rev"`
 
@@ -96,7 +100,7 @@ type Panel struct {
 
 // panelKnown are the JSON names the struct owns plus every output-only field a read adds (panelOut, monFields,
 // apiPanelRead), so a client that echoes a read back does not plant one in Extra. Keep in step with those.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped"}
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped"}
 
 // extraOwnFields is extra without panelKnown names. Files, checkpoints and sets saved before panelKnown listed every
 // output-only field may hold one. A copy, since extra may be shared with a stored panel.
@@ -162,9 +166,8 @@ func (p *Panel) normalize() {
 	if p.Share.Mode == "" {
 		p.Share.Mode = panelShareMe
 	}
-	if p.Cells == nil {
-		p.Cells = []map[string]any{}
-	}
+	p.Pages = normalPages(p.Pages, p.LegacyCells, p.ID)
+	p.LegacyCells = nil
 	if p.Settings == nil {
 		p.Settings = map[string]any{}
 	}
@@ -183,11 +186,14 @@ func validatePanel(p *Panel) error {
 		return fmt.Errorf("acts is %q, %q or %q", panelActsSession, panelActsAPI, panelActsBoth)
 	case !slices.Contains([]string{panelShareMe, panelShareNamed, panelShareAll}, p.Share.Mode):
 		return fmt.Errorf("share mode is %q, %q or %q", panelShareMe, panelShareNamed, panelShareAll)
-	case len(p.Cells) > panelRowsMax*panelColsMax:
-		return errors.New("too many cells for the grid")
 	case len(p.Share.Users) > config.MaxUsers:
 		return errors.New("too many named users")
 	}
+	pages, err := checkPages(p.Pages, p.Rows, p.Cols)
+	if err != nil {
+		return err
+	}
+	p.Pages = pages
 	settings, err := cleanFixedDests(p.Settings)
 	if err != nil {
 		return err

@@ -123,18 +123,20 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 func storedCells(t *testing.T, a *App, key, id string) []string {
 	t.Helper()
 	var p struct {
-		Cells []struct {
-			R, C, Rs, Cs    int
-			Kind, Art, ArtB string
-			Caption         string
-			Levels          []int
-		} `json:"cells"`
+		Pages []struct {
+			Cells []struct {
+				R, C, Rs, Cs    int
+				Kind, Art, ArtB string
+				Caption         string
+				Levels          []int
+			} `json:"cells"`
+		} `json:"pages"`
 	}
 	if err := json.Unmarshal(apiSend(a, "GET", "/api/v1/panels/"+id, key, "").Body.Bytes(), &p); err != nil {
 		t.Fatal(err)
 	}
 	var out []string
-	for _, c := range p.Cells {
+	for _, c := range p.Pages[0].Cells {
 		s := fmt.Sprintf("%d,%d %dx%d %s art=%s artB=%s", c.R, c.C, c.Rs, c.Cs, c.Kind, c.Art, c.ArtB)
 		if c.Caption != "" {
 			s += " " + c.Caption

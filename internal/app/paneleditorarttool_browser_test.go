@@ -20,7 +20,7 @@ func TestChromeEditorArtTool(t *testing.T) {
 			t.Fatal(err)
 		}
 		var out []string
-		for _, c := range p.Cells {
+		for _, c := range p.Pages[0].Cells {
 			out = append(out, fmt.Sprintf("%v,%v=%v/%v", c["r"], c["c"], c["art"], c["artB"]))
 		}
 		sort.Strings(out)

@@ -20,7 +20,7 @@ test('a save sends the layout and, by default, neither settings nor contents', (
   assert.deepEqual([b.sources, b.dests, 'contents' in b], [false, false, false]);
   assert.equal('settings' in b, false);
   assert.equal(b.rows, 2);
-  assert.equal(b.cells.length, 3);
+  assert.equal(b.pages[0].cells.length, 3);
 });
 
 test('settings, Sources and Destinations go only when asked for, each on its own', () => {

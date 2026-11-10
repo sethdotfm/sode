@@ -1,6 +1,7 @@
 // What the panel editor reads from its URL and from /api/v1/panels, and what it sends back. Pure.
 import { KINDS } from './panelrules.js';
 import { saved, createGrid, DEFAULT_ROWS, DEFAULT_COLS } from './gridmodel.js';
+import { pagesOf, pageView, storedPages } from './panelpages.js';
 import { chord } from './keys.js';
 import { nameMismatch } from './panellook.js';
 
@@ -42,29 +43,43 @@ export function groupPanels(list) {
   return { mine: all.filter((p) => p.canEdit), shared: all.filter((p) => !p.canEdit) };
 }
 
-export const newPanel = () => ({ name: 'New panel', acts: 'session', share: { mode: 'me' }, rows: DEFAULT_ROWS, cols: DEFAULT_COLS, cells: [], settings: {} });
+// The server gives the Page its id on the first save.
+export const newPanel = () => ({
+  name: 'New panel',
+  acts: 'session',
+  share: { mode: 'me' },
+  rows: DEFAULT_ROWS,
+  cols: DEFAULT_COLS,
+  pages: [{ id: '', enabled: true, cells: [] }],
+  settings: {},
+});
 
 // PUT replaces the panel, so what the editor does not own goes back as it came (settings, sharing, unknown fields).
 // fields is the sidebar's edits: {settings, acts, clientRights}, each present only once edited. clientRights is
-// left out otherwise so the server keeps the stored Rights (an administrator may have widened them).
-export function saveBody(loaded, name, grid, fields = {}) {
+// left out otherwise so the server keeps the stored Rights (an administrator may have widened them). grid is Page 1;
+// pages is the Page list the editor holds, and the server refuses a body with both pages and cells.
+export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
   const rest = { ...loaded };
   delete rest.canEdit;
   delete rest.clientRights;
+  delete rest.cells;
   const edits = {};
   for (const k of ['settings', 'acts', 'slug', 'clientRights']) if (fields[k] !== undefined) edits[k] = fields[k];
-  return { ...rest, name: name.trim(), ...saved(grid), ...edits };
+  const { rows, cols, cells } = saved(grid);
+  return { ...rest, name: name.trim(), rows, cols, pages: storedPages(pages, cells, rows, cols), ...edits };
 }
 
 // Compared through the grid, so a cell the model clips on load does not read as an edit. Keys are sorted because the
 // server stores cells with their keys in another order.
 const sorted = (c) => Object.fromEntries(Object.entries(c).sort(([a], [b]) => (a < b ? -1 : 1)));
-const shape = (name, g, f) =>
+// Page 1's cells come from the grid; the other Pages and every Page's id, name and enabled from pages.
+const shape = (name, g, f, pages) =>
   JSON.stringify([
     name.trim(),
     g.rows,
     g.cols,
     saved(g).cells.map(sorted),
+    storedPages(pages, [], g.rows, g.cols).map((p) => [p.id, p.name || '', p.enabled !== false, p.cells.map(sorted)]),
     sorted(f.settings || {}),
     f.acts || 'session',
     f.slug || '',
@@ -72,15 +87,20 @@ const shape = (name, g, f) =>
   ]);
 
 // A field not edited counts as what was loaded. clientRights has no loaded side here: any edit is a change.
-export function isDirty(loaded, name, grid, fields = {}) {
+export function isDirty(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
   const base = loaded || newPanel();
-  const was = shape(base.name, createGrid(base), { settings: base.settings, acts: base.acts, slug: base.slug });
-  const now = shape(name, grid, {
-    settings: fields.settings ?? base.settings,
-    acts: fields.acts ?? base.acts,
-    slug: fields.slug ?? base.slug,
-    clientRights: fields.clientRights,
-  });
+  const was = shape(base.name, createGrid(pageView(base)), { settings: base.settings, acts: base.acts, slug: base.slug }, pagesOf(base));
+  const now = shape(
+    name,
+    grid,
+    {
+      settings: fields.settings ?? base.settings,
+      acts: fields.acts ?? base.acts,
+      slug: fields.slug ?? base.slug,
+      clientRights: fields.clientRights,
+    },
+    pages,
+  );
   return was !== now;
 }
 
