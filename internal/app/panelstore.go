@@ -83,15 +83,15 @@ type Panel struct {
 	Slug string `yaml:"slug,omitempty" json:"slug,omitempty"`
 	// ClientRights rides the API only: sent by an editor, read from the client in the config,
 	// never stored in the panel file.
-	ClientRights *config.Rights   `yaml:"-" json:"clientRights,omitempty"`
-	Share        PanelShare       `yaml:"share" json:"share"`
-	Rows         int              `yaml:"rows" json:"rows"`
-	Cols         int              `yaml:"cols" json:"cols"`
-	Pages        []PanelPage      `yaml:"pages" json:"pages"`
+	ClientRights *config.Rights `yaml:"-" json:"clientRights,omitempty"`
+	Share        PanelShare     `yaml:"share" json:"share"`
+	Rows         int            `yaml:"rows" json:"rows"`
+	Cols         int            `yaml:"cols" json:"cols"`
+	Pages        []PanelPage    `yaml:"pages" json:"pages"`
 	// LegacyCells is the one grid of a file or body from before Pages; normalize moves it into Pages and it is never written.
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings" json:"settings"`
-	Art          []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
+	Art         []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
 	// Rev is the server's: it counts stored changes, and an open panel updates when it moves.
 	Rev int `yaml:"rev,omitempty" json:"rev"`
 

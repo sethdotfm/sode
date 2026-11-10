@@ -28,9 +28,9 @@ var (
 )
 
 type panelLayout struct {
-	Rows     int              `yaml:"rows" json:"rows"`
-	Cols     int              `yaml:"cols" json:"cols"`
-	Pages    []PanelPage      `yaml:"pages,omitempty" json:"pages,omitempty"`
+	Rows  int         `yaml:"rows" json:"rows"`
+	Cols  int         `yaml:"cols" json:"cols"`
+	Pages []PanelPage `yaml:"pages,omitempty" json:"pages,omitempty"`
 	// LegacyCells is a checkpoint or set entry saved before Pages; withLayout hands it to normalize.
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings" json:"settings"`

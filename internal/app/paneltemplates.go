@@ -44,16 +44,16 @@ var (
 // Source and Preset contents, Dests keeps Destination contents. Contents is the single flag from
 // before the split: a save or file that sets it means both, and it is never stored or sent back.
 type Template struct {
-	ID       string           `yaml:"id" json:"id"`
-	Name     string           `yaml:"name" json:"name"`
-	Scope    string           `yaml:"scope" json:"scope"`
-	Owner    string           `yaml:"owner" json:"owner"`
-	Sources  bool             `yaml:"sources" json:"sources"`
-	Dests    bool             `yaml:"dests" json:"dests"`
-	Contents bool             `yaml:"contents,omitempty" json:"contents,omitempty"`
-	Rows     int              `yaml:"rows" json:"rows"`
-	Cols     int              `yaml:"cols" json:"cols"`
-	Pages    []PanelPage      `yaml:"pages" json:"pages"`
+	ID       string      `yaml:"id" json:"id"`
+	Name     string      `yaml:"name" json:"name"`
+	Scope    string      `yaml:"scope" json:"scope"`
+	Owner    string      `yaml:"owner" json:"owner"`
+	Sources  bool        `yaml:"sources" json:"sources"`
+	Dests    bool        `yaml:"dests" json:"dests"`
+	Contents bool        `yaml:"contents,omitempty" json:"contents,omitempty"`
+	Rows     int         `yaml:"rows" json:"rows"`
+	Cols     int         `yaml:"cols" json:"cols"`
+	Pages    []PanelPage `yaml:"pages" json:"pages"`
 	// LegacyCells is a template from before Pages; migrate makes it one Page.
 	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
 	Settings    map[string]any   `yaml:"settings,omitempty" json:"settings,omitempty"`
