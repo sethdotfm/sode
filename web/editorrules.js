@@ -163,10 +163,6 @@ export const kindChoices = ({ fixed = false } = {}) =>
     fixed && kind === 'destination' ? { kind, label: kindLabel(kind), disabled: true, hint: 'Fixed destination is on' } : { kind, label: kindLabel(kind) },
   );
 
-// Hover only counts once the pointer really moved: Chrome sends moves with unchanged coordinates when a list
-// is redrawn under a still pointer. last is null until the first event, which only sets it.
-export const pointerMoved = (last, e) => !!last && (last.x !== e.clientX || last.y !== e.clientY);
-
 // The tip beside the grip while it is dragged: how many squares, and the first and last name placed.
 export function gripTip(plan, nameOf) {
   if (!plan) return '';
