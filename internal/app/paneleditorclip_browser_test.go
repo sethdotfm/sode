@@ -12,7 +12,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Cmd or Ctrl+C copies cells, Cmd or Ctrl+V pastes them elsewhere on the same panel (through readText, as a synthetic
+// Cmd or Ctrl+X cuts them. Cmd or Ctrl+C copies cells, Cmd or Ctrl+V pastes them elsewhere on the same panel (through readText, as a synthetic
 // key fires no paste event) and into a second panel (through the browser's paste event), where the uploaded image goes.
 func TestChromeEditorCopyPaste(t *testing.T) {
 	b := startBrowser(t)
@@ -93,6 +93,27 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	want = []string{"2,5 1x1 take art= artB=2", "2,6 1x1 clear art=icon:camera artB= Wipe", "2,7 2x1 source art= artB="}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("second panel cells:\n got %q\nwant %q", got, want)
+	}
+
+	// Cut copies like Cmd+C and then removes the selection as one change; the clipboard still pastes it back.
+	b.eval(`goTo(2, 5); press('ArrowRight', 'ArrowRight', { shiftKey: true }); window.copied = ''`)
+	if b.eval(`press('x', 'KeyX', { metaKey: true })`) != true {
+		t.Fatal("Cmd+X on the grid was not taken by the editor")
+	}
+	b.waitFor("cut", `window.copied.includes('sode-panel-cells') && stat() === 'Cut 2 cells.' && document.getElementById('ed-state').textContent !== 'Saved'`)
+	b.eval(`document.getElementById('ed-save').click()`)
+	b.waitFor("cut saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	got = storedCells(t, a, ana, other)
+	want = []string{"2,7 2x1 source art= artB="}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("after the cut:\n got %q\nwant %q", got, want)
+	}
+	b.eval(`goTo(4, 1); press('v', 'KeyV', { ctrlKey: true })`)
+	b.waitFor("cut cells paste back", `stat().startsWith('Pasted 2 cells.')`)
+	// A focused text field keeps its own Cmd+X: the grid neither copies nor removes anything.
+	b.eval(`window.copied = ''; { const n = document.getElementById('ed-name'); n.focus(); const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'x', code: 'KeyX', metaKey: true }); n.dispatchEvent(e); window.fieldCut = e.defaultPrevented }`)
+	if b.eval(`window.fieldCut`) != false || b.eval(`window.copied`) != "" {
+		t.Fatal("Cmd+X in the name field was taken by the grid")
 	}
 	b.check()
 }

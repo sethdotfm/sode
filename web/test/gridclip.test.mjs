@@ -8,8 +8,9 @@ import { GRID_CHORDS } from '../gridchords.js';
 const grid = (cells, size = { rows: 4, cols: 8 }) => createGrid({ ...size, cells });
 const pick = (g, r1, c1, r2 = r1, c2 = c1) => select(select(g, r1, c1), r2, c2, true);
 
-test('copy and paste are in the chord table for Cmd and Ctrl', () => {
+test('copy, cut and paste are in the chord table for Cmd and Ctrl', () => {
   for (const m of ['ctrl', 'meta']) {
+    assert.equal(GRID_CHORDS[`${m}+x`], 'cut');
     assert.equal(GRID_CHORDS[`${m}+c`], 'copy');
     assert.equal(GRID_CHORDS[`${m}+v`], 'paste');
   }
