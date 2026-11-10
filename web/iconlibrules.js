@@ -23,6 +23,17 @@ export const libNameOf = (fileName) =>
     .join('')
     .trim();
 
+// uses is {cells, panels} from GET /icon-library/{id}/uses, or null when it could not be read. Cells keep `lib:<id>`
+// after a delete and draw no Icon A (apiIconDelete).
+export function libDeleteText(name, uses) {
+  const ask = `Delete ${name} from the Icon library?`;
+  if (!uses) return `${ask} Cells that use it will draw no Icon A; their Icon B and text stay.`;
+  const { cells, panels } = uses;
+  if (!cells) return `${ask} No cell uses it.`;
+  const one = cells === 1;
+  return `${ask} ${cells} ${one ? 'cell' : 'cells'} on ${panels} ${panels === 1 ? 'panel' : 'panels'} ${one ? 'uses' : 'use'} it and will draw no Icon A; ${one ? 'its' : 'their'} Icon B and text stay.`;
+}
+
 // Uploaded first (library icons by name, ignoring case), then the vendored icons, both cut to the search. Uploaded is
 // always there, empty or not, since it holds the Upload button.
 export function pickerSections(library, vendored, text) {

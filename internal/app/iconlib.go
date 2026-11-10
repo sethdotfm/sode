@@ -150,12 +150,10 @@ func (s *iconLib) add(name string, data []byte, typ string) (LibIcon, error) {
 		ic.ID = hex.EncodeToString(b)
 	}
 	next := s.data
-	next.Rev++
 	next.Icons = append(slices.Clone(s.data.Icons), ic)
 	if s.path == "" {
 		s.mem[ic.ID] = data
-		s.data = next
-		return ic, nil
+		return ic, s.saveLocked(next)
 	}
 	if err := os.MkdirAll(s.dir(), 0o700); err != nil {
 		return LibIcon{}, err
@@ -163,16 +161,71 @@ func (s *iconLib) add(name string, data []byte, typ string) (LibIcon, error) {
 	if err := config.AtomicWrite(filepath.Join(s.dir(), ic.fileName()), data); err != nil {
 		return LibIcon{}, err
 	}
-	out, err := yaml.Marshal(next)
-	if err == nil {
-		err = config.AtomicWrite(s.path, out)
-	}
-	if err != nil {
+	if err := s.saveLocked(next); err != nil {
 		os.Remove(filepath.Join(s.dir(), ic.fileName()))
 		return LibIcon{}, err
 	}
-	s.data = next
 	return ic, nil
+}
+
+// saveLocked writes next as the index; only then does memory take it.
+func (s *iconLib) saveLocked(next iconLibData) error {
+	next.Rev = s.data.Rev + 1
+	if s.path != "" {
+		out, err := yaml.Marshal(next)
+		if err == nil {
+			err = config.AtomicWrite(s.path, out)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	s.data = next
+	return nil
+}
+
+// rename keeps the id, so every `lib:<id>` still names it. The name is settled by freeName against the others.
+// found is false for an id the library does not hold.
+func (s *iconLib) rename(id, name string) (ic LibIcon, found bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := slices.IndexFunc(s.data.Icons, func(x LibIcon) bool { return x.ID == id })
+	if i < 0 {
+		return LibIcon{}, false, nil
+	}
+	others := slices.Delete(slices.Clone(s.data.Icons), i, i+1)
+	if name, err = freeName(name, others); err != nil {
+		return LibIcon{}, true, err
+	}
+	next := s.data
+	next.Icons = slices.Clone(s.data.Icons)
+	next.Icons[i].Name = name
+	if err := s.saveLocked(next); err != nil {
+		return LibIcon{}, true, err
+	}
+	return next.Icons[i], true, nil
+}
+
+// remove leaves cells that name the icon alone: they draw no Icon A, as for any id the library does not hold.
+func (s *iconLib) remove(id string) (LibIcon, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := slices.IndexFunc(s.data.Icons, func(x LibIcon) bool { return x.ID == id })
+	if i < 0 {
+		return LibIcon{}, false, nil
+	}
+	ic := s.data.Icons[i]
+	next := s.data
+	next.Icons = slices.Delete(slices.Clone(s.data.Icons), i, i+1)
+	if err := s.saveLocked(next); err != nil {
+		return LibIcon{}, true, err
+	}
+	if s.path == "" {
+		delete(s.mem, id)
+	} else if err := os.Remove(filepath.Join(s.dir(), ic.fileName())); err != nil && !os.IsNotExist(err) {
+		log.Printf("icon library: %v", err) // the index no longer names it, so it is only a stray file
+	}
+	return ic, true, nil
 }
 
 func (s *iconLib) file(id string) ([]byte, LibIcon, bool) {

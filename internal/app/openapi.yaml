@@ -716,6 +716,89 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: renameLibraryIcon
+      tags: [panels]
+      summary: Rename a library icon
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` (403 `trusted_required`). The id stays, so every cell naming
+        it keeps it. The name follows the upload's rules: trimmed, 1 to 40 characters (400
+        `bad_request`), and one another icon has, ignoring case, is stored as "Name 2" and so on.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 40 }
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+            example: { name: Studio logo }
+      responses:
+        "200":
+          description: The icon as stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibIcon" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteLibraryIcon
+      tags: [panels]
+      summary: Delete a library icon
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` in an optional JSON body (403 `trusted_required`). Cells
+        that name the icon are left as they are and draw no Icon A; their Icon B and text stay.
+        Read `/icon-library/{icon}/uses` first to say how many cells that is.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /icon-library/{icon}/uses:
+    parameters:
+      - { name: icon, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{8}$" } }
+    get:
+      operationId: countLibraryIconUses
+      tags: [panels]
+      summary: How many cells use a library icon
+      description: |
+        Scope `panelsmanage`. Counts cells whose Icon A is `lib:<icon>` across every panel, not only
+        the caller's, and the panels they are on. Counts only. An id the library does not hold is
+        counted too, so cells left after a delete show here.
+      responses:
+        "200":
+          description: Counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cells, panels]
+                properties:
+                  cells: { type: integer }
+                  panels: { type: integer }
+              example: { cells: 3, panels: 2 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panel-templates:
     get:
       operationId: listPanelTemplates

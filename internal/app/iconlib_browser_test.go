@@ -55,6 +55,75 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b.check()
 }
 
+// A Trusted user renames and deletes from a tile under Manage. Delete asks the churning-letter Confirm with the use
+// count; after it the cells that used the icon draw no Icon A, on the editor canvas and on the panel page, and keep
+// their Icon B and text.
+func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
+	var ic LibIcon
+	b, a, _, id := editorTabPrep(t, `{"name":"Lib","rows":2,"cols":2}`, func(b *tab, a *App, ana, id string) {
+		var err error
+		if ic, err = a.icons.add("Logo", imgBytes("png", 16, 16), "image/png"); err != nil {
+			t.Fatal(err)
+		}
+		lib := "lib:" + ic.ID
+		if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, `{"name":"Lib","rows":2,"cols":2,"cells":[{"r":1,"c":1,"kind":"source","n":1,"art":"`+lib+`","artB":"2"},{"r":1,"c":2,"kind":"source","n":2,"art":"`+lib+`"}]}`); rec.Code != 200 {
+			t.Fatalf("art cells: %d %s", rec.Code, rec.Body.String())
+		}
+	})
+	sq := `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]')`
+	drawn := func(at string) string {
+		return `(() => { const i = ` + at + `?.querySelector('.sode-panel__art-a'); return !!i && !i.hidden && i.complete && i.naturalWidth > 0; })()`
+	}
+	b.waitFor("the canvas draws the library icon", drawn(sq))
+	b.eval(`(() => { const s = ` + sq + `; const r = s.getBoundingClientRect(); s.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 })); })()`)
+	b.waitFor("the Cell tab", `document.querySelector('#ed-side .pb-tab[aria-selected="true"]')?.textContent === 'Cell'`)
+	b.eval(`[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Choose icon').click(); true`)
+	b.waitFor("Manage, for a Trusted user", `!!document.getElementById('ed-lib-manage')?.offsetParent && !!document.querySelector('#ed-lib-icons [data-lib]')`)
+
+	b.eval(`document.getElementById('ed-lib-manage').click(); document.querySelector('#ed-lib-icons [data-lib]').click(); true`)
+	b.waitFor("the tile is chosen, not picked", `!!document.getElementById('ed-lib-delete')?.offsetParent && document.getElementById('ed-lib-rename-name').value === 'Logo'`)
+	b.eval(`document.getElementById('ed-lib-rename-name').value = 'Station'; document.getElementById('ed-lib-rename').click(); true`)
+	b.waitFor("renamed", `document.querySelector('#ed-lib-icons [data-lib]')?.getAttribute('aria-label') === 'Station'`)
+	if got := a.icons.list(); got[0].Name != "Station" || got[0].ID != ic.ID {
+		t.Fatalf("after rename %+v", got)
+	}
+	b.waitFor("the renamed icon still draws", drawn(sq))
+
+	b.eval(`document.querySelector('#ed-lib-icons [data-lib]').click(); document.getElementById('ed-lib-delete').click(); true`)
+	b.waitFor("the Confirm with the count", `/2 cells on 1 panel use it/.test(document.getElementById('ed-lib-confirm')?.textContent || '')`)
+	if b.eval(`document.getElementById('ed-lib-delete-ok').disabled`) != true {
+		t.Error("the Confirm is not locked out at first")
+	}
+	b.waitFor("the lockout ends", `!document.getElementById('ed-lib-delete-ok').disabled`)
+	b.eval(`(() => { const k = /\((.)\)/.exec(document.getElementById('ed-lib-delete-ok').textContent)[1].toLowerCase(); document.getElementById('ed-lib-confirm').dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true })); return true; })()`)
+	b.waitFor("deleted", `/Deleted Station/.test(document.querySelector('.sode-side__lib-sec [role=status]').textContent)`)
+	if n := len(a.icons.list()); n != 0 {
+		t.Fatalf("library still has %d", n)
+	}
+	b.waitFor("the canvas draws no Icon A, Icon B and the text stay", `(() => { const s = `+sq+`; const i = s.querySelector('.sode-panel__art-a'); return (!i || i.hidden) && s.querySelector('.sode-panel__art-b')?.textContent === '2' && s.querySelector('.sode-ed__text').textContent !== ''; })()`)
+	b.waitFor("the sidebar preview draws none either", `(() => { const i = document.querySelector('#panel-ed-cell .sode-panel__art-a'); return !i || i.hidden; })()`)
+
+	b.open(b.eval(`location.origin`).(string) + "/panels/" + id)
+	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == true {
+		for _, d := range "1234" {
+			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
+		}
+		b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
+	}
+	cell := `document.querySelector('.sode-panel__cell--source')`
+	b.waitFor("the panel page draws Icon B", cell+`?.querySelector('.sode-panel__art-b')?.textContent === '2'`)
+	if b.eval(drawn(cell)) == true {
+		t.Error("the panel page still draws the deleted icon")
+	}
+	// The deleted icon's 404 is how a cell learns to draw no Icon A; anything else is a real error.
+	for _, e := range b.problems() {
+		if !strings.Contains(e, "404") || !strings.Contains(e, "/icon-library/"+ic.ID) {
+			t.Errorf("page error: %s", e)
+		}
+	}
+}
+
 // A library SVG draws as a mask in the art row's text colour, so a red and blue file shows one colour that follows the
 // theme. It is never an <img> with its own colours, and the editor's canvas and picker tile draw it the same way.
 func TestChromeIconLibrarySVGTakesTheTextColour(t *testing.T) {
