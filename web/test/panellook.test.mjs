@@ -5,18 +5,18 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { lookOf, artOf, cellScale, artUrlPath } from '../panellook.js';
-import { featureSupport, createWake, buzz } from '../panelfeel.js';
+import { featureSupport, createWake } from '../panelfeel.js';
 
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'panels.css'), 'utf8');
 
 test('a panel with no look settings shows the title bar at normal size, follows the browser theme and has no device features', () => {
-  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, theme: 'auto', wake: false, haptics: false, fullscreen: false, landscape: false });
+  assert.deepEqual(lookOf({}), { titleBar: true, scale: 1, theme: 'auto', wake: false, fullscreen: false, landscape: false });
   assert.deepEqual(lookOf(undefined), lookOf({}));
 });
 
 test('look settings are read as stored, and odd values fall back', () => {
-  const l = lookOf({ titleBar: false, fontSize: 150, theme: 'dark', wake: true, haptics: true });
-  assert.deepEqual(l, { titleBar: false, scale: 1.5, theme: 'dark', wake: true, haptics: true, fullscreen: false, landscape: false });
+  const l = lookOf({ titleBar: false, fontSize: 150, theme: 'dark', wake: true });
+  assert.deepEqual(l, { titleBar: false, scale: 1.5, theme: 'dark', wake: true, fullscreen: false, landscape: false });
   assert.equal(lookOf({ fontSize: 'big' }).scale, 1);
   assert.equal(lookOf({ fontSize: 5 }).scale, 0.5);
   assert.equal(lookOf({ fontSize: 5000 }).scale, 2);
@@ -45,10 +45,10 @@ test('artwork is read from the panel route, with the id as a path segment', () =
   assert.equal(artUrlPath('p-1', 'a-0123abcd'), 'api/v1/panels/p-1/artwork/a-0123abcd');
 });
 
-test('wake lock and haptics report support from the browser object', () => {
-  assert.deepEqual(featureSupport({}), { wake: false, haptics: false });
-  assert.deepEqual(featureSupport({ wakeLock: { request() {} }, vibrate() {} }), { wake: true, haptics: true });
-  assert.deepEqual(featureSupport(undefined), { wake: false, haptics: false });
+test('wake lock reports support from the browser object', () => {
+  assert.deepEqual(featureSupport({}), { wake: false });
+  assert.deepEqual(featureSupport({ wakeLock: { request() {} } }), { wake: true });
+  assert.deepEqual(featureSupport(undefined), { wake: false });
 });
 
 test('the wake lock is held while the page is visible and asked for again after it hides', async () => {
@@ -107,13 +107,6 @@ test('a missing wake lock API makes on() do nothing', async () => {
   const wake = createWake({}, { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} });
   await wake.on();
   assert.equal(wake.held(), false);
-});
-
-test('haptics buzz once where supported and do nothing elsewhere', () => {
-  const seen = [];
-  assert.equal(buzz({ vibrate: (ms) => seen.push(ms) }), true);
-  assert.equal(seen.length, 1);
-  assert.equal(buzz({}), false);
 });
 
 test('one animated grid property drives every pulse, so no cell has an animation of its own', () => {
@@ -228,32 +221,11 @@ test('artwork is dimmed under text and at full strength when the text is hidden'
   assert.match(css, /\[data-hide-text\] > \.sode-panel__art \{[^}]*opacity: 1/);
 });
 
-test('a switch the browser cannot honour gets a note, and https is named for the wake lock', async () => {
+test('a wake lock the browser cannot honour gets a note, and https is named', async () => {
   const { featureNotes } = await import('../panelfeel.js');
-  const on = { wake: true, haptics: true };
+  const on = { wake: true };
   assert.equal(featureNotes({}, {}, false).length, 0);
   assert.match(featureNotes(on, {}, false)[0], /https/);
   assert.match(featureNotes(on, {}, true)[0], /cannot keep the screen awake/);
-  assert.match(featureNotes(on, {}, true)[1], /no vibration/);
-  assert.equal(featureNotes(on, { wakeLock: { request() {} }, vibrate() {} }, true).length, 0);
-});
-
-test('iOS ticks through a switch input where there is no vibrate', () => {
-  const log = [];
-  const doc = {
-    body: { append: (n) => log.push('append', n.tag) },
-    createElement: (tag) => ({
-      tag,
-      style: {},
-      setAttribute: (k) => log.push(`attr ${k}`),
-      append() {},
-      click: () => log.push('click'),
-      remove: () => log.push('remove'),
-    }),
-  };
-  const iphone = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' };
-  assert.equal(featureSupport(iphone).haptics, true);
-  assert.equal(buzz(iphone, doc), true);
-  assert.ok(log.includes('attr switch') && log.indexOf('click') < log.indexOf('remove'));
-  assert.equal(buzz({ userAgent: 'Linux' }, doc), false);
+  assert.equal(featureNotes(on, { wakeLock: { request() {} } }, true).length, 0);
 });

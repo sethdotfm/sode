@@ -1,5 +1,5 @@
 // What a panel's look settings and a cell's artwork mean. Pure. Stored names are in docs/persisted-names.md.
-// Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, haptics, fullscreen, landscape.
+// Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, fullscreen, landscape.
 // Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph drawn beside it), fontSize (percent) and hideText.
 
 const SCALE_MIN = 50;
@@ -23,7 +23,6 @@ export function lookOf(settings) {
     scale: scaleOf(s.fontSize),
     theme: THEMES.includes(s.theme) ? s.theme : 'auto',
     wake: s.wake === true,
-    haptics: s.haptics === true,
     fullscreen: s.fullscreen === true,
     landscape: s.landscape === true,
   };

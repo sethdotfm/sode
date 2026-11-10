@@ -115,7 +115,6 @@ export function createPanelTab(ed) {
   const device = section(
     'Device and feedback',
     toggle('wake', 'Keep the screen awake', ''),
-    toggle('haptics', 'Enable haptics', ''),
     toggle('fullscreen', 'Enter fullscreen at once', 'The first press on the panel goes fullscreen, as a browser needs a touch first.'),
     toggle('landscape', 'Keep landscape', 'For a phone or tablet. The first press goes fullscreen and locks the screen turn. iPhone and iPad browsers do not allow the lock.'),
   );
@@ -144,17 +143,14 @@ export function createPanelTab(ed) {
         const dflt = key === 'titleBar' || key === 'multi';
         input.checked = dflt ? s[key] !== false : s[key] === true;
         // A switch the editor's own browser cannot honour still shows what the tablet will do; only turning it on is blocked.
-        input.disabled = ro || (key === 'wake' && !feel.wake && !input.checked) || (key === 'haptics' && !feel.haptics && !input.checked);
+        input.disabled = ro || (key === 'wake' && !feel.wake && !input.checked);
       }
       // The fixed set is always staged together, so the stored choice stays but has no effect.
       const fixedOn = fixedDestsOf({ settings: s }).length > 0;
       toggles.find((x) => x.key === 'multi').input.disabled = ro || fixedOn;
       multiNote.textContent = fixedOn ? 'No effect while Fixed destination is on: every press stages all of them together.' : '';
       fixed.update();
-      const unsupported = [!feel.wake && 'keeping the screen awake', !feel.haptics && 'vibration'].filter(Boolean);
-      deviceNote.textContent = unsupported.length
-        ? `This browser has no support for ${unsupported.join(' or ')}. It is the panel's own browser that counts.`
-        : '';
+      deviceNote.textContent = feel.wake ? '' : "This browser has no support for keeping the screen awake. It is the panel's own browser that counts.";
       if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
       mode.select.value = s.mode === 'instant' ? 'instant' : 'take';

@@ -15,7 +15,6 @@ const DEFAULTS = {
   fontSize: 100,
   theme: 'auto',
   wake: false,
-  haptics: false,
   fullscreen: false,
   landscape: false,
   mode: 'take',

@@ -31,7 +31,7 @@ import {
 import { buildGrid, paintGrid, paintStrip } from './panelview.js';
 import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
-import { createWake, buzz, enterFullscreen, featureNotes } from './panelfeel.js';
+import { createWake, enterFullscreen, featureNotes } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
 import { instanceFrom } from './panellink.js';
 import { initChrome } from './panelfull.js';
@@ -284,7 +284,6 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   function onPress(cell) {
     if (!ready) return;
     wake?.retry();
-    if (look.haptics && !embedded) buzz(navigator, document);
     if ((look.fullscreen || look.landscape) && !embedded) enterFullscreen(document, look.landscape);
     const now = Date.now();
     if (cell.kind === 'take') {
