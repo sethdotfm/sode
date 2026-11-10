@@ -3,11 +3,14 @@
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned } from './gridmodel.js';
 
-export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage', 'page'];
+export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'page', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // One entry each, placed with nothing chosen: a Go to Page cell gets its Page in the Cell tab.
 const NUMBERLESS = ['take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // The kinds with a list behind them get a chip; the others are one entry each and show under All.
 export const CHIP_CATEGORIES = ['source', 'destination', 'preset', 'page'];
+// What each chip narrows to: Pages also holds every kind that is about Pages, one entry each.
+export const CHIP_KINDS = { page: ['page', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'] };
+export const chipKinds = (chip) => (chip ? CHIP_KINDS[chip] || [chip] : []);
 export const CATEGORY_LABEL = {
   source: 'Sources',
   destination: 'Destinations',

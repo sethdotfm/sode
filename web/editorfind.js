@@ -12,6 +12,7 @@ import {
   CATEGORY_LABEL,
   CATEGORY_ICON,
   findIcon,
+  chipKinds,
   findEntries,
   pageEntries,
   rankFind,
@@ -156,7 +157,7 @@ export function initFind(editor) {
 
   function draw() {
     moved = false;
-    results = rankFind(everything(), input.value, chip ? [chip] : []);
+    results = rankFind(everything(), input.value, chipKinds(chip));
     hi = Math.max(0, Math.min(hi, results.length - 1));
     picked = picked.filter((k) => results.some((e) => e.key === k));
     chips.replaceChildren(

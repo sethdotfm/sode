@@ -1,7 +1,7 @@
 // Find in the panel editor (findrules.js): what can be searched, who may see it, and how results rank. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
+import { chipKinds, findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
 import { createGrid, select, selCells, cellAt } from '../gridmodel.js';
 
 const names = {
@@ -284,4 +284,11 @@ test('Pages are found by name and by number, and place Go to Page cells down the
   const g = select(select(createGrid({ rows: 2, cols: 2, cells: [] }), 1, 1), 1, 2, true);
   const out = applyFind(g, findPlan(g, fillRun(list, list[1], null)));
   assert.deepEqual(out.cells.map((c) => [c.r, c.c, c.kind, c.page, c.n]), [[1, 1, 'goToPage', 'bb', undefined], [1, 2, 'goToPage', 'cc', undefined]]);
+});
+
+test('the Pages chip holds the Pages and every Page kind, Pages first', () => {
+  const list = [...findEntries({ sources: [], destinations: [] }, { presets: [] }, null), ...pageEntries([{ id: 'aa' }])];
+  assert.deepEqual(rankFind(list, '', chipKinds('page')).map((e) => e.category), ['page', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage']);
+  assert.deepEqual(chipKinds('source'), ['source']);
+  assert.deepEqual(chipKinds(''), []);
 });
