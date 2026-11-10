@@ -8,9 +8,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Auto-lock: the page's timer sends the same userLock as the lock button (the first two
-// tests), and the server's idle sweep locks a session whose browser is gone or asleep (the
-// rest, on a fake clock).
+// Auto-lock: the page's timer sends the same userLock as the lock button (idleLock), and
+// the server's idle sweep locks a session whose browser is gone or asleep (fake clock).
 
 func idleLock(t *testing.T, a *App, c *client) {
 	t.Helper()
@@ -162,6 +161,29 @@ func TestServerIdleLockPushesAndPingsKeepSiblings(t *testing.T) {
 	ping(t, a, sib)
 	if err := canTake(a, sib); !errors.Is(err, errPageLocked) {
 		t.Fatalf("a ping lifted the Lock: %v", err)
+	}
+}
+
+// periodic is what runs the sweep: due once idleEvery has passed since the last one.
+func TestPeriodicRunsIdleSweepWhenDue(t *testing.T) {
+	a, c, _ := persistentApp(t)
+	clk := useFakeClock(a)
+	setAutoLock(t, a, 5, "")
+	ping(t, a, c)
+	a.idleEvery = time.Minute
+	a.periodic() // first sweep, nothing idle yet
+	clk.pass(6 * time.Minute)
+	a.mu.Lock()
+	a.idleAt = clk.now().Add(-30 * time.Second) // swept 30 s ago: not due
+	a.mu.Unlock()
+	a.periodic()
+	if err := canTake(a, c); err != nil {
+		t.Fatalf("periodic swept before idleEvery: %v", err)
+	}
+	clk.pass(30 * time.Second)
+	a.periodic()
+	if err := canTake(a, c); !errors.Is(err, errPageLocked) {
+		t.Fatalf("periodic did not run the idle sweep: %v", err)
 	}
 }
 

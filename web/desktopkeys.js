@@ -5,11 +5,10 @@ import { mac, chord } from './keys.js';
 import { layout } from './layout.js';
 import { flipped } from './device.js';
 
-// Modifier rule: see AGENTS.md. Each check excludes the other two modifiers.
 // dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned.
 export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally }) {
   const { histList, histArea, onListKey, enterKeys, undoLast } = historyView;
-  // Modifier rule: see AGENTS.md. Each check excludes the other two modifiers.
+  // Modifier rule: docs/agents/web-layout.md (Keys). Each check excludes the other two modifiers.
   document.addEventListener('keydown', (e) => {
     if (confirm.isOpen()) return confirm.key(e);
     if (layout() !== 'desktop') return;

@@ -22,7 +22,14 @@ import (
 // The table is the dispatch: every rule has a handler, and the read loop has no switch
 // on the message type left to fall out of step with it.
 func TestPolicyCoversEveryMessage(t *testing.T) {
-	for _, file := range []string{"http.go", "users.go"} {
+	files, err := filepath.Glob("*.go")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no internal/app/*.go files: %v", err)
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") {
+			continue
+		}
 		f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
 		if err != nil {
 			t.Fatal(err)
