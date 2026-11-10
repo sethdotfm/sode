@@ -52,6 +52,16 @@ test('a cell that loses its item shows no default, and keeps its own artwork', (
   assert.deepEqual(artOf(withDefault({ kind: 'source', art: 'icon:mic' }, defs)), { icon: 'mic' });
 });
 
+test('a library icon as a default stays a reference: never .icon, so Icon B is a badge, fetched from the library', () => {
+  const lib = defaultsBy([{ kind: 'source', n: 5, art: 'lib:0123abcd', artB: '4' }]);
+  const c = withDefault({ kind: 'source', n: 5 }, lib);
+  assert.equal(c.art, 'lib:0123abcd');
+  assert.deepEqual(artOf(c), { id: 'lib:0123abcd', lib: true });
+  assert.equal(artBBadge(c), true);
+  assert.equal(artUrlPath('p-11111111', c.art), 'api/v1/icon-library/0123abcd');
+  assert.equal(defaultBody({ kind: 'source', n: 5, art: 'lib:0123abcd' }, 'p-11111111', true).art, 'lib:0123abcd');
+});
+
 test('a default image is an image to artNode: never .icon, so Icon B is a badge, fetched from its own route', () => {
   const c = withDefault({ kind: 'destination', n: 0 }, defs);
   assert.deepEqual(artOf(c), { id: 'd-0123abcd' });
