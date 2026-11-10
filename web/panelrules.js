@@ -5,7 +5,9 @@
 
 import { fullKey } from './panellink.js';
 
-export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current'];
+export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current', 'panelName', 'instanceName'];
+// Kinds that only show something and are never pressed.
+export const SHOW_KINDS = ['current', 'panelName', 'instanceName'];
 const NEEDS_NUMBER = ['source', 'destination'];
 export const PRESET_SCOPES = ['everyone', 'me'];
 
@@ -75,7 +77,7 @@ export function namesFrom(reply) {
   const dst = by(reply.destinations);
   const source = (n) => src.get(n) || `Source ${n + off}`;
   const destination = (n) => dst.get(n) || `Destination ${n + off}`;
-  const plain = { clear: 'Clear', current: 'Currently', preset: (c) => c.name };
+  const plain = { clear: 'Clear', current: 'Currently', panelName: 'Panel Name', instanceName: 'Instance Name', preset: (c) => c.name };
   const of = (cell) => {
     if (cell.caption) return cell.caption;
     if (cell.kind === 'source') return source(cell.n);
@@ -153,6 +155,13 @@ export function offlineOf({ failed, routerUp }) {
   if (failed) return { title: 'Offline', detail: 'This page lost contact with Sode. Nothing you press will reach the router until it is back.' };
   if (!routerUp) return { title: 'Offline', detail: 'Sode lost contact with the router. Nothing you press will reach it until it is back.' };
   return null;
+}
+
+// What a Panel Name or Instance Name cell shows: the name, with the caption as a line above it. A page with no
+// instance yet (still naming itself, or Test it live) shows the kind's own words.
+export function nameCellText(cell, { panelName = '', instance = '' } = {}) {
+  const value = cell.kind === 'panelName' ? panelName || 'Panel Name' : instance || 'Instance Name';
+  return { caption: cell.caption || '', value };
 }
 
 // The Current cell reads the viewed destination's name; a caption replaces the whole label.

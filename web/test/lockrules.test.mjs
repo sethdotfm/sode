@@ -16,6 +16,7 @@ import {
   dots,
   actorUser,
   groupActor,
+  byText,
   wrongFeedback,
   WRONG_MS,
   churnKey,
@@ -433,4 +434,20 @@ test('prefillName and focusName: username mode fills the box, and then the pad t
   assert.equal(focusName({ mode: 'username', held: false }, 'ana'), false);
   assert.equal(focusName({ mode: 'username', held: false }, ''), true);
   assert.equal(focusName({ mode: 'pin', held: false }, ''), false);
+});
+
+test('byText names the user and the panel page that made a take', () => {
+  const users = ['Ana'];
+  const fromPanel = { client: 'Ana (Panel wall)', actor: { kind: 'user', name: 'Ana', key: 'Panel wall' }, panel: 'Lobby Wall', instance: 'Front desk' };
+  assert.equal(byText(fromPanel, users), 'by Ana on panel Lobby Wall, instance Front desk');
+  assert.equal(byText({ ...fromPanel, instance: undefined }, users), 'by Ana on panel Lobby Wall');
+  // A panel's own client is no user: only the panel shows.
+  const client = { client: 'Ana (Panel wall)', actor: { kind: 'client', name: 'Panel wall' }, panel: 'Lobby Wall', instance: 'Front desk' };
+  assert.equal(byText(client, users), 'on panel Lobby Wall, instance Front desk');
+  assert.equal(byText({ client: 'Ana' }, users), 'by Ana');
+  assert.equal(byText({ client: '192.0.2.1' }, users), '');
+  // A Group shows what every take shares.
+  assert.equal(byText({ entries: [fromPanel, fromPanel] }, users), 'by Ana on panel Lobby Wall, instance Front desk');
+  assert.equal(byText({ entries: [fromPanel, { ...fromPanel, instance: 'Studio' }] }, users), 'by Ana on panel Lobby Wall');
+  assert.equal(byText({ entries: [fromPanel, { client: 'Ana' }] }, users), 'by Ana');
 });

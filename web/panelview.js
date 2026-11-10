@@ -2,7 +2,7 @@
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
 import { artOf, artBOf, cellScale, textHidden } from './panellook.js';
-import { currentLabel } from './panelrules.js';
+import { currentLabel, nameCellText, SHOW_KINDS } from './panelrules.js';
 import {
   sourceState,
   destinationState,
@@ -66,7 +66,7 @@ export function buildGrid(host, panel, cells, onPress, hold, art) {
     const cls = cell.kind === 'take' ? 'pb-btn pb-btn--commit sode-panel__take' : 'pb-btn pb-xpt';
     const b = el('button', `sode-panel__cell sode-panel__cell--${cell.kind} ${cls}`);
     b.type = 'button';
-    b.disabled = cell.kind === 'current';
+    b.disabled = SHOW_KINDS.includes(cell.kind);
     if (cell.fontSize) b.style.setProperty('--cell-fs', cellScale(cell));
     b._art = artNode(cell, art);
     if (b._art) b.append(b._art);
@@ -132,6 +132,12 @@ function paintCurrent(b, cell, { st, env, names }) {
   fill(b, el('small', 'sode-panel__text', label), el('span', 'sode-panel__text', src >= 0 ? names.source(src) : ''));
 }
 
+// Not pressable: the panel's own name, or the name of the instance showing it.
+function paintName(b, cell, ctx) {
+  const t = nameCellText(cell, ctx);
+  fill(b, ...(t.caption ? [el('small', 'sode-panel__text', t.caption)] : []), el('span', 'sode-panel__text', t.value));
+}
+
 function takeLabel(st, cell, now) {
   if (cell.caption) return cell.caption;
   if (st.mode === 'instant') return 'Take';
@@ -148,6 +154,7 @@ export function paintGrid(grid, ctx) {
     else if (cell.kind === 'destination') paintDestination(b, cell, ctx);
     else if (cell.kind === 'preset') paintPreset(b, cell, ctx);
     else if (cell.kind === 'current') paintCurrent(b, cell, ctx);
+    else if (cell.kind === 'panelName' || cell.kind === 'instanceName') paintName(b, cell, ctx);
     else if (cell.kind === 'clear') fill(b, el('span', 'sode-panel__text', ctx.names.of(cell)));
     else {
       fill(b, el('span', 'sode-panel__text', takeLabel(ctx.st, cell, ctx.now)));

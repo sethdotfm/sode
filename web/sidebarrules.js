@@ -95,6 +95,8 @@ export const ART_ICONS = [
   'zap',
   'eraser',
   'eye',
+  'panels-top-left',
+  'tablet-smartphone',
   'check',
   'equal',
   'x',

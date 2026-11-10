@@ -42,6 +42,10 @@ type Entry struct {
 	Unsent      []int     `json:"unsent,omitempty"`
 	SendErr     string    `json:"sendErr,omitempty"`
 	Cut         bool      `json:"cut,omitempty"` // the router changed under the take, so its Failed levels just got no answer
+	// Panel and Instance name the panel page that made the take (panelNames). With a user's key they are the
+	// page's own word, which the log marks unverified.
+	Panel    string `json:"panel,omitempty"`
+	Instance string `json:"instance,omitempty"`
 }
 
 // logLine: off turns 0-based numbers into the router's display numbers.

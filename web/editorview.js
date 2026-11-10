@@ -6,12 +6,22 @@ import { kindLabel } from './editorrules.js';
 import { artNode } from './panelview.js';
 import { cellScale, textHidden } from './panellook.js';
 
-const KIND_ICON = { source: 'arrow-right-from-line', destination: 'arrow-right-to-line', take: 'zap', preset: 'bookmark', clear: 'eraser', current: 'eye' };
+// keep in step with findrules.js CATEGORY_ICON
+const KIND_ICON = {
+  source: 'arrow-right-from-line',
+  destination: 'arrow-right-to-line',
+  take: 'zap',
+  preset: 'bookmark',
+  clear: 'eraser',
+  current: 'eye',
+  panelName: 'panels-top-left',
+  instanceName: 'tablet-smartphone',
+};
 
 // A cell's text in the editor: the caption, else the router name, else what is still to be chosen.
 export function cellText(cell, names) {
   if (cell.caption) return cell.caption;
-  if (cell.kind === 'take' || cell.kind === 'clear') return kindLabel(cell.kind);
+  if (['take', 'clear', 'panelName', 'instanceName'].includes(cell.kind)) return kindLabel(cell.kind);
   if (cell.kind === 'current') return 'Currently';
   if (cell.kind === 'preset') return cell.name || 'Choose a preset';
   if (!Number.isInteger(cell.n)) return `Choose a ${kindLabel(cell.kind).toLowerCase()}`;

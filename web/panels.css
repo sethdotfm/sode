@@ -208,12 +208,16 @@
 .sode-panel__cell[data-result="failed"] {
   box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
 }
-.sode-panel__cell--current:disabled {
+.sode-panel__cell--current:disabled,
+.sode-panel__cell--panelName:disabled,
+.sode-panel__cell--instanceName:disabled {
   background-color: var(--pb-surface-control);
   color: var(--pb-text-strong);
   opacity: 1;
 }
-.sode-panel__cell--current span {
+.sode-panel__cell--current span,
+.sode-panel__cell--panelName span,
+.sode-panel__cell--instanceName span {
   font-size: var(--pb-text-lg);
   font-weight: var(--pb-weight-bold);
 }
@@ -324,7 +328,22 @@
 }
 .sode-panel__cell small,
 .sode-panel__staged {
-  font-size: calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1));
+  font-size: min(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), 14cqi);
+}
+/* Text never runs past its square. Each cell and editor square is an inline-size container: text is held to its
+   width, breaks anywhere, and shrinks with the square (cqi) when the font size would not fit a word or two. */
+.sode-panel__cell,
+.sode-ed__sq {
+  container-type: inline-size;
+  overflow-wrap: anywhere;
+}
+.sode-panel__cell > :not(.sode-panel__art),
+.sode-ed__sq > :not(.sode-panel__art) {
+  max-inline-size: 100%;
+}
+.sode-panel__cell span.sode-panel__text,
+.sode-ed__text {
+  font-size: min(1em, 20cqi);
 }
 .sode-panel__take {
   font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
@@ -483,6 +502,15 @@
 }
 .sode__scrim > .pb-modal.sode-ov__share {
   width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+/* The key shown once after a make (panelkeytab.js showKey); lock.css is not loaded on panel pages. */
+.sode__scrim > .pb-modal.sode-ov__keyshow {
+  width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode-ov__keyshow .sode__secret {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
 }
 .sode-ov__indent {
   display: flex;
@@ -815,6 +843,8 @@
   gap: var(--pb-space-3);
   list-style: none;
   margin: 0;
+  max-height: 20rem;
+  overflow-y: auto;
   padding: 0;
 }
 .sode-ov__keyitem {
@@ -849,18 +879,21 @@
   flex-direction: column;
   gap: var(--pb-space-3);
 }
-.sode-ov__keylink .sode__secret-row {
+.sode-ov__keylink .sode__secret-row,
+.sode-ov__keyshow .sode__secret-row {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: var(--pb-space-3);
 }
-.sode-ov__keylink .sode__secret-key {
+.sode-ov__keylink .sode__secret-key,
+.sode-ov__keyshow .sode__secret-key {
   flex: 1 1 16rem;
   font-family: var(--pb-font-mono);
   min-width: 0;
 }
-.sode-ov__keylink .sode__qr {
+.sode-ov__keylink .sode__qr,
+.sode-ov__keyshow .sode__qr {
   align-self: flex-start;
   height: auto;
   width: 12rem;
@@ -997,11 +1030,11 @@
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
 }
-/* The icon picker: Icon A and Icon B side by side, each scrolling on its own. B is narrower (one glyph per button). */
+/* The icon picker: Icon A and Icon B side by side, half each, each scrolling on its own. */
 .sode-side__picker {
   display: grid;
-  gap: var(--pb-space-3);
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--pb-space-1);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 .sode-side__col {
   display: flex;

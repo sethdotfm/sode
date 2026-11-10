@@ -172,10 +172,16 @@ _Avoid_: screen (for an open panel page)
 One square of a panel's grid. It has a cell kind and may be a merged cell.
 
 **Cell kind**:
-What a cell does: Source, Destination, Preset, Take, Clear or Current Source. A Source or Destination cell is bound to a router number and shows the Router name.
+What a cell does: Source, Destination, Preset, Take, Clear, Current Source, Panel Name or Instance Name. A Source or Destination cell is bound to a router number and shows the Router name.
 
 **Current Source** (cell kind):
 A cell that shows, under the caption "Currently", the source now on the viewed destination. It cannot be pressed. It stays useful when that source has no cell in the grid.
+
+**Panel Name** (cell kind):
+A cell that shows the panel's name. It cannot be pressed. A caption is a line above the name.
+
+**Instance Name** (cell kind):
+A cell that shows the name of the instance showing the page, its device name. It cannot be pressed. A caption is a line above the name.
 
 **Viewed destination**:
 The destination whose current and staged source a panel's Source cells show. Pressing a Destination cell views it.

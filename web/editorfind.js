@@ -1,4 +1,4 @@
-// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets, Take, Clear, Current), with a preview of
+// Find in the panel editor's smart menu: one search over every kind a square can be (Sources, Destinations, Presets and the one-entry kinds), with a preview of
 // the fill in the grid before anything changes. Ranking, Rights and the fill itself are findrules.js; this file is
 // the DOM. initFind(editor) takes what runEditor returns.
 import { el, icon, $ } from './core.js';
@@ -20,7 +20,7 @@ import {
   findScope,
   offTag,
 } from './findrules.js';
-import { flyoutShift } from './editorrules.js';
+import { flyoutShift, pointerMoved } from './editorrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
 const STALE_MS = 5000;
@@ -40,6 +40,7 @@ export function initFind(editor) {
   let rebuilding = false;
   let preview = [];
   let quiet = false; // a group fill just landed, so no preview of filling it again until the user moves
+  let lastPointer = null; // where the pointer was over the list; null since the flyout opened
 
   const input = el('input', 'pb-input');
   input.type = 'search';
@@ -272,7 +273,12 @@ export function initFind(editor) {
   list.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.sode-find__row')) e.preventDefault(); // keeps focus in the box
   });
-  list.addEventListener('pointerover', (e) => {
+  // A redraw puts a new row under a still pointer and fires pointerover, so hover is read from moves instead: only
+  // a real move over a row takes the highlight, counted from the first move since the flyout opened.
+  list.addEventListener('pointermove', (e) => {
+    const moved = pointerMoved(lastPointer, e);
+    lastPointer = { x: e.clientX, y: e.clientY };
+    if (!moved) return;
     const li = e.target.closest('.sode-find__row');
     if (!li || picked.length > 1) return;
     const i = Number(li.dataset.i);
@@ -309,6 +315,7 @@ export function initFind(editor) {
   const close = () => {
     delete panel.dataset.open;
     hovered = false;
+    lastPointer = null;
     clearPreview();
     note.textContent = '';
   };

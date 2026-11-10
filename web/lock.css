@@ -450,10 +450,13 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   gap: var(--pb-space-4);
   margin-top: var(--pb-space-5);
 }
+/* Capped so a long list scrolls inside its dialog or tab instead of running off the screen. */
 .sode__key-list {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
+  max-height: 20rem;
+  overflow-y: auto;
 }
 .sode__key-row {
   align-items: center;

@@ -15,6 +15,7 @@ function stepper(ed, which, text, max) {
     b.id = `ed-${which}-${d < 0 ? 'dec' : 'inc'}`;
     b.setAttribute('aria-label', label);
     b.append(icon(name));
+    b.tabIndex = -1; // Tab goes input to input; the arrow keys step a number input
     return b;
   };
   const dec = step(-1, `Fewer ${text}`, 'minus');

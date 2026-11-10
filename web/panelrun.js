@@ -179,7 +179,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
 
   const render = () => {
     const now = Date.now();
-    paintGrid(grid, { st, env, names, now });
+    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance });
     say(ui.status, errorText(errorOf(st, now), names));
   };
   let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
@@ -312,6 +312,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     keep = startKeepalive(call, id, ui.device, instanceFrom(location.search), (name, editable) => {
       instance = name;
       showName(name, editable);
+      render();
     });
   }
   // A newer saved copy: rebuild the grid and the state from it, keeping the viewed destination. The watcher counts down and waits out staged routes first.
