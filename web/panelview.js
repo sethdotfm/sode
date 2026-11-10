@@ -134,6 +134,43 @@ function takeLabel(st, cell, now) {
   return st.guard === 'hold' ? 'Hold to take' : 'Take';
 }
 
+// The fixed destinations, each with its current source, its staged source and its Result icon, since a panel
+// with them draws no Destination cells. Hidden on a panel without the setting.
+export function paintStrip(host, { st, env, names, now }) {
+  if (host.hidden !== !st.fixed) host.hidden = !st.fixed;
+  if (!st.fixed) return host.firstChild && host.replaceChildren();
+  const same = host.children.length === st.fixed.length && st.fixed.every((n, i) => host.children[i].dataset.n === String(n));
+  if (!same) {
+    host.replaceChildren(
+      ...st.fixed.map((n) => {
+        const li = el('li', 'sode-panel__fixed-dst');
+        li.dataset.n = String(n);
+        return li;
+      }),
+    );
+  }
+  st.fixed.forEach((n, i) => {
+    const li = host.children[i];
+    const staged = st.staged.find((x) => x.dst === n);
+    li.dataset.s = staged ? 'staged' : 'idle';
+    const shown = resultShown(st, n, now);
+    li.dataset.result = shown?.result || '';
+    const name = el('span', 'sode-panel__fixed-name', names.destination(n));
+    if (shown) {
+      const mark = icon(RESULT_ICON[shown.result]);
+      mark.setAttribute('role', 'img');
+      mark.setAttribute('aria-label', shown.word);
+      name.append(' ', mark);
+      if (shown.text) name.append(' ', el('small', 'sode-panel__result', shown.text));
+    }
+    const cur = currentOfDestination(st, env, { n });
+    const under = env.protectedDsts.has(n) ? 'Protected' : cur >= 0 ? names.source(cur) : '';
+    const kids = [name, el('small', '', under)];
+    if (staged) kids.push(el('span', 'sode-panel__staged', `→ ${names.source(staged.src)}`));
+    fill(li, ...kids);
+  });
+}
+
 export function paintGrid(grid, ctx) {
   const on = armed(ctx.st, ctx.env);
   grid.cells.forEach((cell, i) => {

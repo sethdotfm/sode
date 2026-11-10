@@ -6,14 +6,19 @@
 // level subset. Settings: { mode: 'take' | 'instant', multi: bool, levels: [UI levels] | null, guard: 'none' | 'hold' | 'double' }.
 // A Preset cell is { kind: 'preset', scope, name }; env.presets maps presetKey(scope, name) to the
 // preset's items [{ src, dsts, levels }], where levels [] means every level.
-import { presetKey, rightsAllow } from './panelrules.js';
+// settings.fixedDests (Fixed destination) makes the list the panel's destinations for the life of the page: the
+// first one is the view, so Current Destination and the Source states read it, and Clear keeps it.
+import { presetKey, rightsAllow, fixedDestsOf } from './panelrules.js';
 
 export const RESULT_MS = 1500;
 export const ERROR_MS = 4000;
 export const GUARD_DOUBLE_MS = 1500;
 export const GUARD_HOLD_MS = 800;
 
+const fixedView = (fixed) => (fixed.length ? { dst: fixed[0], levels: null } : null);
+
 export function createState(settings = {}) {
+  const fixed = fixedDestsOf({ settings });
   return {
     mode: settings.mode || 'take',
     multi: settings.multi !== false,
@@ -22,7 +27,8 @@ export function createState(settings = {}) {
     guard: settings.guard === 'hold' || settings.guard === 'double' ? settings.guard : 'none',
     guardAt: 0, // first press of a double-press guard
     holdAt: 0, // start of a hold, 0 when none is running
-    view: null, // { dst, levels }: levels is the destination cell's own set, null for all
+    fixed: fixed.length ? fixed : null,
+    view: fixedView(fixed), // { dst, levels }: levels is the destination cell's own set, null for all
     staged: [], // [{ dst, src, levels }] in the order staged
     busy: false,
     results: {}, // dst -> { result, at }
@@ -65,7 +71,22 @@ export function pressDestination(st, cell) {
   return { ...st, view: { dst: cell.n, levels: cell.levels || null }, error: null };
 }
 
+// A refusal on any one fixed destination refuses the whole press. One that already has the source is left out.
+function pressSourceFixed(st, cell, env, now) {
+  const routes = [];
+  for (const dst of st.fixed) {
+    if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
+    const denied = outsideRights(env, cell.n, dst);
+    if (denied) return fail(st, denied, now);
+    const levels = shared(st, env, cell.levels, null);
+    if (!levels.length) return fail(st, { code: 'no-common-levels', src: cell.n, dst }, now);
+    if (currentOfDestination(st, env, { n: dst }) !== cell.n) routes.push({ dst, src: cell.n, levels });
+  }
+  return { ...st, staged: routes, error: null };
+}
+
 export function pressSource(st, cell, env, now) {
+  if (st.fixed) return pressSourceFixed(st, cell, env, now);
   if (!st.view) return fail(st, { code: 'no-destination' }, now);
   const dst = st.view.dst;
   if (env.protectedDsts.has(dst)) return fail(st, { code: 'protected', dst }, now);
@@ -79,13 +100,19 @@ export function pressSource(st, cell, env, now) {
   return { ...st, staged, error: null };
 }
 
+// With fixed destinations a Preset keeps only its routes to them.
+const presetItems = (st, items) =>
+  st.fixed ? items.map((it) => ({ ...it, dsts: it.dsts.filter((d) => st.fixed.includes(d)) })).filter((it) => it.dsts.length) : items;
+
 // A Preset stages every route it holds or none: one refused route refuses the whole preset.
 export function pressPreset(st, cell, env, now) {
-  const items = env.presets?.get(presetKey(cell.scope, cell.name));
-  if (!items?.length) return fail(st, { code: 'no-preset', name: cell.name }, now);
+  const all = env.presets?.get(presetKey(cell.scope, cell.name));
+  if (!all?.length) return fail(st, { code: 'no-preset', name: cell.name }, now);
   if (!rightsAllow(env.rights, 'presets', cell.name)) return fail(st, { code: 'outside-rights', what: 'preset', name: cell.name, quiet: quiet(env) }, now);
+  const items = presetItems(st, all);
+  if (!items.length) return fail(st, { code: 'preset-no-fixed', name: cell.name }, now);
   const dsts = new Set(items.flatMap((it) => it.dsts));
-  if (!st.multi && dsts.size > 1) return fail(st, { code: 'preset-multi', name: cell.name }, now);
+  if (!st.fixed && !st.multi && dsts.size > 1) return fail(st, { code: 'preset-multi', name: cell.name }, now);
   const routes = [];
   for (const it of items) {
     for (const dst of it.dsts) {
@@ -97,15 +124,17 @@ export function pressPreset(st, cell, env, now) {
       routes.push({ dst, src: it.src, levels });
     }
   }
+  const last = new Map(routes.map((x) => [x.dst, x]));
+  // The fixed set is staged together, so a press replaces the whole plan, as a Source press does.
+  if (st.fixed) return { ...st, staged: [...last.values()], error: null };
   const taken = new Set(routes.map((x) => x.dst));
   const others = st.multi && st.mode === 'take' ? st.staged.filter((x) => !taken.has(x.dst)) : [];
-  const last = new Map(routes.map((x) => [x.dst, x]));
   return { ...st, staged: [...others, ...last.values()], view: { dst: routes[0].dst, levels: null }, error: null };
 }
 
 export const unstage = (st, dst) => ({ ...st, staged: st.staged.filter((x) => x.dst !== dst) });
 
-export const clear = (st) => ({ ...st, view: null, staged: [], error: null, guardAt: 0, holdAt: 0 });
+export const clear = (st) => ({ ...st, view: fixedView(st.fixed || []), staged: [], error: null, guardAt: 0, holdAt: 0 });
 
 const valid = (st, env, x) => !env.protectedDsts.has(x.dst) && x.levels.length > 0;
 
@@ -172,14 +201,16 @@ export function applyTally(st, env) {
 
 export function sourceState(st, n, env) {
   if (!st.view) return 'idle';
+  if (st.fixed && st.staged.some((x) => x.src === n)) return 'pending';
   if (currentSource(env, st) === n) return 'current';
   return st.staged.some((x) => x.dst === st.view.dst && x.src === n) ? 'pending' : 'idle';
 }
 
 // pending while the plan holds every route of the preset, so the cell says it is what is staged.
 export function presetState(st, cell, env) {
-  const items = env.presets?.get(presetKey(cell.scope, cell.name));
-  if (!items?.length) return 'idle';
+  const all = env.presets?.get(presetKey(cell.scope, cell.name));
+  const items = all?.length ? presetItems(st, all) : [];
+  if (!items.length) return 'idle';
   return items.every((it) => it.dsts.every((d) => st.staged.some((x) => x.dst === d && x.src === it.src))) ? 'pending' : 'idle';
 }
 
@@ -204,8 +235,9 @@ export function resultShown(st, dst, now) {
 export const errorOf = (st, now) => (st.error && now - st.error.at <= ERROR_MS ? st.error : null);
 
 // A live update builds a fresh state; the destination being viewed survives it when the new copy still has that cell.
+// A fixed list in the new copy is its own view.
 export function carryView(next, prev, cells) {
-  if (!prev.view) return next;
+  if (!prev.view || next.fixed) return next;
   const cell = cells.find((c) => c.kind === 'destination' && c.n === prev.view.dst);
   return cell ? { ...next, view: { dst: cell.n, levels: cell.levels || null } } : next;
 }

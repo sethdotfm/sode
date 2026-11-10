@@ -7,7 +7,7 @@ import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
-import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, cellsIn, errorText, offlineOf } from './panelrules.js';
+import { keyFromHash, kioskOf, openFailText, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail } from './panelkeyrules.js';
 import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
 import {
@@ -28,7 +28,7 @@ import {
   guardCancel,
   GUARD_HOLD_MS,
 } from './panelmodel.js';
-import { buildGrid, paintGrid } from './panelview.js';
+import { buildGrid, paintGrid, paintStrip } from './panelview.js';
 import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
 import { createWake, buzz, enterFullscreen } from './panelfeel.js';
@@ -151,7 +151,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (look.wake) createWake(navigator, document).on();
   }
 
-  let cells = cellsIn(panel);
+  let cells = drawnCells(panel);
   const stateOf = (p) => {
     const set = p.settings || {};
     return createState({
@@ -160,6 +160,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       guard: set.guard,
       resultText: set.resultText,
       levels: Array.isArray(set.levels) && set.levels.length ? set.levels : null,
+      fixedDests: set.fixedDests,
     });
   };
   let st = stateOf(panel);
@@ -172,6 +173,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   const render = () => {
     const now = Date.now();
     paintGrid(grid, { st, env, names, now });
+    paintStrip(ui.strip, { st, env, names, now });
     say(ui.status, errorText(errorOf(st, now), names));
   };
   let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
@@ -316,7 +318,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     apply(p) {
       clearTimeout(holdTimer);
       panel = p;
-      cells = cellsIn(p);
+      cells = drawnCells(p);
       st = carryView(stateOf(p), st, cells);
       look = applyLook(p);
       grid = buildGrid(ui.grid, p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
