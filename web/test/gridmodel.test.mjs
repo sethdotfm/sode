@@ -9,6 +9,7 @@ import {
   resize,
   cellsLost,
   select,
+  selectAll,
   deselect,
   rectOf,
   selCells,
@@ -93,6 +94,16 @@ test('a selection grows to take in every merged cell it touches', () => {
   const g = grid([{ r: 1, c: 1, rs: 2, cs: 2, kind: 'take' }]);
   assert.deepEqual(rectOf(pick(g, 2, 2, 2, 3)), { r1: 1, c1: 1, r2: 2, c2: 3 });
   assert.equal(single(pick(g, 2, 2)).kind, 'take');
+});
+
+test('select all takes every square, merged cells and all, and changes no cell', () => {
+  const g = grid([{ r: 1, c: 1, rs: 2, cs: 2, kind: 'take' }, S(4, 8, 0)]);
+  const h = selectAll(g);
+  assert.deepEqual(rectOf(h), { r1: 1, c1: 1, r2: 4, c2: 8 });
+  assert.equal(selSquares(h), 32);
+  assert.equal(selCells(h).length, 2);
+  assert.deepEqual(h.cells, g.cells);
+  assert.deepEqual(rectOf(selectAll(createGrid({ rows: 2, cols: 3 }))), { r1: 1, c1: 1, r2: 2, c2: 3 });
 });
 
 test('select off the grid is ignored, deselect clears, and single needs exactly one cell', () => {
@@ -346,7 +357,10 @@ test('the grip needs a target that grows the selection on exactly one side', () 
 test('a cell with a kind but no number is unassigned, in reading order, and a Take is not', () => {
   const g = grid([S(2, 1, 0), { r: 1, c: 5, kind: 'destination' }, { r: 1, c: 2, kind: 'source' }, { r: 3, c: 3, kind: 'take' }]);
   assert.deepEqual(
-    g.cells.filter(isUnassigned).map((c) => [c.r, c.c]).sort((a, b) => a[0] - b[0] || a[1] - b[1]),
+    g.cells
+      .filter(isUnassigned)
+      .map((c) => [c.r, c.c])
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1]),
     [
       [1, 2],
       [1, 5],

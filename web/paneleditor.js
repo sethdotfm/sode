@@ -11,6 +11,7 @@ import {
   resize,
   select,
   deselect,
+  selectAll,
   rectOf,
   selCells,
   setKind,
@@ -41,6 +42,7 @@ import { copyText } from './panellinkrow.js';
 import { createEditorGrid } from './editorview.js';
 import { createArt } from './panelart.js';
 import { createSmartMenu } from './editormenu.js';
+import { gridCommand } from './gridchords.js';
 import { createLive } from './editorlive.js';
 
 const say = (id, text) => {
@@ -152,6 +154,11 @@ export async function runEditor() {
   document.addEventListener('pointerdown', leave);
   document.addEventListener('focusin', leave);
 
+  // One entry per command name in gridchords.js GRID_CHORDS.
+  const gridCommands = {
+    selectAll: () => setGrid(selectAll(g)),
+  };
+
   function onKey(e) {
     if (readOnly()) return;
     if (menuAway) {
@@ -159,6 +166,11 @@ export async function runEditor() {
       refresh();
     }
     if (menu.run(e)) return void e.preventDefault();
+    const run = gridCommands[gridCommand(e)];
+    if (run) {
+      e.preventDefault();
+      return void run();
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (keyHooks.some((fn) => fn(e))) return;
     const arrow = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];

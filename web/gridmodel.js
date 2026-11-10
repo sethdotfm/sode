@@ -84,6 +84,8 @@ export function select(g, r, c, extend = false) {
 
 export const deselect = (g) => (g.sel ? { ...g, sel: null } : g);
 
+export const selectAll = (g) => selectRect(g, { r1: 1, c1: 1, r2: g.rows, c2: g.cols });
+
 // The selection as a rectangle grown until it holds every merged cell it touches whole.
 export function rectOf(g) {
   if (!g.sel) return null;
