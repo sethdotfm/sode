@@ -366,10 +366,14 @@ func (a *App) apiPanelCopy(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 		a.panelStoreFail(w, err)
 		return
 	}
-	a.panels.copyArt(src, made.ID)
+	skipped := a.panels.copyArt(src, made.ID)
 	made, _ = a.panels.get(made.ID)
 	a.apiEvent(cl.Actor, "panelCopy", "ok", "panel "+made.ID+" copied from "+src.ID, nil)
-	apiCreated(w, a.panelOut(made, true))
+	out := a.panelOut(made, true)
+	if len(skipped) > 0 {
+		out["artSkipped"] = skipped
+	}
+	apiCreated(w, out)
 }
 
 // apiArtUpload takes the image as the raw body. Its type is decided by its content: the
