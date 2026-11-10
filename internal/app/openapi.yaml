@@ -1269,6 +1269,40 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/hide:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: instance, in: query, required: true, schema: { type: string, maxLength: 40 }, description: "A device name, compared ignoring case. Blank is 400 `bad_request`" }
+    post:
+      operationId: hidePanelInstance
+      tags: [panels]
+      summary: Hide an instance from the caller's panels page
+      description: |
+        Scope `panels`. Same caller rules as watching. The instance leaves the caller's
+        `instances` view and the `instancesOnline` and `instancesKnown` counts; it ends no key and
+        no watch, and other users still see it. Kept in memory only, and lifted for everyone when the
+        device is next heard after it was lost or forgotten. Hiding twice is a 204 too.
+      responses:
+        "204": { description: Hidden }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: unhidePanelInstance
+      tags: [panels]
+      summary: Show a hidden instance again
+      description: Scope `panels`. Same caller rules as watching. Not hidden is a 204 too.
+      responses:
+        "204": { description: Shown }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}/artwork:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
@@ -1660,16 +1694,43 @@ components:
             online: { type: boolean, description: Output only. A device was heard in the last 45 seconds, on a list or a read }
             watching: { type: boolean, description: Output only. The calling user watches the whole panel; never a list of watchers }
             watchingInstances: { type: array, items: { type: string }, description: Output only. The devices (lowercase) the calling user watches one by one }
+            hiddenInstances: { type: array, items: { type: string }, description: "Output only. The devices (lowercase) the calling user hid on the panels page" }
+            instancesOnline: { type: integer, description: Output only. How many of the caller's counted devices are online now }
+            instancesKnown:
+              type: integer
+              description: |
+                Output only. The devices counted for the caller: those heard since Sode started and
+                those the caller watches one by one, less the ones the caller hid. The panels page
+                reads All Online, Some Online or All Offline from this and `instancesOnline`
             instances:
               type: array
               description: Output only, for an editor. The devices that have opened the panel since Sode started
               items:
                 type: object
-                required: [device, seen, online]
+                required: [device, seen, online, uptime]
                 properties:
                   device: { type: string }
                   seen: { type: string, format: date-time }
                   online: { type: boolean }
+                  uptime:
+                    type: object
+                    description: |
+                      The last 24 hours of this device, in memory only. Times are Unix milliseconds;
+                      `start` is the state at `from` ("" before the device was first heard) and `trans`
+                      the changes after it, `up` or `down`, oldest first
+                    required: [from, to, start, trans]
+                    properties:
+                      from: { type: integer, format: int64 }
+                      to: { type: integer, format: int64 }
+                      start: { type: string, enum: ["", up, down] }
+                      trans:
+                        type: array
+                        items:
+                          type: object
+                          required: [t, s]
+                          properties:
+                            t: { type: integer, format: int64 }
+                            s: { type: string, enum: [up, down] }
             rights:
               type: object
               description: |

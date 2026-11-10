@@ -1048,7 +1048,7 @@ html:has(.sode__scrim:not([hidden])) {
 /* Dismiss countdown on a toast's close box (panelwatch.js sets --toast-ms to the dismiss time): a ring that sweeps away.
    Under reduced motion the ring stays whole, since the toast still goes on its own. */
 @property --toast-left {
-  syntax: '<angle>';
+  syntax: "<angle>";
   inherits: false;
   initial-value: 360deg;
 }
@@ -1058,7 +1058,7 @@ html:has(.sode__scrim:not([hidden])) {
 .sode__toast-timed::after {
   animation: sode-toast-ring var(--toast-ms) linear forwards;
   background: conic-gradient(var(--pb-status-ok) var(--toast-left), transparent 0);
-  content: '';
+  content: "";
   inset: 0;
   mask:
     linear-gradient(#000 0 0) content-box exclude,
@@ -1086,4 +1086,54 @@ html:has(.sode__scrim:not([hidden])) {
   mask: url("panels-logo.svg") center / contain no-repeat;
   vertical-align: middle;
   width: 1.25rem;
+}
+
+/* Uptime strip: the router on /log and each instance on /panels (uptimebars.js). */
+.sode-up__bars {
+  display: flex;
+  gap: 1px;
+  height: var(--pb-space-8);
+}
+.sode-up__bar {
+  background: var(--pb-surface-control);
+  border: 0;
+  flex: 1 1 0;
+  min-width: 1px;
+  padding: 0;
+}
+button.sode-up__bar:not(:disabled) {
+  cursor: pointer;
+}
+/* A short strip under each instance on /panels. */
+.sode-up__bars--sm {
+  height: var(--pb-space-4);
+}
+button.sode-up__bar:not(:disabled):hover,
+.sode-up__bar:focus-visible {
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-text-strong);
+}
+.sode-up__bar--sel,
+.sode-up__bar--sel:hover {
+  box-shadow: inset 0 0 0 calc(var(--pb-border-w) * 3) var(--pb-text-strong);
+}
+.sode-up__bar--ok {
+  background: var(--pb-status-ok);
+}
+.sode-up__bar--warn {
+  background: var(--pb-status-warn-fill);
+}
+.sode-up__bar--error {
+  background: var(--pb-status-error);
+}
+.sode-up__bar--none {
+  background: var(--pb-surface-control);
+}
+.sode-up__bar--future {
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-surface-control);
+}
+.sode-up__key {
+  display: inline-block;
+  height: var(--pb-space-4);
+  width: var(--pb-space-4);
 }

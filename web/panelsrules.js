@@ -130,3 +130,28 @@ export function stepPanel(ids, cur, step) {
   const i = ids.indexOf(cur);
   return ids[Math.min(ids.length - 1, Math.max(0, (i < 0 ? 0 : i) + step))];
 }
+
+// The panel's status across the instances counted for this user (instancesOnline of instancesKnown, hidden ones left
+// out by the server). No instance at all reads All Offline: nothing is open.
+export function panelStatus(p) {
+  const on = p.instancesOnline || 0;
+  const known = Math.max(p.instancesKnown || 0, on);
+  if (known && on === known) return { text: 'All Online', tone: 'ok' };
+  if (on) return { text: 'Some Online', tone: 'warn' };
+  return { text: 'All Offline', tone: '' };
+}
+
+// The Open now rows: every instance Sode knows, then the ones the user watches that Sode has not heard from since it
+// started, less the ones the user hid. Names compare ignoring case.
+export function shownInstances(p) {
+  const hidden = new Set(p.hiddenInstances || []);
+  const seen = new Set((p.instances || []).map((i) => i.device.toLowerCase()));
+  const gone = (p.watchingInstances || []).filter((d) => !seen.has(d)).map((d) => ({ device: d, online: false, seen: '' }));
+  return [...(p.instances || []), ...gone].filter((i) => !hidden.has(i.device.toLowerCase()));
+}
+
+// The hidden instances still worth naming: those Sode knows or the user watches.
+export function hiddenShown(p) {
+  const all = new Set([...(p.instances || []).map((i) => i.device.toLowerCase()), ...(p.watchingInstances || [])]);
+  return (p.hiddenInstances || []).filter((d) => all.has(d));
+}
