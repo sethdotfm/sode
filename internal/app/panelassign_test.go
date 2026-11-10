@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -132,6 +133,97 @@ func TestAssignSendsAKeyForTheTargetDownOnlyThatInstancesStream(t *testing.T) {
 	if strings.Contains(row.Note, key) {
 		t.Fatal("the row carries the key")
 	}
+}
+
+// Anyone who may use a panel can hold a stream under any device name, so the key goes to the newest stream alone.
+func TestAssignSendsTheKeyToTheNewestStreamOfADeviceOnly(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
+	to := makePanel(t, a, cy, assignTarget)
+	lobbyKey := instanceKey(t, a, from, cy, "Lobby")
+	older := assignHold(t, a, from, lobbyKey, "Lobby")
+	newest := assignHold(t, a, from, lobbyKey, "Lobby")
+
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Lobby", "")); rec.Code != 200 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	if msg := assignLineOf(t, newest); msg["key"] == nil {
+		t.Fatalf("message %v", msg)
+	}
+	select {
+	case m, ok := <-older:
+		if ok {
+			t.Fatalf("the older stream heard it: %v", m)
+		}
+	case <-time.After(300 * time.Millisecond):
+	}
+}
+
+// A key whose line no stream wrote is revoked and the Assign fails: the stream closed with the line still queued,
+// or its write failed.
+func TestAssignFailsAndDropsTheKeyWhenNoStreamWroteTheLine(t *testing.T) {
+	cases := []struct {
+		name  string
+		open  func(a *App, from string, cancel context.CancelFunc) (body string, drop func(), out <-chan lastLine)
+		close bool // the stream closes with the line queued; else its write fails
+	}{
+		{"stream closed", openTestStream, true},
+		{"write failed", openTestStream, false},
+		{"keyless stream closed", openTestKeyless, true},
+		{"keyless write failed", openTestKeyless, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			a := panelsApp(t)
+			defer startLog(t, a)()
+			cy := userKey(t, a, "Cy")
+			from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api"}`)
+			to := makePanel(t, a, cy, assignTarget)
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			body, drop, out := c.open(a, from, cancel)
+			defer drop()
+			go func() {
+				if c.close {
+					for len(out) == 0 {
+						time.Sleep(5 * time.Millisecond)
+					}
+					drop()
+					return
+				}
+				l := <-out
+				l.got <- false
+			}()
+
+			start := time.Now()
+			wantErr(t, apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, body), 409, "conflict")
+			if time.Since(start) > 3*time.Second {
+				t.Fatalf("the refusal took %v", time.Since(start))
+			}
+			if rec := apiSend(a, "GET", "/api/v1/panels/"+to+"/keys", cy, ""); strings.Contains(rec.Body.String(), `"name":"Lobby"`) {
+				t.Fatalf("the key outlived the line: %s", rec.Body.String())
+			}
+			for _, r := range logged(t, a) {
+				if r.Why == "assign" && r.Result == "ok" {
+					t.Fatalf("row %+v", r)
+				}
+			}
+		})
+	}
+}
+
+func openTestStream(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
+	done, out, _, err := a.mon.openStream(from, "Lobby", streamWho{addr: "192.0.2.7", signIn: "client"}, cancel)
+	if err != nil {
+		panic(err)
+	}
+	return assignBody(from, "Lobby", ""), sync.OnceFunc(done), out
+}
+
+func openTestKeyless(a *App, from string, cancel context.CancelFunc) (string, func(), <-chan lastLine) {
+	done, out := a.mon.openKeyless(from, "192.0.2.7", "Lobby", false, cancel)
+	return `{"keyless":"` + a.mon.keylessOf(Panel{ID: from})[0].Keyless + `"}`, sync.OnceFunc(done), out
 }
 
 func TestAssignNeedsATrustedUserOrThePin(t *testing.T) {

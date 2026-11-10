@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -86,7 +85,7 @@ func (m *panelMon) noteAddrLocked(addr, device string) {
 }
 
 // openKeyless registers a held keyless stream. The returned func drops it.
-func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel context.CancelFunc) (func(), <-chan []byte) {
+func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel context.CancelFunc) (func(), <-chan lastLine) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := m.now()
@@ -110,12 +109,13 @@ func (m *panelMon) openKeyless(ref, addr, device string, ended bool, cancel cont
 	m.noteAddrLocked(addr, device)
 	in.next++
 	n := in.next
-	out := make(chan []byte, 1)
+	out := make(chan lastLine, 1)
 	in.conns[n] = monConn{cancel, out}
 	return func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		delete(in.conns, n)
+		unsent(out)
 		if len(in.conns) == 0 {
 			in.seen = m.now()
 		}
@@ -135,7 +135,7 @@ func (m *panelMon) dropOldestKeylessLocked(now time.Time) {
 	delete(m.keyless, old)
 }
 
-// sweepKeyless drops closed entries and address names older than keylessKeep. Caller holds mu.
+// sweepKeylessLocked drops closed entries and address names older than keylessKeep. Caller holds mu.
 func (m *panelMon) sweepKeylessLocked(now time.Time) {
 	for k, in := range m.keyless {
 		if len(in.conns) == 0 && now.Sub(in.seen) > keylessKeep {
@@ -212,24 +212,17 @@ func (m *panelMon) keylessLive(id string) (ref string, row keylessOut, ok bool) 
 	return "", keylessOut{}, false
 }
 
-// sendKeyless queues b on the entry's newest stream only: the streams are unauthenticated, so two that share an
-// address and name are not known to be one device. Answers whether one took it.
-func (m *panelMon) sendKeyless(id string, b []byte) bool {
+// sendKeyless offers b to the entry's newest stream only: the streams are unauthenticated, so two that share an
+// address and name are not known to be one device. nil when none holds it.
+func (m *panelMon) sendKeyless(id string, b []byte) <-chan bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, in := range m.keyless {
-		if in.id != id || len(in.conns) == 0 {
-			continue
-		}
-		c := in.conns[slices.Max(slices.Collect(maps.Keys(in.conns)))]
-		select {
-		case c.out <- b:
-			return true
-		default:
-			return false
+		if in.id == id && len(in.conns) > 0 {
+			return newestConn(in.conns).offer(b)
 		}
 	}
-	return false
+	return nil
 }
 
 // dropKeyless forgets an entry once its page has left for the target.
@@ -283,10 +276,10 @@ func (a *App) apiPanelKeyless(w http.ResponseWriter, r *http.Request, _ *apiCtx)
 			if !line() {
 				return
 			}
-		case b := <-out:
+		case l := <-out:
 			_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
-			_, _ = w.Write(append(b, '\n'))
-			_ = rc.Flush()
+			_, err := w.Write(append(l.b, '\n'))
+			l.got <- err == nil && rc.Flush() == nil
 			return
 		}
 	}

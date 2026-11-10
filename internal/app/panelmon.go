@@ -84,10 +84,60 @@ func (in *monInst) limit() time.Duration {
 
 func (in *monInst) live(now time.Time) bool { return now.Sub(in.seen) <= in.limit() }
 
-// monConn is one held stream: cancel ends it, and out carries its last line, an Assign (panelassign.go).
+// monConn is one held stream: cancel ends it, and out carries its last line, an Assign or a rename.
 type monConn struct {
 	cancel context.CancelFunc
-	out    chan []byte
+	out    chan lastLine
+}
+
+// lastLine is a stream's last line. got (buffered 1) answers whether the handler wrote it, false when the
+// stream closed with it still queued.
+type lastLine struct {
+	b   []byte
+	got chan bool
+}
+
+// lastWait outlasts the stream handlers' 5s write deadline twice: a beat being written, then the line.
+const lastWait = 11 * time.Second
+
+// offer queues b without blocking and answers the channel that says whether it was written; nil when a line
+// is already queued.
+func (c monConn) offer(b []byte) <-chan bool {
+	l := lastLine{b, make(chan bool, 1)}
+	select {
+	case c.out <- l:
+		return l.got
+	default:
+		return nil
+	}
+}
+
+// newestConn is the stream opened last. conns must not be empty.
+func newestConn(conns map[int]monConn) monConn {
+	return conns[slices.Max(slices.Collect(maps.Keys(conns)))]
+}
+
+// written waits for a stream's answer to an offer. Call it with no lock held.
+func written(got <-chan bool) bool {
+	if got == nil {
+		return false
+	}
+	select {
+	case ok := <-got:
+		return ok
+	case <-time.After(lastWait):
+		return false
+	}
+}
+
+// unsent answers false for a line still queued on a closing stream. Caller holds mu, after removing the conn, so
+// nothing more is queued on it.
+func unsent(out chan lastLine) {
+	select {
+	case l := <-out:
+		l.got <- false
+	default:
+	}
 }
 
 // monEvent is a transition to tell watchers about.
@@ -395,7 +445,7 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 
 // openStream registers a held connection of a device; cancel ends it and out is what to write on it.
 // The returned func drops it.
-func (m *panelMon) openStream(id, device string, who streamWho, cancel context.CancelFunc) (func(), <-chan []byte, *monEvent, error) {
+func (m *panelMon) openStream(id, device string, who streamWho, cancel context.CancelFunc) (func(), <-chan lastLine, *monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	in, ev, err := m.touchLocked(id, device)
@@ -410,13 +460,14 @@ func (m *panelMon) openStream(id, device string, who streamWho, cancel context.C
 	m.noteAddrLocked(who.addr, device)
 	in.next++
 	n := in.next
-	out := make(chan []byte, 1)
+	out := make(chan lastLine, 1)
 	in.conns[n] = monConn{cancel, out}
 	in.streamed = true
 	closeFn := func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		delete(in.conns, n)
+		unsent(out)
 		if len(in.conns) == 0 {
 			in.seen = m.now()
 		}
@@ -753,9 +804,12 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 			if !line() {
 				return
 			}
-		case b := <-out:
+		case l := <-out:
 			_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
-			if _, err := w.Write(append(b, '\n')); err == nil && rc.Flush() == nil {
+			_, err := w.Write(append(l.b, '\n'))
+			ok := err == nil && rc.Flush() == nil
+			l.got <- ok
+			if ok {
 				// The page leaves for the target panel: a deliberate move is no lost alarm here.
 				a.mon.forgetDevice(p.ID, device)
 			}
