@@ -117,6 +117,25 @@ func TestKeylessRowsAreNeverStoredFromASavedRead(t *testing.T) {
 	}
 }
 
+// A checkpoint or set saved before the fix carries keyless in its extra; a Push or restore of it stores none.
+func TestKeylessRowsInAnOldLayoutAreNotStored(t *testing.T) {
+	a := panelsApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, `{"name":"Studio A"}`)
+	lay := panelLayout{Rows: 4, Cols: 8, Cells: []map[string]any{}, Settings: map[string]any{},
+		Extra: map[string]any{"keyless": []any{map[string]any{"addr": "10.0.0.9"}}, "future": 7}}
+	if _, _, err := a.panels.pushLayout(id, lay, "Cy", "test"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := a.panels.get(id)
+	if _, ok := got.Extra["keyless"]; ok || got.Extra["future"] != 7 {
+		t.Fatalf("stored %v", got.Extra)
+	}
+	if _, ok := lay.Extra["keyless"]; !ok {
+		t.Fatalf("the layout itself was changed")
+	}
+}
+
 func TestKeylessPageIsListedByItsNameAndAddress(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
