@@ -71,7 +71,9 @@ func startBrowser(t *testing.T) *tab {
 	var ctx context.Context
 	var cancel context.CancelFunc
 	for try := 0; try < 3 && port == ""; try++ {
-		dir := t.TempDir()
+		// Chrome's helper processes can still write to the profile after the main one exits, which makes
+		// t.TempDir's single RemoveAll fail with "directory not empty" on a slow runner.
+		dir := settledTempDir(t)
 		ctx, cancel = context.WithCancel(context.Background())
 		cmd := exec.CommandContext(ctx, bin, "--headless=new", "--remote-debugging-port=0", "--user-data-dir="+dir,
 			"--no-first-run", "--no-default-browser-check", "--disable-gpu", "--window-size=1280,800", "about:blank")
