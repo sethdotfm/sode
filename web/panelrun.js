@@ -284,7 +284,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   function onPress(cell) {
     if (!ready) return;
     wake?.retry();
-    if (look.haptics && !embedded) buzz(navigator);
+    if (look.haptics && !embedded) buzz(navigator, document);
     if ((look.fullscreen || look.landscape) && !embedded) enterFullscreen(document, look.landscape);
     const now = Date.now();
     if (cell.kind === 'take') {

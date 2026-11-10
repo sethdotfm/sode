@@ -237,3 +237,23 @@ test('a switch the browser cannot honour gets a note, and https is named for the
   assert.match(featureNotes(on, {}, true)[1], /no vibration/);
   assert.equal(featureNotes(on, { wakeLock: { request() {} }, vibrate() {} }, true).length, 0);
 });
+
+test('iOS ticks through a switch input where there is no vibrate', () => {
+  const log = [];
+  const doc = {
+    body: { append: (n) => log.push('append', n.tag) },
+    createElement: (tag) => ({
+      tag,
+      style: {},
+      setAttribute: (k) => log.push(`attr ${k}`),
+      append() {},
+      click: () => log.push('click'),
+      remove: () => log.push('remove'),
+    }),
+  };
+  const iphone = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' };
+  assert.equal(featureSupport(iphone).haptics, true);
+  assert.equal(buzz(iphone, doc), true);
+  assert.ok(log.includes('attr switch') && log.indexOf('click') < log.indexOf('remove'));
+  assert.equal(buzz({ userAgent: 'Linux' }, doc), false);
+});
