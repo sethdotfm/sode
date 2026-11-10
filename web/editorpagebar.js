@@ -1,6 +1,6 @@
 // The editor's Pages bar, left of the grid: a row per Page with its number, name, enabled checkbox (a checkbox, not
-// a switch: the change waits for Save), rename, Copy to, Move up, Move down and Delete page, rows dragged to reorder,
-// and Add page. Rules are editorpagerules.js; paneleditor.js holds the list and does each act.
+// a switch: the change waits for Save), rename, Copy to, Move up, Move down and Delete Page, rows dragged to reorder,
+// and Add Page. Rules are editorpagerules.js; paneleditor.js holds the list and does each act.
 import { el, icon } from './core.js';
 import { btn } from './formbits.js';
 import { confirmBox } from './confirmbox.js';
@@ -12,7 +12,7 @@ export function createPageBar(host, act) {
   const list = el('ol', 'sode-pages__list');
   const add = btn('pb-btn--outline pb-btn--sm sode-pages__add', '', () => act.add());
   add.id = 'ed-page-add';
-  add.append(icon('plus'), el('span', null, 'Add page'));
+  add.append(icon('plus'), el('span', null, 'Add Page'));
   const full = el('p', 'sode__hint', `A panel holds at most ${PAGE_MAX} Pages.`);
   const ask = confirmBox(host);
   host.append(el('h2', 'sode-pages__title', 'Pages'), list, add, full, ask.node);
@@ -79,7 +79,10 @@ export function createPageBar(host, act) {
     on.disabled = s.readOnly;
     on.dataset.act = 'enable';
     on.setAttribute('aria-label', `Page ${i + 1} enabled`);
-    on.addEventListener('change', () => act.enable(i, on.checked));
+    // A refused change (the last enabled Page) may not repaint the bar, so the box is put back here.
+    on.addEventListener('change', () => {
+      if (act.enable(i, on.checked) === false) on.checked = true;
+    });
     const tools = el(
       'div',
       'sode-pages__tools',
@@ -91,7 +94,7 @@ export function createPageBar(host, act) {
       iconBtn('copy', 'Copy to', 'copy', () => act.copyTo(i)),
       iconBtn('arrow-up', 'Move up', 'up', () => act.move(i, i - 1)),
       iconBtn('arrow-down', 'Move down', 'down', () => act.move(i, i + 1)),
-      iconBtn('trash-2', 'Delete page', 'delete', () => remove(s.pages, i)),
+      iconBtn('trash-2', 'Delete Page', 'delete', () => remove(s.pages, i)),
     );
     for (const b of tools.querySelectorAll('button')) {
       b.dataset.i = String(i);

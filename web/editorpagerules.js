@@ -1,4 +1,4 @@
-// The editor's Pages bar rules: Add page, Move up and down, rename, enable, Delete page, Copy to and which Pages are
+// The editor's Pages bar rules: Add Page, Move up and down, rename, enable, Delete Page, Copy to and which Pages are
 // open. Pure; editorpagebar.js draws them and paneleditor.js holds the list. None of these is an undo step except
 // Copy to (docs/panels-design.md). Pages are named by id, which never changes, so Go to Page cells keep their target.
 import { PAGE_MAX, PAGE_NAME_MAX, newPageId } from './panelpages.js';
@@ -28,10 +28,18 @@ export function renamePage(pages, i, text) {
   });
 }
 
-export const enablePage = (pages, i, on) => pages.map((p, j) => (j === i ? { ...p, enabled: !!on } : p));
+// The last enabled Page stays on (the same pages back), since the panel page would fall back to a disabled Page 1.
+export function enablePage(pages, i, on) {
+  if (!on && pages[i]?.enabled !== false && pages.filter((p) => p.enabled !== false).length <= 1) return pages;
+  return pages.map((p, j) => (j === i ? { ...p, enabled: !!on } : p));
+}
 
-// A panel keeps at least one Page. Go to Page cells to a deleted Page stay as they are and read as missing (panelnav.js).
-export const deletePage = (pages, i) => (pages.length <= 1 ? pages : pages.filter((_, j) => j !== i));
+// A panel keeps at least one Page, and one of them enabled. Go to Page cells to a deleted Page stay as they are and read
+// as missing (panelnav.js).
+export function deletePage(pages, i) {
+  const left = pages.filter((_, j) => j !== i);
+  return left.length && left.some((p) => p.enabled !== false) ? left : pages;
+}
 
 // How many Go to Page cells, on any Page, lead to the Page with this id.
 export const leadsTo = (pages, id) => pages.reduce((n, p) => n + (p.cells || []).filter((c) => c.kind === 'goToPage' && c.page === id).length, 0);

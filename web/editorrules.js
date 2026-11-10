@@ -56,8 +56,8 @@ export const newPanel = () => ({
 
 // PUT replaces the panel, so what the editor does not own goes back as it came (settings, sharing, unknown fields).
 // fields is the sidebar's edits: {settings, acts, clientRights}, each present only once edited. clientRights is
-// left out otherwise so the server keeps the stored Rights (an administrator may have widened them). grid is Page 1;
-// pages is the Page list the editor holds, and the server refuses a body with both pages and cells.
+// left out otherwise so the server keeps the stored Rights (an administrator may have widened them). grid is Page 1 as stored,
+// whichever Page has focus; pages is the Page list with every Page's edits, and the server refuses a body with both pages and cells.
 export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded || newPanel())) {
   const rest = { ...loaded };
   delete rest.canEdit;

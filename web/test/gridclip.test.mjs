@@ -203,6 +203,10 @@ test('a Go to Page cell pasted into another panel arrives unassigned, with a not
   const same = pastePlan(g, b, { panel: 'p-1' });
   assert.equal(same.placed[0].page, 'aa');
   assert.equal(same.lostTargets, 0);
+  // Pages of a panel not yet saved already have their ids, so a paste inside it keeps them.
+  const unsaved = pastePlan(g, { ...b, panel: '' }, { panel: '' });
+  assert.equal(unsaved.placed[0].page, 'aa');
+  assert.equal(unsaved.lostTargets, 0);
 });
 
 test('while Fixed destination is on, Destination cells in the block are skipped and counted', () => {
@@ -230,4 +234,44 @@ test('the note counts what was pasted', () => {
   const g = pick(grid([]), 1, 1);
   const one = pastePlan(g, block([{ r: 1, c: 1, rs: 1, cs: 1, kind: 'take' }], 1, 1), { panel: 'p-1' });
   assert.equal(pasteNote(one), 'Pasted 1 cell.');
+});
+
+test('a block with any cell field of the wrong shape is refused whole', () => {
+  const one = (cell) => JSON.stringify({ sode: CLIP_MARK, version: CLIP_VERSION, panel: 'p-1', rows: 2, cols: 2, cells: [{ r: 1, c: 1, rs: 1, cs: 1, ...cell }] });
+  const bad = [
+    { kind: 'take', caption: {} },
+    { kind: 'take', caption: 'x'.repeat(41) },
+    { kind: 'source', n: 1, levels: 5 },
+    { kind: 'source', n: 1, levels: [0] },
+    { kind: 'source', n: 1, levels: [1.5] },
+    { kind: 'source', n: 'abc' },
+    { kind: 'source', n: -1 },
+    { kind: 'source', n: 70000 },
+    { kind: 'goToPage', page: 7 },
+    { kind: 'goToPage', page: 'has space' },
+    { kind: 'info', show: 'panel' },
+    { kind: 'info', show: ['rocket'] },
+    { kind: 'pageName', show: ['name', 'name'] },
+    { kind: 'take', art: 'http://x/y.png' },
+    { kind: 'take', art: 5 },
+    { kind: 'take', artB: 'nope' },
+    { kind: 'take', hideText: 'yes' },
+    { kind: 'take', fontSize: 1000 },
+    { kind: 'preset', scope: 'world', name: 'A' },
+    { kind: 'preset', scope: 'me', name: 5 },
+  ];
+  for (const cell of bad) assert.equal(readBlock(one(cell)), null, JSON.stringify(cell));
+  const tooMany = { sode: CLIP_MARK, version: CLIP_VERSION, panel: '', rows: 1, cols: 1, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: 'take' }, { r: 1, c: 1, rs: 1, cs: 1, kind: 'take' }] };
+  assert.equal(readBlock(JSON.stringify(tooMany)), null);
+});
+
+test('a block keeps every known cell field and drops unknown keys', () => {
+  const cells = [
+    { r: 1, c: 1, rs: 1, cs: 1, kind: 'source', n: 0, caption: 'Cam 1', levels: [1, 2], art: 'icon:camera', artB: '2', fontSize: 120, hideText: true },
+    { r: 1, c: 2, rs: 1, cs: 1, kind: 'goToPage', page: 'ab-1' },
+    { r: 2, c: 1, rs: 1, cs: 1, kind: 'info', show: ['panel', 'page'] },
+    { r: 2, c: 2, rs: 1, cs: 1, kind: 'preset', scope: 'me', name: 'Studio' },
+  ];
+  const text = JSON.stringify({ sode: CLIP_MARK, version: CLIP_VERSION, panel: 'p-1', rows: 2, cols: 2, cells: [{ ...cells[0], junk: 'x'.repeat(900_000) }, ...cells.slice(1)] });
+  assert.deepEqual(readBlock(text).cells, cells);
 });

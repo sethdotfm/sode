@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addPage, movePage, renamePage, enablePage, deletePage, leadsTo, copyPage, openClick, OPEN_MAX } from '../editorpagerules.js';
 import { PAGE_MAX } from '../panelpages.js';
-import { emptyUndo, record, undo, redo, pageSnap, samePages, restorePages, rekeyUndo } from '../gridundo.js';
+import { emptyUndo, record, undo, redo, pageSnap, samePages, restorePages, rekeyUndo, rekeySaved } from '../gridundo.js';
 
 const src = (r, c, n) => ({ r, c, rs: 1, cs: 1, kind: 'source', n });
 const goTo = (r, c, page) => ({ r, c, rs: 1, cs: 1, kind: 'goToPage', page });
@@ -14,7 +14,7 @@ const three = () => [
 ];
 const ids = (pages) => pages.map((p) => p.id);
 
-test('Add page appends an enabled empty Page with a new id and stops at 16', () => {
+test('Add Page appends an enabled empty Page with a new id and stops at 16', () => {
   const p = addPage(three(), 'd');
   assert.deepEqual(p.at(-1), { id: 'd', enabled: true, cells: [] });
   assert.equal(p.length, 4);
@@ -41,6 +41,13 @@ test('a rename keeps at most 40 characters, and an empty name drops the name so 
   assert.equal('name' in renamePage(three(), 0, '   ')[0], false);
 });
 
+test('the last enabled Page cannot be turned off, so a reload never lands on a dead Page', () => {
+  const one = three();
+  const off = enablePage(one, 0, false);
+  assert.equal(enablePage(off, 1, false), off);
+  assert.equal(enablePage(off, 1, false)[1].enabled, true);
+});
+
 test('enable turns a Page on or off and leaves its cells', () => {
   const p = enablePage(three(), 2, true);
   assert.equal(p[2].enabled, true);
@@ -48,7 +55,7 @@ test('enable turns a Page on or off and leaves its cells', () => {
   assert.equal(enablePage(three(), 0, false)[0].enabled, false);
 });
 
-test('Delete page drops the Page, leaves Go to Page cells to it as they are, and never drops the last Page', () => {
+test('Delete Page drops the Page, leaves Go to Page cells to it as they are, and never drops the last Page', () => {
   assert.equal(leadsTo(three(), 'c'), 1);
   assert.equal(leadsTo(three(), 'b'), 0);
   const p = deletePage(three(), 2);
@@ -56,6 +63,8 @@ test('Delete page drops the Page, leaves Go to Page cells to it as they are, and
   assert.equal(p[0].cells[1].page, 'c');
   const one = [three()[0]];
   assert.equal(deletePage(one, 0), one);
+  const lastOn = [three()[0], three()[2]];
+  assert.equal(deletePage(lastOn, 0), lastOn);
 });
 
 test('Copy to puts a copy of the Page on the target, says what it replaces, and keeps Go to Page targets', () => {
@@ -127,4 +136,15 @@ test('the first save gives an unsaved Page 1 its id, and undo steps follow it', 
   h = rekeyUndo(h, '', 'n1');
   const u = undo(h, pageSnap([{ id: 'n1', enabled: true, cells: [] }], 4, 8));
   assert.deepEqual(restorePages([{ id: 'n1', enabled: true, cells: [] }], u.grid)[0].cells, [src(1, 1, 1)]);
+});
+
+test('undo steps follow Page 1 to its saved id even when another Page had focus at the save', () => {
+  const unsaved = [{ id: '', enabled: true, cells: [src(1, 1, 1)] }, { id: 'p2', enabled: true, cells: [] }];
+  let h = record(emptyUndo(), { what: 'paste', before: pageSnap([{ ...unsaved[0], cells: [] }, unsaved[1]], 4, 8, { focus: '' }) });
+  h = rekeySaved(h, ['', 'p2'], ['n1', 'p2']);
+  const saved = [{ id: 'n1', enabled: true, cells: [src(1, 1, 1)] }, unsaved[1]];
+  const u = undo(h, pageSnap(saved, 4, 8));
+  assert.deepEqual(restorePages(saved, u.grid)[0].cells, []);
+  assert.equal(u.grid.focus, 'n1');
+  assert.equal(rekeySaved(h, ['n1', 'p2'], ['n1', 'p2']), h);
 });
