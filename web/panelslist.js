@@ -9,7 +9,7 @@ import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
 import { openAssign, askName } from './panelassign.js';
-import { clashOf } from './panelassignrules.js';
+import { clashOf, renameRefusal } from './panelassignrules.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -167,25 +167,25 @@ async function setHide(id, instance, on) {
   }
 }
 
-// Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers '' once
-// sent, or once a clash is handed to the name dialog, else the reason to show beside the field.
-async function rename(id, instance, name) {
+// Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers null once
+// sent, or once a clash is handed to the name dialog, else renameRefusal's {why, pin}.
+async function rename(id, instance, name, pin = '') {
   const p = S.panels.find((x) => x.id === id);
   try {
     await api(`api/v1/panels/${id}/instances/rename`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instance, name }),
+      body: JSON.stringify({ instance, name, pin }),
     });
     // The server moved the watch with the name; the poll does not carry watches.
     if (p) p.watchingInstances = (p.watchingInstances || []).map((d) => (d === instance.toLowerCase() ? name.toLowerCase() : d));
     refreshOnline();
-    return '';
+    return null;
   } catch (e) {
     const suggest = clashOf(e);
-    if (suggest === null) return e.message;
-    askName(p || { name: 'This panel' }, name, suggest, (chosen) => rename(id, instance, chosen).then((why) => why && say(why)), 'rename');
-    return '';
+    if (suggest === null) return renameRefusal(e);
+    askName(p || { name: 'This panel' }, name, suggest, (chosen) => rename(id, instance, chosen, pin).then((r) => r && say(r.why)), 'rename');
+    return null;
   }
 }
 

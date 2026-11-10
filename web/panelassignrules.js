@@ -6,6 +6,7 @@ import { durationText } from './panelwatchrules.js';
 import { wordScore } from './findrules.js';
 import { stepPanel } from './panelsrules.js';
 import { INSTANCE_MAX, INSTANCE_HOLD } from './panelkeyrules.js';
+import { pinNeeded } from './templaterules.js';
 
 // How an Assign to the panel lands: its client's key, the device's own sign-in, or a choice of both with the key
 // first. The values are the assign route's as.
@@ -188,13 +189,16 @@ export function assignNameProblem(text, clashed) {
   return '';
 }
 
-// The seam for the editor's Authentication mode Confirm: an Assign never edits a panel, but the instance may land on a
-// panel whose mode differs from the one it shows now. Where that Confirm should also cover an Assign, it hooks in here.
+// Whether the instance lands on a panel whose Authentication mode differs from the one it shows now. An Assign never
+// edits a panel; send() asks confirmModeChange when this is true.
 export const assignChangesMode = (from, to) => (from?.acts || '') !== (to?.acts || '');
 
 // The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename): '' for none, since only a Sode panel
 // page (page) hears the name, and 'offline' when its stream is gone and nothing would hear it.
 export const renameState = (i) => (!i?.page ? '' : i.stream ? 'ready' : 'offline');
+
+// A refused rename: the reason to show beside the field, and whether to ask for the Advanced Settings PIN.
+export const renameRefusal = (err) => ({ why: err?.message || '', pin: pinNeeded(err?.status, err?.code) });
 
 // What is wrong with a typed instance name, or ''. A name the panel already holds comes back from the server as a
 // name clash with a suggestion, as for an Assign.

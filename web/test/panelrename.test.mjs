@@ -2,7 +2,7 @@
 // handling of the stream's rename line. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renameState, renameProblem, renameOf, renamedSearch, assignOf } from '../panelassignrules.js';
+import { renameState, renameProblem, renameOf, renamedSearch, assignOf, renameRefusal } from '../panelassignrules.js';
 
 test('only a Sode panel page can be renamed, and only while it holds its stream', () => {
   assert.equal(renameState({ device: 'Lobby', page: true, stream: true }), 'ready');
@@ -29,4 +29,10 @@ test('the stream line', () => {
 test('a page named by its link keeps the new name in the address', () => {
   assert.equal(renamedSearch('?instance=Lobby&kiosk=1', 'Front desk'), '?instance=Front+desk&kiosk=1');
   assert.equal(renamedSearch('?instance=Lobby', 'Gate'), '?instance=Gate');
+});
+
+test('a refusal for want of rights asks for the Advanced Settings PIN', () => {
+  const err = (status, code, message) => Object.assign(new Error(message), { status, code });
+  assert.deepEqual(renameRefusal(err(403, 'trusted_required', 'only the owner')), { why: 'only the owner', pin: true });
+  assert.deepEqual(renameRefusal(err(409, 'conflict', 'Lobby is offline')), { why: 'Lobby is offline', pin: false });
 });

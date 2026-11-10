@@ -58,7 +58,8 @@ function hideButton(p, i, setHide) {
 }
 
 // The instance's name with its rename pencil. A click turns the name into a field: Enter saves, Escape or leaving drops
-// the edit. rename(id, device, name) answers '' when sent (or handed to the clash dialog), else the reason.
+// the edit. rename(id, device, name, pin) answers null when sent (or handed to the clash dialog), else {why, pin}; pin
+// shows the Advanced Settings PIN field, as the Assign to modal does.
 function nameSlot(p, i, rename) {
   const slot = el('span', 'sode-ov__name');
   const state = rename ? renameState(i) : '';
@@ -84,12 +85,19 @@ function nameSlot(p, i, rename) {
     const err = el('span', 'pb-note pb-note--error');
     err.setAttribute('role', 'alert');
     err.hidden = true;
+    const pin = el('input', 'pb-input');
+    pin.type = 'password';
+    pin.autocomplete = 'off';
+    pin.dataset.renamePin = i.device;
+    pin.setAttribute('aria-label', 'Advanced Settings PIN');
+    const pinRow = el('label', 'sode-tpl__pin', 'Advanced Settings PIN', pin);
+    pinRow.hidden = true;
     let busy = false;
     const fail = (t) => {
       err.textContent = t;
       err.hidden = !t;
     };
-    input.addEventListener('keydown', async (e) => {
+    const keydown = async (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -102,15 +110,25 @@ function nameSlot(p, i, rename) {
       const problem = renameProblem(name);
       if (problem) return fail(problem);
       busy = true;
-      const why = await rename(p.id, i.device, name);
+      const r = await rename(p.id, i.device, name, pin.value);
       busy = false;
-      if (why) return fail(why);
-      show();
-    });
-    input.addEventListener('blur', () => {
-      if (!busy && slot.contains(input)) show();
-    });
-    slot.replaceChildren(input, err);
+      pin.value = '';
+      if (!r) return show();
+      fail(r.why);
+      if (r.pin) {
+        pinRow.hidden = false;
+        pin.focus();
+      }
+    };
+    // Moving between the name and the PIN field keeps the edit open.
+    const blur = (e) => {
+      if (!busy && slot.contains(input) && !slot.contains(e.relatedTarget)) show();
+    };
+    for (const f of [input, pin]) {
+      f.addEventListener('keydown', keydown);
+      f.addEventListener('blur', blur);
+    }
+    slot.replaceChildren(input, pinRow, err);
     input.focus();
     input.select();
   }

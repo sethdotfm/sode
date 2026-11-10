@@ -10,8 +10,8 @@ import (
 )
 
 // Renaming an instance from the panels page (docs/panels-design.md): the new device name goes down the instance's
-// held stream as its last line, the page takes it as its own header rename does and reopens under it, and the
-// instance's key is renamed so the key list and the instances agree. It is the device name itself, not a label.
+// held stream as its last line, the page applies it as its own header rename does and reopens under it, and the
+// instance's key is renamed so the key list and the instances agree. The name is the device name itself.
 
 func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/instances/rename", config.ScopePanelsManage, (*App).apiPanelRename})
@@ -122,17 +122,13 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	c, has := clientOfPanel(a.r().cfg, p)
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
-	// Offline names count: taking a lost instance's name would read as that instance coming back.
-	taken := a.mon.deviceNames(p.ID)
-	// cfgMu is never held while the monitor's lock is taken, as in an Assign.
+	// Offline names count: reusing a lost instance's name would read as that instance coming back.
+	devs := a.mon.deviceNames(p.ID)
+	// cfgMu is never held while the monitor locks, as in an Assign.
 	a.cfgMu.Lock()
-	if has {
-		for _, k := range a.keys.instanceKeys(owner) {
-			taken = append(taken, k.Name)
-		}
-	}
-	others := taken[:0:0]
-	for _, t := range taken {
+	held := a.heldNames(devs, owner, has)
+	others := held[:0:0]
+	for _, t := range held {
 		if !strings.EqualFold(t, old) {
 			others = append(others, t)
 		}
@@ -144,7 +140,7 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	keyed := has && a.keys.renameInstance(owner, old, name)
 	a.cfgMu.Unlock()
 	line, _ := json.Marshal(renameLine{T: "rename", Instance: name})
-	if a.mon.sendLast(p.ID, old, line) == 0 {
+	if a.mon.sendEvery(p.ID, old, line) == 0 {
 		if keyed {
 			a.cfgMu.Lock()
 			a.keys.renameInstance(owner, name, old)

@@ -14,12 +14,8 @@ import (
 	"github.com/sethdotfm/sode/internal/config"
 )
 
-// Assign (GLOSSARY.md, docs/panels-design.md): a Trusted user, or whoever sends the Advanced Settings PIN,
-// sends one instance to another panel. The target's client gets a key named for the instance, and the key goes
-// only down that instance's held stream, never in the answer. A target that acts as a user gets no key: the device
-// shows its own sign-in, so nobody types a PIN for the person there. Only pages that hold a stream are Sode's own panel
-// pages, so only they can be assigned. The target panel is read, never written: its settings, Fixed destination
-// list and Authentication mode stay as they are.
+// Assign (GLOSSARY.md, docs/panels-design.md). The key goes only down the instance's held stream, never in the
+// answer, and the target panel is read, never written.
 
 func init() {
 	registerAPI(apiRoute{"POST", apiBase + "/panels/{id}/assign", config.ScopePanelsManage, (*App).apiPanelAssign})
@@ -64,9 +60,21 @@ func (m *panelMon) streamDevice(id, device string) (string, bool) {
 	return in.device, true
 }
 
-// sendLast queues b on every stream the device holds and answers how many took it. The buffer is one line and
-// an Assign is a stream's last, so a full buffer means one is already on its way.
-func (m *panelMon) sendLast(id, device string, b []byte) int {
+// sendNewest offers b to the device's newest stream only: anyone who may use the panel can hold a stream under
+// any device name, so the others are not known to be the instance that was picked. nil when none is held.
+func (m *panelMon) sendNewest(id, device string, b []byte) <-chan bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	in := m.inst[id][strings.ToLower(device)]
+	if in == nil || len(in.conns) == 0 {
+		return nil
+	}
+	return newestConn(in.conns).offer(b)
+}
+
+// sendEvery queues b on every stream the device holds and answers how many queued it. A queued line means
+// one is already on its way, since a stream's last line ends it.
+func (m *panelMon) sendEvery(id, device string, b []byte) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	in := m.inst[id][strings.ToLower(device)]
@@ -75,13 +83,27 @@ func (m *panelMon) sendLast(id, device string, b []byte) int {
 	}
 	n := 0
 	for _, c := range in.conns {
-		select {
-		case c.out <- b:
+		if c.offer(b) != nil {
 			n++
-		default:
 		}
 	}
 	return n
+}
+
+// heldNames is every name a panel's instances go by: devs (the monitor's deviceNames, read before cfgMu) and the
+// keys and setup links of owner, the panel's client. Caller holds cfgMu.
+func (a *App) heldNames(devs []string, owner keyOwner, has bool) []string {
+	held := slices.Clone(devs)
+	if has {
+		for _, k := range a.keys.instanceKeys(owner) {
+			held = append(held, k.Name)
+		}
+	}
+	return held
+}
+
+func capFail(w http.ResponseWriter, panel string) {
+	apiFail(w, http.StatusConflict, "conflict", fmt.Sprintf("%s already has %d instances, the most a panel holds; revoke one first", panel, panelKeyMax))
 }
 
 func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -136,7 +158,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			from = Panel{ID: ref}
 		}
 		name, addr = row.Device, row.Addr
-		send = func(b []byte) bool { return a.mon.sendKeyless(in.Keyless, b) }
+		send = func(b []byte) bool { return written(a.mon.sendKeyless(in.Keyless, b)) }
 	} else {
 		if from, ok = a.panels.get(in.From); !ok || !validPanelID(from.ID) {
 			apiFail(w, http.StatusNotFound, "not_found", "no panel "+in.From)
@@ -151,7 +173,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 			apiFail(w, http.StatusConflict, "conflict", "no instance "+device+" of "+from.Name+" is open now")
 			return
 		}
-		send = func(b []byte) bool { return a.mon.sendLast(from.ID, name, b) > 0 }
+		send = func(b []byte) bool { return written(a.mon.sendNewest(from.ID, name, b)) }
 	}
 	bySignIn, err := assignBySignIn(to.Name, to.Acts, in.As)
 	if err != nil {
@@ -163,7 +185,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", to.Name+" has no API client to give a key for")
 		return
 	}
-	// A keyless page's label may be its raw address.
+	// A keyless page with no name of its own goes by its raw address.
 	as := instanceName(name)
 	if in.Name != "" {
 		as = instanceName(strings.TrimSpace(in.Name))
@@ -176,11 +198,11 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if addr != "" {
 		how = ", keyless from " + addr
 	}
-	done := func(how string) {
+	done := func(note string) {
 		if in.Keyless != "" {
 			a.mon.dropKeyless(in.Keyless)
 		}
-		a.assignDone(w, cl, from, to, name, as, how)
+		a.assignDone(w, cl, from, to, name, as, note)
 	}
 	if bySignIn {
 		line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: as, SignIn: "user"})
@@ -197,26 +219,23 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
+	// Read before cfgMu: the monitor never locks while cfgMu is held.
+	devs := a.mon.deviceNames(to.ID)
 	a.cfgMu.Lock()
-	held := a.keys.instanceKeys(owner)
 	// The cap comes first: at it, a new name would be refused as well.
-	if len(held) >= panelKeyMax {
+	if len(a.keys.instanceKeys(owner)) >= panelKeyMax {
 		a.cfgMu.Unlock()
-		apiFail(w, http.StatusConflict, "conflict", fmt.Sprintf("%s already has %d instances, the most a panel holds; revoke one first", to.Name, panelKeyMax))
+		capFail(w, to.Name)
 		return
 	}
-	taken := make([]string, len(held))
-	for i, k := range held {
-		taken[i] = k.Name
-	}
-	if nameTaken(w, to.Name, as, taken) {
+	if nameTaken(w, to.Name, as, a.heldNames(devs, owner, true)) {
 		a.cfgMu.Unlock()
 		return
 	}
 	made, err := a.keys.replaceInstance(owner, as, false, time.Now())
 	a.cfgMu.Unlock()
 	if errors.Is(err, errKeyCap) {
-		apiFail(w, http.StatusConflict, "conflict", fmt.Sprintf("%s already has %d instances, the most a panel holds; revoke one first", to.Name, panelKeyMax))
+		capFail(w, to.Name)
 		return
 	}
 	if err != nil {
@@ -225,7 +244,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: as, Key: made.secret})
 	if !send(line) {
-		// It closed between the check and the send: no key may outlive a message nobody got.
+		// No stream wrote the line: it closed first or its write failed, so no key may outlive it.
 		a.cfgMu.Lock()
 		a.keys.dropLive(func(r keyRec) bool { return r.ID == made.id })
 		a.cfgMu.Unlock()
@@ -244,24 +263,24 @@ func (a *App) assignDone(w http.ResponseWriter, cl *apiCtx, from, to Panel, name
 	apiJSON(w, map[string]any{"from": from.ID, "panel": to.ID, "instance": as})
 }
 
-// nameTaken answers 409 name_taken with a free name when as is in taken, ignoring case, and says whether it did.
-func nameTaken(w http.ResponseWriter, panel, as string, taken []string) bool {
-	i := slices.IndexFunc(taken, func(t string) bool { return strings.EqualFold(t, as) })
+// nameTaken answers 409 name_taken with a free name when as is in held, ignoring case, and says whether it did.
+func nameTaken(w http.ResponseWriter, panel, as string, held []string) bool {
+	i := slices.IndexFunc(held, func(t string) bool { return strings.EqualFold(t, as) })
 	if i < 0 {
 		return false
 	}
-	e := apiErr{Code: "name_taken", Message: panel + " already has an instance named " + taken[i], Suggest: suggestInstance(as, taken)}
+	e := apiErr{Code: "name_taken", Message: panel + " already has an instance named " + held[i], Suggest: suggestInstance(as, held)}
 	jsonAnswer(http.StatusConflict, apiErrBody{e}).write(w, false)
 	return true
 }
 
 var trailingNumber = regexp.MustCompile(`^(.*\S)\s+(\d+)$`)
 
-// suggestInstance is name plus 2, or the next number free of taken (ignoring case), trimmed to fit
+// suggestInstance is name plus 2, or the next number free of held (ignoring case), trimmed to fit
 // panelInstanceMax. A name already ending in a number counts on from it. The page offers it, editable.
-func suggestInstance(name string, taken []string) string {
+func suggestInstance(name string, held []string) string {
 	free := func(s string) bool {
-		return !slices.ContainsFunc(taken, func(t string) bool { return strings.EqualFold(t, s) })
+		return !slices.ContainsFunc(held, func(t string) bool { return strings.EqualFold(t, s) })
 	}
 	base, n := name, 2
 	if m := trailingNumber.FindStringSubmatch(name); m != nil {
