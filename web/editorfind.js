@@ -37,6 +37,8 @@ export function initFind(editor) {
   let picked = []; // result keys picked with Shift, in list order
   let order = 'across'; // one of gridmodel's FILL_ORDERS; the order picker sets it
   let hovered = false;
+  let moved = false; // the pointer really moved since the list was last drawn
+  let at = null;
   let rebuilding = false;
   let preview = [];
   let quiet = false; // a group fill just landed, so no preview of filling it again until the user moves
@@ -149,6 +151,7 @@ export function initFind(editor) {
   // ---- list
 
   function draw() {
+    moved = false;
     results = rankFind(entries, input.value, chip ? [chip] : []);
     hi = Math.max(0, Math.min(hi, results.length - 1));
     picked = picked.filter((k) => results.some((e) => e.key === k));
@@ -267,14 +270,26 @@ export function initFind(editor) {
         .filter(usable)
         .map((x) => x.key);
       draw();
-    } else choose(i);
+    } else {
+      choose(i);
+      // A click fills and closes the flyout; it opens again on the next hover of Find or on typing.
+      if (e.detail > 0) {
+        panel.dataset.closed = '1';
+        input.blur();
+      }
+    }
   });
   list.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.sode-find__row')) e.preventDefault(); // keeps focus in the box
   });
+  // A redraw puts a new row under a still pointer and fires pointerover, so a hover counts only after a real move.
+  list.addEventListener('pointermove', (e) => {
+    if (!at || at.x !== e.clientX || at.y !== e.clientY) moved = true;
+    at = { x: e.clientX, y: e.clientY };
+  });
   list.addEventListener('pointerover', (e) => {
     const li = e.target.closest('.sode-find__row');
-    if (!li || picked.length > 1) return;
+    if (!li || picked.length > 1 || !moved) return;
     const i = Number(li.dataset.i);
     if (i === hi) return;
     quiet = false;
@@ -332,7 +347,12 @@ export function initFind(editor) {
     hovered = false;
     if (!panel.contains(document.activeElement)) close();
   });
+  // The closed flyout comes back once the pointer has left the Find item.
+  document.addEventListener('pointerover', (e) => {
+    if (panel.dataset.closed && !panel.parentElement?.contains(e.target)) delete panel.dataset.closed;
+  });
   panel.addEventListener('focusin', () => {
+    delete panel.dataset.closed;
     scope();
     panel.dataset.open = '1';
     load();
