@@ -1311,8 +1311,10 @@ paths:
       tags: [panels]
       summary: Add artwork to a panel
       description: |
-        Scope `panelsmanage`, owner or Trusted. The body is the image itself, at most 1 MB
-        (413 `too_large`), a JPEG, PNG, GIF or SVG. The type is decided by the bytes, never by the
+        Scope `panelsmanage`, owner or Trusted. The body is the image itself, at most 2 MB
+        (413 `too_large`), a JPEG, PNG, GIF or SVG. A PNG, JPEG or GIF with a width or height over
+        1024 pixels is 400 `bad_request`; SVG has only the size limit. Sode never resizes, and
+        artwork stored earlier is kept as it is. The type is decided by the bytes, never by the
         request's Content-Type or a file name; anything else is 415 `unsupported_type`. A panel
         holds at most 40 files (409 `conflict`).
       requestBody:
@@ -1574,7 +1576,7 @@ components:
                 scope, outside_rights, https_required, not_owner (a panel the caller may only
                 use), user_required (a panel needs a user's key), trusted_required (only a Trusted
                 user may make a panel an API client or change its rights). 400 bad_request. 413 too_large
-                (body over 64 KiB for a take, 256 KiB for a panel, 1 MB for artwork). 415
+                (body over 64 KiB for a take, 256 KiB for a panel, 2 MB for artwork). 415
                 unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
                 such path, entry, visible preset, or a panel or artwork the caller may not use).
                 405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
