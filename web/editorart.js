@@ -51,7 +51,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   file.accept = 'image/jpeg,image/png,image/gif,image/svg+xml';
   file.hidden = true;
   const up = btn('pb-btn--outline pb-btn--sm', 'Upload image', () => file.click());
-  // An upload is `art` without the icon: prefix (artOf tells them apart); Icon A and B are the other kind of artwork.
+  // Remove Image clears a panel's own picture (panelImage); Remove Icon clears an icon, vendored or from the library, and Icon B.
   const clearImage = btn('pb-btn--outline pb-btn--sm', 'Remove Image', () => set(undefined));
   const clearIcon = btn('pb-btn--outline pb-btn--sm', 'Remove Icon', () => {
     if (!panelImage(shownValue)) set(undefined);
