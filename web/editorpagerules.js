@@ -34,8 +34,12 @@ export function enablePage(pages, i, on) {
   return pages.map((p, j) => (j === i ? { ...p, enabled: !!on } : p));
 }
 
-// A panel keeps at least one Page. Go to Page cells to a deleted Page stay as they are and read as missing (panelnav.js).
-export const deletePage = (pages, i) => (pages.length <= 1 ? pages : pages.filter((_, j) => j !== i));
+// A panel keeps at least one Page, and one of them enabled. Go to Page cells to a deleted Page stay as they are and read
+// as missing (panelnav.js).
+export function deletePage(pages, i) {
+  const left = pages.filter((_, j) => j !== i);
+  return left.length && left.some((p) => p.enabled !== false) ? left : pages;
+}
 
 // How many Go to Page cells, on any Page, lead to the Page with this id.
 export const leadsTo = (pages, id) => pages.reduce((n, p) => n + (p.cells || []).filter((c) => c.kind === 'goToPage' && c.page === id).length, 0);

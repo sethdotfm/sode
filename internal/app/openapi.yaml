@@ -2097,7 +2097,7 @@ components:
             Never changes, so a reorder or rename keeps what names it. Unique in the panel (400
             `bad_request`). Left out, Sode makes one of 8 hex digits.
         name: { type: string, maxLength: 40, description: Optional; shown as "Page N" when empty. Longer is 400 `bad_request` }
-        enabled: { type: boolean, default: true }
+        enabled: { type: boolean, default: true, description: At least one Page of a panel is on (400 `bad_request`) }
         cells:
           type: array
           maxItems: 576

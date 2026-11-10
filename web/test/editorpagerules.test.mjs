@@ -63,6 +63,8 @@ test('Delete Page drops the Page, leaves Go to Page cells to it as they are, and
   assert.equal(p[0].cells[1].page, 'c');
   const one = [three()[0]];
   assert.equal(deletePage(one, 0), one);
+  const lastOn = [three()[0], three()[2]];
+  assert.equal(deletePage(lastOn, 0), lastOn);
 });
 
 test('Copy to puts a copy of the Page on the target, says what it replaces, and keeps Go to Page targets', () => {

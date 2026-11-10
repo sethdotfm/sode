@@ -223,7 +223,7 @@ export async function runEditor() {
       const live = livePages();
       const gone = live[i].id;
       pages = deletePage(live, i);
-      if (pages === live) return;
+      if (pages === live) return say('ed-status', 'Nothing deleted: at least one Page stays on, so turn another Page on first.');
       open = open.filter((id) => id !== gone);
       if (focus === gone) focus = (open.length ? pages.find((p) => open.includes(p.id)) : pages[Math.min(i, pages.length - 1)]).id;
       if (!open.length) open = [focus];
