@@ -62,7 +62,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 
 	// Text that is not a Sode block, and a paste past the edge, leave the grid as it is.
 	b.eval(`goTo(3, 2); pasteEvent('Cam 1')`)
-	b.waitFor("plain text is refused", `stat().includes('no Sode cells') && document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitFor("plain text is refused", `stat().includes('no valid Sode cells') && document.getElementById('ed-state').textContent === 'Saved'`)
 	b.eval(`goTo(4, 8)`)
 	if b.eval(`press('v', 'KeyV', { ctrlKey: true })`) != false {
 		t.Fatal("Ctrl+V was not left to the browser")
