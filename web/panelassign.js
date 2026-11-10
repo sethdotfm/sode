@@ -2,9 +2,10 @@
 // The server checks who may (a Trusted user or the Advanced Settings PIN) and sends the key to the instance alone.
 import { el, icon, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
-import { assignRows, assignChangesMode } from './panelassignrules.js';
+import { assignRows, assignChangesMode, rankAssign, curRow, stepRow, enterRow } from './panelassignrules.js';
 import { pinNeeded } from './templaterules.js';
 import { MON_POLL_MS } from './panelsmon.js';
+import { resultStep } from './keys.js';
 
 let closeOpen = null;
 on('locking', () => closeOpen?.());
@@ -31,17 +32,29 @@ export function openAssign(panel, ctx) {
   const pinRow = el('label', 'sode-tpl__pin', 'Assign needs a Trusted user or the Advanced Settings PIN', pin);
   pinRow.hidden = true;
 
+  const find = el('input', 'pb-input');
+  find.type = 'search';
+  find.id = 'assign-find';
+  find.placeholder = 'Find an instance';
+  find.autocomplete = 'off';
+  find.setAttribute('aria-label', 'Find an instance');
+  let cur = '';
+  let shownRows = [];
+
   const list = el('div', 'sode-ov__people');
   list.id = 'assign-list';
   let shown = '';
   // The page re-reads the instances every MON_POLL_MS; only a change is redrawn, so a button being pressed stays.
   function paint(force = true) {
-    const rows = assignRows(ctx.panels(), panel.id, Date.now());
-    const now = JSON.stringify([rows, busy]);
+    const all = assignRows(ctx.panels(), panel.id, Date.now());
+    const rows = rankAssign(all, find.value);
+    cur = curRow(rows, cur);
+    shownRows = rows;
+    const now = JSON.stringify([rows, busy, cur]);
     if (!force && now === shown) return;
     shown = now;
     list.replaceChildren();
-    if (!rows.length) return list.append(el('p', 'sode__hint', 'No Sode panel page was open in the last 24 hours.'));
+    if (!rows.length) return list.append(el('p', 'sode__hint', all.length ? 'No instance matches.' : 'No Sode panel page was open in the last 24 hours.'));
     for (const r of rows) {
       const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('send'), ' Assign');
       b.type = 'button';
@@ -55,7 +68,10 @@ export function openAssign(panel, ctx) {
         el('span', null, el('strong', null, r.device), el('span', 'sode__hint', ` on ${r.panelName}`)),
         el('span', 'sode__hint', facts),
       );
-      list.append(el('div', 'sode-ov__cp', who, b));
+      const item = el('div', 'sode-ov__cp', who, b);
+      item.dataset.key = r.key;
+      if (r.key === cur) item.setAttribute('aria-current', 'true');
+      list.append(item);
     }
   }
 
@@ -75,6 +91,7 @@ export function openAssign(panel, ctx) {
         'sode__hint',
         `The instance you pick opens ${panel.name} at once, with a key of its own for it. Its key for the panel it shows now keeps working.`,
       ),
+      find,
       list,
       pinRow,
     ),
@@ -95,10 +112,9 @@ export function openAssign(panel, ctx) {
   closeOpen = close;
   closeBtn.addEventListener('click', close);
 
-  list.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-instance]');
-    if (!b || busy) return;
-    const from = ctx.panels().find((p) => p.id === b.dataset.from);
+  async function send(row) {
+    if (!row.assignable || busy) return;
+    const from = ctx.panels().find((p) => p.id === row.panel);
     if (assignChangesMode(from, panel) && !(await confirmModeChange(from, panel))) return;
     busy = true;
     paint();
@@ -107,7 +123,7 @@ export function openAssign(panel, ctx) {
       const r = await ctx.api(`api/v1/panels/${panel.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: b.dataset.from, instance: b.dataset.instance, pin: pin.value }),
+        body: JSON.stringify({ from: row.panel, instance: row.device, pin: pin.value }),
       });
       pin.value = '';
       say(`Sent ${r.instance} to ${panel.name}.`);
@@ -121,9 +137,31 @@ export function openAssign(panel, ctx) {
     }
     busy = false;
     if (root.isConnected) paint();
+  }
+
+  list.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-instance]');
+    const row = b && shownRows.find((r) => r.panel === b.dataset.from && r.device === b.dataset.instance);
+    if (row) send(row);
+  });
+
+  find.addEventListener('input', () => paint());
+  // The same keys as the panels list's Find: arrows or Ctrl/Cmd+J, K move the highlight, Enter assigns it.
+  find.addEventListener('keydown', (e) => {
+    const step = resultStep(e, shownRows.length > 0);
+    if (step) {
+      e.preventDefault();
+      cur = stepRow(shownRows, cur, step);
+      paint();
+      list.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      const row = enterRow(shownRows, cur);
+      if (row) send(row);
+    }
   });
 
   paint();
   dlg.show();
-  dialog.focus();
+  find.focus();
 }

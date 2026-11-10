@@ -3,6 +3,8 @@
 import { hasClient } from './panelsrules.js';
 import { shortSecret } from './panellink.js';
 import { durationText } from './panelwatchrules.js';
+import { wordScore } from './findrules.js';
+import { stepPanel } from './panelsrules.js';
 
 // Only a panel that acts as an API client has a key to give an instance.
 export const canAssignTo = (panel) => hasClient(panel);
@@ -30,6 +32,7 @@ export function assignRows(panels, targetId, now) {
       const timedOut = !i.stream;
       const secs = (t) => (now - Date.parse(t)) / 1000;
       rows.push({
+        key: `${p.id}\n${i.device}`,
         panel: p.id,
         panelName: p.name,
         device: i.device,
@@ -45,6 +48,44 @@ export function assignRows(panels, targetId, now) {
   const by = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
   return rows.sort((a, b) => by(a.panelName, b.panelName) || by(a.device, b.device));
 }
+
+// Find over the list: the panel Find's scoring (wordScore) on each row's name, current panel, address and sign-in
+// state, a name hit outranking the rest. Every word must hit some field. Best first; the stable sort keeps the list's
+// own order for equal scores and for an empty query.
+export function rankAssign(rows, q) {
+  const words = String(q || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return rows;
+  const scored = [];
+  for (const r of rows) {
+    let total = 0;
+    for (const w of words) {
+      const f = (text, k) => wordScore({ label: text || '' }, w) * k;
+      const best = Math.max(f(r.device, 1), f(r.panelName, 0.9), f(r.addr, 0.8), f(r.state, 0.7));
+      if (!best) {
+        total = -1;
+        break;
+      }
+      total += best;
+    }
+    if (total > 0) scored.push([r, total]);
+  }
+  return scored.sort((a, b) => b[1] - a[1]).map(([r]) => r);
+}
+
+// The row key the highlight sits on: cur while it is still listed, else the first row.
+export const curRow = (rows, cur) => (rows.some((r) => r.key === cur) ? cur : rows[0]?.key || '');
+
+// Ctrl/Cmd+J, K (as the panels list) move the highlight, stopping at the ends.
+export const stepRow = (rows, cur, step) => stepPanel(rows.map((r) => r.key), curRow(rows, cur), step);
+
+// Enter assigns the highlighted row; a greyed or timed-out one does nothing.
+export const enterRow = (rows, cur) => {
+  const r = rows.find((x) => x.key === curRow(rows, cur));
+  return r?.assignable ? r : null;
+};
 
 // The stream answers JSON lines that may arrive split across chunks; rest waits for the next one.
 export function splitLines(rest, chunk) {
