@@ -634,6 +634,88 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /icon-library:
+    get:
+      operationId: listLibraryIcons
+      tags: [panels]
+      summary: The Icon library
+      description: |
+        Scope `panels`. One install-wide set of SVG and PNG icons that any cell's Icon A can name as
+        `lib:<id>`.
+      responses:
+        "200":
+          description: Icons
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [icons]
+                properties:
+                  icons: { type: array, items: { $ref: "#/components/schemas/LibIcon" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: addLibraryIcon
+      tags: [panels]
+      summary: Add an icon to the Icon library
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` (403 `trusted_required`, a wrong PIN counts toward its
+        lockout). The file rides base64 in `data` and its type is read from its content: PNG or SVG
+        only (415 `unsupported_type`). The artwork limits apply: 2 MB (413 `too_large`) and, for a
+        PNG, 1024 by 1024 pixels (400 `bad_request`). All icons together stay under 64 MB (409
+        `conflict`). The name is trimmed and is 1 to 40 characters (400 `bad_request`); one another
+        icon has, ignoring case, is stored as "Name 2", "Name 3" and so on, so read the stored name
+        from the answer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, data]
+              properties:
+                name: { type: string, maxLength: 40 }
+                data: { type: string, format: byte, description: The PNG or SVG file, base64 }
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+            example: { name: Station logo, data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }
+      responses:
+        "201":
+          description: The icon as stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibIcon" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /icon-library/{icon}:
+    parameters:
+      - { name: icon, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{8}$" } }
+    get:
+      operationId: getLibraryIcon
+      tags: [panels]
+      summary: A library icon's file
+      description: |
+        Scope `panels`. Served with the same headers as a panel's artwork. 404 `not_found` for an id
+        the library does not hold; a cell naming it draws no Icon A.
+      responses:
+        "200":
+          description: The icon, in its stored type
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panel-templates:
     get:
       operationId: listPanelTemplates
@@ -1785,6 +1867,14 @@ components:
         art: { type: string, description: "Icon A: `icon:<name>`, or a Default artwork image id (`d-` and 8 hex digits)" }
         artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$", description: Icon B }
         hideText: { type: boolean }
+    LibIcon:
+      type: object
+      required: [id, name, type, size]
+      properties:
+        id: { type: string, pattern: "^[0-9a-f]{8}$", description: "A cell names it as `lib:<id>`" }
+        name: { type: string, maxLength: 40, description: Unique ignoring case }
+        type: { type: string, enum: [image/png, image/svg+xml] }
+        size: { type: integer, description: Bytes }
     ArtDefaultIn:
       type: object
       required: [kind]

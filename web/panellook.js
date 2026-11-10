@@ -1,6 +1,6 @@
 // What a panel's look settings and a cell's artwork mean. Pure. Stored names are in docs/persisted-names.md.
 // Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, fullscreen, landscape.
-// Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph beside an icon, a corner badge on an image), fontSize (percent) and
+// Cell: art ('icon:<vendored icon name>', 'lib:<Icon library id>' or an artwork id), artB (a glyph beside an icon, a corner badge on an image), fontSize (percent) and
 // hideText (true or false; unset takes the item's Default artwork).
 
 const SCALE_MIN = 50;
@@ -9,6 +9,8 @@ export const THEMES = ['auto', 'light', 'dark'];
 // a- is the panel's own image, d- a Default artwork image (internal/app/artdefaults.go).
 const ART_ID = /^[ad]-[0-9a-f]{8}$/;
 const ICON = /^icon:([a-z0-9-]+)$/;
+// An Icon library icon, as iconIDRe in internal/app/iconlib.go. Drawn as an image, never as a sprite icon.
+const LIB = /^lib:([0-9a-f]{8})$/;
 // Icon B: a digit 0 to 16 or a capital letter, so "[camera] 2" is two picks. Text, not a sprite icon: Lucide has no digits.
 export const ART_B_CHOICES = [...Array.from({ length: 17 }, (_, i) => String(i)), ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i))];
 
@@ -48,11 +50,15 @@ export function artOf(cell) {
   if (typeof art !== 'string') return null;
   const icon = ICON.exec(art);
   if (icon) return { icon: icon[1] };
+  if (LIB.test(art)) return { id: art, lib: true };
   return ART_ID.test(art) ? { id: art } : null;
 }
 
-export const artUrlPath = (panelId, artId) =>
-  artId.startsWith('d-') ? `api/v1/default-artwork/images/${artId}` : `api/v1/panels/${panelId}/artwork/${artId}`;
+export function artUrlPath(panelId, artId) {
+  const lib = LIB.exec(artId);
+  if (lib) return `api/v1/icon-library/${lib[1]}`;
+  return artId.startsWith('d-') ? `api/v1/default-artwork/images/${artId}` : `api/v1/panels/${panelId}/artwork/${artId}`;
+}
 
 // The item a cell shows, keyed as Default artwork is (cellItem and ArtDefault.key in artdefaults.go); '' for none.
 export function itemKey(cell) {

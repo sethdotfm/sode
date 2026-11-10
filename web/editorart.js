@@ -1,4 +1,4 @@
-// The artwork control of the Cell tab. Icon A is `art` (a vendored icon or an upload), Icon B is `artB` (a digit or
+// The artwork control of the Cell tab. Icon A is `art` (a vendored icon, an Icon library icon or an upload), Icon B is `artB` (a digit or
 // letter glyph beside an icon or a corner badge on an image, panellook.js ART_B_CHOICES). An upload is resized and
 // checked before sending (artcompress.js prepareArt); the server checks again by content.
 import { el, icon } from './core.js';
@@ -8,6 +8,13 @@ import { artFilter, ART_ICONS } from './sidebarrules.js';
 import { artOf, artBOf, ART_B_CHOICES } from './panellook.js';
 import { artNode } from './panelview.js';
 import { prepareArt } from './artcompress.js';
+import { createLibSection } from './editorlib.js';
+
+// A panel's own picture or a Default artwork image, as opposed to an icon (vendored or from the Icon library).
+const panelImage = (value) => {
+  const a = artOf({ art: value });
+  return !!a?.id && !a.lib;
+};
 
 const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the image was not uploaded.', failed: (s) => `The image was not uploaded (${s}).` });
 
@@ -47,13 +54,15 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   // An upload is `art` without the icon: prefix (artOf tells them apart); Icon A and B are the other kind of artwork.
   const clearImage = btn('pb-btn--outline pb-btn--sm', 'Remove Image', () => set(undefined));
   const clearIcon = btn('pb-btn--outline pb-btn--sm', 'Remove Icon', () => {
-    if (!artOf({ art: shownValue })?.id) set(undefined);
+    if (!panelImage(shownValue)) set(undefined);
     setB?.(undefined);
   });
   const picker = el('div', 'sode-side__picker');
   picker.hidden = true;
+  const lib = icons ? createLibSection({ ed, set }) : null;
   const choose = btn('pb-btn--outline pb-btn--sm', 'Choose icon', () => {
     picker.hidden = !picker.hidden;
+    if (!picker.hidden) lib?.load();
     choose.setAttribute('aria-expanded', String(!picker.hidden));
   });
   choose.setAttribute('aria-expanded', 'false');
@@ -95,8 +104,11 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   find.addEventListener('input', () => {
     const shown = new Set(artFilter(ART_ICONS, find.value));
     for (const b of panes[0].grid.querySelectorAll('[aria-label]')) b.hidden = !shown.has(b.getAttribute('aria-label'));
+    lib?.filter(find.value);
   });
   for (const p of panes) p.col = column(p.id === 'a' ? 'Icon A' : 'Icon B', p, p.id === 'a' ? find : null);
+  // Uploaded (the Icon library) sits above the vendored icons in Icon A's column.
+  if (lib) panes[0].grid.before(lib.node, el('span', 'sode-side__col-h', 'Icons'));
   picker.append(...panes.map((p) => p.col));
 
   let hidden = false;
@@ -136,7 +148,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       up.disabled = ro || !saved;
       choose.disabled = ro;
       shownValue = value;
-      const upload = !!artOf({ art: value })?.id;
+      const upload = panelImage(value);
       clearImage.disabled = ro || !upload;
       clearIcon.disabled = ro || !(shownB || (value && !upload));
       hidden = hideText;
@@ -145,6 +157,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       hide.textContent = hideText ? 'Show text' : 'Hide text';
       for (const p of panes) for (const b of [p.none, ...p.grid.querySelectorAll('button')]) b.disabled = ro;
       for (const b of panes[0].grid.querySelectorAll('[aria-label]')) b.setAttribute('aria-pressed', String(value === `icon:${b.getAttribute('aria-label')}`));
+      lib?.update(value);
       for (const b of panes[1]?.grid.querySelectorAll('[aria-label]') || []) b.setAttribute('aria-pressed', String(artB === b.getAttribute('aria-label')));
       if (!saved && !note.textContent) note.textContent = 'Save the panel before uploading an image.';
       else if (saved && note.textContent === 'Save the panel before uploading an image.') note.textContent = '';
@@ -158,7 +171,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       const row = artNode({ art: value, artB: shownB }, ed.art());
       if (!row) return;
       preview.append(row);
-      if (!hideText) preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || shownB ? 'Caption' : '')));
+      if (!hideText)
+        preview.append(el('span', 'sode-side__art-text', caption || (artOf({ art: value })?.icon || artOf({ art: value })?.lib || shownB ? 'Caption' : '')));
     },
   };
 }
