@@ -68,6 +68,8 @@ type pushedOne struct {
 	Panel      string `json:"panel"`
 	Rev        int    `json:"rev"`
 	Checkpoint string `json:"checkpoint"`
+	// ArtSkipped lists artwork ids that did not fit under the target's 64 MB total.
+	ArtSkipped []string `json:"artSkipped,omitempty"`
 }
 
 type skippedOne struct {
@@ -114,13 +116,13 @@ func (a *App) apiPanelPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	why := "Push from " + src.ID + " " + src.Name
 	var done []pushedOne
 	for _, t := range targets {
-		a.panels.artMissing(src, t.ID)
+		skipped := a.panels.copyArt(src, t.ID)
 		p, cp, err := a.panels.pushLayout(t.ID, layoutOf(src), cl.Actor.Name, why)
 		if err != nil {
 			a.pushFail(w, err)
 			return
 		}
-		done = append(done, pushedOne{t.ID, p.Rev, cp.ID})
+		done = append(done, pushedOne{t.ID, p.Rev, cp.ID, skipped})
 	}
 	a.apiEvent(cl.Actor, "panelPush", "ok", "panel "+src.ID+" "+src.Name+" to "+idList(targets), nil)
 	apiJSON(w, map[string]any{"pushed": done})
@@ -412,7 +414,7 @@ func (a *App) apiSetPush(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 			a.pushFail(w, err)
 			return
 		}
-		done = append(done, pushedOne{e.Panel, p.Rev, cp.ID})
+		done = append(done, pushedOne{e.Panel, p.Rev, cp.ID, nil})
 	}
 	if skipped == nil {
 		skipped = []skippedOne{}

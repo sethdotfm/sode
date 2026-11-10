@@ -1316,7 +1316,8 @@ paths:
         1024 pixels is 400 `bad_request`; SVG has only the size limit. Sode never resizes, and
         artwork stored earlier is kept as it is. The type is decided by the bytes, never by the
         request's Content-Type or a file name; anything else is 415 `unsupported_type`. A panel
-        holds at most 40 files (409 `conflict`).
+        holds at most 64 MB of artwork in all, whatever the file count; an upload that would pass
+        it is 409 `conflict`. An image used by many cells is stored once, by id.
       requestBody:
         required: true
         content:
@@ -1757,6 +1758,10 @@ components:
               panel: { type: string }
               rev: { type: integer }
               checkpoint: { type: string, pattern: "^c-[0-9a-f]{8}$" }
+              artSkipped:
+                type: array
+                description: Artwork ids that did not fit under the target's 64 MB total. Absent when all fit.
+                items: { type: string }
         skipped:
           type: array
           description: Only from a checkpoint set push

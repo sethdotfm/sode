@@ -6,7 +6,7 @@ Sode Panels: saved 4x8 grid pages on `/panels`, `/panels/editor` and `/panels/<i
 
 All beside the config, under `/data` in the image.
 
-- `panels/<id>.yaml`: one file per panel. `<id>.art/<art id>` holds its artwork and `<id>.checkpoints` its Push checkpoints (at most 10). `panelStore` (`panelstore.go`) owns all three; every write goes through `writeLocked`, which moves `Rev`.
+- `panels/<id>.yaml`: one file per panel. `<id>.art/<art id>` holds its artwork and `<id>.checkpoints` its Push checkpoints (at most 10). `panelStore` (`panelstore.go`) owns all three; artwork is capped by total bytes (`panelArtTotal`, 64 MB, `artBytes`), not by count, and `copyArt` (Push and Copy) copies what fits and returns the ids that did not; every write goes through `writeLocked`, which moves `Rev`.
 - `panelsets/`: Checkpoint sets, `everyone.yaml` and `me-<hex of user>.yaml`.
 - `templates/me/` and `templates/everyone/`: templates, apart from the panel files.
 - `panelwatch.yaml`: who watches what, as watch keys: a panel id, or `<id>/<device lowercased>` for one instance (`watchKey` in `panelmon.go`; keep per-instance watches keyed by the device name, since #293 makes named instances first class). Never part of a panel file, and the API only sends the caller's own `watching` and `watchingInstances`.
