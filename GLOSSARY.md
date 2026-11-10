@@ -180,6 +180,12 @@ A cell that shows, under the caption "Currently", the source now on the viewed d
 **Panel Name** (cell kind):
 A cell that shows the panel's name. It cannot be pressed. A caption is a line above the name.
 
+**Assign**:
+A trusted user sends one instance to a different panel from the panels page (Assign to). The instance's page switches at once with no prompt on the device. A panel that acts as an API client gives the instance a new key for it; a panel that acts as a user makes the device show the sign-in, where the person at the device types their own PIN. An instance that is online but has no valid key can be assigned too.
+
+**Keyless instance**:
+An open panel page with no valid key. It still reports its device name, or else its address, so a trusted user can see it and Assign it.
+
 **Instance Name** (cell kind):
 A cell that shows the name of the instance showing the page, its device name. It cannot be pressed. A caption is a line above the name.
 
