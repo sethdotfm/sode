@@ -54,3 +54,14 @@ test('revoke lets go of every blob URL made, and a later url() fetches afresh', 
   assert.deepEqual(gone.sort(), ['blob:1', 'blob:2', 'blob:3']);
   assert.equal(await art.url('a-1'), 'blob:4');
 });
+
+// An Icon library SVG is drawn as a mask in the text colour, so the page needs the file's type, which only the fetch knows.
+test('look gives the blob URL with the fetched type, from the same one fetch', async () => {
+  let n = 0;
+  const call = async (p) => (n++, { ok: !p.endsWith('bad'), blob: async () => ({ type: 'image/svg+xml' }) });
+  const art = createArt(call, 'p-1', () => 'blob:x');
+  assert.deepEqual(await art.look('lib:0123abcd'), { url: 'blob:x', type: 'image/svg+xml' });
+  assert.equal(await art.url('lib:0123abcd'), 'blob:x');
+  assert.equal(n, 1);
+  assert.equal(await art.look('a-bad'), null);
+});

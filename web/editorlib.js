@@ -6,6 +6,7 @@ import { btn } from './formbits.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { pinNeeded } from './templaterules.js';
 import { prepareArt } from './artcompress.js';
+import { artImage } from './panelview.js';
 import { libNameOf, libNameProblem, pickerSections, LIB_TYPES } from './iconlibrules.js';
 
 const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the icon was not uploaded.', failed: (s) => `The icon was not uploaded (${s}).` });
@@ -75,15 +76,7 @@ export function createLibSection({ ed, set }) {
       b.setAttribute('aria-label', t.name);
       b.setAttribute('aria-pressed', String(value === t.value));
       b.disabled = ed.readOnly();
-      const img = el('img', 'sode-side__lib-img');
-      img.alt = '';
-      img.hidden = true;
-      art?.url(t.value).then((u) => {
-        if (!u) return;
-        img.src = u;
-        img.hidden = false;
-      });
-      b.append(art ? img : el('span', 'sode-side__glyph', [...t.name][0]));
+      b.append(art ? artImage('sode-side__lib-img', art, t.value, true) : el('span', 'sode-side__glyph', [...t.name][0]));
       grid.append(b);
     }
     grid.hidden = !tiles.length;
