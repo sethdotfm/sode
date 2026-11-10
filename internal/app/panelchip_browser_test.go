@@ -44,7 +44,8 @@ func TestChromePanelLockBarLayout(t *testing.T) {
 		b.waitFor("lock gone", `!document.documentElement.dataset.sodeLock`)
 		b.waitFor("grid drawn", `document.querySelectorAll('.sode-panel__cell').length > 0`)
 	}
-	shown := `getComputedStyle(document.querySelector('.sode-lock__who')).display !== 'none' && !document.querySelector('.sode-lock__who').hidden`
+	// Null-safe: right after a reload the elements are not drawn yet, and a throw would fail the test instead of retrying.
+	shown := `(() => { const w = document.querySelector('.sode-lock__who'); return !!w && getComputedStyle(w).display !== 'none' && !w.hidden; })()`
 	// Overlap of the Lock bar with the first thing under it that is not the bar: the header, or the grid when the header is off.
 	covers := `(() => {
 		const bar = document.querySelector('.sode-lock__who-bar').getBoundingClientRect();
@@ -65,9 +66,9 @@ func TestChromePanelLockBarLayout(t *testing.T) {
 
 	b.open(srv.URL + "/panels/" + id + "#kiosk=1")
 	b.eval(`location.reload(); true`)
-	b.waitFor("kiosk by link hides the header and the Lock bar", `document.querySelector('.sode-panels__head').hidden && !(`+shown+`)`)
+	b.waitFor("kiosk by link hides the header and the Lock bar", `document.querySelector('.sode-panels__head')?.hidden === true && !(`+shown+`)`)
 
 	b.open(srv.URL + "/panels/" + kiosk)
-	b.waitFor("kiosk by setting hides the Lock bar", `document.querySelector('.sode-panels__head').hidden && !(`+shown+`)`)
+	b.waitFor("kiosk by setting hides the Lock bar", `document.querySelector('.sode-panels__head')?.hidden === true && !(`+shown+`)`)
 	b.check()
 }
