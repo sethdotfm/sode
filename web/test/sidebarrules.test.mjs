@@ -122,3 +122,9 @@ test('fixed destinations keep the order they were added in, at most 16, and an e
   for (let n = 0; n < 20; n++) full = addFixed(full, n);
   assert.equal(full.fixedDests.length, 16);
 });
+
+test('adding to a stored list the server would refuse starts a new list', async () => {
+  const { addFixed, dropFixed } = await import('../sidebarrules.js');
+  assert.deepEqual(addFixed({ fixedDests: [3, 3] }, 5), { fixedDests: [5] });
+  assert.deepEqual(dropFixed({ fixedDests: [-1, 4] }, 4), {});
+});

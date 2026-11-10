@@ -3,7 +3,7 @@
 // Rules are findrules.js and sidebarrules.js (addFixed, dropFixed); this file is the DOM.
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
-import { resultStep } from './keys.js';
+import { resultStep, chord } from './keys.js';
 import { findEntries, fixedPick, offTag } from './findrules.js';
 import { addFixed, dropFixed, FIXED_MAX } from './sidebarrules.js';
 import { fixedDestsOf } from './panelrules.js';
@@ -146,10 +146,10 @@ export function createFixedField(ed) {
       e.preventDefault();
       hi = (hi + step + results.length) % results.length;
       draw();
-    } else if (e.key === 'Enter') {
+    } else if (chord(e) === 'enter') {
       e.preventDefault();
       add(results[hi]);
-    } else if (e.key === 'Escape' && input.value) {
+    } else if (chord(e) === 'escape' && input.value) {
       e.preventDefault();
       input.value = '';
       draw();

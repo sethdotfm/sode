@@ -345,7 +345,8 @@ export function nextTodo(g) {
 
 // The grid as a panel stores it: reading order, no selection. Unassigned cells are kept.
 // Fixed destination keeps Destination cells out of the editor's grid but in the stored panel, so no edit can touch a
-// square nobody sees. putBack drops a held cell whose squares were filled meanwhile or that no longer fits.
+// square nobody sees. putBack drops a held cell whose squares were filled meanwhile or that no longer fits;
+// the editor drops them at once and says how many (paneleditor.js holdOrPutBack).
 export function setAside(g, kind) {
   const held = g.cells.filter((c) => c.kind === kind);
   return held.length
@@ -358,14 +359,19 @@ export function setAside(g, kind) {
       }
     : { grid: g, held };
 }
-export function putBack(g, held) {
-  if (!held.length) return g;
-  const cells = [...g.cells];
+// The held cells putBack would keep: the first held cell wins a square two of them share.
+export function heldThatFit(g, held) {
+  const kept = [];
   for (const h of held) {
     const { r2, c2 } = span(h);
-    if (r2 <= g.rows && c2 <= g.cols && !cells.some((x) => touches(x, { r1: h.r, c1: h.c, r2, c2 }))) cells.push(h);
+    const area = { r1: h.r, c1: h.c, r2, c2 };
+    if (r2 <= g.rows && c2 <= g.cols && ![...g.cells, ...kept].some((x) => touches(x, area))) kept.push(h);
   }
-  return cells.length > g.cells.length ? withCells(g, cells) : g;
+  return kept;
+}
+export function putBack(g, held) {
+  const kept = heldThatFit(g, held);
+  return kept.length ? withCells(g, [...g.cells, ...kept]) : g;
 }
 
 export const saved = (g) => ({ rows: g.rows, cols: g.cols, cells: g.cells.map((c) => ({ ...c })).sort(reading) });

@@ -89,8 +89,15 @@ export function cellsIn(panel) {
   return out;
 }
 
-// The panel's fixed destinations (settings.fixedDests), [] when the setting is off.
-export const fixedDestsOf = (panel) => (Array.isArray(panel?.settings?.fixedDests) ? panel.settings.fixedDests.filter(Number.isInteger) : []);
+// The panel's fixed destinations (settings.fixedDests), [] when the setting is off. A list the server would refuse
+// (fixedList in internal/app/panelfixed.go) also reads as off, so a hand-edited file cannot break the page.
+export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go
+const DST_MAX = 0xffff; // keep in step with dstNumberMax in internal/app/panelfixed.go
+export function fixedDestsOf(panel) {
+  const list = panel?.settings?.fixedDests;
+  const ok = Array.isArray(list) && list.length <= FIXED_MAX && list.every((n, i) => Number.isInteger(n) && n >= 0 && n <= DST_MAX && list.indexOf(n) === i);
+  return ok ? list : [];
+}
 
 // What the panel page draws. A panel with fixed destinations leaves its Destination cells out; they stay stored, so
 // the editor and the thumbnails keep using cellsIn.
