@@ -3,7 +3,9 @@
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned } from './gridmodel.js';
 
-export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName'];
+export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'goToPage', 'nextPage', 'previousPage'];
+// One entry each, placed with nothing chosen: a Go to Page cell gets its Page in the Cell tab.
+const NUMBERLESS = ['take', 'clear', 'current', 'panelName', 'instanceName', 'goToPage', 'nextPage', 'previousPage'];
 // The kinds with a list behind them get a chip; the others are one entry each and show under All.
 export const CHIP_CATEGORIES = ['source', 'destination', 'preset'];
 export const CATEGORY_LABEL = {
@@ -15,6 +17,9 @@ export const CATEGORY_LABEL = {
   current: 'Current Source',
   panelName: 'Panel Name',
   instanceName: 'Instance Name',
+  goToPage: 'Go to Page',
+  nextPage: 'Next Page',
+  previousPage: 'Previous Page',
 };
 // Not log-in and log-out: the glossary UI test refuses those words.
 export const CATEGORY_ICON = {
@@ -26,6 +31,9 @@ export const CATEGORY_ICON = {
   current: 'eye',
   panelName: 'panels-top-left',
   instanceName: 'tablet-smartphone',
+  goToPage: 'file-symlink',
+  nextPage: 'chevron-right',
+  previousPage: 'chevron-left',
 }; // keep in step with editorview.js KIND_ICON
 const RIGHTS_KIND = { source: 'sources', destination: 'dsts', preset: 'presets' };
 
@@ -58,7 +66,7 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
   const byName = [...(presetsReply?.presets || [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   for (const p of byName) add({ category: 'preset', key: `preset:${p.scope}:${p.name}`, label: p.name, scope: p.scope }, p.name);
   // The numberless kinds are always placeable: Rights limit Sources, Destinations and Presets only.
-  for (const category of ['take', 'clear', 'current', 'panelName', 'instanceName']) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
+  for (const category of NUMBERLESS) out.push({ category, key: category, label: CATEGORY_LABEL[category], off: false });
   return out;
 }
 

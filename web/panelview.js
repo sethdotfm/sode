@@ -15,6 +15,7 @@ import {
   GUARD_HOLD_MS,
   GUARD_DOUBLE_MS,
 } from './panelmodel.js';
+import { NAV_KINDS, navTarget, navText } from './panelnav.js';
 
 const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
 
@@ -154,6 +155,12 @@ function paintName(b, cell, ctx) {
   fill(b, ...(t.caption ? [el('small', 'sode-panel__text', t.caption)] : []), el('span', 'sode-panel__text', t.value));
 }
 
+// Greyed and unpressable when the press would go nowhere: a disabled or deleted target, or an end without wrap.
+function paintNav(b, cell, { st, pages = [], wrap = true }) {
+  b.disabled = navTarget(pages, st.page, cell, wrap) === null;
+  fill(b, el('span', 'sode-panel__text', navText(cell, pages)));
+}
+
 function takeLabel(st, cell, now) {
   if (cell.caption) return cell.caption;
   if (st.mode === 'instant') return 'Take';
@@ -172,6 +179,7 @@ export function paintGrid(grid, ctx) {
     else if (cell.kind === 'current') paintCurrent(b, cell, ctx);
     else if (cell.kind === 'panelName' || cell.kind === 'instanceName') paintName(b, cell, ctx);
     else if (cell.kind === 'clear') fill(b, el('span', 'sode-panel__text', ctx.names.of(cell)));
+    else if (NAV_KINDS.includes(cell.kind)) paintNav(b, cell, ctx);
     else {
       fill(b, el('span', 'sode-panel__text', takeLabel(ctx.st, cell, ctx.now)));
       b.dataset.guard = ctx.st.holdAt ? 'holding' : guardWaiting(ctx.st, ctx.now) ? 'waiting' : '';

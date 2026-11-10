@@ -2098,7 +2098,14 @@ components:
             `bad_request`). Left out, Sode makes one of 8 hex digits.
         name: { type: string, maxLength: 40, description: Optional; shown as "Page N" when empty. Longer is 400 `bad_request` }
         enabled: { type: boolean, default: true }
-        cells: { type: array, items: { type: object, additionalProperties: true }, maxItems: 576 }
+        cells:
+          type: array
+          maxItems: 576
+          items: { type: object, additionalProperties: true }
+          description: |
+            The Page's cells. A `goToPage` cell names its target in `page`, a Page id of this panel: one
+            that is not a string or not shaped like an id is 400 `bad_request`, and one that names no Page
+            is kept and reads as unassigned. `nextPage` and `previousPage` cells have no target.
     PanelIn:
       type: object
       description: |
@@ -2142,6 +2149,10 @@ components:
           additionalProperties: true
           description: Free-form settings for the panel page and editor. Sode checks only `fixedDests`.
           properties:
+            wrapPages:
+              type: boolean
+              default: true
+              description: Next Page and Previous Page wrap past the last and first Page. Stored only when false.
             fixedDests:
               type: array
               maxItems: 16

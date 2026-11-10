@@ -308,7 +308,7 @@ export async function runEditor() {
 
   function refresh() {
     const ro = readOnly();
-    grid.paint(g, names, { readOnly: ro, art, defaults });
+    grid.paint(g, names, { readOnly: ro, art, defaults, pages });
     const box = ro ? null : grid.selectionBox();
     menu.show(menuAway ? null : box, menuItems());
     for (const fn of paintWatchers) fn(g, box);

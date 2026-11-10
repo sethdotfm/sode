@@ -193,6 +193,18 @@ test('into another panel, uploaded images go and vendored icons, library icons a
   assert.equal(pastePlan(g, { ...b, panel: '' }, { panel: '' }).lostArt, 2);
 });
 
+test('a Go to Page cell pasted into another panel arrives unassigned, with a note; in its own panel it keeps its Page', () => {
+  const b = block([{ r: 1, c: 1, rs: 1, cs: 1, kind: 'goToPage', page: 'aa' }], 1, 1, 'p-1');
+  const g = pick(grid([]), 1, 1);
+  const other = pastePlan(g, b, { panel: 'p-2' });
+  assert.equal(other.placed[0].page, undefined);
+  assert.equal(other.lostTargets, 1);
+  assert.match(pasteNote(other), /1 Go to Page cell came in unassigned/);
+  const same = pastePlan(g, b, { panel: 'p-1' });
+  assert.equal(same.placed[0].page, 'aa');
+  assert.equal(same.lostTargets, 0);
+});
+
 test('while Fixed destination is on, Destination cells in the block are skipped and counted', () => {
   const b = block(
     [

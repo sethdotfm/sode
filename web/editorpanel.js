@@ -117,6 +117,7 @@ export function createPanelTab(ed) {
     levelField,
     toggle('resultText', 'Show the result as text on a Destination'),
     toggle('kiosk', 'Kiosk mode'),
+    toggle('wrapPages', 'Wrap between Pages', 'Next Page on the last Page goes to the first, and Previous Page on the first goes to the last.'),
   );
 
   const feel = featureSupport(navigator);
@@ -152,7 +153,7 @@ export function createPanelTab(ed) {
         linkBox.replaceChildren(...(p ? [linkRow(p, { withHost: false })] : []));
       }
       for (const { key, input } of toggles) {
-        const dflt = key === 'titleBar' || key === 'multi';
+        const dflt = key === 'titleBar' || key === 'multi' || key === 'wrapPages';
         input.checked = dflt ? s[key] !== false : s[key] === true;
         // A switch the editor's own browser cannot honour still shows what the tablet will do; only turning it on is blocked.
         input.disabled = ro || (key === 'wake' && !feel.wake && !input.checked);

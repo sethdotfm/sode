@@ -58,7 +58,8 @@ export function readBlock(text) {
 
 // Where a paste would land and what it would place, before anything changes. at is the selection's top left.
 // Uploaded images (artOf gives an id that is not a library icon) stay with the panel they were uploaded to, so they
-// are dropped across panels; an unsaved panel has none of its own. Destination cells are skipped while Fixed
+// are dropped across panels; an unsaved panel has none of its own. A Go to Page target is a Page id of the panel copied
+// from (ADR 0007), so across panels it is dropped and the cell arrives unassigned. Destination cells are skipped while Fixed
 // destination is on (fixed), so they never reach the editor's held cells. fits false: some placed cell runs past
 // the grid's edge (outside counts them) and the grid must not change.
 export function pastePlan(g, block, { panel = '', fixed = false } = {}) {
@@ -67,6 +68,7 @@ export function pastePlan(g, block, { panel = '', fixed = false } = {}) {
   const at = { r: q.r1, c: q.c1 };
   const samePanel = !!block.panel && block.panel === panel;
   let lostArt = 0;
+  let lostTargets = 0;
   let skippedDests = 0;
   const placed = [];
   for (const cell of block.cells) {
@@ -80,10 +82,14 @@ export function pastePlan(g, block, { panel = '', fixed = false } = {}) {
       delete c.art;
       lostArt++;
     }
+    if (!samePanel && c.kind === 'goToPage' && c.page) {
+      delete c.page;
+      lostTargets++;
+    }
     placed.push(c);
   }
   const outside = placed.filter((c) => c.r + c.rs - 1 > g.rows || c.c + c.cs - 1 > g.cols).length;
-  return { at, rows: block.rows, cols: block.cols, placed, fits: outside === 0, outside, lostArt, skippedDests };
+  return { at, rows: block.rows, cols: block.cols, placed, fits: outside === 0, outside, lostArt, lostTargets, skippedDests };
 }
 
 // One paste as one new grid, so an undo step can wrap it. placed holds absolute cells inside the grid; a cell
@@ -107,6 +113,7 @@ export function pasteNote(plan) {
     parts.push(
       `${plural(plan.lostArt, 'cell')} lost ${plan.lostArt === 1 ? 'its' : 'their'} uploaded image, since images stay with the panel they were added to.`,
     );
+  if (plan.lostTargets) parts.push(`${plural(plan.lostTargets, 'Go to Page cell')} came in unassigned, since a Page belongs to the panel it is on.`);
   if (plan.skippedDests) parts.push(`Skipped ${plural(plan.skippedDests, 'Destination cell')}, since Fixed destination is on.`);
   return parts.join(' ');
 }

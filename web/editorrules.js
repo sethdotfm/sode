@@ -195,6 +195,9 @@ const WORDS = {
   current: 'Current Source',
   panelName: 'Panel Name',
   instanceName: 'Instance Name',
+  goToPage: 'Go to Page',
+  nextPage: 'Next Page',
+  previousPage: 'Previous Page',
   '': 'Empty',
 };
 export const kindLabel = (kind) => WORDS[kind] ?? kind.charAt(0).toUpperCase() + kind.slice(1);
