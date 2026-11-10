@@ -71,3 +71,6 @@ export function rekeyUndo(h, from, to) {
   };
   return { past: h.past.map(fix), future: h.future.map(fix) };
 }
+
+// before and after are the Page ids in list order around a save; any Page that had id '' follows its new one.
+export const rekeySaved = (h, before, after) => before.reduce((acc, id, i) => (id === '' && after[i] && after[i] !== id ? rekeyUndo(acc, id, after[i]) : acc), h);

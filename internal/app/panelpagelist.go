@@ -109,6 +109,10 @@ func checkPages(pages []PanelPage, rows, cols int) ([]PanelPage, error) {
 		out[i].Name = cleanText(name, panelPageNameMax)
 		out[i].Cells = fitCells(g.Cells, rows, cols)
 	}
+	// The panel page falls back to Page 1 when none is enabled (web/panelnav.js), so a reload would land on a dead Page.
+	if !slices.ContainsFunc(out, func(g PanelPage) bool { return g.Enabled }) {
+		return nil, errors.New("a panel needs at least one enabled Page")
+	}
 	if err := checkPageTargets(out); err != nil {
 		return nil, err
 	}

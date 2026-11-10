@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addPage, movePage, renamePage, enablePage, deletePage, leadsTo, copyPage, openClick, OPEN_MAX } from '../editorpagerules.js';
 import { PAGE_MAX } from '../panelpages.js';
-import { emptyUndo, record, undo, redo, pageSnap, samePages, restorePages, rekeyUndo } from '../gridundo.js';
+import { emptyUndo, record, undo, redo, pageSnap, samePages, restorePages, rekeyUndo, rekeySaved } from '../gridundo.js';
 
 const src = (r, c, n) => ({ r, c, rs: 1, cs: 1, kind: 'source', n });
 const goTo = (r, c, page) => ({ r, c, rs: 1, cs: 1, kind: 'goToPage', page });
@@ -39,6 +39,13 @@ test('a rename keeps at most 40 characters, and an empty name drops the name so 
   assert.equal(renamePage(three(), 1, '  Studio B  ')[1].name, 'Studio B');
   assert.equal(renamePage(three(), 1, 'x'.repeat(50))[1].name.length, 40);
   assert.equal('name' in renamePage(three(), 0, '   ')[0], false);
+});
+
+test('the last enabled Page cannot be turned off, so a reload never lands on a dead Page', () => {
+  const one = three();
+  const off = enablePage(one, 0, false);
+  assert.equal(enablePage(off, 1, false), off);
+  assert.equal(enablePage(off, 1, false)[1].enabled, true);
 });
 
 test('enable turns a Page on or off and leaves its cells', () => {
@@ -127,4 +134,15 @@ test('the first save gives an unsaved Page 1 its id, and undo steps follow it', 
   h = rekeyUndo(h, '', 'n1');
   const u = undo(h, pageSnap([{ id: 'n1', enabled: true, cells: [] }], 4, 8));
   assert.deepEqual(restorePages([{ id: 'n1', enabled: true, cells: [] }], u.grid)[0].cells, [src(1, 1, 1)]);
+});
+
+test('undo steps follow Page 1 to its saved id even when another Page had focus at the save', () => {
+  const unsaved = [{ id: '', enabled: true, cells: [src(1, 1, 1)] }, { id: 'p2', enabled: true, cells: [] }];
+  let h = record(emptyUndo(), { what: 'paste', before: pageSnap([{ ...unsaved[0], cells: [] }, unsaved[1]], 4, 8, { focus: '' }) });
+  h = rekeySaved(h, ['', 'p2'], ['n1', 'p2']);
+  const saved = [{ id: 'n1', enabled: true, cells: [src(1, 1, 1)] }, unsaved[1]];
+  const u = undo(h, pageSnap(saved, 4, 8));
+  assert.deepEqual(restorePages(saved, u.grid)[0].cells, []);
+  assert.equal(u.grid.focus, 'n1');
+  assert.equal(rekeySaved(h, ['n1', 'p2'], ['n1', 'p2']), h);
 });

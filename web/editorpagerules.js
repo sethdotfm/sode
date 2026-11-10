@@ -28,7 +28,11 @@ export function renamePage(pages, i, text) {
   });
 }
 
-export const enablePage = (pages, i, on) => pages.map((p, j) => (j === i ? { ...p, enabled: !!on } : p));
+// The last enabled Page stays on (the same pages back), since the panel page would fall back to a disabled Page 1.
+export function enablePage(pages, i, on) {
+  if (!on && pages[i]?.enabled !== false && pages.filter((p) => p.enabled !== false).length <= 1) return pages;
+  return pages.map((p, j) => (j === i ? { ...p, enabled: !!on } : p));
+}
 
 // A panel keeps at least one Page. Go to Page cells to a deleted Page stay as they are and read as missing (panelnav.js).
 export const deletePage = (pages, i) => (pages.length <= 1 ? pages : pages.filter((_, j) => j !== i));

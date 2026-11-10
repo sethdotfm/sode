@@ -112,6 +112,7 @@ func TestPagesValidation(t *testing.T) {
 		"a repeated id": `[{"id":"a"},{"id":"a"}]`,
 		"a bad id":      `[{"id":"has space"}]`,
 		"a long name":   name(41),
+		"no enabled Page": `[{"id":"a","enabled":false},{"id":"b","enabled":false}]`,
 	} {
 		body := `{"name":"Wall","pages":` + pages + `}`
 		if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body); rec.Code != 400 {

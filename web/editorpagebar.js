@@ -79,7 +79,10 @@ export function createPageBar(host, act) {
     on.disabled = s.readOnly;
     on.dataset.act = 'enable';
     on.setAttribute('aria-label', `Page ${i + 1} enabled`);
-    on.addEventListener('change', () => act.enable(i, on.checked));
+    // A refused change (the last enabled Page) may not repaint the bar, so the box is put back here.
+    on.addEventListener('change', () => {
+      if (act.enable(i, on.checked) === false) on.checked = true;
+    });
     const tools = el(
       'div',
       'sode-pages__tools',

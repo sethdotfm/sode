@@ -47,7 +47,7 @@ import { gridCommand } from './gridchords.js';
 import { createLive } from './editorlive.js';
 import { copyBlock, blockText, readBlock, pastePlan, applyPaste, pasteNote } from './gridclip.js';
 import { writeClip, createPasteReader } from './editorclip.js';
-import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeyUndo } from './gridundo.js';
+import { emptyUndo, record, undo, redo, sameCells, pageSnap, samePages, restorePages, rekeySaved } from './gridundo.js';
 import { edgeChoices, edgeNote } from './gridedge.js';
 import { askPasteEdge } from './editorpasteedge.js';
 import { pagesOf, pageView, fitPages } from './panelpages.js';
@@ -208,8 +208,12 @@ export async function runEditor() {
       refresh();
     },
     enable(i, on) {
-      pages = enablePage(livePages(), i, on);
+      const live = livePages();
+      pages = enablePage(live, i, on);
       refresh();
+      if (pages !== live || on) return true;
+      say('ed-status', 'At least one Page stays on, so the panel always has a Page to show.');
+      return false;
     },
     move(i, to) {
       pages = movePage(livePages(), i, to);
@@ -326,7 +330,7 @@ export async function runEditor() {
     if (readOnly()) return;
     if (text === null) return say('ed-status', 'Nothing pasted: the browser did not let Sode read the clipboard.');
     const block = readBlock(text);
-    if (!block) return say('ed-status', 'Nothing pasted: the clipboard holds no Sode cells.');
+    if (!block) return say('ed-status', 'Nothing pasted: the clipboard holds no valid Sode cells.');
     const plan = pastePlan(g, block, { panel: loaded?.id, fixed: fixedOn() });
     if (!plan) return say('ed-status', 'Nothing pasted: select the square to paste at first.');
     if (!plan.fits) return void pasteOverflow(plan);
@@ -573,7 +577,7 @@ export async function runEditor() {
     $('ed-save').disabled = true;
     say('ed-status', 'Saving.');
     const body = JSON.stringify(saveBody(loaded || newPanel(), nameBox.value, firstGrid(), edits, livePages()));
-    const at = { focus: fi(), open: open.map((id) => pages.findIndex((p) => p.id === id)) };
+    const at = { focus: fi(), open: open.map((id) => pages.findIndex((p) => p.id === id)), ids: pages.map((p) => p.id) };
     let stored;
     try {
       stored = await edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(
@@ -592,10 +596,13 @@ export async function runEditor() {
     const made = !loaded;
     loaded = stored;
     // The first save gives an unsaved Page 1 its id; the place in the list is what stays.
-    const was = focus;
     pages = pagesOf(stored);
     focus = pages[at.focus]?.id ?? pages[0].id;
-    if (was !== focus) steps = rekeyUndo(steps, was, focus);
+    steps = rekeySaved(
+      steps,
+      at.ids,
+      pages.map((p) => p.id),
+    );
     open = at.open.map((i) => pages[i]?.id).filter((id) => id !== undefined);
     if (!open.includes(focus)) open = [focus];
     edits = {};

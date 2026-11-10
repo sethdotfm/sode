@@ -2,10 +2,7 @@
 // line. Pure (test/gridedge.test.mjs); the dialog is editorpasteedge.js. plan is gridclip.js pastePlan's, with
 // absolute placed cells. Wrap walks squareOrder, the one fill order Find uses, so a new order shows up in both.
 import { squareOrder, FILL_ORDERS } from './gridmodel.js';
-import { pasteNote } from './gridclip.js';
-
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const overlap = (a, b) => !(a.r + a.rs - 1 < b.r || b.r + b.rs - 1 < a.r || a.c + a.cs - 1 < b.c || b.c + b.cs - 1 < a.c);
+import { pasteNote, plural, overlap } from './gridclip.js';
 const reading = (a, b) => a.r - b.r || a.c - b.c;
 
 // Cells wholly outside go; a merged cell partly outside keeps the squares inside. A cell's top left is never
