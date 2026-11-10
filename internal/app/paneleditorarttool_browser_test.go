@@ -64,7 +64,8 @@ func TestChromeEditorArtTool(t *testing.T) {
 	b.shot("arttool")
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-save').disabled`)
+	// Save disables the button at once, before the PUT; only the state slot says Saved once the reply is in.
+	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
 	got := stored()
 	want := "1,1=icon:camera/15 1,2=icon:camera/16 1,3=icon:camera/<nil> 2,1=icon:camera/<nil> 2,3=icon:camera/<nil>"
 	if got != want {
