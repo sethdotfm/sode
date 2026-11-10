@@ -34,7 +34,8 @@ func TestChromeIconLibraryUploadPickAndDraw(t *testing.T) {
 	b.waitFor("the tile picks it, pressed, with Icon B as a badge", sq+`.querySelector('img.sode-panel__art-a') !== null && !!`+sq+`.querySelector('.sode-panel__art-b--badge') && document.querySelector('#ed-lib-icons [data-lib]').getAttribute('aria-pressed') === 'true'`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-save').disabled`)
+	// Save disables the button at once, before the PUT; only the state slot says Saved once the reply is in and the editor is clean.
+	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
 	if p, _ := a.panels.get(id); p.Cells[0]["art"] != lib {
 		t.Fatalf("stored art %v, want %s", p.Cells[0]["art"], lib)
 	}
