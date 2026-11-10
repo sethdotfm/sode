@@ -710,9 +710,6 @@
 .sode-ed__menu li:focus-within > .sode-find {
   display: flex;
 }
-.sode-ed__menu li > .sode-find[data-closed="1"] {
-  display: none;
-}
 .sode-find__chips {
   display: flex;
   flex-wrap: wrap;

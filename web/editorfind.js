@@ -270,14 +270,7 @@ export function initFind(editor) {
         .filter(usable)
         .map((x) => x.key);
       draw();
-    } else {
-      choose(i);
-      // A click fills and closes the flyout; it opens again on the next hover of Find or on typing.
-      if (e.detail > 0) {
-        panel.dataset.closed = '1';
-        input.blur();
-      }
-    }
+    } else choose(i);
   });
   list.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.sode-find__row')) e.preventDefault(); // keeps focus in the box
@@ -347,12 +340,7 @@ export function initFind(editor) {
     hovered = false;
     if (!panel.contains(document.activeElement)) close();
   });
-  // The closed flyout comes back once the pointer has left the Find item.
-  document.addEventListener('pointerover', (e) => {
-    if (panel.dataset.closed && !panel.parentElement?.contains(e.target)) delete panel.dataset.closed;
-  });
   panel.addEventListener('focusin', () => {
-    delete panel.dataset.closed;
     scope();
     panel.dataset.open = '1';
     load();
