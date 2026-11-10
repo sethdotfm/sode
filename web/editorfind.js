@@ -24,7 +24,7 @@ import { flyoutShift } from './editorrules.js';
 
 const SHOWN = 200; // rows drawn; typing narrows the rest
 const STALE_MS = 5000;
-const EDGE_GAP = 8; // keep in step with GAP in editormenu.js
+const EDGE_GAP = 8; // keep in step with GAP in editormenu.js and EDGE_GAP in editorarttool.js
 
 export function initFind(editor) {
   let rights = null;
@@ -404,14 +404,18 @@ export function initFind(editor) {
   });
   editor.refresh();
 
+  // One fill order for Find and the Artwork tool (editorarttool.js); only Find's own picker moves focus to its box.
+  const orderWatchers = [];
   const api = {
-    setOrder(id) {
+    setOrder(id, { focus = true } = {}) {
       order = id;
       orders.set(id);
       draw();
-      input.focus({ preventScroll: true });
+      for (const fn of orderWatchers) fn(id);
+      if (focus) input.focus({ preventScroll: true });
     },
     order: () => order,
+    onOrder: (fn) => orderWatchers.push(fn),
   };
   return api;
 }

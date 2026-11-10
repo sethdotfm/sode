@@ -1085,6 +1085,13 @@
   display: flex;
   gap: var(--pb-space-2);
 }
+/* The smart menu's Artwork flyout: the Cell tab's two picker columns, kept short so the flyout fits beside a low selection. */
+.sode-arttool {
+  width: 30rem;
+}
+.sode-arttool .sode-side__icons {
+  max-height: 10rem;
+}
 .sode-ed__grid {
   position: relative;
 }
