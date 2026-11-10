@@ -4,11 +4,12 @@
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn } from './formbits.js';
-import { artFilter, ART_ICONS } from './sidebarrules.js';
+import { ART_ICONS } from './sidebarrules.js';
 import { artOf, artBOf, ART_B_CHOICES } from './panellook.js';
 import { artNode } from './panelview.js';
 import { prepareArt } from './artcompress.js';
 import { createLibSection } from './editorlib.js';
+import { pickerSections } from './iconlibrules.js';
 
 // A panel's own picture or a Default artwork image, as opposed to an icon (vendored or from the Icon library).
 const panelImage = (value) => {
@@ -102,7 +103,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   find.autocomplete = 'off';
   find.setAttribute('aria-label', 'Search icons by name');
   find.addEventListener('input', () => {
-    const shown = new Set(artFilter(ART_ICONS, find.value));
+    const shown = new Set(pickerSections(null, ART_ICONS, find.value)[1].tiles.map((t) => t.name));
     for (const b of panes[0].grid.querySelectorAll('[aria-label]')) b.hidden = !shown.has(b.getAttribute('aria-label'));
     lib?.filter(find.value);
   });
@@ -115,7 +116,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   const hide = btn('pb-btn--outline pb-btn--sm', 'Hide text', () => setHideText(!hidden));
   hide.hidden = true;
   const bar = el('div', 'sode-side__row', up, ...(icons ? [choose] : []), clearImage, clearIcon, ...(setHideText ? [hide] : []));
-  const node = el('div', 'sode__field', el('span', 'sode__field-label', 'Artwork'), preview, bar, ...(icons ? [picker] : []), note, file);
+  // The cell's own file input comes before the Uploaded section's, so it is the Cell tab's first.
+  const node = el('div', 'sode__field', el('span', 'sode__field-label', 'Artwork'), preview, bar, file, ...(icons ? [picker] : []), note);
 
   file.addEventListener('change', async () => {
     const f = file.files[0];
