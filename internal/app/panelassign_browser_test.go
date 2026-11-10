@@ -60,7 +60,7 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	b.waitFor("Assign to", `!!document.querySelector('[data-act="assign"]')`)
 	b.eval(`document.querySelector('[data-act="assign"]').click()`)
 	row := `document.querySelector('#assign-list [data-instance="Lobby"][data-from="` + from + `"]')`
-	b.waitFor("the open page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A')`)
+	b.waitFor("the open page in the list", `!!`+row+` && !`+row+`.disabled && `+row+`.closest('.sode-ov__cp').textContent.includes('Studio A') && `+row+`.closest('.sode-ov__cp').textContent.includes("Signed in as the panel's client, up ")`)
 	b.eval(row + `.click()`)
 	b.waitFor("the Assign was sent", `document.querySelector('.sode-ov__share [role="status"]').textContent.includes('Sent Lobby to Studio B')`)
 

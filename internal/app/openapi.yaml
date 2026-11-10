@@ -1772,6 +1772,11 @@ components:
                   seen: { type: string, format: date-time }
                   online: { type: boolean }
                   stream: { type: boolean, description: "It holds `/panels/{id}/instances/stream` now, so it is one of Sode's own panel pages and can be assigned" }
+                  page: { type: boolean, description: "It has held `/panels/{id}/instances/stream` since Sode started. Only then are the fields below sent, from the last stream it opened" }
+                  addr: { type: string, description: The address the stream came from }
+                  signIn: { type: string, enum: [client, user, none], description: "Who opened it: the panel's API client, a user, or nobody signed in" }
+                  user: { type: string, description: The user's name, when `signIn` is `user` }
+                  streamSince: { type: string, format: date-time, description: When its current stream connected. Sent only while `stream` is true }
                   uptime:
                     type: object
                     description: |

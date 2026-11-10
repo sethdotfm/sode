@@ -1,23 +1,87 @@
 // Assign: the panels page's list rows and the panel page's switch. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assignRows, canAssignTo, splitLines, assignOf, assignAddress, assignChangesMode } from '../panelassignrules.js';
+import { assignRows, canAssignTo, splitLines, assignOf, assignAddress, assignChangesMode, signInText, uptimeText } from '../panelassignrules.js';
 
-const inst = (device, extra = {}) => ({ device, online: true, stream: true, ...extra });
+const NOW = Date.parse('2026-11-10T12:00:00Z');
+const at = (secsAgo) => new Date(NOW - secsAgo * 1000).toISOString();
+const inst = (device, extra = {}) => ({
+  device,
+  online: true,
+  stream: true,
+  page: true,
+  addr: '192.0.2.7',
+  signIn: 'client',
+  streamSince: at(125),
+  seen: at(1),
+  ...extra,
+});
 
-test('rows are the open Sode panel pages, sorted by current panel then name', () => {
+test('rows are the Sode panel pages, sorted by current panel then name', () => {
   const panels = [
     { id: 'p-2', name: 'Studio B', instances: [inst('Wall'), inst('desk')] },
-    { id: 'p-1', name: 'Studio A', instances: [inst('Lobby'), inst('Kiosk', { stream: false }), inst('Gone', { online: false })] },
+    { id: 'p-1', name: 'Studio A', instances: [inst('Lobby'), inst('Hall', { stream: false, page: false })] },
     { id: 'p-3', name: 'Nobody', instances: [] },
     { id: 'p-4', name: 'Not mine' },
   ];
-  assert.deepEqual(assignRows(panels, 'p-2'), [
-    { panel: 'p-1', panelName: 'Studio A', device: 'Lobby', here: false },
-    { panel: 'p-2', panelName: 'Studio B', device: 'desk', here: true },
-    { panel: 'p-2', panelName: 'Studio B', device: 'Wall', here: true },
-  ]);
-  assert.deepEqual(assignRows([], 'p-1'), []);
+  assert.deepEqual(
+    assignRows(panels, 'p-2', NOW).map((r) => [r.panelName, r.device, r.here]),
+    [
+      ['Studio A', 'Lobby', false],
+      ['Studio B', 'desk', true],
+      ['Studio B', 'Wall', true],
+    ],
+  );
+  assert.deepEqual(assignRows([], 'p-1', NOW), []);
+});
+
+test('a row shows the address, uptime since its stream and the sign-in state in words', () => {
+  const [r] = assignRows([{ id: 'p-1', name: 'Studio A', instances: [inst('Lobby', { signIn: 'user', user: 'Ana' })] }], 'p-2', NOW);
+  assert.deepEqual(r, {
+    panel: 'p-1',
+    panelName: 'Studio A',
+    device: 'Lobby',
+    addr: '192.0.2.7',
+    state: 'Signed in as Ana',
+    uptime: 'up 2 minutes',
+    here: false,
+    timedOut: false,
+    assignable: true,
+  });
+});
+
+test('sign-in state words', () => {
+  assert.equal(signInText({ signIn: 'client' }), "Signed in as the panel's client");
+  assert.equal(signInText({ signIn: 'user', user: 'Ana' }), 'Signed in as Ana');
+  assert.equal(signInText({ signIn: 'ended' }), 'Key ended');
+  assert.equal(signInText({ signIn: 'none' }), 'Not signed in');
+  assert.equal(signInText({}), 'Not signed in');
+});
+
+test('uptime counts whole minutes, so a poll does not redraw the list every time', () => {
+  assert.equal(uptimeText(30), 'under a minute');
+  assert.equal(uptimeText(61), '1 minute');
+  assert.equal(uptimeText(119), '1 minute');
+  assert.equal(uptimeText(3 * 3600 + 5 * 60 + 9), '3 hours 5 minutes');
+});
+
+test('the instance on the chosen panel is greyed', () => {
+  const [r] = assignRows([{ id: 'p-1', name: 'Studio A', instances: [inst('Lobby')] }], 'p-1', NOW);
+  assert.equal(r.here, true);
+  assert.equal(r.assignable, false);
+});
+
+test('a page whose stream ended is greyed with last seen and cannot be assigned', () => {
+  const gone = inst('Lobby', { stream: false, online: false, streamSince: undefined, seen: at(3 * 3600 + 30) });
+  const [r] = assignRows([{ id: 'p-1', name: 'Studio A', instances: [gone] }], 'p-2', NOW);
+  assert.equal(r.timedOut, true);
+  assert.equal(r.assignable, false);
+  assert.equal(r.uptime, 'last seen 3 hours ago');
+  assert.equal(r.addr, '192.0.2.7');
+  // In the grace after a close it still counts online, but there is no stream to send on.
+  const grace = inst('Desk', { stream: false, streamSince: undefined, seen: at(3) });
+  const [g] = assignRows([{ id: 'p-1', name: 'Studio A', instances: [grace] }], 'p-2', NOW);
+  assert.deepEqual([g.timedOut, g.assignable, g.uptime], [true, false, 'last seen under a minute ago']);
 });
 
 test('only a panel that acts as an API client can be assigned to', () => {

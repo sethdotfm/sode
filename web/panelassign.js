@@ -36,19 +36,26 @@ export function openAssign(panel, ctx) {
   let shown = '';
   // The page re-reads the instances every MON_POLL_MS; only a change is redrawn, so a button being pressed stays.
   function paint(force = true) {
-    const rows = assignRows(ctx.panels(), panel.id);
+    const rows = assignRows(ctx.panels(), panel.id, Date.now());
     const now = JSON.stringify([rows, busy]);
     if (!force && now === shown) return;
     shown = now;
     list.replaceChildren();
-    if (!rows.length) return list.append(el('p', 'sode__hint', 'No Sode panel page is open now.'));
+    if (!rows.length) return list.append(el('p', 'sode__hint', 'No Sode panel page was open in the last 24 hours.'));
     for (const r of rows) {
       const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('send'), ' Assign');
       b.type = 'button';
       b.dataset.from = r.panel;
       b.dataset.instance = r.device;
-      b.disabled = busy || r.here;
-      list.append(el('div', 'sode-ov__cp', el('span', null, el('strong', null, r.device), el('span', 'sode__hint', ` on ${r.panelName}`)), b));
+      b.disabled = busy || !r.assignable;
+      const facts = [r.addr, r.state, r.uptime].filter(Boolean).join(', ');
+      const who = el(
+        'span',
+        `sode-ov__who${r.assignable ? '' : ' sode-ov__muted'}`,
+        el('span', null, el('strong', null, r.device), el('span', 'sode__hint', ` on ${r.panelName}`)),
+        el('span', 'sode__hint', facts),
+      );
+      list.append(el('div', 'sode-ov__cp', who, b));
     }
   }
 
