@@ -72,14 +72,15 @@ export function saveBody(loaded, name, grid, fields = {}, pages = pagesOf(loaded
 // Compared through the grid, so a cell the model clips on load does not read as an edit. Keys are sorted because the
 // server stores cells with their keys in another order.
 const sorted = (c) => Object.fromEntries(Object.entries(c).sort(([a], [b]) => (a < b ? -1 : 1)));
-// Page 1's cells come from the grid; the other Pages and every Page's id, name and enabled from pages.
+// Page 1's cells come from the grid; the other Pages and every Page's id, name and enabled from pages. Each Page goes
+// through the grid model, so one the editor once showed (reading order, its own key order) is no change.
 const shape = (name, g, f, pages) =>
   JSON.stringify([
     name.trim(),
     g.rows,
     g.cols,
     saved(g).cells.map(sorted),
-    storedPages(pages, [], g.rows, g.cols).map((p) => [p.id, p.name || '', p.enabled !== false, p.cells.map(sorted)]),
+    storedPages(pages, [], g.rows, g.cols).map((p) => [p.id, p.name || '', p.enabled !== false, saved(createGrid({ rows: g.rows, cols: g.cols, cells: p.cells })).cells.map(sorted)]),
     sorted(f.settings || {}),
     f.acts || 'session',
     f.slug || '',

@@ -1,6 +1,5 @@
 // A panel's Pages (ADR 0007, GLOSSARY.md Page): pages [{ id, name?, enabled, cells }], in order, at most PAGE_MAX.
-// A Page's number is its place in the list and its id never changes. The panel page and the editor show Page 1 for
-// now, through pageCells. Pure. Limits keep in step with internal/app/panelpagelist.go.
+// A Page's number is its place in the list and its id never changes. Pure. Limits keep in step with internal/app/panelpagelist.go.
 export const PAGE_MAX = 16;
 export const PAGE_NAME_MAX = 40;
 
@@ -40,8 +39,11 @@ export function fitCells(cells, rows, cols) {
     });
 }
 
-// How many cells on the Pages after the first a resize to rows by cols drops.
-export const lostOnOtherPages = (pages, rows, cols) => pages.slice(1).reduce((n, p) => n + (p.cells || []).filter((x) => outside(x, rows, cols)).length, 0);
+// Every Page fitted to rows by cols, and how many cells that drops: a resize applies on every Page at once.
+export function fitPages(pages, rows, cols) {
+  const lost = pages.reduce((n, p) => n + (p.cells || []).filter((x) => outside(x, rows, cols)).length, 0);
+  return { pages: pages.map((p) => ({ ...p, cells: fitCells(p.cells, rows, cols) })), lost };
+}
 
 // The Page list as a save sends it: Page 1 holds cells (the edited grid, already stored shape) and every other Page is
 // fitted to rows by cols, ids, names and enabled kept. A Page with no id gets one from the server.

@@ -2,7 +2,7 @@
 // Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pagesOf, pageCells, pageView, pageLabel, newPageId, fitCells, lostOnOtherPages, storedPages, PAGE_MAX, PAGE_NAME_MAX } from '../panelpages.js';
+import { pagesOf, pageCells, pageView, pageLabel, newPageId, fitCells, fitPages, storedPages, PAGE_MAX, PAGE_NAME_MAX } from '../panelpages.js';
 import { cellsIn, drawnCells } from '../panelrules.js';
 import { thumbCells } from '../panelsrules.js';
 import { createGrid, select, setKind } from '../gridmodel.js';
@@ -61,8 +61,16 @@ test('a stored panel with only pages draws Page 1 on the panel page, the editor,
 
 test('a resize drops cells outside on every Page and clips a span that reaches out', () => {
   assert.deepEqual(fitCells([take(1, 1, { rs: 2, cs: 3 }), take(3, 1), take(1, 2)], 2, 2), [take(1, 1, { rs: 2, cs: 2 }), take(1, 2)]);
-  assert.equal(lostOnOtherPages(stored.pages, 1, 1), 1);
-  assert.equal(lostOnOtherPages(stored.pages, 2, 2), 0);
+  const fit = fitPages(stored.pages, 1, 1);
+  assert.equal(fit.lost, 1);
+  assert.deepEqual(
+    fit.pages.map((p) => [p.id, p.cells.length]),
+    [
+      ['aa', 1],
+      ['bb', 1],
+    ],
+  );
+  assert.equal(fitPages(stored.pages, 2, 2).lost, 0);
   const out = storedPages(stored.pages, [take(1, 1)], 1, 1);
   assert.deepEqual(
     out.map((p) => [p.id, p.name, p.enabled, p.cells.length]),
@@ -99,6 +107,9 @@ test('the editor reads the pages it is given, so an applied template counts as a
   const g = createGrid(pageView(stored));
   assert.equal(isDirty(stored, 'Wall', g), false);
   assert.equal(isDirty(stored, 'Wall', g, {}, stored.pages), false);
+  // A Page the editor once showed comes back in reading order with its keys sorted, which is no change.
+  const shown = [stored.pages[0], { ...stored.pages[1], cells: [...stored.pages[1].cells].reverse().map((c) => ({ ...c })) }];
+  assert.equal(isDirty(stored, 'Wall', g, {}, shown), false);
   const other = [stored.pages[0], { ...stored.pages[1], enabled: true }];
   assert.equal(isDirty(stored, 'Wall', g, {}, other), true);
   assert.deepEqual(
