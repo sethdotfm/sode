@@ -189,3 +189,46 @@ func TestChromeShareModalKeyTab(t *testing.T) {
 	}
 	b.check()
 }
+
+// A plain key link: once the key works the page keeps it in the browser and the address loses it, keeping
+// ?instance= and the rest of the fragment. A reload runs on the kept key, a rotate ends it, and with storage
+// blocked the key stays in the address.
+func TestChromePanelLinkKeyLeavesAddress(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, `{"name":"Wall","acts":"api"}`)
+	secret, body := mintKey(t, a, ana, id)
+	link, _ := body["link"].(string)
+	kept := `localStorage.getItem('sode-panel-key-` + id + `')`
+	opened := `document.getElementById('panel-title')?.textContent === 'Wall'`
+
+	b.open(srv.URL + "/" + link + "&kiosk=1")
+	b.waitFor("the panel opened", opened)
+	b.waitFor("the key left the address", `location.hash === '#kiosk=1' && location.search === '?instance=Lobby'`)
+	b.waitFor("the key kept in the browser", kept+` === '`+secret+`'`)
+
+	b.eval(`window.__old = true; setTimeout(() => location.reload(), 0)`)
+	b.waitFor("a reload runs on the kept key", `!window.__old && `+opened+` && document.getElementById('panels-note')?.hidden && document.documentElement.hasAttribute('data-sode-kiosk')`)
+
+	mintKey(t, a, ana, id)
+	b.waitFor("the stale page says its key was ended", `document.getElementById('panels-note')?.textContent.includes('rotated or revoked')`)
+	b.waitFor("the ended key is forgotten", kept+` === null`)
+
+	b.open("about:blank")
+	b.call("Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": `Storage.prototype.setItem = function () { throw new DOMException('full', 'QuotaExceededError'); };`})
+	_, body = mintKey(t, a, ana, id)
+	link, _ = body["link"].(string)
+	b.open(srv.URL + "/" + link)
+	b.waitFor("the panel opened without storage", opened)
+	b.waitFor("the key stays in the address", `location.hash.startsWith('#key=') && `+kept+` === null`)
+	// No b.check(): the 401 that ended the page is a console line by design.
+}
