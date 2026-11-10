@@ -1,5 +1,6 @@
-// The one guard on an Authentication mode switch. Every caller that changes a panel's acts (the editor's Access tab,
-// Assign) goes through it, so a switch that makes or ends the client never applies without the Confirm.
+// The one guard on an Authentication mode switch. Every caller that changes a panel's acts (today only the editor's
+// Access tab; an Assign never writes acts) goes through it, so a switch that makes or ends the client never applies
+// without the Confirm.
 import { actsSwitch } from './panelsrules.js';
 
 // box is a confirmBox (confirmbox.js). Resolves true when the switch may apply.
