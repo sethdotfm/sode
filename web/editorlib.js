@@ -18,7 +18,7 @@ const change = jsonCall(sessionFetch, {
   down: 'Sode did not answer, so the Icon library was not changed.',
   failed: (s) => `The Icon library was not changed (${s}).`,
 });
-const LOCKOUT_FALLBACK_MS = 500; // as panelkeytab.js: the editor has no hello, so S.cfg can be unset
+const LOCKOUT_FALLBACK_MS = 500; // as confirmbox.js: the editor has no hello, so S.cfg can be unset
 
 let trusted = false;
 const repaints = new Set();

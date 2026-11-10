@@ -16,6 +16,7 @@ test('the name checks', () => {
   assert.equal(renameProblem('  '), 'Name the instance, such as Lobby tablet.');
   assert.equal(renameProblem('x'.repeat(41)), 'Use at most 40 characters.');
   assert.equal(renameProblem(' Front desk '), '');
+  assert.equal(renameProblem('\u{1F3A5}'.repeat(40)), '');
 });
 
 test('the stream line', () => {

@@ -3,7 +3,7 @@
 import { el, icon, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
 import { segmented } from './formbits.js';
-import { assignRows, assignWays, assignChangesMode, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
+import { assignRows, assignWays, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
 import { pinNeeded } from './templaterules.js';
 import { MON_POLL_MS } from './panelsmon.js';
 import { resultStep } from './keys.js';
@@ -16,9 +16,6 @@ on('locking', () => {
   closeAnyway?.();
   closeOpen?.();
 });
-
-// A stub that always answers true: no Confirm runs before an Assign that lands on another Authentication mode.
-export const confirmModeChange = async () => true;
 
 // The name clash dialog, over the Assign to modal or the panels page's rename: the server's suggestion, editable.
 // go(name) sends again under it; Cancel and Escape close only this dialog.
@@ -263,8 +260,6 @@ export function openAssign(panel, ctx) {
   // name is the instance's name on the target, chosen in the clash dialog; '' keeps its own.
   async function send(row, name = '') {
     if (!row.assignable || busy) return;
-    const from = ctx.panels().find((p) => p.id === row.panel);
-    if (!name && assignChangesMode(from, panel) && !(await confirmModeChange(from, panel))) return;
     if (!name && row.notShared && !(await askAnyway(panel, row))) return;
     if (busy || !root.isConnected) return;
     busy = true;

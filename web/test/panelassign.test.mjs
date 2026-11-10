@@ -11,7 +11,6 @@ import {
   splitLines,
   assignOf,
   assignAddress,
-  assignChangesMode,
   signInText,
   uptimeText,
   clashOf,
@@ -72,7 +71,11 @@ test('a row shows the address, uptime since its stream and the sign-in state in 
 
 test('a user who cannot open the target is warned only when the device will sign in', () => {
   const panels = (share, owner = 'Cy') => [
-    { id: 'p-1', name: 'Studio A', instances: [inst('Lobby', { signIn: 'user', user: 'ana' }), inst('Wall'), inst('Boss', { signIn: 'user', user: 'Bo', trusted: true })] },
+    {
+      id: 'p-1',
+      name: 'Studio A',
+      instances: [inst('Lobby', { signIn: 'user', user: 'ana' }), inst('Wall'), inst('Boss', { signIn: 'user', user: 'Bo', trusted: true })],
+    },
     { id: 'p-2', name: 'Desk', owner, share },
   ];
   const warned = (share, bySignIn, owner) =>
@@ -185,12 +188,8 @@ test('a name clash offers the suggested name, and an edit is checked before it i
   assert.match(assignNameProblem('LOBBY', 'Lobby'), /already/);
   assert.equal(assignNameProblem('x'.repeat(40), 'Lobby'), '');
   assert.match(assignNameProblem('x'.repeat(41), 'Lobby'), /40/);
-});
-
-test('an assign that lands on another Authentication mode is told apart', () => {
-  assert.equal(assignChangesMode({ acts: 'session' }, { acts: 'api' }), true);
-  assert.equal(assignChangesMode({ acts: 'api' }, { acts: 'api' }), false);
-  assert.equal(assignChangesMode(undefined, { acts: 'both' }), true);
+  // The server counts characters, not UTF-16 units.
+  assert.equal(assignNameProblem('\u{1F3A5}'.repeat(40), 'Lobby'), '');
 });
 
 const FIND = [
@@ -247,8 +246,19 @@ test('Enter picks the highlighted row only when it can be assigned', () => {
 });
 
 test('keyless pages are rows too, assignable to the panel they show, and timed out without a stream', () => {
-  const kl = (device, extra = {}) => ({ keyless: `k-${device}`, device, addr: '192.0.2.9', signIn: 'none', stream: true, streamSince: at(30), seen: at(1), ...extra });
-  const panels = [{ id: 'p-1', name: 'Studio A', instances: [inst('Lobby')], keyless: [kl('Hall', { signIn: 'ended' }), kl('Gone', { stream: false, seen: at(600) })] }];
+  const kl = (device, extra = {}) => ({
+    keyless: `k-${device}`,
+    device,
+    addr: '192.0.2.9',
+    signIn: 'none',
+    stream: true,
+    streamSince: at(30),
+    seen: at(1),
+    ...extra,
+  });
+  const panels = [
+    { id: 'p-1', name: 'Studio A', instances: [inst('Lobby')], keyless: [kl('Hall', { signIn: 'ended' }), kl('Gone', { stream: false, seen: at(600) })] },
+  ];
   const rows = assignRows(panels, 'p-1', NOW);
   assert.deepEqual(
     rows.map((r) => [r.device, r.keyless, r.state, r.uptime, r.here, r.assignable]),

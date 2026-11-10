@@ -184,14 +184,10 @@ export const clashOf = (err) => (err?.code === 'name_taken' ? err.suggest || '' 
 export function assignNameProblem(text, clashed) {
   const name = String(text || '').trim();
   if (!name) return INSTANCE_HOLD;
-  if (name.length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
+  if ([...name].length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
   if (name.toLowerCase() === String(clashed || '').toLowerCase()) return `The panel already has an instance named ${name}.`;
   return '';
 }
-
-// Whether the instance lands on a panel whose Authentication mode differs from the one it shows now. An Assign never
-// edits a panel; send() asks confirmModeChange when this is true.
-export const assignChangesMode = (from, to) => (from?.acts || '') !== (to?.acts || '');
 
 // The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename): '' for none, since only a Sode panel
 // page (page) hears the name, and 'offline' when its stream is gone and nothing would hear it.
@@ -205,7 +201,7 @@ export const renameRefusal = (err) => ({ why: err?.message || '', pin: pinNeeded
 export function renameProblem(text) {
   const name = String(text || '').trim();
   if (!name) return INSTANCE_HOLD;
-  if (name.length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
+  if ([...name].length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
   return '';
 }
 

@@ -15,7 +15,7 @@ import (
 // (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock: a
 // locked wall panel must still save with the PIN. Locks require an Advanced Settings PIN (Validate).
 //
-//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history
+//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history activity
 //	needMain: `batch` `refreshNames`; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
 //	needAdmin: users apiSettings userSignOutAll configExport configImportBegin configImport
