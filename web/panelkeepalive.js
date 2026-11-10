@@ -3,19 +3,28 @@
 // tells Sode at once when the page closes; the keepalive is the fallback when a proxy or browser will not hold it.
 import { readStr, writeStr } from './store.js';
 import { KEEPALIVE_MS, deviceFrom, keepaliveBody, streamPath, retryMs, renameTo } from './panelwatchrules.js';
+import { splitLines, assignOf } from './panelassignrules.js';
 
 export const DEVICE_KEY = 'sode-panel-device';
 
-// fetch with the Authorization header can stream where EventSource cannot; the server writes a line every 10 s.
-// Ends when gate.stop aborts it (a rename opens a new hold under the new name).
-async function hold(call, id, device, gate) {
+// fetch with the Authorization header can stream where EventSource cannot; the server writes a line every 10 s,
+// and an Assign as its last. Ends when gate.stop aborts it (a rename opens a new hold under the new name).
+async function hold(call, id, device, gate, onAssign) {
   for (let tries = 0; !gate.ctl.signal.aborted; tries++) {
     try {
       const r = await call(streamPath(id, device), { signal: gate.ctl.signal });
       if (r.ok && r.body) {
         tries = 0;
-        const rd = r.body.getReader();
-        while (!(await rd.read()).done);
+        const rd = r.body.pipeThrough(new TextDecoderStream()).getReader();
+        let rest = '';
+        for (let got = await rd.read(); !got.done; got = await rd.read()) {
+          const split = splitLines(rest, got.value);
+          rest = split.rest;
+          for (const line of split.lines) {
+            const msg = assignOf(line);
+            if (msg) return onAssign(msg);
+          }
+        }
       }
     } catch {}
     await new Promise((ok) => setTimeout(ok, retryMs(tries)));
@@ -24,9 +33,10 @@ async function hold(call, id, device, gate) {
 
 // call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
 // ?instance= name: it stands in for the stored name and the question, and is never stored, so the link stays the authority.
-// onName(device, editable) hears the name once it is known and after a rename. Returns { rename(name) }; a preset
-// name cannot be renamed. The old name's instance goes quiet and is lost after the usual grace, as any closed page is.
-export function startKeepalive(call, id, form, preset = '', onName = () => {}) {
+// onName(device, editable) hears the name once it is known and after a rename. onAssign(msg) hears an Assign, after
+// which nothing is held or sent. Returns { rename(name), stop() }; a preset name cannot be renamed. The old name's
+// instance goes quiet and is lost after the usual grace, as any closed page is.
+export function startKeepalive(call, id, form, preset = '', onName = () => {}, onAssign = () => {}) {
   let device = deviceFrom(preset) || deviceFrom(readStr(DEVICE_KEY));
   let timer = 0;
   let gate = null;
@@ -38,7 +48,10 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}) {
     clearInterval(timer);
     gate?.ctl.abort();
     gate = { ctl: new AbortController() };
-    hold(call, id, device, gate);
+    hold(call, id, device, gate, (msg) => {
+      stop();
+      onAssign(msg);
+    });
     beat();
     timer = setInterval(beat, KEEPALIVE_MS);
     onName(device, !preset);

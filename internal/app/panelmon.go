@@ -56,7 +56,7 @@ type monInst struct {
 	seen     time.Time // the last keepalive, stream open or stream close
 	lost     bool      // a lost notice went out
 	streamed bool      // it held a stream and no keepalive has come since the last one closed
-	conns    map[int]context.CancelFunc
+	conns    map[int]monConn
 	next     int
 	trans    []UptimeTrans // up and down changes for the uptime strip, see mark
 }
@@ -71,6 +71,12 @@ func (in *monInst) limit() time.Duration {
 }
 
 func (in *monInst) live(now time.Time) bool { return now.Sub(in.seen) <= in.limit() }
+
+// monConn is one held stream: cancel ends it, and out carries its last line, an Assign (panelassign.go).
+type monConn struct {
+	cancel context.CancelFunc
+	out    chan []byte
+}
 
 // monEvent is a transition to tell watchers about.
 type monEvent struct {
@@ -214,8 +220,8 @@ func (m *panelMon) forget(id string, watches bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, in := range m.inst[id] {
-		for _, cancel := range in.conns {
-			cancel()
+		for _, c := range in.conns {
+			c.cancel()
 		}
 	}
 	delete(m.inst, id)
@@ -329,6 +335,7 @@ type instOut struct {
 	Device string     `json:"device"`
 	Seen   time.Time  `json:"seen"`
 	Online bool       `json:"online"`
+	Stream bool       `json:"stream"` // it holds a stream now, so it is one of Sode's own panel pages and can be assigned
 	Uptime instUptime `json:"uptime"`
 }
 
@@ -338,7 +345,7 @@ func (m *panelMon) instances(id string) []instOut {
 	now := m.now()
 	out := []instOut{}
 	for _, in := range m.inst[id] {
-		out = append(out, instOut{in.device, in.seen.UTC(), in.live(now), in.uptime(now)})
+		out = append(out, instOut{in.device, in.seen.UTC(), in.live(now), len(in.conns) > 0, in.uptime(now)})
 	}
 	slices.SortFunc(out, func(a, b instOut) int { return strings.Compare(strings.ToLower(a.Device), strings.ToLower(b.Device)) })
 	return out
@@ -356,20 +363,22 @@ func (m *panelMon) beat(id, device string) (*monEvent, error) {
 	return ev, err
 }
 
-// openStream registers a held connection of a device; cancel ends it. The returned func drops it.
-func (m *panelMon) openStream(id, device string, cancel context.CancelFunc) (func(), *monEvent, error) {
+// openStream registers a held connection of a device; cancel ends it and out is what to write on it.
+// The returned func drops it.
+func (m *panelMon) openStream(id, device string, cancel context.CancelFunc) (func(), <-chan []byte, *monEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	in, ev, err := m.touchLocked(id, device)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if in.conns == nil {
-		in.conns = map[int]context.CancelFunc{}
+		in.conns = map[int]monConn{}
 	}
 	in.next++
 	n := in.next
-	in.conns[n] = cancel
+	out := make(chan []byte, 1)
+	in.conns[n] = monConn{cancel, out}
 	in.streamed = true
 	closeFn := func() {
 		m.mu.Lock()
@@ -379,7 +388,7 @@ func (m *panelMon) openStream(id, device string, cancel context.CancelFunc) (fun
 			in.seen = m.now()
 		}
 	}
-	return closeFn, ev, nil
+	return closeFn, out, ev, nil
 }
 
 // touchLocked finds or adds the device and marks it heard. A device that was lost yields "back".
@@ -672,7 +681,7 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	done, ev, err := a.mon.openStream(p.ID, device, cancel)
+	done, out, ev, err := a.mon.openStream(p.ID, device, cancel)
 	if err != nil {
 		apiFail(w, http.StatusConflict, "conflict", err.Error())
 		return
@@ -705,6 +714,13 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 			if !line() {
 				return
 			}
+		case b := <-out:
+			_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			if _, err := w.Write(append(b, '\n')); err == nil && rc.Flush() == nil {
+				// The page leaves for the target panel: a deliberate move is no lost alarm here.
+				a.mon.forgetDevice(p.ID, device)
+			}
+			return
 		}
 	}
 }

@@ -1216,10 +1216,69 @@ paths:
             application/x-ndjson:
               schema:
                 type: object
-                required: [online, graceSeconds]
+                description: |
+                  Every line but an Assign's is `{"online":true,"graceSeconds":8}`. An Assign
+                  (`POST /panels/{id}/assign`) sends one last line and the stream ends:
+                  `{"t":"assign","panel":"<target id>","slug":"<its short name, if any>","instance":"<name>","key":"<secret>"}`.
+                  The key is the target panel's, named for the instance, and is sent only here
                 properties:
                   online: { type: boolean }
                   graceSeconds: { type: integer }
+                  t: { type: string, enum: [assign] }
+                  panel: { type: string }
+                  slug: { type: string }
+                  instance: { type: string }
+                  key: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/assign:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" }, description: The target panel }
+    post:
+      operationId: assignPanelInstance
+      tags: [panels]
+      summary: Assign an open instance to another panel
+      description: |
+        Scope `panelsmanage`. Needs a user's key, and a Trusted user or the Advanced Settings PIN in
+        `pin` (403 `trusted_required`; a wrong PIN counts toward the same lockout as the Settings
+        dialog). `from` and `instance` name an instance that holds `/panels/{id}/instances/stream`
+        now, so only Sode's own panel pages can be assigned (409 `conflict` otherwise). The target
+        must act as an API client (409 `conflict` for a panel that acts as the signed-in user), and
+        must not already hold an instance of that name or be at its 20 instances (409 `conflict`).
+        Sode makes a key for the target's client named for the instance, so it carries the
+        target's rights, and sends it as the last line of that instance's stream only; the answer
+        never carries it. The page stores the key, rewrites its address and opens the target with
+        no prompt. The instance's key for the old panel stays valid, and the old panel forgets the
+        instance without a lost notice. The target panel is not changed. One `api` row `assign`
+        names the user, the instance and both panels.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, instance]
+              properties:
+                from: { type: string, description: The panel the instance shows now }
+                instance: { type: string, maxLength: 40, description: The instance's device name, ignoring case }
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted }
+      responses:
+        "200":
+          description: Sent to the instance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [from, panel, instance]
+                properties:
+                  from: { type: string }
+                  panel: { type: string, description: The target panel }
+                  instance: { type: string, description: The instance's name as the monitor holds it }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1707,11 +1766,12 @@ components:
               description: Output only, for an editor. The devices that have opened the panel since Sode started
               items:
                 type: object
-                required: [device, seen, online, uptime]
+                required: [device, seen, online, stream, uptime]
                 properties:
                   device: { type: string }
                   seen: { type: string, format: date-time }
                   online: { type: boolean }
+                  stream: { type: boolean, description: "It holds `/panels/{id}/instances/stream` now, so it is one of Sode's own panel pages and can be assigned" }
                   uptime:
                     type: object
                     description: |

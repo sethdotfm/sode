@@ -1,6 +1,7 @@
 // Keys the panel page keeps in this browser: the one a setup link trades for, and a link key that worked.
 // Server side: POST /api/v1/panels/{id}/setup (internal/app/panelsetup.go). The stored name is in docs/persisted-names.md.
 import { setupFailText, storedKeyName, withoutKey, withoutSetup } from './panelkeyrules.js';
+import { assignAddress } from './panelassignrules.js';
 
 export function storedKey(id) {
   try {
@@ -48,4 +49,18 @@ export async function exchangeSetup(id, token) {
     /* the key serves this page only, and a reload needs a new link */
   }
   return { key: body.key };
+}
+
+// An Assign: keep the target's key under the address the page will open, then open it. A full load drops the staged
+// routes and every timer of the old panel, and a reload lands on the same address and key.
+export function followAssign(msg) {
+  const { seg } = assignAddress(msg, location, true);
+  let stored = false;
+  try {
+    localStorage.setItem(storedKeyName(seg), msg.key);
+    stored = localStorage.getItem(storedKeyName(seg)) === msg.key;
+  } catch {
+    /* the key rides the fragment instead */
+  }
+  location.replace(new URL(assignAddress(msg, location, stored).href, document.baseURI).href);
 }
