@@ -2,15 +2,18 @@
 // The server checks who may (a Trusted user or the Advanced Settings PIN) and sends the key to the instance alone.
 import { el, icon, on } from './core.js';
 import { trapDialog } from './dialogkeys.js';
-import { assignRows, assignChangesMode, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
+import { segmented } from './formbits.js';
+import { assignRows, assignWays, assignChangesMode, rankAssign, curRow, stepRow, enterRow, clashOf, assignNameProblem } from './panelassignrules.js';
 import { pinNeeded } from './templaterules.js';
 import { MON_POLL_MS } from './panelsmon.js';
 import { resultStep } from './keys.js';
 
 let closeOpen = null;
 let closeName = null;
+let closeAnyway = null;
 on('locking', () => {
   closeName?.();
+  closeAnyway?.();
   closeOpen?.();
 });
 
@@ -85,6 +88,49 @@ function askName(panel, clashed, suggest, go) {
   input.select();
 }
 
+// A user who cannot open the target: the device would sign in and find no panel there for them. Answers true for
+// Send anyway; Cancel, Escape and the Lock answer false.
+function askAnyway(panel, row) {
+  return new Promise((done) => {
+    const opener = document.activeElement;
+    const cancel = el('button', 'pb-btn pb-btn--outline', 'Cancel');
+    cancel.type = 'button';
+    const ok = el('button', 'pb-btn', icon('send'), ' Send anyway');
+    ok.type = 'button';
+    ok.id = 'assign-anyway';
+    const root = el('div', 'pb-modal-backdrop sode__scrim');
+    const dialog = el('div', 'pb-modal');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'assign-anyway-title');
+    dialog.tabIndex = -1;
+    dialog.append(
+      el('div', 'pb-modal__header', Object.assign(el('span', 'pb-modal__title', `${panel.name} is not shared with ${row.user}`), { id: 'assign-anyway-title' })),
+      el(
+        'div',
+        'pb-modal__body',
+        el('p', 'sode__hint', `${row.device} is signed in as ${row.user}, who cannot open ${panel.name}. It will open it and say there is no panel there to use.`),
+      ),
+      el('div', 'pb-modal__footer', cancel, ok),
+    );
+    root.append(dialog);
+    document.body.append(root);
+    const dlg = trapDialog(root, dialog, () => close(false));
+    function close(go) {
+      closeAnyway = null;
+      dlg.hide();
+      root.remove();
+      if (opener?.isConnected) opener.focus();
+      done(go);
+    }
+    closeAnyway = () => close(false);
+    cancel.addEventListener('click', () => close(false));
+    ok.addEventListener('click', () => close(true));
+    dlg.show();
+    cancel.focus();
+  });
+}
+
 // ctx: {api, panels() (every panel the page has, with instances where the user may edit them), onDone() (re-reads them)}.
 export function openAssign(panel, ctx) {
   const opener = document.activeElement;
@@ -112,12 +158,34 @@ export function openAssign(panel, ctx) {
   let cur = '';
   let shownRows = [];
 
+  const ways = assignWays(panel);
+  let way = ways[0];
+  const intro = el('p', 'sode__hint');
+  const sayIntro = () =>
+    (intro.textContent =
+      way === 'user'
+        ? `The instance you pick opens ${panel.name} at once and shows its sign-in, where the person there types their own PIN. Its key for the panel it shows now keeps working.`
+        : `The instance you pick opens ${panel.name} at once, with a key of its own for it. Its key for the panel it shows now keeps working.`);
+  sayIntro();
+  const choice =
+    ways.length > 1
+      ? segmented('assign-way', 'How the instance opens it', [
+          ['client', 'Its own key'],
+          ['user', 'Sign in'],
+        ], (v) => {
+          way = v;
+          sayIntro();
+          paint();
+        })
+      : null;
+  choice?.set(way);
+
   const list = el('div', 'sode-ov__people');
   list.id = 'assign-list';
   let shown = '';
   // The page re-reads the instances every MON_POLL_MS; only a change is redrawn, so a button being pressed stays.
   function paint(force = true) {
-    const all = assignRows(ctx.panels(), panel.id, Date.now());
+    const all = assignRows(ctx.panels(), panel.id, Date.now(), way === 'user');
     const rows = rankAssign(all, find.value);
     cur = curRow(rows, cur);
     shownRows = rows;
@@ -139,6 +207,7 @@ export function openAssign(panel, ctx) {
         el('span', null, el('strong', null, r.device), el('span', 'sode__hint', ` on ${r.panelName}`)),
         el('span', 'sode__hint', facts),
       );
+      if (r.notShared) who.append(el('span', null, el('span', 'pb-badge pb-badge--warn', `Not shared with ${r.user}`)));
       const item = el('div', 'sode-ov__cp', who, b);
       item.dataset.key = r.key;
       if (r.key === cur) item.setAttribute('aria-current', 'true');
@@ -157,11 +226,8 @@ export function openAssign(panel, ctx) {
     el(
       'div',
       'pb-modal__body',
-      el(
-        'p',
-        'sode__hint',
-        `The instance you pick opens ${panel.name} at once, with a key of its own for it. Its key for the panel it shows now keeps working.`,
-      ),
+      intro,
+      ...(choice ? [choice.node] : []),
       find,
       list,
       pinRow,
@@ -188,6 +254,8 @@ export function openAssign(panel, ctx) {
     if (!row.assignable || busy) return;
     const from = ctx.panels().find((p) => p.id === row.panel);
     if (!name && assignChangesMode(from, panel) && !(await confirmModeChange(from, panel))) return;
+    if (!name && row.notShared && !(await askAnyway(panel, row))) return;
+    if (busy || !root.isConnected) return;
     busy = true;
     paint();
     say('');
@@ -196,7 +264,7 @@ export function openAssign(panel, ctx) {
       const r = await ctx.api(`api/v1/panels/${panel.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: row.panel, instance: row.device, name, pin: pin.value }),
+        body: JSON.stringify({ from: row.panel, instance: row.device, name, pin: pin.value, as: way }),
       });
       pin.value = '';
       say(`Sent ${r.instance} to ${panel.name}.`);

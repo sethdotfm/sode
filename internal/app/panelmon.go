@@ -354,6 +354,7 @@ type instOut struct {
 	Addr        string     `json:"addr,omitempty"`
 	SignIn      string     `json:"signIn,omitempty"`
 	User        string     `json:"user,omitempty"`
+	Trusted     bool       `json:"trusted,omitempty"` // User's flag, live: a Trusted user may open every panel
 	StreamSince *time.Time `json:"streamSince,omitempty"`
 }
 
@@ -661,7 +662,11 @@ func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 	}
 	m["instancesOnline"], m["instancesKnown"] = a.mon.counts(user, p.ID)
 	if edit {
-		m["instances"] = a.mon.instances(p.ID)
+		rows := a.mon.instances(p.ID)
+		for i := range rows {
+			rows[i].Trusted = rows[i].SignIn == "user" && a.trusted(rows[i].User)
+		}
+		m["instances"] = rows
 	}
 }
 

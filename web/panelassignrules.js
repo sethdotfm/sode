@@ -7,8 +7,19 @@ import { wordScore } from './findrules.js';
 import { stepPanel } from './panelsrules.js';
 import { INSTANCE_MAX, INSTANCE_HOLD } from './panelkeyrules.js';
 
-// Only a panel that acts as an API client has a key to give an instance.
-export const canAssignTo = (panel) => hasClient(panel);
+// How an Assign to the panel lands: its client's key, the device's own sign-in, or a choice of both with the key
+// first. The values are the assign route's as.
+export function assignWays(panel) {
+  if (panel?.acts === 'both') return ['client', 'user'];
+  return hasClient(panel) ? ['client'] : ['user'];
+}
+
+// Whether user may open the panel through a sign-in, as panelReach in internal/app/apipanels.go decides; keep in step.
+function opens(panel, user, trusted) {
+  const same = (n) => String(n || '').toLowerCase() === String(user || '').toLowerCase();
+  const share = panel?.share || {};
+  return trusted || same(panel?.owner) || share.mode === 'everyone' || (share.mode === 'named' && (share.users || []).some(same));
+}
 
 // signIn is the server's word for who opened the last stream; "ended" and "none" are a page with no working key.
 export function signInText(i) {
@@ -24,7 +35,10 @@ export const uptimeText = (secs) => (secs < 60 ? 'under a minute' : durationText
 // The Sode panel pages (page: they held the instance stream) of the panels the page can read with instances, sorted
 // by their current panel's name, then the instance name. here marks the ones already on the target; timedOut the ones
 // with no stream now, which have nothing to send on. The server keeps an instance 24 hours after it was last heard.
-export function assignRows(panels, targetId, now) {
+// bySignIn is an Assign that sends the device to the target's sign-in, where a signed-in user keeps their session:
+// notShared marks a user who cannot open the target, so the page would show that no panel there is theirs.
+export function assignRows(panels, targetId, now, bySignIn = false) {
+  const target = panels.find((p) => p.id === targetId);
   const rows = [];
   for (const p of panels) {
     for (const i of p.instances || []) {
@@ -39,10 +53,12 @@ export function assignRows(panels, targetId, now) {
         device: i.device,
         addr: i.addr || '',
         state: signInText(i),
+        user: i.signIn === 'user' ? i.user || '' : '',
         uptime: timedOut ? `last seen ${uptimeText(secs(i.seen))} ago` : `up ${uptimeText(secs(i.streamSince))}`,
         here,
         timedOut,
         assignable: !here && !timedOut,
+        notShared: bySignIn && i.signIn === 'user' && !opens(target, i.user, i.trusted),
       });
     }
   }
@@ -99,7 +115,7 @@ export function splitLines(rest, chunk) {
   return { lines: parts.slice(0, -1).filter((l) => l.trim()), rest: parts.at(-1) };
 }
 
-// An assign line, or null for the keepalive lines and anything malformed.
+// An assign line, or null for the keepalive lines and anything malformed. key is '' when the target signs in a user.
 export function assignOf(line) {
   let m;
   try {
@@ -107,8 +123,8 @@ export function assignOf(line) {
   } catch {
     return null;
   }
-  if (m?.t !== 'assign' || !m.panel || !m.key || !m.instance) return null;
-  return { panel: m.panel, slug: m.slug || '', instance: m.instance, key: m.key };
+  if (m?.t !== 'assign' || !m.panel || !m.instance || !(m.key || m.signIn === 'user')) return null;
+  return { panel: m.panel, slug: m.slug || '', instance: m.instance, key: m.key || '' };
 }
 
 // The target's address, built as linkFor builds one: the short name when there is one, the page's own ?instance=, and
@@ -120,7 +136,7 @@ export function assignAddress(msg, { search, hash }, stored) {
     .replace(/^#/, '')
     .split('&')
     .filter((p) => p && !p.startsWith('key=') && !p.startsWith('setup='));
-  const frag = [...(stored ? [] : [`key=${shortSecret(msg.key)}`]), ...keep].join('&');
+  const frag = [...(stored || !msg.key ? [] : [`key=${shortSecret(msg.key)}`]), ...keep].join('&');
   // The keepalive reads ?instance= before the stored name, so a name chosen after a clash replaces it here.
   const q = new URLSearchParams(search || '');
   if (q.has('instance')) q.set('instance', msg.instance);
