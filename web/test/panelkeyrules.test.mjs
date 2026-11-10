@@ -64,6 +64,7 @@ test('an instance name is required, unique ignoring case, and counts against the
   assert.equal(instanceCheck(' lobby ', keys, 20).held.name, 'Lobby');
   assert.equal(instanceCheck('lobby', keys, 20).error, '');
   assert.equal(instanceCheck('Gym', keys, 20).held, null);
+  assert.equal(instanceCheck('\u{1F3A5}'.repeat(40), keys, 20).error, '');
   assert.ok(instanceCheck('x'.repeat(INSTANCE_MAX + 1), keys, 20).error.includes('40'));
   assert.ok(instanceCheck('Gym', keys, 2).error.includes('at most 2'));
   assert.equal(instanceCheck('lobby', keys, 2).error, '', 'rotating a held name is allowed at the cap');

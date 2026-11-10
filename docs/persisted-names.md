@@ -73,6 +73,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - `wire` (Communication Log field). The router's own level number, kept apart from the UI Level on purpose.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
 - `signInMode` (`pin` or `username`, also in `lockState` as `mode` and in `usersListResult`), a user's `username`, and the `user` field of `userUnlock`. The Sign-in mode, the username and the name a username signs in with. New names, no retired word.
+- `activity` (browser to server, no fields). An open page sends it about every 30 seconds while someone is using it, and it moves the session's idle clock for Auto-lock (`Activity` in `internal/app/idle.go`).
 
 ## Panel names (new in Panels, no retired word)
 

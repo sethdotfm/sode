@@ -67,7 +67,7 @@ func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 }
 
 // An Assign of a keyless page writes neither panel either, by key or by sign-in, so it never changes acts and the
-// editor's Authentication mode Confirm has nothing to guard (panelassign.js confirmModeChange).
+// editor's Authentication mode Confirm has nothing to guard.
 func TestSeamKeylessAssignNeverWritesActs(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")

@@ -94,9 +94,24 @@ type Panel struct {
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
-// panelKnown are the JSON names the struct owns. canEdit, hasKey, clientNetworks and artDefaults are output only and
-// never stored, so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults"}
+// panelKnown are the JSON names the struct owns plus every output-only field a read adds (panelOut, monFields,
+// apiPanelRead), so a client that echoes a read back does not plant one in Extra. Keep in step with those.
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped"}
+
+// extraOwnFields is extra without panelKnown names. Files, checkpoints and sets saved before panelKnown listed every
+// output-only field may hold one. A copy, since extra may be shared with a stored panel.
+func extraOwnFields(extra map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range extra {
+		if !slices.Contains(panelKnown, k) {
+			out[k] = v
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
@@ -259,6 +274,7 @@ func loadPanels(cfgPath string) *panelStore {
 			s.problem("%s: the file name and its id %q differ", path, p.ID)
 			return p, false
 		}
+		p.Extra = extraOwnFields(p.Extra)
 		p.normalize()
 		if p.Slug != "" && (!validPanelSlug(p.Slug) || slugSeen[p.Slug]) {
 			s.problem("%s: short name %q is not valid or is used by an earlier panel, so it was dropped", path, p.Slug)
@@ -290,6 +306,7 @@ func (s *panelStore) list() []Panel { return s.sorted(nil) }
 // writeLocked saves p before the map changes, so a failed write leaves memory as the file is.
 // Every stored change moves Rev, which open panels poll to know they are out of date.
 func (s *panelStore) writeLocked(p *Panel) error {
+	p.Extra = extraOwnFields(p.Extra)
 	p.Rev++
 	return s.yamlDir.writeLocked(*p)
 }

@@ -12,7 +12,6 @@ import {
   MODES,
   MODE_HINT,
   CONFIRM_TEXT,
-  INSTANCE_MAX,
   SESSION_WARNING,
   SESSION_NEXT,
   maskLink,
@@ -78,7 +77,6 @@ shareTabs.push(({ panel, api }) => {
   const linkBox = el('div', 'sode-ov__keylink');
   const nameIn = el('input', 'pb-input');
   nameIn.id = 'key-instance';
-  nameIn.maxLength = INSTANCE_MAX;
   nameIn.autocomplete = 'off';
   nameIn.placeholder = 'Lobby tablet';
   nameIn.addEventListener('input', () => {

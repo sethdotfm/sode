@@ -16,7 +16,7 @@ export const MODE_HINT = {
 };
 
 // The instance name is required and becomes the device name (the page's ?instance=), so it has the monitor's limits.
-export const INSTANCE_MAX = 40;
+export const INSTANCE_MAX = 40; // characters, as monDeviceMax in internal/app/panelmon.go
 export const INSTANCE_HOLD = 'Name the instance, such as Lobby tablet.';
 
 // What a typed name means against the instances the panel already holds (names ignore case). max is the server's cap.
@@ -24,7 +24,7 @@ export function instanceCheck(text, keys, max) {
   const name = String(text || '').trim();
   const held = keys.find((k) => k.name.toLowerCase() === name.toLowerCase()) || null;
   if (!name) return { name, held, error: INSTANCE_HOLD };
-  if (name.length > INSTANCE_MAX) return { name, held, error: `Use at most ${INSTANCE_MAX} characters.` };
+  if ([...name].length > INSTANCE_MAX) return { name, held, error: `Use at most ${INSTANCE_MAX} characters.` };
   if (!held && keys.length >= max) return { name, held, error: `A panel has at most ${max} instances. Revoke one first.` };
   return { name, held, error: '' };
 }
