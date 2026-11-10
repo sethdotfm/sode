@@ -9,9 +9,13 @@ export const SNOOZE_MS = 60000;
 // snoozed: the one Snooze this copy gets was used.
 export const createUpdate = (rev) => ({ seen: rev, since: 0, from: 0, deadline: 0, force: false, snoozed: false });
 
+// What the page compares: the panel's rev and the Default artwork its read carries, since a changed default moves no
+// panel rev. undefined for a server without rev.
+export const revOf = (p) => (typeof p?.rev === 'number' ? `${p.rev}|${JSON.stringify(p.artDefaults || [])}` : undefined);
+
 // A server without rev sends none: nothing ever differs then.
 export function noticeRev(u, rev, now) {
-  if (typeof rev !== 'number' || rev === u.seen) return u;
+  if ((typeof rev !== 'number' && typeof rev !== 'string') || rev === u.seen) return u;
   return u.since ? u : { ...u, since: now, from: now, deadline: now + COUNT_MS };
 }
 

@@ -535,6 +535,105 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /default-artwork:
+    get:
+      operationId: listDefaultArtwork
+      tags: [panels]
+      summary: Default artwork
+      description: |
+        Scope `panels`. One shared set for everyone. A key whose Visibility is Hidden sees only the
+        defaults of items inside its Rights (a Preset only when the whole preset is).
+      responses:
+        "200":
+          description: Defaults
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [defaults]
+                properties:
+                  defaults: { type: array, items: { $ref: "#/components/schemas/ArtDefault" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: setDefaultArtwork
+      tags: [panels]
+      summary: Set an item's Default artwork
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` (403 `trusted_required`, a wrong PIN counts toward its
+        lockout). Replaces any default for the same item. Needs Icon A or Icon B. A panel's
+        artwork id is copied from `panel`, which the caller must be able to read (404
+        `not_found`), and comes back as a `d-` id; the copy passes the same 2 MB and 1024 by 1024
+        checks as an upload, and all Default artwork images together stay under 64 MB (409
+        `conflict`). An item a Hidden key cannot see is 403 `outside_rights`. Every open panel
+        showing the item updates with no panel save.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArtDefaultIn" }
+            example: { kind: source, n: 3, art: "icon:camera", artB: "2", hideText: true }
+      responses:
+        "200":
+          description: The default as stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArtDefault" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: clearDefaultArtwork
+      tags: [panels]
+      summary: Clear an item's Default artwork
+      description: |
+        Scope `panelsmanage`, with the same user, Trusted or `pin` rule as setting one. The body
+        names the item (`kind` with `n`, or `scope` and `name`). 404 `not_found` when it has none.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArtDefaultIn" }
+            example: { kind: source, n: 3 }
+      responses:
+        "204": { description: Cleared }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /default-artwork/images/{art}:
+    parameters:
+      - { name: art, in: path, required: true, schema: { type: string, pattern: "^d-[0-9a-f]{8}$" } }
+    get:
+      operationId: getDefaultArtworkImage
+      tags: [panels]
+      summary: A Default artwork image
+      description: |
+        Scope `panels`. Served with the same headers as a panel's artwork. 404 `not_found` unless a
+        default the caller may see names it.
+      responses:
+        "200":
+          description: The image, in its stored type
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panel-templates:
     get:
       operationId: listPanelTemplates
@@ -1672,6 +1771,33 @@ components:
             id: { type: string, pattern: "^t-[0-9a-f]{8}$" }
             owner: { type: string, description: The user who saved it }
             canEdit: { type: boolean, description: True when the caller may delete it }
+    ArtDefault:
+      type: object
+      required: [kind, name]
+      description: |
+        Default artwork for one Source, Destination or Preset. A Source or Destination is keyed by `n`;
+        `name` is the router's name for it when the default was set. A Preset is keyed by `scope` and `name`.
+      properties:
+        kind: { type: string, enum: [source, destination, preset] }
+        n: { type: integer, minimum: 0, maximum: 65535, description: The router's number of a Source or Destination }
+        scope: { type: string, enum: [everyone, me], description: A Preset's scope }
+        name: { type: string }
+        art: { type: string, description: "Icon A: `icon:<name>`, or a Default artwork image id (`d-` and 8 hex digits)" }
+        artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$", description: Icon B }
+        hideText: { type: boolean }
+    ArtDefaultIn:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [source, destination, preset] }
+        n: { type: integer, minimum: 0, maximum: 65535 }
+        scope: { type: string, enum: [everyone, me] }
+        name: { type: string, description: A Preset's name; ignored for a Source or Destination, whose name Sode reads from the router }
+        art: { type: string, description: "`icon:<name>`, a panel's artwork id (`a-`, with `panel`) or a Default artwork image id (`d-`)" }
+        artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$" }
+        hideText: { type: boolean }
+        panel: { type: string, description: The panel an `a-` artwork id is on. Its image is copied }
+        pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
     Panel:
       allOf:
         - $ref: "#/components/schemas/PanelIn"
@@ -1688,6 +1814,12 @@ components:
             owner: { type: string, description: The user who owns it }
             client: { type: string, description: The API client of a panel that acts as one }
             art: { type: array, items: { $ref: "#/components/schemas/PanelArt" } }
+            artDefaults:
+              type: array
+              items: { $ref: "#/components/schemas/ArtDefault" }
+              description: |
+                Output only, on `GET /panels/{id}`. The Default artwork of the items the panel's cells show,
+                as the caller may see it. Never stored in a cell; an open page compares it as it does `rev`.
             canEdit: { type: boolean, description: False when the caller may only use the panel }
             hasKey: { type: boolean, description: "For an editor of an API panel: the client holds a key now. A pending setup link is not a key. The secret itself is never returned." }
             clientNetworks:

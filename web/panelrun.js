@@ -29,7 +29,7 @@ import {
   GUARD_HOLD_MS,
 } from './panelmodel.js';
 import { buildGrid, paintGrid } from './panelview.js';
-import { lookOf } from './panellook.js';
+import { lookOf, withDefault, defaultsBy } from './panellook.js';
 import { createArt } from './panelart.js';
 import { createWake, enterFullscreen, featureNotes } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
@@ -158,7 +158,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (notes.length) say(ui.note, notes.join(' '));
   }
 
-  let cells = drawnCells(panel);
+  let cells = drawnCells(panel).map((c) => withDefault(c, defaultsBy(panel.artDefaults)));
   const stateOf = (p) => {
     const set = p.settings || {};
     return createState({
@@ -319,13 +319,13 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   stopWatch = watchPanel({
     ui,
     id,
-    rev: panel.rev,
+    panel,
     get: callJSON,
     state: () => ({ staged: st.staged.length > 0, busy: st.busy }),
     apply(p) {
       clearTimeout(holdTimer);
       panel = p;
-      cells = drawnCells(p);
+      cells = drawnCells(p).map((c) => withDefault(c, defaultsBy(p.artDefaults)));
       st = carryView(stateOf(p), st, cells);
       look = applyLook(p);
       grid = buildGrid(ui.grid, p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);

@@ -1,14 +1,14 @@
-// Keeps an open panel current: polls the panel's rev, shows the banner while an update waits and calls
+// Keeps an open panel current: polls the panel's rev and Default artwork (revOf), shows the banner while an update waits and calls
 // apply(panel) when panelupdate.js says so. Polled because a browser cannot send Bearer on an event stream.
 import { el } from './core.js';
-import { createUpdate, noticeRev, snooze, canSnooze, applyNow, updateStep, applied, bannerLine } from './panelupdate.js';
+import { createUpdate, noticeRev, snooze, canSnooze, applyNow, updateStep, applied, bannerLine, revOf } from './panelupdate.js';
 
 const CHECK_MS = 5000;
 
 // get(path) reads JSON with the panel's key; state() is { staged, busy }; ui is { update, updateText, snooze, applyNow, bar }.
 // Returns a function that stops the watch.
-export function watchPanel({ id, rev, get, state, apply, ui }) {
-  let u = createUpdate(rev);
+export function watchPanel({ id, panel, get, state, apply, ui }) {
+  let u = createUpdate(revOf(panel));
   let checking = false;
   let barAt = 0; // the deadline the bar on screen counts to
 
@@ -46,7 +46,7 @@ export function watchPanel({ id, rev, get, state, apply, ui }) {
     if (s.step === 'apply') {
       const fresh = latest;
       latest = null;
-      u = applied(u, fresh.rev);
+      u = applied(u, revOf(fresh));
       show(s);
       apply(fresh);
     } else show(s);
@@ -57,7 +57,7 @@ export function watchPanel({ id, rev, get, state, apply, ui }) {
     checking = true;
     try {
       const p = await get(`api/v1/panels/${id}`);
-      u = noticeRev(u, p.rev, Date.now());
+      u = noticeRev(u, revOf(p), Date.now());
       latest = u.since ? p : null;
     } catch {
       // A failed read leaves the panel as it is; the next check tries again.
