@@ -63,7 +63,8 @@ type apiRoute struct {
 }
 
 // scopeOpen as a route's Scope skips the key check: the handler gets a nil apiCtx and does its
-// own throttling. Only the setup-link exchange, which is how a tablet gets its key.
+// own throttling. Only the setup-link exchange, which is how a tablet gets its key, and the keyless
+// announcement (panelkeyless.go), which grants nothing.
 const scopeOpen = "none"
 
 var apiRoutes []apiRoute

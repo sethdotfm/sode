@@ -40,12 +40,12 @@ export const uptimeText = (secs) => (secs < 60 ? 'under a minute' : durationText
 export function assignRows(panels, targetId, now, bySignIn = false) {
   const target = panels.find((p) => p.id === targetId);
   const rows = [];
+  const secs = (t) => (now - Date.parse(t)) / 1000;
   for (const p of panels) {
     for (const i of p.instances || []) {
       if (!i.page) continue;
       const here = p.id === targetId;
       const timedOut = !i.stream;
-      const secs = (t) => (now - Date.parse(t)) / 1000;
       rows.push({
         key: `${p.id}\n${i.device}`,
         panel: p.id,
@@ -59,6 +59,26 @@ export function assignRows(panels, targetId, now, bySignIn = false) {
         timedOut,
         assignable: !here && !timedOut,
         notShared: bySignIn && i.signIn === 'user' && !opens(target, i.user, i.trusted),
+        keyless: '',
+      });
+    }
+    // A keyless page is never here: assigning it to the panel it shows is how it gets a key.
+    for (const i of p.keyless || []) {
+      const timedOut = !i.stream;
+      rows.push({
+        key: `${p.id}\n${i.device}\n${i.keyless}`,
+        panel: p.id,
+        panelName: p.name,
+        device: i.device,
+        addr: i.addr || '',
+        state: signInText(i),
+        user: '',
+        uptime: timedOut ? `last seen ${uptimeText(secs(i.seen))} ago` : `up ${uptimeText(secs(i.streamSince))}`,
+        here: false,
+        timedOut,
+        assignable: !timedOut,
+        notShared: false,
+        keyless: i.keyless,
       });
     }
   }
@@ -113,6 +133,16 @@ export const enterRow = (rows, cur) => {
 export function splitLines(rest, chunk) {
   const parts = (rest + chunk).split('\n');
   return { lines: parts.slice(0, -1).filter((l) => l.trim()), rest: parts.at(-1) };
+}
+
+// The keyless announcement (internal/app/panelkeyless.go): no key, the name the page holds and whether its key ended.
+export function keylessPath(seg, device, ended) {
+  const q = new URLSearchParams();
+  const name = String(device || '').trim();
+  if (name) q.set('instance', name);
+  if (ended) q.set('ended', '1');
+  const qs = q.toString();
+  return `api/v1/panels/${encodeURIComponent(seg)}/instances/keyless${qs ? `?${qs}` : ''}`;
 }
 
 // An assign line, or null for the keepalive lines and anything malformed. key is '' when the target signs in a user.

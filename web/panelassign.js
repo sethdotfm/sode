@@ -197,8 +197,10 @@ export function openAssign(panel, ctx) {
     for (const r of rows) {
       const b = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('send'), ' Assign');
       b.type = 'button';
+      b.dataset.row = r.key;
       b.dataset.from = r.panel;
       b.dataset.instance = r.device;
+      if (r.keyless) b.dataset.keyless = r.keyless;
       b.disabled = busy || !r.assignable;
       const facts = [r.addr, r.state, r.uptime].filter(Boolean).join(', ');
       const who = el(
@@ -264,7 +266,7 @@ export function openAssign(panel, ctx) {
       const r = await ctx.api(`api/v1/panels/${panel.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: row.panel, instance: row.device, name, pin: pin.value, as: way }),
+        body: JSON.stringify({ ...(row.keyless ? { keyless: row.keyless } : { from: row.panel, instance: row.device }), name, pin: pin.value, as: way }),
       });
       pin.value = '';
       say(`Sent ${r.instance} to ${panel.name}.`);
@@ -284,8 +286,8 @@ export function openAssign(panel, ctx) {
   }
 
   list.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-instance]');
-    const row = b && shownRows.find((r) => r.panel === b.dataset.from && r.device === b.dataset.instance);
+    const b = e.target.closest('[data-row]');
+    const row = b && shownRows.find((r) => r.key === b.dataset.row);
     if (row) send(row);
   });
 

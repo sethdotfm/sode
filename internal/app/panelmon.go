@@ -106,6 +106,9 @@ type panelMon struct {
 	watch map[string]map[string]bool // lowercased user -> watch keys, see watchKey
 	clear map[string]map[string]bool // lowercased user -> watch keys whose current outage was cleared
 	hide  map[string]map[string]bool // lowercased user -> watch keys of instances hidden on the panels page
+
+	keyless map[string]*keylessInst // panelkeyless.go, by keylessKey
+	addrs   map[string]addrName     // the last name a stream from each address carried
 }
 
 func loadPanelMon(cfgPath string) *panelMon {
@@ -404,6 +407,7 @@ func (m *panelMon) openStream(id, device string, who streamWho, cancel context.C
 		in.streamSince = m.now()
 	}
 	in.page, in.who = true, who
+	m.noteAddrLocked(who.addr, device)
 	in.next++
 	n := in.next
 	out := make(chan []byte, 1)
@@ -454,6 +458,7 @@ func (m *panelMon) sweep(now time.Time) []monEvent {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []monEvent
+	m.sweepKeylessLocked(now)
 	for id, set := range m.inst {
 		for k, in := range set {
 			age := now.Sub(in.seen)
@@ -667,6 +672,7 @@ func (a *App) monFields(m map[string]any, cl *apiCtx, p Panel, edit bool) {
 			rows[i].Trusted = rows[i].SignIn == "user" && a.trusted(rows[i].User)
 		}
 		m["instances"] = rows
+		m["keyless"] = a.mon.keylessOf(p)
 	}
 }
 

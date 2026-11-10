@@ -16,6 +16,7 @@ import {
   uptimeText,
   clashOf,
   assignNameProblem,
+  keylessPath,
 } from '../panelassignrules.js';
 
 const NOW = Date.parse('2026-11-10T12:00:00Z');
@@ -65,6 +66,7 @@ test('a row shows the address, uptime since its stream and the sign-in state in 
     timedOut: false,
     assignable: true,
     notShared: false,
+    keyless: '',
   });
 });
 
@@ -242,4 +244,29 @@ test('Enter picks the highlighted row only when it can be assigned', () => {
   assert.equal(enterRow(r, r.find((x) => x.device === 'Lobby').key).device, 'Lobby');
   assert.equal(enterRow(assignRows(FIND, 'p-1', NOW), assignRows(FIND, 'p-1', NOW).find((x) => x.device === 'Hall').key), null);
   assert.equal(enterRow([], ''), null);
+});
+
+test('keyless pages are rows too, assignable to the panel they show, and timed out without a stream', () => {
+  const kl = (device, extra = {}) => ({ keyless: `k-${device}`, device, addr: '192.0.2.9', signIn: 'none', stream: true, streamSince: at(30), seen: at(1), ...extra });
+  const panels = [{ id: 'p-1', name: 'Studio A', instances: [inst('Lobby')], keyless: [kl('Hall', { signIn: 'ended' }), kl('Gone', { stream: false, seen: at(600) })] }];
+  const rows = assignRows(panels, 'p-1', NOW);
+  assert.deepEqual(
+    rows.map((r) => [r.device, r.keyless, r.state, r.uptime, r.here, r.assignable]),
+    [
+      ['Gone', 'k-Gone', 'Not signed in', 'last seen 10 minutes ago', false, false],
+      ['Hall', 'k-Hall', 'Key ended', 'up under a minute', false, true],
+      ['Lobby', '', "Signed in as the panel's client", 'up 2 minutes', true, false],
+    ],
+  );
+  assert.equal(new Set(rows.map((r) => r.key)).size, 3);
+  // A keyless row never warns: nobody is signed in there.
+  assert.equal(
+    assignRows(panels, 'p-2', NOW, true).some((r) => r.notShared),
+    false,
+  );
+});
+
+test('the keyless announcement names the page and says when its key ended', () => {
+  assert.equal(keylessPath('studio-a', ' Front desk ', false), 'api/v1/panels/studio-a/instances/keyless?instance=Front+desk');
+  assert.equal(keylessPath('p-1', '', true), 'api/v1/panels/p-1/instances/keyless?ended=1');
 });

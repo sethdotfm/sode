@@ -96,7 +96,8 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	var in struct {
 		From     string `json:"from"`
 		Instance string `json:"instance"`
-		Name     string `json:"name"` // its name on the target, after a name_taken; "" keeps its own
+		Keyless  string `json:"keyless"` // a keyless instance's id, in place of from and instance
+		Name     string `json:"name"`    // its name on the target, after a name_taken; "" keeps its own
 		Pin      string `json:"pin"`
 		As       string `json:"as"` // "client" or "user", for a target that acts as both
 	}
@@ -105,7 +106,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	device := cleanDevice(in.Instance)
-	if device == "" {
+	if device == "" && in.Keyless == "" {
 		apiFail(w, http.StatusBadRequest, "bad_request", "name the instance to assign in instance")
 		return
 	}
@@ -118,14 +119,39 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusNotFound, "not_found", "no panel "+r.PathValue("id"))
 		return
 	}
-	from, ok := a.panels.get(in.From)
-	if !ok || !validPanelID(from.ID) {
-		apiFail(w, http.StatusNotFound, "not_found", "no panel "+in.From)
-		return
-	}
-	if from.ID == to.ID {
-		apiFail(w, http.StatusConflict, "conflict", "the instance already shows "+to.Name)
-		return
+	var (
+		from Panel
+		name string
+		addr string // a keyless instance's, checked against the target's allowed networks
+		send func([]byte) bool
+	)
+	if in.Keyless != "" {
+		ref, row, live := a.mon.keylessLive(in.Keyless)
+		if !live {
+			apiFail(w, http.StatusConflict, "conflict", "that keyless instance is not open now")
+			return
+		}
+		// A keyless page may be assigned to the panel it shows: that is how it gets a key.
+		if from, ok = a.panels.get(a.panelIDOf(ref)); !ok {
+			from = Panel{ID: ref}
+		}
+		name, addr = row.Device, row.Addr
+		send = func(b []byte) bool { return a.mon.sendKeyless(in.Keyless, b) }
+	} else {
+		if from, ok = a.panels.get(in.From); !ok || !validPanelID(from.ID) {
+			apiFail(w, http.StatusNotFound, "not_found", "no panel "+in.From)
+			return
+		}
+		if from.ID == to.ID {
+			apiFail(w, http.StatusConflict, "conflict", "the instance already shows "+to.Name)
+			return
+		}
+		var live bool
+		if name, live = a.mon.streamDevice(from.ID, device); !live {
+			apiFail(w, http.StatusConflict, "conflict", "no instance "+device+" of "+from.Name+" is open now")
+			return
+		}
+		send = func(b []byte) bool { return a.mon.sendLast(from.ID, name, b) > 0 }
 	}
 	bySignIn, err := assignBySignIn(to.Name, to.Acts, in.As)
 	if err != nil {
@@ -137,12 +163,8 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", to.Name+" has no API client to give a key for")
 		return
 	}
-	name, live := a.mon.streamDevice(from.ID, device)
-	if !live {
-		apiFail(w, http.StatusConflict, "conflict", "no instance "+device+" of "+from.Name+" is open now")
-		return
-	}
-	as := name
+	// A keyless page's label may be its raw address.
+	as := instanceName(name)
 	if in.Name != "" {
 		as = instanceName(strings.TrimSpace(in.Name))
 	}
@@ -150,13 +172,28 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusBadRequest, "bad_request", "give the instance a name on "+to.Name)
 		return
 	}
+	how := ""
+	if addr != "" {
+		how = ", keyless from " + addr
+	}
+	done := func(how string) {
+		if in.Keyless != "" {
+			a.mon.dropKeyless(in.Keyless)
+		}
+		a.assignDone(w, cl, from, to, name, as, how)
+	}
 	if bySignIn {
 		line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: as, SignIn: "user"})
-		if a.mon.sendLast(from.ID, name, line) == 0 {
+		if !send(line) {
 			apiFail(w, http.StatusConflict, "conflict", "instance "+name+" closed before it could be assigned")
 			return
 		}
-		a.assignDone(w, cl, from, to, name, as, ", to its own sign-in")
+		done(how + ", to its own sign-in")
+		return
+	}
+	// An empty list allows any address, as it does for the key itself.
+	if addr != "" && !networkAllowed(c.Networks, addr) {
+		apiFail(w, http.StatusForbidden, "network_not_allowed", name+" is at "+addr+", outside the allowed networks of "+to.Name+", so it may not get a key for it")
 		return
 	}
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
@@ -191,7 +228,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	line, _ := json.Marshal(assignLine{T: "assign", Panel: to.ID, Slug: to.Slug, Instance: as, Key: made.secret})
-	if a.mon.sendLast(from.ID, name, line) == 0 {
+	if !send(line) {
 		// It closed between the check and the send: no key may outlive a message nobody got.
 		a.cfgMu.Lock()
 		a.keys.dropLive(func(r keyRec) bool { return r.ID == made.id })
@@ -199,7 +236,7 @@ func (a *App) apiPanelAssign(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		apiFail(w, http.StatusConflict, "conflict", "instance "+name+" closed before it could be assigned")
 		return
 	}
-	a.assignDone(w, cl, from, to, name, as, "")
+	done(how)
 }
 
 func (a *App) assignDone(w http.ResponseWriter, cl *apiCtx, from, to Panel, name, as, how string) {
