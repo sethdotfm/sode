@@ -262,7 +262,7 @@ export function initFind(editor) {
     }
     clearPicks();
     quiet = !one;
-    editor.setGrid(next);
+    editor.setGrid(next, { what: 'fill' });
   }
 
   list.addEventListener('click', (e) => {

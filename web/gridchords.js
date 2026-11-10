@@ -12,6 +12,10 @@ export const GRID_CHORDS = {
   'meta+x': 'cut',
   'ctrl+v': 'paste',
   'meta+v': 'paste',
+  'ctrl+z': 'undo',
+  'meta+z': 'undo',
+  'ctrl+shift+z': 'redo',
+  'shift+meta+z': 'redo',
 };
 
 // Inputs that take typing; a checkbox or button does not, so the grid command still runs from one.

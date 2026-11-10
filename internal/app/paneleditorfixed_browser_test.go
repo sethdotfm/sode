@@ -214,5 +214,18 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	if stored.Cols != 2 || len(stored.Cells) != 1 || stored.Cells[0].Kind != "take" || stored.Cells[0].Cs != 2 {
 		t.Errorf("stored %s", raw)
 	}
+
+	// Undo brings back the set-aside cells the merge and the resize dropped, each once, still set aside.
+	b.eval(`const g = document.getElementById('ed-grid'); g.focus(); g.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: true, bubbles: true, cancelable: true })); true`)
+	b.waitFor("merge undone", status+` === 'Undid merge.'`)
+	b.eval(`document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true })); true`)
+	b.waitFor("resize undone, Destination cells still set aside", status+` === 'Undid resize.' && document.getElementById('ed-cols').value === '3' && !document.querySelector('#ed-grid .sode-ed__sq--destination')`)
+	b.eval(`document.getElementById('ed-save').click()`)
+	b.waitFor("saved again", `document.getElementById('ed-state').textContent === 'Saved'`)
+	got := storedCells(t, a, ana, id)
+	want := []string{"1,1 1x1 destination art= artB=", "1,2 1x1 take art= artB=", "2,3 1x1 destination art= artB="}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("after undo:\n got %q\nwant %q", got, want)
+	}
 	b.check()
 }

@@ -46,6 +46,7 @@ import { gridCommand } from './gridchords.js';
 import { createLive } from './editorlive.js';
 import { copyBlock, blockText, readBlock, pastePlan, applyPaste, pasteNote } from './gridclip.js';
 import { writeClip, createPasteReader } from './editorclip.js';
+import { emptyUndo, record, undo, redo, sameCells } from './gridundo.js';
 
 const say = (id, text) => {
   const n = $(id);
@@ -103,18 +104,36 @@ export async function runEditor() {
   const nameBox = $('ed-name');
   const dirty = () => isDirty(loaded, nameBox.value, whole(), edits);
 
-  // fresh: next is a whole new layout (a template), so cells held from the old one do not come back.
-  // Returns how many held cells it dropped.
-  const setGrid = (next, { fresh = false } = {}) => {
+  // Every cell edit passes here, so this is where undo records (gridundo.js): what names the step on the status
+  // line, join makes a run of edits one step. A selection move stores nothing, so it records nothing. fresh: next
+  // is a whole new layout (a template), so cells held from the old one do not come back. Returns how many held
+  // cells it dropped.
+  let steps = emptyUndo();
+  const setGrid = (next, { fresh = false, what = 'edit', join } = {}) => {
+    const before = whole();
     if (fresh) held = [];
     const { shown, dropped } = holdOrPutBack(next);
     sayDropped(dropped);
-    if (shown === g) return dropped;
+    const moved = shown !== g;
     g = shown;
+    if (!sameCells(before, whole())) steps = record(steps, { what, before, join });
+    if (!moved) return dropped;
     refresh();
     for (const fn of changeWatchers) fn(g);
     return dropped;
   };
+  // Not through setGrid, which would record the step back. held starts empty so holdOrPutBack sets the stored
+  // grid's Destination cells aside again: none lost, none twice.
+  function step(back) {
+    const s = (back ? undo : redo)(steps, whole());
+    if (!s) return say('ed-status', back ? 'Nothing to undo.' : 'Nothing to redo.');
+    steps = s.undo;
+    held = [];
+    g = holdOrPutBack(s.grid).shown;
+    refresh();
+    for (const fn of changeWatchers) fn(g);
+    say('ed-status', `${back ? 'Undid' : 'Redid'} ${s.what}.`);
+  }
 
   const grid = createEditorGrid($('ed-grid'), {
     select(r, c, extend) {
@@ -172,7 +191,7 @@ export async function runEditor() {
     const n = copyBlock(g, loaded?.id)?.cells.length;
     if (!(await copyCells())) return;
     if (g !== snap) return say('ed-status', 'Copied, but the grid changed meanwhile, so nothing was removed.');
-    setGrid(clearSelection(g));
+    setGrid(clearSelection(g), { what: 'cut' });
     say('ed-status', `Cut ${n} cell${n > 1 ? 's' : ''}.`);
   }
 
@@ -185,7 +204,7 @@ export async function runEditor() {
     const plan = pastePlan(g, block, { panel: loaded?.id, fixed: fixedOn() });
     if (!plan) return say('ed-status', 'Nothing pasted: select the square to paste at first.');
     if (!plan.fits) return pasteOverflow(plan);
-    const dropped = setGrid(applyPaste(g, plan.placed));
+    const dropped = setGrid(applyPaste(g, plan.placed), { what: 'paste' });
     say('ed-status', `${pasteNote(plan)} ${droppedNote(dropped)}`.trim());
   }
   // A paste that runs past the grid's edge: the grid stays as it is and the status line says why. The Clip and
@@ -199,6 +218,8 @@ export async function runEditor() {
     copy: () => void copyCells(),
     cut: () => void cutCells(),
     paste: () => (paste.key(), false),
+    undo: () => step(true),
+    redo: () => step(false),
   };
 
   function onKey(e) {
@@ -228,7 +249,7 @@ export async function runEditor() {
       setGrid(select(g, Math.max(1, Math.min(g.rows, r + dr)), Math.max(1, Math.min(g.cols, c + dc)), e.shiftKey));
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      setGrid(clearSelection(g));
+      setGrid(clearSelection(g), { what: 'Delete' });
     } else if (e.key === 'Escape') {
       setGrid(deselect(g));
     } else if (e.key === 'Enter' && q) {
@@ -242,8 +263,8 @@ export async function runEditor() {
     const items = [
       // One item that toggles, so Ctrl+M merges a group and unmerges a merged square.
       canUnmerge(g)
-        ? { chord: 'm', label: 'Unmerge', icon: 'split', run: () => setGrid(unmerge(g)) }
-        : { chord: 'm', label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g)) },
+        ? { chord: 'm', label: 'Unmerge', icon: 'split', run: () => setGrid(unmerge(g), { what: 'unmerge' }) }
+        : { chord: 'm', label: 'Merge', icon: 'combine', disabled: !canMerge(g), run: () => setGrid(merge(g), { what: 'merge' }) },
       {
         label: typeLabel(cells),
         icon: 'type',
@@ -252,7 +273,7 @@ export async function runEditor() {
           disabled,
           hint,
           current: kind === '' ? !cells.length : cells.length > 0 && cells.every((c) => c.kind === kind),
-          run: () => setGrid(setKind(g, kind)),
+          run: () => setGrid(setKind(g, kind), { what: 'type change' }),
         })),
       },
     ];
@@ -291,7 +312,7 @@ export async function runEditor() {
   function setSize(which, value) {
     const rows = which === 'rows' ? value : g.rows;
     const cols = which === 'cols' ? value : g.cols;
-    const lost = cellsLost(g, rows, cols) + setGrid(resize(g, rows, cols));
+    const lost = cellsLost(g, rows, cols) + setGrid(resize(g, rows, cols), { what: 'resize' });
     say('ed-status', lost ? `Removed ${lost} cell${lost > 1 ? 's' : ''} that no longer fit.` : '');
     refresh();
   }
@@ -337,6 +358,7 @@ export async function runEditor() {
     art?.revoke();
     art = panel ? createArt(sessionFetch, panel.id) : null;
     held = [];
+    steps = emptyUndo();
     g = holdOrPutBack(createGrid(panel || newPanel())).shown;
     nameBox.value = (panel || newPanel()).name;
     discardAsked = '';
