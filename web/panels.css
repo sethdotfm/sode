@@ -1045,11 +1045,11 @@
 .sode-side__art-text {
   font-size: var(--pb-text-sm);
 }
-/* The icon picker: Icon A and Icon B side by side, each scrolling on its own. B is narrower (one glyph per button). */
+/* The icon picker: Icon A and Icon B side by side, half each, each scrolling on its own. */
 .sode-side__picker {
   display: grid;
-  gap: var(--pb-space-3);
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--pb-space-1);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 .sode-side__col {
   display: flex;
