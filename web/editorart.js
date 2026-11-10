@@ -1,6 +1,6 @@
 // The artwork control of the Cell tab. Icon A is `art` (a vendored icon or an upload), Icon B is `artB` (a digit or
-// letter glyph drawn beside it, panellook.js ART_B_CHOICES). An upload is resized and checked before sending
-// (artcompress.js prepareArt); the server checks again by content.
+// letter glyph beside an icon or a corner badge on an image, panellook.js ART_B_CHOICES). An upload is resized and
+// checked before sending (artcompress.js prepareArt); the server checks again by content.
 import { el, icon } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { btn } from './formbits.js';
@@ -144,8 +144,6 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       for (const p of panes) for (const b of [p.none, ...p.grid.querySelectorAll('button')]) b.disabled = ro;
       for (const b of panes[0].grid.querySelectorAll('[aria-label]')) b.setAttribute('aria-pressed', String(value === `icon:${b.getAttribute('aria-label')}`));
       for (const b of panes[1]?.grid.querySelectorAll('[aria-label]') || []) b.setAttribute('aria-pressed', String(artB === b.getAttribute('aria-label')));
-      // An uploaded image stands alone, so Icon B has no column; artB stays stored for a later vendored icon.
-      if (panes[1]) panes[1].col.hidden = !!artOf({ art: value })?.id;
       if (!saved && !note.textContent) note.textContent = 'Save the panel before uploading an image.';
       else if (saved && note.textContent === 'Save the panel before uploading an image.') note.textContent = '';
       const key = `${value}|${shownB}|${caption}|${hideText}`;

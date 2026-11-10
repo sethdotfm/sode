@@ -1,7 +1,7 @@
 // Draws a panel's grid from the state model. Holds no state of its own: paintGrid is called after
 // every change, with the model state, the router env and the names.
 import { el, icon } from './core.js';
-import { artOf, artBOf, cellScale, textHidden } from './panellook.js';
+import { artOf, artBOf, artBBadge, cellScale, textHidden } from './panellook.js';
 import { currentLabel, nameCellText, SHOW_KINDS } from './panelrules.js';
 import {
   sourceState,
@@ -20,13 +20,15 @@ const RESULT_ICON = { connected: 'check', already: 'equal', failed: 'x' };
 
 // A cell's artwork is built once with the grid and never touched by the paint functions (fill keeps it): a <use>
 // that is detached and re-attached re-resolves its sprite and blinks (TestChromePanelArtHolds). The row holds
-// Icon A (sprite icon or image) and then Icon B (a glyph); null when the cell has neither. Side by side the two
-// share the row 40 to 60 (panels.css); a two-character glyph is marked so its font fits the 60.
+// Icon A (sprite icon or image) and then Icon B (a glyph); null when the cell has neither. Beside a sprite icon the
+// two share the row 40 to 60 (panels.css); an image fills the row and Icon B is a corner badge (artBBadge), so any
+// Icon A drawn as an image gets the badge here. A two-character glyph is marked so its font fits.
 export function artNode(cell, art) {
   const a = artOf(cell);
   const b = artBOf(cell);
   if (!a && !b) return null;
-  const row = el('div', 'sode-panel__art');
+  const badge = artBBadge(cell);
+  const row = el('div', `sode-panel__art${a && !a.icon ? ' sode-panel__art--fill' : ''}`);
   row.setAttribute('aria-hidden', 'true');
   if (a?.icon) {
     const svg = icon(a.icon, false);
@@ -43,7 +45,7 @@ export function artNode(cell, art) {
     });
     row.append(img);
   }
-  if (b) row.append(el('span', `sode-panel__art-b${b.length > 1 ? ' sode-panel__art-b--wide' : ''}`, b));
+  if (b) row.append(el('span', `sode-panel__art-b${b.length > 1 ? ' sode-panel__art-b--wide' : ''}${badge ? ' sode-panel__art-b--badge' : ''}`, b));
   return row;
 }
 

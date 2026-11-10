@@ -1,6 +1,6 @@
 // What a panel's look settings and a cell's artwork mean. Pure. Stored names are in docs/persisted-names.md.
 // Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, fullscreen, landscape.
-// Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph drawn beside it), fontSize (percent) and hideText.
+// Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph beside an icon, a corner badge on an image), fontSize (percent) and hideText.
 
 const SCALE_MIN = 50;
 const SCALE_MAX = 200;
@@ -31,9 +31,12 @@ export function lookOf(settings) {
 // Text is only hidden under artwork (Icon A or B), so a cell never ends up with neither.
 export const textHidden = (cell) => cell?.hideText === true && (!!artOf(cell) || !!artBOf(cell));
 
-// '' when the cell has no Icon B, holds something that is not one of the choices, or has an uploaded image as Icon A
-// (the image stands alone; artB stays stored, so a vendored icon brings it back).
-export const artBOf = (cell) => (typeof cell?.artB === 'string' && ART_B_CHOICES.includes(cell.artB) && !artOf(cell)?.id ? cell.artB : '');
+// '' when the cell has no Icon B or holds something that is not one of the choices.
+export const artBOf = (cell) => (typeof cell?.artB === 'string' && ART_B_CHOICES.includes(cell.artB) ? cell.artB : '');
+
+// Icon B is a corner badge whenever Icon A draws as an image rather than a vendored sprite icon: the image fills the
+// cell and the badge sits over it. Beside a sprite icon Icon B keeps its 60% of the row. artNode (panelview.js) asks this.
+export const artBBadge = (cell) => !!artBOf(cell) && !!artOf(cell) && !artOf(cell).icon;
 
 export const cellScale = (cell) => scaleOf(cell?.fontSize);
 

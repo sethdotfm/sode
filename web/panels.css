@@ -350,8 +350,9 @@
 }
 /* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
    The row is a size container so the glyph follows the square's height (cqh), as the icon does. Alone, either
-   fills the row; together Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap, so the ratio
-   holds). With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
+   fills the row; beside a sprite icon Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap,
+   so the ratio holds). An image fills the row (--fill, always contain) and Icon B is a corner badge over it.
+   With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
 .sode-panel__art {
   align-items: center;
   color: var(--pb-text-strong);
@@ -397,6 +398,23 @@
 }
 .sode-panel__art-b--wide:not(:only-child) {
   font-size: min(70cqh, 50cqw);
+}
+.sode-panel__art--fill > .sode-panel__art-a {
+  flex: 1 1 100%;
+  width: 100%;
+}
+/* Icon B over an image (artBBadge in panellook.js): sized from the row like the glyph, on a plate so it reads over
+   any image. */
+.sode-panel__art > .sode-panel__art-b--badge {
+  background-color: var(--pb-surface-raised);
+  font-size: min(30cqh, 30cqw);
+  inset-block-start: var(--pb-space-1);
+  inset-inline-end: var(--pb-space-1);
+  padding: var(--pb-space-1) var(--pb-space-2);
+  position: absolute;
+}
+.sode-panel__art > .sode-panel__art-b--badge.sode-panel__art-b--wide {
+  font-size: min(30cqh, 18cqw);
 }
 
 /* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
