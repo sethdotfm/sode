@@ -233,3 +233,14 @@ test('a wake lock the browser cannot honour gets a note, and https is named', as
 test('a portrait page with Keep landscape on is covered, since iOS cannot lock the turn', () => {
   assert.match(css, /@media \(orientation: portrait\) \{\s*html\[data-sode-landscape\] \.sode-panel__turn \{[^}]*display: flex/);
 });
+
+test('a press asks for fullscreen only while fullscreen or landscape is on, since landscape locks only in fullscreen', async () => {
+  const { wantsFullscreen, fullscreenNote } = await import('../panelfeel.js');
+  assert.equal(wantsFullscreen(lookOf({})), false);
+  assert.equal(wantsFullscreen(lookOf({ fullscreen: true })), true);
+  assert.equal(wantsFullscreen(lookOf({ landscape: true })), true);
+  assert.equal(wantsFullscreen(lookOf({ fullscreen: false, landscape: false })), false);
+  assert.equal(fullscreenNote({}), '');
+  assert.equal(fullscreenNote({ fullscreen: true }), '');
+  assert.match(fullscreenNote({ landscape: true }), /landscape/i);
+});
