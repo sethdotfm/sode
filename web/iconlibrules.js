@@ -34,6 +34,17 @@ export function libDeleteText(name, uses) {
   return `${ask} ${cells} ${one ? 'cell' : 'cells'} on ${panels} ${panels === 1 ? 'panel' : 'panels'} ${one ? 'uses' : 'use'} it and will draw no Icon A; ${one ? 'its' : 'their'} Icon B and text stay.`;
 }
 
+// res is {added, skipped} from POST /icon-library/rescan; a skipped file stays in icons/drop-in until it is fixed.
+export function libRescanText(res) {
+  const added = res?.added || [];
+  const skipped = res?.skipped || [];
+  const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+  const parts = [];
+  if (added.length) parts.push(`Added ${n(added.length, 'icon', 'icons')}: ${added.map((ic) => ic.name).join(', ')}.`);
+  if (skipped.length) parts.push(`Skipped ${n(skipped.length, 'file', 'files')}: ${skipped.map((s) => `${s.file} (${s.reason})`).join(', ')}.`);
+  return parts.join(' ') || 'Rescan found no files in icons/drop-in.';
+}
+
 // Uploaded first (library icons by name, ignoring case), then the vendored icons, both cut to the search. Uploaded is
 // always there, empty or not, since it holds the Upload button.
 export function pickerSections(library, vendored, text) {

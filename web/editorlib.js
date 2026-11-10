@@ -1,7 +1,8 @@
 // The Choose icon picker's Uploaded section: the Icon library's icons and its Upload. Any editor picks; adding needs a
 // Trusted user or the Advanced Settings PIN, asked for after the first refusal as Default artwork does. Tiles draw
 // through the panel's createArt, so their blob URLs go when the panel does. Manage (rename and delete) shows only to a
-// Trusted user; the server also takes the PIN, but only from the API.
+// Trusted user, as does Rescan (the drop-in directory, docs/reference.md); the server also takes the PIN, but only
+// from the API.
 import { el, on, S } from './core.js';
 import { btn } from './formbits.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
@@ -9,7 +10,7 @@ import { pinNeeded } from './templaterules.js';
 import { prepareArt } from './artcompress.js';
 import { artImage } from './panelview.js';
 import { churnKey } from './lockrules.js';
-import { libNameOf, libNameProblem, libDeleteText, pickerSections, LIB_TYPES } from './iconlibrules.js';
+import { libNameOf, libNameProblem, libDeleteText, libRescanText, pickerSections, LIB_TYPES } from './iconlibrules.js';
 
 const send = jsonCall(sessionFetch, { down: 'Sode did not answer, so the icon was not uploaded.', failed: (s) => `The icon was not uploaded (${s}).` });
 const read = jsonCall(sessionFetch, { down: 'Sode did not answer, so the Icon library was not read.', failed: (s) => `The Icon library was not read (${s}).` });
@@ -79,6 +80,9 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     paint();
   });
   manage.id = 'ed-lib-manage';
+  const rescan = btn('pb-btn--ghost pb-btn--sm', 'Rescan', () => doRescan());
+  rescan.id = 'ed-lib-rescan';
+  rescan.dataset.pbTip = 'Add the files in icons/drop-in beside the config';
   const rename = el('input', 'pb-input sode-side__find');
   rename.id = 'ed-lib-rename-name';
   rename.autocomplete = 'off';
@@ -106,7 +110,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
   const node = el(
     'div',
     'sode-side__lib-sec',
-    el('div', 'sode-side__lib-head', el('span', 'sode-side__col-h', 'Uploaded'), manage),
+    el('div', 'sode-side__lib-head', el('span', 'sode-side__col-h', 'Uploaded'), el('span', 'sode-side__row', rescan, manage)),
     grid,
     empty,
     el('div', 'sode-side__row', name, up),
@@ -145,6 +149,7 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     empty.hidden = !!tiles.length;
     empty.textContent = icons.length ? 'No uploaded icon matches.' : 'No uploaded icons yet.';
     manage.hidden = !trusted || !icons.length;
+    rescan.hidden = !trusted;
     manage.setAttribute('aria-pressed', String(managing));
     manageHint.hidden = !managing || !!chosen;
     manageRow.hidden = !managing || !chosen;
@@ -156,6 +161,19 @@ export function createLibSection({ ed, set, gone = () => {} }) {
     confirming = null;
     confirmBox.hidden = true;
     confirmBox.replaceChildren();
+  }
+
+  async function doRescan() {
+    note.textContent = 'Rescanning.';
+    rescan.disabled = true;
+    try {
+      note.textContent = libRescanText(await change('api/v1/icon-library/rescan', { method: 'POST' }));
+      await load();
+    } catch (e) {
+      note.textContent = e.message;
+    } finally {
+      rescan.disabled = false;
+    }
   }
 
   async function doRename() {

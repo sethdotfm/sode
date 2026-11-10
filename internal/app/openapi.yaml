@@ -695,6 +695,53 @@ paths:
         "415": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /icon-library/rescan:
+    post:
+      operationId: rescanLibraryIcons
+      tags: [panels]
+      summary: Add the files in the Icon library's drop-in directory
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` in an optional JSON body (403 `trusted_required`). Reads
+        `icons/drop-in/` beside the config, as Sode does at start. Each PNG or SVG file there is
+        checked as an upload is (2 MB, 1024 by 1024 for a PNG, the 64 MB total), named after its
+        file name without the extension ("Name 2" on a clash), added and removed from the directory.
+        A file that fails is left there and listed in `skipped` with the reason; links and directories
+        are never followed. Answers 200 even when nothing was added.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+      responses:
+        "200":
+          description: What was added and what was skipped
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [added, skipped]
+                properties:
+                  added: { type: array, items: { $ref: "#/components/schemas/LibIcon" } }
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, reason]
+                      properties:
+                        file: { type: string, description: The file's name in the drop-in directory }
+                        reason: { type: string }
+              example:
+                added: [{ id: 3fa9c2d1, name: Station logo, type: image/svg+xml, size: 1830 }]
+                skipped: [{ file: Wide.png, reason: "artwork is at most 1024 by 1024 pixels, this one is 2048 by 512" }]
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /icon-library/{icon}:
     parameters:
       - { name: icon, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{8}$" } }
