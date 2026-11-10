@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withDefault, defaultsBy, defaultFor, itemKey, artOf, artBOf, artBBadge, textHidden, artUrlPath, nameMismatch } from '../panellook.js';
 import { revOf, noticeRev, createUpdate } from '../panelupdate.js';
-import { defaultNote, defaultBody, saveBody } from '../editorrules.js';
+import { defaultNote, defaultBody, saveBody, takesDefault } from '../editorrules.js';
 import { createGrid, setCell } from '../gridmodel.js';
 
 const defs = defaultsBy([
@@ -115,7 +115,26 @@ test("the Cell tab says whether the cell shows its item's default, and warns whe
 test("Set as default sends the cell's item, its own artwork and Hide text, and the panel its image is on", () => {
   const cell = { kind: 'source', n: 3, art: 'a-0123abcd', artB: '2', hideText: true, r: 1, c: 1 };
   assert.deepEqual(defaultBody(cell, 'p-1', true), { kind: 'source', n: 3, art: 'a-0123abcd', artB: '2', hideText: true, panel: 'p-1' });
-  const preset = { kind: 'preset', scope: 'me', name: 'Show', art: 'icon:mic' };
-  assert.deepEqual(defaultBody(preset, 'p-1', true), { kind: 'preset', scope: 'me', name: 'Show', art: 'icon:mic', artB: '', hideText: false, panel: 'p-1' });
+  const preset = { kind: 'preset', scope: 'everyone', name: 'Show', art: 'icon:mic' };
+  assert.deepEqual(defaultBody(preset, 'p-1', true), {
+    kind: 'preset',
+    scope: 'everyone',
+    name: 'Show',
+    art: 'icon:mic',
+    artB: '',
+    hideText: false,
+    panel: 'p-1',
+  });
   assert.deepEqual(defaultBody({ kind: 'destination', n: 0, art: 'icon:tv' }, 'p-1', false), { kind: 'destination', n: 0 });
+});
+
+test('a Source, Destination or Everyone preset can carry Default artwork, a Me preset cannot', () => {
+  assert.equal(takesDefault({ kind: 'source', n: 3 }), true);
+  assert.equal(takesDefault({ kind: 'destination', n: 0 }), true);
+  assert.equal(takesDefault({ kind: 'preset', scope: 'everyone', name: 'Wide' }), true);
+  assert.equal(takesDefault({ kind: 'preset', scope: 'me', name: 'Wide' }), false);
+  assert.equal(takesDefault({ kind: 'preset', scope: 'everyone' }), false);
+  assert.equal(takesDefault({ kind: 'source' }), false);
+  assert.equal(takesDefault({ kind: 'take' }), false);
+  assert.equal(takesDefault(null), false);
 });

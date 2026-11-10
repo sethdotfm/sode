@@ -166,5 +166,16 @@ export function nameCellText(cell, { panelName = '', instance = '' } = {}) {
   return { caption: cell.caption || '', value };
 }
 
+// The status words for artwork a Copy or Push left out: the server's artSkipped ids for one panel, '' when none.
+// The total is panelArtTotal in internal/app/panelstore.go.
+export function artLeftOut(ids, panel = '') {
+  const n = Array.isArray(ids) ? ids.length : 0;
+  if (!n) return '';
+  const of = panel ? ` of ${panel}` : '';
+  return n === 1
+    ? `1 image did not fit under the 64 MB artwork total${of} and was left out.`
+    : `${n} images did not fit under the 64 MB artwork total${of} and were left out.`;
+}
+
 // The Current cell reads the viewed destination's name; a caption replaces the whole label.
 export const currentLabel = (cell, destName) => cell.caption || (destName ? `${destName} is currently:` : 'Currently');
