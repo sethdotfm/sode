@@ -1166,14 +1166,21 @@
   padding-inline-start: var(--pb-space-3);
   width: 14rem;
 }
-.sode-ed__grp--pick > .sode-ed__field + .sode-ed__field {
+.sode-ed__grp--pick > .sode-ed__field + .sode-ed__field,
+.sode-ed__grp--pick > .sode-ed__name {
   border-inline-start: var(--pb-border-w) solid var(--pb-edge);
   padding-inline-start: var(--pb-space-5);
 }
 
 .sode-ed__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pb-space-3);
   min-width: 14rem;
   justify-content: space-between;
+}
+.sode-ed__name[hidden] {
+  display: none;
 }
 .sode-ed__name-text {
   font-size: var(--pb-text-md);

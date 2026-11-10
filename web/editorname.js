@@ -1,23 +1,22 @@
-// The toolbar's Name: the saved name as a button with a pencil. A click swaps in the field (#ed-name stays the one
+// The toolbar's Name: the saved name as text beside a Rename button. A click swaps in the field (#ed-name stays the one
 // source of the name for the rest of the editor); Enter or leaving swaps it back.
-import { $, el, icon } from './core.js';
+import { $, el } from './core.js';
 
 export function initNameEdit() {
   const input = $('ed-name');
   const field = input.closest('label');
   const text = el('span', 'sode-ed__name-text');
-  const btn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-ed__name', text, icon('pencil'));
+  const btn = el('button', 'pb-btn pb-btn--ghost pb-btn--sm', 'Rename');
   btn.type = 'button';
   btn.id = 'ed-name-btn';
-  btn.dataset.pbTip = 'Rename this panel';
-  field.before(btn);
+  const shown = el('span', 'sode-ed__name', text, btn);
+  field.before(shown);
   const draw = () => {
     text.textContent = input.value || 'Untitled panel';
-    btn.setAttribute('aria-label', `Panel name ${text.textContent}. Rename`);
   };
   const show = (editing) => {
     field.hidden = !editing;
-    btn.hidden = editing;
+    shown.hidden = editing;
     if (editing) {
       input.focus();
       input.select();
