@@ -275,11 +275,13 @@ test('the fixed destination picker searches Destinations only, leaves out those 
   );
 });
 
-test('Pages are found by name and by number, and place nothing', () => {
+test('Pages are found by name and by number, and place Go to Page cells down the grid', () => {
   const pages = [{ id: 'aa' }, { id: 'bb', name: 'Studio B' }, { id: 'cc' }];
   const list = pageEntries(pages);
   assert.deepEqual(rankFind(list, 'studio').map((e) => e.id), ['bb']);
   assert.deepEqual(rankFind(list, 'page 2').map((e) => e.id), ['bb']);
   assert.deepEqual(rankFind(list, '3').map((e) => e.id), ['cc']);
-  assert.deepEqual(fillRun(list, list[0], null), []);
+  const g = select(select(createGrid({ rows: 2, cols: 2, cells: [] }), 1, 1), 1, 2, true);
+  const out = applyFind(g, findPlan(g, fillRun(list, list[1], null)));
+  assert.deepEqual(out.cells.map((c) => [c.r, c.c, c.kind, c.page, c.n]), [[1, 1, 'goToPage', 'bb', undefined], [1, 2, 'goToPage', 'cc', undefined]]);
 });

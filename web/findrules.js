@@ -77,10 +77,10 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
   return out;
 }
 
-// The panel's Pages as entries. Choosing one goes to that Page and places nothing, so Rights do not apply.
+// The panel's Pages as entries. Choosing one places Go to Page cells, so Rights do not apply.
 // alias lets "page 3" match a named Page.
 export const pageEntries = (pages) =>
-  (pages || []).map((p, i) => ({ category: 'page', key: `page:${p.id}`, id: p.id, label: p.name?.trim() || `Page ${i + 1}`, num: i + 1, alias: `page ${i + 1}`, off: false }));
+  (pages || []).map((p, i) => ({ category: 'page', key: `page:${p.id}`, id: p.id, n: i, label: p.name?.trim() || `Page ${i + 1}`, num: i + 1, alias: `page ${i + 1}`, off: false }));
 
 const OFF_TAG = { rights: 'Outside rights', fixed: 'Fixed destination is on' };
 // Why an entry cannot be placed, '' when it can.
@@ -101,7 +101,7 @@ export function findScope(cells) {
 // category; otherwise start and every later one of its category in the order findEntries gave. Entries the
 // Rights grey out are never placed: a cell for one could not be used.
 export function fillRun(entries, start, picks) {
-  if (!start || start.off || start.category === 'page') return [];
+  if (!start || start.off) return [];
   const category = start.category;
   if (picks?.length) return picks.filter((e) => e.category === category && !e.off);
   const from = entries.findIndex((e) => e.key === start.key);
@@ -120,7 +120,12 @@ export function findPlan(g, run, order = 'across') {
 // fillPlan stores a router number per slot; only Sources and Destinations have one, so n is removed afterwards, and a Preset gets scope and name.
 export function applyFind(g, plan) {
   if (!plan || !plan.slots.length) return g;
-  let out = applyFill(g, { ...plan, slots: plan.slots.map((s) => ({ ...s, n: s.entry.n ?? 0 })) });
+  const page = plan.kind === 'page';
+  let out = applyFill(g, { ...plan, kind: page ? 'goToPage' : plan.kind, slots: plan.slots.map((s) => ({ ...s, n: s.entry.n ?? 0 })) });
+  if (page) {
+    for (const s of plan.slots) out = setCell(out, s, { n: undefined, page: s.entry.id });
+    return out;
+  }
   if (plan.kind !== 'source' && plan.kind !== 'destination') {
     const preset = plan.kind === 'preset';
     for (const s of plan.slots) out = setCell(out, s, { n: undefined, scope: preset ? s.entry.scope : undefined, name: preset ? s.entry.label : undefined });

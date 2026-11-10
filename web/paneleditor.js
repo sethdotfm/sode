@@ -701,8 +701,6 @@ export async function runEditor() {
     setGrid,
     // The Page list with every Page's cells as they stand.
     pages: livePages,
-    // Find's Go to: the Page alone is open and focused, as a click on its card.
-    openPage: (id) => pageActs.open(id, false),
     // A template apply: the whole Page list and Page 1's grid at once, one undo step that brings the old list back.
     replacePages(list, first) {
       edit(

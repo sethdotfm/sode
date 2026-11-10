@@ -140,11 +140,10 @@ export function initFind(editor) {
       preview.push({ node, cls: node.className, kids: [...node.childNodes] });
       node.classList.add('is-preview');
       if (s.replace) node.classList.add('is-replaced');
-      node.replaceChildren(icon(CATEGORY_ICON[plan.kind]), el('span', 'sode-ed__text', s.entry.label));
+      node.replaceChildren(icon(CATEGORY_ICON[plan.kind === 'page' ? 'goToPage' : plan.kind]), el('span', 'sode-ed__text', s.entry.label));
     }
   }
   function describe(plan) {
-    if (!plan && results[hi]?.category === 'page' && picked.length < 2) return `Goes to ${results[hi].label}.`;
     if (!plan) return picked.length > 1 || !results[hi]?.off ? '' : `${offTag(results[hi])}, so it cannot be placed.`;
     const n = plan.slots.length;
     const first = plan.slots[0].entry.label;
@@ -250,14 +249,7 @@ export function initFind(editor) {
     if (!usable(e)) return;
     hi = i;
     clearPicks();
-    if (e.category === 'page') return go(e);
     place(i);
-  }
-  function go(e) {
-    clearPreview();
-    editor.openPage(e.id);
-    close();
-    $('ed-grid')?.focus({ preventScroll: true });
   }
   function place(i) {
     const g = editor.grid();
@@ -292,7 +284,7 @@ export function initFind(editor) {
       draw();
     } else {
       choose(i);
-      if (results[i]?.category !== 'page') keepOpen();
+      keepOpen();
     }
   });
   list.addEventListener('pointerdown', (e) => {
@@ -334,7 +326,6 @@ export function initFind(editor) {
       e.preventDefault();
       e.stopPropagation();
       if (!results.length && chip) searchAll();
-      else if (results[hi]?.category === 'page') go(results[hi]);
       else place(hi);
     }
   });
