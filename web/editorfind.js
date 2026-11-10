@@ -18,6 +18,7 @@ import {
   rankFind,
   fillRun,
   findPlan,
+  pairPlan,
   applyFind,
   afterFill,
   findScope,
@@ -118,7 +119,8 @@ export function initFind(editor) {
   }
   function planFor(i) {
     const g = editor.grid();
-    return g.sel ? findPlan(g, runFor(i), order) : null;
+    if (!g.sel) return null;
+    return (picks().length < 2 && pairPlan(g, results[i], everything())) || findPlan(g, runFor(i), order);
   }
 
   // ---- preview in the grid
@@ -141,7 +143,7 @@ export function initFind(editor) {
       preview.push({ node, cls: node.className, kids: [...node.childNodes] });
       node.classList.add('is-preview');
       if (s.replace) node.classList.add('is-replaced');
-      node.replaceChildren(icon(CATEGORY_ICON[plan.kind === 'page' ? 'goToPage' : plan.kind]), el('span', 'sode-ed__text', s.entry.label));
+      node.replaceChildren(icon(CATEGORY_ICON[(s.entry.category === 'page' ? 'goToPage' : s.entry.category)]), el('span', 'sode-ed__text', s.entry.label));
     }
   }
   function describe(plan) {

@@ -1,7 +1,7 @@
 // Find in the panel editor, pure: what can be searched, which of it the signed-in user's Rights allow,
 // how results rank, and how a chosen result fills the selection. The page side is editorfind.js.
 import { allowed } from './rightsrules.js';
-import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned } from './gridmodel.js';
+import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned, cellAt } from './gridmodel.js';
 
 export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'page', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // One entry each, placed with nothing chosen: a Go to Page cell gets its Page in the Cell tab.
@@ -9,7 +9,7 @@ const NUMBERLESS = ['take', 'clear', 'current', 'panelName', 'instanceName', 'pa
 // The kinds with a list behind them get a chip; the others are one entry each and show under All.
 export const CHIP_CATEGORIES = ['source', 'destination', 'preset', 'page'];
 // What each chip narrows to: Pages also holds every kind that is about Pages, one entry each.
-export const CHIP_KINDS = { page: ['page', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'] };
+export const CHIP_KINDS = { page: ['page', 'pageName', 'goToPage', 'nextPage', 'previousPage'] };
 export const chipKinds = (chip) => (chip ? CHIP_KINDS[chip] || [chip] : []);
 export const CATEGORY_LABEL = {
   source: 'Sources',
@@ -120,9 +120,35 @@ export function findPlan(g, run, order = 'across') {
   return { ...plan, slots: plan.slots.map((s) => ({ r: s.r, c: s.c, replace: s.replace, entry: run[s.n] })) };
 }
 
+// Two squares side by side take Previous Page then Next Page, left to right; one above the other, Previous on top.
+// Chosen with either kind. null for any other selection, or when a merged or spanning cell is in the way.
+export function pairPlan(g, start, all) {
+  if (!start || start.off || !['nextPage', 'previousPage'].includes(start.category)) return null;
+  const q = rectOf(g);
+  if (!q) return null;
+  const h = q.r2 - q.r1 + 1;
+  const w = q.c2 - q.c1 + 1;
+  if (h * w !== 2) return null;
+  const squares = w === 2 ? [[q.r1, q.c1], [q.r1, q.c2]] : [[q.r1, q.c1], [q.r2, q.c1]];
+  const hits = squares.map(([r, c]) => cellAt(g, r, c));
+  if (hits.some((h) => h && (h.rs > 1 || h.cs > 1))) return null;
+  const prev = all.find((e) => e.category === 'previousPage');
+  const next = all.find((e) => e.category === 'nextPage');
+  if (!prev || !next) return null;
+  return { kind: 'pair', pair: true, dropped: 0, slots: squares.map(([r, c], i) => ({ r, c, replace: !!hits[i], entry: i ? next : prev })) };
+}
+
 // fillPlan stores a router number per slot; only Sources and Destinations have one, so n is removed afterwards, and a Preset gets scope and name.
 export function applyFind(g, plan) {
   if (!plan || !plan.slots.length) return g;
+  if (plan.pair) {
+    let out = g;
+    for (const s of plan.slots) {
+      out = applyFill(out, { kind: s.entry.category, slots: [{ ...s, n: 0 }] });
+      out = setCell(out, s, { n: undefined });
+    }
+    return out;
+  }
   const page = plan.kind === 'page';
   let out = applyFill(g, { ...plan, kind: page ? 'goToPage' : plan.kind, slots: plan.slots.map((s) => ({ ...s, n: s.entry.n ?? 0 })) });
   if (page) {

@@ -1,7 +1,7 @@
 // Find in the panel editor (findrules.js): what can be searched, who may see it, and how results rank. Pure.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chipKinds, findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
+import { pairPlan, chipKinds, findEntries, pageEntries, rankFind, fillRun, findPlan, applyFind, afterFill, findScope } from '../findrules.js';
 import { createGrid, select, selCells, cellAt } from '../gridmodel.js';
 
 const names = {
@@ -288,7 +288,18 @@ test('Pages are found by name and by number, and place Go to Page cells down the
 
 test('the Pages chip holds the Pages and every Page kind, Pages first', () => {
   const list = [...findEntries({ sources: [], destinations: [] }, { presets: [] }, null), ...pageEntries([{ id: 'aa' }])];
-  assert.deepEqual(rankFind(list, '', chipKinds('page')).map((e) => e.category), ['page', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage']);
+  assert.deepEqual(rankFind(list, '', chipKinds('page')).map((e) => e.category), ['page', 'pageName', 'goToPage', 'nextPage', 'previousPage']);
   assert.deepEqual(chipKinds('source'), ['source']);
   assert.deepEqual(chipKinds(''), []);
+});
+
+test('two squares side by side take Previous then Next Page, and one above the other too', () => {
+  const all = findEntries({ sources: [], destinations: [] }, { presets: [] }, null);
+  const next = all.find((e) => e.category === 'nextPage');
+  const sel = (r2, c2) => select(select(createGrid({ rows: 3, cols: 3, cells: [] }), 1, 1), r2, c2, true);
+  const kinds = (g) => applyFind(g, pairPlan(g, next, all)).cells.map((c) => [c.r, c.c, c.kind, c.n]);
+  assert.deepEqual(kinds(sel(1, 2)), [[1, 1, 'previousPage', undefined], [1, 2, 'nextPage', undefined]]);
+  assert.deepEqual(kinds(sel(2, 1)), [[1, 1, 'previousPage', undefined], [2, 1, 'nextPage', undefined]]);
+  assert.equal(pairPlan(sel(2, 2), next, all), null);
+  assert.equal(pairPlan(sel(1, 2), all.find((e) => e.category === 'take'), all), null);
 });
