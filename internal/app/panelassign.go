@@ -90,8 +90,8 @@ func (m *panelMon) sendEvery(id, device string, b []byte) int {
 	return n
 }
 
-// heldNames is every name an instance of p goes by: devs (the monitor's deviceNames, read before cfgMu) and the
-// keys and setup links of p's client. Caller holds cfgMu.
+// heldNames is every name a panel's instances go by: devs (the monitor's deviceNames, read before cfgMu) and the
+// keys and setup links of owner, the panel's client. Caller holds cfgMu.
 func (a *App) heldNames(devs []string, owner keyOwner, has bool) []string {
 	held := slices.Clone(devs)
 	if has {
