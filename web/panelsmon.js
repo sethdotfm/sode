@@ -102,7 +102,7 @@ export function openNow(p, { setWatch, setHide } = {}, now = Date.now()) {
           el('strong', '', i.device),
           hideButton(p, i, setHide),
           ago && el('span', 'sode-ov__muted', ago),
-          el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Tell me when this instance drops offline')),
+          el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Notify on disconnect')),
         ),
         uptimeStrip(i),
       ),
