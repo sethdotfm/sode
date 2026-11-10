@@ -60,7 +60,7 @@ function hideButton(p, i, setHide) {
 // The instance's name with its rename pencil. A click turns the name into a field: Enter saves, Escape or leaving drops
 // the edit. rename(id, device, name) answers '' when sent (or handed to the clash dialog), else the reason.
 function nameSlot(p, i, rename) {
-  const slot = el('span', 'sode-ov__inst');
+  const slot = el('span', 'sode-ov__name');
   const state = rename ? renameState(i) : '';
   const show = () => {
     if (!state) return slot.replaceChildren(el('strong', '', i.device));

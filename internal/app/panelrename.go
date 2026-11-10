@@ -122,15 +122,15 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	}
 	c, has := clientOfPanel(a.r().cfg, p)
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
-	a.cfgMu.Lock()
 	// Offline names count: taking a lost instance's name would read as that instance coming back.
-	var taken []string
+	taken := a.mon.deviceNames(p.ID)
+	// cfgMu is never held while the monitor's lock is taken, as in an Assign.
+	a.cfgMu.Lock()
 	if has {
 		for _, k := range a.keys.instanceKeys(owner) {
 			taken = append(taken, k.Name)
 		}
 	}
-	taken = append(taken, a.mon.deviceNames(p.ID)...)
 	others := taken[:0:0]
 	for _, t := range taken {
 		if !strings.EqualFold(t, old) {
@@ -142,16 +142,17 @@ func (a *App) apiPanelRename(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	keyed := has && a.keys.renameInstance(owner, old, name)
+	a.cfgMu.Unlock()
 	line, _ := json.Marshal(renameLine{T: "rename", Instance: name})
 	if a.mon.sendLast(p.ID, old, line) == 0 {
 		if keyed {
+			a.cfgMu.Lock()
 			a.keys.renameInstance(owner, name, old)
+			a.cfgMu.Unlock()
 		}
-		a.cfgMu.Unlock()
 		apiFail(w, http.StatusConflict, "conflict", "instance "+old+" closed before it could be renamed")
 		return
 	}
-	a.cfgMu.Unlock()
 	a.mon.followRename(p.ID, old, name)
 	a.apiEvent(cl.Actor, "rename", "ok", panelTag(p, old)+" to "+name, nil)
 	apiJSON(w, map[string]any{"panel": p.ID, "from": old, "instance": name})
