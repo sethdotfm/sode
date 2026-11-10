@@ -28,6 +28,7 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	ana := userKey(t, a, "Ana")
 	from := makePanel(t, a, ana, `{"name":"Studio A","acts":"api"}`)
 	to := makePanel(t, a, ana, `{"name":"Studio B","acts":"api","slug":"studio-b","settings":{"fixedDests":[2]}}`)
+	both := makePanel(t, a, ana, `{"name":"Studio C","acts":"both"}`)
 	rec := apiSend(a, "POST", "/api/v1/panels/"+from+"/key", ana, `{"instance":"Lobby"}`)
 	if rec.Code != 201 {
 		t.Fatalf("key: %d %s", rec.Code, rec.Body.String())
@@ -55,6 +56,18 @@ func TestChromeAssignSwitchesARunningPanelPage(t *testing.T) {
 	}
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	b.waitFor("Lock overlay gone", `!document.documentElement.hasAttribute('data-sode-lock')`)
+
+	// A panel that acts as both offers its key first, or the device's own sign-in.
+	b.waitFor("row of the both panel", `!!document.querySelector('[data-id="`+both+`"].sode-ov__item')`)
+	b.eval(`document.querySelector('[data-id="` + both + `"].sode-ov__item').click()`)
+	b.waitFor("Assign to on the both panel", `document.querySelector('[data-act="assign"]')?.dataset.id === '`+both+`'`)
+	b.eval(`document.querySelector('[data-act="assign"]').click()`)
+	b.waitFor("the key is the default", `document.getElementById('assign-way-client')?.checked && document.querySelector('.sode-ov__share .sode__hint').textContent.includes('a key of its own')`)
+	b.eval(`document.querySelector('label[for="assign-way-user"]').click()`)
+	b.waitFor("Sign in chosen", `document.getElementById('assign-way-user').checked && document.querySelector('.sode-ov__share .sode__hint').textContent.includes('shows its sign-in')`)
+	b.eval(`[...document.querySelectorAll('.sode-ov__share .pb-btn')].find(x => x.textContent === 'Close').click()`)
+	b.waitFor("the modal closed", `!document.querySelector('.sode-ov__share')`)
+
 	b.waitFor("row of the target", `!!document.querySelector('[data-id="`+to+`"].sode-ov__item')`)
 	b.eval(`document.querySelector('[data-id="` + to + `"].sode-ov__item').click()`)
 	b.waitFor("Assign to", `!!document.querySelector('[data-act="assign"]')`)
