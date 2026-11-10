@@ -38,9 +38,9 @@ test('font size is a whole percent from 50 to 200', () => {
 });
 
 test('artwork is checked for type and size before it is sent', () => {
-  assert.equal(artProblem({ type: 'image/png', size: 1 << 20 }), '');
+  assert.equal(artProblem({ type: 'image/png', size: 2 << 20 }), '');
   for (const type of ['image/jpeg', 'image/gif', 'image/svg+xml']) assert.equal(artProblem({ type, size: 10 }), '');
-  assert.match(artProblem({ type: 'image/png', size: (1 << 20) + 1 }), /1 MB/);
+  assert.match(artProblem({ type: 'image/png', size: (2 << 20) + 1 }), /2 MB/);
   assert.match(artProblem({ type: 'image/webp', size: 10 }), /JPEG, PNG, GIF or SVG/);
   assert.match(artProblem({ type: '', size: 10 }), /JPEG, PNG, GIF or SVG/);
 });

@@ -78,7 +78,8 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		{"r":1,"c":2,"kind":"source","n":%d},
 		{"r":1,"c":3,"kind":"take"}],"settings":{"mode":"take"}}`, simDst, simSrc), func(b *tab, a *App, ana, id string) {
 		b.call("Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": leakProbe})
-		rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, b64(t, tinyPNG))
+		// The largest artwork the server takes (1024 by 1024), so the counts include its decoded size.
+		rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, imgBytes("png", panelArtSide, panelArtSide))
 		if rec.Code != 201 {
 			t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 		}

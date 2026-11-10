@@ -30,7 +30,8 @@ func TestChromeRunPageHoldsNoMemory(t *testing.T) {
 
 	ana := userKey(t, a, "Ana")
 	id := makePanel(t, a, ana, `{"name":"Wall","rows":2,"cols":4,"cells":[]}`)
-	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, b64(t, tinyPNG))
+	// The largest artwork the server takes (1024 by 1024), so the counts include its decoded size.
+	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, imgBytes("png", panelArtSide, panelArtSide))
 	if rec.Code != 201 {
 		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 	}
