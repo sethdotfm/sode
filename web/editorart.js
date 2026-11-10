@@ -86,7 +86,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
         ]
       : []),
   ];
-    const find = el('input', 'pb-input sode-side__find');
+  const find = el('input', 'pb-input sode-side__find');
   find.type = 'search';
   find.placeholder = 'Search icons';
   find.autocomplete = 'off';

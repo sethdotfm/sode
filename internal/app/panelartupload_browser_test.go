@@ -84,7 +84,7 @@ func TestChromeEditorArtUpload(t *testing.T) {
 	if g, err := gif.DecodeAll(bytes.NewReader(got)); err != nil || len(g.Image) != 2 {
 		t.Fatalf("the stored GIF lost its frames: %v", err)
 	}
-	// Screenshots of the square's centre: each one paints a frame, so both colours show once the GIF moves on.
+	// In headless Chrome a drawImage of the img stays on the first frame. A screenshot paints a new frame each time.
 	box := b.eval(`(() => { const r = ` + sq + `.querySelector('img.sode-panel__art-a').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`).([]any)
 	seen := map[string]bool{}
 	for deadline := time.Now().Add(5 * time.Second); len(seen) < 2 && time.Now().Before(deadline); time.Sleep(40 * time.Millisecond) {

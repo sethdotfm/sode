@@ -70,9 +70,18 @@ test('the standard cell kind icons are offered as artwork, type icons first', as
 });
 
 test('the Rights table says what a client may do', () => {
-  assert.deepEqual(rightsRows(null), [['Sources', 'All'], ['Destinations', 'All'], ['Levels', 'All'], ['Presets', 'All'], ['Visibility', 'Read-only']]);
+  assert.deepEqual(rightsRows(null), [
+    ['Sources', 'All'],
+    ['Destinations', 'All'],
+    ['Levels', 'All'],
+    ['Presets', 'All'],
+    ['Visibility', 'Read-only'],
+  ]);
   const r = rightsRows({ sources: [1, 2], dsts: [], visibility: 'hidden' });
-  assert.deepEqual(r.map((x) => x[1]), ['2', 'None', 'All', 'All', 'Hidden']);
+  assert.deepEqual(
+    r.map((x) => x[1]),
+    ['2', 'None', 'All', 'All', 'Hidden'],
+  );
 });
 
 test('level boxes show every level ticked until a subset is stored, and the last one stays on', async () => {
