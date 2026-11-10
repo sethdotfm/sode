@@ -3,16 +3,18 @@
 // tells Sode at once when the page closes; the keepalive is the fallback when a proxy or browser will not hold it.
 import { readStr, writeStr } from './store.js';
 import { KEEPALIVE_MS, deviceFrom, keepaliveBody, streamPath, retryMs, renameTo } from './panelwatchrules.js';
-import { splitLines, assignOf } from './panelassignrules.js';
+import { splitLines, assignOf, keylessPath } from './panelassignrules.js';
+import { instanceFrom } from './panellink.js';
 
 export const DEVICE_KEY = 'sode-panel-device';
 
 // fetch with the Authorization header can stream where EventSource cannot; the server writes a line every 10 s,
 // and an Assign as its last. Ends when gate.stop aborts it (a rename opens a new hold under the new name).
-async function hold(call, id, device, gate, onAssign) {
+// open(signal) answers the fetch.
+async function hold(open, gate, onAssign) {
   for (let tries = 0; !gate.ctl.signal.aborted; tries++) {
     try {
-      const r = await call(streamPath(id, device), { signal: gate.ctl.signal });
+      const r = await open(gate.ctl.signal);
       if (r.ok && r.body) {
         tries = 0;
         const rd = r.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -29,6 +31,18 @@ async function hold(call, id, device, gate, onAssign) {
     } catch {}
     await new Promise((ok) => setTimeout(ok, retryMs(tries)));
   }
+}
+
+// A page with no working key (GLOSSARY.md, Keyless instance) holds the keyless announcement under the name it already
+// has, and never asks for one. No key rides it; ended says the page's key was ended. Returns { stop() }.
+export function announceKeyless(seg, ended, onAssign) {
+  const gate = { ctl: new AbortController() };
+  const device = deviceFrom(instanceFrom(location.search)) || deviceFrom(readStr(DEVICE_KEY));
+  hold((signal) => fetch(keylessPath(seg, device, ended), { signal, cache: 'no-store' }), gate, (msg) => {
+    gate.ctl.abort();
+    onAssign(msg);
+  });
+  return { stop: () => gate.ctl.abort() };
 }
 
 // call(path, init) is the page's keyed fetch; form holds the name input and its Save button. preset is the link's
@@ -48,7 +62,7 @@ export function startKeepalive(call, id, form, preset = '', onName = () => {}, o
     clearInterval(timer);
     gate?.ctl.abort();
     gate = { ctl: new AbortController() };
-    hold(call, id, device, gate, (msg) => {
+    hold((signal) => call(streamPath(id, device), { signal }), gate, (msg) => {
       stop();
       onAssign(msg);
     });
