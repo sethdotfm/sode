@@ -254,54 +254,6 @@
   transition: transform var(--wait-ms, 800ms) linear;
 }
 
-/* Fixed destinations: one tile per destination above the grid, in the Destination cell's colours. It sits outside
-   the grid's --pulse, so a staged tile shows its static ring only. */
-.sode-panel__fixed {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--pb-space-3);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.sode-panel__fixed[hidden] {
-  display: none;
-}
-.sode-panel__fixed-dst {
-  background-color: var(--pb-view-idle);
-  color: var(--pb-text-strong);
-  display: flex;
-  flex: 1 1 10rem;
-  flex-direction: column;
-  gap: var(--pb-space-1);
-  line-height: var(--pb-leading-tight);
-  padding: var(--pb-space-2) var(--pb-space-3);
-}
-.sode-panel__fixed-dst small {
-  font-size: var(--pb-text-xs);
-  opacity: 0.85;
-}
-.sode-panel__fixed-name {
-  align-items: center;
-  display: flex;
-  font-weight: var(--pb-weight-bold);
-  gap: var(--pb-space-1);
-}
-.sode-panel__fixed-dst[data-s="staged"] {
-  background-color: var(--pb-view);
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-text-strong);
-  color: var(--pb-text-on-accent);
-}
-.sode-panel__fixed-dst[data-result="connected"] {
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-ok);
-}
-.sode-panel__fixed-dst[data-result="already"] {
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-idle);
-}
-.sode-panel__fixed-dst[data-result="failed"] {
-  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-error);
-}
-
 /* Full width, and Offline: the grid blurs under a framed message. */
 .sode-panels--full {
   max-width: none;

@@ -128,46 +128,34 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	}
 
 	b.eval(`document.getElementById('ed-live').click()`)
-	b.waitFor("Test it live shows both fixed destinations", `[...document.querySelectorAll('#ed-live-view .sode-panel__fixed-dst')].map((li) => li.dataset.n).join() === '`+fmt.Sprintf("%d,%d", simDst, other)+`'`)
+	b.waitFor("Test it live draws the panel without Destination cells", `!!document.querySelector('#ed-live-view .sode-panel__cell--source') && !document.querySelector('#ed-live-view .sode-panel__cell--destination')`)
 	b.eval(`document.getElementById('ed-live').click()`)
 
 	b.open(srv.URL + "/panels/" + id)
-	b.waitFor("the panel or its PIN pad", `!!document.querySelector('#panel-fixed .sode-panel__fixed-dst') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	b.waitFor("the panel or its PIN pad", `!!document.querySelector('.sode-panel__cell--source') || !!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	if b.eval(`!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`) == "true" {
 		for _, d := range "1234" {
 			b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
 		}
 		b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	}
-	tiles := `[...document.querySelectorAll('#panel-fixed .sode-panel__fixed-dst')]`
-	b.waitFor("the strip shows both fixed destinations", tiles+`.map((li) => li.dataset.n).join() === '`+fmt.Sprintf("%d,%d", simDst, other)+`'`)
+	b.waitFor("the panel is drawn", `!!document.querySelector('.sode-panel__cell--source')`)
 	take := `document.querySelector('.sode-panel__take')`
-	routed := func(dst, src int) bool {
-		return strings.Contains(apiDo(a, "GET", "/api/v1/tally", ana, nil).Body.String(), fmt.Sprintf(`"dst":%d,"level":1,"src":%d`, dst, src))
-	}
 
 	b.eval(`document.querySelector('.sode-panel__cell--source').click()`)
 	b.waitFor("Take armed for the Source", `!`+take+`.disabled`)
 	b.eval(take + `.click()`)
-	b.waitFor("the Source reached both", tiles+`.every((li) => li.dataset.result === 'connected')`)
 	for _, d := range []int{simDst, other} {
-		if !routed(d, simSrc) {
-			t.Errorf("destination %d not taken from the Source", d)
-		}
+		waitRouted(t, a, ana, d, simSrc)
 	}
 
 	b.eval(`document.querySelector('.sode-panel__cell--preset').click()`)
-	b.waitFor("Take armed for the Preset", `!`+take+`.disabled && `+tiles+`.every((li) => li.dataset.s === 'staged')`)
+	b.waitFor("Take armed for the Preset", `!`+take+`.disabled`)
 	b.eval(take + `.click()`)
-	b.waitFor("the Preset reached both", tiles+`.every((li) => li.dataset.result === 'connected' && li.querySelector('small')?.textContent !== '`+simSrcName+`')`)
 	for _, d := range []int{simDst, other} {
-		if !routed(d, presetSrc) {
-			t.Errorf("destination %d not taken from the Preset", d)
-		}
+		waitRouted(t, a, ana, d, presetSrc)
 	}
-	if !routed(elsewhere, elsewhere) {
-		t.Errorf("the Preset's route to destination %d, which is not fixed, was taken", elsewhere)
-	}
+	waitRouted(t, a, ana, elsewhere, elsewhere)
 	b.check()
 }
 

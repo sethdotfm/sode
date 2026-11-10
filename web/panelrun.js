@@ -28,7 +28,7 @@ import {
   guardCancel,
   GUARD_HOLD_MS,
 } from './panelmodel.js';
-import { buildGrid, paintGrid, paintStrip } from './panelview.js';
+import { buildGrid, paintGrid } from './panelview.js';
 import { lookOf } from './panellook.js';
 import { createArt } from './panelart.js';
 import { createWake, enterFullscreen, featureNotes } from './panelfeel.js';
@@ -180,7 +180,6 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   const render = () => {
     const now = Date.now();
     paintGrid(grid, { st, env, names, now });
-    paintStrip(ui.strip, { st, env, names, now });
     say(ui.status, errorText(errorOf(st, now), names));
   };
   let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
