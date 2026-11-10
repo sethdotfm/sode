@@ -108,10 +108,10 @@ func TestPagesValidation(t *testing.T) {
 	}
 	name := func(n int) string { return `[{"id":"a","name":"` + strings.Repeat("x", n) + `"}]` }
 	for what, pages := range map[string]string{
-		"17 Pages":      many(17),
-		"a repeated id": `[{"id":"a"},{"id":"a"}]`,
-		"a bad id":      `[{"id":"has space"}]`,
-		"a long name":   name(41),
+		"17 Pages":        many(17),
+		"a repeated id":   `[{"id":"a"},{"id":"a"}]`,
+		"a bad id":        `[{"id":"has space"}]`,
+		"a long name":     name(41),
 		"no enabled Page": `[{"id":"a","enabled":false},{"id":"b","enabled":false}]`,
 	} {
 		body := `{"name":"Wall","pages":` + pages + `}`
