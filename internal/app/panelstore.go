@@ -28,7 +28,8 @@ const (
 	panelsDir     = "panels"
 	panelMax      = 500
 	panelArtMax   = 40      // artwork files per panel
-	panelArtBytes = 1 << 20 // 1 MB
+	panelArtBytes = 2 << 20 // 2 MB
+	panelArtSide  = 1024    // longest raster side in pixels; SVG has no pixel size
 	panelRowsMax  = 24
 	panelColsMax  = 24
 	panelNameMax  = 60

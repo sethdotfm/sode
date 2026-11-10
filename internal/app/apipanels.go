@@ -1,8 +1,14 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"maps"
@@ -377,7 +383,7 @@ func (a *App) apiArtUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
-			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "artwork is at most 1 MB")
+			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", "artwork is at most 2 MB")
 		} else {
 			apiFail(w, http.StatusBadRequest, "bad_request", "the body could not be read")
 		}
@@ -387,6 +393,18 @@ func (a *App) apiArtUpload(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	if typ == "" {
 		apiFail(w, http.StatusUnsupportedMediaType, "unsupported_type", "artwork is a JPEG, PNG, GIF or SVG image")
 		return
+	}
+	if typ != "image/svg+xml" {
+		// DecodeConfig reads the header only, so a huge image costs no pixel memory here.
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+		if err != nil {
+			apiFail(w, http.StatusBadRequest, "bad_request", "the image header could not be read")
+			return
+		}
+		if cfg.Width > panelArtSide || cfg.Height > panelArtSide {
+			apiFail(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("artwork is at most %d by %d pixels, this one is %d by %d", panelArtSide, panelArtSide, cfg.Width, cfg.Height))
+			return
+		}
 	}
 	art, _, err := a.panels.addArt(p.ID, data, typ)
 	if err != nil {
