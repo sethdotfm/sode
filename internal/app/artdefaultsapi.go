@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -152,6 +154,12 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 	var img *artImage
 	switch {
 	case d.Art == "", artIconRe.MatchString(d.Art), artDefaultIDRe.MatchString(d.Art):
+	case strings.HasPrefix(d.Art, "lib:") && iconIDRe.MatchString(d.Art[len("lib:"):]):
+		// Kept as the reference, never copied, so a library delete reaches the default as it does a cell.
+		if !slices.ContainsFunc(a.icons.list(), func(ic LibIcon) bool { return "lib:"+ic.ID == d.Art }) {
+			apiFail(w, http.StatusNotFound, "not_found", "no icon "+d.Art+" in the Icon library")
+			return
+		}
 	case artIDRe.MatchString(d.Art):
 		// A panel's own image: copied, so the default outlives the panel and its artwork.
 		p, read, _ := a.reachPanel(cl, in.Panel)
@@ -166,7 +174,7 @@ func (a *App) apiArtDefaultSet(w http.ResponseWriter, r *http.Request, cl *apiCt
 		}
 		img = &artImage{data, art.Type}
 	default:
-		apiFail(w, http.StatusBadRequest, "bad_request", "art is a vendored icon (icon:<name>) or an artwork id")
+		apiFail(w, http.StatusBadRequest, "bad_request", "art is a vendored icon (icon:<name>), an Icon library icon (lib:<id>) or an artwork id")
 		return
 	}
 	if d.Art == "" && d.ArtB == "" {

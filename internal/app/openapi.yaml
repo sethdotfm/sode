@@ -1994,7 +1994,7 @@ components:
         n: { type: integer, minimum: 0, maximum: 65535, description: The router's number of a Source or Destination }
         scope: { type: string, enum: [everyone, me], description: A Preset's scope }
         name: { type: string }
-        art: { type: string, description: "Icon A: `icon:<name>`, or a Default artwork image id (`d-` and 8 hex digits)" }
+        art: { type: string, description: "Icon A: `icon:<name>`, an Icon library icon (`lib:<id>`, drawing nothing once the library lacks it) or a Default artwork image id (`d-` and 8 hex digits)" }
         artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$", description: Icon B }
         hideText: { type: boolean }
     LibIcon:
@@ -2013,7 +2013,7 @@ components:
         n: { type: integer, minimum: 0, maximum: 65535 }
         scope: { type: string, enum: [everyone, me] }
         name: { type: string, description: A Preset's name; ignored for a Source or Destination, whose name Sode reads from the router }
-        art: { type: string, description: "`icon:<name>`, a panel's artwork id (`a-`, with `panel`) or a Default artwork image id (`d-`)" }
+        art: { type: string, description: "`icon:<name>`, an Icon library icon (`lib:<id>`, kept as the reference; 404 when the library lacks it), a panel's artwork id (`a-`, with `panel`) or a Default artwork image id (`d-`)" }
         artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$" }
         hideText: { type: boolean }
         panel: { type: string, description: The panel an `a-` artwork id is on. Its image is copied }
