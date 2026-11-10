@@ -417,5 +417,6 @@ export function initFind(editor) {
     order: () => order,
     onOrder: (fn) => orderWatchers.push(fn),
   };
+  editor.useFillOrder(api.order);
   return api;
 }

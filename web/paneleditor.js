@@ -47,6 +47,8 @@ import { createLive } from './editorlive.js';
 import { copyBlock, blockText, readBlock, pastePlan, applyPaste, pasteNote } from './gridclip.js';
 import { writeClip, createPasteReader } from './editorclip.js';
 import { emptyUndo, record, undo, redo, sameCells } from './gridundo.js';
+import { edgeChoices, edgeNote } from './gridedge.js';
+import { askPasteEdge } from './editorpasteedge.js';
 
 const say = (id, text) => {
   const n = $(id);
@@ -164,7 +166,8 @@ export async function runEditor() {
   const leave = (e) => {
     if (!g.sel) return;
     const path = e.composedPath();
-    if ([$('ed-grid'), menu.root].some((n) => path.includes(n))) return;
+    // The paste past the edge dialog answers for the selection, so focus in it is not leaving the grid.
+    if ([$('ed-grid'), menu.root].some((n) => path.includes(n)) || path.some((n) => n.id === 'ed-edge')) return;
     if (path.includes($('ed-side'))) {
       if (menuAway) return;
       menuAway = true;
@@ -203,13 +206,23 @@ export async function runEditor() {
     if (!block) return say('ed-status', 'Nothing pasted: the clipboard holds no Sode cells.');
     const plan = pastePlan(g, block, { panel: loaded?.id, fixed: fixedOn() });
     if (!plan) return say('ed-status', 'Nothing pasted: select the square to paste at first.');
-    if (!plan.fits) return pasteOverflow(plan);
+    if (!plan.fits) return void pasteOverflow(plan);
     const dropped = setGrid(applyPaste(g, plan.placed), { what: 'paste' });
     say('ed-status', `${pasteNote(plan)} ${droppedNote(dropped)}`.trim());
   }
-  // A paste that runs past the grid's edge: the grid stays as it is and the status line says why. The Clip and
-  // Wrap dialog takes over here.
-  const pasteOverflow = (plan) => say('ed-status', pasteNote(plan));
+  // A paste that runs past the grid's edge asks Clip, Wrap or Cancel; a choice is one setGrid, so one undo step.
+  // Find's fill order is read at paste time (fillOrder, set by Find).
+  let fillOrder = () => 'across';
+  async function pasteOverflow(plan) {
+    const snap = whole();
+    const choices = edgeChoices(g, plan, fillOrder());
+    const answer = await askPasteEdge(choices, plan.outside, $('ed-grid'));
+    if (!answer) return say('ed-status', 'Nothing pasted.');
+    if (readOnly() || !sameCells(snap, whole())) return say('ed-status', 'Nothing pasted: the grid changed meanwhile.');
+    const choice = choices[answer];
+    const dropped = setGrid(applyPaste(g, choice.placed), { what: 'paste' });
+    say('ed-status', `${edgeNote(plan, choice)} ${droppedNote(dropped)}`.trim());
+  }
   const paste = createPasteReader($('ed-grid'), pasteText);
 
   // One entry per command name in gridchords.js GRID_CHORDS. One that returns false leaves its key to the browser.
@@ -524,6 +537,8 @@ export async function runEditor() {
     names: () => names,
     addMenuSection: (fn) => menuSections.push(fn),
     addKeyHook: (fn) => keyHooks.push(fn),
+    // Find's fill order, which Wrap follows.
+    useFillOrder: (fn) => (fillOrder = fn),
     onChange: (fn) => changeWatchers.push(fn),
     // The sidebar's panel fields. onFields runs when the panel loads, saves or a field changes.
     fields,

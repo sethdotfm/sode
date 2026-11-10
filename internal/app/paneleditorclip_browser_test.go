@@ -67,7 +67,9 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	if b.eval(`press('v', 'KeyV', { ctrlKey: true })`) != false {
 		t.Fatal("Ctrl+V was not left to the browser")
 	}
-	b.waitFor("a paste past the edge changes nothing", `stat().includes('past the edge') && document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitFor("a paste past the edge asks first", `!!document.getElementById('ed-edge-clip')`)
+	b.eval(`document.getElementById('ed-edge-cancel').click()`)
+	b.waitFor("Cancel changes nothing", `!document.getElementById('ed-edge') && stat() === 'Nothing pasted.' && document.getElementById('ed-state').textContent === 'Saved'`)
 
 	b.eval(`goTo(3, 2); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("pasted on the same panel", `stat() === 'Pasted 3 cells.'`)
