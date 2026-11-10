@@ -117,7 +117,7 @@ function detail(p) {
       'div',
       'sode-ov__big',
       el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)),
-      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, setWatch)),
+      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, { setWatch, setHide })),
     ),
   );
 }
@@ -147,6 +147,22 @@ async function setWatch(id, on, instance = '') {
   }
 }
 
+// A hide only changes this user's view; the next read brings the counts that leave it out.
+async function setHide(id, instance, on) {
+  try {
+    await api(`api/v1/panels/${id}/instances/hide?instance=${encodeURIComponent(instance)}`, { method: on ? 'POST' : 'DELETE' });
+    const p = S.panels.find((x) => x.id === id);
+    if (p) {
+      const name = instance.toLowerCase();
+      p.hiddenInstances = (p.hiddenInstances || []).filter((d) => d !== name).concat(on ? [name] : []);
+    }
+    draw();
+    refreshOnline();
+  } catch (e) {
+    say(e.message);
+  }
+}
+
 // Online marks and the Open now list change without a redraw, so a button being pressed is not rebuilt.
 async function refreshOnline() {
   if (!S.loaded || document.hidden) return;
@@ -154,12 +170,15 @@ async function refreshOnline() {
     const next = (await api('api/v1/panels')).panels;
     for (const p of next) {
       const old = S.panels.find((x) => x.id === p.id);
-      if (old) Object.assign(old, { online: p.online, instances: p.instances });
+      if (old) {
+        const { online, instances, instancesOnline, instancesKnown, hiddenInstances } = p;
+        Object.assign(old, { online, instances, instancesOnline, instancesKnown, hiddenInstances });
+      }
     }
     paintOnline(S.panels);
     paintOpenNow(
       S.panels.find((x) => x.id === S.cur),
-      setWatch,
+      { setWatch, setHide },
     );
   } catch {}
 }

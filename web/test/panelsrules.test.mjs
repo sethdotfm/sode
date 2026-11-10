@@ -16,7 +16,39 @@ import {
   panelScore,
   listKey,
   stepPanel,
+  panelStatus,
+  shownInstances,
+  hiddenShown,
 } from '../panelsrules.js';
+
+test('a panel reads All Online, Some Online or All Offline across its instances', () => {
+  assert.deepEqual(panelStatus({ instancesOnline: 2, instancesKnown: 2 }), { text: 'All Online', tone: 'ok' });
+  assert.deepEqual(panelStatus({ instancesOnline: 1, instancesKnown: 3 }), { text: 'Some Online', tone: 'warn' });
+  assert.deepEqual(panelStatus({ instancesOnline: 0, instancesKnown: 3 }), { text: 'All Offline', tone: '' });
+  // Nothing open, or an older Sode without the counts.
+  assert.deepEqual(panelStatus({ instancesOnline: 0, instancesKnown: 0 }), { text: 'All Offline', tone: '' });
+  assert.deepEqual(panelStatus({ online: true }), { text: 'All Offline', tone: '' });
+});
+
+test('Open now lists known and watched instances, less the hidden ones', () => {
+  const p = {
+    instances: [
+      { device: 'Lobby', online: true, seen: 'x' },
+      { device: 'Desk', online: false, seen: 'y' },
+    ],
+    watchingInstances: ['lobby', 'studio'],
+    hiddenInstances: ['desk', 'gone'],
+  };
+  assert.deepEqual(
+    shownInstances(p).map((i) => i.device),
+    ['Lobby', 'studio'],
+  );
+  assert.deepEqual(hiddenShown(p), ['desk']);
+  assert.deepEqual(shownInstances({ ...p, hiddenInstances: ['studio'] }).map((i) => i.device), ['Lobby', 'Desk']);
+  // A use-only reader gets no instances at all.
+  assert.deepEqual(shownInstances({}), []);
+  assert.deepEqual(hiddenShown({}), []);
+});
 
 // Both: a client for keyed links, Session mode without one. Keep in step with actsHasClient in internal/app/panelstore.go.
 test('a panel holds a client when it acts as an API client or as both', () => {

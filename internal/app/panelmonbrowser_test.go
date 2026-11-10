@@ -49,7 +49,7 @@ func TestChromePanelWatchToast(t *testing.T) {
 	if c := keepalive(a, id, ana, "Lobby tablet"); c != 200 {
 		t.Fatalf("keepalive %d", c)
 	}
-	b.waitFor("online mark", `document.querySelector('[data-online]')?.textContent === 'Online'`)
+	b.waitFor("online mark", `document.querySelector('[data-online]')?.textContent === 'All Online'`)
 	// Open now lists the instance with its own Watch box, which watches only that instance.
 	b.waitFor("instance watch box", `!!document.querySelector('[data-watch-instance="Lobby tablet"]')`)
 	b.eval(`document.querySelector('[data-watch-instance="Lobby tablet"]').click()`)
@@ -75,6 +75,20 @@ func TestChromePanelWatchToast(t *testing.T) {
 	b.waitFor("return toast", `/Lobby tablet is back/.test(document.querySelector('[data-panel-toast="back"]')?.textContent || '')`)
 	b.waitFor("badge gone", `document.querySelector('[data-panel-badge]').hidden`)
 	b.shot("back")
+
+	// Each instance has an uptime strip, here with a drop in its last slot, and a Hide that ends nothing.
+	b.waitFor("uptime strip", `document.querySelectorAll('#panels-open .sode-up__bar').length === 96 && /1 drop/.test(document.getElementById('panels-open').textContent)`)
+	b.eval(`document.querySelectorAll('.pb-toast').forEach((t) => t.remove()); document.getElementById('panels-open').scrollIntoView()`)
+	b.shot("uptime")
+	b.eval(`document.querySelector('[data-hide-instance="Lobby tablet"]').click()`)
+	b.waitFor("instance hidden", `!document.querySelector('[data-hide-instance]') && /Hidden: Lobby tablet/.test(document.getElementById('panels-open').textContent)`)
+	b.waitFor("nothing counted", `document.querySelector('[data-online]')?.textContent === 'All Offline'`)
+	if !a.mon.watchingInst("Ana", id, "Lobby tablet") {
+		t.Fatal("Hide ended the instance watch")
+	}
+	b.shot("hidden")
+	b.eval(`document.querySelector('[data-show-hidden]').click()`)
+	b.waitFor("shown again", `!!document.querySelector('[data-hide-instance="Lobby tablet"]') && document.querySelector('[data-online]').textContent === 'All Online'`)
 	b.check()
 }
 
