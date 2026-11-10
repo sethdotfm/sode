@@ -74,6 +74,8 @@ var policy = map[string]rule{
 		a.SignOut(c)
 		a.command(c, "userSignOut", "ok", "", nil)
 	}},
+	// the page's ping while its user is active (idle.go); never refused, never logged
+	"activity":   {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) { a.Activity(c) }},
 	"userSetPin": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserSetPin(c, m) }},
 	// counted in the settings pool. In line: a later lock is handled after, and one
 	// connection checks one PIN at a time.

@@ -63,7 +63,7 @@ var policyExpect = map[string][nStates]error{
 	"hi": openRule, "userUnlock": openRule, "userLock": openRule, "userSignOut": openRule,
 	"userSetPin": openRule, "unlock": openRule, "lock": openRule, "history": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
-	"sessionKey": openRule, "panelAlarm": openRule,
+	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,
 
 	"batch": mainRule, "refreshNames": mainRule, "sent": mainRule, "uptime": mainRule,
 	"clearHistory": mainAdminRule,
