@@ -10,13 +10,14 @@ export function createLive(host, body, button) {
   let run = null;
   const api = {
     on: () => !!run,
-    start(id) {
+    // page is the Page being edited, where the run opens.
+    start(id, page = '') {
       api.stop();
       const ui = liveUi(host, () => api.stop());
       host.hidden = false;
       body.hidden = true;
       button.textContent = 'Back to editing';
-      run = runPanel(id, { ui, call: sessionFetch });
+      run = runPanel(id, { ui, call: sessionFetch, page });
       ui.back.focus();
     },
     stop() {

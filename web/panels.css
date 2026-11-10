@@ -1086,6 +1086,16 @@
   flex-direction: column;
   gap: var(--pb-space-7);
 }
+#ed-cell-show {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.sode-side__checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
 .sode-side__sec {
   display: flex;
   flex-direction: column;

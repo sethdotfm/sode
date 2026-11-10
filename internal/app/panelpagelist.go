@@ -112,7 +112,38 @@ func checkPages(pages []PanelPage, rows, cols int) ([]PanelPage, error) {
 	if err := checkPageTargets(out); err != nil {
 		return nil, err
 	}
+	if err := checkShowParts(out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// cellShowParts is what a Page Name or Info cell's `show` may name; keep in step with SHOW_PARTS in web/pagecells.js.
+// No `show` field is the kind's default, and an empty list shows nothing.
+var cellShowParts = map[string][]string{"pageName": {"number", "name"}, "info": {"panel", "number", "page", "instance"}}
+
+func checkShowParts(pages []PanelPage) error {
+	for c := range allCells(pages) {
+		kind, _ := c["kind"].(string)
+		allowed, ok := cellShowParts[kind]
+		v, has := c["show"]
+		if !ok || !has {
+			continue
+		}
+		list, isList := v.([]any)
+		if !isList {
+			return fmt.Errorf("a %s cell's show is a list of %s", kind, strings.Join(allowed, ", "))
+		}
+		seen := map[string]bool{}
+		for _, x := range list {
+			s, _ := x.(string)
+			if !slices.Contains(allowed, s) || seen[s] {
+				return fmt.Errorf("a %s cell's show is a list of %s, each at most once", kind, strings.Join(allowed, ", "))
+			}
+			seen[s] = true
+		}
+	}
+	return nil
 }
 
 // checkPageTargets judges each Go to Page cell's `page`, a Page id. A target that is missing is stored as is and read as

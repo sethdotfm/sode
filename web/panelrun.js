@@ -64,7 +64,8 @@ export function runPanel(seg, opts = {}) {
   return run;
 }
 
-async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {}, run) {
+// page is the Page an embedded run opens on (the editor's focused Page); a page of its own opens on the kept one.
+async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page = '' } = {}, run) {
   const timers = [];
   let stopWatch = () => {};
   let ended = false; // the key is gone or refused, or an embedded run was stopped: only a new link or start helps
@@ -209,7 +210,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     });
   };
   // The Test it live run is no instance, so it neither reads nor writes the browser's saved Page.
-  let st = showPage(stateOf(panel), landingPage(pagesOf(panel), embedded ? '' : savedPage(id)));
+  let st = showPage(stateOf(panel), landingPage(pagesOf(panel), embedded ? page : savedPage(id)));
   let cells = cellsOf(panel, st.page);
   const notePage = () => {
     if (!embedded) keepPage(id, st.page);

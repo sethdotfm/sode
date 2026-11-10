@@ -98,6 +98,8 @@ export const ART_ICONS = [
   'eye',
   'panels-top-left',
   'tablet-smartphone',
+  'file-type',
+  'info',
   'file-symlink',
   'chevron-right',
   'chevron-left',

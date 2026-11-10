@@ -338,12 +338,22 @@ export async function runEditor() {
   let fillOrder = () => 'across';
   async function pasteOverflow(plan) {
     const snap = whole();
-    const choices = edgeChoices(g, plan, fillOrder());
+    const before = livePages();
+    const choices = edgeChoices(g, plan, fillOrder(), { pages: before, from: fi() });
     const answer = await askPasteEdge(choices, plan.outside, $('ed-grid'));
     if (!answer) return say('ed-status', 'Nothing pasted.');
-    if (readOnly() || !sameCells(snap, whole())) return say('ed-status', 'Nothing pasted: the grid changed meanwhile.');
+    if (readOnly() || !sameCells(snap, whole()) || !samePages(pageSnap(before, g.rows, g.cols), pageSnap(livePages(), g.rows, g.cols)))
+      return say('ed-status', 'Nothing pasted: the grid changed meanwhile.');
     const choice = choices[answer];
-    const dropped = setGrid(applyPaste(g, choice.placed), { what: 'paste' });
+    // A cascade onto later Pages and the paste here are one undo step, so the Page list changes inside the same edit.
+    const dropped = edit('paste', () => {
+      for (const o of choice.onto || []) pages = pages.map((p, i) => (i === o.index ? { ...p, cells: o.cells } : p));
+      const out = holdOrPutBack(applyPaste(g, choice.placed));
+      sayDropped(out.dropped);
+      g = out.shown;
+      return out.dropped;
+    });
+    changed();
     say('ed-status', `${edgeNote(plan, choice)} ${droppedNote(dropped)}`.trim());
   }
   const paste = createPasteReader($('ed-grid'), pasteText);
@@ -428,7 +438,7 @@ export async function runEditor() {
   function refresh() {
     const ro = readOnly();
     const live = livePages();
-    grid.paint(g, names, { readOnly: ro, art, defaults, pages: live });
+    grid.paint(g, names, { readOnly: ro, art, defaults, pages: live, page: focus });
     openView.paint(live, open, focus, { rows: g.rows, cols: g.cols, names, fixed: fixedOn(), readOnly: ro, art, defaults });
     bar.paint({ pages: live, open, focus, readOnly: ro });
     const box = ro ? null : grid.selectionBox();
@@ -614,7 +624,7 @@ export async function runEditor() {
   $('ed-live').addEventListener('click', async () => {
     if (live.on()) return live.stop();
     if (!readOnly() && dirty()) await save();
-    if (loaded && !dirty()) live.start(loaded.id);
+    if (loaded && !dirty()) live.start(loaded.id, focus);
   });
 
   $('ed-copylink').addEventListener('click', async () => {
