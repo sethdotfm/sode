@@ -1,11 +1,13 @@
 // What a panel's look settings and a cell's artwork mean. Pure. Stored names are in docs/persisted-names.md.
 // Settings: titleBar (false hides the title bar), fontSize (percent), theme ('auto' follows the browser, 'light' or 'dark'), wake, fullscreen, landscape.
-// Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph beside an icon, a corner badge on an image), fontSize (percent) and hideText.
+// Cell: art ('icon:<vendored icon name>' or an artwork id), artB (a glyph beside an icon, a corner badge on an image), fontSize (percent) and
+// hideText (true or false; unset follows the item's Default artwork).
 
 const SCALE_MIN = 50;
 const SCALE_MAX = 200;
 export const THEMES = ['auto', 'light', 'dark'];
-const ART_ID = /^a-[0-9a-f]{8}$/;
+// a- is the panel's own image, d- a Default artwork image (internal/app/artdefaults.go).
+const ART_ID = /^[ad]-[0-9a-f]{8}$/;
 const ICON = /^icon:([a-z0-9-]+)$/;
 // Icon B: a digit 0 to 16 or a capital letter, so "[camera] 2" is two picks. Text, not a sprite icon: Lucide has no digits.
 export const ART_B_CHOICES = [...Array.from({ length: 17 }, (_, i) => String(i)), ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i))];
@@ -49,4 +51,35 @@ export function artOf(cell) {
   return ART_ID.test(art) ? { id: art } : null;
 }
 
-export const artUrlPath = (panelId, artId) => `api/v1/panels/${panelId}/artwork/${artId}`;
+export const artUrlPath = (panelId, artId) =>
+  artId.startsWith('d-') ? `api/v1/default-artwork/images/${artId}` : `api/v1/panels/${panelId}/artwork/${artId}`;
+
+// The item a cell shows, keyed as Default artwork is (cellItem and ArtDefault.key in artdefaults.go); '' for none.
+export function itemKey(cell) {
+  if ((cell?.kind === 'source' || cell?.kind === 'destination') && Number.isInteger(cell.n)) return `${cell.kind}/${cell.n}`;
+  if (cell?.kind === 'preset' && cell.name) return `preset/${cell.scope}/${cell.name}`;
+  return '';
+}
+
+// A list of defaults (GET /default-artwork, or a panel read's artDefaults) as a Map by item.
+export const defaultsBy = (list) => new Map((Array.isArray(list) ? list : []).map((d) => [itemKey(d), d]));
+
+export const defaultFor = (cell, defaults) => defaults?.get(itemKey(cell)) || null;
+
+// The cell as drawn: its own artwork wins whole, else its item's default fills both icons. Hide text follows the
+// default unless the cell sets true or false itself. A copy: the stored cell never holds a default, so a save, a
+// Push or a template carries only what the cell sets.
+export function withDefault(cell, defaults) {
+  const d = defaultFor(cell, defaults);
+  if (!d) return cell;
+  const out = { ...cell };
+  if (!artOf(cell) && !artBOf(cell)) {
+    out.art = d.art;
+    out.artB = d.artB;
+  }
+  if (typeof cell.hideText !== 'boolean') out.hideText = d.hideText === true;
+  return out;
+}
+
+// A Source or Destination default was set while the number had another router name. Unknown names never warn.
+export const nameMismatch = (d, routerName) => !!d && d.kind !== 'preset' && !!d.name && !!routerName && d.name !== routerName;

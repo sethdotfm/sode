@@ -126,7 +126,8 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
   let shown = '';
   return {
     node,
-    update(value, caption = '', hideText = false, artB = '') {
+    // drawn: the cell shows artwork, its own or its item's default, so Hide text applies.
+    update(value, caption = '', hideText = false, artB = '', drawn = false) {
       const ro = ed.readOnly();
       const saved = !!ed.panel();
       const shownB = artBOf({ art: value, artB });
@@ -138,7 +139,7 @@ export function createArtControl({ ed, icons = false, set, setB, setHideText }) 
       clearImage.disabled = ro || !upload;
       clearIcon.disabled = ro || !(shownB || (value && !upload));
       hidden = hideText;
-      hide.hidden = !any;
+      hide.hidden = !any && !drawn;
       hide.disabled = ro;
       hide.textContent = hideText ? 'Show text' : 'Hide text';
       for (const p of panes) for (const b of [p.none, ...p.grid.querySelectorAll('button')]) b.disabled = ro;

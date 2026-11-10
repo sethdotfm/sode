@@ -7,6 +7,8 @@ import { kindLabel } from './editorrules.js';
 import { fontPercent } from './sidebarrules.js';
 import { createLevelBoxes } from './editorlevels.js';
 import { createArtControl } from './editorart.js';
+import { createDefaultRow } from './editordefault.js';
+import { defaultFor, withDefault } from './panellook.js';
 
 const CAPTION_MAX = 40;
 const LEVEL_KINDS = ['source', 'destination'];
@@ -53,9 +55,11 @@ export function createCellTab(ed) {
     icons: true,
     set: (v) => patch({ art: v }),
     setB: (v) => patch({ artB: v }),
-    setHideText: (v) => patch({ hideText: v ? true : undefined }),
+    // false is stored only against a default, which would otherwise hide the text (panellook.js withDefault).
+    setHideText: (v) => patch({ hideText: v ? true : defaultFor(cell(), ed.defaults()) ? false : undefined }),
   });
-  form.append(kindLine, captionField, sizeRow, levelField, art.node);
+  const deflt = createDefaultRow({ ed, patch, done: () => update() });
+  form.append(kindLine, captionField, sizeRow, levelField, art.node, deflt.node);
   node.append(hint, form);
 
   const cell = () => single(ed.grid());
@@ -79,32 +83,37 @@ export function createCellTab(ed) {
       at = '';
       levelBoxes.reset();
     },
-    update() {
-      const g = ed.grid();
-      const c = cell();
-      const n = selCells(g).length;
-      hint.hidden = !!c;
-      form.hidden = !c;
-      if (!c) {
-        hint.textContent =
-          n > 1
-            ? 'Several cells are selected. Select one to change its settings.'
-            : n === 1
-              ? 'Select the whole cell to change its settings.'
-              : 'Select a square to change its settings. An empty square gets its type from the menu beside it.';
-        return;
-      }
-      const key = `${c.r},${c.c}`;
-      const fresh = key !== at;
-      if (fresh) levelBoxes.reset();
-      kindLine.textContent = `${kindLabel(c.kind)} at row ${c.r}, column ${c.c}`;
-      put(caption, c.caption || '', fresh);
-      put(size, String(c.fontSize || 100), fresh); // shown, so the arrows step from the default
-      levelField.hidden = !LEVEL_KINDS.includes(c.kind) || !S.levels.length;
-      levelBoxes.draw(c.levels);
-      at = key;
-      for (const i of [caption, size]) i.disabled = ed.readOnly();
-      art.update(c.art || '', c.caption || '', c.hideText === true, c.artB || '');
-    },
+    update,
   };
+
+  function update() {
+    const g = ed.grid();
+    const c = cell();
+    const n = selCells(g).length;
+    hint.hidden = !!c;
+    form.hidden = !c;
+    if (!c) {
+      hint.textContent =
+        n > 1
+          ? 'Several cells are selected. Select one to change its settings.'
+          : n === 1
+            ? 'Select the whole cell to change its settings.'
+            : 'Select a square to change its settings. An empty square gets its type from the menu beside it.';
+      return;
+    }
+    const key = `${c.r},${c.c}`;
+    const fresh = key !== at;
+    if (fresh) levelBoxes.reset();
+    kindLine.textContent = `${kindLabel(c.kind)} at row ${c.r}, column ${c.c}`;
+    put(caption, c.caption || '', fresh);
+    put(size, String(c.fontSize || 100), fresh); // shown, so the arrows step from the default
+    levelField.hidden = !LEVEL_KINDS.includes(c.kind) || !S.levels.length;
+    levelBoxes.draw(c.levels);
+    at = key;
+    for (const i of [caption, size]) i.disabled = ed.readOnly();
+    // The controls edit what the cell sets; Hide text shows as drawn, so a default that hides the text reads as hidden.
+    const drawn = withDefault(c, ed.defaults());
+    art.update(c.art || '', c.caption || '', drawn.hideText === true, c.artB || '', !!(drawn.art || drawn.artB));
+    deflt.update(c);
+  }
 }

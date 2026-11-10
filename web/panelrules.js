@@ -85,7 +85,9 @@ export function namesFrom(reply) {
     const p = plain[cell.kind];
     return typeof p === 'function' ? p(cell) : p || '';
   };
-  return { source, destination, of, off };
+  // '' when the router has not named it, where source and destination make up a name.
+  const routerName = (kind, n) => (kind === 'source' ? src : kind === 'destination' ? dst : new Map()).get(n) || '';
+  return { source, destination, of, off, routerName };
 }
 
 // The cells that are whole, known and inside the grid. Where two overlap the first one stays.
