@@ -94,9 +94,9 @@ type Panel struct {
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
-// panelKnown are the JSON names the struct owns. canEdit, hasKey, clientNetworks and artDefaults are output only and
-// never stored, so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults"}
+// panelKnown are the JSON names the struct owns plus every output-only field a read adds (panelOut, monFields,
+// apiPanelRead), so a client that echoes a read back does not plant one in Extra. Keep in step with those.
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped"}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
@@ -258,6 +258,13 @@ func loadPanels(cfgPath string) *panelStore {
 		if p.ID != id || !validPanelID(id) {
 			s.problem("%s: the file name and its id %q differ", path, p.ID)
 			return p, false
+		}
+		// Files saved before panelKnown listed every output-only field may hold one; drop it.
+		for _, k := range panelKnown {
+			delete(p.Extra, k)
+		}
+		if len(p.Extra) == 0 {
+			p.Extra = nil
 		}
 		p.normalize()
 		if p.Slug != "" && (!validPanelSlug(p.Slug) || slugSeen[p.Slug]) {

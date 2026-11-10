@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -75,6 +77,43 @@ func silent(t *testing.T, ch <-chan map[string]any) {
 	case m := <-ch:
 		t.Fatalf("the keyless page heard %v", m)
 	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+// An editor's read carries keyless rows and the monitoring fields; saving that read back must not store them,
+// or a non-editor's read and Push would hand out a frozen device row.
+func TestKeylessRowsAreNeverStoredFromASavedRead(t *testing.T) {
+	a := panelsApp(t)
+	cy, bo := userKey(t, a, "Cy"), userKey(t, a, "Bo")
+	id := makePanel(t, a, cy, `{"name":"Studio A","slug":"studio-a","share":{"mode":"everyone"}}`)
+	keylessHold(t, a, "studio-a", "?instance=Lobby")
+	keylessRow(t, a, id, cy, "Lobby")
+	p := panelOf(t, a, id, cy)
+	back, _ := json.Marshal(p)
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, cy, string(back)); rec.Code != 200 {
+		t.Fatalf("save the read back: %d %s", rec.Code, rec.Body.String())
+	}
+	outputOnly := []string{"keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights"}
+	got, _ := a.panels.get(id)
+	for _, k := range outputOnly {
+		if _, ok := got.Extra[k]; ok {
+			t.Errorf("stored %s: %v", k, got.Extra[k])
+		}
+	}
+	if _, ok := panelOf(t, a, id, bo)["keyless"]; ok {
+		t.Errorf("a non-editor read keyless rows")
+	}
+
+	// A file saved before the fix still holds them; loading drops them and keeps fields from a newer Sode.
+	path := filepath.Join(filepath.Dir(a.cfgPath), panelsDir, id+".yaml")
+	raw, _ := os.ReadFile(path)
+	raw = append(raw, "keyless:\n  - addr: 10.0.0.9\nrights: {}\nfuture: 7\n"...)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := loadPanels(a.cfgPath).get(id)
+	if _, ok := again.Extra["keyless"]; ok || again.Extra["rights"] != nil || again.Extra["future"] != 7 {
+		t.Fatalf("reload kept %v", again.Extra)
 	}
 }
 
