@@ -49,6 +49,7 @@ export const WHY_LABEL = {
   panelAlarm: 'Panel alarm',
   panelSetup: 'Panel instance set up',
   assign: 'Instance assigned',
+  rename: 'Instance renamed',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server']);
 // Saved lists of exactly these (pre-events) meant All.

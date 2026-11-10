@@ -191,3 +191,33 @@ export function assignNameProblem(text, clashed) {
 // The seam for the editor's Authentication mode Confirm: an Assign never edits a panel, but the instance may land on a
 // panel whose mode differs from the one it shows now. Where that Confirm should also cover an Assign, it hooks in here.
 export const assignChangesMode = (from, to) => (from?.acts || '') !== (to?.acts || '');
+
+// The Open now row's rename control (POST /api/v1/panels/{id}/instances/rename): '' for none, since only a Sode panel
+// page (page) hears the name, and 'offline' when its stream is gone and nothing would hear it.
+export const renameState = (i) => (!i?.page ? '' : i.stream ? 'ready' : 'offline');
+
+// What is wrong with a typed instance name, or ''. A name the panel already holds comes back from the server as a
+// name clash with a suggestion, as for an Assign.
+export function renameProblem(text) {
+  const name = String(text || '').trim();
+  if (!name) return INSTANCE_HOLD;
+  if (name.length > INSTANCE_MAX) return `Use at most ${INSTANCE_MAX} characters.`;
+  return '';
+}
+
+// The new name from the stream's rename line, or '' for any other line.
+export function renameOf(line) {
+  try {
+    const m = JSON.parse(line);
+    return m?.t === 'rename' && typeof m.instance === 'string' ? m.instance.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+// The address query of a page named by its link, carrying the new name so a reload keeps it.
+export function renamedSearch(search, name) {
+  const q = new URLSearchParams(search || '');
+  q.set('instance', name);
+  return `?${q}`;
+}

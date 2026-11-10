@@ -1222,11 +1222,13 @@ paths:
                   `{"t":"assign","panel":"<target id>","slug":"<its short name, if any>","instance":"<name>","key":"<secret>"}`.
                   The key is the target panel's, named for the instance, and is sent only here.
                   A target that acts as a user sends `"signIn":"user"` and no key, and the page
-                  shows that panel's sign-in
+                  shows that panel's sign-in. A rename (`POST /panels/{id}/instances/rename`) sends
+                  `{"t":"rename","instance":"<new name>"}` as the last line instead, and the page
+                  reopens the stream under that name
                 properties:
                   online: { type: boolean }
                   graceSeconds: { type: integer }
-                  t: { type: string, enum: [assign] }
+                  t: { type: string, enum: [assign, rename] }
                   panel: { type: string }
                   slug: { type: string }
                   instance: { type: string }
@@ -1333,6 +1335,57 @@ paths:
                   from: { type: string }
                   panel: { type: string, description: The target panel }
                   instance: { type: string, description: "The instance's name on the target: `name` when sent, else its name as the monitor holds it" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/rename:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: renamePanelInstance
+      tags: [panels]
+      summary: Rename an open instance
+      description: |
+        Scope `panelsmanage`. Needs a user's key: the panel's owner, a Trusted user, or anyone with
+        the Advanced Settings PIN in `pin` (403 `trusted_required`; a wrong PIN counts toward the
+        same lockout as the Settings dialog). The instance must hold
+        `/panels/{id}/instances/stream` now (409 `conflict` for one that timed out, since nothing
+        would hear the name). The new name is its device name, not a label: up to 40 characters
+        and unique on the panel ignoring case, counting key names and every instance Sode holds,
+        offline ones included. A held name answers 409 `name_taken` with `error.suggest`, a free
+        name. A change of case alone is allowed; the same name is 400 `bad_request`. Sode renames
+        the instance's key (or pending setup link) of that name, moves per-instance watches to
+        the new name and sends `{"t":"rename","instance":"<new name>"}` as the stream's last
+        line; the page takes the name, rewrites its `?instance=` when its address has one, and
+        reopens its stream under it. The old name leaves the list without a lost notice. Writes
+        one `api` row `rename` naming the user, the old name and the new one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instance, name]
+              properties:
+                instance: { type: string, maxLength: 40, description: "The instance's device name now, ignoring case" }
+                name: { type: string, maxLength: 40, description: Its new device name }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is neither the owner nor Trusted" }
+      responses:
+        "200":
+          description: Sent to the instance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [panel, from, instance]
+                properties:
+                  panel: { type: string }
+                  from: { type: string, description: "Its old name, as the monitor held it" }
+                  instance: { type: string, description: Its new name }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1692,12 +1745,12 @@ components:
                 unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
                 such path, entry, visible preset, or a panel or artwork the caller may not use).
                 405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
-                a successful one, or a full panel or artwork limit), name_taken (an Assign's target
-                already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
+                a successful one, or a full panel or artwork limit), name_taken (an Assign's target, or
+                a renamed instance's panel, already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
                 (no route left to run), idempotency_mismatch. 429 rate_limited, take_cap,
                 too_many_streams. 500 internal (a panel could not be written to disk).
             message: { type: string }
-            suggest: { type: string, description: "With `name_taken` only: a free name for the instance on the target, its name plus 2 or the next free number" }
+            suggest: { type: string, description: "With `name_taken` only: a free name for the instance on that panel, its name plus 2 or the next free number" }
     PanelShare:
       type: object
       required: [mode]
