@@ -88,7 +88,7 @@ func (a *App) apiPanelSetup(w http.ResponseWriter, r *http.Request, _ *apiCtx) {
 	p, ok := a.panels.get(a.panelIDOf(r.PathValue("id")))
 	c, has := clientOfPanel(rt.cfg, p)
 	owner := keyOwner{Kind: actorClient, Name: c.Name}
-	if !ok || !has || p.Acts != panelActsAPI || !a.keys.hasSetup(owner, req.Setup, now) {
+	if !ok || !has || !actsHasClient(p.Acts) || !a.keys.hasSetup(owner, req.Setup, now) {
 		a.authFailed(ip, now)
 		apiFail(w, http.StatusUnauthorized, "invalid_setup", "this setup link was already used, has expired or was replaced; ask for a new one")
 		return

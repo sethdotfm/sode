@@ -280,3 +280,16 @@ func TestNetworksEndWithThePanel(t *testing.T) {
 		t.Fatal("client left behind")
 	}
 }
+
+// Both owns a client and keys the same way API does, so its Share tab's setup link must trade.
+func TestSetupLinkWorksOnABothPanel(t *testing.T) {
+	a, _ := clientApp(t)
+	shortTimers(a)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, `{"name":"Wall","acts":"both","clientRights":{"sources":[1,2,3],"dsts":[2,4]}}`)
+	token, _ := setupLink(t, a, cy, id)
+	rec := exchangeSetup(a, apiPeer, id, token)
+	if rec.Code != 201 {
+		t.Fatalf("exchange on a Both panel: %d %s", rec.Code, rec.Body.String())
+	}
+}
