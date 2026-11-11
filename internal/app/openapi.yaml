@@ -1619,7 +1619,7 @@ paths:
       security: []
       description: |
         Needs no key (route scope `none`): a panel page with no working key, a Keyless instance
-        (ADR 0008), holds it so a Trusted user can find and assign it. It grants nothing and the
+        (ADR 0009), holds it so a Trusted user can find and assign it. It grants nothing and the
         answer is the same whether or not the panel exists. Sode records the address it sees and
         keeps at most 1000 such pages in memory for 24 hours, the oldest dropped. Only an Assign
         (`POST /panels/{id}/assign` with `keyless`) sends anything on it but the beat.
