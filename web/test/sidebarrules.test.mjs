@@ -6,6 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { setSetting, fontPercent, artProblem, levelsPatch, ART_ICONS, artFilter, rightsRows } from '../sidebarrules.js';
 import { artOf, lookOf } from '../panellook.js';
 
+// The server reads a missing askInstanceName back as true, so dropping it would leave the editor unsaved after off and on.
+test('askInstanceName is kept as chosen, true included', () => {
+  assert.deepEqual(setSetting({}, 'askInstanceName', false), { askInstanceName: false });
+  assert.deepEqual(setSetting({ askInstanceName: false }, 'askInstanceName', true), { askInstanceName: true });
+});
+
 test('a setting at its default is dropped, so a stored panel only holds what was chosen', () => {
   let s = {};
   s = setSetting(s, 'titleBar', false);

@@ -72,6 +72,8 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.waitFor("the grid took the new size", `document.getElementById('ed-rows').value === '3' && document.getElementById('ed-cols').value === '3'`)
 	b.waitFor("Take button behavior follows Mode, and Updates is gone", `document.getElementById('ed-set-guard').closest('.sode__field').previousElementSibling.contains(document.getElementById('ed-set-mode')) && ![...document.querySelectorAll('#panel-ed-panel .sode-side__h')].some((h) => h.textContent === 'Updates')`)
 	b.eval(`document.getElementById('ed-set-fullscreen').click(); true`)
+	b.waitFor("Ask users to set an instance name starts on", `document.getElementById('ed-set-askInstanceName').checked`)
+	b.eval(`document.getElementById('ed-set-askInstanceName').click(); true`)
 	b.waitFor("with no subset stored every level box is ticked", `(() => { const l = [...document.querySelectorAll('#panel-ed-panel .sode__picker .sode__pick')]; return l.length > 0 && l.every((x) => x.getAttribute('aria-pressed') === 'true'); })()`)
 	b.eval(`document.querySelector('#panel-ed-panel .sode__picker .sode__pick').click(); true`)
 	b.waitFor("the first level goes off and All is offered again", `(() => { const p = document.querySelector('#panel-ed-panel .sode__picker .sode__pick'); return p.getAttribute('aria-pressed') === 'false' && !document.querySelector('#panel-ed-panel .sode__all').disabled; })()`)
@@ -87,7 +89,7 @@ func TestChromeEditorSidebar(t *testing.T) {
 	if !regexp.MustCompile(`"settings":\{[^}]*"levels":\[2,`).MatchString(body) {
 		t.Errorf("the saved panel lacks the level subset without level 1: %s", body)
 	}
-	for _, want := range []string{`"caption":"Go live"`, `"fontSize":150`, `"titleBar":false`, `"guard":"hold"`, `"fullscreen":true`, `"hideText":true`, `"art":"icon:tv"`, `"artB":"2"`, `"rows":3`, `"cols":3`, `"acts":"api"`, `"client":"Panel ` + id + `"`} {
+	for _, want := range []string{`"caption":"Go live"`, `"fontSize":150`, `"titleBar":false`, `"guard":"hold"`, `"fullscreen":true`, `"askInstanceName":false`, `"hideText":true`, `"art":"icon:tv"`, `"artB":"2"`, `"rows":3`, `"cols":3`, `"acts":"api"`, `"client":"Panel ` + id + `"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the saved panel lacks %s: %s", want, body)
 		}

@@ -1212,16 +1212,17 @@ paths:
         (see the `panelNotice` frame of the Sode socket in docs/api.md). Devices are kept in
         memory only and told apart by name, ignoring case, so two screens that share a name are
         one instance. A panel holds at most 100 devices (409 `conflict`). Deleting the panel, and
-        making, rotating or revoking its key, forgets its devices without a notice.
+        making, rotating or revoking its key, forgets its devices without a notice. A blank or
+        missing `device` is an unnamed instance (the panel's `askInstanceName` is off and the page
+        has no name), and Sode names it by the caller's address.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [device]
               properties:
-                device: { type: string, maxLength: 40, description: A name for this screen }
+                device: { type: string, maxLength: 40, description: "A name for this instance. Blank names it by the caller's address" }
       responses:
         "200":
           description: Heard
@@ -1256,7 +1257,7 @@ paths:
         not the 45 of the keepalive, and a reopen with the same name inside that time raises
         nothing. Keep sending the keepalive: it is the fallback when the stream cannot stay open.
       parameters:
-        - { name: device, in: query, required: true, schema: { type: string, maxLength: 40 }, description: A name for this screen }
+        - { name: device, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A name for this instance. Blank names it by the caller's address" }
       responses:
         "200":
           description: Held; one JSON line at once and one every 10 seconds
@@ -1670,8 +1671,15 @@ components:
         settings:
           type: object
           additionalProperties: true
-          description: Free-form settings for the panel page and editor. Sode checks only `fixedDests`.
+          description: Free-form settings for the panel page and editor. Sode checks only `fixedDests` and `askInstanceName`.
           properties:
+            askInstanceName:
+              type: boolean
+              default: true
+              description: |
+                Ask users to set an instance name. Off, the page never asks for a device name and
+                shows none in its header; `?instance=` and a name the browser stored still apply.
+                Sent as true when the file has none. Anything but a boolean is 400 `bad_request`.
             fixedDests:
               type: array
               maxItems: 16

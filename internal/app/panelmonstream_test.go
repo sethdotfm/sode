@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -131,12 +132,17 @@ func TestStreamEndsWhenItsPanelIsForgotten(t *testing.T) {
 	}
 }
 
-func TestStreamNeedsADevice(t *testing.T) {
+// An unnamed instance (askInstanceName off) holds its stream under its address.
+func TestStreamWithNoDeviceHoldsUnderTheAddress(t *testing.T) {
 	a, _ := monApp(t)
 	ana := userKey(t, a, "Ana")
-	id := makePanel(t, a, ana, `{"name":"Wall"}`)
-	if rec := apiSend(a, "GET", "/api/v1/panels/"+id+"/instances/stream", ana, ""); rec.Code != 400 {
-		t.Fatalf("code %d", rec.Code)
+	id := makePanel(t, a, ana, `{"name":"Wall","settings":{"askInstanceName":false}}`)
+	monHold(t, a, id, ana, "")
+	if n := monConns(a, id); n != 1 {
+		t.Fatalf("held streams: %d", n)
+	}
+	if !strings.Contains(apiSend(a, "GET", "/api/v1/panels/"+id, ana, "").Body.String(), `"device":"127.0.0.1"`) {
+		t.Fatal("the stream is not held under 127.0.0.1")
 	}
 }
 
