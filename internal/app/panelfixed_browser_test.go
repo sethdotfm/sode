@@ -57,6 +57,9 @@ func TestChromePanelFixedDests(t *testing.T) {
 
 	src := `document.querySelector('.sode-panel__cell--source')`
 	take := `document.querySelector('.sode-panel__take')`
+	// A press before the first poll answers finds no tally and does nothing; the router's name comes with that poll.
+	named := src + `.querySelector('.sode-panel__text')?.textContent === 'Zoom 1'`
+	b.waitFor("the first poll answered", named)
 	b.eval(src + `.click()`)
 	b.waitFor("Take armed", `!`+take+`.disabled`)
 	b.shot("staged")
@@ -70,6 +73,7 @@ func TestChromePanelFixedDests(t *testing.T) {
 	}
 	b.waitFor("refresh banner", `!document.getElementById('panel-update').hidden`)
 	b.eval(`document.getElementById('panel-apply').click()`)
+	b.waitFor("the new grid is named", named)
 	b.eval(src + `.click()`)
 	waitRouted(t, a, ana, later, simSrc)
 	b.check()
