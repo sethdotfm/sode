@@ -800,10 +800,15 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if !line() {
+			if !a.streamKeyLive(cl) || !line() {
 				return
 			}
 		case l := <-out:
+			// An Assign sends a long-lived key: never down a stream whose own key has ended since it opened.
+			if !a.streamKeyLive(cl) {
+				l.got <- false
+				return
+			}
 			_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			_, err := w.Write(append(l.b, '\n'))
 			ok := err == nil && rc.Flush() == nil
@@ -815,6 +820,24 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 			return
 		}
 	}
+}
+
+// streamKeyLive: the key a held stream opened with still authenticates. endStreams reaches only the
+// WebSocket streams, so a held instance stream checks for itself (expiry, revoke, leaving Public, its
+// session or client gone).
+func (a *App) streamKeyLive(cl *apiCtx) bool {
+	if cl.Key == nil {
+		return true
+	}
+	id := cl.Key.ID
+	if !a.keys.alive(id) && !a.public.alive(id) {
+		return false
+	}
+	cfg := a.r().cfg
+	if sess := a.keys.sessionOf(id); sess != "" && !a.tokens.live(sess, cl.Key.Owner.Name, cfg) {
+		return false
+	}
+	return a.resolveKey(cfg, *cl.Key, cl.IP) != nil
 }
 
 func streamWhoOf(cl *apiCtx) streamWho {

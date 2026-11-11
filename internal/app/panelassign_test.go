@@ -581,3 +581,23 @@ func TestAssignToABothPanelHonoursTheChoice(t *testing.T) {
 		t.Fatalf("keys: %s", rec.Body.String())
 	}
 }
+
+// A held stream checks its key before an Assign's line: a Public key that ended must not receive another panel's key.
+func TestAssignSendsNoKeyDownAStreamWhoseKeyEnded(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	from := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	to := makePanel(t, a, cy, assignTarget)
+	lines := assignHold(t, a, from, publicKeyOf(t, a, from), "Wall")
+	a.endPublicKeys(from)
+	if rec := apiSend(a, "POST", "/api/v1/panels/"+to+"/assign", cy, assignBody(from, "Wall", "")); rec.Code == 200 {
+		t.Fatalf("assign went through: %s", rec.Body.String())
+	}
+	select {
+	case m := <-lines:
+		if m["key"] != nil {
+			t.Fatalf("a key went down a stream whose key ended: %v", m)
+		}
+	case <-time.After(300 * time.Millisecond):
+	}
+}
