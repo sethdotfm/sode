@@ -89,11 +89,15 @@ func TestKeepaliveSetsOnlineAndMissEndsIt(t *testing.T) {
 	}
 }
 
-// A blank device is an unnamed instance, counted under its address (TestUnnamedInstanceCountsUnderItsAddress).
-func TestKeepaliveNeedsAPanelTheCallerMayUse(t *testing.T) {
+// While askInstanceName is on the page names itself, so a blank device is a broken caller. With it
+// off a blank device is an unnamed instance (TestUnnamedInstanceCountsUnderItsAddress).
+func TestKeepaliveNeedsADeviceAndAPanelTheCallerMayUse(t *testing.T) {
 	a, _ := monApp(t)
 	ana, bo := userKey(t, a, "Ana"), userKey(t, a, "Bo")
 	id := makePanel(t, a, ana, `{"name":"Wall"}`)
+	if c := keepalive(a, id, ana, "  "); c != 400 {
+		t.Errorf("blank device: %d", c)
+	}
 	if c := keepalive(a, id, bo, "Desk"); c != 404 {
 		t.Errorf("a panel Bo cannot see: %d", c)
 	}

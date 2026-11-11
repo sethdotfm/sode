@@ -191,11 +191,14 @@ func validatePanel(p *Panel) error {
 func cleanSettings(settings map[string]any) (map[string]any, error) {
 	if v, ok := settings[panelAskNameKey]; ok {
 		if _, isBool := v.(bool); !isBool {
-			return nil, errors.New("askInstanceName is true or false")
+			return nil, errors.New(panelAskNameKey + " is true or false")
 		}
 	}
 	return cleanFixedDests(settings)
 }
+
+// asksName: the page asks for an instance name. Keep in step with askInstanceName in web/panelrun.js.
+func asksName(p Panel) bool { v, set := p.Settings[panelAskNameKey]; return !set || v != false }
 
 func validPanelID(id string) bool { return panelIDRe.MatchString(id) }
 

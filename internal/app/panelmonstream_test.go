@@ -132,6 +132,15 @@ func TestStreamEndsWhenItsPanelIsForgotten(t *testing.T) {
 	}
 }
 
+func TestStreamNeedsADeviceWhileThePanelAsksForAName(t *testing.T) {
+	a, _ := monApp(t)
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, `{"name":"Wall"}`)
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+id+"/instances/stream", ana, ""); rec.Code != 400 {
+		t.Fatalf("code %d", rec.Code)
+	}
+}
+
 // An unnamed instance (askInstanceName off) holds its stream under its address.
 func TestStreamWithNoDeviceHoldsUnderTheAddress(t *testing.T) {
 	a, _ := monApp(t)

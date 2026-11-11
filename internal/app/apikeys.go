@@ -44,23 +44,28 @@ const sessionKeyPrefix = keyPrefix + "ses."
 
 const sessionSecretBytes = 32
 
-func newSessionSecret() string {
+func newSessionSecret() string { return newShapedSecret(sessionKeyPrefix) }
+
+// newShapedSecret is a memory-only key's secret: prefix plus sessionSecretBytes, which hasShape knows.
+func newShapedSecret(prefix string) string {
 	b := make([]byte, sessionSecretBytes)
 	rand.Read(b)
-	return sessionKeyPrefix + base64.RawURLEncoding.EncodeToString(b)
+	return prefix + base64.RawURLEncoding.EncodeToString(b)
 }
 
-// isSessionShape: a secret only newSessionSecret makes. A memory-only Sode forgets its session
-// keys on a restart, and the pages still holding one must hear that it ended. Answering such a
-// key without counting it toward the throttle costs nothing: a 256-bit guess never lands.
-func isSessionShape(secret string) bool {
-	body, ok := strings.CutPrefix(secret, sessionKeyPrefix)
+func hasShape(secret, prefix string) bool {
+	body, ok := strings.CutPrefix(secret, prefix)
 	if !ok || len(body) != base64.RawURLEncoding.EncodedLen(sessionSecretBytes) {
 		return false
 	}
 	b, err := base64.RawURLEncoding.Strict().DecodeString(body)
 	return err == nil && len(b) == sessionSecretBytes
 }
+
+// isSessionShape: a secret only newSessionSecret makes. A memory-only Sode forgets its session
+// keys on a restart, and the pages still holding one must hear that it ended. Answering such a
+// key without counting it toward the throttle costs nothing: a 256-bit guess never lands.
+func isSessionShape(secret string) bool { return hasShape(secret, sessionKeyPrefix) }
 
 func newSecret(n int) string {
 	b := make([]byte, n)
@@ -212,7 +217,7 @@ func (s *keyStore) endedAs(secret string) (expired, ended bool) {
 	s.mu.Lock()
 	expired, ended = s.ended[h]
 	s.mu.Unlock()
-	if !ended && (isSessionShape(secret) || isPublicShape(secret)) {
+	if !ended && isSessionShape(secret) {
 		return false, true
 	}
 	return expired, ended

@@ -1,12 +1,14 @@
 package app
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -126,14 +128,82 @@ func TestAskingANonPublicPanelIsNotCountedAsAFailedKey(t *testing.T) {
 	}
 }
 
-func TestAskingForUnknownPanelsIsThrottled(t *testing.T) {
+// Asks are capped per address whatever the id, and an unknown id, a panel that is not Public and a
+// Public panel asked from outside its networks get the same answers, so no run of asks says which
+// ids exist.
+func TestAskingSaysNothingAboutWhichIdsExist(t *testing.T) {
+	seq := func(mk func(a *App, cy string) string) []string {
+		a, _ := clientApp(t)
+		cy := userKey(t, a, "Cy")
+		id := mk(a, cy)
+		var out []string
+		for i := 0; i < publicAskMax+2; i++ {
+			rec := askPublic(a, apiPeer, id)
+			out = append(out, fmt.Sprint(rec.Code, " ", rec.Body.String()))
+		}
+		return out
+	}
+	unknown := seq(func(*App, string) string { return "p-00000000" })
+	session := seq(func(a *App, cy string) string { return makePanel(t, a, cy, `{"name":"S"}`) })
+	outside := seq(func(a *App, cy string) string {
+		id := makePanel(t, a, cy, publicPanel+`}`)
+		if rec := putNetworks(a, cy, id, `["10.0.0.0/8"]`); rec.Code != 200 {
+			t.Fatalf("networks: %d %s", rec.Code, rec.Body.String())
+		}
+		return id
+	})
+	if !reflect.DeepEqual(unknown, session) || !reflect.DeepEqual(unknown, outside) {
+		t.Fatalf("answers differ:\nunknown %v\nsession %v\noutside %v", unknown, session, outside)
+	}
+	if !strings.HasPrefix(unknown[len(unknown)-1], "429") {
+		t.Fatalf("no cap: %v", unknown[len(unknown)-1])
+	}
+}
+
+// The cap on asking does not depend on the API rate limit, so with the limit off a caller still
+// cannot loop the route.
+func TestAskingIsCappedWithTheRateLimitOff(t *testing.T) {
+	a, _ := clientApp(t)
+	cfg := a.r().cfg
+	cfg.API.RateLimit = 0
+	if err := a.ApplyConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`}`)
+	for i := 0; i < publicAskMax; i++ {
+		if rec := askPublic(a, apiPeer, id); rec.Code != 201 {
+			t.Fatalf("ask %d: %d %s", i, rec.Code, rec.Body.String())
+		}
+	}
+	wantErr(t, askPublic(a, apiPeer, id), 429, "rate_limited")
+	if rec := askPublic(a, "10.9.9.9:5000", id); rec.Code != 201 {
+		t.Fatalf("another address: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// Past the cap an address loses its own oldest key first, so one caller looping the route cannot
+// push every other page's key out; the key that ends takes its streams with it.
+func TestPastTheCapAnAddressLosesItsOwnKeyFirst(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
 	id := makePanel(t, a, cy, publicPanel+`}`)
-	for i := 0; i < apiAuthFailMax; i++ {
-		wantNotPublic(t, askPublic(a, apiPeer, "p-0000000"+string(rune('0'+i%10))))
+	other := askPublic(a, "10.1.1.1:5000", id)
+	if other.Code != 201 {
+		t.Fatalf("other: %d %s", other.Code, other.Body.String())
 	}
-	wantErr(t, askPublic(a, apiPeer, id), 429, "rate_limited")
+	otherKey := apiBody(t, other)["key"].(string)
+	first := publicKeyOf(t, a, id)
+	s := strmDial(t, strmServer(t, a), first, "status")
+	s.next()
+	for i := 0; i < publicKeyMax; i++ {
+		publicKeyOf(t, a, id)
+	}
+	rvkClosed(t, s)
+	wantErr(t, apiSend(a, "GET", "/api/v1/panels/"+id, first, ""), 401, "key_revoked")
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, otherKey, ""); rec.Code != 200 {
+		t.Fatalf("the other address's key: %d %s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestLeavingPublicEndsItsKeys(t *testing.T) {
@@ -175,6 +245,48 @@ func TestAForgottenPublicKeyReadsAsEnded(t *testing.T) {
 	}
 }
 
+// Once the start is longer ago than a key lives, a key of that shape this Sode never handed out is
+// a guess and counts toward the failed-key throttle. It still reads as ended, so a page that slept
+// through a restart asks again.
+func TestAnUnknownPublicShapedKeyCountsOnceNoKeyCanPredateTheStart(t *testing.T) {
+	a, _ := clientApp(t)
+	a.started = time.Now().Add(-publicKeyTTL - time.Minute)
+	cy := userKey(t, a, "Cy")
+	for i := 0; i < apiAuthFailMax; i++ {
+		wantErr(t, apiDo(a, "GET", "/api/v1/tally", newPublicSecret(), nil), 401, "key_revoked")
+	}
+	wantErr(t, apiSend(a, "GET", "/api/v1/tally", cy, ""), 429, "rate_limited")
+}
+
+// A key Sode handed out and then dropped (expired and swept, pushed out past the cap, or ended when
+// the panel left Public) still reads as ended and is never counted.
+func TestADroppedPublicKeyIsNeverCounted(t *testing.T) {
+	a, _ := clientApp(t)
+	a.started = time.Now().Add(-publicKeyTTL - time.Minute)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`}`)
+	swept := publicKeyOf(t, a, id)
+	a.expireKeys(time.Now().Add(publicKeyTTL + time.Second))
+	pushed := publicKeyOf(t, a, id)
+	for i := 0; i < publicKeyMax; i++ {
+		publicKeyOf(t, a, id)
+	}
+	left := publicKeyOf(t, a, id)
+	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, cy, `{"name":"Lobby"}`); rec.Code != 200 {
+		t.Fatalf("leave Public: %d %s", rec.Code, rec.Body.String())
+	}
+	for i := 0; i < apiAuthFailMax; i++ {
+		for _, k := range []string{swept, pushed, left} {
+			if rec := apiDo(a, "GET", "/api/v1/tally", k, nil); rec.Code != 401 {
+				t.Fatalf("dropped key: %d %s", rec.Code, rec.Body.String())
+			}
+		}
+	}
+	if rec := apiSend(a, "GET", "/api/v1/tally", cy, ""); rec.Code != 200 {
+		t.Fatalf("after the dropped keys: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAPublicKeyReachesOnlyItsPanel(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -207,6 +319,7 @@ func TestPublicKeysPerPanelAreCapped(t *testing.T) {
 	wantErr(t, apiSend(a, "GET", "/api/v1/panels/"+id, first, ""), 401, "key_revoked")
 }
 
+// Outside the client's networks a Public panel reads as not Public, as an unknown id does.
 func TestPublicKeyOnlyFromTheClientsNetworks(t *testing.T) {
 	a, _ := clientApp(t)
 	cy := userKey(t, a, "Cy")
@@ -214,7 +327,7 @@ func TestPublicKeyOnlyFromTheClientsNetworks(t *testing.T) {
 	if rec := putNetworks(a, cy, id, `["10.0.0.0/8"]`); rec.Code != 200 {
 		t.Fatalf("networks: %d %s", rec.Code, rec.Body.String())
 	}
-	wantErr(t, askPublic(a, apiPeer, id), 403, "network_not_allowed")
+	wantNotPublic(t, askPublic(a, apiPeer, id))
 	if rec := askPublic(a, "10.1.2.3:5000", id); rec.Code != 201 {
 		t.Fatalf("from inside: %d %s", rec.Code, rec.Body.String())
 	}

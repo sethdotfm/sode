@@ -1128,11 +1128,12 @@ paths:
         new key for its own client, with the client's Rights and scopes, that ends 15 minutes on
         (`expires`); the page asks again when a call answers `key_expired` or `key_revoked`. The
         key is held in memory only, so a restart ends it, and at most 64 are live per panel (past
-        that the oldest ends). It never shows in the panel's instance list. Any other panel, or
-        an id or short name that names no panel, answers 200 `{"public": false}`. An id that names
-        no panel counts against the same per-address limit as wrong keys (429 `rate_limited`). From
-        outside the client's allowed networks it is 403 `network_not_allowed`. Leaving `public` or
-        deleting the panel ends every key it handed out.
+        that the asking address's oldest ends, else the panel's oldest). It never shows in the
+        panel's instance list. Any other panel, an id or short name that names no panel, and a
+        Public panel asked from outside its client's allowed networks all answer 200
+        `{"public": false}`. Each address may ask 128 times a minute, whatever the id (fewer when
+        the API rate limit is lower), then gets 429 `rate_limited`. Leaving `public` or deleting
+        the panel ends every key it handed out.
       responses:
         "200":
           description: The panel is not Public
@@ -1155,7 +1156,6 @@ paths:
                   key: { type: string }
                   expires: { type: string, format: date-time }
                   panel: { type: string, description: The panel's id }
-        "403": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
@@ -1213,8 +1213,8 @@ paths:
         memory only and told apart by name, ignoring case, so two screens that share a name are
         one instance. A panel holds at most 100 devices (409 `conflict`). Deleting the panel, and
         making, rotating or revoking its key, forgets its devices without a notice. A blank or
-        missing `device` is an unnamed instance (the panel's `askInstanceName` is off and the page
-        has no name), and Sode names it by the caller's address.
+        missing `device` is 400 `bad_request` while the panel's `askInstanceName` is on. With it
+        off, a blank `device` is an unnamed instance and Sode names it by the caller's address.
       requestBody:
         required: true
         content:
@@ -1222,7 +1222,7 @@ paths:
             schema:
               type: object
               properties:
-                device: { type: string, maxLength: 40, description: "A name for this instance. Blank names it by the caller's address" }
+                device: { type: string, maxLength: 40, description: "A name for this instance. Blank is 400 while askInstanceName is on, else names it by the caller's address" }
       responses:
         "200":
           description: Heard
@@ -1257,7 +1257,7 @@ paths:
         not the 45 of the keepalive, and a reopen with the same name inside that time raises
         nothing. Keep sending the keepalive: it is the fallback when the stream cannot stay open.
       parameters:
-        - { name: device, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A name for this instance. Blank names it by the caller's address" }
+        - { name: device, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A name for this instance. Blank is 400 while askInstanceName is on, else names it by the caller's address" }
       responses:
         "200":
           description: Held; one JSON line at once and one every 10 seconds

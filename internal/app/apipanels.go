@@ -76,9 +76,7 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
 	if s, _ := m["settings"].(map[string]any); s != nil {
-		if _, set := s[panelAskNameKey]; !set {
-			s[panelAskNameKey] = true
-		}
+		s[panelAskNameKey] = asksName(p)
 	}
 	if edit && hasClient {
 		m["hasKey"] = a.keys.holds(keyOwner{Kind: actorClient, Name: cl.Name})

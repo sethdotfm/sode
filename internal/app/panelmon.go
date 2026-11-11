@@ -665,7 +665,10 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 	if !ok {
 		return
 	}
-	device := deviceOrAddr(r.URL.Query().Get("device"), cl)
+	device, ok := deviceOf(w, r.URL.Query().Get("device"), p, cl)
+	if !ok {
+		return
+	}
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	done, ev, err := a.mon.openStream(p.ID, device, cancel)
@@ -707,13 +710,18 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 
 func cleanDevice(s string) string { return cleanText(strings.TrimSpace(s), monDeviceMax) }
 
-// deviceOrAddr names an unnamed instance (askInstanceName off, no ?instance= or stored name) by its address,
-// so monitoring, watches and notices still tell it apart.
-func deviceOrAddr(s string, cl *apiCtx) string {
+// deviceOf names the instance, or answers 400 and false. With askInstanceName on the page always
+// names itself; with it off an unnamed instance goes by its address, so monitoring, watches and
+// notices still tell it apart.
+func deviceOf(w http.ResponseWriter, s string, p Panel, cl *apiCtx) (string, bool) {
 	if d := cleanDevice(s); d != "" {
-		return d
+		return d, true
 	}
-	return cleanDevice(cl.IP)
+	if asksName(p) {
+		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed so the instances of one panel can be told apart")
+		return "", false
+	}
+	return cleanDevice(cl.IP), true
 }
 
 // apiPanelKeepalive: {"device": "Lobby"}. Anyone who may use the panel counts, so a tablet signed
@@ -730,7 +738,10 @@ func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"device":"<a name for this instance>"}`)
 		return
 	}
-	device := deviceOrAddr(in.Device, cl)
+	device, ok := deviceOf(w, in.Device, p, cl)
+	if !ok {
+		return
+	}
 	ev, err := a.mon.beat(p.ID, device)
 	if err != nil {
 		apiFail(w, http.StatusConflict, "conflict", err.Error())

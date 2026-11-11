@@ -77,7 +77,7 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 	secret = strings.TrimSpace(secret)
 	var k apiKey
 	var cl *apiCtx
-	expired, ended := false, false
+	expired, ended, forgot := false, false, false
 	if bearer {
 		var found bool
 		k, expired, found = a.keys.find(secret, now)
@@ -92,6 +92,15 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 			ended = cl == nil // a real key whose owner or session went, not yet swept
 		} else if !expired {
 			expired, ended = a.keys.endedAs(secret)
+			if !ended {
+				expired, ended = a.public.endedAs(secret)
+			}
+			// A public key this Sode has no record of: a restart forgot it, or it is a guess. Once the
+			// start is longer ago than a key lives, no real one can predate it, so it counts.
+			if !ended && isPublicShape(secret) {
+				ended = now.Sub(a.started) < publicKeyTTL
+				forgot = !ended
+			}
 		}
 	}
 	// A key that was real is answered for what it is, even during a lockout, and never counted:
@@ -103,6 +112,11 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 	if wait := a.authWait(ip, now); wait > 0 {
 		a.authFailed(ip, now) // counted, so the row shows how hard the address kept trying
 		apiRetry(w, wait, "too many failed attempts from this address; wait before trying again")
+		return nil, false
+	}
+	if forgot {
+		a.authFailed(ip, now)
+		apiFail(w, http.StatusUnauthorized, "key_revoked", revokedText) // so a page that slept through it asks again
 		return nil, false
 	}
 	if !bearer {
@@ -310,9 +324,11 @@ func (a *App) refuseEnded(w http.ResponseWriter, ip string, expired bool, now ti
 	case expired:
 		apiFail(w, http.StatusUnauthorized, "key_expired", "this key has expired; stop using it and get a new key")
 	default:
-		apiFail(w, http.StatusUnauthorized, "key_revoked", "this key was ended (revoked, replaced, its session ended or its owner changed); stop using it and get a new key")
+		apiFail(w, http.StatusUnauthorized, "key_revoked", revokedText)
 	}
 }
+
+const revokedText = "this key was ended (revoked, replaced, its session ended or its owner changed); stop using it and get a new key"
 
 func (a *App) writeEndedUse(ip string, f *authFail) {
 	a.apiEvent(Actor{Kind: actorAddress, Name: ip}, "endedKeyUsed", "refused",
