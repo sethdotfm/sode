@@ -34,6 +34,7 @@ export function linkRow(panel, { withHost = true } = {}) {
   const note = el('span', 'sode__hint');
   note.setAttribute('role', 'status');
   if (panel.acts === 'both') note.textContent = 'Asks for a sign-in. A link with a key is under Share.';
+  if (panel.acts === 'public') note.textContent = 'Opens for anyone with the link, with no sign-in.';
   const copy = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('copy'), 'Copy link');
   copy.type = 'button';
   const rest = note.textContent;
@@ -46,10 +47,12 @@ export function linkRow(panel, { withHost = true } = {}) {
       note.textContent = 'Copy failed. The link is selected: copy it by hand.';
     }
   });
-  const host = !withHost ? null : shareHostField(() => {
-    link = linkFor(panel, { base: linkBase() });
-    input.value = link;
-  });
+  const host = !withHost
+    ? null
+    : shareHostField(() => {
+        link = linkFor(panel, { base: linkBase() });
+        input.value = link;
+      });
   box.append(el('span', 'sode__field-label', 'Link'), el('div', 'sode-linkrow__row', input, copy), note, ...(host ? [host] : []));
   return box;
 }

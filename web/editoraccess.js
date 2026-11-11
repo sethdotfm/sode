@@ -5,7 +5,7 @@ import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
-import { shareLabel, hasClient } from './panelsrules.js';
+import { shareLabel, hasClient, actsSavedNote, PUBLIC_WARNING } from './panelsrules.js';
 import { draftOf, rightsOf } from './rightsrules.js';
 import { rightsRows } from './sidebarrules.js';
 
@@ -15,12 +15,6 @@ const LISTS = [
   ['levels', 'Levels', 'Level numbers, such as 1, 2'],
   ['presets', 'Presets', 'One name per line'],
 ];
-
-const SAVED_NOTE = {
-  api: 'Saved. The panel now has its own API client. Make its links under Share, Link with key.',
-  both: 'Saved. The panel has its own API client for links with a key, and the plain link opens it as the signed-in user.',
-  session: 'Saved. The panel acts as the signed-in user, and its API client and every key are gone.',
-};
 
 const api = jsonCall(sessionFetch, { failed: (s) => `Sode answered ${s}` });
 
@@ -37,6 +31,7 @@ export function createAccessTab(ed, ctx) {
       ['session', 'User'],
       ['both', 'Both'],
       ['api', 'API'],
+      ['public', 'Public'],
     ],
     async (want) => {
       // Acts as makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
@@ -46,13 +41,14 @@ export function createAccessTab(ed, ctx) {
       ed.setFields({ acts: want });
       const refused = await ed.save();
       if (refused) ed.setFields({ acts: undefined });
-      actsNote.textContent = refused || SAVED_NOTE[want];
+      actsNote.textContent = refused || actsSavedNote(want);
     },
   );
   const actsHint = el('p', 'sode__hint');
   const actsNote = el('p', 'sode__hint');
   actsNote.setAttribute('role', 'status');
-  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, actsHint, actsNote);
+  const publicWarn = el('p', 'sode__hint', PUBLIC_WARNING);
+  const actsField = el('div', 'sode__field', el('span', 'sode__field-label', 'Authentication mode'), acts.node, actsHint, actsNote, publicWarn);
 
   const clientBox = el('div', 'sode-side__sec');
   const current = el('p', 'sode-side__rights');
@@ -123,6 +119,7 @@ export function createAccessTab(ed, ctx) {
       // Switching to Session mode is open to the owner; setting up or widening a client needs a Trusted user (server rule).
       acts.disable(ro || (!me.trusted && !hasClient(p)));
       actsHint.textContent = f.acts === 'session' && !me.trusted && !ro ? 'Only a Trusted user can make it act as an API client.' : '';
+      publicWarn.hidden = f.acts !== 'public';
       clientBox.hidden = !hasClient(f);
       if (hasClient(f)) {
         const had = hasClient(p) && p.client;

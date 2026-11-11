@@ -79,3 +79,55 @@ func TestChromePublicPanel(t *testing.T) {
 		}
 	}
 }
+
+// Public from the editor: the Access tab saves it at once with its note and warning, the Share
+// modal mutes Link with key and shows the plain link, and that link opens with no sign-in.
+func TestChromeEditorPublic(t *testing.T) {
+	b := startBrowser(t)
+	sim := startSim(t)
+	a := simApp(t, sim, func(c *config.Config) { c.Users[0].Trusted = true })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+	srv := httptest.NewServer(a.Handler(web.FS))
+	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+
+	ana := userKey(t, a, "Ana")
+	id := makePanel(t, a, ana, fmt.Sprintf(`{"name":"Foyer","acts":"session","cells":[{"r":1,"c":1,"kind":"destination","n":%d}]}`, simDst))
+	b.open(srv.URL + "/panels/editor?panel=" + id)
+	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	for _, d := range "1234" {
+		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
+	}
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
+	b.waitFor("lock gone", `!document.documentElement.dataset.sodeLock`)
+	b.waitFor("panel loaded", `document.getElementById('ed-name').value === 'Foyer' && !!document.querySelector('#ed-side .pb-tab')`)
+
+	access := `document.getElementById('panel-ed-access').innerText`
+	b.eval(`document.getElementById('tab-ed-access').click(); true`)
+	b.waitFor("Public is offered", `!!document.getElementById('ed-acts-public') && !document.getElementById('ed-acts-public').disabled`)
+	b.waitFor("no Public warning on a User panel", `!`+access+`.includes('Its sharing does not limit')`)
+	b.eval(`document.getElementById('ed-acts-public').click(); true`)
+	b.waitFor("Public saves at once with its note", `document.getElementById('ed-state').textContent === 'Saved' && `+access+`.includes('Anyone with the link can use the panel')`)
+	b.waitFor("the Access tab warns about sharing", access+`.includes('Its sharing does not limit who may open it')`)
+	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"acts":"public"`) || !strings.Contains(body, `"client":"Panel `+id+`"`) {
+		t.Errorf("the saved panel is not Public with a client: %s", body)
+	}
+
+	b.eval(`document.getElementById('ed-share').click(); true`)
+	keyTab := `[...document.querySelectorAll('.sode-ov__share .pb-tab')].find((x) => x.textContent === 'Link with key')`
+	b.waitFor("Link with key is muted", keyTab+`?.getAttribute('aria-disabled') === 'true'`)
+	b.eval(keyTab + `.click(); true`)
+	b.waitFor("the tab shows the plain link", `(document.querySelector('.sode-ov__keytab .sode-linkrow__text')?.value || '').endsWith('/panels/`+id+`')`)
+	link, _ := b.eval(`document.querySelector('.sode-ov__keytab .sode-linkrow__text').value`).(string)
+	b.shot("editor-public")
+	b.check()
+
+	// Storage cleared, so the page has no session to fall back on.
+	b.eval(`localStorage.clear(); sessionStorage.clear(); true`)
+	b.open(link)
+	b.waitFor("the plain link opened the panel", `document.getElementById('panel-title')?.textContent === 'Foyer' && document.querySelectorAll('.sode-panel__cell').length === 1`)
+	b.waitFor("without a PIN pad or a sign-in", `!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent && document.getElementById('panels-signin').hidden`)
+	b.check()
+}

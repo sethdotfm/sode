@@ -71,8 +71,14 @@ export const SESSION_WARNING =
 export const SESSION_NEXT =
   'For a link that opens without a sign-in, set Acts as to its own API client, or to both, on the Access tab. That saves the panel at once.';
 
+// A Public panel has a client, but its plain link already opens it, so keyed links add nothing.
+export const keyTabMuted = (panel) => !hasClient(panel) || panel.acts === 'public';
+
+export const PUBLIC_KEY_NOTE = 'This is a Public panel, so it needs no key. Anyone with the link below can use it, with no sign-in.';
+export const PUBLIC_NEXT = 'To limit who may open it, set Authentication mode to User, Both or API on the Access tab.';
+
 // The Share modal's first tab: the one that fits how the panel acts.
-export const firstShareTab = (panel) => (hasClient(panel) ? 'key' : 'people');
+export const firstShareTab = (panel) => (keyTabMuted(panel) ? 'people' : 'key');
 
 // One address or CIDR per line or comma. The server validates and canonicalizes.
 export const parseNetworks = (text) =>

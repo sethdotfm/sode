@@ -8,6 +8,8 @@ import {
   instanceCheck,
   keyRow,
   firstShareTab,
+  keyTabMuted,
+  PUBLIC_KEY_NOTE,
   absoluteLink,
   maskLink,
   makeAction,
@@ -95,7 +97,18 @@ test('the Share modal opens on the tab that fits how the panel acts', () => {
   assert.equal(firstShareTab({ acts: 'both' }), 'key');
   assert.equal(firstShareTab({ acts: 'session' }), 'people');
   assert.equal(firstShareTab({}), 'people');
+  assert.equal(firstShareTab({ acts: 'public' }), 'people');
   assert.ok(SESSION_WARNING.includes('sign-in'));
+});
+
+// A Public panel needs no key for its link, so the tab is muted as for a User panel, though the panel has a client.
+test('the Link with key tab is muted for a User or a Public panel', () => {
+  assert.equal(keyTabMuted({ acts: 'session' }), true);
+  assert.equal(keyTabMuted({ acts: 'public' }), true);
+  assert.equal(keyTabMuted({}), true);
+  assert.equal(keyTabMuted({ acts: 'api' }), false);
+  assert.equal(keyTabMuted({ acts: 'both' }), false);
+  assert.match(PUBLIC_KEY_NOTE, /anyone with the link/i);
 });
 
 test('networks are split from lines and commas', () => {
