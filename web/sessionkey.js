@@ -78,6 +78,12 @@ on('wsclose', () => {
   asking = false;
 });
 
+const signedOut = () =>
+  new Response(JSON.stringify({ error: { code: 'signed_out', message: 'Not signed in, so the take was not sent. Sign in and press again.' } }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
 const keyReady = () => (key ? Promise.resolve(key) : new Promise((r) => waiting.push(r)));
 
 // Every call shares one Retry-After wait; the page's own stop is `ended` below.
@@ -97,9 +103,14 @@ function renew(k) {
 
 // fetch with the session key. A refused key is renewed once; a fresh key that is refused before it ever worked
 // ends the page's calls for good, so a page never loops on a key Sode keeps ending.
+// init.noWait: with no key now, answer 401 `signed_out` instead of waiting. A take must not wait for the next sign-in,
+// which may be someone else's, and then go out under it.
 export async function sessionFetch(path, init = {}) {
+  const { noWait, ...rest } = init;
+  init = rest;
   for (let tries = 0; ; tries++) {
     if (ended) return ended.clone();
+    if (noWait && !key) return signedOut();
     const k = await keyReady();
     if (ended) return ended.clone();
     const res = await send(path, withKey(init, k));

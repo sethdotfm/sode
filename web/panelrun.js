@@ -331,6 +331,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': takeKey() },
         body: JSON.stringify({ routes: started.routes }),
+        noWait: true,
       });
       st = finishTake(st, body || {}, Date.now());
     } catch (e) {
