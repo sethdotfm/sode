@@ -286,6 +286,13 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		if had {
 			curRights = &cur.Rights
 		}
+		// Opening a panel to anyone checks the caller even when the Rights stay as stored.
+		if p.Acts == panelActsPublic && old.Acts != panelActsPublic {
+			if want == nil && had {
+				want = &cur.Rights
+			}
+			curRights = nil
+		}
 		rights, changed, err := a.clientRightsFor(cl, want, curRights)
 		if err == nil && (!had || changed) {
 			err = a.setPanelClient(p.ID, &rights)
@@ -303,6 +310,9 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		p.Client = ""
 	default:
 		p.Client = ""
+	}
+	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
+		a.endPublicKeys(p.ID)
 	}
 	if _, err := a.panels.replace(p); err != nil {
 		a.panelStoreFail(w, err)
@@ -323,6 +333,7 @@ func (a *App) apiPanelDelete(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	a.mon.forget(p.ID, true)
+	a.endPublicKeys(p.ID)
 	if err := a.setPanelClient(p.ID, nil); err != nil {
 		log.Printf("panels: client of deleted panel %s not removed: %v", p.ID, err)
 	}

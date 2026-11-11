@@ -1,15 +1,16 @@
 // Runs one panel (the page /panels/<id>, or the editor's live test): loads the panel, polls the router over
 // /api/v1, keeps the state model and draws it. Every call goes out with the panel's key: the user's session
-// key, or the key in the URL fragment for a panel that acts as its API client. The editor's live test passes
-// its own ui and call, and is not an instance of the panel: no keepalive, no device name.
+// key, the key in the URL fragment for a panel that acts as its API client, or a Public panel's short-lived key
+// (panelpublic.go). The editor's live test passes its own ui and call, and is not an instance of the panel: no
+// keepalive, no device name.
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
-import { setupFromHash, pollFail } from './panelkeyrules.js';
-import { exchangeSetup, storedKey, forgetKey } from './panelsetup.js';
+import { setupFromHash, pollFail, publicFetch, withoutKey } from './panelkeyrules.js';
+import { exchangeSetup, storedKey, forgetKey, askPublic } from './panelsetup.js';
 import {
   createState,
   pressDestination,
@@ -82,12 +83,24 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (got.error) return say(ui.note, got.error);
     key = got.key;
   }
-  const stored = !key && !embedded;
+  let stored = !key && !embedded;
   if (stored) key = storedKey(seg);
+  // The page cannot read the mode without a key, so with none it asks whether the panel is Public before a session.
+  let isPublic = false;
+  if (!key && !embedded) {
+    key = await askPublic(seg);
+    if (ended) return;
+    isPublic = !!key;
+  }
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
   const tag = (init) => fromPanel(init, id, instance);
-  const keyed = key && guardFetch((path, init) => fetch(path, withKey(tag(init), key)), { final: (s) => s === 401 });
+  const sendKeyed = (path, init, k) => fetch(path, withKey(tag(init), k));
+  const keyFetch = (k, pub) =>
+    guardFetch(pub ? publicFetch(k, { ask: () => askPublic(seg), send: sendKeyed }) : (path, init) => sendKeyed(path, init, k), {
+      final: (s) => s === 401,
+    });
+  let keyed = key && keyFetch(key, isPublic);
   const call = given || (key ? (path, init = {}) => keyed(path, init) : (path, init = {}) => sessionFetch(path, tag(init)));
   const callJSON = jsonCall(call);
 
@@ -104,14 +117,25 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   }
 
   let panel;
-  try {
-    panel = await callJSON(`api/v1/panels/${seg}`);
-  } catch (e) {
-    if (e.status === undefined) throw e;
-    // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
-    if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
-    say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
-    return;
+  for (;;) {
+    try {
+      panel = await callJSON(`api/v1/panels/${seg}`);
+      break;
+    } catch (e) {
+      if (e.status === undefined) throw e;
+      // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
+      if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
+      // A stale key on a panel that is now Public: an old bookmark still opens it.
+      const pub = e.status === 401 && key && !isPublic && !embedded ? await askPublic(seg) : '';
+      if (ended) return;
+      if (pub) {
+        history.replaceState(null, '', `${location.pathname}${location.search}${withoutKey(location.hash)}`);
+        [key, isPublic, stored, keyed] = [pub, true, false, keyFetch(pub, true)];
+        continue;
+      }
+      say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
+      return;
+    }
   }
   // Back to editing came before the panel did: nothing below may start a timer or a watch.
   if (ended) return;
@@ -221,7 +245,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       ready = !off;
       say(ui.note, '');
     } catch (e) {
-      const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key);
+      const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key && !isPublic);
       say(ui.note, f.text);
       if (!f.stop) {
         ready = false;

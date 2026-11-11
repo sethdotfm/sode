@@ -211,7 +211,7 @@ func (s *keyStore) endedAs(secret string) (expired, ended bool) {
 	s.mu.Lock()
 	expired, ended = s.ended[h]
 	s.mu.Unlock()
-	if !ended && isSessionShape(secret) {
+	if !ended && (isSessionShape(secret) || isPublicShape(secret)) {
 		return false, true
 	}
 	return expired, ended

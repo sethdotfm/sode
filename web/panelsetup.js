@@ -18,6 +18,18 @@ export function forgetKey(id) {
   }
 }
 
+// A Public panel's short-lived key (internal/app/panelpublic.go), or '' for any other panel or a failed ask, which
+// leaves the page to its session. Held in memory only: a reload asks again.
+export async function askPublic(id) {
+  try {
+    const res = await fetch(`api/v1/panels/${id}/public`, { method: 'POST' });
+    if (res.status !== 201) return '';
+    return (await res.json()).key || '';
+  } catch {
+    return '';
+  }
+}
+
 // {key} or {error}. The spent token leaves the address either way, so a reload does not try it again.
 export async function exchangeSetup(id, token) {
   history.replaceState(null, '', `${location.pathname}${location.search}${withoutSetup(location.hash)}`);

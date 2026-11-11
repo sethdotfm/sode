@@ -36,7 +36,8 @@ const (
 
 	panelActsSession = "session"
 	panelActsAPI     = "api"
-	panelActsBoth    = "both" // its own client when the page has a key, else Session mode
+	panelActsBoth    = "both"   // its own client when the page has a key, else Session mode
+	panelActsPublic  = "public" // its own client, with a short-lived key for any page that asks (panelpublic.go)
 	panelShareMe     = "me"
 	panelShareNamed  = "named"
 	panelShareAll    = "everyone"
@@ -164,7 +165,7 @@ func validatePanel(p *Panel) error {
 	case p.Rows < 1 || p.Rows > panelRowsMax || p.Cols < 1 || p.Cols > panelColsMax:
 		return fmt.Errorf("rows and columns are 1 to %d and 1 to %d", panelRowsMax, panelColsMax)
 	case p.Acts != panelActsSession && !actsHasClient(p.Acts):
-		return fmt.Errorf("acts is %q, %q or %q", panelActsSession, panelActsAPI, panelActsBoth)
+		return fmt.Errorf("acts is %q, %q, %q or %q", panelActsSession, panelActsAPI, panelActsBoth, panelActsPublic)
 	case !slices.Contains([]string{panelShareMe, panelShareNamed, panelShareAll}, p.Share.Mode):
 		return fmt.Errorf("share mode is %q, %q or %q", panelShareMe, panelShareNamed, panelShareAll)
 	case len(p.Cells) > panelRowsMax*panelColsMax:
@@ -186,7 +187,9 @@ func validatePanel(p *Panel) error {
 func validPanelID(id string) bool { return panelIDRe.MatchString(id) }
 
 // actsHasClient: the panel owns an API client and holds keys. Keep in step with hasClient in web/panelsrules.js.
-func actsHasClient(acts string) bool { return acts == panelActsAPI || acts == panelActsBoth }
+func actsHasClient(acts string) bool {
+	return acts == panelActsAPI || acts == panelActsBoth || acts == panelActsPublic
+}
 
 // validPanelSlug leaves out "editor" (its own page) and anything shaped like an id, so a slug never shadows either.
 func validPanelSlug(s string) bool {

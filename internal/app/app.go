@@ -104,6 +104,7 @@ type App struct {
 	userPin   pinPool
 	tokens    *tokenStore
 	keys      *keyStore
+	public    publicKeys
 	panels    *panelStore
 	templates *templateStore
 	mon       *panelMon

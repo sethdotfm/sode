@@ -19,7 +19,16 @@ import {
   storedKeyName,
   pollFail,
   setupFailText,
+  publicFetch,
+  withoutKey,
 } from '../panelkeyrules.js';
+
+test('a stale key leaves the address and the rest of the fragment stays', () => {
+  assert.equal(withoutKey('#key=abc'), '');
+  assert.equal(withoutKey('#kiosk=1&key=abc'), '#kiosk=1');
+  assert.equal(withoutKey('#key=abc&kiosk=1'), '#kiosk=1');
+  assert.equal(withoutKey(''), '');
+});
 
 test('the link resolves the same from /panels and /panels/, at the root or behind a prefix', () => {
   // Both pages set <base href="../">, which resolves to Sode's root.
@@ -131,4 +140,56 @@ test('a session key that ended stops the page and says how to go on; a wait from
 test('a refused setup says why', () => {
   assert.match(setupFailText(401), /already used/);
   assert.equal(setupFailText(403, 'outside'), 'outside');
+});
+
+const res = (status, code) => ({
+  status,
+  ok: status < 300,
+  clone() {
+    return this;
+  },
+  json: async () => (code ? { error: { code } } : {}),
+});
+
+test('a Public key is asked for again once when Sode says it ended, and the call is sent again', async () => {
+  const sent = [];
+  let asks = 0;
+  const call = publicFetch('k1', {
+    ask: async () => `k${++asks + 1}`,
+    send: async (path, init, key) => {
+      sent.push(key);
+      return key === 'k1' ? res(401, 'key_expired') : res(200);
+    },
+  });
+  assert.equal((await call('p', {})).status, 200);
+  assert.deepEqual(sent, ['k1', 'k2']);
+  assert.equal((await call('p', {})).status, 200);
+  assert.deepEqual(sent, ['k1', 'k2', 'k2']);
+  assert.equal(asks, 1);
+});
+
+test('calls refused together share one new Public key', async () => {
+  let asks = 0;
+  const call = publicFetch('old', {
+    ask: async () => (asks++, 'new'),
+    send: async (path, init, key) => (key === 'old' ? res(401, 'key_revoked') : res(200)),
+  });
+  const all = await Promise.all([call('a', {}), call('b', {}), call('c', {})]);
+  assert.deepEqual(
+    all.map((r) => r.status),
+    [200, 200, 200],
+  );
+  assert.equal(asks, 1);
+});
+
+test('a panel that stopped being Public passes the refusal on', async () => {
+  const call = publicFetch('k', { ask: async () => '', send: async () => res(401, 'key_revoked') });
+  assert.equal((await call('p', {})).status, 401);
+});
+
+test('other refusals are not a reason to ask again', async () => {
+  let asks = 0;
+  const call = publicFetch('k', { ask: async () => (asks++, 'n'), send: async () => res(403, 'outside_rights') });
+  assert.equal((await call('p', {})).status, 403);
+  assert.equal(asks, 0);
 });

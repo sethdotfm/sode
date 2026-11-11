@@ -257,6 +257,8 @@ func (a *App) pruneKeys(was, now config.Config) {
 // expireKeys removes keys past their expiry, one row each. lookup already refuses them.
 func (a *App) expireKeys(now time.Time) {
 	a.endSessionKeys()
+	// Public keys end often and quietly: a row each would bury the log.
+	a.endStreams(a.public.expire(now), "key expired")
 	exp := a.keys.expire(now)
 	a.endStreams(exp, "key expired")
 	for _, k := range exp {

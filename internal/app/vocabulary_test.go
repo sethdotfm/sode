@@ -71,6 +71,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"This device"}, Re: wordRe(`(?i)this device`)},
 	// Only the panel sense: "lock the screen", "screen readers" and "home screen" stay.
 	{Terms: []string{"screen"}, Re: wordRe(`(?i)(?:this|that|one|each|every|per|no|watched|named|lost an?) screens?|screens?(?:'s)? (?:names?|offline|drops|signs? out|signed out|has opened|of (?:one|a|the) panel)|panels? (?:and|or) screens?`)},
+	{Terms: []string{"anonymous panel"}, Re: wordRe(`(?i)anonymous panels?`)},
 }
 
 // vocabMask blanks phrases that contain a retired word but stay: the Advanced Settings PIN,

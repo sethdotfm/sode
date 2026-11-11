@@ -106,7 +106,7 @@ function detail(p) {
       'dd',
       '',
       actsLabel(p).replace('Acts as ', '') +
-        (p.acts === 'api' ? '' : p.acts === 'both' ? ' (a link without a key asks for a PIN)' : ' (asks for a PIN at launch)'),
+        (p.acts === 'api' || p.acts === 'public' ? '' : p.acts === 'both' ? ' (a link without a key asks for a PIN)' : ' (asks for a PIN at launch)'),
     ),
     el('dt', '', 'Shared with'),
     el('dd', '', shareLabel(p.share)),

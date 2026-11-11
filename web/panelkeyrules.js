@@ -3,6 +3,7 @@
 import { fullSetup } from './panellink.js';
 import { whenText } from './keyrules.js';
 import { hasClient } from './panelsrules.js';
+import { renewable } from './sessionkeyrules.js';
 
 export const MODES = [
   ['key', 'Named instance link'],
@@ -93,13 +94,18 @@ export const setupFromHash = (hash) => fullSetup(/(?:^#|&)setup=([^&]+)/.exec(ha
 export const storedKeyName = (id) => `sode-panel-key-${id}`;
 
 // The hash without its setup part, so a reload or a copied address no longer carries the spent token.
-export function withoutSetup(hash) {
+const without = (hash, part) => {
   const rest = hash
     .replace(/^#/, '')
     .split('&')
-    .filter((p) => p && !p.startsWith('setup='));
+    .filter((p) => p && !p.startsWith(`${part}=`));
   return rest.length ? `#${rest.join('&')}` : '';
-}
+};
+
+export const withoutSetup = (hash) => without(hash, 'setup');
+
+// A stale key on a Public panel, which then runs on its own short-lived key.
+export const withoutKey = (hash) => without(hash, 'key');
 
 export function setupFailText(status, message) {
   if (status === 401) return 'This setup link was already used, has expired or was replaced. Ask for a new one.';
@@ -117,4 +123,31 @@ export function pollFail(status, code, message, hadKey) {
   if (status === 403 && code === 'network_not_allowed') return { stop: true, text: message || 'This panel may not be used from this network.' };
   if (status === 429) return { stop: false, text: 'Sode asked this page to wait before it tries again.' };
   return { stop: false, text: 'Lost contact with Sode. Retrying.' };
+}
+
+const codeOf = (res) =>
+  res
+    .clone()
+    .json()
+    .then((b) => b?.error?.code)
+    .catch(() => undefined);
+
+// A Public panel's page key lives 15 minutes (internal/app/panelpublic.go). send(path, init, key) makes the call and
+// ask() gets a new key, '' when the panel is no longer Public. A call refused as ended asks once and goes again;
+// calls refused together share that one ask, and a call that went out with an old key just uses the new one.
+export function publicFetch(first, { ask, send }) {
+  let key = first;
+  let asking = null;
+  return async (path, init) => {
+    const used = key;
+    const res = await send(path, init, used);
+    if (res.status !== 401 || !renewable(res.status, await codeOf(res))) return res;
+    if (key === used) {
+      asking ||= ask().finally(() => (asking = null));
+      const next = await asking;
+      if (!next) return res;
+      if (key === used) key = next;
+    }
+    return send(path, init, key);
+  };
 }

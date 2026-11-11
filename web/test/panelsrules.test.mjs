@@ -51,9 +51,10 @@ test('Open now lists known and watched instances, less the hidden ones', () => {
 });
 
 // Both: a client for keyed links, Session mode without one. Keep in step with actsHasClient in internal/app/panelstore.go.
-test('a panel holds a client when it acts as an API client or as both', () => {
+test('a panel holds a client when it acts as an API client, as both or as a Public panel', () => {
   assert.equal(hasClient({ acts: 'api' }), true);
   assert.equal(hasClient({ acts: 'both' }), true);
+  assert.equal(hasClient({ acts: 'public' }), true);
   assert.equal(hasClient({ acts: 'session' }), false);
   assert.equal(hasClient({}), false);
   assert.equal(hasClient(null), false);
@@ -143,6 +144,8 @@ test('labels say who a panel acts as and who may use it', () => {
   assert.equal(actsShort(P('a', 'Ana', { acts: 'api' })), 'API client');
   assert.equal(actsLabel(P('a', 'Ana', { acts: 'both' })), 'Acts as an API client with a key, else as the user');
   assert.equal(actsShort(P('a', 'Ana', { acts: 'both' })), 'API client or the user');
+  assert.equal(actsLabel(P('a', 'Ana', { acts: 'public' })), 'Acts as an API client for anyone with the link');
+  assert.equal(actsShort(P('a', 'Ana', { acts: 'public' })), 'Public');
   assert.equal(shareLabel({ mode: 'me' }), 'Only the owner');
   assert.equal(shareLabel({ mode: 'everyone' }), 'Everyone');
   assert.equal(shareLabel({ mode: 'named', users: ['Bo', 'Cy'] }), 'Bo, Cy');

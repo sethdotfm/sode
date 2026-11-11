@@ -81,6 +81,9 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 	if bearer {
 		var found bool
 		k, expired, found = a.keys.find(secret, now)
+		if !found && !expired {
+			k, expired, found = a.public.find(secret, now)
+		}
 		if found {
 			cl = a.resolveKey(cfg, k, ip)
 			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.Name, cfg) {

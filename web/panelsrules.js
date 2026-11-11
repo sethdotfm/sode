@@ -96,15 +96,17 @@ export function deleteStep(armed, id) {
 
 export const thumbCells = (p) => cellsIn(p).map(({ r, c, rs, cs, kind }) => ({ r, c, rs, cs, kind }));
 
-// `acts` `api` and `both` own an API client and hold keys; `both` falls back to Session mode when the page has no key.
-// Keep in step with actsHasClient in internal/app/panelstore.go.
-export const hasClient = (p) => p?.acts === 'api' || p?.acts === 'both';
+// `acts` `api`, `both` and `public` own an API client and hold keys; `both` falls back to Session mode when the page has
+// no key, and `public` gets a short-lived key for any page. Keep in step with actsHasClient in internal/app/panelstore.go.
+export const hasClient = (p) => p?.acts === 'api' || p?.acts === 'both' || p?.acts === 'public';
+
+const SHORT = { api: 'API client', both: 'API client or the user', public: 'Public' };
+const LABEL = { api: 'Acts as an API client', both: 'Acts as an API client with a key, else as the user', public: 'Acts as an API client for anyone with the link' };
 
 // The short form for a row, after the owner's name.
-export const actsShort = (p) => (p.acts === 'api' ? 'API client' : p.acts === 'both' ? 'API client or the user' : 'signs in as the user');
+export const actsShort = (p) => SHORT[p.acts] || 'signs in as the user';
 
-export const actsLabel = (p) =>
-  p.acts === 'api' ? 'Acts as an API client' : p.acts === 'both' ? 'Acts as an API client with a key, else as the user' : 'Acts as the user';
+export const actsLabel = (p) => LABEL[p.acts] || 'Acts as the user';
 
 export function shareLabel(share) {
   if (share?.mode === 'everyone') return 'Everyone';
