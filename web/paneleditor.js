@@ -113,7 +113,11 @@ export async function runEditor() {
   const droppedNote = (n) => (n ? `Removed ${n} Destination cell${n > 1 ? 's' : ''} set aside by Fixed destination, as other cells now fill the squares.` : '');
   const sayDropped = (n) => n && say('ed-status', droppedNote(n));
   const whole = () => putBack(g, held);
-  const fi = () => Math.max(0, pages.findIndex((p) => p.id === focus));
+  const fi = () =>
+    Math.max(
+      0,
+      pages.findIndex((p) => p.id === focus),
+    );
   const livePages = () => pages.map((p, i) => (i === fi() ? { ...p, cells: saved(whole()).cells } : p));
   // Page 1 as stored, which saves, the dirty check and templates read beside the Page list.
   const firstGrid = () => createGrid({ rows: g.rows, cols: g.cols, cells: livePages()[0].cells });
@@ -568,7 +572,17 @@ export async function runEditor() {
     }
     openPanel(id, true);
   });
-  window.addEventListener('popstate', () => openPanel(editorTarget(location.search).id, false));
+  // Back and Forward leave unsaved edits only on a second try, as the picker does.
+  window.addEventListener('popstate', () => {
+    const id = editorTarget(location.search).id;
+    if (!readOnly() && dirty() && id !== (loaded?.id || '') && discardAsked !== id) {
+      discardAsked = id;
+      history.pushState(null, '', loaded ? `panels/editor?panel=${loaded.id}` : 'panels/editor');
+      say('ed-status', 'This panel has unsaved changes. Go back again to discard them.');
+      return;
+    }
+    openPanel(id, false);
+  });
   window.addEventListener('beforeunload', (e) => {
     if (!readOnly() && dirty()) e.preventDefault();
   });
