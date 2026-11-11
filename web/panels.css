@@ -14,9 +14,11 @@
   flex-wrap: wrap;
   gap: var(--pb-space-4);
 }
-/* lock.css fixes the Lock bar top left, over the page. Leave its height free (keep in step with .sode-lock__who and its bar), unless a kiosk hides it. */
-[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels {
-  padding-top: calc(var(--pb-space-4) + var(--sode-down-h, 0px) + var(--pb-control-h-sm) + var(--pb-space-2) * 3);
+/* lock.css fixes the Lock bar top left, over the page, so it adds no height. It sits beside the header row (bar bottom
+   = the page's top padding plus one control), never over the grid: the header clears its width (--sode-who-w, set by
+   lockchip.js). Keep in step with .sode-lock__who and its bar; a kiosk hides it. */
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head {
+  padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-4));
 }
 [data-sode-kiosk] .sode-lock__who {
   display: none;
