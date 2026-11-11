@@ -260,3 +260,14 @@ test('a stored list the server would refuse turns the setting off, so the panel 
   assert.deepEqual(of(Array.from({ length: 16 }, (_, i) => i)).length, 16);
   assert.deepEqual(createState({ fixedDests: [2, 2] }).fixed, null);
 });
+
+test('Instant mode sends nothing on a refused press, even with a failed route still staged', () => {
+  let st = pressSource(fixed([1], { mode: 'instant' }), S(4), env(), T0);
+  st = startInstant(st, env()).state;
+  st = finishTake(st, { results: [{ dst: 1, result: 'failed' }] }, T0);
+  assert.equal(plan(st).length, 1, 'the failed route stays staged');
+  // A Source with no level in common with the panel is refused; the staged route is still a valid one.
+  const refused = pressSource(st, S(7, [9]), env(), T0 + 1);
+  assert.notEqual(errorOf(refused, T0 + 1), null);
+  assert.equal(startInstant(refused, env()), null);
+});

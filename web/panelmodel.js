@@ -166,9 +166,10 @@ export function startTake(st, env) {
   return { routes: plan(st), state: { ...st, busy: true, error: null } };
 }
 
-// Instant mode: the press that staged the route is the Confirm, so the page calls this right after it.
+// Instant mode: the press that staged the route is the Confirm, so the page calls this right after it. A refused press
+// is no Confirm: a route a failed take left staged must not go with it.
 export function startInstant(st, env) {
-  if (st.mode !== 'instant' || !ready(st, env)) return null;
+  if (st.mode !== 'instant' || st.error || !ready(st, env)) return null;
   return { routes: plan(st), state: { ...st, busy: true, error: null } };
 }
 
