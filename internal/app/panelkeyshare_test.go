@@ -293,3 +293,20 @@ func TestSetupLinkWorksOnABothPanel(t *testing.T) {
 		t.Fatalf("exchange on a Both panel: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+// The client change runs before the store write, so a save the store refuses must be refused first.
+func TestRefusedSaveKeepsTheClientAndItsKeys(t *testing.T) {
+	a, _, cy, id := keyedPanel(t)
+	makePanel(t, a, cy, `{"name":"Desk","slug":"desk"}`)
+	secret, _ := mintKey(t, a, cy, id)
+	rec := apiSend(a, "PUT", "/api/v1/panels/"+id, cy, `{"name":"Wall","acts":"session","slug":"desk"}`)
+	if rec.Code < 400 {
+		t.Fatalf("a taken short name saved: %d %s", rec.Code, rec.Body.String())
+	}
+	if p, _ := a.panels.get(id); p.Acts != panelActsAPI || p.Client == "" {
+		t.Fatalf("panel after a refused save: acts %q client %q", p.Acts, p.Client)
+	}
+	if rec := apiSend(a, "GET", "/api/v1/tally", secret, ""); rec.Code != 200 {
+		t.Fatalf("the key ended with a refused save: %d %s", rec.Code, rec.Body.String())
+	}
+}

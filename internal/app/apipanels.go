@@ -300,7 +300,11 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		return
 	}
 	// The client change goes first: it is the part that can be refused, and a refused save
-	// must leave the panel as it was.
+	// must leave the panel as it was. So the store's own refusal is checked before it.
+	if a.panels.slugTaken(p.Slug, p.ID) {
+		a.panelStoreFail(w, errSlugTaken)
+		return
+	}
 	cur, had := clientOfPanel(a.r().cfg, old)
 	switch {
 	case actsHasClient(p.Acts):
@@ -336,7 +340,7 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
 		a.endPublicKeys(p.ID)
 	}
-	if _, err := a.panels.replace(p); err != nil {
+	if _, err := a.panels.replaceBody(p); err != nil {
 		a.panelStoreFail(w, err)
 		return
 	}

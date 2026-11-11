@@ -354,6 +354,27 @@ func (s *panelStore) create(p Panel) (Panel, error) {
 func (s *panelStore) replace(p Panel) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.replaceLocked(p)
+}
+
+// replaceBody stores an editor's save. Artwork, owner and Rev come from the stored copy under the lock,
+// so an upload, a Push or a Users rename that landed after the caller read the panel is kept.
+func (s *panelStore) replaceBody(p Panel) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if cur, ok := s.by[p.ID]; ok {
+		p.Art, p.Owner, p.Rev = cur.Art, cur.Owner, cur.Rev
+	}
+	return s.replaceLocked(p)
+}
+
+func (s *panelStore) slugTaken(slug, id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.slugTakenLocked(slug, id)
+}
+
+func (s *panelStore) replaceLocked(p Panel) (bool, error) {
 	if _, ok := s.by[p.ID]; !ok {
 		return false, nil
 	}
