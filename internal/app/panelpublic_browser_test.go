@@ -110,7 +110,8 @@ func TestChromeEditorPublic(t *testing.T) {
 	b.waitFor("no Public warning on a User panel", `!`+access+`.includes('Its sharing does not limit')`)
 	b.eval(`document.getElementById('ed-acts-public').click(); true`)
 	b.waitFor("Public saves at once with its note", `document.getElementById('ed-state').textContent === 'Saved' && `+access+`.includes('Anyone with the link can use the panel')`)
-	b.waitFor("the Access tab warns about sharing", access+`.includes('Its sharing does not limit who may open it')`)
+	b.waitFor("the Access tab warns about sharing", access+`.includes('Its sharing does not limit who may open it') && `+access+`.includes('Listed on the panels page for:') && !`+access+`.includes('Who may use it')`)
+	b.waitFor("the toolbar offers Copy link", `!document.getElementById('ed-copylink').hidden`)
 	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"acts":"public"`) || !strings.Contains(body, `"client":"Panel `+id+`"`) {
 		t.Errorf("the saved panel is not Public with a client: %s", body)
 	}

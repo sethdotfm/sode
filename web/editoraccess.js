@@ -138,7 +138,9 @@ export function createAccessTab(ed, ctx) {
         hidden.input.disabled = ro;
       }
       const stored = !!p && !ro;
-      shareLine.textContent = p ? 'Who may use it:' : 'Save the panel first, then choose who may use it.';
+      // Sharing still decides who sees a Public panel on the panels page, not who may open its link.
+      const listedOnly = p?.acts === 'public';
+      shareLine.textContent = !p ? 'Save the panel first, then choose who may use it.' : listedOnly ? 'Listed on the panels page for:' : 'Who may use it:';
       const who = p?.share?.mode === 'named' && p.share.users?.length ? p.share.users : p ? [shareLabel(p.share)] : [];
       shareList.replaceChildren(...who.map((u) => el('li', null, u)));
       shareBtn.disabled = !stored;

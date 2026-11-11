@@ -69,7 +69,7 @@ export function keyRow(k, now) {
 export const SESSION_WARNING =
   'This panel acts as the signed-in user, so it has no key. A link to it asks for a sign-in in any tab or on any device that is not already signed in to Sode.';
 export const SESSION_NEXT =
-  'For a link that opens without a sign-in, set Acts as to its own API client, or to both, on the Access tab. That saves the panel at once.';
+  'For a link that opens without a sign-in, set Authentication mode to API, Both or Public on the Access tab. That saves the panel at once.';
 
 // A Public panel has a client, but its plain link already opens it, so keyed links add nothing.
 export const keyTabMuted = (panel) => !hasClient(panel) || panel.acts === 'public';

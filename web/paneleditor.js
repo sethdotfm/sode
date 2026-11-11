@@ -218,7 +218,7 @@ export async function runEditor() {
     const open = $('ed-open');
     open.hidden = !loaded;
     if (loaded) open.href = `panels/${loaded.id}`;
-    // A panel that only acts as its API client has no link without its key (Share, Link with key); a Both panel's plain link opens in Session mode.
+    // A panel that only acts as its API client has no link without its key (Share, Link with key); a Both panel's plain link opens in Session mode, a Public panel's for anyone.
     const copy = $('ed-copylink');
     copy.hidden = !loaded || loaded.acts === 'api';
   }
