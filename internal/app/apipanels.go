@@ -351,12 +351,13 @@ func (a *App) apiPanelUpdate(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	default:
 		p.Client = ""
 	}
-	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
-		a.endPublicKeys(p.ID)
-	}
 	if _, err := a.panels.replaceBody(p); err != nil {
 		a.panelStoreFail(w, err)
 		return
+	}
+	// After the write: an ask that read the panel as Public until then would get a key that outlives the switch.
+	if old.Acts == panelActsPublic && p.Acts != panelActsPublic {
+		a.endPublicKeys(p.ID)
 	}
 	p, _ = a.panels.get(p.ID) // carries the new Rev
 	a.apiEvent(cl.Actor, "panelUpdate", "ok", "panel "+p.ID+" "+p.Name, nil)
