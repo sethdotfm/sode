@@ -780,6 +780,8 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 		a.monNotify(*ev)
 	}
 	rc := http.NewResponseController(w)
+	// Each line sets a deadline that has passed by the next beat; the closing chunk needs a live one.
+	defer func() { _ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second)) }()
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")

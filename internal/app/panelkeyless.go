@@ -253,6 +253,8 @@ func (a *App) apiPanelKeyless(w http.ResponseWriter, r *http.Request, _ *apiCtx)
 	done, out := a.mon.openKeyless(ref, addr, device, ended, cancel)
 	defer done()
 	rc := http.NewResponseController(w)
+	// The closing chunk needs a live deadline; see apiPanelInstanceStream.
+	defer func() { _ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second)) }()
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no")
