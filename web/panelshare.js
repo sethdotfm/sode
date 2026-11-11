@@ -130,10 +130,13 @@ export function openShare(panel, ctx) {
     sync();
     note.textContent = '';
     try {
+      // PUT replaces the whole panel, so it starts from the stored copy: the one this modal opened with may be older
+      // than an edit or an Authentication mode switch saved since.
+      const fresh = await ctx.api(`api/v1/panels/${panel.id}`);
       const saved = await ctx.api(`api/v1/panels/${panel.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(shareBody(panel, draft)),
+        body: JSON.stringify(shareBody(fresh, draft)),
       });
       close();
       ctx.onSaved(saved);
