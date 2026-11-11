@@ -93,6 +93,18 @@ func (a *App) panelOut(p Panel, edit bool) map[string]any {
 	return m
 }
 
+// hideNamesFromPublic: a Public panel's key is anyone's, and user names never reach a caller who
+// entered no PIN (AGENTS.md), so its reads carry no owner or named users.
+func hideNamesFromPublic(m map[string]any, cl *apiCtx) {
+	if cl.Key == nil || !cl.Key.public {
+		return
+	}
+	m["owner"] = ""
+	if s, _ := m["share"].(map[string]any); s != nil {
+		delete(s, "users")
+	}
+}
+
 // panelFor loads {id} for cl, answering 404 for a missing id or one cl cannot read and 403
 // not_owner when needEdit and cl may only use it.
 func (a *App) panelFor(w http.ResponseWriter, r *http.Request, cl *apiCtx, needEdit bool) (Panel, bool) {
@@ -165,6 +177,7 @@ func (a *App) apiPanelList(w http.ResponseWriter, _ *http.Request, cl *apiCtx) {
 		if read, edit := a.panelReach(cl, p); read {
 			m := a.panelOut(p, edit)
 			a.monFields(m, cl, p, edit)
+			hideNamesFromPublic(m, cl)
 			out = append(out, m)
 		}
 	}
@@ -195,6 +208,7 @@ func (a *App) apiPanelRead(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
 	}
 	out := a.panelOut(p, edit)
 	a.monFields(out, cl, p, edit)
+	hideNamesFromPublic(out, cl)
 	// The page mirrors these before arming a take; the server still enforces them.
 	out["rights"] = cl.Rights.Clone()
 	out["artDefaults"] = a.panelArtDefaults(cl, p)

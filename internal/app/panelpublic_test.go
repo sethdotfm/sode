@@ -406,3 +406,20 @@ func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
 		t.Fatalf("panel page lockState %+v, want locked with no names", m)
 	}
 }
+
+// A Public key is anyone's, so its panel reads name no user.
+func TestPublicKeyReadsNoUserNames(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`,"share":{"mode":"named","users":["Ana"]},"clientRights":{"sources":[1],"dsts":[2]}}`)
+	key := publicKeyOf(t, a, id)
+	for _, path := range []string{"/api/v1/panels/" + id, "/api/v1/panels"} {
+		rec := apiSend(a, "GET", path, key, "")
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d %s", path, rec.Code, rec.Body.String())
+		}
+		if b := rec.Body.String(); strings.Contains(b, `"Cy"`) || strings.Contains(b, `"Ana"`) {
+			t.Fatalf("%s names a user: %s", path, b)
+		}
+	}
+}
