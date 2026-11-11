@@ -30,6 +30,7 @@ import {
 import { linkFor } from './panellink.js';
 import { linkBase, shareHostField } from './sharehost.js';
 import { linkRow } from './panellinkrow.js';
+import { isPublic } from './panelsrules.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
@@ -52,7 +53,7 @@ shareTabs.push(({ panel, api }) => {
   if (keyTabMuted(panel)) {
     // Greyed, still readable: a Session panel has no key, and a Public panel's plain link needs none.
     tab.muted = true;
-    const pub = panel.acts === 'public';
+    const pub = isPublic(panel);
     root.append(el('p', 'sode__hint', pub ? PUBLIC_KEY_NOTE : SESSION_WARNING), linkRow(panel), el('p', 'sode__hint', pub ? PUBLIC_NEXT : SESSION_NEXT));
     return tab;
   }

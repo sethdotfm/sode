@@ -9,6 +9,7 @@ import {
   actsLabel,
   actsShort,
   hasClient,
+  launchNote,
   actsSavedNote,
   PUBLIC_WARNING,
   shareLabel,
@@ -213,4 +214,12 @@ test('choosing an Authentication mode says what was saved', () => {
 test('the Access tab warns that sharing does not limit a Public panel', () => {
   assert.match(PUBLIC_WARNING, /anyone with the link/i);
   assert.match(PUBLIC_WARNING, /sharing/i);
+});
+
+test('only a panel that may sign in says so after how it acts', () => {
+  assert.equal(launchNote({ acts: 'session' }), ' (asks for a PIN at launch)');
+  assert.equal(launchNote({}), ' (asks for a PIN at launch)');
+  assert.equal(launchNote({ acts: 'both' }), ' (a link without a key asks for a PIN)');
+  assert.equal(launchNote({ acts: 'api' }), '');
+  assert.equal(launchNote({ acts: 'public' }), '');
 });

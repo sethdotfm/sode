@@ -163,7 +163,10 @@ A saved grid of tappable cells that patches the router from its own page, made f
 
 **Public panel**:
 A panel anyone with its URL may use, with no sign-in, PIN or key in the link. It acts as its own API client, with that client's Rights, which a Trusted user sets within their own. History names the client.
-_Avoid_: anonymous panel
+_Avoid_: anonymous panel, open panel (for a Public panel; an open panel page is any panel page that is open)
+
+**Authentication mode**:
+Which of those a panel uses: User (Session mode), API, Both or Public. The editor's Access tab sets it, `acts` carries it over the API, and the panels list still calls it Acts as.
 
 **Hardware panel**:
 A physical router panel. Sode does not make these. Changes from one arrive as an External.
@@ -191,7 +194,7 @@ A cell that shows the panel's name. It cannot be pressed. A caption is a line ab
 A trusted user sends one instance to a different panel from the panels page (Assign to). The instance's page switches at once with no prompt on the device. A panel that acts as an API client gives the instance a new key for it; a panel that acts as a user makes the device show the sign-in, where the person at the device types their own PIN. An instance that is online but has no valid key can be assigned too.
 
 **Keyless instance**:
-An open panel page with no valid key. It still reports its device name, or else its address, so a trusted user can see it and Assign it.
+A panel page, open in a browser, with no valid key. It still reports its device name, or else its address, so a trusted user can see it and Assign it.
 
 **Instance Name** (cell kind):
 A cell that shows the name of the instance showing the page, its device name. It cannot be pressed. A caption is a line above the name.

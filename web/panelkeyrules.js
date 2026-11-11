@@ -2,7 +2,7 @@
 // No DOM, no clock, no network, so Node tests them. Server side: internal/app/panelkey.go, panelsetup.go, panelnet.go.
 import { fullSetup } from './panellink.js';
 import { whenText } from './keyrules.js';
-import { hasClient } from './panelsrules.js';
+import { hasClient, isPublic } from './panelsrules.js';
 import { renewable } from './sessionkeyrules.js';
 
 export const MODES = [
@@ -72,7 +72,7 @@ export const SESSION_NEXT =
   'For a link that opens without a sign-in, set Authentication mode to API, Both or Public on the Access tab. That saves the panel at once.';
 
 // A Public panel has a client, but its plain link already opens it, so keyed links add nothing.
-export const keyTabMuted = (panel) => !hasClient(panel) || panel.acts === 'public';
+export const keyTabMuted = (panel) => !hasClient(panel) || isPublic(panel);
 
 export const PUBLIC_KEY_NOTE = 'This is a Public panel, so it needs no key. Anyone with the link below can use it, with no sign-in.';
 export const PUBLIC_NEXT = 'To limit who may open it, set Authentication mode to User, Both or API on the Access tab.';

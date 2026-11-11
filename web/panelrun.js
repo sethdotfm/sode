@@ -36,6 +36,7 @@ import { createArt } from './panelart.js';
 import { createWake, enterFullscreen, featureNotes } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
 import { instanceFrom } from './panellink.js';
+import { isPublic } from './panelsrules.js';
 import { initChrome } from './panelfull.js';
 import { initName } from './panelname.js';
 
@@ -76,7 +77,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     art?.revoke();
   };
   // lock.js drops the page lock's PIN pad for a Public panel, never for the editor's live test.
-  const pinFree = (on) => embedded || emit('publicPanel', { on });
+  const tellLock = (on) => embedded || emit('publicPanel', { on });
   let id = seg; // the id once the panel is read: the address may hold its short name
   let key = embedded ? null : keyFromHash(location.hash);
   const setup = embedded ? '' : setupFromHash(location.hash);
@@ -89,12 +90,12 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   let stored = !key && !embedded;
   if (stored) key = storedKey(seg);
   // The page cannot read the mode without a key, so with none it asks whether the panel is Public before a session.
-  let isPublic = false;
+  let keyIsPublic = false;
   if (!key && !embedded) {
     key = await askPublicAtOpen(seg);
     if (ended) return;
-    isPublic = !!key;
-    if (isPublic) pinFree(true);
+    keyIsPublic = !!key;
+    if (keyIsPublic) tellLock(true);
   }
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
@@ -104,7 +105,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     guardFetch(pub ? publicFetch(k, { ask: () => askPublic(seg), send: sendKeyed }) : (path, init) => sendKeyed(path, init, k), {
       final: (s) => s === 401,
     });
-  let keyed = key && keyFetch(key, isPublic);
+  let keyed = key && keyFetch(key, keyIsPublic);
   const call = given || (key ? (path, init = {}) => keyed(path, init) : (path, init = {}) => sessionFetch(path, tag(init)));
   const callJSON = jsonCall(call);
 
@@ -130,12 +131,12 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
       if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
       // A stale key on a panel that is now Public: an old bookmark still opens it.
-      const pub = e.status === 401 && key && !isPublic && !embedded ? await askPublicAtOpen(seg) : '';
+      const pub = e.status === 401 && key && !keyIsPublic && !embedded ? await askPublicAtOpen(seg) : '';
       if (ended) return;
       if (pub) {
         history.replaceState(null, '', `${location.pathname}${location.search}${withoutKey(location.hash)}`);
-        [key, isPublic, stored, keyed] = [pub, true, false, keyFetch(pub, true)];
-        pinFree(true);
+        [key, keyIsPublic, stored, keyed] = [pub, true, false, keyFetch(pub, true)];
+        tellLock(true);
         continue;
       }
       say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
@@ -149,7 +150,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     return;
   }
   id = panel.id;
-  pinFree(panel.acts === 'public');
+  tellLock(isPublic(panel));
   art = createArt(call, id);
   // Title, header, font scale and theme come from the stored panel, so a live update runs it again.
   // Auto restores whatever the page started with (the browser's own choice or the device setting).
@@ -251,7 +252,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       ready = !off;
       say(ui.note, '');
     } catch (e) {
-      const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key && !isPublic);
+      const f = pollFail(e.status, e.code, e.status === undefined ? undefined : e.message || undefined, !!key && !keyIsPublic);
       say(ui.note, f.text);
       if (!f.stop) {
         ready = false;
@@ -261,7 +262,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       if (f.stop) {
         ended = true;
         ready = false;
-        pinFree(false);
+        tellLock(false);
         if (stored) forgetKey(seg);
         // Nothing may call Sode again: not the polls, the update check or the keepalive.
         timers.forEach(clearInterval);
@@ -364,7 +365,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     apply(p) {
       clearTimeout(holdTimer);
       panel = p;
-      pinFree(p.acts === 'public');
+      tellLock(isPublic(p));
       cells = drawnCells(p);
       st = carryView(stateOf(p), st, cells);
       look = applyLook(p);

@@ -460,7 +460,6 @@ onMsg('lockState', (m) => {
   keepHeldUser(heldUser);
   if (ended) keepLastUser(null);
   lastState = m;
-  Object.assign(L, pinFreeView(m, pinFree));
   L.held = !!m.held;
   L.user = m.user || '';
   L.trusted = !!m.trusted;
@@ -469,11 +468,7 @@ onMsg('lockState', (m) => {
   L.lens = m.lens || [];
   L.mode = m.mode === 'username' ? 'username' : 'pin';
   S.userNames = m.names || [];
-  if (lockCovers(L) && letterLock) {
-    letterLock.lock.cancel();
-    letterLock = null;
-  }
-  V = lockArrived(V, lockCovers(L));
+  applyCover(m);
   // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.
   if (ended && !L.enforced) localLock();
   // Only the answer to our `hi` says whether the token was honored; a state sent for another
@@ -504,17 +499,22 @@ onMsg('lockState', (m) => {
   done();
 });
 
-// The panel page says whether it runs as a Public panel; the last lockState is read again.
-on('publicPanel', ({ on: free }) => {
-  if (pinFree === !!free) return;
-  pinFree = !!free;
-  if (!lastState) return;
-  Object.assign(L, pinFreeView(lastState, pinFree));
+// enforced and locked from m, as a Public panel's page sees them; a lock that covers ends the letter Lock.
+function applyCover(m) {
+  Object.assign(L, pinFreeView(m, pinFree));
   if (lockCovers(L) && letterLock) {
     letterLock.lock.cancel();
     letterLock = null;
   }
   V = lockArrived(V, lockCovers(L));
+}
+
+// The panel page says whether it runs as a Public panel; the last lockState is read again.
+on('publicPanel', ({ on: free }) => {
+  if (pinFree === !!free) return;
+  pinFree = !!free;
+  if (!lastState) return;
+  applyCover(lastState);
   render();
   emit('access', { ...L });
 });

@@ -55,5 +55,31 @@ func TestChromePanelLockBarFloats(t *testing.T) {
 		return ![...document.querySelectorAll('.sode-panel__cell, .sode-panels__head > *:not(.sode-panels__spacer):not([hidden])')].some(hit);
 	})()`)
 	b.shot("lockbar")
+
+	// A real sign-out and sign-in leave the header row where it was. Signing out ends the page's session key, so the
+	// page's own note may push the grid down; that is the page, not the bar.
+	const head = `(() => { const x = document.querySelector('.sode-panels__head').getBoundingClientRect(); return [x.top, x.height].map(Math.round).join(','); })()`
+	headIn := b.eval(head).(string)
+	b.eval(`import('./core.js').then((m) => m.emit('logout')), 0`)
+	b.waitFor("signed out to the PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	if got := b.eval(head); got != headIn {
+		t.Fatalf("signing out moved the header: signed in %v, signed out %v", headIn, got)
+	}
+	for _, d := range "1234" {
+		b.eval(fmt.Sprintf(`document.querySelector('.sode-lock__key[data-key="%c"]').click()`, d))
+	}
+	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
+	b.waitFor("signed in again", `!document.querySelector('.sode-lock__who').hidden && !document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
+	if got := b.eval(head); got != headIn {
+		t.Fatalf("signing in again moved the header: first %v, again %v", headIn, got)
+	}
+
+	// The phone layout leaves the header alone: the bar shows only under a lock screen there.
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 400, "height": 800, "deviceScaleFactor": 1, "mobile": true})
+	b.call("Emulation.setTouchEmulationEnabled", map[string]any{"enabled": true, "maxTouchPoints": 5})
+	b.waitFor("the phone layout", `document.documentElement.dataset.layout === 'phone'`)
+	if pad := b.eval(`getComputedStyle(document.querySelector('.sode-panels__head')).paddingInlineStart`); pad != "0px" {
+		t.Fatalf("the phone header clears the Lock bar: padding %v", pad)
+	}
 	b.check()
 }

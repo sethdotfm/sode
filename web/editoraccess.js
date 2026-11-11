@@ -5,7 +5,7 @@ import { $, el, on } from './core.js';
 import { sessionFetch, jsonCall } from './sessionkey.js';
 import { check, segmented } from './formbits.js';
 import { openShare } from './panelshare.js';
-import { shareLabel, hasClient, actsSavedNote, PUBLIC_WARNING } from './panelsrules.js';
+import { shareLabel, hasClient, isPublic, actsSavedNote, PUBLIC_WARNING } from './panelsrules.js';
 import { draftOf, rightsOf } from './rightsrules.js';
 import { rightsRows } from './sidebarrules.js';
 
@@ -34,7 +34,7 @@ export function createAccessTab(ed, ctx) {
       ['public', 'Public'],
     ],
     async (want) => {
-      // Acts as makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
+      // Authentication mode makes or removes the panel's API client, so it is saved at once and never left as an unsaved edit. The
       // save carries the panel's other unsaved changes with it. A refusal puts the choice back and says why.
       acts.disable(true);
       actsNote.textContent = 'Saving.';
@@ -119,7 +119,7 @@ export function createAccessTab(ed, ctx) {
       // Switching to Session mode is open to the owner; setting up or widening a client needs a Trusted user (server rule).
       acts.disable(ro || (!me.trusted && !hasClient(p)));
       actsHint.textContent = f.acts === 'session' && !me.trusted && !ro ? 'Only a Trusted user can make it act as an API client.' : '';
-      publicWarn.hidden = f.acts !== 'public';
+      publicWarn.hidden = !isPublic(f);
       clientBox.hidden = !hasClient(f);
       if (hasClient(f)) {
         const had = hasClient(p) && p.client;
@@ -139,7 +139,7 @@ export function createAccessTab(ed, ctx) {
       }
       const stored = !!p && !ro;
       // Sharing still decides who sees a Public panel on the panels page, not who may open its link.
-      const listedOnly = p?.acts === 'public';
+      const listedOnly = isPublic(p);
       shareLine.textContent = !p ? 'Save the panel first, then choose who may use it.' : listedOnly ? 'Listed on the panels page for:' : 'Who may use it:';
       const who = p?.share?.mode === 'named' && p.share.users?.length ? p.share.users : p ? [shareLabel(p.share)] : [];
       shareList.replaceChildren(...who.map((u) => el('li', null, u)));

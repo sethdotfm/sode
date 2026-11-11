@@ -3,6 +3,7 @@
 // Both panel's plain link opens in Session mode, with the keyed links under Share; a Public panel's opens for anyone.
 import { el, icon } from './core.js';
 import { linkFor } from './panellink.js';
+import { isPublic } from './panelsrules.js';
 import { linkBase, shareHostField } from './sharehost.js';
 
 const COPIED_MS = 2000;
@@ -34,7 +35,7 @@ export function linkRow(panel, { withHost = true } = {}) {
   const note = el('span', 'sode__hint');
   note.setAttribute('role', 'status');
   if (panel.acts === 'both') note.textContent = 'Asks for a sign-in. A link with a key is under Share.';
-  if (panel.acts === 'public') note.textContent = 'Opens for anyone with the link, with no sign-in.';
+  if (isPublic(panel)) note.textContent = 'Opens for anyone with the link, with no sign-in.';
   const copy = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('copy'), 'Copy link');
   copy.type = 'button';
   const rest = note.textContent;

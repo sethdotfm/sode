@@ -27,7 +27,7 @@ export async function askPublic(id) {
   return (await res.json()).key || '';
 }
 
-// At open, a failed ask leaves the page to its session, as before Public existed.
+// At open, a failed ask leaves the page to its session.
 export const askPublicAtOpen = (id) => askPublic(id).catch(() => '');
 
 // {key} or {error}. The spent token leaves the address either way, so a reload does not try it again.

@@ -3,7 +3,20 @@
 import { $, el, icon, on } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { paintOnline, paintOpenNow, openNow, watchBox, MON_POLL_MS } from './panelsmon.js';
-import { groupPanels, actionsFor, deleteStep, thumbCells, actsLabel, actsShort, shareLabel, launchHref, editHref, listKey, stepPanel } from './panelsrules.js';
+import {
+  groupPanels,
+  actionsFor,
+  deleteStep,
+  thumbCells,
+  actsLabel,
+  actsShort,
+  launchNote,
+  shareLabel,
+  launchHref,
+  editHref,
+  listKey,
+  stepPanel,
+} from './panelsrules.js';
 import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
@@ -102,12 +115,7 @@ function detail(p) {
     el('dt', '', 'Owner'),
     el('dd', '', owner(p) + (p.canEdit ? '' : ' (you can use it, not change it)')),
     el('dt', '', 'Acts as'),
-    el(
-      'dd',
-      '',
-      actsLabel(p).replace('Acts as ', '') +
-        (p.acts === 'api' || p.acts === 'public' ? '' : p.acts === 'both' ? ' (a link without a key asks for a PIN)' : ' (asks for a PIN at launch)'),
-    ),
+    el('dd', '', actsLabel(p).replace('Acts as ', '') + launchNote(p)),
     el('dt', '', 'Shared with'),
     el('dd', '', shareLabel(p.share)),
   );

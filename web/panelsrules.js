@@ -100,6 +100,12 @@ export const thumbCells = (p) => cellsIn(p).map(({ r, c, rs, cs, kind }) => ({ r
 // no key, and `public` gets a short-lived key for any page. Keep in step with actsHasClient in internal/app/panelstore.go.
 export const hasClient = (p) => p?.acts === 'api' || p?.acts === 'both' || p?.acts === 'public';
 
+export const isPublic = (p) => p?.acts === 'public';
+
+// What the panels list adds after how a panel acts: whether its launch asks for a PIN.
+const LAUNCH_NOTE = { api: '', public: '', both: ' (a link without a key asks for a PIN)' };
+export const launchNote = (p) => LAUNCH_NOTE[p.acts] ?? ' (asks for a PIN at launch)';
+
 const SHORT = { api: 'API client', both: 'API client or the user', public: 'Public' };
 const LABEL = {
   api: 'Acts as an API client',
