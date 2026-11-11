@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -286,6 +287,28 @@ func (s *panelSetStore) putLocked(set PanelSet) error {
 		return err
 	}
 	return nil
+}
+
+// followUsers renames set owners. A Me set's file is named for its owner, so the set moves to the new
+// name's file and the old file is rewritten without it.
+func (s *panelSetStore) followUsers(renames map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, set := range s.by {
+		to, ok := renames[strings.ToLower(set.Owner)]
+		if !ok || to == set.Owner {
+			continue
+		}
+		old := set
+		set.Owner = to
+		if err := s.putLocked(set); err != nil {
+			log.Printf("panel sets: owner of %s not renamed: %v", id, err)
+			continue
+		}
+		if err := s.persistLocked(old); err != nil {
+			log.Printf("panel sets: %s left in the old owner's file: %v", id, err)
+		}
+	}
 }
 
 func (s *panelSetStore) create(set PanelSet) (PanelSet, error) {

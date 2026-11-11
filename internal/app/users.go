@@ -543,6 +543,7 @@ func (a *App) panelsFollowUsers(before []config.User, rows []userEdit) {
 		return
 	}
 	a.templates.followUsers(renames)
+	a.panels.sets.followUsers(renames)
 	a.mon.followUsers(renames, removed)
 	n, err := a.panels.followUsers(renames, removed)
 	if err != nil {
