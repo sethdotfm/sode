@@ -15,6 +15,9 @@ import {
   INSTANCE_MAX,
   SESSION_WARNING,
   SESSION_NEXT,
+  PUBLIC_KEY_NOTE,
+  PUBLIC_NEXT,
+  keyTabMuted,
   maskLink,
   makeAction,
   confirmKind,
@@ -27,7 +30,6 @@ import {
 import { linkFor } from './panellink.js';
 import { linkBase, shareHostField } from './sharehost.js';
 import { linkRow } from './panellinkrow.js';
-import { hasClient } from './panelsrules.js';
 
 const LOCKOUT_FALLBACK_MS = 500; // the panels page has no hello, so S.cfg can be unset
 const COPIED_MS = 2000;
@@ -47,10 +49,11 @@ const dot = (kind) => {
 shareTabs.push(({ panel, api }) => {
   const root = el('div', 'sode-ov__keytab');
   const tab = { id: 'key', text: 'Link with key', panel: root };
-  if (!hasClient(panel)) {
-    // Greyed, still readable: a Session panel has no key to make, rotate or revoke.
+  if (keyTabMuted(panel)) {
+    // Greyed, still readable: a Session panel has no key, and a Public panel's plain link needs none.
     tab.muted = true;
-    root.append(el('p', 'sode__hint', SESSION_WARNING), linkRow(panel), el('p', 'sode__hint', SESSION_NEXT));
+    const pub = panel.acts === 'public';
+    root.append(el('p', 'sode__hint', pub ? PUBLIC_KEY_NOTE : SESSION_WARNING), linkRow(panel), el('p', 'sode__hint', pub ? PUBLIC_NEXT : SESSION_NEXT));
     return tab;
   }
 

@@ -1,6 +1,6 @@
 // A panel's link as a read-only field with a Copy link button, for the editor's Identity section and the Share
 // modal. The text comes from linkFor only. A panel that only acts as its API client has no link without its key; a
-// Both panel's plain link opens in Session mode, with the keyed links under Share.
+// Both panel's plain link opens in Session mode, with the keyed links under Share; a Public panel's opens for anyone.
 import { el, icon } from './core.js';
 import { linkFor } from './panellink.js';
 import { linkBase, shareHostField } from './sharehost.js';
@@ -34,6 +34,7 @@ export function linkRow(panel, { withHost = true } = {}) {
   const note = el('span', 'sode__hint');
   note.setAttribute('role', 'status');
   if (panel.acts === 'both') note.textContent = 'Asks for a sign-in. A link with a key is under Share.';
+  if (panel.acts === 'public') note.textContent = 'Opens for anyone with the link, with no sign-in.';
   const copy = el('button', 'pb-btn pb-btn--outline pb-btn--sm', icon('copy'), 'Copy link');
   copy.type = 'button';
   const rest = note.textContent;
@@ -46,10 +47,12 @@ export function linkRow(panel, { withHost = true } = {}) {
       note.textContent = 'Copy failed. The link is selected: copy it by hand.';
     }
   });
-  const host = !withHost ? null : shareHostField(() => {
-    link = linkFor(panel, { base: linkBase() });
-    input.value = link;
-  });
+  const host = !withHost
+    ? null
+    : shareHostField(() => {
+        link = linkFor(panel, { base: linkBase() });
+        input.value = link;
+      });
   box.append(el('span', 'sode__field-label', 'Link'), el('div', 'sode-linkrow__row', input, copy), note, ...(host ? [host] : []));
   return box;
 }

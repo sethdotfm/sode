@@ -9,6 +9,8 @@ import {
   actsLabel,
   actsShort,
   hasClient,
+  actsSavedNote,
+  PUBLIC_WARNING,
   shareLabel,
   launchHref,
   editHref,
@@ -44,7 +46,10 @@ test('Open now lists known and watched instances, less the hidden ones', () => {
     ['Lobby', 'studio'],
   );
   assert.deepEqual(hiddenShown(p), ['desk']);
-  assert.deepEqual(shownInstances({ ...p, hiddenInstances: ['studio'] }).map((i) => i.device), ['Lobby', 'Desk']);
+  assert.deepEqual(
+    shownInstances({ ...p, hiddenInstances: ['studio'] }).map((i) => i.device),
+    ['Lobby', 'Desk'],
+  );
   // A use-only reader gets no instances at all.
   assert.deepEqual(shownInstances({}), []);
   assert.deepEqual(hiddenShown({}), []);
@@ -195,4 +200,17 @@ test('stepping moves the highlight and stops at the ends', () => {
   assert.equal(stepPanel(['a', 'b', 'c'], 'a', -1), 'a');
   assert.equal(stepPanel(['a', 'b'], 'zz', 1), 'b');
   assert.equal(stepPanel([], 'a', 1), '');
+});
+
+test('choosing an Authentication mode says what was saved', () => {
+  assert.match(actsSavedNote('session'), /signed-in user.*every key are gone/);
+  assert.match(actsSavedNote('both'), /plain link opens it as the signed-in user/);
+  assert.match(actsSavedNote('api'), /Link with key/);
+  assert.match(actsSavedNote('public'), /anyone with the link can use the panel/i);
+  assert.equal(actsSavedNote('nonsense'), 'Saved.');
+});
+
+test('the Access tab warns that sharing does not limit a Public panel', () => {
+  assert.match(PUBLIC_WARNING, /anyone with the link/i);
+  assert.match(PUBLIC_WARNING, /sharing/i);
 });

@@ -101,12 +101,29 @@ export const thumbCells = (p) => cellsIn(p).map(({ r, c, rs, cs, kind }) => ({ r
 export const hasClient = (p) => p?.acts === 'api' || p?.acts === 'both' || p?.acts === 'public';
 
 const SHORT = { api: 'API client', both: 'API client or the user', public: 'Public' };
-const LABEL = { api: 'Acts as an API client', both: 'Acts as an API client with a key, else as the user', public: 'Acts as an API client for anyone with the link' };
+const LABEL = {
+  api: 'Acts as an API client',
+  both: 'Acts as an API client with a key, else as the user',
+  public: 'Acts as an API client for anyone with the link',
+};
 
 // The short form for a row, after the owner's name.
 export const actsShort = (p) => SHORT[p.acts] || 'signs in as the user';
 
 export const actsLabel = (p) => LABEL[p.acts] || 'Acts as the user';
+
+const SAVED_NOTE = {
+  api: 'Saved. The panel now has its own API client. Make its links under Share, Link with key.',
+  both: 'Saved. The panel has its own API client for links with a key, and the plain link opens it as the signed-in user.',
+  public: "Saved. Anyone with the link can use the panel, with its API client's Rights and no sign-in.",
+  session: 'Saved. The panel acts as the signed-in user, and its API client and every key are gone.',
+};
+
+// The editor's note once an Authentication mode is saved.
+export const actsSavedNote = (acts) => SAVED_NOTE[acts] || 'Saved.';
+
+// The server lets any page open a Public panel, whatever its share says (ADR 0008).
+export const PUBLIC_WARNING = "Anyone with the link can use a Public panel, with its client's Rights. Its sharing does not limit who may open it.";
 
 export function shareLabel(share) {
   if (share?.mode === 'everyone') return 'Everyone';
