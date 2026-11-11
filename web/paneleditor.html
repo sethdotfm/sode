@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- /panels/editor sits one level down; ../ is Sode's root -->
+<base href="../">
+<title>Sode Panel Editor</title>
+<link rel="icon" type="image/svg+xml" href="panels-logo.svg">
+<link rel="icon" type="image/png" href="icon.png?s=192">
+<script src="prepaint.js" data-only="theme"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="panels.css">
+<link rel="stylesheet" href="touch.css">
+</head>
+<body>
+
+<main class="sode-panels sode-ed">
+  <header class="sode-panels__head">
+    <h1 class="sode-panels__title">Sode Panel Editor</h1>
+    <span class="sode-panels__spacer"></span>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" href="panels">Panels</a>
+  </header>
+  <p class="sode__hint" id="panels-note"></p>
+  <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
+
+  <div class="pb-banner pb-banner--info" id="ed-banner" hidden>
+    <span>This panel is shared with you for use only. To change it, save a copy.</span>
+    <button class="pb-btn pb-btn--sm" id="ed-copy" type="button">Save a copy</button>
+  </div>
+
+  <div class="pb-toolbar sode-ed__bar" role="toolbar" aria-label="Panel editor">
+    <div class="sode-ed__grp sode-ed__grp--pick">
+      <label class="sode-ed__field" for="ed-pick">Panel
+        <span class="pb-select-wrap"><select class="pb-select sode-ed__pick" id="ed-pick"></select></span>
+      </label>
+      <label class="sode-ed__field" for="ed-name">Name
+        <input class="pb-input" id="ed-name" type="text" maxlength="64" autocomplete="off">
+      </label>
+    </div>
+    <span class="sode-panels__spacer"></span>
+    <div class="sode-ed__grp">
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-share" type="button" disabled>Share</button>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-copylink" type="button" hidden>Copy link</button>
+      <a class="pb-btn pb-btn--outline pb-btn--sm" id="ed-open" href="panels" hidden>Open panel</a>
+      <button class="pb-btn pb-btn--outline pb-btn--sm" id="ed-live" type="button" data-pb-tip="Runs the saved panel here, without unassigned squares. Saves first.">Test it live</button>
+    </div>
+    <div class="sode-ed__grp">
+      <span class="sode-ed__state" id="ed-state" role="status"></span>
+      <button class="pb-btn pb-btn--ok pb-btn--sm" id="ed-save" type="button">Save</button>
+    </div>
+  </div>
+  <p class="sode__hint" id="ed-status" role="status" hidden></p>
+
+  <div class="sode-ed__live" id="ed-live-view" hidden></div>
+
+  <div class="sode-ed__body">
+    <div class="sode-ed__main">
+      <nav class="sode-pages" id="ed-pages" aria-label="Pages"></nav>
+      <div class="sode-ed__open" id="ed-open-pages">
+        <section class="sode-ed__frame" id="ed-frame">
+          <h2 class="sode-ed__frame-title" id="ed-frame-title"></h2>
+          <div class="sode-ed__grid" id="ed-grid" aria-label="Panel grid"></div>
+        </section>
+      </div>
+    </div>
+    <aside class="sode-ed__side" id="ed-side" aria-label="Panel settings"></aside>
+  </div>
+</main>
+
+<script type="module" src="panelpage.js"></script>
+</body>
+</html>

@@ -206,6 +206,41 @@ html {
   color: var(--sode-ink, var(--pb-text-on-accent));
 }
 
+/* The level picker: the main page and the panel editor use it. */
+.sode__levels {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--pb-text-xs);
+  gap: var(--pb-space-1);
+  min-height: var(--pb-space-8);
+}
+
+.sode__picker {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode__picker .sode__levels {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(var(--sode-bar-cols), auto);
+}
+.pb-btn.sode__all {
+  align-self: start;
+  flex-direction: column;
+  gap: 0;
+  height: calc(2 * (var(--pb-space-8) + var(--pb-space-1)) + var(--pb-space-1));
+  line-height: 1.1;
+  padding: 0 var(--pb-space-3);
+}
+.sode__picker .sode__levels--odd > .sode__pick:first-child {
+  align-self: stretch;
+  grid-row: span 2;
+  height: auto;
+}
+
 .sode__result {
   display: flex;
   flex-direction: column;
@@ -976,4 +1011,129 @@ html:has(.sode__scrim:not([hidden])) {
   padding-inline-start: var(--pb-space-4);
   font-size: var(--pb-text-xs);
   white-space: nowrap;
+}
+
+/* The offline banner at the top of the Sode page (panelwatch.js); the banner rules above do the sliding. */
+.sode__outage:empty {
+  display: none;
+}
+.sode__outage {
+  padding-bottom: var(--pb-space-3);
+  width: 100%;
+}
+.sode__outage-acts {
+  align-items: center;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  justify-content: flex-end;
+}
+.sode-m__head ~ .sode__outage {
+  padding: var(--pb-space-3) var(--pb-space-5) 0;
+}
+
+/* The offline badge in the toast stack (panelwatch.js) */
+.pb-toast-stack [data-panel-badge] {
+  font-size: calc(var(--pb-text-xs) * 2);
+  padding: calc(var(--pb-space-2) * 2) calc(var(--pb-space-4) * 2);
+  pointer-events: auto;
+  text-decoration: none;
+}
+.sode__toast-link {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* Dismiss countdown on a toast's close box (panelwatch.js sets --toast-ms to the dismiss time): a ring that sweeps away.
+   Under reduced motion the ring stays whole, since the toast still goes on its own. */
+@property --toast-left {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
+}
+.sode__toast-timed {
+  position: relative;
+}
+.sode__toast-timed::after {
+  animation: sode-toast-ring var(--toast-ms) linear forwards;
+  background: conic-gradient(var(--pb-status-ok) var(--toast-left), transparent 0);
+  content: "";
+  inset: 0;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  padding: calc(var(--pb-border-w) * 2);
+  pointer-events: none;
+  position: absolute;
+}
+@keyframes sode-toast-ring {
+  to {
+    --toast-left: 0deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sode__toast-timed::after {
+    animation: none;
+  }
+}
+
+/* The Panels logo is white strokes on transparent, so it is a mask: the colour is the text colour, as the icons' is. */
+.sode-logo {
+  background-color: currentColor;
+  display: inline-block;
+  height: 1.25rem;
+  mask: url("panels-logo.svg") center / contain no-repeat;
+  vertical-align: middle;
+  width: 1.25rem;
+}
+
+/* Uptime strip: the router on /log and each instance on /panels (uptimebars.js). */
+.sode-up__bars {
+  display: flex;
+  gap: 1px;
+  height: var(--pb-space-8);
+}
+.sode-up__bar {
+  background: var(--pb-surface-control);
+  border: 0;
+  flex: 1 1 0;
+  min-width: 1px;
+  padding: 0;
+}
+button.sode-up__bar:not(:disabled) {
+  cursor: pointer;
+}
+/* A short strip under each instance on /panels. */
+.sode-up__bars--sm {
+  height: var(--pb-space-4);
+}
+button.sode-up__bar:not(:disabled):hover,
+.sode-up__bar:focus-visible {
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-text-strong);
+}
+.sode-up__bar--sel,
+.sode-up__bar--sel:hover {
+  box-shadow: inset 0 0 0 calc(var(--pb-border-w) * 3) var(--pb-text-strong);
+}
+.sode-up__bar--ok {
+  background: var(--pb-status-ok);
+}
+.sode-up__bar--warn {
+  background: var(--pb-status-warn-fill);
+}
+.sode-up__bar--error {
+  background: var(--pb-status-error);
+}
+.sode-up__bar--none {
+  background: var(--pb-surface-control);
+}
+.sode-up__bar--future {
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--pb-border-w) var(--pb-surface-control);
+}
+.sode-up__key {
+  display: inline-block;
+  height: var(--pb-space-4);
+  width: var(--pb-space-4);
 }

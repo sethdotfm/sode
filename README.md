@@ -4,7 +4,7 @@ DISCLOSURE: This was written by an LLM.
 
 [![CI](https://github.com/sethdotfm/sode/actions/workflows/ci.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/ci.yml) [![rc](https://github.com/sethdotfm/sode/actions/workflows/rc.yml/badge.svg)](https://github.com/sethdotfm/sode/actions/workflows/rc.yml) [![Release](https://img.shields.io/github/v/release/sethdotfm/sode?include_prereleases)](https://github.com/sethdotfm/sode/releases) [![Go version](https://img.shields.io/github/go-mod/go-version/sethdotfm/sode)](go.mod) [![License](https://img.shields.io/github/license/sethdotfm/sode)](LICENSE)
 
-**Version:** Beta 1.8.0
+**Version:** Beta 1.8.3
 
 Sode is a hyper-light, keyboard-first web page for patching an SW-P-08 router, built and tested on a Ross Ultrix. It is for people who want to make routes fast from any browser on the network, on a desktop keyboard or a phone. You type a source, Tab, a destination, Tab, levels, Enter, then press the churning confirm key.
 
@@ -60,6 +60,8 @@ Sode serves plain HTTP, so put your own TLS proxy in front. Behind a proxy, set 
 You change settings in the page, with the **Settings** button at the bottom. Sode stores them in `/data/config.yaml` and applies a save at once. On first start, with no config file yet, Sode seeds the file from `SODE_*` variables such as `SODE_ROUTER`. After that the file wins.
 
 A few process settings stay in the environment: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
+
+The Icon library lives beside the config: `/data/icons.yaml` and the `/data/icons/` directory. To back it up or move it, copy both with `config.yaml`. To add many icons at once, put SVG and PNG files in `/data/icons/drop-in/`; Sode adds them at start and when a Trusted user presses **Rescan**. See [docs/reference.md](docs/reference.md#icon-library-files).
 
 If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
 

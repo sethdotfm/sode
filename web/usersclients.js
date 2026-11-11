@@ -13,7 +13,7 @@ const MAX_CLIENTS = 12; // config.MaxAPIClients
 // users: the Users tab's rows, {name, was}.
 export function makeClientsTab({ users, touched, adopt }) {
   const rows = el('div');
-  const keyHost = el('div');
+  const keyHost = el('div', 'sode__key-list');
   const shown = el('div');
   const err = el('div', 'pb-note pb-note--error');
   err.setAttribute('role', 'alert');

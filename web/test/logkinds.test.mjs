@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from '../logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind } from '../logkinds.js';
 
 const [a, b, c] = KIND_IDS;
 
@@ -47,6 +47,17 @@ test('a list saved when All was the six message groups is still All', () => {
   // Choosing a subset that happens to be the old six plus an event is not All.
   assert.deepEqual(normalizeKinds(old.slice(0, 5), ['connect']), old.slice(0, 5));
   assert.deepEqual(normalizeKinds([...old, 'command'], ['connect']), [...old, 'command']);
+});
+
+test('panel and stream rows read as words, not wire names', () => {
+  assert.equal(WHY_LABEL.panelLost, 'Panel instance lost');
+  assert.equal(WHY_LABEL.panelBack, 'Panel instance back');
+  assert.equal(WHY_LABEL.panelAlarm, 'Panel alarm');
+  assert.equal(WHY_LABEL.panelSetup, 'Panel instance set up');
+  assert.equal(WHY_LABEL.streamConnect, 'Stream connected');
+  assert.equal(WHY_LABEL.streamDisconnect, 'Stream dropped');
+  assert.equal(WHY_LABEL.rename, 'Instance renamed');
+  for (const [k, v] of Object.entries(WHY_LABEL)) assert.match(v, /^[A-Z]/, k);
 });
 
 test('every event kind belongs to a group', () => {

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- /panels, /panels/ and /panels/<id> sit at different depths; ../ is Sode's root at each -->
+<base href="../">
+<title>Sode Panels</title>
+<link rel="icon" type="image/svg+xml" href="panels-logo.svg">
+<link rel="icon" type="image/png" href="icon.png?s=192">
+<script src="prepaint.js" data-only="theme"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="panels.css">
+<link rel="stylesheet" href="panelmon.css">
+<link rel="stylesheet" href="touch.css">
+</head>
+<body>
+
+<main class="sode-panels sode-ov">
+  <header class="sode-panels__head">
+    <h1 class="sode-panels__title"><span class="sode-logo sode-panels__logo" aria-hidden="true"></span>Sode Panels</h1>
+    <span class="sode-panels__spacer"></span>
+    <a class="pb-btn pb-btn--outline pb-btn--sm" href="./">Back to Sode</a>
+  </header>
+  <p class="sode__hint" id="panels-note" role="status" hidden></p>
+  <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
+  <div class="sode-ov__cols">
+    <nav class="sode-ov__list" aria-label="Panels">
+      <div class="sode-ov__find">
+        <input class="pb-input" id="panels-find" type="search" placeholder="Find a panel" aria-label="Find a panel" autocomplete="off">
+        <button class="pb-btn pb-btn--ok pb-btn--sm" id="panels-new" type="button">New panel</button>
+      </div>
+      <div id="panels-list"></div>
+    </nav>
+    <section class="sode-ov__detail" id="panels-detail" aria-live="polite"></section>
+  </div>
+</main>
+
+<script type="module" src="panelpage.js"></script>
+</body>
+</html>

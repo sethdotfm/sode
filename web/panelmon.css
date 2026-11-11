@@ -1,0 +1,69 @@
+/* Monitoring: the device name form on a panel page, the online mark and the Open now list on the panels page. */
+.sode-panel__device {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-panel__device label {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+}
+.sode-ov__online:empty {
+  display: none;
+}
+.sode-ov__watch {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode-ov__watchbox {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-ov__watchone {
+  margin-inline-start: auto;
+}
+.sode-ov__notify {
+  margin: 0;
+}
+.sode-ov__open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  margin: 0;
+  padding: 0;
+}
+.sode-ov__open li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  list-style: none;
+}
+.sode-ov__inst {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-ov__name {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-1);
+}
+.sode-ov__uptime {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+}
+.sode-ov__hidden {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+  margin: 0;
+}

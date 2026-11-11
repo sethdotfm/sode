@@ -7,8 +7,9 @@ import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
 import { newPager } from './logpager.js';
-import { KINDS, KIND_IDS, EVENT_KINDS, normalizeKinds, allKinds, pressKind } from './logkinds.js';
-import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, slots, summary, slotText } from './uptime.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
+import { uptimeBars } from './uptimebars.js';
 import './brand.js';
 import './lock.js';
 
@@ -39,32 +40,6 @@ const KIND_LABEL = {
   api: 'API',
   link: 'Router link',
   server: 'Sode',
-};
-const WHY_LABEL = {
-  take: 'Take',
-  undo: 'Undo',
-  retry: 'Retry',
-  check: 'Check before take',
-  confirm: 'Confirm take',
-  resync: 'Resync',
-  names: 'Name re-read',
-  keepalive: 'Link check',
-  connect: 'WebSocket connected',
-  disconnect: 'WebSocket dropped',
-  refreshNames: 'Re-read names',
-  clearHistory: 'Clear history',
-  config: 'Settings saved',
-  filterSets: 'Filter sets saved',
-  presets: 'Presets saved',
-  salvos: 'Presets saved', // salvos: rows logged before the rename
-  unlock: 'Advanced Settings PIN',
-  lock: 'Settings locked',
-  salvo: 'Native salvo',
-  userUnlock: 'User PIN',
-  userLock: 'User locked',
-  userSignOut: 'User signed out',
-  adminUnlock: 'Admin password (old rows)',
-  users: 'Users saved',
 };
 const isEvent = (e) => EVENT_KINDS.has(e.kind);
 
@@ -646,20 +621,7 @@ on('uptimeResult', (m) => {
   const data = { start: m.start, trans: m.trans, counts: m.counts, from: m.from, to: m.to, slot: m.slot, now: m.now };
   const text = summary(data);
   upLast = { from: m.from, to: m.to };
-  upBars.replaceChildren(
-    ...slots(data).map((s) => {
-      const bar = el('button', `sode-log__up-bar sode-log__up-bar--${s.colour}`);
-      bar.type = 'button';
-      bar.title = slotText(s, fmtDay);
-      bar.setAttribute('aria-label', bar.title);
-      bar.disabled = s.colour === 'future';
-      const sel = !!slotMode && s.from === slotMode.from;
-      if (sel) bar.classList.add('sode-log__up-bar--sel');
-      bar.setAttribute('aria-pressed', String(sel));
-      bar.addEventListener('click', () => enterSlot(s));
-      return bar;
-    }),
-  );
+  upBars.replaceChildren(...uptimeBars(data, { fmt: fmtDay, pick: enterSlot, sel: slotMode?.from }));
   const label =
     slotMode || chipOn || !customTimes()
       ? slotMode

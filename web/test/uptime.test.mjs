@@ -120,6 +120,16 @@ test('slot text says why, with the time', () => {
   assert.match(slotText(warn, fmt), /router up 50% of the time, 1 message failed or needed a retry/);
 });
 
+test('slot text names what is up: an instance on the panels page', () => {
+  const fmt = (t) => `t${t / MIN}`;
+  const words = { up: 'online', down: 'offline' };
+  const [ok, part] = slots(base({ trans: [{ t: HOUR + 30 * MIN, s: 'down' }] }));
+  assert.equal(slotText(ok, fmt, words), 't0 – t60: online');
+  assert.match(slotText(part, fmt, words), /: online 50% of the time$/);
+  const [down] = slots(base({ start: 'down' }));
+  assert.match(slotText(down, fmt, words), /: offline$/);
+});
+
 test('chip text says how long each bar is', () => {
   assert.deepEqual(PRESETS.map(presetText), ['1 hour (1 min)', '24 hours (15 min)', '7 days (1 hour)', '30 days (6 hours)']);
   assert.equal(slotLabel(30 * MIN), '30 min');

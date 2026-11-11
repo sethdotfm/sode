@@ -2,7 +2,9 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -26,6 +28,7 @@ type apiCtx struct {
 	Rights config.Rights
 	Scopes []string
 	Key    *apiKey // nil for a keyless Guest call
+	Panel  string  // the panel whose own API client this is, else ""
 	IP     string
 
 	// sink takes every reply of a take run for this request instead of a.clients: a REST
@@ -59,6 +62,11 @@ type apiRoute struct {
 	Handle              apiHandler
 }
 
+// scopeOpen as a route's Scope skips the key check: the handler gets a nil apiCtx. Only the setup-link
+// exchange, which is how a tablet gets its key and throttles with authWait, and the keyless announcement
+// (panelkeyless.go), which grants nothing and is bounded only by keylessMax.
+const scopeOpen = "none"
+
 var apiRoutes []apiRoute
 
 func registerAPI(rs ...apiRoute) { apiRoutes = append(apiRoutes, rs...) }
@@ -70,6 +78,7 @@ type apiErrBody struct {
 type apiErr struct {
 	Code    string `json:"code"` // machine-readable reason, listed in openapi.yaml
 	Message string `json:"message"`
+	Suggest string `json:"suggest,omitempty"` // name_taken only: a free name to send instead
 }
 
 func apiFail(w http.ResponseWriter, status int, code, msg string) {
@@ -80,6 +89,29 @@ func apiJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(v)
+}
+
+// apiCreated is apiJSON with status 201; headers must precede the status line.
+func apiCreated(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(v)
+}
+
+// readBody reads a request body of at most limit bytes. what names it in the 413 message.
+func readBody(w http.ResponseWriter, r *http.Request, limit int64, what string) ([]byte, bool) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			apiFail(w, http.StatusRequestEntityTooLarge, "too_large", fmt.Sprintf("the %s is over %d KiB", what, limit>>10))
+		} else {
+			apiFail(w, http.StatusBadRequest, "bad_request", "the body could not be read")
+		}
+		return nil, false
+	}
+	return body, true
 }
 
 func isAPIPath(p string) bool { return strings.HasPrefix(p, apiBase+"/") }
@@ -123,6 +155,14 @@ func pathMatches(pattern, path string) bool {
 
 func (a *App) apiWrap(rt apiRoute) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if rt.Scope == scopeOpen {
+			if !a.r().cfg.API.Enabled {
+				apiFail(w, http.StatusServiceUnavailable, "api_off", "the API is off; an administrator turns it on in Settings")
+				return
+			}
+			rt.Handle(a, w, r, nil)
+			return
+		}
 		cl, ok := a.apiAuth(w, r)
 		if !ok {
 			return

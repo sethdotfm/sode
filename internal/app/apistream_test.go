@@ -158,7 +158,7 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{7, 1, 1}, {2, 1, 5}, {2, 2, 1}}})
 	a.mu.Unlock()
 	m = s.next()
-	strmWantType(t, m, "tally", "")
+	strmWantType(t, m, "tally", "tally")
 	json.Unmarshal(m.Data, &ty)
 	if len(ty.Routes) != 1 || ty.Routes[0] != (apiRouteRow{2, 2, 1}) {
 		t.Errorf("tally delta %s", m.Data)
@@ -169,7 +169,7 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	a.broadcast(a.namesMsg())
 	a.mu.Unlock()
 	m = s.next()
-	strmWantType(t, m, "names", "")
+	strmWantType(t, m, "names", "names")
 	if strings.Contains(string(m.Data), "SECRET") {
 		t.Errorf("names leak %s", m.Data)
 	}
@@ -178,7 +178,7 @@ func TestStreamSnapshotThenFilteredDeltas(t *testing.T) {
 	a.broadcast(statusMsg{T: "status", Router: "down", Addr: "r:1"})
 	a.mu.Unlock()
 	m = s.next()
-	strmWantType(t, m, "status", "")
+	strmWantType(t, m, "status", "status")
 	if !strings.Contains(string(m.Data), `"router":"down"`) {
 		t.Errorf("status %s", m.Data)
 	}
@@ -210,7 +210,7 @@ func TestStreamHistoryEntriesAndLateResults(t *testing.T) {
 	a.record(&mine)
 
 	m := hist.next()
-	strmWantType(t, m, "entry", "")
+	strmWantType(t, m, "entry", "history")
 	var e Entry
 	json.Unmarshal(m.Data, &e)
 	if e.ID != mine.ID || e.Dst != 2 {
@@ -225,9 +225,10 @@ func TestStreamHistoryEntriesAndLateResults(t *testing.T) {
 	a.broadcast(recentMsg{T: "recent", E: &late, Update: true})
 	a.broadcast(recentMsg{T: "recent", E: &Entry{ID: secret.ID, Src: 5, Dst: 7, Levels: []int{1}}, Update: true})
 	a.mu.Unlock()
+	// The topic is the one the client chose; a client with both gets history.
 	for name, s := range map[string]*strmConn{"history": hist, "results": results} {
 		m := s.next()
-		strmWantType(t, m, "entryUpdate", "")
+		strmWantType(t, m, "entryUpdate", name)
 		var u Entry
 		json.Unmarshal(m.Data, &u)
 		if u.ID != mine.ID || !u.OK || len(u.Late) != 1 {
@@ -239,7 +240,7 @@ func TestStreamHistoryEntriesAndLateResults(t *testing.T) {
 	a.mu.Lock()
 	a.broadcast(simpleMsg{T: "historyCleared"})
 	a.mu.Unlock()
-	strmWantType(t, hist.next(), "historyCleared", "")
+	strmWantType(t, hist.next(), "historyCleared", "history")
 }
 
 func TestStreamRefusals(t *testing.T) {

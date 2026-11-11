@@ -15,7 +15,7 @@ import (
 // (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock: a
 // locked wall panel must still save with the PIN. Locks require an Advanced Settings PIN (Validate).
 //
-//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history
+//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history activity
 //	needMain: `batch` `refreshNames`; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
 //	needAdmin: users apiSettings userSignOutAll configExport configImportBegin configImport
@@ -74,6 +74,8 @@ var policy = map[string]rule{
 		a.SignOut(c)
 		a.command(c, "userSignOut", "ok", "", nil)
 	}},
+	// the page's ping while its user is active (idle.go); never refused, never logged
+	"activity":   {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) { a.Activity(c) }},
 	"userSetPin": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserSetPin(c, m) }},
 	// counted in the settings pool. In line: a later lock is handled after, and one
 	// connection checks one PIN at a time.
@@ -91,6 +93,9 @@ var policy = map[string]rule{
 	// PIN, in the change-PIN pool. Inline, like userSetPin.
 	"keyCreate":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyCreate(c, m) }},
 	"keyRevoke":  {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevoke(c, m) }},
+	"sessionKey": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveSessionKey(c, m) }},
+	// the banner's Clear menu; a signed-in user only, checked in the handler
+	"panelAlarm": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveAlarm(c, m) }},
 	"keyListOwn": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListOwn(c, m) }},
 	"history":    {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 

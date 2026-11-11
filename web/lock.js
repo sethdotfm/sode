@@ -5,11 +5,12 @@
 // lock a Lock with nobody signed in (churning letter, behind the confirm lockout) can still be put up as a guard
 // against keyboard mashing: page-local state, a reload clears it.
 
-import { el, S, on, emit, onMsg, wsSend, sentence } from './core.js';
-import { readStr, writeStr, readTab, writeTab } from './store.js';
+import { el, S, on, emit, onMsg, wsSend } from './core.js';
+import { heldUserKept, keepHeldUser, lastUser, keepLastUser, startHandshake, keepSignInToken, forgetTokens, forgetSignIn, onSessionToken } from './signin.js';
 import {
   padKey,
   idleLock,
+  pingDue,
   pageType,
   liftFrom,
   shouldFly,
@@ -46,9 +47,7 @@ import {
   remembers,
   prefillName,
   focusName,
-  wantsTab,
-  hiToken,
-  tokenHome,
+  pinFreeView,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { createOwed } from './owed.js';
@@ -56,17 +55,7 @@ import { createIdleShare } from './idleshare.js';
 import { buildChip } from './lockchip.js';
 import { layout, onLayout } from './layout.js';
 
-// localStorage rather than a cookie: the socket's `hi` carries it, no HTTP endpoint is needed,
-// and a cookie would be JS-readable anyway (see docs/agents/users-locks.md).
-const TOKEN_KEY = 'sode-session';
-// A no-lock sign-in's token: this tab only (sessionStorage), so closing the tab signs out while a
-// reload stays in.
-const TAB_KEY = 'sode-tab-session';
-// Whose Lock this tab shows: this tab's sessionStorage, so a reload still names them. The
-// username box's prefill is the browser's (localStorage); no name ever comes from the server.
-const HELD_KEY = 'sode-held-user';
-const LAST_KEY = 'sode-last-user';
-let heldUser = readTab(HELD_KEY) || '';
+let heldUser = heldUserKept();
 const page = pageType(location.pathname);
 
 {
@@ -79,16 +68,8 @@ const page = pageType(location.pathname);
 const L = { enforced: false, locked: false, held: false, user: '', trusted: false, persistent: false, noAutoLock: false, lens: [], mode: 'pin' };
 export const lockState = () => ({ ...L });
 
-let hiFor = null;
-on('conn', () => {
-  if (S.wsState !== 'up' || S.ws === hiFor) return;
-  hiFor = S.ws;
-  wsSend({ t: 'hi', page, token: hiToken(readTab(TAB_KEY), readStr(TOKEN_KEY)) });
-});
-
-// Drop keys of the removed admin-browser sign-in.
-writeStr('sode-lock-token', null);
-writeStr('sode-lock-never', null);
+startHandshake(page);
+onSessionToken(() => !!L.user);
 
 let root = null;
 let brand, dotsEl, msg, state, chip, checkKey;
@@ -106,6 +87,8 @@ let seq = 0;
 let timer = 0;
 let inerted = [];
 let hideTimer = 0;
+let pinFree = false; // a Public panel's page, told by panelrun.js
+let lastState = null;
 
 function build() {
   if (root) return;
@@ -217,7 +200,8 @@ addEventListener('resize', () => {
   if (chip && !chip.root.hidden) placeChip();
 });
 
-const logo = () => [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-log__title')].find((e) => e.getBoundingClientRect().width > 0);
+const logo = () =>
+  [...document.querySelectorAll('.sode__mark, .sode-m__mark, .sode-log__title, .sode-panels__title')].find((e) => e.getBoundingClientRect().width > 0);
 const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const motionMs = () => (calmMotion.matches ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sode-lock-motion')) || 0);
 
@@ -254,7 +238,7 @@ function showLock() {
   clearTimeout(hideTimer);
   if (!root.hidden && root.classList.contains('is-on')) return;
   pin = '';
-  nameInput.value = prefillName(L, readStr(LAST_KEY));
+  nameInput.value = prefillName(L, lastUser());
   welcoming = false;
   clearFeedback();
   say('');
@@ -453,14 +437,11 @@ function sendPin() {
 onMsg('userUnlockResult', (m) => {
   if (m.id !== seq) return;
   if (m.ok) {
-    if (asksUsername(L) && remembers(m)) writeStr(LAST_KEY, nameValue().trim());
+    if (asksUsername(L) && remembers(m)) keepLastUser(nameValue().trim());
     pin = '';
     unlocked = true;
     say('');
-    if (m.token) {
-      if (tokenHome(m) === 'tab') writeTab(TAB_KEY, m.token);
-      else writeStr(TOKEN_KEY, m.token);
-    }
+    keepSignInToken(m);
     return;
   }
   pin = '';
@@ -470,24 +451,15 @@ onMsg('userUnlockResult', (m) => {
   say(w.note, !!w.note);
 });
 
-// A token sent outside an unlock (user already signed in when Never sign out was ticked, or
-// changed their own PIN). Kept only while this page is signed in.
-onMsg('session', (m) => {
-  // A held Lock's tab token arrives after the page already raised the Lock, so L.user is empty.
-  if (m.token && m.tab) writeTab(TAB_KEY, m.token);
-  else if (m.token && L.user) writeStr(TOKEN_KEY, m.token);
-});
-
 onMsg('lockState', (m) => {
   if (owed.arrived(m)) return;
   if (settle) settle();
   const was = lockCovers(L) || V.mode === MODE.SIGN_IN;
   const ended = heldEnded(L, m);
   heldUser = heldWho(heldUser, L, m);
-  writeTab(HELD_KEY, heldUser || null);
-  if (ended) writeStr(LAST_KEY, null);
-  L.enforced = !!m.enforced;
-  L.locked = !!m.locked;
+  keepHeldUser(heldUser);
+  if (ended) keepLastUser(null);
+  lastState = m;
   L.held = !!m.held;
   L.user = m.user || '';
   L.trusted = !!m.trusted;
@@ -496,19 +468,12 @@ onMsg('lockState', (m) => {
   L.lens = m.lens || [];
   L.mode = m.mode === 'username' ? 'username' : 'pin';
   S.userNames = m.names || [];
-  if (lockCovers(L) && letterLock) {
-    letterLock.lock.cancel();
-    letterLock = null;
-  }
-  V = lockArrived(V, lockCovers(L));
+  applyCover(m);
   // The Lock ended without this tab's PIN: it stays covered, as when signing out of the letter Lock.
   if (ended && !L.enforced) localLock();
   // Only the answer to our `hi` says whether the token was honored; a state sent for another
   // reason says nothing. A token the server no longer honors is forgotten.
-  if (tokenStale(m, L.user)) {
-    if (readStr(TOKEN_KEY)) writeStr(TOKEN_KEY, null);
-    if (readTab(TAB_KEY)) writeTab(TAB_KEY, null);
-  }
+  if (tokenStale(m, L.user)) forgetTokens();
   const done = () => {
     settle = null;
     welcoming = false;
@@ -532,6 +497,26 @@ onMsg('lockState', (m) => {
     return;
   }
   done();
+});
+
+// enforced and locked from m, as a Public panel's page sees them; a lock that covers ends the letter Lock.
+function applyCover(m) {
+  Object.assign(L, pinFreeView(m, pinFree));
+  if (lockCovers(L) && letterLock) {
+    letterLock.lock.cancel();
+    letterLock = null;
+  }
+  V = lockArrived(V, lockCovers(L));
+}
+
+// The panel page says whether it runs as a Public panel; the last lockState is read again.
+on('publicPanel', ({ on: free }) => {
+  if (pinFree === !!free) return;
+  pinFree = !!free;
+  if (!lastState) return;
+  applyCover(lastState);
+  render();
+  emit('access', { ...L });
 });
 
 on('logout', () => signOutNow());
@@ -589,7 +574,7 @@ function signInFromLock() {
   letterLock.lock.cancel();
   letterLock = null;
   V = startSignIn(V, true);
-  nameInput.value ||= prefillName(L, readStr(LAST_KEY));
+  nameInput.value ||= prefillName(L, lastUser());
   pin = '';
   clearTimeout(timer);
   clearFeedback();
@@ -612,7 +597,7 @@ function lockNow() {
   pin = '';
   clearTimeout(timer);
   heldUser = L.user;
-  writeTab(HELD_KEY, heldUser);
+  keepHeldUser(heldUser);
   Object.assign(L, raiseLock(L));
   render();
   emit('access', { ...L });
@@ -622,11 +607,8 @@ function lockNow() {
 // reload cannot undo it).
 function signOutNow() {
   if (!L.user && !L.held) return;
-  writeStr(TOKEN_KEY, null);
-  writeStr(LAST_KEY, null);
-  writeTab(TAB_KEY, null);
+  forgetSignIn();
   heldUser = '';
-  writeTab(HELD_KEY, null);
   wsSend({ t: 'userSignOut' });
   pin = '';
   clearTimeout(timer);
@@ -698,8 +680,10 @@ const idle = createIdleShare(typeof BroadcastChannel === 'function' ? new Broadc
 const touch = idle.touch;
 for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(ev, touch, { capture: true, passive: true });
 document.addEventListener('pointermove', touch, { passive: true });
+let lastPing = 0;
 setInterval(() => {
   const minutes = S.cfg?.autoLockMinutes || 0;
+  if (pingDue(L, lastPing, idle.lastActive(), Date.now()) && wsSend({ t: 'activity' })) lastPing = Date.now();
   if (idleLock(L, idle.lastActive(), Date.now(), minutes)) lockNow();
   else if (S.cfg && localIdleLock(L, !!letterLock, idle.lastActive(), Date.now(), minutes)) localLock();
 }, 5000);

@@ -56,7 +56,7 @@ export function makeRightsTab({ users, clients, touched }) {
 
   function draw() {
     const e = entryOf(pick);
-    const [kind, rid] = pick.split(':');
+    const [kind] = pick.split(':');
     const dirty = (field) => {
       e.dirty.add(field);
       touched();

@@ -165,7 +165,11 @@ func main() {
 	}()
 	log.Printf("sode: http on %s, router %q matrix %d, %d levels (UI 1 → wire %d)",
 		listen, cfg.Router, cfg.Matrix, cfg.Levels, 1+cfg.LevelWireOffset)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	ln, err := net.Listen("tcp", listen)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := srv.Serve(app.KeepAliveListener(ln)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 	// Run writes the stop row and the uptime's off line as it ends.

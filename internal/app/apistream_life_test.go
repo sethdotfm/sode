@@ -33,13 +33,13 @@ func TestStreamFollowsRightsChange(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	s := lifeTally(t, a, "tally")
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{7, 1, 5}}})
-	strmWantType(t, s.next(), "tally", "")
+	strmWantType(t, s.next(), "tally", "tally")
 
 	lifeCommit(t, a, func(c *config.Config) { c.APIClients[0].Rights = viewRights(config.VisHidden) })
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{7, 1, 5}}})
 	s.quiet(300 * time.Millisecond)
 	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
-	strmWantType(t, s.next(), "tally", "")
+	strmWantType(t, s.next(), "tally", "tally")
 }
 
 func lifeEnded(t *testing.T, a *App, s *strmConn, want string) {

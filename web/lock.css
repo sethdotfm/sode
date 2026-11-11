@@ -166,6 +166,8 @@ The way out is 1.5 times as long (OUT_FACTOR in lockrules.js) so its last frames
 }
 
 /* Top left, below the lost-link banner (--sode-down-h); the bottom left belongs to the shortcut tip. On the phone: under the header at --sode-head-h (measured by lock.js from .sode-m__head). */
+/* It floats and adds no height. The panel pages' header clears its width (--sode-who-w, set by lockchip.js) beside the
+   header row: keep its top and the bar's height in step with .sode-panels__head in panels.css. */
 .sode-lock__who {
   background: var(--pb-surface-base);
   color: var(--pb-text-muted);
@@ -450,10 +452,13 @@ a grey box rising under the fading overlay looked wrong behind the lock button. 
   gap: var(--pb-space-4);
   margin-top: var(--pb-space-5);
 }
+/* Capped so a long list scrolls inside its dialog or tab instead of running off the screen. */
 .sode__key-list {
   display: flex;
   flex-direction: column;
   gap: var(--pb-space-3);
+  max-height: 20rem;
+  overflow-y: auto;
 }
 .sode__key-row {
   align-items: center;

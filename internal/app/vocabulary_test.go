@@ -69,6 +69,10 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"hand lock", "soft lock", "screen lock"}, Re: wordRe(`(?i)(?:hand|soft|screen)[ -]lock`)},
 	{Terms: []string{"idle timeout"}, Re: wordRe(`(?i)idle[ -]timeout`)},
 	{Terms: []string{"This device"}, Re: wordRe(`(?i)this device`)},
+	// Only the panel sense: "lock the screen", "screen readers" and "home screen" stay.
+	{Terms: []string{"screen"}, Re: wordRe(`(?i)(?:this|that|one|each|every|per|no|watched|named|lost an?) screens?|screens?(?:'s)? (?:names?|offline|drops|signs? out|signed out|has opened|of (?:one|a|the) panel)|panels? (?:and|or) screens?`)},
+	{Terms: []string{"anonymous panel"}, Re: wordRe(`(?i)anonymous panels?`)},
+	{Terms: []string{"open panel"}, Why: "an open panel page is any panel page that is open, so a scan cannot tell it from a Public panel; a reviewer judges it by hand"},
 }
 
 // vocabMask blanks phrases that contain a retired word but stay: the Advanced Settings PIN,
@@ -108,11 +112,13 @@ var vocabAllow = []allowEntry{
 // identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
 // types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
 var identAllow = []allowEntry{
+	{"panel change", "web/panelpage.js", `panelRows`, "the rows of a panel's grid; the avoided phrase means a change made on a hardware panel"},
 	{"Recent", "web/core.js", `m\.recent`, "the `recent` message carries its entries under this field"},
-	{"refresh", "web/log.js", `^\s*refreshNames:`, "`log` command kind, as the server logs it"},
+	{"refresh", "web/logkinds.js", `^\s*refreshNames:`, "`log` command kind, as the server logs it"},
 	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},
+	{"salvo", "web/logkinds.js", `^\s*salvos?:`, "`log` command kinds, as the server logs them"},
 	{"salvo", "web/test/settingsindex.test.mjs", `^\s*salvo:`, "a search alias keeps the retired word"},
-	{"unlock", "web/log.js", `^\s*(?:unlock|userUnlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
+	{"unlock", "web/logkinds.js", `^\s*(?:unlock|userUnlock|adminUnlock):`, "`log` command kinds, as the server logs them"},
 	{"unlock", "", `\b(?:unlock|unlocked|isUnlocked|lostUnlock|sendUnlock)\b`, "names for the `unlock` and `userUnlock` messages and the access they grant (pin.js, lock.js); they hold a wire value, not a UI word"},
 	{"follows", ".js", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},
 	{"follows", ".mjs", `[Ff]ollows`, "the entries that followed one, built from the wire `follow` id; the glossary's External follow is the idea"},

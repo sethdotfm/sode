@@ -156,6 +156,115 @@ _Avoid_: This device
 **Guest**:
 Someone who is not signed in. A guest sees This browser and Everyone values and has no Me scope. Guests have one rights entry, and the same entry covers an API call that sends no key.
 
+### Panels
+
+**Panel**:
+A saved grid of tappable cells that patches the router from its own page, made for a wall tablet or a phone. It has an id, a display name and an owner. A panel acts as a user, with that user's Rights; as an API client of its own, with Rights no wider than its creator's; as both, the client when the page has a key, else the user who opens it; or as a Public panel.
+
+**Public panel**:
+A panel anyone with its URL may use, with no sign-in, PIN or key in the link. It acts as its own API client, with that client's Rights, which a Trusted user sets within their own. History names the client.
+_Avoid_: anonymous panel, open panel (for a Public panel; an open panel page is any panel page that is open)
+
+**Authentication mode**:
+Which of those a panel uses: User (Session mode), API, Both or Public. The editor's Access tab sets it, `acts` carries it over the API, and the panels list still calls it Acts as.
+
+**Hardware panel**:
+A physical router panel. Sode does not make these. Changes from one arrive as an External.
+
+**Instance**:
+One open page of a panel, named once in its browser (its device name) or by the link's `?instance=`. An instance with no name, on a panel with Ask for an instance name off, goes by its address. A panel is online while at least one instance is. A key, a watch and a Lost notice can each be for one instance.
+_Avoid_: screen (for an open panel page)
+
+**Ask for an instance name**:
+A panel setting, on by default, shown as "Ask users to set an instance name". Off, the panel's page never asks for a device name and shows none in its header. A link's `?instance=` and a name the browser already stored still apply, and an instance with neither goes by its address.
+
+**Cell**:
+One square of a panel's grid. It has a cell kind and may be a merged cell.
+
+**Cell kind**:
+What a cell does: Source, Destination, Preset, Take, Clear, Current Source, Panel Name, Instance Name, Page Name, Info, Go to Page, Next Page or Previous Page. A Source or Destination cell is bound to a router number and shows the Router name.
+
+**Current Source** (cell kind):
+A cell that shows, under the caption "Currently", the source now on the viewed destination. It cannot be pressed. It stays useful when that source has no cell in the grid.
+
+**Panel Name** (cell kind):
+A cell that shows the panel's name. It cannot be pressed. A caption is a line above the name.
+
+**Assign**:
+A trusted user sends one instance to a different panel from the panels page (Assign to). The instance's page switches at once with no prompt on the device. A panel that acts as an API client gives the instance a new key for it; a panel that acts as a user makes the device show the sign-in, where the person at the device types their own PIN. An instance that is online but has no valid key can be assigned too.
+
+**Keyless instance**:
+A panel page, open in a browser, with no valid key. It still reports its device name, or else its address, so a trusted user can see it and Assign it.
+
+**Instance Name** (cell kind):
+A cell that shows the name of the instance showing the page, its device name. It cannot be pressed. A caption is a line above the name.
+
+**Viewed destination**:
+The destination whose current and staged source a panel's Source cells show. Pressing a Destination cell views it.
+
+**Staged**:
+Describes a change a panel holds for one destination until Take. Each destination has its own, together they are the panel's plan, and Clear drops them all.
+
+**Merged cell**:
+A cell that spans several squares of the grid, such as a large Take cell.
+
+**Page**:
+One of up to 16 grids a panel holds, in order, each with an optional name. All pages of a panel are the same size and share one plan. A page's number is its position and changes when pages are reordered. A Page can be disabled, which greys out every cell that leads to it.
+
+**Browser page**:
+The web page a person opens, such as a panel's own page or the editor. Not a Page of a panel.
+
+**Go to Page** (cell kind):
+A cell that shows another Page of the panel. It is bound to that Page itself, so reordering or renaming the Page does not change its target. It still works when the target Page has no cells.
+
+**Next Page** / **Previous Page** (cell kinds):
+Cells that show the Page one after or one before the current one, skipping disabled Pages. Past the last or first Page they go to the other end, unless the panel's wrap setting is off.
+
+**Fill cascade**:
+What a paste's Wrap choice does when it runs past the last square of a Page: it continues on the later enabled Pages that hold no cells, skipping Pages that have cells, and stops at the last Page without returning to the first.
+
+**Page Name** (cell kind):
+A cell that shows the name, the number or both of the Page it sits on. It cannot be pressed.
+
+**Info** (cell kind):
+A cell that combines the panel's name, its Page's number, its Page's name and the instance's name, each switched on or off. It cannot be pressed.
+
+**Armed**:
+Describes a Take cell once a Source and a Destination are selected. It lights or blinks until pressed, and pressing it is the Confirm.
+
+**Take mode** / **Instant mode**:
+The panel setting that decides when a panel's plan is confirmed. In Take mode the armed Take cell must be pressed. In Instant mode pressing the Source is the Confirm. A panel can add a hold or a double press to guard the confirm.
+
+**Clear** (cell kind):
+Cancels the plan the panel has pending. It never changes the router.
+
+**Fixed destination**:
+A panel setting that holds a list of destinations the panel always patches to, at most 16. A panel with it set has no viewed destination to choose: a Source press stages a route to each one. An empty list turns it off.
+
+**Kiosk**:
+A panel setting that hides Sode's branding and settings so the page is only the grid.
+
+**Template**:
+A saved layout of a panel: its cell kinds, and optionally its settings and cell contents. By default cells come back unassigned. A template is saved to Me or Everyone.
+
+**Artwork**:
+The icon or image on a panel cell. A cell has Icon A (an icon or uploaded image) and Icon B (a number 0 to 16 or a letter A to Z). Artwork a cell sets itself wins over Default artwork.
+
+**Icon library**:
+The install-wide set of SVG and PNG icons that trusted users add, which any cell's Icon A can use. An SVG draws in the cell's text colour and a PNG keeps its colours. It is separate from the vendored icons and from a panel's own pictures.
+
+**Rescan**:
+Adds the SVG and PNG files in the Icon library's drop-in directory (`icons/drop-in/`), as Sode does at start. Needs a trusted user or the Advanced Settings PIN. A file it skips stays and is reported.
+
+**Default artwork**:
+Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell showing it that sets none of its own. One shared set for everyone; setting or clearing one needs a trusted user or the Advanced Settings PIN.
+
+**Push**:
+Copies a panel's saved config to other panels. Each target keeps its own name, id, sharing and fixed destinations, and a checkpoint of it is kept first so the Push can be put back.
+
+**Checkpoint set**:
+One saved layout per panel in a group, so a single Push gives each panel in the group its own layout.
+
 ### Interface
 
 **Patch boxes**:

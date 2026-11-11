@@ -1,4 +1,4 @@
-// /log uptime graph: turns the server's link record (state at range start, changes, per-slot bad counts) into coloured slots. Pure, no imports.
+// Uptime graph (/log, and each instance on /panels): turns the server's link record (state at range start, changes, per-slot bad counts) into coloured slots. Pure, no imports.
 
 const MIN = 60_000,
   HOUR = 60 * MIN,
@@ -90,12 +90,15 @@ export function summary(data) {
   return parts.join(', ');
 }
 
-export function slotText(s, fmt) {
+// words name the thing that is up: the router on /log, an instance on /panels.
+export const ROUTER_WORDS = { up: 'router up', down: 'router down' };
+
+export function slotText(s, fmt, words = ROUTER_WORDS) {
   const when = `${fmt(s.from)} – ${fmt(s.to)}`;
   if (s.colour === 'future') return `${when}: not yet`;
   if (s.colour === 'none') return `${when}: no record`;
   const pct = Math.floor((s.upMs / s.knownMs) * 1000) / 10;
-  const bits = [s.upMs === s.knownMs ? 'router up' : s.upMs ? `router up ${pct}% of the time` : 'router down'];
+  const bits = [s.upMs === s.knownMs ? words.up : s.upMs ? `${words.up} ${pct}% of the time` : words.down];
   if (s.bad) bits.push(`${s.bad} ${s.bad === 1 ? 'message' : 'messages'} failed or needed a retry`);
   if (s.slow) bits.push(`${s.slow} slow ${s.slow === 1 ? 'ACK' : 'ACKs'}`);
   return `${when}: ${bits.join(', ')}`;

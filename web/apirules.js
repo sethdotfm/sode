@@ -11,6 +11,8 @@ export const SCOPES = [
   { id: 'layouts', text: 'Panel layouts' },
   { id: 'log', text: 'Communication Log' },
   { id: 'take', text: 'Takes, Undo, Redo and Retry' },
+  { id: 'panels', text: 'Read panels' },
+  { id: 'panelsmanage', text: 'Manage panels' },
 ];
 
 export function apiProblem(a) {

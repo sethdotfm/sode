@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
+	"log"
 	"slices"
 	"strings"
 	"sync"
@@ -26,21 +27,24 @@ type gate int
 const (
 	gateMain gate = iota
 	gateLog
+	gatePanel
 )
 
 func (l gate) on(k config.Locks) bool {
 	switch l {
 	case gateLog:
 		return k.Log
+	case gatePanel:
+		return k.Panel
 	}
 	return k.Main
 }
 
-var pageGates = map[string]gate{"main": gateMain, "log": gateLog}
+var pageGates = map[string]gate{"main": gateMain, "log": gateLog, "panel": gatePanel}
 
 // connUser: page and sess guarded by App.mu; user is atomic.
 type connUser struct {
-	page string // "main" (default) or "log", as the page declared
+	page string // "main" (default), "log" or "panel", as the page declared
 	// sess: the token (from hi or issued at sign-in) and the Lock, shared with connections
 	// on the same token. While locked the user stays set so only their PIN resumes it;
 	// every access check treats a locked connection as signed in to nothing.
@@ -50,6 +54,8 @@ type connUser struct {
 	profile string
 	// rights: last myRights message sent (under mu); "" = none, so no clear is sent.
 	rights string
+	// offline: last panelsOffline message sent (under mu); "" = none.
+	offline string
 }
 
 func (c *client) who() string {
@@ -170,6 +176,7 @@ func (a *App) pushAccessMu(c *client, hi bool) {
 	a.deliver(c, b)
 	a.pushProfileMu(c) // only to the user it belongs to
 	a.pushRightsMu(c)
+	a.pushPanelsOfflineMu(c)
 }
 
 func (a *App) syncAccess(c *client) {
@@ -191,12 +198,20 @@ func (a *App) Hi(c *client, page, token string) {
 	if ok && heldOnly(u, page, cfg.Locks) && !a.tokens.locked(token) {
 		ok = false
 	}
+	held := ""
 	if ok && c.u.user.Load() == nil {
 		c.u.user.Store(&u)
 		a.adoptMu(c, token, a.tokens.locked(token))
+		// A browser back after the idle limit meets the Lock even before the next sweep.
+		if a.overdueMu(c, cfg, a.now()) {
+			held, _ = a.holdMu(c, true)
+		}
 	}
 	a.pushAccessMu(c, true)
 	a.mu.Unlock()
+	if held != "" {
+		a.tokens.save()
+	}
 	if ok {
 		a.tokens.touch(cfg, token) // a used token's age starts over
 	}
@@ -299,7 +314,7 @@ func (a *App) UserUnlockAs(c *client, username, pin string) error {
 	}
 	defer a.mu.Unlock()
 	// A token-X connection signing in as Y leaves X's session, or Y's Lock would end X's.
-	c.u.sess = &session{}
+	c.u.sess = &session{seen: a.now()}
 	c.u.user.Store(hit)
 	a.syncAccessMu(c)
 	return nil
@@ -316,6 +331,7 @@ func (a *App) SignOutAll(c *client, name string) error {
 		return errors.New("no such user")
 	}
 	a.tokens.dropUser(name)
+	a.endSessionKeys()
 	a.mu.Lock()
 	for cl := range a.clients {
 		if u := cl.u.user.Load(); u != nil && strings.EqualFold(u.Name, name) {
@@ -487,10 +503,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 		}
 		cur.Users = out
 		if req.APIClients != nil {
-			cur.APIClients = slices.Clone(*req.APIClients)
-			for i := range cur.APIClients {
-				cur.APIClients[i].Rights = cur.APIClients[i].Rights.Clone()
-			}
+			cur.APIClients = keepPanelClients(cur.APIClients, *req.APIClients)
 		}
 		if req.GuestRights != nil {
 			cur.GuestRights = req.GuestRights.Clone()
@@ -502,8 +515,44 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 	})
 	if err == nil {
 		a.auditRights(c, before, a.r().cfg)
+		a.panelsFollowUsers(before.Users, req.Users)
 	}
 	return err
+}
+
+// panelsFollowUsers keeps panel owner and sharing in step with a saved Users list. Rows keep
+// a user by Was (or Name), like profiles above.
+func (a *App) panelsFollowUsers(before []config.User, rows []userEdit) {
+	renames := map[string]string{}
+	kept := map[string]bool{}
+	for _, e := range rows {
+		name := strings.TrimSpace(e.Name)
+		pk := strings.ToLower(strings.TrimSpace(cmp.Or(e.Was, e.Name)))
+		kept[pk] = true
+		if e.Was != "" && strings.TrimSpace(e.Was) != name {
+			renames[pk] = name
+		}
+	}
+	removed := map[string]bool{}
+	for _, u := range before {
+		if k := strings.ToLower(u.Name); !kept[k] {
+			removed[k] = true
+		}
+	}
+	if len(renames) == 0 && len(removed) == 0 {
+		return
+	}
+	a.templates.followUsers(renames)
+	a.panels.sets.followUsers(renames)
+	a.mon.followUsers(renames, removed)
+	n, err := a.panels.followUsers(renames, removed)
+	if err != nil {
+		log.Printf("panels: user change reached %d panels, then: %v", n, err)
+		return
+	}
+	if n > 0 {
+		log.Printf("panels: user change updated %d panels", n)
+	}
 }
 
 type userResult struct {
@@ -568,6 +617,8 @@ type userView struct {
 	NoAutoLock bool   `json:"noAutoLock,omitempty"`
 	// Rights has no omitempty: an unset list is "all", an empty one "none".
 	Rights config.Rights `json:"rights"`
+	// PanelClients are the panel clients this user's panels have, for the Rights editor to list.
+	PanelClients []panelClientNote `json:"panelClients"`
 }
 
 func (a *App) usersList(id int) usersListMsg {
@@ -578,7 +629,11 @@ func (a *App) usersList(id int) usersListMsg {
 		m.APIClients = []config.APIClient{}
 	}
 	for _, u := range cfg.Users {
-		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights})
+		pc := a.panelClientsOf(cfg, u)
+		if pc == nil {
+			pc = []panelClientNote{}
+		}
+		m.Users = append(m.Users, userView{u.Name, u.Username, u.Len, u.Trusted, u.Persistent, u.NoAutoLock, u.Rights, pc})
 	}
 	return m
 }

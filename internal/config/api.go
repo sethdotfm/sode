@@ -19,9 +19,13 @@ const (
 	ScopeLayouts   = "layouts"
 	ScopeLog       = "log"
 	ScopeTake      = "take"
+	// Panels: reading is for any panel the caller may use; managing is create, update, delete,
+	// Save a copy and artwork uploads, and needs a user's key to own what it makes.
+	ScopePanels       = "panels"
+	ScopePanelsManage = "panelsmanage"
 )
 
-var AllScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeLog, ScopeTake}
+var AllScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeHistory, ScopeLayouts, ScopeLog, ScopeTake, ScopePanels, ScopePanelsManage}
 
 // DefaultGuestScopes is what a call with no key may read until an administrator widens it.
 var DefaultGuestScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus}
@@ -64,6 +68,28 @@ func (r Rights) IsOpen() bool {
 	return r.Sources == nil && r.Dsts == nil && r.Levels == nil && r.Presets == nil && !r.Hidden()
 }
 
+func subset[T comparable](l, of *[]T) bool {
+	if of == nil {
+		return true
+	}
+	if l == nil {
+		return false
+	}
+	for _, v := range *l {
+		if !slices.Contains(*of, v) {
+			return false
+		}
+	}
+	return true
+}
+
+// Within: r grants nothing o does not (ADR 0006's cap). An unset list is everything. Hidden
+// shows less than read-only, so it is within both, and read-only is not within hidden.
+func (r Rights) Within(o Rights) bool {
+	return subset(r.Sources, o.Sources) && subset(r.Dsts, o.Dsts) && subset(r.Levels, o.Levels) &&
+		subset(r.Presets, o.Presets) && (r.Hidden() || !o.Hidden())
+}
+
 func cloneList[T any](l *[]T) *[]T {
 	if l == nil {
 		return nil
@@ -80,11 +106,21 @@ func (r Rights) Clone() Rights {
 	return r
 }
 
-// APIClient is a non-person actor. Its keys live in the key store, not here.
+// PanelClientScopes is what a panel's own API client starts with: reading, tally and taking,
+// never `history`, `log` or `panelsmanage`. Only an administrator widens it.
+var PanelClientScopes = []string{ScopeNames, ScopeTally, ScopeProtected, ScopeStatus, ScopePresets, ScopeLayouts, ScopeTake, ScopePanels}
+
+// APIClient is a non-person actor. Its keys live in the key store, not here. Panel is the id of
+// the panel that owns a panel's own client (ADR 0006): such a client is made and removed with
+// its panel and does not count toward MaxAPIClients, which bounds the administrator's own.
 type APIClient struct {
 	Name   string   `yaml:"name" json:"name"`
 	Scopes []string `yaml:"scopes" json:"scopes"`
 	Rights Rights   `yaml:"rights,omitempty" json:"rights"`
+	Panel  string   `yaml:"panel,omitempty" json:"panel,omitempty"`
+	// Networks limits where the client's keys work: CIDRs, empty means anywhere. Set through a
+	// panel's Share tab (panelnet.go).
+	Networks []string `yaml:"networks,omitempty" json:"networks,omitempty"`
 }
 
 // APISettings: advanced settings, saved apart from the Settings form (owned).
@@ -172,7 +208,13 @@ func (c Config) validateAPI() []error {
 	for _, u := range c.Users {
 		u.Rights.validate("rights of "+u.Name, c.Levels, bad)
 	}
-	if len(c.APIClients) > MaxAPIClients {
+	own := 0
+	for _, cl := range c.APIClients {
+		if cl.Panel == "" {
+			own++
+		}
+	}
+	if own > MaxAPIClients {
 		bad("at most %d API clients", MaxAPIClients)
 	}
 	seen := map[string]bool{}

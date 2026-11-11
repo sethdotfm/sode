@@ -16,6 +16,7 @@ const (
 	actorAddress   = "address" // a source address, for rows no actor caused
 	apiWindow      = time.Minute
 	apiAuthFailMax = 10   // bad keys per address per window before that address waits
+	apiEndedMax    = 120  // answers to ended keys per address per window; more get 429
 	apiTrackMax    = 4096 // addresses tracked at once; further ones share one bucket
 	apiViaMax      = 32
 )
@@ -39,6 +40,7 @@ type rateWin struct {
 type apiState struct {
 	mu       sync.Mutex
 	fails    map[string]*authFail
+	ended    map[string]*authFail // answers to ended keys, apart from fails
 	rate     map[string]*rateWin
 	inflight int
 	idem     map[string]*idemSlot
@@ -71,38 +73,97 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 			Scopes: cfg.GuestAPIScopes, IP: ip}, true
 	}
 
+	secret, bearer := strings.CutPrefix(hdr, "Bearer ")
+	secret = strings.TrimSpace(secret)
+	var k apiKey
+	var cl *apiCtx
+	expired, ended, forgot := false, false, false
+	if bearer {
+		var found bool
+		k, expired, found = a.keys.find(secret, now)
+		if !found && !expired {
+			k, expired, found = a.public.find(secret, now)
+		}
+		if found {
+			cl = a.resolveKey(cfg, k, ip)
+			if sess := a.keys.sessionOf(k.ID); cl != nil && sess != "" && !a.tokens.live(sess, k.Owner.Name, cfg) {
+				cl = nil // its session ended; endSessionKeys has not yet swept the record
+			}
+			ended = cl == nil // a real key whose owner or session went, not yet swept
+		} else if !expired {
+			expired, ended = a.keys.endedAs(secret)
+			if !ended {
+				expired, ended = a.public.endedAs(secret)
+			}
+			// A public key this Sode has no record of: a restart forgot it, or it is a guess. Once the
+			// start is longer ago than a key lives, no real one can predate it, so it counts.
+			if !ended && isPublicShape(secret) {
+				ended = now.Sub(a.started) < publicKeyTTL
+				forgot = !ended
+			}
+		}
+	}
+	// A key that was real is answered for what it is, even during a lockout, and never counted:
+	// only unknown keys are guesses.
+	if expired || ended {
+		a.refuseEnded(w, ip, expired, now)
+		return nil, false
+	}
 	if wait := a.authWait(ip, now); wait > 0 {
 		a.authFailed(ip, now) // counted, so the row shows how hard the address kept trying
 		apiRetry(w, wait, "too many failed attempts from this address; wait before trying again")
 		return nil, false
 	}
-	secret, bearer := strings.CutPrefix(hdr, "Bearer ")
+	if forgot {
+		a.authFailed(ip, now)
+		apiFail(w, http.StatusUnauthorized, "key_revoked", revokedText) // so a page that slept through it asks again
+		return nil, false
+	}
 	if !bearer {
 		a.authFailed(ip, now)
 		apiFail(w, http.StatusUnauthorized, "invalid_key", "send your key as Authorization: Bearer <key>")
 		return nil, false
-	}
-	k, expired, found := a.keys.find(strings.TrimSpace(secret), now)
-	if expired {
-		a.authFailed(ip, now)
-		apiFail(w, http.StatusUnauthorized, "key_expired", "this key has expired")
-		return nil, false
-	}
-	var cl *apiCtx
-	if found {
-		cl = a.resolveKey(cfg, k, ip)
 	}
 	if cl == nil {
 		a.authFailed(ip, now)
 		apiFail(w, http.StatusUnauthorized, "invalid_key", "this key is not valid")
 		return nil, false
 	}
+	if c, ok := cfg.FindAPIClient(k.Owner.Name); ok && k.Owner.Kind == actorClient && !networkAllowed(c.Networks, ip) {
+		refuseNetwork(w, ip) // the key is valid, so this is not a failed attempt
+		return nil, false
+	}
 	cl.Actor.Via = via
-	if !a.apiRateOK(w, k.subject(), cfg.API.RateLimit, now) {
+	a.panelHeaders(r, cl, k)
+	if !a.apiRateOK(w, k.subject(), a.rateLimitFor(cfg.API.RateLimit, cl), now) {
 		return nil, false
 	}
 	a.keys.used(k.ID, now)
 	return cl, true
+}
+
+// panelHeaders ties the call to the panel page that made it, for log rows. A panel client's key
+// proves its panel, and the key's name is the instance when the page sends none (a key is made per
+// instance, panelkey.go). A user's key proves nothing, so `X-Sode-Panel` must name a panel that
+// exists and is marked unverified; a instance with no panel is dropped.
+func (a *App) panelHeaders(r *http.Request, cl *apiCtx, k apiKey) {
+	instance := cleanDevice(r.Header.Get("X-Sode-Instance"))
+	if cl.Panel != "" {
+		switch {
+		case instance != "":
+		case k.public: // every Public page holds a key named Public; name it by address, as the monitor does
+			instance = cleanDevice(cl.IP)
+		default:
+			instance = k.Name
+		}
+		cl.Actor.panel, cl.Actor.instance = cl.Panel, instance
+		return
+	}
+	id := strings.TrimSpace(r.Header.Get("X-Sode-Panel"))
+	if _, ok := a.panels.get(id); !ok || id == "" {
+		return
+	}
+	cl.Actor.panel, cl.Actor.instance, cl.Actor.panelSaid = id, instance, true
 }
 
 // resolveKey reads the owner live from the config, so a rights edit applies at once. nil if
@@ -121,9 +182,22 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 		if !ok {
 			return nil
 		}
-		return &apiCtx{Actor: Actor{Kind: actorClient, Name: c.Name, Key: k.Name}, Rights: c.Rights, Scopes: c.Scopes, Key: &kc, IP: ip}
+		act := Actor{Kind: actorClient, Name: c.Name, Key: k.Name}
+		if p, ok := a.panels.get(c.Panel); ok && c.Panel != "" {
+			act.Owner = p.Owner
+		}
+		return &apiCtx{Actor: act, Rights: c.Rights, Scopes: c.Scopes, Key: &kc, IP: ip, Panel: c.Panel}
 	}
 	return nil
+}
+
+// rateLimitFor scales a panel client's limit by its live devices: they share one key, and each
+// polls the router every 2 s.
+func (a *App) rateLimitFor(limit int, cl *apiCtx) int {
+	if limit <= 0 || cl.Panel == "" {
+		return limit
+	}
+	return limit * max(1, a.mon.liveCount(cl.Panel))
 }
 
 func apiRetry(w http.ResponseWriter, wait time.Duration, msg string) {
@@ -219,6 +293,48 @@ func (a *App) writeAuthFail(ip string, f *authFail) {
 		fmt.Sprintf("%d failed %s in a minute", f.n, plural(f.n, "authentication", "authentications")), nil)
 }
 
+// refuseEnded answers a key that ended: final, so the client stops. Its own count per address
+// caps how often it is answered and gives one `endedKeyUsed` row per window; it never touches
+// the failed-key throttle, so a stale page does not lock out the others at its address.
+func (a *App) refuseEnded(w http.ResponseWriter, ip string, expired bool, now time.Time) {
+	s := &a.apiS
+	s.mu.Lock()
+	if s.ended == nil {
+		s.ended = map[string]*authFail{}
+	}
+	k := ip
+	if _, ok := s.ended[k]; !ok && len(s.ended) >= apiTrackMax {
+		k = "other"
+	}
+	f := s.ended[k]
+	if f != nil && now.Sub(f.start) >= apiWindow {
+		a.writeEndedUse(k, f)
+		f = nil
+	}
+	if f == nil {
+		f = &authFail{start: now}
+		s.ended[k] = f
+	}
+	f.n++
+	over, wait := f.n > apiEndedMax, apiWindow-now.Sub(f.start)
+	s.mu.Unlock()
+	switch {
+	case over:
+		apiRetry(w, wait, "this address keeps sending a key that ended; stop using it")
+	case expired:
+		apiFail(w, http.StatusUnauthorized, "key_expired", "this key has expired; stop using it and get a new key")
+	default:
+		apiFail(w, http.StatusUnauthorized, "key_revoked", revokedText)
+	}
+}
+
+const revokedText = "this key was ended (revoked, replaced, its session ended or its owner changed); stop using it and get a new key"
+
+func (a *App) writeEndedUse(ip string, f *authFail) {
+	a.apiEvent(Actor{Kind: actorAddress, Name: ip}, "endedKeyUsed", "refused",
+		fmt.Sprintf("%d %s with a key that ended, in a minute", f.n, plural(f.n, "call", "calls")), nil)
+}
+
 // flushAuthFails writes the rows of windows that have ended and forgets idle throttle state.
 // Run from periodic; tests pass a later time.
 func (a *App) flushAuthFails(now time.Time) {
@@ -229,6 +345,12 @@ func (a *App) flushAuthFails(now time.Time) {
 		if now.Sub(f.start) >= apiWindow {
 			a.writeAuthFail(ip, f)
 			delete(s.fails, ip)
+		}
+	}
+	for ip, f := range s.ended {
+		if now.Sub(f.start) >= apiWindow {
+			a.writeEndedUse(ip, f)
+			delete(s.ended, ip)
 		}
 	}
 	s.pruneRate(now)

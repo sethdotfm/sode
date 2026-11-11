@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- /panels/<id> sits one level down; ../ is Sode's root -->
+<base href="../">
+<title>Sode Panel</title>
+<link rel="icon" type="image/svg+xml" href="panels-logo.svg">
+<link rel="icon" type="image/png" href="icon.png?s=192">
+<link rel="apple-touch-icon" href="icon.png?s=180">
+<!-- Added to the iOS Home Screen, the panel opens without Safari's bars; iOS has no Fullscreen API on iPhone. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Sode Panel">
+<script src="prepaint.js" data-only="theme"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/patchbay/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.tokens.css">
+<link rel="stylesheet" href="vendor/patchbay/css/patchbay.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="panels.css">
+<link rel="stylesheet" href="panelmon.css">
+<link rel="stylesheet" href="touch.css">
+</head>
+<body>
+
+<main class="sode-panels">
+  <header class="sode-panels__head">
+    <h1 class="sode-panels__title" id="panel-title">Sode Panel</h1>
+    <span id="panel-instance" hidden></span>
+    <span class="sode-panels__spacer"></span>
+    <button class="pb-btn pb-btn--outline pb-btn--sm pb-btn--icon pb-tip--end" id="panel-kiosk" type="button" aria-pressed="false" aria-label="Kiosk mode" data-pb-tip="Kiosk mode"></button>
+    <button class="pb-btn pb-btn--outline pb-btn--sm pb-btn--icon pb-tip--end" id="panel-screen" type="button" aria-pressed="false" aria-label="Full screen" data-pb-tip="Full screen"></button>
+    <button class="pb-btn pb-btn--outline pb-btn--sm pb-btn--icon pb-tip--end" id="panel-full" type="button" aria-pressed="false" aria-label="Full width" data-pb-tip="Full width"></button>
+  </header>
+  <p class="sode__hint" id="panels-note"></p>
+  <div class="sode-panel__device" id="panel-device" hidden>
+    <label for="panel-device-name">Name this instance, so its owner can tell it from the others
+      <input class="pb-input" id="panel-device-name" type="text" maxlength="40" autocomplete="off" placeholder="Lobby tablet">
+    </label>
+    <button class="pb-btn pb-btn--ok" type="button">Save</button>
+  </div>
+  <!-- A kiosk fixes this box to the bottom of the viewport (panels.css), so nothing here moves the grid. -->
+  <div class="sode-panel__foot" id="panel-foot">
+    <p class="sode-panel__status" id="panel-status" role="status" hidden></p>
+    <div class="sode-panel__update" id="panel-update" role="status" hidden>
+      <div class="pb-alert pb-alert--warn">
+        <div class="sode__banner-body"><div class="pb-alert__title">This panel was changed</div><span id="panel-update-text"></span></div>
+        <button class="pb-btn pb-btn--outline pb-btn--sm" id="panel-snooze" type="button">Snooze 60 s</button>
+        <button class="pb-btn pb-btn--ok pb-btn--sm" id="panel-apply" type="button">Apply now</button>
+      </div>
+      <div class="pb-progress sode__banner-time" id="panel-update-bar" hidden></div>
+    </div>
+  </div>
+  <div class="sode-panel__grid" id="panel-grid"></div>
+  <button class="pb-btn pb-btn--outline pb-btn--sm" id="panels-signin" type="button" hidden>Sign in</button>
+  <div class="sode-panel__offline pb-state-offline" id="panel-offline" role="alert" hidden>
+    <p class="sode-panel__offline-title">Offline</p>
+    <p class="sode-panel__offline-detail" id="panel-offline-detail"></p>
+  </div>
+  <!-- Landscape setting: iOS cannot lock the turn, so portrait gets this cover (panels.css). -->
+  <div class="sode-panel__turn" id="panel-turn" role="alert">
+    <p class="sode-panel__turn-text">Turn your device sideways to use this panel.</p>
+  </div>
+  <!-- The way home, bottom left like Sode's main page; a kiosk hides it. -->
+  <footer class="sode-panels__home" id="panel-home">
+    <a class="pb-btn pb-btn--ghost pb-btn--icon pb-tip--top" href="panels" aria-label="Panels" data-pb-tip="Panels"><span class="sode-logo" aria-hidden="true"></span></a>
+  </footer>
+</main>
+
+<script type="module" src="panelpage.js"></script>
+</body>
+</html>

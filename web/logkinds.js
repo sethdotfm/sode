@@ -15,6 +15,42 @@ export const KINDS = [
   { id: 'link', label: 'Router link', kinds: ['link', 'server'] },
 ];
 export const KIND_IDS = KINDS.map((g) => g.id);
+
+// Words for a row's why. A why with no entry shows as written.
+export const WHY_LABEL = {
+  take: 'Take',
+  undo: 'Undo',
+  retry: 'Retry',
+  check: 'Check before take',
+  confirm: 'Confirm take',
+  resync: 'Resync',
+  names: 'Name re-read',
+  keepalive: 'Link check',
+  connect: 'WebSocket connected',
+  disconnect: 'WebSocket dropped',
+  refreshNames: 'Re-read names',
+  clearHistory: 'Clear history',
+  config: 'Settings saved',
+  filterSets: 'Filter sets saved',
+  presets: 'Presets saved',
+  salvos: 'Presets saved', // salvos: rows logged before the rename
+  unlock: 'Advanced Settings PIN',
+  lock: 'Settings locked',
+  salvo: 'Native salvo',
+  userUnlock: 'User PIN',
+  userLock: 'User locked',
+  userSignOut: 'User signed out',
+  adminUnlock: 'Admin password (old rows)',
+  users: 'Users saved',
+  streamConnect: 'Stream connected',
+  streamDisconnect: 'Stream dropped',
+  panelLost: 'Panel instance lost',
+  panelBack: 'Panel instance back',
+  panelAlarm: 'Panel alarm',
+  panelSetup: 'Panel instance set up',
+  assign: 'Instance assigned',
+  rename: 'Instance renamed',
+};
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server']);
 // Saved lists of exactly these (pre-events) meant All.
 const LEGACY_IDS = ['connect', 'interrogate', 'keepalive', 'dump', 'names', 'other'];

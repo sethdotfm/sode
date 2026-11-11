@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/sethdotfm/sode/internal/config"
 )
@@ -21,13 +22,78 @@ type Actor struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
 	Key  string `json:"key,omitempty"`
-	Via  string `json:"via,omitempty"`
+	// Owner is who made a panel's own API client; it only gives the label a person to read.
+	Owner string `json:"owner,omitempty"`
+	Via   string `json:"via,omitempty"`
+
+	// Which panel page made the call, for Communication Log rows only (unexported, so History keeps
+	// its label). panel is the id. A panel's own key proves the panel; panelSaid marks one the page
+	// named itself in `X-Sode-Panel`, with a user's key. instance is the page's word (`X-Sode-Instance`),
+	// as the keepalive's device name is.
+	panel, instance string
+	panelSaid       bool
+}
+
+// panelShort is how log rows name a panel: its short name, else its id.
+func panelShort(p Panel) string {
+	if p.Slug != "" {
+		return p.Slug
+	}
+	return p.ID
+}
+
+// panelTag is the one wording for a panel in a row's Note: "panel wall (Lobby Wall), instance Front desk".
+func panelTag(p Panel, instance string) string {
+	s := "panel " + panelShort(p)
+	if p.Name != "" {
+		s += " (" + p.Name + ")"
+	}
+	if instance != "" {
+		s += ", instance " + instance
+	}
+	return s
+}
+
+// panelNames is what History shows for a take from a panel page: the panel's name (its short name when it has
+// none) and the instance, both "" for a call no panel page made. Taken at the take, so a later rename leaves it.
+func (a *App) panelNames(act Actor) (panel, instance string) {
+	if act.panel == "" {
+		return "", ""
+	}
+	p, ok := a.panels.get(act.panel)
+	if !ok {
+		p = Panel{ID: act.panel}
+	}
+	if p.Name != "" {
+		return p.Name, act.instance
+	}
+	return panelShort(p), act.instance
+}
+
+// panelNote is the actor's panel tag, or "" for a call no panel page made. A panel deleted since
+// auth is named by its id.
+func (a *App) panelNote(act Actor) string {
+	if act.panel == "" {
+		return ""
+	}
+	p, ok := a.panels.get(act.panel)
+	if !ok {
+		p = Panel{ID: act.panel}
+	}
+	tag := panelTag(p, act.instance)
+	if act.panelSaid {
+		tag = "unverified " + tag
+	}
+	return tag
 }
 
 // String is "Seth (Panel 21)", or the bare name with no key. Sode itself reads "Sode (system)".
 func (a Actor) String() string {
 	if a.Kind == actorSode {
 		return a.Name + " (system)"
+	}
+	if a.Owner != "" {
+		return a.Owner + " (" + a.Name + ")"
 	}
 	if a.Key == "" {
 		return a.Name
@@ -45,20 +111,26 @@ func (e *Entry) setActor(a Actor) {
 const kindAPI = "api" // an API command, refusal, key event, stream attach or failed sign-in
 
 // keyShape matches a key anywhere in text; apiEvent redacts it as a last line of defence.
-var keyShape = regexp.MustCompile(keyPrefix + `[A-Za-z0-9_-]{20,}`)
+var keyShape = regexp.MustCompile(keyPrefix + `(?:ses\.)?[A-Za-z0-9_-]{20,}`)
 
 func redactKeys(s string) string { return keyShape.ReplaceAllString(s, "[key]") }
 
-// apiEvent is the one writer of `api` rows: By is the actor and key name, Note the detail.
-// Callers never pass a key, hash or PIN; keys are redacted anyway.
+// apiEvent is the one writer of `api` rows: By is the actor and key name, Note the detail, then
+// the panel tag, then the via text. Callers never pass a key, hash or PIN; keys are redacted anyway.
 func (a *App) apiEvent(act Actor, why, result, note string, err error) {
 	e := event(kindAPI, why, redactKeys(act.String()), result)
 	e.Note = redactKeys(note)
-	if act.Via != "" {
+	add := func(s string) {
 		if e.Note != "" {
 			e.Note += "; "
 		}
-		e.Note += "unverified via: " + redactKeys(act.Via)
+		e.Note += s
+	}
+	if tag := a.panelNote(act); tag != "" {
+		add(redactKeys(tag))
+	}
+	if act.Via != "" {
+		add("unverified via: " + redactKeys(act.Via))
 	}
 	if err != nil {
 		e.Err = redactKeys(err.Error())
@@ -81,7 +153,15 @@ func (a *App) auditRights(c *client, was, now config.Config) {
 	for _, u := range now.Users {
 		ou, existed := was.FindUser(u.Name)
 		if !reflect.DeepEqual(ou.Rights, u.Rights) && (existed || !u.Rights.IsOpen()) {
-			row("rightsEdit", "rights of user "+u.Name)
+			note := "rights of user " + u.Name
+			if pc := a.panelClientsOf(now, u); len(pc) > 0 {
+				var l []string
+				for _, n := range pc {
+					l = append(l, n.Client+" ("+n.Name+")")
+				}
+				note += "; panel clients they created: " + strings.Join(l, ", ")
+			}
+			row("rightsEdit", note)
 		}
 		if ou.NoAutoLock != u.NoAutoLock {
 			row("noAutoLockEdit", fmt.Sprintf("No auto-lock of %s is now %v", u.Name, u.NoAutoLock))

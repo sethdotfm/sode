@@ -46,7 +46,11 @@ function listen() {
   );
 }
 
-// Stopped at root so the layouts' own keys don't act behind it.
+// How many dialogs the Esc stack holds, for the tests.
+export const heldDialogs = () => stack.length;
+
+// Stopped at root so the layouts' own keys don't act behind it. The stack holds a dialog only while it is shown:
+// a modal built per open is removed from the page on close, and a held root would keep its whole tree alive.
 export function trapDialog(root, dialog, onEsc) {
   const entry = { root, onEsc, order: 0 };
   stack.push(entry);
@@ -90,9 +94,12 @@ export function trapDialog(root, dialog, onEsc) {
       root.hidden = false;
       bringToFront(root);
       entry.order = ++shows;
+      if (!stack.includes(entry)) stack.push(entry);
     },
     hide() {
       root.hidden = true;
+      const i = stack.indexOf(entry);
+      if (i >= 0) stack.splice(i, 1);
     },
   };
 }

@@ -20,12 +20,19 @@ info:
 
     Via note. Any request may carry `X-Sode-Via`, free text (32 printable characters at most)
     that Sode records beside the key name in the Communication Log, marked unverified. The key
-    name itself is set when the key is made, so it is verified.
+    name itself is set when the key is made, so it is verified. A panel page also sends
+    `X-Sode-Panel` (the panel id) and `X-Sode-Instance` (its instance name, 40 characters at
+    most), so its rows name the panel's short name and the instance; with a user's key the
+    panel is the page's word and is marked unverified.
 
     Throttles. Each key has a rate limit per minute (the API settings default 600). A keyless
     call is limited per source address. Ten bad keys from one address in a minute make that
-    address wait. Both answer 429 `rate_limited` with `Retry-After` in seconds. CORS is off:
-    no cross-origin headers are sent.
+    address wait. Both answer 429 `rate_limited` with `Retry-After` in seconds; wait that long
+    before the next call. A key that worked and then ended (revoked, rotated, its session
+    ended, its owner or the owner's PIN changed) is 401 `key_revoked`, and one past its expiry
+    is 401 `key_expired`. Both are final: stop using the key. They do not count as bad keys,
+    so a forgotten page still sending one does not make its address wait. CORS is off: no
+    cross-origin headers are sent.
 
     Writes. A take request is its own Confirm: nothing asks a person, so guard the button on
     your side. The request is synchronous and returns when the router has answered or timed out
@@ -52,6 +59,13 @@ info:
     Rights. A take with any route outside the key's rights is refused whole, before anything is
     sent: 403 `outside_rights`, no results, no History entry, an `api` row in the Communication
     Log. Undo checks the destination and level but not the source it restores.
+
+    Panels. Panels need the API switch: they use the same switch, scopes, rate limit and error
+    shape as the rest of v1, and nothing under `/panels` answers while the API is off. A user's
+    key has both panel scopes. An API client or Guest has them only if set. A panel belongs to
+    a user. Its owner, or a Trusted user for anyone's, may change, delete and add artwork to it.
+    Everyone else it is shared with, by name or as Everyone, may only read it and Save a copy.
+    A panel the caller may not use is 404, never 403.
 servers:
   - url: /api/v1
 security:
@@ -62,6 +76,8 @@ tags:
     description: Current state and History
   - name: writes
     description: Takes, presets, Undo, Redo and Retry; scope `take`
+  - name: panels
+    description: Panels, their sharing and artwork; scopes `panels` and `panelsmanage`
   - name: stream
     description: Live changes over a WebSocket
 paths:
@@ -430,6 +446,1472 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Error" }
+  /panels:
+    get:
+      operationId: listPanels
+      tags: [panels]
+      summary: Panels this key may use
+      description: |
+        Scope `panels`. The panels the caller owns, the ones shared with it by name or with
+        Everyone, and, for a Trusted user, every panel. A client also sees the panel it is the
+        API client of. `canEdit` is false for a panel the caller may only use.
+      responses:
+        "200":
+          description: Panels, by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [panels]
+                properties:
+                  panels: { type: array, items: { $ref: "#/components/schemas/Panel" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createPanel
+      tags: [panels]
+      summary: Create a panel
+      description: |
+        Scope `panelsmanage`. Needs a user's key: the user becomes the owner (403 `user_required`
+        for a client or Guest). Id, owner and artwork are set by Sode. Rows and columns default
+        to 4 and 8, `acts` to `session` and `share` to `me`. At most 500 panels exist (409
+        `conflict`). The body is at most 4 MB.
+
+        The grid is `pages`, 1 to 16 Pages in order (ADR 0007). A Page's number is its place in
+        the list and its `id` never changes; a Page sent without one gets one. A body with `cells`
+        and no `pages`, from a client written before Pages, makes one Page of them; one with both
+        is 400 `bad_request`.
+
+        `acts: api` makes the panel an API client of its own, named `Panel <id>` and made with
+        the panel; `acts: both` does the same and the page falls back to Session mode (a
+        sign-in) when opened without a key, and `acts: public` does the same and hands any page a
+        short-lived key for it (`POST /panels/{id}/public`). Only a Trusted user may (403 `trusted_required`). `clientRights` are its
+        rights and default to the creator's; any list wider than the creator's own is 403
+        `outside_rights`, and nothing is created. Its scopes start as names, tally, protected,
+        status, presets, history, layouts, take and panels. Its keys are made elsewhere. It
+        shows in the administrator's client list and does not count toward the limit of API
+        clients.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PanelIn" }
+            example: { name: Studio A, rows: 4, cols: 8, pages: [{ id: 1a2b3c4d, name: Cameras, enabled: true, cells: [] }], settings: {} }
+      responses:
+        "201":
+          description: The new panel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/people:
+    get:
+      operationId: listPanelPeople
+      tags: [panels]
+      summary: Users a panel may be shared with
+      description: |
+        Scope `panels`. Needs a user's key (403 `user_required` for an API client or Guest). The
+        names of Sode's users, for the Share picker and nothing else: no PINs, flags or Rights.
+        Put the names in a panel's `share.users` with `PUT /panels/{id}`.
+      responses:
+        "200":
+          description: User names, in the order of the Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      required: [name]
+                      properties:
+                        name: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /default-artwork:
+    get:
+      operationId: listDefaultArtwork
+      tags: [panels]
+      summary: Default artwork
+      description: |
+        Scope `panels`. One shared set for everyone. A key whose Visibility is Hidden sees only the
+        defaults of items inside its Rights (a Preset only when the whole preset is).
+      responses:
+        "200":
+          description: Defaults
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [defaults]
+                properties:
+                  defaults: { type: array, items: { $ref: "#/components/schemas/ArtDefault" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: setDefaultArtwork
+      tags: [panels]
+      summary: Set an item's Default artwork
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` (403 `trusted_required`, a wrong PIN counts toward its
+        lockout). Replaces any default for the same item. Needs Icon A or Icon B. A panel's
+        artwork id is copied from `panel`, which the caller must be able to read (404
+        `not_found`), and comes back as a `d-` id; the copy passes the same 2 MB and 1024 by 1024
+        checks as an upload, and all Default artwork images together stay under 64 MB (409
+        `conflict`). An item a Hidden key cannot see is 403 `outside_rights`. Every open panel
+        showing the item updates with no panel save.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArtDefaultIn" }
+            example: { kind: source, n: 3, art: "icon:camera", artB: "2", hideText: true }
+      responses:
+        "200":
+          description: The default as stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArtDefault" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: clearDefaultArtwork
+      tags: [panels]
+      summary: Clear an item's Default artwork
+      description: |
+        Scope `panelsmanage`, with the same user, Trusted or `pin` rule as setting one. The body
+        names the item (`kind` with `n`, or `scope` and `name`). 404 `not_found` when it has none.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArtDefaultIn" }
+            example: { kind: source, n: 3 }
+      responses:
+        "204": { description: Cleared }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /default-artwork/images/{art}:
+    parameters:
+      - { name: art, in: path, required: true, schema: { type: string, pattern: "^d-[0-9a-f]{8}$" } }
+    get:
+      operationId: getDefaultArtworkImage
+      tags: [panels]
+      summary: A Default artwork image
+      description: |
+        Scope `panels`. Served with the same headers as a panel's artwork. 404 `not_found` unless a
+        default the caller may see names it.
+      responses:
+        "200":
+          description: The image, in its stored type
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /icon-library:
+    get:
+      operationId: listLibraryIcons
+      tags: [panels]
+      summary: The Icon library
+      description: |
+        Scope `panels`. One install-wide set of SVG and PNG icons that any cell's Icon A can name as
+        `lib:<id>`.
+      responses:
+        "200":
+          description: Icons
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [icons]
+                properties:
+                  icons: { type: array, items: { $ref: "#/components/schemas/LibIcon" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: addLibraryIcon
+      tags: [panels]
+      summary: Add an icon to the Icon library
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` (403 `trusted_required`, a wrong PIN counts toward its
+        lockout). The file rides base64 in `data` and its type is read from its content: PNG or SVG
+        only (415 `unsupported_type`). The artwork limits apply: 2 MB (413 `too_large`) and, for a
+        PNG, 1024 by 1024 pixels (400 `bad_request`). All icons together stay under 64 MB (409
+        `conflict`). The name is trimmed and is 1 to 40 characters (400 `bad_request`); one another
+        icon has, ignoring case, is stored as "Name 2", "Name 3" and so on, so read the stored name
+        from the answer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, data]
+              properties:
+                name: { type: string, maxLength: 40 }
+                data: { type: string, format: byte, description: The PNG or SVG file, base64 }
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+            example: { name: Station logo, data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }
+      responses:
+        "201":
+          description: The icon as stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibIcon" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /icon-library/rescan:
+    post:
+      operationId: rescanLibraryIcons
+      tags: [panels]
+      summary: Add the files in the Icon library's drop-in directory
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` in an optional JSON body (403 `trusted_required`). Reads
+        `icons/drop-in/` beside the config, as Sode does at start. Each PNG or SVG file there is
+        checked as an upload is (2 MB, 1024 by 1024 for a PNG, the 64 MB total), named after its
+        file name without the extension ("Name 2" on a clash), added and removed from the directory.
+        A file that fails is left there and listed in `skipped` with the reason; links and directories
+        are never followed. Answers 200 even when nothing was added.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+      responses:
+        "200":
+          description: What was added and what was skipped
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [added, skipped]
+                properties:
+                  added: { type: array, items: { $ref: "#/components/schemas/LibIcon" } }
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, reason]
+                      properties:
+                        file: { type: string, description: The file's name in the drop-in directory }
+                        reason: { type: string }
+              example:
+                added: [{ id: 3fa9c2d1, name: Station logo, type: image/svg+xml, size: 1830 }]
+                skipped: [{ file: Wide.png, reason: "artwork is at most 1024 by 1024 pixels, this one is 2048 by 512" }]
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /icon-library/{icon}:
+    parameters:
+      - { name: icon, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{8}$" } }
+    get:
+      operationId: getLibraryIcon
+      tags: [panels]
+      summary: A library icon's file
+      description: |
+        Scope `panels`. Served with the same headers as a panel's artwork. 404 `not_found` for an id
+        the library does not hold; a cell naming it draws no Icon A.
+      responses:
+        "200":
+          description: The icon, in its stored type
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: renameLibraryIcon
+      tags: [panels]
+      summary: Rename a library icon
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` (403 `trusted_required`). The id stays, so every cell naming
+        it keeps it. The name follows the upload's rules: trimmed, 1 to 40 characters (400
+        `bad_request`), and one another icon has, ignoring case, is stored as "Name 2" and so on.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 40 }
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+            example: { name: Studio logo }
+      responses:
+        "200":
+          description: The icon as stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibIcon" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteLibraryIcon
+      tags: [panels]
+      summary: Delete a library icon
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`) who is Trusted, or the
+        Advanced Settings PIN as `pin` in an optional JSON body (403 `trusted_required`). Cells
+        that name the icon are left as they are and draw no Icon A; their Icon B and text stay.
+        Read `/icon-library/{icon}/uses` first to say how many cells that is.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /icon-library/{icon}/uses:
+    parameters:
+      - { name: icon, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{8}$" } }
+    get:
+      operationId: countLibraryIconUses
+      tags: [panels]
+      summary: How many cells use a library icon
+      description: |
+        Scope `panelsmanage`. Counts cells whose Icon A is `lib:<icon>` across every panel, not only
+        the caller's, and the panels they are on. Counts only. An id the library does not hold is
+        counted too, so cells left after a delete show here.
+      responses:
+        "200":
+          description: Counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cells, panels]
+                properties:
+                  cells: { type: integer }
+                  panels: { type: integer }
+              example: { cells: 3, panels: 2 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-templates:
+    get:
+      operationId: listPanelTemplates
+      tags: [panels]
+      summary: Templates this key may use
+      description: |
+        Scope `panels`. The Everyone templates, plus the caller's own Me templates for a user's
+        key. By name.
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates]
+                properties:
+                  templates: { type: array, items: { $ref: "#/components/schemas/PanelTemplate" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createPanelTemplate
+      tags: [panels]
+      summary: Save a template
+      description: |
+        Scope `panelsmanage`. Needs a user's key (403 `user_required`). Saves a layout: rows,
+        columns and each cell's type, levels and look. Cell contents (`n`, `scope`, `name`,
+        `caption`) are dropped unless asked for: `sources` keeps those of Source and Preset cells,
+        `dests` those of Destination cells, so by default every cell comes back unassigned. The
+        older `contents: true` still works and means both. `settings` are kept when sent, except
+        `settings.fixedDests`, which is kept only with `dests`. Artwork ids are never kept, since artwork
+        belongs to one panel. A name is unique within Everyone, or within one user's Me
+        templates, ignoring case (409 `conflict`); at most 200 templates exist.
+
+        Scope `everyone` needs a Trusted user, or the Advanced Settings PIN sent as `pin` in the
+        body (403 `trusted_required`, also for a wrong PIN, which counts toward the PIN's
+        lockout). The PIN is never stored. The body is at most 4 MB. A template carries every Page
+        with its id, as a panel does; `cells` alone makes one Page.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PanelTemplateIn" }
+            example: { name: Studio layout, scope: me, rows: 4, cols: 8, pages: [{ id: 1a2b3c4d, enabled: true, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: source }] }] }
+      responses:
+        "201":
+          description: The template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PanelTemplate" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-templates/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^t-[0-9a-f]{8}$" } }
+    get:
+      operationId: getPanelTemplate
+      tags: [panels]
+      summary: Read a template
+      description: Scope `panels`. Another user's Me template is 404 `not_found`, as if it did not exist.
+      responses:
+        "200":
+          description: The template
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PanelTemplate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePanelTemplate
+      tags: [panels]
+      summary: Delete a template
+      description: Scope `panelsmanage`. The user who saved it, or a Trusted user for an Everyone template (403 `not_owner` otherwise).
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    get:
+      operationId: getPanel
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
+      tags: [panels]
+      summary: Read a panel
+      description: |
+        Scope `panels`. `{id}` may also be the panel's short name (`slug`) on this route and on the
+        setup route only; every other route takes the id. A panel the caller may not use is 404
+        `not_found`, as if it did not exist, and an unknown short name answers the same way.
+      responses:
+        "200":
+          description: The panel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updatePanel
+      tags: [panels]
+      summary: Update a panel
+      description: |
+        Scope `panelsmanage`. Replaces the panel with the body. Only the owner, or a Trusted user
+        for anyone's, may (403 `not_owner` for a panel the caller may only use). Id, owner, API
+        client and artwork cannot be changed here. A field Sode does not know that is stored on
+        the panel and left out of the body is kept.
+
+        `acts` decides the API client: `api`, `both` or `public` makes one if the panel has none (and
+        switching between them keeps it), and `session` removes it with its keys. Switching to
+        `public` checks the caller as a new client would (Trusted, Rights within the caller's) even
+        when `clientRights` stay as stored, and leaving `public` ends every key it handed out. `clientRights` left out, or equal to the stored ones, change
+        nothing. Any other value needs a Trusted caller and must be within the caller's own
+        rights (403 `trusted_required`, `outside_rights`), and the panel is left as it was when
+        refused. Only the Advanced Settings PIN widens a client past its creator.
+
+        A body with `cells` and no `pages` changes only Page 1's cells and keeps the other Pages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PanelIn" }
+      responses:
+        "200":
+          description: The panel as saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePanel
+      tags: [panels]
+      summary: Delete a panel
+      description: Scope `panelsmanage`. The owner, or a Trusted user for anyone's. Its artwork goes with it.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/copy:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: copyPanel
+      tags: [panels]
+      summary: Save a copy
+      description: |
+        Scopes `panelsmanage` and `panels`. Needs a user's key and a panel the caller may use.
+        Makes a panel the caller owns: private, acting as a session user, with the grid,
+        settings and artwork of the source. The body is optional, `{"name":"..."}`; the default
+        name is the source's name plus " copy".
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: The copy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/push:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: pushPanel
+      tags: [panels]
+      summary: Push a panel's saved layout to other panels
+      description: |
+        Scope `panelsmanage`. Copies the grid (`rows`, `cols`, and `pages`, every Page with its id), `settings` and unknown
+        fields of the saved panel onto each target. Each target keeps its own `name`, `id`, `owner`,
+        `share` and `settings.fixedDests`. `acts`, the API client and its rights are never copied, so a Push cannot
+        make a session panel act as an API client or widen a client; artwork the target lacks is
+        copied. A checkpoint of each target is kept first. The caller must be able to change the
+        source and every target (the owner, or a Trusted user for anybody's); if any target is
+        refused, none is changed. Open panels update like a saved edit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targets]
+              properties:
+                targets: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      responses:
+        "200":
+          description: Each target, its new `rev` and the checkpoint kept first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/checkpoints:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    get:
+      operationId: listCheckpoints
+      tags: [panels]
+      summary: List a panel's checkpoints
+      description: |
+        Scope `panels`. Newest first, at most 10: the layouts the panel had before a Push or a
+        restore. For the owner or a Trusted user.
+      responses:
+        "200":
+          description: Checkpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checkpoints]
+                properties:
+                  checkpoints: { type: array, items: { $ref: "#/components/schemas/Checkpoint" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/checkpoints/{cp}/restore:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: cp, in: path, required: true, schema: { type: string, pattern: "^c-[0-9a-f]{8}$" } }
+    post:
+      operationId: restoreCheckpoint
+      tags: [panels]
+      summary: Put a checkpoint back
+      description: |
+        Scope `panelsmanage`. Restores the checkpoint's layout. What it replaces is kept as a new
+        checkpoint, so a restore can be undone too. Name, sharing and the API client are untouched.
+      responses:
+        "200":
+          description: The panel after the restore
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Panel" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-sets:
+    get:
+      operationId: listCheckpointSets
+      tags: [panels]
+      summary: List checkpoint sets
+      description: |
+        Scope `panels`. The caller's own Me sets and every Everyone set. A user's key only; any
+        other key gets an empty list.
+      responses:
+        "200":
+          description: Checkpoint sets, without their cells
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sets]
+                properties:
+                  sets: { type: array, items: { $ref: "#/components/schemas/CheckpointSet" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createCheckpointSet
+      tags: [panels]
+      summary: Save a checkpoint set
+      description: |
+        Scope `panelsmanage`. Saves the listed panels' current saved layouts, one each. The caller
+        must be able to change every panel listed. A set for `everyone` needs a Trusted user, or
+        the Advanced Settings PIN sent as `pin` in the body (403 `trusted_required`, also for a
+        wrong PIN, which counts toward the PIN's lockout). The PIN is never stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, panels]
+              properties:
+                name: { type: string, maxLength: 60 }
+                scope: { type: string, enum: [me, everyone], default: me }
+                panels: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+                pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for an Everyone set by a user who is not Trusted. Never stored" }
+      responses:
+        "201":
+          description: The set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckpointSet" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-sets/{sid}:
+    parameters:
+      - { name: sid, in: path, required: true, schema: { type: string, pattern: "^s-[0-9a-f]{8}$" } }
+    put:
+      operationId: updateCheckpointSet
+      tags: [panels]
+      summary: Rename a checkpoint set or save its layouts again
+      description: |
+        Scope `panelsmanage`. `name` renames it. `panels` replaces its entries with those panels'
+        current saved layouts. The owner, or a Trusted user for an Everyone set, or anyone who sends
+        the Advanced Settings PIN as `pin` for an Everyone set (403 `trusted_required` for a wrong
+        one). The PIN is never stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 60 }
+                panels: { type: array, minItems: 1, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+                pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for an Everyone set by a user who is not Trusted. Never stored" }
+      responses:
+        "200":
+          description: The set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckpointSet" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteCheckpointSet
+      tags: [panels]
+      summary: Delete a checkpoint set
+      description: |
+        Scope `panelsmanage`. The owner, or a Trusted user for an Everyone set, or anyone who sends
+        the Advanced Settings PIN as `pin` in a JSON body for an Everyone set (403
+        `trusted_required` for a wrong one).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for an Everyone set by a user who is not Trusted. Never stored" }
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panel-sets/{sid}/push:
+    parameters:
+      - { name: sid, in: path, required: true, schema: { type: string, pattern: "^s-[0-9a-f]{8}$" } }
+    post:
+      operationId: pushCheckpointSet
+      tags: [panels]
+      summary: Push a checkpoint set
+      description: |
+        Scope `panelsmanage`. Gives each panel in the set its own saved layout, keeping a
+        checkpoint of each first, with the same rules as pushing a panel. The caller must be able
+        to change every panel pushed to. `targets` narrows it to some of the set's panels. A panel
+        that no longer exists is skipped and listed in `skipped`. The body may be empty.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targets: { type: array, items: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      responses:
+        "200":
+          description: Panels pushed to and panels skipped
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/key:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: makePanelKey
+      tags: [panels]
+      summary: Make or rotate the key of a named instance of a panel
+      description: |
+        Scope `panelsmanage`. Needs a user's key, and the panel's owner or a Trusted user. Only for
+        a panel that acts as an API client (409 `conflict` otherwise). A panel holds one key per
+        named instance, at most 20 (keys and pending setup links together; 409 `conflict` past
+        that). `instance` is required (400 `bad_request`) and is also the instance's device name.
+        Names are unique on the panel ignoring case, so a name that already holds a key rotates
+        that instance only: its old key and open streams end and the other instances keep theirs.
+        The new secret is shown this once and stored only as a hash. The key never expires. `link`
+        is relative to Sode's root and carries the name in the query and the key in the URL
+        fragment (`#key=`), so the key never reaches a request line, a proxy log or a Referer.
+        Opening it runs the panel as its API client with no sign-in. A key in a query string is
+        not a credential.
+
+        With `{"setup": true}` in the body (secure mode) it ends that instance's key the same way
+        and returns a one-time setup link instead of a key. The panel page posts the token to
+        `POST /panels/{id}/setup` and keeps the key it gets in the browser, named for the
+        instance, so the link works once and for one hour. A newer link or key for the same name,
+        a revoke of it or deleting the panel ends it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instance]
+              properties:
+                instance: { type: string, maxLength: 40, description: The instance's name, also its device name }
+                setup: { type: boolean, description: Make a one-time setup link, not a key }
+      responses:
+        "201":
+          description: The new key, or with `setup` the new setup link
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key: { type: string, description: The secret, shown once. Not in a setup answer }
+                  id: { type: string, description: The key's id in the key list. Not in a setup answer }
+                  instance: { type: string, description: The instance's name as stored }
+                  rotated: { type: boolean, description: True when this instance's older key was ended }
+                  link: { type: string, description: "`panels/<id>?instance=<name>#key=<secret>`, or with `setup` `panels/<id>?instance=<name>#setup=<token>`, relative to Sode's root. Sode's own pages build a shorter link: the short name when there is one, and the secret without its `sode_` or `sode_setup_` prefix" }
+                  setup: { type: string, description: The one-time token, shown once. Only in a setup answer }
+                  expires: { type: string, format: date-time, description: When the setup link stops working. Only in a setup answer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: revokePanelKey
+      tags: [panels]
+      summary: Revoke one instance's key
+      description: |
+        Scope `panelsmanage`, owner or Trusted, a user's key. Ends the named instance's key, any
+        pending setup link for it and its open streams. The panel, its API client and the other
+        instances stay. Revoking an instance that has none is a 204 too.
+      parameters:
+        - { name: instance, in: query, required: true, schema: { type: string, maxLength: 40 }, description: The instance's name, ignoring case }
+      responses:
+        "204": { description: Revoked }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/keys:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    get:
+      operationId: listPanelKeys
+      tags: [panels]
+      summary: List a panel's instances
+      description: |
+        Scope `panelsmanage`, owner or Trusted, a user's key, a panel that acts as an API client
+        (409 `conflict` otherwise). One row per named instance: a key, or a one-time setup link
+        that has not been used. Never a secret. `online` is true while a screen with that device
+        name counts as online.
+      responses:
+        "200":
+          description: The instances, by name, and the limit
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys, max]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, created, online]
+                      properties:
+                        id: { type: string }
+                        name: { type: string, description: The instance's name }
+                        created: { type: string, format: date-time }
+                        lastUsed: { type: string, format: date-time, description: Absent until the key is first used }
+                        online: { type: boolean }
+                        setup: { type: boolean, description: True when only a one-time setup link is pending }
+                        expires: { type: string, format: date-time, description: When a pending setup link stops working }
+                  max: { type: integer, description: The most instances a panel may hold }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/setup:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
+    post:
+      operationId: exchangePanelSetup
+      tags: [panels]
+      summary: Trade a one-time setup link for an instance's key
+      security: []
+      description: |
+        Needs no key (route scope `none`): the token is the credential. It works once, for an hour.
+        The answer is a new key for the instance the link was made for, shown this once. A token that was used,
+        expired or replaced is 401 `invalid_setup`. Wrong tokens count against the same
+        per-address limit as wrong keys (429 `rate_limited`). From outside the panel's allowed
+        networks it is 403 `network_not_allowed` and the link stays usable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [setup]
+              properties:
+                setup: { type: string, description: The token from the `#setup=` fragment }
+      responses:
+        "201":
+          description: The new key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, id]
+                properties:
+                  key: { type: string }
+                  id: { type: string }
+                  instance: { type: string, description: The instance's name, which is also the key's name }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/public:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
+    post:
+      operationId: askPanelPublicKey
+      tags: [panels]
+      summary: Get a short-lived key for a Public panel
+      security: []
+      description: |
+        Needs no key (route scope `none`): the panel page asks here when it has no key, since it
+        cannot read the panel's mode without one. A panel with `acts: public` answers 201 with a
+        new key for its own client, with the client's Rights and scopes, that ends 15 minutes on
+        (`expires`); the page asks again when a call answers `key_expired` or `key_revoked`. The
+        key is held in memory only, so a restart ends it, and at most 64 are live per panel (past
+        that the asking address's oldest ends, else the panel's oldest). It never shows in the
+        panel's instance list. Any other panel, an id or short name that names no panel, and a
+        Public panel asked from outside its client's allowed networks all answer 200
+        `{"public": false}`. Each address may ask 128 times a minute, whatever the id (fewer when
+        the API rate limit is lower), then gets 429 `rate_limited`. Leaving `public` or deleting
+        the panel ends every key it handed out.
+      responses:
+        "200":
+          description: The panel is not Public
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [public]
+                properties:
+                  public: { type: boolean, enum: [false] }
+        "201":
+          description: A short-lived key for the panel's client
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [public, key, expires, panel]
+                properties:
+                  public: { type: boolean, enum: [true] }
+                  key: { type: string }
+                  expires: { type: string, format: date-time }
+                  panel: { type: string, description: The panel's id }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/networks:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    put:
+      operationId: setPanelNetworks
+      tags: [panels]
+      summary: Set the networks a panel's key may be used from
+      description: |
+        Scope `panelsmanage`, owner or Trusted, a user's key, a panel that acts as an API client
+        (409 `conflict` otherwise). Replaces the list on the panel's API client. Each entry is a
+        CIDR such as `192.168.1.0/24` or `2001:db8::/32`; a bare address means that one host. Entries
+        are stored masked and canonical, at most 16. An empty list lifts the limit. A request with
+        the panel's key from an address outside the list is 403 `network_not_allowed`.
+        The setting does not touch the key, and is not checked against the caller's own address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [networks]
+              properties:
+                networks: { type: array, items: { type: string }, maxItems: 16 }
+      responses:
+        "200":
+          description: The list as stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [networks]
+                properties:
+                  networks: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: panelKeepalive
+      tags: [panels]
+      summary: Report an open panel page (keepalive)
+      description: |
+        Scope `panels`. Anyone who may use the panel counts. Each open panel page is an
+        instance named by its device, and sends this every 15 seconds. A panel is online while
+        any device was heard in the last 45 seconds (8 seconds after a device closed its
+        stream, see `/panels/{id}/instances/stream`). A device that is silent for longer raises a notice for the panel's watchers, and a second one when it returns
+        (see the `panelNotice` frame of the Sode socket in docs/api.md). Devices are kept in
+        memory only and told apart by name, ignoring case, so two screens that share a name are
+        one instance. A panel holds at most 100 devices (409 `conflict`). Deleting the panel, and
+        making, rotating or revoking its key, forgets its devices without a notice. A blank or
+        missing `device` is 400 `bad_request` while the panel's `askInstanceName` is on. With it
+        off, a blank `device` is an unnamed instance and Sode names it by the caller's address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device: { type: string, maxLength: 40, description: "A name for this instance. Blank is 400 while askInstanceName is on, else names it by the caller's address" }
+      responses:
+        "200":
+          description: Heard
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [online, keepaliveSeconds, missSeconds]
+                properties:
+                  online: { type: boolean }
+                  keepaliveSeconds: { type: integer, description: How often to send this }
+                  missSeconds: { type: integer, description: How long a silence may last }
+                  graceSeconds: { type: integer, description: How long after a closed stream the device counts as online }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/stream:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    get:
+      operationId: panelInstanceStream
+      tags: [panels]
+      summary: Hold a connection for an open panel page
+      description: |
+        Scope `panels`. Read it with `fetch` and the Authorization header (an EventSource cannot
+        send one). The answer stays open and carries a line every 10 seconds, so Sode sees the
+        page close at once. A device that held a stream and closed it is lost after 8 seconds,
+        not the 45 of the keepalive, and a reopen with the same name inside that time raises
+        nothing. Keep sending the keepalive: it is the fallback when the stream cannot stay open.
+      parameters:
+        - { name: device, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A name for this instance. Blank is 400 while askInstanceName is on, else names it by the caller's address" }
+      responses:
+        "200":
+          description: Held; one JSON line at once and one every 10 seconds
+          content:
+            application/x-ndjson:
+              schema:
+                type: object
+                description: |
+                  Every line but an Assign's is `{"online":true,"graceSeconds":8}`. An Assign
+                  (`POST /panels/{id}/assign`) sends one last line and the stream ends:
+                  `{"t":"assign","panel":"<target id>","slug":"<its short name, if any>","instance":"<name>","key":"<secret>"}`.
+                  The key is the target panel's, named for the instance, and is sent only here.
+                  A target that acts as a user sends `"signIn":"user"` and no key, and the page
+                  shows that panel's sign-in. A rename (`POST /panels/{id}/instances/rename`) sends
+                  `{"t":"rename","instance":"<new name>"}` as the last line instead, and the page
+                  reopens the stream under that name
+                properties:
+                  online: { type: boolean }
+                  graceSeconds: { type: integer }
+                  t: { type: string, enum: [assign, rename] }
+                  panel: { type: string }
+                  slug: { type: string }
+                  instance: { type: string }
+                  key: { type: string }
+                  signIn: { type: string, enum: [user] }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/keyless:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" }, description: The panel id or short name in the page's address }
+    get:
+      operationId: panelKeylessStream
+      tags: [panels]
+      summary: Announce a panel page that has no working key
+      security: []
+      description: |
+        Needs no key (route scope `none`): a panel page with no working key, a Keyless instance
+        (ADR 0009), holds it so a Trusted user can find and assign it. It grants nothing and the
+        answer is the same whether or not the panel exists. Sode records the address it sees and
+        keeps at most 1000 such pages in memory for 24 hours, the oldest dropped. Only an Assign
+        (`POST /panels/{id}/assign` with `keyless`) sends anything on it but the beat.
+      parameters:
+        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: The device name the page holds, if any }
+        - { name: ended, in: query, required: false, schema: { type: string, enum: ["1"] }, description: "The page's key answered `key_revoked` or `key_expired`" }
+      responses:
+        "200":
+          description: Held; one JSON line at once and one every 10 seconds
+          content:
+            application/x-ndjson:
+              schema:
+                type: object
+                description: |
+                  Every line but an Assign's is `{"keyless":true}`. An Assign sends one last line,
+                  the same as on `/panels/{id}/instances/stream`, and the stream ends
+                properties:
+                  keyless: { type: boolean }
+                  t: { type: string, enum: [assign] }
+                  panel: { type: string }
+                  slug: { type: string }
+                  instance: { type: string }
+                  key: { type: string }
+                  signIn: { type: string, enum: [user] }
+        "400": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/assign:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" }, description: The target panel }
+    post:
+      operationId: assignPanelInstance
+      tags: [panels]
+      summary: Assign an open instance to another panel
+      description: |
+        Scope `panelsmanage`. Needs a user's key, and a Trusted user or the Advanced Settings PIN in
+        `pin` (403 `trusted_required`; a wrong PIN counts toward the same lockout as the Settings
+        dialog). `from` and `instance` name an instance that holds `/panels/{id}/instances/stream`
+        now, so only Sode's own panel pages can be assigned (409 `conflict` otherwise). `as` says
+        how the instance opens the target: `client`, with a key, or `user`, with the device's own
+        sign-in. Left out it is `client` for a panel with an API client and `user` for one that acts
+        as the signed-in user; the other choice on a panel that does not act as both is 409
+        `conflict`. For `user` Sode makes no key and checks no name or instance count: the last
+        line carries `"signIn":"user"` and no key, and the person at the device types their own
+        PIN (a device already signed in as a user who cannot open the target says so). For
+        `client` the target must not be at its 20 instances (409 `conflict`, checked first). A target that already
+        holds an instance of that name answers 409 `name_taken` with `error.suggest`, a free name;
+        send it, or another, as `name` and the instance takes it as its device name on the target.
+        The held name's key is never rotated. Sode makes a key for the target's client named for
+        the instance, so it carries the
+        target's rights, and sends it as the last line of that instance's stream only; the answer
+        never carries it. The page stores the key, rewrites its address and opens the target with
+        no prompt. The instance's key for the old panel stays valid, and the old panel forgets the
+        instance without a lost notice. The target panel is not changed. One `api` row `assign`
+        names the user, the instance and both panels. A keyless instance is named by `keyless`
+        in place of `from` and `instance`; it may be assigned to the panel it shows, and it gets a
+        key only from an address inside the target client's allowed networks (403
+        `network_not_allowed`; an empty list allows any address).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from: { type: string, description: "The panel the instance shows now; required unless `keyless` is sent" }
+                keyless: { type: string, description: "A keyless instance's id from a panel read's `keyless` rows, in place of `from` and `instance`" }
+                instance: { type: string, maxLength: 40, description: "The instance's device name, ignoring case; required unless `keyless` is sent" }
+                name: { type: string, maxLength: 40, description: "Its name on the target, after a `name_taken`; left out, it keeps its own" }
+                pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted }
+                as: { type: string, enum: [client, user], description: "A key for the target's API client, or the device's own sign-in; left out, the client where the target has one" }
+      responses:
+        "200":
+          description: Sent to the instance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [from, panel, instance]
+                properties:
+                  from: { type: string }
+                  panel: { type: string, description: The target panel }
+                  instance: { type: string, description: "The instance's name on the target: `name` when sent, else its name as the monitor holds it" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/rename:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: renamePanelInstance
+      tags: [panels]
+      summary: Rename an open instance
+      description: |
+        Scope `panelsmanage`. Needs a user's key: the panel's owner, a Trusted user, or anyone with
+        the Advanced Settings PIN in `pin` (403 `trusted_required`; a wrong PIN counts toward the
+        same lockout as the Settings dialog). The instance must hold
+        `/panels/{id}/instances/stream` now (409 `conflict` for one that timed out, since nothing
+        would hear the name). The new name is its device name, not a label: up to 40 characters
+        and unique on the panel ignoring case, counting key names and every instance Sode holds,
+        offline ones included. A held name answers 409 `name_taken` with `error.suggest`, a free
+        name. A change of case alone is allowed; the same name is 400 `bad_request`. Sode renames
+        the instance's key (or pending setup link) of that name, moves per-instance watches to
+        the new name and sends `{"t":"rename","instance":"<new name>"}` as the stream's last
+        line; the page takes the name, rewrites its `?instance=` when its address has one, and
+        reopens its stream under it. The old name leaves the list without a lost notice. Writes
+        one `api` row `rename` naming the user, the old name and the new one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instance, name]
+              properties:
+                instance: { type: string, maxLength: 40, description: "The instance's device name now, ignoring case" }
+                name: { type: string, maxLength: 40, description: Its new device name }
+                pin: { type: string, description: "The Advanced Settings PIN, for a user who is neither the owner nor Trusted" }
+      responses:
+        "200":
+          description: Sent to the instance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [panel, from, instance]
+                properties:
+                  panel: { type: string }
+                  from: { type: string, description: "Its old name, as the monitor held it" }
+                  instance: { type: string, description: Its new name }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/watch:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: watchPanel
+      tags: [panels]
+      summary: Watch a panel
+      description: |
+        Scope `panels`. Needs a user's key (403 `user_required`). A user watches the panels they
+        own and a Trusted user any panel (403 `not_owner` for a use-only panel). A watcher is
+        told when a device of the panel is lost (a closed page after 8 seconds, a silent one
+        after 45) and when it returns, through the Sode socket as a toast, a banner and, if the
+        browser allows, a notification. The list lives in `panelwatch.yaml` beside the config. Watching twice is a
+        204 too. With `instance` the watch is for that one device (compared ignoring case) and the user
+        hears only about it, as a lost or back notice that never calls the whole panel offline. A
+        user may hold the panel watch and any number of instance watches at once. The device need not
+        have been seen yet.
+      parameters:
+        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 }, description: "A device name. Blank is 400 `bad_request`" }
+      responses:
+        "204": { description: Watching }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: unwatchPanel
+      tags: [panels]
+      summary: Stop watching a panel
+      description: Scope `panels`. Same caller rules as watching. With `instance` it ends only that device's watch and leaves the panel watch. Not watching is a 204 too.
+      parameters:
+        - { name: instance, in: query, required: false, schema: { type: string, maxLength: 40 } }
+      responses:
+        "204": { description: Not watching }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/instances/hide:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: instance, in: query, required: true, schema: { type: string, maxLength: 40 }, description: "A device name, compared ignoring case. Blank is 400 `bad_request`" }
+    post:
+      operationId: hidePanelInstance
+      tags: [panels]
+      summary: Hide an instance from the caller's panels page
+      description: |
+        Scope `panels`. Same caller rules as watching. The instance leaves the caller's
+        `instances` view and the `instancesOnline` and `instancesKnown` counts; it ends no key and
+        no watch, and other users still see it. Kept in memory only, and lifted for everyone when the
+        device is next heard after it was lost or forgotten. Hiding twice is a 204 too.
+      responses:
+        "204": { description: Hidden }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: unhidePanelInstance
+      tags: [panels]
+      summary: Show a hidden instance again
+      description: Scope `panels`. Same caller rules as watching. Not hidden is a 204 too.
+      responses:
+        "204": { description: Shown }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/artwork:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+    post:
+      operationId: uploadPanelArtwork
+      tags: [panels]
+      summary: Add artwork to a panel
+      description: |
+        Scope `panelsmanage`, owner or Trusted. The body is the image itself, at most 2 MB
+        (413 `too_large`), a JPEG, PNG, GIF or SVG. A PNG, JPEG or GIF with a width or height over
+        1024 pixels is 400 `bad_request`; SVG has only the size limit. Sode never resizes, and
+        artwork stored earlier is kept as it is. The type is decided by the bytes, never by the
+        request's Content-Type or a file name; anything else is 415 `unsupported_type`. A panel
+        holds at most 64 MB of artwork in all, whatever the file count; an upload that would pass
+        it is 409 `conflict`. An image used by many cells is stored once, by id.
+      requestBody:
+        required: true
+        content:
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/gif: { schema: { type: string, format: binary } }
+          image/svg+xml: { schema: { type: string, format: binary } }
+          application/octet-stream: { schema: { type: string, format: binary } }
+      responses:
+        "201":
+          description: The stored artwork; cells name it by `id`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PanelArt" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/artwork/{art}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" } }
+      - { name: art, in: path, required: true, schema: { type: string, pattern: "^a-[0-9a-f]{8}$" } }
+    get:
+      operationId: getPanelArtwork
+      tags: [panels]
+      summary: Fetch artwork
+      description: |
+        Scope `panels`. Serves the stored type with `X-Content-Type-Options: nosniff` and a
+        Content-Security-Policy of `default-src 'none'; style-src 'unsafe-inline'; sandbox`, so a
+        script in an SVG never runs. Show it as an image, never inline. The key goes in the
+        Authorization header, so fetch it and show the bytes, not a bare image URL.
+      responses:
+        "200":
+          description: The image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePanelArtwork
+      tags: [panels]
+      summary: Remove artwork
+      description: Scope `panelsmanage`, owner or Trusted.
+      responses:
+        "204": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /stream:
     get:
       operationId: openStream
@@ -443,20 +1925,22 @@ paths:
         scopes is refused with 403 `scope`, an unknown or missing topic with 400.
 
         The stream only sends; anything the client writes is ignored. Every frame is JSON
-        `{"t", "topic"?, "data"?}`. `ping` is a heartbeat every 5 seconds, ignore it.
+        `{"t", "topic", "data"?}`. Every frame but `hello` and `ping` has `topic`, so a client can
+        match on it alone. `ping` is a heartbeat every 5 seconds, ignore it.
 
         - `hello`: first frame. `data` has `v` (1), `topics` and `numberOffset`.
         - `snapshot`: one each for `names`, `tally` and `status`, with `topic` set and `data`
           shaped like the REST read, so a client starts from a full state. There is none for
           `history`: read `GET /history` first and bridge by id.
-        - `names`: the full names again, after a refresh.
-        - `tally`: `data.routes`, only the routes that changed.
-        - `status`: `data` has `router`, `routerUp` and `error`, plus `address` and `err` for a
+        - `names` (topic `names`): the full names again, after a refresh.
+        - `tally` (topic `tally`): `data.routes`, only the routes that changed.
+        - `status` (topic `status`): `data` has `router`, `routerUp` and `error`, plus `address` and `err` for a
           caller with the scope `log`.
         - `entry`: a new History entry (topic `history`). `data` is an Entry.
         - `entryUpdate`: an entry changed after it was sent, for example a Late Result (a route
           confirmed after the take gave up). `data` is the whole Entry. Sent once for a
-          connection with `history`, `results` or both; `results` alone suits a client that
+          connection with `history`, `results` or both. Its topic is `history` when the client chose
+          it, otherwise `results`; `results` alone suits a client that
           fires takes and wants only Late Results. Match updates by `id`.
         - `historyCleared`: History was emptied (topic `history`).
 
@@ -475,7 +1959,8 @@ paths:
         closed.
 
         Lifetime. A key or an address can hold 8 streams at a time, and a ninth is refused
-        with 429 `too_many_streams`. A client is dropped when a frame write stalls for 5
+        with 429 `too_many_streams`. A panel's own API client key may hold 64, since its
+        kiosks share it, and those streams do not count toward an address's 8. A client is dropped when a frame write stalls for 5
         seconds or 256 frames are queued. Connects and disconnects are `api` rows in the
         Communication Log with the key name and, for a disconnect, the reason.
       parameters:
@@ -534,14 +2019,14 @@ components:
             checkSkipped: false
             results: [{ id: 1, src: 1, dst: 0, levels: [1], result: connected, ok: true, entry: 412 }]
     Unauthorized:
-      description: "`key_required`, `invalid_key` or `key_expired`; carries `WWW-Authenticate: Bearer`"
+      description: "`key_required`, `invalid_key`, `key_revoked` or `key_expired`; carries `WWW-Authenticate: Bearer`. `key_revoked` and `key_expired` are final: stop using the key"
       headers:
         WWW-Authenticate: { schema: { type: string, enum: [Bearer] } }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
-      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent) or `https_required`"
+      description: "`scope` (the key lacks the scope), `outside_rights` (a route or preset is outside the rights, nothing was sent), `https_required`, `not_owner` (a panel the caller may only use), `user_required` (a panel needs a user's key to own it) or `trusted_required` (only a Trusted user may make a panel an API client or change its rights, or save a template to Everyone without the Advanced Settings PIN)"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -596,6 +2081,7 @@ components:
                 - api_off
                 - key_required
                 - invalid_key
+                - key_revoked
                 - key_expired
                 - rate_limited
                 - scope
@@ -606,18 +2092,375 @@ components:
                 - take_cap
                 - too_many_streams
                 - conflict
+                - name_taken
                 - nothing_to_do
                 - idempotency_mismatch
                 - not_found
                 - method_not_allowed
+                - not_owner
+                - user_required
+                - trusted_required
+                - unsupported_type
+                - invalid_setup
+                - network_not_allowed
+                - internal
               description: |
-                503 api_off (the API switch is off). 401 key_required, invalid_key, key_expired.
-                403 scope, outside_rights, https_required. 400 bad_request. 413 too_large (body over
-                64 KiB). 404 not_found (no such path, entry or visible preset). 405
-                method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of a
-                successful one). 422 nothing_to_do (no route left to run), idempotency_mismatch.
-                429 rate_limited, take_cap, too_many_streams.
+                503 api_off (the API switch is off). 401 key_required, invalid_key, key_revoked
+                (the key worked once and was ended; stop using it), key_expired,
+                invalid_setup (a setup link that was used, expired or replaced).
+                403 network_not_allowed (the key's address is outside the panel's allowed networks),
+                scope, outside_rights, https_required, not_owner (a panel the caller may only
+                use), user_required (a panel needs a user's key), trusted_required (only a Trusted
+                user may make a panel an API client or change its rights). 400 bad_request. 413 too_large
+                (body over 64 KiB for a take, 4 MB for a panel or template, 2 MB for artwork). 415
+                unsupported_type (artwork that is not a JPEG, PNG, GIF or SVG). 404 not_found (no
+                such path, entry, visible preset, or a panel or artwork the caller may not use).
+                405 method_not_allowed (see `Allow`). 409 conflict (Redo of a failed entry, Retry of
+                a successful one, or a full panel or artwork limit), name_taken (an Assign's target, or
+                a renamed instance's panel, already has an instance of that name; `suggest` is a free one). 422 nothing_to_do
+                (no route left to run), idempotency_mismatch. 429 rate_limited, take_cap,
+                too_many_streams. 500 internal (a panel could not be written to disk).
             message: { type: string }
+            suggest: { type: string, description: "With `name_taken` only: a free name for the instance on that panel, its name plus 2 or the next free number" }
+    PanelShare:
+      type: object
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [me, named, everyone], description: "Only me, named users, or Everyone; all of them use only" }
+        users: { type: array, items: { type: string }, description: Only with `named` }
+    PanelArt:
+      type: object
+      required: [id, type, size]
+      properties:
+        id: { type: string, pattern: "^a-[0-9a-f]{8}$" }
+        type: { type: string, enum: [image/png, image/jpeg, image/gif, image/svg+xml] }
+        size: { type: integer, description: Bytes }
+    PanelPage:
+      type: object
+      description: One Page of a panel (ADR 0007).
+      properties:
+        id:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,16}$"
+          description: |
+            Never changes, so a reorder or rename keeps what names it. Unique in the panel (400
+            `bad_request`). Left out, Sode makes one of 8 hex digits.
+        name: { type: string, maxLength: 40, description: Optional; shown as "Page N" when empty. Longer is 400 `bad_request` }
+        enabled: { type: boolean, default: true, description: At least one Page of a panel is on (400 `bad_request`) }
+        cells:
+          type: array
+          maxItems: 576
+          items: { type: object, additionalProperties: true }
+          description: |
+            The Page's cells. A `goToPage` cell names its target in `page`, a Page id of this panel: one
+            that is not a string or not shaped like an id is 400 `bad_request`, and one that names no Page
+            is kept and reads as unassigned. `nextPage` and `previousPage` cells have no target. A
+            `pageName` or `info` cell may hold `show`, a list without repeats of what it shows: `number`
+            and `name` for `pageName` (absent means `name`), `panel`, `number`, `page` and `instance`
+            for `info` (absent means all but `number`); anything else is 400 `bad_request`.
+    PanelIn:
+      type: object
+      description: |
+        A panel as sent. Unknown fields are kept and returned, so a newer client's data survives.
+        `id`, `owner`, `client`, `art`, `rev` and `canEdit` are ignored here. `clientRights` is for a
+        panel with `acts: api`, `acts: both` or `acts: public`.
+      required: [name]
+      additionalProperties: true
+      properties:
+        name: { type: string, maxLength: 60 }
+        slug:
+          type: string
+          maxLength: 32
+          pattern: "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$"
+          description: |
+            Optional short name. The panel also opens at `/panels/<slug>` and is read at
+            `GET /panels/<slug>`. Unique across panels (409 `conflict`), never `editor` or shaped
+            like an id. Leaving it out of a save clears it, and changing or clearing it stops every
+            link that used the old one; links by id keep working. A copy starts without one.
+        acts: { type: string, enum: [session, api, both, public], default: session }
+        share: { $ref: "#/components/schemas/PanelShare" }
+        rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
+        cols: { type: integer, minimum: 1, maximum: 24, default: 8 }
+        pages:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: { $ref: "#/components/schemas/PanelPage" }
+          description: |
+            The Pages in order; the number of a Page is its place. Cells that no longer fit `rows`
+            by `cols` are dropped from every Page on a save. Left out, the panel has one empty Page.
+        cells:
+          type: array
+          writeOnly: true
+          deprecated: true
+          items: { type: object, additionalProperties: true }
+          maxItems: 576
+          description: The one grid from before Pages, read as Page 1's cells. Never sent back; not with `pages`.
+        settings:
+          type: object
+          additionalProperties: true
+          description: Free-form settings for the panel page and editor. Sode checks only `fixedDests` and `askInstanceName`.
+          properties:
+            askInstanceName:
+              type: boolean
+              default: true
+              description: |
+                Ask users to set an instance name. Off, the page never asks for a device name and
+                shows none in its header; `?instance=` and a name the browser stored still apply.
+                Sent as true when the file has none. Anything but a boolean is 400 `bad_request`.
+            wrapPages:
+              type: boolean
+              default: true
+              description: Next Page and Previous Page wrap past the last and first Page. Stored only when false.
+            fixedDests:
+              type: array
+              maxItems: 16
+              uniqueItems: true
+              items: { type: integer, minimum: 0, maximum: 65535 }
+              description: |
+                Fixed destination: the router's destination numbers, 0-based, that the panel
+                always patches to. Absent or empty means off, and an empty list is not stored. A
+                non-integer, a negative number, a duplicate or more than 16 is 400 `bad_request`.
+        clientRights:
+          type: object
+          description: |
+            Rights of the panel's API client. An unset list means everything, an empty one
+            nothing. Returned only to a caller who may edit the panel.
+          properties:
+            sources: { type: array, items: { type: integer } }
+            dsts: { type: array, items: { type: integer } }
+            levels: { type: array, items: { type: integer }, description: UI levels }
+            presets: { type: array, items: { type: string } }
+            visibility: { type: string, enum: [readonly, hidden] }
+    PanelTemplateIn:
+      type: object
+      required: [name, scope]
+      properties:
+        name: { type: string, maxLength: 60 }
+        scope: { type: string, enum: [me, everyone] }
+        rows: { type: integer, minimum: 1, maximum: 24, default: 4 }
+        cols: { type: integer, minimum: 1, maximum: 24, default: 8 }
+        pages:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: { $ref: "#/components/schemas/PanelPage" }
+        cells:
+          type: array
+          writeOnly: true
+          deprecated: true
+          items: { type: object, additionalProperties: true, description: A cell as a panel stores it }
+          description: The one grid from before Pages, read as one Page. Never sent back
+        settings: { type: object, additionalProperties: true, description: "Panel settings to carry, left out for a layout only. `fixedDests` is kept only with `dests`" }
+        sources: { type: boolean, default: false, description: "Keep the Source and Preset cells' Sources, Presets and captions" }
+        dests: { type: boolean, default: false, description: "Keep the Destination cells' Destinations and captions" }
+        contents: { type: boolean, default: false, writeOnly: true, deprecated: true, description: "The single flag from before the split: true means both sources and dests. Never sent back" }
+        pin: { type: string, writeOnly: true, description: "The Advanced Settings PIN, for scope everyone by a user who is not Trusted" }
+    PanelTemplate:
+      allOf:
+        - $ref: "#/components/schemas/PanelTemplateIn"
+        - type: object
+          required: [id, owner, sources, dests, canEdit]
+          properties:
+            id: { type: string, pattern: "^t-[0-9a-f]{8}$" }
+            owner: { type: string, description: The user who saved it }
+            canEdit: { type: boolean, description: True when the caller may delete it }
+    ArtDefault:
+      type: object
+      required: [kind, name]
+      description: |
+        Default artwork for one Source, Destination or Preset. A Source or Destination is keyed by `n`;
+        `name` is the router's name for it when the default was set. A Preset is keyed by `scope` and `name`.
+      properties:
+        kind: { type: string, enum: [source, destination, preset] }
+        n: { type: integer, minimum: 0, maximum: 65535, description: The router's number of a Source or Destination }
+        scope: { type: string, enum: [everyone], description: A Preset's scope. Only Everyone presets have Default artwork }
+        name: { type: string }
+        art: { type: string, description: "Icon A: `icon:<name>`, an Icon library icon (`lib:<id>`, drawing nothing once the library lacks it) or a Default artwork image id (`d-` and 8 hex digits)" }
+        artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$", description: Icon B }
+        hideText: { type: boolean }
+    LibIcon:
+      type: object
+      required: [id, name, type, size]
+      properties:
+        id: { type: string, pattern: "^[0-9a-f]{8}$", description: "A cell names it as `lib:<id>`" }
+        name: { type: string, maxLength: 40, description: Unique ignoring case }
+        type: { type: string, enum: [image/png, image/svg+xml] }
+        size: { type: integer, description: Bytes }
+    ArtDefaultIn:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [source, destination, preset] }
+        n: { type: integer, minimum: 0, maximum: 65535 }
+        scope: { type: string, enum: [everyone], description: "`me` is refused (400): Default artwork is one shared set" }
+        name: { type: string, description: A Preset's name; ignored for a Source or Destination, whose name Sode reads from the router }
+        art: { type: string, description: "`icon:<name>`, an Icon library icon (`lib:<id>`, kept as the reference; 404 when the library lacks it), a panel's artwork id (`a-`, with `panel`) or a Default artwork image id (`d-`)" }
+        artB: { type: string, pattern: "^([0-9]|1[0-6]|[A-Z])$" }
+        hideText: { type: boolean }
+        panel: { type: string, description: The panel an `a-` artwork id is on. Its image is copied }
+        pin: { type: string, description: The Advanced Settings PIN, for a user who is not Trusted. Never stored }
+    Panel:
+      allOf:
+        - $ref: "#/components/schemas/PanelIn"
+        - type: object
+          required: [id, owner, rev, canEdit]
+          properties:
+            rev:
+              type: integer
+              minimum: 1
+              description: |
+                Counts the panel's stored changes (a save, artwork, a Push). A panel page that is open
+                reads the panel every 5 seconds and updates itself when `rev` moves.
+            id: { type: string, pattern: "^p-[0-9a-f]{8}$" }
+            owner: { type: string, description: The user who owns it }
+            client: { type: string, description: The API client of a panel that acts as one }
+            art: { type: array, items: { $ref: "#/components/schemas/PanelArt" } }
+            artDefaults:
+              type: array
+              items: { $ref: "#/components/schemas/ArtDefault" }
+              description: |
+                Output only, on `GET /panels/{id}`. The Default artwork of the items the panel's cells show,
+                as the caller may see it. Never stored in a cell; an open page compares it as it does `rev`.
+            canEdit: { type: boolean, description: False when the caller may only use the panel }
+            hasKey: { type: boolean, description: "For an editor of an API panel: the client holds a key now. A pending setup link is not a key. The secret itself is never returned." }
+            clientNetworks:
+              type: array
+              items: { type: string }
+              description: "For an editor of an API panel: the allowed networks as CIDRs, empty = anywhere"
+            online: { type: boolean, description: Output only. A device was heard in the last 45 seconds, on a list or a read }
+            watching: { type: boolean, description: Output only. The calling user watches the whole panel; never a list of watchers }
+            watchingInstances: { type: array, items: { type: string }, description: Output only. The devices (lowercase) the calling user watches one by one }
+            hiddenInstances: { type: array, items: { type: string }, description: "Output only. The devices (lowercase) the calling user hid on the panels page" }
+            instancesOnline: { type: integer, description: Output only. How many of the caller's counted devices are online now }
+            instancesKnown:
+              type: integer
+              description: |
+                Output only. The devices counted for the caller: those heard since Sode started and
+                those the caller watches one by one, less the ones the caller hid. The panels page
+                reads All Online, Some Online or All Offline from this and `instancesOnline`
+            instances:
+              type: array
+              description: Output only, for an editor. The devices that have opened the panel since Sode started
+              items:
+                type: object
+                required: [device, seen, online, stream, uptime]
+                properties:
+                  device: { type: string }
+                  seen: { type: string, format: date-time }
+                  online: { type: boolean }
+                  stream: { type: boolean, description: "It holds `/panels/{id}/instances/stream` now, so it is one of Sode's own panel pages and can be assigned" }
+                  page: { type: boolean, description: "It has held `/panels/{id}/instances/stream` since Sode started. Only then are the fields below sent, from the last stream it opened" }
+                  addr: { type: string, description: The address the stream came from }
+                  signIn: { type: string, enum: [client, user, none], description: "Who opened it: the panel's API client, a user, or nobody signed in" }
+                  user: { type: string, description: The user's name, when `signIn` is `user` }
+                  trusted: { type: boolean, description: "That user is Trusted now, so they may open every panel. Sent only when true" }
+                  streamSince: { type: string, format: date-time, description: When its current stream connected. Sent only while `stream` is true }
+                  uptime:
+                    type: object
+                    description: |
+                      The last 24 hours of this device, in memory only. Times are Unix milliseconds;
+                      `start` is the state at `from` ("" before the device was first heard) and `trans`
+                      the changes after it, `up` or `down`, oldest first
+                    required: [from, to, start, trans]
+                    properties:
+                      from: { type: integer, format: int64 }
+                      to: { type: integer, format: int64 }
+                      start: { type: string, enum: ["", up, down] }
+                      trans:
+                        type: array
+                        items:
+                          type: object
+                          required: [t, s]
+                          properties:
+                            t: { type: integer, format: int64 }
+                            s: { type: string, enum: [up, down] }
+            keyless:
+              type: array
+              description: |
+                Output only, for an editor. The panel pages with no working key that hold
+                `/panels/{id}/instances/keyless` for this panel, by id or short name, or did in the last 24 hours
+              items:
+                type: object
+                required: [keyless, device, addr, signIn, stream, seen]
+                properties:
+                  keyless: { type: string, description: "The id an Assign names in `keyless`" }
+                  device: { type: string, description: "Its own name, else the last name a stream from its address carried, else the address" }
+                  addr: { type: string }
+                  signIn: { type: string, enum: [none, ended], description: "`ended`: its key answered `key_revoked` or `key_expired`" }
+                  stream: { type: boolean, description: It holds the announcement now and can be assigned }
+                  seen: { type: string, format: date-time }
+                  streamSince: { type: string, format: date-time, description: Sent only while `stream` is true }
+            rights:
+              type: object
+              description: |
+                The calling key's own Rights, so a panel page can refuse a route before arming
+                a take. Only on `GET /panels/{id}`. The server enforces them regardless.
+              properties:
+                sources: { type: array, items: { type: integer } }
+                dsts: { type: array, items: { type: integer } }
+                levels: { type: array, items: { type: integer }, description: UI levels }
+                presets: { type: array, items: { type: string } }
+                visibility: { type: string, enum: [readonly, hidden] }
+    PushResult:
+      type: object
+      required: [pushed]
+      properties:
+        pushed:
+          type: array
+          items:
+            type: object
+            required: [panel, rev, checkpoint]
+            properties:
+              panel: { type: string }
+              rev: { type: integer }
+              checkpoint: { type: string, pattern: "^c-[0-9a-f]{8}$" }
+              artSkipped:
+                type: array
+                description: Artwork ids that did not fit under the target's 64 MB total. Absent when all fit.
+                items: { type: string }
+        skipped:
+          type: array
+          description: Only from a checkpoint set push
+          items:
+            type: object
+            required: [panel, reason]
+            properties:
+              panel: { type: string }
+              reason: { type: string }
+    Checkpoint:
+      type: object
+      required: [id, at, by, why, rows, cols, cells, pages]
+      properties:
+        id: { type: string, pattern: "^c-[0-9a-f]{8}$" }
+        at: { type: string, format: date-time }
+        by: { type: string, description: The user who pushed or restored }
+        why: { type: string }
+        rows: { type: integer }
+        cols: { type: integer }
+        cells: { type: integer, description: How many cells the layout has, over every Page }
+        pages: { type: integer, description: How many Pages the layout has }
+    CheckpointSet:
+      type: object
+      required: [id, name, scope, owner, entries, canEdit]
+      properties:
+        id: { type: string, pattern: "^s-[0-9a-f]{8}$" }
+        name: { type: string }
+        scope: { type: string, enum: [me, everyone] }
+        owner: { type: string }
+        canEdit: { type: boolean }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [panel, name, rows, cols, cells, pages]
+            properties:
+              panel: { type: string, description: The panel this layout belongs to }
+              name: { type: string, description: The panel's name when saved }
+              rows: { type: integer }
+              cols: { type: integer }
+              cells: { type: integer, description: How many cells, over every Page }
+              pages: { type: integer }
     Name:
       type: object
       required: [n, name]
@@ -659,6 +2502,7 @@ components:
         kind: { type: string, enum: [user, client, guest] }
         name: { type: string }
         key: { type: string, description: The key name, verified }
+        owner: { type: string, description: "For a panel's own API client, the user who made it; `client` then reads \"Seth (Panel p-1a2b3c4d)\"" }
         via: { type: string, description: The caller's own note, unverified }
     Entry:
       type: object
@@ -689,6 +2533,8 @@ components:
         group: { type: string, description: Entries of one take of several routes share it }
         groupN: { type: integer, description: Routes in the Group; absent for a hidden caller }
         preset: { type: string, description: The preset this take was fired from }
+        panel: { type: string, description: "The panel whose page made the take: its name, else its short name. A Session-mode page names itself" }
+        instance: { type: string, description: The instance of that panel, its device name }
         ext: { type: boolean, description: An External change }
         found: { type: boolean, description: External only, changed without a Connected and seen when Sode re-read the router }
         follow: { type: integer, description: External only, the id of the take this seems to follow }

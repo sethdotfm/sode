@@ -55,6 +55,26 @@ func (a *App) Handler(static fs.FS) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, static, "log.html")
 	})
+	page := func(name string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-cache")
+			http.ServeFileFS(w, r, static, name)
+		}
+	}
+	// {id} is any segment; the editor's pattern is more specific, so it wins.
+	mux.HandleFunc("/panels", page("panels.html"))
+	mux.HandleFunc("/panels/{$}", page("panels.html"))
+	mux.HandleFunc("/panels/editor", page("paneleditor.html"))
+	// Only a segment that could be an id or a short name reaches the page. Whether one exists is
+	// the panel read route's answer, which needs a key, so this route says nothing about panels.
+	panelPage := page("panel.html")
+	mux.HandleFunc("/panels/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if id := r.PathValue("id"); !validPanelID(id) && !validPanelSlug(id) {
+			http.NotFound(w, r)
+			return
+		}
+		panelPage(w, r)
+	})
 	mux.HandleFunc("/icon.png", serveIcon)
 	mux.HandleFunc("/manifest.webmanifest", a.serveManifest)
 	mux.HandleFunc("/ws", a.serveWS)
@@ -74,7 +94,7 @@ func (a *App) Handler(static fs.FS) http.Handler {
 // csp: same-origin scripts only (no inline bodies or on*= handlers; a test keeps it so);
 // 'unsafe-inline' for styles only.
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-	"img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
+	"img-src 'self' data: blob:;connect-src 'self' ws: wss:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; " +
 	"base-uri 'self'; frame-ancestors 'none'"
 
 func secureHeaders(next http.Handler) http.Handler {
@@ -335,6 +355,9 @@ type inMsg struct {
 	Expires    int64              `json:"expires"` // key expiry, unix ms; 0 = never
 	Owner      *keyOwner          `json:"owner"`   // keyCreateFor, keyRevokeAll
 	APISet     *apiSettingsReq    `json:"apiSettings"`
+	Panel      string             `json:"panel"`    // panelAlarm: the panel id
+	Action     string             `json:"action"`   // panelAlarm: clear | stop
+	Instance   string             `json:"instance"` // panelAlarm: the watched device, empty for a whole panel
 }
 
 func plural(n int, one, many string) string {

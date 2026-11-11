@@ -1,0 +1,1386 @@
+/* The panel pages (/panels, /panels/editor, /panels/<id>). Load after base.css. */
+
+.sode-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  margin: 0 auto;
+  max-width: 100rem;
+  padding: var(--pb-space-8);
+}
+.sode-panels__head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+/* lock.css fixes the Lock bar top left, over the page, so it adds no height. It sits beside the header row (bar bottom
+   = the page's top padding plus one control), never over the grid: the header clears its width (--sode-who-w, set by
+   lockchip.js). Keep in step with .sode-lock__who and its bar; a kiosk hides it. */
+[data-sode-chip]:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels__head {
+  padding-inline-start: calc(var(--sode-who-w, 0px) + var(--pb-space-4));
+}
+[data-sode-kiosk] .sode-lock__who {
+  display: none;
+}
+/* The Panels link sits bottom left as the main page's footer does (desktop.css .sode__footer): fixed on the desktop
+   layout, with the page padded so it never covers the grid, and in the flow on a phone. A kiosk hides it. */
+.sode-panels__home {
+  display: flex;
+  padding-top: var(--pb-space-6);
+}
+:root:not([data-layout="phone"]) .sode-panels__home {
+  background: var(--pb-surface-base);
+  bottom: var(--pb-space-4);
+  left: var(--pb-space-5);
+  padding: var(--pb-space-2) var(--pb-space-3);
+  position: fixed;
+  z-index: var(--pb-z-sticky);
+}
+:root:not([data-layout="phone"], [data-sode-kiosk]) .sode-panels {
+  padding-bottom: calc(var(--pb-space-4) + var(--pb-control-h) + var(--pb-space-2) * 2);
+}
+.sode-panels__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  font-weight: var(--pb-weight-bold);
+  margin: 0 var(--pb-space-4) 0 0;
+}
+.sode-panels__device {
+  color: var(--pb-text-muted);
+}
+.sode-panels__device-input {
+  width: 14rem;
+}
+.sode-panels__spacer {
+  flex: 1 1 auto;
+}
+
+/* A panel's grid. One animated number on the grid drives every pulse, so cells stay in phase. It runs only while a
+   cell pulses: an inherited registered property animated higher up restyles everything under it every frame, and
+   on :root it cost the idle editor 27% CPU and growing renderer memory. */
+@property --pulse {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@keyframes sode-panel-pulse {
+  0%,
+  100% {
+    --pulse: 0;
+  }
+  50% {
+    --pulse: 1;
+  }
+}
+:root {
+  --panel-pulse-s: 2s;
+  --panel-pulse-floor: 72%; /* a pulsing cell never drops below this much of its state colour */
+}
+.sode-panel__grid:has([data-s="staged"], [data-s="pending"], .sode-panel__take--armed) {
+  animation: sode-panel-pulse var(--panel-pulse-s) ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sode-panel__grid {
+    animation: none;
+    --pulse: 0.6;
+  }
+}
+
+/* The status line and the update banner share one box between the header and the grid. Nothing shows: no box, so
+   the page's gap does not open for it. A kiosk fixes the box to the bottom of the viewport instead, so a refusal or
+   a countdown never moves the grid (TestChromePanelKioskAndRefusal). */
+.sode-panel__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-panel__foot:not(:has(> :not([hidden]))) {
+  display: none;
+}
+[data-sode-kiosk] .sode-panel__foot {
+  background: var(--pb-surface-base);
+  bottom: 0;
+  left: 0;
+  padding: var(--pb-space-3) var(--pb-space-4);
+  position: fixed;
+  right: 0;
+  z-index: var(--pb-z-sticky);
+}
+.sode-panel__status {
+  color: var(--pb-status-error);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+.sode-panel__update[hidden],
+.sode-panel__update .sode__banner-time[hidden] {
+  display: none;
+}
+.sode-panel__update .pb-alert {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.sode-panel__grid {
+  display: grid;
+  gap: var(--pb-space-3);
+  width: 100%;
+}
+.sode-panel__cell {
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  height: auto;
+  line-height: var(--pb-leading-tight);
+  min-height: 0;
+  min-width: 0;
+  padding: var(--pb-space-2);
+  text-align: center;
+  white-space: normal;
+  width: 100%;
+}
+.sode-panel__cell small {
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-normal);
+  opacity: 0.85;
+}
+/* Hide text keeps the words for screen readers, on the panel page and in the editor's square alike. */
+.sode-panel__cell[data-hide-text] .sode-panel__text,
+.sode-ed__sq[data-hide-text] .sode-ed__text {
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+.sode-panel__mark {
+  inset-block-end: var(--pb-space-2);
+  inset-inline-start: 50%;
+  position: absolute;
+  translate: -50% 0;
+}
+.sode-panel__staged {
+  font-size: var(--pb-text-xs);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-panel__take {
+  font-size: var(--pb-text-xl);
+  letter-spacing: var(--pb-tracking-label);
+}
+
+/* Cell states. Viewed destination: solid orange. Current source: solid green. Staged destination and
+   pending source: a static ring plus a fill that swells between the idle colour and the state colour. */
+.sode-panel__cell--source[data-s="idle"] {
+  background-color: var(--pb-current-idle);
+}
+.sode-panel__cell--destination[data-s="idle"] {
+  background-color: var(--pb-view-idle);
+}
+.sode-panel__cell[data-s="view"] {
+  background-color: var(--pb-view);
+  color: var(--pb-text-on-accent);
+}
+.sode-panel__cell[data-s="current"] {
+  background-color: var(--pb-status-ok);
+  color: var(--pb-text-on-accent);
+}
+.sode-panel__cell[data-s="staged"] {
+  background-color: color-mix(in oklab, var(--pb-view) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))), var(--pb-view-idle));
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-view);
+  color: var(--pb-text-strong);
+}
+.sode-panel__cell[data-s="pending"] {
+  background-color: color-mix(
+    in oklab,
+    var(--pb-status-ok) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
+    var(--pb-current-idle)
+  );
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-status-ok);
+  color: var(--pb-text-strong);
+}
+.sode-panel__cell[data-v="1"] {
+  outline: var(--pb-state-border-w) solid var(--pb-text-strong);
+  outline-offset: calc(var(--pb-space-1) * -1);
+}
+.sode-panel__cell[data-result="connected"] {
+  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-ok);
+}
+.sode-panel__cell[data-result="already"] {
+  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-idle);
+}
+.sode-panel__cell[data-result="failed"] {
+  box-shadow: inset 0 0 0 var(--pb-space-2) var(--pb-status-error);
+}
+.sode-panel__cell--current:disabled,
+.sode-panel__cell--panelName:disabled,
+.sode-panel__cell--instanceName:disabled {
+  background-color: var(--pb-surface-control);
+  color: var(--pb-text-strong);
+  opacity: 1;
+}
+.sode-panel__cell--current span,
+.sode-panel__cell--panelName span,
+.sode-panel__cell--instanceName span {
+  font-size: var(--pb-text-lg);
+  font-weight: var(--pb-weight-bold);
+}
+.sode-panel__take[data-guard="holding"],
+.sode-panel__take[data-guard="waiting"] {
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-hue-red);
+}
+.sode-panel__take--armed {
+  background-color: color-mix(
+    in oklab,
+    var(--pb-hue-red) calc(var(--panel-pulse-floor) + var(--pulse) * (100% - var(--panel-pulse-floor))),
+    var(--pb-surface-control)
+  );
+  box-shadow: inset 0 0 0 var(--pb-space-1) var(--pb-hue-red);
+  color: var(--pb-text-strong);
+}
+
+/* No staged route: the Take cell is solid, not faded like a disabled control. */
+.sode-panel__take:disabled {
+  background-color: color-mix(in oklab, var(--pb-hue-red) 40%, var(--pb-surface-control));
+  color: var(--pb-text-strong);
+  opacity: 1;
+}
+/* The wait of a hold or double-press guard fills across the Take cell.
+   A transition, since the shared --pulse must stay the only keyframes (panellook.test.mjs). */
+.sode-panel__take::after {
+  background-color: color-mix(in oklab, var(--pb-hue-red) 45%, transparent);
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: scaleX(0);
+  transform-origin: left;
+  z-index: -1;
+}
+.sode-panel__take[data-guard="holding"]::after,
+.sode-panel__take[data-guard="waiting"]::after {
+  transform: scaleX(1);
+  transition: transform var(--wait-ms, 800ms) linear;
+}
+
+/* Full width, and Offline: the grid blurs under a framed message. */
+.sode-panels--full {
+  max-width: none;
+  padding: var(--pb-space-3);
+}
+.sode-panels--offline > :not(.sode-panel__offline) {
+  filter: blur(0.5rem);
+  pointer-events: none;
+  user-select: none;
+}
+.sode-panel__offline {
+  align-items: center;
+  background-color: color-mix(in oklab, var(--pb-surface-base) 55%, transparent);
+  display: flex;
+  flex-direction: column;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 100;
+}
+.sode-panel__turn {
+  display: none;
+}
+@media (orientation: portrait) {
+  html[data-sode-landscape] .sode-panel__turn {
+    align-items: center;
+    background-color: var(--pb-surface-base);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: var(--pb-space-6);
+    position: fixed;
+    text-align: center;
+    z-index: 110;
+  }
+}
+.sode-panel__turn-text {
+  font-size: 1.5rem;
+  font-weight: var(--pb-weight-bold);
+}
+.sode-panel__offline[hidden] {
+  display: none;
+}
+.sode-panel__offline-title {
+  color: var(--pb-status-error);
+  font-size: 6rem;
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+.sode-panel__offline-detail {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-xl);
+  margin: 0;
+  max-width: 40rem;
+  text-align: center;
+}
+
+/* Look: font size scales from the panel's --panel-fs and the cell's --cell-fs (both multipliers). Artwork sits
+   dimmed behind the caption so the state colour still reads; it is only ever an <img> or a CSS background. */
+.sode-panel__grid {
+  font-size: calc(var(--pb-text-md) * var(--panel-fs, 1));
+}
+.sode-panel__cell {
+  font-size: calc(var(--pb-text-md) * var(--panel-fs, 1) * var(--cell-fs, 1));
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+.sode-panel__cell small,
+.sode-panel__staged {
+  font-size: min(calc(var(--pb-text-xs) * var(--panel-fs, 1) * var(--cell-fs, 1)), 14cqi);
+}
+/* Text never runs past its square. Each cell and editor square is an inline-size container: text is held to its
+   width, breaks anywhere, and shrinks with the square (cqi) when the font size would not fit a word or two. */
+.sode-panel__cell,
+.sode-ed__sq {
+  container-type: inline-size;
+  overflow-wrap: anywhere;
+}
+.sode-panel__cell > :not(.sode-panel__art),
+.sode-ed__sq > :not(.sode-panel__art) {
+  max-inline-size: 100%;
+}
+.sode-panel__cell span.sode-panel__text,
+.sode-ed__text {
+  font-size: min(1em, 20cqi);
+}
+.sode-panel__take {
+  font-size: calc(var(--pb-text-xl) * var(--panel-fs, 1) * var(--cell-fs, 1));
+}
+/* The artwork row: Icon A (a sprite icon or an image) then Icon B (a glyph) side by side, each scaled to the row.
+   The row is a size container so the glyph follows the square's height (cqh), as the icon does. Alone, either
+   fills the row; beside a sprite icon Icon A takes 40% of its width and Icon B 60% (both shrink alike for the gap,
+   so the ratio holds). An image fills the row (--fill, always contain) and Icon B is a corner badge over it.
+   With the text hidden nothing sits over the artwork, so it is drawn at full strength. */
+.sode-panel__art {
+  align-items: center;
+  color: var(--pb-text-strong);
+  container-type: size;
+  display: flex;
+  gap: var(--pb-space-2);
+  inset: 0;
+  justify-content: center;
+  opacity: 0.3;
+  padding: var(--pb-space-2);
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+[data-hide-text] > .sode-panel__art {
+  opacity: 1;
+}
+.sode-panel__art-a {
+  flex: 0 1 auto;
+  height: 100%;
+  min-width: 0;
+  object-fit: contain;
+  width: auto;
+}
+.sode-panel__art-a:not(:only-child) {
+  flex: 0 1 40%;
+}
+.sode-panel__art-b {
+  flex: 0 0 auto;
+  font-family: var(--pb-font-num);
+  font-size: 70cqh;
+  font-weight: var(--pb-weight-bold);
+  line-height: 1;
+  text-align: center;
+}
+.sode-panel__art-b--wide {
+  font-size: min(70cqh, 80cqw);
+}
+/* Beside Icon A the glyph fits its 60%: one character is about 0.6em wide, two about 1.1em. */
+.sode-panel__art-b:not(:only-child) {
+  flex: 0 1 60%;
+  font-size: min(70cqh, 60cqw);
+}
+.sode-panel__art-b--wide:not(:only-child) {
+  font-size: min(70cqh, 50cqw);
+}
+.sode-panel__art--fill > .sode-panel__art-a {
+  flex: 1 1 100%;
+  width: 100%;
+}
+/* An Icon library SVG (artImage in panelview.js): its shape in the text colour, as the Panels logo in base.css. */
+.sode-panel__art-mask {
+  background-color: currentColor;
+  display: inline-block;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+/* Icon B over an image (artBBadge in panellook.js): sized from the row like the glyph, on a plate so it reads over
+   any image. */
+.sode-panel__art > .sode-panel__art-b--badge {
+  background-color: var(--pb-surface-raised);
+  font-size: min(30cqh, 30cqw);
+  inset-block-start: var(--pb-space-1);
+  inset-inline-end: var(--pb-space-1);
+  padding: var(--pb-space-1) var(--pb-space-2);
+  position: absolute;
+}
+.sode-panel__art > .sode-panel__art-b--badge.sode-panel__art-b--wide {
+  font-size: min(30cqh, 18cqw);
+}
+
+/* The panels page. Cell colours follow the panel's kinds: a source reads green, a destination orange. */
+.sode-ov__cols {
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: 20rem minmax(0, 1fr);
+}
+@media (max-width: 52rem) {
+  .sode-ov__cols {
+    grid-template-columns: 1fr;
+  }
+}
+.sode-ov__list {
+  border-right: 1px solid var(--pb-border);
+  min-width: 0;
+}
+.sode-ov__find {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  padding-bottom: var(--pb-space-3);
+}
+.sode-ov__group {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-xs);
+  letter-spacing: var(--pb-tracking-label);
+  margin: var(--pb-space-4) 0 var(--pb-space-2);
+  text-transform: uppercase;
+}
+.sode-ov__item {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--pb-border);
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: var(--pb-space-3);
+  grid-template-columns: auto 1fr auto;
+  padding: var(--pb-space-3);
+  text-align: left;
+  width: 100%;
+}
+.sode-ov__item[aria-current="true"] {
+  background: var(--pb-surface-control);
+  box-shadow: inset var(--pb-space-1) 0 var(--pb-view);
+}
+.sode-ov__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sode-ov__muted {
+  color: var(--pb-text-muted);
+}
+.sode-ov__empty {
+  padding: var(--pb-space-3);
+}
+.sode-ov__title {
+  color: var(--pb-text-strong);
+  font-size: var(--pb-text-lg);
+  margin: 0 0 var(--pb-space-4);
+}
+.sode-ov__big {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: minmax(0, 24rem) 1fr;
+}
+@media (max-width: 52rem) {
+  .sode-ov__big {
+    grid-template-columns: 1fr;
+  }
+}
+.sode-ov__pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-ov__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-ov__kbd {
+  color: var(--pb-text-muted);
+  font-family: var(--pb-font-num);
+  font-size: var(--pb-text-2xs);
+  margin-inline-start: var(--pb-space-2);
+}
+.sode-ov__kv {
+  display: grid;
+  gap: var(--pb-space-1) var(--pb-space-4);
+  grid-template-columns: max-content 1fr;
+  margin: 0;
+}
+.sode-ov__kv dt {
+  color: var(--pb-text-muted);
+}
+.sode-ov__kv dd {
+  margin: 0;
+}
+.sode__scrim > .pb-modal.sode-ov__share {
+  width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+/* The key shown once after a make (panelkeytab.js showKey); lock.css is not loaded on panel pages. */
+.sode__scrim > .pb-modal.sode-ov__keyshow {
+  width: min(32rem, calc(100vw - var(--pb-space-8) * 2));
+}
+.sode-ov__keyshow .sode__secret {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-ov__indent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding-left: var(--pb-space-6);
+}
+.sode-ov__sub {
+  font-size: var(--pb-text-md);
+  margin: var(--pb-space-5) 0 var(--pb-space-3);
+}
+.sode-ov__cp {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+.sode-ov__cp[aria-current="true"] {
+  background: var(--pb-surface-control);
+  box-shadow: inset var(--pb-space-1) 0 var(--pb-view);
+}
+.sode-ov__people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  max-height: 18rem;
+  overflow-y: auto;
+}
+.sode-ov__thumb {
+  background: var(--pb-surface-base);
+  border: 1px solid var(--pb-border);
+  display: grid;
+  gap: var(--pb-space-1);
+  padding: var(--pb-space-2);
+  width: 100%;
+}
+.sode-ov__thumb--sm {
+  padding: var(--pb-space-1);
+  width: 6rem;
+}
+.sode-ov__thumb i {
+  background: var(--pb-surface-control);
+}
+.sode-ov__thumb .sode-ov__k-source {
+  background: var(--pb-current-idle);
+}
+.sode-ov__thumb .sode-ov__k-destination {
+  background: var(--pb-view-idle);
+}
+.sode-ov__thumb .sode-ov__k-take {
+  background: var(--pb-hue-red);
+}
+
+/* The panel editor (/panels/editor): toolbar, grid and the smart menu. Selection is a ring, state is never colour alone. */
+/* Groups keep related controls together and a rule between them; a wrapped bar breaks between groups first. */
+.sode-ed__bar {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  padding: var(--pb-space-4) var(--pb-space-5);
+}
+.sode-ed__grp {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+}
+.sode-ed__grp + .sode-ed__grp {
+  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
+  padding-inline-start: var(--pb-space-5);
+}
+.sode-ed__pick {
+  font-size: var(--pb-text-md);
+  min-width: 14rem;
+  padding-block: var(--pb-space-2);
+}
+.sode-ed__keys + .pb-menu__hint {
+  margin-left: 0;
+  padding-left: var(--pb-space-2);
+}
+.sode-linkrow__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-linkrow__text {
+  flex: 1 1 14rem;
+  font-family: var(--pb-font-mono);
+  min-width: 0;
+}
+.sode-ov__sharebody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode-ed__field {
+  align-items: center;
+  color: var(--pb-text-muted);
+  display: inline-flex;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-2);
+}
+.sode-ed__num {
+  text-align: center;
+  width: 4.5rem;
+}
+.sode-ed__state {
+  color: var(--pb-text-muted);
+  display: inline-grid;
+  font-size: var(--pb-text-sm);
+  justify-items: end;
+  white-space: nowrap;
+}
+/* A hidden copy of the longest state holds the slot's width, so the toolbar never re-wraps when the state changes.
+   Keep in step with refresh() in paneleditor.js. */
+.sode-ed__state::before {
+  content: "Unsaved changes";
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+.sode-ed__grid {
+  background: var(--pb-surface-sunken);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: grid;
+  gap: var(--pb-space-2);
+  outline-offset: var(--pb-space-1);
+  padding: var(--pb-space-2);
+  touch-action: none;
+  user-select: none;
+  width: 100%;
+}
+.sode-ed__grid[data-readonly="1"] {
+  cursor: default;
+}
+.sode-ed__sq {
+  align-items: center;
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  color: var(--pb-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--pb-text-sm);
+  gap: var(--pb-space-1);
+  justify-content: center;
+  line-height: var(--pb-leading-tight);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--pb-space-2);
+  text-align: center;
+}
+.sode-ed__sq.has-cell {
+  border-color: var(--pb-edge-hard);
+}
+.sode-ed__sq--source {
+  background: var(--pb-current-idle);
+}
+.sode-ed__sq--destination {
+  background: var(--pb-view-idle);
+}
+.sode-ed__sq--take {
+  background: color-mix(in oklab, var(--pb-hue-red) 40%, var(--pb-surface-control));
+  font-weight: var(--pb-weight-bold);
+}
+.sode-ed__sq.is-unassigned {
+  border-style: dashed;
+}
+.sode-ed__sq.is-sel {
+  box-shadow: inset 0 0 0 var(--pb-state-border-w) var(--pb-accent);
+}
+.sode-ed__text {
+  overflow-wrap: anywhere;
+}
+
+.sode-ed__menu {
+  position: fixed;
+}
+.sode-ed__menu li:focus-within > .pb-menu__sub {
+  display: block;
+}
+[data-ed-drag] .sode-ed__menu {
+  opacity: 0;
+  pointer-events: none;
+}
+.sode-ed__menu:focus-within {
+  outline: var(--pb-state-border-w) solid var(--pb-accent);
+}
+
+/* Find's flyout. data-open is set while its box has focus, since a hidden box cannot take focus to open itself. */
+.sode-find {
+  display: none;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-3);
+  width: 24rem;
+}
+.sode-ed__menu li > .sode-find[data-open="1"],
+.sode-ed__menu li:hover > .sode-find,
+.sode-ed__menu li:focus-within > .sode-find {
+  display: flex;
+}
+.sode-find__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2);
+}
+.sode-find__list {
+  list-style: none;
+  margin: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  padding: 0;
+}
+.sode-find__row {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+.sode-find__row.is-hi {
+  background: var(--pb-surface-control);
+  box-shadow: inset var(--pb-state-border-w) 0 0 var(--pb-accent);
+}
+.sode-find__row.is-pick {
+  background: var(--pb-surface-sunken);
+  box-shadow: inset var(--pb-state-border-w) 0 0 var(--pb-accent);
+}
+.sode-find__row[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+.sode-find__name {
+  overflow-wrap: anywhere;
+}
+
+/* The Panel tab's Fixed destination field: chosen Destinations, then the picker's box and results. */
+.sode-fixed__chosen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sode-fixed__dst {
+  align-items: center;
+  background: var(--pb-view-idle);
+  border: var(--pb-border-w) solid var(--pb-edge-hard);
+  display: flex;
+  gap: var(--pb-space-3);
+  padding-inline-start: var(--pb-space-3);
+}
+.sode-fixed__dst .pb-btn {
+  margin-inline-start: auto;
+}
+.sode-fixed__results {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+}
+.sode-find__none {
+  color: var(--pb-text-muted);
+  padding: var(--pb-space-2) var(--pb-space-3);
+}
+.sode-find__foot {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+.sode-find__note {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin: 0;
+  min-height: 1.2em;
+}
+.sode-ed__sq.is-preview {
+  border-style: dashed;
+  box-shadow: inset 0 0 0 var(--pb-state-border-w) var(--pb-accent);
+  opacity: 0.75;
+}
+.sode-ed__sq.is-replaced {
+  text-decoration: underline dotted;
+}
+
+.sode-tpl__list,
+.sode-tpl__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-tpl__list {
+  max-height: 16rem;
+  overflow-y: auto;
+  margin-bottom: var(--pb-space-4);
+}
+.sode-tpl__head {
+  font-size: 1rem;
+  margin: var(--pb-space-2) 0 0;
+}
+.sode-tpl__row {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-3);
+}
+.sode-tpl__name {
+  font-weight: 600;
+}
+.sode-tpl__row > .pb-btn:first-of-type {
+  margin-left: auto;
+}
+.sode-tpl__field,
+.sode-tpl__pin,
+.sode-side__pin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+}
+.sode__scrim > .pb-modal.sode-tpl {
+  width: min(34rem, calc(100vw - var(--pb-space-8) * 2));
+}
+/* Link with key tab of the Share modal. The QR is the one keyview.js builds; lock.css is not on this page. */
+.sode-ov__keytab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.pb-tab[aria-disabled="true"] {
+  color: var(--pb-text-disabled);
+}
+.sode-ov__keys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  list-style: none;
+  margin: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+  padding: 0;
+}
+.sode-ov__keyitem {
+  align-items: center;
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3) var(--pb-space-5);
+  padding: var(--pb-space-3) var(--pb-space-4);
+}
+.sode-ov__keyname {
+  display: flex;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  min-width: 0;
+}
+.sode-ov__keyrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-ov__keyconfirm {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  padding: var(--pb-space-4);
+}
+.sode-ov__keylink,
+.sode-ov__keynets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-ov__keylink .sode__secret-row,
+.sode-ov__keyshow .sode__secret-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-3);
+}
+.sode-ov__keylink .sode__secret-key,
+.sode-ov__keyshow .sode__secret-key {
+  flex: 1 1 16rem;
+  font-family: var(--pb-font-mono);
+  min-width: 0;
+}
+.sode-ov__keylink .sode__qr,
+.sode-ov__keyshow .sode__qr {
+  align-self: flex-start;
+  height: auto;
+  width: 12rem;
+}
+/* Test it live: the panel runs in the editor's page, in place of the grid and sidebar (paneleditor.js, panelmount.js). */
+.sode-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-5);
+  min-height: 24rem;
+  position: relative;
+}
+.sode-live .sode-panel__offline {
+  position: absolute;
+}
+.sode-live .sode-panel__offline-title {
+  font-size: 3rem;
+}
+/* The editor's sidebar (editorside.js). Artwork in a square sits dimmed behind its caption, as on the panel page. */
+.sode-ed__body {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: minmax(0, 1fr) 22rem;
+}
+@media (max-width: 64rem) {
+  .sode-ed__body {
+    grid-template-columns: 1fr;
+  }
+}
+.sode-ed__main {
+  align-items: start;
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: 12rem minmax(0, 1fr);
+  min-width: 0;
+}
+@media (max-width: 48rem) {
+  .sode-ed__main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* The Pages bar (editorpagebar.js) and the open Pages side by side (editorpageview.js). Frames sit at their Page's
+   place through order, set in code. */
+.sode-pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+  min-width: 0;
+}
+.sode-pages__title,
+.sode-ed__frame-title {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  font-weight: 600;
+  margin: 0;
+}
+.sode-pages__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sode-pages__row {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-1);
+  padding: var(--pb-space-2);
+}
+.sode-pages__row.is-open {
+  border-color: var(--pb-edge);
+}
+.sode-pages__row.is-focus {
+  border-color: var(--pb-accent);
+}
+.sode-pages__row.is-drop {
+  outline: var(--pb-accent-bar-w) solid var(--pb-accent);
+}
+.sode-pages__row.is-off .sode-pages__name {
+  color: var(--pb-text-disabled);
+}
+.sode-pages__head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-pages__open {
+  flex: 1 1 auto;
+  gap: var(--pb-space-3);
+  justify-content: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+.sode-pages__num {
+  font-family: var(--pb-font-num);
+  min-width: 1.25rem;
+}
+.sode-pages__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sode-pages__tools {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--pb-space-1);
+}
+.sode-pages__on {
+  flex: 0 0 auto;
+}
+.sode-pages__add {
+  align-self: flex-start;
+  gap: var(--pb-space-2);
+}
+.sode-ed__open {
+  display: grid;
+  gap: var(--pb-space-5);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.sode-ed__open:not([data-open="1"]) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 64rem) {
+  .sode-ed__open:not([data-open="1"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.sode-ed__frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode-ed__frame.is-focus .sode-ed__grid {
+  border-color: var(--pb-accent);
+}
+.sode-ed__sq.has-cell {
+  font-size: calc(var(--pb-text-sm) * var(--cell-fs, 1));
+  isolation: isolate;
+  position: relative;
+}
+.sode-ed__side {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-7);
+  /* The toolbar above wraps to any height, so the sidebar pins near the top of the window as the page scrolls. */
+  max-height: calc(100dvh - 2 * var(--pb-space-5));
+  min-width: 0;
+  overflow: hidden auto;
+  padding: var(--pb-space-9) var(--pb-space-5);
+  position: sticky;
+  top: var(--pb-space-5);
+}
+.sode-side__tab,
+.sode-side__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-7);
+}
+#ed-cell-show {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.sode-side__checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode-side__sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-4);
+}
+.sode-side__sec[hidden],
+.sode-side__sec .sode__hint:empty {
+  display: none;
+}
+.sode-side__sec + .sode-side__sec {
+  border-top: var(--pb-border-w) solid var(--pb-edge);
+  padding-top: var(--pb-space-7);
+}
+.sode-side__sec > .pb-btn {
+  align-self: flex-start;
+}
+.sode-side__h {
+  font-size: var(--pb-text-md);
+  font-weight: var(--pb-weight-bold);
+  margin: 0;
+}
+.sode-side__kind,
+.sode-side__rights {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+  margin: 0;
+}
+.sode-side__row,
+.sode-side__icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-4);
+}
+/* Rows and Columns share one line (TestChromeEditorSidebar). The sidebar had about 4px spare; keep the gap and inputs small so a wider font cannot wrap them. */
+.sode-side__steps {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pb-space-2) var(--pb-space-3);
+}
+.sode-side__step {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-1);
+}
+.sode-side__step .sode-ed__num {
+  width: 2.5rem;
+}
+.sode-side__step > label {
+  margin: 0;
+}
+.sode-side__inline,
+.sode-side__sizerow {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+}
+.sode-side__sizerow {
+  flex-wrap: wrap;
+}
+.sode-side__sizerow > .sode-side__inline {
+  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
+  padding-inline-start: var(--pb-space-4);
+}
+.sode__field.sode-side__inline {
+  flex-direction: row;
+}
+.sode-side__inline .sode-ed__num {
+  width: 4.5rem;
+}
+.sode-side__art {
+  align-items: center;
+  background: var(--pb-surface-control);
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  height: 5rem;
+  isolation: isolate;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.sode-side__art-text {
+  font-size: var(--pb-text-sm);
+}
+/* The icon picker: Icon A and Icon B side by side, half each, each scrolling on its own. */
+.sode-side__picker {
+  display: grid;
+  gap: var(--pb-space-1);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.sode-side__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  min-width: 0;
+}
+.sode-side__col[hidden] {
+  display: none;
+}
+.sode-side__col:only-child,
+.sode-side__col:has(+ .sode-side__col[hidden]) {
+  grid-column: 1 / -1;
+}
+.sode-side__col-h {
+  color: var(--pb-text-muted);
+  font-size: var(--pb-text-sm);
+}
+.sode-side__icons {
+  align-content: flex-start;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+.sode-side__glyph {
+  font-family: var(--pb-font-num);
+  font-weight: var(--pb-weight-bold);
+}
+/* Uploaded (the Icon library) above the vendored icons in Icon A's column. */
+.sode-side__lib-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+}
+.sode-side__lib-sec[hidden],
+.sode-side__lib[hidden] {
+  display: none;
+}
+.sode-side__lib-sec .sode-side__icons {
+  max-height: 7rem;
+}
+.sode-side__lib-head {
+  align-items: center;
+  display: flex;
+  gap: var(--pb-space-2);
+  justify-content: space-between;
+}
+.sode-side__lib-confirm {
+  border: var(--pb-border-w) solid var(--pb-edge);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-2);
+  padding: var(--pb-space-3);
+}
+.sode-side__lib-confirm[hidden],
+.sode-side__lib-sec .sode-side__row[hidden] {
+  display: none;
+}
+.sode-side__lib-img {
+  height: 1.25rem;
+  object-fit: contain;
+  width: 1.25rem;
+}
+.sode-find__orders {
+  display: flex;
+  gap: var(--pb-space-2);
+}
+/* The smart menu's Artwork flyout: the Cell tab's two picker columns at Find's width, kept short so it fits beside a low selection. */
+.sode-arttool .sode-side__icons {
+  max-height: 10rem;
+}
+.sode-ed__grid {
+  position: relative;
+}
+.sode-ed__grip {
+  background: var(--pb-accent);
+  border: var(--pb-border-w) solid var(--pb-surface-raised);
+  cursor: crosshair;
+  height: 1rem;
+  position: absolute;
+  transform: translate(-60%, -60%);
+  width: 1rem;
+}
+.sode-ed__tip {
+  background: var(--pb-surface-raised);
+  border: var(--pb-border-w) solid var(--pb-edge-hard);
+  color: var(--pb-text);
+  font-size: var(--pb-text-sm);
+  padding: var(--pb-space-2) var(--pb-space-3);
+  pointer-events: none;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.sode-panels__logo {
+  margin-right: var(--pb-space-4);
+  vertical-align: middle;
+}
+
+/* Sidebar additions */
+.sode-side__head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--pb-space-3);
+  justify-content: space-between;
+}
+.sode-side__ident {
+  margin: 0;
+  text-align: end;
+}
+.sode-side__kind {
+  text-align: center;
+}
+.sode-side__table {
+  width: auto;
+}
+.sode-side__table th {
+  font-weight: var(--pb-weight-regular);
+  padding-inline-end: var(--pb-space-5);
+}
+.sode-side__people {
+  margin: 0;
+  padding-inline-start: var(--pb-space-5);
+}
+.sode-fixed__help {
+  color: var(--pb-text-muted);
+  cursor: help;
+  display: inline-flex;
+  vertical-align: middle;
+}
+/* The sidebar scrolls, so a one-line tip this long would be cut off at its edge. */
+.sode-fixed__help[data-pb-tip]::after {
+  white-space: normal;
+  width: 12rem;
+}
+.sode-ed__side .sode__tabs {
+  gap: var(--pb-space-4);
+}
+.sode-side__col-top {
+  align-items: center;
+  min-height: 2.5rem;
+  display: flex;
+  gap: var(--pb-space-2);
+  justify-content: space-between;
+}
+.sode-side__find {
+  flex: 1 1 4rem;
+  font-size: var(--pb-text-sm);
+  min-width: 0;
+  padding-block: var(--pb-space-1);
+}
+/* Classic scroll bars, so the lists show that they scroll even where the system hides overlay bars. */
+.sode-side__icons {
+  overflow-y: scroll;
+  scrollbar-color: var(--pb-edge-hard) var(--pb-surface-sunken);
+}
+.sode-side__icons::-webkit-scrollbar {
+  width: 0.75rem;
+}
+.sode-side__icons::-webkit-scrollbar-track {
+  background: var(--pb-surface-sunken);
+}
+.sode-side__icons::-webkit-scrollbar-thumb {
+  background: var(--pb-edge-hard);
+}
+/* Panel picker and Name in the toolbar: equal width, and a rule left of Name. */
+.sode-ed__pick {
+  padding-inline-start: var(--pb-space-3);
+}
+#ed-name {
+  padding-inline-start: var(--pb-space-3);
+  width: 14rem;
+}
+.sode-ed__grp--pick > .sode-ed__field + .sode-ed__field,
+.sode-ed__grp--pick > .sode-ed__name {
+  border-inline-start: var(--pb-border-w) solid var(--pb-edge);
+  padding-inline-start: var(--pb-space-5);
+}
+
+.sode-ed__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pb-space-3);
+  min-width: 14rem;
+  justify-content: space-between;
+}
+.sode-ed__name[hidden] {
+  display: none;
+}
+.sode-ed__name-text {
+  font-size: var(--pb-text-md);
+}

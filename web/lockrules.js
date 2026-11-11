@@ -30,6 +30,22 @@ export function groupActor(entries, users) {
   return who.size === 1 ? [...who][0] : '';
 }
 
+// The History row's "by Ana on panel Lobby Wall, instance Front desk". An API take by a user's key names the user
+// through its actor, since its client text carries the key name. x is an entry or a Group ({entries}), which
+// shows only what all its takes share; '' when there is nothing to show.
+export function byText(x, users) {
+  const list = x.entries || [x];
+  const shared = (f) => {
+    const all = new Set(list.map(f));
+    return all.size === 1 ? [...all][0] : '';
+  };
+  const name = shared((e) => actorUser(e.actor?.kind === 'user' ? e.actor.name : e.client, users));
+  const panel = shared((e) => e.panel || '');
+  const instance = panel ? shared((e) => e.instance || '') : '';
+  const where = panel ? `on panel ${panel}${instance ? `, instance ${instance}` : ''}` : '';
+  return [name && `by ${name}`, where].filter(Boolean).join(' ');
+}
+
 export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastActive >= minutes * 60_000;
 
 // s is the lock state ({locked, user}). Anyone signed in gets the server-held Lock, persistent
@@ -37,8 +53,17 @@ export const idleDue = (lastActive, now, minutes) => minutes > 0 && now - lastAc
 // (the server tells only that user, in lockState); the Lock button still works for them.
 export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user && !s.noAutoLock) && idleDue(lastActive, now, minutes);
 
+// The `activity` ping keeps the server's idle clock (internal/app/idle.go) behind this page's. A locked
+// or signed-out page sends none: the server would ignore it.
+export const PING_MS = 30_000;
+export const pingDue = (s, lastPing, lastActive, now) => !!(!s.locked && s.user) && lastActive > lastPing && now - lastPing >= PING_MS;
+
 // A held Lock has no user in the browser's state but is not a letter Lock: the pad stays.
 export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enforced && !s.locked && !s.user && !letterUp && idleDue(lastActive, now, minutes);
+
+// A Public panel's page skips the page lock's PIN pad (docs/panels-design.md). The server still
+// counts it locked, so it sends no names; a held Lock and the idle letter Lock still apply.
+export const pinFreeView = (m, pinFree) => (pinFree ? { enforced: false, locked: !!m.held } : { enforced: !!m.enforced, locked: !!m.locked });
 
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
 // step.
@@ -60,6 +85,7 @@ export const guardedEdited = (next, cur) =>
   (GUARDED.some((k) => next[k] !== cur[k]) ||
     !!next.locks?.main !== !!cur.locks?.main ||
     !!next.locks?.log !== !!cur.locks?.log ||
+    !!next.locks?.panel !== !!cur.locks?.panel ||
     (next.trustedProxies || []).join(',') !== (cur.trustedProxies || []).join(','));
 
 // A low-risk settings save asks for the settings PIN first, except on a trusted user's
@@ -68,6 +94,8 @@ export const needsPin = (pinSet, unlocked, trusted) => !!pinSet && !unlocked && 
 
 export function pageType(pathname) {
   if (/\/log(\.html)?\/?$/.test(pathname)) return 'log';
+  // The panels page, the editor and a panel itself share one lock.
+  if (/\/panels(\/[^/]*)?$/.test(pathname)) return 'panel';
   return 'main';
 }
 

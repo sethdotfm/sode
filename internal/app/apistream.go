@@ -16,8 +16,8 @@ import (
 )
 
 // The stream: GET /api/v1/stream upgrades to a WebSocket that only sends. The caller names
-// its topics in ?topics=a,b at connect; every frame is {"t","topic"?,"data"?}. Keep docs in
-// step: openapi.yaml.
+// its topics in ?topics=a,b at connect; every frame but hello and ping is {"t","topic","data"?}, so a client can match on
+// topic alone. Keep docs in step: docs/api.md, openapi.yaml.
 //
 //	hello          {v, topics, numberOffset}, always first
 //	snapshot       one per names, tally and status topic, topic set, data as the REST read
@@ -25,7 +25,7 @@ import (
 //	tally          {routes:[{dst,level,src}]} changed routes only
 //	status         {router, routerUp, error}, plus address and err for a caller with the log scope
 //	entry          a new History entry (topic history)
-//	entryUpdate    a changed entry, such as a Late Result (topics history and results, sent once)
+//	entryUpdate    a changed entry, such as a Late Result (sent once; topic history, or results when history was not chosen)
 //	historyCleared (topic history)
 //	ping           heartbeat, ignore
 //
@@ -48,6 +48,8 @@ const apiStreamVersion = 1
 var (
 	apiStreamMaxPerKey  = 8
 	apiStreamMaxPerAddr = 8
+
+	apiStreamMaxPerPanelKey = 64
 )
 
 // streamTopics maps a topic to the scope that allows it. results (entry updates only) rides
@@ -72,6 +74,7 @@ type apiStream struct {
 	topics map[string]bool
 	send   chan []byte
 	detail bool               // the caller has the log scope: status frames carry address and err
+	panel  bool               // the key is a panel's own: its kiosks share it, so the caps differ
 	keyID  string             // "" for a keyless Guest call
 	ip     string             // the caller's address, for the per-address cap
 	owner  keyOwner           // who the key acts as, re-read on every config commit
@@ -135,13 +138,19 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 		if st.keyID != "" && o.keyID == st.keyID {
 			perKey++
 		}
-		if o.ip == st.ip {
+		if o.ip == st.ip && !o.panel {
 			perAddr++
 		}
 	}
-	if perKey >= apiStreamMaxPerKey || perAddr >= apiStreamMaxPerAddr {
+	// A panel's kiosks share one key and often one address, so its streams get a higher cap of
+	// their own and do not count against an address's.
+	keyMax, addrMax := apiStreamMaxPerKey, apiStreamMaxPerAddr
+	if st.panel = cl.Panel != ""; st.panel {
+		keyMax, addrMax = apiStreamMaxPerPanelKey, perAddr+1
+	}
+	if perKey >= keyMax || perAddr >= addrMax {
 		a.mu.Unlock()
-		msg := fmt.Sprintf("too many open streams: %d for a key and %d for an address at most", apiStreamMaxPerKey, apiStreamMaxPerAddr)
+		msg := fmt.Sprintf("too many open streams: %d for a key and %d for an address at most", keyMax, apiStreamMaxPerAddr)
 		a.apiEvent(cl.Actor, "refused", "refused", "stream "+strings.Join(topics, ","), fmt.Errorf("%s", msg))
 		apiFail(w, http.StatusTooManyRequests, "too_many_streams", msg)
 		return
@@ -172,7 +181,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	conn.SetReadLimit(1 << 10) // the stream takes no input
 
 	// A key ended between auth and registering is not seen by endStreams.
-	if st.keyID != "" && !a.keys.alive(st.keyID) {
+	if st.keyID != "" && !a.keys.alive(st.keyID) && !a.public.alive(st.keyID) {
 		a.endStreams([]apiKey{*cl.Key}, "key ended")
 	}
 
@@ -354,15 +363,15 @@ func (a *App) streamFan(v any) {
 				rows = append(rows, apiRouteRow{c.Dst, c.Level, c.Src})
 			}
 			if len(rows) > 0 {
-				a.streamQueue(st, streamMsg{T: "tally", Data: map[string]any{"routes": rows}})
+				a.streamQueue(st, streamMsg{T: "tally", Topic: "tally", Data: map[string]any{"routes": rows}})
 			}
 		case namesMsg:
 			if st.topics["names"] {
-				a.streamQueue(st, streamMsg{T: "names", Data: a.namesSnapshot(st.view)})
+				a.streamQueue(st, streamMsg{T: "names", Topic: "names", Data: a.namesSnapshot(st.view)})
 			}
 		case statusMsg:
 			if st.topics["status"] {
-				a.streamQueue(st, streamMsg{T: "status", Data: linkStatus(m, st.detail)})
+				a.streamQueue(st, streamMsg{T: "status", Topic: "status", Data: linkStatus(m, st.detail)})
 			}
 		case recentMsg:
 			if m.E == nil {
@@ -376,14 +385,17 @@ func (a *App) streamFan(v any) {
 			if !ok {
 				continue
 			}
-			t := "entry"
+			t, topic := "entry", "history"
 			if m.Update {
 				t = "entryUpdate"
+				if !st.topics["history"] {
+					topic = "results"
+				}
 			}
-			a.streamQueue(st, streamMsg{T: t, Data: e})
+			a.streamQueue(st, streamMsg{T: t, Topic: topic, Data: e})
 		case simpleMsg:
 			if m.T == "historyCleared" && st.topics["history"] {
-				a.streamQueue(st, streamMsg{T: "historyCleared"})
+				a.streamQueue(st, streamMsg{T: "historyCleared", Topic: "history"})
 			}
 		}
 	}

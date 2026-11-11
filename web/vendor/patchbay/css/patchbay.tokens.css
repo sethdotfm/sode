@@ -97,6 +97,13 @@
   --pb-commit-hover:     var(--pb-hue-amber-hover);  /* 10.72:1 dk · 6.39:1 lt */
   --pb-protect:          var(--pb-hue-magenta);      /* write-protected / locked — magenta */
   --pb-brand:            var(--pb-hue-orange);       /* top-level navigation chrome only   */
+  /* Routing state on a control surface. view = the destination being looked
+     at or staged for change; the current source takes status-ok. The idle
+     tints are those colours mixed into the control surface, so an untouched
+     cell keeps its colour code without competing with a live one. */
+  --pb-view:             var(--pb-hue-orange);
+  --pb-view-idle:        color-mix(in oklab, var(--pb-view) 26%, var(--pb-surface-control));
+  --pb-current-idle:     color-mix(in oklab, var(--pb-status-ok) 26%, var(--pb-surface-control));
 
 
   /* ----------------------------------------------------------------------

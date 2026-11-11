@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,7 +109,16 @@ func TestKeyFileNeverHoldsPinOrHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	ana, _ := a.r().cfg.FindUser("Ana")
-	if strings.Contains(string(b), ana.Pin) || strings.Contains(string(b), "1234") {
-		t.Fatalf("keys.json holds the PIN or its hash: %s", b)
+	// "1234" as a substring turns up in random hex now and then, so only a whole value counts.
+	var recs []map[string]any
+	if err := json.Unmarshal(b, &recs); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range recs {
+		for k, v := range r {
+			if str, ok := v.(string); ok && (str == "1234" || strings.Contains(str, ana.Pin)) {
+				t.Fatalf("keys.json field %q holds the PIN or its hash: %s", k, b)
+			}
+		}
 	}
 }

@@ -7,6 +7,7 @@ import {
   sendable,
   idleDue,
   idleLock,
+  pingDue,
   needsPin,
   guardedEdited,
   pageType,
@@ -16,10 +17,12 @@ import {
   dots,
   actorUser,
   groupActor,
+  byText,
   wrongFeedback,
   WRONG_MS,
   churnKey,
   localIdleLock,
+  pinFreeView,
   signInOffered,
   signInAsOffered,
   signOutOffered,
@@ -103,6 +106,16 @@ test('idleDue', () => {
   assert.equal(idleDue(1000, 5 * 60_000, 5), false);
 });
 
+test('pingDue: only signed in, not locked, active since the last ping, and 30 s apart', () => {
+  const s = { locked: false, user: 'Ana' };
+  assert.equal(pingDue(s, 0, 31_000, 31_000), true);
+  assert.equal(pingDue(s, 0, 29_000, 29_000), false);
+  assert.equal(pingDue(s, 10_000, 5_000, 60_000), false); // nothing since the last ping
+  assert.equal(pingDue(s, 10_000, 20_000, 60_000), true);
+  assert.equal(pingDue({ locked: true, user: '' }, 0, 40_000, 40_000), false);
+  assert.equal(pingDue({ locked: false, user: '' }, 0, 40_000, 40_000), false);
+});
+
 test('idleLock: every signed-in user locks when idle, persistent ones and tab sign-ins included', () => {
   const t = 5 * 60_000;
   const user = { enforced: true, locked: false, user: 'Ana', persistent: false };
@@ -138,6 +151,10 @@ test('pageType', () => {
   assert.equal(pageType('/log'), 'log');
   assert.equal(pageType('/sode/log'), 'log');
   assert.equal(pageType('/log.html'), 'log');
+  for (const p of ['/panels', '/panels/', '/panels/editor', '/panels/p-1a2b', '/sode/panels/editor', '/sode/panels']) {
+    assert.equal(pageType(p), 'panel', p);
+  }
+  assert.equal(pageType('/panelsx'), 'main');
   assert.equal(pageType('/catalog'), 'main');
 });
 
@@ -212,6 +229,8 @@ test('guardedEdited: router, trusted proxies and the PIN limit need the PIN', ()
   assert.equal(guardedEdited({ ...cur, matrix: 2 }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: ['0.0.0.0/0'] }, cur), true);
   assert.equal(guardedEdited({ ...cur, trustedProxies: undefined }, { ...cur, trustedProxies: [] }), false);
+  assert.equal(guardedEdited({ ...cur, locks: { panel: true } }, { ...cur, locks: { panel: false } }), true);
+  assert.equal(guardedEdited({ ...cur, locks: { panel: false } }, cur), false);
 });
 
 test('wrongFeedback: Incorrect for a plain wrong PIN, server waits kept as text', () => {
@@ -252,6 +271,19 @@ test('localIdleLock: idle past the auto-lock minutes, only where no PIN lock is 
   assert.equal(localIdleLock({ enforced: false }, true, 0, idle, 5), false);
   assert.equal(localIdleLock({ enforced: true }, false, 0, idle, 5), false);
   assert.equal(localIdleLock({ enforced: false, locked: true, held: true, user: '' }, false, 0, idle, 5), false); // a held Lock is not a letter Lock
+});
+
+test('pinFreeView: a Public panel skips the PIN pad but keeps the held Lock and the idle letter Lock', () => {
+  const idle = 5 * 60_000;
+  const locked = { enforced: true, locked: true, held: false, user: '' };
+  assert.deepEqual(pinFreeView(locked, false), { enforced: true, locked: true });
+  const free = { ...locked, ...pinFreeView(locked, true) };
+  assert.equal(lockCovers(free), false);
+  assert.equal(localIdleLock(free, false, 0, idle, 5), true);
+  const held = { enforced: true, locked: true, held: true, user: '' };
+  assert.equal(lockCovers({ ...held, ...pinFreeView(held, true) }), true);
+  const signedIn = { enforced: true, locked: false, held: false, user: 'Ana' };
+  assert.deepEqual(pinFreeView(signedIn, true), { enforced: false, locked: false });
 });
 
 test('tab signedIn: offered only with users, no lock and nobody in', () => {
@@ -427,4 +459,20 @@ test('prefillName and focusName: username mode fills the box, and then the pad t
   assert.equal(focusName({ mode: 'username', held: false }, 'ana'), false);
   assert.equal(focusName({ mode: 'username', held: false }, ''), true);
   assert.equal(focusName({ mode: 'pin', held: false }, ''), false);
+});
+
+test('byText names the user and the panel page that made a take', () => {
+  const users = ['Ana'];
+  const fromPanel = { client: 'Ana (Panel wall)', actor: { kind: 'user', name: 'Ana', key: 'Panel wall' }, panel: 'Lobby Wall', instance: 'Front desk' };
+  assert.equal(byText(fromPanel, users), 'by Ana on panel Lobby Wall, instance Front desk');
+  assert.equal(byText({ ...fromPanel, instance: undefined }, users), 'by Ana on panel Lobby Wall');
+  // A panel's own client is no user: only the panel shows.
+  const client = { client: 'Ana (Panel wall)', actor: { kind: 'client', name: 'Panel wall' }, panel: 'Lobby Wall', instance: 'Front desk' };
+  assert.equal(byText(client, users), 'on panel Lobby Wall, instance Front desk');
+  assert.equal(byText({ client: 'Ana' }, users), 'by Ana');
+  assert.equal(byText({ client: '192.0.2.1' }, users), '');
+  // A Group shows what every take shares.
+  assert.equal(byText({ entries: [fromPanel, fromPanel] }, users), 'by Ana on panel Lobby Wall, instance Front desk');
+  assert.equal(byText({ entries: [fromPanel, { ...fromPanel, instance: 'Studio' }] }, users), 'by Ana on panel Lobby Wall');
+  assert.equal(byText({ entries: [fromPanel, { client: 'Ana' }] }, users), 'by Ana');
 });

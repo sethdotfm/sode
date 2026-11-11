@@ -1,5 +1,7 @@
 package app
 
+import "time"
+
 // Sessions: tokens issued to signed-in connections and the server-held Lock that rides them
 // (docs/adr/0001-server-held-lock.md). users.go has the access state they act on.
 
@@ -9,6 +11,7 @@ package app
 type session struct {
 	token  string
 	locked bool
+	seen   time.Time // last activity (idle.go); zero until first looked at
 }
 
 // sessMu: c's session, made on first use so a zero client works. Caller holds mu.
@@ -67,6 +70,12 @@ func (a *App) signOutMu(cl *client) {
 // token for a non-persistent user's sign-in with no page lock. A locked session without a
 // token gets a tab token so a reload still shows the Lock (ADR 0001). Does disk I/O: never under mu.
 func (a *App) issueToken(c *client, wantTab bool) string {
+	return a.issueTokenFor(c, wantTab, false)
+}
+
+// issueTokenFor: forKey also gives a held-only user a tab token, which Hi still refuses
+// after the Lock ends, so only a session key rides on it (sessionkey.go).
+func (a *App) issueTokenFor(c *client, wantTab, forKey bool) string {
 	a.mu.Lock()
 	who := c.u.user.Load()
 	s := c.sessMu()
@@ -89,7 +98,7 @@ func (a *App) issueToken(c *client, wantTab bool) string {
 		tab = true
 	case u.Persistent:
 	default:
-		if !wantTab || heldOnly(u, page, cfg.Locks) {
+		if !wantTab || (heldOnly(u, page, cfg.Locks) && !forKey) {
 			return ""
 		}
 		tab = true
@@ -107,7 +116,12 @@ func (a *App) issueToken(c *client, wantTab bool) string {
 		}
 	}
 	if !stale {
-		c.u.sess = &session{token: t, locked: locked}
+		at := s.seen
+		if at.IsZero() {
+			at = a.now()
+		}
+		c.u.sess = &session{token: t, locked: locked, seen: at}
+		a.tokens.seenAt(t, at)
 	}
 	a.mu.Unlock()
 	if stale {
@@ -188,6 +202,9 @@ func (a *App) setHeld(c *client, on bool) {
 // lock ends a non-persistent token, which existed only to carry the Lock. Caller holds mu;
 // the caller then runs finishHold off it.
 func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
+	if !on {
+		a.touchMu(c, a.now()) // a resume is activity, or the next sweep locks again
+	}
 	s := c.sessMu()
 	tok = s.token
 	cfg := a.r().cfg
@@ -200,7 +217,7 @@ func (a *App) holdMu(c *client, on bool) (tok string, drop bool) {
 		// The token dies, so the connections sharing it part: each keeps its own
 		// tokenless session, and a later Lock or sign-out of one cannot reach the rest.
 		a.eachOnSessionMu(c, func(cl *client) {
-			cl.u.sess = &session{locked: on}
+			cl.u.sess = &session{locked: on, seen: s.seen}
 			a.syncAccessMu(cl)
 		})
 		return tok, drop
@@ -218,6 +235,7 @@ func (a *App) finishHold(c *client, on bool, tok string, drop bool) {
 	switch {
 	case drop:
 		a.tokens.forget(tok)
+		a.endSessionKeys()
 	case tok != "":
 		a.tokens.save()
 	case on:
@@ -235,4 +253,5 @@ func (a *App) SignOut(c *client) {
 	a.eachOnSessionMu(c, a.signOutMu)
 	a.mu.Unlock()
 	a.tokens.forget(tok)
+	a.endSessionKeys()
 }

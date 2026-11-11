@@ -147,9 +147,10 @@ export function openSettings() {
   renderColors(S.cfg.levelColors || []);
   $('cfg-lock-main').checked = !!S.cfg.locks?.main;
   $('cfg-lock-log').checked = !!S.cfg.locks?.log;
+  $('cfg-lock-panel').checked = !!S.cfg.locks?.panel;
   // What the form showed: only a change from it is sent, so a form opened before someone else
   // changed the locks can't undo their change.
-  shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, auto: S.cfg.autoLockMinutes ?? 0 };
+  shownAccess = { main: !!S.cfg.locks?.main, log: !!S.cfg.locks?.log, panel: !!S.cfg.locks?.panel, auto: S.cfg.autoLockMinutes ?? 0 };
   resetPinFields();
   relock(); // opens locked; a reply to an unlock sent before is dropped
   $('lock-pin').value = '';
@@ -212,8 +213,8 @@ function readSettings() {
   // Locks and idle time are sent only when edited; a missing key keeps the live value. Blank
   // idle time means 0 (never).
   if (Number.isNaN(c.autoLockMinutes)) c.autoLockMinutes = 0;
-  const locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked };
-  if (shownAccess && locks.main === shownAccess.main && locks.log === shownAccess.log) delete c.locks;
+  const locks = { main: $('cfg-lock-main').checked, log: $('cfg-lock-log').checked, panel: $('cfg-lock-panel').checked };
+  if (shownAccess && locks.main === shownAccess.main && locks.log === shownAccess.log && locks.panel === shownAccess.panel) delete c.locks;
   else c.locks = locks;
   if (shownAccess && c.autoLockMinutes === shownAccess.auto) delete c.autoLockMinutes;
   c.levelColors = [...$('cfg-colors').querySelectorAll('input')].map((f) => f.value.trim());
