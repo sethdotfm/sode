@@ -423,3 +423,16 @@ func TestPublicKeyReadsNoUserNames(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicKeyReadsNoTemplateOwner(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	if rec := apiSend(a, "POST", "/api/v1/panel-templates", cy, `{"name":"Grid","scope":"everyone","from":"`+id+`"}`); rec.Code != 201 {
+		t.Fatalf("template: %d %s", rec.Code, rec.Body.String())
+	}
+	rec := apiSend(a, "GET", "/api/v1/panel-templates", publicKeyOf(t, a, id), "")
+	if rec.Code != 200 || strings.Contains(rec.Body.String(), `"Cy"`) {
+		t.Fatalf("templates for a Public key: %d %s", rec.Code, rec.Body.String())
+	}
+}

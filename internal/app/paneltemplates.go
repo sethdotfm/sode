@@ -255,6 +255,7 @@ func (a *App) templateOut(cl *apiCtx, t Template) map[string]any {
 	m := map[string]any{}
 	json.Unmarshal(b, &m)
 	m["canEdit"] = edit
+	hideNamesFromPublic(m, cl)
 	return m
 }
 
