@@ -126,7 +126,7 @@ func (t *Template) clean() error {
 		if !t.Dests {
 			delete(t.Settings, panelFixedKey)
 		}
-		settings, err := cleanFixedDests(t.Settings)
+		settings, err := cleanSettings(t.Settings)
 		if err != nil {
 			return err
 		}

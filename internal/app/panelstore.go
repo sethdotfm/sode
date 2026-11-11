@@ -40,6 +40,9 @@ const (
 	panelShareMe     = "me"
 	panelShareNamed  = "named"
 	panelShareAll    = "everyone"
+
+	// panelAskNameKey is "Ask users to set an instance name"; missing means on, so old files keep asking.
+	panelAskNameKey = "askInstanceName"
 )
 
 var (
@@ -172,7 +175,7 @@ func validatePanel(p *Panel) error {
 	case len(p.Share.Users) > config.MaxUsers:
 		return errors.New("too many named users")
 	}
-	settings, err := cleanFixedDests(p.Settings)
+	settings, err := cleanSettings(p.Settings)
 	if err != nil {
 		return err
 	}
@@ -181,6 +184,16 @@ func validatePanel(p *Panel) error {
 		p.Share.Users = nil
 	}
 	return nil
+}
+
+// cleanSettings checks the settings Sode reads itself; the rest belong to the page and editor.
+func cleanSettings(settings map[string]any) (map[string]any, error) {
+	if v, ok := settings[panelAskNameKey]; ok {
+		if _, isBool := v.(bool); !isBool {
+			return nil, errors.New("askInstanceName is true or false")
+		}
+	}
+	return cleanFixedDests(settings)
 }
 
 func validPanelID(id string) bool { return panelIDRe.MatchString(id) }

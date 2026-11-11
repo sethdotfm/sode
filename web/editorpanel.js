@@ -125,6 +125,7 @@ export function createPanelTab(ed) {
     toggle('wake', 'Keep the screen awake', ''),
     toggle('fullscreen', 'Automatically enter fullscreen'),
     toggle('landscape', 'Enforce landscape orientation'),
+    toggle('askInstanceName', 'Ask users to set an instance name', 'Off, the panel never asks and shows no name in its header.'),
   );
   const deviceNote = el('p', 'sode__hint');
   device.append(deviceNote);
@@ -148,7 +149,7 @@ export function createPanelTab(ed) {
         linkBox.replaceChildren(...(p ? [linkRow(p, { withHost: false })] : []));
       }
       for (const { key, input } of toggles) {
-        const dflt = key === 'titleBar' || key === 'multi';
+        const dflt = key === 'titleBar' || key === 'multi' || key === 'askInstanceName';
         input.checked = dflt ? s[key] !== false : s[key] === true;
         // A switch the editor's own browser cannot honour still shows what the tablet will do; only turning it on is blocked.
         input.disabled = ro || (key === 'wake' && !feel.wake && !input.checked);

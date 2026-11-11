@@ -665,11 +665,7 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 	if !ok {
 		return
 	}
-	device := cleanDevice(r.URL.Query().Get("device"))
-	if device == "" {
-		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed: ?device=<a name for this instance>")
-		return
-	}
+	device := deviceOrAddr(r.URL.Query().Get("device"), cl)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	done, ev, err := a.mon.openStream(p.ID, device, cancel)
@@ -711,6 +707,15 @@ func (a *App) apiPanelInstanceStream(w http.ResponseWriter, r *http.Request, cl 
 
 func cleanDevice(s string) string { return cleanText(strings.TrimSpace(s), monDeviceMax) }
 
+// deviceOrAddr names an unnamed instance (askInstanceName off, no ?instance= or stored name) by its address,
+// so monitoring, watches and notices still tell it apart.
+func deviceOrAddr(s string, cl *apiCtx) string {
+	if d := cleanDevice(s); d != "" {
+		return d
+	}
+	return cleanDevice(cl.IP)
+}
+
 // apiPanelKeepalive: {"device": "Lobby"}. Anyone who may use the panel counts, so a tablet signed
 // in as a shared user is an instance too.
 func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiCtx) {
@@ -725,11 +730,7 @@ func (a *App) apiPanelKeepalive(w http.ResponseWriter, r *http.Request, cl *apiC
 		apiFail(w, http.StatusBadRequest, "bad_request", `send {"device":"<a name for this instance>"}`)
 		return
 	}
-	device := cleanDevice(in.Device)
-	if device == "" {
-		apiFail(w, http.StatusBadRequest, "bad_request", "a device name is needed so the instances of one panel can be told apart")
-		return
-	}
+	device := deviceOrAddr(in.Device, cl)
 	ev, err := a.mon.beat(p.ID, device)
 	if err != nil {
 		apiFail(w, http.StatusConflict, "conflict", err.Error())

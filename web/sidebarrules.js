@@ -9,7 +9,8 @@ export const ART_MAX_BYTES = 1 << 20; // keep in step with panelArtBytes in inte
 export const ART_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
 
 // Each panel setting's default. A value equal to it is dropped from the stored settings, as the panel page
-// reads a missing key as the default (panelmodel.js createState and panellook.js lookOf).
+// reads a missing key as the default (panelmodel.js createState and panellook.js lookOf). askInstanceName is left out:
+// the server sends a missing one as true, so it is stored as chosen.
 const DEFAULTS = {
   titleBar: true,
   fontSize: 100,

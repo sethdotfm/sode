@@ -309,11 +309,19 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   let keep = null;
   if (!embedded) {
     const showName = initName(ui.name, (name) => keep.rename(name));
-    keep = startKeepalive(call, id, ui.device, instanceFrom(location.search), (name, editable) => {
-      instance = name;
-      showName(name, editable);
-      render();
-    });
+    const ask = panel.settings?.askInstanceName !== false;
+    keep = startKeepalive(
+      call,
+      id,
+      ui.device,
+      instanceFrom(location.search),
+      (name, editable) => {
+        instance = name;
+        if (ask) showName(name, editable);
+        render();
+      },
+      ask,
+    );
   }
   // A newer saved copy: rebuild the grid and the state from it, keeping the viewed destination. The watcher counts down and waits out staged routes first.
   stopWatch = watchPanel({

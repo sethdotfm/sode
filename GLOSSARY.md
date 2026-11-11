@@ -165,8 +165,11 @@ A saved grid of tappable cells that patches the router from its own page, made f
 A physical router panel. Sode does not make these. Changes from one arrive as an External.
 
 **Instance**:
-One open page of a panel, named once in its browser (its device name) or by the link's `?instance=`. A panel is online while at least one instance is. A key, a watch and a Lost notice can each be for one instance.
+One open page of a panel, named once in its browser (its device name) or by the link's `?instance=`. An instance with no name, on a panel with Ask for an instance name off, goes by its address. A panel is online while at least one instance is. A key, a watch and a Lost notice can each be for one instance.
 _Avoid_: screen (for an open panel page)
+
+**Ask for an instance name**:
+A panel setting, on by default, shown as "Ask users to set an instance name". Off, the panel's page never asks for a device name and shows none in its header. A link's `?instance=` and a name the browser already stored still apply, and an instance with neither goes by its address.
 
 **Cell**:
 One square of a panel's grid. It has a cell kind and may be a merged cell.
