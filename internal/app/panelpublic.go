@@ -119,6 +119,12 @@ func (s *publicKeys) find(secret string, now time.Time) (k apiKey, expired, ok b
 	return apiKey{}, false, false
 }
 
+func (s *publicKeys) alive(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.ContainsFunc(s.recs, func(r publicRec) bool { return r.ID == id })
+}
+
 // endedAs says whether secret is a public key this Sode handed out and has since dropped.
 func (s *publicKeys) endedAs(secret string) (expired, ended bool) {
 	if !isPublicShape(secret) {

@@ -181,7 +181,7 @@ func (a *App) apiStreamServe(w http.ResponseWriter, r *http.Request, cl *apiCtx)
 	conn.SetReadLimit(1 << 10) // the stream takes no input
 
 	// A key ended between auth and registering is not seen by endStreams.
-	if st.keyID != "" && !a.keys.alive(st.keyID) {
+	if st.keyID != "" && !a.keys.alive(st.keyID) && !a.public.alive(st.keyID) {
 		a.endStreams([]apiKey{*cl.Key}, "key ended")
 	}
 
