@@ -23,7 +23,8 @@ export function renamePage(pages, i, text) {
     .slice(0, PAGE_NAME_MAX);
   return pages.map((p, j) => {
     if (j !== i) return p;
-    const { name: _, ...rest } = p;
+    const rest = { ...p };
+    delete rest.name;
     return name ? { ...rest, name } : rest;
   });
 }

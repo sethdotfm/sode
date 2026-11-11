@@ -38,6 +38,7 @@ const browser = Object.fromEntries(
     'IntersectionObserver',
     'TextEncoder',
     'TextDecoder',
+    'TextDecoderStream',
     'CompressionStream',
     'DecompressionStream',
     'crypto',
