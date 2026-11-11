@@ -47,6 +47,7 @@ import {
   prefillName,
   focusName,
   wantsTab,
+  pinFreeView,
 } from './lockrules.js';
 import { lockout } from './lockout.js';
 import { createOwed } from './owed.js';
@@ -86,6 +87,8 @@ let seq = 0;
 let timer = 0;
 let inerted = [];
 let hideTimer = 0;
+let pinFree = false; // a Public panel's page, told by panelrun.js
+let lastState = null;
 
 function build() {
   if (root) return;
@@ -456,8 +459,8 @@ onMsg('lockState', (m) => {
   heldUser = heldWho(heldUser, L, m);
   keepHeldUser(heldUser);
   if (ended) keepLastUser(null);
-  L.enforced = !!m.enforced;
-  L.locked = !!m.locked;
+  lastState = m;
+  Object.assign(L, pinFreeView(m, pinFree));
   L.held = !!m.held;
   L.user = m.user || '';
   L.trusted = !!m.trusted;
@@ -499,6 +502,21 @@ onMsg('lockState', (m) => {
     return;
   }
   done();
+});
+
+// The panel page says whether it runs as a Public panel; the last lockState is read again.
+on('publicPanel', ({ on: free }) => {
+  if (pinFree === !!free) return;
+  pinFree = !!free;
+  if (!lastState) return;
+  Object.assign(L, pinFreeView(lastState, pinFree));
+  if (lockCovers(L) && letterLock) {
+    letterLock.lock.cancel();
+    letterLock = null;
+  }
+  V = lockArrived(V, lockCovers(L));
+  render();
+  emit('access', { ...L });
 });
 
 on('logout', () => signOutNow());

@@ -3,6 +3,7 @@
 // key, the key in the URL fragment for a panel that acts as its API client, or a Public panel's short-lived key
 // (panelpublic.go). The editor's live test passes its own ui and call, and is not an instance of the panel: no
 // keepalive, no device name.
+import { emit } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
 import { startKeepalive } from './panelkeepalive.js';
@@ -74,6 +75,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     clearTimeout(holdTimer);
     art?.revoke();
   };
+  // lock.js drops the page lock's PIN pad for a Public panel, never for the editor's live test.
+  const pinFree = (on) => embedded || emit('publicPanel', { on });
   let id = seg; // the id once the panel is read: the address may hold its short name
   let key = embedded ? null : keyFromHash(location.hash);
   const setup = embedded ? '' : setupFromHash(location.hash);
@@ -91,6 +94,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     key = await askPublicAtOpen(seg);
     if (ended) return;
     isPublic = !!key;
+    if (isPublic) pinFree(true);
   }
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
@@ -131,6 +135,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       if (pub) {
         history.replaceState(null, '', `${location.pathname}${location.search}${withoutKey(location.hash)}`);
         [key, isPublic, stored, keyed] = [pub, true, false, keyFetch(pub, true)];
+        pinFree(true);
         continue;
       }
       say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
@@ -144,6 +149,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     return;
   }
   id = panel.id;
+  pinFree(panel.acts === 'public');
   art = createArt(call, id);
   // Title, header, font scale and theme come from the stored panel, so a live update runs it again.
   // Auto restores whatever the page started with (the browser's own choice or the device setting).
@@ -255,6 +261,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       if (f.stop) {
         ended = true;
         ready = false;
+        pinFree(false);
         if (stored) forgetKey(seg);
         // Nothing may call Sode again: not the polls, the update check or the keepalive.
         timers.forEach(clearInterval);
@@ -357,6 +364,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     apply(p) {
       clearTimeout(holdTimer);
       panel = p;
+      pinFree(p.acts === 'public');
       cells = drawnCells(p);
       st = carryView(stateOf(p), st, cells);
       look = applyLook(p);

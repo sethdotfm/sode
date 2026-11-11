@@ -21,6 +21,7 @@ import {
   WRONG_MS,
   churnKey,
   localIdleLock,
+  pinFreeView,
   signInOffered,
   signInAsOffered,
   signOutOffered,
@@ -259,6 +260,19 @@ test('localIdleLock: idle past the auto-lock minutes, only where no PIN lock is 
   assert.equal(localIdleLock({ enforced: false }, true, 0, idle, 5), false);
   assert.equal(localIdleLock({ enforced: true }, false, 0, idle, 5), false);
   assert.equal(localIdleLock({ enforced: false, locked: true, held: true, user: '' }, false, 0, idle, 5), false); // a held Lock is not a letter Lock
+});
+
+test('pinFreeView: a Public panel skips the PIN pad but keeps the held Lock and the idle letter Lock', () => {
+  const idle = 5 * 60_000;
+  const locked = { enforced: true, locked: true, held: false, user: '' };
+  assert.deepEqual(pinFreeView(locked, false), { enforced: true, locked: true });
+  const free = { ...locked, ...pinFreeView(locked, true) };
+  assert.equal(lockCovers(free), false);
+  assert.equal(localIdleLock(free, false, 0, idle, 5), true);
+  const held = { enforced: true, locked: true, held: true, user: '' };
+  assert.equal(lockCovers({ ...held, ...pinFreeView(held, true) }), true);
+  const signedIn = { enforced: true, locked: false, held: false, user: 'Ana' };
+  assert.deepEqual(pinFreeView(signedIn, true), { enforced: false, locked: false });
 });
 
 test('tab signedIn: offered only with users, no lock and nobody in', () => {

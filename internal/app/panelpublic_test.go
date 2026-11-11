@@ -259,3 +259,37 @@ func TestPublicTakeOutsideTheRightsIsRefusedAndHistoryNamesTheClient(t *testing.
 		t.Fatalf("history %+v", es)
 	}
 }
+
+// The page lock does not stand between a Public panel and its key: the page drops the PIN pad
+// itself (lock.js). The server still counts the panel page locked, so it sends it no names.
+func TestPageLockLeavesThePublicKeyAndSendsNoNames(t *testing.T) {
+	a, f := apiTestApp(t, func(c *config.Config) {
+		cy := mkUser(t, "Cy", "4321")
+		cy.Trusted = true
+		cy.Rights = config.Rights{Sources: ints(1, 2, 3), Dsts: ints(2, 4)}
+		c.Users = append(c.Users, cy)
+		c.Locks = config.Locks{Panel: true}
+		c.SettingsPin = mkUser(t, "", "2468").Pin
+	})
+	shortTimers(a)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	key := publicKeyOf(t, a, id)
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, key, ""); rec.Code != 200 || apiBody(t, rec)["acts"] != "public" {
+		t.Fatalf("read under the page lock: %d %s", rec.Code, rec.Body.String())
+	}
+	f.seed(2, 3, 0)
+	if rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, nil); rec.Code != 200 {
+		t.Fatalf("take under the page lock: %d %s", rec.Code, rec.Body.String())
+	}
+	wantNotPublic(t, askPublic(a, apiPeer, makePanel(t, a, cy, `{"name":"S"}`)))
+
+	c := &client{ip: "10.0.0.1"}
+	c.u.page = "panel"
+	a.mu.Lock()
+	m := a.lockStateMu(c)
+	a.mu.Unlock()
+	if !m.Enforced || !m.Locked || len(m.Names) != 0 || m.User != "" {
+		t.Fatalf("panel page lockState %+v, want locked with no names", m)
+	}
+}

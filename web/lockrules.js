@@ -56,6 +56,10 @@ export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user 
 // A held Lock has no user in the browser's state but is not a letter Lock: the pad stays.
 export const localIdleLock = (s, letterUp, lastActive, now, minutes) => !s.enforced && !s.locked && !s.user && !letterUp && idleDue(lastActive, now, minutes);
 
+// A Public panel's page skips the page lock's PIN pad (docs/panels-design.md). The server still
+// counts it locked, so it sends no names; a held Lock and the idle letter Lock still apply.
+export const pinFreeView = (m, pinFree) => (pinFree ? { enforced: false, locked: !!m.held } : { enforced: !!m.enforced, locked: !!m.locked });
+
 // Mirrors the Go `guard:"router"` and `guard:"pin"` tags in internal/config/config.go: keep in
 // step.
 const GUARDED = [
