@@ -74,7 +74,9 @@ func TestChromePanelArtHolds(t *testing.T) {
 	}
 	b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	b.waitFor("five cells", `document.querySelectorAll('.sode-panel__cell').length === 5`)
-	b.waitFor("cells named", `document.querySelectorAll('.sode-panel__cell--source')[1].querySelector('.sode-panel__text')?.textContent !== ''`)
+	// The page paints "Source N" until its first names poll answers; watching before the router's name is in sees that
+	// change, not a redraw.
+	b.waitFor("cells named from the router", `document.querySelectorAll('.sode-panel__cell--source')[1].querySelector('.sode-panel__text')?.textContent === 'Zoom 1'`)
 
 	// Watch the first cell and its artwork once the names are in, across several poll (2 s) and redraw (1 s) ticks.
 	b.eval(`window.cell = document.querySelectorAll('.sode-panel__cell--source')[0];
