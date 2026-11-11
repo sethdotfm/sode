@@ -84,6 +84,8 @@ export function select(g, r, c, extend = false) {
 
 export const deselect = (g) => (g.sel ? { ...g, sel: null } : g);
 
+export const selectAll = (g) => selectRect(g, { r1: 1, c1: 1, r2: g.rows, c2: g.cols });
+
 // The selection as a rectangle grown until it holds every merged cell it touches whole.
 export function rectOf(g) {
   if (!g.sel) return null;
@@ -124,7 +126,7 @@ export function single(g) {
 const selectRect = (g, q) => ({ ...g, sel: { anchor: { r: q.r1, c: q.c1 }, head: { r: q.r2, c: q.c2 } } });
 
 // Fields that describe the router item and so do not survive a change of kind.
-const ITEM_FIELDS = ['n', 'scope', 'name'];
+const ITEM_FIELDS = ['n', 'scope', 'name', 'page', 'show'];
 const dropItem = (c) => {
   const out = { ...c };
   for (const f of ITEM_FIELDS) delete out[f];

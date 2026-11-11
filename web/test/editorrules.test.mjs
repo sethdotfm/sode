@@ -46,7 +46,7 @@ test('the picker lists panels the user may change as My panels and use-only ones
 
 test('a new panel is 4x8, acts as the signed-in user, is shared with nobody and has no cells', () => {
   const p = newPanel();
-  assert.deepEqual([p.rows, p.cols, p.cells, p.acts, p.share.mode], [4, 8, [], 'session', 'me']);
+  assert.deepEqual([p.rows, p.cols, p.pages[0].cells, p.acts, p.share.mode], [4, 8, [], 'session', 'me']);
   assert.ok(p.name);
 });
 
@@ -67,7 +67,7 @@ test('the save body keeps every field the editor does not own and swaps in the n
   const g = merge(select(select(createGrid({ rows: 2, cols: 2 }), 1, 1), 2, 2, true));
   const b = saveBody(loaded, ' Studio ', g);
   assert.equal(b.name, 'Studio');
-  assert.deepEqual([b.rows, b.cols, b.cells.length], [2, 2, 1]);
+  assert.deepEqual([b.rows, b.cols, b.pages[0].cells.length], [2, 2, 1]);
   assert.deepEqual([b.acts, b.share.mode, b.settings.mode, b.future.k], ['api', 'all', 'instant', 1]);
   assert.ok(!('canEdit' in b) && !('clientRights' in b));
   assert.equal(loaded.rows, 4);

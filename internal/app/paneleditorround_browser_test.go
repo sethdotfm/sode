@@ -64,9 +64,9 @@ func TestChromeEditorFindStartsOnTheKind(t *testing.T) {
 	b.check()
 }
 
-// Icon B is not drawn beside an uploaded image, and the picker shows no Icon B column for it; the cell keeps its
-// Icon B, so choosing a vendored icon brings it back.
-func TestChromeEditorImageHidesIconB(t *testing.T) {
+// An uploaded image fills a merged square with contain and Icon B draws over it as a corner badge, in the square and
+// the sidebar preview, with the picker's Icon B column still there. A vendored icon puts Icon B back in the row.
+func TestChromeEditorImageIconBBadge(t *testing.T) {
 	var art string
 	b, a, ana, id := editorTabPrep(t, `{"name":"Wall","rows":2,"cols":2,"cells":[]}`, func(b *tab, a *App, ana, id string) {
 		rec := apiSendRaw(a, "POST", "/api/v1/panels/"+id+"/artwork", ana, b64(t, tinyPNG))
@@ -74,19 +74,21 @@ func TestChromeEditorImageHidesIconB(t *testing.T) {
 			t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 		}
 		art = apiBody(t, rec)["id"].(string)
-		rec = apiSend(a, "PUT", "/api/v1/panels/"+id, ana, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":2,"cells":[{"r":1,"c":1,"kind":"take","art":%q,"artB":"2"}]}`, art))
+		rec = apiSend(a, "PUT", "/api/v1/panels/"+id, ana, fmt.Sprintf(`{"name":"Wall","rows":2,"cols":2,"cells":[{"r":1,"c":1,"rs":1,"cs":2,"kind":"take","art":%q,"artB":"2"}]}`, art))
 		if rec.Code != 200 {
 			t.Fatalf("art cell: %d %s", rec.Code, rec.Body.String())
 		}
 	})
 	sq := `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]')`
-	b.waitFor("the image shows in the square, with no Icon B", sq+`.querySelector('.sode-panel__art-a') && !`+sq+`.querySelector('.sode-panel__art-b')`)
+	b.eval(badgeIn)
+	b.waitFor("the image fills the merged square with Icon B a corner badge", `badgeIn(`+sq+`.querySelector('.sode-panel__art'))`)
 	b.eval(`const s = ` + sq + `; const r = s.getBoundingClientRect(); s.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: r.x + 4, clientY: r.y + 4 }));
 		[...document.querySelectorAll('#panel-ed-cell .pb-btn')].find((x) => x.textContent === 'Choose icon').click(); true`)
-	b.waitFor("the picker has Icon A only", `!!document.querySelector('.sode-side__icons[aria-label="Icon A"]')?.offsetParent && !document.querySelector('.sode-side__icons[aria-label="Icon B"]')?.offsetParent`)
-	b.waitFor("the preview draws no Icon B", `!!document.querySelector('.sode-side__art .sode-panel__art-a') && !document.querySelector('.sode-side__art .sode-panel__art-b')`)
+	b.waitFor("the picker keeps its Icon B column", `!!document.querySelector('.sode-side__icons[aria-label="Icon B"]')?.offsetParent`)
+	b.waitFor("the preview draws the badge too", `!!document.querySelector('.sode-side__art .sode-panel__art-b--badge')`)
+	b.shot("image-badge")
 	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon A"] button[aria-label="tv"]').click(); true`)
-	b.waitFor("a vendored icon brings Icon B back in the square and the picker", sq+`.querySelector('.sode-panel__art-b')?.textContent === '2' && !!document.querySelector('.sode-side__icons[aria-label="Icon B"]')?.offsetParent`)
+	b.waitFor("a vendored icon puts Icon B back in the row", `(() => { const s = `+sq+`; const a = s.querySelector('.sode-panel__art-a'); const g = s.querySelector('.sode-panel__art-b'); return !!a && g?.textContent === '2' && !g.classList.contains('sode-panel__art-b--badge') && g.getBoundingClientRect().left >= a.getBoundingClientRect().right; })()`)
 	if rec := apiSend(a, "GET", "/api/v1/panels/"+id, ana, ""); !strings.Contains(rec.Body.String(), `"artB":"2"`) {
 		t.Errorf("the stored Icon B went away: %s", rec.Body.String())
 	}

@@ -74,7 +74,9 @@ export function toggleUser(users, name, on) {
 // The panel as PUT wants it. canEdit is the server's answer, and clientRights left out keeps the
 // stored ones, so a share edit never touches the API client.
 export function shareBody(p, draft) {
-  const { canEdit, clientRights, ...rest } = p;
+  const rest = { ...p };
+  delete rest.canEdit;
+  delete rest.clientRights;
   return { ...rest, share: draft.mode === 'named' ? { mode: 'named', users: [...draft.users] } : { mode: draft.mode } };
 }
 
@@ -112,6 +114,36 @@ const LABEL = {
   both: 'Acts as an API client with a key, else as the user',
   public: 'Acts as an API client for anyone with the link',
 };
+
+const MODE_NAME = { session: 'User', both: 'Both', api: 'API', public: 'Public' };
+
+// What switching Authentication mode does to the panel's client and keys, as apiPanelUpdate and pruneKeys do it.
+// confirm: the switch makes or ends the client (docs/agents/panels.md). null: no switch.
+export function actsSwitch(from, to) {
+  const was = from || 'session';
+  if (was === to) return null;
+  const name = MODE_NAME[to];
+  if (to === 'session') {
+    return {
+      confirm: true,
+      name,
+      text: `${name} ends the panel's API client, every instance key and every setup link. Each instance opened with a key signs out and its link stops working. This cannot be undone. Switching back makes a new client with no keys.`,
+    };
+  }
+  // Public opens the panel to anyone, so going there always asks; leaving it ends the short-lived keys (endPublicKeys).
+  if (to === 'public') {
+    const how = hasClient({ acts: was }) ? "keeps the panel's API client and every instance key, and" : 'makes the panel its own API client and';
+    return { confirm: true, name, text: `${name} ${how} lets anyone with the plain link use the panel with the client's Rights and no sign-in.` };
+  }
+  const plain = to === 'api' ? 'The plain link stops opening the panel.' : 'The plain link opens it as the signed-in user as well.';
+  const left = was === 'public' ? ' Pages open without a key lose their Public key.' : '';
+  if (hasClient({ acts: was })) return { confirm: false, name, text: `${name} keeps the panel's API client and every instance key. ${plain}${left}` };
+  const next =
+    to === 'api'
+      ? 'Each instance needs a link made under Share, Link with key, and the plain link stops opening the panel.'
+      : 'Links with a key are made under Share, Link with key, and the plain link still opens it as the signed-in user.';
+  return { confirm: true, name, text: `${name} makes the panel its own API client, with no keys yet. ${next}` };
+}
 
 // The short form for a row, after the owner's name.
 export const actsShort = (p) => SHORT[p.acts] || 'signs in as the user';

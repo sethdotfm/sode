@@ -182,7 +182,7 @@ A panel setting, on by default, shown as "Ask users to set an instance name". Of
 One square of a panel's grid. It has a cell kind and may be a merged cell.
 
 **Cell kind**:
-What a cell does: Source, Destination, Preset, Take, Clear, Current Source, Panel Name or Instance Name. A Source or Destination cell is bound to a router number and shows the Router name.
+What a cell does: Source, Destination, Preset, Take, Clear, Current Source, Panel Name, Instance Name, Page Name, Info, Go to Page, Next Page or Previous Page. A Source or Destination cell is bound to a router number and shows the Router name.
 
 **Current Source** (cell kind):
 A cell that shows, under the caption "Currently", the source now on the viewed destination. It cannot be pressed. It stays useful when that source has no cell in the grid.
@@ -221,7 +221,7 @@ A cell that shows another Page of the panel. It is bound to that Page itself, so
 Cells that show the Page one after or one before the current one, skipping disabled Pages. Past the last or first Page they go to the other end, unless the panel's wrap setting is off.
 
 **Fill cascade**:
-What a fill or paste does when it runs past the last square of a Page: it continues on the next enabled Page, and stops at the last Page without returning to the first.
+What a paste's Wrap choice does when it runs past the last square of a Page: it continues on the later enabled Pages that hold no cells, skipping Pages that have cells, and stops at the last Page without returning to the first.
 
 **Page Name** (cell kind):
 A cell that shows the name, the number or both of the Page it sits on. It cannot be pressed.
@@ -252,6 +252,9 @@ The icon or image on a panel cell. A cell has Icon A (an icon or uploaded image)
 
 **Icon library**:
 The install-wide set of SVG and PNG icons that trusted users add, which any cell's Icon A can use. An SVG draws in the cell's text colour and a PNG keeps its colours. It is separate from the vendored icons and from a panel's own pictures.
+
+**Rescan**:
+Adds the SVG and PNG files in the Icon library's drop-in directory (`icons/drop-in/`), as Sode does at start. Needs a trusted user or the Advanced Settings PIN. A file it skips stays and is reported.
 
 **Default artwork**:
 Artwork, with a Hide text choice, that a Source, Destination or Preset supplies to every cell showing it that sets none of its own. One shared set for everyone; setting or clearing one needs a trusted user or the Advanced Settings PIN.

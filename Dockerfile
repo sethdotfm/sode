@@ -5,7 +5,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go test ./... \
+RUN go test -timeout 30m ./... \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X github.com/sethdotfm/sode/internal/app.Commit=$COMMIT" -o /out/sode ./cmd/sode \
  && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/swp08sim ./cmd/swp08sim \
  && mkdir -p /out/data

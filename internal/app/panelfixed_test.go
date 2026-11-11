@@ -53,7 +53,7 @@ func TestFixedDestsOldPanelFileLoadsUnchanged(t *testing.T) {
 	if _, has := p.Settings[panelFixedKey]; has || fmt.Sprint(p.Settings) != "map[levels:[1 2] mode:instant]" {
 		t.Fatalf("settings %v", p.Settings)
 	}
-	if got := fmt.Sprint(p.Cells); got != "[map[c:1 cs:1 kind:destination n:7 r:1 rs:1] map[c:2 cs:1 kind:source n:4 r:1 rs:1]]" {
+	if got := fmt.Sprint(p.Pages[0].Cells); got != "[map[c:1 cs:1 kind:destination n:7 r:1 rs:1] map[c:2 cs:1 kind:source n:4 r:1 rs:1]]" {
 		t.Fatalf("cells %s", got)
 	}
 	if b, _ := os.ReadFile(path); !bytes.Equal(b, old) {

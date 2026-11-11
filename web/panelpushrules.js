@@ -1,6 +1,8 @@
 // What the Push modal on the panels page offers and sends. Pure. The server decides who may push to
 // what (a panel's canEdit), and refuses the whole Push if any target is not allowed.
 
+import { artLeftOut } from './panelrules.js';
+
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
 // A group is the panels whose names differ only by a trailing number: EVS 1 to EVS 4 are "EVS".
@@ -74,6 +76,7 @@ export function pushSummary(result, panels) {
   const skipped = (result.skipped || []).map((s) => nameOf(panels, s.panel));
   let text = done.length ? `Pushed to ${list(done)}. A checkpoint of each was kept.` : 'Nothing was pushed.';
   if (skipped.length) text += ` Skipped ${list(skipped)}, which no longer exists.`;
+  for (const p of result.pushed || []) if (p.artSkipped?.length) text += ` ${artLeftOut(p.artSkipped, nameOf(panels, p.panel))}`;
   return text;
 }
 

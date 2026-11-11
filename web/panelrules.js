@@ -1,19 +1,22 @@
 // What a panel page reads from its URL and from /api/v1, and the text it shows. Pure.
 // A stored panel's cells are { r, c, rs?, cs?, kind, n?, scope?, name?, caption?, levels? } with r and c
 // counted from 1 and kind one of KINDS (docs/panels-design.md, Panel page). A Preset cell holds
-// scope ('everyone' | 'me') and name instead of n.
+// scope ('everyone' | 'me') and name instead of n. A Go to Page cell holds page, its target Page's id (panelnav.js).
 
+import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
 
-export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current', 'panelName', 'instanceName'];
+export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // Kinds that only show something and are never pressed.
-export const SHOW_KINDS = ['current', 'panelName', 'instanceName'];
+export const SHOW_KINDS = ['current', 'panelName', 'instanceName', 'pageName', 'info'];
 const NEEDS_NUMBER = ['source', 'destination'];
 export const PRESET_SCOPES = ['everyone', 'me'];
 
 // The scope is a fixed word, so a colon in the name cannot make two presets collide.
 export const presetKey = (scope, name) => `${scope}:${name}`;
 const hasPreset = (c) => PRESET_SCOPES.includes(c.scope) && typeof c.name === 'string' && c.name !== '';
+// A target whose Page was deleted still counts, so the panel page can draw it greyed (panelnav.js goToState).
+const hasTarget = (c) => typeof c.page === 'string' && c.page !== '';
 
 // /panels/<id>. The list and the editor are other pages.
 export function panelIdFrom(pathname) {
@@ -77,7 +80,18 @@ export function namesFrom(reply) {
   const dst = by(reply.destinations);
   const source = (n) => src.get(n) || `Source ${n + off}`;
   const destination = (n) => dst.get(n) || `Destination ${n + off}`;
-  const plain = { clear: 'Clear', current: 'Currently', panelName: 'Panel Name', instanceName: 'Instance Name', preset: (c) => c.name };
+  const plain = {
+    clear: 'Clear',
+    current: 'Currently',
+    panelName: 'Panel Name',
+    instanceName: 'Instance Name',
+    pageName: 'Page Name',
+    info: 'Info',
+    goToPage: 'Go to Page',
+    nextPage: 'Next Page',
+    previousPage: 'Previous Page',
+    preset: (c) => c.name,
+  };
   const of = (cell) => {
     if (cell.caption) return cell.caption;
     if (cell.kind === 'source') return source(cell.n);
@@ -85,17 +99,21 @@ export function namesFrom(reply) {
     const p = plain[cell.kind];
     return typeof p === 'function' ? p(cell) : p || '';
   };
-  return { source, destination, of, off };
+  // '' when the router has not named it, where source and destination make up a name.
+  const routerName = (kind, n) => (kind === 'source' ? src : kind === 'destination' ? dst : new Map()).get(n) || '';
+  return { source, destination, of, off, routerName };
 }
 
-// The cells that are whole, known and inside the grid. Where two overlap the first one stays.
-export function cellsIn(panel) {
+// The cells that are whole, known and inside the grid. Where two overlap the first one stays. A stored panel gives
+// Page i's (pageCells).
+export function cellsIn(panel, i = 0) {
   const used = new Set();
   const out = [];
-  for (const c of panel.cells || []) {
+  for (const c of pageCells(panel, i)) {
     if (!c || !KINDS.includes(c.kind)) continue;
     if (NEEDS_NUMBER.includes(c.kind) && !Number.isInteger(c.n)) continue;
     if (c.kind === 'preset' && !hasPreset(c)) continue;
+    if (c.kind === 'goToPage' && !hasTarget(c)) continue;
     const rs = c.rs || 1;
     const cs = c.cs || 1;
     if (!(c.r >= 1 && c.c >= 1 && rs >= 1 && cs >= 1 && c.r + rs - 1 <= panel.rows && c.c + cs - 1 <= panel.cols)) continue;
@@ -118,10 +136,10 @@ export function fixedDestsOf(panel) {
   return ok ? list : [];
 }
 
-// What the panel page draws. A panel with fixed destinations leaves its Destination cells out; they stay stored, so
-// the editor and the thumbnails keep using cellsIn.
-export const drawnCells = (panel) => {
-  const cells = cellsIn(panel);
+// What the panel page draws of Page i. A panel with fixed destinations leaves its Destination cells out; they stay
+// stored, so the editor and the thumbnails keep using cellsIn.
+export const drawnCells = (panel, i = 0) => {
+  const cells = cellsIn(panel, i);
   return fixedDestsOf(panel).length ? cells.filter((c) => c.kind !== 'destination') : cells;
 };
 
@@ -162,6 +180,17 @@ export function offlineOf({ failed, routerUp }) {
 export function nameCellText(cell, { panelName = '', instance = '' } = {}) {
   const value = cell.kind === 'panelName' ? panelName || 'Panel Name' : instance || 'Instance Name';
   return { caption: cell.caption || '', value };
+}
+
+// The status words for artwork a Copy or Push left out: the server's artSkipped ids for one panel, '' when none.
+// The total is panelArtTotal in internal/app/panelstore.go.
+export function artLeftOut(ids, panel = '') {
+  const n = Array.isArray(ids) ? ids.length : 0;
+  if (!n) return '';
+  const of = panel ? ` of ${panel}` : '';
+  return n === 1
+    ? `1 image did not fit under the 64 MB artwork total${of} and was left out.`
+    : `${n} images did not fit under the 64 MB artwork total${of} and were left out.`;
 }
 
 // The Current cell reads the viewed destination's name; a caption replaces the whole label.

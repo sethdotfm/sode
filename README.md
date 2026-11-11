@@ -61,6 +61,8 @@ You change settings in the page, with the **Settings** button at the bottom. Sod
 
 A few process settings stay in the environment: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
+The Icon library lives beside the config: `/data/icons.yaml` and the `/data/icons/` directory. To back it up or move it, copy both with `config.yaml`. To add many icons at once, put SVG and PNG files in `/data/icons/drop-in/`; Sode adds them at start and when a Trusted user presses **Rescan**. See [docs/reference.md](docs/reference.md#icon-library-files).
+
 If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -reset-pin && docker compose restart sode`.
 
 ## More documentation

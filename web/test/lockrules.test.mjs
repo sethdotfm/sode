@@ -7,6 +7,7 @@ import {
   sendable,
   idleDue,
   idleLock,
+  pingDue,
   needsPin,
   guardedEdited,
   pageType,
@@ -103,6 +104,16 @@ test('idleDue', () => {
   assert.equal(idleDue(0, 4 * 60_000 + 59_999, 5), false);
   assert.equal(idleDue(0, 5 * 60_000, 5), true);
   assert.equal(idleDue(1000, 5 * 60_000, 5), false);
+});
+
+test('pingDue: only signed in, not locked, active since the last ping, and 30 s apart', () => {
+  const s = { locked: false, user: 'Ana' };
+  assert.equal(pingDue(s, 0, 31_000, 31_000), true);
+  assert.equal(pingDue(s, 0, 29_000, 29_000), false);
+  assert.equal(pingDue(s, 10_000, 5_000, 60_000), false); // nothing since the last ping
+  assert.equal(pingDue(s, 10_000, 20_000, 60_000), true);
+  assert.equal(pingDue({ locked: true, user: '' }, 0, 40_000, 40_000), false);
+  assert.equal(pingDue({ locked: false, user: '' }, 0, 40_000, 40_000), false);
 });
 
 test('idleLock: every signed-in user locks when idle, persistent ones and tab sign-ins included', () => {

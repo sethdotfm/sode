@@ -21,7 +21,7 @@ func readPanel(t *testing.T, a *App, key, id string) map[string]any {
 	return apiBody(t, apiDo(a, "GET", "/api/v1/panels/"+id, key, nil))
 }
 
-func cellCount(p map[string]any) int { return len(p["cells"].([]any)) }
+func cellCount(p map[string]any) int { return len(page1Cells(p)) }
 
 func TestPushCopiesLayoutAndKeepsIdentity(t *testing.T) {
 	a := panelsApp(t)
@@ -119,8 +119,7 @@ func TestPushCopiesMissingArtwork(t *testing.T) {
 	ana := userKey(t, a, "Ana")
 	src := makePanel(t, a, ana, `{"name":"Src"}`)
 	dst := makePanel(t, a, ana, `{"name":"Dst"}`)
-	png := []byte("\x89PNG\r\n\x1a\n" + strings.Repeat("x", 20))
-	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+src+"/artwork", ana, png)
+	rec := apiSendRaw(a, "POST", "/api/v1/panels/"+src+"/artwork", ana, b64(t, tinyPNG))
 	if rec.Code != 201 {
 		t.Fatalf("art: %d %s", rec.Code, rec.Body.String())
 	}
@@ -249,7 +248,7 @@ func TestCheckpointSetGivesEachPanelItsOwnLayout(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("push set: %d %s", rec.Code, rec.Body.String())
 	}
-	if p := readPanel(t, a, ana, e1); cellCount(p) != 1 || p["cells"].([]any)[0].(map[string]any)["n"] != 1.0 || p["name"] != "EVS 1" {
+	if p := readPanel(t, a, ana, e1); cellCount(p) != 1 || page1Cells(p)[0].(map[string]any)["n"] != 1.0 || p["name"] != "EVS 1" {
 		t.Fatalf("EVS 1 %v", p)
 	}
 	if p := readPanel(t, a, ana, e2); cellCount(p) != 2 || p["name"] != "EVS 2" {

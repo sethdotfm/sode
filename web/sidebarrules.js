@@ -5,7 +5,7 @@ export { FIXED_MAX };
 
 export const FONT_MIN = 50;
 export const FONT_MAX = 200;
-export const ART_MAX_BYTES = 1 << 20; // keep in step with panelArtBytes in internal/app/panelstore.go
+export const ART_MAX_BYTES = 2 << 20; // keep in step with panelArtBytes in internal/app/panelstore.go and docs/api.md
 export const ART_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
 
 // Each panel setting's default. A value equal to it is dropped from the stored settings, as the panel page
@@ -23,6 +23,7 @@ const DEFAULTS = {
   guard: 'none',
   resultText: false,
   kiosk: false,
+  wrapPages: true,
 };
 
 export function setSetting(settings, key, value) {
@@ -60,7 +61,7 @@ export function fontPercent(text) {
 
 export function artProblem(file) {
   if (!ART_TYPES.includes(file.type)) return 'Artwork is a JPEG, PNG, GIF or SVG image.';
-  if (file.size > ART_MAX_BYTES) return 'Artwork is at most 1 MB.';
+  if (file.size > ART_MAX_BYTES) return 'Artwork is at most 2 MB.';
   return '';
 }
 
@@ -98,6 +99,11 @@ export const ART_ICONS = [
   'eye',
   'panels-top-left',
   'tablet-smartphone',
+  'file-type',
+  'info',
+  'file-symlink',
+  'chevron-right',
+  'chevron-left',
   'check',
   'equal',
   'x',
@@ -157,7 +163,6 @@ export const ART_ICONS = [
   'image',
 ];
 
-
 const amount = (list) => (!Array.isArray(list) ? 'All' : list.length ? String(list.length) : 'None');
 
 // The Rights table of a client: one [name, value] row per list, then Visibility. No Rights means everything.
@@ -174,6 +179,9 @@ export function rightsRows(rights) {
 
 // The picker's icon search: names that contain every typed word, in the order given.
 export const artFilter = (names, text) => {
-  const words = String(text).toLowerCase().split(/[\s-]+/).filter(Boolean);
+  const words = String(text)
+    .toLowerCase()
+    .split(/[\s-]+/)
+    .filter(Boolean);
   return names.filter((n) => words.every((w) => n.includes(w)));
 };

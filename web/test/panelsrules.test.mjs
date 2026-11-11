@@ -22,6 +22,7 @@ import {
   panelStatus,
   shownInstances,
   hiddenShown,
+  actsSwitch,
 } from '../panelsrules.js';
 
 test('a panel reads All Online, Some Online or All Offline across its instances', () => {
@@ -222,4 +223,54 @@ test('only a panel that may sign in says so after how it acts', () => {
   assert.equal(launchNote({ acts: 'both' }), ' (a link without a key asks for a PIN)');
   assert.equal(launchNote({ acts: 'api' }), '');
   assert.equal(launchNote({ acts: 'public' }), '');
+});
+
+// Each switch of Authentication mode as apiPanelUpdate does it: making a client makes no key, going to User ends the
+// client (pruneKeys then ends its keys and setup links), and API to Both or back keeps the client and its keys.
+test('each Authentication mode switch says what it does to keys, and only those that touch the client ask for a Confirm', () => {
+  const s2a = actsSwitch('session', 'api');
+  assert.equal(s2a.confirm, true);
+  assert.equal(s2a.name, 'API');
+  assert.match(s2a.text, /makes the panel its own API client/);
+  assert.match(s2a.text, /no keys yet/);
+  assert.match(s2a.text, /Link with key/);
+  assert.match(s2a.text, /plain link stops opening/);
+
+  const s2b = actsSwitch('session', 'both');
+  assert.equal(s2b.confirm, true);
+  assert.match(s2b.text, /makes the panel its own API client/);
+  assert.match(s2b.text, /no keys yet/);
+  assert.match(s2b.text, /plain link still opens it as the signed-in user/);
+
+  for (const from of ['api', 'both']) {
+    const s = actsSwitch(from, 'session');
+    assert.equal(s.confirm, true, from);
+    assert.match(s.text, /ends the panel's API client, every instance key and every setup link/);
+    assert.match(s.text, /signs out/);
+    assert.match(s.text, /cannot be undone/);
+  }
+
+  for (const [from, to] of [
+    ['api', 'both'],
+    ['both', 'api'],
+  ]) {
+    const s = actsSwitch(from, to);
+    assert.equal(s.confirm, false, `${from} to ${to}`);
+    assert.match(s.text, /keeps the panel's API client and every instance key/);
+  }
+  assert.match(actsSwitch('api', 'both').text, /plain link opens it as the signed-in user/);
+  assert.match(actsSwitch('both', 'api').text, /plain link stops opening/);
+
+  // Not a switch: nothing to say or confirm. A panel with no acts yet reads as User.
+  assert.equal(actsSwitch('api', 'api'), null);
+  assert.equal(actsSwitch(undefined, 'session'), null);
+  assert.equal(actsSwitch(undefined, 'api').confirm, true);
+
+  // Public opens the panel to anyone, so going there always asks; leaving it for API or Both says the Public keys end.
+  for (const from of ['session', 'api', 'both']) assert.equal(actsSwitch(from, 'public').confirm, true, from);
+  assert.match(actsSwitch('session', 'public').text, /makes the panel its own API client/);
+  assert.match(actsSwitch('api', 'public').text, /keeps the panel's API client/);
+  assert.match(actsSwitch('both', 'public').text, /anyone with the plain link/);
+  assert.match(actsSwitch('public', 'api').text, /lose their Public key/);
+  assert.equal(actsSwitch('public', 'session').confirm, true);
 });

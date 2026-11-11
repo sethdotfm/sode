@@ -18,6 +18,7 @@ import {
   networksChanged,
   setupFromHash,
   withoutSetup,
+  withoutKey,
   storedKeyName,
   pollFail,
   setupFailText,
@@ -74,6 +75,7 @@ test('an instance name is required, unique ignoring case, and counts against the
   assert.equal(instanceCheck(' lobby ', keys, 20).held.name, 'Lobby');
   assert.equal(instanceCheck('lobby', keys, 20).error, '');
   assert.equal(instanceCheck('Gym', keys, 20).held, null);
+  assert.equal(instanceCheck('\u{1F3A5}'.repeat(40), keys, 20).error, '');
   assert.ok(instanceCheck('x'.repeat(INSTANCE_MAX + 1), keys, 20).error.includes('40'));
   assert.ok(instanceCheck('Gym', keys, 2).error.includes('at most 2'));
   assert.equal(instanceCheck('lobby', keys, 2).error, '', 'rotating a held name is allowed at the cap');
@@ -126,6 +128,17 @@ test('a setup token comes out of the hash and is dropped from it', () => {
   assert.equal(withoutSetup('#setup=t&kiosk=1'), '#kiosk=1');
   assert.equal(withoutSetup('#setup=t'), '');
   assert.equal(storedKeyName('p-1'), 'sode-panel-key-p-1');
+});
+
+test('a link key leaves the hash and every other part stays', () => {
+  assert.equal(withoutKey('#key=abc'), '');
+  assert.equal(withoutKey('#key=abc&kiosk=1'), '#kiosk=1');
+  assert.equal(withoutKey('#kiosk=1&key=abc'), '#kiosk=1');
+  assert.equal(withoutKey('#kiosk=1&key=abc&x=2'), '#kiosk=1&x=2');
+  assert.equal(withoutKey('#kiosk=1'), '#kiosk=1');
+  assert.equal(withoutKey('#monkey=1&key=a'), '#monkey=1');
+  assert.equal(withoutKey(''), '');
+  assert.equal(withoutSetup('#key=a&setup=t'), '#key=a');
 });
 
 test('a polling failure stops the page for a dead key or a refused network, not for a dropped connection', () => {

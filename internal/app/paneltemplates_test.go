@@ -51,7 +51,7 @@ func TestTemplateRoundTripLeavesCellsUnassigned(t *testing.T) {
 	if got["rows"] != 2.0 || got["cols"] != 3.0 || got["settings"].(map[string]any)["mode"] != "instant" {
 		t.Fatalf("layout %v", got)
 	}
-	cells := got["cells"].([]any)
+	cells := page1Cells(got)
 	if len(cells) != 3 {
 		t.Fatalf("cells %v", cells)
 	}
@@ -79,7 +79,7 @@ func tplCells(t *testing.T, a *App, key, name, flags string) (map[string]map[str
 	}
 	made := apiBody(t, rec)
 	out := map[string]map[string]any{}
-	for _, c := range made["cells"].([]any) {
+	for _, c := range page1Cells(made) {
 		m := c.(map[string]any)
 		out[m["kind"].(string)] = m
 	}

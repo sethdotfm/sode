@@ -7,6 +7,7 @@ import { runPanelsList } from './panelslist.js';
 import { panelIdFrom } from './panelrules.js';
 import { runEditor } from './paneleditor.js';
 import { initFind } from './editorfind.js';
+import { initArtTool } from './editorarttool.js';
 import { initTemplates } from './editortemplates.js';
 import { initSidebar } from './editorside.js';
 import { initNameEdit } from './editorname.js';
@@ -26,7 +27,7 @@ on('brand', ({ text }) => {
 if (id) runPanel(id);
 else if (document.getElementById('ed-grid'))
   runEditor().then((editor) => {
-    initFind(editor);
+    initArtTool(editor, initFind(editor));
     initNameEdit();
     initTemplates(editor);
     initGrip(editor);

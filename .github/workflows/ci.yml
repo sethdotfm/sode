@@ -28,8 +28,9 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go vet ./...
-      - run: go test ./...
+      - run: go test -timeout 30m ./...
       - run: node --test 'web/test/*.test.mjs'
+      - run: npx --yes eslint@10.14.0 web
 
   edge:
     if: github.event_name == 'push'

@@ -17,7 +17,7 @@ export const MODE_HINT = {
 };
 
 // The instance name is required and becomes the device name (the page's ?instance=), so it has the monitor's limits.
-export const INSTANCE_MAX = 40;
+export const INSTANCE_MAX = 40; // characters, as monDeviceMax in internal/app/panelmon.go
 export const INSTANCE_HOLD = 'Name the instance, such as Lobby tablet.';
 
 // What a typed name means against the instances the panel already holds (names ignore case). max is the server's cap.
@@ -25,7 +25,7 @@ export function instanceCheck(text, keys, max) {
   const name = String(text || '').trim();
   const held = keys.find((k) => k.name.toLowerCase() === name.toLowerCase()) || null;
   if (!name) return { name, held, error: INSTANCE_HOLD };
-  if (name.length > INSTANCE_MAX) return { name, held, error: `Use at most ${INSTANCE_MAX} characters.` };
+  if ([...name].length > INSTANCE_MAX) return { name, held, error: `Use at most ${INSTANCE_MAX} characters.` };
   if (!held && keys.length >= max) return { name, held, error: `A panel has at most ${max} instances. Revoke one first.` };
   return { name, held, error: '' };
 }
@@ -99,19 +99,20 @@ export const setupFromHash = (hash) => fullSetup(/(?:^#|&)setup=([^&]+)/.exec(ha
 // A key the page keeps after a setup link. localStorage name, kept per panel; docs/persisted-names.md.
 export const storedKeyName = (id) => `sode-panel-key-${id}`;
 
-// The hash without its setup part, so a reload or a copied address no longer carries the spent token.
-const without = (hash, part) => {
+function withoutPart(hash, name) {
   const rest = hash
     .replace(/^#/, '')
     .split('&')
-    .filter((p) => p && !p.startsWith(`${part}=`));
+    .filter((p) => p && !p.startsWith(`${name}=`));
   return rest.length ? `#${rest.join('&')}` : '';
-};
+}
 
-export const withoutSetup = (hash) => without(hash, 'setup');
+// The hash without its setup part, so a reload or a copied address no longer carries the spent token.
+export const withoutSetup = (hash) => withoutPart(hash, 'setup');
 
-// A stale key on a Public panel, which then runs on its own short-lived key.
-export const withoutKey = (hash) => without(hash, 'key');
+// The hash without its link key: one the browser stored, or a stale one on a Public panel, which then runs on its own
+// short-lived key. The address, history and a copied URL hold no key.
+export const withoutKey = (hash) => withoutPart(hash, 'key');
 
 export function setupFailText(status, message) {
   if (status === 401) return 'This setup link was already used, has expired or was replaced. Ask for a new one.';

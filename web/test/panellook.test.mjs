@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { lookOf, artOf, cellScale, artUrlPath } from '../panellook.js';
+import { lookOf, artOf, artBBadge, cellScale, artUrlPath } from '../panellook.js';
 import { featureSupport, createWake } from '../panelfeel.js';
 
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'panels.css'), 'utf8');
@@ -33,6 +33,14 @@ test('cell artwork is a vendored icon or an uploaded artwork id, and nothing els
   assert.equal(artOf({ art: 'icon:a b' }), null);
   assert.equal(artOf({ art: 'https://x/y.svg' }), null);
   assert.equal(artOf({}), null);
+});
+
+test('a library icon is an image, never a sprite icon, so Icon B draws as its corner badge', () => {
+  assert.deepEqual(artOf({ art: 'lib:0123abcd' }), { id: 'lib:0123abcd', lib: true });
+  assert.equal(artOf({ art: 'lib:0123ABCD' }), null);
+  assert.equal(artOf({ art: 'lib:../x' }), null);
+  assert.equal(artBBadge({ art: 'lib:0123abcd', artB: '2' }), true);
+  assert.equal(artUrlPath('p-1', 'lib:0123abcd'), 'api/v1/icon-library/0123abcd');
 });
 
 test('a cell font size multiplies the panel one, and a bad one counts as 1', () => {
@@ -192,14 +200,25 @@ test('Icon B is one of the fixed glyphs, and anything else is dropped', async ()
   assert.equal(textHidden({ hideText: true, artB: 'bogus' }), false);
 });
 
-// An uploaded image fills Icon A on its own: Icon B is not drawn beside it, though the cell keeps artB, so going
-// back to a vendored icon brings it back.
-test('Icon B is not drawn beside an uploaded image, and comes back with an icon', async () => {
-  const { artBOf } = await import('../panellook.js');
-  assert.equal(artBOf({ art: 'a-0123abcd', artB: '2' }), '');
-  assert.equal(artBOf({ art: 'icon:camera', artB: '2' }), '2');
-  assert.equal(artBOf({ artB: '2' }), '2');
+// An uploaded image fills the cell and Icon B draws as a corner badge over it; beside a vendored icon Icon B keeps
+// its place in the row.
+test('Icon B is a corner badge over an image and sits in the row beside an icon', async () => {
+  const { artBOf, artBBadge } = await import('../panellook.js');
+  assert.equal(artBOf({ art: 'a-0123abcd', artB: '2' }), '2');
+  assert.equal(artBBadge({ art: 'a-0123abcd', artB: '2' }), true);
+  assert.equal(artBBadge({ art: 'icon:camera', artB: '2' }), false);
+  assert.equal(artBBadge({ artB: '2' }), false, 'Icon B alone fills the row');
+  assert.equal(artBBadge({ art: 'a-0123abcd' }), false, 'no Icon B, no badge');
   assert.equal(artBOf({ art: 'https://x/y.png', artB: '2' }), '2', 'a dropped art value is no image');
+  assert.equal(artBBadge({ art: 'https://x/y.png', artB: '2' }), false);
+});
+
+// Artwork always draws with contain, never cover; an image fills the whole row and the badge sits in a corner.
+test('an image fills the row with contain and the badge is held in a corner', () => {
+  assert.match(css, /\.sode-panel__art-a \{[^}]*object-fit: contain/);
+  assert.doesNotMatch(css, /object-fit: cover/);
+  assert.match(css, /\.sode-panel__art--fill > \.sode-panel__art-a \{[^}]*width: 100%/);
+  assert.match(css, /\.sode-panel__art-b--badge \{[^}]*position: absolute/);
 });
 
 test('the artwork row sizes Icon B from the cell, so it scales with the square', () => {
@@ -232,4 +251,15 @@ test('a wake lock the browser cannot honour gets a note, and https is named', as
 
 test('a portrait page with Keep landscape on is covered, since iOS cannot lock the turn', () => {
   assert.match(css, /@media \(orientation: portrait\) \{\s*html\[data-sode-landscape\] \.sode-panel__turn \{[^}]*display: flex/);
+});
+
+test('a press asks for fullscreen only while fullscreen or landscape is on, since landscape locks only in fullscreen', async () => {
+  const { wantsFullscreen, fullscreenNote } = await import('../panelfeel.js');
+  assert.equal(wantsFullscreen(lookOf({})), false);
+  assert.equal(wantsFullscreen(lookOf({ fullscreen: true })), true);
+  assert.equal(wantsFullscreen(lookOf({ landscape: true })), true);
+  assert.equal(wantsFullscreen(lookOf({ fullscreen: false, landscape: false })), false);
+  assert.equal(fullscreenNote({}), '');
+  assert.equal(fullscreenNote({ fullscreen: true }), '');
+  assert.match(fullscreenNote({ landscape: true }), /landscape/i);
 });

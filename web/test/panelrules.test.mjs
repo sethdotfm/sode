@@ -13,6 +13,7 @@ import {
   errorText,
   offlineOf,
   currentLabel,
+  artLeftOut,
 } from '../panelrules.js';
 import { createState, currentOfDestination } from '../panelmodel.js';
 
@@ -162,4 +163,11 @@ test('sessionNote says something for a refused or ended key', () => {
   assert.match(sessionNote('ended').text, /Reload/);
   assert.equal(sessionNote('ended').retry, false);
   assert.equal(sessionNote('request').text, '');
+});
+
+test('artwork a Copy or Push left out is counted', () => {
+  assert.equal(artLeftOut(undefined), '');
+  assert.equal(artLeftOut([]), '');
+  assert.equal(artLeftOut(['a-1']), '1 image did not fit under the 64 MB artwork total and was left out.');
+  assert.equal(artLeftOut(['a-1', 'a-2'], 'EVS 2'), '2 images did not fit under the 64 MB artwork total of EVS 2 and were left out.');
 });

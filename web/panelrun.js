@@ -6,12 +6,12 @@
 import { emit } from './core.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey, nameSessionKey } from './sessionkey.js';
 import { pageUi } from './panelmount.js';
-import { startKeepalive } from './panelkeepalive.js';
+import { startKeepalive, announceKeyless } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail, publicFetch, withoutKey } from './panelkeyrules.js';
-import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen } from './panelsetup.js';
+import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen, keepLinkKey, followAssign } from './panelsetup.js';
 import {
   createState,
   pressDestination,
@@ -24,6 +24,8 @@ import {
   failTake,
   applyTally,
   carryView,
+  showPage,
+  pressPage,
   errorOf,
   guardDown,
   guardHeld,
@@ -31,14 +33,17 @@ import {
   GUARD_HOLD_MS,
 } from './panelmodel.js';
 import { buildGrid, paintGrid } from './panelview.js';
-import { lookOf } from './panellook.js';
+import { lookOf, withDefault, defaultsBy } from './panellook.js';
 import { createArt } from './panelart.js';
-import { createWake, enterFullscreen, featureNotes } from './panelfeel.js';
+import { createWake, enterFullscreen, featureNotes, wantsFullscreen } from './panelfeel.js';
 import { watchPanel } from './panellive.js';
 import { instanceFrom } from './panellink.js';
 import { isPublic } from './panelsrules.js';
 import { initChrome } from './panelfull.js';
 import { initName } from './panelname.js';
+import { pagesOf } from './panelpages.js';
+import { NAV_KINDS, landingPage, pageIndex, wrapOf } from './panelnav.js';
+import { savedPage, keepPage } from './pagekeep.js';
 
 const POLL_MS = 2000;
 const NAMES_MS = 30000;
@@ -62,31 +67,56 @@ export function runPanel(seg, opts = {}) {
   return run;
 }
 
-async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {}, run) {
+// page is the Page an embedded run opens on (the editor's focused Page); a page of its own opens on the kept one.
+async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page = '' } = {}, run) {
   const timers = [];
   let stopWatch = () => {};
   let ended = false; // the key is gone or refused, or an embedded run was stopped: only a new link or start helps
   let holdTimer = 0;
   let art = null;
   let wake = null;
+  // While the page has no working key it is a Keyless instance: listed for an Assign, never sent anything else.
+  let keyless = null;
+  const unannounce = () => {
+    keyless?.stop();
+    keyless = null;
+  };
   run.stop = () => {
     ended = true;
     timers.forEach(clearInterval);
     stopWatch();
     clearTimeout(holdTimer);
     art?.revoke();
+    unannounce();
   };
   // lock.js drops the page lock's PIN pad for a Public panel, never for the editor's live test.
   const tellLock = (on) => embedded || emit('publicPanel', { on });
+  const announce = (keyEnded) => {
+    if (embedded || (keyless && keyless.keyEnded === keyEnded)) return;
+    unannounce();
+    keyless = {
+      keyEnded,
+      ...announceKeyless(seg, keyEnded, (msg) => {
+        run.stop();
+        followAssign(msg);
+      }),
+    };
+  };
+  const endedCode = (code) => code === 'key_revoked' || code === 'key_expired';
   let id = seg; // the id once the panel is read: the address may hold its short name
   let key = embedded ? null : keyFromHash(location.hash);
   const setup = embedded ? '' : setupFromHash(location.hash);
   if (!key && setup) {
     const got = await exchangeSetup(seg, setup);
     if (ended) return;
-    if (got.error) return say(ui.note, got.error);
+    if (got.error) {
+      announce(false);
+      return say(ui.note, got.error);
+    }
     key = got.key;
   }
+  let linked = !!key;
+  // A key that sits in this browser's storage, so an ended one is forgotten there.
   let stored = !key && !embedded;
   if (stored) key = storedKey(seg);
   // The page cannot read the mode without a key, so with none it asks whether the panel is Public before a session.
@@ -97,6 +127,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     keyIsPublic = !!key;
     if (keyIsPublic) tellLock(true);
   }
+  // Before the first read: a Session-mode page waits there for a sign-in that may never come.
+  if (!key) announce(false);
   // Every call names its panel and instance for the Communication Log; the editor's live test is no instance.
   let instance = '';
   const tag = (init) => fromPanel(init, id, instance);
@@ -112,6 +144,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   if (!key && !embedded) {
     ui.signin.addEventListener('click', signInAgain);
     onSessionKey((k, step, err) => {
+      if (step === 'ended') announce(true);
       const n = sessionNote(step, err);
       ui.signin.hidden = !n.retry;
       if (k) say(ui.note, '');
@@ -135,16 +168,20 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       if (ended) return;
       if (pub) {
         history.replaceState(null, '', `${location.pathname}${location.search}${withoutKey(location.hash)}`);
-        [key, keyIsPublic, stored, keyed] = [pub, true, false, keyFetch(pub, true)];
+        // A Public key lives in memory only, never in this browser's storage.
+        [key, keyIsPublic, stored, linked, keyed] = [pub, true, false, false, keyFetch(pub, true)];
         tellLock(true);
         continue;
       }
+      if (e.status === 401) announce(endedCode(e.code));
       say(ui.note, e.status === 403 && e.code === 'network_not_allowed' ? e.message : openFailText(e.status, !!key));
       return;
     }
   }
   // Back to editing came before the panel did: nothing below may start a timer or a watch.
   if (ended) return;
+  // Kept only once it worked, so a mistyped or ended key never replaces a stored one.
+  if (linked) stored = keepLinkKey(seg, key);
   if (panel.acts === 'api' && !key && !embedded) {
     say(ui.note, 'This panel acts as its own API client. Open its link with the key.');
     return;
@@ -189,7 +226,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     if (notes.length) say(ui.note, notes.join(' '));
   }
 
-  let cells = drawnCells(panel);
+  // The current Page's cells; a live update or a Page change makes them again.
+  const cellsOf = (p, page) => drawnCells(p, pageIndex(pagesOf(p), page)).map((c) => withDefault(c, defaultsBy(p.artDefaults)));
+  // Every Page's cells, so a live update keeps a Destination viewed on another Page.
+  const everyCell = (p) => pagesOf(p).flatMap((_, i) => drawnCells(p, i));
   const stateOf = (p) => {
     const set = p.settings || {};
     return createState({
@@ -201,7 +241,13 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       fixedDests: set.fixedDests,
     });
   };
-  let st = stateOf(panel);
+  // The Test it live run is no instance, so it neither reads nor writes the browser's saved Page.
+  let st = showPage(stateOf(panel), landingPage(pagesOf(panel), embedded ? page : savedPage(id)));
+  let cells = cellsOf(panel, st.page);
+  const notePage = () => {
+    if (!embedded) keepPage(id, st.page);
+  };
+  notePage();
   let env = { levels: [], tally: new Map(), protectedDsts: new Set() };
   let names = namesFrom({});
   let presets = {};
@@ -210,7 +256,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
 
   const render = () => {
     const now = Date.now();
-    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance });
+    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance, pages: pagesOf(panel), wrap: wrapOf(panel) });
     say(ui.status, errorText(errorOf(st, now), names));
   };
   let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
@@ -268,6 +314,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
         timers.forEach(clearInterval);
         stopWatch();
         keep?.stop();
+        // Only the keyless announcement, which carries no key.
+        if (e.status === 401) announce(endedCode(e.code));
       }
     }
     polling = false;
@@ -314,9 +362,12 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   }
 
   function onPress(cell) {
-    if (!ready) return;
+    // A Page change sends nothing, so it works while the router or Sode is away.
+    const nav = NAV_KINDS.includes(cell.kind);
+    if (!ready && !nav) return;
     wake?.retry();
-    if ((look.fullscreen || look.landscape) && !embedded) enterFullscreen(document, look.landscape);
+    if (wantsFullscreen(look) && !embedded) enterFullscreen(document, look.landscape);
+    if (nav) return showNewPage(pressPage(st, cell, pagesOf(panel), wrapOf(panel)));
     const now = Date.now();
     if (cell.kind === 'take') {
       if (st.guard === 'hold' || !startTake(st, env)) return;
@@ -338,8 +389,21 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
     render();
   }
 
+  // A Page change keeps the plan and rebuilds the grid from the new Page's cells.
+  function showNewPage(next) {
+    if (next === st) return;
+    clearTimeout(holdTimer);
+    st = next;
+    notePage();
+    cells = cellsOf(panel, st.page);
+    grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
+    render();
+  }
+
   let keep = null;
   if (!embedded) {
+    // The page runs with a key now and is an instance, so it is no longer listed as keyless.
+    unannounce();
     const showName = initName(ui.name, (name) => keep.rename(name));
     const ask = panel.settings?.askInstanceName !== false;
     keep = startKeepalive(
@@ -352,6 +416,10 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
         if (ask) showName(name, editable);
         render();
       },
+      (msg) => {
+        run.stop();
+        followAssign(msg);
+      },
       ask,
     );
   }
@@ -359,15 +427,17 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   stopWatch = watchPanel({
     ui,
     id,
-    rev: panel.rev,
+    panel,
     get: callJSON,
     state: () => ({ staged: st.staged.length > 0, busy: st.busy }),
     apply(p) {
       clearTimeout(holdTimer);
       panel = p;
       tellLock(isPublic(p));
-      cells = drawnCells(p);
-      st = carryView(stateOf(p), st, cells);
+      // The current Page stays unless the edit disabled or deleted it, then the first enabled Page shows.
+      st = showPage(carryView(stateOf(p), st, everyCell(p)), landingPage(pagesOf(p), st.page));
+      notePage();
+      cells = cellsOf(p, st.page);
       look = applyLook(p);
       grid = buildGrid(ui.grid, p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
       render();

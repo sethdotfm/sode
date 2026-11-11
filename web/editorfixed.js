@@ -22,7 +22,7 @@ export function createFixedField(ed) {
   const set = (fn) => ed.setFields({ settings: fn(ed.fields().settings) });
   const chosen = () => fixedDestsOf({ settings: ed.fields().settings });
 
-  const help = el('span', 'sode-fixed__help', icon('circle-help'));
+  const help = el('span', 'sode-fixed__help pb-tip--start', icon('circle-help'));
   help.tabIndex = 0;
   help.setAttribute('aria-label', 'About fixed destinations');
   help.setAttribute('data-pb-tip', 'A Source or Preset press patches to these, with no Destination cell to press first. Empty is off.');
@@ -45,20 +45,7 @@ export function createFixedField(ed) {
   found.hidden = true;
   const note = el('span', 'sode__hint');
   note.setAttribute('role', 'status');
-  const node = el(
-    'div',
-    'sode__field sode-fixed',
-    el(
-      'span',
-      'sode__field-label',
-      'Fixed destinations ',
-      help,
-    ),
-    list,
-    input,
-    found,
-    note,
-  );
+  const node = el('div', 'sode__field sode-fixed', el('span', 'sode__field-label', 'Fixed destinations ', help), list, input, found, note);
 
   async function load() {
     if (data.loading || Date.now() - data.at < STALE_MS) return;

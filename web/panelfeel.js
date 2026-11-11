@@ -49,6 +49,15 @@ export function createWake(nav, doc) {
   };
 }
 
+// Landscape needs fullscreen as well: Chrome locks the turn only in fullscreen, so with landscape on, turning
+// fullscreen off changes nothing. The editor says so beside both switches.
+export const wantsFullscreen = (look) => !!(look?.fullscreen || look?.landscape);
+
+export const LANDSCAPE_HINT = 'A press also enters fullscreen, since browsers lock the turn only there.';
+
+// Takes stored settings, so the editor can show it beside the fullscreen switch.
+export const fullscreenNote = (s) => (s?.landscape === true && s?.fullscreen !== true ? 'Enforce landscape orientation is on, so a press still enters fullscreen.' : '');
+
 // Browsers only allow fullscreen from a user gesture, so a panel with the setting on asks on its first press.
 // landscape asks for the turn lock once fullscreen starts: Chrome only allows it in fullscreen, and iOS never does.
 export function enterFullscreen(doc, landscape = false, scr = globalThis.screen) {

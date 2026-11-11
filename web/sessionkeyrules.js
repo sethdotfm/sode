@@ -69,7 +69,9 @@ export function jsonCall(fetcher, { failed = () => '', down } = {}) {
     }
     if (res.status === 204) return null;
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(body.error?.message || failed(res.status)), { status: res.status, code: body.error?.code });
+    // suggest rides only an Assign's name_taken.
+    if (!res.ok)
+      throw Object.assign(new Error(body.error?.message || failed(res.status)), { status: res.status, code: body.error?.code, suggest: body.error?.suggest });
     return body;
   };
 }

@@ -289,7 +289,7 @@ export function decodeShare(text) {
   let d;
   try {
     d = JSON.parse(unb64(String(text)));
-  } catch (e) {
+  } catch {
     throw new Error('The link is damaged.');
   }
   if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');
@@ -308,7 +308,7 @@ export function decodeLegacy(text) {
   let d;
   try {
     d = JSON.parse(unb64(String(text)));
-  } catch (e) {
+  } catch {
     throw new Error('The link is damaged.');
   }
   if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');

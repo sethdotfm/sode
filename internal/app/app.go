@@ -92,6 +92,11 @@ type App struct {
 	// Take timers; only tests shorten them (shortTimers).
 	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
+	// Idle sweep (idle.go): the clock and the sweep period; tests change both (lock_idle_test.go).
+	now       func() time.Time
+	idleEvery time.Duration
+	idleAt    time.Time
+
 	lateQ chan lateJob // to lateWorker; nil = amend in line (tests)
 
 	nameReqAt  time.Time
@@ -100,15 +105,17 @@ type App struct {
 	namesDirt  bool
 	dumpAt     time.Time
 
-	pin       pinPool
-	userPin   pinPool
-	tokens    *tokenStore
-	keys      *keyStore
-	public    publicKeys
-	panels    *panelStore
-	templates *templateStore
-	mon       *panelMon
-	cfgMu     sync.Mutex
+	pin         pinPool
+	userPin     pinPool
+	tokens      *tokenStore
+	keys        *keyStore
+	public      publicKeys
+	panels      *panelStore
+	templates   *templateStore
+	artDefaults *artDefaultStore
+	icons       *iconLib
+	mon         *panelMon
+	cfgMu       sync.Mutex
 
 	gapHook func() // test seam: runs between a take's finish and unregister
 
@@ -186,6 +193,8 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		routeTimeout: defaultRouteTimeout,
 		routeGrace:   defaultRouteGrace,
 		queueMax:     defaultQueueMax,
+		now:          time.Now,
+		idleEvery:    defaultIdleEvery,
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
 	}
 	a.pin, a.userPin = settingsPool(), userPool()
@@ -194,6 +203,9 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.keys = loadKeys(cfgPath)
 	a.panels = panels
 	a.templates = loadTemplates(cfgPath)
+	a.artDefaults = loadArtDefaults(cfgPath)
+	a.icons = loadIconLib(cfgPath)
+	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
@@ -255,9 +267,16 @@ func (a *App) periodic() {
 	up := a.status.Router == string(swp08.StateUp)
 	names := r.cfg.NameRefreshSeconds > 0 && time.Since(a.nameReqAt) > time.Duration(r.cfg.NameRefreshSeconds)*time.Second
 	dump := r.cfg.TallyResyncSeconds > 0 && time.Since(a.dumpAt) > time.Duration(r.cfg.TallyResyncSeconds)*time.Second
+	idle := a.now().Sub(a.idleAt) >= a.idleEvery
+	if idle {
+		a.idleAt = a.now()
+	}
 	a.mu.Unlock()
 	if sessions {
 		a.touchSessions()
+	}
+	if idle {
+		a.idleSweep()
 	}
 	a.expireKeys(time.Now())
 	a.monSweep()

@@ -54,7 +54,8 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.waitFor("Hide text appears with an icon", `[...document.querySelectorAll('#panel-ed-cell .pb-btn')].some((x) => x.textContent === 'Hide text' && !x.hidden)`)
 	b.waitFor("the square shows Icon A", `!!document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"] .sode-panel__art-a')`)
 	// Icon B: the glyph column beside Icon A's, both shown at once, each with its own None; the square shows "[tv] 2".
-	b.waitFor("Icon A and Icon B sit side by side, each with None in its header", `(() => { const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]'); const b = document.querySelector('.sode-side__icons[aria-label="Icon B"]'); const ra = a.getBoundingClientRect(); const rb = b.getBoundingClientRect(); return ra.width > 0 && rb.width > 0 && rb.left >= ra.right && Math.abs(rb.top - ra.top) < 2 && a.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && b.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && getComputedStyle(a).overflowY === 'scroll' && getComputedStyle(b).overflowY === 'scroll'; })()`)
+	// The columns' tops line up; Icon A's vendored grid sits lower, under the Uploaded section.
+	b.waitFor("Icon A and Icon B sit side by side, each with None in its header", `(() => { const a = document.querySelector('.sode-side__icons[aria-label="Icon A"]'); const b = document.querySelector('.sode-side__icons[aria-label="Icon B"]'); const ra = a.getBoundingClientRect(); const rb = b.getBoundingClientRect(); const ta = a.parentNode.getBoundingClientRect().top; const tb = b.parentNode.getBoundingClientRect().top; return ra.width > 0 && rb.width > 0 && rb.left >= ra.right && Math.abs(tb - ta) < 2 && a.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && b.parentNode.querySelector('.sode-side__col-top').textContent.includes('None') && getComputedStyle(a).overflowY === 'scroll' && getComputedStyle(b).overflowY === 'scroll'; })()`)
 	b.waitFor("Icon A and Icon B columns are the same width", `(() => { const w = (l) => document.querySelector('.sode-side__icons[aria-label="' + l + '"]').parentNode.getBoundingClientRect().width; return w('Icon A') > 0 && Math.abs(w('Icon A') - w('Icon B')) < 2; })()`)
 	b.waitFor("the Icon B column lists digits and letters", `!!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="16"]') && !!document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="Z"]')`)
 	b.eval(`document.querySelector('.sode-side__icons[aria-label="Icon B"] button[aria-label="2"]').click(); true`)
@@ -71,7 +72,12 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`const r = document.getElementById('ed-rows'); r.value = '3'; r.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('ed-cols-inc').click(); true`)
 	b.waitFor("the grid took the new size", `document.getElementById('ed-rows').value === '3' && document.getElementById('ed-cols').value === '3'`)
 	b.waitFor("Take button behavior follows Mode, and Updates is gone", `document.getElementById('ed-set-guard').closest('.sode__field').previousElementSibling.contains(document.getElementById('ed-set-mode')) && ![...document.querySelectorAll('#panel-ed-panel .sode-side__h')].some((h) => h.textContent === 'Updates')`)
+	// Landscape asks for fullscreen on a press too, so the editor says so beside both switches.
+	fsNote := `document.getElementById('ed-fullscreen-note').textContent`
+	b.eval(`document.getElementById('ed-set-landscape').click(); true`)
+	b.waitFor("landscape says a press enters fullscreen", `document.getElementById('ed-set-landscape').closest('.sode__field').textContent.includes('A press also enters fullscreen') && `+fsNote+`.includes('Enforce landscape orientation is on, so a press still enters fullscreen')`)
 	b.eval(`document.getElementById('ed-set-fullscreen').click(); true`)
+	b.waitFor("with fullscreen on the note is gone", fsNote+` === ''`)
 	b.waitFor("Ask users to set an instance name starts on", `document.getElementById('ed-set-askInstanceName').checked`)
 	b.eval(`document.getElementById('ed-set-askInstanceName').click(); true`)
 	b.waitFor("with no subset stored every level box is ticked", `(() => { const l = [...document.querySelectorAll('#panel-ed-panel .sode__picker .sode__pick')]; return l.length > 0 && l.every((x) => x.getAttribute('aria-pressed') === 'true'); })()`)
@@ -80,8 +86,19 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`document.getElementById('ed-set-guard-hold').click(); true`)
 	b.eval(`document.getElementById('tab-ed-access').click(); true`)
 	b.waitFor("Access says who it acts as", `document.getElementById('panel-ed-access').textContent.includes('Authentication mode') && !document.getElementById('ed-acts-api').disabled`)
+	// Making the client asks for the Confirm first, and Cancel puts the old mode back without a save.
+	box := `document.querySelector('#panel-ed-access .sode-ov__keyconfirm')`
 	b.eval(`document.getElementById('ed-acts-api').click(); true`)
-	b.waitFor("Acts as saves at once", `document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
+	b.waitFor("the switch warns what it does to keys and asks for the Confirm", `!`+box+`.hidden && `+box+`.textContent.includes('makes the panel its own API client, with no keys yet') && !!`+box+`.querySelector('.sode__key--locked')`)
+	b.eval(`[...` + box + `.querySelectorAll('button')].find((x) => x.textContent === 'Cancel').click(); true`)
+	b.waitFor("Cancel puts User back and saves nothing", box+`.hidden && document.getElementById('ed-acts-session').checked && !document.getElementById('ed-acts-api').checked`)
+	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); strings.Contains(body, `"acts":"api"`) {
+		t.Errorf("a cancelled switch was saved: %s", body)
+	}
+	b.eval(`document.getElementById('ed-acts-api').click(); true`)
+	b.waitFor("the letter is live after the lockout", `!`+box+`.hidden && !`+box+`.querySelector('.sode__key--locked')`)
+	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
+	b.waitFor("the Confirm applies the switch and saves at once", `document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
 	b.shot("access")
 
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)
@@ -95,5 +112,25 @@ func TestChromeEditorSidebar(t *testing.T) {
 		}
 	}
 	b.waitFor("Access names the client", `document.getElementById('panel-ed-access').textContent.includes('Client Panel `+id+`')`)
+
+	// API to Both keeps the client and its keys: no Confirm, but the note says what the switch did.
+	b.eval(`document.getElementById('ed-acts-both').click(); true`)
+	b.waitFor("API to Both says it keeps the client and keys", `document.getElementById('panel-ed-access').textContent.includes("Both keeps the panel's API client and every instance key") && `+box+`.hidden`)
+	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"acts":"both"`) || !strings.Contains(body, `"client":"Panel `+id+`"`) {
+		t.Errorf("API to Both did not save Both with the same client: %s", body)
+	}
+
+	// A short window: the sidebar is never wider than its column, scrolls inside itself, and fits the window whole once
+	// the page is scrolled to it, whatever height the toolbar above it takes.
+	b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1600, "height": 600, "deviceScaleFactor": 1, "mobile": false})
+	b.waitFor("the sidebar is beside the grid", `document.getElementById('ed-side').getBoundingClientRect().left >= document.getElementById('ed-grid').getBoundingClientRect().right`)
+	side := `document.getElementById('ed-side')`
+	for _, tb := range []string{"cell", "panel", "access"} {
+		b.eval(`document.getElementById('tab-ed-` + tb + `').click(); scrollTo({ top: scrollY + ` + side + `.getBoundingClientRect().top, behavior: 'instant' }); true`)
+		b.waitFor(tb+" tab fits its column and the window", `(() => { const s = `+side+`; const r = s.getBoundingClientRect(); return document.getElementById('tab-ed-`+tb+`').getAttribute('aria-selected') === 'true' && s.scrollWidth <= s.clientWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1; })()`)
+		b.shot("sidebar-short-" + tb)
+	}
+	b.eval(`document.getElementById('tab-ed-panel').click(); true`)
+	b.waitFor("the Panel tab scrolls inside the sidebar", `(() => { const s = `+side+`; if (s.scrollHeight <= s.clientHeight) return false; s.scrollTop = 200; return s.scrollTop > 0; })()`)
 	b.check()
 }

@@ -21,6 +21,9 @@ import { resultStep, mac } from './keys.js';
 import { openShare } from './panelshare.js';
 import './panelkeytab.js';
 import { openPush } from './panelpush.js';
+import { artLeftOut } from './panelrules.js';
+import { openAssign, askName } from './panelassign.js';
+import { clashOf, renameRefusal } from './panelassignrules.js';
 
 const DISARM_MS = 5000;
 const S = { panels: [], cur: '', armed: '', filter: '', me: '', trusted: false, loaded: false };
@@ -104,6 +107,8 @@ function detail(p) {
   if (acts.includes('copy')) bar.append(button('Save a copy', 'copy', '', 'copy', p.id));
   if (acts.includes('share')) bar.append(button('Share', 'share-2', '', 'share', p.id));
   if (acts.includes('push')) bar.append(button('Push to panels', 'send', '', 'push', p.id));
+  // The server decides: a Trusted user, or the Advanced Settings PIN the modal asks for.
+  if (S.trusted || p.canEdit) bar.append(button('Assign to', 'monitor-smartphone', '', 'assign', p.id));
   // Link with key goes here.
   const slot = el('span', 'sode-ov__more');
   slot.id = 'panels-more';
@@ -125,7 +130,7 @@ function detail(p) {
       'div',
       'sode-ov__big',
       el('div', '', thumb(p), el('p', 'pb-hint', `${p.rows} by ${p.cols} grid`)),
-      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, { setWatch, setHide })),
+      el('div', 'sode-ov__pane', bar, kv, watchBox(p, setWatch), openNow(p, { setWatch, setHide, rename })),
     ),
   );
 }
@@ -171,6 +176,28 @@ async function setHide(id, instance, on) {
   }
 }
 
+// Renames the instance's device name: the page hears it down its stream (POST .../instances/rename). Answers null once
+// sent, or once a clash is handed to the name dialog, else renameRefusal's {why, pin}.
+async function rename(id, instance, name, pin = '') {
+  const p = S.panels.find((x) => x.id === id);
+  try {
+    await api(`api/v1/panels/${id}/instances/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instance, name, pin }),
+    });
+    // The server moved the watch with the name; the poll does not carry watches.
+    if (p) p.watchingInstances = (p.watchingInstances || []).map((d) => (d === instance.toLowerCase() ? name.toLowerCase() : d));
+    refreshOnline();
+    return null;
+  } catch (e) {
+    const suggest = clashOf(e);
+    if (suggest === null) return renameRefusal(e);
+    askName(p || { name: 'This panel' }, name, suggest, (chosen) => rename(id, instance, chosen, pin).then((r) => r && say(r.why)), 'rename');
+    return null;
+  }
+}
+
 // Online marks and the Open now list change without a redraw, so a button being pressed is not rebuilt.
 async function refreshOnline() {
   if (!S.loaded || document.hidden) return;
@@ -186,7 +213,7 @@ async function refreshOnline() {
     paintOnline(S.panels);
     paintOpenNow(
       S.panels.find((x) => x.id === S.cur),
-      { setWatch, setHide },
+      { setWatch, setHide, rename },
     );
   } catch {}
 }
@@ -225,9 +252,15 @@ async function act(kind, id) {
       if (p) openPush(p, { api, panels: S.panels, me: S.me, trusted: S.trusted, onDone: () => load(id) });
       return;
     }
+    if (kind === 'assign') {
+      const p = S.panels.find((x) => x.id === id);
+      if (p) openAssign(p, { api, panels: () => S.panels, onDone: refreshOnline });
+      return;
+    }
     if (kind === 'copy') {
       const made = await api(`api/v1/panels/${id}/copy`, { method: 'POST' });
-      return load(made.id);
+      await load(made.id);
+      return say(artLeftOut(made.artSkipped));
     }
   } catch (e) {
     S.armed = '';

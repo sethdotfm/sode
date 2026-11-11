@@ -34,7 +34,7 @@ func problem(status int, code, format string, args ...any) *apiProblem {
 }
 
 func (p *apiProblem) answer() apiAnswer {
-	return jsonAnswer(p.Status, apiErrBody{apiErr{p.Code, p.Msg}})
+	return jsonAnswer(p.Status, apiErrBody{apiErr{Code: p.Code, Message: p.Msg}})
 }
 
 func (p *apiProblem) write(w http.ResponseWriter) { p.answer().write(w, false) }

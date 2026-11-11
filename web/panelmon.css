@@ -50,6 +50,11 @@
   flex-wrap: wrap;
   gap: var(--pb-space-3);
 }
+.sode-ov__name {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--pb-space-1);
+}
 .sode-ov__uptime {
   display: flex;
   flex-direction: column;

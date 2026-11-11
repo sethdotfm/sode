@@ -15,7 +15,7 @@ import (
 // (needAdmin) or, for low-risk ones, a trusted user (needTrusted), never the main lock: a
 // locked wall panel must still save with the PIN. Locks require an Advanced Settings PIN (Validate).
 //
-//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history
+//	open: hi userUnlock userLock userSignOut userSetPin unlock lock history activity
 //	needMain: `batch` `refreshNames`; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
 //	needAdmin: users apiSettings userSignOutAll configExport configImportBegin configImport
@@ -74,6 +74,8 @@ var policy = map[string]rule{
 		a.SignOut(c)
 		a.command(c, "userSignOut", "ok", "", nil)
 	}},
+	// the page's ping while its user is active (idle.go); never refused, never logged
+	"activity":   {handle: func(a *App, c *client, _ *inMsg, _ *connCtx) { a.Activity(c) }},
 	"userSetPin": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveUserSetPin(c, m) }},
 	// counted in the settings pool. In line: a later lock is handled after, and one
 	// connection checks one PIN at a time.

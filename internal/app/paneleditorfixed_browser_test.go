@@ -104,10 +104,12 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	b.eval(`document.getElementById('ed-save').click()`)
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
 	var stored struct {
-		Cells []struct {
-			Kind string `json:"kind"`
-			N    *int   `json:"n"`
-		} `json:"cells"`
+		Pages []struct {
+			Cells []struct {
+				Kind string `json:"kind"`
+				N    *int   `json:"n"`
+			} `json:"cells"`
+		} `json:"pages"`
 		Settings struct {
 			FixedDests []int `json:"fixedDests"`
 		} `json:"settings"`
@@ -120,10 +122,10 @@ func TestChromeEditorFixedDests(t *testing.T) {
 		t.Errorf("fixedDests not stored in order: %s", raw)
 	}
 	kept := false
-	for _, c := range stored.Cells {
+	for _, c := range stored.Pages[0].Cells {
 		kept = kept || (c.Kind == "destination" && c.N != nil && *c.N == elsewhere)
 	}
-	if !kept || len(stored.Cells) != 4 {
+	if !kept || len(stored.Pages[0].Cells) != 4 {
 		t.Errorf("the set-aside Destination cell was not kept: %s", raw)
 	}
 
@@ -202,17 +204,32 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
 	var stored struct {
 		Cols  int `json:"cols"`
-		Cells []struct {
-			Kind string `json:"kind"`
-			Cs   int    `json:"cs"`
-		} `json:"cells"`
+		Pages []struct {
+			Cells []struct {
+				Kind string `json:"kind"`
+				Cs   int    `json:"cs"`
+			} `json:"cells"`
+		} `json:"pages"`
 	}
 	raw := apiSend(a, "GET", "/api/v1/panels/"+id, ana, "").Body.Bytes()
 	if err := json.Unmarshal(raw, &stored); err != nil {
 		t.Fatal(err)
 	}
-	if stored.Cols != 2 || len(stored.Cells) != 1 || stored.Cells[0].Kind != "take" || stored.Cells[0].Cs != 2 {
+	if cells := stored.Pages[0].Cells; stored.Cols != 2 || len(cells) != 1 || cells[0].Kind != "take" || cells[0].Cs != 2 {
 		t.Errorf("stored %s", raw)
+	}
+
+	// Undo brings back the set-aside cells the merge and the resize dropped, each once, still set aside.
+	b.eval(`const g = document.getElementById('ed-grid'); g.focus(); g.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: true, bubbles: true, cancelable: true })); true`)
+	b.waitFor("merge undone", status+` === 'Undid merge.'`)
+	b.eval(`document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true })); true`)
+	b.waitFor("resize undone, Destination cells still set aside", status+` === 'Undid resize.' && document.getElementById('ed-cols').value === '3' && !document.querySelector('#ed-grid .sode-ed__sq--destination')`)
+	b.eval(`document.getElementById('ed-save').click()`)
+	b.waitFor("saved again", `document.getElementById('ed-state').textContent === 'Saved'`)
+	got := storedCells(t, a, ana, id)
+	want := []string{"1,1 1x1 destination art= artB=", "1,2 1x1 take art= artB=", "2,3 1x1 destination art= artB="}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("after undo:\n got %q\nwant %q", got, want)
 	}
 	b.check()
 }

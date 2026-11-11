@@ -6,6 +6,7 @@ import { durationText, permissionText } from './panelwatchrules.js';
 import { panelStatus, shownInstances, hiddenShown } from './panelsrules.js';
 import { slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
+import { renameState, renameProblem } from './panelassignrules.js';
 
 // Fast enough that the online mark follows an instance within a couple of seconds, with no push channel to the page.
 export const MON_POLL_MS = 2000;
@@ -56,6 +57,85 @@ function hideButton(p, i, setHide) {
   return b;
 }
 
+// The instance's name with its rename pencil. A click turns the name into a field: Enter saves, Escape or leaving drops
+// the edit. rename(id, device, name, pin) answers null when sent (or handed to the clash dialog), else {why, pin}; pin
+// shows the Advanced Settings PIN field, as the Assign to modal does.
+function nameSlot(p, i, rename) {
+  const slot = el('span', 'sode-ov__name');
+  const state = rename ? renameState(i) : '';
+  const show = () => {
+    if (!state) return slot.replaceChildren(el('strong', '', i.device));
+    const b = el('button', 'pb-btn pb-btn--ghost pb-btn--icon pb-btn--sm', icon('pencil'));
+    b.type = 'button';
+    b.dataset.renameInstance = i.device;
+    b.disabled = state === 'offline';
+    b.setAttribute('aria-label', state === 'offline' ? `Rename ${i.device}: offline` : `Rename ${i.device}`);
+    b.dataset.pbTip = state === 'offline' ? 'Offline: it cannot hear a new name until it opens again' : 'Rename this instance';
+    b.addEventListener('click', edit);
+    slot.replaceChildren(el('strong', '', i.device), b, ...(state === 'offline' ? [el('span', 'sode-ov__muted', 'offline')] : []));
+  };
+  function edit() {
+    const input = el('input', 'pb-input sode-panels__device-input');
+    input.type = 'text';
+    input.maxLength = 40;
+    input.value = i.device;
+    input.autocomplete = 'off';
+    input.dataset.renameField = i.device;
+    input.setAttribute('aria-label', `New name for ${i.device}`);
+    const err = el('span', 'pb-note pb-note--error');
+    err.setAttribute('role', 'alert');
+    err.hidden = true;
+    const pin = el('input', 'pb-input');
+    pin.type = 'password';
+    pin.autocomplete = 'off';
+    pin.dataset.renamePin = i.device;
+    pin.setAttribute('aria-label', 'Advanced Settings PIN');
+    const pinRow = el('label', 'sode-tpl__pin', 'Advanced Settings PIN', pin);
+    pinRow.hidden = true;
+    let busy = false;
+    const fail = (t) => {
+      err.textContent = t;
+      err.hidden = !t;
+    };
+    const keydown = async (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        return show();
+      }
+      if (e.key !== 'Enter' || busy) return;
+      e.preventDefault();
+      const name = input.value.trim();
+      if (name === i.device) return show();
+      const problem = renameProblem(name);
+      if (problem) return fail(problem);
+      busy = true;
+      const r = await rename(p.id, i.device, name, pin.value);
+      busy = false;
+      pin.value = '';
+      if (!r) return show();
+      fail(r.why);
+      if (r.pin) {
+        pinRow.hidden = false;
+        pin.focus();
+      }
+    };
+    // Moving between the name and the PIN field keeps the edit open.
+    const blur = (e) => {
+      if (!busy && slot.contains(input) && !slot.contains(e.relatedTarget)) show();
+    };
+    for (const f of [input, pin]) {
+      f.addEventListener('keydown', keydown);
+      f.addEventListener('blur', blur);
+    }
+    slot.replaceChildren(input, pinRow, err);
+    input.focus();
+    input.select();
+  }
+  show();
+  return slot;
+}
+
 // The instances this user hid, with one button that shows them all again.
 function hiddenLine(p, setHide) {
   const names = hiddenShown(p);
@@ -68,8 +148,9 @@ function hiddenLine(p, setHide) {
   return el('p', 'sode-ov__muted sode-ov__hidden', `Hidden: ${shown.join(', ')}`, show);
 }
 
-// Who has the panel open. Only an editor is sent the names. Each instance has its own Watch checkbox, uptime strip and Hide.
-export function openNow(p, { setWatch, setHide } = {}, now = Date.now()) {
+// Who has the panel open. Only an editor is sent the names. Each instance has its own Watch checkbox, uptime strip,
+// Hide and rename.
+export function openNow(p, { setWatch, setHide, rename } = {}, now = Date.now()) {
   const box = el('section', 'sode-ov__opennow');
   box.id = 'panels-open';
   box.dataset.for = p.id;
@@ -99,10 +180,10 @@ export function openNow(p, { setWatch, setHide } = {}, now = Date.now()) {
           'div',
           'sode-ov__inst',
           badge(i.online),
-          el('strong', '', i.device),
+          nameSlot(p, i, rename),
           hideButton(p, i, setHide),
           ago && el('span', 'sode-ov__muted', ago),
-          el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Tell me when this instance drops offline')),
+          el('label', 'pb-check sode-ov__watchone', input, el('span', 'pb-check__label', 'Notify on disconnect')),
         ),
         uptimeStrip(i),
       ),

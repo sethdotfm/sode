@@ -27,12 +27,15 @@ import (
 const (
 	panelsDir     = "panels"
 	panelMax      = 500
-	panelArtMax   = 40      // artwork files per panel
-	panelArtBytes = 1 << 20 // 1 MB
+	panelArtTotal = 64 << 20 // artwork bytes per panel; an image used by many cells is stored once, by id
+	panelArtBytes = 2 << 20  // 2 MB
+	panelArtSide  = 1024     // longest raster side in pixels; SVG has no pixel size
 	panelRowsMax  = 24
 	panelColsMax  = 24
 	panelNameMax  = 60
 	panelBodyMax  = 256 << 10
+	// A panel or template body: 16 Pages of up to 576 cells each.
+	panelLayoutBodyMax = 4 << 20
 
 	panelActsSession = "session"
 	panelActsAPI     = "api"
@@ -54,7 +57,7 @@ var (
 
 	errPanelCap  = errors.New("too many panels")
 	errSlugTaken = errors.New("another panel already has that short name")
-	errArtCap    = errors.New("too many artwork files on this panel")
+	errArtCap    = errors.New("this panel's artwork would pass the 64 MB total; delete some artwork first")
 )
 
 // PanelShare: Mode is panelShareMe, panelShareNamed (Users) or panelShareAll. Everyone it
@@ -84,22 +87,39 @@ type Panel struct {
 	Slug string `yaml:"slug,omitempty" json:"slug,omitempty"`
 	// ClientRights rides the API only: sent by an editor, read from the client in the config,
 	// never stored in the panel file.
-	ClientRights *config.Rights   `yaml:"-" json:"clientRights,omitempty"`
-	Share        PanelShare       `yaml:"share" json:"share"`
-	Rows         int              `yaml:"rows" json:"rows"`
-	Cols         int              `yaml:"cols" json:"cols"`
-	Cells        []map[string]any `yaml:"cells" json:"cells"`
-	Settings     map[string]any   `yaml:"settings" json:"settings"`
-	Art          []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
+	ClientRights *config.Rights `yaml:"-" json:"clientRights,omitempty"`
+	Share        PanelShare     `yaml:"share" json:"share"`
+	Rows         int            `yaml:"rows" json:"rows"`
+	Cols         int            `yaml:"cols" json:"cols"`
+	Pages        []PanelPage    `yaml:"pages" json:"pages"`
+	// LegacyCells is the one grid of a file or body from before Pages; normalize moves it into Pages and it is never written.
+	LegacyCells []map[string]any `yaml:"cells,omitempty" json:"cells,omitempty"`
+	Settings    map[string]any   `yaml:"settings" json:"settings"`
+	Art         []PanelArt       `yaml:"art,omitempty" json:"art,omitempty"`
 	// Rev is the server's: it counts stored changes, and an open panel updates when it moves.
 	Rev int `yaml:"rev,omitempty" json:"rev"`
 
 	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
-// panelKnown are the JSON names the struct owns. canEdit, hasKey and clientNetworks are output only and never stored,
-// so a client that echoes a read back does not plant it in Extra.
-var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances"}
+// panelKnown are the JSON names the struct owns plus every output-only field a read adds (panelOut, monFields,
+// apiPanelRead), so a client that echoes a read back does not plant one in Extra. Keep in step with those.
+var panelKnown = []string{"id", "name", "owner", "acts", "client", "slug", "share", "rows", "cols", "pages", "cells", "settings", "art", "rev", "canEdit", "clientRights", "hasKey", "clientNetworks", "online", "watching", "instances", "artDefaults", "keyless", "instancesOnline", "instancesKnown", "hiddenInstances", "watchingInstances", "rights", "artSkipped"}
+
+// extraOwnFields is extra without panelKnown names. Files, checkpoints and sets saved before panelKnown listed every
+// output-only field may hold one. A copy, since extra may be shared with a stored panel.
+func extraOwnFields(extra map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range extra {
+		if !slices.Contains(panelKnown, k) {
+			out[k] = v
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 type panelPlain Panel // no methods, so the JSON hooks below do not recurse
 
@@ -150,9 +170,8 @@ func (p *Panel) normalize() {
 	if p.Share.Mode == "" {
 		p.Share.Mode = panelShareMe
 	}
-	if p.Cells == nil {
-		p.Cells = []map[string]any{}
-	}
+	p.Pages = normalPages(p.Pages, p.LegacyCells, p.ID)
+	p.LegacyCells = nil
 	if p.Settings == nil {
 		p.Settings = map[string]any{}
 	}
@@ -171,11 +190,14 @@ func validatePanel(p *Panel) error {
 		return fmt.Errorf("acts is %q, %q, %q or %q", panelActsSession, panelActsAPI, panelActsBoth, panelActsPublic)
 	case !slices.Contains([]string{panelShareMe, panelShareNamed, panelShareAll}, p.Share.Mode):
 		return fmt.Errorf("share mode is %q, %q or %q", panelShareMe, panelShareNamed, panelShareAll)
-	case len(p.Cells) > panelRowsMax*panelColsMax:
-		return errors.New("too many cells for the grid")
 	case len(p.Share.Users) > config.MaxUsers:
 		return errors.New("too many named users")
 	}
+	pages, err := checkPages(p.Pages, p.Rows, p.Cols)
+	if err != nil {
+		return err
+	}
+	p.Pages = pages
 	settings, err := cleanSettings(p.Settings)
 	if err != nil {
 		return err
@@ -277,6 +299,7 @@ func loadPanels(cfgPath string) *panelStore {
 			s.problem("%s: the file name and its id %q differ", path, p.ID)
 			return p, false
 		}
+		p.Extra = extraOwnFields(p.Extra)
 		p.normalize()
 		if p.Slug != "" && (!validPanelSlug(p.Slug) || slugSeen[p.Slug]) {
 			s.problem("%s: short name %q is not valid or is used by an earlier panel, so it was dropped", path, p.Slug)
@@ -308,6 +331,7 @@ func (s *panelStore) list() []Panel { return s.sorted(nil) }
 // writeLocked saves p before the map changes, so a failed write leaves memory as the file is.
 // Every stored change moves Rev, which open panels poll to know they are out of date.
 func (s *panelStore) writeLocked(p *Panel) error {
+	p.Extra = extraOwnFields(p.Extra)
 	p.Rev++
 	return s.yamlDir.writeLocked(*p)
 }
@@ -400,6 +424,14 @@ func (s *panelStore) delete(id string) (bool, error) {
 	})
 }
 
+func artBytes(p Panel) int {
+	n := 0
+	for _, a := range p.Art {
+		n += a.Size
+	}
+	return n
+}
+
 func (s *panelStore) artPath(id, art string) string {
 	return filepath.Join(s.dir, id+".art", art)
 }
@@ -412,7 +444,7 @@ func (s *panelStore) addArt(id string, data []byte, typ string) (PanelArt, bool,
 	if !ok {
 		return PanelArt{}, false, nil
 	}
-	if len(p.Art) >= panelArtMax {
+	if artBytes(p)+len(data) > panelArtTotal {
 		return PanelArt{}, true, errArtCap
 	}
 	b := make([]byte, 4)
@@ -478,34 +510,57 @@ func (s *panelStore) delArt(id, art string) (bool, error) {
 	return true, nil
 }
 
-// copyArt gives dst a copy of every artwork file of src, under the same ids, so cells that
-// name an artwork id keep working in the copy. Caller holds no lock.
-func (s *panelStore) copyArt(src Panel, dst string) {
+// copyArt gives dst a copy of src's artwork under the same ids, so cells that name an artwork
+// id keep working in the copy. It copies what fits under panelArtTotal, in order, and returns
+// the ids that did not fit (or could not be read or written). Caller holds no lock.
+func (s *panelStore) copyArt(src Panel, dst string) []string {
+	t, ok := s.get(dst)
+	if !ok {
+		return nil
+	}
+	have := map[string]bool{}
+	for _, a := range t.Art {
+		have[a.ID] = true
+	}
+	var left []string
 	for _, a := range src.Art {
-		if b, _, ok := s.artData(src.ID, a.ID); ok {
-			s.putArtAs(dst, a, b)
+		if have[a.ID] {
+			continue
+		}
+		b, _, ok := s.artData(src.ID, a.ID)
+		if !ok || !s.putArtAs(dst, a, b) {
+			left = append(left, a.ID)
 		}
 	}
+	return left
 }
 
-func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) {
+// putArtAs checks the total under the lock, since an upload or another copy may land between
+// copyArt's reads. Only the total: older artwork past 2 MB or 1024 by 1024 still copies.
+func (s *panelStore) putArtAs(id string, art PanelArt, data []byte) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.by[id]
 	if !ok {
-		return
+		return false
+	}
+	art.Size = len(data)
+	if artBytes(p)+art.Size > panelArtTotal {
+		return false
 	}
 	if s.dir != "" {
 		if os.MkdirAll(filepath.Join(s.dir, id+".art"), 0o700) != nil || config.AtomicWrite(s.artPath(id, art.ID), data) != nil {
-			return
+			return false
 		}
 	} else {
 		s.art[id+"/"+art.ID] = data
 	}
 	p.Art = append(slices.Clone(p.Art), art)
-	if s.writeLocked(&p) == nil {
-		s.by[id] = p
+	if s.writeLocked(&p) != nil {
+		return false
 	}
+	s.by[id] = p
+	return true
 }
 
 const svgNS = "http://www.w3.org/2000/svg"
@@ -520,6 +575,15 @@ func sniffArt(data []byte) string {
 		return "image/svg+xml"
 	}
 	return ""
+}
+
+// artTypeOK is a stored type sniffArt could have given. A hand-edited index must not choose the Content-Type.
+func artTypeOK(t string) bool {
+	switch t {
+	case "image/png", "image/jpeg", "image/gif", "image/svg+xml":
+		return true
+	}
+	return false
 }
 
 // isSVG: the first element is svg, after only a declaration, comments, a doctype and blanks.

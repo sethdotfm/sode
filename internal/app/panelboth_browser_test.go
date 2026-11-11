@@ -35,6 +35,9 @@ func TestChromePanelBothMode(t *testing.T) {
 		t.Fatalf("%d instances, want the one the link named", n)
 	}
 
+	// This browser now keeps the link's key, so the plain link would reuse it; drop it to be a fresh browser.
+	b.waitFor("the keyed link left its key in the browser", `!!localStorage.getItem('sode-panel-key-`+id+`')`)
+	b.eval(`localStorage.removeItem('sode-panel-key-` + id + `')`)
 	b.open(srv.URL + "/panels/" + id)
 	b.waitFor("the plain link asks for a sign-in", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	for _, d := range "1234" {

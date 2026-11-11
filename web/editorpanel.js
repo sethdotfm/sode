@@ -3,7 +3,7 @@
 import { el, $, S } from './core.js';
 import { field, check, opt, segmented } from './formbits.js';
 import { THEMES } from './panellook.js';
-import { featureSupport } from './panelfeel.js';
+import { featureSupport, fullscreenNote, LANDSCAPE_HINT } from './panelfeel.js';
 import { setSetting, fontPercent, FONT_MAX, FONT_MIN } from './sidebarrules.js';
 import { createSlugField } from './editorslug.js';
 import { linkRow } from './panellinkrow.js';
@@ -117,14 +117,19 @@ export function createPanelTab(ed) {
     levelField,
     toggle('resultText', 'Show the result as text on a Destination'),
     toggle('kiosk', 'Kiosk mode'),
+    toggle('wrapPages', 'Wrap between Pages', 'Next Page on the last Page goes to the first, and Previous Page on the first goes to the last.'),
   );
 
   const feel = featureSupport(navigator);
+  const fullscreenField = toggle('fullscreen', 'Automatically enter fullscreen');
+  const fullscreenHint = el('span', 'sode__hint');
+  fullscreenHint.id = 'ed-fullscreen-note';
+  fullscreenField.append(fullscreenHint);
   const device = section(
     'Device and feedback',
     toggle('wake', 'Keep the screen awake', ''),
-    toggle('fullscreen', 'Automatically enter fullscreen'),
-    toggle('landscape', 'Enforce landscape orientation'),
+    fullscreenField,
+    toggle('landscape', 'Enforce landscape orientation', LANDSCAPE_HINT),
     toggle('askInstanceName', 'Ask users to set an instance name', 'Off, the panel never asks and shows no name in its header.'),
   );
   const deviceNote = el('p', 'sode__hint');
@@ -149,7 +154,7 @@ export function createPanelTab(ed) {
         linkBox.replaceChildren(...(p ? [linkRow(p, { withHost: false })] : []));
       }
       for (const { key, input } of toggles) {
-        const dflt = key === 'titleBar' || key === 'multi' || key === 'askInstanceName';
+        const dflt = key === 'titleBar' || key === 'multi' || key === 'wrapPages' || key === 'askInstanceName';
         input.checked = dflt ? s[key] !== false : s[key] === true;
         // A switch the editor's own browser cannot honour still shows what the tablet will do; only turning it on is blocked.
         input.disabled = ro || (key === 'wake' && !feel.wake && !input.checked);
@@ -159,6 +164,7 @@ export function createPanelTab(ed) {
       toggles.find((x) => x.key === 'multi').input.disabled = ro || fixedOn;
       multiNote.textContent = fixedOn ? 'No effect while Fixed destination is on: every press stages all of them together.' : '';
       fixed.update();
+      fullscreenHint.textContent = fullscreenNote(s);
       deviceNote.textContent = feel.wake ? '' : "This browser has no support for keeping the screen awake. It is the panel's own browser that counts.";
       if (document.activeElement !== size) size.value = String(s.fontSize || 100); // shown, so the arrows step from the default
       size.disabled = ro;
