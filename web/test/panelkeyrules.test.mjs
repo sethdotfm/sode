@@ -23,7 +23,6 @@ import {
   pollFail,
   setupFailText,
   publicFetch,
-  withoutKey,
 } from '../panelkeyrules.js';
 
 test('a stale key leaves the address and the rest of the fragment stays', () => {
@@ -146,7 +145,8 @@ test('a polling failure stops the page for a dead key or a refused network, not 
   assert.match(pollFail(401, 'invalid_key', '', true).text, /rotated or revoked/);
   assert.equal(pollFail(401, 'invalid_key', '', false).stop, false);
   const net = pollFail(403, 'network_not_allowed', 'not from here');
-  assert.deepEqual(net, { stop: true, text: 'not from here' });
+  assert.deepEqual(net, { stop: true, forget: false, text: 'not from here' });
+  assert.equal(pollFail(401, 'invalid_key', '', true).forget, true);
   assert.equal(pollFail(0, '').stop, false);
   assert.equal(pollFail(503, 'api_off').stop, false);
 });

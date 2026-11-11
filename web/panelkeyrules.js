@@ -123,11 +123,12 @@ export function setupFailText(status, message) {
 // What a polling failure says. A key the server no longer knows ends the page: only a new link helps. Without a
 // key the page runs on a session, which sessionkey.js renews; an ended answer that still reaches the page means
 // the renewal could not help. A 429 is not lost contact: the fetcher already waits out Retry-After.
+// forget: only a 401 ends a stored key. A refused network leaves it, since the key still works once the list is fixed.
 export function pollFail(status, code, message, hadKey) {
-  if (status === 401 && hadKey) return { stop: true, text: "This link's key no longer works. It was rotated or revoked, so ask for a new link." };
+  if (status === 401 && hadKey) return { stop: true, forget: true, text: "This link's key no longer works. It was rotated or revoked, so ask for a new link." };
   if (status === 401 && (code === 'key_revoked' || code === 'key_expired'))
-    return { stop: true, text: "This page's sign-in key was ended. Reload the page to sign in again." };
-  if (status === 403 && code === 'network_not_allowed') return { stop: true, text: message || 'This panel may not be used from this network.' };
+    return { stop: true, forget: true, text: "This page's sign-in key was ended. Reload the page to sign in again." };
+  if (status === 403 && code === 'network_not_allowed') return { stop: true, forget: false, text: message || 'This panel may not be used from this network.' };
   if (status === 429) return { stop: false, text: 'Sode asked this page to wait before it tries again.' };
   return { stop: false, text: 'Lost contact with Sode. Retrying.' };
 }

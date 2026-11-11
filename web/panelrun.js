@@ -309,7 +309,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         ended = true;
         ready = false;
         tellLock(false);
-        if (stored) forgetKey(seg);
+        if (stored && f.forget) forgetKey(seg);
         // Nothing may call Sode again: not the polls, the update check or the keepalive.
         timers.forEach(clearInterval);
         stopWatch();
