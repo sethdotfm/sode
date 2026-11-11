@@ -90,6 +90,7 @@ type apiKey struct {
 	LastUsed time.Time `json:"lastUsed,omitzero"`
 	Count    int       `json:"count"`
 	Expires  time.Time `json:"expires,omitzero"` // zero = never
+	public   bool      // a Public panel's page key (panelpublic.go): its name says nothing about the instance
 }
 
 // subject names this key in the rate table and the idempotency table.

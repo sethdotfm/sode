@@ -56,7 +56,7 @@ func (s *publicKeys) issue(o keyOwner, now time.Time) (string, apiKey) {
 	secret := newPublicSecret()
 	id := make([]byte, 6)
 	rand.Read(id)
-	k := apiKey{ID: hex.EncodeToString(id), Owner: o, Name: publicKeyName, Created: now.UTC(), Expires: now.Add(publicKeyTTL).UTC()}
+	k := apiKey{ID: hex.EncodeToString(id), Owner: o, Name: publicKeyName, Created: now.UTC(), Expires: now.Add(publicKeyTTL).UTC(), public: true}
 	s.mu.Lock()
 	n := 0
 	for _, r := range s.recs {

@@ -187,6 +187,21 @@ test('a panel that stopped being Public passes the refusal on', async () => {
   assert.equal((await call('p', {})).status, 401);
 });
 
+// A lockout or a lost link is not the end of the panel: the call fails like lost contact and the next one asks again.
+test('a Public key that cannot be asked for now fails the call, and the next call asks again', async () => {
+  let asks = 0;
+  const call = publicFetch('old', {
+    ask: async () => {
+      if (++asks === 1) throw new Error('down');
+      return 'new';
+    },
+    send: async (path, init, key) => (key === 'old' ? res(401, 'key_expired') : res(200)),
+  });
+  await assert.rejects(call('p', {}));
+  assert.equal((await call('p', {})).status, 200);
+  assert.equal(asks, 2);
+});
+
 test('other refusals are not a reason to ask again', async () => {
   let asks = 0;
   const call = publicFetch('k', { ask: async () => (asks++, 'n'), send: async () => res(403, 'outside_rights') });

@@ -18,17 +18,17 @@ export function forgetKey(id) {
   }
 }
 
-// A Public panel's short-lived key (internal/app/panelpublic.go), or '' for any other panel or a failed ask, which
-// leaves the page to its session. Held in memory only: a reload asks again.
+// A Public panel's short-lived key (internal/app/panelpublic.go), or '' when Sode says the panel is not Public. Any
+// other answer throws: a lockout or a lost link must not read as "no longer Public". Held in memory only.
 export async function askPublic(id) {
-  try {
-    const res = await fetch(`api/v1/panels/${id}/public`, { method: 'POST' });
-    if (res.status !== 201) return '';
-    return (await res.json()).key || '';
-  } catch {
-    return '';
-  }
+  const res = await fetch(`api/v1/panels/${id}/public`, { method: 'POST' });
+  if (res.status === 200) return '';
+  if (res.status !== 201) throw Object.assign(new Error('no Public key'), { status: res.status });
+  return (await res.json()).key || '';
 }
+
+// At open, a failed ask leaves the page to its session, as before Public existed.
+export const askPublicAtOpen = (id) => askPublic(id).catch(() => '');
 
 // {key} or {error}. The spent token leaves the address either way, so a reload does not try it again.
 export async function exchangeSetup(id, token) {

@@ -135,7 +135,11 @@ func (a *App) apiAuth(w http.ResponseWriter, r *http.Request) (*apiCtx, bool) {
 func (a *App) panelHeaders(r *http.Request, cl *apiCtx, k apiKey) {
 	instance := cleanDevice(r.Header.Get("X-Sode-Instance"))
 	if cl.Panel != "" {
-		if instance == "" {
+		switch {
+		case instance != "":
+		case k.public: // every Public page holds a key named Public; name it by address, as the monitor does
+			instance = cleanDevice(cl.IP)
+		default:
 			instance = k.Name
 		}
 		cl.Actor.panel, cl.Actor.instance = cl.Panel, instance

@@ -207,6 +207,37 @@ func TestPublicKeysPerPanelAreCapped(t *testing.T) {
 	wantErr(t, apiSend(a, "GET", "/api/v1/panels/"+id, first, ""), 401, "key_revoked")
 }
 
+func TestPublicKeyOnlyFromTheClientsNetworks(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`}`)
+	if rec := putNetworks(a, cy, id, `["10.0.0.0/8"]`); rec.Code != 200 {
+		t.Fatalf("networks: %d %s", rec.Code, rec.Body.String())
+	}
+	wantErr(t, askPublic(a, apiPeer, id), 403, "network_not_allowed")
+	if rec := askPublic(a, "10.1.2.3:5000", id); rec.Code != 201 {
+		t.Fatalf("from inside: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// Every page holds a key named Public, so an unnamed page is told apart by its address, as the
+// monitor does, not by the key's name.
+func TestAnUnnamedPublicPageIsLoggedByItsAddress(t *testing.T) {
+	a, f := clientApp(t)
+	shortTimers(a)
+	defer startLog(t, a)()
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, publicPanel+`,"clientRights":{"sources":[1],"dsts":[2]}}`)
+	key := publicKeyOf(t, a, id)
+	f.seed(2, 3, 0)
+	if rec := apiPost(a, "/api/v1/takes", key, `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, nil); rec.Code != 200 {
+		t.Fatalf("take: %d %s", rec.Code, rec.Body.String())
+	}
+	if e := lastRow(t, a, "take"); !strings.Contains(e.Note, "instance 192.0.2.7") || strings.Contains(e.Note, "instance Public") {
+		t.Fatalf("take row %+v", e)
+	}
+}
+
 func TestPublicTakeOutsideTheRightsIsRefusedAndHistoryNamesTheClient(t *testing.T) {
 	a, f := clientApp(t)
 	shortTimers(a)

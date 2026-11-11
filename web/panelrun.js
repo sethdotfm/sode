@@ -10,7 +10,7 @@ import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
 import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail, publicFetch, withoutKey } from './panelkeyrules.js';
-import { exchangeSetup, storedKey, forgetKey, askPublic } from './panelsetup.js';
+import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen } from './panelsetup.js';
 import {
   createState,
   pressDestination,
@@ -88,7 +88,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
   // The page cannot read the mode without a key, so with none it asks whether the panel is Public before a session.
   let isPublic = false;
   if (!key && !embedded) {
-    key = await askPublic(seg);
+    key = await askPublicAtOpen(seg);
     if (ended) return;
     isPublic = !!key;
   }
@@ -126,7 +126,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given } = {
       // A 404 forgets too: a short name that moved to another panel must not keep sending the old panel's key.
       if ((e.status === 401 || e.status === 404) && stored && key) forgetKey(seg);
       // A stale key on a panel that is now Public: an old bookmark still opens it.
-      const pub = e.status === 401 && key && !isPublic && !embedded ? await askPublic(seg) : '';
+      const pub = e.status === 401 && key && !isPublic && !embedded ? await askPublicAtOpen(seg) : '';
       if (ended) return;
       if (pub) {
         history.replaceState(null, '', `${location.pathname}${location.search}${withoutKey(location.hash)}`);
