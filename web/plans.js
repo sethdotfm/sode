@@ -8,6 +8,7 @@ import { fmtClock, pref } from './device.js';
 import { failureGroups } from './history.js';
 import { resolvePreset } from './presetstore.js';
 import { showResult, setResult } from './banner.js';
+import { writeJSON, writeStr } from './store.js';
 export { showResult, resultNode } from './banner.js';
 
 let takeSeq = 0;
@@ -417,12 +418,55 @@ function extraBox(plan, spaceHint) {
 }
 
 // This browser's last patch as numbers, so names stay current. Null until it makes one: History
-// holds other people's takes and must not fill a box.
+// holds other people's takes and must not fill a box. Stored per browser (every tab and user
+// shares it); memory answers only when storage is blocked or this tab's last write didn't land.
+const LAST_KEY = 'sode-last-take';
 let lastPatch = null;
+let lastWriteFailed = false;
+
+// Another tab's take: its Last (and the Next built on it) shows here too.
+globalThis.addEventListener?.('storage', (e) => {
+  if (e.key === LAST_KEY || e.key === null) emit('last');
+});
+
+const isNum = (v) => Number.isInteger(v) && v >= 0;
+const isPair = (v) => Array.isArray(v) && isNum(v[0]) && typeof v[1] === 'string';
+const validLast = (t) =>
+  !!t && isPair(t.src) && Array.isArray(t.dsts) && t.dsts.length > 0 && t.dsts.every(isPair) && Array.isArray(t.levels) && t.levels.every(isNum);
+
+// A redo counts when all its routes share one source and one set of levels; Retry, Preset and
+// undo never set Last. Null means leave Last as it is.
+export function lastFromPlan(p) {
+  if (p.verb !== 'patch' && p.verb !== 'redo') return null;
+  const gs = p.items.flatMap((i) => i.groups.map((g) => ({ dst: i.dst, g })));
+  if (!gs.length) return null;
+  const { src, levels } = gs[0].g;
+  const sorted = (l) => [...l].sort((x, y) => x - y);
+  const lv = sorted(levels);
+  if (p.verb === 'redo' && !gs.every(({ g }) => g.src.n === src.n && sameList(sorted(g.levels), lv))) return null;
+  return { src: [src.n, src.name], dsts: gs.map(({ dst }) => [dst.n, dst.name]), levels: lv };
+}
+
+// A stored value that fails to parse is no Last, not a cue to fall back to memory.
+function readLast() {
+  let raw;
+  try {
+    raw = localStorage.getItem(LAST_KEY);
+  } catch {
+    return lastPatch;
+  }
+  if (raw == null) return lastWriteFailed ? lastPatch : null;
+  try {
+    const t = JSON.parse(raw);
+    return validLast(t) ? t : null;
+  } catch {
+    return null;
+  }
+}
 
 export function lastTake() {
-  const t = lastPatch;
-  if (!t) return null;
+  const t = readLast();
+  if (!t || !S.srcBy.has(t.src[0]) || !t.dsts.every(([n]) => S.dstBy.has(n))) return null;
   return { src: srcItem(...t.src), dsts: t.dsts.map((d) => dstItem(...d)), levels: t.levels.filter((u) => S.levelBy.has(u)) };
 }
 
@@ -509,9 +553,12 @@ export function sendTakes(p) {
     return false;
   }
   for (const id of take.byId.keys()) takes.set(id, take);
-  if (p.verb === 'patch') {
-    const g = p.items[0].groups[0];
-    lastPatch = { src: [g.src.n, g.src.name], dsts: p.items.map((i) => [i.dst.n, i.dst.name]), levels: g.levels };
+  const last = lastFromPlan(p);
+  if (last) {
+    lastPatch = last;
+    // A full storage keeps the older value, which would outrank memory.
+    lastWriteFailed = !writeJSON(LAST_KEY, last);
+    if (lastWriteFailed) writeStr(LAST_KEY, null);
   }
   const list = [...take.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;

@@ -184,6 +184,10 @@
           <label for="cfg-next-mode">Next match behavior</label>
           <span class="pb-select-wrap"><select id="cfg-next-mode" class="pb-select" data-pref="nextMode"></select></span>
         </div>
+        <div class="sode__field">
+          <label for="cfg-compact">Compact view (hide History)</label>
+          <span class="pb-select-wrap"><select id="cfg-compact" class="pb-select" data-pref="compact"></select></span>
+        </div>
       </div>
     </fieldset>
 
@@ -238,6 +242,10 @@
         <div class="sode__field">
           <label for="gcfg-next-mode">Next match behavior</label>
           <span class="pb-select-wrap"><select id="gcfg-next-mode" class="pb-select" data-gpref="nextMode"></select></span>
+        </div>
+        <div class="sode__field">
+          <label for="gcfg-compact">Compact view (hide History)</label>
+          <span class="pb-select-wrap"><select id="gcfg-compact" class="pb-select" data-gpref="compact"></select></span>
         </div>
       </div>
     </fieldset>
@@ -680,7 +688,7 @@
         <dt><kbd data-mac="⌃⇧s">Ctrl+Shift+s</kbd> <kbd data-mac="⌃⇧d">Ctrl+Shift+d</kbd></dt><dd>Last take's source, destination, the next one (repeat for more)</dd>
         <dt><kbd>Enter</kbd></dt><dd>Take</dd>
         <dt><kbd data-mac="⌘z">Ctrl+z</kbd> <kbd data-mac="⌃z" hidden></kbd></dt><dd>Undo the last Sode take</dd>
-        <dt><kbd>Esc</kbd></dt><dd>Close the match list; clear a box; with all empty, keyboard mode</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Close the match list; clear a box; with all empty, keyboard mode (not in Compact view)</dd>
       </dl>
       <div class="sode__label">Match lists (Source, Destination)</div>
       <dl>
@@ -734,6 +742,7 @@
       <dl>
         <dt><kbd data-mac="⌃,">Ctrl+,</kbd></dt><dd>Settings</dd>
         <dt><kbd data-mac="⌃l">Ctrl+l</kbd></dt><dd>Lock the screen</dd>
+        <dt><kbd data-mac="⌥⇧c">Alt+Shift+c</kbd></dt><dd>Compact view: hide History, or show it again (This browser)</dd>
         <dt><kbd data-mac="⌃?">Ctrl+?</kbd></dt><dd>This list</dd>
       </dl>
     </div>

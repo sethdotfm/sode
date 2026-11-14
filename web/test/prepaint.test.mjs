@@ -10,7 +10,7 @@ import { PREFS, resolve, cachedProfile } from '../prefs.js';
 
 const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'prepaint.js'), 'utf8');
 
-// Returns the page's dataset after the script ran: theme (unset for system), layout, and flip (present when on).
+// Returns the page's dataset after the script ran: theme (unset for system), layout, and flip and compact (present when on).
 function run({ own = {}, profile, global, session, tab, phoneMedia = false, only }) {
   const store = new Map(Object.entries(own));
   if (profile !== undefined) store.set('sode-profile-prefs', JSON.stringify(profile));
@@ -24,7 +24,7 @@ function run({ own = {}, profile, global, session, tab, phoneMedia = false, only
   return dataset;
 }
 
-const NAMES = ['theme', 'layout', 'flip'];
+const NAMES = ['theme', 'layout', 'flip', 'compact'];
 const junk = [undefined, 'nonsense', '', 7, null, {}, [], 'constructor'];
 const valuesOf = (name) => [...Object.keys(PREFS[name].values), ...(PREFS[name].bool ? [true, false] : []), ...junk];
 const sessions = [
@@ -49,7 +49,7 @@ for (const name of NAMES) {
               const ds = run({ own: stored === null ? {} : { [key]: stored }, profile, global, session, tab, phoneMedia });
               let want = resolve(name, stored, cachedProfile(profile, session || tab).prefs, global);
               if (name === 'layout' && want === 'auto') want = phoneMedia ? 'phone' : 'desktop';
-              const got = name === 'theme' ? ds.theme || 'system' : name === 'flip' ? ('flip' in ds ? 'on' : 'off') : ds.layout;
+              const got = name === 'theme' ? ds.theme || 'system' : name === 'flip' || name === 'compact' ? (name in ds ? 'on' : 'off') : ds.layout;
               n++;
               if (got !== want) {
                 const at = JSON.stringify({ own, prof, glob, session, tab, phoneMedia });

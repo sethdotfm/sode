@@ -822,6 +822,7 @@ on('history', () => {
   renderHistory();
   renderLast();
 });
+on('last', renderLast);
 on('result', (r) => {
   const end = atEnd();
   $('m-result').replaceChildren(resultNode(r));

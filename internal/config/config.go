@@ -133,6 +133,7 @@ type DeviceDefaults struct {
 	SearchFilters bool           `yaml:"searchFilters" json:"searchFilters"`
 	SetStack      string         `yaml:"setStack" json:"setStack"`
 	NextMode      string         `yaml:"nextMode" json:"nextMode"`
+	Compact       bool           `yaml:"compact" json:"compact"`
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
