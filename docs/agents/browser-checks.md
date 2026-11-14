@@ -41,6 +41,7 @@ Add a check:
 2. Build the app with `simApp`, run it (`a.Run(ctx)`), serve `a.Handler(web.FS)` from `httptest`, and make fixtures through the REST helpers (`userKey`, `makePanel`, `apiSend`). Don't use `apiTestApp` or `panelsApp` here: they replace the router with a fake.
 3. Wait on the server for names and tally before opening the page (see the loop in the first check), since a page reads names only every 30 s.
 4. Act with `b.eval(...)` and wait with `b.waitFor(...)` on DOM state, never `time.Sleep`. Assert the router's side through REST, not only what the page shows. End with `b.check()`.
+   After a save in the panel editor, wait with `b.waitSaved(what)`, never on the Save button being disabled: Save disables it before the PUT returns. `TestBrowserChecksWaitForSaved` fails on such a wait.
    Bootstrap's reboot sets `scroll-behavior: smooth`, so `scrollTo` and `scrollIntoView` animate: after a scroll, wait for the element's rect to be in view before pressing at its coordinates (`TestChromeEditorFindFitsViewport`).
 5. Keep checks few: each costs a Chrome start.
 

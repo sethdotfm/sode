@@ -93,7 +93,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 
 	b.eval(`document.querySelector('#ed-fixed-list button').click(); true`)
 	b.waitFor("an empty list brings the Destination cell and Stage several Destinations back", `chosen() === '' && !!dstSquare() && !multi().disabled`)
-	b.waitFor("and nothing is unsaved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("and nothing is unsaved")
 
 	for _, text := range []string{"DSM1", nameOf[other]} {
 		b.eval(fmt.Sprintf(`pick(%q); true`, text))
@@ -102,7 +102,7 @@ func TestChromeEditorFixedDests(t *testing.T) {
 	}
 	b.waitFor("both chosen in order", `chosen() === '`+fmt.Sprintf("%d,%d", simDst, other)+`'`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved")
 	var stored struct {
 		Pages []struct {
 			Cells []struct {
@@ -201,7 +201,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	b.waitFor("a merge over a set-aside cell says it was removed", `/^Removed 1 Destination cell /.test(`+status+`)`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved")
 	var stored struct {
 		Cols  int `json:"cols"`
 		Pages []struct {
@@ -225,7 +225,7 @@ func TestChromeEditorFixedDestsSaysWhatIsDropped(t *testing.T) {
 	b.eval(`document.getElementById('ed-grid').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("resize undone, Destination cells still set aside", status+` === 'Undid resize.' && document.getElementById('ed-cols').value === '3' && !document.querySelector('#ed-grid .sode-ed__sq--destination')`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved again", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved again")
 	got := storedCells(t, a, ana, id)
 	want := []string{"1,1 1x1 destination art= artB=", "1,2 1x1 take art= artB=", "2,3 1x1 destination art= artB="}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
