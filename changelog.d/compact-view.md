@@ -1,1 +1,1 @@
-- Compact view hides History on the desktop main page, leaving the patch boxes, results, Presets and the footer. Alt+Shift+C (Option+Shift+C on a Mac) turns it on or off for this browser, and Settings can set it for This browser, Me or Everyone.
+- Compact view hides History on the desktop main page, leaving the patch boxes, results, Presets and the footer. Alt+Shift+C (Option+Shift+C on a Mac) turns it on or off for This browser, and Settings can set it for This browser, Me or Everyone.

@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 globalThis.document = node();
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const stored = new Map();
+globalThis.localStorage = { getItem: (k) => stored.get(k) ?? null, setItem: (k, v) => stored.set(k, String(v)), removeItem: (k) => stored.delete(k) };
 
 test('toggle adds, then removes', async () => {
   const { toggle } = await import('./all.mjs');

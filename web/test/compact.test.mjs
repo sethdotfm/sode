@@ -66,6 +66,17 @@ test('desktop.css hides only the desktop History under data-compact', () => {
   assert.match(css, /:root\[data-layout="desktop"\]\[data-compact\][^{]*#patch-view > \.sode__history \{\s*display: none;/);
 });
 
+// A preset picking takes from History (historypick.js sets data-sode-pick="") needs it shown, and
+// historyShown() must agree or keyboard mode stays off while it is.
+test('History shows again in Compact view while a preset picks takes from it', () => {
+  const css = readFileSync(join(web, 'desktop.css'), 'utf8');
+  assert.match(css, /\[data-compact\]:not\(\[data-sode-pick=""\]\) #patch-view > \.sode__history \{/);
+  const pick = readFileSync(join(web, 'historypick.js'), 'utf8');
+  assert.match(pick, /dataset\.sodePick = st\.mode === 'boxes' \? 'boxes' : ''/);
+  const hist = readFileSync(join(web, 'desktophistory.js'), 'utf8');
+  assert.match(hist, /historyShown = \(\) => !compactOn\(\) \|\| document\.documentElement\.dataset\.sodePick === ''/);
+});
+
 // Seam: Alt+Shift+C is bound once, and nothing else takes Alt+Shift+C or lists it.
 test('Alt+Shift+C collides with no other binding or shortcut-list entry', () => {
   const hits = [];
