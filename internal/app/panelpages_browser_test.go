@@ -59,6 +59,8 @@ func TestChromePanelPages(t *testing.T) {
 	cell := func(kind string) string { return `document.querySelector('.sode-panel__cell--` + kind + `')` }
 	onPage := func(what, js string) { b.waitFor(what, js) }
 	pageOne := cell("destination") + ` && ` + cell("goToPage") + `.textContent === 'Page 3'`
+	// A press before the page's first poll answers is ignored; the router's name comes with that poll.
+	named := cell("destination") + `?.querySelector('.sode-panel__text')?.textContent === 'DSM1'`
 	onPage("Page 1 is drawn first", `!!(`+pageOne+`)`)
 	b.waitFor("Previous Page is greyed on the first Page without wrap", cell("previousPage")+`.disabled && !`+cell("nextPage")+`.disabled`)
 	b.shot("pages-one")
@@ -68,6 +70,7 @@ func TestChromePanelPages(t *testing.T) {
 	onPage("Go to Page opens Page 3, which has no cells", `document.querySelectorAll('.sode-panel__cell').length === 0 && localStorage.getItem('sode-panel-page-`+id+`') === 'three'`)
 	b.eval(`localStorage.setItem('sode-panel-page-` + id + `', 'one'); location.reload(); true`)
 	onPage("a reload reopens the saved Page", `!!(`+pageOne+`)`)
+	b.waitFor("the first poll answered", named)
 
 	b.eval(cell("destination") + `.click()`)
 	b.eval(cell("nextPage") + `.click()`)
@@ -81,8 +84,10 @@ func TestChromePanelPages(t *testing.T) {
 	waitRouted(t, a, ana, simDst, simSrc)
 	b.waitFor("nothing left staged", `document.querySelector('.sode-panel__take').disabled`)
 
-	b.eval(`location.reload(); true`)
-	onPage("a reload reopens Page 2", `!!`+cell("source")+` && localStorage.getItem('sode-panel-page-`+id+`') === 'two'`)
+	// The page before the reload is on Page 2 too, so the wait must see the new page; a save that lands before the
+	// new page reads the panel brings no banner.
+	b.eval(`window.beforeReload = true; location.reload(); true`)
+	onPage("a reload reopens Page 2", `!window.beforeReload && !!`+cell("source")+` && localStorage.getItem('sode-panel-page-`+id+`') === 'two'`)
 
 	if rec := apiSend(a, "PUT", "/api/v1/panels/"+id, ana, body(false)); rec.Code != 200 {
 		t.Fatalf("save: %d %s", rec.Code, rec.Body.String())
