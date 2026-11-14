@@ -11,6 +11,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/sethdotfm/sode/internal/config"
 )
 
 type Entry struct {
@@ -210,7 +212,7 @@ func (h *History) rewrite(id int, line []byte) error {
 	if err == nil {
 		_, err = io.Copy(tmp, io.NewSectionReader(h.f, end, h.size-end))
 	}
-	if err == nil {
+	if err == nil && config.SyncWrites() {
 		err = tmp.Sync()
 	}
 	if err == nil {

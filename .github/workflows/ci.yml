@@ -1,26 +1,63 @@
-# Every PR is tested; every push to main also publishes the `edge` image
-# (untested by people, unsigned, never a release). See RELEASING.md.
+# Test groups (AGENTS.md "Test groups"). PRs into main, and pushes to main and integration/**, run
+# every group. PRs into anything else, and docs-only PRs, run lint plus `go test -short`. Every push
+# to main also publishes the `edge` image (untested by people, unsigned, never a release). See
+# RELEASING.md.
+#
+# Branch protection requires only `ci-ok main`. The check name carries the PR's base, so a PR
+# opened against an integration branch and retargeted to main has no `ci-ok main` until its next
+# push: it cannot merge on a run that skipped the browser checks.
 name: ci
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "integration/**"]
 
 permissions:
   contents: read
 
-# A newer push to main replaces an older build still running, so `edge` can't
-# end up on an older commit.
+# A newer push replaces an older build still running, so `edge` can't end up on an older commit.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   IMAGE: ghcr.io/sethdotfm/sode
+  # Browser checks fail instead of skipping when Chrome or go is missing (browserTest).
+  SODE_REQUIRE_BROWSER: "1"
 
 jobs:
-  test:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      full: ${{ steps.pick.outputs.full }}
+    steps:
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          full=false
+          if [[ $EVENT == push ]]; then
+            full=true
+          elif [[ $BASE == main ]]; then
+            full=true
+            # Docs-only means every file is *.md or under docs/. Any error listing files runs everything.
+            if files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only) && [[ -n $files ]] \
+              && ! grep -Ev '(^docs/|\.md$)' <<<"$files" >/dev/null; then
+              full=false
+              echo "docs-only PR: lint and go test -short"
+            fi
+          fi
+          echo "full=$full" | tee -a "$GITHUB_OUTPUT"
+
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -28,13 +65,63 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go vet ./...
-      - run: go test -timeout 30m ./...
       - run: node --test 'web/test/*.test.mjs'
       - run: npx --yes eslint@10.14.0 web
 
+  go:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - if: needs.changes.outputs.full == 'true'
+        run: go test -count=1 -timeout 20m -skip '^TestChrome' ./...
+      - if: needs.changes.outputs.full != 'true'
+        run: go test -count=1 -short ./...
+
+  browser:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: .github/scripts/browser-checks.sh ${{ matrix.shard }} 3 '^TestChrome' 'HoldsNoMemory'
+
+  leak:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: .github/scripts/browser-checks.sh 0 1 'HoldsNoMemory'
+
+  ci-ok:
+    name: ci-ok ${{ github.base_ref || github.ref_name }}
+    if: always()
+    needs: [changes, lint, go, browser, leak]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]
+
   edge:
-    if: github.event_name == 'push'
-    needs: test
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.ci-ok.result == 'success' }}
+    needs: ci-ok
     runs-on: ubuntu-latest
     permissions:
       contents: read

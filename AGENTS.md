@@ -6,15 +6,19 @@ Sode: keyboard-first web patching for one SW-P-08 router (Ross Ultrix). Settings
 
 ## Commands
 
-go test ./...   (about 70s; Dockerfile build runs it too; run it and docker builds with run_in_background)
+go test -short ./...   (fast group, about 25s: run before every commit)
+go test ./internal/app -run TestName -v   (while editing)
+go test ./internal/app -run '^TestChrome<Area>' -v   (before committing a change under web/ or to panels)
+go test ./...   (everything, several minutes: only when touching the browser harness, swp08sim or timing code; use run_in_background)
 go vet ./...
-go test ./internal/app -run TestName -v
 node --test 'web/test/*.test.mjs'
 go run ./cmd/swp08sim   (simulator on :8910, SIM_* env in cmd/swp08sim and docs/reference.md)
 SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   (:8080, SODE_DEBUG hex-dumps SW-P-08)
 docker compose --profile sim up --build
 
 Format and lint run as a PostToolUse hook (.claude/settings.json, .claude/hooks/lint.sh): gofmt + go vet on .go; Prettier 3.3.3 via npx (config .prettierrc.json, no package.json) + node --check on web/*.js, web/test/*.mjs, web/*.css; ESLint 10.14.0 via npx (eslint.config.mjs, `no-undef` and `no-unused-vars` only, browser globals listed by hand) on web/*.js and web/test/*.mjs. CI runs `npx --yes eslint@10.14.0 web`; never `eslint .`, since .claude/worktrees holds a repo copy. The first npx run per machine downloads ESLint and can look hung. Exit 2 reports back. Don't hand-format; web modules are capped at 1000 lines (imports.test.mjs); split before crossing it.
+
+Test groups: fast is what `-short` runs. Browser checks are named `TestChrome*` (browserTest fails any other name that starts Chrome, since CI selects them by name) and leak checks are `TestChrome*HoldsNoMemory`. Slow non-browser tests call slowTest(t); add it to any test over about a second. internal/app's TestMain calls config.UseTestCosts (1000 PBKDF2 rounds, no fsync), so a test that needs a slow PIN check stores a full-cost hash itself (lock_held_test.go). CI (ci.yml): `lint`, `go` (all non-browser), `browser` (3 shards by `-list`, failures rerun once and reported as flaky), `leak`; PRs into integration/* and docs-only PRs run lint plus `-short`. `ci-ok main` is the one required check. A flaky warning in CI is a bug to fix, not to ignore.
 
 Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web UI is go:embed (web/web.go): restart after frontend edits.
 

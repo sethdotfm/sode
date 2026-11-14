@@ -61,9 +61,10 @@ type tab struct {
 // startBrowser skips the test when no Chrome is installed.
 func startBrowser(t *testing.T) *tab {
 	t.Helper()
+	browserTest(t)
 	bin := chromePath()
 	if bin == "" {
-		t.Skip("browser checks skipped: no Chrome or Chromium found (install one or set SODE_CHROME)")
+		browserSkip(t, "browser checks skipped: no Chrome or Chromium found (install one or set SODE_CHROME)")
 	}
 	// Chrome sometimes exits at start-up when other Chrome processes are busy, so a missing port gets a fresh
 	// profile and process, up to three times.
@@ -79,7 +80,7 @@ func startBrowser(t *testing.T) *tab {
 			"--no-first-run", "--no-default-browser-check", "--disable-gpu", "--window-size=1280,800", "about:blank")
 		if err := cmd.Start(); err != nil {
 			cancel()
-			t.Skipf("browser checks skipped: cannot start %s: %v", bin, err)
+			browserSkip(t, fmt.Sprintf("browser checks skipped: cannot start %s: %v", bin, err))
 		}
 		c := cancel
 		t.Cleanup(func() { c(); _ = cmd.Wait() })

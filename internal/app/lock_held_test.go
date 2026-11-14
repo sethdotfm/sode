@@ -237,6 +237,19 @@ func TestHeldLockBlocksTrustedSavesEvenWithAdvancedSettingsPin(t *testing.T) {
 // another user's PIN must not swap the session out from under it.
 func TestLockRaisedDuringPinCheckBlocksOtherUsersPin(t *testing.T) {
 	a := userApp(t, true)
+	// TestMain's cheap PIN cost would finish the check before the Lock, so Bo keeps a full-cost hash of 567890.
+	a.cfgMu.Lock()
+	_, nr, err := a.update(func(cfg *config.Config) error {
+		cfg.Users[1].Pin = "pbkdf2-sha256$600000$XDVArAic7Ii80zNbxRuiBw$mlHHU7BANjLUuCIdC7QRJ3I1c2u0uKE118a81SkoeAc"
+		return nil
+	})
+	a.cfgMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.mu.Lock()
+	a.rt.Store(nr)
+	a.mu.Unlock()
 	c := &client{ip: "10.0.0.1"}
 	register(a, c)
 	if err := a.UserUnlock(c, "1234"); err != nil {

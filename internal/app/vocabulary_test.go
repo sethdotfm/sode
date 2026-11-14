@@ -608,6 +608,14 @@ func TestIdentifiersUseGlossaryWords(t *testing.T) {
 	}
 	sort.Strings(files)
 	baseWords := strings.NewReplacer("_", " ", "-", " ", ".", " ")
+	lines := map[string][]string{}
+	words := map[string][]string{}
+	for _, f := range files {
+		lines[f] = strings.Split(code[f], "\n")
+		for _, line := range lines[f] {
+			words[f] = append(words[f], masked(identWords(line)))
+		}
+	}
 	for _, w := range append(append([]retiredWord{}, retiredWords...), identOnly...) {
 		if w.Re == nil {
 			continue
@@ -615,8 +623,8 @@ func TestIdentifiersUseGlossaryWords(t *testing.T) {
 		re := identRe(w)
 		var hits []vocabHit
 		for _, f := range files {
-			for i, line := range strings.Split(code[f], "\n") {
-				if re.MatchString(masked(identWords(line))) && !identAllowed(w.Terms[0], f, line) {
+			for i, line := range lines[f] {
+				if re.MatchString(words[f][i]) && !identAllowed(w.Terms[0], f, line) {
 					hits = append(hits, vocabHit{f, i + 1, strings.TrimSpace(line)})
 				}
 			}

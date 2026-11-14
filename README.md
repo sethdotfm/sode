@@ -74,7 +74,8 @@ If you forget the Advanced Settings PIN, run `docker compose exec sode /sode -re
 ## Development
 
 ```sh
-go test ./...                                        # also run by the Dockerfile
+go test -short ./...                                 # fast group; AGENTS.md "Test groups" lists the rest
+go test ./...                                        # everything, Chrome checks included
 node --test 'web/test/*.test.mjs'                    # browser-side tests
 ```
 

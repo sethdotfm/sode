@@ -8,11 +8,21 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
+	"testing"
 	"strings"
 	"unicode/utf8"
 )
 
-const pinIter = 600_000
+var pinIter = 600_000
+
+// UseTestCosts cuts PBKDF2 to 1000 rounds and skips fsync (F_FULLFSYNC on macOS costs tens of ms
+// a write) for tests that hash PINs and save files in bulk. A stored hash keeps its own round count.
+func UseTestCosts() {
+	if !testing.Testing() {
+		panic("config.UseTestCosts outside a test")
+	}
+	pinIter, syncWrites = 1000, false
+}
 
 func CheckPinRules(pin string) error {
 	if n := utf8.RuneCountInString(pin); n < 4 || n > 64 {
