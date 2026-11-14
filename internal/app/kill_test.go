@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 )
@@ -12,16 +13,20 @@ type exits struct {
 	codes []int
 	// rows: the log as it stood when exit ran, so the test sees the row came first.
 	rows [][]Sent
+	err  error // reading the log; exit may run off the test goroutine, so no t.Fatal there
 }
 
 func stubExit(t *testing.T, a *App) *exits {
 	t.Helper()
 	x := &exits{}
 	a.exit = func(code int) {
+		page, _, err := a.sent.Page(-1, 500)
+		slices.Reverse(page)
 		x.mu.Lock()
 		defer x.mu.Unlock()
 		x.codes = append(x.codes, code)
-		x.rows = append(x.rows, logged(t, a))
+		x.rows = append(x.rows, page)
+		x.err = errors.Join(x.err, err)
 	}
 	return x
 }
@@ -103,8 +108,8 @@ func TestKillLogsThenExitsZero(t *testing.T) {
 	if err := a.Kill(c, "2468"); err != nil {
 		t.Fatal(err)
 	}
-	if len(x.codes) != 1 || x.codes[0] != 0 {
-		t.Fatalf("exit codes %v, want [0]", x.codes)
+	if len(x.codes) != 1 || x.codes[0] != 0 || x.err != nil {
+		t.Fatalf("exit codes %v, want [0] (log read: %v)", x.codes, x.err)
 	}
 	var row *Sent
 	for i, e := range x.rows[0] {

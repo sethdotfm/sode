@@ -15,8 +15,8 @@ var exitProcess = os.Exit
 const killFlush = 100 * time.Millisecond
 
 var (
-	errKillOff   = errors.New("Kill is turned off. Turn it on in Settings > Access")
-	errKillNoPin = errors.New("Kill needs an Advanced Settings PIN; set one first")
+	errKillOff   = errors.New("kill is turned off; turn it on in Settings > Access")
+	errKillNoPin = errors.New("kill needs an Advanced Settings PIN; set one first")
 )
 
 func (a *App) serveKill(c *client, m *inMsg) {
