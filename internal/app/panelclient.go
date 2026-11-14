@@ -120,7 +120,7 @@ func (a *App) setPanelClient(id string, rights *config.Rights) error {
 // A panel file that is on disk but failed to load keeps its client, so repairing the file
 // brings the panel back still signed in; key reconcile would otherwise end its keys.
 func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
-	if panels.unread {
+	if panels.dirFailed {
 		return
 	}
 	cfg.APIClients = slices.DeleteFunc(slices.Clone(cfg.APIClients), func(c config.APIClient) bool {

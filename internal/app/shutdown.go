@@ -49,7 +49,7 @@ func (f *inflight) start(kind string) (done func(), ok bool) {
 	}, true
 }
 
-// close refuses new writes; the channel closes once those already counted are done.
+// close: Run selects on the channel; shut is set under mu, so no start can slip past the Wait.
 func (f *inflight) close() <-chan struct{} {
 	f.mu.Lock()
 	f.shut = true
@@ -59,13 +59,7 @@ func (f *inflight) close() <-chan struct{} {
 	return ch
 }
 
-func (f *inflight) closed() bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.shut
-}
-
-// left names the writes still running, by kind ("batch 2, config 1").
+// left: for the log line when the limit cuts the wait short ("batch 2, config 1").
 func (f *inflight) left() string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -77,7 +71,7 @@ func (f *inflight) left() string {
 	return strings.Join(out, ", ")
 }
 
-// finish ends the count start took for this message; nil-safe, as tests call handlers directly.
+// finish: nil-safe, since tests call handlers directly without the read loop counting them.
 func (m *inMsg) finish() {
 	if m.done != nil {
 		m.done()

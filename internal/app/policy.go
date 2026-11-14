@@ -120,7 +120,13 @@ var policy = map[string]rule{
 			defer m.finish()
 			a.ClearHistory(c.who())
 		}()
-	}},
+	},
+		// A PIN refusal keeps the bare `locked` the page re-asks on; shutdown has no PIN to ask.
+		onRefuse: func(a *App, c *client, _ *inMsg, err error) {
+			if errors.Is(err, errShuttingDown) {
+				a.reply(c, opResultFor("clearHistory", nil, err))
+			}
+		}},
 
 	// Admitting sent subscribes to the feed in the same step, so a lock can't slip in.
 	"sent": {need: needLog, admitted: func(c *client) { c.sent = true },

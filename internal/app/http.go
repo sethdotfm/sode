@@ -281,7 +281,7 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if rl.write {
-			done, ok := a.work.start(m.T)
+			done, ok := a.writes.start(m.T)
 			if !ok {
 				a.refuse(c, m.T, rl, &m, errShuttingDown)
 				continue

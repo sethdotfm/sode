@@ -93,7 +93,7 @@ type App struct {
 	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
 	// Writes from browser messages; Run waits up to drainLimit for them (shutdown.go).
-	work       inflight
+	writes     inflight
 	drainLimit time.Duration
 
 	// Idle sweep (idle.go): the clock and the sweep period; tests change both (lock_idle_test.go).
@@ -260,14 +260,14 @@ func (a *App) Run(ctx context.Context) {
 		select {
 		case <-stopping:
 			stopping = nil
-			drained = a.work.close()
+			drained = a.writes.close()
 			lt := time.NewTimer(a.drainLimit)
 			defer lt.Stop()
 			limit = lt.C
 		case <-drained:
 			return
 		case <-limit:
-			log.Printf("shutdown: stopped after %v with writes still running: %s", a.drainLimit, a.work.left())
+			log.Printf("shutdown: stopped after %v with writes still running: %s", a.drainLimit, a.writes.left())
 			return
 		case <-t.C:
 			a.flush()

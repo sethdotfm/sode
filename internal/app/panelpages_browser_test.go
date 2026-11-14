@@ -62,6 +62,7 @@ func TestChromePanelPages(t *testing.T) {
 	// A press before the page's first poll answers is ignored; the router's name comes with that poll.
 	named := cell("destination") + `?.querySelector('.sode-panel__text')?.textContent === 'DSM1'`
 	onPage("Page 1 is drawn first", `!!(`+pageOne+`)`)
+	b.waitFor("the first poll answered on first load", named)
 	b.waitFor("Previous Page is greyed on the first Page without wrap", cell("previousPage")+`.disabled && !`+cell("nextPage")+`.disabled`)
 	b.shot("pages-one")
 
