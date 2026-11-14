@@ -2,8 +2,8 @@
 // Shape: panels/<slug or id>[?instance=<name>]#[key=<k>|setup=<t>][&kiosk=1]. The secret stays in the fragment, which
 // never reaches a request line or a proxy log; the name is no secret, so it may ride the query.
 
-export const KEY_PREFIX = 'sode_';
-export const SETUP_PREFIX = 'sode_setup_';
+const KEY_PREFIX = 'sode_';
+const SETUP_PREFIX = 'sode_setup_';
 
 // The server's secrets all start with a fixed prefix that adds nothing to a link, and the page puts it back.
 // A panel key's body never starts with the prefix (newShortSecret), so a short and a full form cannot be confused.

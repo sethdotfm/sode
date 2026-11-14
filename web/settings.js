@@ -129,7 +129,7 @@ function fillBrandColors() {
 }
 $('cfg-brandborder').addEventListener('change', renderBrandPreview);
 
-export function openSettings() {
+function openSettings() {
   if (!S.cfg) return;
   showPage(-1);
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');

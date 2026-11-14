@@ -18,7 +18,7 @@ const takes = new Map();
 // destination; undo/retry are the entries an item undoes or retries. Protection isn't kept
 // here: planBlocked returns it. May carry title and warnings (shown as is).
 
-export const routeItem = (dst, groups, retry = null) => ({ dst, groups, skipped: [], untouched: [], undo: null, retry });
+const routeItem = (dst, groups, retry = null) => ({ dst, groups, skipped: [], untouched: [], undo: null, retry });
 
 // Failed-take levels the router answered for were not changed by the take (old route, or
 // someone else's): undo leaves them alone. Levels with no answer stay in (they may have

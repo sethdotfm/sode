@@ -28,7 +28,7 @@ const KIND_ICON = {
 
 // A cell's text in the editor: the caption, else the router name, else what is still to be chosen. pages is the
 // panel's Page list, for a Go to Page cell's target; page is the id of the Page the cell sits on.
-export function cellText(cell, names, pages = [], page = '') {
+function cellText(cell, names, pages = [], page = '') {
   if (cell.caption) return cell.caption;
   if (PAGE_KINDS.includes(cell.kind)) return pageCellText(cell, { pages, page }).value || kindLabel(cell.kind);
   if (cell.kind === 'goToPage') {

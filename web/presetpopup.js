@@ -260,7 +260,7 @@ dialog.addEventListener('keydown', (e) => {
   if (!onButton) input.focus();
 });
 
-export function openPopup() {
+function openPopup() {
   if (open) return;
   back = document.activeElement;
   open = true;

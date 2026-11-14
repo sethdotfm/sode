@@ -5,7 +5,7 @@
 export const PAGE = 100;
 // Per request while reading on to find more to show, or back to a time
 // range (the server's most).
-export const FILL = 500;
+const FILL = 500;
 export const AUTO_PAGES = 20;
 
 export function newPager() {

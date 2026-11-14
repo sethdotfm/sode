@@ -139,7 +139,7 @@ function drawBanners() {
   }
 }
 
-export function setBadge(rows) {
+function setBadge(rows) {
   host();
   mountBanners();
   offline = rows;

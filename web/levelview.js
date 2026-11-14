@@ -32,7 +32,7 @@ export function relabelLevels(text) {
   return list ? levelInput(list) : text;
 }
 
-export const defaultLevelsText = () => levelInput(parseLevels('') || []);
+const defaultLevelsText = () => levelInput(parseLevels('') || []);
 export const defaultLevelsWord = () => ((parseLevels('') || []).length === S.levels.length ? 'All' : 'default');
 export const defaultLevelsHint = () => `${defaultLevelsText()} (${defaultLevelsWord()})`;
 
