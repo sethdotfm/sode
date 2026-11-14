@@ -4,7 +4,7 @@
 // JSON in the URL fragment (#share=), which never reaches the server or a proxy.
 
 export const SOCKET_LIMIT = 64 * 1024;
-export const PROFILE_LIMIT = 48 * 1024;
+const PROFILE_LIMIT = 48 * 1024;
 export const NAME_MAX = 32;
 
 export const PREF_LABELS = {
@@ -16,6 +16,7 @@ export const PREF_LABELS = {
   searchFilters: 'Search respects filters',
   setStack: 'Stacked filter sets',
   nextMode: 'Next means',
+  compact: 'Compact view',
 };
 
 const FILTER_DEFAULT = { src: '', dst: '', sode: true, ext: true, hidden: false };
@@ -142,7 +143,7 @@ export function fileNameFor(typed, dflt) {
 
 // Names compare ignoring case and outer spaces. Statuses, best to worst: same, byName (one live
 // item has that name: number remapped), ambiguous (several do: never the first), unmatched.
-export const STATUS = ['same', 'byName', 'ambiguous', 'unmatched'];
+const STATUS = ['same', 'byName', 'ambiguous', 'unmatched'];
 export const worst = (a, b) => (STATUS.indexOf(a) >= STATUS.indexOf(b) ? a : b);
 
 export function matchEnd(n, name, list) {

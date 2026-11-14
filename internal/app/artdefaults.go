@@ -39,6 +39,7 @@ var (
 	// Icon B choices, as ART_B_CHOICES in web/panellook.js.
 	artBRe = regexp.MustCompile(`^(?:[0-9]|1[0-6]|[A-Z])$`)
 
+	//lint:ignore ST1005 the panel editor shows this /api/v1 message as is
 	errArtDefaultsCap   = errors.New("Default artwork would pass the 64 MB total; clear some first")
 	errNoArtDefaultFile = errors.New("no such Default artwork image")
 )

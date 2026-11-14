@@ -140,7 +140,8 @@ func TestChromeEditorPublic(t *testing.T) {
 	b.eval(`document.getElementById('ed-acts-public').click(); true`)
 	b.waitFor("Public asks for the Confirm", `!`+box+`.hidden && `+box+`.textContent.includes('anyone with the plain link') && !`+box+`.querySelector('.sode__key--locked')`)
 	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
-	b.waitFor("Public saves after the Confirm with its note", `document.getElementById('ed-state').textContent === 'Saved' && `+access+`.includes('Anyone with the link can use the panel')`)
+	b.waitSaved("Public saves after the Confirm")
+	b.waitFor("the Public note shows", access+`.includes('Anyone with the link can use the panel')`)
 	b.waitFor("the Access tab warns about sharing", access+`.includes('Its sharing does not limit who may open it') && `+access+`.includes('Listed on the panels page for:') && !`+access+`.includes('Who may use it')`)
 	b.waitFor("the toolbar offers Copy link", `!document.getElementById('ed-copylink').hidden`)
 	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"acts":"public"`) || !strings.Contains(body, `"client":"Panel `+id+`"`) {

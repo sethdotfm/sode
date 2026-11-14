@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -14,6 +15,13 @@ import (
 )
 
 // REST seam for /api/v1/panels: real Handler, recorder, users Ana and Bo, and Cy (Trusted).
+
+// problems lists the panel files the store skipped; production only logs them.
+func (s *panelStore) problems() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.probs)
+}
 
 func panelsApp(t *testing.T) *App {
 	t.Helper()

@@ -9,12 +9,12 @@ import { profileProblem } from './profilesrules.js';
 
 // Limits the server enforces too (internal/config/presets.go); test/preset_cases.json keeps the
 // two from drifting.
-export const MAX_PRESETS = 30;
-export const MAX_ITEMS = 100;
-export const MAX_DSTS = 100;
-export const MAX_TOTAL = 200;
-export const MAX_NUM = 0xfffe;
-export const MAX_LEVEL = 64;
+const MAX_PRESETS = 30;
+const MAX_ITEMS = 100;
+const MAX_DSTS = 100;
+const MAX_TOTAL = 200;
+const MAX_NUM = 0xfffe;
+const MAX_LEVEL = 64;
 export const MAX_BYTES = 48 * 1024;
 const KEY = 'sode-presets';
 const ORDER = 'sode-preset-order';
@@ -40,7 +40,7 @@ const ints = (a) =>
     .concat(a ?? [])
     .map(Number)
     .filter((n) => Number.isInteger(n));
-export const normItem = (it) => ({
+const normItem = (it) => ({
   src: Number.isInteger(+it?.src) ? +it.src : -1,
   dsts: [...new Set(ints(it?.dsts))],
   levels: [...new Set(ints(it?.levels))].sort((a, b) => a - b),
@@ -94,7 +94,7 @@ export function presetsProblem(list) {
 
 // Different sources to one destination on overlapping levels (blank = default, overlaps
 // everything) would race. The same source twice merges, so is fine.
-export function presetConflict(s) {
+function presetConflict(s) {
   const clash = (a, b) => !a.length || !b.length || a.some((l) => b.includes(l));
   for (let i = 0; i < s.items.length; i++) {
     for (const b of s.items.slice(i + 1)) {

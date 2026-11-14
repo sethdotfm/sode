@@ -142,6 +142,9 @@ A user with a flag that lets them save shared settings without the Advanced Sett
 A cover over the page that stops every key from reaching it until it is dismissed. With nobody signed in, pressing the shown letter dismisses it, which guards against mashing the keyboard and nothing more. With a user signed in, the Lock is held by the server for that session, so a reload or reconnect still shows it, and only that user's PIN resumes it. They can also sign out from it.
 _Avoid_: hand lock, soft lock, screen lock
 
+**Kill**:
+The emergency stop in Settings > Access: it ends the Sode process at once, with no graceful shutdown, so the router link drops and takes not yet sent are lost. It needs the `killEnabled` setting and the Advanced Settings PIN, typed again each time. It keeps Sode down only when the container's restart policy is `no` or `on-failure`.
+
 **Auto-lock**:
 Raises the Lock after a set number of idle minutes. It never signs anyone out. A user marked No auto-lock is skipped, and the Lock button still works for them.
 _Avoid_: idle timeout
@@ -238,6 +241,9 @@ The panel setting that decides when a panel's plan is confirmed. In Take mode th
 **Clear** (cell kind):
 Cancels the plan the panel has pending. It never changes the router.
 
+**Undo** (cell kind):
+Undoes the newest take this instance of the panel made that nothing has undone yet; each press steps one take further back. Takes from other instances and from the Sode page are left alone. It is greyed when there is nothing left to undo or the route to restore is outside the panel's Rights.
+
 **Fixed destination**:
 A panel setting that holds a list of destinations the panel always patches to, at most 16. A panel with it set has no viewed destination to choose: a Source press stages a route to each one. An empty list turns it off.
 
@@ -271,13 +277,16 @@ One saved layout per panel in a group, so a single Push gives each panel in the 
 The Source box, the Destination box and the Level box, where a plan is typed. What they hold is a plan until Confirm.
 
 **Last**:
-The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser, and the chip is hidden until this browser has made a take.
+The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser and kept across reloads, and the chip is hidden until this browser has made a take.
 
 **Next**:
 The chip in a patch box that fills it with the value after Last, either the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
 
 **Keyboard mode**:
-The state where keys act on History entries instead of the patch boxes. Esc from empty patch boxes starts it and any click ends it.
+The state where keys act on History entries instead of the patch boxes. Esc from empty patch boxes starts it and any click ends it. Compact view has none.
+
+**Compact view**:
+The desktop main page with History hidden, leaving the patch boxes, results, Presets and the footer. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. History shows again while a preset adds entries from it. The phone layout ignores it.
 
 **Server link**:
 The connection between a browser and the Sode server.

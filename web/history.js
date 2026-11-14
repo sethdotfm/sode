@@ -158,7 +158,7 @@ function buildRows(list) {
 // missing takes just aren't loaded.
 const IN_FLIGHT_MS = 30000;
 
-export function groupStatus(f) {
+function groupStatus(f) {
   const got = f.entries.length;
   const bad = f.entries.filter((e) => !e.ok).length;
   if (got < f.n && Date.now() - Date.parse(f.entries[0].time) < IN_FLIGHT_MS) {
@@ -234,7 +234,7 @@ export function takePage(m) {
   return true;
 }
 
-export function requestHistory(n = 0) {
+function requestHistory(n = 0) {
   if (!S.histMore || S.histLoading || !S.hist.length) return false;
   S.histLoading = wsSend({ t: 'history', before: S.hist[S.hist.length - 1].id, ...(n ? { n } : {}) });
   return S.histLoading;

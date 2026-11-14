@@ -74,7 +74,7 @@ var policyExpect = map[string][nStates]error{
 	"configExport": adminRule, "configImportBegin": adminRule, "configImport": adminRule,
 	"userSignOutAll": adminRule, "usersList": adminRule, "users": adminRule,
 	"apiSettings": adminRule, "keyListAll": adminRule, "keyCreateFor": adminRule,
-	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule,
+	"keyRevokeAny": adminRule, "keyRevokeAll": adminRule, "kill": adminRule,
 }
 
 func sameRefusal(got, want error) bool {

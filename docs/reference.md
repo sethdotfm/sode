@@ -34,11 +34,15 @@ A preset is a saved plan of sources to destinations, fired in one confirm. **Edi
 
 ### Last take and next
 
-Ctrl+s, Ctrl+d and Ctrl+f fill Source, Destination or Levels from your last take, the last one this browser made. A browser that has made no take has no last take, so the keys do nothing and the boxes show no Last chip. A take in History from another browser never fills a box. Each box shows that value as a small chip you can click. The Next chip and keys also need a take from this browser. Ctrl+Shift+s and Ctrl+Shift+d do the same with the next source and destinations, with every destination shifted, for patching a run in order. For example, Cam 1 to Rec 1 and Rec 5, then Cam 2 to Rec 2 and Rec 6. Each box also has a small "Next" chip that opens to show the value when you hover it or hold Shift. Press the keys again to keep going (Cam 3, then Cam 4, with more destinations each time) while the boxes still hold the last value. Settings > This browser > "Next match behavior" picks the next number or the next match of the name's text. When no name matches any more, it falls back to the next number.
+Ctrl+s, Ctrl+d and Ctrl+f fill Source, Destination or Levels from your last take, the last one this browser made. The browser keeps it across reloads and shares it with every tab, and anyone who signs in on that browser sees it; it never expires. A patch sets it, and so does a redo whose routes all share one source and one set of levels. A Group redo with several sources, a Retry and a Preset leave it alone. A browser that has made no take has no last take, so the keys do nothing and the boxes show no Last chip. A kept take whose source or a destination the router no longer has counts as none. A take in History from another browser never fills a box. Each box shows that value as a small chip you can click. The Next chip and keys also need a take from this browser. Ctrl+Shift+s and Ctrl+Shift+d do the same with the next source and destinations, with every destination shifted, for patching a run in order. For example, Cam 1 to Rec 1 and Rec 5, then Cam 2 to Rec 2 and Rec 6. Each box also has a small "Next" chip that opens to show the value when you hover it or hold Shift. Press the keys again to keep going (Cam 3, then Cam 4, with more destinations each time) while the boxes still hold the last value. A reload ends the run, and the next press steps from the last take. Settings > This browser > "Next match behavior" picks the next number or the next match of the name's text. When no name matches any more, it falls back to the next number.
 
 ### History
 
 History lists every take, shared by all browsers and kept in a log. Undo restores what the router actually had before. In a row's Before panel, and in the steps of a stacked row, each source is a button that fills Source with it and moves on to Destination. Externals, such as ones from router panels or Companion, appear too, and you can undo them the same way. Every row has **Redo**, or **Retry** if its take failed, and a Group has **Redo all**. Redo takes that line's route again, and the confirm says when the destination already has it. In keyboard mode the key is `r`. Changes the router made without announcing them are marked **found**. Destinations that follow another, such as a multiviewer PiP following a DSM, show as an External follow of the take. Undo leaves them out unless you tick the box in the confirm. Sode doesn't log routes changed while it was disconnected.
+
+### Compact view
+
+Alt+Shift+c (⌥⇧c on a Mac) hides History on the desktop main page, and pressing it again shows it. The patch boxes, results, Presets and the footer stay. The key works from inside the patch boxes too, so on a Mac Option+Shift+c toggles Compact view there instead of typing Ç. It sets This browser; Settings can also set it for your profile or for Everyone. With History hidden there is no keyboard mode, and Esc only clears the boxes. While the preset editor's **Add from History…** is picking takes, History shows again so you can pick them. The phone layout ignores Compact view.
 
 ### Search and filters
 
@@ -82,9 +86,10 @@ Open Settings with the **Settings** button at the bottom of the page. Sode store
 | `SODE_TALLY_RESYNC_S` | `tallyResyncSeconds` | `300` | Re-read all routes and which destinations are protected this often (0 turns it off) |
 | `SODE_TRUSTED_PROXIES` | `trustedProxies` | | IPs/CIDRs whose `X-Forwarded-For` Sode believes (your proxy) |
 | `SODE_PIN_MAX_TRIES` | `pinMaxTries` | `10` | Wrong Advanced Settings PINs in a row before settings lock until reset or restart. `0` means never |
+| `SODE_KILL_ENABLED` | `killEnabled` | `false` | Shows the Kill button in Settings > Access (see [Kill](#kill)). Turn it on only when the container's restart policy is `no` or `on-failure`; Sode cannot read the policy. Only the Advanced Settings PIN can change it |
 | `SODE_MAX_PIN_LEN` | `maxPinLen` | `8` | Longest user PIN (4-12 digits). The lock pad stops there and submits on its own only at the longest length in use. Shorter PINs are sent with the check key or Enter. Also set in Settings > Users |
 
-Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` and `settingsPin`. `deviceDefaults` holds what a browser uses until it chooses its own under Settings > This browser: theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`) and nextMode (`number` or `fuzzy`).
+Settings-only keys (no seed var): `brandText` (replaces "Sode" in the header and page title, up to 24 characters), `brandBorder` (`blue`, `teal`, `green`, `amber`, `violet`, `pink`; a border round the window, off by default), `routerName`, `routerShow` (`address`, `name`, `none`), `levelColors`, `filterSets`, `hiddenDsts`, `deviceDefaults` and `settingsPin`. `deviceDefaults` holds what a browser uses until it chooses its own under Settings > This browser: theme, layout, clock, flip, scrollTop, searchFilters, setStack (`and` or `or`), nextMode (`number` or `fuzzy`) and compact (Compact view, off by default; see Compact view above).
 
 Process settings stay in env: `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`/data/config.yaml` in the image), `SODE_HISTORY` (`/data/history.jsonl`), `SODE_SENTLOG` (`/data/sent.jsonl`), `SODE_SENTLOG_MB` (`64`), `SODE_UPTIME` (`/data/uptime.jsonl`; without it the router uptime is kept in memory only) and `SODE_DEBUG=true` to hex-dump all SW-P-08 traffic.
 
@@ -101,6 +106,15 @@ docker compose exec sode /sode -reset-pin && docker compose restart sode
 or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
 Every save keeps the file it replaces as `/data/config.yaml.prev`, and the first start of each release keeps the file as `/data/config.yaml.before-<version>` (for a rollback). Both hold PIN hashes, so they are mode 0600 like `config.yaml`; copy them with the same care. A failed backup is logged and never blocks a save or startup. When the file has keys this release doesn't know (a rollback from a newer release), startup and `-reset-pin` or `-reset-https` first keep it as `/data/config.yaml.unknown-<UTC time>`, mode 0600, unless the newest such copy is the same. Sode never removes these copies.
+
+### Kill
+
+An emergency stop for an engineer who suspects Sode is misbehaving. With `killEnabled` on and an Advanced Settings PIN set, Settings > Access shows a **Kill Sode** button once the PIN is entered on that browser. The dialog asks for the PIN again every time; a wrong one counts toward `pinMaxTries`. A Kill writes a `kill` row to the Communication Log, then the process exits at once with code 0, with no graceful shutdown:
+
+- The router link drops, and takes not yet sent are lost.
+- Takes already sent may still land on the router, and routes the router already accepted stay.
+- Every browser shows the Lost link banner.
+- Docker starts Sode again unless the container's restart policy is `no` or `on-failure`. Exit code 0 is not a failure, so `on-failure` keeps it down. With either policy, Docker also does not start Sode after a host reboot, so start it by hand (`docker compose up -d`). The shipped `compose.yaml` uses `unless-stopped`, under which a Kill only restarts Sode. Source: [Docker, Start containers automatically](https://docs.docker.com/engine/containers/start-containers-automatically/).
 
 ## Users and locks (optional)
 

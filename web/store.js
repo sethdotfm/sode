@@ -1,4 +1,5 @@
 // Never throws (localStorage may be missing, blocked or full): reads give the default, writes are dropped; null removes the key.
+// Writes return whether they landed.
 
 export const readStr = (k) => {
   try {
@@ -11,7 +12,10 @@ export const writeStr = (k, v) => {
   try {
     if (v == null) localStorage.removeItem(k);
     else localStorage.setItem(k, v);
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 };
 export const readJSON = (k, d = null) => {
   try {

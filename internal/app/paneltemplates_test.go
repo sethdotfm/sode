@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -112,6 +113,35 @@ func TestTemplateSourcesAndDestsAreStoredApart(t *testing.T) {
 	}
 	if dst["take"]["caption"] != "GO" {
 		t.Fatalf("a Take caption is layout and stays once either option is on: %v", dst["take"])
+	}
+}
+
+// Undo is layout as Clear is: its caption goes once either option is on, and nothing else of it changes.
+func TestTemplateTreatsUndoAsClear(t *testing.T) {
+	a := panelsApp(t)
+	ana := userKey(t, a, "Ana")
+	for _, flags := range []string{``, `"dests":true,`} {
+		rec := apiSend(a, "POST", "/api/v1/panel-templates", ana, `{"name":"Undo `+fmt.Sprint(len(flags))+`","scope":"me",`+flags+`"cells":[
+ {"r":1,"c":1,"rs":1,"cs":1,"kind":"clear","caption":"BACK","fontSize":2},
+ {"r":1,"c":2,"rs":1,"cs":1,"kind":"undo","caption":"BACK","fontSize":2}]}`)
+		if rec.Code != 201 {
+			t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+		}
+		cells := page1Cells(apiBody(t, rec))
+		if len(cells) != 2 {
+			t.Fatalf("cells %v", cells)
+		}
+		clr, undo := maps.Clone(cells[0].(map[string]any)), maps.Clone(cells[1].(map[string]any))
+		if undo["kind"] != "undo" || (undo["caption"] != nil) != (flags != ``) {
+			t.Fatalf("flags %q: undo cell %v", flags, undo)
+		}
+		delete(clr, "kind")
+		delete(undo, "kind")
+		delete(clr, "c")
+		delete(undo, "c")
+		if !maps.EqualFunc(clr, undo, func(x, y any) bool { return fmt.Sprint(x) == fmt.Sprint(y) }) {
+			t.Fatalf("flags %q: clear %v, undo %v", flags, clr, undo)
+		}
 	}
 }
 

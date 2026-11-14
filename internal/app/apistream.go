@@ -360,7 +360,7 @@ func (a *App) streamFan(v any) {
 				if !st.view.Route(c.Dst, c.Level, c.Src) {
 					continue
 				}
-				rows = append(rows, apiRouteRow{c.Dst, c.Level, c.Src})
+				rows = append(rows, apiRouteRow(c))
 			}
 			if len(rows) > 0 {
 				a.streamQueue(st, streamMsg{T: "tally", Topic: "tally", Data: map[string]any{"routes": rows}})

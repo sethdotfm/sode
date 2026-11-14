@@ -83,6 +83,9 @@ type Config struct {
 	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
+	// KillEnabled: an administrator's word that the container's restart policy is no or
+	// on-failure, so a Kill keeps Sode down. Sode cannot read the policy itself.
+	KillEnabled bool `yaml:"killEnabled" json:"killEnabled" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
 	Extra map[string]any `yaml:",inline" json:"-" owned:"true"`
 }
@@ -133,6 +136,7 @@ type DeviceDefaults struct {
 	SearchFilters bool           `yaml:"searchFilters" json:"searchFilters"`
 	SetStack      string         `yaml:"setStack" json:"setStack"`
 	NextMode      string         `yaml:"nextMode" json:"nextMode"`
+	Compact       bool           `yaml:"compact" json:"compact"`
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
@@ -208,13 +212,17 @@ func FromEnv(c Config) (Config, error) {
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
 	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)
 	num("SODE_MAX_PIN_LEN", &c.MaxPinLen)
-	if v := os.Getenv("SODE_CONFIRM_ENTER"); v != "" {
-		b, err := strconv.ParseBool(v)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("SODE_CONFIRM_ENTER: %w", err))
+	boolean := func(k string, dst *bool) {
+		if v := os.Getenv(k); v != "" {
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s: %w", k, err))
+			}
+			*dst = b
 		}
-		c.ConfirmEnter = b
 	}
+	boolean("SODE_CONFIRM_ENTER", &c.ConfirmEnter)
+	boolean("SODE_KILL_ENABLED", &c.KillEnabled)
 	if v := os.Getenv("SODE_TRUSTED_PROXIES"); v != "" {
 		c.TrustedProxies = nil
 		for _, p := range strings.Split(v, ",") {

@@ -1,15 +1,15 @@
 // Monitoring text and timing (docs/panels-design.md, Monitoring). Pure.
 
 export const KEEPALIVE_MS = 15000;
-export const RETRY_MIN_MS = 1000;
-export const RETRY_MAX_MS = 10000;
+const RETRY_MIN_MS = 1000;
+const RETRY_MAX_MS = 10000;
 
 // The held connection that lets Sode see a closed page at once (the keepalive stays as the fallback).
 export const streamPath = (id, device) => `api/v1/panels/${id}/instances/stream?device=${encodeURIComponent(deviceFrom(device))}`;
 
 // Wait before reopening it after n failed or ended tries in a row.
 export const retryMs = (n) => Math.min(RETRY_MAX_MS, RETRY_MIN_MS * 2 ** Math.max(0, n));
-export const DEVICE_MAX = 40;
+const DEVICE_MAX = 40;
 
 export function durationText(secs) {
   const s = Math.max(0, Math.round(secs));

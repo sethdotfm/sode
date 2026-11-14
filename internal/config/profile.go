@@ -39,6 +39,7 @@ var PrefValues = map[string][]string{
 	"setStack":      {"and", "or"},
 	"nextMode":      {"number", "fuzzy"},
 	"searchFilters": {"on", "off"},
+	"compact":       {"on", "off"},
 }
 
 func (p Profile) Empty() bool {

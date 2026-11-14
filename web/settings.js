@@ -27,6 +27,7 @@ import './users.js';
 import './apisettings.js'; // adds its section before the table of contents is built
 import './profiles.js';
 import './configfile.js';
+import './kill.js';
 
 const root = document.documentElement;
 const form = $('settings-view');
@@ -128,7 +129,7 @@ function fillBrandColors() {
 }
 $('cfg-brandborder').addEventListener('change', renderBrandPreview);
 
-export function openSettings() {
+function openSettings() {
   if (!S.cfg) return;
   showPage(-1);
   if (location.hash !== '#settings') history.pushState(null, '', '#settings');
@@ -665,9 +666,15 @@ function flash(node, smooth) {
   flashTimer = setTimeout(start, 1000);
 }
 
+// A [data-find] row or button is hidden while it does not apply (Kill, Sign in, My API keys), so search skips it.
+const offered = (h) => {
+  const node = h.kind === 'setting' && targets.get(`${h.sectionId}/${h.id}`);
+  return !(node?.matches('[data-find]') && node.closest('[hidden]'));
+};
+
 function showHits() {
   const q = findBox.value.trim();
-  hits = q ? find(settingsIndex, q) : [];
+  hits = q ? find(settingsIndex, q).filter(offered) : [];
   cur = 0;
   foundList.replaceChildren(
     ...hits.map((h, i) => {

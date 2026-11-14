@@ -44,6 +44,8 @@ volumes:
 docker compose up -d     # then open http://localhost:8080
 ```
 
+With `restart: unless-stopped`, Docker starts Sode again after a Kill (the emergency stop in Settings > Access). For a Kill that keeps Sode down, use `restart: on-failure` or `no` and turn on `killEnabled`; then Sode also does not start by itself after a host reboot. See [Kill](docs/reference.md#kill).
+
 To try it without a router, run the bundled simulator from a checkout: `docker compose --profile sim up --build`.
 
 To run from source with the simulator:

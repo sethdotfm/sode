@@ -1,0 +1,1 @@
+- The Last and Next chips and Ctrl+S, Ctrl+D and Ctrl+F now survive a reload and show in every tab of the browser, and a redo with one source and one set of levels now updates Last.

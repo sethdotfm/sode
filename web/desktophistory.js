@@ -4,7 +4,7 @@ import { $, el, S, on, emit, tallyText, labelNode, toggle, srcItem, dstItem } fr
 import { mac } from './keys.js';
 import { levelBar } from './levelview.js';
 import { srcRow } from './routes.js';
-import { timeNodes } from './device.js';
+import { timeNodes, compactOn } from './device.js';
 import { historyPager, beforeGroups, attachFollows, entryNote, statusNode, groupTitle, groupLevels, groupIds } from './history.js';
 import { rowUndoPlan, planEmpty, showResult, againPlan } from './plans.js';
 import { layout } from './layout.js';
@@ -216,6 +216,14 @@ export function desktopHistory({ select, focusBox, openConfirm, focusSearch, ope
   }
   histList.addEventListener('blur', () => document.documentElement.removeAttribute('data-keys-on'));
   const keyMode = () => keysOn && document.activeElement === histList;
+  // Keep in step with the Compact view rule in desktop.css.
+  const historyShown = () => !compactOn() || document.documentElement.dataset.sodePick === '';
+  // Compact view turned on mid keyboard mode: History is gone, so focus goes back to Source.
+  on('prefs', () => {
+    if (historyShown() || !histArea(document.activeElement)) return;
+    setKeys(false);
+    focusBox(boxes.src.input);
+  });
   document.addEventListener(
     'pointerdown',
     (e) => {
@@ -426,5 +434,5 @@ export function desktopHistory({ select, focusBox, openConfirm, focusSearch, ope
     return !!n && (histList.contains(n) || $('history-more').contains(n));
   }
 
-  return { renderHistory, enterKeys, keyMode, histList, histArea, onListKey, undoLast, pager };
+  return { renderHistory, enterKeys, keyMode, historyShown, histList, histArea, onListKey, undoLast, pager };
 }
