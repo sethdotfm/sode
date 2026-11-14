@@ -1,11 +1,15 @@
 version: 2
+# cooldown: skip releases younger than 3 days, so a hijacked publish is likely pulled first.
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 3 }
   - package-ecosystem: gomod
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 3 }
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 3 }
