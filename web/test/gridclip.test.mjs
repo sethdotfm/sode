@@ -237,7 +237,8 @@ test('the note counts what was pasted', () => {
 });
 
 test('a block with any cell field of the wrong shape is refused whole', () => {
-  const one = (cell) => JSON.stringify({ sode: CLIP_MARK, version: CLIP_VERSION, panel: 'p-1', rows: 2, cols: 2, cells: [{ r: 1, c: 1, rs: 1, cs: 1, ...cell }] });
+  const one = (cell) =>
+    JSON.stringify({ sode: CLIP_MARK, version: CLIP_VERSION, panel: 'p-1', rows: 2, cols: 2, cells: [{ r: 1, c: 1, rs: 1, cs: 1, ...cell }] });
   const bad = [
     { kind: 'take', caption: {} },
     { kind: 'take', caption: 'x'.repeat(41) },
@@ -261,7 +262,17 @@ test('a block with any cell field of the wrong shape is refused whole', () => {
     { kind: 'preset', scope: 'me', name: 5 },
   ];
   for (const cell of bad) assert.equal(readBlock(one(cell)), null, JSON.stringify(cell));
-  const tooMany = { sode: CLIP_MARK, version: CLIP_VERSION, panel: '', rows: 1, cols: 1, cells: [{ r: 1, c: 1, rs: 1, cs: 1, kind: 'take' }, { r: 1, c: 1, rs: 1, cs: 1, kind: 'take' }] };
+  const tooMany = {
+    sode: CLIP_MARK,
+    version: CLIP_VERSION,
+    panel: '',
+    rows: 1,
+    cols: 1,
+    cells: [
+      { r: 1, c: 1, rs: 1, cs: 1, kind: 'take' },
+      { r: 1, c: 1, rs: 1, cs: 1, kind: 'take' },
+    ],
+  };
   assert.equal(readBlock(JSON.stringify(tooMany)), null);
 });
 
@@ -272,6 +283,13 @@ test('a block keeps every known cell field and drops unknown keys', () => {
     { r: 2, c: 1, rs: 1, cs: 1, kind: 'info', show: ['panel', 'page'] },
     { r: 2, c: 2, rs: 1, cs: 1, kind: 'preset', scope: 'me', name: 'Studio' },
   ];
-  const text = JSON.stringify({ sode: CLIP_MARK, version: CLIP_VERSION, panel: 'p-1', rows: 2, cols: 2, cells: [{ ...cells[0], junk: 'x'.repeat(900_000) }, ...cells.slice(1)] });
+  const text = JSON.stringify({
+    sode: CLIP_MARK,
+    version: CLIP_VERSION,
+    panel: 'p-1',
+    rows: 2,
+    cols: 2,
+    cells: [{ ...cells[0], junk: 'x'.repeat(900_000) }, ...cells.slice(1)],
+  });
   assert.deepEqual(readBlock(text).cells, cells);
 });

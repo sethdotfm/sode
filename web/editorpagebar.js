@@ -60,7 +60,12 @@ export function createPageBar(host, act) {
   function row(p, i, s) {
     const n = s.pages.length;
     const isOpen = s.open.includes(p.id);
-    const open = el('button', 'pb-btn pb-btn--ghost pb-btn--sm sode-pages__open', el('span', 'sode-pages__num', String(i + 1)), el('span', 'sode-pages__name', pageLabel(p, i)));
+    const open = el(
+      'button',
+      'pb-btn pb-btn--ghost pb-btn--sm sode-pages__open',
+      el('span', 'sode-pages__num', String(i + 1)),
+      el('span', 'sode-pages__name', pageLabel(p, i)),
+    );
     open.type = 'button';
     open.dataset.act = 'open';
     open.setAttribute('aria-pressed', String(isOpen));

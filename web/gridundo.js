@@ -28,7 +28,14 @@ export function redo(h, current) {
 }
 
 // Keys sorted, so two copies of one cell compare equal however they were built.
-const canon = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
+const canon = (v) =>
+  v && typeof v === 'object' && !Array.isArray(v)
+    ? Object.fromEntries(
+        Object.keys(v)
+          .sort()
+          .map((k) => [k, canon(v[k])]),
+      )
+    : v;
 const cellsKey = (g) =>
   JSON.stringify(
     g.cells
@@ -73,4 +80,5 @@ export function rekeyUndo(h, from, to) {
 }
 
 // before and after are the Page ids in list order around a save; any Page that had id '' follows its new one.
-export const rekeySaved = (h, before, after) => before.reduce((acc, id, i) => (id === '' && after[i] && after[i] !== id ? rekeyUndo(acc, id, after[i]) : acc), h);
+export const rekeySaved = (h, before, after) =>
+  before.reduce((acc, id, i) => (id === '' && after[i] && after[i] !== id ? rekeyUndo(acc, id, after[i]) : acc), h);

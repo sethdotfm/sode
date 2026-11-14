@@ -41,7 +41,11 @@ const WALKS = {
 test('Wrap walks every fill order from the paste square, in the block reading order', () => {
   assert.deepEqual(Object.keys(WALKS).sort(), FILL_ORDERS.map((o) => o.id).sort());
   const g = at(grid([], { rows: 3, cols: 3 }), 2, 2);
-  const b = block(['take', 'clear', 'source', 'preset'].map((k, i) => one(1, i + 1, k)), 1, 4);
+  const b = block(
+    ['take', 'clear', 'source', 'preset'].map((k, i) => one(1, i + 1, k)),
+    1,
+    4,
+  );
   const plan = pastePlan(g, b, { panel: 'p-1' });
   for (const [order, want] of Object.entries(WALKS)) {
     const out = wrapPaste(g, plan, order);

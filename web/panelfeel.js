@@ -9,7 +9,12 @@ export const featureSupport = (nav) => ({ wake: !!nav?.wakeLock?.request });
 // secure context, so a LAN panel over plain http loses it silently.
 export function featureNotes(look, nav, secure) {
   const out = [];
-  if (look.wake && !featureSupport(nav).wake) out.push(secure ? 'This browser cannot keep the screen awake.' : 'The screen cannot be kept awake: the browser allows it only over https, and this page is open over http.');
+  if (look.wake && !featureSupport(nav).wake)
+    out.push(
+      secure
+        ? 'This browser cannot keep the screen awake.'
+        : 'The screen cannot be kept awake: the browser allows it only over https, and this page is open over http.',
+    );
   return out;
 }
 
@@ -56,7 +61,8 @@ export const wantsFullscreen = (look) => !!(look?.fullscreen || look?.landscape)
 export const LANDSCAPE_HINT = 'A press also enters fullscreen, since browsers lock the turn only there.';
 
 // Takes stored settings, so the editor can show it beside the fullscreen switch.
-export const fullscreenNote = (s) => (s?.landscape === true && s?.fullscreen !== true ? 'Enforce landscape orientation is on, so a press still enters fullscreen.' : '');
+export const fullscreenNote = (s) =>
+  s?.landscape === true && s?.fullscreen !== true ? 'Enforce landscape orientation is on, so a press still enters fullscreen.' : '';
 
 // Browsers only allow fullscreen from a user gesture, so a panel with the setting on asks on its first press.
 // landscape asks for the turn lock once fullscreen starts: Chrome only allows it in fullscreen, and iOS never does.

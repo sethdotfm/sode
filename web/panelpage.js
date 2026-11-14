@@ -13,9 +13,6 @@ import { initSidebar } from './editorside.js';
 import { initNameEdit } from './editorname.js';
 import { initGrip } from './editorgrip.js';
 
-// 4x8 maps one to one onto a hardware key deck (docs/panels-design.md).
-export const DEFAULT_GRID = { panelRows: 4, panelCols: 8 };
-
 const id = panelIdFrom(location.pathname);
 
 on('brand', ({ text }) => {

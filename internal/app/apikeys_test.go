@@ -62,7 +62,8 @@ func TestKeyStoreLifecycle(t *testing.T) {
 		t.Fatal("key lost on reload")
 	}
 
-	if !s.revoke(rec.ID) || s.revoke(rec.ID) {
+	byID := func(r keyRec) bool { return r.ID == rec.ID }
+	if len(s.dropWhere(byID)) != 1 || len(s.dropWhere(byID)) != 0 {
 		t.Fatal("revoke result")
 	}
 	if _, _, ok := s.find(secret, time.Now()); ok {
@@ -98,7 +99,8 @@ func TestKeyDropOwnerAndCaps(t *testing.T) {
 	if _, _, err := s.createCapped(keyOwner{Kind: actorUser, Name: "Ana"}, "z", time.Time{}, 3, ""); err == nil {
 		t.Fatal("cap not enforced")
 	}
-	if n := s.dropOwner(keyOwner{Kind: actorUser, Name: "ANA"}); n != 3 {
+	ana := keyOwner{Kind: actorUser, Name: "ANA"}
+	if n := len(s.dropWhere(func(r keyRec) bool { return r.Owner.is(ana) })); n != 3 {
 		t.Fatalf("dropped %d", n)
 	}
 	if len(s.list()) != 1 {

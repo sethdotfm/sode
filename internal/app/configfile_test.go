@@ -424,3 +424,8 @@ func TestConfigImportIntoBlankInstall(t *testing.T) {
 		t.Fatalf("file without users: %v", err)
 	}
 }
+
+func (a *App) ImportConfig(c *client, text string) error {
+	_, err := a.importConfig(c, text)
+	return err
+}
