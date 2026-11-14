@@ -27,7 +27,7 @@ func rvkOpen(t *testing.T, a *App, exp time.Time) (*strmConn, string) {
 
 func rvkClosed(t *testing.T, s *strmConn) {
 	t.Helper()
-	deadline := time.After(5 * time.Second)
+	deadline := time.After(5 * time.Second * raceSlowdown)
 	for {
 		select {
 		case _, ok := <-s.in:
