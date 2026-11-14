@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,18 +25,52 @@ func startSim(t *testing.T) string {
 	return addr
 }
 
+var simBuild struct {
+	once     sync.Once
+	dir, bin string
+	err      error
+	out      []byte
+}
+
+// simBinary builds cmd/swp08sim once per test binary; TestMain removes it.
+func simBinary(t *testing.T) string {
+	t.Helper()
+	simBuild.once.Do(func() {
+		if simBuild.dir, simBuild.err = os.MkdirTemp("", "sode-swp08sim-"); simBuild.err != nil {
+			return
+		}
+		simBuild.bin = filepath.Join(simBuild.dir, "swp08sim")
+		build := exec.Command("go", "build", "-o", simBuild.bin, "./cmd/swp08sim")
+		build.Dir = repoRoot()
+		simBuild.out, simBuild.err = build.CombinedOutput()
+	})
+	if simBuild.err != nil {
+		t.Fatalf("build swp08sim: %v\n%s", simBuild.err, simBuild.out)
+	}
+	return simBuild.bin
+}
+
 // startSimStoppable also returns a func that kills the simulator mid-test.
 func startSimStoppable(t *testing.T) (string, func()) {
 	t.Helper()
+	browserTest(t)
 	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("browser checks skipped: go is not on PATH, so swp08sim cannot be built")
+		browserSkip(t, "browser checks skipped: go is not on PATH, so swp08sim cannot be built")
 	}
-	bin := filepath.Join(t.TempDir(), "swp08sim")
-	build := exec.Command("go", "build", "-o", bin, "./cmd/swp08sim")
-	build.Dir = repoRoot()
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build swp08sim: %v\n%s", err, out)
+	bin := simBinary(t)
+	// The port is free when picked but another agent's simulator can take it before ours binds, so
+	// ready means our own "swp08sim on" line, and an early exit retries on a new port.
+	for try := 0; try < 3; try++ {
+		if addr, stop, ok := runSim(t, bin); ok {
+			return addr, stop
+		}
 	}
+	t.Fatal("swp08sim did not start listening")
+	return "", nil
+}
+
+func runSim(t *testing.T, bin string) (addr string, stop func(), ok bool) {
+	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -44,20 +80,37 @@ func startSimStoppable(t *testing.T) (string, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, bin)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("SIM_PORT=%d", port))
+	logs, err := cmd.StderrPipe()
+	if err != nil {
+		cancel()
+		t.Fatal(err)
+	}
 	if err := cmd.Start(); err != nil {
 		cancel()
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { cancel(); _ = cmd.Wait() })
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
-		if c, err := net.Dial("tcp", addr); err == nil {
-			c.Close()
-			return addr, cancel
+	ready, exited := make(chan struct{}), make(chan struct{})
+	go func() {
+		sc := bufio.NewScanner(logs)
+		for seen := false; sc.Scan(); {
+			if !seen && strings.Contains(sc.Text(), "swp08sim on ") {
+				seen = true
+				close(ready)
+			}
 		}
+		_ = cmd.Wait()
+		close(exited)
+	}()
+	t.Cleanup(func() { cancel(); <-exited })
+	select {
+	case <-ready:
+		return fmt.Sprintf("127.0.0.1:%d", port), cancel, true
+	case <-exited:
+		return "", nil, false
+	case <-time.After(10 * time.Second):
+		t.Fatal("swp08sim did not start listening")
+		return "", nil, false
 	}
-	t.Fatal("swp08sim did not start listening")
-	return "", nil
 }
 
 // simApp is an app with user Ana (PIN 1234) and the API on, connected to the simulator through

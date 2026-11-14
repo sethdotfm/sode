@@ -589,6 +589,12 @@ func Save(path string, c Config) error {
 }
 
 // AtomicWrite: private temp file, fsync, rename, dir sync; used for config and the session token file.
+// syncWrites is false only under UseTestCosts.
+var syncWrites = true
+
+// SyncWrites says whether saves fsync; app's history writer follows it too.
+func SyncWrites() bool { return syncWrites }
+
 func AtomicWrite(path string, parts ...[]byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".sode-*.tmp")
 	if err != nil {
@@ -600,7 +606,7 @@ func AtomicWrite(path string, parts ...[]byte) error {
 			break
 		}
 	}
-	if err == nil {
+	if err == nil && syncWrites {
 		err = tmp.Sync()
 	}
 	if cerr := tmp.Close(); err == nil {
@@ -611,6 +617,9 @@ func AtomicWrite(path string, parts ...[]byte) error {
 	}
 	if err := os.Rename(tmp.Name(), path); err != nil {
 		return err
+	}
+	if !syncWrites {
+		return nil
 	}
 	if d, err := os.Open(filepath.Dir(path)); err == nil {
 		d.Sync()

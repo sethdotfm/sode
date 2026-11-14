@@ -339,6 +339,7 @@ func testNativeExt(t *testing.T, announce int, after time.Duration) {
 }
 
 func TestNativeNoExtStageAck(t *testing.T) {
+	slowTest(t)
 	t.Parallel()
 	a, f := nativeApp(t, 17)
 	f.salvo.loseExt = true
@@ -393,6 +394,7 @@ func TestMarkStages(t *testing.T) {
 }
 
 func TestNativeNoStageAck(t *testing.T) {
+	slowTest(t)
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.salvo.loseStage = true
@@ -424,6 +426,7 @@ func TestNativeNoStageAck(t *testing.T) {
 }
 
 func TestNativeUnsupported(t *testing.T) {
+	slowTest(t)
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.salvo.off = true
@@ -540,6 +543,7 @@ func TestNativeFireLock(t *testing.T) {
 }
 
 func TestNativeNoGoAck(t *testing.T) {
+	slowTest(t)
 	t.Parallel()
 	a, f := nativeApp(t, 3)
 	f.salvo.noGoAck = true
