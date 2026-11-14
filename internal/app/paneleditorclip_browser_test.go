@@ -74,7 +74,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	b.eval(`goTo(3, 2); press('v', 'KeyV', { ctrlKey: true })`)
 	b.waitFor("pasted on the same panel", `stat() === 'Pasted 3 cells.'`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved")
 	got := storedCells(t, a, ana, id)
 	want := []string{
 		"1,1 1x1 take art=" + art + " artB=2", "1,2 1x1 clear art=icon:camera artB= Wipe", "1,3 2x1 source art= artB=",
@@ -90,7 +90,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	b.eval(`goTo(2, 5); pasteEvent(window.copied)`)
 	b.waitFor("pasted into the second panel without the uploaded image", `stat() === 'Pasted 3 cells. 1 cell lost its uploaded image, since images stay with the panel they were added to.'`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("second panel saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("second panel saved")
 	got = storedCells(t, a, ana, other)
 	want = []string{"2,5 1x1 take art= artB=2", "2,6 1x1 clear art=icon:camera artB= Wipe", "2,7 2x1 source art= artB="}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
@@ -104,7 +104,7 @@ func TestChromeEditorCopyPaste(t *testing.T) {
 	}
 	b.waitFor("cut", `window.copied.includes('sode-panel-cells') && stat() === 'Cut 2 cells.' && document.getElementById('ed-state').textContent !== 'Saved'`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("cut saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("cut saved")
 	got = storedCells(t, a, ana, other)
 	want = []string{"2,7 2x1 source art= artB="}
 	if strings.Join(got, "|") != strings.Join(want, "|") {

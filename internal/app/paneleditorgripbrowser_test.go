@@ -74,7 +74,8 @@ func TestChromeEditorGripOrderLive(t *testing.T) {
 
 	// Test it live saves the edits, then runs the saved panel in the editor; the unassigned cell is not on it.
 	b.eval(`window.opened = ''; window.open = (u) => { window.opened = u; return null }; document.getElementById('ed-live').click()`)
-	b.waitFor("live shown after saving", `document.getElementById('ed-save').disabled && !document.getElementById('ed-live-view').hidden`)
+	b.waitSaved("saved before the live view")
+	b.waitFor("live shown after saving", `!document.getElementById('ed-live-view').hidden`)
 	b.waitFor("only assigned cells live", `document.querySelectorAll('#ed-live-view .sode-panel__cell').length === 5`)
 	if got := b.eval(`window.opened`); got != "" {
 		t.Errorf("a window was opened: %v", got)

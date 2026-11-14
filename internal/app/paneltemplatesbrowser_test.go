@@ -80,7 +80,7 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b.eval(`const s = document.getElementById('ed-set-theme'); s.value = 'dark'; s.dispatchEvent(new Event('change', { bubbles: true }))`)
 	b.waitFor("preview follows the theme", `document.getElementById('ed-grid').style.colorScheme === 'dark'`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved")
 	if body := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil).Body.String(); !strings.Contains(body, `"theme":"dark"`) {
 		t.Fatalf("theme not stored: %s", body)
 	}
@@ -118,7 +118,7 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b.waitFor("settings applied with the contents", `document.getElementById('ed-set-theme').value === 'dark' && document.getElementById('ed-grid').style.colorScheme === 'dark'`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("blank panel saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("blank panel saved")
 
 	// Applying it back onto the first panel after a cell was removed restores the cell.
 	b.eval(`location.href = location.origin + '/panels/editor?panel=` + id + `'`)
@@ -128,7 +128,7 @@ func TestChromeEditorTemplateContentsAndTheme(t *testing.T) {
 	b.waitFor("Sources and Destinations restored", `document.querySelector('.sode-ed__sq[data-r="1"][data-c="1"]').textContent.includes('Cam one') && document.querySelector('.sode-ed__sq[data-r="1"][data-c="2"]').textContent.includes('Mon two')`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved")
 	// The panel page sets data-theme from the stored panel, with no device settings code to undo it.
 	b.eval(`location.href = location.origin + '/panels/` + id + `'`)
 	b.waitFor("panel page runs in the stored theme", `document.documentElement.dataset.theme === 'dark' && !!document.querySelector('#panel-grid > *')`)

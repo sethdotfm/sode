@@ -147,7 +147,7 @@ func TestChromeEditorHoldsNoMemory(t *testing.T) {
 		b.eval(fmt.Sprintf(`{ const nm = document.getElementById('ed-name'); nm.value = 'Wall %d'; nm.dispatchEvent(new Event('input')); }`, n))
 		b.waitFor("save enabled", `!document.getElementById('ed-save').disabled`)
 		b.eval(`document.getElementById('ed-save').click()`)
-		b.waitFor("saved", `document.getElementById('ed-status').textContent === 'Saved.'`)
+		b.waitSaved("saved")
 		step("save")
 		// Test it live, a poll and some ticks, Back to editing.
 		b.eval(`document.getElementById('ed-live').click()`)
