@@ -124,7 +124,9 @@ func startBrowser(t *testing.T) *tab {
 	b := &tab{t: t, conn: conn, pending: map[int]chan cdpReply{}}
 	t.Cleanup(func() { conn.CloseNow() })
 	go b.read(ctx)
-	for _, m := range []string{"Page.enable", "Runtime.enable", "Log.enable"} {
+	// Page.bringToFront: since Chrome 157 a background tab's requestFullscreen fails "not granted", even
+	// with a user gesture.
+	for _, m := range []string{"Page.enable", "Runtime.enable", "Log.enable", "Page.bringToFront"} {
 		b.call(m, nil)
 	}
 	return b
