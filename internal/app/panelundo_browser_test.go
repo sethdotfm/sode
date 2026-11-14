@@ -11,8 +11,6 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// The Undo cell: two takes from the page, then two presses undo them newest first, checked on the simulator over
-// REST. A take another instance of the same panel made in between is left alone, and the cell greys at the end.
 func TestChromePanelUndoStepsBackThisInstance(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)

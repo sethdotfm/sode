@@ -170,7 +170,6 @@ function paintNav(b, cell, { st, pages = [], wrap = true }) {
   fill(b, el('span', 'sode-panel__text', navText(cell, pages)));
 }
 
-// Greyed with nothing of this instance's left to undo, a route to restore outside the Rights, or no take scope (ctx.undo).
 function paintUndo(b, cell, { st, names, undo }) {
   b.disabled = !undoReady(st, undo);
   fill(b, el('span', 'sode-panel__text', names.of(cell)));

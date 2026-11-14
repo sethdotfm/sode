@@ -35,6 +35,7 @@ export function createState(settings = {}) {
     busy: false,
     results: {}, // dst -> { result, at }
     error: null,
+    undone: null, // the Undo cell's last press: { routes, failed, at }
     page: '',
   };
 }
@@ -150,7 +151,7 @@ export function pressPreset(st, cell, env, now) {
 
 export const unstage = (st, dst) => ({ ...st, staged: st.staged.filter((x) => x.dst !== dst) });
 
-export const clear = (st) => ({ ...st, view: fixedView(st.fixed || []), staged: [], error: null, guardAt: 0, holdAt: 0 });
+export const clear = (st) => ({ ...st, view: fixedView(st.fixed || []), staged: [], error: null, undone: null, guardAt: 0, holdAt: 0 });
 
 const valid = (st, env, x) => !env.protectedDsts.has(x.dst) && x.levels.length > 0;
 
@@ -163,14 +164,14 @@ export const plan = (st) => st.staged.map((x) => ({ src: x.src, dst: x.dst, leve
 // The routes to send and the busy state, or null when a press must do nothing.
 export function startTake(st, env) {
   if (!armed(st, env)) return null;
-  return { routes: plan(st), state: { ...st, busy: true, error: null } };
+  return { routes: plan(st), state: { ...st, busy: true, error: null, undone: null } };
 }
 
 // Instant mode: the press that staged the route is the Confirm, so the page calls this right after it. A refused press
 // is no Confirm: a route a failed take left staged must not go with it.
 export function startInstant(st, env) {
   if (st.mode !== 'instant' || st.error || !ready(st, env)) return null;
-  return { routes: plan(st), state: { ...st, busy: true, error: null } };
+  return { routes: plan(st), state: { ...st, busy: true, error: null, undone: null } };
 }
 
 // Take guards. none: one press goes. double: a second press within GUARD_DOUBLE_MS goes.
@@ -193,15 +194,18 @@ export const guardCancel = (st) => (st.holdAt ? { ...st, holdAt: 0 } : st);
 
 export const guardWaiting = (st, now) => st.guard === 'double' && st.guardAt > 0 && now - st.guardAt <= GUARD_DOUBLE_MS;
 
-// reply is the /api/v1/takes answer. Connected and Already routes leave the plan; a Failed one stays staged.
-export function finishTake(st, reply, now) {
+// A take's and an undo's per-route results, as the /api/v1/takes answer gives them. A Late Result or a router
+// refusal arrives as failed.
+const resultsOf = (st, reply, now) => {
   const results = { ...st.results };
-  const gone = new Set();
-  for (const r of reply.results || []) {
-    results[r.dst] = { result: r.result, at: now };
-    if (r.result !== 'failed') gone.add(r.dst);
-  }
-  return { ...st, busy: false, results, staged: st.staged.filter((x) => !gone.has(x.dst)) };
+  for (const r of reply.results || []) results[r.dst] = { result: r.result, at: now };
+  return results;
+};
+
+// Connected and Already routes leave the plan; a Failed one stays staged.
+export function finishTake(st, reply, now) {
+  const gone = new Set((reply.results || []).filter((r) => r.result !== 'failed').map((r) => r.dst));
+  return { ...st, busy: false, results: resultsOf(st, reply, now), staged: st.staged.filter((x) => !gone.has(x.dst)) };
 }
 
 export const failTake = (st, reason, message, now) => ({ ...st, busy: false, error: { code: 'refused', reason, message, at: now } });
@@ -210,17 +214,16 @@ export const failTake = (st, reason, message, now) => ({ ...st, busy: false, err
 // before an answer or when the key lacks the take scope.
 export const undoReady = (st, next) => !st.busy && !!next?.allowed;
 
-export const startUndo = (st, next) => (undoReady(st, next) ? { state: { ...st, busy: true, error: null } } : null);
+export const startUndo = (st, next) => (undoReady(st, next) ? { state: { ...st, busy: true, error: null, undone: null } } : null);
 
-// As finishTake, but the plan stays: an undo is not what was staged. The status says what was undone, or where it failed.
+// The plan stays: an undo is not what was staged. undone is outside error, so instant mode's next press still goes.
 export function finishUndo(st, reply, now) {
-  const results = { ...st.results };
-  for (const r of reply.results || []) results[r.dst] = { result: r.result, at: now };
-  const failed = (reply.results || []).filter((r) => r.result === 'failed').map((r) => r.dst);
-  const routes = (reply.results || []).map((r) => ({ src: r.src, dst: r.dst }));
-  const error = failed.length ? { code: 'undo-failed', dsts: failed, at: now } : { code: 'undone', routes, at: now };
-  return { ...st, busy: false, results, error };
+  const rs = reply.results || [];
+  const undone = { routes: rs.map((r) => ({ src: r.src, dst: r.dst })), failed: rs.filter((r) => r.result === 'failed').map((r) => r.dst), at: now };
+  return { ...st, busy: false, results: resultsOf(st, reply, now), undone };
 }
+
+export const undoneOf = (st, now) => (st.undone && now - st.undone.at <= ERROR_MS ? st.undone : null);
 
 // The router moved: a stage it now satisfies has nothing left to take.
 export function applyTally(st, env) {
