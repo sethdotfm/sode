@@ -124,3 +124,22 @@ func TestKillLogsThenExitsZero(t *testing.T) {
 		t.Fatalf("kill row %+v, want By Ana, result ok", *row)
 	}
 }
+
+// Trusted saves shared settings without the PIN, but a Kill is needAdmin: the PIN must be
+// entered on the connection first.
+func TestKillRefusesTrustedWithoutPin(t *testing.T) {
+	a := userApp(t, false)
+	setFlags(t, a, "Ana", true, false)
+	x := stubExit(t, a)
+	killOn(t, a, true)
+	c := &client{ip: "10.0.0.1"}
+	if err := a.UserUnlock(c, "1234"); err != nil {
+		t.Fatal(err)
+	}
+	if err := admitMsg(a, c, inMsg{T: "kill", Pin: "2468"}); !errors.Is(err, errLocked) {
+		t.Fatalf("Trusted user, PIN not entered: admit gave %v, want errLocked", err)
+	}
+	if x.n() != 0 {
+		t.Fatal("a refused Kill exited")
+	}
+}

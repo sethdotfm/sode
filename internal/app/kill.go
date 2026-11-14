@@ -3,16 +3,12 @@ package app
 import (
 	"errors"
 	"log"
-	"os"
 	"time"
 )
 
-// exitProcess is App.exit's default. internal/app's TestMain replaces it, so no test can end
-// the test binary.
-var exitProcess = os.Exit
-
-// killFlush: how long a Kill waits for its Communication Log row before it exits anyway.
-const killFlush = 100 * time.Millisecond
+// killFlush bounds how long a Kill waits to queue and write its Communication Log row before
+// it exits anyway: a stuck disk must not block an emergency stop.
+const killFlush = time.Second
 
 var (
 	errKillOff   = errors.New("kill is turned off; turn it on in Settings > Access")
@@ -29,24 +25,33 @@ func (a *App) serveKill(c *client, m *inMsg) {
 // Sode down. No graceful shutdown: unsent takes are dropped on purpose. The PIN is checked
 // again here even on an unlocked connection, and a wrong one counts in the settings pool.
 func (a *App) Kill(c *client, pin string) error {
-	cfg := a.r().cfg
-	switch {
-	case !cfg.KillEnabled:
+	if !a.r().cfg.KillEnabled {
 		return errKillOff
-	case cfg.SettingsPin == "":
-		return errKillNoPin
 	}
-	if _, err := a.checkAdmin(c, pin); err != nil {
+	// checkAdmin passes any PIN when it reads none, so its read decides: a PIN removed after
+	// admit can't let a Kill through.
+	hash, err := a.checkAdmin(c, pin)
+	if err != nil {
 		return err
+	}
+	if hash == "" {
+		return errKillNoPin
 	}
 	who := c.who()
 	log.Printf("kill: Sode stopped by %s", who)
 	e := event(kindCommand, "kill", who, "ok")
-	e.written = make(chan struct{})
-	a.logEvent(e)
+	e.Time = time.Now()
+	it := evItem{Sent: e, done: make(chan struct{})}
+	// Unlike logEvent this waits for room in a full queue, so the row is not dropped.
+	limit := time.After(killFlush)
 	select {
-	case <-e.written:
-	case <-time.After(killFlush):
+	case a.evq <- it:
+		select {
+		case <-it.done:
+		case <-limit:
+		}
+	case <-limit:
+		a.txLost.Add(1)
 	}
 	a.exit(0)
 	return nil

@@ -40,11 +40,7 @@ func TestChromeSettingsKill(t *testing.T) {
 		t.Fatal("Kill shown with killEnabled off")
 	}
 
-	cfg := a.r().cfg
-	cfg.KillEnabled = true
-	if err := a.ApplyConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
+	killOn(t, a, true)
 	b.waitFor("Kill shown with the setting on and the PIN entered", shown)
 
 	// Reopening Settings drops this connection's unlock.
@@ -62,7 +58,7 @@ func TestChromeSettingsKill(t *testing.T) {
 	b.eval(`document.getElementById('kill-open').click()`)
 	b.waitFor("dialog open", `!!document.getElementById('kill-pin')?.offsetParent`)
 	text, _ := b.eval(`document.getElementById('kill-warnings').textContent`).(string)
-	for _, w := range []string{"router link drops", "not yet sent are lost", "may still land", "already accepted stay", "lost-link banner", "restart policy is no or on-failure"} {
+	for _, w := range []string{"router link drops", "not yet sent are lost", "may still land", "already accepted stay", "Lost link banner", "restart policy is no or on-failure"} {
 		if !strings.Contains(text, w) {
 			t.Errorf("Kill dialog lacks %q: %s", w, text)
 		}

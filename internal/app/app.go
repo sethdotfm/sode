@@ -8,6 +8,7 @@ import (
 	"log"
 	"maps"
 	"net/netip"
+	"os"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -70,7 +71,7 @@ type App struct {
 	hist    *History
 	sent    *SentLog
 	txq     chan swp08.TxEvent
-	evq     chan Sent
+	evq     chan evItem
 	txLost  atomic.Int64 // events dropped because txq or evq was full, or not saved
 	up      *Uptime
 	cfgPath string
@@ -96,7 +97,7 @@ type App struct {
 	writes     inflight
 	drainLimit time.Duration
 
-	// exit ends the process on a Kill (kill.go); tests swap it so they never end the test binary.
+	// exit is os.Exit, called by a Kill (kill.go); tests that reach it swap it with stubExit.
 	exit func(code int)
 
 	// Idle sweep (idle.go): the clock and the sweep period; tests change both (lock_idle_test.go).
@@ -188,7 +189,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		hist:         hist,
 		sent:         sent,
 		txq:          make(chan swp08.TxEvent, 1024),
-		evq:          make(chan Sent, 256),
+		evq:          make(chan evItem, 256),
 		cfgPath:      cfgPath,
 		router:       newRouterState(),
 		ext:          newExtTracker(),
@@ -201,7 +202,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		routeGrace:   defaultRouteGrace,
 		queueMax:     defaultQueueMax,
 		drainLimit:   defaultDrainLimit,
-		exit:         exitProcess,
+		exit:         os.Exit,
 		now:          time.Now,
 		idleEvery:    defaultIdleEvery,
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},

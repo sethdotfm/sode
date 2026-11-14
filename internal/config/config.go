@@ -83,7 +83,7 @@ type Config struct {
 	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
-	// KillEnabled: the operator's word that the container's restart policy is no or
+	// KillEnabled: an administrator's word that the container's restart policy is no or
 	// on-failure, so a Kill keeps Sode down. Sode cannot read the policy itself.
 	KillEnabled bool `yaml:"killEnabled" json:"killEnabled" guard:"pin"`
 	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.

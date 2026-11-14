@@ -11,8 +11,8 @@ const WARNINGS = [
   'Takes not yet sent are lost.',
   'Takes already sent may still land on the router.',
   'Routes the router already accepted stay.',
-  'Every browser shows the lost-link banner.',
-  'Docker starts Sode again unless the container’s restart policy is no or on-failure.',
+  'Every browser shows the Lost link banner.',
+  "Docker starts Sode again unless the container's restart policy is no or on-failure.",
 ];
 
 let ui = null;
@@ -104,14 +104,14 @@ $('kill-open').addEventListener('click', () => {
   ui.input.focus();
 });
 
-// Only a refusal answers; a Kill that worked ends the socket and the lost-link banner says so.
+// Only a refusal answers; a Kill that worked ends the socket and the Lost link banner says so.
 onMsg('killResult', (m) => {
   if (!ui || m.id !== pending) return;
   pending = 0;
   showErr(sentence(m.err) || 'Refused.');
 });
 
-on('pinState', render);
+on('pinUnlocked', render);
 on('hello', render);
 on('locking', close);
 on('conn', () => {
