@@ -48,7 +48,7 @@ func TestChromeEditorArtTool(t *testing.T) {
 	b.waitFor("a focused icon previews on the five cells", `document.querySelectorAll('.sode-ed__sq.is-preview').length === 5 && /Sets Icon A on 5 cells\. 1 empty square skipped\./.test(tool().querySelector('.sode-find__note').textContent)`)
 	b.eval(`key(document.activeElement, 'Escape'); true`)
 	b.waitFor("Esc backs out to the grid and drops the preview", `document.activeElement === document.getElementById('ed-grid') && !document.querySelector('.sode-ed__sq.is-preview')`)
-	b.waitFor("Esc changed nothing", `document.getElementById('ed-save').disabled`)
+	b.waitSaved("Esc changed nothing")
 
 	// Icon A by Enter on a chosen icon, then Icon B from 15 across: 15, 16 and the rest left without.
 	b.eval(`toolItem().click(); true`)
@@ -64,8 +64,7 @@ func TestChromeEditorArtTool(t *testing.T) {
 	b.shot("arttool")
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	// Save disables the button at once, before the PUT; only the state slot says Saved once the reply is in.
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved")
 	got := stored()
 	want := "1,1=icon:camera/15 1,2=icon:camera/16 1,3=icon:camera/<nil> 2,1=icon:camera/<nil> 2,3=icon:camera/<nil>"
 	if got != want {

@@ -98,7 +98,8 @@ func TestChromeEditorSidebar(t *testing.T) {
 	b.eval(`document.getElementById('ed-acts-api').click(); true`)
 	b.waitFor("the letter is live after the lockout", `!`+box+`.hidden && !`+box+`.querySelector('.sode__key--locked')`)
 	b.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: ` + box + `.querySelector('.sode__key').textContent.toLowerCase(), bubbles: true })); true`)
-	b.waitFor("the Confirm applies the switch and saves at once", `document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
+	b.waitSaved("the Confirm saves at once")
+	b.waitFor("the Confirm applies the switch", `document.getElementById('panel-ed-access').textContent.includes('The panel now has its own API client')`)
 	b.shot("access")
 
 	rec := apiDo(a, "GET", "/api/v1/panels/"+id, ana, nil)

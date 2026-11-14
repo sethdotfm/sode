@@ -279,6 +279,13 @@ func (b *tab) waitFor(what, expr string) {
 	b.t.Fatalf("timed out waiting for %s (%s); last exception %q; page errors: %v", what, expr, last, b.problems())
 }
 
+// waitSaved waits for the panel editor's state slot to read Saved. Use it after a save, and to assert
+// nothing is unsaved. Not the Save button's disabled state: docs/agents/browser-checks.md.
+func (b *tab) waitSaved(what string) {
+	b.t.Helper()
+	b.waitFor(what, `document.getElementById('ed-state').textContent === 'Saved'`)
+}
+
 func (b *tab) problems() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()

@@ -17,7 +17,7 @@ func TestChromeEditorSaveKeyAndSteadyToolbar(t *testing.T) {
 	b, _, _, _ := editorTabPrep(t, `{"name":"Wall","rows":2,"cols":2,"cells":[]}`, func(b *tab, _ *App, _, _ string) {
 		b.call("Emulation.setDeviceMetricsOverride", map[string]any{"width": 1100, "height": 800, "deviceScaleFactor": 1, "mobile": false})
 	})
-	b.waitFor("saved state shown", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved state shown")
 	b.waitFor("the bar wraps at this width", `(() => { const tops = new Set([...document.querySelectorAll('.sode-ed__bar > *')].filter((n) => n.offsetParent).map((n) => Math.round(n.getBoundingClientRect().top))); return tops.size > 1; })()`)
 	b.eval(`window.where = () => JSON.stringify([...document.querySelectorAll('.sode-ed__bar button, .sode-ed__bar a, .sode-ed__bar input, .sode-ed__bar select')].filter((n) => n.offsetParent).map((n) => { const r = n.getBoundingClientRect(); return [n.id || n.textContent, Math.round(r.left), Math.round(r.top)]; }));
 		window.before = where(); true`)
@@ -27,13 +27,15 @@ func TestChromeEditorSaveKeyAndSteadyToolbar(t *testing.T) {
 		t.Errorf("the toolbar moved when the state changed:\nbefore %v\nafter  %v", b.eval(`before`), after)
 	}
 	b.eval(`window.prevented = !document.getElementById('ed-name').dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })); true`)
-	b.waitFor("Ctrl+S in the Name field saved", `prevented && document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('ed-pick').selectedOptions[0]?.textContent === 'Wall two'`)
+	b.waitSaved("Ctrl+S in the Name field saved")
+	b.waitFor("Ctrl+S was prevented and kept the name", `prevented && document.getElementById('ed-pick').selectedOptions[0]?.textContent === 'Wall two'`)
 	if after := b.eval(`where()`); after != b.eval(`before`) {
 		t.Errorf("the toolbar moved after the save:\nbefore %v\nafter  %v", b.eval(`before`), after)
 	}
 	b.eval(`rename('Wall three');
 		window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true, cancelable: true })); true`)
-	b.waitFor("Cmd+S saved too", `prevented && document.getElementById('ed-state').textContent === 'Saved' && document.getElementById('ed-name').value === 'Wall three'`)
+	b.waitSaved("Cmd+S saved too")
+	b.waitFor("Cmd+S was prevented and kept the name", `prevented && document.getElementById('ed-name').value === 'Wall three'`)
 	b.eval(`window.prevented = !document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })); true`)
 	b.waitFor("with nothing to save the browser's Save is still kept away", `prevented`)
 	b.check()

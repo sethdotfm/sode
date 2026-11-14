@@ -57,7 +57,8 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	b.waitFor("dialog with the counts and the fill order", `edge()?.textContent.includes('Clip drops 1 cell that falls outside the grid and shrinks 1 merged cell.') && edge().textContent.includes('Wrap moves 2 cells along Across, then down.') && document.activeElement.id === 'ed-edge-clip'`)
 	b.shot("paste-edge")
 	b.eval(`press('Escape', 'Escape', {}, document.activeElement)`)
-	b.waitFor("Escape changes nothing", `!edge() && stat() === 'Nothing pasted.' && state() === 'Saved' && document.activeElement.id === 'ed-grid' && !!document.querySelector('.is-sel[data-r="3"][data-c="8"]')`)
+	b.waitFor("Escape changes nothing", `!edge() && stat() === 'Nothing pasted.' && document.activeElement.id === 'ed-grid' && !!document.querySelector('.is-sel[data-r="3"][data-c="8"]')`)
+	b.waitSaved("Escape left it saved")
 
 	// Clip, reached with the arrow keys; then undo.
 	b.eval(`pasteAt(3, 8)`)
@@ -69,7 +70,7 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	b.eval(`document.activeElement.click()`)
 	b.waitFor("clipped", `!edge() && stat() === 'Pasted 2 cells. Clip dropped 1 cell and shrank 1 merged cell.' && state() === 'Unsaved changes' && document.activeElement.id === 'ed-grid'`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("Clip saved", `state() === 'Saved'`)
+	b.waitSaved("Clip saved")
 	base := []string{"1,1 1x1 take art= artB= A", "1,2 1x1 clear art= artB= B", "2,1 1x2 take art= artB= C"}
 	want := append(append([]string{}, base...), "3,8 1x1 take art= artB= A", "4,8 1x1 take art= artB= C")
 	if got := storedCells(t, a, ana, id); strings.Join(got, "|") != strings.Join(want, "|") {
@@ -84,7 +85,7 @@ func TestChromeEditorPasteEdge(t *testing.T) {
 	b.eval(`document.getElementById('ed-edge-wrap').click()`)
 	b.waitFor("wrapped", `!edge() && stat() === 'Pasted 3 cells. Wrap moved 2 cells along Across, then down.'`)
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("Wrap saved", `state() === 'Saved'`)
+	b.waitSaved("Wrap saved")
 	want = append(append([]string{}, base...), "3,8 1x1 take art= artB= A", "4,1 1x1 clear art= artB= B", "4,2 1x2 take art= artB= C")
 	if got := storedCells(t, a, ana, id); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("after Wrap:\n got %q\nwant %q", got, want)
