@@ -73,7 +73,7 @@ func TestChromeEditorPages(t *testing.T) {
 	b.waitFor("Copy to redone", `stat() === 'Redid Copy to.' && cellsOn(3) === 4`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `document.getElementById('ed-state').textContent === 'Saved'`)
+	b.waitSaved("saved")
 	var p struct {
 		Pages []struct {
 			ID      string `json:"id"`
