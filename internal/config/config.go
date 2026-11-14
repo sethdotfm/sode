@@ -638,6 +638,16 @@ func (c Config) UnknownKeys() []string {
 					}
 					continue
 				}
+				if f.Name == "Prefs" && v.Field(i).Kind() == reflect.Map {
+					for _, key := range v.Field(i).MapKeys() {
+						k := key.String()
+						if _, ok := PrefValues[k]; ok {
+							continue
+						}
+						out = append(out, joinKey(joinKey(path, "prefs"), k))
+					}
+					continue
+				}
 				if name == "-" {
 					continue
 				}

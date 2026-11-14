@@ -20,18 +20,18 @@ func profileCfg(t *testing.T) Config {
 	return c
 }
 
-func TestProfileNormalizeDropsUnknownPrefs(t *testing.T) {
+func TestProfileNormalizeCarriesUnknownPrefs(t *testing.T) {
 	c := profileCfg(t)
 	c.Users[0].Profile = Profile{Prefs: map[string]string{"theme": "dark", "bogus": "x"},
 		FilterSets: []FilterSet{{Name: " Mine "}}}
 	c.Normalize()
 	p := c.Users[0].Profile
-	if len(p.Prefs) != 1 || p.Prefs["theme"] != "dark" || p.FilterSets[0].Name != "Mine" {
+	if len(p.Prefs) != 2 || p.Prefs["theme"] != "dark" || p.Prefs["bogus"] != "x" || p.FilterSets[0].Name != "Mine" {
 		t.Fatalf("%+v", p)
 	}
 	c.Users[0].Profile = Profile{Prefs: map[string]string{"bogus": "x"}}
 	c.Normalize()
-	if c.Users[0].Profile.Prefs != nil || !c.Users[0].Profile.Empty() {
+	if c.Users[0].Profile.Prefs["bogus"] != "x" || c.Users[0].Profile.Empty() {
 		t.Fatalf("%+v", c.Users[0].Profile)
 	}
 }

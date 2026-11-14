@@ -56,13 +56,13 @@ func (p Profile) Clone() Profile {
 // Works on a copy; no nil lists, so JSON says [] and {}.
 func (p Profile) Normalized() Profile {
 	p = p.Clone()
-	prefs := map[string]string{}
-	for k, v := range p.Prefs {
-		if _, ok := PrefValues[k]; ok {
-			prefs[k] = v
-		}
+	// Carry prefs this release does not know through normalization, so a rollback
+	// keeps them; validateProfile skips them below. Known prefs are still checked.
+	if p.Prefs == nil {
+		p.Prefs = map[string]string{}
+	} else {
+		p.Prefs = maps.Clone(p.Prefs)
 	}
-	p.Prefs = prefs
 	p.FilterSets = normalizeFilterSets(p.FilterSets)
 	tmp := Config{Presets: p.Presets}
 	tmp.normalizePresets()
@@ -103,6 +103,9 @@ func validateProfile(owner string, p Profile) []error {
 		errs = append(errs, fmt.Errorf("profile of %s: "+format, append([]any{owner}, args...)...))
 	}
 	for _, k := range slices.Sorted(maps.Keys(p.Prefs)) {
+		if _, ok := PrefValues[k]; !ok {
+			continue // unknown pref: carried, not validated
+		}
 		if !slices.Contains(PrefValues[k], p.Prefs[k]) {
 			bad("%q is not a value of %s", p.Prefs[k], k)
 		}

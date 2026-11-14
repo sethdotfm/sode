@@ -1,0 +1,1 @@
+- Profile prefs this release doesn't know are now carried through normalization, validation, and save/load, so a rollback keeps them; UnknownKeys lists them.
