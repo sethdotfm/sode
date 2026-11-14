@@ -193,6 +193,7 @@ func (a *App) serveConfigExport(c *client, m *inMsg) {
 
 func (a *App) serveConfigImport(c *client, m *inMsg) {
 	go func(text string, id int) {
+		defer m.finish()
 		kept, err := a.importConfig(c, text)
 		note := fmt.Sprintf("%d bytes", len(text))
 		res := opResultFor("configImport", &id, err)

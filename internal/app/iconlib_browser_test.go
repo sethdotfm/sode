@@ -91,10 +91,8 @@ func TestChromeIconLibraryRenameAndDelete(t *testing.T) {
 	b.waitFor("the renamed icon still draws", drawn(sq))
 
 	b.eval(`document.querySelector('#ed-lib-icons [data-lib]').click(); document.getElementById('ed-lib-delete').click(); true`)
-	b.waitFor("the Confirm with the count", `/2 cells on 1 panel use it/.test(document.getElementById('ed-lib-confirm')?.textContent || '')`)
-	if b.eval(`document.getElementById('ed-lib-delete-ok').disabled`) != true {
-		t.Error("the Confirm is not locked out at first")
-	}
+	// One read: a second call after the text shows can land after the 500 ms lockout under load.
+	b.waitFor("the Confirm with the count, locked out at first", `/2 cells on 1 panel use it/.test(document.getElementById('ed-lib-confirm')?.textContent || '') && document.getElementById('ed-lib-delete-ok').disabled`)
 	b.waitFor("the lockout ends", `!document.getElementById('ed-lib-delete-ok').disabled`)
 	b.eval(`(() => { const k = /\((.)\)/.exec(document.getElementById('ed-lib-delete-ok').textContent)[1].toLowerCase(); document.getElementById('ed-lib-confirm').dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true })); return true; })()`)
 	b.waitFor("deleted", `/Deleted Station/.test(document.querySelector('.sode-side__lib-sec [role=status]').textContent)`)

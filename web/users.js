@@ -34,8 +34,7 @@ group.id = 'users-group';
 group.dataset.apart = '';
 
 const access = [...form.querySelectorAll(':scope > fieldset')].find((f) => f.querySelector('legend')?.textContent === 'Access');
-if (access) access.after(group);
-else form.querySelector('#settings-err')?.parentElement?.before(group) ?? form.append(group);
+access.after(group);
 
 // ---- the dialog
 const number = (id) => {

@@ -280,6 +280,14 @@ func (a *App) serveWS(w http.ResponseWriter, r *http.Request) {
 			a.refuse(c, m.T, rl, &m, err)
 			continue
 		}
+		if rl.write {
+			done, ok := a.writes.start(m.T)
+			if !ok {
+				a.refuse(c, m.T, rl, &m, errShuttingDown)
+				continue
+			}
+			m.done = done
+		}
 		rl.handle(a, c, &m, cc)
 	}
 }
@@ -294,15 +302,20 @@ func (a *App) serveTake(c *client, m *inMsg) {
 			m.Items[i].Preset = name
 		}
 	}
-	go a.take(c, m.Items)
+	go func() {
+		defer m.finish()
+		a.take(c, m.Items)
+	}()
 }
 
 func (a *App) serveConfig(c *client, m *inMsg) {
 	if !present(m.Config) {
+		m.finish()
 		return
 	}
 	// Who saved, not what (settings hold the PIN hash).
 	go func(cfg json.RawMessage, pin string, clearPin bool) {
+		defer m.finish()
 		a.replyOp(c, "config", -1, 0, "", a.saveSettings(c, cfg, pin, clearPin))
 	}(m.Config, m.Pin, m.ClearPin)
 }
@@ -322,6 +335,7 @@ func outcome(err error) string {
 // inMsg: every type read here must be in policy.go.
 type inMsg struct {
 	T          string             `json:"t"`
+	done       func()             // ends the shutdown count for a write (rule.write); see finish
 	Before     int                `json:"before"`
 	N          int                `json:"n"`    // history page size; 0 = the default
 	From       int64              `json:"from"` // uptime range, unix ms

@@ -29,23 +29,30 @@ func lifeTally(t *testing.T, a *App, topics string) *strmConn {
 	return s
 }
 
+// broadcast needs a.mu, as its production callers hold it.
+func lifeBroadcast(a *App, v any) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.broadcast(v)
+}
+
 func TestStreamFollowsRightsChange(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	s := lifeTally(t, a, "tally")
-	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{7, 1, 5}}})
+	lifeBroadcast(a, deltaMsg{T: "tally", U: []routeChange{{7, 1, 5}}})
 	strmWantType(t, s.next(), "tally", "tally")
 
 	lifeCommit(t, a, func(c *config.Config) { c.APIClients[0].Rights = viewRights(config.VisHidden) })
-	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{7, 1, 5}}})
+	lifeBroadcast(a, deltaMsg{T: "tally", U: []routeChange{{7, 1, 5}}})
 	s.quiet(300 * time.Millisecond)
-	a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
+	lifeBroadcast(a, deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
 	strmWantType(t, s.next(), "tally", "tally")
 }
 
 func lifeEnded(t *testing.T, a *App, s *strmConn, want string) {
 	t.Helper()
 	rvkClosed(t, s)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(5 * time.Second * raceSlowdown)
 	for time.Now().Before(deadline) {
 		for _, e := range logged(t, a) {
 			if e.Why == "streamDisconnect" && strings.Contains(e.Note, want) {
@@ -102,11 +109,20 @@ func TestStreamSlowDropSaysWhy(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
 	s := lifeTally(t, a, "tally")
-	a.mu.Lock()
-	for range 5000 { // one lock hold: the writer cannot keep up with the queue
-		a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
+	// The writer drains the queue without mu, so no fixed burst is sure to outrun it (under -race
+	// it kept up with 5000): send bursts until the stream is dropped.
+	deadline := time.Now().Add(5 * time.Second * raceSlowdown)
+	for dropped := false; !dropped; {
+		if time.Now().After(deadline) {
+			t.Fatal("the stream kept up with every burst and was never dropped")
+		}
+		a.mu.Lock()
+		for range 1000 {
+			a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
+		}
+		dropped = len(a.streams) == 0
+		a.mu.Unlock()
 	}
-	a.mu.Unlock()
 	lifeEnded(t, a, s, "too slow")
 }
 
