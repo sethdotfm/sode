@@ -116,14 +116,21 @@ func (a *App) setPanelClient(id string, rights *config.Rights) error {
 }
 
 // dropOrphanPanelClients removes clients of panels that no longer exist (a panel file deleted
-// by hand, or a config imported without its panels).
+// by hand, or a config imported without its panels) and clients a loaded panel no longer names.
+// A panel file that is on disk but failed to load keeps its client, so repairing the file
+// brings the panel back still signed in; key reconcile would otherwise end its keys.
 func dropOrphanPanelClients(cfg *config.Config, panels *panelStore) {
+	if panels.unread {
+		return
+	}
 	cfg.APIClients = slices.DeleteFunc(slices.Clone(cfg.APIClients), func(c config.APIClient) bool {
 		if c.Panel == "" {
 			return false
 		}
-		p, ok := panels.get(c.Panel)
-		return !ok || !strings.EqualFold(p.Client, c.Name)
+		if p, ok := panels.get(c.Panel); ok {
+			return !strings.EqualFold(p.Client, c.Name)
+		}
+		return !panels.skipped[c.Panel]
 	})
 }
 

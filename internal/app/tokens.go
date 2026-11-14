@@ -60,7 +60,7 @@ func tokenKey(t string) string {
 }
 
 // loadTokens: once, from New (callers hold App.mu: no other file I/O). A damaged file is
-// forgotten.
+// set aside (setAsideDamaged) and the store starts empty.
 func loadTokens(cfgPath string) *tokenStore {
 	s := &tokenStore{toks: map[string]tokenRec{}, seen: map[string]time.Time{}}
 	if cfgPath == "" {
@@ -69,7 +69,7 @@ func loadTokens(cfgPath string) *tokenStore {
 	s.path = filepath.Join(filepath.Dir(cfgPath), "tokens.json")
 	if b, err := os.ReadFile(s.path); err == nil {
 		if err := json.Unmarshal(b, &s.toks); err != nil {
-			log.Printf("users: %s is damaged, tokens forgotten: %v", s.path, err)
+			setAsideDamaged(s.path, "users", "tokens", err)
 			s.toks = map[string]tokenRec{}
 		}
 		// Old admin tokens ({pin, at}, no user) are dropped.
