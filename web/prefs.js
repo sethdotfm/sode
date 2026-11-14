@@ -13,6 +13,7 @@ export const PREFS = {
   setStack: { key: 'sode-set-stack', def: 'and', values: { and: 'All must match', or: 'Any may match' } },
   nextMode: { key: 'sode-next-mode', def: 'number', values: { number: 'Next number', fuzzy: 'Next match of the name' } },
   searchFilters: { key: 'sode-search-filters', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
+  compact: { key: 'sode-compact', def: 'off', bool: true, values: { on: 'Yes', off: 'No' } },
 };
 
 // The Browser language option says what it gives (still one table entry, as the Go test reads it).

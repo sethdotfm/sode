@@ -3,11 +3,11 @@
 import { $ } from './core.js';
 import { mac, chord } from './keys.js';
 import { layout } from './layout.js';
-import { flipped } from './device.js';
+import { flipped, toggleCompact } from './device.js';
 
 // dsts is an accessor: desktop.js replaces the array. historyView is what desktopHistory returned.
 export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, active, select, addDst, useLast, wantsMatch, patchNow, clearAll, renderTally }) {
-  const { histList, histArea, onListKey, enterKeys, undoLast } = historyView;
+  const { histList, histArea, onListKey, enterKeys, undoLast, historyShown } = historyView;
   // Modifier rule: docs/agents/web-layout.md (Keys). Each check excludes the other two modifiers.
   document.addEventListener('keydown', (e) => {
     if (confirm.isOpen()) return confirm.key(e);
@@ -35,6 +35,12 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
       return;
     }
     if (!active()) return;
+    // Compact view, also from a box: preventDefault keeps macOS Option+Shift+C from typing Ç.
+    if (chord(e) === 'alt+shift+c') {
+      e.preventDefault();
+      if (!e.repeat) toggleCompact();
+      return;
+    }
     if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === ',') {
       e.preventDefault();
       $('settings-open').click();
@@ -99,7 +105,8 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
       }
       return;
     }
-    if (e.target === histList || e.target === document.body) {
+    // Compact view has no keyboard mode: History is hidden.
+    if ((e.target === histList || e.target === document.body) && historyShown()) {
       if (onListKey(e)) e.preventDefault();
       return;
     }
@@ -124,7 +131,7 @@ export function desktopKeys({ boxes, dsts, lvl, confirm, keys, historyView, acti
         else lvl.clear();
         renderTally();
       } else if (!dsts().length && !boxes.src.input.value && !boxes.dst.input.value && lvl.empty()) {
-        enterKeys();
+        if (historyShown()) enterKeys();
       } else {
         clearAll();
       }

@@ -288,3 +288,8 @@
   width: auto;
   z-index: var(--pb-z-sticky);
 }
+
+/* Compact view: History hidden on desktop, back while a preset picks takes from it (historypick.js sets data-sode-pick=""). Keep in step with historyShown() in desktophistory.js. */
+:root[data-layout="desktop"][data-compact]:not([data-sode-pick=""]) #patch-view > .sode__history {
+  display: none;
+}
