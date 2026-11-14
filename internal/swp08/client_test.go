@@ -137,6 +137,9 @@ func TestSilentRouterNeverUp(t *testing.T) {
 
 // A router that ignores one command but answers the probe stays up.
 func TestIgnoredCommandKeepsLink(t *testing.T) {
+	if testing.Short() {
+		t.Skip("slow test skipped under -short")
+	}
 	addr := fakeRouter(t, func(m []byte) bool { return m[0] == CmdExtInterrogate })
 	log := runClient(t, addr, func(c *Client) { c.Send([]byte{0x7F, 0x00}, Why{}) })
 	if !eventually(func() bool { return log.has(StateUp) }) {
@@ -213,6 +216,9 @@ func TestRetargetMidDialIsNotDown(t *testing.T) {
 // A settings save while Run waits out a failed dial must not mark the
 // next session: a later real drop still reports down.
 func TestDropAfterRetargetInBackoffIsDown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("slow test skipped under -short")
+	}
 	var mu sync.Mutex
 	answer := true
 	good := fakeRouter(t, func([]byte) bool { mu.Lock(); defer mu.Unlock(); return answer })

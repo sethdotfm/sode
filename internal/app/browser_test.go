@@ -61,9 +61,10 @@ type tab struct {
 // startBrowser skips the test when no Chrome is installed.
 func startBrowser(t *testing.T) *tab {
 	t.Helper()
+	browserTest(t)
 	bin := chromePath()
 	if bin == "" {
-		t.Skip("browser checks skipped: no Chrome or Chromium found (install one or set SODE_CHROME)")
+		browserSkip(t, "browser checks skipped: no Chrome or Chromium found (install one or set SODE_CHROME)")
 	}
 	// Chrome sometimes exits at start-up when other Chrome processes are busy, so a missing port gets a fresh
 	// profile and process, up to three times.
@@ -79,7 +80,7 @@ func startBrowser(t *testing.T) *tab {
 			"--no-first-run", "--no-default-browser-check", "--disable-gpu", "--window-size=1280,800", "about:blank")
 		if err := cmd.Start(); err != nil {
 			cancel()
-			t.Skipf("browser checks skipped: cannot start %s: %v", bin, err)
+			browserSkip(t, fmt.Sprintf("browser checks skipped: cannot start %s: %v", bin, err))
 		}
 		c := cancel
 		t.Cleanup(func() { c(); _ = cmd.Wait() })
@@ -124,7 +125,9 @@ func startBrowser(t *testing.T) *tab {
 	b := &tab{t: t, conn: conn, pending: map[int]chan cdpReply{}}
 	t.Cleanup(func() { conn.CloseNow() })
 	go b.read(ctx)
-	for _, m := range []string{"Page.enable", "Runtime.enable", "Log.enable"} {
+	// Page.bringToFront: since Chrome 157 a background tab's requestFullscreen fails "not granted", even
+	// with a user gesture.
+	for _, m := range []string{"Page.enable", "Runtime.enable", "Log.enable", "Page.bringToFront"} {
 		b.call(m, nil)
 	}
 	return b
