@@ -38,7 +38,7 @@ Automatic updaters should follow `latest` (or `X.Y`); only `promote.yml` moves t
 
 ## Cutting a release
 
-1. **Prepare on a branch and merge to `main`**: bump `Version`, the README line, and give CHANGELOG.md its final `## Beta X.Y.Z` section (no "(unreleased)"). Append the bullets from each `changelog.d/*.md` fragment under that heading, then `git rm` every fragment except README.md; with `SODE_RELEASE_TAG` set, `TestChangelogFragments` fails while any remain. `SODE_RELEASE_TAG=vX.Y.Z-rc.1 go test ./internal/app -run TestVersionNoted` checks it before you tag.
+1. **Prepare on a branch and merge to `main`**: bump `Version`, the README line, and give CHANGELOG.md its final `## Beta X.Y.Z` section (no "(unreleased)"). Append the bullets from each `changelog.d/*.md` fragment under that heading, then `git rm` every fragment except README.md; with `SODE_RELEASE_TAG` set, `TestVersionNoted` fails while any remain. `SODE_RELEASE_TAG=vX.Y.Z-rc.1 go test ./internal/app -run TestVersionNoted` checks it before you tag.
 2. **Tag the candidate on `main`**: `git tag -a vX.Y.Z-rc.1 -m "..." && git push origin vX.Y.Z-rc.1`. Watch the `rc` run. If it fails, the failed number is spent: fix on `main` and tag `-rc.2`. A candidate that failed before its last step is never signed, so it can't be promoted.
 3. **Test it**: `docker pull ghcr.io/sethdotfm/sode:rc`, against the simulator and then your router.
 4. **Promote**: Actions > promote > Run workflow, branch `main`, the rc tag. Do it once with *dry run* ticked, then again unticked.
