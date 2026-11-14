@@ -4,8 +4,6 @@ Notes for AI agents working in this repo. Only the non-obvious is here; code and
 
 Sode: keyboard-first web patching for one SW-P-08 router (Ross Ultrix). Settings table and protocol summary are in docs/reference.md.
 
-Terms: use the words in GLOSSARY.md and avoid its _Avoid_ words in code comments, docs and UI text; TestDocsUseGlossaryWords and TestUIStringsUseGlossaryWords enforce it. Wire message types, config keys and localStorage keys keep their old names, so name them in backticks.
-
 ## Commands
 
 go test ./...   (about 70s; Dockerfile build runs it too; run it and docker builds with run_in_background)
@@ -33,8 +31,8 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 - Confirm dialog: churning random letter plus lockout (default 500ms, Enter optional).
 - Version (#95): Version and Stage in internal/app/version.go, sent in hello as BuildLabel(), shown in Settings, noted in README's Version line. Every release bumps both and adds a CHANGELOG.md section (#147). TestVersionNoted fails on mismatch, or with SODE_RELEASE_TAG if the tag differs or the heading says unreleased. See RELEASING.md. Only promote.yml may push the latest image tag.
 
-- Vocabulary: GLOSSARY.md fixes the terms. TestRetiredWordsCoverGlossary and the scans in internal/app/vocabulary_test.go fail on any _Avoid_ term used in docs or UI strings unless its row names the pending ticket. A new _Avoid_ term needs a row; a finished sweep clears its ticket. TestIdentifiersUseGlossaryWords applies the same rows to web identifiers and file names (strings, so wire types and `sode-*` keys, are out of scope); a kept name goes in identAllow with its reason. A route is the per-destination unit, so names for one say route, not take.
-- Kept old names: nothing persisted or sent was renamed for the glossary, since old files, deploy env and open pages hold them. Full table in docs/persisted-names.md; a rename needs the issue owner's approval, a load-old-files path and a fixture test. TestAllowlistsMatchSomething fails on a vocabAllow or identAllow entry that exempts nothing, so drop an entry when its name goes.
+- Vocabulary: use GLOSSARY.md's terms in code comments, docs and UI text. TestRetiredWordsCoverGlossary and the scans in internal/app/vocabulary_test.go fail on any _Avoid_ term used in docs or UI strings unless its row names the pending ticket. A new _Avoid_ term needs a row; a finished sweep clears its ticket. TestIdentifiersUseGlossaryWords applies the same rows to web identifiers and file names (strings, so wire types and `sode-*` keys, are out of scope); a kept name goes in identAllow with its reason. A route is the per-destination unit, so names for one say route, not take.
+- Kept old names: nothing persisted or sent was renamed for the glossary, since old files, deploy env and open pages hold them; name them in backticks. Full table in docs/persisted-names.md; a rename needs the issue owner's approval, a load-old-files path and a fixture test. TestAllowlistsMatchSomething fails on a vocabAllow or identAllow entry that exempts nothing, so drop an entry when its name goes.
   - Config and env: `settingsPin` (the Advanced Settings PIN hash), `nameRefreshSeconds` / `SODE_NAME_REFRESH_S`, `deviceDefaults`, `SODE_SENTLOG*` (Communication Log file), `SIM_PANEL_*` and `SIM_FOLLOWS` (simulator). `salvos` and history's `salvo` are read-only legacy; `sode-salvos` and `sode-salvo-pins` are migrated once.
   - `localStorage`: `sode-device-defaults` (web/prepaint.js reads it before first paint).
   - Wire: `batch`, `recent` (also the `hello` field), `refreshNames`, `sent`/`sentAdd`/`sentPage`, `unlock`/`unlockResult`, `userUnlock`/`userUnlockResult`, `protect` (also the `hello` field), `locked`. The server logs `refreshNames`, `unlock` and `userUnlock` as `why` values in Communication Log rows, so those also stay.
@@ -54,7 +52,7 @@ Without SODE_CONFIG, config comes from SODE_* env and is not persisted. The web 
 - docs/agents/presets.md: Presets. Read before touching presets, pinning and pin order, the editor and popup, preset keys.
 - docs/agents/salvos.md: Native fire mode (#154). Read before touching fireMode native, the router's own salvos and the simulator's native-mode options.
 - docs/agents/panels.md: Panels storage, keys, the browser session key, seams, Push and live update, monitoring and gotchas. Read before touching panel files, panel API clients and keys, `web/sessionkey.js`, Push or the panel pages' tests.
-- docs/panels-design.md: Sode Panels (4x8 grid pages on `/panels`, driven over `/api/v1`). Read before touching panels, the panel editor, panel storage or panel sign-in. The prototype is only on branch `prototype/panels`, never main: `git switch prototype/panels && node prototype/panels/serve.mjs` serves variants A, B and C on :8101 to :8103 with stub data and no router. Panel status is an icon with optional text, an exception to patchbay's "status always with text". The editor prototype is `git switch prototype/panels && node prototype/panels/serve-editor.mjs` (variant F on :8116 is the chosen one). The panels page prototype is `node prototype/panels/serve-overview.mjs` (variant C on :8123). ADR 0006 covers panel API clients.
+- docs/panels-design.md: Sode Panels (4x8 grid pages on `/panels`, driven over `/api/v1`). Read before touching panels, the panel editor, panel storage or panel sign-in. Prototypes live only on branch `prototype/panels`, never main; panels-design.md names each one's server and port. ADR 0006 covers panel API clients.
 
 ## Agent skills
 
