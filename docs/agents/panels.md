@@ -41,6 +41,11 @@ Ended keys (the throttle lockout a stale tab caused): Sode answers a key that wo
 - Web rules modules are pure and tested without a DOM: `panelmodel.js` (view, stage, Take), `panelrules.js`, `panelupdate.js`, `panelwatchrules.js`, `panelkeyrules.js`, `panelsrules.js`, `panelpushrules.js`, `gridmodel.js`, `editorrules.js`, `findrules.js` and `arttoolrules.js`. Put new logic there and keep the DOM modules thin.
 - Browser harness: docs/agents/browser-checks.md. Chrome checks use the real Handler and a built simulator, never `panelsApp`.
 
+## Undo cell
+
+- `panelundo.go`: `GET` and `POST /panels/{id}/undo`, scope `take` only, so a panel key undoes without `history` (`config.PanelClientScopes` must not gain it). `panelUndoTarget` walks History newest first (at most `undoScan` entries, each a file read), counts every entry with `undo` set as undoing its target, and takes the first entry whose `panelId` and `instance` (ignoring case) are the caller's own, with its Group. The instance is `Actor.instance` from `panelHeaders`; a caller with none (the editor's Test it live) has nothing to undo. Entries made before `panelId` existed never match.
+- The page keeps the answer in `undoNext` (`panelrun.js`) and greys the cell from it (`undoReady`); `finishUndo` shows results like `finishTake` but leaves the plan staged.
+
 ## Push, Rev and live update
 
 `panelStore.applyLocked` writes the checkpoint, then the panel. A checkpoint that cannot be saved stops the Push. Open pages poll `GET /panels/{id}` every 5 seconds and compare `rev` with the `artDefaults` it carries (`revOf` in `panelupdate.js`, since a changed default moves no panel rev; `panellive.js`; a 10 s countdown banner with a bar, Snooze 60 s (once per open page) and Apply now; staged routes hold the plain countdown but not a Snooze or Apply now, see docs/panels-design.md), so a Push, an editor save and a restore all reach them through the same store write. Push and import never copy `acts`, `client` or `clientRights`, nor id, name, owner or `share`. A Push also keeps the target's `settings.fixedDests` (`pushLayout`); a Checkpoint set and a restore put the whole layout back, list included. A template keeps the list only with `dests`. A new route that stores a panel must not widen that list. The group for Push is worked out in the page (`pushGroups`); the server only sees ids.

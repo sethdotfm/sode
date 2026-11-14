@@ -206,6 +206,22 @@ export function finishTake(st, reply, now) {
 
 export const failTake = (st, reason, message, now) => ({ ...st, busy: false, error: { code: 'refused', reason, message, at: now } });
 
+// The Undo cell. next is GET /panels/<id>/undo's `undo`: null when this instance has nothing left to undo, undefined
+// before an answer or when the key lacks the take scope.
+export const undoReady = (st, next) => !st.busy && !!next?.allowed;
+
+export const startUndo = (st, next) => (undoReady(st, next) ? { state: { ...st, busy: true, error: null } } : null);
+
+// As finishTake, but the plan stays: an undo is not what was staged. The status says what was undone, or where it failed.
+export function finishUndo(st, reply, now) {
+  const results = { ...st.results };
+  for (const r of reply.results || []) results[r.dst] = { result: r.result, at: now };
+  const failed = (reply.results || []).filter((r) => r.result === 'failed').map((r) => r.dst);
+  const routes = (reply.results || []).map((r) => ({ src: r.src, dst: r.dst }));
+  const error = failed.length ? { code: 'undo-failed', dsts: failed, at: now } : { code: 'undone', routes, at: now };
+  return { ...st, busy: false, results, error };
+}
+
 // The router moved: a stage it now satisfies has nothing left to take.
 export function applyTally(st, env) {
   const staged = st.staged.filter((x) => !routed(env, x));

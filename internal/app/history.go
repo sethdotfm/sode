@@ -45,8 +45,10 @@ type Entry struct {
 	SendErr     string    `json:"sendErr,omitempty"`
 	Cut         bool      `json:"cut,omitempty"` // the router changed under the take, so its Failed levels just got no answer
 	// Panel and Instance name the panel page that made the take (panelNames). With a user's key they are the
-	// page's own word, which the log marks unverified.
+	// page's own word, which the log marks unverified. PanelID is the panel's id, which a rename leaves, so the
+	// Undo cell (panelundo.go) matches by it.
 	Panel    string `json:"panel,omitempty"`
+	PanelID  string `json:"panelId,omitempty"`
 	Instance string `json:"instance,omitempty"`
 }
 

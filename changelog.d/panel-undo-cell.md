@@ -1,0 +1,1 @@
+- Panels have an Undo cell: each press undoes the newest take this instance of the panel made, one take further back each time, and leaves other instances' takes alone. It works with a panel's own key, which needs only the take scope.
