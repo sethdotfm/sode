@@ -267,12 +267,12 @@ type panelStore struct {
 	yamlDir[Panel]
 	art   map[string][]byte // memory only: "<id>/<artID>"
 	probs []string
-	// skipped holds ids of panel files on disk that failed to load; unread is set when the
+	// skipped holds ids of panel files on disk that failed to load; dirFailed is set when the
 	// folder itself could not be read. Startup keeps their clients (dropOrphanPanelClients).
-	skipped map[string]bool
-	unread  bool
-	cps     map[string][]panelCheckpoint // checkpoints read so far, see panelpush.go
-	sets    *panelSetStore
+	skipped   map[string]bool
+	dirFailed bool
+	cps       map[string][]panelCheckpoint // checkpoints read so far, see panelpush.go
+	sets      *panelSetStore
 }
 
 // loadPanels runs once from New. A missing folder is empty. A file that does not parse, or
@@ -313,7 +313,7 @@ func loadPanels(cfgPath string) *panelStore {
 		return p, true
 	})
 	if err != nil && !os.IsNotExist(err) {
-		s.unread = true
+		s.dirFailed = true
 		s.problem("%s: %v; every panel's API client was kept", s.dir, err)
 	}
 	return s
