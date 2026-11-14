@@ -320,9 +320,9 @@ func TestAPIFailedAuthThrottleAndOneRowPerMinute(t *testing.T) {
 
 	a.flushAuthFails(time.Now().Add(2 * time.Minute))
 	a.flushAuthFails(time.Now().Add(3 * time.Minute)) // nothing more to write
-	rows := waitLogged(t, a, 1)
+	waitLogged(t, a, 1)
 	time.Sleep(100 * time.Millisecond)
-	rows = logged(t, a)
+	rows := logged(t, a)
 	n := 0
 	for _, e := range rows {
 		if e.Kind == kindAPI && e.Why == "authFailed" {
@@ -347,9 +347,9 @@ func TestAPILogReadsSwitch(t *testing.T) {
 		key := botKey(t, a)
 		apiDo(a, "GET", "/api/v1/names", key, map[string]string{"X-Sode-Via": "wall ui 2"})
 		a.apiEvent(sodeActor, "marker", "ok", "", nil)
-		rows := waitLogged(t, a, 1)
+		waitLogged(t, a, 1)
 		time.Sleep(100 * time.Millisecond)
-		rows = logged(t, a)
+		rows := logged(t, a)
 		stop()
 		var reads []Sent
 		for _, e := range rows {

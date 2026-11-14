@@ -11,6 +11,7 @@ go test ./internal/app -run TestName -v   (while editing)
 go test ./internal/app -run '^TestChrome<Area>' -v   (before committing a change under web/ or to panels)
 go test ./...   (everything, several minutes: only when touching the browser harness, swp08sim or timing code; use run_in_background)
 go vet ./...
+go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...   (2026.2.2; CI runs it in lint, so it must be clean)
 node --test 'web/test/*.test.mjs'
 go run ./cmd/swp08sim   (simulator on :8910, SIM_* env in cmd/swp08sim and docs/reference.md)
 SODE_ROUTER=127.0.0.1:8910 SODE_DEBUG=true go run ./cmd/sode   (:8080, SODE_DEBUG hex-dumps SW-P-08)
