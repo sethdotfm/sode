@@ -1,0 +1,2 @@
+- Panels have an Undo cell: each press undoes the newest take this instance of the panel made, one take further back each time, and leaves other instances' takes alone. It works with a panel's own key, which needs only the take scope.
+- The icon picker lists the Undo icon beside Clear's, with the other cell icons, instead of beside Redo.

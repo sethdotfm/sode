@@ -82,6 +82,8 @@ All paths are under `/api/v1`.
 | `POST /takes` | `take` | A take by routes: `{"routes":[{"src":1,"dst":2,"levels":[1]}]}`, 1 to 200 routes |
 | `POST /presets/{scope}/{name}` | `take` | Fire a preset, scope `everyone` or `me` |
 | `POST /history/{id}/undo`, `/redo`, `/retry` | `take` and `history` | Undo, Redo or Retry one History entry |
+| `GET /panels/{id}/undo` | `take` | The take the calling panel instance's Undo cell would undo: `{"undo": null}` when none, else `{"undo": {"id", "entries", "routes", "allowed", "reason"}}`, where `id` is the take's newest History entry. The instance is the caller's own (a panel key's, or `X-Sode-Panel` and `X-Sode-Instance` with a user's key), matched on History's `panelId` and `instance` among the newest 1000 entries |
+| `POST /panels/{id}/undo` | `take` | Undo that take, as `POST /history/{id}/undo` does, without the `history` scope. Each call steps one take further back; 422 `nothing_to_do` when none is left. An optional body `{"id": n}` sends back the id GET answered: 409 `conflict` when the take to undo has changed since |
 | `GET /stream` | per topic | A WebSocket of live changes, see Stream |
 | `GET /panels`, `GET /panels/{id}` | `panels` | The panels the caller owns or may use, or all of them for a Trusted user. `canEdit` is false for use only. `GET /panels/{id}` also takes the panel's short name (`slug`) in place of the id |
 | `GET /panels/people` | `panels` | The names of Sode's users, for the Share picker. A user's key only (403 `user_required`). Sharing itself is the `share` field of `PUT /panels/{id}`: `{mode: me\|named\|everyone, users[]}`, names kept only for `named`, and a change reaches a user's next list or launch |
