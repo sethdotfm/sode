@@ -176,6 +176,7 @@ function renderLast() {
   }
 }
 on('history', renderLast);
+on('last', renderLast);
 
 // Fills one box from the last take, then focuses the opposite box only if empty, else Levels.
 // next: use nextTake() and remember it so a repeat goes on.

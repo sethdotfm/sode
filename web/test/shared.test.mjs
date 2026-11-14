@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 
 const node = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : node()), apply: () => node(), set: () => true });
 globalThis.document = node();
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const stored = new Map();
+globalThis.localStorage = { getItem: (k) => stored.get(k) ?? null, setItem: (k, v) => stored.set(k, String(v)), removeItem: (k) => stored.delete(k) };
 
 test('toggle adds, then removes', async () => {
   const { toggle } = await import('./all.mjs');
@@ -109,7 +110,7 @@ test('nextTake: fuzzy takes the next match of the name text, in router order', a
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
   const srcs = [it(1, 'Cam 1'), it(2, 'Bars'), it(7, 'Cam 2'), it(9, 'Cam 3')];
   S.srcBy = new Map(srcs.map((s) => [s.n, s]));
-  S.dstBy = new Map();
+  S.dstBy = new Map([[5, it(5, 'Rec 1')]]);
   await patched(1, [5], [1], 'Cam 1');
   setPref('nextMode', 'number');
   assert.equal(nextTake().src.name, 'Bars');
@@ -131,7 +132,7 @@ test('nextTake: fuzzy steps through letters too (#149)', async () => {
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
   const srcs = [it(1, 'Prmpt A'), it(2, 'Bars'), it(7, 'Prmpt B'), it(9, 'Prmpt C')];
   S.srcBy = new Map(srcs.map((s) => [s.n, s]));
-  S.dstBy = new Map();
+  S.dstBy = new Map([[5, it(5, 'Rec 1')]]);
   await patched(1, [5], [1], 'Prmpt A');
   setPref('nextMode', 'fuzzy');
   assert.equal(nextTake().src.name, 'Prmpt B');
@@ -182,7 +183,7 @@ test('nextTake: fuzzy falls back to the next number when the name runs out (#196
   resetNext();
   const it = (n, name) => ({ n, num: String(n + 1), name, lname: name.toLowerCase(), label: `${n + 1} ${name}` });
   S.srcBy = new Map([it(1, 'Cam 1'), it(2, 'Cam 2'), it(3, 'Bars')].map((s) => [s.n, s]));
-  S.dstBy = new Map();
+  S.dstBy = new Map([[5, it(5, 'Rec 1')]]);
   await patched(2, [5], [1], 'Cam 2');
   setPref('nextMode', 'fuzzy');
   assert.equal(nextTake().src.name, 'Bars');
