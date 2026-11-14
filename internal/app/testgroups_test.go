@@ -1,6 +1,7 @@
 package app
 
 import (
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 func TestMain(m *testing.M) {
 	config.UseTestCosts()
+	exitProcess = func(code int) { log.Printf("test: a Kill asked to exit with %d; not exiting", code) }
 	code := m.Run()
 	if simBuild.dir != "" {
 		_ = os.RemoveAll(simBuild.dir)

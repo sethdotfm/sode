@@ -48,6 +48,10 @@ func (a *App) command(c *client, why, result, note string, err error) {
 func (a *App) logSent(ctx context.Context) {
 	failing := false // logged once per run of failed writes
 	write := func(e Sent) {
+		if w := e.written; w != nil {
+			e.written = nil
+			defer close(w)
+		}
 		if err := a.sent.Append(&e); err != nil {
 			// Not saved, so not shown live; its seq goes to the next entry. Counted with
 			// queue drops.

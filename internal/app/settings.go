@@ -199,7 +199,7 @@ func (a *App) applyConfig(mutate func(*config.Config) error) error {
 type guardedErr struct{}
 
 func (guardedErr) Error() string {
-	return "changing the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit or the locks needs the Advanced Settings PIN"
+	return "changing the router, levels, name settings, fire mode, trusted proxies, PIN attempt limit, the locks or Kill needs the Advanced Settings PIN"
 }
 func (guardedErr) Is(target error) bool { return target == errLocked }
 

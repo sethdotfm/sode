@@ -27,6 +27,7 @@ import './users.js';
 import './apisettings.js'; // adds its section before the table of contents is built
 import './profiles.js';
 import './configfile.js';
+import './kill.js';
 
 const root = document.documentElement;
 const form = $('settings-view');
