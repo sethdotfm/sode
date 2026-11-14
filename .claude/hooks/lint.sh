@@ -7,7 +7,8 @@ set -u
 f=$(jq -r '.tool_response.filePath // .tool_input.file_path // empty')
 [ -n "$f" ] && [ -f "$f" ] || exit 0
 
-root=${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}
+# The file's own checkout, not CLAUDE_PROJECT_DIR: that names the session's checkout, which is wrong for a file in another worktree.
+root=$(git -C "$(dirname "$f")" rev-parse --show-toplevel 2>/dev/null) || root=${CLAUDE_PROJECT_DIR:-}
 [ -n "$root" ] || exit 0
 cd "$root" || exit 0
 rel=${f#"$root"/}
