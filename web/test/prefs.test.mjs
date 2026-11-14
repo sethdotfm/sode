@@ -38,6 +38,7 @@ test('built-in defaults match the old behaviour', () => {
     searchFilters: 'off',
     setStack: 'and',
     nextMode: 'number',
+    compact: 'off',
   });
 });
 

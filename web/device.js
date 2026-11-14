@@ -74,6 +74,7 @@ function applyPrefs() {
     root.toggleAttribute('data-flip', applied.flip === 'on');
     emit('flip');
   }
+  if (changed('compact')) root.toggleAttribute('data-compact', applied.compact === 'on');
   if (changed('clock')) {
     timeFmt = null;
     emit('namesChecked');
@@ -89,6 +90,11 @@ export const flipped = () => pref('flip') === 'on';
 export const setFlip = (on) => setPref('flip', on ? 'on' : 'off');
 
 export const scrollTopPref = () => pref('scrollTop') === 'on';
+
+// Desktop only: desktop.css hides History under html[data-layout="desktop"][data-compact].
+export const compactOn = () => pref('compact') === 'on';
+// Writes the opposite, never '': with Everyone on, '' would follow Everyone and change nothing.
+export const toggleCompact = () => setPref('compact', compactOn() ? 'off' : 'on');
 
 let timeFmt = null;
 function timeFormat() {

@@ -1,4 +1,4 @@
-// Classic script in <head> (blocks) so there is no flash: theme, plus layout and flip on the main page (other pages: data-only="theme").
+// Classic script in <head> (blocks) so there is no flash: theme, plus layout, flip and compact on the main page (other pages: data-only="theme").
 // Repeats prefs.js resolve() and cachedProfile() inline; web/test/prepaint.test.mjs fails if they disagree.
 (() => {
   const root = document.documentElement;
@@ -39,4 +39,5 @@
   root.dataset.layout = layout;
   if (layout === 'phone') root.dataset.pbLayout = 'phone';
   if (pick('sode-flip', 'flip', ['on', 'off'], 'off') === 'on') root.dataset.flip = '';
+  if (pick('sode-compact', 'compact', ['on', 'off'], 'off') === 'on') root.dataset.compact = '';
 })();

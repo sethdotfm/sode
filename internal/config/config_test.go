@@ -123,9 +123,9 @@ func TestDeviceDefaults(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
-	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n"), 0o644)
+	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n  compact: true\n"), 0o644)
 	c, _, err = Load(path)
-	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number"}
+	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number", Compact: true}
 	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("partial block: %+v %v", c.DeviceDefaults, err)
 	}
@@ -135,7 +135,7 @@ func TestDeviceDefaults(t *testing.T) {
 		t.Fatalf("blank block: %+v %v", c.DeviceDefaults, err)
 	}
 	b, _ := json.Marshal(Defaults())
-	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number"}`) {
+	if !strings.Contains(string(b), `"deviceDefaults":{"theme":"system","layout":"auto","clock":"24","flip":false,"scrollTop":true,"searchFilters":false,"setStack":"and","nextMode":"number","compact":false}`) {
 		t.Fatalf("json: %s", b)
 	}
 }

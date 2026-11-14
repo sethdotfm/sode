@@ -16,6 +16,7 @@ export const PREF_LABELS = {
   searchFilters: 'Search respects filters',
   setStack: 'Stacked filter sets',
   nextMode: 'Next means',
+  compact: 'Compact view',
 };
 
 const FILTER_DEFAULT = { src: '', dst: '', sode: true, ext: true, hidden: false };

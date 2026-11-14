@@ -13,6 +13,7 @@ const LABELS = {
   setStack: 'Stacked sets',
   nextMode: 'Next chip',
   searchFilters: 'Quick search uses filters',
+  compact: 'Compact view',
 };
 export function prefRows(prefs) {
   const out = [];

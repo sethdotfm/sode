@@ -277,7 +277,10 @@ The chip in a patch box that fills it with that box's value from this browser's 
 The chip in a patch box that fills it with the value after Last, either the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
 
 **Keyboard mode**:
-The state where keys act on History entries instead of the patch boxes. Esc from empty patch boxes starts it and any click ends it.
+The state where keys act on History entries instead of the patch boxes. Esc from empty patch boxes starts it and any click ends it. Compact view has none.
+
+**Compact view**:
+The desktop main page with History hidden, leaving the patch boxes, results, Presets and the footer. Alt+Shift+C turns it on or off for This browser; it can also be set for Me or Everyone. The phone layout ignores it.
 
 **Server link**:
 The connection between a browser and the Sode server.
