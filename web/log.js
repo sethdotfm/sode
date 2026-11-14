@@ -7,7 +7,7 @@ import { clockPref } from './device.js';
 import { filterFn } from './filter.js';
 import { readJSON, writeJSON } from './store.js';
 import { newPager } from './logpager.js';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind } from './logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, eventProblem, normalizeKinds, allKinds, pressKind } from './logkinds.js';
 import { PRESETS, DEFAULT_PRESET, presetText, slotLabel, rangeFor, slotFor, summary } from './uptime.js';
 import { uptimeBars } from './uptimebars.js';
 import './brand.js';
@@ -62,8 +62,7 @@ function saveFilter() {
 }
 
 const kindOn = (k) => KINDS.some((g) => g.kinds.includes(k) && filter.kinds.includes(g.id));
-const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };
-const problem = (e) => (isEvent(e) ? !!EVENT_PROBLEM[e.kind]?.includes(e.result) : e.result !== 'ack' || e.tries > 1);
+const problem = (e) => (isEvent(e) ? eventProblem(e) : e.result !== 'ack' || e.tries > 1);
 const off = () => (S.cfg ? S.cfg.numberOffset : 0);
 
 // Not kept: a range far back means reading the log back to it, which shouldn't happen on every
@@ -278,7 +277,7 @@ const EVENT_RESULT = {
 
 function outcome(e) {
   if (isEvent(e)) {
-    const [dot, text] = EVENT_RESULT[e.result] || ['idle', e.result];
+    const [dot, text] = e.kind === 'server' && e.err ? ['warn', 'Started with a problem'] : EVENT_RESULT[e.result] || ['idle', e.result];
     const s = el('span', 'pb-status', el('span', `pb-dot pb-dot--${dot}`), text);
     if (e.err) s.title = e.err;
     return s;
@@ -317,7 +316,14 @@ function row(e, fresh = false) {
     el('td', null, levelCell(e)),
     el('td', 'sode-log__name', side(e.dst, e.dstName)),
     el('td', 'sode-log__name', side(e.src, e.srcName)),
-    el('td', null, why, e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '', e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : ''),
+    el(
+      'td',
+      null,
+      why,
+      e.by ? el('span', 'pb-text-muted sode-log__why-part', e.by) : '',
+      e.note ? el('span', 'pb-text-muted sode-log__why-part', e.note) : '',
+      e.kind === 'server' && e.err ? el('span', 'pb-text-muted sode-log__why-part', e.err) : '',
+    ),
     el('td', null, outcome(e)),
     el('td', 'sode-log__hex', e.hex),
   );

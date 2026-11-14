@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind } from '../logkinds.js';
+import { KINDS, KIND_IDS, EVENT_KINDS, WHY_LABEL, normalizeKinds, allKinds, pressKind, eventProblem } from '../logkinds.js';
 
 const [a, b, c] = KIND_IDS;
 
@@ -63,4 +63,18 @@ test('panel and stream rows read as words, not wire names', () => {
 test('every event kind belongs to a group', () => {
   const grouped = new Set(KINDS.flatMap((g) => g.kinds));
   for (const k of EVENT_KINDS) assert.ok(grouped.has(k), k);
+});
+
+test('eventProblem: a server row counts as a problem only with an err', () => {
+  assert.equal(eventProblem({ kind: 'server', result: 'start', err: 'config.yaml has keys' }), true);
+  assert.equal(eventProblem({ kind: 'server', result: 'start' }), false);
+  assert.equal(eventProblem({ kind: 'server', result: 'stop' }), false);
+});
+
+test('eventProblem: other kinds go by result, not err', () => {
+  assert.equal(eventProblem({ kind: 'browser', result: 'disconnected', err: 'abnormal close' }), false);
+  assert.equal(eventProblem({ kind: 'command', result: 'refused' }), true);
+  assert.equal(eventProblem({ kind: 'command', result: 'ok' }), false);
+  assert.equal(eventProblem({ kind: 'link', result: 'down' }), true);
+  assert.equal(eventProblem({ kind: 'api', result: 'error' }), true);
 });
