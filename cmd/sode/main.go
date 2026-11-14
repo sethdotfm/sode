@@ -36,6 +36,7 @@ func loadConfig(path string) config.Config {
 			log.Fatalf("config: settingsPin in %s isn't a PIN hash (set PINs from Settings, not by hand); run sode -reset-pin", path)
 		}
 		if exists {
+			backupBeforeRelease(path)
 			if p := c.UnknownKeysProblem(); p != "" {
 				log.Printf("config: %s", p)
 			}
@@ -62,6 +63,12 @@ func loadConfig(path string) config.Config {
 	return c
 }
 
+func backupBeforeRelease(path string) {
+	if err := config.BackupOnce(path, app.Version); err != nil {
+		log.Printf("config: backing up %s: %v", path, err)
+	}
+}
+
 // A running server keeps its PIN copy until it restarts.
 func resetSettingsPin(path string) {
 	if path == "" {
@@ -70,6 +77,9 @@ func resetSettingsPin(path string) {
 	c, exists, err := config.Load(path)
 	if err != nil {
 		log.Fatalf("reset-pin: %v", err)
+	}
+	if exists {
+		backupBeforeRelease(path)
 	}
 	if !exists || c.SettingsPin == "" {
 		log.Printf("reset-pin: no Advanced Settings PIN in %s", path)

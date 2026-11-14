@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/netip"
 	"os"
@@ -663,7 +664,32 @@ func Save(path string, c Config) error {
 	if err != nil {
 		return err
 	}
+	if err := copyFile(path, path+".prev"); err != nil {
+		log.Printf("config: keeping %s.prev: %v", path, err)
+	}
 	return AtomicWrite(path, []byte(header), b)
+}
+
+// BackupOnce keeps the file as it was before this release touched it, so a rollback can restore it.
+// The backup holds PIN hashes, so AtomicWrite's private mode matters.
+func BackupOnce(path, label string) error {
+	dst := path + ".before-" + label
+	if _, err := os.Stat(dst); err == nil {
+		return nil
+	}
+	return copyFile(path, dst)
+}
+
+// copyFile treats a missing source as nothing to copy.
+func copyFile(src, dst string) error {
+	b, err := os.ReadFile(src)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return AtomicWrite(dst, b)
 }
 
 // AtomicWrite: private temp file, fsync, rename, dir sync; used for config and the session token file.
