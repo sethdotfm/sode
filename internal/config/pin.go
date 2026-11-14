@@ -8,8 +8,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
-	"testing"
 	"strings"
+	"testing"
 	"unicode/utf8"
 )
 

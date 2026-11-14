@@ -17,4 +17,3 @@ export function slugProblem(slug) {
   if (slug === 'editor' || /^p-[0-9a-f]{8}$/.test(slug)) return 'That name is reserved. Pick another.';
   return '';
 }
-

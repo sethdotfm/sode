@@ -139,7 +139,10 @@ test('the first save gives an unsaved Page 1 its id, and undo steps follow it', 
 });
 
 test('undo steps follow Page 1 to its saved id even when another Page had focus at the save', () => {
-  const unsaved = [{ id: '', enabled: true, cells: [src(1, 1, 1)] }, { id: 'p2', enabled: true, cells: [] }];
+  const unsaved = [
+    { id: '', enabled: true, cells: [src(1, 1, 1)] },
+    { id: 'p2', enabled: true, cells: [] },
+  ];
   let h = record(emptyUndo(), { what: 'paste', before: pageSnap([{ ...unsaved[0], cells: [] }, unsaved[1]], 4, 8, { focus: '' }) });
   h = rekeySaved(h, ['', 'p2'], ['n1', 'p2']);
   const saved = [{ id: 'n1', enabled: true, cells: [src(1, 1, 1)] }, unsaved[1]];

@@ -31,7 +31,13 @@ test('the rest goes on to the next enabled blank Page, from its first square', (
 
 test('disabled and used Pages are skipped; the cascade stops at the last Page and never returns to Page 1', () => {
   const pages = [page('a'), page('b', [], false), page('c', [one(1, 1)]), page('d')];
-  const out = cascadeWrap(pages, 0, Array.from({ length: 6 }, (_, i) => one(1, i + 1)), 'across', size);
+  const out = cascadeWrap(
+    pages,
+    0,
+    Array.from({ length: 6 }, (_, i) => one(1, i + 1)),
+    'across',
+    size,
+  );
   assert.deepEqual(
     out.onto.map((o) => o.index),
     [3],
