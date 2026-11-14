@@ -30,6 +30,7 @@ jobs:
     # must only ever run from main (a branch copy could sign anything).
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: release
     permissions:
       contents: write # the tag and the release
