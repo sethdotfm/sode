@@ -2,7 +2,9 @@ package app
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -41,6 +43,37 @@ func TestVersionNoted(t *testing.T) {
 			t.Errorf("release tag %q is not vX.Y.Z or vX.Y.Z-rc.N", tag)
 		} else if rc := regexp.MustCompile(`-rc\.\d+$`).ReplaceAllString(tag, ""); rc != "v"+Version {
 			t.Errorf("release tag %q doesn't match version.go (v%s): bump Version first", tag, Version)
+		}
+	}
+}
+
+// Each PR with a user-visible change adds its own changelog.d fragment, so
+// parallel branches never edit the same CHANGELOG.md lines. A release folds
+// them into the new heading and removes them.
+func TestChangelogFragments(t *testing.T) {
+	files, err := filepath.Glob("../../changelog.d/*.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		name := filepath.Base(f)
+		if name == "README.md" {
+			continue
+		}
+		if os.Getenv("SODE_RELEASE_TAG") != "" {
+			t.Errorf("changelog.d/%s: fold changelog.d into CHANGELOG.md before tagging", name)
+		}
+		body, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(string(body)) == "" {
+			t.Errorf("changelog.d/%s is empty", name)
+		}
+		for i, line := range strings.Split(string(body), "\n") {
+			if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "- ") {
+				t.Errorf("changelog.d/%s:%d must start with \"- \": %q", name, i+1, line)
+			}
 		}
 	}
 }
