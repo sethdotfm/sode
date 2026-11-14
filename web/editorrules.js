@@ -198,6 +198,7 @@ const WORDS = {
   take: 'Take',
   preset: 'Preset',
   clear: 'Clear',
+  undo: 'Undo',
   current: 'Current Source',
   panelName: 'Panel Name',
   instanceName: 'Instance Name',

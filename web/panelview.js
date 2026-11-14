@@ -13,6 +13,7 @@ import {
   armed,
   resultShown,
   guardWaiting,
+  undoReady,
   GUARD_HOLD_MS,
   GUARD_DOUBLE_MS,
 } from './panelmodel.js';
@@ -169,6 +170,11 @@ function paintNav(b, cell, { st, pages = [], wrap = true }) {
   fill(b, el('span', 'sode-panel__text', navText(cell, pages)));
 }
 
+function paintUndo(b, cell, { st, names, undo }) {
+  b.disabled = !undoReady(st, undo);
+  fill(b, el('span', 'sode-panel__text', names.of(cell)));
+}
+
 function takeLabel(st, cell, now) {
   if (cell.caption) return cell.caption;
   if (st.mode === 'instant') return 'Take';
@@ -188,6 +194,7 @@ export function paintGrid(grid, ctx) {
     else if (cell.kind === 'panelName' || cell.kind === 'instanceName') paintName(b, cell, ctx);
     else if (PAGE_KINDS.includes(cell.kind)) paintPageCell(b, cell, ctx);
     else if (cell.kind === 'clear') fill(b, el('span', 'sode-panel__text', ctx.names.of(cell)));
+    else if (cell.kind === 'undo') paintUndo(b, cell, ctx);
     else if (NAV_KINDS.includes(cell.kind)) paintNav(b, cell, ctx);
     else {
       fill(b, el('span', 'sode-panel__text', takeLabel(ctx.st, cell, ctx.now)));

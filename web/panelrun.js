@@ -9,7 +9,7 @@ import { pageUi } from './panelmount.js';
 import { startKeepalive, announceKeyless } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
-import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, offlineOf } from './panelrules.js';
+import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, undoneText, undoMoved, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail, publicFetch, withoutKey } from './panelkeyrules.js';
 import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen, keepLinkKey, followAssign } from './panelsetup.js';
 import {
@@ -22,11 +22,14 @@ import {
   startInstant,
   finishTake,
   failTake,
+  startUndo,
+  finishUndo,
   applyTally,
   carryView,
   showPage,
   pressPage,
   errorOf,
+  undoneOf,
   guardDown,
   guardHeld,
   guardCancel,
@@ -253,11 +256,18 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
   let presets = {};
   let namesAt = 0;
   let ready = false;
+  // The take this instance's Undo cell would undo (GET /panels/<id>/undo), asked for only while a Page has the cell.
+  let undoNext;
+  const hasUndo = (p) => pagesOf(p).some((_, i) => drawnCells(p, i).some((c) => c.kind === 'undo'));
+  let undoCells = hasUndo(panel);
 
   const render = () => {
     const now = Date.now();
-    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance, pages: pagesOf(panel), wrap: wrapOf(panel) });
-    say(ui.status, errorText(errorOf(st, now), names));
+    paintGrid(grid, { st, env, names, now, panelName: panel.name, instance, pages: pagesOf(panel), wrap: wrapOf(panel), undo: undoNext });
+    const err = errorOf(st, now);
+    const undone = err ? null : undoneOf(st, now);
+    say(ui.status, err ? errorText(err, names) : undoneText(undone, names));
+    ui.status.classList.toggle('sode-panel__status--ok', !!undone && !undone.failed.length);
   };
   let grid = buildGrid(ui.grid, panel, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
 
@@ -267,6 +277,17 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     ui.offline.hidden = !o;
     if (o) ui.offlineDetail.textContent = o.detail;
   };
+
+  async function askUndo() {
+    if (!undoCells || ended) return;
+    try {
+      undoNext = (await callJSON(`api/v1/panels/${id}/undo`)).undo;
+    } catch (e) {
+      // A refusal (a key without the take scope) greys the cell; a lost link keeps what it knew.
+      if (e.status !== undefined) undoNext = undefined;
+    }
+    render();
+  }
 
   let polling = false;
   async function poll() {
@@ -291,10 +312,13 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
         presets = pr;
         namesAt = Date.now();
       }
+      const was = env;
       env = envFrom(tally, prot, presets, panel.rights);
       st = applyTally(st, env);
       const off = offlineOf({ failed: false, routerUp: link ? link.routerUp : true });
       showOffline(off);
+      // Each ask walks History, so none runs on a timer; History may have moved while Sode was out of reach.
+      if (undoMoved(was, env, undoNext) || (!ready && !off)) askUndo();
       ready = !off;
       say(ui.note, '');
     } catch (e) {
@@ -322,27 +346,33 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     render();
   }
 
-  async function send(started) {
+  const takeOpts = (started) => ({ path: 'api/v1/takes', body: { routes: started?.routes }, finish: finishTake, word: 'take' });
+
+  async function send(started, { path, body, finish, word } = takeOpts(started)) {
     if (!started) return;
     st = started.state;
     render();
     try {
-      const body = await callJSON('api/v1/takes', {
+      const reply = await callJSON(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': takeKey() },
-        body: JSON.stringify({ routes: started.routes }),
+        body: JSON.stringify(body),
         noWait: true,
       });
-      st = finishTake(st, body || {}, Date.now());
+      st = finish(st, reply || {}, Date.now());
     } catch (e) {
+      const why = e.code === 'conflict' && word === 'undo' ? 'What Undo would undo has changed; press it again' : e.message;
       st =
         e.status === undefined
-          ? failTake(st, 'network', 'Sode did not answer, so the take may not have been sent', Date.now())
-          : failTake(st, e.code || String(e.status), e.message || 'The take was refused', Date.now());
+          ? failTake(st, 'network', `Sode did not answer, so the ${word} may not have been sent`, Date.now())
+          : failTake(st, e.code || String(e.status), why || `The ${word} was refused`, Date.now());
     }
     render();
     poll();
+    askUndo();
   }
+
+  const sendUndo = () => send(startUndo(st, undoNext), { path: `api/v1/panels/${id}/undo`, body: { id: undoNext?.id }, finish: finishUndo, word: 'undo' });
 
   function holdCancel() {
     clearTimeout(holdTimer);
@@ -377,6 +407,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       if (down.go) send(startTake(st, env));
       return render();
     }
+    if (cell.kind === 'undo') return void sendUndo();
     if (cell.kind === 'destination') st = pressDestination(st, cell);
     else if (cell.kind === 'source') st = pressSource(st, cell, env, now);
     else if (cell.kind === 'preset') st = pressPreset(st, cell, env, now);
@@ -413,9 +444,11 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       ui.device,
       instanceFrom(location.search),
       (name, editable) => {
+        const renamed = name !== instance;
         instance = name;
         if (ask) showName(name, editable);
         render();
+        if (renamed) askUndo();
       },
       (msg) => {
         run.stop();
@@ -439,6 +472,8 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       st = showPage(carryView(stateOf(p), st, everyCell(p)), landingPage(pagesOf(p), st.page));
       notePage();
       cells = cellsOf(p, st.page);
+      undoCells = hasUndo(p);
+      askUndo();
       look = applyLook(p);
       grid = buildGrid(ui.grid, p, cells, onPress, { down: holdDown, cancel: holdCancel }, art);
       render();

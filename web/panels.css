@@ -112,6 +112,9 @@
   font-weight: var(--pb-weight-bold);
   margin: 0;
 }
+.sode-panel__status--ok {
+  color: var(--pb-status-ok);
+}
 .sode-panel__update[hidden],
 .sode-panel__update .sode__banner-time[hidden] {
   display: none;

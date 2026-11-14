@@ -15,6 +15,7 @@ const KIND_ICON = {
   take: 'zap',
   preset: 'bookmark',
   clear: 'eraser',
+  undo: 'undo-2',
   current: 'eye',
   panelName: 'panels-top-left',
   instanceName: 'tablet-smartphone',
@@ -35,7 +36,7 @@ export function cellText(cell, names, pages = [], page = '') {
     return s === 'unassigned' ? 'Choose a Page' : s === 'missing' ? 'Page deleted' : navText(cell, pages);
   }
   if (cell.kind === 'nextPage' || cell.kind === 'previousPage') return kindLabel(cell.kind);
-  if (['take', 'clear', 'panelName', 'instanceName'].includes(cell.kind)) return kindLabel(cell.kind);
+  if (['take', 'clear', 'undo', 'panelName', 'instanceName'].includes(cell.kind)) return kindLabel(cell.kind);
   if (cell.kind === 'current') return 'Currently';
   if (cell.kind === 'preset') return cell.name || 'Choose a preset';
   if (!Number.isInteger(cell.n)) return `Choose a ${kindLabel(cell.kind).toLowerCase()}`;
