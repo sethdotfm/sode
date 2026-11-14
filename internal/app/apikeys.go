@@ -152,8 +152,8 @@ type keyStore struct {
 	endWrote uint64 // last endSeq written (under fileMu)
 }
 
-// setAsideDamaged renames a file that failed to parse so the next write cannot overwrite it
-// and an operator can repair it. No colons in the time: not every filesystem allows them.
+// setAsideDamaged: so the next write cannot overwrite the file and an administrator can repair
+// it. No colons in the time: not every filesystem allows them.
 func setAsideDamaged(path, prefix, what string, perr error) {
 	aside := path + ".damaged-" + time.Now().UTC().Format("20060102T150405Z")
 	if err := os.Rename(path, aside); err != nil {
