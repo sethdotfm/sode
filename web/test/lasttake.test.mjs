@@ -77,13 +77,25 @@ test('lastTake: corrupt or unmatched stored values are no Last', async () => {
   assert.equal(lastTake(), null);
 });
 
-test('lastTake: memory answers only when storage is blocked or empty, never for a corrupt value', async () => {
+test('lastTake: memory answers only when storage is blocked or the write failed', async () => {
   const { sendTakes, lastTake, patchPlan } = await setup();
   sendTakes(patchPlan(it(4), [it(6)], [1]));
   store.set(KEY, '{not json');
   assert.equal(lastTake(), null, 'corrupt');
   store.delete(KEY);
-  assert.equal(lastTake().src.n, 4, 'empty');
+  assert.equal(lastTake(), null, 'cleared after a good write');
+  const set = localStorage.setItem;
+  localStorage.setItem = () => {
+    throw new Error('full');
+  };
+  try {
+    store.set(KEY, JSON.stringify({ src: [1, 'X1'], dsts: [[5, 'X5']], levels: [1] }));
+    sendTakes(patchPlan(it(4), [it(6)], [1]));
+  } finally {
+    localStorage.setItem = set;
+  }
+  assert.equal(store.has(KEY), false, 'a failed write removes the older value');
+  assert.equal(lastTake().src.n, 4, 'write failed');
   const get = localStorage.getItem;
   localStorage.getItem = () => {
     throw new Error('blocked');

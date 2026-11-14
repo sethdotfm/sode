@@ -419,9 +419,10 @@ function extraBox(plan, spaceHint) {
 
 // This browser's last patch as numbers, so names stay current. Null until it makes one: History
 // holds other people's takes and must not fill a box. Stored per browser (every tab and user
-// shares it); memory answers only when storage is blocked or has no value.
+// shares it); memory answers only when storage is blocked or this tab's last write didn't land.
 const LAST_KEY = 'sode-last-take';
 let lastPatch = null;
+let lastWriteFailed = false;
 
 // Another tab's take: its Last (and the Next built on it) shows here too.
 globalThis.addEventListener?.('storage', (e) => {
@@ -454,7 +455,7 @@ function readLast() {
   } catch {
     return lastPatch;
   }
-  if (raw == null) return lastPatch;
+  if (raw == null) return lastWriteFailed ? lastPatch : null;
   try {
     const t = JSON.parse(raw);
     return validLast(t) ? t : null;
@@ -556,7 +557,8 @@ export function sendTakes(p) {
   if (last) {
     lastPatch = last;
     // A full storage keeps the older value, which would outrank memory.
-    if (!writeJSON(LAST_KEY, last)) writeStr(LAST_KEY, null);
+    lastWriteFailed = !writeJSON(LAST_KEY, last);
+    if (lastWriteFailed) writeStr(LAST_KEY, null);
   }
   const list = [...take.byId.values()];
   const dsts = new Set(list.map((t) => t.dst.n)).size;
