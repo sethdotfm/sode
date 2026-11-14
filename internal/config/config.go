@@ -591,7 +591,21 @@ func (c Config) UnknownKeysProblem() string {
 	if len(keys) == 0 {
 		return ""
 	}
-	return "config.yaml has keys this release doesn't know, kept as is: " + strings.Join(keys, ", ")
+	return "config.yaml has keys this release doesn't know, kept as is: " + NameKeys(keys)
+}
+
+// maxNamedKeys bounds key lists in the startup row and the import reply.
+const maxNamedKeys = 10
+
+// NameKeys joins keys for a message, naming at most maxNamedKeys.
+func NameKeys(keys []string) string {
+	if len(keys) == 0 {
+		return "none"
+	}
+	if len(keys) <= maxNamedKeys {
+		return strings.Join(keys, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(keys[:maxNamedKeys], ", "), len(keys)-maxNamedKeys)
 }
 
 // UnknownKeys lists the keys Parse kept in Extra fields, as sorted paths named like the file

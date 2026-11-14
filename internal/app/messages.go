@@ -111,8 +111,8 @@ type opResult struct {
 	ID     *int   `json:"id,omitempty"`
 	Err    string `json:"err,omitempty"`
 	Locked *bool  `json:"locked,omitempty"`
-	// Kept: configImport only, the keys this release doesn't know that the file keeps.
-	Kept []string `json:"kept,omitempty"`
+	// Kept: configImport only, the keys this release doesn't know that the file keeps (config.NameKeys).
+	Kept string `json:"kept,omitempty"`
 }
 
 type sentAddMsg struct {

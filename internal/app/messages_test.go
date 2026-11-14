@@ -60,6 +60,7 @@ func TestMessageKeys(t *testing.T) {
 		{"filterSetsResult fail", opResult{T: "filterSetsResult", Err: "x", ID: &zero, Locked: &no}, []string{"err", "id", "locked", "ok", "t"}},
 		{"configResult ok", opResult{T: "configResult", OK: true}, []string{"ok", "t"}},
 		{"configResult fail", opResult{T: "configResult", Err: "x", Locked: &yes}, []string{"err", "locked", "ok", "t"}},
+		{"configImportResult kept", opResult{T: "configImportResult", OK: true, ID: &zero, Kept: "futureKey"}, []string{"id", "kept", "ok", "t"}},
 		{"sentAdd", sentAddMsg{T: "sentAdd"}, []string{"entries", "lost", "t", "total"}},
 		{"sentPage", sentPageMsg{T: "sentPage"}, []string{"before", "entries", "lost", "more", "t", "total"}},
 	}

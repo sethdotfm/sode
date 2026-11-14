@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -154,7 +155,7 @@ func TestConfigImportRefused(t *testing.T) {
 		"not yaml":     "a: [",
 		"hand PIN":     strings.Replace(text, "settingsPin: ", "settingsPin: 1234 #", 1),
 		"bad user pin": strings.Replace(text, "pin: pbkdf2", "pin: xx", 1),
-		"lock no pin":  "locks:\n  main: true\n",
+		"lock no pin":  "router: \"\"\nlocks:\n  main: true\n",
 		"too big":      "brandText: " + strings.Repeat("x", maxConfigFile),
 	} {
 		if err := a.ImportConfig(admin, in); err == nil {
@@ -264,7 +265,7 @@ func TestConfigImportReadLimitOverWebSocket(t *testing.T) {
 		}
 		return ws, send, until
 	}
-	big := "# " + strings.Repeat("x", 200<<10) + "\nbrandText: Big\n"
+	big := "# " + strings.Repeat("x", 200<<10) + "\nrouter: " + strconv.Quote(a.r().cfg.Router) + "\nbrandText: Big\n"
 	// An oversize message is cut off by the server mid-write, so the client
 	// may see the 1009 close or, if the reset wins, a failed write or read.
 	// Either way the connection ends; a completed write must show the 1009.

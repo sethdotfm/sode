@@ -123,11 +123,14 @@ func (a *App) importConfig(c *client, text string) (unknown []string, err error)
 	if err != nil {
 		return nil, fmt.Errorf("not a Sode configuration: %w", err)
 	}
-	// Parse keeps unknown keys, so a panel file or other YAML would load as defaults.
+	// Parse keeps unknown keys, and a profile export shares filterSets and presets with
+	// Config, so either would load as defaults; ExportConfig always writes router.
 	var top map[string]any
-	if yaml.Unmarshal([]byte(text), &top) == nil && len(top) > 0 && len(file.Extra) == len(top) {
-		found := slices.Sorted(maps.Keys(file.Extra))
-		return nil, fmt.Errorf("not a Sode configuration: no settings this release knows (found: %s)", strings.Join(found, ", "))
+	if err := yaml.Unmarshal([]byte(text), &top); err != nil {
+		return nil, fmt.Errorf("not a Sode configuration: %w", err)
+	}
+	if _, ok := top["router"]; !ok {
+		return nil, fmt.Errorf("not a Sode configuration: no router setting (found: %s)", config.NameKeys(slices.Sorted(maps.Keys(top))))
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -198,11 +201,11 @@ func (a *App) serveConfigImport(c *client, m *inMsg) {
 	go func(text string, id int) {
 		kept, err := a.importConfig(c, text)
 		note := fmt.Sprintf("%d bytes", len(text))
-		if len(kept) > 0 {
-			note += "; kept unknown keys " + strings.Join(kept, ", ")
-		}
 		res := opResultFor("configImport", &id, err)
-		res.Kept = kept
+		if len(kept) > 0 {
+			res.Kept = config.NameKeys(kept)
+			note += "; kept unknown keys " + res.Kept
+		}
 		a.replyOpResult(c, "configImport", note, res, err)
 	}(m.YAML, m.ID)
 }

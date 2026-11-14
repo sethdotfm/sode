@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -100,10 +101,20 @@ func TestImportRefusesNonConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = a.ImportConfig(admin, "id: p1\ncells: []\n")
-	want := "not a Sode configuration: no settings this release knows (found: cells, id)"
-	if err == nil || err.Error() != want {
-		t.Fatalf("panel file: %v, want %q", err, want)
+	// The profile export is shaped like web/exportfmt.js's buildExport; filterSets and
+	// presets are Config keys too, so only the missing router gives it away.
+	profile := `{"sode":1,"site":"Studio","user":"Ana","exported":"2026-11-14T10:00:00Z",` +
+		`"prefs":{"theme":"dark"},` +
+		`"filterSets":[{"name":"Cams","src":"cam","dst":"","sode":true,"ext":true,"hidden":false}],` +
+		`"presets":[{"name":"P","items":[{"src":1,"srcName":"CAM 1","dsts":[2],"dstNames":["MON"]}]}]}`
+	for name, c := range map[string]struct{ in, want string }{
+		"panel file":     {"id: p1\ncells: []\n", "not a Sode configuration: no router setting (found: cells, id)"},
+		"profile export": {profile, "not a Sode configuration: no router setting (found: exported, filterSets, prefs, presets, site, sode, user)"},
+		"empty mapping":  {"{}\n", "not a Sode configuration: no router setting (found: none)"},
+	} {
+		if err := a.ImportConfig(admin, c.in); err == nil || err.Error() != c.want {
+			t.Errorf("%s: %v, want %q", name, err, c.want)
+		}
 	}
 	after, err := os.ReadFile(a.cfgPath)
 	if err != nil {
@@ -112,7 +123,23 @@ func TestImportRefusesNonConfig(t *testing.T) {
 	if string(after) != string(before) {
 		t.Fatal("a refused import changed the saved config")
 	}
-	if strings.Contains(string(after), "cells") {
-		t.Fatal("panel keys reached the config")
+	if strings.Contains(string(after), "cells") || strings.Contains(string(after), "Cams") {
+		t.Fatal("refused keys reached the config")
+	}
+}
+
+func TestImportNamesAtMostTenKeys(t *testing.T) {
+	a := userApp(t, false)
+	text, _ := exportOf(t, a, true)
+	for i := range 12 {
+		text += fmt.Sprintf("future%02d: 1\n", i)
+	}
+	kept, err := a.importConfig(adminClient(t, a), text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "future00, future01, future02, future03, future04, future05, future06, future07, future08, future09 and 2 more"
+	if got := config.NameKeys(kept); got != want {
+		t.Errorf("NameKeys = %q, want %q", got, want)
 	}
 }
