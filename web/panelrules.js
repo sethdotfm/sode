@@ -6,7 +6,21 @@
 import { pageCells } from './panelpages.js';
 import { fullKey } from './panellink.js';
 
-export const KINDS = ['source', 'destination', 'take', 'preset', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
+export const KINDS = [
+  'source',
+  'destination',
+  'take',
+  'preset',
+  'clear',
+  'current',
+  'panelName',
+  'instanceName',
+  'pageName',
+  'info',
+  'goToPage',
+  'nextPage',
+  'previousPage',
+];
 // Kinds that only show something and are never pressed.
 export const SHOW_KINDS = ['current', 'panelName', 'instanceName', 'pageName', 'info'];
 const NEEDS_NUMBER = ['source', 'destination'];

@@ -31,6 +31,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Tag must be on main or a release branch
         run: |
           set -euo pipefail
@@ -39,6 +40,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false # anything run on main can write the cache this job would read
       - name: Tests, and the tag matches version.go, README and CHANGELOG
         run: |
           set -euo pipefail
@@ -78,8 +80,7 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.ver.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # No GHA cache: anything run on main can write it, and this image gets signed.
       # Trivy runs from its container image (pinned by digest), not the
       # action: the action's installer failed to download the binary here.
       - name: Scan (no fixable CRITICAL)

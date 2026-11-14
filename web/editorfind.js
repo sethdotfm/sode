@@ -143,7 +143,7 @@ export function initFind(editor) {
       preview.push({ node, cls: node.className, kids: [...node.childNodes] });
       node.classList.add('is-preview');
       if (s.replace) node.classList.add('is-replaced');
-      node.replaceChildren(icon(CATEGORY_ICON[(s.entry.category === 'page' ? 'goToPage' : s.entry.category)]), el('span', 'sode-ed__text', s.entry.label));
+      node.replaceChildren(icon(CATEGORY_ICON[s.entry.category === 'page' ? 'goToPage' : s.entry.category]), el('span', 'sode-ed__text', s.entry.label));
     }
   }
   function describe(plan) {

@@ -297,7 +297,10 @@ test('an error shows for a few seconds', () => {
 test('a viewed destination and staged routes carry no clock: only a press, a take or Clear ends them', () => {
   const e = env();
   const st = pressSource(pressDestination(createState(), D(0), e, T0), S(4), e, T0);
-  assert.equal(Object.values(st).some((v) => v === T0), false);
+  assert.equal(
+    Object.values(st).some((v) => v === T0),
+    false,
+  );
   assert.equal(st.view.dst, 0);
   assert.equal(st.staged.length, 1);
 });

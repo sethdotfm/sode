@@ -375,3 +375,6 @@ func TestLockOverWebSocket(t *testing.T) {
 		t.Fatalf("sent not refused after lock: %v", m)
 	}
 }
+
+// UserUnlock signs in by PIN alone (PIN only mode).
+func (a *App) UserUnlock(c *client, pin string) error { return a.UserUnlockAs(c, "", pin) }

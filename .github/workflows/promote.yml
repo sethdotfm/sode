@@ -72,6 +72,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false # anything run on main can write the cache this job would read
       - name: The rc commit still says this version (version.go, README, CHANGELOG)
         env:
           SHA: ${{ steps.v.outputs.sha }}

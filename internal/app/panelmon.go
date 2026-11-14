@@ -246,8 +246,6 @@ func (m *panelMon) watchedInstances(user, id string) []string {
 	return out
 }
 
-func (m *panelMon) setWatch(user, id string, on bool) error { return m.setWatchInst(user, id, "", on) }
-
 func (m *panelMon) setWatchInst(user, id, inst string, on bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

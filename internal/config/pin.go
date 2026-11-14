@@ -8,8 +8,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
-	"testing"
 	"strings"
+	"testing" // on purpose: testing.Testing() keeps UseTestCosts out of production
 	"unicode/utf8"
 )
 

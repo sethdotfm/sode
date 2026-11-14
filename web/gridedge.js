@@ -84,7 +84,11 @@ function clipText(x, past) {
   return `Clip ${parts.join(' and ')}.`;
 }
 
-const pageList = (onto) => joinAnd(`Page ${onto[0].index + 1}`, onto.slice(1).map((o) => `Page ${o.index + 1}`)).replace(/,? and/, onto.length > 2 ? ', and' : ' and');
+const pageList = (onto) =>
+  joinAnd(
+    `Page ${onto[0].index + 1}`,
+    onto.slice(1).map((o) => `Page ${o.index + 1}`),
+  ).replace(/,? and/, onto.length > 2 ? ', and' : ' and');
 
 function wrapText(x, orderName, past) {
   const rest = [];

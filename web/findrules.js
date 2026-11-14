@@ -3,7 +3,22 @@
 import { allowed } from './rightsrules.js';
 import { fillPlan, applyFill, setCell, rectOf, select, isUnassigned, cellAt } from './gridmodel.js';
 
-export const CATEGORIES = ['source', 'destination', 'preset', 'take', 'clear', 'current', 'panelName', 'instanceName', 'page', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
+export const CATEGORIES = [
+  'source',
+  'destination',
+  'preset',
+  'take',
+  'clear',
+  'current',
+  'panelName',
+  'instanceName',
+  'page',
+  'pageName',
+  'info',
+  'goToPage',
+  'nextPage',
+  'previousPage',
+];
 // One entry each, placed with nothing chosen: a Go to Page cell gets its Page in the Cell tab.
 const NUMBERLESS = ['take', 'clear', 'current', 'panelName', 'instanceName', 'pageName', 'info', 'goToPage', 'nextPage', 'previousPage'];
 // The kinds with a list behind them get a chip; the others are one entry each and show under All.
@@ -83,7 +98,16 @@ export function findEntries(namesReply, presetsReply, rights, { fixed = false } 
 // The panel's Pages as entries. Choosing one places Go to Page cells, so Rights do not apply.
 // alias lets "page 3" match a named Page.
 export const pageEntries = (pages) =>
-  (pages || []).map((p, i) => ({ category: 'page', key: `page:${p.id}`, id: p.id, n: i, label: p.name?.trim() || `Page ${i + 1}`, num: i + 1, alias: `page ${i + 1}`, off: false }));
+  (pages || []).map((p, i) => ({
+    category: 'page',
+    key: `page:${p.id}`,
+    id: p.id,
+    n: i,
+    label: p.name?.trim() || `Page ${i + 1}`,
+    num: i + 1,
+    alias: `page ${i + 1}`,
+    off: false,
+  }));
 
 const OFF_TAG = { rights: 'Outside rights', fixed: 'Fixed destination is on' };
 // Why an entry cannot be placed, '' when it can.

@@ -79,12 +79,6 @@ func GoSalvo(clear bool, group int) []byte {
 	return []byte{CmdGoSalvo, b, byte(group & 0x7f)}
 }
 
-func ConnectOnGoAck(matrix, level, dst, src, group int) []byte {
-	m := ConnectOnGo(matrix, level, dst, src, group)
-	m[0] = CmdConnectOnGoAck
-	return m
-}
-
 func GoDoneAck(status, group int) []byte {
 	return []byte{CmdGoDoneAck, byte(status), byte(group & 0x7f)}
 }

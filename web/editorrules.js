@@ -80,7 +80,12 @@ const shape = (name, g, f, pages) =>
     g.rows,
     g.cols,
     saved(g).cells.map(sorted),
-    storedPages(pages, [], g.rows, g.cols).map((p) => [p.id, p.name || '', p.enabled !== false, saved(createGrid({ rows: g.rows, cols: g.cols, cells: p.cells })).cells.map(sorted)]),
+    storedPages(pages, [], g.rows, g.cols).map((p) => [
+      p.id,
+      p.name || '',
+      p.enabled !== false,
+      saved(createGrid({ rows: g.rows, cols: g.cols, cells: p.cells })).cells.map(sorted),
+    ]),
     sorted(f.settings || {}),
     f.acts || 'session',
     f.slug || '',

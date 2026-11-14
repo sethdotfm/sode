@@ -21,7 +21,14 @@ test('a changed revision never applies on the spot: the banner counts down first
 
 test('staged routes are never dropped by the countdown alone: the banner waits for a take or Clear', () => {
   const u = noticeRev(createUpdate(3), 4, 1000);
-  assert.deepEqual(updateStep(u, staging, 1000 + COUNT_MS), { step: 'banner', leftMs: 0, totalMs: COUNT_MS, deadline: 1000 + COUNT_MS, wait: 'staged', drops: false });
+  assert.deepEqual(updateStep(u, staging, 1000 + COUNT_MS), {
+    step: 'banner',
+    leftMs: 0,
+    totalMs: COUNT_MS,
+    deadline: 1000 + COUNT_MS,
+    wait: 'staged',
+    drops: false,
+  });
   assert.equal(updateStep(u, staging, 99000).wait, 'staged');
   assert.equal(updateStep(u, idle, 99000).step, 'apply');
 });
