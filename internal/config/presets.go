@@ -24,13 +24,15 @@ type Preset struct {
 	Name  string       `yaml:"name" json:"name"`
 	Items []PresetItem `yaml:"items" json:"items"`
 	// Pinned: nil (older file) = true; normalizePresets always fills it.
-	Pinned *bool `yaml:"pinned,omitempty" json:"pinned,omitempty"`
+	Pinned *bool          `yaml:"pinned,omitempty" json:"pinned,omitempty"`
+	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
 type PresetItem struct {
-	Src    int   `yaml:"src" json:"src"`
-	Dsts   []int `yaml:"dsts" json:"dsts"`
-	Levels []int `yaml:"levels,omitempty" json:"levels"`
+	Src    int            `yaml:"src" json:"src"`
+	Dsts   []int          `yaml:"dsts" json:"dsts"`
+	Levels []int          `yaml:"levels,omitempty" json:"levels"`
+	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
 func ClonePresets(in []Preset) []Preset {
@@ -39,13 +41,13 @@ func ClonePresets(in []Preset) []Preset {
 	}
 	out := make([]Preset, len(in))
 	for i, s := range in {
-		out[i] = Preset{Name: s.Name, Items: make([]PresetItem, len(s.Items))}
+		out[i] = Preset{Name: s.Name, Items: make([]PresetItem, len(s.Items)), Extra: s.Extra}
 		if s.Pinned != nil {
 			p := *s.Pinned
 			out[i].Pinned = &p
 		}
 		for j, it := range s.Items {
-			out[i].Items[j] = PresetItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels)}
+			out[i].Items[j] = PresetItem{Src: it.Src, Dsts: slices.Clone(it.Dsts), Levels: slices.Clone(it.Levels), Extra: it.Extra}
 		}
 	}
 	return out

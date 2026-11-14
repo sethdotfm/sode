@@ -86,7 +86,46 @@ export default [
       sourceType: 'module',
       globals: browser,
     },
-    rules: { 'no-undef': 'error', 'no-unused-vars': 'error' },
+    // eqeqeq ignores null: `x == null` is used throughout (66 hits otherwise).
+    rules: {
+      'no-undef': 'error',
+      'no-unused-vars': 'error',
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      'no-fallthrough': 'error',
+    },
+  },
+  {
+    // Pure rule modules stay testable in Node: no DOM or storage globals.
+    files: ['web/*rules.js'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        ...['document', 'window', 'localStorage', 'sessionStorage', 'navigator', 'location'].map((name) => ({
+          name,
+          message: 'Rule modules are pure; take it as an argument.',
+        })),
+      ],
+    },
+  },
+  {
+    files: ['web/keys.js'],
+    rules: { 'no-restricted-imports': ['error', { patterns: [{ regex: '.*', message: 'keys.js imports nothing.' }] }] },
+  },
+  {
+    files: ['web/core.js'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '^(?!\\./(tooltip|sprite)\\.js$)',
+              message: 'core.js imports only ./tooltip.js and ./sprite.js.',
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     files: ['web/test/*.mjs'],

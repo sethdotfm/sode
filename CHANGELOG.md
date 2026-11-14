@@ -1,6 +1,6 @@
 # Changelog
 
-Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading.
+Newest first. Each release also has notes on [GitHub](https://github.com/sethdotfm/sode/releases). Give it a section for each release when you bump `Version` (see README, Releasing); `TestVersionNoted` checks the heading. Pending entries sit in `changelog.d/` until a release folds them in.
 
 ## Beta 1.8.3
 

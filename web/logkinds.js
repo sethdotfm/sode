@@ -52,6 +52,10 @@ export const WHY_LABEL = {
   rename: 'Instance renamed',
 };
 export const EVENT_KINDS = new Set(['browser', 'command', 'api', 'link', 'server']);
+const EVENT_PROBLEM = { command: ['refused', 'locked', 'error', 'fallback'], api: ['refused', 'error'], link: ['down'] };
+// Only server rows count an err as a problem: a browser disconnect also carries one for an abnormal close.
+export const eventProblem = (e) => (e.kind === 'server' ? !!e.err : !!EVENT_PROBLEM[e.kind]?.includes(e.result));
+
 // Saved lists of exactly these (pre-events) meant All.
 const LEGACY_IDS = ['connect', 'interrogate', 'keepalive', 'dump', 'names', 'other'];
 

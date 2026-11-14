@@ -24,7 +24,8 @@ type User struct {
 	// Rights and its Visibility bind this user's browser and keys.
 	Rights Rights `yaml:"rights,omitempty" json:"rights"`
 	// Profile is never in JSON: sent only to connections unlocked as this user.
-	Profile Profile `yaml:"profile,omitempty" json:"-"`
+	Profile Profile        `yaml:"profile,omitempty" json:"-"`
+	Extra   map[string]any `yaml:",inline" json:"-"`
 }
 
 type Locks struct {
@@ -33,7 +34,8 @@ type Locks struct {
 	// Panel covers the three panel pages: /panels, /panels/editor and /panels/<id>.
 	Panel bool `yaml:"panel" json:"panel"`
 	// Grid: ignored; kept so old files load.
-	LegacyGrid any `yaml:"grid,omitempty" json:"-"`
+	LegacyGrid any            `yaml:"grid,omitempty" json:"-"`
+	Extra      map[string]any `yaml:",inline" json:"-"`
 }
 
 func (l Locks) Any() bool { return l.Main || l.Log || l.Panel }

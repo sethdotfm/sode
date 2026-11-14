@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -105,20 +107,35 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 // except PIN hashes it omits). Writes the same `api` rows as the saves it stands in for. Refused without the Advanced Settings PIN or for a file that doesn't
 // parse or validate. Router changes reconnect via applyConfig.
 func (a *App) ImportConfig(c *client, text string) error {
+	_, err := a.importConfig(c, text)
+	return err
+}
+
+// importConfig also returns the keys this release doesn't know, which the file keeps.
+func (a *App) importConfig(c *client, text string) (unknown []string, err error) {
 	if len(text) > maxConfigFile {
-		return errImportTooBig
+		return nil, errImportTooBig
 	}
 	if blank(text) {
-		return errors.New("the file is empty")
+		return nil, errors.New("the file is empty")
 	}
 	file, err := config.Parse([]byte(text))
 	if err != nil {
-		return fmt.Errorf("not a Sode configuration: %w", err)
+		return nil, fmt.Errorf("not a Sode configuration: %w", err)
+	}
+	// Parse keeps unknown keys, and a profile export shares filterSets and presets with
+	// Config, so either would load as defaults; ExportConfig always writes router.
+	var top map[string]any
+	if err := yaml.Unmarshal([]byte(text), &top); err != nil {
+		return nil, fmt.Errorf("not a Sode configuration: %w", err)
+	}
+	if _, ok := top["router"]; !ok {
+		return nil, fmt.Errorf("not a Sode configuration: no router setting (found: %s)", config.NameKeys(slices.Sorted(maps.Keys(top))))
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	if err := a.guardSave(c, false); err != nil {
-		return err
+		return nil, err
 	}
 	before := a.r().cfg
 	err = a.applyConfig(func(cur *config.Config) error {
@@ -139,7 +156,10 @@ func (a *App) ImportConfig(c *client, text string) error {
 		a.auditAPISettings(connActor(c), before.API, now.API)
 		a.auditRequireHTTPS(connActor(c), before.RequireHTTPS, now.RequireHTTPS)
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return file.UnknownKeys(), nil
 }
 
 // blank: only whitespace and comments (would load as defaults, wiping the config).
@@ -180,6 +200,13 @@ func (a *App) serveConfigExport(c *client, m *inMsg) {
 func (a *App) serveConfigImport(c *client, m *inMsg) {
 	go func(text string, id int) {
 		defer m.finish()
-		a.replyOpNote(c, "configImport", id, fmt.Sprintf("%d bytes", len(text)), a.ImportConfig(c, text))
+		kept, err := a.importConfig(c, text)
+		note := fmt.Sprintf("%d bytes", len(text))
+		res := opResultFor("configImport", &id, err)
+		if len(kept) > 0 {
+			res.Kept = config.NameKeys(kept)
+			note += "; kept unknown keys " + res.Kept
+		}
+		a.replyOpResult(c, "configImport", note, res, err)
 	}(m.YAML, m.ID)
 }

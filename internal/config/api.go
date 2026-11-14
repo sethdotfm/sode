@@ -48,11 +48,12 @@ const (
 // lists are pointers (omitempty would turn "none" back into "all" on reload). Never sent
 // before the PIN: the hello blanks Users and the owning Config fields carry json:"-".
 type Rights struct {
-	Sources    *[]int    `yaml:"sources,omitempty" json:"sources,omitempty"`
-	Dsts       *[]int    `yaml:"dsts,omitempty" json:"dsts,omitempty"`
-	Levels     *[]int    `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels
-	Presets    *[]string `yaml:"presets,omitempty" json:"presets,omitempty"`
-	Visibility string    `yaml:"visibility,omitempty" json:"visibility,omitempty"`
+	Sources    *[]int         `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Dsts       *[]int         `yaml:"dsts,omitempty" json:"dsts,omitempty"`
+	Levels     *[]int         `yaml:"levels,omitempty" json:"levels,omitempty"` // UI levels
+	Presets    *[]string      `yaml:"presets,omitempty" json:"presets,omitempty"`
+	Visibility string         `yaml:"visibility,omitempty" json:"visibility,omitempty"`
+	Extra      map[string]any `yaml:",inline" json:"-"`
 }
 
 func in[T comparable](l *[]T, v T) bool { return l == nil || slices.Contains(*l, v) }
@@ -120,18 +121,20 @@ type APIClient struct {
 	Panel  string   `yaml:"panel,omitempty" json:"panel,omitempty"`
 	// Networks limits where the client's keys work: CIDRs, empty means anywhere. Set through a
 	// panel's Share tab (panelnet.go).
-	Networks []string `yaml:"networks,omitempty" json:"networks,omitempty"`
+	Networks []string       `yaml:"networks,omitempty" json:"networks,omitempty"`
+	Extra    map[string]any `yaml:",inline" json:"-"`
 }
 
 // APISettings: advanced settings, saved apart from the Settings form (owned).
 type APISettings struct {
-	Enabled       bool `yaml:"enabled" json:"enabled"`
-	RateLimit     int  `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
-	TakeCap       int  `yaml:"takeCap" json:"takeCap"`
-	GuestEnabled  bool `yaml:"guestEnabled" json:"guestEnabled"`
-	LogReads      bool `yaml:"logReads" json:"logReads"`
-	MaxUserKeys   int  `yaml:"maxUserKeys" json:"maxUserKeys"`
-	MaxClientKeys int  `yaml:"maxClientKeys" json:"maxClientKeys"`
+	Enabled       bool           `yaml:"enabled" json:"enabled"`
+	RateLimit     int            `yaml:"rateLimit" json:"rateLimit"` // per key per minute, 0 = none
+	TakeCap       int            `yaml:"takeCap" json:"takeCap"`
+	GuestEnabled  bool           `yaml:"guestEnabled" json:"guestEnabled"`
+	LogReads      bool           `yaml:"logReads" json:"logReads"`
+	MaxUserKeys   int            `yaml:"maxUserKeys" json:"maxUserKeys"`
+	MaxClientKeys int            `yaml:"maxClientKeys" json:"maxClientKeys"`
+	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
 func DefaultAPISettings() APISettings {

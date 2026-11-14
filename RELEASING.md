@@ -38,7 +38,7 @@ Automatic updaters should follow `latest` (or `X.Y`); only `promote.yml` moves t
 
 ## Cutting a release
 
-1. **Prepare on a branch and merge to `main`**: bump `Version`, the README line, and give CHANGELOG.md its final `## Beta X.Y.Z` section (no "(unreleased)"). `SODE_RELEASE_TAG=vX.Y.Z-rc.1 go test ./internal/app -run TestVersionNoted` checks it before you tag.
+1. **Prepare on a branch and merge to `main`**: bump `Version`, the README line, and give CHANGELOG.md its final `## Beta X.Y.Z` section (no "(unreleased)"). Append the bullets from each `changelog.d/*.md` fragment under that heading, then `git rm` every fragment except README.md; with `SODE_RELEASE_TAG` set, `TestVersionNoted` fails while any remain. `SODE_RELEASE_TAG=vX.Y.Z-rc.1 go test ./internal/app -run TestVersionNoted` checks it before you tag.
 2. **Tag the candidate on `main`**: `git tag -a vX.Y.Z-rc.1 -m "..." && git push origin vX.Y.Z-rc.1`. Watch the `rc` run. If it fails, the failed number is spent: fix on `main` and tag `-rc.2`. A candidate that failed before its last step is never signed, so it can't be promoted.
 3. **Test it**: `docker pull ghcr.io/sethdotfm/sode:rc`, against the simulator and then your router.
 4. **Promote**: Actions > promote > Run workflow, branch `main`, the rc tag. Do it once with *dry run* ticked, then again unticked.
@@ -63,16 +63,17 @@ cosign verify ghcr.io/sethdotfm/sode@sha256:<digest> \
 
 A release digest passes with `promote.yml`; a candidate only with `rc.yml@refs/tags/vX.Y.Z-rc.N`; an `edge` or `sha-` image has no signature. For a router you can't afford to surprise, pin `image: ghcr.io/sethdotfm/sode@sha256:...` (the digest is in the release notes) and update by hand.
 
-## Repository settings (checked 2026-11-04)
+## Repository settings (checked 2026-11-14)
 
 | Setting | State |
 | --- | --- |
-| Default workflow token permissions | read-only (done) |
-| Container package visibility | public (done) |
-| Actions pinned by commit SHA | done |
-| Tag ruleset for `v*` (no delete or force-update) | **not set** |
-| `release` environment (reviewers) | **not created**; GitHub makes an empty one the first time promote runs |
-| Branch protection / required checks on `main` | **not set**; merges are by pull request by habit |
-| Merge style | merge commits, squash and rebase all allowed; the history is kept as written |
+| Default workflow token permissions | read-only |
+| Container package visibility | public |
+| Actions pinned by commit SHA | yes, all workflows |
+| Tag ruleset for `v*` | "Protect release tags": blocks deletion and non-fast-forward; creating tags is allowed, so promote can push `vX.Y.Z` |
+| `release` environment | required reviewer: the repo owner; each promote waits for approval |
+| Branch protection on `main` | `ci-ok main` required, branch must be up to date (strict), enforced for admins |
+| Merge settings | auto-merge and the Update branch button on; head branches deleted on merge; merge commits, squash and rebase allowed |
+| Dependabot | version updates (actions, gomod, docker), vulnerability alerts and security update PRs |
 
-Until the tag ruleset exists, a `v*` tag can be moved or deleted by anyone who can push. The workflows don't depend on it, but "tags are immutable" is only true once it is set: Settings > Rules > Rulesets, target tags `v*`, block deletion and non-fast-forward, and allow the `github-actions` app to create them (promote pushes `vX.Y.Z` with `GITHUB_TOKEN`).
+With strict on, a PR behind main must be updated before it merges; turn on auto-merge and use Update branch instead of waiting.

@@ -241,7 +241,9 @@ func (a *App) r() *runtime { return a.rt.Load() }
 // Run ends when ctx does, after the writes in flight finish (up to drainLimit). The router
 // link, logSent and uptime run on their own context so those writes keep them meanwhile.
 func (a *App) Run(ctx context.Context) {
-	a.logEvent(event(kindServer, "", "", "start"))
+	start := event(kindServer, "", "", "start")
+	start.Err = a.r().cfg.UnknownKeysProblem() // Err files it under Problems
+	a.logEvent(start)
 	link, cut := context.WithCancel(context.WithoutCancel(ctx))
 	go a.sw.Run(link)
 	var wg sync.WaitGroup
