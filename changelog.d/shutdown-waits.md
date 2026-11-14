@@ -1,0 +1,1 @@
+- On shutdown, Sode waits up to 6 seconds for takes and settings saves already running, with the router link still up, so their History entries and replies are not lost. Takes and saves sent meanwhile are refused.

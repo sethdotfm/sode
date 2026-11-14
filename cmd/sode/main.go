@@ -175,6 +175,6 @@ func main() {
 	// Run writes the stop row and the uptime's off line as it ends.
 	select {
 	case <-ran:
-	case <-time.After(3 * time.Second):
+	case <-time.After(8 * time.Second): // Run waits up to 6s for takes and saves in flight
 	}
 }

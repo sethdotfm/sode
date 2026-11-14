@@ -29,6 +29,7 @@ func shortTimers(a *App) {
 	a.routeTimeout = 40 * time.Millisecond
 	a.routeGrace = 40 * time.Millisecond
 	a.queueMax = 500 * time.Millisecond
+	a.drainLimit = 2 * time.Second
 }
 
 // endBurst makes the pending burst old enough to be written.
