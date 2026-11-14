@@ -387,6 +387,7 @@ func (a *App) planPhase(r *runtime, c *client, req routeReq) (*waiter, *Entry, e
 	if c.api != nil {
 		e.setActor(c.api.Actor)
 		e.Panel, e.Instance = a.panelNames(c.api.Actor)
+		e.PanelID = c.api.Actor.panel
 	}
 	return w, e, nil
 }

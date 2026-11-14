@@ -12,6 +12,7 @@ export const KINDS = [
   'take',
   'preset',
   'clear',
+  'undo',
   'current',
   'panelName',
   'instanceName',
@@ -96,6 +97,7 @@ export function namesFrom(reply) {
   const destination = (n) => dst.get(n) || `Destination ${n + off}`;
   const plain = {
     clear: 'Clear',
+    undo: 'Undo',
     current: 'Currently',
     panelName: 'Panel Name',
     instanceName: 'Instance Name',
@@ -177,6 +179,13 @@ export function errorText(err, names) {
       return 'This panel stages one destination at a time, and that preset has more';
     case 'refused':
       return err.message || 'The take was refused';
+    case 'undone': {
+      const dsts = [...new Set(err.routes.map((r) => r.dst))];
+      const back = err.routes.length === 1 ? ` back to ${names.source(err.routes[0].src)}` : '';
+      return `Undone: ${dsts.map(names.destination).join(', ')}${back}`;
+    }
+    case 'undo-failed':
+      return `Undo failed on ${err.dsts.map(names.destination).join(', ')}`;
     default:
       return '';
   }

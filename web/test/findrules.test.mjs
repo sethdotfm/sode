@@ -23,9 +23,9 @@ const presets = {
   ],
 };
 
-test('every Source, Destination, Preset, Take, Clear, Current, Panel Name, Instance Name and Page cell kind is searchable, with the number a person sees', () => {
+test('every Source, Destination, Preset, Take, Clear, Undo, Current, Panel Name, Instance Name and Page cell kind is searchable, with the number a person sees', () => {
   const all = findEntries(names, presets, null);
-  assert.equal(all.length, 17);
+  assert.equal(all.length, 18);
   assert.deepEqual(
     rankFind(all, 'take')
       .map((e) => e.category)
@@ -33,6 +33,7 @@ test('every Source, Destination, Preset, Take, Clear, Current, Panel Name, Insta
     ['take'],
   );
   assert.deepEqual(rankFind(all, 'clear')[0].category, 'clear');
+  assert.deepEqual(rankFind(all, 'undo')[0].category, 'undo');
   const cam = all.find((e) => e.label === 'Camera 2');
   assert.deepEqual([cam.category, cam.n, cam.num, cam.off], ['source', 1, 2, false]);
   const p = all.find((e) => e.label === 'Night');
@@ -42,7 +43,7 @@ test('every Source, Destination, Preset, Take, Clear, Current, Panel Name, Insta
 test('Read-only rights grey what is outside them and Hidden removes it', () => {
   const rights = { sources: [0], dsts: [1], presets: ['Night'] };
   const grey = findEntries(names, presets, rights);
-  assert.equal(grey.length, 17);
+  assert.equal(grey.length, 18);
   assert.deepEqual(
     grey.filter((e) => e.off).map((e) => e.label),
     ['Camera 2', 'Graphics', 'Monitor A', 'Show open'],
@@ -56,6 +57,7 @@ test('Read-only rights grey what is outside them and Hidden removes it', () => {
       'Night',
       'Take',
       'Clear',
+      'Undo',
       'Current Source',
       'Panel Name',
       'Instance Name',
@@ -125,6 +127,7 @@ test('chips narrow to categories, and with no text results come in number order 
       'Show open',
       'Take',
       'Clear',
+      'Undo',
       'Current Source',
       'Panel Name',
       'Instance Name',

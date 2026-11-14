@@ -1647,6 +1647,69 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
+  /panels/{id}/undo:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, pattern: "^(p-[0-9a-f]{8}|[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?)$" } }
+    get:
+      operationId: nextPanelUndo
+      tags: [panels]
+      summary: The take a panel instance's Undo cell would undo
+      description: |
+        Scope `take`, a caller who may use the panel. The caller is the instance: a panel key's
+        instance, or `X-Sode-Panel` naming this panel and `X-Sode-Instance` with a user's key. The take
+        is the newest one in History from this panel (`panelId`) and instance, ignoring case, that no
+        undo has taken back, among the newest 1000 entries; a take of several routes is one Group.
+        `undo` is null when there is none. `allowed` is false, with the reason, when a route to restore
+        is outside the caller's Rights.
+      responses:
+        "200":
+          description: The take, or null
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [undo]
+                properties:
+                  undo:
+                    nullable: true
+                    type: object
+                    required: [entries, routes, allowed]
+                    properties:
+                      entries: { type: array, items: { $ref: "#/components/schemas/Entry" }, description: The History entries to undo, oldest first }
+                      routes:
+                        type: array
+                        description: What the undo would send, one route per source to restore
+                        items:
+                          type: object
+                          required: [src, dst, levels]
+                          properties:
+                            src: { type: integer }
+                            dst: { type: integer }
+                            levels: { type: array, items: { type: integer } }
+                      allowed: { type: boolean }
+                      reason: { type: string, description: Why not, when allowed is false }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: panelUndo
+      tags: [writes]
+      summary: Undo a panel instance's newest take
+      description: |
+        Scope `take`. Undoes the take that GET names, as `POST /history/{id}/undo` does for each of its
+        entries, so a panel key needs no `history` scope. Each call steps one take further back. 422
+        `nothing_to_do` when the instance has no take left to undo; 403 `outside_rights` as for a take.
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/TakeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Error" }
   /panels/{id}/assign:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, pattern: "^p-[0-9a-f]{8}$" }, description: The target panel }
@@ -2154,7 +2217,7 @@ components:
           description: |
             The Page's cells. A `goToPage` cell names its target in `page`, a Page id of this panel: one
             that is not a string or not shaped like an id is 400 `bad_request`, and one that names no Page
-            is kept and reads as unassigned. `nextPage` and `previousPage` cells have no target. A
+            is kept and reads as unassigned. `nextPage`, `previousPage` and `undo` cells have no target. A
             `pageName` or `info` cell may hold `show`, a list without repeats of what it shows: `number`
             and `name` for `pageName` (absent means `name`), `panel`, `number`, `page` and `instance`
             for `info` (absent means all but `number`); anything else is 400 `bad_request`.
@@ -2534,6 +2597,7 @@ components:
         groupN: { type: integer, description: Routes in the Group; absent for a hidden caller }
         preset: { type: string, description: The preset this take was fired from }
         panel: { type: string, description: "The panel whose page made the take: its name, else its short name. A Session-mode page names itself" }
+        panelId: { type: string, description: "That panel's id, which a rename leaves; the Undo cell matches by it" }
         instance: { type: string, description: The instance of that panel, its device name }
         ext: { type: boolean, description: An External change }
         found: { type: boolean, description: External only, changed without a Connected and seen when Sode re-read the router }
