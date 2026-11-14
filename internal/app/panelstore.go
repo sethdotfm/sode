@@ -330,12 +330,6 @@ func (s *panelStore) problem(format string, args ...any) {
 	s.probs = append(s.probs, msg)
 }
 
-func (s *panelStore) problems() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return slices.Clone(s.probs)
-}
-
 func (s *panelStore) list() []Panel { return s.sorted(nil) }
 
 // writeLocked saves p before the map changes, so a failed write leaves memory as the file is.

@@ -35,7 +35,7 @@ export function gifProblem(size, bytes) {
 }
 
 // Returns the Blob to upload. Any failure (an unreadable image, no canvas) sends the original, which the server checks.
-export async function compressImage(file, doc = document) {
+async function compressImage(file, doc = document) {
   if (!compressPlan(file.type, 1, 1)) return file;
   try {
     const bmp = await createImageBitmap(file);

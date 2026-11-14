@@ -2,7 +2,7 @@
 // its own copy of lucide.svg (370 KB, about 16,700 nodes) for every <use> made against it, freed only at a major GC,
 // so a panel that redrew a tick each second climbed past 4 GB (TestChromeRunPageHoldsNoMemory). Imports nothing.
 
-export const SPRITE = 'vendor/patchbay/icons/lucide.svg';
+const SPRITE = 'vendor/patchbay/icons/lucide.svg';
 const NS = 'http://www.w3.org/2000/svg';
 const PREFIX = 'pb-i-'; // the page's own ids never collide with an icon name
 

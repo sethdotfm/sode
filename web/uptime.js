@@ -91,7 +91,7 @@ export function summary(data) {
 }
 
 // words name the thing that is up: the router on /log, an instance on /panels.
-export const ROUTER_WORDS = { up: 'router up', down: 'router down' };
+const ROUTER_WORDS = { up: 'router up', down: 'router down' };
 
 export function slotText(s, fmt, words = ROUTER_WORDS) {
   const when = `${fmt(s.from)} – ${fmt(s.to)}`;

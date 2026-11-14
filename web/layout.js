@@ -7,14 +7,14 @@ const root = document.documentElement;
 const narrowTouch = matchMedia('(max-width: 700px) and (pointer: coarse)');
 const listeners = [];
 
-export const layoutPref = () => pref('layout');
+const layoutPref = () => pref('layout');
 
 export const layout = () => root.dataset.layout;
 export const onLayout = (fn) => {
   listeners.push(fn);
 };
 
-export function applyLayout() {
+function applyLayout() {
   const p = layoutPref();
   const next = p === 'auto' ? (narrowTouch.matches ? 'phone' : 'desktop') : p;
   if (root.dataset.layout === next) return;

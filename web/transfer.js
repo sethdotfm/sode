@@ -84,7 +84,7 @@ export async function copyLink(ui) {
 export const sharePresetDoc = (p) => fmt.presetShare(p, srcName, dstName);
 
 // onLocked: a lock closed the sheet; the link waits to be shown again after unlocking.
-export function reviewShare(share, source = '', onLocked = null) {
+function reviewShare(share, source = '', onLocked = null) {
   openReview({
     doc: fmt.docOfShare(share),
     source: source || (share.kind === 'preset' ? 'A shared preset' : 'A shared filter'),
