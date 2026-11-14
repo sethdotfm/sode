@@ -109,7 +109,7 @@ An emergency stop for an engineer who suspects Sode is misbehaving. With `killEn
 
 - The router link drops, and takes not yet sent are lost.
 - Takes already sent may still land on the router, and routes the router already accepted stay.
-- Every browser shows the lost-link banner.
+- Every browser shows the Lost link banner.
 - Docker starts Sode again unless the container's restart policy is `no` or `on-failure`. Exit code 0 is not a failure, so `on-failure` keeps it down. With either policy, Docker also does not start Sode after a host reboot, so start it by hand (`docker compose up -d`). The shipped `compose.yaml` uses `unless-stopped`, under which a Kill only restarts Sode. Source: [Docker, Start containers automatically](https://docs.docker.com/engine/containers/start-containers-automatically/).
 
 ## Users and locks (optional)

@@ -430,12 +430,12 @@
       </div>
       <div class="sode__field">
         <label class="pb-check"><input type="checkbox" class="pb-check__input" id="cfg-kill-enabled" data-key="killEnabled" data-type="bool"><span class="pb-check__label">Allow Kill</span></label>
-        <span class="sode__hint">Shows a Kill button here that stops Sode at once, for emergencies. Turn this on only when the container's Docker restart policy is <code>no</code> or <code>on-failure</code>: Sode cannot read the policy, and with <code>always</code> or <code>unless-stopped</code> Docker starts Sode again straight after a Kill. With either of those, Docker also never starts Sode by itself after a host reboot, Kill or not, so start it by hand.</span>
+        <span class="sode__hint">Shows a Kill button here that stops Sode at once, for emergencies. Turn this on only when the container's Docker restart policy is <code>no</code> or <code>on-failure</code>: Sode cannot read the policy, and with <code>always</code> or <code>unless-stopped</code> Docker starts Sode again straight after a Kill. With <code>no</code> or <code>on-failure</code>, Docker also does not start Sode after a host reboot, Kill or not, so start it by hand.</span>
       </div>
       <div class="sode__field" id="kill-row" hidden>
         <span>Stops Sode at once. Asks for the Advanced Settings PIN again.</span>
         <div class="sode__names sode__names--start">
-          <button type="button" class="pb-btn pb-btn--danger" id="kill-open">Kill Sode…</button>
+          <button type="button" class="pb-btn pb-btn--danger" id="kill-open" data-find="kill-open" data-label="Kill Sode">Kill Sode…</button>
         </div>
       </div>
     </fieldset>

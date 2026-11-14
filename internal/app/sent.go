@@ -28,10 +28,17 @@ func (a *App) onTx(e swp08.TxEvent) {
 func (a *App) logEvent(e Sent) {
 	e.Time = time.Now()
 	select {
-	case a.evq <- e:
+	case a.evq <- evItem{Sent: e}:
 	default:
 		a.txLost.Add(1)
 	}
+}
+
+// evItem is a queued event row. done, when set, is closed once logSent has written the row
+// or failed to (Kill waits on it).
+type evItem struct {
+	Sent
+	done chan struct{}
 }
 
 func (a *App) command(c *client, why, result, note string, err error) {
@@ -48,10 +55,6 @@ func (a *App) command(c *client, why, result, note string, err error) {
 func (a *App) logSent(ctx context.Context) {
 	failing := false // logged once per run of failed writes
 	write := func(e Sent) {
-		if w := e.written; w != nil {
-			e.written = nil
-			defer close(w)
-		}
 		if err := a.sent.Append(&e); err != nil {
 			// Not saved, so not shown live; its seq goes to the next entry. Counted with
 			// queue drops.
@@ -73,6 +76,12 @@ func (a *App) logSent(ctx context.Context) {
 		a.up.Note(e)
 		write(e)
 	}
+	writeItem := func(it evItem) {
+		write(it.Sent)
+		if it.done != nil {
+			close(it.done)
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,8 +90,8 @@ func (a *App) logSent(ctx context.Context) {
 				case ev := <-a.txq:
 					tx(ev)
 					continue
-				case e := <-a.evq:
-					write(e)
+				case it := <-a.evq:
+					writeItem(it)
 					continue
 				default:
 				}
@@ -94,8 +103,8 @@ func (a *App) logSent(ctx context.Context) {
 			return
 		case ev := <-a.txq:
 			tx(ev)
-		case e := <-a.evq:
-			write(e)
+		case it := <-a.evq:
+			writeItem(it)
 		}
 	}
 }

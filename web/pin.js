@@ -11,17 +11,17 @@ let isUnlocked = false;
 // Destructive controls are PIN-only: ask via pinprompt.js before, or after a refusal.
 let trustedUser = false;
 
-// Every change goes through here, so views that show only to an unlocked connection (Kill) hear 'pinState'.
-function setPinEntered(v) {
+// Every change goes through here, so views that show only to an unlocked connection (Kill) hear 'pinUnlocked'.
+function setUnlocked(v) {
   if (isUnlocked === v) return;
   isUnlocked = v;
-  emit('pinState');
+  emit('pinUnlocked');
 }
 
 export const unlocked = () => isUnlocked;
 export const trusted = () => trustedUser;
 export const needsPin = () => needsPinRule(S.pinSet, isUnlocked, trustedUser);
-export const lostUnlock = () => setPinEntered(false);
+export const lostUnlock = () => setUnlocked(false);
 
 function settle(r) {
   const w = waiting;
@@ -42,7 +42,7 @@ export function unlock(pin) {
 // Also sent with an unlock in flight: the server handles them in order, so the lock wins.
 export function relock(force = false) {
   if (force || isUnlocked || waiting) wsSend({ t: 'lock' });
-  setPinEntered(false);
+  setUnlocked(false);
   settle({ ok: false, stale: true });
 }
 
@@ -52,19 +52,19 @@ on('access', (m) => {
 
 on('unlockResult', (m) => {
   if (!waiting || m.id !== waiting.id) return;
-  if (m.ok) setPinEntered(true);
+  if (m.ok) setUnlocked(true);
   settle(m.ok ? { ok: true } : { ok: false, err: sentence(m.err) });
 });
 on('locked', () => {
-  setPinEntered(false);
+  setUnlocked(false);
 });
 on('conn', () => {
   if (S.wsState === 'up') return;
-  setPinEntered(false);
+  setUnlocked(false);
   trustedUser = false;
   settle({ ok: false, stale: true, err: 'Not connected to Sode.' });
 });
 // With no PIN now, one set later (even while disconnected) needs entering.
 on('hello', () => {
-  if (!S.pinSet) setPinEntered(false);
+  if (!S.pinSet) setUnlocked(false);
 });
