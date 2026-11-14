@@ -90,6 +90,8 @@ func normalizePinOrder(in []string) []string {
 func (c *Config) normalizeProfiles() {
 	for i := range c.Users {
 		p := c.Users[i].Profile.Normalized()
+		// Normalized is what the browser gets; the file keeps prefs a newer release wrote.
+		p.Prefs = WithUnknownPrefs(p.Prefs, c.Users[i].Profile.Prefs)
 		if p.Empty() {
 			p = Profile{Extra: p.Extra}
 		}
@@ -103,7 +105,7 @@ func validateProfile(owner string, p Profile) []error {
 		errs = append(errs, fmt.Errorf("profile of %s: "+format, append([]any{owner}, args...)...))
 	}
 	for _, k := range slices.Sorted(maps.Keys(p.Prefs)) {
-		if !slices.Contains(PrefValues[k], p.Prefs[k]) {
+		if knownPref(k) && !slices.Contains(PrefValues[k], p.Prefs[k]) {
 			bad("%q is not a value of %s", p.Prefs[k], k)
 		}
 	}

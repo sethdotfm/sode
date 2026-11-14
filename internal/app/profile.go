@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -107,13 +106,13 @@ func (a *App) ProfileSave(c *client, req profileReq) (int, error) {
 			}
 			owner = u.Name
 			if req.Prefs != nil {
-				u.Profile.Prefs = maps.Clone(req.Prefs)
+				u.Profile.Prefs = config.WithUnknownPrefs(req.Prefs, u.Profile.Prefs)
 			}
 			if req.FilterSets != nil {
-				u.Profile.FilterSets = slices.Clone(req.FilterSets)
+				u.Profile.FilterSets = config.WithFilterSetExtras(req.FilterSets, u.Profile.FilterSets)
 			}
 			if req.Presets != nil {
-				u.Profile.Presets = config.ClonePresets(req.Presets)
+				u.Profile.Presets = config.WithPresetExtras(req.Presets, u.Profile.Presets)
 			}
 			if req.PinOrder != nil {
 				u.Profile.PinOrder = slices.Clone(req.PinOrder)

@@ -646,6 +646,13 @@ func (c Config) UnknownKeys() []string {
 		}
 	}
 	walk(reflect.ValueOf(c), "")
+	for i, u := range c.Users {
+		for k := range u.Profile.Prefs {
+			if !knownPref(k) {
+				out = append(out, fmt.Sprintf("users[%d].profile.prefs.%s", i, k))
+			}
+		}
+	}
 	slices.Sort(out)
 	return out
 }

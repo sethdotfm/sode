@@ -1,0 +1,2 @@
+- A profile pref that a newer release wrote to config.yaml now survives startup and every profile save, and the startup row names it with the other unknown keys.
+- Saving filter sets, presets, a profile's lists, or users with their rights, API clients and Guest rights no longer strips keys this release doesn't know from every item in the list.
