@@ -111,3 +111,10 @@ func TestExtConnectOnGo(t *testing.T) {
 		t.Fatal("ExtSalvoFits")
 	}
 }
+
+// ConnectOnGoAck builds the router's 122 reply; Sode only receives it.
+func ConnectOnGoAck(matrix, level, dst, src, group int) []byte {
+	m := ConnectOnGo(matrix, level, dst, src, group)
+	m[0] = CmdConnectOnGoAck
+	return m
+}

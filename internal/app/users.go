@@ -217,9 +217,6 @@ func (a *App) Hi(c *client, page, token string) {
 	}
 }
 
-// UserUnlock signs in by PIN alone (PIN only mode).
-func (a *App) UserUnlock(c *client, pin string) error { return a.UserUnlockAs(c, "", pin) }
-
 // dummyPinHash gives a wrong username the same PBKDF2 cost as a right one, so timing
 // can't reveal which usernames exist.
 var dummyPinHash = sync.OnceValue(func() string {

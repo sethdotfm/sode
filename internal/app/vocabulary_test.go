@@ -112,7 +112,6 @@ var vocabAllow = []allowEntry{
 // identAllow exempts web identifiers only, so a UI string or a doc line gets no pass. Wire message
 // types and `sode-*` keys are strings and never reach that scan; these names hold a wire or logged value.
 var identAllow = []allowEntry{
-	{"panel change", "web/panelpage.js", `panelRows`, "the rows of a panel's grid; the avoided phrase means a change made on a hardware panel"},
 	{"Recent", "web/core.js", `m\.recent`, "the `recent` message carries its entries under this field"},
 	{"refresh", "web/logkinds.js", `^\s*refreshNames:`, "`log` command kind, as the server logs it"},
 	{"salvo", "web/log.js", `^\s*salvos?(?:Stage|Go)?:`, "`log` command kinds and the router's own salvo"},

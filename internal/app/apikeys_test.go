@@ -123,3 +123,12 @@ func keyCount(s *keyStore, o keyOwner) int {
 	}
 	return n
 }
+
+func (s *keyStore) revoke(id string) bool {
+	return len(s.dropWhere(func(r keyRec) bool { return r.ID == id })) > 0
+}
+
+// dropOwner mirrors what pruneKeys does for one owner (ADR 0003).
+func (s *keyStore) dropOwner(o keyOwner) int {
+	return len(s.dropWhere(func(r keyRec) bool { return r.Owner.is(o) }))
+}

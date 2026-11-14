@@ -454,16 +454,6 @@ func (s *keyStore) reconcile(cfg config.Config) []apiKey {
 	return out
 }
 
-func (s *keyStore) revoke(id string) bool {
-	return len(s.dropWhere(func(r keyRec) bool { return r.ID == id })) > 0
-}
-
-// dropOwner ends every key of owner: a user's on PIN change, rename or removal (ADR 0003), a
-// client's on removal. Returns how many went.
-func (s *keyStore) dropOwner(o keyOwner) int {
-	return len(s.dropWhere(func(r keyRec) bool { return r.Owner.is(o) }))
-}
-
 // expire removes keys past their expiry and returns them, so the caller can log each.
 func (s *keyStore) expire(now time.Time) []apiKey {
 	return s.dropWhere(func(r keyRec) bool { return !r.Setup && !r.Expires.IsZero() && !now.Before(r.Expires) })
