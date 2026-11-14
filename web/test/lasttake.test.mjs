@@ -7,6 +7,8 @@ globalThis.document = node();
 const store = new Map();
 globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 globalThis.WebSocket = { OPEN: 1 };
+const winListeners = {};
+globalThis.addEventListener = (type, fn) => (winListeners[type] ||= []).push(fn);
 
 const KEY = 'sode-last-take';
 const it = (n) => ({ n, num: n + 1, name: `X${n}`, label: `X${n}` });
@@ -73,6 +75,34 @@ test('lastTake: corrupt or unmatched stored values are no Last', async () => {
   }
   store.delete(KEY);
   assert.equal(lastTake(), null);
+});
+
+test('lastTake: memory answers only when storage is blocked or empty, never for a corrupt value', async () => {
+  const { sendTakes, lastTake, patchPlan } = await setup();
+  sendTakes(patchPlan(it(4), [it(6)], [1]));
+  store.set(KEY, '{not json');
+  assert.equal(lastTake(), null, 'corrupt');
+  store.delete(KEY);
+  assert.equal(lastTake().src.n, 4, 'empty');
+  const get = localStorage.getItem;
+  localStorage.getItem = () => {
+    throw new Error('blocked');
+  };
+  try {
+    assert.equal(lastTake().src.n, 4, 'blocked');
+  } finally {
+    localStorage.getItem = get;
+  }
+});
+
+test("another tab's take redraws the Last chips", async () => {
+  const { on } = await setup();
+  let n = 0;
+  on('last', () => n++);
+  for (const fn of winListeners.storage) fn({ key: 'sode-theme' });
+  assert.equal(n, 0);
+  for (const fn of winListeners.storage) fn({ key: KEY });
+  assert.equal(n, 1);
 });
 
 test('sendTakes: a patch is stored and reads back as Last', async () => {
