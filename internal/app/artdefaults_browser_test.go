@@ -52,6 +52,8 @@ func TestChromeArtDefaultEditorAndLiveUpdate(t *testing.T) {
 		b.eval(`document.querySelector('.sode-lock__key[data-key="enter"]').click()`)
 	}
 	cell := `document.querySelectorAll('.sode-panel__cell--source')[1]`
+	// The page repaints its cells when its first poll brings the router's names; read after that, not across it.
+	b.waitFor("the page's first poll answered", cell+`?.querySelector('.sode-panel__text')?.textContent === 'Zoom 1'`)
 	b.waitFor("the page draws the default", cell+`?.querySelector('.sode-panel__art use')?.getAttribute('href') === '#pb-i-camera'`)
 
 	if rec := apiSend(a, "PUT", "/api/v1/default-artwork", ana, fmt.Sprintf(`{"kind":"source","n":%d,"art":"icon:tv"}`, simSrc)); rec.Code != 200 {
