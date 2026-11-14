@@ -109,12 +109,20 @@ func TestStreamSlowDropSaysWhy(t *testing.T) {
 	a, _ := apiTestApp(t, nil)
 	defer startLog(t, a)()
 	s := lifeTally(t, a, "tally")
-	a.mu.Lock()
-	// One lock hold so the writer cannot drain the queue; under -race it keeps up with 5000.
-	for range 5000 * raceSlowdown * raceSlowdown {
-		a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
+	// The writer drains the queue without mu, so no fixed burst is sure to outrun it (under -race
+	// it kept up with 5000): send bursts until the stream is dropped.
+	deadline := time.Now().Add(5 * time.Second * raceSlowdown)
+	for dropped := false; !dropped; {
+		if time.Now().After(deadline) {
+			t.Fatal("the stream kept up with every burst and was never dropped")
+		}
+		a.mu.Lock()
+		for range 1000 {
+			a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
+		}
+		dropped = len(a.streams) == 0
+		a.mu.Unlock()
 	}
-	a.mu.Unlock()
 	lifeEnded(t, a, s, "too slow")
 }
 
