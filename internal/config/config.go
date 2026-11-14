@@ -688,8 +688,7 @@ func BackupOnce(path, label string) error {
 	return copyFile(path, dst)
 }
 
-// BackupUnknown keeps a dated copy of a file holding keys this release doesn't know, before any
-// save can drop them. After a rollback .before-<version> often exists already and .prev lasts
+// After a rollback .before-<version> often exists already and .prev lasts
 // one save. A copy equal to the newest one is skipped, so a restart loop doesn't fill the disk.
 func BackupUnknown(path string, now time.Time) error {
 	b, err := os.ReadFile(path)

@@ -53,16 +53,34 @@ func (p Profile) Clone() Profile {
 	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder), Extra: p.Extra}
 }
 
+func knownPref(k string) bool {
+	_, ok := PrefValues[k]
+	return ok
+}
+
+// A browser can't add or remove a pref this release doesn't know; only the file holds those.
+func WithUnknownPrefs(sent, saved map[string]string) map[string]string {
+	out := maps.Clone(sent)
+	if out == nil {
+		out = map[string]string{}
+	}
+	maps.DeleteFunc(out, func(k, _ string) bool { return !knownPref(k) })
+	for k, v := range saved {
+		if !knownPref(k) {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 // Works on a copy; no nil lists, so JSON says [] and {}.
 func (p Profile) Normalized() Profile {
 	p = p.Clone()
-	prefs := map[string]string{}
-	for k, v := range p.Prefs {
-		if _, ok := PrefValues[k]; ok {
-			prefs[k] = v
-		}
+	p.Prefs = maps.Clone(p.Prefs)
+	if p.Prefs == nil {
+		p.Prefs = map[string]string{}
 	}
-	p.Prefs = prefs
+	maps.DeleteFunc(p.Prefs, func(k, _ string) bool { return !knownPref(k) })
 	p.FilterSets = normalizeFilterSets(p.FilterSets)
 	tmp := Config{Presets: p.Presets}
 	tmp.normalizePresets()
