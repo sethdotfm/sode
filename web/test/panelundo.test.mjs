@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, undoReady, startUndo, finishUndo, finishTake, startInstant, failTake, resultOf, errorOf, undoneOf, ERROR_MS } from '../panelmodel.js';
-import { errorText, undoneText, namesFrom, KINDS } from '../panelrules.js';
+import { errorText, undoneText, undoMoved, envFrom, namesFrom, KINDS } from '../panelrules.js';
 import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON } from '../findrules.js';
 import { kindLabel } from '../editorrules.js';
 
@@ -88,4 +88,26 @@ test('Undo is a cell kind with a label and an icon everywhere a kind is listed',
   assert.equal(CATEGORY_ICON.undo, 'undo-2');
   assert.equal(kindLabel('undo'), 'Undo');
   assert.equal(names.of({ kind: 'undo' }), 'Undo');
+});
+
+test('the target is asked again only when a destination it would restore moves', () => {
+  const tally = (routes) => envFrom({ routes }, {});
+  const a = tally([
+    { dst: 2, level: 1, src: 3 },
+    { dst: 2, level: 2, src: 3 },
+    { dst: 9, level: 1, src: 1 },
+  ]);
+  const reordered = tally([
+    { dst: 9, level: 1, src: 5 },
+    { dst: 2, level: 2, src: 3 },
+    { dst: 2, level: 1, src: 3 },
+  ]);
+  const moved = tally([
+    { dst: 2, level: 1, src: 1 },
+    { dst: 2, level: 2, src: 3 },
+  ]);
+  assert.equal(undoMoved(a, reordered, next()), false, 'another destination moved, and the order is no move');
+  assert.equal(undoMoved(a, moved, next()), true);
+  assert.equal(undoMoved(a, moved, null), false);
+  assert.equal(undoMoved(a, moved, undefined), false);
 });

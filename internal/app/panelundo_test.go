@@ -277,19 +277,23 @@ func undoEntry(t *testing.T, a *App, panel string, src, dst int, group string, n
 	}
 }
 
-// The walk reads undoScan entries at most, whatever the History page size.
+// The walk reads undoScan entries at most, even where a Group makes a History page run past historyMax.
 func TestPanelUndoScanHoldsExactly(t *testing.T) {
-	for _, filler := range []int{undoScan - 1, undoScan} {
+	for _, at := range []int{undoScan, undoScan + 1} { // the take's place, newest first from 1
 		a, _ := clientApp(t)
 		cy := userKey(t, a, "Cy")
 		id := makePanel(t, a, cy, slugPanel)
 		secret, _ := mintKey(t, a, cy, id)
 		undoEntry(t, a, id, 2, 2, "", 0)
-		for range filler {
-			undoEntry(t, a, "other", 2, 4, "", 0)
+		for pos := at - 1; pos >= 1; pos-- {
+			if pos >= historyMax-1 && pos <= historyMax+1 {
+				undoEntry(t, a, "other", 2, 4, "h", 3)
+			} else {
+				undoEntry(t, a, "other", 2, 4, "", 0)
+			}
 		}
-		if u, want := undoNext(t, a, id, secret, nil), filler < undoScan; (u != nil) != want {
-			t.Fatalf("take at newest %d: found %v, want %v", filler+1, u != nil, want)
+		if u, want := undoNext(t, a, id, secret, nil), at <= undoScan; (u != nil) != want {
+			t.Fatalf("take at newest %d: found %v, want %v", at, u != nil, want)
 		}
 	}
 }

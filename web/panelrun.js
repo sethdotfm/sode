@@ -9,7 +9,7 @@ import { pageUi } from './panelmount.js';
 import { startKeepalive, announceKeyless } from './panelkeepalive.js';
 import { withKey, guardFetch } from './sessionkeyrules.js';
 import { fromPanel } from './panelwatchrules.js';
-import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, undoneText, offlineOf } from './panelrules.js';
+import { keyFromHash, kioskOf, openFailText, sessionNote, envFrom, namesFrom, drawnCells, errorText, undoneText, undoMoved, offlineOf } from './panelrules.js';
 import { setupFromHash, pollFail, publicFetch, withoutKey } from './panelkeyrules.js';
 import { exchangeSetup, storedKey, forgetKey, askPublic, askPublicAtOpen, keepLinkKey, followAssign } from './panelsetup.js';
 import {
@@ -314,13 +314,11 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       }
       const was = env;
       env = envFrom(tally, prot, presets, panel.rights);
-      // The undo target is a History walk, so it is asked again only when a destination it would restore moves:
-      // History's own Undo or another tab got there first. A press on a stale target gets a conflict.
-      const row = (e, dst) => JSON.stringify([...(e.tally.get(dst) || [])]);
-      if (undoNext?.routes.some((r) => row(was, r.dst) !== row(env, r.dst))) askUndo();
       st = applyTally(st, env);
       const off = offlineOf({ failed: false, routerUp: link ? link.routerUp : true });
       showOffline(off);
+      // Each ask walks History, so none runs on a timer; History may have moved while Sode was out of reach.
+      if (undoMoved(was, env, undoNext) || (!ready && !off)) askUndo();
       ready = !off;
       say(ui.note, '');
     } catch (e) {
@@ -363,7 +361,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       });
       st = finish(st, reply || {}, Date.now());
     } catch (e) {
-      const why = e.code === 'conflict' && word === 'undo' ? 'This instance took again since; press Undo again' : e.message;
+      const why = e.code === 'conflict' && word === 'undo' ? 'What Undo would undo has changed; press it again' : e.message;
       st =
         e.status === undefined
           ? failTake(st, 'network', `Sode did not answer, so the ${word} may not have been sent`, Date.now())

@@ -184,6 +184,13 @@ export function errorText(err, names) {
   }
 }
 
+// Whether a destination the Undo cell would restore moved between two envs: History's own Undo or another tab of the
+// instance may have changed the target. next is GET /panels/<id>/undo's `undo`.
+export function undoMoved(was, env, next) {
+  const row = (e, dst) => JSON.stringify([...(e.tally.get(dst) || [])].sort((x, y) => x[0] - y[0]));
+  return !!next?.routes.some((r) => row(was, r.dst) !== row(env, r.dst));
+}
+
 // The Undo cell's last press (panelmodel.js undoneOf), '' for none.
 export function undoneText(u, names) {
   if (!u) return '';

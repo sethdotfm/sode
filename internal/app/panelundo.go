@@ -73,11 +73,13 @@ func (a *App) panelUndoTarget(cl *apiCtx, panelID string) *undoTarget {
 			take := []Entry{e}
 			if e.Group != "" {
 				skip = e.Group
-				// A take running at the same time can interleave its entries with this Group's, and Page keeps
-				// only an unbroken Group whole, so the rest is read here, with room for the other take's.
-				rest, err := a.hist.Page(e.ID, 2*e.GroupN+undoInterleave)
-				if err != nil {
-					log.Printf("panel undo: %v", err)
+				rest := page[i+1:]
+				if n := 1 + groupCount(rest, e.Group); n < e.GroupN {
+					// A take running at the same time interleaved its entries, and Page keeps only an unbroken
+					// Group whole, so the rest is on a later page: read it from here, with room for the other take's.
+					if rest, err = a.hist.Page(e.ID, 2*e.GroupN+undoInterleave); err != nil {
+						log.Printf("panel undo: %v", err)
+					}
 				}
 				for _, g := range rest {
 					if g.Group == e.Group && !undone[g.ID] && g.Undo == nil {
@@ -86,7 +88,8 @@ func (a *App) panelUndoTarget(cl *apiCtx, panelID string) *undoTarget {
 				}
 			}
 			if es, p := undoPlanOf(rt, v, take); p != nil {
-				return &undoTarget{e.ID, es, p}
+				// The newest entry the caller can see, so Hidden visibility never hands out a hidden id.
+				return &undoTarget{es[len(es)-1].ID, es, p}
 			}
 		}
 		if !morePages(page) {
@@ -95,6 +98,16 @@ func (a *App) panelUndoTarget(cl *apiCtx, panelID string) *undoTarget {
 		before = page[len(page)-1].ID
 	}
 	return nil
+}
+
+func groupCount(es []Entry, group string) int {
+	n := 0
+	for _, e := range es {
+		if e.Group == group {
+			n++
+		}
+	}
+	return n
 }
 
 // undoPlanOf joins the undo of each entry of one take, oldest first; nil when none is visible or none restores anything.
