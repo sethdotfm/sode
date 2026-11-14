@@ -2,6 +2,8 @@
 
 Validated by prototype on branch `prototype/panels` (three variants, kept as the primary source). Terms are in GLOSSARY.md under Panels. ADR 0006 covers who may create a panel's API client.
 
+The panel page prototype is `git switch prototype/panels && node prototype/panels/serve.mjs`: variants A, B and C on :8101 to :8103, with stub data and no router.
+
 ## What a panel is
 
 A saved 4x8 grid of cells on its own URL (`/panels/<id>`, or `/panels/<slug>` once it has a short name), driving the router through `/api/v1` only. 4x8 is the default size, chosen so a panel maps one to one onto a hardware key deck later. Rows and columns become user settings, and merged cells stay inside the grid. The panels page `/panels` signs in like the rest of Sode and launches a user's panels. The editor, at `/panels/editor`, edits them live.
