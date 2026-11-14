@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"testing"
+	"testing" // on purpose: testing.Testing() keeps UseTestCosts out of production
 	"unicode/utf8"
 )
 

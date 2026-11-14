@@ -104,8 +104,9 @@ func (a *App) ExportConfig(c *client, pins bool) (site, text string, err error) 
 }
 
 // importConfig replaces the whole config (no KeepOwned: everything comes from the file
-// except PIN hashes it omits). Writes the same `api` rows as the saves it stands in for. Refused without the Advanced Settings PIN or for a file that doesn't
-// parse or validate. Router changes reconnect via applyConfig. Also returns the keys this release doesn't know, which the file keeps.
+// except PIN hashes it omits) and writes the same `api` rows as the saves it stands in for.
+// Refused without the Advanced Settings PIN or for a file that doesn't parse or validate.
+// Router changes reconnect via applyConfig. unknown lists keys this release doesn't know; the file keeps them.
 func (a *App) importConfig(c *client, text string) (unknown []string, err error) {
 	if len(text) > maxConfigFile {
 		return nil, errImportTooBig

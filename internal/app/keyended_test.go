@@ -244,3 +244,8 @@ func TestEndedKeyCodeIsDocumented(t *testing.T) {
 		t.Error("the Error.code enum lacks key_revoked")
 	}
 }
+
+// revoke stands in for the API revoke paths, which all end in dropWhere.
+func (s *keyStore) revoke(id string) bool {
+	return len(s.dropWhere(func(r keyRec) bool { return r.ID == id })) > 0
+}
