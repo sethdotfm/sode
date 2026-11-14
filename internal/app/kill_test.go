@@ -37,6 +37,16 @@ func (x *exits) n() int {
 	return len(x.codes)
 }
 
+// first is the first exit code, or -1 before any exit.
+func (x *exits) first() int {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	if len(x.codes) == 0 {
+		return -1
+	}
+	return x.codes[0]
+}
+
 func killOn(t *testing.T, a *App, on bool) {
 	t.Helper()
 	cfg := a.r().cfg

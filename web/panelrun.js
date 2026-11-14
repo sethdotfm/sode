@@ -348,7 +348,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
 
   const takeOpts = (started) => ({ path: 'api/v1/takes', body: { routes: started?.routes }, finish: finishTake, word: 'take' });
 
-  async function send(started, { path, body, finish, word } = takeOpts(started)) {
+  async function send(started, { path, body, finish, word, onConflict } = takeOpts(started)) {
     if (!started) return;
     st = started.state;
     render();
@@ -361,7 +361,7 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
       });
       st = finish(st, reply || {}, Date.now());
     } catch (e) {
-      const why = e.code === 'conflict' && word === 'undo' ? 'What Undo would undo has changed; press it again' : e.message;
+      const why = (e.code === 'conflict' && onConflict) || e.message;
       st =
         e.status === undefined
           ? failTake(st, 'network', `Sode did not answer, so the ${word} may not have been sent`, Date.now())
@@ -372,7 +372,14 @@ async function start(seg, { ui = pageUi(), call: given, embedded = !!given, page
     askUndo();
   }
 
-  const sendUndo = () => send(startUndo(st, undoNext), { path: `api/v1/panels/${id}/undo`, body: { id: undoNext?.id }, finish: finishUndo, word: 'undo' });
+  const sendUndo = () =>
+    send(startUndo(st, undoNext), {
+      path: `api/v1/panels/${id}/undo`,
+      body: { id: undoNext?.id },
+      finish: finishUndo,
+      word: 'undo',
+      onConflict: 'What Undo would undo has changed; press it again',
+    });
 
   function holdCancel() {
     clearTimeout(holdTimer);

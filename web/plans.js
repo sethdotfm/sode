@@ -114,12 +114,13 @@ export const groupUndoPlan = (f) =>
     f.entries.flatMap((e) => e.follows || []),
   );
 // A folder with failed takes retries just those; otherwise it redoes every redoable take. Empty
-// items = nothing to offer.
+// items = nothing to offer. ofUndo marks a redo of an undo row, which leaves Last alone.
 export function againPlan(row) {
   const es = row.f ? row.f.entries : [row.e];
   const failed = es.filter((e) => !e.ok);
   const use = (failed.length ? failed : es).filter(canRedo);
-  return { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
+  const plan = { verb: failed.length ? 'retry' : 'redo', items: use.map(againItem) };
+  return use.some((e) => e.undo) ? { ...plan, ofUndo: true } : plan;
 }
 export const rowUndoPlan = (row) => (row.f ? groupUndoPlan(row.f) : undoPlan(row.e));
 
@@ -437,7 +438,7 @@ const validLast = (t) =>
 // A redo counts when all its routes share one source and one set of levels; Retry, Preset and
 // undo never set Last. Null means leave Last as it is.
 export function lastFromPlan(p) {
-  if (p.verb !== 'patch' && p.verb !== 'redo') return null;
+  if ((p.verb !== 'patch' && p.verb !== 'redo') || p.ofUndo) return null;
   const gs = p.items.flatMap((i) => i.groups.map((g) => ({ dst: i.dst, g })));
   if (!gs.length) return null;
   const { src, levels } = gs[0].g;

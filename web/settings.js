@@ -666,9 +666,15 @@ function flash(node, smooth) {
   flashTimer = setTimeout(start, 1000);
 }
 
+// A [data-find] row or button is hidden while it does not apply (Kill, Sign in, My API keys), so search skips it.
+const offered = (h) => {
+  const node = h.kind === 'setting' && targets.get(`${h.sectionId}/${h.id}`);
+  return !(node?.matches('[data-find]') && node.closest('[hidden]'));
+};
+
 function showHits() {
   const q = findBox.value.trim();
-  hits = q ? find(settingsIndex, q) : [];
+  hits = q ? find(settingsIndex, q).filter(offered) : [];
   cur = 0;
   foundList.replaceChildren(
     ...hits.map((h, i) => {
