@@ -39,6 +39,9 @@ func TestVersionNoted(t *testing.T) {
 		}
 	}
 	if tag := os.Getenv("SODE_RELEASE_TAG"); tag != "" {
+		for _, f := range changelogFragments(t) {
+			t.Errorf("changelog.d/%s: fold changelog.d into CHANGELOG.md before tagging", filepath.Base(f))
+		}
 		if !releaseTag.MatchString(tag) {
 			t.Errorf("release tag %q is not vX.Y.Z or vX.Y.Z-rc.N", tag)
 		} else if rc := regexp.MustCompile(`-rc\.\d+$`).ReplaceAllString(tag, ""); rc != "v"+Version {
@@ -47,22 +50,29 @@ func TestVersionNoted(t *testing.T) {
 	}
 }
 
-// Each PR with a user-visible change adds its own changelog.d fragment, so
-// parallel branches never edit the same CHANGELOG.md lines. A release folds
-// them into the new heading and removes them.
-func TestChangelogFragments(t *testing.T) {
+// rc.yml and promote.yml run only TestVersionNoted with the tag set, so the
+// leftover-fragment check lives there.
+func changelogFragments(t *testing.T) []string {
+	t.Helper()
 	files, err := filepath.Glob("../../changelog.d/*.md")
 	if err != nil {
 		t.Fatal(err)
 	}
+	var out []string
 	for _, f := range files {
+		if filepath.Base(f) != "README.md" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// Each PR with a user-visible change adds its own changelog.d fragment, so
+// parallel branches never edit the same CHANGELOG.md lines. A release folds
+// them into the new heading and removes them.
+func TestChangelogFragments(t *testing.T) {
+	for _, f := range changelogFragments(t) {
 		name := filepath.Base(f)
-		if name == "README.md" {
-			continue
-		}
-		if os.Getenv("SODE_RELEASE_TAG") != "" {
-			t.Errorf("changelog.d/%s: fold changelog.d into CHANGELOG.md before tagging", name)
-		}
 		body, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
