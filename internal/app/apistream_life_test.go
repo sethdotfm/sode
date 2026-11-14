@@ -110,7 +110,8 @@ func TestStreamSlowDropSaysWhy(t *testing.T) {
 	defer startLog(t, a)()
 	s := lifeTally(t, a, "tally")
 	a.mu.Lock()
-	for range 5000 * raceSlowdown * 4 { // one lock hold: the writer cannot keep up with the queue
+	// One lock hold so the writer cannot drain the queue; under -race it keeps up with 5000.
+	for range 5000 * raceSlowdown * raceSlowdown {
 		a.broadcast(deltaMsg{T: "tally", U: []routeChange{{2, 1, 1}}})
 	}
 	a.mu.Unlock()
