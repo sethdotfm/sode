@@ -226,3 +226,70 @@ func TestShutdownNotHeldByEmptySave(t *testing.T) {
 		t.Fatalf("Run waited %v for a save that never started", d)
 	}
 }
+
+// A clear refused at shutdown answers with an error the page can show, and History stays.
+func TestShutdownRefusedClearSaysWhy(t *testing.T) {
+	r := newShutdownRig(t, 0)
+	r.take(t, 1, 4, 6)
+	if res := r.readResult(t, 1); res.Err != "" {
+		t.Fatalf("take %+v", res)
+	}
+	r.stop(t, 5*time.Second)
+	r.send(t, map[string]any{"t": "clearHistory"})
+	ctx, done := context.WithTimeout(r.ctx, 2*time.Second)
+	defer done()
+	for {
+		_, b, err := r.ws.Read(ctx)
+		if err != nil {
+			t.Fatalf("no clearHistoryResult: %v", err)
+		}
+		var res opResult
+		if json.Unmarshal(b, &res) != nil || res.T != "clearHistoryResult" {
+			continue
+		}
+		if res.OK || res.Err != errShuttingDown.Error() {
+			t.Fatalf("result %+v", res)
+		}
+		break
+	}
+	if len(takeEntries(r.a)) != 1 {
+		t.Fatal("History was cleared after shutdown began")
+	}
+}
+
+// A take sent while Run waits for one in flight is refused, and the first still reaches History.
+func TestShutdownRefusesTakeWhileDraining(t *testing.T) {
+	r := newShutdownRig(t, 300*time.Millisecond)
+	r.take(t, 1, 4, 6)
+	r.sentConnect(t)
+	r.cancel()
+	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(time.Millisecond) {
+		r.a.writes.mu.Lock()
+		shut := r.a.writes.shut
+		r.a.writes.mu.Unlock()
+		if shut {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Run never began draining")
+		}
+	}
+	select {
+	case <-r.ran:
+		t.Fatal("Run already returned; not the drain window")
+	default:
+	}
+	r.take(t, 2, 5, 7)
+	if res := r.readResult(t, 2); res.Err != errShuttingDown.Error() {
+		t.Fatalf("second take %+v", res)
+	}
+	select {
+	case <-r.ran:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run didn't return")
+	}
+	es := takeEntries(r.a)
+	if len(es) != 1 || es[0].Dst != 6 || !es[0].OK {
+		t.Fatalf("History: %+v", es)
+	}
+}
