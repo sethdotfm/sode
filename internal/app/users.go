@@ -20,6 +20,7 @@ import (
 
 var errPageLocked = errors.New("locked; unlock with your PIN first")
 
+//lint:ignore ST1005 the UI shows this text as is
 var errNeedAdminPin = errors.New("Set an Advanced Settings PIN first: users and locks are administered with it")
 
 type gate int

@@ -69,6 +69,8 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go vet ./...
+      # 2026.2.2 is the first staticcheck that loads Go 1.27 export data. Bump by hand (RELEASING.md).
+      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal web | tee /dev/stderr)"
       # Same globs and version as .claude/hooks/lint.sh.
