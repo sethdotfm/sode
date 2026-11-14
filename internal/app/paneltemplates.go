@@ -66,7 +66,7 @@ type templateIn struct {
 }
 
 // keepsContents reports whether a cell of this kind keeps its Source, Destination or Preset and its
-// caption. A Take, Clear or Current caption is layout, so either option keeps it.
+// caption. A Take, Clear, Undo or Current caption is layout, so either option keeps it.
 func (t *Template) keepsContents(kind any) bool {
 	switch kind {
 	case "source", "preset":

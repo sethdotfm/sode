@@ -1,7 +1,9 @@
 package app
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sethdotfm/sode/internal/config"
@@ -206,5 +208,107 @@ func TestPanelUndoTakesBackAWholeGroup(t *testing.T) {
 	}
 	if u := undoNext(t, a, id, secret, nil); u != nil {
 		t.Fatalf("left %v", u)
+	}
+}
+
+// A refused undo restored nothing, so the same take stays the next to undo.
+func TestPanelUndoRefusedLeavesTheTake(t *testing.T) {
+	a, f := clientApp(t)
+	shortTimers(a)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, slugPanel)
+	secret, _ := mintKey(t, a, cy, id)
+	f.seed(2, 1, 0)
+	if rec := apiPost(a, "/api/v1/takes", secret, `{"routes":[{"src":2,"dst":2,"levels":[1]}]}`, nil); rec.Code != 200 {
+		t.Fatalf("take: %d %s", rec.Code, rec.Body.String())
+	}
+	before := undoNext(t, a, id, secret, nil)
+	a.mu.Lock()
+	a.router.protect[2] = map[int]int{1: 0}
+	a.mu.Unlock()
+	rec := apiPost(a, "/api/v1/panels/"+id+"/undo", secret, ``, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"result":"failed"`) {
+		t.Fatalf("undo of a protected destination: %d %s", rec.Code, rec.Body.String())
+	}
+	u := undoNext(t, a, id, secret, nil)
+	if u == nil || u["id"] != before["id"] || !slices.Equal(undoDsts(u), []int{2}) {
+		t.Fatalf("after a refused undo %v, want %v", u, before)
+	}
+}
+
+// POST with the id GET answered undoes only that take; a take made since is a conflict, not another undo.
+func TestPanelUndoNamesTheTake(t *testing.T) {
+	a, f := clientApp(t)
+	shortTimers(a)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, slugPanel)
+	secret, _ := mintKey(t, a, cy, id)
+	f.seed(2, 1, 0)
+	f.seed(4, 1, 0)
+	take := func(body string) {
+		t.Helper()
+		if rec := apiPost(a, "/api/v1/takes", secret, body, nil); rec.Code != 200 {
+			t.Fatalf("take: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+	take(`{"routes":[{"src":2,"dst":2,"levels":[1]}]}`)
+	shown := undoNext(t, a, id, secret, nil)
+	take(`{"routes":[{"src":3,"dst":4,"levels":[1]}]}`)
+	wantErr(t, apiPost(a, "/api/v1/panels/"+id+"/undo", secret, fmt.Sprintf(`{"id":%v}`, shown["id"]), nil), 409, "conflict")
+	if fakeTally(f, 2) != 2 || fakeTally(f, 4) != 3 {
+		t.Fatalf("a conflict changed the router: %d %d", fakeTally(f, 2), fakeTally(f, 4))
+	}
+	wantErr(t, apiPost(a, "/api/v1/panels/"+id+"/undo", secret, `{"id":`, nil), 400, "bad_request")
+	now := undoNext(t, a, id, secret, nil)
+	if rec := apiPost(a, "/api/v1/panels/"+id+"/undo", secret, fmt.Sprintf(`{"id":%v}`, now["id"]), nil); rec.Code != 200 {
+		t.Fatalf("undo: %d %s", rec.Code, rec.Body.String())
+	}
+	if fakeTally(f, 4) != 1 {
+		t.Fatalf("dst 4 has %d", fakeTally(f, 4))
+	}
+}
+
+// undoEntry writes a take of src to dst on level 1 by instance Lobby straight to History.
+func undoEntry(t *testing.T, a *App, panel string, src, dst int, group string, n int) {
+	t.Helper()
+	e := &Entry{Src: src, Dst: dst, Levels: []int{1}, Prev: [][2]int{{1, 1}}, OK: true, PanelID: panel, Instance: "Lobby", Group: group, GroupN: n}
+	if err := a.hist.Append(e); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The walk reads undoScan entries at most, whatever the History page size.
+func TestPanelUndoScanHoldsExactly(t *testing.T) {
+	for _, filler := range []int{undoScan - 1, undoScan} {
+		a, _ := clientApp(t)
+		cy := userKey(t, a, "Cy")
+		id := makePanel(t, a, cy, slugPanel)
+		secret, _ := mintKey(t, a, cy, id)
+		undoEntry(t, a, id, 2, 2, "", 0)
+		for range filler {
+			undoEntry(t, a, "other", 2, 4, "", 0)
+		}
+		if u, want := undoNext(t, a, id, secret, nil), filler < undoScan; (u != nil) != want {
+			t.Fatalf("take at newest %d: found %v, want %v", filler+1, u != nil, want)
+		}
+	}
+}
+
+// One press undoes a whole Group even where another take's entries split it across a History page.
+func TestPanelUndoGroupAcrossAPage(t *testing.T) {
+	a, _ := clientApp(t)
+	cy := userKey(t, a, "Cy")
+	id := makePanel(t, a, cy, slugPanel)
+	secret, _ := mintKey(t, a, cy, id)
+	undoEntry(t, a, id, 2, 2, "g", 4)
+	undoEntry(t, a, id, 2, 4, "g", 4)
+	undoEntry(t, a, "other", 3, 4, "h", 2)
+	undoEntry(t, a, id, 2, 2, "g", 4)
+	undoEntry(t, a, id, 2, 4, "g", 4)
+	for range historyMax - 2 {
+		undoEntry(t, a, "other", 2, 4, "", 0)
+	}
+	if u := undoNext(t, a, id, secret, nil); u == nil || len(u["entries"].([]any)) != 4 {
+		t.Fatalf("undo %v", u)
 	}
 }
