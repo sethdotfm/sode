@@ -199,6 +199,6 @@ Each line needs the user's yes before it runs, or the user does it in the GitHub
 
 ### Release handoff
 
-Tasks 2 to 5 protect `config.yaml` only, and only on rollback to a release that contains them. Cut a release with this branch before any feature adds a config key (RELEASING.md; the release PR folds `changelog.d/` per Task 1). Tasks 6 to 10 add no config keys and can ship in the same release.
+Tasks 2 to 5 protect `config.yaml` only, and only on rollback to a release that contains them. Cut a release with this branch before any feature adds a config key (RELEASING.md; the release PR folds `changelog.d/` per Task 1). Tasks 6 to 10 add no config keys and can ship in the same release. New profile prefs, API scopes, enum values and edited list items (presets, filter sets, profile lists) are not covered, so a feature PR that adds one must say in its description what a rollback does.
 
 The other persisted files (keys.json, tokens.json, templates, art defaults, icons, History) still drop fields an older release doesn't know when it rewrites them; panel files already keep `Extra`. Until a follow-up gives them the same rule, a feature that adds a field to one of them must say in its PR what a rollback loses.

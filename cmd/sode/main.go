@@ -87,7 +87,7 @@ func resetSettingsPin(path string) {
 	}
 	c.SettingsPin = ""
 	// Locks need an Advanced Settings PIN, so they go with it.
-	c.Locks = config.Locks{}
+	c.Locks = config.Locks{Extra: c.Locks.Extra}
 	if err := config.Save(path, c); err != nil {
 		log.Fatalf("reset-pin: %v", err)
 	}

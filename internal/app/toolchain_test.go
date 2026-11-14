@@ -11,11 +11,11 @@ import (
 func TestDockerfileGoMatchesGoMod(t *testing.T) {
 	mod, err := os.ReadFile("../../go.mod")
 	if err != nil {
-		t.Skipf("no go.mod to compare: %v", err)
+		t.Fatalf("no go.mod to compare: %v", err)
 	}
 	docker, err := os.ReadFile("../../Dockerfile")
 	if err != nil {
-		t.Skipf("no Dockerfile to compare: %v", err)
+		t.Fatalf("no Dockerfile to compare: %v", err)
 	}
 	m := regexp.MustCompile(`(?m)^go (\d+\.\d+)(?:\.\d+)?\s*$`).FindSubmatch(mod)
 	if m == nil {

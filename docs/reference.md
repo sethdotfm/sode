@@ -100,7 +100,7 @@ docker compose exec sode /sode -reset-pin && docker compose restart sode
 
 or delete the `settingsPin:` line from `/data/config.yaml` and restart.
 
-Every save keeps the file it replaces as `/data/config.yaml.prev`, and the first start of each release keeps the file as `/data/config.yaml.before-<version>` (for a rollback). Both hold PIN hashes, so they are mode 0600 like `config.yaml`; copy them with the same care. A failed backup is logged and never blocks a save or startup.
+Every save keeps the file it replaces as `/data/config.yaml.prev`, and the first start of each release keeps the file as `/data/config.yaml.before-<version>` (for a rollback). Both hold PIN hashes, so they are mode 0600 like `config.yaml`; copy them with the same care. A failed backup is logged and never blocks a save or startup. After a rollback the older release's `config.yaml.before-<version>` may already exist, so before the first save only `config.yaml.prev` holds the newer release's file.
 
 ## Users and locks (optional)
 
