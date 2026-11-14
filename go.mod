@@ -1,7 +1,8 @@
 module github.com/sethdotfm/sode
 
-go 1.24
+go 1.27
 
-require github.com/coder/websocket v1.8.15
-
-require gopkg.in/yaml.v3 v3.0.1
+require (
+	github.com/coder/websocket v1.8.15
+	gopkg.in/yaml.v3 v3.0.1
+)
