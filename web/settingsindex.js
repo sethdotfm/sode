@@ -318,6 +318,8 @@ export const DICT = {
   'cfg-pin2': ['pin', 'password', 'confirm', 'repeat', 'retype', 'again'],
   'cfg-pin-clear': ['remove pin', 'delete pin', 'no pin', 'unlock', 'disable', 'password off', 'clear'],
   'cfg-pin-tries': ['wrong pin', 'tries', 'attempts', 'lock out', 'lockout', 'brute force', 'incorrect', 'guesses', 'reset pin'],
+  'cfg-kill-enabled': ['kill', 'emergency', 'stop', 'shut down', 'shutdown', 'panic', 'off switch', 'restart policy', 'docker', 'crash'],
+  'kill-open': ['kill', 'kill sode', 'emergency', 'stop', 'shut down', 'shutdown', 'panic'],
 
   // ---- Audit
   'cfg-proxies': [
