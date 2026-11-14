@@ -2,7 +2,7 @@
 // settings save together and the view stays open; This device choices are per browser and apply
 // at once.
 
-import { $, el, S, on, wsSend, sentence } from './core.js';
+import { $, el, S, on, onMsg, wsSend, sentence } from './core.js';
 import { levelColor, levelLabel, levelInput } from './levelview.js';
 import { fmtTime } from './device.js';
 import { initDeviceSettings } from './devicesettings.js';
@@ -427,6 +427,13 @@ on('historyCleared', () => {
   if (!clearPending()) return;
   clearing = 0;
   showResult('ok', 'History cleared', 'History is empty for everyone.');
+});
+// Only a refusal with nothing to re-ask (Sode shutting down) answers this way.
+onMsg('clearHistoryResult', (m) => {
+  if (m.ok || !clearPending()) return;
+  clearing = 0;
+  $('settings-err').textContent = sentence(m.err);
+  $('settings-err').hidden = false;
 });
 on('wsclose', () => {
   clearing = 0;

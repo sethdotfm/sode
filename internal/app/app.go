@@ -92,6 +92,10 @@ type App struct {
 	// Take timers; only tests shorten them (shortTimers).
 	checkTimeout, routeTimeout, routeGrace, queueMax time.Duration
 
+	// Writes from browser messages; Run waits up to drainLimit for them (shutdown.go).
+	writes     inflight
+	drainLimit time.Duration
+
 	// Idle sweep (idle.go): the clock and the sweep period; tests change both (lock_idle_test.go).
 	now       func() time.Time
 	idleEvery time.Duration
@@ -193,6 +197,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		routeTimeout: defaultRouteTimeout,
 		routeGrace:   defaultRouteGrace,
 		queueMax:     defaultQueueMax,
+		drainLimit:   defaultDrainLimit,
 		now:          time.Now,
 		idleEvery:    defaultIdleEvery,
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},
@@ -233,23 +238,38 @@ var background = map[swp08.Reason]bool{swp08.ReasonResync: true, swp08.ReasonNam
 
 func (a *App) r() *runtime { return a.rt.Load() }
 
+// Run ends when ctx does, after the writes in flight finish (up to drainLimit). The router
+// link, logSent and uptime run on their own context so those writes keep them meanwhile.
 func (a *App) Run(ctx context.Context) {
 	start := event(kindServer, "", "", "start")
 	start.Err = a.r().cfg.UnknownKeysProblem() // Err files it under Problems
 	a.logEvent(start)
-	go a.sw.Run(ctx)
+	link, cut := context.WithCancel(context.WithoutCancel(ctx))
+	go a.sw.Run(link)
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go func() { defer wg.Done(); a.logSent(ctx) }()
-	go func() { defer wg.Done(); a.up.Run(ctx) }()
-	defer func() { wg.Wait(); a.up.Stop() }()
+	go func() { defer wg.Done(); a.logSent(link) }()
+	go func() { defer wg.Done(); a.up.Run(link) }()
+	defer func() { cut(); wg.Wait(); a.up.Stop() }()
 	a.lateQ = make(chan lateJob, 64)
-	go a.lateWorker(ctx)
+	go a.lateWorker(link)
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
+	stopping := ctx.Done()
+	var drained <-chan struct{}
+	var limit <-chan time.Time
 	for {
 		select {
-		case <-ctx.Done():
+		case <-stopping:
+			stopping = nil
+			drained = a.writes.close()
+			lt := time.NewTimer(a.drainLimit)
+			defer lt.Stop()
+			limit = lt.C
+		case <-drained:
+			return
+		case <-limit:
+			log.Printf("shutdown: stopped after %v with writes still running: %s", a.drainLimit, a.writes.left())
 			return
 		case <-t.C:
 			a.flush()

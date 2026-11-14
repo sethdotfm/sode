@@ -152,7 +152,18 @@ type keyStore struct {
 	endWrote uint64 // last endSeq written (under fileMu)
 }
 
-// loadKeys: once, from New. A damaged file is forgotten, as tokens are.
+// setAsideDamaged: so the next write cannot overwrite the file and an administrator can repair
+// it. No colons in the time: not every filesystem allows them.
+func setAsideDamaged(path, prefix, what string, perr error) {
+	aside := path + ".damaged-" + time.Now().UTC().Format("20060102T150405Z")
+	if err := os.Rename(path, aside); err != nil {
+		log.Printf("%s: %s is damaged, %s forgotten, and setting it aside failed: %v (%v)", prefix, path, what, err, perr)
+		return
+	}
+	log.Printf("%s: %s is damaged, %s forgotten; the file is kept as %s: %v", prefix, path, what, aside, perr)
+}
+
+// loadKeys: once, from New. A damaged file is set aside and the store starts empty, as for tokens.
 func loadKeys(cfgPath string) *keyStore {
 	s := &keyStore{}
 	if cfgPath == "" {
@@ -161,14 +172,14 @@ func loadKeys(cfgPath string) *keyStore {
 	s.path = filepath.Join(filepath.Dir(cfgPath), "keys.json")
 	if b, err := os.ReadFile(s.path); err == nil {
 		if err := json.Unmarshal(b, &s.recs); err != nil {
-			log.Printf("api: %s is damaged, keys forgotten: %v", s.path, err)
+			setAsideDamaged(s.path, "api", "keys", err)
 			s.recs = nil
 		}
 	}
 	var ended []endedKey
 	if b, err := os.ReadFile(s.endedPath()); err == nil {
 		if err := json.Unmarshal(b, &ended); err != nil {
-			log.Printf("api: %s is damaged, ended keys forgotten: %v", s.endedPath(), err)
+			setAsideDamaged(s.endedPath(), "api", "ended keys", err)
 			ended = nil
 		}
 	}
