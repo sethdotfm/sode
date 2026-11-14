@@ -142,6 +142,9 @@ A user with a flag that lets them save shared settings without the Advanced Sett
 A cover over the page that stops every key from reaching it until it is dismissed. With nobody signed in, pressing the shown letter dismisses it, which guards against mashing the keyboard and nothing more. With a user signed in, the Lock is held by the server for that session, so a reload or reconnect still shows it, and only that user's PIN resumes it. They can also sign out from it.
 _Avoid_: hand lock, soft lock, screen lock
 
+**Kill**:
+The emergency stop in Settings > Access: it ends the Sode process at once, with no graceful shutdown, so the router link drops and takes not yet sent are lost. It needs the `killEnabled` setting and the Advanced Settings PIN, typed again each time. It keeps Sode down only when the container's restart policy is `no` or `on-failure`.
+
 **Auto-lock**:
 Raises the Lock after a set number of idle minutes. It never signs anyone out. A user marked No auto-lock is skipped, and the Lock button still works for them.
 _Avoid_: idle timeout

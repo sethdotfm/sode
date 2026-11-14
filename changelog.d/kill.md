@@ -1,0 +1,1 @@
+- A Kill button in Settings > Access stops Sode at once for emergencies. It is off by default; turn on `killEnabled` (seeded by `SODE_KILL_ENABLED`) only when the container's Docker restart policy is `no` or `on-failure`, and it asks for the Advanced Settings PIN every time.

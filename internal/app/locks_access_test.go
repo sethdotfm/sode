@@ -55,6 +55,7 @@ func TestLocksNeedSettingsPin(t *testing.T) {
 		"main off":  func(c *config.Config) { c.Locks.Main = false },
 		"log off":   func(c *config.Config) { c.Locks.Log = false },
 		"auto-lock": func(c *config.Config) { c.AutoLockMinutes = 3 },
+		"kill on":   func(c *config.Config) { c.KillEnabled = true },
 	} {
 		cfg := a.r().cfg
 		mut(&cfg)
@@ -64,8 +65,8 @@ func TestLocksNeedSettingsPin(t *testing.T) {
 			t.Errorf("%s: trusted user got %v, want guardedErr", name, err)
 		}
 	}
-	if got := a.r().cfg; !got.Locks.Main || !got.Locks.Log || got.AutoLockMinutes != 0 {
-		t.Fatalf("a refused save changed the locks: %+v", got)
+	if got := a.r().cfg; !got.Locks.Main || !got.Locks.Log || got.AutoLockMinutes != 0 || got.KillEnabled {
+		t.Fatalf("a refused save changed the locks or Kill: %+v", got)
 	}
 	if err := a.SaveSettings(ana, a.r().cfg, "", false); err != nil {
 		t.Fatalf("unchanged locks: %v", err)

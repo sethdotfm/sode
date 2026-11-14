@@ -10,3 +10,6 @@ export function intProblem(entries) {
   }
   return null;
 }
+
+// The Kill button: the saved setting on, and this connection holding the Advanced Settings PIN. A trusted user without it never sees it.
+export const killShown = (cfg, pinSet, unlocked) => !!cfg?.killEnabled && !!pinSet && !!unlocked;
