@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -685,6 +686,33 @@ func BackupOnce(path, label string) error {
 		return nil
 	}
 	return copyFile(path, dst)
+}
+
+// BackupUnknown keeps a dated copy of a file holding keys this release doesn't know, before any
+// save can drop them. After a rollback .before-<version> often exists already and .prev lasts
+// one save. A copy equal to the newest one is skipped, so a restart loop doesn't fill the disk.
+func BackupUnknown(path string, now time.Time) error {
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	c, err := Parse(b)
+	if err != nil || len(c.UnknownKeys()) == 0 {
+		return err
+	}
+	older, err := filepath.Glob(path + ".unknown-*")
+	if err != nil {
+		return err
+	}
+	if len(older) > 0 {
+		if last, err := os.ReadFile(slices.Max(older)); err == nil && bytes.Equal(last, b) {
+			return nil
+		}
+	}
+	return AtomicWrite(path+".unknown-"+now.UTC().Format("20060102T150405Z"), b)
 }
 
 // copyFile treats a missing source as nothing to copy.

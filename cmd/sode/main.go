@@ -63,9 +63,13 @@ func loadConfig(path string) config.Config {
 	return c
 }
 
+// Runs before anything here can save, including the reset commands.
 func backupBeforeRelease(path string) {
 	if err := config.BackupOnce(path, app.Version); err != nil {
 		log.Printf("config: backing up %s: %v", path, err)
+	}
+	if err := config.BackupUnknown(path, time.Now()); err != nil {
+		log.Printf("config: keeping a copy of %s with unknown keys: %v", path, err)
 	}
 }
 
