@@ -212,7 +212,7 @@ func FromEnv(c Config) (Config, error) {
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
 	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)
 	num("SODE_MAX_PIN_LEN", &c.MaxPinLen)
-	flag := func(k string, dst *bool) {
+	boolean := func(k string, dst *bool) {
 		if v := os.Getenv(k); v != "" {
 			b, err := strconv.ParseBool(v)
 			if err != nil {
@@ -221,8 +221,8 @@ func FromEnv(c Config) (Config, error) {
 			*dst = b
 		}
 	}
-	flag("SODE_CONFIRM_ENTER", &c.ConfirmEnter)
-	flag("SODE_KILL_ENABLED", &c.KillEnabled)
+	boolean("SODE_CONFIRM_ENTER", &c.ConfirmEnter)
+	boolean("SODE_KILL_ENABLED", &c.KillEnabled)
 	if v := os.Getenv("SODE_TRUSTED_PROXIES"); v != "" {
 		c.TrustedProxies = nil
 		for _, p := range strings.Split(v, ",") {

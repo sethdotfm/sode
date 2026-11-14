@@ -11,7 +11,7 @@ import (
 	"github.com/sethdotfm/sode/web"
 )
 
-// Settings > Access shows Kill only with killEnabled on and the PIN entered on this
+// Settings > Access shows Kill, and its search offers it, only with killEnabled on and the PIN entered on this
 // connection; the dialog lists what a Kill does, a wrong PIN is refused there, and the right
 // one reaches the exit (stubbed) with exit code 0. With Compact view on, Settings still shows its
 // pref under This browser beside Kill.
@@ -46,9 +46,17 @@ func TestChromeSettingsKill(t *testing.T) {
 	if b.eval(shown) == true {
 		t.Fatal("Kill shown with killEnabled off")
 	}
+	// The search box reads the hit list as it types, so it needs no wait.
+	findsKill := `(() => { const f = document.getElementById('settings-find'); f.value = 'kill sode'; f.dispatchEvent(new Event('input')); const has = [...document.querySelectorAll('#settings-found li')].some((li) => li.firstChild.textContent === 'Kill Sode'); f.value = ''; f.dispatchEvent(new Event('input')); return has; })()`
+	if b.eval(findsKill) == true {
+		t.Fatal("Settings search offers Kill Sode while Kill is hidden")
+	}
 
 	killOn(t, a, true)
 	b.waitFor("Kill shown with the setting on and the PIN entered", shown)
+	if b.eval(findsKill) != true {
+		t.Fatal("Settings search lacks Kill Sode while Kill is shown")
+	}
 
 	// Reopening Settings drops this connection's unlock.
 	b.eval(`document.getElementById('settings-exit').click()`)
@@ -87,8 +95,8 @@ func TestChromeSettingsKill(t *testing.T) {
 			t.Fatal("the right PIN never reached the exit")
 		}
 	}
-	if x.codes[0] != 0 {
-		t.Fatalf("exit code %d, want 0", x.codes[0])
+	if code := x.first(); code != 0 {
+		t.Fatalf("exit code %d, want 0", code)
 	}
 	if e := lastRow(t, a, "kill", 2); e.Result != "ok" { // the first is the wrong PIN's refusal
 		t.Errorf("kill row %+v", e)

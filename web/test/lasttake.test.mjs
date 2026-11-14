@@ -172,3 +172,16 @@ test('sendTakes: a single-source redo updates Last; a Group redo, a Retry and a 
   );
   assert.deepEqual(t.levels, [3]);
 });
+
+test('againPlan: a redo of an undo row is still offered but leaves Last alone', async () => {
+  const { sendTakes, lastTake, patchPlan, againPlan, lastFromPlan } = await setup();
+  sendTakes(patchPlan(it(1), [it(5)], [1]));
+  const undoRow = { id: 9, src: 2, srcName: 'X2', dst: 6, dstName: 'X6', levels: [1], ok: true, undo: 4 };
+  const plan = againPlan({ e: undoRow });
+  assert.equal(plan.verb, 'redo');
+  assert.equal(plan.items.length, 1);
+  assert.equal(lastFromPlan(plan), null);
+  sendTakes(plan);
+  assert.equal(lastTake().src.n, 1);
+  assert.equal(lastFromPlan(againPlan({ e: { ...undoRow, undo: null } })).src[0], 2, 'a plain take still sets Last');
+});

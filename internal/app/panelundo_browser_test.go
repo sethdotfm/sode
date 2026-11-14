@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sethdotfm/sode/web"
 )
 
+// A panel Undo steps back this instance's takes newest first, skipping another instance's, and greys once none are left.
 func TestChromePanelUndoStepsBackThisInstance(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -30,15 +30,7 @@ func TestChromePanelUndoStepsBackThisInstance(t *testing.T) {
 		{"r":1,"c":3,"kind":"source","n":%d},
 		{"r":1,"c":4,"kind":"take"},
 		{"r":1,"c":5,"kind":"undo"}],"settings":{"mode":"take"}}`, simDst, second, simSrc))
-	for deadline := time.Now().Add(15 * time.Second); ; time.Sleep(50 * time.Millisecond) {
-		if strings.Contains(apiDo(a, "GET", "/api/v1/names", ana, nil).Body.String(), "DSM1") &&
-			strings.Contains(apiDo(a, "GET", "/api/v1/tally", ana, nil).Body.String(), `"routes":[{`) {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the app never read names and tally from swp08sim")
-		}
-	}
+	waitNamesAndTally(t, a, ana)
 	b.open(srv.URL + "/panels/" + id + "?instance=Desk")
 	b.waitFor("PIN pad", `!!document.querySelector('.sode-lock__key[data-key="1"]')?.offsetParent`)
 	for _, d := range "1234" {
