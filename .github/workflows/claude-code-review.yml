@@ -12,6 +12,8 @@ on:
 
 jobs:
   claude-review:
+    # claude-code-action refuses bot-started runs, so Dependabot PRs would always show this job red.
+    if: github.event.pull_request.user.type != 'Bot'
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
