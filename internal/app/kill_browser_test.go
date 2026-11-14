@@ -13,7 +13,8 @@ import (
 
 // Settings > Access shows Kill only with killEnabled on and the PIN entered on this
 // connection; the dialog lists what a Kill does, a wrong PIN is refused there, and the right
-// one reaches the exit (stubbed) with exit code 0.
+// one reaches the exit (stubbed) with exit code 0. With Compact view on, Settings still shows its
+// pref under This browser beside Kill.
 func TestChromeSettingsKill(t *testing.T) {
 	b := startBrowser(t)
 	sim := startSim(t)
@@ -32,6 +33,12 @@ func TestChromeSettingsKill(t *testing.T) {
 		b.eval(`document.getElementById('lock-pin').value = '2468'; document.getElementById('lock-unlock').click()`)
 		b.waitFor("Settings unlocked", `document.getElementById('settings-view').dataset.locked === undefined`)
 	}
+
+	waitNamesAndTally(t, a, userKey(t, a, "Ana"))
+	// A query, so the next open is a full load and prepaint reads the stored pref.
+	b.open(srv.URL + "/?seed")
+	b.waitFor("Source box", `!!document.getElementById('src')`)
+	b.eval(`localStorage.setItem('sode-compact', 'on'); true`)
 
 	b.open(srv.URL + "/#settings")
 	b.waitFor("Settings open", `document.documentElement.dataset.view === 'settings'`)
@@ -53,6 +60,9 @@ func TestChromeSettingsKill(t *testing.T) {
 	}
 	unlock()
 	b.waitFor("Kill shown again", shown)
+	b.waitFor("Compact view applied", `document.documentElement.hasAttribute('data-compact')`)
+	b.waitFor("Compact view under This browser beside Kill", `(() => { const s = document.getElementById('cfg-compact'); return s?.closest('fieldset')?.querySelector('legend')?.textContent === 'This browser' && s.value === 'on' && !!s.offsetParent; })()`)
+	b.waitFor("Kill button visible", `!!document.getElementById('kill-open')?.offsetParent`)
 	b.shot("kill-row")
 
 	b.eval(`document.getElementById('kill-open').click()`)
