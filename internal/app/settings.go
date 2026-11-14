@@ -71,7 +71,7 @@ var errInsecureSave = errors.New("turning on Require HTTPS needs a request that 
 
 func (a *App) SaveFilterSets(c *client, sets []config.FilterSet) error {
 	return a.saveShared(c, func(cur *config.Config) error {
-		cur.FilterSets = sets
+		cur.FilterSets = config.WithFilterSetExtras(sets, cur.FilterSets)
 		return nil
 	}, func(cfg config.Config) any { return filterSetsMsg{T: "filterSets", Sets: cfg.FilterSets} })
 }
