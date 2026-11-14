@@ -49,6 +49,9 @@ type rule struct {
 	admitted func(c *client)
 	// handle runs after admit passed; connCtx is the read loop's per-connection state.
 	handle func(a *App, c *client, m *inMsg, cc *connCtx)
+	// write: a take or save. The read loop counts it so shutdown waits for it, and refuses it
+	// once shutdown began; its handler calls m.finish when done, on every path.
+	write bool
 	// onRefuse: extra replies after a refusal is logged (a take fails each route).
 	onRefuse func(a *App, c *client, m *inMsg, err error)
 }
@@ -99,7 +102,7 @@ var policy = map[string]rule{
 	"keyListOwn": {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListOwn(c, m) }},
 	"history":    {handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 
-	"batch": {need: needMain, why: "take",
+	"batch": {need: needMain, why: "take", write: true,
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },
 		onRefuse: func(a *App, c *client, m *inMsg, err error) {
 			for _, it := range m.Items {
@@ -111,9 +114,12 @@ var policy = map[string]rule{
 		go a.RefreshNames()
 	}},
 	// Erasing history is more than a take.
-	"clearHistory": {need: needMain | needAdmin, handle: func(a *App, c *client, _ *inMsg, _ *connCtx) {
+	"clearHistory": {need: needMain | needAdmin, write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		a.command(c, "clearHistory", "ok", "", nil)
-		go a.ClearHistory(c.who())
+		go func() {
+			defer m.finish()
+			a.ClearHistory(c.who())
+		}()
 	}},
 
 	// Admitting sent subscribes to the feed in the same step, so a lock can't slip in.
@@ -123,22 +129,29 @@ var policy = map[string]rule{
 		a.reply(c, a.uptimeReply(m.ID, m.From, m.To, m.Slot))
 	}},
 
-	"config": {need: needTrusted, op: "config", noID: true,
+	"config": {need: needTrusted, op: "config", noID: true, write: true,
 		strict: func(m *inMsg) bool { return m.Pin != "" || m.ClearPin },
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfig(c, m) }},
-	"filterSets": {need: needTrusted, op: "filterSets", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"filterSets": {need: needTrusted, op: "filterSets", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		go func(sets []config.FilterSet, id int) {
+			defer m.finish()
 			a.replyOp(c, "filterSets", id, len(sets), "set", a.SaveFilterSets(c, sets))
 		}(m.Sets, m.ID)
 	}},
-	"presets": {need: needTrusted, op: "presets", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"presets": {need: needTrusted, op: "presets", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		go func(presets []config.Preset, id int) {
+			defer m.finish()
 			a.replyOp(c, "presets", id, len(presets), "preset", a.SavePresets(c, presets))
 		}(m.Presets, m.ID)
 	}},
 	// A user saves their own profile with no PIN; others need a trusted user or the PIN.
-	"profileSave": {need: needTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name },
-		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.serveProfileSave(c, m) }},
+	"profileSave": {need: needTrusted, op: "profileSave", selfOf: func(m *inMsg) string { return m.Name }, write: true,
+		handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+			go func() {
+				defer m.finish()
+				a.serveProfileSave(c, m)
+			}()
+		}},
 	"profileGet": {need: needTrusted, op: "profileGet",
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveProfileGet(c, m) }},
 	// PIN only, trusted or not: holds users, locks, router, profiles and PIN hashes. Begin
@@ -155,10 +168,11 @@ var policy = map[string]rule{
 			a.replyOp(c, "configImportBegin", m.ID, 0, "", errImportTooBig)
 		}
 	}},
-	"configImport": {need: needAdmin, op: "configImport",
+	"configImport": {need: needAdmin, op: "configImport", write: true,
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveConfigImport(c, m) }},
-	"userSignOutAll": {need: needAdmin, op: "userSignOutAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"userSignOutAll": {need: needAdmin, op: "userSignOutAll", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		go func(name string, id int) {
+			defer m.finish()
 			a.replyOp(c, "userSignOutAll", id, 0, "", a.SignOutAll(c, name))
 		}(m.Name, m.ID)
 	}},
@@ -168,22 +182,26 @@ var policy = map[string]rule{
 	"keyRevokeAny": {need: needAdmin, op: "keyRevokeAny", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAny(c, m) }},
 	"keyRevokeAll": {need: needAdmin, op: "keyRevokeAll", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyRevokeAll(c, m) }},
 	// the API settings area: advanced, so the Advanced Settings PIN even for a trusted user
-	"apiSettings": {need: needAdmin, op: "apiSettings", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"apiSettings": {need: needAdmin, op: "apiSettings", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		if m.APISet == nil {
+			m.finish()
 			return
 		}
 		go func(r apiSettingsReq, id int) {
+			defer m.finish()
 			a.replyOp(c, "apiSettings", id, 0, "", a.SaveAPISettings(c, r))
 		}(*m.APISet, m.ID)
 	}},
 	"usersList": {need: needAdmin, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
 	// and SaveUsers wants an Advanced Settings PIN to exist
-	"users": {need: needAdmin, op: "users", handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
+	"users": {need: needAdmin, op: "users", write: true, handle: func(a *App, c *client, m *inMsg, _ *connCtx) {
 		if m.UsersReq == nil {
+			m.finish()
 			return
 		}
 		go func(r usersReq, id int) {
+			defer m.finish()
 			err := a.SaveUsers(c, r)
 			a.replyOp(c, "users", id, 0, "", err)
 		}(*m.UsersReq, m.ID)
@@ -243,7 +261,7 @@ func (a *App) refuse(c *client, t string, r rule, m *inMsg, err error) {
 	}
 	if errors.Is(err, errPageLocked) {
 		a.syncAccess(c)
-	} else if r.op == "" {
+	} else if r.op == "" && !errors.Is(err, errShuttingDown) {
 		a.reply(c, simpleMsg{T: "locked"})
 	}
 }

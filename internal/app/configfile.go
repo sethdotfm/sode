@@ -179,6 +179,7 @@ func (a *App) serveConfigExport(c *client, m *inMsg) {
 
 func (a *App) serveConfigImport(c *client, m *inMsg) {
 	go func(text string, id int) {
+		defer m.finish()
 		a.replyOpNote(c, "configImport", id, fmt.Sprintf("%d bytes", len(text)), a.ImportConfig(c, text))
 	}(m.YAML, m.ID)
 }
