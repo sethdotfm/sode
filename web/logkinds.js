@@ -36,6 +36,7 @@ export const WHY_LABEL = {
   salvos: 'Presets saved', // salvos: rows logged before the rename
   unlock: 'Advanced Settings PIN',
   lock: 'Settings locked',
+  kill: 'Kill',
   salvo: 'Native salvo',
   userUnlock: 'User PIN',
   userLock: 'User locked',

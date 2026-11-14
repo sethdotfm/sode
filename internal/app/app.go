@@ -96,6 +96,9 @@ type App struct {
 	writes     inflight
 	drainLimit time.Duration
 
+	// exit ends the process on a Kill (kill.go); tests swap it so they never end the test binary.
+	exit func(code int)
+
 	// Idle sweep (idle.go): the clock and the sweep period; tests change both (lock_idle_test.go).
 	now       func() time.Time
 	idleEvery time.Duration
@@ -198,6 +201,7 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 		routeGrace:   defaultRouteGrace,
 		queueMax:     defaultQueueMax,
 		drainLimit:   defaultDrainLimit,
+		exit:         exitProcess,
 		now:          time.Now,
 		idleEvery:    defaultIdleEvery,
 		status:       statusMsg{T: "status", Router: string(swp08.StateConnecting), Addr: cfg.Router},

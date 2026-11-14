@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { intProblem } from '../settingsrules.js';
+import { intProblem, killShown } from '../settingsrules.js';
 
 const e = (key, value, type = 'int') => ({ key, type, value });
 
@@ -20,4 +20,11 @@ test('other blank numbers fail, non-int fields are ignored', () => {
 });
 test('a key left out of the config does not matter: only field values are read', () => {
   assert.equal(intProblem([e('autoLockMinutes', '0')]), null);
+});
+test('Kill shows only with the setting on, a PIN set and this connection unlocked', () => {
+  assert.equal(killShown({ killEnabled: true }, true, true), true);
+  assert.equal(killShown({ killEnabled: false }, true, true), false);
+  assert.equal(killShown({ killEnabled: true }, false, true), false);
+  assert.equal(killShown({ killEnabled: true }, true, false), false);
+  assert.equal(killShown(null, true, true), false);
 });

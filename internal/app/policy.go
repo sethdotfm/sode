@@ -18,7 +18,7 @@ import (
 //	open: hi userUnlock userLock userSignOut userSetPin unlock lock history activity
 //	needMain: `batch` `refreshNames`; needMain+Admin: clearHistory; needLog: sent uptime
 //	needTrusted: config (Admin when it sets or clears the PIN), filterSets, presets
-//	needAdmin: users apiSettings userSignOutAll configExport configImportBegin configImport
+//	needAdmin: users apiSettings userSignOutAll configExport configImportBegin configImport kill
 //	profileSave: the user's own unlock or needTrusted; profileGet needTrusted; both re-checked by guardProfile.
 type need uint8
 
@@ -198,6 +198,9 @@ var policy = map[string]rule{
 			a.replyOp(c, "apiSettings", id, 0, "", a.SaveAPISettings(c, r))
 		}(*m.APISet, m.ID)
 	}},
+	// Ends the process (kill.go). Also refused with killEnabled off or no PIN set, and the
+	// message carries the PIN again. In line: nothing after it matters.
+	"kill": {need: needAdmin, op: "kill", handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKill(c, m) }},
 	"usersList": {need: needAdmin, op: "usersList",
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.reply(c, a.usersList(m.ID)) }},
 	// and SaveUsers wants an Advanced Settings PIN to exist
