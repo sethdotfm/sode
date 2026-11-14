@@ -271,7 +271,7 @@ One saved layout per panel in a group, so a single Push gives each panel in the 
 The Source box, the Destination box and the Level box, where a plan is typed. What they hold is a plan until Confirm.
 
 **Last**:
-The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser, and the chip is hidden until this browser has made a take.
+The chip in a patch box that fills it with that box's value from this browser's most recent take. It is per browser and kept across reloads, and the chip is hidden until this browser has made a take.
 
 **Next**:
 The chip in a patch box that fills it with the value after Last, either the number plus one or the next router name match, as the browser's Next match behavior says. Pressing it again keeps stepping. It is per browser.
