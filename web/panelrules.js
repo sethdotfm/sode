@@ -179,16 +179,25 @@ export function errorText(err, names) {
       return 'This panel stages one destination at a time, and that preset has more';
     case 'refused':
       return err.message || 'The take was refused';
-    case 'undone': {
-      const dsts = [...new Set(err.routes.map((r) => r.dst))];
-      const back = err.routes.length === 1 ? ` back to ${names.source(err.routes[0].src)}` : '';
-      return `Undone: ${dsts.map(names.destination).join(', ')}${back}`;
-    }
-    case 'undo-failed':
-      return `Undo failed on ${err.dsts.map(names.destination).join(', ')}`;
     default:
       return '';
   }
+}
+
+// Whether a destination the Undo cell would restore moved between two envs: History's own Undo or another tab of the
+// instance may have changed the target. next is GET /panels/<id>/undo's `undo`.
+export function undoMoved(was, env, next) {
+  const row = (e, dst) => JSON.stringify([...(e.tally.get(dst) || [])].sort((x, y) => x[0] - y[0]));
+  return !!next?.routes.some((r) => row(was, r.dst) !== row(env, r.dst));
+}
+
+// The Undo cell's last press (panelmodel.js undoneOf), '' for none.
+export function undoneText(u, names) {
+  if (!u) return '';
+  if (u.failed.length) return `Undo failed on ${[...new Set(u.failed)].map(names.destination).join(', ')}`;
+  const dsts = [...new Set(u.routes.map((r) => r.dst))];
+  const back = u.routes.length === 1 ? ` back to ${names.source(u.routes[0].src)}` : '';
+  return `Undone: ${dsts.map(names.destination).join(', ')}${back}`;
 }
 
 // Offline is what the page shows over a blurred grid. Sode not answering wins: with no answer the router link is unknown.

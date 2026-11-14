@@ -43,8 +43,9 @@ Ended keys (the throttle lockout a stale tab caused): Sode answers a key that wo
 
 ## Undo cell
 
-- `panelundo.go`: `GET` and `POST /panels/{id}/undo`, scope `take` only, so a panel key undoes without `history` (`config.PanelClientScopes` must not gain it). `panelUndoTarget` walks History newest first (at most `undoScan` entries, each a file read), counts every entry with `undo` set as undoing its target, and takes the first entry whose `panelId` and `instance` (ignoring case) are the caller's own, with its Group. The instance is `Actor.instance` from `panelHeaders`; a caller with none (the editor's Test it live) has nothing to undo. Entries made before `panelId` existed never match.
-- The page keeps the answer in `undoNext` (`panelrun.js`) and greys the cell from it (`undoReady`); `finishUndo` shows results like `finishTake` but leaves the plan staged.
+- `panelundo.go`: `GET` and `POST /panels/{id}/undo`, scope `take` only, so a panel key undoes without `history` (`config.PanelClientScopes` must not gain it). `panelUndoTarget` walks History newest first (at most `undoScan` entries, each a file read), counts an entry with `undo` set as undoing its target only when it is `ok` (a refused or failed undo leaves the take; a Late Result flips `ok`), and takes the first entry whose `panelId` and `instance` (ignoring case) are the caller's own, with its Group, read again from its own entry so another take's interleaved entries never split it. GET answers the take's newest entry as `id`; POST sends it back and gets 409 when the target moved. The instance is `Actor.instance` from `panelHeaders`; a caller with none (the editor's Test it live) has nothing to undo. Entries made before `panelId` existed never match.
+- The Undo cell trusts the instance name the page sends (`X-Sode-Instance`), as every other instance feature does.
+- The page keeps the answer in `undoNext` (`panelrun.js`) and greys the cell from it (`undoReady`). It asks when a poll first reaches Sode (load and reconnect), after its own take or undo, on a rename or live update, and when the tally of a destination in `undoNext.routes` moves (`undoMoved`); never on a timer, since each ask walks History. `finishUndo` shares the results with `finishTake` but leaves the plan staged, and puts the status in `st.undone`, since a done undo is no error.
 
 ## Push, Rev and live update
 
