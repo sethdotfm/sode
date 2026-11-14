@@ -19,7 +19,8 @@ type Profile struct {
 	FilterSets []FilterSet       `yaml:"filterSets,omitempty" json:"filterSets"`
 	Presets    []Preset          `yaml:"presets,omitempty" json:"presets"`
 	// PinOrder keys are "scope:lowercase name"; unmatched ignored, unlisted pinned presets come after.
-	PinOrder []string `yaml:"pinOrder,omitempty" json:"pinOrder"`
+	PinOrder []string       `yaml:"pinOrder,omitempty" json:"pinOrder"`
+	Extra    map[string]any `yaml:",inline" json:"-"`
 }
 
 // MaxPinOrder caps PinOrder; MaxPinKey caps one key, in runes.
@@ -49,7 +50,7 @@ func (p Profile) Items() int {
 }
 
 func (p Profile) Clone() Profile {
-	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder)}
+	return Profile{Prefs: maps.Clone(p.Prefs), FilterSets: slices.Clone(p.FilterSets), Presets: ClonePresets(p.Presets), PinOrder: slices.Clone(p.PinOrder), Extra: p.Extra}
 }
 
 // Works on a copy; no nil lists, so JSON says [] and {}.
@@ -90,7 +91,7 @@ func (c *Config) normalizeProfiles() {
 	for i := range c.Users {
 		p := c.Users[i].Profile.Normalized()
 		if p.Empty() {
-			p = Profile{}
+			p = Profile{Extra: p.Extra}
 		}
 		c.Users[i].Profile = p
 	}

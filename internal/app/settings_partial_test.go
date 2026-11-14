@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"maps"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestSaveOmittingKeysKeepsLiveValues(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		got := a.r().cfg
-		if got.Locks != live.Locks || !got.Locks.Main || !got.Locks.Log || got.AutoLockMinutes != 7 || got.DeviceDefaults != live.DeviceDefaults {
+		if !reflect.DeepEqual(got.Locks, live.Locks) || !got.Locks.Main || !got.Locks.Log || got.AutoLockMinutes != 7 || !reflect.DeepEqual(got.DeviceDefaults, live.DeviceDefaults) {
 			t.Fatalf("%s: live values lost: %+v %d %+v", name, got.Locks, got.AutoLockMinutes, got.DeviceDefaults)
 		}
 		if !slices.Equal(got.LevelColors, []string{"#abcdef"}) {
@@ -77,7 +78,7 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": dd}); err != nil {
 		t.Fatal(err)
 	}
-	if got := a.r().cfg.DeviceDefaults; got != dd {
+	if got := a.r().cfg.DeviceDefaults; !reflect.DeepEqual(got, dd) {
 		t.Fatalf("got %+v", got)
 	}
 	// Booleans in a full object turn off too.
@@ -85,7 +86,7 @@ func TestSaveWithDeviceDefaultsReplacesThem(t *testing.T) {
 	if err := pageSave(t, a, admin, map[string]any{"deviceDefaults": off}); err != nil {
 		t.Fatal(err)
 	}
-	if got := a.r().cfg.DeviceDefaults; got != off {
+	if got := a.r().cfg.DeviceDefaults; !reflect.DeepEqual(got, off) {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -103,7 +104,7 @@ func TestSavePartialDeviceDefaultsMerges(t *testing.T) {
 	}
 	want := live
 	want.Theme = "light"
-	if got := a.r().cfg.DeviceDefaults; got != want {
+	if got := a.r().cfg.DeviceDefaults; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }

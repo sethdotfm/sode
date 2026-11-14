@@ -1,0 +1,1 @@
+- Settings keep keys this release doesn't know, so rolling back no longer stops startup or loses newer settings.

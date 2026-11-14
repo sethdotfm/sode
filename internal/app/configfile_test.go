@@ -151,7 +151,6 @@ func TestConfigImportRefused(t *testing.T) {
 	admin := adminClient(t, a)
 	for name, in := range map[string]string{
 		"empty":        "  \n# nothing\n",
-		"unknown key":  text + "\nnonsense: 1\n",
 		"not yaml":     "a: [",
 		"hand PIN":     strings.Replace(text, "settingsPin: ", "settingsPin: 1234 #", 1),
 		"bad user pin": strings.Replace(text, "pin: pbkdf2", "pin: xx", 1),

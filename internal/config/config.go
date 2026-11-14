@@ -3,6 +3,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -79,6 +81,8 @@ type Config struct {
 	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
+	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
+	Extra map[string]any `yaml:",inline" json:"-" owned:"true"`
 }
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
@@ -119,23 +123,25 @@ func BrandNames() []string {
 
 // DeviceDefaults mirrors the per-browser prefs in web/prefs.js.
 type DeviceDefaults struct {
-	Theme         string `yaml:"theme" json:"theme"`
-	Layout        string `yaml:"layout" json:"layout"`
-	Clock         string `yaml:"clock" json:"clock"`
-	Flip          bool   `yaml:"flip" json:"flip"`
-	ScrollTop     bool   `yaml:"scrollTop" json:"scrollTop"`
-	SearchFilters bool   `yaml:"searchFilters" json:"searchFilters"`
-	SetStack      string `yaml:"setStack" json:"setStack"`
-	NextMode      string `yaml:"nextMode" json:"nextMode"`
+	Theme         string         `yaml:"theme" json:"theme"`
+	Layout        string         `yaml:"layout" json:"layout"`
+	Clock         string         `yaml:"clock" json:"clock"`
+	Flip          bool           `yaml:"flip" json:"flip"`
+	ScrollTop     bool           `yaml:"scrollTop" json:"scrollTop"`
+	SearchFilters bool           `yaml:"searchFilters" json:"searchFilters"`
+	SetStack      string         `yaml:"setStack" json:"setStack"`
+	NextMode      string         `yaml:"nextMode" json:"nextMode"`
+	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
 type FilterSet struct {
-	Name   string `yaml:"name" json:"name"`
-	Src    string `yaml:"src,omitempty" json:"src"`
-	Dst    string `yaml:"dst,omitempty" json:"dst"`
-	Sode   bool   `yaml:"sode" json:"sode"`
-	Ext    bool   `yaml:"ext" json:"ext"`
-	Hidden bool   `yaml:"hidden,omitempty" json:"hidden"`
+	Name   string         `yaml:"name" json:"name"`
+	Src    string         `yaml:"src,omitempty" json:"src"`
+	Dst    string         `yaml:"dst,omitempty" json:"dst"`
+	Sode   bool           `yaml:"sode" json:"sode"`
+	Ext    bool           `yaml:"ext" json:"ext"`
+	Hidden bool           `yaml:"hidden,omitempty" json:"hidden"`
+	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
 func Defaults() Config {
@@ -565,8 +571,8 @@ func Load(path string) (c Config, exists bool, err error) {
 	return c, true, nil
 }
 
-// Parse is Load's decoder (also config import): unknown keys error, legacy keys load, no Validate
-// so a caller can merge PIN hashes first.
+// Parse is Load's decoder (also config import): unknown keys are kept (see UnknownKeys), legacy
+// keys load, no Validate so a caller can merge PIN hashes first.
 func Parse(b []byte) (Config, error) {
 	c := Defaults()
 	dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -576,6 +582,54 @@ func Parse(b []byte) (Config, error) {
 	}
 	c.Normalize()
 	return c, nil
+}
+
+// UnknownKeys lists the keys Parse kept in Extra fields, as sorted paths named like the file
+// (users[0].futureField).
+func (c Config) UnknownKeys() []string {
+	var out []string
+	var walk func(v reflect.Value, path string)
+	walk = func(v reflect.Value, path string) {
+		switch v.Kind() {
+		case reflect.Pointer:
+			if !v.IsNil() {
+				walk(v.Elem(), path)
+			}
+		case reflect.Slice, reflect.Array:
+			for i := range v.Len() {
+				walk(v.Index(i), fmt.Sprintf("%s[%d]", path, i))
+			}
+		case reflect.Struct:
+			t := v.Type()
+			for i := range t.NumField() {
+				f := t.Field(i)
+				if !f.IsExported() {
+					continue
+				}
+				name, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
+				if f.Name == "Extra" {
+					for k := range v.Field(i).Interface().(map[string]any) {
+						out = append(out, joinKey(path, k))
+					}
+					continue
+				}
+				if name == "-" {
+					continue
+				}
+				walk(v.Field(i), joinKey(path, cmp.Or(name, strings.ToLower(f.Name))))
+			}
+		}
+	}
+	walk(reflect.ValueOf(c), "")
+	slices.Sort(out)
+	return out
+}
+
+func joinKey(path, k string) string {
+	if path == "" {
+		return k
+	}
+	return path + "." + k
 }
 
 const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
