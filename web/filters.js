@@ -139,7 +139,7 @@ function renderButtons() {
 }
 
 let back = null;
-export const filtersOpen = () => !root.hidden;
+const filtersOpen = () => !root.hidden;
 
 export function openFilters() {
   back = document.activeElement;

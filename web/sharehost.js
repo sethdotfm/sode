@@ -4,7 +4,7 @@ import { el } from './core.js';
 import { isLoopback, parseShareHost, shareBase } from './sharehostrules.js';
 
 const KEY = 'sode-share-host';
-export function storedShareHost() {
+function storedShareHost() {
   try {
     return localStorage.getItem(KEY) || '';
   } catch {

@@ -61,7 +61,7 @@ export function setFilter(next) {
 const SETS_KEY = 'sode-filter-sets';
 const ACTIVE_KEY = 'sode-filter-active';
 
-export const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT).every((k) => (typeof a[k] === 'string' ? a[k].trim() === b[k].trim() : a[k] === b[k]));
+const sameFilter = (a, b) => Object.keys(FILTER_DEFAULT).every((k) => (typeof a[k] === 'string' ? a[k].trim() === b[k].trim() : a[k] === b[k]));
 export const globalSets = () => (S.cfg?.filterSets || []).map((s) => ({ scope: 'global', name: s.name, f: normFilter(s) }));
 export const localSets = () =>
   []
@@ -245,7 +245,7 @@ export function filterSummary(f) {
 // Compiled once per expression. Blank (or unparsable) hides nothing.
 let hiddenText = null,
   hiddenFn = null;
-export function globallyHidden(num, name) {
+function globallyHidden(num, name) {
   const t = (S.cfg?.hiddenDsts || '').trim();
   if (t !== hiddenText) {
     hiddenText = t;

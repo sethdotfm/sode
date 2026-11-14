@@ -55,7 +55,7 @@ export const idleLock = (s, lastActive, now, minutes) => !!(!s.locked && s.user 
 
 // The `activity` ping keeps the server's idle clock (internal/app/idle.go) behind this page's. A locked
 // or signed-out page sends none: the server would ignore it.
-export const PING_MS = 30_000;
+const PING_MS = 30_000;
 export const pingDue = (s, lastPing, lastActive, now) => !!(!s.locked && s.user) && lastActive > lastPing && now - lastPing >= PING_MS;
 
 // A held Lock has no user in the browser's state but is not a letter Lock: the pad stays.

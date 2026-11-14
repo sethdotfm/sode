@@ -24,6 +24,7 @@ case "$rel" in
   }
   ;;
 web/vendor/*) ;;
+# Keep the Prettier version and globs in step with the lint job in .github/workflows/ci.yml.
 web/*.js | web/test/*.mjs | web/*.css)
   out=$(npx --yes prettier@3.3.3 --write --ignore-unknown "$f" 2>&1) || {
     echo "prettier failed on $rel:" >&2
