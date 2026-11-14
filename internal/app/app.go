@@ -234,7 +234,9 @@ var background = map[swp08.Reason]bool{swp08.ReasonResync: true, swp08.ReasonNam
 func (a *App) r() *runtime { return a.rt.Load() }
 
 func (a *App) Run(ctx context.Context) {
-	a.logEvent(event(kindServer, "", "", "start"))
+	start := event(kindServer, "", "", "start")
+	start.Err = a.r().cfg.UnknownKeysProblem() // Err files it under Problems
+	a.logEvent(start)
 	go a.sw.Run(ctx)
 	var wg sync.WaitGroup
 	wg.Add(2)

@@ -584,6 +584,16 @@ func Parse(b []byte) (Config, error) {
 	return c, nil
 }
 
+// UnknownKeysProblem is the startup warning for UnknownKeys, or "" when there are none.
+// Names only: a newer release's key could hold a secret.
+func (c Config) UnknownKeysProblem() string {
+	keys := c.UnknownKeys()
+	if len(keys) == 0 {
+		return ""
+	}
+	return "config.yaml has keys this release doesn't know, kept as is: " + strings.Join(keys, ", ")
+}
+
 // UnknownKeys lists the keys Parse kept in Extra fields, as sorted paths named like the file
 // (users[0].futureField).
 func (c Config) UnknownKeys() []string {

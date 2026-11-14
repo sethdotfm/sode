@@ -36,6 +36,9 @@ func loadConfig(path string) config.Config {
 			log.Fatalf("config: settingsPin in %s isn't a PIN hash (set PINs from Settings, not by hand); run sode -reset-pin", path)
 		}
 		if exists {
+			if p := c.UnknownKeysProblem(); p != "" {
+				log.Printf("config: %s", p)
+			}
 			log.Printf("config: loaded %s (SODE_* seed variables are ignored once it exists)", path)
 			return c
 		}
