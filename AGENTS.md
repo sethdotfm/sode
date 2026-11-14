@@ -10,6 +10,7 @@ go test -short ./...   (fast group, about 25s: run before every commit)
 go test ./internal/app -run TestName -v   (while editing)
 go test ./internal/app -run '^TestChrome<Area>' -v   (before committing a change under web/ or to panels)
 go test ./...   (everything, several minutes: only when touching the browser harness, swp08sim or timing code; use run_in_background)
+Pass -timeout (10m for the full run) so a hang fails early. Rerun a failing browser check alone before calling it a regression.
 go vet ./...
 node --test 'web/test/*.test.mjs'
 go run ./cmd/swp08sim   (simulator on :8910, SIM_* env in cmd/swp08sim and docs/reference.md)
