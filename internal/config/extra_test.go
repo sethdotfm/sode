@@ -58,11 +58,20 @@ futureKey: 1
 users:
   - name: a
     futureField: x
+    profile:
+      futureProfile: z
+presets:
+  - name: p
+    futurePreset: y
+    items:
+      - src: 1
+        dsts: [2]
+        futureItem: w
 locks:
   futureLock: true
 `
 
-var futureKeys = []string{"futureKey", "locks.futureLock", "users[0].futureField"}
+var futureKeys = []string{"futureKey", "locks.futureLock", "presets[0].futurePreset", "presets[0].items[0].futureItem", "users[0].futureField", "users[0].profile.futureProfile"}
 
 func TestUnknownKeysRoundTrip(t *testing.T) {
 	c, err := Parse([]byte(futureYAML))
@@ -79,7 +88,7 @@ func TestUnknownKeysRoundTrip(t *testing.T) {
 	}
 	c.Users[0].Pin, c.Users[0].Len = h, 4
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := Save(path, c); err != nil {
+	if err := Save(path, c.Clone()); err != nil {
 		t.Fatal(err)
 	}
 	got, _, err := Load(path)
