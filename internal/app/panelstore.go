@@ -267,14 +267,18 @@ type panelStore struct {
 	yamlDir[Panel]
 	art   map[string][]byte // memory only: "<id>/<artID>"
 	probs []string
-	cps   map[string][]panelCheckpoint // checkpoints read so far, see panelpush.go
-	sets  *panelSetStore
+	// skipped holds ids of panel files on disk that failed to load; unread is set when the
+	// folder itself could not be read. Startup keeps their clients (dropOrphanPanelClients).
+	skipped map[string]bool
+	unread  bool
+	cps     map[string][]panelCheckpoint // checkpoints read so far, see panelpush.go
+	sets    *panelSetStore
 }
 
 // loadPanels runs once from New. A missing folder is empty. A file that does not parse, or
 // whose id differs from its name, is logged, kept in problems and skipped.
 func loadPanels(cfgPath string) *panelStore {
-	s := &panelStore{art: map[string][]byte{}, sets: loadPanelSets(cfgPath)}
+	s := &panelStore{art: map[string][]byte{}, skipped: map[string]bool{}, sets: loadPanelSets(cfgPath)}
 	s.by = map[string]Panel{}
 	s.prefix = "p-"
 	s.idOf = func(p *Panel) *string { return &p.ID }
@@ -288,15 +292,15 @@ func loadPanels(cfgPath string) *panelStore {
 	err := s.loadDir(s.dir, func(path, id string, b []byte, err error) (Panel, bool) {
 		var p Panel
 		if err != nil {
-			s.problem("%s: %v", path, err)
+			s.skip(id, "%s: %v", path, err)
 			return p, false
 		}
 		if err := yaml.Unmarshal(b, &p); err != nil {
-			s.problem("%s: not valid YAML: %v", path, err)
+			s.skip(id, "%s: not valid YAML: %v", path, err)
 			return p, false
 		}
 		if p.ID != id || !validPanelID(id) {
-			s.problem("%s: the file name and its id %q differ", path, p.ID)
+			s.skip(id, "%s: the file name and its id %q differ", path, p.ID)
 			return p, false
 		}
 		p.Extra = extraOwnFields(p.Extra)
@@ -309,9 +313,15 @@ func loadPanels(cfgPath string) *panelStore {
 		return p, true
 	})
 	if err != nil && !os.IsNotExist(err) {
-		s.problem("%s: %v", s.dir, err)
+		s.unread = true
+		s.problem("%s: %v; every panel's API client was kept", s.dir, err)
 	}
 	return s
+}
+
+func (s *panelStore) skip(id, format string, args ...any) {
+	s.skipped[id] = true
+	s.problem(format+"; its API client, if any, was kept", args...)
 }
 
 func (s *panelStore) problem(format string, args ...any) {
