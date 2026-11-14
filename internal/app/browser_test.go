@@ -279,9 +279,8 @@ func (b *tab) waitFor(what, expr string) {
 	b.t.Fatalf("timed out waiting for %s (%s); last exception %q; page errors: %v", what, expr, last, b.problems())
 }
 
-// waitSaved waits for the panel editor's state slot to read Saved. Save disables its button before the
-// PUT returns, so a wait on the disabled button passes early and a REST read then sees the old panel.
-// Every check that saves ends its save with this (TestBrowserChecksWaitForSaved enforces it).
+// waitSaved waits for the panel editor's state slot to read Saved. Use it after a save, and to assert
+// nothing is unsaved. Not the Save button's disabled state: docs/agents/browser-checks.md.
 func (b *tab) waitSaved(what string) {
 	b.t.Helper()
 	b.waitFor(what, `document.getElementById('ed-state').textContent === 'Saved'`)

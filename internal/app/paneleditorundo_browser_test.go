@@ -54,7 +54,8 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 	if b.eval(`press('z', 'KeyZ', { metaKey: true })`) != true {
 		t.Fatal("Cmd+Z on the grid was not taken by the editor")
 	}
-	b.waitFor("undone", `stat() === 'Undid paste.' && state() === 'Saved'`)
+	b.waitFor("undone", `stat() === 'Undid paste.'`)
+	b.waitSaved("undone to the saved state")
 	b.eval(`press('z', 'KeyZ', { metaKey: true })`)
 	b.waitFor("nothing more to undo", `stat() === 'Nothing to undo.'`)
 	if b.eval(`press('Z', 'KeyZ', { ctrlKey: true, shiftKey: true })`) != true {
@@ -63,7 +64,7 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 	b.waitFor("redone", `stat() === 'Redid paste.' && state() === 'Unsaved changes'`)
 
 	b.eval(`document.getElementById('ed-save').click()`)
-	b.waitFor("saved", `state() === 'Saved'`)
+	b.waitSaved("saved")
 	got := storedCells(t, a, ana, id)
 	want := []string{"1,1 1x1 clear art= artB= Wipe", "1,2 1x1 source art= artB=", "3,1 1x1 clear art= artB= Wipe", "3,2 1x1 source art= artB="}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
@@ -74,7 +75,8 @@ func TestChromeEditorUndoRedo(t *testing.T) {
 	b.eval(`goTo(1, 1); press('Delete', 'Delete'); goTo(2, 2)`)
 	b.waitFor("deleted", `state() === 'Unsaved changes'`)
 	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
-	b.waitFor("Delete undone", `stat() === 'Undid Delete.' && state() === 'Saved'`)
+	b.waitFor("Delete undone", `stat() === 'Undid Delete.'`)
+	b.waitSaved("Delete undone to the saved state")
 	b.eval(`press('z', 'KeyZ', { ctrlKey: true })`)
 	b.waitFor("paste undone after Save", `stat() === 'Undid paste.' && state() === 'Unsaved changes'`)
 
