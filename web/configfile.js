@@ -172,7 +172,8 @@ onMsg('configImportResult', (m) => {
   say('');
   // New settings arrived: close Settings (discarding the form) so it can't be saved back over them.
   emit('settingsClose', { discard: true });
-  showResult('ok', 'Configuration imported', `Everyone now has the settings from ${name}.`);
+  const kept = m.kept ? ` It also holds settings this release doesn't know, kept as they are: ${m.kept}.` : '';
+  showResult('ok', 'Configuration imported', `Everyone now has the settings from ${name}.${kept}`);
 });
 
 // A dropped link loses the answer: say so rather than wait.

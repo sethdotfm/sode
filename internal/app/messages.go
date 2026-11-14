@@ -103,14 +103,16 @@ type historyMsg struct {
 	More    bool    `json:"more"`
 }
 
-// opResult: ID echoed by unlockResult and filterSetsResult only; Locked sent by
-// filterSetsResult and configResult, on failure only.
+// opResult is shared by many result messages. ID, Locked and Kept are
+// omitted unless the sender sets them; Locked is for failures only.
 type opResult struct {
 	T      string `json:"t"`
 	OK     bool   `json:"ok"`
 	ID     *int   `json:"id,omitempty"`
 	Err    string `json:"err,omitempty"`
 	Locked *bool  `json:"locked,omitempty"`
+	// Kept: configImport only, the keys this release doesn't know that the file keeps (config.NameKeys).
+	Kept string `json:"kept,omitempty"`
 }
 
 type sentAddMsg struct {

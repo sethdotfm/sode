@@ -1,0 +1,1 @@
+- Importing a file that isn't a Sode configuration is refused, and an import names any settings this release doesn't know and keeps them.

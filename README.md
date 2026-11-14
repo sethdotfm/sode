@@ -83,7 +83,7 @@ The web UI is embedded, so restart after frontend edits. The simulator takes `SI
 
 ## Releasing
 
-You cut releases by tag and promote them without a rebuild. Bump `Version` in `internal/app/version.go`, the `**Version:**` line above and the `## Beta <version>` heading in CHANGELOG.md, which `TestVersionNoted` checks. RELEASING.md has the rest.
+You cut releases by tag and promote them without a rebuild. Bump `Version` in `internal/app/version.go`, the `**Version:**` line above and the `## Beta <version>` heading in CHANGELOG.md, which `TestVersionNoted` checks. A PR with a user-visible change adds a fragment to `changelog.d/` instead of editing CHANGELOG.md. RELEASING.md has the rest.
 
 ## AI disclosure
 

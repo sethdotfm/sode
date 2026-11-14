@@ -3,13 +3,16 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -79,6 +82,8 @@ type Config struct {
 	GuestAPIScopes []string    `yaml:"guestApiScopes" json:"-" owned:"true"`
 	// RequireHTTPS refuses requests a trusted proxy did not mark secure (ADR 0005).
 	RequireHTTPS bool `yaml:"requireHttps" json:"requireHttps" guard:"pin"`
+	// Extra holds keys a newer release wrote, so a rollback keeps them; never mutated in place, so Clone shares it.
+	Extra map[string]any `yaml:",inline" json:"-" owned:"true"`
 }
 
 // MaxFilterSetsBytes keeps a filterSets message under the 64 KiB read limit.
@@ -119,23 +124,25 @@ func BrandNames() []string {
 
 // DeviceDefaults mirrors the per-browser prefs in web/prefs.js.
 type DeviceDefaults struct {
-	Theme         string `yaml:"theme" json:"theme"`
-	Layout        string `yaml:"layout" json:"layout"`
-	Clock         string `yaml:"clock" json:"clock"`
-	Flip          bool   `yaml:"flip" json:"flip"`
-	ScrollTop     bool   `yaml:"scrollTop" json:"scrollTop"`
-	SearchFilters bool   `yaml:"searchFilters" json:"searchFilters"`
-	SetStack      string `yaml:"setStack" json:"setStack"`
-	NextMode      string `yaml:"nextMode" json:"nextMode"`
+	Theme         string         `yaml:"theme" json:"theme"`
+	Layout        string         `yaml:"layout" json:"layout"`
+	Clock         string         `yaml:"clock" json:"clock"`
+	Flip          bool           `yaml:"flip" json:"flip"`
+	ScrollTop     bool           `yaml:"scrollTop" json:"scrollTop"`
+	SearchFilters bool           `yaml:"searchFilters" json:"searchFilters"`
+	SetStack      string         `yaml:"setStack" json:"setStack"`
+	NextMode      string         `yaml:"nextMode" json:"nextMode"`
+	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
 type FilterSet struct {
-	Name   string `yaml:"name" json:"name"`
-	Src    string `yaml:"src,omitempty" json:"src"`
-	Dst    string `yaml:"dst,omitempty" json:"dst"`
-	Sode   bool   `yaml:"sode" json:"sode"`
-	Ext    bool   `yaml:"ext" json:"ext"`
-	Hidden bool   `yaml:"hidden,omitempty" json:"hidden"`
+	Name   string         `yaml:"name" json:"name"`
+	Src    string         `yaml:"src,omitempty" json:"src"`
+	Dst    string         `yaml:"dst,omitempty" json:"dst"`
+	Sode   bool           `yaml:"sode" json:"sode"`
+	Ext    bool           `yaml:"ext" json:"ext"`
+	Hidden bool           `yaml:"hidden,omitempty" json:"hidden"`
+	Extra  map[string]any `yaml:",inline" json:"-"`
 }
 
 func Defaults() Config {
@@ -565,8 +572,8 @@ func Load(path string) (c Config, exists bool, err error) {
 	return c, true, nil
 }
 
-// Parse is Load's decoder (also config import): unknown keys error, legacy keys load, no Validate
-// so a caller can merge PIN hashes first.
+// Parse is Load's decoder (also config import): unknown keys are kept (see UnknownKeys), legacy
+// keys load, no Validate so a caller can merge PIN hashes first.
 func Parse(b []byte) (Config, error) {
 	c := Defaults()
 	dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -578,6 +585,78 @@ func Parse(b []byte) (Config, error) {
 	return c, nil
 }
 
+// UnknownKeysProblem is the startup warning for UnknownKeys, or "" when there are none.
+// Names only: a newer release's key could hold a secret.
+func (c Config) UnknownKeysProblem() string {
+	keys := c.UnknownKeys()
+	if len(keys) == 0 {
+		return ""
+	}
+	return "config.yaml has keys this release doesn't know, kept as is: " + NameKeys(keys)
+}
+
+// maxNamedKeys bounds key lists in the startup row and the import reply.
+const maxNamedKeys = 10
+
+// NameKeys joins keys for a message, naming at most maxNamedKeys.
+func NameKeys(keys []string) string {
+	if len(keys) == 0 {
+		return "none"
+	}
+	if len(keys) <= maxNamedKeys {
+		return strings.Join(keys, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(keys[:maxNamedKeys], ", "), len(keys)-maxNamedKeys)
+}
+
+// UnknownKeys lists the keys Parse kept in Extra fields, as sorted paths named like the file
+// (users[0].futureField).
+func (c Config) UnknownKeys() []string {
+	var out []string
+	var walk func(v reflect.Value, path string)
+	walk = func(v reflect.Value, path string) {
+		switch v.Kind() {
+		case reflect.Pointer:
+			if !v.IsNil() {
+				walk(v.Elem(), path)
+			}
+		case reflect.Slice, reflect.Array:
+			for i := range v.Len() {
+				walk(v.Index(i), fmt.Sprintf("%s[%d]", path, i))
+			}
+		case reflect.Struct:
+			t := v.Type()
+			for i := range t.NumField() {
+				f := t.Field(i)
+				if !f.IsExported() {
+					continue
+				}
+				name, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
+				if f.Name == "Extra" {
+					for k := range v.Field(i).Interface().(map[string]any) {
+						out = append(out, joinKey(path, k))
+					}
+					continue
+				}
+				if name == "-" {
+					continue
+				}
+				walk(v.Field(i), joinKey(path, cmp.Or(name, strings.ToLower(f.Name))))
+			}
+		}
+	}
+	walk(reflect.ValueOf(c), "")
+	slices.Sort(out)
+	return out
+}
+
+func joinKey(path, k string) string {
+	if path == "" {
+		return k
+	}
+	return path + "." + k
+}
+
 const header = "# Sode settings. Edited by the settings dialog; hand edits apply on restart.\n"
 
 func Save(path string, c Config) error {
@@ -585,7 +664,32 @@ func Save(path string, c Config) error {
 	if err != nil {
 		return err
 	}
+	if err := copyFile(path, path+".prev"); err != nil {
+		log.Printf("config: keeping %s.prev: %v", path, err)
+	}
 	return AtomicWrite(path, []byte(header), b)
+}
+
+// BackupOnce keeps the file as it was before this release touched it, so a rollback can restore it.
+// The backup holds PIN hashes, so AtomicWrite's private mode matters.
+func BackupOnce(path, label string) error {
+	dst := path + ".before-" + label
+	if _, err := os.Stat(dst); err == nil {
+		return nil
+	}
+	return copyFile(path, dst)
+}
+
+// copyFile treats a missing source as nothing to copy.
+func copyFile(src, dst string) error {
+	b, err := os.ReadFile(src)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return AtomicWrite(dst, b)
 }
 
 // AtomicWrite: private temp file, fsync, rename, dir sync; used for config and the session token file.

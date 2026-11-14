@@ -36,6 +36,10 @@ func loadConfig(path string) config.Config {
 			log.Fatalf("config: settingsPin in %s isn't a PIN hash (set PINs from Settings, not by hand); run sode -reset-pin", path)
 		}
 		if exists {
+			backupBeforeRelease(path)
+			if p := c.UnknownKeysProblem(); p != "" {
+				log.Printf("config: %s", p)
+			}
 			log.Printf("config: loaded %s (SODE_* seed variables are ignored once it exists)", path)
 			return c
 		}
@@ -59,6 +63,12 @@ func loadConfig(path string) config.Config {
 	return c
 }
 
+func backupBeforeRelease(path string) {
+	if err := config.BackupOnce(path, app.Version); err != nil {
+		log.Printf("config: backing up %s: %v", path, err)
+	}
+}
+
 // A running server keeps its PIN copy until it restarts.
 func resetSettingsPin(path string) {
 	if path == "" {
@@ -68,13 +78,16 @@ func resetSettingsPin(path string) {
 	if err != nil {
 		log.Fatalf("reset-pin: %v", err)
 	}
+	if exists {
+		backupBeforeRelease(path)
+	}
 	if !exists || c.SettingsPin == "" {
 		log.Printf("reset-pin: no Advanced Settings PIN in %s", path)
 		return
 	}
 	c.SettingsPin = ""
 	// Locks need an Advanced Settings PIN, so they go with it.
-	c.Locks = config.Locks{}
+	c.Locks = config.Locks{Extra: c.Locks.Extra}
 	if err := config.Save(path, c); err != nil {
 		log.Fatalf("reset-pin: %v", err)
 	}
@@ -86,6 +99,7 @@ func resetRequireHTTPS(path string) {
 	if path == "" {
 		log.Fatal("reset-https: SODE_CONFIG is not set")
 	}
+	backupBeforeRelease(path)
 	was, err := config.ClearRequireHTTPS(path)
 	if err != nil {
 		log.Fatalf("reset-https: %v", err)

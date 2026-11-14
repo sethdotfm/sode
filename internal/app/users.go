@@ -447,6 +447,7 @@ func (a *App) SaveUsers(c *client, req usersReq) error {
 			if o, ok := old[pk]; ok && !kept[pk] && (e.Was != "" || e.Pin == "") {
 				kept[pk] = true
 				u.Profile = o.Profile.Clone()
+				u.Extra = o.Extra
 				u.Username = o.Username
 				u.Rights, u.NoAutoLock = o.Rights.Clone(), o.NoAutoLock
 			}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -109,8 +110,8 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatalf("legacy hideDsts: %v", err)
 	}
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\nlevelz: 3\n"), 0o644)
-	if _, _, err := Load(path); err == nil {
-		t.Fatal("unknown key should fail")
+	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 {
+		t.Fatalf("unknown key: %v %v", err, got.Extra)
 	}
 }
 
@@ -119,13 +120,13 @@ func TestDeviceDefaults(t *testing.T) {
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\n"), 0o644)
 	c, _, err := Load(path)
 	want := DeviceDefaults{Theme: "system", Layout: "auto", Clock: "24", ScrollTop: true, SetStack: "and", NextMode: "number"}
-	if err != nil || c.DeviceDefaults != want {
+	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("old file: %+v %v", c.DeviceDefaults, err)
 	}
 	os.WriteFile(path, []byte("router: 10.0.0.5:8910\ndeviceDefaults:\n  theme: ' Dark '\n  flip: true\n"), 0o644)
 	c, _, err = Load(path)
 	want = DeviceDefaults{Theme: "dark", Layout: "auto", Clock: "24", Flip: true, ScrollTop: true, SetStack: "and", NextMode: "number"}
-	if err != nil || c.DeviceDefaults != want {
+	if err != nil || !reflect.DeepEqual(c.DeviceDefaults, want) {
 		t.Fatalf("partial block: %+v %v", c.DeviceDefaults, err)
 	}
 	c.DeviceDefaults = DeviceDefaults{}

@@ -51,7 +51,10 @@ func (a *App) replyOpNote(c *client, kind string, id int, note string, err error
 	if id >= 0 {
 		idp = &id
 	}
-	res := opResultFor(kind, idp, err)
+	a.replyOpResult(c, kind, note, opResultFor(kind, idp, err), err)
+}
+
+func (a *App) replyOpResult(c *client, kind, note string, res opResult, err error) {
 	a.command(c, kind, outcome(err), note, err)
 	if err != nil {
 		res.Locked = locked(err)
