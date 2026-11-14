@@ -64,6 +64,13 @@ func TestChromeMainCompact(t *testing.T) {
 	b.eval(`document.getElementById('confirm-ok').click(); true`)
 	b.waitFor("failed take shows in Compact view", `[...document.querySelectorAll('#result .pb-alert--error')].some((n) => n.textContent.includes('Take failed'))`)
 	b.waitFor("result shown", shown("#result"))
+	// Ctrl+Z still reaches undo: its confirm, or Nothing to undo when the failed take moved nothing.
+	b.eval(`document.body.focus(); document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true})); true`)
+	b.waitFor("Ctrl+Z answers", `!document.getElementById('confirm').hidden || document.getElementById('result').textContent.includes('Nothing to undo')`)
+	if b.eval(`!document.getElementById('confirm').hidden`) == true {
+		b.eval(`document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true, cancelable: true})); true`)
+		b.waitFor("Esc closes the confirm", `document.getElementById('confirm').hidden`)
+	}
 
 	// Esc clears the boxes, then with them empty starts no keyboard mode while History is hidden.
 	b.eval(`for (let i = 0; i < 6; i++) { const t = document.getElementById('src'); t.focus(); t.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true, cancelable: true})); } true`)
@@ -80,7 +87,8 @@ func TestChromeMainCompact(t *testing.T) {
 	b.eval(key("src", "KeyC", "altKey: true, shiftKey: true"))
 	b.waitFor("Alt+Shift+C hides History again", `!(`+shown("#patch-view > .sode__history")+`)`)
 
-	b.eval(`document.getElementById('settings-open').click(); true`)
+	b.eval(strings.Replace(key("src", "Comma", "ctrlKey: true"), "key: 'a'", "key: ','", 1))
+	b.waitFor("Ctrl+, opens Settings", `document.documentElement.dataset.view === 'settings'`)
 	b.waitFor("Compact view under This browser", `document.getElementById('cfg-compact')?.closest('fieldset')?.querySelector('legend')?.textContent === 'This browser'`)
 	b.waitFor("Settings shows this browser's value", `document.getElementById('cfg-compact').value === 'on'`)
 	b.waitFor("Global defaults has it too", `!!document.querySelector('select[data-gpref="compact"]')`)
