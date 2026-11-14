@@ -99,6 +99,7 @@ func resetRequireHTTPS(path string) {
 	if path == "" {
 		log.Fatal("reset-https: SODE_CONFIG is not set")
 	}
+	backupBeforeRelease(path)
 	was, err := config.ClearRequireHTTPS(path)
 	if err != nil {
 		log.Fatalf("reset-https: %v", err)
