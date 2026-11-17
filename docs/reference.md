@@ -54,7 +54,7 @@ Alt+Shift+c (⌥⇧c on a Mac) turns Compact view on or off on the desktop main 
 
 ### Search and filters
 
-The Source and Destination filters above History and the **Filters** button (`/` in keyboard mode) limit what History shows, per browser. Filters can be named sets, shared with everyone from Settings or shared as a link. Click several set buttons in History's header to stack them. Click one again to remove it from the stack. With none left, History shows All. Under Settings > This browser, **Stacked filters behavior** says whether an entry must match all of them, which is the default, or any one. All filters use one small expression language:
+The Source and Destination filters above History and the **Filters** button (`/` in keyboard mode) limit what History shows, per browser. In the Source and Destination filters, Enter picks one match. `+` or Ctrl+Enter (⌘Enter on a Mac), or a row's **+**, adds the match. The list stays open on the same text, so you can add more, as in the Destination box. Filters can be named sets, shared with everyone from Settings or shared as a link. Click several set buttons in History's header to stack them. Click one again to remove it from the stack. With none left, History shows All. Under Settings > This browser, **Stacked filters behavior** says whether an entry must match all of them, which is the default, or any one. All filters use one small expression language:
 
 | Typed | Matches |
 |---|---|

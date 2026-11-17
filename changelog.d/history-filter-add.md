@@ -1,0 +1,1 @@
+- History's Filter by Source and Filter by Destination boxes can add several matches in a row. Press + or Ctrl+Enter (Cmd+Enter on a Mac) to add the match. The list stays open on the same text, as in the Destination box. Each row also has a + button. Enter still picks one match and closes the list.

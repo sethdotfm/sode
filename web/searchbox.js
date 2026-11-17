@@ -5,6 +5,7 @@ import { histRows, setSearch, searchActive, searchRespectsFilters } from './hist
 import { parseFilter } from './filter.js';
 import { pickSet, activeStack } from './filterstore.js';
 import { combobox } from './widgets.js';
+import { chord, mac } from './keys.js';
 
 // During a search: Sode still reads back through the log, or nothing was found (it is possible
 // that the filters do not even apply).
@@ -58,6 +59,11 @@ function buildCandidates(k, live) {
   return extra.length ? [...live, ...extra] : live;
 }
 
+const unpicked = (k) => {
+  const picks = sb[k].picks;
+  return picks.length ? candidates(k).filter((c) => !picks.some((p) => p.n === c.n)) : candidates(k);
+};
+
 const searchBoxes = [...document.querySelectorAll('[data-search]')];
 const sb = { src: { picks: [], text: '' }, dst: { picks: [], text: '' } };
 const lists = [];
@@ -89,6 +95,15 @@ function pick(k, f, cb, it) {
   applySearch();
 }
 
+// +, Ctrl+Enter and a row's + add a match and keep the list open on the same text, as in the Destination box.
+function add(k, cb, it) {
+  const st = sb[k];
+  if (!st.picks.some((p) => p.n === it.n)) st.picks.push(it);
+  cb.refresh();
+  applySearch();
+}
+const addKey = (e) => e.key === '+' || chord(e) === 'ctrl+enter' || (mac && chord(e) === 'meta+enter');
+
 function unpick(k, i) {
   sb[k].picks.splice(i, 1);
   applySearch();
@@ -105,8 +120,9 @@ for (const b of searchBoxes) {
     const f = b.querySelector(`[data-search-${k}]`);
     f.before(el('span', 'sode__search-chips'));
     const cb = combobox(f, menuOf(f), {
-      source: (t) => (!t.trim() || looksLikeExpr(t) ? [] : search(candidates(k), t, MENU)),
+      source: (t) => (!t.trim() || looksLikeExpr(t) ? [] : search(unpicked(k), t, MENU)),
       onPick: (it) => pick(k, f, cb, it),
+      add: (it) => add(k, cb, it),
     });
     lists.push(cb);
     f.addEventListener('input', () => typed(k, f, cb));
@@ -117,7 +133,13 @@ for (const b of searchBoxes) {
     f.addEventListener('keydown', (e) => {
       const st = sb[k];
       if (cb.nav(e)) return;
-      if (cb.open && (e.key === 'Enter' || e.key === '+' || (e.key === 'Tab' && !e.shiftKey))) {
+      if (cb.open && addKey(e)) {
+        e.preventDefault();
+        const it = cb.current();
+        if (it) add(k, cb, it);
+        return;
+      }
+      if (cb.open && (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey))) {
         if (cb.accept() && e.key !== 'Tab') e.preventDefault();
         return;
       }
