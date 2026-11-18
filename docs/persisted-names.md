@@ -8,7 +8,7 @@ Scope: config keys (`config.yaml` and the `SODE_*` env that seeds it), history a
 
 This list starts over for v2. v2 reads no v1 files, so it has no legacy names that are only read. On start, Sode moves a v1 install to `/data/v1/`, and the first v2 page load clears the v1 `sode-*` keys (`docs/agents/server.md`, config load).
 
-Calls. Keep means the name stays for now and `AGENTS.md` records why. #574 removes `settingsPin` and #575 renames the other kept names.
+Calls. Keep means the name stays for now and `AGENTS.md` records why. v2 renamed every other v1 name that carried a retired word, and the table "Names v2 renamed" lists them. #574 removes the Advanced Settings PIN names that are still kept.
 
 ## Router references
 
@@ -19,57 +19,36 @@ Every stored source and destination is a router reference `{router, n, name}`: t
 - `format` (config key, first in `config.yaml`): the format version, now `2`. A file without it is from v1. Sode refuses a higher number.
 - `sode-format` (`localStorage` key, `2`): written by `web/prepaint.js` after it clears the `sode-*` keys of a v1 browser.
 
-## Config keys
+## Kept names
 
 | Name | Retired word | Call | Why |
 | --- | --- | --- | --- |
-| `settingsPin` | Settings PIN | Keep | Holds the Advanced Settings PIN hash. A rename needs a fallback read, a fixture file, and the import path changed, and it buys nothing a user sees. |
-| `nameRefreshSeconds` (Settings message key), `SODE_NAME_REFRESH_S` | refresh | Keep | The Settings label already says re-read. Deploy env holds the variable. In `config.yaml` the key is `nameRereadSeconds` under `routers`. |
-| `deviceDefaults` | This device | Keep | Only the phrase "This device" is retired, and the key holds the defaults This browser falls back on. Listed because the word is close. |
+| `settingsPin` (config key) | Settings PIN | Keep | Holds the Advanced Settings PIN hash. #574 removes it. |
+| `unlock`, `unlockResult` (WebSocket types) and the `unlock` `why` value | unlock | Keep | Entering the Advanced Settings PIN. #574 removes them. |
 
-The names `fireMode` (`native`), `salvoGroup` and `SODE_SALVO_GROUP` refer to the router's own salvo, so they are correct and not part of this audit.
+These names refer to the router's own salvo, so they are correct and not part of this audit: `fireMode` (`native`), `salvoGroup`, `SODE_SALVO_GROUP`, `SIM_NO_SALVO` and `SIM_SALVO_ANNOUNCE`. The `kind` values `salvoStage`, `salvoStageExt` and `salvoGo` are also the router's.
 
-## Simulator env
+## Names v2 renamed
 
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `SIM_PANEL_DST`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT` | panel (change) | Keep | Simulator settings only, set in compose files and scripts. They make an External. |
-| `SIM_FOLLOWS` | follows | Keep | Simulator setting that makes External follow cases. |
-| `SIM_NO_SALVO`, `SIM_SALVO_ANNOUNCE` | none | n/a | The router's own salvo. |
+v2 loads no v1 files, and a page whose build label differs from the hello's reloads itself. So these renames need no path that reads the old name.
 
-## Communication Log env
-
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `SODE_SENTLOG`, `SODE_SENTLOG_MB` | sent log | Keep | Process env in deployed compose files. The file it names holds Communication Log rows. |
-
-## History and Communication Log files
-
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `why` values `refreshNames`, `unlock`, `userUnlock` (Communication Log event rows) | refresh, unlock | Keep | Stored in rows already written. The page shows them through the command-kind labels in `web/log.js`. |
-| `kind` values `salvoStage`, `salvoStageExt`, `salvoGo` | none | n/a | Messages to the router's own salvo. |
-
-## `localStorage` keys
-
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `sode-device-defaults` | This device | Keep | Same reason as `deviceDefaults`. `web/prepaint.js` reads it before first paint, so a rename needs both pages changed together. |
-
-## WebSocket types and fields
-
-A browser can keep an old page open across a server upgrade, so a renamed type would break it until a reload. These keep their names.
-
-| Name | Retired word | Call | Why |
-| --- | --- | --- | --- |
-| `batch` (browser to server) | batch | Keep | Carries every take of one confirm. |
-| `recent` (server to browser, and the `recent` field of `hello`) | Recent | Keep | A new History entry or an update to one. |
-| `refreshNames` (browser to server) | refresh | Keep | Asks for a router name re-read. |
-| `sent` (browser to server), `sentAdd`, `sentPage` | sent log | Keep | The Communication Log feed and its pages. |
-| `unlock`, `unlockResult` | unlock | Keep | Entering the Advanced Settings PIN. |
-| `userUnlock`, `userUnlockResult` | unlock | Keep | A user signing in from the lock screen. |
-| `protect` (server to browser, and the `protect` field of `hello`) | protect (as a noun) | Keep | The set of Protected destinations. |
-| `locked` (server to browser) | locked | Keep | Says the Advanced Settings PIN is needed. It is not about a destination, so the glossary's use of the word does not apply. |
+| v1 name | v2 name | Where |
+| --- | --- | --- |
+| `batch` | `take` | WebSocket, browser to server |
+| `recent` | `entry` | WebSocket, server to browser |
+| `recent` field of `hello` | `history` | WebSocket |
+| `refreshNames` | `rereadNames` | WebSocket, and the `why` value in Communication Log rows |
+| `sent`, `sentAdd`, `sentPage` | `log`, `logAdd`, `logPage` | WebSocket |
+| `userUnlock`, `userUnlockResult` | `userSignIn`, `userSignInResult` | WebSocket, and the `why` value in Communication Log rows |
+| `protect`, and the `protect` field of `hello` | `protected` | WebSocket |
+| `locked` | `pinNeeded` | WebSocket, server to browser |
+| `nameRefreshSeconds` | `nameRereadSeconds` | Settings message key (already the `config.yaml` key) |
+| `SODE_NAME_REFRESH_S` | `SODE_NAME_REREAD_S` | env |
+| `deviceDefaults` | `browserDefaults` | config key |
+| `SODE_SENTLOG`, `SODE_SENTLOG_MB` | `SODE_COMMLOG`, `SODE_COMMLOG_MB` | env |
+| `SIM_PANEL_DST`, `SIM_PANEL_SECONDS`, `SIM_PANEL_SILENT` | `SIM_EXTERNAL_DST`, `SIM_EXTERNAL_SECONDS`, `SIM_EXTERNAL_SILENT` | simulator env |
+| `SIM_FOLLOWS` | `SIM_EXTERNAL_FOLLOW` | simulator env |
+| `sode-device-defaults` | `sode-browser-defaults` | `localStorage` |
 
 ## Close names that are not retired
 
@@ -79,7 +58,7 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 - `levelWireOffset` (Settings message key; `levelOffset` in `config.yaml`). It holds the offset between a Level and the router's own number on the wire. The Settings label says level offset.
 - `wire` (Communication Log field). The router's own level number, kept apart from the UI Level on purpose.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
-- The `user` field of `userUnlock` and the hello's `users` ({name, len}). The name that signs in and the sign-in list. New names, no retired word.
+- The `user` field of `userSignIn` and the hello's `users` ({name, len}). The name that signs in and the sign-in list. New names, no retired word.
 - A user's `id` (config, `usersListResult`, the users save's rows), `tokens.json` `user` and a user key's `owner.user` in keys.json: the hidden user id.
 - `activity` (browser to server, no fields). An open page sends it about every 30 seconds while someone uses it. It moves the session's idle clock for Auto-lock (`Activity` in `internal/app/idle.go`).
 
@@ -171,4 +150,4 @@ These carry no word from an `_Avoid_` line, so nothing is owed.
 `internal/app/vocabulary_test.go` keeps the lists below. Each entry names a real kept name, and `TestAllowlistsMatchSomething` fails on an entry that exempts no line.
 
 - `vocabAllow` exempts lines of docs, UI strings and web code that need a retired word. The `web/settingsindex.js` lines are search aliases, kept so that a search for the old word finds the setting.
-- `identAllow` exempts web identifiers only. Its entries are the names in the tables above (`m.recent`, the command kinds in `web/log.js`, and the `unlock` functions in `web/pin.js`).
+- `identAllow` exempts web identifiers only. Its entries are the names in the tables above (the `unlock` command kinds in `web/logkinds.js` and the `unlock` functions in `web/pin.js`).

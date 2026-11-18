@@ -1,0 +1,13 @@
+- Deployers: environment names changed, and v2 does not read the old names. Rename them in compose files and scripts before you start v2.
+- `SODE_SENTLOG` is now `SODE_COMMLOG`, and `SODE_SENTLOG_MB` is now `SODE_COMMLOG_MB`.
+- `SODE_NAME_REFRESH_S` is now `SODE_NAME_REREAD_S`.
+- Simulator: `SIM_PANEL_SECONDS`, `SIM_PANEL_DST` and `SIM_PANEL_SILENT` are now `SIM_EXTERNAL_SECONDS`, `SIM_EXTERNAL_DST` and `SIM_EXTERNAL_SILENT`, and `SIM_FOLLOWS` is now `SIM_EXTERNAL_FOLLOW`.
+- Stored and sent names follow the glossary. The config key `deviceDefaults` is now `browserDefaults`, the Settings message key `nameRefreshSeconds` is now `nameRereadSeconds`, and the `localStorage` key `sode-device-defaults` is now `sode-browser-defaults`.
+- WebSocket message `batch` is now `take`.
+- WebSocket message `recent` is now `entry`, and the hello field `recent` is now `history`.
+- WebSocket message `refreshNames` is now `rereadNames`.
+- WebSocket messages `sent`, `sentAdd` and `sentPage` are now `log`, `logAdd` and `logPage`.
+- WebSocket messages `userUnlock` and `userUnlockResult` are now `userSignIn` and `userSignInResult`.
+- WebSocket message `protect` is now `protected`, also in the hello.
+- WebSocket message `locked` is now `pinNeeded`.
+- The Communication Log `why` values `refreshNames` and `userUnlock` are now `rereadNames` and `userSignIn`.
