@@ -1,0 +1,3 @@
+- Settings > My user has My API clients: any signed-in user makes API clients within their own Rights, with no Administrator. Such a client never has more than its user's Rights, and it goes when the user is removed.
+- Any user who can edit a panel can now make it act as its own API client, within their own Rights.
+- A user's API key acts with the user's Role as it is now, never above Trusted user. A change that needs an Administrator is refused over the API with `administrator_only` and a message that says to make it in Settings.

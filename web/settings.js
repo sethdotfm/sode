@@ -18,6 +18,7 @@ import { initFind } from './settingsfind.js';
 import { fillRouters, routerTitle } from './settingsrouters.js';
 import { initRoles } from './settingsroles.js';
 import './mykeys.js';
+import './myclients.js';
 import './users.js';
 import './apisettings.js';
 import './profiles.js';

@@ -92,7 +92,14 @@ var policy = map[string]rule{
 	// the banner's Clear menu; a signed-in user only, checked in the handler
 	"panelAlarm": {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveAlarm(c, m) }},
 	"keyListOwn": {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveKeyListOwn(c, m) }},
-	"history":    {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
+	// API clients from My user (ownclients.go): any Role, a signed-in user only, checked in the
+	// handler. Within the user's own Rights, so no Administrator. Inline, like keyCreate.
+	"myClients":         {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClients(c, m) }},
+	"myClientSave":      {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientSave(c, m) }},
+	"myClientDelete":    {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientDelete(c, m) }},
+	"myClientKey":       {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientKey(c, m) }},
+	"myClientKeyRevoke": {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveMyClientKeyRevoke(c, m) }},
+	"history":           {role: roleAnyone, handle: func(a *App, c *client, m *inMsg, _ *connCtx) { go a.history(c, m.Before, m.N) }},
 
 	"batch": {role: config.RoleStandard, need: needMain, why: "take", write: true,
 		handle: func(a *App, c *client, m *inMsg, _ *connCtx) { a.serveTake(c, m) },

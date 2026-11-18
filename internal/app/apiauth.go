@@ -186,7 +186,15 @@ func (a *App) resolveKey(cfg config.Config, k apiKey, ip string) *apiCtx {
 		if p, ok := a.panels.get(c.Panel); ok && c.Panel != "" {
 			act.Owner = cfg.UserName(p.Owner)
 		}
-		return &apiCtx{Actor: act, Rights: c.Rights, Scopes: c.Scopes, Key: &kc, IP: ip, Panel: c.Panel}
+		rights := c.Rights
+		if c.Owner != "" { // a client from My user: capped live by its owner's Rights
+			u, ok := cfg.FindUserByID(c.Owner)
+			if !ok {
+				return nil
+			}
+			act.Owner, rights = u.Name, c.Rights.Intersect(u.Rights)
+		}
+		return &apiCtx{Actor: act, Rights: rights, Scopes: c.Scopes, Key: &kc, IP: ip, Panel: c.Panel}
 	}
 	return nil
 }
