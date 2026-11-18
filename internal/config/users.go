@@ -106,6 +106,8 @@ func NewUserID() string {
 }
 
 // KeepPins is c with PIN hashes it lacks copied from live (a user's hash and length together).
+// A file user with an id that live does not know takes the id of the live user of that name.
+// So a file without ids keeps what refers to its users.
 // Hashes must look like hashes so a file cannot stop the next start; a user with neither is an error.
 func (c Config) KeepPins(live Config) (Config, error) {
 	if c.SettingsPin == "" {
@@ -115,15 +117,17 @@ func (c Config) KeepPins(live Config) (Config, error) {
 	}
 	users := make([]User, len(c.Users))
 	for i, u := range c.Users {
+		keep, ok := live.FindUserByID(u.ID)
+		if !ok {
+			if keep, ok = live.FindUserByName(u.Name); ok {
+				u.ID = keep.ID
+			}
+		}
 		if u.Pin != "" {
 			if !ValidPinHash(u.Pin) {
 				return c, fmt.Errorf("the PIN of user %q in the file is not a PIN hash", u.Name)
 			}
 		} else {
-			keep, ok := live.FindUserByID(u.ID)
-			if !ok {
-				keep, ok = live.FindUserByName(u.Name)
-			}
 			if !ok || keep.Pin == "" {
 				return c, fmt.Errorf("user %q has no PIN in the file and no PIN here to keep. Export with PINs included, or add the user in Settings first", u.Name)
 			}

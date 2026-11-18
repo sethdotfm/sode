@@ -85,6 +85,36 @@ func TestRenameKeepsEverythingOfTheUser(t *testing.T) {
 	}
 }
 
+// A config file without user ids, such as one written by hand, keeps each user's id by name.
+// So their keys and panels stay theirs.
+func TestConfigImportWithoutIDsKeepsUsers(t *testing.T) {
+	a := panelsApp(t)
+	ana := userKey(t, a, "Ana")
+	panel := makePanel(t, a, ana, `{"name":"Mine"}`)
+	id := idOf(a, "Ana")
+	text, _ := exportOf(t, a, false)
+	var lines []string
+	for _, l := range strings.Split(text, "\n") {
+		if i := strings.Index(l, "id: u-"); i >= 0 {
+			l = l[:i] // "- id: u-..." keeps its "- ", and the item's other keys follow
+		}
+		lines = append(lines, l)
+	}
+	stripped := strings.Join(lines, "\n")
+	if strings.Contains(stripped, id) {
+		t.Fatal("the id is still in the file")
+	}
+	if err := a.ImportConfig(adminClient(t, a), stripped); err != nil {
+		t.Fatal(err)
+	}
+	if got := idOf(a, "Ana"); got != id {
+		t.Fatalf("Ana's id %q, was %q", got, id)
+	}
+	if rec := apiSend(a, "GET", "/api/v1/panels/"+panel, ana, ""); rec.Code != 200 || apiBody(t, rec)["owner"] != "Ana" {
+		t.Fatalf("after import: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 // Name rules are refused on save with words a person can act on.
 func TestUsersSaveRefusesBadNames(t *testing.T) {
 	a := userApp(t, false)
