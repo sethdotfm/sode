@@ -70,7 +70,7 @@ on('usersListed', (m) => {
   fill();
 });
 
-// The next sign-in may be someone else's; they load the scopes again before a tick counts.
+// The next sign-in can be someone else's; they load the scopes again before a tick counts.
 on('locked', () => {
   for (const b of boxes) b.disabled = true;
 });
