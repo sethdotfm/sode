@@ -138,6 +138,8 @@ type App struct {
 
 	tallyCache tallyBody // apireads.go, guarded by mu
 	namesCache namesBody // apireads.go, guarded by mu
+
+	names *namesStore // the saved names table (namestable.go)
 }
 
 // routerState is replaced as a whole on a router change. Guarded by App.mu.
@@ -155,6 +157,8 @@ type routerState struct {
 	// Refresh replies fill fresh maps swapped in when they stop, so deleted names disappear.
 	newSrc, newDst map[int]string
 	namesAt        time.Time
+	// savedAt: the names came from the saved names table at start and no read has finished yet.
+	savedAt time.Time
 }
 
 func (rs *routerState) name(dst bool, n int) string {
@@ -224,6 +228,11 @@ func New(cfg config.Config, cfgPath string, hist *History, sent *SentLog, debug 
 	a.icons = loadIconLib(cfgPath)
 	a.rescanIcons(sodeActor)
 	a.mon = loadPanelMon(cfgPath)
+	a.names = newNamesStore(cfgPath)
+	if t, ok := a.names.load(cfg.UID); ok {
+		a.router.srcNames, a.router.dstNames = tableMap(t.Sources), tableMap(t.Destinations)
+		a.router.savedAt = t.At
+	}
 	for _, k := range a.keys.reconcile(cfg) {
 		a.apiEvent(sodeActor, "keyEnded", "ok", fmt.Sprintf("key %q of %s ended at startup: its owner was removed or its user's PIN changed while Sode was down", k.Name, k.Owner.Name), nil)
 	}
@@ -528,6 +537,12 @@ const (
 )
 
 func (a *App) flush() {
+	var save func()
+	defer func() { // runs after mu is released: no disk work under mu
+		if save != nil {
+			save()
+		}
+	}()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if len(a.router.pend) > 0 {
@@ -557,6 +572,7 @@ func (a *App) flush() {
 			a.router.newSrc, a.router.newDst = nil, nil
 			if got {
 				a.router.namesAt = time.Now()
+				a.router.savedAt = time.Time{}
 			}
 			a.router.namesGen++
 			if changed {
@@ -570,6 +586,8 @@ func (a *App) flush() {
 	if a.namesDirt && time.Since(a.nameRxAt) > namesQuiet {
 		a.namesDirt = false
 		a.broadcast(a.namesMsg())
+		uid, src, dst := a.r().cfg.UID, maps.Clone(a.router.srcNames), maps.Clone(a.router.dstNames)
+		save = func() { a.names.save(uid, time.Now(), src, dst) }
 	}
 }
 
@@ -654,7 +672,7 @@ func (a *App) hello(p helloPage) []byte {
 	cfg := r.cfg
 	cfg.Users = nil
 	m := helloMsg{
-		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At,
+		T: "hello", Srcs: n.Srcs, Dsts: n.Dsts, At: n.At, SavedAt: a.router.savedAt,
 		Tally: routeTriples(a.router.tally), Protect: routeTriples(a.router.protect),
 		Status: a.status, Recent: p.recent, More: p.more,
 		Levels: r.levels, LevelDefaults: config.DefaultLevelColors, Cfg: cfg,
@@ -707,10 +725,12 @@ func (a *App) reply(c *client, v any) {
 }
 
 func (a *App) record(e *Entry) {
+	cfg := a.r().cfg
+	e.Router, e.RouterTitle = cfg.UID, cfg.Title
 	if err := a.hist.Append(e); err != nil {
 		log.Printf("history: %v", err)
 	}
-	log.Print(e.logLine(a.r().cfg.NumberOffset))
+	log.Print(e.logLine(cfg.NumberOffset))
 	a.mu.Lock()
 	a.broadcast(recentMsg{T: "recent", E: e})
 	a.mu.Unlock()
