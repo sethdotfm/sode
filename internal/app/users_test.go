@@ -385,5 +385,9 @@ func (a *App) UserUnlock(c *client, pin string) error {
 			name = u.Name
 		}
 	}
-	return a.UserUnlockAs(c, name, pin)
+	if err := a.UserUnlockAs(c, name, pin); err != nil {
+		return err
+	}
+	grantRecheck(a, c) // tests of the PIN recheck sign in over the socket (recheck_test.go)
+	return nil
 }

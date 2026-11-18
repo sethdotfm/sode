@@ -5,6 +5,7 @@ import { $, el, S, on, wsSend, sentence } from './core.js';
 import { fmtTime } from './device.js';
 import { relock, unlocked, trusted, needsPin } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
+import { askRecheck } from './recheck.js';
 import { showPinFields, resetPinFields } from './settingspin.js';
 import { form, isOpen, readSettings, formProblem } from './settingsform.js';
 import { renderLock, showLockErr, sendUnlock } from './settingslock.js';
@@ -76,6 +77,13 @@ function configResult(m) {
     $('settings-err').hidden = true;
     markClean(true);
     renderLock();
+    return;
+  }
+  if (m.recheck) {
+    askRecheck('Saving that change').then((ok) => {
+      if (ok) form.requestSubmit();
+      else showSaveErr(sentence(m.err));
+    });
     return;
   }
   if (m.locked) {

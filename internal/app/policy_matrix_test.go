@@ -77,7 +77,7 @@ var (
 // follows. profileSave runs with Name "Ana" here; the Name branches are below.
 var policyExpect = map[string][nStates]error{
 	"hi": openRule, "userSignIn": openRule, "userLock": openRule, "userSignOut": openRule,
-	"userSetPin": openRule, "unlock": openRule, "lock": openRule, "history": openRule,
+	"userSetPin": openRule, "unlock": openRule, "lock": openRule, "history": openRule, "pinRecheck": openRule,
 	"keyCreate": openRule, "keyRevoke": openRule, "keyListOwn": openRule,
 	"myClients": openRule, "myClientSave": openRule, "myClientDelete": openRule, "myClientKey": openRule, "myClientKeyRevoke": openRule,
 	"sessionKey": openRule, "panelAlarm": openRule, "activity": openRule,

@@ -4,6 +4,7 @@
 import { $, S, on, onMsg, wsSend, sentence } from './core.js';
 import { unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
+import { askRecheck } from './recheck.js';
 import { apiProblem, apiRepaints, apiSettingsReq } from './apirules.js';
 
 const enabled = $('api-enabled');
@@ -71,6 +72,7 @@ onMsg('apiSettingsResult', async (m) => {
     note.textContent = 'Saved.';
     return;
   }
+  if (m.recheck && (await askRecheck('Saving the keyless API'))) return doSave();
   if (m.locked && (await reask('API settings need the Advanced Settings PIN again.'))) return doSave();
   fail(m.err);
 });

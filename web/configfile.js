@@ -4,6 +4,7 @@
 import { $, S, on, emit, onMsg, wsSend, sentence } from './core.js';
 import { needsPin, unlocked } from './pin.js';
 import { askPin, reask } from './pinprompt.js';
+import { askRecheck } from './recheck.js';
 import { showResult } from './plans.js';
 import { fileName, fileProblem, sizeText } from './configfilerules.js';
 
@@ -51,6 +52,10 @@ async function start(kind) {
 function failed(m, retry) {
   setBusy(null);
   say('');
+  if (m.recheck) {
+    askRecheck('Importing a configuration').then((ok) => (ok ? retry() : fail(sentence(m.err))));
+    return;
+  }
   if (m.locked) {
     reask('The Advanced Settings PIN is needed again.').then((ok) => {
       if (ok) retry();
@@ -149,7 +154,7 @@ $('config-replace').addEventListener('click', runImport);
 onMsg('configImportBeginResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
   if (!m.ok) {
-    if (!m.locked) reset();
+    if (!m.locked && !m.recheck) reset(); // a retry needs the picked file
     return failed(m, runImport);
   }
   if (!picked || !wsSend({ t: 'configImport', id: busy.id, yaml: picked.text })) {
@@ -163,7 +168,7 @@ onMsg('configImportBeginResult', (m) => {
 onMsg('configImportResult', (m) => {
   if (!busy || busy.kind !== 'import' || m.id !== busy.id) return;
   if (!m.ok) {
-    if (!m.locked) reset();
+    if (!m.locked && !m.recheck) reset(); // a retry needs the picked file
     return failed(m, runImport);
   }
   const name = picked?.name || 'the file';

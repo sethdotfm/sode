@@ -8,6 +8,7 @@ import { SCOPES } from './apirules.js';
 import { expiryFrom, keyNameProblem, keysByOwner, ownerText } from './keyrules.js';
 import { keyRow, secretNode } from './keyview.js';
 import { btn, labeled, opt } from './formbits.js';
+import { askRecheck } from './recheck.js';
 
 const MAX_CLIENTS = 12; // config.MaxAPIClients
 
@@ -92,9 +93,7 @@ export function makeClientsTab({ users, touched, adopt }) {
               'div',
               'sode__keys-owner',
               el('strong', null, ownerText(g.owner)),
-              btn('pb-btn--outline pb-btn--sm', 'Revoke all', () => {
-                if (!wsSend({ t: 'keyRevokeAll', owner: g.owner, id: ++listSeq })) say('Not connected to Sode.');
-              }),
+              btn('pb-btn--outline pb-btn--sm', 'Revoke all', () => revokeAll(g.owner)),
             ),
             ...g.keys.map((k) =>
               keyRow(k, now, () => {
@@ -105,15 +104,26 @@ export function makeClientsTab({ users, touched, adopt }) {
         : [el('p', 'sode__hint', 'No keys yet.')]),
     );
   }
+  let revoking = null; // { id, owner } of the Revoke all in flight
+  function revokeAll(owner) {
+    revoking = { id: ++listSeq, owner };
+    if (!wsSend({ t: 'keyRevokeAll', owner, id: revoking.id })) say('Not connected to Sode.');
+  }
   const load = () => {
     if (open) wsSend({ t: 'keyListAll', id: ++listSeq });
   };
   onMsg('keyListAllResult', (m) => m.ok && paintKeys(m.keys));
-  for (const t of ['keyRevokeAnyResult', 'keyRevokeAllResult'])
-    onMsg(t, (m) => {
-      if (!m.ok) say(m.err);
-      load();
-    });
+  onMsg('keyRevokeAllResult', async (m) => {
+    const was = revoking?.id === m.id ? revoking : null;
+    revoking = null;
+    if (!m.ok && m.recheck && was && (await askRecheck('Revoke all keys'))) return revokeAll(was.owner);
+    if (!m.ok) say(m.err);
+    load();
+  });
+  onMsg('keyRevokeAnyResult', (m) => {
+    if (!m.ok) say(m.err);
+    load();
+  });
 
   const who = el('select', 'pb-select');
   who.id = 'clients-key-owner';
