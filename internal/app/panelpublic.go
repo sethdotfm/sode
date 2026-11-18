@@ -163,6 +163,15 @@ func (a *App) endPublicKeys(id string) {
 	a.endStreams(a.public.dropWhere(func(r keyRec) bool { return r.Owner.is(o) }, false), "the panel is no longer Public")
 }
 
+// errPublicOff refuses a panel that would become Public while Public panels allowed is off.
+var errPublicOff = &panelClientFail{http.StatusForbidden, "public_panels_off",
+	"Public panels are off: an Administrator turns on Public panels allowed in Settings > Access > Panels"}
+
+// endEveryPublicKey: Public panels allowed went off. Each panel keeps its mode, so it opens again when the switch is back on.
+func (a *App) endEveryPublicKey() {
+	a.endStreams(a.public.dropWhere(func(keyRec) bool { return true }, false), "Public panels are off")
+}
+
 // apiPanelPublic answers a keyless page. Every keyless open of any panel asks here first (the page
 // cannot read the mode without a key). So nothing here counts as a failed key. Every answer but a
 // key is the same whatever the id, and the cap counts every ask. So the route says nothing about
@@ -187,7 +196,7 @@ func (a *App) apiPanelPublic(w http.ResponseWriter, r *http.Request, _ *apiCtx) 
 	p, ok := a.panels.get(a.panelIDOf(r.PathValue("id")))
 	c, has := clientOfPanel(rt.cfg, p)
 	// A plain 200 also keeps the browser from logging every keyless open as an error.
-	if !ok || !has || p.Acts != panelActsPublic || !networkAllowed(c.Networks, ip) {
+	if !ok || !has || p.Acts != panelActsPublic || !rt.cfg.PublicPanels || !networkAllowed(c.Networks, ip) {
 		apiJSON(w, map[string]any{"public": false})
 		return
 	}

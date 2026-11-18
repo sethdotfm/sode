@@ -48,7 +48,7 @@ func settingsSections(t *testing.T) (order []string, keys map[string][]string) {
 func TestEverySettingsSectionSaves(t *testing.T) {
 	order, keys := settingsSections(t)
 	// Saved apart from the form: their own messages, or nothing to save yet.
-	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "users": true, "api": true, "panels": true, "export-import": true, "run-setup-again": true}
+	apart := map[string]bool{"this-browser": true, "my-user": true, "routers": true, "users": true, "api": true, "export-import": true, "run-setup-again": true}
 	values := map[string]any{
 		"browserDefaults":      config.DeviceDefaults{Theme: "light", Layout: "desktop", Clock: "12", SetStack: "or", NextMode: "fuzzy", StackGap: "30"},
 		"brandText":            "Stage B",
@@ -77,6 +77,8 @@ func TestEverySettingsSectionSaves(t *testing.T) {
 		"locks":                config.Locks{Main: true, Log: true, Panel: true},
 		"autoLockMinutes":      9,
 		"trustedProxies":       []string{"10.0.0.2"},
+		"publicPanels":         false,
+		"newPanelActs":         "session",
 	}
 	// Saved only from an HTTPS address through a trusted proxy; settings_https tests cover it.
 	skip := map[string]bool{"requireHttps": true}

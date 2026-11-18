@@ -1,7 +1,8 @@
 // Runs /panels/editor: the panel picker, the toolbar, the grid and the smart menu, over /api/v1/panels as
 // the signed-in user. The grid rules are gridmodel.js and the page text is editorrules.js; this file wires
 // them to the DOM and the network. runEditor returns the seams later tickets build on (see the end).
-import { $, el, on } from './core.js';
+import { $, el, on, S } from './core.js';
+import { newPanelActs, actsSavedNote } from './panelsrules.js';
 import { sessionFetch, jsonCall, startSession, signInAgain, onSessionKey } from './sessionkey.js';
 import { namesFrom, fixedDestsOf, artLeftOut } from './panelrules.js';
 import { defaultsBy } from './panellook.js';
@@ -86,8 +87,6 @@ export async function runEditor() {
   const fieldWatchers = [];
   let art = null; // createArt for the loaded panel: blob URLs of its uploaded artwork.
   let defaults = new Map(); // Default artwork by item (defaultsBy): drawn only, never put into g.
-  let trusted = false; // a new panel starts as Both for a Trusted user and as Session for the rest
-  on('access', (a) => (trusted = !!a.trusted && !!a.user));
   let edits = {}; // the sidebar's unsaved panel fields: {settings, acts, clientRights}, each after its first edit.
   // The save's state for the toolbar: busy while a save runs, failed holds why the last save failed until one works.
   const saveState = { busy: false, failed: '' };
@@ -95,7 +94,7 @@ export async function runEditor() {
   const readOnly = () => !!loaded && !loaded.canEdit;
   const fields = () => ({
     settings: edits.settings ?? loaded?.settings ?? {},
-    acts: edits.acts ?? loaded?.acts ?? (trusted ? 'both' : 'session'),
+    acts: edits.acts ?? loaded?.acts ?? newPanelActs(S.cfg),
     slug: edits.slug ?? loaded?.slug ?? '',
     clientRights: edits.clientRights,
     // A Grid panel's type is chosen once, before the first save; the server keeps a stored one.
@@ -641,7 +640,7 @@ export async function runEditor() {
     const sentEdits = edits;
     const sentName = nameBox.value;
     const sentPages = livePages();
-    const body = JSON.stringify(saveBody(loaded || newPanel(), sentName, firstGrid(), edits, sentPages));
+    const body = JSON.stringify(saveBody(loaded || { ...newPanel(), acts: fields().acts }, sentName, firstGrid(), edits, sentPages));
     const send = () =>
       edCall('The panel was not saved', 'Sode did not answer, so the panel was not saved.')(loaded ? `api/v1/panels/${loaded.id}` : 'api/v1/panels', {
         method: loaded ? 'PUT' : 'POST',
@@ -690,6 +689,8 @@ export async function runEditor() {
     if (made) history.replaceState(null, '', `panels/editor?panel=${loaded.id}`);
     if (nameBox.value === sentName) nameBox.value = loaded.name;
     if (saveState.failed) say('ed-status', '');
+    // A new Public panel asks no Confirm, since it ends no keys, so its first save says who can open it.
+    if (made && loaded.acts === 'public') say('ed-status', actsSavedNote('public'));
     saveState.busy = false;
     saveState.failed = '';
     await loadList().catch(() => {});
@@ -777,6 +778,8 @@ export async function runEditor() {
       })
       .catch(namesFailed),
   );
+  // A blank new panel's mode comes from the hello's config, which can come after the first paint.
+  on('helloCfg', () => !loaded && fieldsChanged());
   startSession();
   show(null);
   // Not awaited: the seams below must exist while the page still waits for a sign-in. Then the sidebar and Find
