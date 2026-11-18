@@ -44,9 +44,10 @@ type Config struct {
 	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
 	Presets          []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
 	// LevelColors[i] is #rrggbb for UI level i+1; "" keeps the default; entries past Levels are unused.
-	LevelColors    []string       `yaml:"levelColors" json:"levelColors" guard:"open"`
-	SettingsPin    string         `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
-	PinMaxTries    int            `yaml:"pinMaxTries" json:"pinMaxTries" guard:"pin"`
+	LevelColors []string `yaml:"levelColors" json:"levelColors" guard:"open"`
+	SettingsPin string   `yaml:"settingsPin,omitempty" json:"-" owned:"true"`
+	// PinWaits is the Wait after wrong PINs switch. Administrator names wait whatever it says.
+	PinWaits       bool           `yaml:"pinWaits" json:"pinWaits" guard:"pin"`
 	DeviceDefaults DeviceDefaults `yaml:"browserDefaults" json:"browserDefaults" owned:"true"`
 	// Locks and AutoLockMinutes change only with the Advanced Settings PIN; a Settings save without them keeps live values (saveSettings).
 	Users           []User `yaml:"users,omitempty" json:"users" owned:"true"`
@@ -155,7 +156,7 @@ func Defaults() Config {
 		ResultDismissSeconds: 8,
 		TrustedProxies:       []string{},
 		LevelColors:          []string{},
-		PinMaxTries:          10,
+		PinWaits:             true,
 		MaxPinLen:            DefaultMaxPinLen,
 		API:                  DefaultAPISettings(),
 		GuestAPIScopes:       slices.Clone(DefaultGuestScopes),
@@ -196,7 +197,6 @@ func FromEnv(c Config) (Config, error) {
 	num("SODE_NAME_REREAD_S", &c.NameRefreshSeconds)
 	num("SODE_TALLY_RESYNC_S", &c.TallyResyncSeconds)
 	str("SODE_LEVEL_NUMBERING", &c.LevelNumbering)
-	num("SODE_PIN_MAX_TRIES", &c.PinMaxTries)
 	num("SODE_MAX_PIN_LEN", &c.MaxPinLen)
 	boolean := func(k string, dst *bool) {
 		if v := os.Getenv(k); v != "" {
@@ -414,9 +414,6 @@ func (c Config) Validate() error {
 	}
 	if _, ok := BrandColorByName(c.BrandBorder); c.BrandBorder != "" && !ok {
 		bad("border colour must be one of %s", strings.Join(BrandNames(), ", "))
-	}
-	if c.PinMaxTries < 0 || c.PinMaxTries > 1000 {
-		bad("PIN tries before lockout must be 0 (never) or 1-1000")
 	}
 	switch c.DeviceDefaults.Theme {
 	case "system", "light", "dark":

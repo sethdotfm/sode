@@ -160,18 +160,16 @@ func TestUserUnlock(t *testing.T) {
 	if err := a.admit(c, policy["config"]); err != nil {
 		t.Fatalf("config as the Administrator: %v", err)
 	}
-	if err := a.UserUnlock(c, "12345"); err == nil || a.userPin.n != 1 {
-		t.Fatalf("wrong-length PIN: %v, n=%d", err, a.userPin.n)
+	if err := a.UserUnlockAs(c, "Bo", "12345"); err == nil || userPinCount(a, "Bo") != 1 {
+		t.Fatalf("wrong-length PIN: %v, n=%d", err, userPinCount(a, "Bo"))
 	}
-	if err := a.UserUnlock(c, "4321"); err == nil || a.userPin.n != 2 {
-		t.Fatalf("wrong PIN: %v, n=%d", err, a.userPin.n)
+	if err := a.UserUnlockAs(c, "Bo", "4321"); err == nil || userPinCount(a, "Bo") != 2 {
+		t.Fatalf("wrong PIN: %v, n=%d", err, userPinCount(a, "Bo"))
 	}
-	if err := a.UserUnlock(c, "567890"); err != nil {
+	if err := a.UserUnlockAs(c, "Bo", "567890"); err != nil {
 		t.Fatalf("right PIN: %v", err)
 	}
-	// A right PIN does not reset the count. It says who typed it, so a reset
-	// would hand its holder fresh guesses at the other users' PINs.
-	if a.userPin.n != 2 || c.who() != "Bo" || !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
+	if userPinCount(a, "Bo") != 0 || c.who() != "Bo" || !a.pageAllowed(c, gateMain) || !a.pageAllowed(c, gateLog) {
 		t.Fatalf("not unlocked as Bo: %q", c.who())
 	}
 	if a.pageAllowed(&client{ip: "10.0.0.2"}, gateMain) {
@@ -198,11 +196,11 @@ func TestUserUnlockBackoff(t *testing.T) {
 	a := userApp(t, true)
 	c := &client{ip: "10.0.0.1"}
 	for range pinFreeTries {
-		if err := a.UserUnlock(c, "0000"); err == nil || strings.Contains(err.Error(), "try again in") {
+		if err := a.UserUnlockAs(c, "Ana", "0000"); err == nil || strings.Contains(err.Error(), "try again in") {
 			t.Fatalf("free try: %v", err)
 		}
 	}
-	err := a.UserUnlock(c, "0000")
+	err := a.UserUnlockAs(c, "Ana", "0000")
 	if err == nil || !strings.Contains(err.Error(), "try again in") {
 		t.Fatalf("5th wrong: %v", err)
 	}
@@ -212,11 +210,11 @@ func TestUserUnlockBackoff(t *testing.T) {
 	if err := a.Unlock(c, "2468"); err != nil {
 		t.Fatalf("Advanced Settings PIN blocked by user PIN failures: %v", err)
 	}
-	if err := a.UserUnlock(c, "1234"); err == nil || a.pageAllowed(c, gateMain) {
+	if err := a.UserUnlockAs(c, "Ana", "1234"); err == nil || a.pageAllowed(c, gateMain) {
 		t.Fatalf("right PIN during the wait: %v", err)
 	}
-	if a.userPin.n != pinFreeTries+1 {
-		t.Fatalf("count %d", a.userPin.n)
+	if userPinCount(a, "Ana") != pinFreeTries+1 {
+		t.Fatalf("count %d", userPinCount(a, "Ana"))
 	}
 }
 

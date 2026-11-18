@@ -171,13 +171,13 @@ func TestUsersListCarriesIDs(t *testing.T) {
 	}
 }
 
-// userUnlock carries user next to pin; the policy keeps it open.
+// userSignIn carries user next to pin; the policy keeps it open.
 func TestUserUnlockMessageCarriesName(t *testing.T) {
 	a := sharedPinApp(t)
 	c := &client{ip: "10.0.0.1"}
 	read := register(a, c)
 	if err := admitMsg(a, c, inMsg{T: "userSignIn"}); err != nil {
-		t.Fatalf("userUnlock needs no access: %v", err)
+		t.Fatalf("userSignIn needs no access: %v", err)
 	}
 	var m inMsg
 	if err := json.Unmarshal([]byte(`{"t":"userSignIn","user":"bo","pin":"1234","id":4}`), &m); err != nil {
@@ -226,7 +226,7 @@ func fastestOf(t *testing.T, a *App, signIn func() error) time.Duration {
 	for range 15 {
 		// Wrong PINs lock the pool after a few tries, and a locked pool answers before any hash.
 		a.mu.Lock()
-		a.userPin.pinState = pinState{}
+		clear(a.userPins)
 		a.mu.Unlock()
 		start := time.Now()
 		if signIn() == nil {

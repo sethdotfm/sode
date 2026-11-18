@@ -46,9 +46,7 @@ func wrongPins(t *testing.T, a *App, c *client, n int) {
 func TestPinLockout(t *testing.T) {
 	a := pinApp(t)
 	admin := &client{ip: "10.0.0.1"}
-	cfg := a.r().cfg
-	cfg.PinMaxTries = 6
-	if err := a.SaveSettings(admin, cfg, "2468", false); err != nil {
+	if err := a.SaveSettings(admin, a.r().cfg, "2468", false); err != nil {
 		t.Fatal(err)
 	}
 	wrongPins(t, a, &client{ip: "10.0.0.7"}, pinFreeTries)
@@ -60,22 +58,11 @@ func TestPinLockout(t *testing.T) {
 	if a.Unlock(admin, "2468") != nil || a.pin.n != 0 {
 		t.Fatal("right PIN after the wait should unlock and reset the count")
 	}
-	wrongPins(t, a, admin, 6)
-	a.pin.until = time.Time{}
-	if a.Unlock(admin, "2468") == nil {
-		t.Fatal("right PIN accepted after PinMaxTries wrong")
-	}
-	// 0 = never locked for good.
-	a = pinApp(t)
-	cfg = a.r().cfg
-	cfg.PinMaxTries = 0
-	if err := a.SaveSettings(admin, cfg, "2468", false); err != nil {
-		t.Fatal(err)
-	}
-	wrongPins(t, a, admin, 12)
+	// No count of wrong PINs locks for good.
+	wrongPins(t, a, admin, 50)
 	a.pin.until = time.Time{}
 	if a.Unlock(admin, "2468") != nil {
-		t.Fatal("PinMaxTries 0 locked for good")
+		t.Fatal("locked for good")
 	}
 }
 

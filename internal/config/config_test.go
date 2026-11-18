@@ -33,8 +33,6 @@ func TestValidate(t *testing.T) {
 		"long router name":  func(c *Config) { c.Title = strings.Repeat("x", 33) },
 		"long brand text":   func(c *Config) { c.BrandText = strings.Repeat("x", 25) },
 		"bad brand border":  func(c *Config) { c.BrandBorder = "red" },
-		"pin tries < 0":     func(c *Config) { c.PinMaxTries = -1 },
-		"pin tries > 1000":  func(c *Config) { c.PinMaxTries = 1001 },
 		"long hidden dsts":  func(c *Config) { c.HiddenDsts = strings.Repeat("x", 501) },
 		"bad theme":         func(c *Config) { c.DeviceDefaults.Theme = "blue" },
 		"bad layout":        func(c *Config) { c.DeviceDefaults.Layout = "tablet" },
@@ -89,7 +87,7 @@ func TestSaveLoad(t *testing.T) {
 	c := Defaults()
 	c.Address = "10.0.0.5:8910"
 	c.TrustedProxies = []string{"10.0.0.2", "172.18.0.0/16"}
-	c.LevelNumbering, c.PinMaxTries = "va", 3
+	c.LevelNumbering, c.PinWaits = "va", false
 	c.HiddenDsts = "MV, !1-5"
 	c.FilterSets = []FilterSet{{Name: "All except shader", Dst: "!MON", Sode: true, Ext: true}, {Name: "Panels", Ext: true, Hidden: true}}
 	c.SettingsPin, _ = HashPin("1234")
@@ -102,7 +100,7 @@ func TestSaveLoad(t *testing.T) {
 		t.Fatalf("round trip: %+v exists=%v err=%v", got, exists, err)
 	}
 	os.WriteFile(path, []byte("format: 2\nrouters: [{address: 10.0.0.5:8910}]\nlevelz: 3\n"), 0o644)
-	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 {
+	if got, _, err := Load(path); err != nil || !slices.Equal(got.UnknownKeys(), []string{"levelz"}) || got.Extra["levelz"] != 3 || !got.PinWaits {
 		t.Fatalf("unknown key: %v %v", err, got.Extra)
 	}
 }

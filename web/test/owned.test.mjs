@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { OWNED_KEYS, omitOwned } from '../owned.js';
 
 test('omitOwned drops every owned key and keeps the rest', () => {
-  const cfg = { router: '1.2.3.4:8910', pinMaxTries: 10 };
+  const cfg = { router: '1.2.3.4:8910', pinWaits: true };
   for (const k of OWNED_KEYS) cfg[k] = 'x';
   const out = omitOwned(cfg);
   for (const k of OWNED_KEYS) assert.ok(!(k in out), k);
-  assert.deepEqual(out, { router: '1.2.3.4:8910', pinMaxTries: 10 });
+  assert.deepEqual(out, { router: '1.2.3.4:8910', pinWaits: true });
   assert.ok('presets' in cfg, 'the config in use is left alone');
 });
 
