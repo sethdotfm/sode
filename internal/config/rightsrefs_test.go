@@ -49,6 +49,8 @@ func TestRightsStoreRouterReferences(t *testing.T) {
 	}
 	b, _ := os.ReadFile(path)
 	file := string(b)
+	// A UID such as 4080680479828e54 reads as a number, so YAML quotes it.
+	file = strings.ReplaceAll(file, `router: "`+c.UID+`"`, "router: "+c.UID)
 	for _, want := range []string{"router: " + c.UID, `"n": 4`, "name: CAM 5", "8b8db20da8d1c1f6"} {
 		if !strings.Contains(file, want) {
 			t.Errorf("file has no %q:\n%s", want, file)

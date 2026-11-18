@@ -1,9 +1,9 @@
-// Settings > Export & import dialog. Export writes YAML (the server only converts: POST api/yaml). Import reads a
+// The profile Import & Export dialog (This browser, signed in). Export writes YAML (the server only converts: POST api/yaml). Import reads a
 // file or pasted text into the review sheet (reviewsheet.js). Names go beside numbers so another
 // router's numbers can still be matched.
 // Pure rules are in exportfmt.js. Other modules open this with emit('openTransfer', { scope, user }).
 
-import { $, el, S, on, sentence } from './core.js';
+import { el, S, on, sentence } from './core.js';
 import { trapDialog } from './widgets.js';
 import { PREFS } from './prefs.js';
 import { ownPref } from './device.js';
@@ -332,6 +332,3 @@ on('presets', () => {
 on('filters', () => {
   if (open) renderExport();
 });
-
-const openBtn = $('transfer-open');
-if (openBtn) openBtn.addEventListener('click', () => openTransfer());

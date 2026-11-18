@@ -62,7 +62,7 @@ func send(t *testing.T, a *App, c *client, next func() []map[string]any, m inMsg
 	if err := a.admit(c, rl); err != nil {
 		a.refuse(c, m.T, rl, &m, err)
 	} else {
-		rl.handle(a, c, &m, &connCtx{})
+		rl.handle(a, c, &m)
 	}
 	for _, r := range next() {
 		if r["t"] == want {

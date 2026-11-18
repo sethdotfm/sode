@@ -23,7 +23,7 @@ import './myclients.js';
 import './users.js';
 import './apisettings.js';
 import './profiles.js';
-import './configfile.js';
+import './exportdialog.js';
 
 const root = document.documentElement;
 
