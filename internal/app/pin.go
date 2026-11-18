@@ -18,19 +18,13 @@ type pinState struct {
 	busy  bool      // a PIN is being checked
 }
 
-// pinPool: wrong-PIN count and rules for one class of secret. The Advanced Settings PIN and user
-// PINs have separate pools so neither's success or lockout touches the other. tryPin is
-// the only mutator.
+// pinPool: wrong-PIN count and rules for one secret: the Advanced Settings PIN, or one user
+// name's PINs. tryPin is the only mutator.
 type pinPool struct {
 	pinState
-	wait func(tries int) time.Duration // the wait after this many wrong PINs in a row
-	// resetOnOK: not for the users' pool. A PIN there identifies the user, so one valid
-	// PIN would let a stranger reset the count and guess the rest. That pool forgets after
-	// quiet instead.
-	resetOnOK bool
-	forget    time.Duration           // 0 = never
-	maxTries  func(config.Config) int // wrong PINs that lock for good; nil or 0 = never
-	what      string                  // names the class in the log
+	wait   func(tries int) time.Duration // the wait after this many wrong PINs in a row; nil = no waits
+	forget time.Duration                 // 0 = never
+	what   string                        // names the pool in the log
 }
 
 const (
@@ -42,47 +36,72 @@ const (
 
 var errLocked = errors.New("settings are locked; enter the PIN again")
 
-func pinWait(n int) time.Duration {
+func pinWait(n int) time.Duration { return doubling(pinFirstWait, pinMaxWait, n) }
+
+// userPinWait: first is App.pinFirstWait, which tests shorten.
+func userPinWait(first time.Duration, n int) time.Duration {
+	return doubling(first, min(userPinMaxWait, first<<10), n)
+}
+
+func doubling(first, most time.Duration, n int) time.Duration {
 	if n <= pinFreeTries {
 		return 0
 	}
-	w := pinFirstWait
-	for i := pinFreeTries + 1; i < n && w < pinMaxWait; i++ {
+	w := first
+	for i := pinFreeTries + 1; i < n && w < most; i++ {
 		w *= 2
 	}
-	return min(w, pinMaxWait)
+	return min(w, most)
 }
 
-// settingsPool: PinMaxTries wrong in a row lock it until restart.
 func settingsPool() pinPool {
-	return pinPool{what: "settings", wait: pinWait, resetOnOK: true, maxTries: func(c config.Config) int { return c.PinMaxTries }}
+	return pinPool{what: "settings", wait: pinWait}
 }
 
-// userPool: waits stop growing at userPinMaxWait; no permanent lock, so a stranger cannot
-// shut out operators.
-func userPool() pinPool {
-	return pinPool{what: "users", wait: func(n int) time.Duration { return min(pinWait(n), userPinMaxWait) }, forget: pinMaxWait}
+// userPoolMu returns the pool of u's name; nil u is every name that matches no user. Keyed by
+// user id, so a rename keeps the count. Names that match no user always wait: nobody signs in
+// with them. Administrator names wait even with the Wait after wrong PINs switch off.
+func (a *App) userPoolMu(u *config.User) *pinPool {
+	key := ""
+	if u != nil {
+		key = u.ID
+	}
+	p := a.userPins[key]
+	if p == nil {
+		p = &pinPool{what: "users", forget: pinMaxWait}
+		a.userPins[key] = p
+	}
+	first := a.pinFirstWait
+	p.wait = func(n int) time.Duration { return userPinWait(first, n) }
+	if u != nil {
+		p.what = "user " + u.Name
+		cfg := a.r().cfg
+		live, ok := cfg.FindUserByID(u.ID) // u can be a sign-in copy with an old Role
+		if !cfg.PinWaits && ok && live.Role != config.RoleAdministrator {
+			p.wait = nil
+		}
+	}
+	return p
 }
 
-const resetHint = "Restart Sode to unlock them"
+// tryUserPin runs check in the pool of u's name.
+func (a *App) tryUserPin(u *config.User, from string, check func() bool) error {
+	a.mu.Lock()
+	p := a.userPoolMu(u)
+	a.mu.Unlock()
+	return a.tryPin(p, from, check)
+}
 
-// tryPin refuses while locked out, waiting or busy, else runs check with mu free (hashing
-// is slow). Takes and releases mu itself; callers needing a stable world re-check under
-// their own lock.
+// tryPin refuses while waiting or busy, else runs check with mu free (hashing is slow). A right
+// PIN resets the count. Takes and releases mu itself; callers needing a stable world re-check
+// under their own lock.
 func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	a.mu.Lock()
 	if p.forget > 0 && p.n > 0 && time.Since(p.last) > p.forget {
 		p.n, p.until = 0, time.Time{}
 	}
-	max := 0
-	if p.maxTries != nil {
-		max = p.maxTries(a.r().cfg)
-	}
 	switch left := time.Until(p.until); {
-	case max > 0 && p.n >= max:
-		a.mu.Unlock()
-		return fmt.Errorf("settings are locked after %d wrong PINs. %s", max, resetHint)
-	case left > 0:
+	case left > 0 && p.wait != nil:
 		a.mu.Unlock()
 		return fmt.Errorf("too many wrong PINs; try again in %s", left.Round(time.Second))
 	case p.busy:
@@ -98,19 +117,15 @@ func (a *App) tryPin(p *pinPool, from string, check func() bool) error {
 	defer a.mu.Unlock()
 	p.busy = false
 	if ok {
-		if p.resetOnOK {
-			p.pinState = pinState{}
-		}
+		p.pinState = pinState{}
 		return nil
 	}
 	p.n++
 	p.last = time.Now()
 	log.Printf("%s: wrong PIN from %s (%d in a row)", p.what, from, p.n)
-	if max > 0 && p.n >= max {
-		log.Printf("%s: locked after %d wrong PINs; restart to unlock", p.what, p.n)
-		return fmt.Errorf("wrong PIN; settings are now locked after %d wrong PINs. %s", p.n, resetHint)
-	}
-	if w := p.wait(p.n); w > 0 {
+	if p.wait == nil {
+		p.until = time.Time{}
+	} else if w := p.wait(p.n); w > 0 {
 		p.until = time.Now().Add(w)
 		return fmt.Errorf("wrong PIN; try again in %s", w)
 	}
