@@ -19,7 +19,7 @@ main.js wires modules then calls connect(). core.js is state/socket/bus (S, WebS
   - pinprompt.js (askPin/reask: the one prompt for an Advanced Settings PIN needed mid-session, see docs/agents/users-locks.md)
   - banner.js (result banner; plans.js re-exports it)
   - devicesettings.js (Settings' This browser section, my-default buttons, signed-in user block)
-  - settingstoc.js and settingspin.js (Settings' sections/phone pages and PIN fields), about.js (the Settings bottom row)
+  - settingstoc.js and settingspin.js (Settings' sidebar tree, phone pages and PIN fields), about.js (the Settings bottom row)
   - shortcuts.js, keyboard.js (kbdUp), showall.js, settings.js (builds #settings-toc; its parts are in docs/agents/settings-saves.md), filters.js (the Filters dialog and set bar)
   - filtereditor.js (one filter's rule editor, editor(key, {read, write, mode})), searchbox.js (History's quick search boxes and emptyNote), filter.js
 - Icons: `icon()` in core.js makes `<use href="#pb-i-<name>">`, and sprite.js copies that one symbol from `lucide.svg` into a hidden `<svg>` in the page. Static markup writes the same local href and `adoptIcons` brings its symbols in. Never point a `<use>` at `lucide.svg#...`. For every such `<use>` made, Chrome loads and lays out its own copy of the 370 KB sprite. It frees that copy only at a major GC. A panel's tick icon grew the renderer from 0.4 to 4 GB in two minutes. `test/sprite.test.mjs` fails on one. A `#pb-i-` href means nothing outside the page, so an icon serialised out (export, print) needs its symbol inline.

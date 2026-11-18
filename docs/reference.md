@@ -40,7 +40,7 @@ Sode stores presets as numbers, so a rename on the router changes nothing. A num
 
 Only pinned presets show as buttons above History. Ctrl+g (⌘g on a Mac, the **Presets** button on a phone) opens a popup that lists all of them with a search box. Arrows or Ctrl+j/k move, Enter fires through the usual confirm, and Esc closes. Each row has **Pin/Unpin** for this browser. Pinning for everyone and sharing are in the editor, under the Pinned checkbox and Share. In keyboard mode, `p` jumps to the pinned presets.
 
-Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination behavior** setting says, under Settings > Takes. See `SODE_FIRE_MODE` in the settings table below.
+Because a preset is one confirm of several routes, Sode sends it the way the **Multi destination behavior** setting says, under Settings > Routers > Takes. See `SODE_FIRE_MODE` in the settings table below.
 
 ### Last take and next
 
@@ -132,7 +132,7 @@ Process settings stay in env. They are `SODE_LISTEN` (`:8080`), `SODE_CONFIG` (`
 
 ### Advanced Settings PIN
 
-Settings > Access can set a PIN of 4-64 characters that Settings asks for every time it opens. Patching stays open. Wrong tries count for everyone. From the 5th wrong try in a row there is a wait of 30 seconds, which doubles up to an hour. After `pinMaxTries`, settings stay locked until the PIN is reset or Sode restarts. Sode stores only a salted PBKDF2 hash.
+Settings > Access > Locks can set a PIN of 4-64 characters that Settings asks for every time it opens. Patching stays open. Wrong tries count for everyone. From the 5th wrong try in a row there is a wait of 30 seconds, which doubles up to an hour. After `pinMaxTries`, settings stay locked until the PIN is reset or Sode restarts. Sode stores only a salted PBKDF2 hash.
 
 Forgot it?
 
@@ -156,7 +156,7 @@ A switch to Username and PIN keeps users, PINs and Profiles. A switch back to PI
 
 The Rights tab has a No auto-lock box for a user who runs a wall browser that the idle auto-lock must skip. Only an administrator sets it, with the Advanced Settings PIN, and the Lock button still works for that user. Manage users also has an API clients tab and a Rights tab. Rights limit which sources, destinations, levels and presets a user, an API client or Guest can command, for the browser and the API alike. A row's Edit user rights button opens that user in the Rights tab, and one Save sends it all. A user's own API keys are under Settings > My user, in **My API keys**.
 
-Settings > Access turns on locks per page type, for the main screen, the Communication Log and the panel pages, and sets the idle auto-lock. Those need the Advanced Settings PIN like the rest of Access. A locked page opens behind a lock screen with a number pad. It opens the moment the typed PIN matches, with no Enter. The server enforces locks per WebSocket connection.
+Settings > Access > Locks turns on locks per page type, for the main screen, the Communication Log and the panel pages, and sets the idle auto-lock. Those need the Advanced Settings PIN like the rest of Locks. A locked page opens behind a lock screen with a number pad. It opens the moment the typed PIN matches, with no Enter. The server enforces locks per WebSocket connection.
 
 Until a connection signs in as a user, the server refuses its takes, name re-reads and history clearing. On the log page, it also refuses reads of the Communication Log and uptime graph. A save of settings, filter sets, presets and users needs the Advanced Settings PIN. A signed-in user alone does not count. This way, a locked wall panel can still be set up with the PIN. A trusted user, described below, can also save settings, filter sets and presets. `/healthz` and `/api/health` stay open. The user's name replaces the IP in history and in the log.
 
@@ -178,9 +178,9 @@ A profile belongs to its user, but admins and trusted users can see and edit eve
 
 **Share and export.** A preset's or filter set's **Share** gives a link you can paste in chat. Opening the link shows what it holds next to what you have now, and you choose where to save it. It never applies itself unreviewed.
 
-Settings > **Export & import** writes any mix of settings, filter sets and presets to a YAML file and reads one back through the same review. The file is named `YYYY-MM-DD-Sode-Export-Site-User.yaml` unless you name it. Exports carry names beside numbers, so a freelancer's presets can land on another studio's router. Sode matches a source or destination by number when the name agrees, else by its name. It flags anything ambiguous or missing and never applies it silently.
+Settings > Server > **Export & Import** writes any mix of settings, filter sets and presets to a YAML file and reads one back through the same review. The file is named `YYYY-MM-DD-Sode-Export-Site-User.yaml` unless you name it. Exports carry names beside numbers, so a freelancer's presets can land on another studio's router. Sode matches a source or destination by number when the name agrees, else by its name. It flags anything ambiguous or missing and never applies it silently.
 
-**Server configuration backup.** Settings > Server backup has **Export** and **Import** for the whole `config.yaml`, and both need the Advanced Settings PIN. PINs are left out unless you tick *Include Secrets (private backup)*, which makes a secret file, so keep it private. An import replaces everything. If the file has no PINs, each user keeps their current PIN by name. Sode refuses a new user in the file until it carries a PIN.
+**Server configuration backup.** Settings > Server > Export & Import has **Export** and **Import** for the whole `config.yaml`, and both need the Advanced Settings PIN. PINs are left out unless you tick *Include Secrets (private backup)*, which makes a secret file, so keep it private. An import replaces everything. If the file has no PINs, each user keeps their current PIN by name. Sode refuses a new user in the file until it carries a PIN.
 
 ## Icon library files
 
