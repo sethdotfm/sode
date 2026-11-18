@@ -34,9 +34,11 @@ type Config struct {
 	ConfirmEnter         bool     `yaml:"confirmEnter" json:"confirmEnter" guard:"open"`
 	TrustedProxies       []string `yaml:"trustedProxies" json:"trustedProxies" guard:"pin"`
 	// HiddenDsts is a History filter expression (web/filter.js) hiding Externals on these destinations; still recorded.
-	HiddenDsts string      `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
-	FilterSets []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
-	Presets    []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
+	HiddenDsts string `yaml:"hiddenDsts,omitempty" json:"hiddenDsts" guard:"open"`
+	// HiddenDstsRouter: the router UID whose numbers HiddenDsts's number and range terms mean; blank is the one router.
+	HiddenDstsRouter string      `yaml:"hiddenDstsRouter,omitempty" json:"hiddenDstsRouter,omitempty" guard:"open"`
+	FilterSets       []FilterSet `yaml:"filterSets,omitempty" json:"filterSets" owned:"true"`
+	Presets          []Preset    `yaml:"presets,omitempty" json:"presets" owned:"true"`
 	// LegacyPresets: pre-1.5 key "salvos"; Normalize moves it to Presets.
 	LegacySalvos []Preset `yaml:"salvos,omitempty" json:"-" guard:"open"`
 	// Grid: ignored; kept so old files load.
@@ -123,8 +125,10 @@ type DeviceDefaults struct {
 	Extra         map[string]any `yaml:",inline" json:"-"`
 }
 
+// Router is the UID whose numbers the number and range terms mean; blank is the one router.
 type FilterSet struct {
 	Name   string         `yaml:"name" json:"name"`
+	Router string         `yaml:"router,omitempty" json:"router,omitempty"`
 	Src    string         `yaml:"src,omitempty" json:"src"`
 	Dst    string         `yaml:"dst,omitempty" json:"dst"`
 	Sode   bool           `yaml:"sode" json:"sode"`

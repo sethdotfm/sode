@@ -139,8 +139,8 @@ func TestAPIWRetryFailedAndRedoOk(t *testing.T) {
 
 func TestAPIWPreset(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
-		c.Presets = append(c.Presets, config.Preset{Name: "Gone", Items: []config.PresetItem{{Src: 1, Dsts: []int{99}}}},
-			config.Preset{Name: "Half", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 98}, Levels: []int{1}}}})
+		c.Presets = append(c.Presets, config.Preset{Name: "Gone", Items: []config.PresetItem{presetItem(1, nil, 99)}},
+			config.Preset{Name: "Half", Items: []config.PresetItem{presetItem(1, []int{1}, 2, 98)}})
 	})
 	f.seed(2, 3, 0)
 	rec := apiPost(a, "/api/v1/presets/everyone/Studio%20A", key, ``, nil)
@@ -181,8 +181,8 @@ func TestAPIWHiddenCallerCannotFirePresetListHides(t *testing.T) {
 	a, f, key := takerApp(t, func(c *config.Config) {
 		c.APIClients[0].Rights = config.Rights{Sources: &[]int{1}, Dsts: &[]int{2, 99}, Presets: &[]string{"Studio A", "Mixed", "Gone"}, Visibility: config.VisHidden}
 		c.Presets = append(c.Presets,
-			config.Preset{Name: "Mixed", Items: []config.PresetItem{{Src: 1, Dsts: []int{2, 7}}}},
-			config.Preset{Name: "Gone", Items: []config.PresetItem{{Src: 1, Dsts: []int{99}}}})
+			config.Preset{Name: "Mixed", Items: []config.PresetItem{presetItem(1, nil, 2, 7)}},
+			config.Preset{Name: "Gone", Items: []config.PresetItem{presetItem(1, nil, 99)}})
 	})
 	f.seed(2, 3, 0)
 	n := f.sends()
@@ -202,7 +202,7 @@ func TestAPIWUserKeyFiresMePreset(t *testing.T) {
 	a, f, _ := takerApp(t, func(c *config.Config) {
 		for i := range c.Users {
 			if c.Users[i].Name == "Ana" {
-				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{{Src: 1, Dsts: []int{2}, Levels: []int{1}}}}}
+				c.Users[i].Profile.Presets = []config.Preset{{Name: "Mine", Items: []config.PresetItem{presetItem(1, []int{1}, 2)}}}
 			}
 		}
 	})

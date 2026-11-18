@@ -26,7 +26,7 @@ func profiles(c *client) []profileMsg {
 }
 
 func testPreset(name string) config.Preset {
-	return config.Preset{Name: name, Items: []config.PresetItem{{Src: 1, Dsts: []int{2}, Levels: []int{1}}}}
+	return config.Preset{Name: name, Items: []config.PresetItem{presetItem(1, []int{1}, 2)}}
 }
 
 func anasProfile(t *testing.T, a *App) config.Profile {

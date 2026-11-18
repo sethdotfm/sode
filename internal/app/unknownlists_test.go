@@ -73,10 +73,10 @@ presets:
   - name: P
     futureP: 1
     items:
-      - {src: 1, dsts: [2], futureI: 1}
+      - {src: {n: 1}, dsts: [{n: 2}], futureI: 1}
   - name: Q
     items:
-      - {src: 3, dsts: [4]}
+      - {src: {n: 3}, dsts: [{n: 4}]}
 guestRights:
   futureG: 1
 apiClients:
@@ -93,10 +93,10 @@ users:
         - name: P
           futureP: 1
           items:
-            - {src: 1, dsts: [2], futureI: 1}
+            - {src: {n: 1}, dsts: [{n: 2}], futureI: 1}
         - name: Q
           items:
-            - {src: 3, dsts: [4]}
+            - {src: {n: 3}, dsts: [{n: 4}]}
   - name: b
 `
 
@@ -127,8 +127,8 @@ func browserPresets() []config.Preset {
 	off := false
 	planted := map[string]any{"browserKey": 1}
 	return []config.Preset{
-		{Name: "Q", Items: []config.PresetItem{{Src: 3, Dsts: []int{4, 5}, Extra: planted}}},
-		{Name: "P", Pinned: &off, Items: []config.PresetItem{{Src: 1, Dsts: []int{2}}}, Extra: planted},
+		{Name: "Q", Items: []config.PresetItem{withItemExtra(presetItem(3, nil, 4, 5), planted)}},
+		{Name: "P", Pinned: &off, Items: []config.PresetItem{presetItem(1, nil, 2)}, Extra: planted},
 	}
 }
 

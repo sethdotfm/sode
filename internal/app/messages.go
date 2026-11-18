@@ -61,6 +61,8 @@ type helloMsg struct {
 	ConfigPath    string              `json:"configPath"`
 	Version       string              `json:"version"`
 	BrandColors   []config.BrandColor `json:"brandColors"`
+	// RouterUID: browsers write it into This browser presets and filter sets. Never shown.
+	RouterUID string `json:"routerUid"`
 }
 
 type namesCheckedMsg struct {

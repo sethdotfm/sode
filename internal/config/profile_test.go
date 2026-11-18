@@ -68,7 +68,7 @@ func TestProfileValidate(t *testing.T) {
 func TestProfileYAMLRoundTripAndClone(t *testing.T) {
 	c := profileCfg(t)
 	c.Users[0].Profile = Profile{Prefs: map[string]string{"theme": "dark"},
-		Presets: []Preset{{Name: "P", Items: []PresetItem{{Src: 1, Dsts: []int{2}, Levels: []int{1}}}}}}
+		Presets: []Preset{{Name: "P", Items: []PresetItem{refItem(1, []int{1}, 2)}}}}
 	c.Normalize()
 	path := filepath.Join(t.TempDir(), "c.yaml")
 	if err := Save(path, c); err != nil {
@@ -87,8 +87,8 @@ func TestProfileYAMLRoundTripAndClone(t *testing.T) {
 	}
 	d := back.Clone()
 	d.Users[0].Profile.Prefs["theme"] = "light"
-	d.Users[0].Profile.Presets[0].Items[0].Dsts[0] = 99
-	if back.Users[0].Profile.Prefs["theme"] != "dark" || back.Users[0].Profile.Presets[0].Items[0].Dsts[0] != 2 {
+	d.Users[0].Profile.Presets[0].Items[0].Dsts[0].N = 99
+	if back.Users[0].Profile.Prefs["theme"] != "dark" || back.Users[0].Profile.Presets[0].Items[0].Dsts[0].N != 2 {
 		t.Fatal("Clone shares the profile")
 	}
 	e := profileCfg(t)

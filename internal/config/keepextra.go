@@ -42,12 +42,25 @@ func WithFilterSetExtras(in, saved []FilterSet) []FilterSet {
 	return out
 }
 
-// Items have no name, so one matches on source and destinations.
+// A preset matches on its hidden id. One sent without an id (a sender that never saw it) takes
+// the id of the saved preset of the same name, so a Replace keeps what names it. Items have no
+// name, so one matches on source and destination numbers.
 func WithPresetExtras(in, saved []Preset) []Preset {
 	out := ClonePresets(in)
-	itemKey := func(it PresetItem) string { return fmt.Sprint(it.Src, it.Dsts) }
+	sent := map[string]bool{}
+	for _, p := range out {
+		sent[p.ID] = p.ID != ""
+	}
 	for i, j := range savedMatch(out, saved, func(p Preset) string { return p.Name }) {
+		if out[i].ID == "" && j >= 0 && saved[j].ID != "" && !sent[saved[j].ID] {
+			out[i].ID = saved[j].ID
+			sent[saved[j].ID] = true
+		}
+	}
+	itemKey := func(it PresetItem) string { return fmt.Sprint(it.Src.N, it.DstNs()) }
+	for i := range out {
 		p := &out[i]
+		j := slices.IndexFunc(saved, func(s Preset) bool { return s.ID != "" && s.ID == p.ID })
 		p.Extra = extraAt(saved, j, func(s Preset) map[string]any { return s.Extra })
 		var savedItems []PresetItem
 		if j >= 0 {

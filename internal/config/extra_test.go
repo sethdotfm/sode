@@ -64,8 +64,8 @@ presets:
   - name: p
     futurePreset: y
     items:
-      - src: 1
-        dsts: [2]
+      - src: {n: 1}
+        dsts: [{n: 2}]
         futureItem: w
 locks:
   futureLock: true
@@ -107,7 +107,7 @@ func TestLegacyKeysAreNotUnknown(t *testing.T) {
 	const legacy = `
 salvos:
   - name: old
-    items: [{src: 1, dsts: [2]}]
+    items: [{src: {n: 1}, dsts: [{n: 2}]}]
 grids: [1]
 gridConfirm: true
 hideDsts: [3]

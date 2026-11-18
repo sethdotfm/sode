@@ -10,7 +10,7 @@ import (
 )
 
 func presetOf(name string, src int, dsts ...int) Preset {
-	return Preset{Name: name, Items: []PresetItem{{Src: src, Dsts: dsts}}}
+	return Preset{Name: name, Items: []PresetItem{refItem(src, nil, dsts...)}}
 }
 
 func TestPresetValidate(t *testing.T) {
@@ -37,7 +37,7 @@ func TestPresetValidate(t *testing.T) {
 		"bad src":      func(c *Config) { c.Presets = []Preset{presetOf("A", -1, 2)} },
 		"bad dst":      func(c *Config) { c.Presets = []Preset{presetOf("A", 1, 70000)} },
 		"bad level": func(c *Config) {
-			c.Presets = []Preset{{Name: "A", Items: []PresetItem{{Src: 1, Dsts: []int{2}, Levels: []int{0}}}}}
+			c.Presets = []Preset{{Name: "A", Items: []PresetItem{refItem(1, []int{0}, 2)}}}
 		},
 	} {
 		c := ok.Clone()
@@ -53,7 +53,7 @@ func TestPresetRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	c := Defaults()
 	c.Presets = []Preset{
-		{Name: " Show ", Items: []PresetItem{{Src: 4, Dsts: []int{1, 2}, Levels: []int{3, 1, 3}}, {Src: 5, Dsts: []int{9}}}},
+		{Name: " Show ", Items: []PresetItem{refItem(4, []int{3, 1, 3}, 1, 2), refItem(5, nil, 9)}},
 	}
 	c.Normalize()
 	if got := c.Presets[0].Items[0].Levels; !reflect.DeepEqual(got, []int{1, 3}) || c.Presets[0].Name != "Show" {
@@ -67,16 +67,14 @@ func TestPresetRoundTrip(t *testing.T) {
 		t.Fatalf("round trip: %+v err=%v want %+v", got.Presets, err, c.Presets)
 	}
 	d := c.Clone()
-	d.Presets[0].Items[0].Dsts[0] = 77
-	if c.Presets[0].Items[0].Dsts[0] == 77 {
+	d.Presets[0].Items[0].Dsts[0].N = 77
+	if c.Presets[0].Items[0].Dsts[0].N == 77 {
 		t.Fatal("clone shares dsts")
 	}
 }
 
 func TestPresetTotalAndConflict(t *testing.T) {
-	item := func(src int, levels []int, dsts ...int) PresetItem {
-		return PresetItem{Src: src, Dsts: dsts, Levels: levels}
-	}
+	item := refItem
 	check := func(s Preset) error {
 		c := Defaults()
 		c.Presets = []Preset{s}
@@ -115,24 +113,45 @@ func TestPresetTotalAndConflict(t *testing.T) {
 }
 
 func TestPresetsMessageFits(t *testing.T) {
-	// 30 presets of 200 five-digit destinations each is a "presets" message
-	// that must still fit the 64 KiB WebSocket read limit.
+	// MaxPresetsBytes binds before the count caps: every destination is a {router, n, name}
+	// reference. The largest list it allows must still make a "presets" message under the 64 KiB
+	// WebSocket read limit. Worst case: 5-digit numbers and names of the longest name length.
 	c := Defaults()
-	for i := 0; i < MaxPresets; i++ {
-		d := make([]int, MaxPresetTotal)
-		for j := range d {
-			d[j] = 60000 + j
-		}
-		c.Presets = append(c.Presets, Preset{Name: strings.Repeat("n", 31) + string(rune('a'+i)),
-			Items: []PresetItem{{Src: 65000, Dsts: d[:100]}, {Src: 65001, Dsts: d[100:]}}})
-	}
 	c.Normalize()
-	if err := c.Validate(); err != nil {
-		t.Fatalf("max-size presets rejected: %v", err)
+	name := strings.Repeat("N", 16)
+	ref := func(n int) Ref { return Ref{Router: c.UID, N: n, Name: name} }
+	full := func(perPreset int) []Preset {
+		var out []Preset
+		for i := 0; i < MaxPresets; i++ {
+			it := PresetItem{Src: ref(65000), Levels: []int{}}
+			for j := 0; j < perPreset; j++ {
+				it.Dsts = append(it.Dsts, ref(60000+j))
+			}
+			out = append(out, Preset{Name: strings.Repeat("n", 31) + string(rune('a'+i)), Items: []PresetItem{it}})
+		}
+		return out
 	}
-	b, _ := json.Marshal(map[string]any{"t": "presets", "id": 99999, "presets": c.Presets})
-	if len(b) >= 64<<10 {
-		t.Fatalf("message is %d bytes", len(b))
+	fits := 0
+	for per := 1; per <= MaxPresetDsts; per++ {
+		c.Presets = full(per)
+		c.Normalize()
+		if c.Validate() != nil {
+			break
+		}
+		fits = per
+		b, _ := json.Marshal(map[string]any{"t": "presets", "id": 99999, "presets": c.Presets})
+		if len(b) >= 64<<10 {
+			t.Fatalf("%d destinations per preset: message is %d bytes", per, len(b))
+		}
+	}
+	t.Logf("worst case: %d presets of %d destinations (%d references) fit", MaxPresets, fits, MaxPresets*(fits+1))
+	if fits < 10 {
+		t.Errorf("only %d destinations per preset fit", fits)
+	}
+	c.Presets = full(MaxPresetDsts)
+	c.Normalize()
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "too large to save") {
+		t.Errorf("30 presets of 100 destinations: %v", err)
 	}
 	for i := range c.Presets {
 		c.Presets[i].Items = nil
@@ -141,7 +160,7 @@ func TestPresetsMessageFits(t *testing.T) {
 			for k := range lv {
 				lv[k] = k + 1
 			}
-			c.Presets[i].Items = append(c.Presets[i].Items, PresetItem{Src: j, Dsts: []int{j}, Levels: lv})
+			c.Presets[i].Items = append(c.Presets[i].Items, refItem(j, lv, j))
 		}
 	}
 	if err := c.Validate(); err == nil {
@@ -157,7 +176,7 @@ func TestLegacySalvosKeyLoadsAsPresets(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(path)
-	old := string(b) + "salvos:\n  - name: Show\n    items:\n      - src: 4\n        dsts: [1, 2]\n"
+	old := string(b) + "salvos:\n  - name: Show\n    items:\n      - src: {n: 4}\n        dsts: [{n: 1}, {n: 2}]\n"
 	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
 		t.Fatal(err)
 	}
