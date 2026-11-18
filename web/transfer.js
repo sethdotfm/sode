@@ -1,4 +1,4 @@
-// Settings > Export & import dialog. Export writes YAML (the server only converts: POST api/yaml). Import reads a
+// The profile Import & Export dialog (This browser, signed in). Export writes YAML (the server only converts: POST api/yaml). Import reads a
 // file or pasted text into the review sheet (reviewsheet.js). Names go beside numbers so another
 // router's numbers can still be matched.
 // Pure rules are in exportfmt.js. Other modules open this with emit('openTransfer', { scope, user }).

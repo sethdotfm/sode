@@ -90,6 +90,9 @@ func TestChromeExportDialog(t *testing.T) {
 	// Only Users ticked: the export sends Ana's id alone.
 	b.eval(`(() => {
 		window.sentBodies = [];
+		// No real download: the runner's Downloads folder stays empty.
+		const click = HTMLAnchorElement.prototype.click;
+		HTMLAnchorElement.prototype.click = function () { if (this.download) window.downloaded = this.download; else click.call(this); };
 		const f = window.fetch;
 		window.fetch = (u, i) => { if (String(u).endsWith('api/export')) window.sentBodies.push(i.body); return f(u, i); };
 		// Each click draws the list again, so find the box anew.
@@ -101,7 +104,7 @@ func TestChromeExportDialog(t *testing.T) {
 	})()`)
 	b.eval(`document.getElementById('xi-export').click(); true`)
 	b.waitFor("export sent", `window.sentBodies.length === 1`)
-	b.waitFor("saved note", `/^Saved .*\.zip/.test(document.getElementById('xi-note').textContent)`)
+	b.waitFor("saved note", `/^Saved .*\.zip/.test(document.getElementById('xi-note').textContent) && /-Sode-Export\.zip$/.test(window.downloaded)`)
 	var body exportReq
 	json.Unmarshal([]byte(b.eval(`window.sentBodies[0]`).(string)), &body)
 	ana, _ := a.r().cfg.FindUserByName("Ana")

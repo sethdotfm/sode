@@ -168,7 +168,7 @@ func TestExportBackUpEverything(t *testing.T) {
 	a, tok := exportApp(t)
 	seedEverything(t, a)
 	body := json.RawMessage(`{"categories":["settings","routers","users","presets","filterSets","panels","artwork","apiClients","browser"],` +
-		`"includePins":true,"browser":{"prefs":{"theme":"dark"},"filterSets":[],"presets":[]}}`)
+		`"includePins":true,"browser":{"theme":"dark","filterSets":[],"presets":[]}}`)
 	rec := postExport(t, a, tok, body)
 	if rec.Code != 200 {
 		t.Fatalf("export: %d %s", rec.Code, rec.Body)

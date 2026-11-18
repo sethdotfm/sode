@@ -92,11 +92,12 @@ const setNote = (t, error = false) => {
   note.classList.toggle('sode__error-text', error);
 };
 
-// This browser: its own device preferences, filter sets and presets.
+// This browser: its own device preferences as top-level keys, with its filter sets and presets (browser.yaml in
+// internal/app/testdata/export-v1).
 function browserValues() {
-  const prefs = {};
-  for (const n of Object.keys(PREFS)) if (ownPref(n)) prefs[n] = ownPref(n);
-  return { prefs, filterSets: localSets(), presets: localPresets() };
+  const out = {};
+  for (const n of Object.keys(PREFS)) if (ownPref(n)) out[n] = ownPref(n);
+  return { ...out, filterSets: localSets(), presets: localPresets() };
 }
 
 // ---- session token

@@ -88,14 +88,14 @@ test('Settings goes by section', () => {
 });
 
 test('Back up everything sends every category with PINs, whatever the ticks', () => {
-  const b = backupBody({ prefs: { theme: 'dark' } });
+  const b = backupBody({ theme: 'dark' });
   assert.deepEqual(
     b.categories,
     CATEGORIES.map(([c]) => c),
   );
   assert.equal(b.includePins, true);
   assert.equal(b.pick, undefined);
-  assert.deepEqual(b.browser, { prefs: { theme: 'dark' } });
+  assert.deepEqual(b.browser, { theme: 'dark' });
 });
 
 test('sizes and file names read short', () => {
