@@ -209,7 +209,6 @@ func (s *templateStore) delete(id string) (bool, error) {
 	return s.remove(id, nil)
 }
 
-
 func init() {
 	const read, manage = config.ScopePanels, config.ScopePanelsManage
 	registerAPI(

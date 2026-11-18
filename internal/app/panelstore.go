@@ -86,7 +86,7 @@ type Panel struct {
 	ID   string `yaml:"id" json:"id"`
 	Name string `yaml:"name" json:"name"`
 	// Type is panelTypeButtons or panelTypeGrid, fixed when the panel is made (ADR 0011).
-	Type   string `yaml:"type,omitempty" json:"type"`
+	Type string `yaml:"type,omitempty" json:"type"`
 	// Owner is the owning user's id. As sent, owner is that user's live name (panelOut).
 	Owner  string `yaml:"owner" json:"owner"`
 	Acts   string `yaml:"acts" json:"acts"`

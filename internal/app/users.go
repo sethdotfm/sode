@@ -1,9 +1,9 @@
 package app
 
 import (
-	"fmt"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"slices"
 	"strings"
@@ -399,8 +399,8 @@ type userEdit struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	Pin        string `json:"pin"`
-	Trusted    bool    `json:"trusted"`
-	Persistent bool    `json:"persistent"`
+	Trusted    bool   `json:"trusted"`
+	Persistent bool   `json:"persistent"`
 	// Rights and NoAutoLock: nil keeps the user's current value, so a page that does not
 	// know them cannot erase them.
 	Rights     *config.Rights `json:"rights"`

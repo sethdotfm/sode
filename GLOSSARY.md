@@ -126,7 +126,7 @@ Sign in is how a user identifies themself. Sign out ends that session. Whether a
 _Avoid_: log in, log out, unlock (for a user's session)
 
 **Sign-in mode**:
-How a user signs in. PIN only is the default, where the PIN alone says who signs in, so every PIN is unique. Username and PIN is an optional mode for deployments that want it, where the username is separate from the name History shows.
+How a user signs in. PIN only is the default, where the PIN alone says who signs in, so every PIN is unique. Name and PIN is an optional mode. There, a user types their name and PIN, so two users can share a PIN.
 
 **API client**:
 A named, non-person actor that uses Sode's API with an API key, such as a button panel app. Its name is what History shows in place of a user's name. Managing API clients is an advanced setting.

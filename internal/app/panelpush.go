@@ -308,7 +308,6 @@ func (s *panelSetStore) putLocked(set PanelSet) error {
 	return nil
 }
 
-
 func (s *panelSetStore) create(set PanelSet) (PanelSet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

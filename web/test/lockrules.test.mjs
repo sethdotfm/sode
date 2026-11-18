@@ -405,30 +405,30 @@ test('a held Lock cancels the letter Lock', () => {
   assert.equal(lockArrived({ mode: MODE.LOCK, back: 'page' }, true), PAGE_VIEW);
 });
 
-test('username mode asks for a username, except when resuming a held Lock', async () => {
-  const { asksUsername, canSend, padDelay, signInMsg } = await import('../lockrules.js');
+test('username mode asks for a name, except when resuming a held Lock', async () => {
+  const { asksName, canSend, padDelay, signInMsg } = await import('../lockrules.js');
   const pinOnly = { enforced: true, locked: true, mode: 'pin', lens: [4] };
   const named = { enforced: true, locked: true, mode: 'username', lens: [4], held: false };
-  assert.equal(asksUsername(pinOnly), false);
-  assert.equal(asksUsername({}), false);
-  assert.equal(asksUsername(named), true);
-  assert.equal(asksUsername({ ...named, held: true, user: 'Ann' }), false);
+  assert.equal(asksName(pinOnly), false);
+  assert.equal(asksName({}), false);
+  assert.equal(asksName(named), true);
+  assert.equal(asksName({ ...named, held: true, user: 'Ann' }), false);
 
   // PIN only: the old rules and message, whatever the field holds
   assert.equal(canSend(pinOnly, '1234', ''), true);
   assert.equal(padDelay(pinOnly, '1234', ''), 0);
-  assert.deepEqual(signInMsg(pinOnly, { pin: '1234', id: 3, username: 'ann' }), { t: 'userUnlock', pin: '1234', id: 3, tab: false });
+  assert.deepEqual(signInMsg(pinOnly, { pin: '1234', id: 3, name: 'ann' }), { t: 'userUnlock', pin: '1234', id: 3, tab: false });
 
-  // Username and PIN: nothing sends, by hand or by itself, without a username
+  // Name and PIN: nothing sends, by hand or by itself, without a name
   assert.equal(canSend(named, '1234', ''), false);
   assert.equal(canSend(named, '1234', '  '), false);
   assert.equal(canSend(named, '1234', 'ann'), true);
   assert.equal(canSend(named, '123', 'ann'), false);
   assert.equal(padDelay(named, '1234', ''), null);
   assert.equal(padDelay(named, '1234', 'ann'), 0);
-  assert.deepEqual(signInMsg(named, { pin: '1234', id: 4, username: ' ann ' }), { t: 'userUnlock', user: 'ann', pin: '1234', id: 4, tab: false });
+  assert.deepEqual(signInMsg(named, { pin: '1234', id: 4, name: ' ann ' }), { t: 'userUnlock', user: 'ann', pin: '1234', id: 4, tab: false });
   const held = { ...named, held: true, user: 'Ann' };
-  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, username: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
+  assert.deepEqual(signInMsg(held, { pin: '1234', id: 5, name: 'zed' }), { t: 'userUnlock', pin: '1234', id: 5, tab: false });
   assert.equal(canSend(held, '1234', ''), true);
 });
 
@@ -452,7 +452,7 @@ test('remembers: only a sign-in without a browser-wide token keeps the username'
   assert.equal(remembers({ ok: true, token: 't' }), false); // Never sign out: the token already signs them in
 });
 
-test('prefillName and focusName: username mode fills the box, and then the pad takes the keys', () => {
+test('prefillName and focusName: name mode fills the box, and then the pad takes the keys', () => {
   assert.equal(prefillName({ mode: 'username', held: false }, 'ana'), 'ana');
   assert.equal(prefillName({ mode: 'username', held: true }, 'ana'), '');
   assert.equal(prefillName({ mode: 'pin', held: false }, 'ana'), '');

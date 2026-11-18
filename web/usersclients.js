@@ -11,7 +11,7 @@ import { btn, labeled, opt } from './formbits.js';
 
 const MAX_CLIENTS = 12; // config.MaxAPIClients
 
-// users: the Users tab's rows, {name, was}.
+// users: the Users tab's rows, {id, name, was}.
 export function makeClientsTab({ users, touched, adopt }) {
   const rows = el('div');
   const keyHost = el('div', 'sode__key-list');
@@ -142,15 +142,16 @@ export function makeClientsTab({ users, touched, adopt }) {
   function syncOwners() {
     owners = [
       ...users()
-        .filter((u) => u.was)
-        .map((u) => ({ kind: 'user', name: u.was })),
+        .filter((u) => u.id)
+        .map((u) => ({ kind: 'user', user: u.id, name: u.was })),
       ...read()
         .filter((c) => c.was)
         .map((c) => ({ kind: 'client', name: c.was })),
     ];
     const keep = who.value;
-    who.replaceChildren(...owners.map((o) => opt(`${o.kind}:${o.name}`, ownerText(o))));
-    if (owners.some((o) => `${o.kind}:${o.name}` === keep)) who.value = keep;
+    const val = (o) => `${o.kind}:${o.user || o.name}`;
+    who.replaceChildren(...owners.map((o) => opt(val(o), ownerText(o))));
+    if (owners.some((o) => val(o) === keep)) who.value = keep;
   }
   who.addEventListener('focus', syncOwners);
   who.addEventListener('pointerdown', syncOwners);

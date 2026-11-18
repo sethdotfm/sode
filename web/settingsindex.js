@@ -269,7 +269,7 @@ export const DICT = {
     'longest pin',
     'sign-in mode',
     'username',
-    'username and pin',
+    'name and pin',
     'pin only',
     'shared pin',
     'api client',

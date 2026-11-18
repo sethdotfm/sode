@@ -185,19 +185,19 @@ export const hiToken = (tab, persistent) => tab || persistent || '';
 
 export const tokenHome = (m) => (m.tab ? 'tab' : 'browser');
 
-// Username and PIN mode asks for the username too, except where the held Lock of a signed-in
+// Name and PIN mode asks for the name too, except where the held Lock of a signed-in
 // session resumes. There the server knows whose it is, and a `user` that names someone else is a
 // wrong try.
-export const asksUsername = (s) => s.mode === 'username' && !s.held;
+export const asksName = (s) => s.mode === 'username' && !s.held;
 
-export const canSend = (s, pin, username) => sendable(pin, s.lens || []) && (!asksUsername(s) || username.trim() !== '');
+export const canSend = (s, pin, name) => sendable(pin, s.lens || []) && (!asksName(s) || name.trim() !== '');
 
-// A pad that auto-sends waits for the username, so a full PIN typed first is not lost as a wrong try.
-export const padDelay = (s, pin, username) => (asksUsername(s) && username.trim() === '' ? null : sendDelay(pin, s.lens || []));
+// A pad that auto-sends waits for the name, so a full PIN typed first is not lost as a wrong try.
+export const padDelay = (s, pin, name) => (asksName(s) && name.trim() === '' ? null : sendDelay(pin, s.lens || []));
 
-export const signInMsg = (s, { pin, id, username }) => ({
+export const signInMsg = (s, { pin, id, name }) => ({
   t: 'userUnlock',
-  ...(asksUsername(s) ? { user: username.trim() } : {}),
+  ...(asksName(s) ? { user: name.trim() } : {}),
   pin,
   id,
   tab: wantsTab(s),
@@ -258,10 +258,10 @@ export const heldEnded = (prev, next) => !!prev.held && !next.held && !next.user
 // came. sessionStorage keeps it across reloads, and the tab forgets it when the Lock is gone.
 export const heldWho = (kept, prev, next) => (next.held ? prev.user || kept : '');
 
-// A username is kept for the next sign-in unless a browser-wide token already signs them in.
+// A name is kept for the next sign-in unless a browser-wide token already signs them in.
 export const remembers = (m) => !m.token || !!m.tab;
 
-export const prefillName = (s, last) => (asksUsername(s) ? last || '' : '');
+export const prefillName = (s, last) => (asksName(s) ? last || '' : '');
 
 // The pad gets the keys when the box already holds a name.
-export const focusName = (s, name) => asksUsername(s) && !name.trim();
+export const focusName = (s, name) => asksName(s) && !name.trim();
