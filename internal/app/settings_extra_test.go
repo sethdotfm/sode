@@ -55,8 +55,8 @@ func TestSettingsSaveKeepsUnknownKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, _, err := config.Load(a.cfgPath)
-	if err != nil || c.RouterName != "Studio X" {
-		t.Fatalf("save not written: %v %q", err, c.RouterName)
+	if err != nil || c.Title != "Studio X" {
+		t.Fatalf("save not written: %v %q", err, c.Title)
 	}
 	if k, want := c.UnknownKeys(), []string{"futureKey", "locks.futureLock"}; !slices.Equal(k, want) {
 		t.Fatalf("UnknownKeys = %q, want %q", k, want)
@@ -108,9 +108,9 @@ func TestImportRefusesNonConfig(t *testing.T) {
 		`"filterSets":[{"name":"Cams","src":"cam","dst":"","sode":true,"ext":true,"hidden":false}],` +
 		`"presets":[{"name":"P","items":[{"src":1,"srcName":"CAM 1","dsts":[2],"dstNames":["MON"]}]}]}`
 	for name, c := range map[string]struct{ in, want string }{
-		"panel file":     {"id: p1\ncells: []\n", "not a Sode configuration: no router setting (found: cells, id)"},
-		"profile export": {profile, "not a Sode configuration: no router setting (found: exported, filterSets, prefs, presets, site, sode, user)"},
-		"empty mapping":  {"{}\n", "not a Sode configuration: no router setting (found: none)"},
+		"panel file":     {"id: p1\ncells: []\n", "not a Sode configuration: no routers setting (found: cells, id)"},
+		"profile export": {profile, "not a Sode configuration: no routers setting (found: exported, filterSets, prefs, presets, site, sode, user)"},
+		"empty mapping":  {"{}\n", "not a Sode configuration: no routers setting (found: none)"},
 	} {
 		if err := a.ImportConfig(admin, c.in); err == nil || err.Error() != c.want {
 			t.Errorf("%s: %v, want %q", name, err, c.want)

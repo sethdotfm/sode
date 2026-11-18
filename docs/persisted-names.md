@@ -13,7 +13,7 @@ Calls. Keep means the name stays and `AGENTS.md` records why. Legacy means an ol
 | Name | Retired word | Call | Why |
 | --- | --- | --- | --- |
 | `settingsPin` | Settings PIN | Keep | Holds the Advanced Settings PIN hash. A rename needs a fallback read, a fixture file, and the `-reset-pin` and import paths changed, and it buys nothing a user sees. |
-| `nameRefreshSeconds`, `SODE_NAME_REFRESH_S` | refresh | Keep | The Settings label already says re-read. Old `config.yaml` files and deploy env hold the key. |
+| `nameRefreshSeconds` (Settings message key), `SODE_NAME_REFRESH_S` | refresh | Keep | The Settings label already says re-read. Deploy env holds the variable. In `config.yaml` the key is `nameRereadSeconds` under `routers`. |
 | `salvos` | salvo (for presets) | Legacy | Pre-1.5 key. `Normalize` moves it into `presets`. Never written. |
 | `deviceDefaults` | This device | Keep | Only the phrase "This device" is retired, and the key holds the defaults This browser falls back on. Listed because the word is close. |
 
@@ -69,7 +69,7 @@ A browser can keep an old page open across a server upgrade, so a renamed type w
 These carry no word from an `_Avoid_` line, so nothing is owed.
 
 - `follow` and `followGroup` (history fields). The names hold no retired word. They point at the take that an External follow seems to trail, which is only ever a suspicion.
-- `levelWireOffset`. It holds the offset between a Level and the router's own number on the wire. The Settings label says level offset.
+- `levelWireOffset` (Settings message key; `levelOffset` in `config.yaml`). It holds the offset between a Level and the router's own number on the wire. The Settings label says level offset.
 - `wire` (Communication Log field). The router's own level number, kept apart from the UI Level on purpose.
 - `locks`, `autoLockMinutes`, `lockState`. The Lock and Auto-lock.
 - `signInMode` (`pin` or `username`, also in `lockState` as `mode` and in `usersListResult`), a user's `username`, and the `user` field of `userUnlock`. The Sign-in mode, the username and the name a username signs in with. New names, no retired word.

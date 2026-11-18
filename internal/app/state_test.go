@@ -90,13 +90,13 @@ func TestRouterChangeClearsRouterState(t *testing.T) {
 	}
 	a.mu.Lock()
 	if len(a.router.tally) != 1 || len(a.router.srcNames) != 1 || len(a.ext.pending) != 1 || len(a.ext.own) != 1 ||
-		len(a.ext.lateRoute) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Router {
+		len(a.ext.lateRoute) != 1 || len(a.ext.late) != 1 || len(a.waiters) != 1 || len(a.checks) != 1 || a.router.newSrc == nil || a.status.Addr != cur.Address {
 		a.mu.Unlock()
 		t.Fatal("a settings change that is not router-side cleared state")
 	}
 	a.mu.Unlock()
 
-	cur.Router = "127.0.0.1:1"
+	cur.Address = "127.0.0.1:1"
 	if err := a.ApplyConfig(cur); err != nil {
 		t.Fatal(err)
 	}

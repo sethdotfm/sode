@@ -53,7 +53,7 @@ func TestEveryConfigStructKeepsExtra(t *testing.T) {
 }
 
 const futureYAML = `
-router: 127.0.0.1:8910
+routers: [{address: 127.0.0.1:8910}]
 futureKey: 1
 users:
   - name: a
