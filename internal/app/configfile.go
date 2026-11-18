@@ -150,6 +150,8 @@ func (a *App) importConfig(c *client, text string) (unknown []string, err error)
 		if m.RequireHTTPS && !cur.RequireHTTPS && !c.secure {
 			return errInsecureSave
 		}
+		// The install stays this install, so its Item links keep working.
+		m.InstallUID = cur.InstallUID
 		*cur = m
 		return nil
 	})

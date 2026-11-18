@@ -400,14 +400,28 @@
 .sode__filters-preview {
   overflow-wrap: anywhere;
 }
-.sode__filters-share {
+/* The preset editor's Item link (itemlinkview.js). */
+.sode__itemlink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-space-3);
+}
+.sode__itemlink[hidden] {
+  display: none;
+}
+.sode__itemlink-row {
   align-items: flex-end;
   display: flex;
   gap: var(--pb-space-3);
 }
-.sode__filters-share > .pb-input {
+.sode__itemlink-row > .sode__fld {
   flex: 1;
   min-width: 0;
+}
+.sode__itemlink-qr .sode__qr {
+  display: block;
+  height: auto;
+  width: 12rem;
 }
 .sode__filters-empty {
   align-items: center;
