@@ -163,6 +163,34 @@ func countItems(t *testing.T, cat string, files map[string][]byte) int {
 		len(v.CheckpointSets) + len(v.Defaults) + len(v.Icons)
 }
 
+// Back up everything: the body backupBody in web/exportrules.js sends exports every category with PINs.
+func TestExportBackUpEverything(t *testing.T) {
+	a, tok := exportApp(t)
+	seedEverything(t, a)
+	body := json.RawMessage(`{"categories":["settings","routers","users","presets","filterSets","panels","artwork","apiClients","browser"],` +
+		`"includePins":true,"browser":{"prefs":{"theme":"dark"},"filterSets":[],"presets":[]}}`)
+	rec := postExport(t, a, tok, body)
+	if rec.Code != 200 {
+		t.Fatalf("export: %d %s", rec.Code, rec.Body)
+	}
+	files := unzipAll(t, rec.Body.Bytes())
+	for _, c := range exportCategories {
+		if len(files[c.File]) == 0 {
+			t.Errorf("no %s", c.File)
+		}
+	}
+	var users exportUsers
+	yaml.Unmarshal(files["users.yaml"], &users)
+	for _, u := range users.Users {
+		if u.Pin == "" || u.Len == 0 {
+			t.Errorf("user %s went without a PIN", u.Name)
+		}
+	}
+	if len(users.Users) != len(a.r().cfg.Users) {
+		t.Errorf("%d users of %d", len(users.Users), len(a.r().cfg.Users))
+	}
+}
+
 func TestExportItemsNeedAnAdministrator(t *testing.T) {
 	a, _ := exportApp(t)
 	if rec := getItems(t, a, ""); rec.Code != http.StatusUnauthorized {

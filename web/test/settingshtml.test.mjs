@@ -90,9 +90,10 @@ test('the API section holds its fields and its own Save, saved apart from the fo
   }
 });
 
-test('one Export & Import section holds the profile transfer and the server backup', () => {
+test('one Export & Import section opens the Export & Import dialog', () => {
   const g = group('Export & Import');
-  for (const id of ['transfer-open', 'config-file', 'config-export', 'config-import', 'config-pins']) assert.match(g.body, new RegExp(`id="${id}"`));
+  assert.match(g.body, /id="xi-open"/);
+  assert.doesNotMatch(g.body, /config-file|transfer-open/);
   assert.equal(groups.filter((x) => /export|backup/i.test(x.title)).length, 1);
 });
 
