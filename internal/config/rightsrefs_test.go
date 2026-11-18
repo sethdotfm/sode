@@ -6,7 +6,34 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
+
+// Default levels belong to the router entry that carries the router UID, not to the install.
+func TestDefaultLevelsStoredPerRouterUID(t *testing.T) {
+	c := Defaults()
+	c.Levels, c.DefaultLevels = 4, "1-2"
+	c.Normalize()
+	path := filepath.Join(t.TempDir(), "c.yaml")
+	if err := Save(path, c); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(path)
+	var file struct {
+		Routers []map[string]any `yaml:"routers"`
+		Rest    map[string]any   `yaml:",inline"`
+	}
+	if err := yaml.Unmarshal(b, &file); err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Routers) != 1 || file.Routers[0]["uid"] != c.UID || file.Routers[0]["defaultLevels"] != "1-2" {
+		t.Fatalf("routers %v", file.Routers)
+	}
+	if _, top := file.Rest["defaultLevels"]; top {
+		t.Fatal("defaultLevels is also an install-wide key")
+	}
+}
 
 // Rights store {router, n, name} per source and destination and preset ids; the file shows it.
 func TestRightsStoreRouterReferences(t *testing.T) {

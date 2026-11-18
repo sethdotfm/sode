@@ -2441,22 +2441,22 @@ components:
             fixedDests:
               type: array
               maxItems: 16
-              uniqueItems: true
-              items: { type: integer, minimum: 0, maximum: 65535 }
+              items: { $ref: "#/components/schemas/RightsRef" }
               description: |
-                Fixed destination: the router's destination numbers, 0-based, that the panel
-                always patches to. Absent or empty means off, and an empty list is not stored. A
-                non-integer, a negative number, a duplicate or more than 16 is 400 `bad_request`.
+                Fixed destination: the destinations, 0-based, that the panel always patches to.
+                Sode stores and returns router references. Absent or empty means off, and an empty
+                list is not stored. A non-integer, a negative number, a repeated destination, another
+                router or more than 16 is 400 `bad_request`.
         clientRights:
           type: object
           description: |
             Rights of the panel's API client. An unset list means everything, an empty one
             nothing. Returned only to a caller who can edit the panel.
           properties:
-            sources: { type: array, items: { type: integer } }
-            dsts: { type: array, items: { type: integer } }
+            sources: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
+            dsts: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
             levels: { type: array, items: { type: integer }, description: UI levels }
-            presets: { type: array, items: { type: string } }
+            presets: { type: array, items: { type: string }, description: Preset ids }
             visibility: { type: string, enum: [readonly, hidden] }
     PanelTemplateIn:
       type: object
@@ -2631,10 +2631,10 @@ components:
                 The calling key's own Rights, so a panel page can refuse a route before arming
                 a take. Only on `GET /panels/{id}`. The server enforces them regardless.
               properties:
-                sources: { type: array, items: { type: integer } }
-                dsts: { type: array, items: { type: integer } }
+                sources: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
+                dsts: { type: array, items: { $ref: "#/components/schemas/RightsRef" } }
                 levels: { type: array, items: { type: integer }, description: UI levels }
-                presets: { type: array, items: { type: string } }
+                presets: { type: array, items: { type: string }, description: Preset ids }
                 visibility: { type: string, enum: [readonly, hidden] }
     PushResult:
       type: object
@@ -2739,6 +2739,13 @@ components:
         router: { type: string, description: The router UID }
         n: { type: integer, description: "Sode's number, 0-based" }
         name: { type: string, description: The router's name for it when the item was saved }
+    RightsRef:
+      description: |
+        A router reference. Sode returns the object; a request can also send the bare number,
+        which names the one router.
+      oneOf:
+        - { $ref: "#/components/schemas/RouterRef" }
+        - { type: integer, minimum: 0 }
     Actor:
       type: object
       required: [kind, name]
