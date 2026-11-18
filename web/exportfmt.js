@@ -1,7 +1,6 @@
-// Export documents, share links and import matching. Pure: no imports, no DOM, so Node tests it
+// Export documents and import matching. Pure: no imports, no DOM, so Node tests it
 // (dialogs: transfer.js, reviewsheet.js). Export documents carry numbers with names beside them
-// so an import on another router can match by name. A share link holds ONE item as base64url
-// JSON in the URL fragment (#share=), which never reaches the server or a proxy.
+// so an import on another router can match by name.
 
 export const SOCKET_LIMIT = 64 * 1024;
 const PROFILE_LIMIT = 48 * 1024;
@@ -19,9 +18,6 @@ export const PREF_LABELS = {
   nextMode: 'Next means',
   compact: 'Compact view',
 };
-
-const FILTER_DEFAULT = { src: '', dst: '', sode: true, ext: true, hidden: false };
-const FILTER_KEYS = Object.keys(FILTER_DEFAULT);
 
 const runes = (s) => [...String(s)].length;
 const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
@@ -265,97 +261,6 @@ export function sizeProblem(scope, parts, what = 'import') {
   return '';
 }
 
-const b64 = (s) => {
-  const bytes = new TextEncoder().encode(s);
-  let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-};
-const unb64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
-
-export function presetShare(p, srcName = () => '', dstName = () => '') {
-  return { kind: 'preset', name: p.name, items: p.items.map((it) => itemOut(it, srcName, dstName)) };
-}
-export function filterShare(name, f) {
-  const out = { kind: 'filter', name: String(name || '') };
-  const n = filterOf(f);
-  for (const k of FILTER_KEYS) if (n[k] !== FILTER_DEFAULT[k]) out[k] = n[k];
-  return out;
-}
-
-export const encodeShare = (doc) => b64(JSON.stringify(doc));
-
-export const shareUrl = (base, doc) => `${base}#share=${encodeShare(doc)}`;
-
-export function decodeShare(text) {
-  let d;
-  try {
-    d = JSON.parse(unb64(String(text)));
-  } catch {
-    throw new Error('The link is damaged.');
-  }
-  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');
-  const name = String(d.name ?? '').trim();
-  if (runes(name) > NAME_MAX) throw new Error('The link is damaged.');
-  if (d.kind === 'filter') return { kind: 'filter', name, ...filterOf(d) };
-  if (d.kind === 'preset') {
-    if (!name) throw new Error('The preset in the link has no name.');
-    if (!Array.isArray(d.items) || !d.items.length || d.items.length > 100) throw new Error('The preset in the link has no takes.');
-    return { kind: 'preset', name, items: d.items.map(itemIn) };
-  }
-  throw new Error('The link is not a Sode share link.');
-}
-
-export function decodeLegacy(text) {
-  let d;
-  try {
-    d = JSON.parse(unb64(String(text)));
-  } catch {
-    throw new Error('The link is damaged.');
-  }
-  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('The link is damaged.');
-  return {
-    kind: 'filter',
-    name: String(d.name ?? '')
-      .trim()
-      .slice(0, NAME_MAX),
-    ...filterOf(d),
-  };
-}
-
-// Returns { doc, error, search, hash } (doc null and error '' when there is no link);
-// search/hash: the parts to put back with our parameters removed.
-export function readLink(search, hash) {
-  const out = { doc: null, error: '', search, hash };
-  const h = new URLSearchParams(String(hash).replace(/^#/, ''));
-  const s = new URLSearchParams(search);
-  const share = h.get('share');
-  const legacy = s.get('f');
-  if (share == null && legacy == null) return out;
-  try {
-    out.doc = share != null ? decodeShare(share) : decodeLegacy(legacy);
-  } catch (e) {
-    out.error = e.message;
-  }
-  if (share != null) {
-    h.delete('share');
-    const t = h.toString();
-    out.hash = t ? `#${t}` : '';
-  }
-  if (legacy != null) {
-    s.delete('f');
-    const t = s.toString();
-    out.search = t ? `?${t}` : '';
-  }
-  return out;
-}
-
-// The sheet opens only after the router's names are in and the lock state is known (`L` from lock.js's
-// `access`, null until then). The page must also not be covered (PIN lock, or the page's own local
-// Lock). A link waits, in the address, until then.
-export const mayOpenSheet = (L, pageLocked = false, namesLoaded = true) =>
-  !!L && namesLoaded && !(L.locked && (L.enforced || L.held)) && !(pageLocked && !L.enforced);
-
 // "Name 2", or "Name (mine)" for a copy of an Everyone item; '' with nothing to copy. At most
 // 32 characters.
 export function saveAsName(name, fromScope = '') {
@@ -368,9 +273,4 @@ export function saveAsName(name, fromScope = '') {
       .join('')
       .trimEnd() + suffix
   );
-}
-
-export function docOfShare(d) {
-  if (d.kind === 'preset') return { sode: 1, presets: [{ name: d.name, items: d.items }] };
-  return { sode: 1, filterSets: [{ name: d.name || 'Shared filter', ...filterOf(d) }] };
 }

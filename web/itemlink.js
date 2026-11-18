@@ -1,0 +1,40 @@
+// Item links: one Everyone or Me preset, or one panel, on this install (GLOSSARY.md). Pure: Node tests it.
+// Shapes: <page>#preset=<id>&install=<uid> and <panel link>#install=<uid>. The link holds ids, not a copy of the item.
+// So it is short enough for a QR code, and it opens nothing on another install.
+
+export const OTHER_INSTALL = 'This Item link was made on another Sode install. It does not work here.';
+export const MISSING_PRESET = 'The preset in this Item link is not here, or you cannot see it.';
+
+const params = (hash) => new URLSearchParams(String(hash || '').replace(/^#/, ''));
+
+export const presetLink = (base, id, install) => `${base}#${new URLSearchParams({ preset: id, install })}`;
+
+export function panelLink(link, install) {
+  const at = link.indexOf('#');
+  return `${link}${at < 0 ? '#' : '&'}${new URLSearchParams({ install })}`;
+}
+
+export const linkInstall = (hash) => params(hash).get('install')?.trim() || '';
+
+// { preset, install, hash } for a preset link, or null; hash is the fragment with the link's parts removed.
+export function readItemLink(hash) {
+  const h = params(hash);
+  const preset = h.get('preset')?.trim();
+  if (!preset) return null;
+  const install = h.get('install')?.trim() || '';
+  h.delete('preset');
+  h.delete('install');
+  const rest = h.toString();
+  return { preset, install, hash: rest ? `#${rest}` : '' };
+}
+
+// The page must know its install, the lock state (`access`, null until lock.js says) and the names. No lock
+// can cover it. profileWait: a user is signed in and the profile with the Me presets has not come yet.
+export function itemLinkStep(link, { install, access: L, pageLocked, namesIn, profileWait, presets }) {
+  const covered = !L || (L.locked && (L.enforced || L.held)) || (pageLocked && !L.enforced);
+  if (!install || !namesIn || covered) return { step: 'wait' };
+  if (link.install !== install) return { step: 'other' };
+  const preset = presets.find((p) => p.id === link.preset && (p.scope === 'global' || p.scope === 'user'));
+  if (preset) return { step: 'open', preset };
+  return profileWait ? { step: 'wait' } : { step: 'missing' };
+}

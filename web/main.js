@@ -9,7 +9,7 @@ import './lock.js';
 import './profile.js';
 import './filters.js';
 import './searchbox.js';
-import { applySharedLink } from './transfer.js';
+import { openItemLinks } from './itemlinkopen.js';
 import './mobile.js';
 import './presetpopup.js';
 import './presetkeys.js';
@@ -21,6 +21,6 @@ on('brand', ({ text }) => {
 });
 
 initTheme();
-applySharedLink();
+openItemLinks();
 bigScrollAll();
 connect();

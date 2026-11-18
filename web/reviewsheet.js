@@ -1,4 +1,4 @@
-// Review sheet: what an import file or share link would change, shown before anything is saved. Used by transfer.js and share links.
+// Review sheet: what an import file would change, shown before anything is saved. Used by transfer.js.
 // A save goes through the same stores and savers as the Filters and Presets dialogs; pure rules are in exportfmt.js.
 
 import { el, S, on, off, sentence } from './core.js';
@@ -68,13 +68,12 @@ function pinControls(cancel) {
 const pinA = pinControls(() => gsave.cancel());
 const pinB = pinControls(() => gsavePresets.cancel());
 const cancelBtn = btn('pb-btn--outline', 'Cancel', () => close());
-const nowBtn = btn('pb-btn--outline', 'Apply now', () => applyNowClick());
 const applyBtn = btn('pb-btn--ok', 'Apply', () => apply());
 
 dialog.append(
   el('div', 'pb-modal__header', titleEl),
   el('div', 'pb-modal__body sode__filters-body', fromEl, targetBox, pinA.pinRow, pinB.pinRow, noteTop, prefsBox, rowsBox, sumEl, noteEl),
-  el('div', 'pb-modal__footer', cancelBtn, nowBtn, applyBtn),
+  el('div', 'pb-modal__footer', cancelBtn, applyBtn),
 );
 root.append(dialog);
 document.body.append(root);
@@ -441,7 +440,6 @@ function render() {
   rowsBox.replaceChildren(
     ...(st.rows.length ? [head, ...st.rows.map((r, i) => rowNode(r, i, choices))] : [el('span', 'sode__hint', 'Nothing to import in this file.')]),
   );
-  nowBtn.hidden = !(st.applyNow && st.rows.length === 1 && st.rows[0].kind === 'filter');
   refresh();
 }
 
@@ -544,20 +542,12 @@ function apply() {
   else sendPresets();
 }
 
-function applyNowClick() {
-  const r = st?.rows[0];
-  if (!r || r.kind !== 'filter' || !st.applyNow) return;
-  const run = st.applyNow;
-  close();
-  run(r.f, r.name);
-}
-
 // ---- open / close
 
-// Options: scope, user (review for that user's profile, saved by name), applyNow (f, name) for one filter set (a link), source (where it came from).
-export function openReview({ doc, scope: sc = 'local', user = '', applyNow = null, source = '', title = 'Review import', onLocked = null }) {
+// Options: scope, user (review for that user's profile, saved by name), source (where it came from).
+export function openReview({ doc, scope: sc = 'local', user = '', source = '', title = 'Review import' }) {
   back = document.activeElement;
-  st = { doc, scope: sc, user, applyNow, onLocked, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
+  st = { doc, scope: sc, user, rows: makeRows(doc), prefsTo: sc === 'user' ? 'user' : 'local', prefOn: {} };
   fetched = null;
   open = true;
   busy = false;
@@ -607,10 +597,7 @@ const dlg = trapDialog(root, dialog, () => {
 });
 
 on('locking', () => {
-  if (!open) return;
-  const again = st?.onLocked;
-  close();
-  if (again) again();
+  if (open) close();
 });
 on('profile', () => render());
 on('presets', () => render());

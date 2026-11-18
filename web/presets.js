@@ -10,7 +10,7 @@ import { globalSaver, profileSaver, scopeWriter } from './globalsave.js';
 import { profileName, editTarget } from './profile.js';
 import { browserPresets, profilePresets } from './editortargets.js';
 import { trapDialog, labeled } from './widgets.js';
-import { shareRow, shareLink, sharePresetDoc } from './transfer.js';
+import { itemLinkBox } from './itemlinkview.js';
 import { saveAsName } from './exportfmt.js';
 import { scopeLabel, scopeOptions } from './scopes.js';
 import { carryNames } from './presetref.js';
@@ -207,7 +207,7 @@ const pinRow = el(
 pinRow.hidden = true;
 const delBtn = btn('pb-btn--outline', 'Delete', () => deleteClick());
 const saveBtn = btn('pb-btn--commit', 'Save', () => save());
-const shareUI = shareRow();
+const linkUI = itemLinkBox();
 const saveAsBtn = btn('pb-btn--outline', 'Save as…', () => askSaveAs());
 const asName = el('input', 'pb-input');
 asName.maxLength = 32;
@@ -225,9 +225,11 @@ const asRow = el(
   btn('pb-btn--ghost', 'Cancel', () => closeSaveAs()),
 );
 asRow.hidden = true;
-const shareBtn = btn('pb-btn--outline', 'Share', () => {
-  const p = cur?.old && findPreset(cur.from, cur.old);
-  if (p) shareLink(sharePresetDoc(p), shareUI);
+// Only presets on the server have an Item link: a This browser preset is in no other browser.
+const hasItemLink = () => !!cur?.old && (cur.from === 'global' || cur.from === 'user');
+const linkBtn = btn('pb-btn--outline', 'Item link', () => {
+  const p = hasItemLink() && findPreset(cur.from, cur.old);
+  if (p?.id) linkUI.showPreset(p.id);
 });
 
 const pickRow = el(
@@ -255,11 +257,11 @@ dialog.append(
       'div',
       'sode__filters-sets',
       pickRow,
-      el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveAsBtn, shareBtn, delBtn),
+      el('div', 'sode__filters-set', labeled('Name', nameIn), scopeWrap, saveAsBtn, linkBtn, delBtn),
       asRow,
       pinnedBox,
       pinRow,
-      shareUI.box,
+      linkUI.box,
     ),
     el(
       'div',
@@ -364,7 +366,7 @@ function rowFromItem(it) {
   return { src: display(it.src), dsts: it.dsts.map(display).join(', '), levels: it.levels.length ? levelInput(it.levels) : '' };
 }
 function load(s) {
-  shareUI.box.hidden = true;
+  linkUI.box.hidden = true;
   asRow.hidden = true;
   deleting = false;
   dirty = false;
@@ -454,7 +456,7 @@ function renderHead(keep = false) {
   cur.scope = scopeIn.value;
   pinnedIn.checked = cur.pinned;
   delBtn.hidden = !cur.old;
-  shareBtn.hidden = !cur.old;
+  linkBtn.hidden = !hasItemLink();
   delBtn.textContent = deleting ? 'Really delete?' : 'Delete';
   saveBtn.disabled = saver.busy() || profSaver.busy() || tgtSaver.busy();
   const own = target.own;
@@ -464,9 +466,9 @@ function renderHead(keep = false) {
   saveAsBtn.hidden = !own;
   transferBtn.hidden = !own;
   delBtn.hidden ||= !own;
-  shareBtn.hidden ||= !own;
+  linkBtn.hidden ||= !own;
   asRow.hidden ||= !own;
-  shareUI.box.hidden ||= !own;
+  linkUI.box.hidden ||= !own;
   paintSave();
   titleEl.textContent = target.title;
   organizerBtn.hidden = !own;

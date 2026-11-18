@@ -58,7 +58,7 @@ var retiredWords = []retiredWord{
 	{Terms: []string{"panel change"}, Re: wordRe(`(?i)panel[ -](?:changes?|entr(?:y|ies)|rows?)|changes? (?:from|on) (?:a |the )?(?:hardware )?panel`)},
 	{Terms: []string{"external change"}, Re: wordRe(`(?i)external changes?`)},
 	{Terms: []string{"reset import", "merge import"}, Re: wordRe(`(?i)(?:reset|merge) imports?`)},
-	{Terms: []string{"share link"}, Re: wordRe(`(?i)share links?`), Docs: "#375", UI: "#375", Ident: "#375"},
+	{Terms: []string{"share link"}, Re: wordRe(`(?i)share links?`)},
 	{Terms: []string{"outside change"}, Re: wordRe(`(?i)outside changes?`)},
 	{Terms: []string{"follows"}, Re: wordRe(`(?i)follows`)},
 	{Terms: []string{"automation"}, Re: wordRe(`(?i)automation`)},
