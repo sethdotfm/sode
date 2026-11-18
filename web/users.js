@@ -1,6 +1,6 @@
-// Users: the directory (users, longest PIN) has its own dialog with its own save (`users` message, guarded by the Advanced
-// Settings PIN). It never saves with the main Save.
-// Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a trusted user without the PIN. The server holds every rule.
+// Users: the directory (users, longest PIN, Roles) has its own dialog with its own save (`users` message, Administrator
+// only). It never saves with the main Save.
+// Each saved user has a Profile... button (bus 'openProfile'), also in a Settings list for a Trusted user. The server holds every rule.
 
 import { $, el, S, on, onMsg, emit, wsSend, sentence } from './core.js';
 import { trusted, unlocked } from './pin.js';
@@ -12,7 +12,7 @@ import { makeTabs } from './tabs.js';
 import { btn, check, field as formField } from './formbits.js';
 import { makeRightsTab } from './usersrights.js';
 import { makeClientsTab } from './usersclients.js';
-import { MODES, clashNotice, needsNewPins, pinClashes, usersReq } from './usersrules.js';
+import { GUEST_ROLES, MODES, ROLES, clashNotice, needsNewPins, pinClashes, usersReq } from './usersrules.js';
 
 // ---- the Settings section (index.html #users-group)
 const manage = $('users-manage');
@@ -51,6 +51,22 @@ const modeField = el(
     'Name and PIN: each user signs in with their name and PIN, and two users can share a PIN. A switch back to PIN only needs a new, different PIN for every user.',
   ),
 );
+const roleSelect = (roles, value, label) => {
+  const s = el('select', 'pb-select');
+  for (const r of roles) s.append(Object.assign(el('option', null, r.label), { value: r.value }));
+  s.value = value;
+  s.setAttribute('aria-label', label);
+  return s;
+};
+const guestSelect = roleSelect(GUEST_ROLES, 'standard', 'Guest role');
+guestSelect.id = 'usr-guest-role';
+const guestField = el(
+  'div',
+  'sode__field',
+  Object.assign(el('label', null, 'Guest role'), { htmlFor: 'usr-guest-role' }),
+  el('span', 'pb-select-wrap', guestSelect),
+  el('span', 'sode__hint', 'The Role of a browser with nobody signed in. Guest Rights still limit what it routes.'),
+);
 const table = el('div', 'sode__users-table', el('div', 'sode__users-head', el('span', null, 'Name'), el('span', null, 'PIN')), rows);
 
 const addBtn = btn('pb-btn--outline pb-btn--sm', 'Add user', () => {
@@ -75,11 +91,11 @@ const usersPanel = el(
   el(
     'p',
     'sode__hint',
-    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A trusted user can save Settings, filter sets and presets without the Advanced Settings PIN. A rename keeps the user signed in, with their keys, panels and Profile.',
+    'With users and a lock on (Settings > Access), a page asks for a PIN before it changes anything. PINs are digits, and in PIN only mode they must differ. A Standard user patches within their Rights and keeps their own Profile and panels. A Trusted user also changes shared Settings, filter sets, presets, every Profile and panel, the Icon library and Default artwork. An Administrator changes everything, and Sode always keeps one. A rename keeps the user signed in, with their keys, panels and Profile.',
   ),
   table,
   el('div', 'sode__users-acts', addBtn),
-  el('div', 'sode__users-opts', modeField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
+  el('div', 'sode__users-opts', modeField, guestField, formField('usr-maxpin', 'Longest PIN (digits)', el('span', 'pb-number-wrap', maxInput), '4-12.')),
 );
 // The rights editor and the API clients tab read the live rows, and hand back their drafts on save.
 const userList = () =>
@@ -125,6 +141,7 @@ let seq = 0;
 let outSeq = 0;
 let listSeq = 0;
 let listedMode = 'pin'; // the saved sign-in mode, what the server keeps when none is sent.
+let listedGuestRole = 'standard'; // the same for Guest role
 let listed = []; // the directory the server sent; empty until it does.
 let extras = { apiClients: [], guestRights: {}, guestScopes: [] }; // clients and Guest, sent with it.
 let loaded = false;
@@ -174,8 +191,8 @@ function addRow(u = { name: '', len: 0 }) {
   pin.dataset.field = 'pin';
   pin.placeholder = u.len ? 'unchanged' : 'new PIN';
   pin.maxLength = Number(maxInput.value) || S.cfg?.maxPinLen || 8;
-  const trust = check('Trusted', { checked: !!u.trusted });
-  trust.input.dataset.flag = 'trusted';
+  const role = roleSelect(ROLES, u.role || 'standard', 'Role');
+  role.dataset.field = 'role';
   const never = check('Never sign out', { checked: !!u.persistent });
   never.input.dataset.flag = 'persistent';
   // A saved user needs two clicks and the Advanced Settings PIN; a row never saved has nothing to lose.
@@ -229,7 +246,7 @@ function addRow(u = { name: '', len: 0 }) {
     'sode__users-row',
     el('div', 'sode__users-in', name),
     el('div', 'sode__users-in', pin),
-    trust.label,
+    el('span', 'pb-select-wrap', role),
     never.label,
     prof,
     rights,
@@ -242,7 +259,7 @@ function addRow(u = { name: '', len: 0 }) {
   paintProf();
   name.addEventListener('input', paintProf);
   for (const f of [name, pin]) f.addEventListener('input', touched);
-  for (const f of [trust.input, never.input]) f.addEventListener('change', touched);
+  for (const f of [role, never.input]) f.addEventListener('change', touched);
   rows.append(row);
   if (u.len) rightsPanel.adoptUser(rid, u);
   return name;
@@ -267,6 +284,7 @@ onMsg('userSignOutAllResult', (m) => {
 function fill() {
   maxInput.value = String(S.cfg?.maxPinLen || 8);
   modeSelect.value = listedMode;
+  guestSelect.value = listedGuestRole;
   rows.replaceChildren();
   clientsTab.clear();
   clientsTab.forget();
@@ -312,6 +330,7 @@ onMsg('usersListResult', (m) => {
   listed = m.users || [];
   extras = { apiClients: m.apiClients || [], guestRights: m.guestRights || {}, guestScopes: m.guestScopes || [] };
   listedMode = m.signInMode === 'username' ? 'username' : 'pin';
+  listedGuestRole = m.guestRole === 'trusted' ? 'trusted' : 'standard';
   loaded = true;
   paintSummary();
   if (isOpen && !edited) fill();
@@ -323,6 +342,7 @@ on('locked', () => {
   listed = [];
   extras = { apiClients: [], guestRights: {}, guestScopes: [] };
   listedMode = 'pin';
+  listedGuestRole = 'standard';
   loaded = false;
   paintSummary();
 });
@@ -382,7 +402,7 @@ function readRows() {
       name: val('name'),
       was: row.dataset.was,
       pin: val('pin'),
-      trusted: flag('trusted'),
+      role: row.querySelector('select[data-field="role"]').value,
       persistent: flag('persistent'),
     };
   });
@@ -405,7 +425,7 @@ function doSave() {
     levels: S.levels.length,
   });
   if (acc.error) return fail(acc.error);
-  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode), acc, loaded);
+  const req = mergeAccess(usersReq(users, Math.trunc(Number(maxInput.value)) || 0, mode(), listedMode, guestSelect.value, listedGuestRole), acc, loaded);
   const id = ++seq;
   if (!wsSend({ t: 'users', id, usersReq: req })) return fail('Not connected to Sode.');
   saveBtn.disabled = true;
@@ -425,6 +445,7 @@ onMsg('usersResult', async (m) => {
 });
 
 modeSelect.addEventListener('change', touched);
+guestSelect.addEventListener('change', touched);
 maxInput.addEventListener('input', () => {
   touched();
   for (const p of rows.querySelectorAll('input[type=password]')) p.maxLength = Number(maxInput.value) || 12;
