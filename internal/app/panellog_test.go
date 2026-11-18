@@ -12,7 +12,7 @@ import (
 
 // Communication Log rows from a panel name the panel's short name and the instance (docs/agents/comm-log.md).
 
-const slugPanel = `{"name":"Wall","acts":"api","slug":"wall","clientRights":{"sources":[1,2,3],"dsts":[2,4]}}`
+const slugPanel = `{"name":"Wall","acts":"api","slug":"wall","clientRights":{"sources":[{"n":1},{"n":2},{"n":3}],"dsts":[{"n":2},{"n":4}]}}`
 
 // lastRow waits for the n-th row (from 1) with that why and returns it; the writer is a goroutine.
 func lastRow(t *testing.T, a *App, why string, n ...int) Sent {

@@ -1,9 +1,11 @@
 // Rights rules, pure (no imports) so Node tests them. Rights on the wire: {sources, dsts, levels, presets, visibility}.
 // A missing list means all and [] means none. Sources and dsts are router references {router, n, name}.
-// n is the router's own number, with no numberOffset, as in plan items' .n. The server also takes bare numbers.
+// n is the router's own number, with no numberOffset, as in plan items' .n. The editor sends {n}, never a bare
+// number; the server fills the router and the name.
 // Levels are UI levels 1..N. Presets are preset ids. Keep in step with config.Rights.
 
-// refN: a list entry's router number. v2.0 drives one router, so the router is not compared.
+// refN: a list entry's router number. v2.0 drives one router, so the router is not compared. Tests and plans
+// pass plain numbers.
 export const refN = (x) => (x && typeof x === 'object' ? x.n : x);
 
 export const allowed = (rights, kind, v) => !rights || !Array.isArray(rights[kind]) || rights[kind].some((x) => refN(x) === v);
@@ -106,7 +108,7 @@ export function rightsOf(d, off, levels, presets = []) {
     const p = parseList(d[kind].text, shifted ? off : 0);
     if (p.error) return { error: `${name}: ${p.error}` };
     if (kind === 'levels' && p.list.some((u) => u < 1 || u > levels)) return { error: `Levels: use 1-${levels}` };
-    rights[kind] = p.list;
+    rights[kind] = shifted ? p.list.map((n) => ({ n })) : p.list;
   }
   if (!d.presets.all) {
     const p = presetIds(d.presets.text, d.presets.keep, presets);

@@ -19,7 +19,7 @@ func TestChromeEditorFind(t *testing.T) {
 	sim := startSim(t)
 
 	a := simApp(t, sim, func(c *config.Config) {
-		zoom := *config.Nums(10, 11)
+		zoom := *nums(10, 11)
 		c.Users[0].Rights = config.Rights{Sources: &zoom}
 	})
 	ctx, cancel := context.WithCancel(context.Background())

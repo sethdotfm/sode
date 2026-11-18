@@ -31,8 +31,8 @@ func mrJSON(m map[string]any) string {
 
 func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	a := keyTestApp(t)
-	srcs := *config.Nums(7)
-	none := *config.Nums()
+	srcs := *nums(7)
+	none := *nums()
 	mrSet(t, a, []userEdit{
 		{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Sources: &srcs, Dsts: &none, Visibility: config.VisHidden}},
 		{ID: idOf(a, "Bo"), Name: "Bo"},
@@ -64,7 +64,7 @@ func TestMyRightsReachOnlyTheSignedInUser(t *testing.T) {
 	}
 
 	// An administrator's edit reaches the open page at once.
-	dsts := *config.Nums(3)
+	dsts := *nums(3)
 	mrSet(t, a, []userEdit{{ID: idOf(a, "Ana"), Name: "Ana", Rights: &config.Rights{Dsts: &dsts}}, {ID: idOf(a, "Bo"), Name: "Bo"}})
 	m = mrLast(anext(), "myRights")
 	if m == nil {

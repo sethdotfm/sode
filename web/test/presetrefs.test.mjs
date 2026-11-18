@@ -124,3 +124,15 @@ test('a sent list keeps ids; a new Everyone preset goes without one', async () =
   // Replacing by name keeps the replaced entry's id.
   assert.equal(m.replacePreset(list, { name: 'A2', items: list[0].items }, 'a')[0].id, 'g1');
 });
+
+test('a stored preset reads no bare number as a reference', async () => {
+  const m = await setup();
+  const ref = { router: UID, n: 1, name: 'MON 2' };
+  mem.set('sode-presets', JSON.stringify([{ id: 'a1', name: 'Old', items: [{ src: 1, dsts: [0, ref], levels: [] }] }]));
+  const [s] = m.localPresets();
+  assert.equal(s.items[0].src, -1, 'a bare source is no source');
+  assert.deepEqual(s.items[0].dsts, [1], 'a bare destination is left out');
+  assert.ok(m.presetProblem(s), 'the preset needs a fix; it fires nothing');
+  m.S.cfg.presets = [{ id: 'g1', name: 'Wall', items: [{ src: { router: UID, n: 0 }, dsts: [2], levels: [] }] }];
+  assert.deepEqual(m.globalPresets()[0].items[0].dsts, []);
+});

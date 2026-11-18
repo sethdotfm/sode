@@ -111,8 +111,8 @@ test('fixed destinations keep the order they were added in, at most 16, and an e
   let s = addFixed({ mode: 'instant' }, 7);
   s = addFixed(s, 2);
   s = addFixed(s, 7);
-  assert.deepEqual(s, { mode: 'instant', fixedDests: [7, 2] });
-  assert.deepEqual(dropFixed(s, 7), { mode: 'instant', fixedDests: [2] });
+  assert.deepEqual(s, { mode: 'instant', fixedDests: [{ n: 7 }, { n: 2 }] });
+  assert.deepEqual(dropFixed(s, 7), { mode: 'instant', fixedDests: [{ n: 2 }] });
   assert.deepEqual(dropFixed(dropFixed(s, 7), 2), { mode: 'instant' });
   assert.equal(FIXED_MAX, 16);
   let full = {};
@@ -120,9 +120,16 @@ test('fixed destinations keep the order they were added in, at most 16, and an e
   assert.equal(full.fixedDests.length, 16);
 });
 
+test('a stored reference keeps its router and name, and a new one is {n}', async () => {
+  const { addFixed, dropFixed } = await import('../sidebarrules.js');
+  const stored = { fixedDests: [{ router: 'u1', n: 4, name: 'MON 5' }] };
+  assert.deepEqual(addFixed(stored, 2), { fixedDests: [{ router: 'u1', n: 4, name: 'MON 5' }, { n: 2 }] });
+  assert.deepEqual(dropFixed(addFixed(stored, 2), 2), stored);
+});
+
 test('adding to a stored list the server would refuse starts a new list', async () => {
   const { addFixed, dropFixed } = await import('../sidebarrules.js');
-  assert.deepEqual(addFixed({ fixedDests: [3, 3] }, 5), { fixedDests: [5] });
+  assert.deepEqual(addFixed({ fixedDests: [3, 3] }, 5), { fixedDests: [{ n: 5 }] });
   assert.deepEqual(dropFixed({ fixedDests: [-1, 4] }, 4), {});
 });
 

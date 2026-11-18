@@ -58,15 +58,6 @@ type Rights struct {
 	Extra      map[string]any `yaml:",inline" json:"-"`
 }
 
-// Nums is a reference list on the one router (blank router, which Normalize fills).
-func Nums(ns ...int) *[]Ref {
-	out := make([]Ref, len(ns))
-	for i, n := range ns {
-		out[i] = Ref{N: n}
-	}
-	return &out
-}
-
 func in[T comparable](l *[]T, v T) bool { return l == nil || slices.Contains(*l, v) }
 
 // sameRef: the name never decides, and a blank router is the one router.

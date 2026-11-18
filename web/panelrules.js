@@ -75,7 +75,7 @@ export function sessionNote(step, err = '') {
 
 // rights is the caller's own Rights from GET /panels/<id>: an unset list allows everything, an empty one nothing.
 // Keep in step with config.Rights and outsideRights (internal/app/rights.go).
-// List entries are router references {router, n, name} or bare numbers (refN in rightsrules.js); presets are ids.
+// List entries are router references {router, n, name} (refN in rightsrules.js); presets are ids.
 export const rightsAllow = (rights, list, v) => !Array.isArray(rights?.[list]) || rights[list].some((x) => (x && typeof x === 'object' ? x.n : x) === v);
 
 export function envFrom(tally, protectedReply, presetsReply = {}, rights = null) {
@@ -154,7 +154,8 @@ export function cellsIn(panel, i = 0) {
 // (fixedList in internal/app/panelfixed.go) also reads as off, so a hand-edited file cannot break the page.
 export const FIXED_MAX = 16; // keep in step with panelFixedMax in internal/app/panelfixed.go.
 const DST_MAX = 0xffff; // keep in step with dstNumberMax in internal/app/panelfixed.go.
-// The server stores router references {router, n, name}. An editor's unsaved list can hold bare numbers.
+// The server stores router references {router, n, name}, and the editor writes {n}. Tests and the panel page's own
+// state pass plain numbers.
 export function fixedDestsOf(panel) {
   const raw = panel?.settings?.fixedDests;
   const list = Array.isArray(raw) ? raw.map((x) => (x && typeof x === 'object' ? x.n : x)) : null;

@@ -52,7 +52,7 @@ func TestEveryConfigStructKeepsExtra(t *testing.T) {
 
 const futureYAML = `
 format: 2
-routers: [{address: 127.0.0.1:8910}]
+routers: [{uid: r1, address: 127.0.0.1:8910}]
 futureKey: 1
 users:
   - name: a
@@ -63,8 +63,8 @@ presets:
   - name: p
     futurePreset: y
     items:
-      - src: {n: 1}
-        dsts: [{n: 2}]
+      - src: {router: r1, n: 1}
+        dsts: [{router: r1, n: 2}]
         futureItem: w
 locks:
   futureLock: true

@@ -12,7 +12,7 @@ import (
 // hidden or read-only. The router also has source 5 and destination 7.
 
 func viewRights(vis string) config.Rights {
-	return config.Rights{Sources: config.Nums(1), Dsts: config.Nums(2), Presets: &[]string{"studio-a"}, Visibility: vis}
+	return config.Rights{Sources: nums(1), Dsts: nums(2), Presets: &[]string{"studio-a"}, Visibility: vis}
 }
 
 func viewApp(t *testing.T, vis string) (*App, string) {

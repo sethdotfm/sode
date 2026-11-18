@@ -165,7 +165,7 @@ func TestTemplateStoredBeforeTheSplitLoadsAsBoth(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "templates", "me"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	old := "id: t-0000abcd\nname: Old file\nscope: me\nowner: Ana\ncontents: true\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: source, n: 4}\n"
+	old := "id: t-0000abcd\nname: Old file\nscope: me\nowner: Ana\ncontents: true\nrows: 1\ncols: 2\ncells:\n    - {r: 1, c: 1, rs: 1, cs: 1, kind: source, router: r1, n: 4}\n"
 	if err := os.WriteFile(filepath.Join(dir, "templates", "me", "t-0000abcd.yaml"), []byte(old), 0o644); err != nil {
 		t.Fatal(err)
 	}

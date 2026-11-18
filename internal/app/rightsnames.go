@@ -19,7 +19,7 @@ func everyRights(c *config.Config) []*config.Rights {
 }
 
 // nameRights fills the name of each reference to this router that has none, as namePresets does.
-// Browsers and API callers send bare numbers. With no router name, the name stored before for
+// Browsers and API callers send {n} with no name. With no router name, the name stored before for
 // that number stays, so a save while the router is away keeps them.
 func (a *App) nameRights(c *config.Config, old config.Config) {
 	type key struct {

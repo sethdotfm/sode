@@ -29,8 +29,8 @@ func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 	})
 	shortTimers(a)
 	cy := userKey(t, a, "Cy")
-	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[5]}}`)
-	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"api","slug":"studio-b","clientRights":{"sources":[1,4],"dsts":[2,5]},"settings":{"mode":"take","fixedDests":[2,5]}}`)
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[{"n":5}]}}`)
+	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"api","slug":"studio-b","clientRights":{"sources":[{"n":1},{"n":4}],"dsts":[{"n":2},{"n":5}]},"settings":{"mode":"take","fixedDests":[{"n":2},{"n":5}]}}`)
 	lobby := assignHold(t, a, from, instanceKey(t, a, from, cy, "Lobby"), "Lobby")
 	beforeFrom, beforeTo := unwritten(t, a, from, cy), unwritten(t, a, to, cy)
 
@@ -71,8 +71,8 @@ func TestSeamAssignBetweenFixedDestinationPanels(t *testing.T) {
 func TestSeamKeylessAssignNeverWritesActs(t *testing.T) {
 	a := panelsApp(t)
 	cy := userKey(t, a, "Cy")
-	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[5]}}`)
-	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"both","slug":"studio-b","settings":{"mode":"take","fixedDests":[2]}}`)
+	from := makePanel(t, a, cy, `{"name":"Studio A","acts":"api","slug":"studio-a","settings":{"mode":"take","fixedDests":[{"n":5}]}}`)
+	to := makePanel(t, a, cy, `{"name":"Studio B","acts":"both","slug":"studio-b","settings":{"mode":"take","fixedDests":[{"n":2}]}}`)
 	beforeFrom, beforeTo := unwritten(t, a, from, cy), unwritten(t, a, to, cy)
 	for _, as := range []string{"client", "user"} {
 		lines, _ := keylessHold(t, a, "studio-a", "?instance=Lobby%20"+as+"&ended=1")

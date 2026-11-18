@@ -28,7 +28,11 @@ func TestChromePanelFixedDests(t *testing.T) {
 	ana := userKey(t, a, "Ana")
 	const other, later = 5, 7
 	body := func(mode string, dsts ...int) string {
-		list := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(dsts)), ","), "[]")
+		refs := make([]string, len(dsts))
+		for i, d := range dsts {
+			refs[i] = fmt.Sprintf(`{"n":%d}`, d)
+		}
+		list := strings.Join(refs, ",")
 		return fmt.Sprintf(`{"name":"Fixed panel","rows":4,"cols":8,"cells":[
 			{"r":1,"c":1,"kind":"destination","n":%d},
 			{"r":1,"c":2,"kind":"source","n":%d},

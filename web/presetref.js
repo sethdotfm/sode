@@ -13,7 +13,8 @@ const ints = (a) =>
     .map(num)
     .filter((n) => Number.isInteger(n));
 
-// Reads a stored item or one in memory (bare numbers). Names follow the first reference to a number.
+// Reads an item in memory (plain numbers) or a reference. A stored item goes through storedItemNums. Names follow
+// the first reference to a number.
 export function itemNums(it) {
   const dstNames = { ...(it?.dstNames || {}) };
   for (const d of [].concat(it?.dsts ?? [])) {
@@ -30,6 +31,10 @@ export function itemNums(it) {
     dstNames,
   };
 }
+
+// A stored item: only references count, so a bare number reads as no source and is left out of the destinations.
+const refsOnly = (a) => [].concat(a ?? []).filter((x) => x && typeof x === 'object');
+export const storedItemNums = (it) => itemNums({ ...it, src: it?.src && typeof it.src === 'object' ? it.src : undefined, dsts: refsOnly(it?.dsts) });
 
 // Plain numbers only, for code that never stores (panels, plans).
 export const itemPlain = (it) => {
